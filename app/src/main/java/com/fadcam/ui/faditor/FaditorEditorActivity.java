@@ -22796,6 +22796,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Nullable private com.fadcam.ui.faditor.tools.ObjectDrawer objectDrawer;
 
+    private boolean isAudioOnlyProject() {
+        if (project == null) return false;
+        Timeline tl = project.getTimeline();
+        return tl.getClipCount() == 0 && !tl.getAudioClips().isEmpty();
+    }
+
     @NonNull
     private com.fadcam.ui.faditor.tools.ObjectDrawer ensureObjectDrawer() {
         if (objectDrawer == null) {
@@ -26902,6 +26908,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onActiveWordChanged(int index) {
                 updateTranscriptBreakButton();
             }
+
+            @Override
+            public void onParagraphReordered(int fromIndex, int toIndex) {
+                handleTranscriptParagraphReordered(fromIndex, toIndex);
+            }
         });
 
         findViewById(R.id.transcript_close).setOnClickListener(v -> showTranscriptPanel(false));
@@ -26988,6 +26999,116 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * under the playhead) and un-highlight the rest, so the active style is obvious as the
      * playhead crosses clips with different caption styles.
      */
+    private void handleTranscriptParagraphReordered(int from, int to) {
+        if (project == null || currentTranscript == null) {
+            android.widget.Toast.makeText(this, "No transcript to reorder", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Find the clip that owns the current transcript
+        com.fadcam.ui.faditor.model.Clip targetClip = null;
+        String clipId = transcriptClipId;
+        if (!transcriptIsForAudio && clipId != null) {
+            for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                com.fadcam.ui.faditor.model.Clip c = project.getTimeline().getClip(i);
+                if (c != null && clipId.equals(c.getId())) { targetClip = c; break; }
+            }
+        }
+        if (targetClip == null) {
+            if (transcriptIsForAudio) {
+                android.widget.Toast.makeText(this, "Audio paragraph reorder not yet via EditScript — needs audio REORDER op", android.widget.Toast.LENGTH_LONG).show();
+                com.fadcam.FLog.w("Faditor", "Paragraph reorder for audio not yet implemented via EditScript");
+                return;
+            }
+            android.widget.Toast.makeText(this, "Could not find clip for paragraph reorder", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        com.fadcam.ui.faditor.transcript.TranscriptParagraphs paras = com.fadcam.ui.faditor.transcript.TranscriptParagraphs.of(currentTranscript);
+        if (paras.paragraphCount() <= 1 || from < 0 || to < 0 || from >= paras.paragraphCount() || to >= paras.paragraphCount() || from == to) return;
+        java.util.List<Integer> order = new java.util.ArrayList<>();
+        for (int i = 0; i < paras.paragraphCount(); i++) order.add(i);
+        int moved = order.remove(from);
+        order.add(to, moved);
+        try {
+            com.fadcam.ui.faditor.model.Timeline tl = project.getTimeline();
+            long inPoint = targetClip.getInPointMs();
+            long outPoint = targetClip.getOutPointMs();
+            java.util.List<long[]> spans = new java.util.ArrayList<>();
+            for (int p = 0; p < paras.paragraphCount(); p++) {
+                int[] range = paras.paragraphs.get(p);
+                long s = currentTranscript.words.get(range[0]).startMs;
+                long e = currentTranscript.words.get(range[1]).endMs;
+                s = Math.max(inPoint, Math.min(s, outPoint));
+                e = Math.max(inPoint, Math.min(e, outPoint));
+                spans.add(new long[]{s, e});
+            }
+            String baseId = targetClip.getId();
+            String[] pieceId = new String[spans.size()];
+            for (int i = 0; i < spans.size(); i++) pieceId[i] = baseId + "__nr" + i;
+            org.json.JSONArray ops = new org.json.JSONArray();
+            String restId = baseId;
+            java.util.List<long[]> gaps = targetClip.getSilenceCandidates();
+            long prevBoundary = inPoint;
+            for (int i = 0; i < spans.size() - 1; i++) {
+                long boundary = spans.get(i)[1];
+                // Snap to silence if available (using reflection to access private method, fallback to raw)
+                long snapped = boundary;
+                try {
+                    java.lang.reflect.Method m = com.fadcam.ui.faditor.ai.AIToolExecutor.class.getDeclaredMethod("snapBoundaryToSilence", long.class, java.util.List.class, long.class, long.class);
+                    m.setAccessible(true);
+                    snapped = (long) m.invoke(null, boundary, gaps, inPoint, outPoint);
+                } catch (Exception ignored) {}
+                if (snapped > prevBoundary + 100) boundary = snapped;
+                prevBoundary = boundary;
+                if (boundary <= inPoint + 100 || boundary >= outPoint - 100) {
+                    android.widget.Toast.makeText(this, "Paragraph boundary outside clip trim", android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                String firstId = pieceId[i];
+                String secondId = (i == spans.size() - 2) ? pieceId[spans.size() - 1] : (baseId + "__rest" + (i + 1));
+                org.json.JSONObject op = new org.json.JSONObject();
+                op.put("type", "SPLIT_CLIP_AT_TIME");
+                op.put("clipId", restId);
+                op.put("atSourceMs", boundary);
+                op.put("firstClipId", firstId);
+                op.put("secondClipId", secondId);
+                ops.put(op);
+                restId = secondId;
+            }
+            int oIndex = tl.indexOfClip(targetClip);
+            org.json.JSONArray newOrder = new org.json.JSONArray();
+            for (int i = 0; i < tl.getClipCount(); i++) if (i != oIndex) {
+                if (i < oIndex) newOrder.put(tl.getClip(i).getId());
+            }
+            for (int idx : order) newOrder.put(pieceId[idx]);
+            for (int i = oIndex + 1; i < tl.getClipCount(); i++) newOrder.put(tl.getClip(i).getId());
+            org.json.JSONObject reorder = new org.json.JSONObject();
+            reorder.put("type", "REORDER_CLIPS");
+            reorder.put("newOrder", newOrder);
+            ops.put(reorder);
+            org.json.JSONObject scriptObj = new org.json.JSONObject();
+            scriptObj.put("version", 1);
+            scriptObj.put("description", "Reorder paragraph " + from + " -> " + to);
+            scriptObj.put("operations", ops);
+            com.fadcam.ui.faditor.ai.EditScript script = com.fadcam.ui.faditor.ai.EditScript.fromJson(scriptObj.toString());
+            com.fadcam.ui.faditor.ai.EditScriptApplier applier = new com.fadcam.ui.faditor.ai.EditScriptApplier();
+            applier.setContext(this);
+            com.fadcam.ui.faditor.ai.EditScriptApplier.Result result = applier.apply(project, script);
+            if (!result.success) {
+                android.widget.Toast.makeText(this, "Reorder failed: " + result.error, android.widget.Toast.LENGTH_LONG).show();
+                return;
+            }
+            projectStorage.save(project);
+            editorTimeline.setTimeline(tl, -1);
+            syncTimelineOverlays();
+            transcriptView.setTranscript(currentTranscript);
+            scheduleAutoSave();
+            android.widget.Toast.makeText(this, "Paragraph moved", android.widget.Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this, "Reorder error: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show();
+            com.fadcam.FLog.e("Faditor", "Paragraph reorder failed", e);
+        }
+    }
+
     private void highlightActiveCaptionChip(@Nullable String styleId) {
         if (captionStyleChips.isEmpty()) return;
         if (styleId != null && styleId.equals(highlightedCaptionStyleId)) return;

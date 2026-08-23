@@ -59,6 +59,8 @@ public final class ObjectDrawer extends LinearLayout {
     private static final int SLIDE_MS = 240;
     /** Cap so the drawer can never swallow the preview; content scrolls inside. */
     private static final float MAX_HEIGHT_FRACTION = 0.55f;
+    private static final float MAX_HEIGHT_FRACTION_AUDIO_ONLY = 0.75f;
+    private boolean audioOnly;
 
     /** One tab: an icon in the header, a title, and lazily-built content. */
     public static final class Tab {
@@ -583,8 +585,12 @@ public final class ObjectDrawer extends LinearLayout {
             return Math.max(dp(MIN_BODY_DP), Math.min(userHeightPx,
                     Math.round(screen * ABSOLUTE_MAX_FRACTION)));
         }
-        return Math.round(screen * MAX_HEIGHT_FRACTION);
+        float frac = audioOnly ? MAX_HEIGHT_FRACTION_AUDIO_ONLY : MAX_HEIGHT_FRACTION;
+        return Math.round(screen * frac);
     }
+
+    public void setAudioOnly(boolean v) { audioOnly = v; }
+    public boolean isAudioOnly() { return audioOnly; }
 
     /** Smallest useful body — below this the drawer is chrome with nothing in it. */
     private static final int MIN_BODY_DP = 96;

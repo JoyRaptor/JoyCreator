@@ -47,6 +47,8 @@ public class TranscriptPanelView extends View {
         default void onLineBreaksChanged() {}
         /** The currently-highlighted word changed (playback advanced). */
         default void onActiveWordChanged(int index) {}
+        /** Paragraph reordered by dragging the gutter rail. */
+        default void onParagraphReordered(int fromIndex, int toIndex) {}
     }
 
     /**
@@ -95,6 +97,12 @@ public class TranscriptPanelView extends View {
     private final java.util.Set<Integer> collapsedParagraphs = new java.util.HashSet<>();
     private long lastGutterTapTime;
     private int lastGutterTapIndex = -1;
+    private boolean gutterReorderDragging;
+    private int draggedParagraph = -1;
+    private int dragTargetParagraph = -1;
+    private float dragStartRawY;
+    private float dragCurrentRawY;
+    private final Runnable gutterLongPressRunnable = this::onGutterLongPress;
 
     // Per-word layout (parallel arrays, indexed like transcript.words)
     private float[] wordX = new float[0];
@@ -421,8 +429,33 @@ public class TranscriptPanelView extends View {
                 float b = Math.min(vh, bottom);
                 if (b - t < 2f * density) continue;
                 RectF r = new RectF(cx - railW / 2f, t, cx + railW / 2f, b);
-                Paint pp = (p == selectedParagraph) ? gutterSelectedPaint : gutterPaint;
+                boolean isSelected = (p == selectedParagraph) || (gutterReorderDragging && p == draggedParagraph);
+                Paint pp = isSelected ? gutterSelectedPaint : gutterPaint;
+                if (gutterReorderDragging && p == draggedParagraph) pp.setAlpha(120);
                 canvas.drawRoundRect(r, railR, railR, pp);
+                if (gutterReorderDragging && p == draggedParagraph) pp.setAlpha(255);
+            }
+            if (gutterReorderDragging && dragTargetParagraph >= 0) {
+                int count = paragraphData.paragraphCount();
+                int target = dragTargetParagraph;
+                if (target != draggedParagraph) {
+                    float lineY;
+                    if (target >= count) {
+                        int[] last = paragraphData.paragraphs.get(count - 1);
+                        lineY = wordY[last[1]] + lineHeight - scrollY;
+                    } else if (target <= 0) {
+                        int[] first = paragraphData.paragraphs.get(0);
+                        lineY = wordY[first[0]] - scrollY;
+                    } else {
+                        int[] r = paragraphData.paragraphs.get(target);
+                        lineY = wordY[r[0]] - scrollY;
+                    }
+                    Paint lp = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    lp.setColor(0xFF8C3DFA);
+                    lp.setStrokeWidth(3f * density);
+                    float left = gutterWidthPx + gutterGapPx;
+                    canvas.drawLine(left, lineY, getWidth() - padX, lineY, lp);
+                }
             }
         }
 
@@ -531,6 +564,9 @@ public class TranscriptPanelView extends View {
                     painting = false;
                     scrolling = false;
                     scrollStartY = scrollY;
+                    if (downGutterParagraph >= 0) {
+                        handler.postDelayed(gutterLongPressRunnable, ViewConfiguration.getLongPressTimeout());
+                    }
                     return true;
                 }
                 downIndex = wordAt(downX, downY + scrollY);
@@ -548,7 +584,25 @@ public class TranscriptPanelView extends View {
                 float dx = e.getX() - downX;
                 float dy = e.getY() - downY;
                 if (gutterDown) {
+                    if (gutterReorderDragging) {
+                        dragCurrentRawY = e.getY();
+                        float contentY = dragCurrentRawY + scrollY;
+                        int target = insertionIndexForY(contentY);
+                        if (target < 0) target = draggedParagraph;
+                        if (target == draggedParagraph || target == draggedParagraph + 1) {
+                            dragTargetParagraph = draggedParagraph;
+                        } else {
+                            dragTargetParagraph = target;
+                        }
+                        float y = e.getY();
+                        int h = getHeight();
+                        if (y < 60 && scrollY > 0) { scrollY = Math.max(0, scrollY - 14); postInvalidateOnAnimation(); }
+                        else if (y > h - 60 && scrollY < maxScrollY) { scrollY = Math.min(maxScrollY, scrollY + 14); postInvalidateOnAnimation(); }
+                        invalidate();
+                        return true;
+                    }
                     if (!scrolling && (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop)) {
+                        handler.removeCallbacks(gutterLongPressRunnable);
                         handler.removeCallbacks(longPressRunnable);
                         scrolling = true;
                     }
@@ -590,6 +644,25 @@ public class TranscriptPanelView extends View {
             case MotionEvent.ACTION_UP:
                 handler.removeCallbacks(longPressRunnable);
                 if (gutterDown) {
+                    handler.removeCallbacks(gutterLongPressRunnable);
+                    if (gutterReorderDragging) {
+                        int from = draggedParagraph;
+                        int to = dragTargetParagraph;
+                        gutterReorderDragging = false;
+                        draggedParagraph = -1;
+                        dragTargetParagraph = -1;
+                        gutterDown = false;
+                        downGutterParagraph = -1;
+                        if (from >= 0 && to >= 0 && from != to && listener != null) {
+                            int adjTo = to > from ? to - 1 : to;
+                            int count = paragraphData != null ? paragraphData.paragraphCount() : 0;
+                            if (adjTo < 0) adjTo = 0;
+                            if (adjTo >= count) adjTo = count - 1;
+                            if (from != adjTo) listener.onParagraphReordered(from, adjTo);
+                        }
+                        invalidate();
+                        return true;
+                    }
                     if (!scrolling) {
                         int gp = paragraphAt(e.getY() + scrollY);
                         if (gp < 0) gp = downGutterParagraph;
@@ -669,8 +742,12 @@ public class TranscriptPanelView extends View {
 
             case MotionEvent.ACTION_CANCEL:
                 handler.removeCallbacks(longPressRunnable);
+                handler.removeCallbacks(gutterLongPressRunnable);
                 gutterDown = false;
                 downGutterParagraph = -1;
+                gutterReorderDragging = false;
+                draggedParagraph = -1;
+                dragTargetParagraph = -1;
                 return true;
         }
         return super.onTouchEvent(e);
@@ -684,6 +761,45 @@ public class TranscriptPanelView extends View {
         // Do NOT toggle yet: a release without a drag opens the edit dialog; a drag
         // begins strike-painting (see ACTION_MOVE).
         performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+    }
+
+    private void onGutterLongPress() {
+        if (downGutterParagraph < 0 || transcript == null || paragraphData == null) return;
+        if (collapsedParagraphs.contains(downGutterParagraph)) return;
+        gutterReorderDragging = true;
+        draggedParagraph = downGutterParagraph;
+        dragTargetParagraph = draggedParagraph;
+        dragStartRawY = downY;
+        dragCurrentRawY = downY;
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        invalidate();
+    }
+
+    private int insertionIndexForY(float contentY) {
+        if (paragraphData == null || wordY.length == 0) return -1;
+        int count = paragraphData.paragraphCount();
+        if (count == 0) return -1;
+        int[] first = paragraphData.paragraphs.get(0);
+        if (first[0] >=0 && first[0] < wordY.length && contentY < wordY[first[0]]) return 0;
+        int[] last = paragraphData.paragraphs.get(count - 1);
+        int le = last[1];
+        if (le >=0 && le < wordY.length) {
+            float lastBottom = wordY[le] + lineHeight;
+            if (contentY > lastBottom) return count;
+        }
+        for (int p = 0; p < count; p++) {
+            int[] r = paragraphData.paragraphs.get(p);
+            int s = r[0], e = r[1];
+            if (s < 0 || e >= wordY.length) continue;
+            float top = wordY[s];
+            float bottom = wordY[e] + lineHeight;
+            if (contentY >= top && contentY <= bottom) {
+                float mid = (top + bottom) / 2f;
+                return contentY < mid ? p : p + 1;
+            }
+            if (contentY < top) return p;
+        }
+        return count;
     }
 
     /**

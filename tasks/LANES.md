@@ -99,13 +99,17 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: ACTIVE (2026-08-23 — SPEC_AUDIO_UX_V1 row B2: the cross-fade pill, JoyRaptor's §5 design.
-        Authoring half only; EXPORT wiring waits on LANE C's A8, since two overlapping lane
-        clips cannot both sound until that lands.)
-files: model/AudioCrossfade.java (new), model/Timeline.java, project/ProjectStorage.java,
+status: ACTIVE (2026-08-23 — row B2 the cross-fade pill. B2.E DONE (fb1e80b5: model + Timeline
+        + persistence). B2.U PART 1 DONE (d6228d4e: the pill draws, with §5.1 shading, arrows,
+        colour, selected state). PART 2 OUTSTANDING: hit-test at 24dp per §5.2, middle-drag
+        slide + edge-drag resize mirroring the shipped TRANSITION pattern, and §5.4's fluent
+        creation (drag a fade-in handle past the adjacent clip's end). Until part 2 lands a
+        pill can be persisted and drawn but NOT created or moved, so it is untestable by hand.
+        EXPORT still waits on LANE C's A8. If nobody picks this up within a session or two,
+        clear this claim — the files matter more than the reservation.)
+files: model/AudioCrossfade.java, model/Timeline.java, project/ProjectStorage.java,
         layers/LayerRowRenderer.java, layers/LayerGestureController.java,
         timeline/EditorTimelineView.java
-since: 2026-08-23
 
 prior-status: ACTIVE (2026-07-14 — Opus-4.8 autonomous device-verify run, device SANDBOX_SERIAL REPLUGGED,
         holds DEVICE token. This session's PASSES (see DEVICE_VERIFY_QUEUE_20260712.md): A1 export

@@ -1586,6 +1586,19 @@ public class ProjectStorage {
                 JsonObject vj = versionsArr.get(v).getAsJsonObject();
                 com.fadcam.ui.faditor.transcript.Transcript tr =
                         parseWordsArray(vj.getAsJsonArray("words"));
+                // D4/D5 — tolerant presence, same discipline as other transcript fields
+                if (hasValue(vj, "chapters") && vj.get("chapters").isJsonObject()) {
+                    com.google.gson.JsonObject ch = vj.getAsJsonObject("chapters");
+                    for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : ch.entrySet()) {
+                        try { int k = Integer.parseInt(e.getKey()); if (e.getValue().isJsonPrimitive()) tr.chapterTitles.put(k, e.getValue().getAsString()); } catch (Exception ignored) {}
+                    }
+                }
+                if (hasValue(vj, "speakers") && vj.get("speakers").isJsonObject()) {
+                    com.google.gson.JsonObject sp = vj.getAsJsonObject("speakers");
+                    for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : sp.entrySet()) {
+                        try { int k = Integer.parseInt(e.getKey()); if (e.getValue().isJsonPrimitive()) tr.paragraphSpeakers.put(k, e.getValue().getAsString()); } catch (Exception ignored) {}
+                    }
+                }
                 String id = vj.has("id") ? vj.get("id").getAsString()
                         : java.util.UUID.randomUUID().toString();
                 String label = hasValue(vj, "label") ? vj.get("label").getAsString()
@@ -2724,6 +2737,18 @@ public class ProjectStorage {
                                 JsonObject vj = versionsArr.get(v).getAsJsonObject();
                                 com.fadcam.ui.faditor.transcript.Transcript tr =
                                         parseWordsArray(vj.getAsJsonArray("words"));
+                                if (hasValue(vj, "chapters") && vj.get("chapters").isJsonObject()) {
+                                    com.google.gson.JsonObject ch = vj.getAsJsonObject("chapters");
+                                    for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : ch.entrySet()) {
+                                        try { int k = Integer.parseInt(e.getKey()); if (e.getValue().isJsonPrimitive()) tr.chapterTitles.put(k, e.getValue().getAsString()); } catch (Exception ignored) {}
+                                    }
+                                }
+                                if (hasValue(vj, "speakers") && vj.get("speakers").isJsonObject()) {
+                                    com.google.gson.JsonObject sp = vj.getAsJsonObject("speakers");
+                                    for (java.util.Map.Entry<String, com.google.gson.JsonElement> e : sp.entrySet()) {
+                                        try { int k = Integer.parseInt(e.getKey()); if (e.getValue().isJsonPrimitive()) tr.paragraphSpeakers.put(k, e.getValue().getAsString()); } catch (Exception ignored) {}
+                                    }
+                                }
                                 String id = vj.has("id") ? vj.get("id").getAsString()
                                         : java.util.UUID.randomUUID().toString();
                                 String label = hasValue(vj, "label") ? vj.get("label").getAsString()

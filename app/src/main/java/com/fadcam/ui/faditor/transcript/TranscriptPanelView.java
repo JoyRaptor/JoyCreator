@@ -49,6 +49,10 @@ public class TranscriptPanelView extends View {
         default void onActiveWordChanged(int index) {}
         /** Paragraph reordered by dragging the gutter rail. */
         default void onParagraphReordered(int fromIndex, int toIndex) {}
+        /** User tapped a collapsed paragraph's label — rename it to become a chapter. */
+        default void onParagraphRenameRequested(int paraIndex, @NonNull String currentTitle) {}
+        /** User requested to export chapters as YouTube text. */
+        default void onExportChaptersRequested() {}
     }
 
     /**
@@ -380,6 +384,15 @@ public class TranscriptPanelView extends View {
 
     private String buildParagraphSummary(int paraIdx) {
         if (transcript == null || paragraphData == null) return "";
+        // D4 — a named paragraph IS a chapter; show its title when present
+        String chapter = transcript.getChapterTitle(paraIdx);
+        if (chapter != null && !chapter.trim().isEmpty()) {
+            int[] range = paragraphData.paragraphs.get(paraIdx);
+            int s = range[0], e = range[1];
+            long durMs = transcript.words.get(e).endMs - transcript.words.get(s).startMs;
+            if (durMs < 0) durMs = 0;
+            return chapter.trim() + "  (" + formatParagraphDuration(durMs) + ")";
+        }
         int[] range = paragraphData.paragraphs.get(paraIdx);
         int s = range[0], e = range[1];
         int take = Math.min(6, e - s + 1);
@@ -393,6 +406,13 @@ public class TranscriptPanelView extends View {
         if (durMs < 0) durMs = 0;
         sb.append("  (").append(formatParagraphDuration(durMs)).append(")");
         return sb.toString();
+    }
+
+    /** D4 — YouTube chapter export for this transcript. */
+    @NonNull
+    public String getYoutubeChaptersText() {
+        if (transcript == null || paragraphData == null) return "";
+        return Transcript.toYoutubeChapters(transcript, paragraphData);
     }
 
     private static String formatParagraphDuration(long ms) {
@@ -704,10 +724,23 @@ public class TranscriptPanelView extends View {
                         listener.onEditWord(downIndex, transcript.words.get(downIndex).text);
                     }
                 } else if (!longPressFired && !scrolling) {
+                    // D4 — tap a collapsed paragraph's label to rename it → chapter
+                    int idx = wordAt(e.getX(), e.getY() + scrollY);
+                    if (idx >= 0 && transcript != null && paragraphData != null && listener != null) {
+                        int para = paragraphData.paragraphOf(idx);
+                        if (para >= 0 && collapsedParagraphs.contains(para)) {
+                            String cur = transcript.getChapterTitle(para);
+                            if (cur == null) cur = "";
+                            listener.onParagraphRenameRequested(para, cur);
+                            lastTapIndex = -1;
+                            lastTapTime = 0;
+                            return true;
+                        }
+                    }
                     // Tap → highlight THIS word immediately (it stays put under the
                     // finger; no scroll) and seek the player to it.
                     // Double-tap → toggle a forced caption line break after the word.
-                    int idx = wordAt(e.getX(), e.getY() + scrollY);
+                    idx = wordAt(e.getX(), e.getY() + scrollY);
                     if (idx >= 0 && transcript != null && listener != null) {
                         long now = System.currentTimeMillis();
                         boolean outside = isOutsideClipWindow(idx);

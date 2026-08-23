@@ -19,6 +19,14 @@ public class Transcript {
     @NonNull
     public final List<TranscriptWord> words = new ArrayList<>();
 
+    /** D4 — chapter titles: paragraph index → title. A named paragraph IS a chapter. */
+    @NonNull
+    public final java.util.Map<Integer,String> chapterTitles = new java.util.HashMap<>();
+
+    /** D5 — speaker label per paragraph: paragraph index → speaker name. */
+    @NonNull
+    public final java.util.Map<Integer,String> paragraphSpeakers = new java.util.HashMap<>();
+
     private static final java.util.Set<String> FILLERS = new java.util.HashSet<>(
             java.util.Arrays.asList(
                     "um", "uh", "umm", "uhh", "erm", "er", "ah", "hmm",
@@ -36,7 +44,73 @@ public class Transcript {
             t.words.add(new TranscriptWord(w.text, w.startMs, w.endMs,
                     w.struck, w.forceLineBreakAfter));
         }
+        t.chapterTitles.putAll(this.chapterTitles);
+        t.paragraphSpeakers.putAll(this.paragraphSpeakers);
         return t;
+    }
+
+    // ── D4 chapters ──────────────────────────────────────────────────────
+
+    @Nullable
+    public String getChapterTitle(int paraIdx) { return chapterTitles.get(paraIdx); }
+
+    public void setChapterTitle(int paraIdx, @Nullable String title) {
+        if (title == null || title.trim().isEmpty()) chapterTitles.remove(paraIdx);
+        else chapterTitles.put(paraIdx, title.trim());
+    }
+
+    public boolean hasChapters() { return !chapterTitles.isEmpty(); }
+
+    /**
+     * Export named paragraphs as YouTube chapter text: {@code 0:00 Title} per line,
+     * first must be 0:00. A named paragraph is a chapter.
+     * Time is startMs of the paragraph's first word, formatted m:ss or h:mm:ss.
+     */
+    @NonNull
+    public static String toYoutubeChapters(@NonNull Transcript t, @NonNull TranscriptParagraphs pg) {
+        if (t.words.isEmpty() || pg.paragraphCount() == 0) return "";
+        java.util.List<Integer> named = new java.util.ArrayList<>();
+        for (int i = 0; i < pg.paragraphCount(); i++) {
+            String title = t.chapterTitles.get(i);
+            if (title != null && !title.trim().isEmpty()) named.add(i);
+        }
+        if (named.isEmpty()) return "";
+        // Sort by start time (paragraph order already sorted, but keep)
+        named.sort((a,b) -> {
+            int sa = pg.paragraphs.get(a)[0], sb = pg.paragraphs.get(b)[0];
+            long ta = sa >=0 && sa < t.words.size() ? t.words.get(sa).startMs : 0;
+            long tb = sb >=0 && sb < t.words.size() ? t.words.get(sb).startMs : 0;
+            return Long.compare(ta, tb);
+        });
+        StringBuilder sb = new StringBuilder();
+        for (int idx = 0; idx < named.size(); idx++) {
+            int p = named.get(idx);
+            int[] range = pg.paragraphs.get(p);
+            long startMs = range[0] >=0 && range[0] < t.words.size() ? t.words.get(range[0]).startMs : 0;
+            if (idx == 0) startMs = 0; // first must be 0:00 per YouTube spec
+            sb.append(formatYoutubeTime(startMs)).append(' ').append(t.chapterTitles.get(p).trim());
+            if (idx + 1 < named.size()) sb.append('\n');
+        }
+        return sb.toString();
+    }
+
+    private static String formatYoutubeTime(long ms) {
+        long totalSec = ms / 1000;
+        long h = totalSec / 3600;
+        long m = (totalSec % 3600) / 60;
+        long s = totalSec % 60;
+        if (h > 0) return String.format(java.util.Locale.US, "%d:%02d:%02d", h, m, s);
+        return String.format(java.util.Locale.US, "%d:%02d", m, s);
+    }
+
+    // ── D5 speaker helpers ───────────────────────────────────────────────
+
+    @Nullable
+    public String getParagraphSpeaker(int paraIdx) { return paragraphSpeakers.get(paraIdx); }
+
+    public void setParagraphSpeaker(int paraIdx, @Nullable String speaker) {
+        if (speaker == null || speaker.trim().isEmpty()) paragraphSpeakers.remove(paraIdx);
+        else paragraphSpeakers.put(paraIdx, speaker.trim());
     }
 
     /**

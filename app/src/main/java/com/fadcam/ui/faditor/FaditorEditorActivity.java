@@ -26751,6 +26751,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onParagraphReordered(int fromIndex, int toIndex) {
                 handleTranscriptParagraphReordered(fromIndex, toIndex);
             }
+
+            @Override
+            public void onParagraphRenameRequested(int paraIndex, @NonNull String currentTitle) {
+                if (currentTranscript == null) return;
+                final int pIdx = paraIndex;
+                android.widget.EditText input = new android.widget.EditText(FaditorEditorActivity.this);
+                input.setText(currentTitle);
+                input.setHint("Chapter title");
+                input.setSingleLine(true);
+                input.selectAll();
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                        .setTitle(paraIndex + 1 + ". Rename paragraph — becomes a chapter")
+                        .setView(input)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                            String title = input.getText().toString().trim();
+                            // D4 — a named paragraph IS a chapter; empty clears it
+                            if (title.isEmpty()) currentTranscript.chapterTitles.remove(pIdx);
+                            else currentTranscript.chapterTitles.put(pIdx, title);
+                            if (transcriptView != null) transcriptView.invalidate();
+                            scheduleAutoSave();
+                            android.widget.Toast.makeText(FaditorEditorActivity.this,
+                                    title.isEmpty() ? "Chapter cleared" : "Chapter: " + title,
+                                    android.widget.Toast.LENGTH_SHORT).show();
+                        })
+                        .setNeutralButton("Copy chapters", (dlg, w) -> {
+                            String text = transcriptView != null ? transcriptView.getYoutubeChaptersText() : "";
+                            if (text.isEmpty()) text = "(no chapters yet — name a collapsed paragraph)";
+                            android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                            if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("YouTube chapters", text));
+                            android.widget.Toast.makeText(FaditorEditorActivity.this, "Chapters copied", android.widget.Toast.LENGTH_SHORT).show();
+                        })
+                        .show();
+            }
         });
 
         findViewById(R.id.transcript_close).setOnClickListener(v -> showTranscriptPanel(false));
@@ -26866,6 +26900,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < paras.paragraphCount(); i++) order.add(i);
         int moved = order.remove(from);
         order.add(to, moved);
+        // D4/D5 — chapter titles and speaker labels ride the paragraph when it moves
+        {
+            java.util.Map<Integer,String> newChapters = new java.util.HashMap<>();
+            java.util.Map<Integer,String> newSpeakers = new java.util.HashMap<>();
+            for (int newIdx = 0; newIdx < order.size(); newIdx++) {
+                int oldIdx = order.get(newIdx);
+                String ch = currentTranscript.chapterTitles.get(oldIdx);
+                if (ch != null) newChapters.put(newIdx, ch);
+                String sp = currentTranscript.paragraphSpeakers.get(oldIdx);
+                if (sp != null) newSpeakers.put(newIdx, sp);
+            }
+            currentTranscript.chapterTitles.clear();
+            currentTranscript.chapterTitles.putAll(newChapters);
+            currentTranscript.paragraphSpeakers.clear();
+            currentTranscript.paragraphSpeakers.putAll(newSpeakers);
+        }
         try {
             com.fadcam.ui.faditor.model.Timeline tl = project.getTimeline();
             long inPoint = targetClip.getInPointMs();

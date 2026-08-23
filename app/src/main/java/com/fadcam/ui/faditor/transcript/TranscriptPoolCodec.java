@@ -139,6 +139,21 @@ public final class TranscriptPoolCodec {
             wordsArr.add(wj);
         }
         vj.add("words", wordsArr);
+        // D4/D5 — paragraph metadata (omit-at-empty, same discipline as other fields).
+        if (!nt.transcript.chapterTitles.isEmpty()) {
+            JsonObject ch = new JsonObject();
+            for (java.util.Map.Entry<Integer,String> e : nt.transcript.chapterTitles.entrySet()) {
+                ch.addProperty(String.valueOf(e.getKey()), e.getValue());
+            }
+            vj.add("chapters", ch);
+        }
+        if (!nt.transcript.paragraphSpeakers.isEmpty()) {
+            JsonObject sp = new JsonObject();
+            for (java.util.Map.Entry<Integer,String> e : nt.transcript.paragraphSpeakers.entrySet()) {
+                sp.addProperty(String.valueOf(e.getKey()), e.getValue());
+            }
+            vj.add("speakers", sp);
+        }
         return vj;
     }
 

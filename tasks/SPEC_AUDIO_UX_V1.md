@@ -570,6 +570,7 @@ The dependency chain is real, not a preference:
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-23 | **Two REVIEW-lane process errors, recorded not rewritten** | (1) `fb1e80b5` swallowed 129 lines of LANE A's uncommitted `F3` work: I staged with `git add -A app/src/main/java` while a parallel lane had unstaged edits in `FaditorEditorActivity.java`, so the peek-sheet sweep landed in a commit whose message says only "the cross-fade model". LANE A's citation of `fb1e80b5` for `F3` is CORRECT — my message is what misleads. History left intact; rewriting under two live agents is the worse risk. (2) I then edited THIS file without taking the `SPEC:` token — the token I added — and LANE A's concurrent commit clobbered the note, which is precisely the collision the token exists to stop. **Both fixes are practice: while any lane is ACTIVE, stage explicit paths, never `-A`; and take the token before touching this file, every time, including me.** |
 | 2026-08-21 | One drawer class, per-type tab sets | `PipOverlayDrawer`'s own javadoc called the port "mechanical"; a second drawer system is the clutter JoyRaptor named |
 | 2026-08-21 | Audio tabs are **Level · Clean · Tone · FX** | Named for intent, not for DSP. Four, matching PiP's four |
 | 2026-08-21 | Cross-fade adopted as JoyRaptor designed it, with three amendments | §5.1 truthful shading, §5.2 touch-target inflation, §5.3 reuse the transition machinery |

@@ -29931,11 +29931,154 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        // No transcript yet — show model choice
-        transcriptProgress.setVisibility(View.GONE);
-        transcriptView.setVisibility(View.GONE);
-        transcriptModelChoice.setVisibility(View.VISIBLE);
-        updateModelChoiceReadyLabels();
+        // G4: before falling back to model picker, scan for existing transcripts
+        // in the project — if any exist, show a picker so the user can reach them.
+        if (!showTranscriptPicker()) {
+            // No transcripts exist in the project at all — fall back to model picker
+            transcriptProgress.setVisibility(View.GONE);
+            transcriptView.setVisibility(View.GONE);
+            transcriptModelChoice.setVisibility(View.VISIBLE);
+            updateModelChoiceReadyLabels();
+        }
+    }
+
+    /** G4 — show a picker of all clips in the project that have transcripts.
+     * Returns true if a picker was shown (i.e. at least one transcript exists),
+     * false if no transcripts exist in the project (falls back to model picker). */
+    private boolean showTranscriptPicker() {
+        if (project == null) return false;
+        java.util.List<com.fadcam.ui.faditor.model.Clip> clips = project.getTimeline().getClips();
+        java.util.List<com.fadcam.ui.faditor.model.AudioClip> audioClips = project.getTimeline().getAudioClips();
+        java.util.ArrayList<String> labels = new java.util.ArrayList<>();
+        java.util.ArrayList<Object> targets = new java.util.ArrayList<>();
+        // Video clips
+        for (int i = 0; i < clips.size(); i++) {
+            com.fadcam.ui.faditor.model.Clip c = clips.get(i);
+            if (c == null || !c.hasTranscript()) continue;
+            String label = formatTranscriptEntry(c, c.getId().equals(transcriptClipId) && !transcriptIsForAudio);
+            labels.add(label);
+            targets.add(c);
+        }
+        // Audio clips
+        for (int i = 0; i < audioClips.size(); i++) {
+            com.fadcam.ui.faditor.model.AudioClip ac = audioClips.get(i);
+            if (ac == null || !ac.hasTranscript()) continue;
+            String label = formatTranscriptEntry(ac, ac.getId().equals(transcriptClipId) && transcriptIsForAudio);
+            labels.add(label);
+            targets.add(ac);
+        }
+        if (labels.isEmpty()) return false;
+        // Sort by timeline position
+        java.util.ArrayList<Long> sortKeys = new java.util.ArrayList<>();
+        for (Object t : targets) {
+            if (t instanceof com.fadcam.ui.faditor.model.Clip) {
+                com.fadcam.ui.faditor.model.Clip c = (com.fadcam.ui.faditor.model.Clip) t;
+                int idx = clips.indexOf(c);
+                long pos = (idx >= 0) ? project.getTimeline().getClipStartMs(idx) + c.getInPointMs() : 0;
+                sortKeys.add(pos);
+            } else if (t instanceof com.fadcam.ui.faditor.model.AudioClip) {
+                com.fadcam.ui.faditor.model.AudioClip ac = (com.fadcam.ui.faditor.model.AudioClip) t;
+                long pos = ac.getOffsetMs() + ac.getInPointMs();
+                sortKeys.add(pos);
+            } else {
+                sortKeys.add(0L);
+            }
+        }
+        // Simple insertion sort by position
+        for (int i = 1; i < labels.size(); i++) {
+            long key = sortKeys.get(i);
+            String label = labels.get(i);
+            Object target = targets.get(i);
+            int j = i - 1;
+            while (j >= 0 && sortKeys.get(j) > key) {
+                sortKeys.set(j + 1, sortKeys.get(j));
+                labels.set(j + 1, labels.get(j));
+                targets.set(j + 1, targets.get(j));
+                j--;
+            }
+            sortKeys.set(j + 1, key);
+            labels.set(j + 1, label);
+            targets.set(j + 1, target);
+        }
+        // Build dialog
+        final int[] selectedIdx = {0};
+        final java.util.List<Object> finalTargets = targets;
+        com.google.android.material.dialog.MaterialAlertDialogBuilder builder = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        builder.setTitle("Select a transcript");
+        builder.setSingleChoiceItems(labels.toArray(new String[0]), -1, (dialog, which) -> selectedIdx[0] = which);
+        builder.setPositiveButton(android.R.string.ok, (dialog, which) -> {
+            Object target = finalTargets.get(selectedIdx[0]);
+            if (target instanceof com.fadcam.ui.faditor.model.Clip) {
+                com.fadcam.ui.faditor.model.Clip c = (com.fadcam.ui.faditor.model.Clip) target;
+                transcriptIsForAudio = false;
+                transcriptClipId = c.getId();
+                transcriptAudioIndex = -1;
+                currentTranscript = c.getTranscript();
+            } else if (target instanceof com.fadcam.ui.faditor.model.AudioClip) {
+                com.fadcam.ui.faditor.model.AudioClip ac = (com.fadcam.ui.faditor.model.AudioClip) target;
+                transcriptIsForAudio = true;
+                transcriptAudioIndex = project.getTimeline().getAudioClips().indexOf(ac);
+                transcriptClipId = ac.getId();
+                currentTranscript = ac.getTranscript();
+            }
+            if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
+            applyTranscriptClipWindow();
+            transcriptView.invalidate();
+            scheduleAutoSave();
+            android.widget.Toast.makeText(this, "Transcript loaded", android.widget.Toast.LENGTH_SHORT).show();
+        });
+        builder.setNegativeButton(android.R.string.cancel, null);
+        builder.show();
+        return true;
+    }
+
+    /** Build a human-readable label for a transcript entry.
+     * Format: "MM:SS  filename  —  Engine"
+     * If this is the currently shown transcript, prefix with "● " */
+    private String formatTranscriptEntry(Object target, boolean isCurrent) {
+        String sourceName = "unknown";
+        long positionMs = 0;
+        String engine = "";
+        if (target instanceof com.fadcam.ui.faditor.model.Clip) {
+            com.fadcam.ui.faditor.model.Clip c = (com.fadcam.ui.faditor.model.Clip) target;
+            sourceName = getSourceFileName(c.getSourceUri());
+            // Clip position on timeline = clipStartMs (from timeline) + inPointMs (trim start)
+            int clipIdx = project.getTimeline().getClips().indexOf(target);
+            long clipStartMs = (clipIdx >= 0) ? project.getTimeline().getClipStartMs(clipIdx) : 0;
+            positionMs = clipStartMs + c.getInPointMs();
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = c.getActiveNamedTranscript();
+            if (nt != null) engine = nt.engine;
+        } else if (target instanceof com.fadcam.ui.faditor.model.AudioClip) {
+            com.fadcam.ui.faditor.model.AudioClip ac = (com.fadcam.ui.faditor.model.AudioClip) target;
+            sourceName = getSourceFileName(ac.getSourceUri());
+            positionMs = ac.getOffsetMs() + ac.getInPointMs();
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = ac.getActiveNamedTranscript();
+            if (nt != null) engine = nt.engine;
+        }
+        String timeStr = formatMsShort(positionMs);
+        String label = timeStr + "  " + sourceName + "  —  " + engine;
+        if (isCurrent) label = "● " + label;
+        return label;
+    }
+
+    /** Get filename from a URI (last path segment). */
+    private String getSourceFileName(Uri uri) {
+        if (uri == null) return "unknown";
+        String path = uri.getPath();
+        if (path == null) return uri.toString();
+        int idx = path.lastIndexOf('/');
+        return (idx >= 0 && idx + 1 < path.length()) ? path.substring(idx + 1) : path;
+    }
+
+    /** Format milliseconds as MM:SS or H:MM:SS. */
+    private String formatMsShort(long ms) {
+        if (ms < 0) ms = 0;
+        long totalSec = ms / 1000;
+        long h = totalSec / 3600;
+        long m = (totalSec % 3600) / 60;
+        long s = totalSec % 60;
+        if (h > 0) return String.format(java.util.Locale.US, "%d:%02d:%02d", h, m, s);
+        return String.format(java.util.Locale.US, "%02d:%02d", m, s);
     }
 
     /** Tag already-downloaded models in the picker so the choice is informed. */

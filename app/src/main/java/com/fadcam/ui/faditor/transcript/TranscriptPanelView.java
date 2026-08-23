@@ -82,6 +82,17 @@ public class TranscriptPanelView extends View {
     private final float density;
     private float padX, padY, lineHeight, spaceW, baselineOffset;
 
+    private static final float GUTTER_WIDTH_DP = 20f;
+    private static final float GUTTER_GAP_DP = 6f;
+    private float gutterWidthPx;
+    private float gutterGapPx;
+    private final Paint gutterPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint gutterSelectedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    @androidx.annotation.Nullable private TranscriptParagraphs paragraphData;
+    private int selectedParagraph = -1;
+    private int downGutterParagraph = -1;
+    private boolean gutterDown;
+
     // Per-word layout (parallel arrays, indexed like transcript.words)
     private float[] wordX = new float[0];
     private float[] wordY = new float[0]; // top of the word's line
@@ -124,6 +135,12 @@ public class TranscriptPanelView extends View {
         searchCurrentPaint.setColor(0xAAFFC107); // amber for the current match
         breakPaint.setColor(0xFF4DD0E1);         // cyan break indicator
         breakPaint.setStrokeWidth(2 * density);
+        gutterWidthPx = GUTTER_WIDTH_DP * density;
+        gutterGapPx = GUTTER_GAP_DP * density;
+        gutterPaint.setColor(0x33FFFFFF);
+        gutterPaint.setStyle(Paint.Style.FILL);
+        gutterSelectedPaint.setColor(0xAAFFFFFF);
+        gutterSelectedPaint.setStyle(Paint.Style.FILL);
         touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         setClickable(true);
     }
@@ -132,6 +149,8 @@ public class TranscriptPanelView extends View {
 
     public void setTranscript(@Nullable Transcript t) {
         this.transcript = t;
+        this.paragraphData = TranscriptParagraphs.of(t);
+        this.selectedParagraph = -1;
         laidOutForWidth = -1;
         scrollY = 0;
         requestLayout();
@@ -288,13 +307,14 @@ public class TranscriptPanelView extends View {
         baselineOffset = -fm.ascent + 3 * density;
         spaceW = textPaint.measureText(" ");
 
+        float gutterRight = gutterWidthPx + gutterGapPx + padX;
         float maxRight = width - padX;
-        float x = padX, y = padY;
+        float x = gutterRight, y = padY;
         for (int i = 0; i < n; i++) {
             String text = transcript.words.get(i).text;
             float wW = textPaint.measureText(text);
-            if (x > padX && x + wW > maxRight) {
-                x = padX;
+            if (x > gutterRight && x + wW > maxRight) {
+                x = gutterRight;
                 y += lineHeight;
             }
             wordX[i] = x;
@@ -313,6 +333,28 @@ public class TranscriptPanelView extends View {
     protected void onDraw(@NonNull Canvas canvas) {
         if (transcript == null) return;
         if (laidOutForWidth != getWidth()) layoutWords(getWidth());
+
+        if (paragraphData != null && paragraphData.paragraphCount() > 0 && wordY.length > 0) {
+            float railW = 4f * density;
+            float railR = 2f * density;
+            float cx = gutterWidthPx / 2f;
+            int vh = getHeight();
+            for (int p = 0; p < paragraphData.paragraphCount(); p++) {
+                int[] range = paragraphData.paragraphs.get(p);
+                int s = range[0];
+                int e = range[1];
+                if (s < 0 || e >= wordY.length) continue;
+                float top = wordY[s] - scrollY;
+                float bottom = wordY[e] - scrollY + lineHeight;
+                if (bottom < 0 || top > vh) continue;
+                float t = Math.max(0, top);
+                float b = Math.min(vh, bottom);
+                if (b - t < 2f * density) continue;
+                RectF r = new RectF(cx - railW / 2f, t, cx + railW / 2f, b);
+                Paint pp = (p == selectedParagraph) ? gutterSelectedPaint : gutterPaint;
+                canvas.drawRoundRect(r, railR, railR, pp);
+            }
+        }
 
         int n = transcript.words.size();
         int h = getHeight();
@@ -360,12 +402,50 @@ public class TranscriptPanelView extends View {
 
     // ── Touch / gestures ─────────────────────────────────────────────
 
+    private boolean isGutterHit(float x) {
+        return x < gutterWidthPx + gutterGapPx + 8f * density;
+    }
+
+    private int paragraphAt(float contentY) {
+        if (paragraphData == null || wordY.length == 0) return -1;
+        for (int p = 0; p < paragraphData.paragraphCount(); p++) {
+            int[] r = paragraphData.paragraphs.get(p);
+            int s = r[0];
+            int e = r[1];
+            if (s < 0 || e >= wordY.length) continue;
+            float top = wordY[s];
+            float bottom = wordY[e] + lineHeight;
+            if (contentY >= top && contentY <= bottom) return p;
+        }
+        return -1;
+    }
+
+    public int getSelectedParagraph() { return selectedParagraph; }
+
+    public void setSelectedParagraph(int p) {
+        if (paragraphData == null) return;
+        if (p < -1 || p >= paragraphData.paragraphCount()) return;
+        selectedParagraph = p;
+        invalidate();
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 downX = e.getX();
                 downY = e.getY();
+                downIndex = -1;
+                downGutterParagraph = -1;
+                gutterDown = isGutterHit(downX);
+                if (gutterDown) {
+                    downGutterParagraph = paragraphAt(downY + scrollY);
+                    longPressFired = false;
+                    painting = false;
+                    scrolling = false;
+                    scrollStartY = scrollY;
+                    return true;
+                }
                 downIndex = wordAt(downX, downY + scrollY);
                 longPressFired = false;
                 painting = false;
@@ -380,6 +460,17 @@ public class TranscriptPanelView extends View {
             case MotionEvent.ACTION_MOVE: {
                 float dx = e.getX() - downX;
                 float dy = e.getY() - downY;
+                if (gutterDown) {
+                    if (!scrolling && (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop)) {
+                        handler.removeCallbacks(longPressRunnable);
+                        scrolling = true;
+                    }
+                    if (scrolling) {
+                        scrollY = Math.max(0, Math.min(maxScrollY, scrollStartY - (int) dy));
+                        invalidate();
+                    }
+                    return true;
+                }
                 if (painting) {
                     // Ignore tiny jitter so a still long-press → edit dialog (not a strike).
                     if (!strikeStarted && Math.hypot(dx, dy) < touchSlop) return true;
@@ -411,6 +502,20 @@ public class TranscriptPanelView extends View {
 
             case MotionEvent.ACTION_UP:
                 handler.removeCallbacks(longPressRunnable);
+                if (gutterDown) {
+                    if (!scrolling) {
+                        int gp = paragraphAt(e.getY() + scrollY);
+                        if (gp < 0) gp = downGutterParagraph;
+                        if (gp >= 0) {
+                            selectedParagraph = gp;
+                            invalidate();
+                            performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY);
+                        }
+                    }
+                    gutterDown = false;
+                    downGutterParagraph = -1;
+                    return true;
+                }
                 if (painting) {
                     if (strikeStarted) {
                         if (listener != null) listener.onStrikesChanged();
@@ -437,6 +542,7 @@ public class TranscriptPanelView extends View {
                                 && now - lastTapTime <= DOUBLE_TAP_TIMEOUT_MS) {
                             transcript.words.get(idx).forceLineBreakAfter =
                                     !transcript.words.get(idx).forceLineBreakAfter;
+                            paragraphData = TranscriptParagraphs.of(transcript);
                             layoutWords(getWidth());
                             invalidate();
                             listener.onLineBreaksChanged();
@@ -455,6 +561,8 @@ public class TranscriptPanelView extends View {
 
             case MotionEvent.ACTION_CANCEL:
                 handler.removeCallbacks(longPressRunnable);
+                gutterDown = false;
+                downGutterParagraph = -1;
                 return true;
         }
         return super.onTouchEvent(e);
@@ -498,6 +606,7 @@ public class TranscriptPanelView extends View {
         long ns = Math.max(0, newStartMs);
         transcript.words.set(index, new TranscriptWord(old.text, ns, ns + dur,
                 old.struck, old.forceLineBreakAfter));
+        paragraphData = TranscriptParagraphs.of(transcript);
         laidOutForWidth = -1;
         requestLayout();
         invalidate();
@@ -527,6 +636,7 @@ public class TranscriptPanelView extends View {
         }
         transcript.words.remove(index);
         transcript.words.addAll(index, replacement);
+        paragraphData = TranscriptParagraphs.of(transcript);
         laidOutForWidth = -1;
         requestLayout();
         invalidate();

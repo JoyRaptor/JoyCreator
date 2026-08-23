@@ -6768,6 +6768,12 @@ public class EditorTimelineView extends View {
             invalidate();
             return true;
         }
+        // Deselect crossfade pill if tapping empty space (MISS)
+        if (layerRowRenderer.getSelectedCrossfadeId() != null) {
+            layerRowRenderer.setSelectedCrossfadeId(null);
+            if (listener != null) listener.onCrossfadeSelected(null);
+            invalidate();
+        }
         // Surface-overlap fix: a miss inside the row band is NOT immediately claimed as
         // an M6 vertical-scroll drag anymore (that used to swallow every horizontal drag
         // over a row too, blocking timeline scrub entirely over Layer 1 / the extracted

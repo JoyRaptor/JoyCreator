@@ -2514,6 +2514,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 showClipAudioDrawer(clip);
             }
 
+            @Override
+            public void onCrossfadeChanged(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade before,
+                                           @NonNull com.fadcam.ui.faditor.model.AudioCrossfade after) {
+                if (project == null || project.getTimeline() == null) return;
+                String id = after.getId();
+                com.fadcam.ui.faditor.model.AudioCrossfade beforeCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(before);
+                com.fadcam.ui.faditor.model.AudioCrossfade afterCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(after);
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                        "Cross-fade",
+                        () -> {
+                            com.fadcam.ui.faditor.model.AudioCrossfade l = project.getTimeline().findAudioCrossfade(id);
+                            if (l != null) {
+                                l.setLowerLaneId(afterCopy.getLowerLaneId());
+                                l.moveTo(afterCopy.getStartMs());
+                                l.setEdge(false, afterCopy.getEndMs());
+                                l.setToLaneAbove(afterCopy.isToLaneAbove());
+                                l.setColorRgb(afterCopy.getColorRgb());
+                                syncTimelineOverlays();
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                        },
+                        () -> {
+                            com.fadcam.ui.faditor.model.AudioCrossfade l = project.getTimeline().findAudioCrossfade(id);
+                            if (l != null) {
+                                l.setLowerLaneId(beforeCopy.getLowerLaneId());
+                                l.moveTo(beforeCopy.getStartMs());
+                                l.setEdge(false, beforeCopy.getEndMs());
+                                l.setToLaneAbove(beforeCopy.isToLaneAbove());
+                                l.setColorRgb(beforeCopy.getColorRgb());
+                                syncTimelineOverlays();
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                        }));
+                scheduleAutoSave();
+            }
+
+            @Override
+            public void onCrossfadeCreated(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade crossfade) {
+                if (project == null || project.getTimeline() == null) return;
+                String id = crossfade.getId();
+                com.fadcam.ui.faditor.model.AudioCrossfade copy = new com.fadcam.ui.faditor.model.AudioCrossfade(crossfade);
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                        "Add cross-fade",
+                        () -> {
+                            if (project.getTimeline().findAudioCrossfade(id) == null) {
+                                project.getTimeline().addAudioCrossfade(new com.fadcam.ui.faditor.model.AudioCrossfade(copy));
+                                syncTimelineOverlays();
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                        },
+                        () -> {
+                            project.getTimeline().removeAudioCrossfadeById(id);
+                            if (objectMenuSheet != null && objectMenuSheet.isShowing()) objectMenuSheet.hide();
+                            syncTimelineOverlays();
+                            if (editorTimeline != null) editorTimeline.invalidate();
+                            scheduleAutoSave();
+                        }));
+                scheduleAutoSave();
+            }
+
+            @Override
+            public void onCrossfadeSelected(@Nullable com.fadcam.ui.faditor.model.AudioCrossfade crossfade) {
+                if (crossfade == null) {
+                    if (objectMenuSheet != null && objectMenuSheet.isShowing()) objectMenuSheet.hide();
+                    return;
+                }
+                showCrossfadeSheet(crossfade);
+            }
+
         });
         btnPlayPause = findViewById(R.id.btn_play_pause);
         timeCurrent = findViewById(R.id.time_current);
@@ -23020,6 +23092,152 @@ public class FaditorEditorActivity extends AppCompatActivity {
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
         ensureObjectDrawer().setOnClose(null);
         ensureObjectDrawer().show(tabs, toggles, false);
+    }
+
+    /** B2.U3 — peek inspector for the selected cross-fade pill (§5.5). */
+    private void showCrossfadeSheet(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade xfade) {
+        if (project == null || project.getTimeline() == null) return;
+        String title = "Cross-fade";
+        Integer swatch = 0xFF000000 | xfade.getColorRgb();
+        java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
+        java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
+        // Direction: one tap flips it
+        String dirLabel = xfade.isToLaneAbove() ? "To lane above \u2191" : "To lane below \u2193";
+        actions.add(new ObjectMenuSheet.Action(dirLabel, false, () -> {
+            com.fadcam.ui.faditor.model.AudioCrossfade before = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
+            xfade.flipDirection();
+            com.fadcam.ui.faditor.model.AudioCrossfade after = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
+            String id = xfade.getId();
+            com.fadcam.ui.faditor.model.AudioCrossfade beforeCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(before);
+            com.fadcam.ui.faditor.model.AudioCrossfade afterCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(after);
+            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                    "Cross-fade",
+                    () -> {
+                        com.fadcam.ui.faditor.model.AudioCrossfade l = project.getTimeline().findAudioCrossfade(id);
+                        if (l != null) {
+                            l.setLowerLaneId(afterCopy.getLowerLaneId());
+                            l.moveTo(afterCopy.getStartMs());
+                            l.setEdge(false, afterCopy.getEndMs());
+                            l.setToLaneAbove(afterCopy.isToLaneAbove());
+                            l.setColorRgb(afterCopy.getColorRgb());
+                            syncTimelineOverlays();
+                            if (editorTimeline != null) editorTimeline.invalidate();
+                            scheduleAutoSave();
+                        }
+                    },
+                    () -> {
+                        com.fadcam.ui.faditor.model.AudioCrossfade l = project.getTimeline().findAudioCrossfade(id);
+                        if (l != null) {
+                            l.setLowerLaneId(beforeCopy.getLowerLaneId());
+                            l.moveTo(beforeCopy.getStartMs());
+                            l.setEdge(false, beforeCopy.getEndMs());
+                            l.setToLaneAbove(beforeCopy.isToLaneAbove());
+                            l.setColorRgb(beforeCopy.getColorRgb());
+                            syncTimelineOverlays();
+                            if (editorTimeline != null) editorTimeline.invalidate();
+                            scheduleAutoSave();
+                        }
+                    }));
+            scheduleAutoSave();
+            syncTimelineOverlays();
+            if (editorTimeline != null) editorTimeline.invalidate();
+            showCrossfadeSheet(xfade);
+        }));
+        // Colour swatches: six colours (§5)
+        int[] colours = {0x4CAF50, 0xFF5722, 0x03A9F4, 0xFFC107, 0x9C27B0, 0xE91E63};
+        for (int col : colours) {
+            final int c = col;
+            String label = String.format("\u25CF %06X", c);
+            actions.add(new ObjectMenuSheet.Action(label, false, () -> {
+                if (xfade.getColorRgb() == c) return;
+                com.fadcam.ui.faditor.model.AudioCrossfade before = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
+                xfade.setColorRgb(c);
+                com.fadcam.ui.faditor.model.AudioCrossfade after = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
+                String id = xfade.getId();
+                com.fadcam.ui.faditor.model.AudioCrossfade beforeCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(before);
+                com.fadcam.ui.faditor.model.AudioCrossfade afterCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(after);
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                        "Cross-fade",
+                        () -> {
+                            com.fadcam.ui.faditor.model.AudioCrossfade l = project.getTimeline().findAudioCrossfade(id);
+                            if (l != null) {
+                                l.setLowerLaneId(afterCopy.getLowerLaneId());
+                                l.moveTo(afterCopy.getStartMs());
+                                l.setEdge(false, afterCopy.getEndMs());
+                                l.setToLaneAbove(afterCopy.isToLaneAbove());
+                                l.setColorRgb(afterCopy.getColorRgb());
+                                syncTimelineOverlays();
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                        },
+                        () -> {
+                            com.fadcam.ui.faditor.model.AudioCrossfade l = project.getTimeline().findAudioCrossfade(id);
+                            if (l != null) {
+                                l.setLowerLaneId(beforeCopy.getLowerLaneId());
+                                l.moveTo(beforeCopy.getStartMs());
+                                l.setEdge(false, beforeCopy.getEndMs());
+                                l.setToLaneAbove(beforeCopy.isToLaneAbove());
+                                l.setColorRgb(beforeCopy.getColorRgb());
+                                syncTimelineOverlays();
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                        }));
+                scheduleAutoSave();
+                syncTimelineOverlays();
+                if (editorTimeline != null) editorTimeline.invalidate();
+                showCrossfadeSheet(xfade);
+            }));
+        }
+        // Duration readout
+        String durLabel = "Duration: " + xfade.getDurationMs() + " ms";
+        actions.add(new ObjectMenuSheet.Action(durLabel, false, () -> {}));
+        // Delete
+        actions.add(new ObjectMenuSheet.Action("Delete cross-fade", true, () -> {
+            String id = xfade.getId();
+            com.fadcam.ui.faditor.model.AudioCrossfade copy = new com.fadcam.ui.faditor.model.AudioCrossfade(xfade);
+            project.getTimeline().removeAudioCrossfadeById(id);
+            // Clear selection
+            if (editorTimeline != null) {
+                // Clear via renderer
+                try {
+                    java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("layerRowRenderer");
+                    f.setAccessible(true);
+                    Object renderer = f.get(editorTimeline);
+                    if (renderer != null) {
+                        java.lang.reflect.Method m = renderer.getClass().getMethod("setSelectedCrossfadeId", String.class);
+                        m.invoke(renderer, (Object) null);
+                    }
+                } catch (Exception ignored) {}
+                editorTimeline.invalidate();
+            }
+            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                    "Delete cross-fade",
+                    () -> {
+                        project.getTimeline().removeAudioCrossfadeById(id);
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                        scheduleAutoSave();
+                    },
+                    () -> {
+                        project.getTimeline().addAudioCrossfade(new com.fadcam.ui.faditor.model.AudioCrossfade(copy));
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                        scheduleAutoSave();
+                    }));
+            if (objectMenuSheet != null && objectMenuSheet.isShowing()) objectMenuSheet.hide();
+            syncTimelineOverlays();
+            if (editorTimeline != null) editorTimeline.invalidate();
+            scheduleAutoSave();
+        }));
+        // Hide any drawer that might be open
+        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.hide();
+        ensureObjectMenuSheet().show(title, swatch, props, actions, null, null,
+                new ObjectMenuSheet.GestureHooks() {
+                    @Override public void onSliderStart() {}
+                    @Override public void onSliderCommit(@NonNull String what) {}
+                }, lastPlayheadAbsoluteMs, null);
     }
 
     /**

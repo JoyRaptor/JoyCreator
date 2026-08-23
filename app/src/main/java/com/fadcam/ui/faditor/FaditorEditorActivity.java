@@ -2497,6 +2497,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 deleteTransition(index);
             }
 
+            @Override
+            public void onClipAudioShelfLongPressed(int segmentIndex) {
+                if (project == null) return;
+                Timeline tl = project.getTimeline();
+                if (segmentIndex < 0 || segmentIndex >= tl.getClipCount()) return;
+                Clip clip = tl.getClip(segmentIndex);
+                if (clip == null || clip.isImageClip()) return;
+                showClipAudioDrawer(clip);
+            }
+
         });
         btnPlayPause = findViewById(R.id.btn_play_pause);
         timeCurrent = findViewById(R.id.time_current);
@@ -14109,13 +14119,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 "This PiP has no audio turned on yet",   // TODO(strings)
                                 Toast.LENGTH_SHORT).show();
                     }
+                } else if (item.getAudioClip() != null) {
+                    showAudioDrawer(item.getAudioClip());
                 } else if (item.getAdjustment() != null) {
                     // §3.3 follow-up (2026-08-08): double-tap an adjustment layer = the same
                     // express lane the other types get — its Mask/Chroma/Blend drawer.
                     showAdjustmentDrawer(item.getAdjustment());
                 }
-                // Audio: no dedicated type editor yet — the selection from the first tap
-                // stands (gesture contract §2 general menu / per-type editors).
+                // Audio now has its own drawer (B6) — the old "no dedicated type editor yet"
+                // comment is retired; any other unhandled type keeps the selection only.
             }
 
             @Override
@@ -22375,7 +22387,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
-        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, toggles);
+        ensureObjectDrawer().show(tabs, toggles, true);
     }
 
     /**
@@ -22783,8 +22795,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     @Nullable private com.fadcam.ui.faditor.tools.ObjectDrawer objectDrawer;
-    /** A2: which tool (if any) the current drawer open should light. Single funnel, caller-supplied. */
-    private boolean objectDrawerLightAdjust;
 
     @NonNull
     private com.fadcam.ui.faditor.tools.ObjectDrawer ensureObjectDrawer() {
@@ -22810,8 +22820,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 reflowPreviewUnderDrawer(h);
                 // One place that knows the drawer's visibility, so the tool light
                 // cannot be left on by a close path nobody remembered to hook.
-                // A2: caller-supplied — which tool (if any) this open should light.
-                setAdjustToolActive(objectDrawerLightAdjust && h > 0);
+                // A2: caller-supplied via show(..., lightAdjust) — which tool this open should light.
+                setAdjustToolActive(objectDrawer.isLightAdjust() && h > 0);
             });
         }
         return objectDrawer;
@@ -23121,7 +23131,51 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
-        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, toggles);
+        ensureObjectDrawer().show(tabs, toggles, true);
+    }
+
+    private void showAudioDrawer(@NonNull AudioClip ac) {
+        if (project == null) return;
+        com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host host = new com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host() {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void seekTo(long ms) { if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms); }
+            @Override public void onChanged() { if (editorTimeline != null) editorTimeline.invalidate(); applyAudioLivePlayerGain(ac); scheduleAutoSave(); }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo) { undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo)); }
+        };
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, ac::isMuted, () -> { ac.setMuted(!ac.isMuted()); applyAudioLivePlayerGain(ac); if (editorTimeline != null) editorTimeline.invalidate(); scheduleAutoSave(); }, true));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_lock, R.drawable.ic_lock, ac::isLocked, () -> { ac.setLocked(!ac.isLocked()); scheduleAutoSave(); }, false));
+        ensureObjectDrawer().setOnClose(null);
+        ensureObjectDrawer().show(tabs, toggles, false);
+    }
+
+    private void showClipAudioDrawer(@NonNull Clip clip) {
+        if (project == null) return;
+        long clipStart;
+        if (clip.isOverlayClip()) clipStart = clip.getOverlayStartMs();
+        else {
+            int idx = project.getTimeline().indexOfClip(clip);
+            if (idx >= 0 && editorTimeline != null) {
+                try { clipStart = editorTimeline.getSegmentStartTimeMs(idx); } catch (Exception e) { clipStart = 0; for (int i = 0; i < idx; i++) clipStart += project.getTimeline().getClip(i).getVisualDurationMs(); }
+            } else clipStart = 0;
+        }
+        com.fadcam.ui.faditor.model.AudioClip synth = new com.fadcam.ui.faditor.model.AudioClip(clip.getSourceUri(), clip.getSourceDurationMs());
+        synth.setInPointMs(clip.getInPointMs()); synth.setOutPointMs(clip.getOutPointMs()); synth.setOffsetMs(clipStart); synth.setVolumeLevel(clip.getVolumeLevel()); synth.setMuted(clip.isAudioMuted());
+        java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> sk = new java.util.ArrayList<>(); for (Clip.VolumeKeyframe k : clip.getVolumeKeyframes()) sk.add(new com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe(k.timeMs, k.volume)); synth.setVolumeKeyframes(sk);
+        com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host host = new com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host() {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void seekTo(long ms) { if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms); }
+            @Override public void onChanged() { clip.setVolumeLevel(synth.getVolumeLevel()); java.util.List<Clip.VolumeKeyframe> ck = new java.util.ArrayList<>(); for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe k : synth.getVolumeKeyframes()) ck.add(new Clip.VolumeKeyframe(k.timeMs, k.volume)); clip.setVolumeKeyframes(ck); clip.setAudioMuted(synth.isMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo) { float bv = clip.getVolumeLevel(); java.util.List<Clip.VolumeKeyframe> bck = new java.util.ArrayList<>(); for (Clip.VolumeKeyframe k : clip.getVolumeKeyframes()) bck.add(new Clip.VolumeKeyframe(k.timeMs, k.volume)); boolean bm = clip.isAudioMuted(); undoManager.recordAction(new EditActions.LambdaAction(label, () -> { redo.run(); clip.setVolumeLevel(synth.getVolumeLevel()); java.util.List<Clip.VolumeKeyframe> nck = new java.util.ArrayList<>(); for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe k : synth.getVolumeKeyframes()) nck.add(new Clip.VolumeKeyframe(k.timeMs, k.volume)); clip.setVolumeKeyframes(nck); clip.setAudioMuted(synth.isMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); }, () -> { undo.run(); clip.setVolumeLevel(bv); clip.setVolumeKeyframes(bck); clip.setAudioMuted(bm); java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> sb = new java.util.ArrayList<>(); for (Clip.VolumeKeyframe k : bck) sb.add(new com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe(k.timeMs, k.volume)); synth.setVolumeKeyframes(sb); synth.setVolumeLevel(bv); synth.setMuted(bm); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); })); }
+        };
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, synth, host)));
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
+        ensureObjectDrawer().setOnClose(null);
+        ensureObjectDrawer().show(tabs, toggles, false);
     }
 
     /**
@@ -24181,7 +24235,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ctx, textFx, host,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
 
-        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, new java.util.ArrayList<>());
+        ensureObjectDrawer().show(tabs, new java.util.ArrayList<>(), true);
     }
 
     // ── IMAGE-OVERLAY DRAWER ─────────────────────────────────────────────────────────────
@@ -24364,7 +24418,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
-        objectDrawerLightAdjust = true; ensureObjectDrawer().show(tabs, toggles);
+        ensureObjectDrawer().show(tabs, toggles, true);
     }
 
     /**

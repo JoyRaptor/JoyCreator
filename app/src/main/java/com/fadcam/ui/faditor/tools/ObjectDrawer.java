@@ -268,6 +268,9 @@ public final class ObjectDrawer extends LinearLayout {
 
     /** True between {@link #hide} and the slide-out landing — the drawer is still VISIBLE then. */
     private boolean hiding;
+    private boolean lightAdjust;
+
+    public boolean isLightAdjust() { return lightAdjust; }
 
     private void reportHeight() {
         if (heightListener == null) return;
@@ -300,8 +303,11 @@ public final class ObjectDrawer extends LinearLayout {
     /**
      * Bind tabs + header toggles and show tab 0. Rebuilding is cheap and is how the caller
      * retargets the drawer at a different clip.
+     *
+     * @param lightAdjust true to light the Adjust/FX carousel tool while open (B2: only
+     *                    adjustment layers light it; audio and others do not)
      */
-    public void show(@NonNull List<Tab> tabList, @NonNull List<Toggle> toggleList) {
+    public void show(@NonNull List<Tab> tabList, @NonNull List<Toggle> toggleList, boolean lightAdjust) {
         // A pending close belongs to the object being replaced. show() used to rebind without
         // it, so opening a second object's drawer dropped the first one's FX undo step entirely
         // -- or, worse, left it registered and fired it later against an object not on screen.
@@ -314,6 +320,7 @@ public final class ObjectDrawer extends LinearLayout {
         setTranslationY(0f);
         setAlpha(1f);
         hiding = false;
+        this.lightAdjust = lightAdjust;
         // A height dragged on one tab must not follow the drawer to a different object: sizing
         // the FX tab tall and then opening a one-row tab left three-quarters of a screen empty.
         userHeightPx = -1;

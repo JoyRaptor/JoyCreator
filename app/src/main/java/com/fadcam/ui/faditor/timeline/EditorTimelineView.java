@@ -1053,6 +1053,9 @@ public class EditorTimelineView extends View {
 
     // ── Long press detection via Handler ─────────────────────────────
     private final Handler longPressHandler = new Handler(Looper.getMainLooper());
+    private int clipAudioShelfLongPressSegIndex = -1;
+    private final Runnable clipAudioShelfLongPressRunnable = this::onClipAudioShelfLongPress;
+
     private final Runnable longPressRunnable = new Runnable() {
         @Override
         public void run() {
@@ -1073,6 +1076,33 @@ public class EditorTimelineView extends View {
             }
         }
     };
+    private void onClipAudioShelfLongPress() {
+        if (listener != null && clipAudioShelfLongPressSegIndex >= 0) {
+            int seg = clipAudioShelfLongPressSegIndex;
+            clipAudioShelfLongPressSegIndex = -2;
+            listener.onClipAudioShelfLongPressed(seg);
+            performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+        } else {
+            clipAudioShelfLongPressSegIndex = -1;
+        }
+    }
+
+    private int hitClipAudioShelf(float x, float y) {
+        if (clipAudioDrawerFraction.isEmpty() || segRects.isEmpty() || segments.isEmpty()) return -1;
+        float bandTop = masterBotPx() + transcriptReservePx();
+        float bandH = clipAudioDrawerBandPx();
+        if (bandH <= 0 || y < bandTop || y > bandTop + bandH) return -1;
+        float scrolledX = x;
+        for (int i = 0; i < segRects.size() && i < segments.size(); i++) {
+            RectF r = segRects.get(i);
+            SegmentData sd = segments.get(i);
+            if (sd.isImageClip) continue;
+            if (!clipAudioDrawerOpen.contains(sd.clipId)) continue;
+            if (scrolledX >= r.left && scrolledX <= r.right) return i;
+        }
+        return -1;
+    }
+
     private final Runnable edgeScrollRunnable = new Runnable() {
         @Override
         public void run() {
@@ -1519,6 +1549,8 @@ public class EditorTimelineView extends View {
         void onTransitionDeleted(int index);
         /** Loop extension trim finished — called when drag extends past source bounds. */
         default void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {}
+        /** B7: long-press the tape inside the clip-audio shelf → same audio drawer. */
+        default void onClipAudioShelfLongPressed(int segmentIndex) {}
     }
 
     // ── Constructors ─────────────────────────────────────────────────
@@ -6678,6 +6710,19 @@ public class EditorTimelineView extends View {
         float scrolledX = x + scrollOffsetPx;
         if (VLOG) FLog.d(TAG, "onDown: scrolledX=" + scrolledX + " scrollOffset=" + scrollOffsetPx);
 
+        // B7: long-press the tape inside the clip-audio shelf → same audio drawer (clip's own audio)
+        {
+            int shelfSeg = hitClipAudioShelf(scrolledX, y);
+            if (shelfSeg >= 0) {
+                clipAudioShelfLongPressSegIndex = shelfSeg;
+                longPressHandler.removeCallbacks(clipAudioShelfLongPressRunnable);
+                longPressHandler.postDelayed(clipAudioShelfLongPressRunnable, android.view.ViewConfiguration.getLongPressTimeout());
+            } else {
+                longPressHandler.removeCallbacks(clipAudioShelfLongPressRunnable);
+                clipAudioShelfLongPressSegIndex = -1;
+            }
+        }
+
         // Text-box timing carets. These MUST be tested before handleM6RowTouch, because that is
         // where the item's own trim handles are claimed and the carets live ~a finger's width
         // inboard of them — after it, a caret grab would always be swallowed by the row. Same rule
@@ -7252,6 +7297,13 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onMove(float x, float y) {
+        // B7: cancel shelf long-press if finger moved beyond slop
+        if (clipAudioShelfLongPressSegIndex >= 0) {
+            if (Math.abs(x - downX) > touchSlopPx || Math.abs(y - downY) > touchSlopPx) {
+                longPressHandler.removeCallbacks(clipAudioShelfLongPressRunnable);
+                clipAudioShelfLongPressSegIndex = -1;
+            }
+        }
         // CARRY owns the touch outright once it starts — checked before everything else so no
         // scrub, pan or item branch can steal a finger that is holding a clip.
         // Only the SPINE carry owns the touch. A lane carry is a visual skin over the layer drag
@@ -7551,6 +7603,11 @@ public class EditorTimelineView extends View {
     }
 
     private boolean onUp(float x, float y, boolean isUp) {
+        // B7: shelf long-press cleanup — remove pending and, if the long-press already fired, consume this UP (drawer already opened)
+        longPressHandler.removeCallbacks(clipAudioShelfLongPressRunnable);
+        boolean wasShelfLongPress = clipAudioShelfLongPressSegIndex == -2;
+        if (clipAudioShelfLongPressSegIndex >= 0) clipAudioShelfLongPressSegIndex = -1;
+        if (wasShelfLongPress) return true;
         if (carryActive && !carryFromLayer) {
             // ACTION_CANCEL must NOT commit: the system took the gesture away, the user did not
             // choose a destination. The card disappears and the clip stays where it was, which is

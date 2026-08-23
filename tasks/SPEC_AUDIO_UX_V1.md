@@ -456,6 +456,38 @@ Move a row's status only per §0. `PENDING` → `WIP` → `BUILT` (commit) → `
 
 ---
 
+
+### G - HANDS-ON FEEDBACK, JoyRaptor on device 2026-08-23
+
+**The first substantial hands-on session, so everything here outranks anything reasoned-about.**
+`G4` and `G5` are P0: together they made the app unusable mid-session and made it look as though
+transcripts had been lost.
+
+**Confirmed WORKING and explicitly not to be changed:** the audio drawer's `⇤ start` / `end ⇥` header
+actions (“work and undo well”), and **split** - JoyRaptor meant “spacer” when he said *break*, but ruled on
+the split that shipped instead: “I kind of like it. It seems like it belongs, and it undos just fine.
+So let's keep it.”
+
+| ID | Item | Status | Files | Evidence |
+|---|---|---|---|---|
+| `G1` | **Fade slider leaves stale keyframe dots behind when dragged DOWN.** JoyRaptor, device 2026-08-23: dragging a fade UP draws correctly (diagonal to a level line); dragging it back DOWN “drops a whole bunch of round blue keyframe looking things, which look like it just didn't clean up or refresh the draw”. **Suspect the region-clear in `AudioClip.setFadeInMs`/`setFadeOutMs`: it clears at-or-before the NEW fade length, so shrinking a fade leaves every key between the new end and the old one.** Clear the OLD region too (the union of old and new), then write the pair. Add a harness case to `AudioClipEnvelopeTest`: grow a fade, shrink it, assert exactly two keyframes remain | `PENDING` - **P1, visible corruption** | `model/AudioClip.java`, `tools/jvm-harness/AudioClipEnvelopeTest.java` | |
+| `G2` | **A fade dragged to ZERO does not remove its envelope line.** Same session. `setFadeInMs(0)` is supposed to delete the pair; the blue line survives, so either the removal misses or the renderer keeps drawing a stale envelope. Likely the same root cause as `G1` | `PENDING` - **P1** | `model/AudioClip.java`, `layers/LayerRowRenderer.java` | |
+| `G3` | **Double-tap should TOGGLE a drawer, not only open it.** JoyRaptor: “Long press opens the same drawer. Let's have double tap close that drawer if it's open... If this behavior is nice, it might be something good to have in other regions.” Do the audio drawer first; if it feels right, generalise to every double-tap-opens-a-drawer path (master clip-audio shelf, PiP, adjustment layer) | `PENDING` | `FaditorEditorActivity.java` | |
+| `G4` | **The transcript panel cannot reach transcripts that already exist.** JoyRaptor: “it's not reading the transcripts that I have. It says choose a speech model. But how do I get to the transcript that I already have?” The panel resolves ONE target (`resolveTranscriptTarget`, preferring the selected audio clip) and shows the model picker whenever that target has none - so transcripts on other clips are unreachable and the app looks like it lost them. Needs a way to SEE AND PICK among the transcripts the project already holds, not only the current selection's | `PENDING` - **P0, reads as data loss** | `FaditorEditorActivity.java:29768`, `transcript/` | |
+| `G5` | **The panel gets STUCK on the wrong clip's transcript.** Same session: after transcribing, it held a music clip's transcript from the end of the project and would not follow playback or selection - “im stuck!” Re-resolution happens only on OPEN, so a panel that is already open never re-targets. Re-resolve on selection change and on playhead move, and give the panel an explicit way to let go of its current target | `PENDING` - **P0** | `FaditorEditorActivity.java` | |
+| `G6` | **Transcribing hides the transcript you already had.** JoyRaptor: “while it was transcribing, I couldn't see it”. The progress state replaces the panel body instead of overlaying it. Keep the existing transcript readable while a new one is generated | `PENDING` | `FaditorEditorActivity.java`, `transcript/TranscriptPanelView.java` | |
+| `G7` | **The new-line / paragraph-break button needs a toast.** JoyRaptor: “I had forgotten what that button does because I do the double tap so much.” Say which way it went - paragraph separator added / separator removed | `PENDING` - small | `FaditorEditorActivity.java` | |
+| `G8` | **Captions: the position toggle belongs LEFT of the size slider, and the size slider can be smaller.** JoyRaptor preferred the earlier arrangement | `PENDING` - small | `FaditorEditorActivity.buildCaptionStyleTab` | |
+| `G9` | **Captions: the circular toggle icons top-right DO NOT RENDER AT ALL.** JoyRaptor: “either a wrong layer order or transparent or gray, but they don't show up at all.” These are `ObjectDrawer`'s header toggles - check tint, elevation and z-order against the drawer scrim. **This affects EVERY object type's drawer, not just captions** | `PENDING` - **P1, affects all drawers** | `tools/ObjectDrawer.java` | |
+| `G10` | **Captions: scroll the font list to the SELECTED font when the drawer opens.** JoyRaptor's font is “rounded”, last in the list: he had to scroll and discover it. A green highlight is useless off-screen | `PENDING` - small | `FaditorEditorActivity.buildCaptionStyleTab` | |
+| `G11` | **Captions: the selected highlight chip is fully opaque; it should stay somewhat transparent**, consistent with the drawer's see-through contract (2.3) | `PENDING` - small | `FaditorEditorActivity.buildCaptionStyleTab` | |
+| `G12` | **Captions: Timing's in and out belong on ONE line** - same reasoning and the same `half` treatment as the audio fades, which JoyRaptor already ruled on once for `B1.U` | `PENDING` - small | `FaditorEditorActivity.buildCaptionTimingTab` | |
+| `G13` | **Voiceover has no findable door.** JoyRaptor could not reach it at all. He wants it on the TRANSPORT ROW beside the play button and project time: a microphone in a circle, **pulsing red while recording, grey when not**. The Add-sheet row stays, but the transport button is the real door | `PENDING` - **P1, feature unreachable** | `res/layout/activity_faditor_editor.xml`, `FaditorEditorActivity.java` | |
+| `G14` | **Global snap toggle - a MAGNET on the transport row.** Green when on. **Long-press opens a list of everything that snaps, with parameters.** His reason is specific: turn it off to nudge something freely, turn it back on for precise work. Must gather the snaps that ALREADY exist (beat snap via `setBeatSnapEnabled`, bookend snap, playhead/edge snapping) under one switch rather than adding a second system | `PENDING` | `res/layout/`, `FaditorEditorActivity.java`, `timeline/EditorTimelineView.java` | |
+| `G15` | **The link icon on the transport row should manage LINKED ITEMS, not the media catalog.** JoyRaptor says the catalog “is broken”; what he wants there is tap to link the current selection or unlink quickly, long-press for more options. **Relinking missing media moves elsewhere - he suggests the object menu** | `PENDING` | `FaditorEditorActivity.java`, `RelinkCatalogBottomSheet.java` | |
+| `G16` | **Paragraph gutter: a selected paragraph's rail should change colour so its extent is obvious.** With wrapped text it is not clear where a paragraph ends. He suggests the speaker's colour | `PENDING` | `transcript/TranscriptPanelView.java` | |
+| `G17` | **A speaker label cannot be removed, and undo does not cover it.** JoyRaptor applied one, the rail turned blue, and there was no way back. Needs a clear/none option AND an undo step - a mutating operation with no way back is the definition of the 0-rule-7 bug | `PENDING` - **P1** | `transcript/TranscriptPanelView.java`, `FaditorEditorActivity.java` | |
+
 ### E — Verification harness
 
 | ID | Item | Status | Files | Evidence |

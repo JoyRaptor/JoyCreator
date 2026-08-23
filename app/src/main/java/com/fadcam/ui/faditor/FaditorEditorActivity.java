@@ -5577,7 +5577,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (audioVolumeKeyframeMode && !muted) {
                             // Write a keyframe at the current playhead (clip-local time).
                             long clipMs = editorTimeline.getPlayheadPositionMs() - ac.getOffsetMs();
-                            ac.addOrUpdateVolumeKeyframe(clipMs, volume);
+                            ac.addOrUpdateFinalGainKeyframe(clipMs, volume);
                             // Live: apply this gain immediately so the user hears it.
                             if (audioIdx < audioPlayers.size() && audioIdx < audioPlayersReady.size()
                                     && audioPlayersReady.get(audioIdx)) {
@@ -5691,7 +5691,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (ac != null) {
                 if (audioVolumeKeyframeMode) {
                     long clipMs = editorTimeline.getPlayheadPositionMs() - ac.getOffsetMs();
-                    ac.addOrUpdateVolumeKeyframe(clipMs, volume);
+                    ac.addOrUpdateFinalGainKeyframe(clipMs, volume);
                     editorTimeline.invalidate();
                 } else {
                     ac.setVolumeLevel(volume);
@@ -5709,7 +5709,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (clip != null) {
             if (audioVolumeKeyframeMode) {
                 long clipMs = lastPositionInSegmentMs;
-                clip.addOrUpdateVolumeKeyframe(clipMs, volume);
+                clip.addOrUpdateFinalGainKeyframe(clipMs, volume);
                 editorTimeline.invalidate();
             } else {
                 clip.setVolumeLevel(volume);
@@ -21617,7 +21617,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.Getter get = ms -> ac.gainAtClipMs(ms - ac.getOffsetMs());
         ObjectMenuSheet.Setter set = (v, ms) -> {
             if (ac.hasVolumeKeyframes()) {
-                ac.addOrUpdateVolumeKeyframe(ms - ac.getOffsetMs(), v);
+                ac.addOrUpdateFinalGainKeyframe(ms - ac.getOffsetMs(), v);
             } else {
                 ac.setVolumeLevel(v);
                 if (v > 0f) ac.setMuted(false);
@@ -21629,7 +21629,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Runnable dropKey = () -> {
             AudioVolumeState before = snapshotAudioVolume(ac);
             long local = lastPlayheadAbsoluteMs - ac.getOffsetMs();
-            ac.addOrUpdateVolumeKeyframe(local, ac.gainAtClipMs(local));
+            ac.addOrUpdateFinalGainKeyframe(local, ac.gainAtClipMs(local));
             recordAudioVolumeUndo(ac, before.level, before.kfs, "Add keyframe"); // TODO(strings)
             applyAudioLivePlayerGain(ac);
             if (editorTimeline != null) editorTimeline.invalidate();

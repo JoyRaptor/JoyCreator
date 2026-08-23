@@ -1433,6 +1433,25 @@ public class Clip {
      * {@code volumeLevel}) whenever the level was not 100%. Two readers of one envelope is
      * how preview and export drift, so this now just forwards. No caller changed.</p>
      */
+    /**
+     * Write an envelope keyframe from a FINAL GAIN — the number the user sees on a slider and
+     * hears from the speaker (0..2) — converting into the MULTIPLIER space the store has held
+     * since B1.Q ("fades stack", JoyRaptor 2026-08-23).
+     *
+     * <p>This is the write-side twin of {@code gainAtClipMs}, which absorbs the multiply on the
+     * read side. Both conversions live in the model for the same reason: every caller outside
+     * it thinks in final gain, and a caller that divides for itself is a second definition of
+     * what a keyframe means — which is exactly how the preview and the file drift apart.</p>
+     *
+     * <p>A level at or near zero cannot be divided by. The clip is silent at any multiplier in
+     * that state, so the raw value is stored rather than producing an infinity; this mirrors the
+     * guard the load-time migration uses.</p>
+     */
+    public void addOrUpdateFinalGainKeyframe(long timeMs, float finalGain) {
+        float lvl = getVolumeLevel();
+        addOrUpdateVolumeKeyframe(timeMs, lvl > 0.0001f ? finalGain / lvl : finalGain);
+    }
+
     public float gainAtClipMs(long clipMs) {
         return volumeAt(clipMs);
     }

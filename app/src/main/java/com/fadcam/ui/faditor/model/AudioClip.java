@@ -30,7 +30,7 @@ import java.util.UUID;
  *   <li>{@link #waveform} – downsampled amplitude array for timeline visualisation.</li>
  * </ul>
  */
-public class AudioClip {
+public class AudioClip implements AudioParams {
 
     // §4.5 per-OBJECT lock (LANE_BADGES spec, built 2026-07-19): locked = selectable but
     // never trims/moves/deletes. Audio has NO hidden twin — per-clip MUTE already is the
@@ -149,15 +149,14 @@ public class AudioClip {
     private float captionSizeFraction = 0.060f;
 
     /** A single point on the audio volume envelope. */
-    public static class VolumeKeyframe {
+    public static class VolumeKeyframe extends com.fadcam.ui.faditor.model.VolumeKeyframe {
         /** Clip-local time in ms (0 = clip start on the timeline). */
         public long timeMs;
         /** Multiplier over the clip's volumeLevel (0–1 typical; B1.Q semantics). */
         public float volume;
 
         public VolumeKeyframe(long timeMs, float volume) {
-            this.timeMs = timeMs;
-            this.volume = volume;
+            super(timeMs, volume);
         }
     }
 
@@ -575,6 +574,38 @@ public class AudioClip {
     }
 
     public boolean isBakedSource() { return bakedFromUri != null; }
+
+    // ── AudioParams interface implementation (A7 shared carrier) ───────
+
+    @Override
+    public Long volumeKeyUnderPlayhead(long absMs) {
+        long local = absMs - getOffsetMs();
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            if (Math.abs(kf.timeMs - local) <= 66) return kf.timeMs;
+        }
+        return null;
+    }
+
+    @Override
+    public void removeVolumeKeyframeAt(long localMs) {
+        java.util.Iterator<VolumeKeyframe> it = volumeKeyframes.iterator();
+        while (it.hasNext()) {
+            if (it.next().timeMs == localMs) { it.remove(); return; }
+        }
+    }
+
+    @Override
+    public void jumpToAdjacentVolumeKey(boolean forward) {
+        if (editorTimeline == null) return;
+        long local = lastPlayheadAbsoluteMs - getOffsetMs();
+        Long best = null;
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            if (forward ? kf.timeMs > local + 66 : kf.timeMs < local - 66) {
+                if (best == null || (forward ? kf.timeMs < best : kf.timeMs > best)) best = kf.timeMs;
+            }
+        }
+        if (best != null) editorTimeline.seekToTimelineMs(getOffsetMs() + best);
+    }
 
     // ── Utility ──────────────────────────────────────────────────────
 

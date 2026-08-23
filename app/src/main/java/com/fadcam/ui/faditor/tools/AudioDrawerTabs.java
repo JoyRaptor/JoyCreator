@@ -15,6 +15,8 @@ import com.fadcam.R;
 import com.fadcam.ui.faditor.KeyframeDiamondControl;
 import com.fadcam.ui.faditor.ObjectMenuSheet;
 import com.fadcam.ui.faditor.model.AudioClip;
+import com.fadcam.ui.faditor.model.AudioParams;
+import com.fadcam.ui.faditor.model.VolumeKeyframe;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +73,7 @@ public final class AudioDrawerTabs {
      * keyframe diamond), an envelope state line, and the two fade sliders.
      */
     @NonNull
-    public static View levelTab(@NonNull Context ctx, @NonNull AudioClip clip,
+    public static View levelTab(@NonNull Context ctx, @NonNull AudioParams clip,
                                 @NonNull Host host) {
         LinearLayout root = column(ctx);
         final List<Runnable> refreshers = new ArrayList<>();
@@ -106,7 +108,7 @@ public final class AudioDrawerTabs {
      */
     @NonNull
     private static Runnable levelRow(@NonNull Context ctx, @NonNull LinearLayout parent,
-                                     @NonNull AudioClip clip, @NonNull Host host) {
+                                     @NonNull AudioParams clip, @NonNull Host host) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -138,7 +140,7 @@ public final class AudioDrawerTabs {
         };
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Nullable List<AudioClip.VolumeKeyframe> beforeKfs;
+            @Nullable List<VolumeKeyframe> beforeKfs;
             float beforeVol;
 
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
@@ -198,7 +200,7 @@ public final class AudioDrawerTabs {
      */
     @NonNull
     private static Runnable panRow(@NonNull Context ctx, @NonNull LinearLayout parent,
-                                   @NonNull AudioClip clip, @NonNull Host host) {
+                                   @NonNull AudioParams clip, @NonNull Host host) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -274,7 +276,7 @@ public final class AudioDrawerTabs {
      * walk existing keys by seeking the playhead to them.
      */
     @NonNull
-    private static ObjectMenuSheet.Prop volumeProp(@NonNull AudioClip clip, @NonNull Host host,
+    private static ObjectMenuSheet.Prop volumeProp(@NonNull AudioParams clip, @NonNull Host host,
                                                    @Nullable Runnable refresh) {
         return new ObjectMenuSheet.Prop(
                 "audioVolume", "Level", 0f, 2f,
@@ -300,7 +302,7 @@ public final class AudioDrawerTabs {
      */
     @NonNull
     private static Runnable envelopeStateRow(@NonNull Context ctx, @NonNull LinearLayout parent,
-                                             @NonNull AudioClip clip, @NonNull Host host) {
+                                             @NonNull AudioParams clip, @NonNull Host host) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = row(ctx);
         TextView state = new TextView(ctx);
@@ -314,7 +316,7 @@ public final class AudioDrawerTabs {
         TextView clear = chip(ctx, "Clear", d);                            // TODO(strings)
         clear.setOnClickListener(v -> {
             if (!clip.hasVolumeKeyframes()) return;
-            List<AudioClip.VolumeKeyframe> before = copyKeyframes(clip);
+            List<VolumeKeyframe> before = copyKeyframes(clip);
             clip.clearVolumeKeyframes();
             host.recordUndo("Clear envelope",
                     () -> { clip.setVolumeKeyframes(before); host.onChanged(); },
@@ -351,7 +353,7 @@ public final class AudioDrawerTabs {
      */
     private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                     @NonNull String label, boolean fadeIn,
-                                    @NonNull AudioClip clip, @NonNull Host host,
+                                    @NonNull AudioParams clip, @NonNull Host host,
                                     boolean half) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
@@ -386,7 +388,7 @@ public final class AudioDrawerTabs {
         };
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Nullable List<AudioClip.VolumeKeyframe> beforeKfs;
+            @Nullable List<VolumeKeyframe> beforeKfs;
 
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser && !bar.isFineDriving()) return;
@@ -447,7 +449,7 @@ public final class AudioDrawerTabs {
      * {@code ProjectStorage.projectDir(id)} and one shared cache instance.</p>
      */
     @NonNull
-    public static View cleanTab(@NonNull Context ctx, @NonNull AudioClip clip,
+    public static View cleanTab(@NonNull Context ctx, @NonNull AudioParams clip,
                                 @NonNull Host host, @NonNull java.io.File projectDir,
                                 @NonNull com.fadcam.ui.faditor.audio.BakedAudioCache cache) {
         float d = ctx.getResources().getDisplayMetrics().density;
@@ -624,7 +626,7 @@ public final class AudioDrawerTabs {
     // ── model plumbing ───────────────────────────────────────────────────────────────────
 
     /** Clip-local ms of a timeline position — the domain the envelope keys live in. */
-    private static long localMs(@NonNull AudioClip clip, long timelineMs) {
+    private static long localMs(@NonNull AudioParams clip, long timelineMs) {
         return timelineMs - clip.getOffsetMs();
     }
 
@@ -632,17 +634,17 @@ public final class AudioDrawerTabs {
      * The audible level at a clip-local time: the envelope when armed (it OVERRIDES the
      * whole-clip gain, both in preview and at export), else the flat gain.
      */
-    private static float levelAt(@NonNull AudioClip clip, long localMs) {
+    private static float levelAt(@NonNull AudioParams clip, long localMs) {
         return clip.gainAtClipMs(localMs);
     }
 
     /** The current pan at a clip-local time (no envelope for pan yet). */
-    private static float panAt(@NonNull AudioClip clip) {
+    private static float panAt(@NonNull AudioParams clip) {
         return clip.getPan();
     }
 
     /** Write a pan value — no envelope support yet, just flat pan. */
-    private static void writePan(@NonNull AudioClip clip, @NonNull Host host, float pan) {
+    private static void writePan(@NonNull AudioParams clip, @NonNull Host host, float pan) {
         clip.setPan(pan);
     }
 
@@ -653,7 +655,7 @@ public final class AudioDrawerTabs {
      * gain the user sees on the row; B1.Q stores it as a MULTIPLIER over volumeLevel, so
      * moving the slider later rescales the whole envelope instead of stranding stale peaks.
      */
-    private static void writeLevel(@NonNull AudioClip clip, @NonNull Host host,
+    private static void writeLevel(@NonNull AudioParams clip, @NonNull Host host,
                                    float gain, long localMs) {
         if (clip.hasVolumeKeyframes()
                 && localMs >= 0 && localMs <= clip.getTrimmedDurationMs()) {
@@ -664,17 +666,17 @@ public final class AudioDrawerTabs {
     }
 
     /** Desired FINAL gain → stored envelope multiplier (B1.Q). Silent clip → 0. */
-    private static float multiplierFor(@NonNull AudioClip clip, float finalGain) {
+    private static float multiplierFor(@NonNull AudioParams clip, float finalGain) {
         float lvl = clip.getVolumeLevel();
         if (lvl < 0.0001f) return 0f;
         return Math.max(0f, Math.min(2f, finalGain / lvl));
     }
 
-    private static void setFade(@NonNull AudioClip clip, boolean fadeIn, long fadeMs) {
+    private static void setFade(@NonNull AudioParams clip, boolean fadeIn, long fadeMs) {
         if (fadeIn) clip.setFadeInMs(fadeMs); else clip.setFadeOutMs(fadeMs);
     }
 
-    private static long readFade(@NonNull AudioClip clip, boolean fadeIn) {
+    private static long readFade(@NonNull AudioParams clip, boolean fadeIn) {
         return fadeIn ? clip.getFadeInMs() : clip.getFadeOutMs();
     }
 
@@ -700,16 +702,16 @@ public final class AudioDrawerTabs {
     }
 
     @NonNull
-    private static List<AudioClip.VolumeKeyframe> copyKeyframes(@NonNull AudioClip clip) {
-        List<AudioClip.VolumeKeyframe> out = new ArrayList<>();
-        for (AudioClip.VolumeKeyframe kf : clip.getVolumeKeyframes()) {
-            out.add(new AudioClip.VolumeKeyframe(kf.timeMs, kf.volume));
+    private static List<VolumeKeyframe> copyKeyframes(@NonNull AudioParams clip) {
+        List<VolumeKeyframe> out = new ArrayList<>();
+        for (VolumeKeyframe kf : clip.getVolumeKeyframes()) {
+            out.add(new VolumeKeyframe(kf.timeMs, kf.volume));
         }
         return out;
     }
 
-    private static boolean sameEnvelope(@Nullable List<AudioClip.VolumeKeyframe> a,
-                                        @NonNull List<AudioClip.VolumeKeyframe> b) {
+    private static boolean sameEnvelope(@Nullable List<VolumeKeyframe> a,
+                                        @NonNull List<VolumeKeyframe> b) {
         if (a == null || a.size() != b.size()) return false;
         for (int i = 0; i < a.size(); i++) {
             if (a.get(i).timeMs != b.get(i).timeMs
@@ -721,28 +723,28 @@ public final class AudioDrawerTabs {
         return true;
     }
 
-    private static void restoreEnvelope(@NonNull AudioClip clip,
-                                        @NonNull List<AudioClip.VolumeKeyframe> kfs,
+    private static void restoreEnvelope(@NonNull AudioParams clip,
+                                        @NonNull List<VolumeKeyframe> kfs,
                                         float volumeLevel) {
         clip.setVolumeKeyframes(kfs);
         clip.setVolumeLevel(volumeLevel);
     }
 
-    private static boolean onKeyNear(@NonNull AudioClip clip, long localMs) {
-        for (AudioClip.VolumeKeyframe kf : clip.getVolumeKeyframes()) {
+    private static boolean onKeyNear(@NonNull AudioParams clip, long localMs) {
+        for (VolumeKeyframe kf : clip.getVolumeKeyframes()) {
             if (Math.abs(kf.timeMs - localMs) <= KEY_TOLERANCE_MS) return true;
         }
         return false;
     }
 
     /** Hollow-diamond tap: drop a key AT the current audible level (then drag the slider). */
-    private static void dropKeyHere(@NonNull AudioClip clip, @NonNull Host host,
+    private static void dropKeyHere(@NonNull AudioParams clip, @NonNull Host host,
                                     @Nullable Runnable refresh) {
         long local = localMs(clip, host.playheadMs());
         if (local < 0 || local > clip.getTrimmedDurationMs()) return; // span query guards first
-        List<AudioClip.VolumeKeyframe> before = copyKeyframes(clip);
+        List<VolumeKeyframe> before = copyKeyframes(clip);
         clip.addOrUpdateVolumeKeyframe(local, multiplierFor(clip, levelAt(clip, local)));
-        List<AudioClip.VolumeKeyframe> after = copyKeyframes(clip);
+        List<VolumeKeyframe> after = copyKeyframes(clip);
         host.recordUndo("Envelope point",
                 () -> { clip.setVolumeKeyframes(after); notifyChanged(host, refresh); },
                 () -> { clip.setVolumeKeyframes(before); notifyChanged(host, refresh); });
@@ -750,14 +752,14 @@ public final class AudioDrawerTabs {
     }
 
     /** Solid-diamond ×: remove THIS key (the nearest within tolerance). */
-    private static void deleteKeyHere(@NonNull AudioClip clip, @NonNull Host host,
+    private static void deleteKeyHere(@NonNull AudioParams clip, @NonNull Host host,
                                       @Nullable Runnable refresh) {
         long local = localMs(clip, host.playheadMs());
-        List<AudioClip.VolumeKeyframe> before = copyKeyframes(clip);
+        List<VolumeKeyframe> before = copyKeyframes(clip);
         boolean removed = clip.getVolumeKeyframes()
                 .removeIf(kf -> Math.abs(kf.timeMs - local) <= KEY_TOLERANCE_MS);
         if (!removed) return;
-        List<AudioClip.VolumeKeyframe> after = copyKeyframes(clip);
+        List<VolumeKeyframe> after = copyKeyframes(clip);
         host.recordUndo("Delete envelope point",
                 () -> { clip.setVolumeKeyframes(after); notifyChanged(host, refresh); },
                 () -> { clip.setVolumeKeyframes(before); notifyChanged(host, refresh); });
@@ -765,11 +767,11 @@ public final class AudioDrawerTabs {
     }
 
     /** ‹ › : seek the playhead to the nearest key strictly before / after it. */
-    private static void nudgeToKey(@NonNull AudioClip clip, @NonNull Host host, int dir) {
+    private static void nudgeToKey(@NonNull AudioParams clip, @NonNull Host host, int dir) {
         long local = localMs(clip, host.playheadMs());
-        AudioClip.VolumeKeyframe best = null;
+        VolumeKeyframe best = null;
         long bestDelta = Long.MAX_VALUE;
-        for (AudioClip.VolumeKeyframe kf : clip.getVolumeKeyframes()) {
+        for (VolumeKeyframe kf : clip.getVolumeKeyframes()) {
             long delta = dir > 0 ? kf.timeMs - local : local - kf.timeMs;
             if (delta > 0 && delta < bestDelta) { bestDelta = delta; best = kf; }
         }
@@ -783,10 +785,10 @@ public final class AudioDrawerTabs {
 
     // ── undo commits (one step per gesture) ──────────────────────────────────────────────
 
-    private static void commitLevelGesture(@NonNull AudioClip clip, @NonNull Host host,
-                                           @Nullable List<AudioClip.VolumeKeyframe> beforeKfs,
+    private static void commitLevelGesture(@NonNull AudioParams clip, @NonNull Host host,
+                                           @Nullable List<VolumeKeyframe> beforeKfs,
                                            float beforeVol, @Nullable Runnable refresh) {
-        List<AudioClip.VolumeKeyframe> afterKfs = copyKeyframes(clip);
+        List<VolumeKeyframe> afterKfs = copyKeyframes(clip);
         float afterVol = clip.getVolumeLevel();
         if (beforeKfs == null || (sameEnvelope(beforeKfs, afterKfs) && beforeVol == afterVol)) {
             return;
@@ -796,12 +798,12 @@ public final class AudioDrawerTabs {
                 () -> { restoreEnvelope(clip, beforeKfs, beforeVol); notifyChanged(host, refresh); });
     }
 
-    private static void commitFadeGesture(@NonNull AudioClip clip, @NonNull Host host,
+    private static void commitFadeGesture(@NonNull AudioParams clip, @NonNull Host host,
                                           boolean fadeIn,
-                                          @Nullable List<AudioClip.VolumeKeyframe> beforeKfs,
+                                          @Nullable List<VolumeKeyframe> beforeKfs,
                                           @Nullable Runnable refresh) {
         if (beforeKfs == null) return;
-        List<AudioClip.VolumeKeyframe> afterKfs = copyKeyframes(clip);
+        List<VolumeKeyframe> afterKfs = copyKeyframes(clip);
         if (sameEnvelope(beforeKfs, afterKfs)) return;
         String label = fadeIn ? "Fade in" : "Fade out";                    // TODO(strings)
         host.recordUndo(label,
@@ -811,7 +813,7 @@ public final class AudioDrawerTabs {
 
     // ── type-an-exact-value dialogs ──────────────────────────────────────────────────────
 
-    private static void promptForGain(@NonNull Context ctx, @NonNull AudioClip clip,
+    private static void promptForGain(@NonNull Context ctx, @NonNull AudioParams clip,
                                       @NonNull Host host, @Nullable Runnable refresh) {
         float[] pad = dialogPadding(ctx);
         EditText input = new EditText(ctx);
@@ -827,7 +829,7 @@ public final class AudioDrawerTabs {
         confirmDialog(ctx, "Level (%)", wrap, () -> {                      // TODO(strings)
             Float typed = leadingNumber(input.getText().toString());
             if (typed == null) return;
-            List<AudioClip.VolumeKeyframe> before = copyKeyframes(clip);
+            List<VolumeKeyframe> before = copyKeyframes(clip);
             float beforeVol = clip.getVolumeLevel();
             writeLevel(clip, host, Math.max(0f, Math.min(2f, typed / 100f)),
                     localMs(clip, host.playheadMs()));
@@ -837,7 +839,7 @@ public final class AudioDrawerTabs {
         input.requestFocus();
     }
 
-    private static void promptForPan(@NonNull Context ctx, @NonNull AudioClip clip,
+    private static void promptForPan(@NonNull Context ctx, @NonNull AudioParams clip,
                                      @NonNull Host host, @Nullable Runnable refresh) {
         float[] pad = dialogPadding(ctx);
         EditText input = new EditText(ctx);
@@ -860,7 +862,7 @@ public final class AudioDrawerTabs {
         input.requestFocus();
     }
 
-    private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioClip clip,
+    private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioParams clip,
                                              @NonNull Host host, boolean fadeIn,
                                              long maxFade, @Nullable Runnable refresh) {
         float[] pad = dialogPadding(ctx);
@@ -877,7 +879,7 @@ public final class AudioDrawerTabs {
         confirmDialog(ctx, fadeIn ? "Fade in (s)" : "Fade out (s)", wrap, () -> {
             Float typed = leadingNumber(input.getText().toString());       // TODO(strings)
             if (typed == null) return;
-            List<AudioClip.VolumeKeyframe> before = copyKeyframes(clip);
+            List<VolumeKeyframe> before = copyKeyframes(clip);
             long ms = Math.round(Math.max(0f, Math.min(maxFade / 1000f, typed)) * 1000f);
             setFade(clip, fadeIn, ms);
             commitFadeGesture(clip, host, fadeIn, before, refresh);

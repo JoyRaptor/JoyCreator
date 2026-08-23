@@ -14148,7 +14148,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else if (item.getSprite() != null) {
                     showObjectMenuSheetForSprite(item.getSprite());
                 } else if (item.getAudioClip() != null) {
-                    showObjectMenuSheetForAudioClip(item.getAudioClip());
+                    showAudioDrawer(item.getAudioClip());
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                     showObjectMenuSheetForPipClip(item.getClip());
                 } else if (item.getWaveform() != null) {
@@ -14217,7 +14217,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     } else if (item != null && item.getSprite() != null) {
                         showObjectMenuSheetForSprite(item.getSprite());
                     } else if (item != null && item.getAudioClip() != null) {
-                        showObjectMenuSheetForAudioClip(item.getAudioClip());
+                        showAudioDrawer(item.getAudioClip());
                     } else if (item != null && item.getClip() != null
                             && item.getClip().isOverlayClip()) {
                         showObjectMenuSheetForPipClip(item.getClip());
@@ -23151,6 +23151,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
+        // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
+        // "on the left side of the mute button ... start here, end here, break, mute, shield".
+        // A Toggle whose state is permanently false renders as a plain, untinted icon button, so
+        // an ACTION needs no new drawer API — same header row, same geometry, no second system.
+        // "break" is read as SPLIT AT THE PLAYHEAD; it is the only clip-breaking action audio has.
+        com.fadcam.ui.faditor.tools.ObjectDrawer.ToggleState never = () -> false;
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_marker_flag_start, R.drawable.ic_marker_flag_start, never,
+                () -> setAudioRangeEdgeAtPlayhead(ac, true), false));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_marker_flag_end, R.drawable.ic_marker_flag_end, never,
+                () -> setAudioRangeEdgeAtPlayhead(ac, false), false));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_edit_cut, R.drawable.ic_edit_cut, never,
+                () -> {
+                    int idx = project.getTimeline().getAudioClips().indexOf(ac);
+                    if (idx < 0) return;
+                    splitAudioAtPlayhead(idx);
+                    // The clip this drawer is bound to no longer exists after a split — showing
+                    // its stale controls would be a lie, so the drawer closes with the object.
+                    ensureObjectDrawer().hide();
+                }, false));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, ac::isMuted, () -> { ac.setMuted(!ac.isMuted()); applyAudioLivePlayerGain(ac); if (editorTimeline != null) editorTimeline.invalidate(); scheduleAutoSave(); }, true));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_lock, R.drawable.ic_lock, ac::isLocked, () -> { ac.setLocked(!ac.isLocked()); scheduleAutoSave(); }, false));
         ensureObjectDrawer().setOnClose(null);

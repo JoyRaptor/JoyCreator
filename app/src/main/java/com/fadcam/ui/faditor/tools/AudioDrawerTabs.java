@@ -76,8 +76,13 @@ public final class AudioDrawerTabs {
         refreshers.add(envelopeStateRow(ctx, root, clip, host));
         // A zero-length clip has nothing to fade — omit the rows rather than show dead ones.
         if (clip.getTrimmedDurationMs() > 0) {
-            refreshers.add(fadeRow(ctx, root, "Fade in", true, clip, host));   // TODO(strings)
-            refreshers.add(fadeRow(ctx, root, "Fade out", false, clip, host)); // TODO(strings)
+            // Both fades share ONE line (JoyRaptor 2026-08-23) — see fadeRow's `half`.
+            LinearLayout fades = new LinearLayout(ctx);
+            fades.setOrientation(LinearLayout.HORIZONTAL);
+            fades.setGravity(Gravity.CENTER_VERTICAL);
+            root.addView(fades);
+            refreshers.add(fadeRow(ctx, fades, "In", true, clip, host, true));   // TODO(strings)
+            refreshers.add(fadeRow(ctx, fades, "Out", false, clip, host, true)); // TODO(strings)
         }
         // Same row-refresh contract as PipDrawerTabs.videoTab: hang the refresh off the VIEW
         // so the drawer can re-read every row at the live playhead without knowing tabs.
@@ -257,9 +262,17 @@ public final class AudioDrawerTabs {
      * handle cannot ever disagree about what a fade is.
      */
     @NonNull
+    /**
+     * @param half JoyRaptor, 2026-08-23: "Fade in and fade out should be on the same line. They
+     *             don't need a full screen's width." When true the row narrows its label and
+     *             value columns and takes an equal share of a horizontal parent, so the pair
+     *             costs ONE line of drawer height instead of two. Height over the preview is
+     *             the scarcest thing in this drawer.
+     */
     private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                     @NonNull String label, boolean fadeIn,
-                                    @NonNull AudioClip clip, @NonNull Host host) {
+                                    @NonNull AudioClip clip, @NonNull Host host,
+                                    boolean half) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -270,7 +283,7 @@ public final class AudioDrawerTabs {
         labelView.setTextColor(TXT_DIM);
         labelView.setTextSize(11);
         labelView.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        labelView.setWidth(Math.round(52 * d));
+        labelView.setWidth(Math.round((half ? 40 : 52) * d));
         labelView.setMaxLines(1);
         labelView.setText(label);
         row.addView(labelView);
@@ -284,7 +297,7 @@ public final class AudioDrawerTabs {
         value.setTextColor(TXT);
         value.setTextSize(11);
         value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        value.setWidth(Math.round(46 * d));
+        value.setWidth(Math.round((half ? 38 : 46) * d));
         value.setGravity(Gravity.END);
 
         final Runnable[] selfRefresh = new Runnable[1];
@@ -320,7 +333,12 @@ public final class AudioDrawerTabs {
         value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
         value.setOnClickListener(v ->
                 promptForFadeSeconds(ctx, clip, host, fadeIn, maxFade, refreshAll));
-        parent.addView(row);
+        if (half) {
+            parent.addView(row, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        } else {
+            parent.addView(row);
+        }
 
         selfRefresh[0] = () -> {
             long cur = readFade(clip, fadeIn);

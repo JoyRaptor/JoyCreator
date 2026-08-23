@@ -26825,8 +26825,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         findViewById(R.id.transcript_apply).setOnClickListener(v -> commitTranscript());
 
-        int speakerId = getResources().getIdentifier("transcript_speaker", "id", getPackageName());
-        android.view.View speakerBtn = speakerId != 0 ? findViewById(speakerId) : null;
+        // D5: a DIRECT R.id reference, restored 2026-08-23. This was written as
+        // getResources().getIdentifier("transcript_speaker", ...) to get a green run out of
+        // tools/jvm-harness/typecheck.sh, whose R.jar is a build ARTEFACT from 2026-08-19 and
+        // therefore cannot contain an id added today. That harness's own header says so, and
+        // says what to do about it: "That is a true negative about this checker, not about
+        // your code — it means the change needs a real Gradle build before it can be believed."
+        //
+        // The workaround is worse than the warning it silenced. A string lookup loses
+        // compile-time checking (a rename becomes a silent no-op button), costs a runtime
+        // resource scan, and — the real hazard — R8 resource shrinking in a RELEASE build can
+        // strip an id that no compiled reference points at, so this would work in debug and
+        // quietly vanish in the shipped app. GlTransitionCardBaker's getIdentifier call is
+        // legitimate by contrast: those resource names are genuinely dynamic.
+        android.view.View speakerBtn = findViewById(R.id.transcript_speaker);
         if (speakerBtn != null) {
             speakerBtn.setOnClickListener(v -> {
                 if (currentTranscript == null || transcriptView == null) return;

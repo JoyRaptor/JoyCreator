@@ -73,6 +73,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -614,7 +615,7 @@ public class ExportManager {
     /**
      * Build an audio-only {@link Composition}: one sequence of the master clips' audio
      * (image / muted / loop segments → silence, preserving timing) plus the {@link AudioClip}
-     * track (via {@link #buildAudioSequence}), mixed. Reuses the existing per-clip audio
+     * track (via {@link #buildAudioSequences}), mixed. Reuses the existing per-clip audio
      * treatment (Sonic speed, volume envelope/static, mute) without touching the video path.
      */
     @NonNull
@@ -720,10 +721,8 @@ public class ExportManager {
             sequences.add(new EditedMediaItemSequence.Builder(master).build());
         }
         if (timeline.hasAudioClips()) {
-            EditedMediaItemSequence audioSequence = buildAudioSequence(timeline);
-            if (audioSequence != null) {
-                sequences.add(audioSequence);
-            }
+            // A8: one sequence PER AUDIO LANE, mixed in parallel by the Composition.
+            sequences.addAll(buildAudioSequences(timeline));
         }
         // SPEC_PIP_AUDIO: an opted-in PiP contributes audio to the audio-only export too.
         EditedMediaItemSequence overlayAudioOnly = buildOverlayAudioSequence(timeline);
@@ -1097,12 +1096,10 @@ public class ExportManager {
         // master — invisible. The overlay pass also keeps the PiP below text/captions,
         // matching the preview stack, which a second sequence never could.
 
-        // Build audio sequence from AudioClips on the audio track (if any)
+        // Build audio sequences from AudioClips on the audio lanes (if any)
         if (timeline.hasAudioClips()) {
-            EditedMediaItemSequence audioSequence = buildAudioSequence(timeline);
-            if (audioSequence != null) {
-                sequences.add(audioSequence);
-            }
+            // A8: one sequence PER AUDIO LANE, mixed in parallel by the Composition.
+            sequences.addAll(buildAudioSequences(timeline));
         }
         // SPEC_PIP_AUDIO: PiP audio rides its own audio-only sequence (the pixels come from
         // the overlay pass above). Null unless a PiP opted in → composition unchanged.
@@ -2016,29 +2013,58 @@ public class ExportManager {
     }
 
     /**
-     * Build an audio-only {@link EditedMediaItemSequence} from the timeline's
-     * {@link AudioClip}s. Silence gaps are inserted so that each clip starts
-     * at its correct {@link AudioClip#getOffsetMs()} position.
+     * Build audio-only {@link EditedMediaItemSequence}s from the timeline's
+     * {@link AudioClip}s — ONE SEQUENCE PER AUDIO LANE (A8). Within each lane,
+     * silence gaps are inserted so that every clip starts at its correct
+     * {@link AudioClip#getOffsetMs()} position.
+     *
+     * <p>THE BUG THIS FIXES: the old single-sequence walk inserted silence only when a clip's
+     * start was past the cursor and had no else-branch, so two OVERLAPPING clips did not mix —
+     * the second was appended AFTER the first and landed later than its authored offset. The
+     * Composition mixes sequences in parallel (it already does for master vs PiP audio), so
+     * one sequence per lane makes multi-lane audio export at its authored time.</p>
      *
      * @param timeline the project timeline
-     * @return the audio sequence, or null if building failed
+     * @return one sequence per inhabited audio lane (possibly empty; never null)
      */
-    @Nullable
-    private EditedMediaItemSequence buildAudioSequence(@NonNull Timeline timeline) {
+    @NonNull
+    private List<EditedMediaItemSequence> buildAudioSequences(@NonNull Timeline timeline) {
         List<AudioClip> clips = new ArrayList<>(timeline.getAudioClips());
-        FLog.d(TAG, "buildAudioSequence: audioClipCount=" + clips.size());
-        if (clips.isEmpty()) return null;
+        FLog.d(TAG, "buildAudioSequences: audioClipCount=" + clips.size());
+        if (clips.isEmpty()) return Collections.emptyList();
 
-        // Sort by offset so we insert gaps correctly
-        Collections.sort(clips, Comparator.comparingLong(AudioClip::getOffsetMs));
+        // Group by lane EXACTLY as Timeline.getAudioTracks() does: null layerId == the
+        // default "audio" lane. Insertion order of the map follows the flat list, so a
+        // single-lane project yields exactly one sequence in the same clip order as before.
+        Map<String, List<AudioClip>> byLane = new LinkedHashMap<>();
+        for (AudioClip ac : clips) {
+            String lane = ac.getLayerId() != null ? ac.getLayerId() : "audio";
+            byLane.computeIfAbsent(lane, k -> new ArrayList<>()).add(ac);
+        }
 
         // Generate a reusable silence WAV file in cache
         File silenceFile = getOrCreateSilenceFile();
         if (silenceFile == null) {
             FLog.e(TAG, "Failed to create silence file — skipping audio track");
-            return null;
+            return Collections.emptyList();
         }
         Uri silenceUri = Uri.fromFile(silenceFile);
+
+        List<EditedMediaItemSequence> sequences = new ArrayList<>();
+        for (Map.Entry<String, List<AudioClip>> e : byLane.entrySet()) {
+            EditedMediaItemSequence seq = buildLaneAudioSequence(timeline, e.getKey(), e.getValue(), silenceUri);
+            if (seq != null) sequences.add(seq);
+        }
+        return sequences;
+    }
+
+    /** Build ONE lane's audio-only sequence: clips sorted by offset, silence-gap items
+     *  between them, each clip carrying its own trim/volume/envelope treatment. */
+    @Nullable
+    private EditedMediaItemSequence buildLaneAudioSequence(@NonNull Timeline timeline,
+            @NonNull String laneId, @NonNull List<AudioClip> clips, @NonNull Uri silenceUri) {
+        // Sort by offset so we insert gaps correctly
+        Collections.sort(clips, Comparator.comparingLong(AudioClip::getOffsetMs));
 
         List<EditedMediaItem> audioItems = new ArrayList<>();
         long cursorMs = 0; // current position on the timeline
@@ -2125,11 +2151,11 @@ public class ExportManager {
         }
 
         if (audioItems.isEmpty()) {
-            FLog.d(TAG, "All audio clips muted — no audio sequence");
+            FLog.d(TAG, "buildLaneAudioSequence(" + laneId + "): all clips muted — no sequence");
             return null;
         }
 
-        FLog.d(TAG, "buildAudioSequence: built " + audioItems.size()
+        FLog.d(TAG, "buildLaneAudioSequence(" + laneId + "): built " + audioItems.size()
                 + " audio items, total ~" + cursorMs + "ms");
         return new EditedMediaItemSequence.Builder(audioItems).build();
     }

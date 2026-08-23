@@ -5410,6 +5410,55 @@ public class EditorTimelineView extends View {
      * @return false when the waveform is not cached yet (the cache fetches asynchronously and
      *         will invalidate the view when it lands, so the caller may simply try again).
      */
+    /**
+     * An amplitude envelope extracted for ANALYSIS, carrying the frame rate it was sampled at.
+     *
+     * <p>The rate travels WITH the samples on purpose. The waveform cache picks a resolution
+     * tier per clip, so two clips do not necessarily share one — and every analysis in this
+     * codebase (beats, alignment) converts frames to milliseconds, so borrowing one clip's rate
+     * for another's samples silently scales the answer. That is not a hypothetical: the first
+     * D7 door read {@code bucketMs} from the FIRST clip and applied it to BOTH.</p>
+     */
+    public static final class AnalysisEnvelope {
+        /** Amplitudes normalised to 0..1000. */
+        @NonNull public final int[] samples;
+        public final double framesPerSecond;
+        /** Where these samples start inside the SOURCE, in ms. */
+        public final long sourceStartMs;
+
+        AnalysisEnvelope(@NonNull int[] samples, double framesPerSecond, long sourceStartMs) {
+            this.samples = samples;
+            this.framesPerSecond = framesPerSecond;
+            this.sourceStartMs = sourceStartMs;
+        }
+    }
+
+    /**
+     * Extract an analysis envelope for a clip from the waveform this view already caches.
+     *
+     * <p>Public so callers do not have to reach into the private cache by reflection — which the
+     * first D7 door did, losing compile-time checking and inviting an R8 release-only failure.
+     * It is also the ONE place amplitudes get normalised, so a second caller cannot normalise
+     * differently and quietly get different numbers.</p>
+     *
+     * @return null when the cache has not fetched this clip yet. That is not an error: the cache
+     *         is asynchronous and invalidates the view when it lands, so callers retry.
+     */
+    @Nullable
+    public AnalysisEnvelope analysisEnvelopeFor(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
+        if (timelineWaveformCache == null) return null;
+        com.fadcam.ui.faditor.model.WaveformData wd =
+                timelineWaveformCache.get(ac, Math.max(1f, dpPerSecondPx));
+        if (wd == null || wd.amplitudes.length < 8 || wd.bucketMs <= 0) return null;
+        float max = 0f;
+        for (float a : wd.amplitudes) if (a > max) max = a;
+        if (max <= 0f) return null;
+        int[] env = new int[wd.amplitudes.length];
+        for (int i = 0; i < env.length; i++) env[i] = Math.round(wd.amplitudes[i] / max * 1000f);
+        return new AnalysisEnvelope(env, 1000.0 / wd.bucketMs, wd.startOffsetMs);
+    }
+
     public boolean detectBeatsForAudioClip(
             @NonNull com.fadcam.ui.faditor.model.AudioClip ac, float sensitivity) {
         if (timelineWaveformCache == null) return false;

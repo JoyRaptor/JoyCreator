@@ -2726,6 +2726,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_filter).setOnClickListener(v -> openFilterSheet());
         findViewById(R.id.tool_sticker).setOnClickListener(v -> pickImageOverlay());
         findViewById(R.id.tool_silence).setOnClickListener(v -> toggleSilenceDetect());
+        android.view.View fixBtn = findViewById(R.id.tool_fix_audio);
+        if (fixBtn != null) fixBtn.setOnClickListener(v -> fixSelectedAudio());
         findViewById(R.id.tool_settings).setOnClickListener(v -> {
             com.fadcam.ui.faditor.FaditorSettingsBottomSheet sheet =
                     com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance();
@@ -30733,6 +30735,97 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         runSilenceDetect(seek.getProgress() / 100f))
                 .show();
         previewSilenceCandidates(0.5f, preview);
+    }
+
+    // ── C3: Fix audio — one-tap baked chain (highpass → afftdn → acompressor → loudnorm) ──
+    private void fixSelectedAudio() {
+        if (project == null) {
+            Toast.makeText(this, "No project", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Resolve selected audio: prefer the audio-band selection, else the master clip's audio
+        AudioClip clip = null;
+        int selIdx = -1;
+        if (editorTimeline != null) {
+            try { selIdx = editorTimeline.getSelectedAudioIndex(); } catch (Exception ignored) {}
+        }
+        if (selIdx >= 0 && selIdx < project.getTimeline().getAudioClips().size()) {
+            clip = project.getTimeline().getAudioClips().get(selIdx);
+        }
+        if (clip == null) {
+            // Fallback: audio at playhead
+            clip = findAudioClipAtTimelineMs(lastPlayheadAbsoluteMs);
+        }
+        if (clip == null) {
+            Toast.makeText(this, "Select an audio clip first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final AudioClip target = clip;
+        long startMs = target.getInPointMs();
+        long endMs = target.getOutPointMs();
+        if (endMs <= startMs) endMs = target.getSourceDurationMs();
+        if (endMs <= startMs) {
+            Toast.makeText(this, "Audio has no duration", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // If already baked, the Clean tab's revert is the honest path — but Fix should still
+        // be reachable via undo, not by stacking bakes. For now, allow re-bake and let the
+        // BakedAudioCache's cache-hit handle it (it will be a no-op if already baked).
+        java.io.File projectDir = projectStorage.projectDir(project.getId());
+        com.fadcam.ui.faditor.audio.BakedAudioCache cache = new com.fadcam.ui.faditor.audio.BakedAudioCache(this);
+        // Progress dialog (honest, not instant — §6.2 baked)
+        android.app.ProgressDialog pd = new android.app.ProgressDialog(this);
+        pd.setTitle("Fixing audio");
+        pd.setMessage("Running Fix audio chain…");
+        pd.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+        pd.setMax(100);
+        pd.setCancelable(false);
+        pd.show();
+        com.fadcam.ui.faditor.audio.BakedAudioCache.Request req =
+                new com.fadcam.ui.faditor.audio.BakedAudioCache.Request(target.getSourceUri(), startMs, endMs, com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_FIX);
+        cache.bakeAsync(projectDir, req, fraction -> runOnUiThread(() -> {
+            if (fraction >= 0) pd.setProgress((int) (fraction * 100));
+            else pd.setIndeterminate(true);
+        }), (result, error) -> runOnUiThread(() -> {
+            pd.dismiss();
+            if (result == null) {
+                Toast.makeText(this, "Fix failed: " + (error != null ? error : "unknown"), Toast.LENGTH_LONG).show();
+                return;
+            }
+            // Swap clip to baked file — one undo step (like Clean tab)
+            String originalUri = target.getSourceUri().toString();
+            String bakedPath = result.bakedFile.getAbsolutePath();
+            String beforeUri = target.getSourceUri().toString();
+            String beforeBakedUri = target.getBakedFromUri();
+            String beforeBakedFile = target.getBakedFromFile();
+            android.net.Uri bakedUri = android.net.Uri.fromFile(result.bakedFile);
+            target.setSourceUri(bakedUri);
+            target.setBakedFrom(originalUri, bakedPath);
+            // Invalidate waveform (stale until re-extract) — keep old for now
+            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                    "Fix audio",
+                    () -> {
+                        target.setSourceUri(bakedUri);
+                        target.setBakedFrom(originalUri, bakedPath);
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                        prepareAudioPlayer();
+                        scheduleAutoSave();
+                    },
+                    () -> {
+                        target.setSourceUri(android.net.Uri.parse(beforeUri));
+                        target.setBakedFrom(beforeBakedUri, beforeBakedFile);
+                        syncTimelineOverlays();
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                        prepareAudioPlayer();
+                        scheduleAutoSave();
+                    }));
+            syncTimelineOverlays();
+            if (editorTimeline != null) editorTimeline.invalidate();
+            prepareAudioPlayer();
+            scheduleAutoSave();
+            Toast.makeText(this, "Audio fixed — Revert in Clean tab", Toast.LENGTH_SHORT).show();
+        }));
     }
 
     // ── Gap-detection live preview (JoyRaptor 2026-07-16: settings feel untrustworthy

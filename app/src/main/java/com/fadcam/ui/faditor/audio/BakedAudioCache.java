@@ -81,6 +81,9 @@ public class BakedAudioCache {
     /** Two-pass loudnorm (measure, then apply). */
     public static final String CHAIN_LOUDNORM = "loudnorm2";
 
+    /** C3 — one-tap "Fix audio" chain: highpass → afftdn → acompressor → loudnorm (baked, §6.2). */
+    public static final String CHAIN_FIX = "fix";
+
     /** loudnorm targets: §3.3's podcast destination. */
     private static final double TARGET_I = -16.0;
     private static final double TARGET_TP = -1.5;
@@ -126,7 +129,7 @@ public class BakedAudioCache {
             if (endMs <= startMs) {
                 throw new IllegalArgumentException("empty range: " + startMs + ".." + endMs);
             }
-            if (!CHAIN_DENOISE.equals(chain) && !CHAIN_LOUDNORM.equals(chain)) {
+            if (!CHAIN_DENOISE.equals(chain) && !CHAIN_LOUDNORM.equals(chain) && !CHAIN_FIX.equals(chain)) {
                 throw new IllegalArgumentException("unknown chain: " + chain);
             }
         }
@@ -262,6 +265,11 @@ public class BakedAudioCache {
                 runPassAsync(request, out, tmp, applyCmd, callback, 0.5f, spanMs);
             }, log -> collect(logs, log.getMessage()),
                     stats -> report(progress, stats, 0f, 0.5f, spanMs));
+        } else if (CHAIN_FIX.equals(request.chain)) {
+            String cmd = extractionPrefix(input, request)
+                    + " -af \"highpass=f=80,afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + ",acompressor=threshold=-18dB:ratio=3:attack=20:release=250,loudnorm=I=-16:TP=-1.5:LRA=11\" "
+                    + encodeOutput(tmp.getAbsolutePath());
+            runPassAsync(request, out, tmp, cmd, callback, 0f, spanMs);
         } else {
             String cmd = extractionPrefix(input, request)
                     + " -af afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + " "
@@ -320,6 +328,11 @@ public class BakedAudioCache {
                     + encodeOutput(tmp.getAbsolutePath());
             FLog.d(TAG, "loudnorm pass2: ffmpeg " + applyCmd);
             session = FFmpegKit.execute(applyCmd);
+        } else if (CHAIN_FIX.equals(request.chain)) {
+            String cmd = extractionPrefix(input, request)
+                    + " -af \"highpass=f=80,afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + ",acompressor=threshold=-18dB:ratio=3:attack=20:release=250,loudnorm=I=-16:TP=-1.5:LRA=11\" "
+                    + encodeOutput(tmp.getAbsolutePath());
+            session = FFmpegKit.execute(cmd);
         } else {
             String cmd = extractionPrefix(input, request)
                     + " -af afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + " "

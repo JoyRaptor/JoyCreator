@@ -79,6 +79,9 @@
     <item name="tool_silence" type="id"/>
     <item name="tool_silence_icon" type="id"/>
     <item name="tool_silence_label" type="id"/>
+    <item name="tool_fix_audio" type="id"/>
+    <item name="tool_fix_audio_icon" type="id"/>
+    <item name="tool_fix_audio_label" type="id"/>
     <item name="tool_loop" type="id"/>
     <item name="tool_loop_icon" type="id"/>
     <item name="tool_loop_label" type="id"/>

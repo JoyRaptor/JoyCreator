@@ -101,6 +101,9 @@ public final class FaditorToolRegistry {
         add(t, "silence", R.id.tool_silence, R.id.tool_silence_icon, R.id.tool_silence_label,
                 ctx.getString(R.string.faditor_tool_silence), "auto_fix_high",
                 FaditorTool.BindMode.CLICK, false);
+        add(t, "fix_audio", R.id.tool_fix_audio, R.id.tool_fix_audio_icon, R.id.tool_fix_audio_label,
+                "Fix audio", "auto_fix_high",
+                FaditorTool.BindMode.CLICK, false);
         add(t, "loop", R.id.tool_loop, R.id.tool_loop_icon, R.id.tool_loop_label,
                 ctx.getString(R.string.faditor_tool_loop), "loop",
                 FaditorTool.BindMode.CLICK, false);

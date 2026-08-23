@@ -1551,6 +1551,14 @@ public class EditorTimelineView extends View {
         default void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {}
         /** B7: long-press the tape inside the clip-audio shelf → same audio drawer. */
         default void onClipAudioShelfLongPressed(int segmentIndex) {}
+
+        /** B2.U3 — cross-fade pill drag finished: record one undo step for whole gesture. */
+        default void onCrossfadeChanged(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade before,
+                                        @NonNull com.fadcam.ui.faditor.model.AudioCrossfade after) {}
+        /** B2.U3 — cross-fade pill created via fluent fade-drag: one undo step to remove it. */
+        default void onCrossfadeCreated(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade crossfade) {}
+        /** B2.U3 — cross-fade pill selected (tap) → show peek inspector. */
+        default void onCrossfadeSelected(@Nullable com.fadcam.ui.faditor.model.AudioCrossfade crossfade) {}
     }
 
     // ── Constructors ─────────────────────────────────────────────────
@@ -5395,6 +5403,58 @@ public class EditorTimelineView extends View {
     private boolean beatSnapEnabled = true;
     private final Paint beatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
+    /**
+     * Run beat detection over an audio clip and populate the grid, using the waveform this view
+     * already caches for drawing — no new extraction, no new I/O.
+     *
+     * @return false when the waveform is not cached yet (the cache fetches asynchronously and
+     *         will invalidate the view when it lands, so the caller may simply try again).
+     */
+    public boolean detectBeatsForAudioClip(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, float sensitivity) {
+        if (timelineWaveformCache == null) return false;
+        float pxPerSec = Math.max(1f, dpPerSecondPx);
+        com.fadcam.ui.faditor.model.WaveformData wd = timelineWaveformCache.get(ac, pxPerSec);
+        if (wd == null || wd.amplitudes.length < 8 || wd.bucketMs <= 0) return false;
+
+        // Normalise to a fixed integer range rather than assuming the float scale. The detector
+        // thresholds adaptively so absolute scale does not matter — but a straight cast of
+        // 0..1 floats would truncate the whole envelope to zeros, which is a silent no-result.
+        float max = 0f;
+        for (float a : wd.amplitudes) if (a > max) max = a;
+        if (max <= 0f) { setBeatMarkers(null); return true; }
+        int[] env = new int[wd.amplitudes.length];
+        for (int i = 0; i < env.length; i++) {
+            env[i] = Math.round(wd.amplitudes[i] / max * 1000f);
+        }
+
+        com.fadcam.ui.faditor.waveform.BeatDetector.Result r =
+                com.fadcam.ui.faditor.waveform.BeatDetector.detect(
+                        env, 1000.0 / wd.bucketMs, sensitivity);
+
+        // Detected times are relative to the ENVELOPE start; the envelope starts at
+        // startOffsetMs within the SOURCE; the clip shows source[inPoint..outPoint] at
+        // offsetMs on the timeline. Beats outside the trimmed window are dropped rather than
+        // clamped — a beat clamped to a clip edge is a beat in the wrong place.
+        long in = ac.getInPointMs();
+        long spanEnd = ac.getOffsetMs() + ac.getTrimmedDurationMs();
+        long[] tmp = new long[r.beatsMs.length];
+        int n = 0;
+        for (long b : r.beatsMs) {
+            long timelineMs = ac.getOffsetMs() + (wd.startOffsetMs + b - in);
+            if (timelineMs >= ac.getOffsetMs() && timelineMs <= spanEnd) tmp[n++] = timelineMs;
+        }
+        long[] out = new long[n];
+        System.arraycopy(tmp, 0, out, 0, n);
+        setBeatMarkers(out);
+        lastDetectedBpm = r.bpm;
+        return true;
+    }
+
+    /** Tempo from the last detection, or 0. Display only — it never moves a beat. */
+    public float getLastDetectedBpm() { return lastDetectedBpm; }
+    private float lastDetectedBpm = 0f;
+
     /** Replace the detected beat grid. Pass empty/null to clear it. */
     public void setBeatMarkers(@Nullable long[] beats) {
         beatsMs = (beats == null) ? new long[0] : beats.clone();
@@ -6687,6 +6747,17 @@ public class EditorTimelineView extends View {
             invalidate();
             return true;
         }
+        if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.ARMED_XFADE) {
+            m7ItemGestureActive = true;
+            // Pill selected — notify host for peek inspector
+            if (listener != null) {
+                com.fadcam.ui.faditor.model.AudioCrossfade sel = layerGestureController.getActiveCrossfade();
+                listener.onCrossfadeSelected(sel);
+            }
+            getParent().requestDisallowInterceptTouchEvent(true);
+            invalidate();
+            return true;
+        }
         if (down == com.fadcam.ui.faditor.layers.LayerGestureController.DownResult.PENDING) {
             m7ItemPendingDown = true;
             m7PendingDownX = scrolledX;
@@ -7745,6 +7816,10 @@ public class EditorTimelineView extends View {
                 if (req != null) {
                     liveTimeline.addAudioCrossfade(req);
                     layerRowRenderer.setSelectedCrossfadeId(req.getId());
+                    if (listener != null) {
+                        listener.onCrossfadeCreated(req);
+                        listener.onCrossfadeSelected(req);
+                    }
                     invalidate();
                 }
             }
@@ -7753,6 +7828,22 @@ public class EditorTimelineView extends View {
             return true;
         }
         if (m7ItemGestureActive) {
+            // B2.U3 — cross-fade pill drag finished: one undo step for whole gesture
+            if (layerGestureController.isCrossfadeDragActive()) {
+                m7ItemGestureActive = false;
+                stopEdgeScroll();
+                com.fadcam.ui.faditor.model.AudioCrossfade before = layerGestureController.finishCrossfadeDrag();
+                if (before != null && listener != null && liveTimeline != null) {
+                    com.fadcam.ui.faditor.model.AudioCrossfade after = liveTimeline.findAudioCrossfade(before.getId());
+                    if (after != null) {
+                        com.fadcam.ui.faditor.model.AudioCrossfade afterCopy = new com.fadcam.ui.faditor.model.AudioCrossfade(after);
+                        listener.onCrossfadeChanged(before, afterCopy);
+                    }
+                }
+                invalidate();
+                getParent().requestDisallowInterceptTouchEvent(false);
+                return true;
+            }
             m7ItemGestureActive = false;
             stopEdgeScroll(); // A1: the held-item edge pan ends with the finger
             if (itemDragMinimapNav) {
@@ -7779,6 +7870,10 @@ public class EditorTimelineView extends View {
                 if (req != null) {
                     liveTimeline.addAudioCrossfade(req);
                     layerRowRenderer.setSelectedCrossfadeId(req.getId());
+                    if (listener != null) {
+                        listener.onCrossfadeCreated(req);
+                        listener.onCrossfadeSelected(req);
+                    }
                     invalidate();
                 }
             }

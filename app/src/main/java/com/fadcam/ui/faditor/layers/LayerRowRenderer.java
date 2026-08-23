@@ -168,6 +168,29 @@ public final class LayerRowRenderer {
     /** Rows laid out on the last {@link #layout} call, top-to-bottom, for draw/hit-test. */
     private final List<RowLayout> rows = new ArrayList<>();
 
+    // ── B2: JoyRaptor's cross-fade pill (SPEC_AUDIO_UX_V1 §5) ──────────────────────────────
+    /** DRAWN height. The hit box is inflated separately — see §5.2 and hitTestCrossfade. */
+    private static final float XFADE_PILL_H_DP = 14f;
+    /** How far the shading reaches into a lane's tape on each side of the seam. */
+    private static final float XFADE_SHADE_ALPHA = 0.55f;
+    private final List<com.fadcam.ui.faditor.model.AudioCrossfade> audioCrossfades =
+            new ArrayList<>();
+    @Nullable private String selectedCrossfadeId;
+    private final Paint xfadePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint xfadeShadePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path xfadeArrowPath = new Path();
+
+    /** Replace the cross-fades this renderer draws. The list is copied, not aliased. */
+    public void setAudioCrossfades(
+            @Nullable List<com.fadcam.ui.faditor.model.AudioCrossfade> xs) {
+        audioCrossfades.clear();
+        if (xs != null) audioCrossfades.addAll(xs);
+    }
+
+    public void setSelectedCrossfadeId(@Nullable String id) { this.selectedCrossfadeId = id; }
+    @Nullable public String getSelectedCrossfadeId() { return selectedCrossfadeId; }
+
+
     /** Vertical scroll offset (px) within the capped-height row region. */
     private float scrollOffsetPx = 0f;
     private float contentHeightPx = 0f;
@@ -607,6 +630,7 @@ public final class LayerRowRenderer {
             if (dragActive && timeLockGuidesArmed && rows.size() > floatingRowCount) {
                 drawTimeLockGuides(canvas, timeToX, floatingRowCount, rows.size());
             }
+            drawAudioCrossfades(canvas, floatingRowCount, timeToX);
             canvas.restore();
         }
     }
@@ -2421,6 +2445,85 @@ public final class LayerRowRenderer {
         p.setStyle(prevStyle);
         p.setStrokeWidth(prevW);
         p.setPathEffect(prevEffect);
+    }
+
+    /**
+     * JoyRaptor's cross-fade pill (§5) — drawn at the SEAM between two adjacent audio lanes.
+     *
+     * <p><b>The shading tells the truth about what you will hear (§5.1).</b> His original
+     * sketch darkened "everything on the preview tape after it". That would be false on the
+     * winning lane, which is at full AFTER the crossover. So the LOSER darkens after the fade
+     * and the WINNER darkens before it: at a glance the bright tape is the audible tape, with
+     * no legend to read.</p>
+     *
+     * <p><b>Drawn at 14dp, hit at 24dp.</b> {@code AUDIO_LANE_GAP_DP} is 3dp — far too thin to
+     * hold a finger — so the pill overhangs into both lanes visually and its touch box is
+     * inflated further still. Precedence is settled in §5.2: the pill beats an item BODY (it is
+     * smaller, on top and more specific) and loses to trim and fade handles.</p>
+     */
+    private void drawAudioCrossfades(@NonNull Canvas canvas, int floatingRowCount,
+                                     @NonNull TimeToX timeToX) {
+        if (audioCrossfades.isEmpty()) return;
+        float halfH = XFADE_PILL_H_DP * density / 2f;
+        for (com.fadcam.ui.faditor.model.AudioCrossfade x : audioCrossfades) {
+            int idx = -1;
+            for (int i = floatingRowCount; i < rows.size(); i++) {
+                if (rows.get(i).track.getId().equals(x.getLowerLaneId())) { idx = i; break; }
+            }
+            // A pill needs a lane on BOTH sides. The topmost audio lane has nothing above it,
+            // so a fade naming it is stale data (its upper lane was deleted) — skip rather
+            // than draw a bridge to nowhere.
+            if (idx <= floatingRowCount) continue;
+            RowLayout lower = rows.get(idx);
+            RowLayout upper = rows.get(idx - 1);
+            float seamY = (upper.bodyRect.bottom + lower.bodyRect.top) / 2f;
+            float x0 = timeToX.map(x.getStartMs());
+            float x1 = timeToX.map(x.getEndMs());
+            if (x1 < lower.bodyRect.left - 40 || x0 > lower.bodyRect.right + 40) continue;
+
+            int rgb = x.getColorRgb();
+            boolean up = x.isToLaneAbove();
+            RowLayout winner = up ? upper : lower;
+            RowLayout loser  = up ? lower : upper;
+
+            // Winner is dim BEFORE the crossover; loser is dim AFTER it.
+            xfadeShadePaint.setStyle(Paint.Style.FILL);
+            xfadeShadePaint.setColor(0x00000000 | (Math.round(XFADE_SHADE_ALPHA * 255f) << 24));
+            canvas.drawRect(winner.bodyRect.left, winner.bodyRect.top,
+                    Math.max(winner.bodyRect.left, x0), winner.itemsBottom(), xfadeShadePaint);
+            canvas.drawRect(Math.min(loser.bodyRect.right, x1), loser.bodyRect.top,
+                    loser.bodyRect.right, loser.itemsBottom(), xfadeShadePaint);
+
+            // The pill.
+            boolean sel = x.getId().equals(selectedCrossfadeId);
+            xfadePaint.setStyle(Paint.Style.FILL);
+            xfadePaint.setColor(0xFF000000 | rgb);
+            xfadePaint.setAlpha(sel ? 255 : 220);
+            float r = halfH;
+            canvas.drawRoundRect(x0, seamY - halfH, x1, seamY + halfH, r, r, xfadePaint);
+            if (sel) {
+                xfadePaint.setStyle(Paint.Style.STROKE);
+                xfadePaint.setStrokeWidth(1.5f * density);
+                xfadePaint.setColor(0xFFFFFFFF);
+                canvas.drawRoundRect(x0, seamY - halfH, x1, seamY + halfH, r, r, xfadePaint);
+            }
+
+            // Diagonal arrows: which way the sound is travelling. No text — §5 asks for a
+            // visible DIRECTION, and a letter pair would need explaining.
+            xfadePaint.setStyle(Paint.Style.STROKE);
+            xfadePaint.setStrokeWidth(1.6f * density);
+            xfadePaint.setColor(0xFF101010);
+            float step = 18f * density;
+            float a = 4f * density;
+            for (float cx = x0 + step * 0.5f; cx < x1 - a; cx += step) {
+                float dy = up ? -a : a;
+                xfadeArrowPath.reset();
+                xfadeArrowPath.moveTo(cx - a, seamY - dy);
+                xfadeArrowPath.lineTo(cx, seamY + dy);
+                xfadeArrowPath.lineTo(cx + a, seamY - dy);
+                canvas.drawPath(xfadeArrowPath, xfadePaint);
+            }
+        }
     }
 
     /** SPEC_AUDIO_UX_V1 D10: struck-word spans as darkened tape — same mechanism as Clip, routed for AudioClip. */

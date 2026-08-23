@@ -1830,7 +1830,16 @@ public class EditorTimelineView extends View {
         this.listener = l;
     }
 
+    /**
+     * B2: the live Timeline, kept so the cross-fade pills can be read at DRAW time.
+     * Reading them per-frame rather than caching a copy means a fade created, moved or
+     * deleted shows up without a second "now tell the view about it" call that somebody
+     * eventually forgets to make — the bug pattern this file has paid for repeatedly.
+     */
+    @Nullable private Timeline liveTimeline;
+
     public void setTimeline(@NonNull Timeline timeline, int selected) {
+        this.liveTimeline = timeline;
         segments.clear();
         totalEffectiveMs = 0;
         Set<String> activeKeys = new HashSet<>();
@@ -2658,6 +2667,8 @@ public class EditorTimelineView extends View {
         // Stage 2 (PLAN §6): pass the gesture controller's selectedItemId through so
         // layout() can draw the selection stroke on the tapped/dragged item's body.
         tickLaneOpen();
+        layerRowRenderer.setAudioCrossfades(
+                liveTimeline != null ? liveTimeline.getAudioCrossfades() : null);
         layerRowRenderer.layout(canvas, layerTracks, audioLayerTracks, getM6RowsTopPx(),
                 audioBandTopPx(), w,
                 scrollOffsetPx, totalEffectiveMs, this::timeToX,

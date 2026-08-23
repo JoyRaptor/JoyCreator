@@ -2728,6 +2728,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_silence).setOnClickListener(v -> toggleSilenceDetect());
         android.view.View fixBtn = findViewById(R.id.tool_fix_audio);
         if (fixBtn != null) fixBtn.setOnClickListener(v -> fixSelectedAudio());
+        android.view.View beatsBtn = findViewById(R.id.tool_beats);
+        if (beatsBtn != null) beatsBtn.setOnClickListener(v -> showBeatDetectionSheet());
         findViewById(R.id.tool_settings).setOnClickListener(v -> {
             com.fadcam.ui.faditor.FaditorSettingsBottomSheet sheet =
                     com.fadcam.ui.faditor.FaditorSettingsBottomSheet.newInstance();
@@ -30817,6 +30819,94 @@ public class FaditorEditorActivity extends AppCompatActivity {
             scheduleAutoSave();
             Toast.makeText(this, "Audio fixed — Revert in Clean tab", Toast.LENGTH_SHORT).show();
         }));
+    }
+
+    // ── D6: Beat detection door ──
+    private void showBeatDetectionSheet() {
+        if (project == null || editorTimeline == null) {
+            android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        com.fadcam.ui.faditor.model.AudioClip ac = null;
+        int idx = -1;
+        try { idx = editorTimeline.getSelectedAudioIndex(); } catch (Exception ignored) {}
+        if (idx >= 0 && idx < project.getTimeline().getAudioClips().size()) {
+            ac = project.getTimeline().getAudioClips().get(idx);
+        }
+        if (ac == null) {
+            ac = findAudioClipAtTimelineMs(lastPlayheadAbsoluteMs);
+        }
+        if (ac == null) {
+            android.widget.Toast.makeText(this, "Select an audio clip first", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final com.fadcam.ui.faditor.model.AudioClip clip = ac;
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(pad, pad, pad, pad);
+        android.widget.TextView bpmLabel = new android.widget.TextView(this);
+        bpmLabel.setTextColor(0xFFCCCCCC);
+        bpmLabel.setTextSize(14);
+        float bpm = editorTimeline.getLastDetectedBpm();
+        long[] beats = editorTimeline.getBeatMarkers();
+        bpmLabel.setText(beats.length > 0 && bpm > 0 ? String.format(java.util.Locale.US, "BPM: %.1f (%d beats)", bpm, beats.length) : "No beats detected yet");
+        root.addView(bpmLabel);
+        android.widget.TextView sensLabel = new android.widget.TextView(this);
+        sensLabel.setText("Sensitivity");
+        sensLabel.setTextColor(0xFFCCCCCC);
+        sensLabel.setPadding(0, pad/2, 0, 0);
+        root.addView(sensLabel);
+        com.google.android.material.slider.Slider sensSlider = new com.google.android.material.slider.Slider(new android.view.ContextThemeWrapper(this, R.style.Widget_FadCam_BottomSheetSlider));
+        sensSlider.setValueFrom(0f);
+        sensSlider.setValueTo(1f);
+        sensSlider.setStepSize(0.05f);
+        sensSlider.setValue(0.5f);
+        root.addView(sensSlider);
+        android.widget.LinearLayout snapRow = new android.widget.LinearLayout(this);
+        snapRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        snapRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        snapRow.setPadding(0, pad/2, 0, 0);
+        root.addView(snapRow);
+        android.widget.TextView snapLabel = new android.widget.TextView(this);
+        snapLabel.setText("Snap to beats");
+        snapLabel.setTextColor(0xFFCCCCCC);
+        snapLabel.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        snapRow.addView(snapLabel);
+        androidx.appcompat.widget.SwitchCompat snapSwitch = new androidx.appcompat.widget.SwitchCompat(this);
+        snapSwitch.setChecked(editorTimeline.isBeatSnapEnabled());
+        snapRow.addView(snapSwitch);
+        snapSwitch.setOnCheckedChangeListener((btn, on) -> {
+            editorTimeline.setBeatSnapEnabled(on);
+            android.widget.Toast.makeText(this, on ? "Beat snap on" : "Beat snap off", android.widget.Toast.LENGTH_SHORT).show();
+        });
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Beats — " + (clip.getLabel() != null ? clip.getLabel() : "Audio"))
+                .setView(root)
+                .setPositiveButton("Find beats", (d,w) -> {
+                    float sens = sensSlider.getValue();
+                    boolean ok = editorTimeline.detectBeatsForAudioClip(clip, sens);
+                    if (!ok) {
+                        android.widget.Toast.makeText(this, "Waveform not ready — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    long[] newBeats = editorTimeline.getBeatMarkers();
+                    float newBpm = editorTimeline.getLastDetectedBpm();
+                    if (newBeats.length == 0) {
+                        android.widget.Toast.makeText(this, "No beats found (try different sensitivity)", android.widget.Toast.LENGTH_SHORT).show();
+                    } else {
+                        bpmLabel.setText(String.format(java.util.Locale.US, "BPM: %.1f (%d beats)", newBpm, newBeats.length));
+                        android.widget.Toast.makeText(this, String.format(java.util.Locale.US, "Found %d beats at %.1f BPM", newBeats.length, newBpm), android.widget.Toast.LENGTH_SHORT).show();
+                    }
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                })
+                .setNegativeButton("Clear beats", (d,w) -> {
+                    editorTimeline.setBeatMarkers(null);
+                    android.widget.Toast.makeText(this, "Beats cleared", android.widget.Toast.LENGTH_SHORT).show();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                })
+                .setNeutralButton("Close", null)
+                .show();
     }
 
     // ── Gap-detection live preview (JoyRaptor 2026-07-16: settings feel untrustworthy

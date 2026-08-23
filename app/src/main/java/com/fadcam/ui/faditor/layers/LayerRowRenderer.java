@@ -2383,7 +2383,11 @@ public final class LayerRowRenderer {
         float fadeW = FADE_W_DP * density;
         float fadeH = FADE_H_DP * density;
         if (x1 - x0 < trimW * 2 + fadeW * 2 + 8 * density) return;
-        float radiusPx = 2f * density;
+        // 2dp -> 4dp (JoyRaptor, device, 2026-08-23: "I actually can't tell even that they're
+        // rounded"). On a 12dp-tall wedge, 2dp softened about a sixth of the height, which is
+        // below the threshold of noticing; 4dp is a third and reads as deliberate. The shape
+        // itself is still the open question — see row B1.V.
+        float radiusPx = 4f * density;
         if (fadeHandleCornerEffect == null || fadeHandleCornerRadiusPx != radiusPx) {
             fadeHandleCornerEffect = new android.graphics.CornerPathEffect(radiusPx);
             fadeHandleCornerRadiusPx = radiusPx;

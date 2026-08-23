@@ -115,7 +115,7 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: ACTIVE (2026-08-23 — C5.X residue sweep: the duckAmount UI plumbing LANE A left behind)
+status: IDLE (2026-08-23 — C5.X residue swept, zero duckAmount refs remain; files released)
 files: (none — released)
 since: 2026-08-23 14:00
 

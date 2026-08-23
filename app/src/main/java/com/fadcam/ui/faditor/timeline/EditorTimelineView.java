@@ -5385,6 +5385,59 @@ public class EditorTimelineView extends View {
     public void setBookmarkListener(@Nullable BookmarkListener l) { this.bookmarkListener = l; }
 
     /** Replace the view's bookmark set (copied + sorted). */
+    // ── D6: beat markers ──────────────────────────────────────────────────────────────
+    /**
+     * Detected beats, ascending, in timeline ms. Deliberately a SEPARATE list from bookmarks:
+     * a bookmark is something you placed and a beat is something the machine guessed, and
+     * mixing them would make "clear the beats" also throw away the user's own marks.
+     */
+    @NonNull private long[] beatsMs = new long[0];
+    private boolean beatSnapEnabled = true;
+    private final Paint beatPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /** Replace the detected beat grid. Pass empty/null to clear it. */
+    public void setBeatMarkers(@Nullable long[] beats) {
+        beatsMs = (beats == null) ? new long[0] : beats.clone();
+        java.util.Arrays.sort(beatsMs);
+        invalidate();
+    }
+
+    @NonNull public long[] getBeatMarkers() { return beatsMs; }
+
+    public void setBeatSnapEnabled(boolean on) { beatSnapEnabled = on; }
+    public boolean isBeatSnapEnabled() { return beatSnapEnabled; }
+
+    /**
+     * Snap a timeline position to the nearest beat, if snapping is on and one is close enough.
+     * Tolerance is in PIXELS converted to ms, so it stays a constant thumb-distance at every
+     * zoom rather than becoming unusable when you zoom in to place something precisely.
+     */
+    public long snapToBeat(long timeMs) {
+        if (!beatSnapEnabled || beatsMs.length == 0) return timeMs;
+        // dpPerSecondPx already folds in zoom AND density (see its assignment at setTimeline).
+        float pxPerMs = dpPerSecondPx / 1000f;
+        long tolMs = Math.max(1, (long) (10f * density / Math.max(1e-6f, pxPerMs)));
+        return com.fadcam.ui.faditor.waveform.BeatDetector.snap(beatsMs, timeMs, tolMs);
+    }
+
+    /**
+     * Beat ticks on the ruler — thin vertical lines, NOT the bookmark diamond. The two must
+     * not look alike: one is yours and one is a guess, and telling them apart at a glance is
+     * the whole reason this grid is editable rather than authoritative.
+     */
+    private void drawBeatMarkers(@NonNull Canvas canvas, long visStartMs, long visEndMs) {
+        if (beatsMs.length == 0) return;
+        beatPaint.setColor(0x99FFC107);
+        beatPaint.setStrokeWidth(Math.max(1f, 1.2f * density));
+        float top = minimapHeightPx;
+        float bottom = top + bookmarkSizePx * 1.6f;
+        for (long b : beatsMs) {
+            if (b < visStartMs || b > visEndMs) continue;
+            float x = timeToX(b);
+            canvas.drawLine(x, top, x, bottom, beatPaint);
+        }
+    }
+
     public void setBookmarks(@Nullable List<Long> marks) {
         bookmarksMs.clear();
         if (marks != null) bookmarksMs.addAll(marks);
@@ -5440,6 +5493,8 @@ public class EditorTimelineView extends View {
      * cost stays viewport-bounded like the ruler ticks.
      */
     private void drawBookmarkGlyphs(@NonNull Canvas canvas, long visStartMs, long visEndMs) {
+        // Beats first, so a user's own bookmark always paints OVER the machine's guess.
+        drawBeatMarkers(canvas, visStartMs, visEndMs);
         if (bookmarksMs.isEmpty()) return;
         long tol = bookmarkTolMs();
         float half = bookmarkSizePx;

@@ -115,7 +115,7 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: ACTIVE (2026-08-23 — public analysis-envelope API on EditorTimelineView, so the D7 door stops reaching in by reflection and stops assuming both clips share a frame rate)
+status: IDLE (2026-08-23 — analysisEnvelopeFor() API landed; the D7 door still needs swapping onto it, see the D7 row)
 files: (none — released)
 since: 2026-08-23 14:00
 

@@ -300,9 +300,12 @@ public class BakedAudioCache {
                     + " -af loudnorm=" + loudnormTargets() + ":print_format=json "
                     + NULL_OUTPUT;
             FLog.d(TAG, "loudnorm pass1: ffmpeg " + measureCmd);
-            session = FFmpegKit.execute(measureCmd,
-                    log -> collect(logs, log.getMessage()),
-                    stats -> report(progress, stats, 0f, 0.5f, spanMs));
+            // FIX 2026-08-23 (review): FFmpegKit has no execute(cmd, logCb, statsCb)
+            // overload — the working call in TranscriptionEngine:517 is the 1-arg
+            // synchronous form. Logs are read off the finished session instead. This
+            // path is bakeSync (blocking), so per-frame progress had no UI to drive.
+            session = FFmpegKit.execute(measureCmd);
+            collect(logs, session.getAllLogsAsString());
             if (!ReturnCode.isSuccess(session.getReturnCode())) {
                 tmp.delete();
                 return failSync(error, "loudnorm measure pass failed rc="
@@ -316,16 +319,12 @@ public class BakedAudioCache {
                     + " -af loudnorm=" + m.asApplyParams() + " "
                     + encodeOutput(tmp.getAbsolutePath());
             FLog.d(TAG, "loudnorm pass2: ffmpeg " + applyCmd);
-            session = FFmpegKit.execute(applyCmd,
-                    log -> { },
-                    stats -> report(progress, stats, 0.5f, 0.5f, spanMs));
+            session = FFmpegKit.execute(applyCmd);
         } else {
             String cmd = extractionPrefix(input, request)
                     + " -af afftdn=nf=" + fmt(DENOISE_FLOOR_DB) + " "
                     + encodeOutput(tmp.getAbsolutePath());
-            session = FFmpegKit.execute(cmd,
-                    log -> { },
-                    stats -> report(progress, stats, 0f, 1f, spanMs));
+            session = FFmpegKit.execute(cmd);
         }
         boolean ok = ReturnCode.isSuccess(session.getReturnCode())
                 && tmp.exists() && tmp.length() >= MIN_VALID_BAKE_BYTES
@@ -361,7 +360,7 @@ public class BakedAudioCache {
     }
 
     @NonNull
-    private static String result(@NonNull Request request, @NonNull File out) {
+    private static Result result(@NonNull Request request, @NonNull File out) {
         return new Result(request.sourceUri, out,
                 keyFor(request.sourceUri, request.startMs, request.endMs, request.chain),
                 request.chain);

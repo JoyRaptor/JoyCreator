@@ -115,7 +115,7 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: IDLE (2026-08-23 14:00 — B2.U3 picked up by LANE A (host undo + inspector) per row queue; files released)
+status: ACTIVE (2026-08-23 — C5.X residue sweep: the duckAmount UI plumbing LANE A left behind)
 files: (none — released)
 since: 2026-08-23 14:00
 
@@ -421,6 +421,6 @@ files: export/ExportManager.java (JoyRaptor-instructed exception to standing loc
 since: 2026-08-23
 
 ## LANE A — dynamic lane (B2.U3 → D9, 4 rows in order)
-status: ACTIVE (2026-08-23 14:00 — ROW 1 B2.U3 in progress (host undo + inspector))
-files: FaditorEditorActivity.java, ObjectMenuSheet.java, timeline/EditorTimelineView.java, layers/LayerGestureController.java, layers/LayerRowRenderer.java, model/AudioCrossfade.java
-since: 2026-08-23 14:00
+status: IDLE (2026-08-23 14:40 — all 4 rows BUILT: B2.U3 781fef19 undo+inspector, C3 9c125087 Fix audio, C5.X ea0df995 delete duckAmount, D9 92b70bc3 AI verbs. TYPECHECK OK — 639 sources, 1783 classes final; BUILD SUCCESSFUL (install fails DeviceException — no device, per new STATUS))
+files: (none — released)
+since: 2026-08-23 14:40

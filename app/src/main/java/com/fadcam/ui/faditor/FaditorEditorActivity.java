@@ -16905,7 +16905,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
-        root.setBackgroundColor(0xFF1A1A1A);
+        root.setBackgroundColor(0x66000000);
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.addView(root);
@@ -16938,6 +16938,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView sizeVal = new TextView(this);
         sizeVal.setTextSize(12);
         sizeVal.setTextColor(0xFF4CAF50);
+        sizeVal.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         sizeVal.setPadding((int)(6*d), 0, 0, 0);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
         topRow.addView(sizeVal);
@@ -16970,6 +16971,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fontLabel.setText("Font"); // TODO(strings)
         fontLabel.setTextColor(0xFFAAAAAA);
         fontLabel.setTextSize(12);
+        fontLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         fontRow.addView(fontLabel);
 
         TextView fontChip = new TextView(this);
@@ -17021,6 +17023,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         animLabel.setText("Highlight");
         animLabel.setTextColor(0xFFAAAAAA);
         animLabel.setTextSize(12);
+        animLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         animRow.addView(animLabel);
         com.fadcam.ui.faditor.transcript.CaptionStyle.Anim[] anims =
                 com.fadcam.ui.faditor.transcript.CaptionStyle.Anim.values();
@@ -17056,6 +17059,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             motionLabel.setText("Motion"); // TODO(strings)
             motionLabel.setTextColor(0xFFAAAAAA);
             motionLabel.setTextSize(12);
+            motionLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
             motionRow.addView(motionLabel);
 
             final TextView motionChip = new TextView(this);
@@ -17145,6 +17149,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void styleDrawerChip(@NonNull TextView chip, float d) {
         chip.setTextColor(0xFFEEEEEE);
         chip.setTextSize(13);
+        chip.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         int cp = (int)(10*d);
         chip.setPadding(cp, cp/2, cp, cp/2);
         chip.setBackgroundResource(R.drawable.floating_button_item_bg);
@@ -17500,6 +17505,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tl.setText(label);
         tl.setTextColor(0xFFAAAAAA);
         tl.setTextSize(12);
+        tl.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         tl.setPadding((int)(4*d), 0, 0, 0);
         row.addView(tl);
         View swatch = new View(this);

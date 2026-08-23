@@ -38,10 +38,10 @@ collide on it even when their SOURCE files are disjoint. Same rule as DEVICE, bu
 seconds not minutes: take it only to write your row, then release. Never hold it while you
 code. If it is taken, finish your code, wait, then update the row.
 
-SPEC: free
+SPEC: REVIEW (Claude) — E3/D6 rows
 
 ## DEVICE TOKEN
-DEVICE: free (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:
+DEVICE: LANE C (opencode agent, E4 export batch) (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:
   ✓ REPLAY-IK/bake replay: injected 2s yaw sweep drives the puppet in live playback —
     continuous motion + discrete cell swap (yellow→red at extreme) + pin-warp bend all
     caught on screenshots. control2 (cebc19e0) RESTORED byte-exact (md5 a522728a…),
@@ -99,17 +99,9 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: ACTIVE (2026-08-23 — row B2 the cross-fade pill. B2.E DONE (fb1e80b5: model + Timeline
-        + persistence). B2.U PART 1 DONE (d6228d4e: the pill draws, with §5.1 shading, arrows,
-        colour, selected state). PART 2 OUTSTANDING: hit-test at 24dp per §5.2, middle-drag
-        slide + edge-drag resize mirroring the shipped TRANSITION pattern, and §5.4's fluent
-        creation (drag a fade-in handle past the adjacent clip's end). Until part 2 lands a
-        pill can be persisted and drawn but NOT created or moved, so it is untestable by hand.
-        EXPORT still waits on LANE C's A8. If nobody picks this up within a session or two,
-        clear this claim — the files matter more than the reservation.)
-files: model/AudioCrossfade.java, model/Timeline.java, project/ProjectStorage.java,
-        layers/LayerRowRenderer.java, layers/LayerGestureController.java,
-        timeline/EditorTimelineView.java
+status: IDLE (2026-08-23 14:00 — B2.U3 picked up by LANE A (host undo + inspector) per row queue; files released)
+files: (none — released)
+since: 2026-08-23 14:00
 
 prior-status: ACTIVE (2026-07-14 — Opus-4.8 autonomous device-verify run, device SANDBOX_SERIAL REPLUGGED,
         holds DEVICE token. This session's PASSES (see DEVICE_VERIFY_QUEUE_20260712.md): A1 export
@@ -404,16 +396,15 @@ status: IDLE (2026-08-23 — D3/D2/A3 all BUILT, typecheck 635 green, lane relea
 files: (none)
 since: 2026-08-23
 
-## LANE C — dynamic lane (B1.Q + C2.E verify + C2.U)
-status: IDLE (2026-08-23 — B1.Q + C2.E + C2.U BUILT 372923f5 on joy-creator. Literal harness
-        tails in report: "TYPECHECK OK — 635 sources, 1776 classes" / envelope "ALL PASS"+"ALL GREEN"
-        / bakedparse "ALL PASS". ffmpeg behaviour EXECUTED on desktop ffmpeg 7.0.2; ffmpeg-kit build
-        inclusion still unproven (needs device). typecheck.sh grep --text hardening included.
-        KNOWN GAP: FEA peek-sheet :21632 writes final gain into multiplier store — locked, for LANE A)
-files: (none — released)
+## LANE C — dynamic lane (audio export: A8 → E4 → A5.E/U → A6 → C1.E)
+status: ACTIVE (2026-08-23 — 5-row autonomous run, in order, A8 gates the rest. Rule 9 ENFORCED:
+        literal harness tail in every row report. build.log timestamp checked against commit time.)
+files: export/ExportManager.java (JoyRaptor-instructed exception to standing lock),
+        export/VolumeAudioProcessor.java, tools/AudioDrawerTabs.java,
+        NEW audio/fx/*, tasks/export_audio_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
 since: 2026-08-23
 
-## LANE A — dynamic lane (F3 → D5, 5 rows in order)
-status: ACTIVE (2026-08-23 12:00 — ROW 1 F3 in progress)
-files: FaditorEditorActivity.java, transcript/*, AddAssetBottomSheet.java, res/layout/activity_faditor_editor.xml, app/src/main/java/com/fadcam/ui/faditor/audio/VoiceoverRecorder.java
-since: 2026-08-23 12:00
+## LANE A — dynamic lane (B2.U3 → D9, 4 rows in order)
+status: ACTIVE (2026-08-23 14:00 — ROW 1 B2.U3 in progress (host undo + inspector))
+files: FaditorEditorActivity.java, ObjectMenuSheet.java, timeline/EditorTimelineView.java, layers/LayerGestureController.java, layers/LayerRowRenderer.java, model/AudioCrossfade.java
+since: 2026-08-23 14:00

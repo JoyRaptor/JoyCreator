@@ -249,6 +249,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> videoPickerLauncher;
     private ActivityResultLauncher<Intent> overlayImagePickerLauncher;
     private ActivityResultLauncher<Intent> audioPickerLauncher;
+    private androidx.activity.result.ActivityResultLauncher<String> voiceoverPermissionLauncher;
     /** S7: inline sprite-SHEET relink picker (system file picker, no separate
      *  activity) — mirrors the clip relink pattern (relinkPendingIndex + a
      *  dedicated launcher), keyed by sheet id instead of timeline index. */
@@ -609,6 +610,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final List<MediaPlayer> audioPlayers = new ArrayList<>();
     /** Whether each audioPlayer is prepared and ready. */
     private final List<Boolean> audioPlayersReady = new ArrayList<>();
+
+    // ── Voiceover punch-in (B5) ───────────────────────────────────────
+    @Nullable private com.fadcam.ui.faditor.audio.VoiceoverRecorder voiceoverRecorder;
+    private long voiceoverStartMs = 0;
+    private boolean voiceoverKeepAudible = false;
 
     /**
      * When ON (armed), changing the volume of the selected audio clip writes a volume
@@ -1604,6 +1610,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Camera single-owner: a rolling performance take must not outlive the
         // visible editor (the studio's onPause stopTracking rule).
         stopPerformanceRecording();
+        if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) stopVoiceoverRecording();
         hideTransitionPreview();
         // M-COMP-2: park the overlay decoder while backgrounded.
         if (overlayVideoLayer != null) overlayVideoLayer.pausePlayback();
@@ -31178,6 +31185,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 });
 
+        voiceoverPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                granted -> {
+                    if (granted) startVoiceoverRecordingInternal();
+                    else android.widget.Toast.makeText(this, "Microphone permission needed for voiceover", android.widget.Toast.LENGTH_SHORT).show();
+                });
+
         spriteRelinkPickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.StartActivityForResult(),
                 result -> {
@@ -32146,8 +32160,129 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // here, the tool, a future shortcut — lands the user on the effects.
                 addAdjustmentLayer();
             }
+
+            @Override
+            public void onVoiceoverRecordSelected() {
+                startVoiceoverRecording();
+            }
         });
         sheet.show(getSupportFragmentManager(), "addAsset");
+    }
+
+    // ── Voiceover punch-in (B5) ───────────────────────────────────────
+
+    /** B5.U entry: check permission then delegate to the engine. */
+    private void startVoiceoverRecording() {
+        if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) {
+            stopVoiceoverRecording();
+            return;
+        }
+        if (project == null) {
+            android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (voiceoverPermissionLauncher != null) voiceoverPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO);
+            else androidx.core.app.ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.RECORD_AUDIO}, 4033);
+            return;
+        }
+        startVoiceoverRecordingInternal();
+    }
+
+    /** Punch-in: timeline plays, mic records, new AudioClip lands at the start playhead. */
+    private void startVoiceoverRecordingInternal() {
+        if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) return;
+        if (project == null || editorTimeline == null) return;
+        long playheadMs = editorTimeline.getPlayheadPositionMs();
+        voiceoverStartMs = playheadMs;
+        voiceoverKeepAudible = com.fadcam.ui.faditor.audio.VoiceoverRecorder.shouldKeepPlaybackAudible(this);
+        // Monitoring decision: mute output while armed unless headphones are connected.
+        // This prevents the speaker feedback loop where playback is re-recorded.
+        if (!voiceoverKeepAudible) {
+            // Mute live players
+            if (playerManager != null) playerManager.setVolume(0f);
+            for (int i = 0; i < audioPlayers.size() && i < audioPlayersReady.size(); i++) {
+                if (i < audioPlayers.size() && audioPlayersReady.get(i)) {
+                    try { audioPlayers.get(i).setVolume(0f, 0f); } catch (Exception ignored) {}
+                }
+            }
+            android.widget.Toast.makeText(this, "Playback muted to prevent feedback \u2014 use headphones to hear timeline while recording", android.widget.Toast.LENGTH_LONG).show();
+        } else {
+            android.widget.Toast.makeText(this, "Recording voiceover \u2014 timeline playing", android.widget.Toast.LENGTH_SHORT).show();
+        }
+        voiceoverRecorder = new com.fadcam.ui.faditor.audio.VoiceoverRecorder();
+        boolean started = voiceoverRecorder.start(this, playheadMs);
+        if (!started) {
+            voiceoverRecorder = null;
+            android.widget.Toast.makeText(this, "Could not start microphone", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Punch-in: start timeline playback if not already playing
+        if (playerManager != null && !playerManager.isPlaying() && !audioTailActive) {
+            // Reuse the existing play path: play() + audio sync
+            playerManager.play();
+            syncAndPlayAudioPlayer();
+            if (!voiceoverKeepAudible) {
+                // Re-mute after syncAndPlayAudioPlayer restores volumes
+                if (playerManager != null) playerManager.setVolume(0f);
+                for (int i = 0; i < audioPlayers.size() && i < audioPlayersReady.size(); i++) {
+                    if (i < audioPlayers.size() && audioPlayersReady.get(i)) {
+                        try { audioPlayers.get(i).setVolume(0f, 0f); } catch (Exception ignored) {}
+                    }
+                }
+            }
+        }
+        // Show a simple stop affordance: reuse the play/pause button text as "Stop"
+        if (btnPlayPause != null) btnPlayPause.setText("stop");
+    }
+
+    private void stopVoiceoverRecording() {
+        if (voiceoverRecorder == null) return;
+        java.io.File wavFile = voiceoverRecorder.stop();
+        long startMs = voiceoverStartMs;
+        voiceoverRecorder = null;
+        // Stop timeline playback that we started for punch-in
+        if (playerManager != null && playerManager.isPlaying()) {
+            playerManager.pause();
+            pauseAudioPlayer();
+            updatePlayPauseButton(false);
+        }
+        // Restore audible volumes (playback stopped, but prepare for next play)
+        if (!voiceoverKeepAudible) {
+            // Volumes will be restored on next play via syncAndPlayAudioPlayer; ensure UI reflects
+            if (playerManager != null) playerManager.setVolume(1f);
+            // audioPlayers volumes are per-clip gainAtPlayhead; no global restore needed
+        }
+        if (btnPlayPause != null) btnPlayPause.setText("play_arrow");
+        if (wavFile == null) {
+            android.widget.Toast.makeText(this, "Voiceover too short — discarded", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        // Create AudioClip at the punch-in point — one undo step (§0 rule 7)
+        long durationMs = 0;
+        try {
+            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+            r.setDataSource(this, android.net.Uri.fromFile(wavFile));
+            String d = r.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+            r.release();
+            if (d != null) durationMs = Long.parseLong(d);
+        } catch (Exception e) {
+            com.fadcam.FLog.w(TAG, "Voiceover duration probe failed", e);
+        }
+        if (durationMs <= 0) durationMs = 1000;
+        android.net.Uri uri = android.net.Uri.fromFile(wavFile);
+        final com.fadcam.ui.faditor.model.AudioClip ac = new com.fadcam.ui.faditor.model.AudioClip(uri, durationMs);
+        ac.setLabel("Voiceover");
+        ac.setOffsetMs(startMs);
+        project.getTimeline().addAudioClip(ac);
+        editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        // Waveform will be generated lazily; create a silent placeholder so the clip is visible
+        // One-undo whole clip: AddAudioClipAction is the existing door for audio adds
+        undoManager.recordAction(new EditActions.AddAudioClipAction(project.getTimeline(), ac, null, false, 1f));
+        prepareAudioPlayer();
+        scheduleAutoSave();
+        android.widget.Toast.makeText(this, "Voiceover added (" + (durationMs / 1000f) + "s) at " + (startMs / 1000f) + "s", android.widget.Toast.LENGTH_SHORT).show();
     }
 
     // ── AI slide: copy-a-prompt / paste-HTML import (API-less path) ──────

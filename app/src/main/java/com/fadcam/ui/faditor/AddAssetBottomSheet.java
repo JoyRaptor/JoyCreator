@@ -76,6 +76,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
          * toolbar icon. Default no-op so existing callers compile unchanged.</p>
          */
         default void onAdjustmentLayerSelected() { }
+
+        /**
+         * B5.U — record voiceover against playback (punch-in). Add is where people go to
+         * add things, and 27 carousel tools are already too many, so this lives here
+         * beside "Audio". Default no-op.
+         */
+        default void onVoiceoverRecordSelected() { }
     }
 
     @Nullable
@@ -181,6 +188,13 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.faditor_add_asset_audio),
                 "music_note", materialIcons, dp,
                 () -> { if (callback != null) callback.onAudioSelected(); }));
+
+        // B5.U — record voiceover against playback (punch-in). Add is where
+        // people go to add things; NO new carousel tool (27 already too many).
+        root.addView(createOptionRow(
+                "Record voiceover",
+                "mic", materialIcons, dp,
+                () -> { if (callback != null) callback.onVoiceoverRecordSelected(); }));
 
         // AI slide row — copy-a-prompt / paste-HTML animated slide flow.
         // TODO(strings)

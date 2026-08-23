@@ -2119,6 +2119,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 updateCurrentTimeDisplay(seekPosition);
                 updateSplitHealButton();
                 seekAudioPlayersToPlayhead();
+
+                // G5 — transcript panel re-resolve: if panel is open and playhead has
+                // LEFT the current transcript's clip span, re-resolve to follow the playhead.
+                // No pin toggle — scrubbing inside the current clip keeps it; leaving follows.
+                if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE
+                        && transcriptClipId != null) {
+                    if (transcriptIsForAudio) {
+                        if (transcriptAudioIndex >= 0
+                                && transcriptAudioIndex < project.getTimeline().getAudioClips().size()) {
+                            AudioClip ac = project.getTimeline().getAudioClips().get(transcriptAudioIndex);
+                            long playheadMs = editorTimeline.getPlayheadPositionMs();
+                            if (playheadMs < ac.getOffsetMs()
+                                    || playheadMs > ac.getOffsetMs() + ac.getTrimmedDurationMs()) {
+                                loadTranscriptPanelContent();
+                            }
+                        }
+                    } else {
+                        // Video clip transcript
+                        Clip clipFound = null;
+                        for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                            Clip c = project.getTimeline().getClip(i);
+                            if (c != null && c.getId().equals(transcriptClipId)) {
+                                clipFound = c; break;
+                            }
+                        }
+                        if (clipFound != null) {
+                            long playheadMs = editorTimeline.getPlayheadPositionMs();
+                            long startMs = editorTimeline.getSegmentStartTimeMs(project.getTimeline().indexOfClip(clipFound));
+                            long endMs = startMs + clipFound.getVisualDurationMs();
+                            if (playheadMs < startMs || playheadMs > endMs) {
+                                loadTranscriptPanelContent();
+                            }
+                        }
+                    }
+                }
             }
 
             @Override
@@ -2232,6 +2267,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 }
                 seekAudioPlayersToPlayhead();
+
+                // G5 — same re-resolve logic as onPlayheadSeeked
+                if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE
+                        && transcriptClipId != null) {
+                    if (transcriptIsForAudio) {
+                        if (transcriptAudioIndex >= 0
+                                && transcriptAudioIndex < project.getTimeline().getAudioClips().size()) {
+                            AudioClip ac = project.getTimeline().getAudioClips().get(transcriptAudioIndex);
+                            long playheadMs = editorTimeline.getPlayheadPositionMs();
+                            if (playheadMs < ac.getOffsetMs()
+                                    || playheadMs > ac.getOffsetMs() + ac.getTrimmedDurationMs()) {
+                                loadTranscriptPanelContent();
+                            }
+                        }
+                    } else {
+                        Clip clipFound = null;
+                        for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                            Clip c = project.getTimeline().getClip(i);
+                            if (c != null && c.getId().equals(transcriptClipId)) {
+                                clipFound = c; break;
+                            }
+                        }
+                        if (clipFound != null) {
+                            long playheadMs = editorTimeline.getPlayheadPositionMs();
+                            long startMs = editorTimeline.getSegmentStartTimeMs(project.getTimeline().indexOfClip(clipFound));
+                            long endMs = startMs + clipFound.getVisualDurationMs();
+                            if (playheadMs < startMs || playheadMs > endMs) {
+                                loadTranscriptPanelContent();
+                            }
+                        }
+                    }
+                }
             }
 
             @Override

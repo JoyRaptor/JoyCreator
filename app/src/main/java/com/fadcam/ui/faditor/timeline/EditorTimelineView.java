@@ -7681,6 +7681,18 @@ public class EditorTimelineView extends View {
             longPressHandler.removeCallbacks(itemPickupRunnable);
             m7ItemPendingDown = false;
             layerGestureController.onRowBodyUp(isUp);
+            // §5.4 fluent creation: a fade-in dragged past its own clip's start asked for a
+            // cross-fade. The controller detects it (it knows the fade geometry) but cannot
+            // create it (no Timeline there); this view holds one, so it does the creating.
+            if (liveTimeline != null) {
+                com.fadcam.ui.faditor.model.AudioCrossfade req =
+                        layerGestureController.consumePendingCrossfadeRequest();
+                if (req != null) {
+                    liveTimeline.addAudioCrossfade(req);
+                    layerRowRenderer.setSelectedCrossfadeId(req.getId());
+                    invalidate();
+                }
+            }
             getParent().requestDisallowInterceptTouchEvent(false);
             invalidate();
             return true;
@@ -7703,6 +7715,18 @@ public class EditorTimelineView extends View {
             // layer entirely, so committing a layer-position change first would record an edit to
             // a lane the object no longer lives on, and undo would walk back through it.
             layerGestureController.onRowBodyUp(spineDrop >= 0 ? false : isUp);
+            // §5.4 fluent creation: a fade-in dragged past its own clip's start asked for a
+            // cross-fade. The controller detects it (it knows the fade geometry) but cannot
+            // create it (no Timeline there); this view holds one, so it does the creating.
+            if (liveTimeline != null) {
+                com.fadcam.ui.faditor.model.AudioCrossfade req =
+                        layerGestureController.consumePendingCrossfadeRequest();
+                if (req != null) {
+                    liveTimeline.addAudioCrossfade(req);
+                    layerRowRenderer.setSelectedCrossfadeId(req.getId());
+                    invalidate();
+                }
+            }
             if (spineDrop >= 0 && listener != null) {
                 android.util.Log.d("SPINEDROP", "DROP seam=" + spineDrop);
                 listener.onItemDroppedOnMasterTrack(spineDrop);

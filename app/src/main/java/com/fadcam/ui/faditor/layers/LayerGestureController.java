@@ -192,6 +192,13 @@ public final class LayerGestureController {
     /** Pre-drag copy, so one gesture is one undo step (§0 rule 7). */
     @Nullable private com.fadcam.ui.faditor.model.AudioCrossfade xfadeBefore;
     private float xfadeDownX;
+    /**
+     * §5.4 fluent creation. A FADE-IN dragged LEFT past its own clip's start is asking to
+     * cross-fade with the neighbouring lane — that is how every desktop DAW makes one. The
+     * controller detects it but cannot create it (no Timeline here), so it parks a request
+     * and the view, which holds the Timeline, drains it. {@code null} = nothing pending.
+     */
+    @Nullable private com.fadcam.ui.faditor.model.AudioCrossfade pendingXfadeRequest;
     private long xfadeDownStartMs, xfadeDownEndMs;
 
     private static final long MIN_TEXT_DURATION_MS = 250;
@@ -1031,6 +1038,28 @@ public final class LayerGestureController {
                 if (dur <= 0) break;
                 long endMs = startMs + dur;
                 boolean fadeIn = activeKind == GestureKind.FADE_IN;
+                // §5.4: dragged PAST the clip's own start by more than a nudge → the user is
+                // reaching into the neighbouring lane, which is a cross-fade, not a fade.
+                if (fadeIn && t < startMs - com.fadcam.ui.faditor.model.AudioCrossfade.MIN_DURATION_MS
+                        && activeTrack != null) {
+                    // This clip is the one fading IN, so it WINS. Prefer the lane above; fall
+                    // back to below so the bottom lane can still make one.
+                    String own = activeTrack.getId();
+                    String above = rowRenderer.adjacentAudioLaneId(own, true);
+                    String partner = above != null ? above
+                            : rowRenderer.adjacentAudioLaneId(own, false);
+                    if (partner != null) {
+                        boolean partnerIsAbove = above != null;
+                        String lower = partnerIsAbove ? own : partner;
+                        com.fadcam.ui.faditor.model.AudioCrossfade req =
+                                new com.fadcam.ui.faditor.model.AudioCrossfade(
+                                        lower, Math.max(0, t), startMs);
+                        // Winner is this clip. If the partner is ABOVE us we are the lower
+                        // lane and the sound is arriving DOWNWARD, so it is not "to above".
+                        req.setToLaneAbove(!partnerIsAbove);
+                        pendingXfadeRequest = req;
+                    }
+                }
                 long fadeDur = fadeIn ? Math.max(0, Math.min(dur / 2, t - startMs)) : Math.max(0, Math.min(dur / 2, endMs - t));
                 // B1.F: AudioClip.setFadeInMs/setFadeOutMs is now THE definition of a fade
                 // (same pairs this block hand-wrote — FADE_IN: 0→0, fadeDur→1 ; FADE_OUT:
@@ -2013,6 +2042,17 @@ public final class LayerGestureController {
         activeXfadeZone = null;
         xfadeBefore = null;
         return moved ? before : null;
+    }
+
+    /**
+     * Take the pending §5.4 cross-fade request, if a fade drag just asked for one. Draining
+     * clears it, so a request is acted on exactly once.
+     */
+    @Nullable
+    public com.fadcam.ui.faditor.model.AudioCrossfade consumePendingCrossfadeRequest() {
+        com.fadcam.ui.faditor.model.AudioCrossfade r = pendingXfadeRequest;
+        pendingXfadeRequest = null;
+        return r;
     }
 
     /** True while a pill is under the finger — the view routes follow-up moves on this. */

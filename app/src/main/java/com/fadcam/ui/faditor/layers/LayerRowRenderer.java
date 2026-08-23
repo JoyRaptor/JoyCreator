@@ -2944,6 +2944,25 @@ public final class LayerRowRenderer {
      *                       the item with this id (mirrors the existing audio/overlay
      *                       convention: handles only appear on the selected item).
      */
+    /**
+     * The AUDIO lane immediately above or below {@code laneId}, or null at the band edge.
+     * Used by §5.4's fluent cross-fade creation, which needs to know what a fade is fading
+     * TO. Floating (non-audio) rows are skipped: a cross-fade is an audio-lane relationship.
+     */
+    @Nullable
+    public String adjacentAudioLaneId(@NonNull String laneId, boolean above) {
+        int idx = -1;
+        for (int i = 0; i < rows.size(); i++) {
+            if (!rows.get(i).floatingBand && rows.get(i).track.getId().equals(laneId)) {
+                idx = i; break;
+            }
+        }
+        if (idx < 0) return null;
+        int n = idx + (above ? -1 : 1);
+        if (n < 0 || n >= rows.size() || rows.get(n).floatingBand) return null;
+        return rows.get(n).track.getId();
+    }
+
     /** Which part of a cross-fade pill a touch landed on. */
     public enum XfadeZone { BODY, LEFT_EDGE, RIGHT_EDGE }
 

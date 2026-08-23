@@ -184,7 +184,15 @@ public final class LayerGestureController {
      * immediate, unchanged from before). {@link #MISS} = empty row space / locked / hidden
      * / no item — caller falls through to its own axis decision (scrub vs row-scroll).
      */
-    public enum DownResult { MISS, PENDING, ARMED_TRIM }
+    public enum DownResult { MISS, PENDING, ARMED_TRIM, ARMED_XFADE }
+
+    // ── B2: cross-fade pill drag state (SPEC_AUDIO_UX_V1 §5) ──────────────────────────
+    @Nullable private com.fadcam.ui.faditor.model.AudioCrossfade activeXfade;
+    @Nullable private LayerRowRenderer.XfadeZone activeXfadeZone;
+    /** Pre-drag copy, so one gesture is one undo step (§0 rule 7). */
+    @Nullable private com.fadcam.ui.faditor.model.AudioCrossfade xfadeBefore;
+    private float xfadeDownX;
+    private long xfadeDownStartMs, xfadeDownEndMs;
 
     private static final long MIN_TEXT_DURATION_MS = 250;
     private static final long AUDIO_MIN_TRIM_GAP_MS = 500;
@@ -452,6 +460,25 @@ public final class LayerGestureController {
         // E2: flight recorder — which zone WON at the contested top corner on every real gesture.
         if (hit != null) {
             com.fadcam.FLog.d("E2FADE", "onRowBodyDown WON " + hit.zone + " item=" + hit.item.getId() + " x=" + x + " y=" + y);
+        }
+        // §5.2 PRECEDENCE, enforced here rather than inside either hit-test: the pill is only
+        // considered once the item test has DECLINED or resolved to bare BODY, so trim handles,
+        // fade handles and the delete badge all keep winning. The pill beats body because it is
+        // smaller, on top and more specific — the rule the delete badge already follows.
+        if (hit == null || hit.zone == LayerRowRenderer.ItemZone.BODY) {
+            LayerRowRenderer.XfadeHit xh = rowRenderer.hitTestCrossfade(x, y, topPx, timeToX);
+            if (xh != null) {
+                activeXfade = xh.xfade;
+                activeXfadeZone = xh.zone;
+                xfadeBefore = new com.fadcam.ui.faditor.model.AudioCrossfade(xh.xfade);
+                xfadeDownX = x;
+                xfadeDownStartMs = xh.xfade.getStartMs();
+                xfadeDownEndMs = xh.xfade.getEndMs();
+                rowRenderer.setSelectedCrossfadeId(xh.xfade.getId());
+                com.fadcam.FLog.d("E2FADE", "onRowBodyDown WON XFADE " + xh.zone
+                        + " id=" + xh.xfade.getId() + " x=" + x + " y=" + y);
+                return DownResult.ARMED_XFADE;
+            }
         }
         if (hit == null) {
             boolean hadSelection = selectedItemId != null;
@@ -941,6 +968,17 @@ public final class LayerGestureController {
      *              PLAN Part 7 row M10 scope 1). Ignored for TRIM (no cross-row concept).
      */
     public void onRowBodyMove(float x, float y, float topPx, long totalMs, @NonNull XToTime xToTime) {
+        // Cross-fade drag: middle slides, edges resize (§5). Deltas are taken in TIME, not
+        // pixels, so the gesture feels identical at every zoom level.
+        if (activeXfade != null && activeXfadeZone != null) {
+            long deltaMs = xToTime.map(x) - xToTime.map(xfadeDownX);
+            switch (activeXfadeZone) {
+                case BODY:       activeXfade.moveTo(xfadeDownStartMs + deltaMs); break;
+                case LEFT_EDGE:  activeXfade.setEdge(true,  xfadeDownStartMs + deltaMs); break;
+                case RIGHT_EDGE: activeXfade.setEdge(false, xfadeDownEndMs + deltaMs); break;
+            }
+            return;
+        }
         lastTotalMs = totalMs;
         if (kfShiftActive) { doKeyframeShiftMove(x, xToTime); return; }
         if (!active || activeItem == null) return;
@@ -1960,6 +1998,29 @@ public final class LayerGestureController {
      * position change, rather than pushing two separate {@code undoStack} entries for
      * one physical drag (PLAN M10 acceptance (d): "each completed drag = ONE undo step").</p>
      */
+    /**
+     * Finish a cross-fade drag. Returns the PRE-DRAG copy so the host can record one undo step
+     * for the whole gesture, or null if nothing actually moved. The host owns the undo entry —
+     * this class has no access to the undo manager, deliberately.
+     */
+    @Nullable
+    public com.fadcam.ui.faditor.model.AudioCrossfade finishCrossfadeDrag() {
+        com.fadcam.ui.faditor.model.AudioCrossfade before = xfadeBefore;
+        boolean moved = activeXfade != null && before != null
+                && (activeXfade.getStartMs() != before.getStartMs()
+                 || activeXfade.getEndMs() != before.getEndMs());
+        activeXfade = null;
+        activeXfadeZone = null;
+        xfadeBefore = null;
+        return moved ? before : null;
+    }
+
+    /** True while a pill is under the finger — the view routes follow-up moves on this. */
+    public boolean isCrossfadeDragActive() { return activeXfade != null; }
+
+    @Nullable
+    public com.fadcam.ui.faditor.model.AudioCrossfade getActiveCrossfade() { return activeXfade; }
+
     public boolean onRowBodyUp(boolean committed) {
         if (kfShiftActive) return finishKeyframeShift(committed);
         if (!active) return false;

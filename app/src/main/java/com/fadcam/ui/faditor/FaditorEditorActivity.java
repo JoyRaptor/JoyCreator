@@ -16908,7 +16908,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         });
 
-        // ── Row: font selector (collapsed chip → expandable carousel) ──
+        // ── Row: font (every choice inline) + the style actions ───────
+        // JoyRaptor 2026-08-23: "Font has one chip. and the rest of the row is empty. And then when I
+        // tap on the font chip, it just shows a new row with more chips down below. Why don't they
+        // just expand from the first row?" — so the collapsed chip and its tap-to-expand are gone.
+        // Every font is always visible in a horizontal scroller on THIS line with the selected one
+        // marked by colour, which is the first of the two options he offered. The save/delete/copy/
+        // import icons come up beside them ("can be moved up to the same row as font because
+        // there's nothing to the right"). That is two rows and a divider removed.
         root.addView(makeDivider(d));
         LinearLayout fontRow = new LinearLayout(this);
         fontRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -16922,40 +16929,45 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fontLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         fontRow.addView(fontLabel);
 
-        TextView fontChip = new TextView(this);
-        styleDrawerChip(fontChip, d);
-        fontChip.setTypeface(cur.typeface());
-        fontChip.setText(fontDisplayName(cur.fontKey));
-        fontRow.addView(fontChip);
-
         HorizontalScrollView fontScroll = new HorizontalScrollView(this);
         fontScroll.setHorizontalScrollBarEnabled(false);
-        fontScroll.setVisibility(View.GONE);
         LinearLayout fontChips = new LinearLayout(this);
         fontChips.setOrientation(LinearLayout.HORIZONTAL);
         fontScroll.addView(fontChips);
-        root.addView(fontScroll);
+        fontRow.addView(fontScroll, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        final java.util.Map<String, TextView> fontChipByKey = new java.util.HashMap<>();
+        final Runnable markSelectedFont = () -> {
+            String sel = currentCaptionStyle().fontKey;
+            for (java.util.Map.Entry<String, TextView> e : fontChipByKey.entrySet()) {
+                boolean on = e.getKey().equals(sel);
+                e.getValue().setTextColor(on ? 0xFF4CAF50 : 0xFFEEEEEE);
+                e.getValue().setAlpha(on ? 1f : 0.72f);
+            }
+        };
         for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
             final String key = choice[0];
             TextView fc = new TextView(this);
             styleDrawerChip(fc, d);
             com.fadcam.ui.faditor.transcript.CaptionStyle probe =
-                    com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0)
-                            .copyAs("probe", choice[1]);
+                    com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0).copyAs("probe", choice[1]);
             probe.fontKey = key;
             fc.setTypeface(probe.typeface());
             fc.setText(choice[1]);
             fc.setOnClickListener(v -> {
                 tweakCaptionStyle(s -> s.fontKey = key);
-                com.fadcam.ui.faditor.transcript.CaptionStyle now = currentCaptionStyle();
-                fontChip.setTypeface(now.typeface());
-                fontChip.setText(fontDisplayName(now.fontKey));
-                fontScroll.setVisibility(View.GONE);
+                markSelectedFont.run();
             });
+            fontChipByKey.put(key, fc);
             fontChips.addView(fc);
         }
-        fontChip.setOnClickListener(v -> fontScroll.setVisibility(
-                fontScroll.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        markSelectedFont.run();
+
+        addCaptionActionIcon(fontRow, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
+        addCaptionActionIcon(fontRow, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
+        addCaptionActionIcon(fontRow, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
+        addCaptionActionIcon(fontRow, d, "download", "Import style from text", v -> promptImportCaptionStyle());
 
         // ── Row: highlight animation (Pop / Zoom / Bounce) ─────────────
         root.addView(makeDivider(d));
@@ -17054,17 +17066,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout colorRow1 = new LinearLayout(this);
         colorRow1.setOrientation(LinearLayout.HORIZONTAL);
         colorRow1.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(colorRow1);
+        HorizontalScrollView colorScroll = new HorizontalScrollView(this);
+        colorScroll.setHorizontalScrollBarEnabled(false);
+        colorScroll.addView(colorRow1);
+        root.addView(colorScroll);
         addColorControl(colorRow1, d, "Text", () -> currentCaptionStyle().baseColor,
                 c -> tweakCaptionStyle(s -> s.baseColor = c));
         addColorControl(colorRow1, d, "Highlight", () -> currentCaptionStyle().activeColor,
                 c -> tweakCaptionStyle(s -> s.activeColor = c));
 
-        LinearLayout colorRow2 = new LinearLayout(this);
-        colorRow2.setOrientation(LinearLayout.HORIZONTAL);
-        colorRow2.setGravity(Gravity.CENTER_VERTICAL);
-        colorRow2.setPadding(0, (int)(6*d), 0, 0);
-        root.addView(colorRow2);
+        // JoyRaptor 2026-08-23: text / highlight / box / outline / shadow "could all be consolidated
+        // and moved on to the same line". Five controls is more than a narrow phone fits, so the
+        // single row lives in a horizontal scroller — one line always, scrollable when it must be.
+        LinearLayout colorRow2 = colorRow1;
         addToggleColorControl(colorRow2, d, "Box", () -> currentCaptionStyle().pill,
                 on -> tweakCaptionStyle(s -> {
                     s.pill = on;
@@ -17079,16 +17093,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         addToggleControl(colorRow2, d, "Shadow", () -> currentCaptionStyle().shadow,
                 on -> tweakCaptionStyle(s -> s.shadow = on));
 
-        // ── Row: save / trash / export / import ────────────────────────
-        root.addView(makeDivider(d));
-        LinearLayout actions = new LinearLayout(this);
-        actions.setOrientation(LinearLayout.HORIZONTAL);
-        actions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        root.addView(actions);
-        addCaptionActionIcon(actions, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
-        addCaptionActionIcon(actions, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
-        addCaptionActionIcon(actions, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
-        addCaptionActionIcon(actions, d, "download", "Import style from text", v -> promptImportCaptionStyle());
+        // (save / delete / copy / import moved up to the font row — JoyRaptor 2026-08-23.)
     }
 
     // ── Caption style drawer helpers (JoyRaptor 2026-07-16 overhaul) ─────────

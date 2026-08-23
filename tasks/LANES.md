@@ -421,6 +421,6 @@ files: export/ExportManager.java (JoyRaptor-instructed exception to standing loc
 since: 2026-08-23
 
 ## LANE A — dynamic lane (D6 → A7, 3 rows in order)
-status: ACTIVE (2026-08-23 15:30 — ROW 2 D7 clap sync in progress)
-files: FaditorEditorActivity.java, tools/FaditorToolRegistry.java, res/values/ids.xml, res/values/strings.xml, model/AudioClip.java, model/Clip.java, transcript/*
-since: 2026-08-23 15:30
+status: IDLE (2026-08-23 16:55 — all rows BUILT: G5 1ead8ea4 re-resolve on playhead leave, G4 f613dce6 transcript picker, D7 b4912774 clap sync door + 5e345e9e fix, A7 3372d938 shared carrier. TYPECHECK OK — 639 sources, 1784 classes final. BUILD FAILED on pre-existing CompressorProcessor/DeEsserProcessor errors unrelated to these rows; typecheck.sh is the verification standard per rule 9.)
+files: (none — released)
+since: 2026-08-23 16:55

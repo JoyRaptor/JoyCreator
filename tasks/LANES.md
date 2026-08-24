@@ -57,55 +57,9 @@ code. If it is taken, finish your code, wait, then update the row.
 SPEC: free
 
 ## DEVICE TOKEN
-DEVICE: LANE C (opencode agent, E4 export batch) (Fable released 2026-07-12 ~05:15, usage-capped session end. BATCH RESULTS:
-  ✓ REPLAY-IK/bake replay: injected 2s yaw sweep drives the puppet in live playback —
-    continuous motion + discrete cell swap (yellow→red at extreme) + pin-warp bend all
-    caught on screenshots. control2 (cebc19e0) RESTORED byte-exact (md5 a522728a…),
-    CAMERA re-granted.
-  ✓ Standalone Avatar Studio: person icon on Faditor tab → library chooser (A6 Warp
-    Smoke listed = Library ⇪ round-trip proven) → opens library-backed, warp renders
-    from bundle sheets. "+ New avatar from image…" UNTESTED (needs picker flow).
-  ✗ 313e7fa export fix FAILED device verify → muxer stall REPRODUCED (AudioExportVerify
-    seam-2 @600ms; error log 20260712_050701). ROOT CAUSE FOUND + FIXED (148c155
-    audio-coverage guard, build-green): residual window past source AUDIO end = zero
-    audio samples = AudioGraph stall. DEVICE RE-VERIFY OWED: aeb0517e is LEFT AT the
-    600ms repro state — just re-run the export; expect completion now.
-  Partial: 🎯 Record synthetic take STARTS (toast proven) but the stop-tap keep-swap
-    didn't persist (disk unchanged; likely stop-on-onPause discard when I exited) —
-    needs one hand-run: record ~3s, tap Stop, check ✦ badge grows, undo.
-  Blocked on JoyRaptor: bubble face-button + clear-stage (needs "Display over other apps"
-    grant), real-face axis checks (MIRROR_YAW/SIGN_PITCH), new-from-image picker.)
-prior: free (Fable 2026-07-12: replay-IK verify DEFERRED to the end-of-mission batch —
-  the watcher reinstalls the APK on every subagent save, killing any interactive session
-  mid-take. Batch item: pm revoke CAMERA → synthetic 🎯 Record on the control2 avatar item
-  → replay must show the FABRIK pin-target orbit (tests the AvatarItemPuppet fix) → undo
-  take → pm grant CAMERA.)
-prior: free (Fable released 2026-07-11 ~22:05 after the point-at-video no-face smoke on
-  SM-N960U — PASS: 🎬 From video chip on the control2 avatar item → progress dialog →
-  completion toast with the take KEPT (cat clip, no human face; ✦21 samples + undo count 0
-  unchanged), and a second run cancelled mid-sweep dismissed cleanly. Zero crashes. Device
-  left at HOME; control2 state note for JoyRaptor unchanged below. Face-bearing verify owed.)
-prior: free (Fable released 2026-07-11 ~20:50 after the avatar verify batch — results in
-  the FABLE lane block below. NOTE for JoyRaptor: P0 control2 project cebc19e0 was used as the
-  avatar test bed and now carries (a) a stray "Enter text" overlay from a mis-tap, (b) an
-  inserted "A6 Warp Smoke" avatar item WITH an injected 2s yaw-sweep performance (good for
-  feel-testing replay), (c) real art pushed into its assets for the previously-missing
-  "Sprite" sheet. project.json.bak from Jul 7 still on-device if pristine matters.)
-prior: free (Fable released 2026-07-11 ~01:10 after full verify batch: AV3 layout, W2 zoom,
-  smoke i/k/l, G5a attach+detach, GL More-effects — ALL PASS. Sandbox bdd51919 restored pristine
-  (md5 e81a6df8…), undo_history cleared. See handoff 2026-07-11 block.)
-(Fable owns it during hard interactive device-loops; opencode does code+compile-only
-and BATCHES its device-verify into windows when this reads `free` / Fable is IDLE.)
-
-**Standing (permanent) Fable locks — never touch regardless of this board:**
-`export/ExportManager.java`, `export/BlendModeGlEffect.java`, `export/PipFrameOverlay.java`,
-`export/CompositeExportOverlay.java`, `project/ProjectStorage.java`,
-`compositor/MasterPlaybackEngine.java`, `compositor/OverlayVideoPreviewView.java`,
-`compositor/LayerPreviewController.java`, `compositor/DecoderBudgetProbeActivity.java`,
-`avatar/PuppetPoseResolver.java`, `avatar/AvatarRig.java`, `avatar/PinWarpStrip.java`,
-`avatar/DangleSim.java`, `avatar/PuppetPreviewView.java`, `avatar/FabrikSolver.java`.
-
----
+DEVICE: free (REVIEW released 2026-08-24 17:45 — 016b6ef3 DEVICE-VERIFIED on REAL_SERIAL:
+  landscape promotes to PiP, portrait grab-bar drag reaches fullscreen and promotes,
+  drag-down demotes back to inline. Rotation settings read first and restored after.)
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE (claim above was STALE from 2026-07-14 and listed FaditorEditorActivity.java,
@@ -408,9 +362,10 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-24 — SPEC_20260824_VERIFIED_FIXES Pass One, S1–S5 only)
-files: faditor/undo/EditActions.java, faditor/waveform/WaveformExtractor.java,
-        FaditorEditorActivity.java
+status: IDLE (2026-08-24 — SPEC Pass One S1–S4 landed 35599adf, BUILD SUCCESSFUL 17:21.
+        S5 STOPPED per spec stop-rule: getSelectedClip() has ~120 call sites in
+        FaditorEditorActivity alone — caller list reported to user, not fixed.)
+files: (none)
 since: 2026-08-24
 
 prior-status: IDLE (2026-08-24 — split rulings landed ff793784: passThrough COPIED (both halves keep

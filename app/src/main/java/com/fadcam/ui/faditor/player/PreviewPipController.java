@@ -167,6 +167,24 @@ public class PreviewPipController {
         return rootH - others;
     }
 
+    /**
+     * Re-run the promote/demote/fill decision after the grab bar is released.
+     *
+     * <p>Both places that absorb the freed preview slot into the timeline band are gated on
+     * {@code !host.isGrabBarDragging()} — promote()'s band-fill and evaluate()'s fill branch —
+     * so a promotion that happens DURING a drag deliberately leaves the gap alone. Something
+     * has to close it once the finger is up, and the layout listener cannot be relied on: if
+     * the release lands far from a detent, snapTimelineBandToDetent changes nothing, no layout
+     * pass runs, and evaluate() never fires again. The freed height then just sits there as
+     * dead black space under the timeline (JoyRaptor, 2026-08-24: "the bottom of the app seems
+     * raised up almost two centimeters ... that's just wasted space").
+     *
+     * <p>Safe to call at any time: evaluate() is idempotent and guarded by {@code mutating}.</p>
+     */
+    public void onGrabBarReleased() {
+        editorRoot.post(this::evaluate);
+    }
+
     private void evaluate() {
         if (mutating) return;
         float slotPx = prospectiveSlotPx();

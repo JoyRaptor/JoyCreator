@@ -12969,6 +12969,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         }
                         ui.edit().putFloat(PREF_TIMELINE_BAND_DP,
                                 editorTimeline.getLayerBandMaxHeightDp()).apply();
+                        // The PiP suppresses its band-fill while a drag is in flight, so the
+                        // slot freed by promoting is still sitting under the timeline as dead
+                        // space. Ask for one more evaluation now the finger is up.
+                        if (previewPip != null) previewPip.onGrabBarReleased();
                         v.performClick();
                         return true;
                 }

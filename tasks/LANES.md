@@ -57,9 +57,9 @@ code. If it is taken, finish your code, wait, then update the row.
 SPEC: free
 
 ## DEVICE TOKEN
-DEVICE: free (REVIEW released 2026-08-24 17:45 — 016b6ef3 DEVICE-VERIFIED on REAL_SERIAL:
-  landscape promotes to PiP, portrait grab-bar drag reaches fullscreen and promotes,
-  drag-down demotes back to inline. Rotation settings read first and restored after.)
+DEVICE: free (REVIEW released 2026-08-24 17:47. Grab-bar-release band fill is BUILT +
+  INSTALLED but NOT device-verified: `adb shell input swipe` will not drive the G6 grab
+  bar -- the handler needs a real finger's MOVE cadence. Needs JoyRaptor to drag it once.)
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE (claim above was STALE from 2026-07-14 and listed FaditorEditorActivity.java,

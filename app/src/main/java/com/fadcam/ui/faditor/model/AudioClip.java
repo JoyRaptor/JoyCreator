@@ -30,7 +30,7 @@ import java.util.UUID;
  *   <li>{@link #waveform} – downsampled amplitude array for timeline visualisation.</li>
  * </ul>
  */
-public class AudioClip {
+public class AudioClip implements AudioParams {
 
     // §4.5 per-OBJECT lock (LANE_BADGES spec, built 2026-07-19): locked = selectable but
     // never trims/moves/deletes. Audio has NO hidden twin — per-clip MUTE already is the
@@ -149,15 +149,21 @@ public class AudioClip {
     private float captionSizeFraction = 0.060f;
 
     /** A single point on the audio volume envelope. */
-    public static class VolumeKeyframe {
-        /** Clip-local time in ms (0 = clip start on the timeline). */
-        public long timeMs;
-        /** Multiplier over the clip's volumeLevel (0–1 typical; B1.Q semantics). */
-        public float volume;
+    public static class VolumeKeyframe extends com.fadcam.ui.faditor.model.VolumeKeyframe {
+        // DO NOT re-declare timeMs/volume here. They are inherited from the base class.
+        //
+        // This class DID re-declare them, and because the constructor assigns through
+        // super(...), the shadowing copies stayed 0 forever while the base copies held the
+        // real values. Any code holding this subtype read 0 for every keyframe — i.e. the
+        // whole volume envelope silently became silence, and the B1.Q multiplier semantics
+        // read as "fade to nothing" everywhere. run-envelope.sh caught it as 18 failures.
+        //
+        // Field shadowing does not warn and does not fail to compile, so the only defence is
+        // the harness. Inherit the fields; do not restate them.
 
+        /** @param timeMs clip-local ms. @param volume multiplier over volumeLevel (B1.Q). */
         public VolumeKeyframe(long timeMs, float volume) {
-            this.timeMs = timeMs;
-            this.volume = volume;
+            super(timeMs, volume);
         }
     }
 
@@ -301,9 +307,11 @@ public class AudioClip {
     public boolean hasVolumeKeyframes() { return !volumeKeyframes.isEmpty(); }
 
     /** Replace all keyframes (used on project load). Sorts and clamps. */
-    public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
+    /** Replace all keyframes (used on project load). Sorts and clamps. */
+    @Override
+    public void setVolumeKeyframes(@NonNull List<? extends com.fadcam.ui.faditor.model.VolumeKeyframe> kfs) {
         volumeKeyframes.clear();
-        for (VolumeKeyframe kf : kfs) {
+        for (com.fadcam.ui.faditor.model.VolumeKeyframe kf : kfs) {
             volumeKeyframes.add(new VolumeKeyframe(
                     Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.volume, 2.0f))));
         }
@@ -575,6 +583,28 @@ public class AudioClip {
     }
 
     public boolean isBakedSource() { return bakedFromUri != null; }
+
+    // ── AudioParams interface implementation (A7 shared carrier) ───────
+
+    @Override
+    public Long volumeKeyUnderPlayhead(long absMs) {
+        long local = absMs - getOffsetMs();
+        for (VolumeKeyframe kf : volumeKeyframes) {
+            if (Math.abs(kf.timeMs - local) <= 66) return kf.timeMs;
+        }
+        return null;
+    }
+
+    @Override
+    public void removeVolumeKeyframeAt(long localMs) {
+        java.util.Iterator<VolumeKeyframe> it = volumeKeyframes.iterator();
+        while (it.hasNext()) {
+            if (it.next().timeMs == localMs) { it.remove(); return; }
+        }
+    }
+
+    // jumpToAdjacentVolumeKey uses default implementation (no-op)
+    // The drawer handles seeking via Host.seekTo() in nudgeToKey
 
     // ── Utility ──────────────────────────────────────────────────────
 

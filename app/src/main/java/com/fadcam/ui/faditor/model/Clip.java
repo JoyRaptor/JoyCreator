@@ -18,7 +18,7 @@ import com.fadcam.ui.faditor.effects.EffectStack;
  * <p>Immutable-style: use setters sparingly; prefer creating new instances
  * or using the Builder when scaling to multi-clip editing.</p>
  */
-public class Clip {
+public class Clip implements AudioParams {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19). Only honored
     // for OVERLAY/PiP clips (isOverlayClip()) — master tape clips ignore both (hiding a
@@ -48,6 +48,9 @@ public class Clip {
     @NonNull
     private final String id;
 
+    @Nullable
+    private String label;
+
     @NonNull
     private Uri sourceUri;
 
@@ -68,6 +71,9 @@ public class Clip {
 
     /** Whether audio is muted for this clip. */
     private boolean audioMuted = false;
+
+    /** Offset from the beginning of the project timeline (ms). */
+    private long offsetMs = 0;
 
     /**
      * OVERLAY (PiP) clips only: whether this clip contributes its audio to preview/export.
@@ -439,15 +445,14 @@ public class Clip {
     }
 
     /** A single point on the clip volume envelope (for video clips that carry audio). */
-    public static class VolumeKeyframe {
+    public static class VolumeKeyframe extends com.fadcam.ui.faditor.model.VolumeKeyframe {
         /** Clip-local time in ms (0 = clip start on the timeline). */
         public long timeMs;
         /** Volume/gain 0.0–2.0 (0 = silent, 1 = original, 2 = 200%). */
         public float volume;
 
         public VolumeKeyframe(long timeMs, float volume) {
-            this.timeMs = timeMs;
-            this.volume = volume;
+            super(timeMs, volume);
         }
     }
 
@@ -663,10 +668,36 @@ public class Clip {
         return id;
     }
 
+    @Nullable
+    public String getLabel() {
+        return label;
+    }
+
+    @Override
+    public void setLabel(@Nullable String label) {
+        this.label = label;
+    }
+
     @NonNull
     public Uri getSourceUri() {
         return sourceUri;
     }
+
+    @Override
+    public void setSourceUri(@NonNull Uri uri) {
+        sourceUri = uri;
+    }
+
+    @Override
+    public long getOffsetMs() {
+        return offsetMs;
+    }
+
+    @Override
+    public void setOffsetMs(long ms) {
+        this.offsetMs = Math.max(0, ms);
+    }
+
 
     /**
      * Repoint a generated slide's source at a freshly baked render file.
@@ -1356,7 +1387,7 @@ public class Clip {
 
     /** The volume envelope keyframes (sorted ascending by time). */
     @NonNull
-    public List<VolumeKeyframe> getVolumeKeyframes() { return volumeKeyframes; }
+    public List<? extends VolumeKeyframe> getVolumeKeyframes() { return volumeKeyframes; }
 
     public boolean hasVolumeKeyframes() { return !volumeKeyframes.isEmpty(); }
 
@@ -1383,9 +1414,10 @@ public class Clip {
     }
 
     /** Replace all keyframes (used on project load). Sorts and clamps. */
-    public void setVolumeKeyframes(@NonNull List<VolumeKeyframe> kfs) {
+    @Override
+    public void setVolumeKeyframes(@NonNull List<? extends com.fadcam.ui.faditor.model.VolumeKeyframe> kfs) {
         volumeKeyframes.clear();
-        for (VolumeKeyframe kf : kfs) {
+        for (com.fadcam.ui.faditor.model.VolumeKeyframe kf : kfs) {
             volumeKeyframes.add(new VolumeKeyframe(
                     Math.max(0, kf.timeMs), Math.max(0f, Math.min(kf.volume, 2.0f))));
         }
@@ -1446,6 +1478,53 @@ public class Clip {
 
     public float gainAtClipMs(long clipMs) {
         return volumeAt(clipMs);
+    }
+
+    // ── AudioParams interface implementation (A7 shared carrier) ───────
+
+    @Override
+    public boolean isMuted() {
+        return audioMuted;
+    }
+
+    @Override
+    public void setMuted(boolean muted) {
+        audioMuted = muted;
+    }
+
+    // ── A7 shared audio carrier ───────────────────────────────────────
+    // A7 emitted these stubs THREE times over, which does not compile ("method is already
+    // defined") and took the whole tree down. Deduped 2026-08-23. A Clip has no baked source
+    // and no pan of its own — both belong to AudioClip — so these stay honest no-ops.
+
+    @Override
+    public boolean isBakedSource() {
+        return false;
+    }
+
+    @Override
+    public String getBakedFromUri() {
+        return null;
+    }
+
+    @Override
+    public String getBakedFromFile() {
+        return null;
+    }
+
+    @Override
+    public void setBakedFrom(@Nullable String originalUri, @Nullable String bakedFilePath) {
+        // No-op for Clip.
+    }
+
+    @Override
+    public float getPan() {
+        return 0f;
+    }
+
+    @Override
+    public void setPan(float pan) {
+        // No-op for Clip.
     }
 
     // ── Opacity keyframes (visual fade envelope) ─────────────────────

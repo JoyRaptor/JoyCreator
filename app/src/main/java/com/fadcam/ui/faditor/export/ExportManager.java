@@ -159,6 +159,8 @@ public class ExportManager {
      */
     private final java.util.concurrent.ConcurrentHashMap<String, Long> sourceAudioDurMs =
             new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, Integer> sourceAudioSampleRate =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /**
      * Thread-local MediaMetadataRetriever cache used during composition building.
@@ -624,6 +626,20 @@ public class ExportManager {
         File silenceFile = getOrCreateSilenceFile();
         Uri silenceUri = silenceFile != null ? Uri.fromFile(silenceFile) : null;
 
+        // A6: determine project sample rate from the master track's first audio source.
+        int projectSampleRate = 48000;
+        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+            Clip probeClip = timeline.getClip(ci);
+            if (!probeClip.isAudioMuted() && !probeClip.isImageClip()) {
+                Uri src = resolveSeekableSourceUri(probeClip);
+                if (audioDurationMsOf(src) > 0) {
+                    projectSampleRate = sampleRateOf(src);
+                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from master clip " + probeClip.getId() + ")");
+                    break;
+                }
+            }
+        }
+
         List<EditedMediaItem> master = new ArrayList<>();
         for (int ci = 0; ci < timeline.getClipCount(); ci++) {
             Clip clip = timeline.getClip(ci);
@@ -685,7 +701,8 @@ public class ExportManager {
                         aps.add(sap);
                     }
                     if (clip.hasVolumeKeyframes()) {
-                        List<Clip.VolumeKeyframe> kfs = clip.getVolumeKeyframes();
+                        @SuppressWarnings("unchecked")
+                        List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
                         long[] times = new long[kfs.size()];
                         float[] vols = new float[kfs.size()];
                         for (int i = 0; i < kfs.size(); i++) {
@@ -725,7 +742,7 @@ public class ExportManager {
             sequences.addAll(buildAudioSequences(timeline));
         }
         // SPEC_PIP_AUDIO: an opted-in PiP contributes audio to the audio-only export too.
-        EditedMediaItemSequence overlayAudioOnly = buildOverlayAudioSequence(timeline);
+        EditedMediaItemSequence overlayAudioOnly = buildOverlayAudioSequence(timeline, projectSampleRate);
         if (overlayAudioOnly != null) {
             sequences.add(overlayAudioOnly);
         }
@@ -910,6 +927,21 @@ public class ExportManager {
         List<CompositeExportOverlay.WaveformSlot> waveformSlots =
                 buildWaveformSlots(timeline, waveformCache, builtinStyles, outW, outH);
 
+        // A6: determine project sample rate from the master track's first audio source.
+        // If the master track has no audio, default to 48 kHz.
+        int projectSampleRate = 48000;
+        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+            Clip probeClip = timeline.getClip(ci);
+            if (!probeClip.isAudioMuted() && !probeClip.isImageClip()) {
+                Uri src = resolveSeekableSourceUri(probeClip);
+                if (audioDurationMsOf(src) > 0) {
+                    projectSampleRate = sampleRateOf(src);
+                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from master clip " + probeClip.getId() + ")");
+                    break;
+                }
+            }
+        }
+
         List<EditedMediaItem> items = new ArrayList<>();
         long timelineCursorMs = 0;
 
@@ -984,7 +1016,7 @@ public class ExportManager {
                 long mainDurationMs = clipInMs >= clipOutMs ? 0 : (mainOutMs - clipInMs);
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
-                        waveformSlots);
+                        waveformSlots, projectSampleRate);
                 items.add(mainItem);
                 timelineCursorMs += mainItem.durationUs / 1000;
             } else if (mainOutMs > clipInMs) {
@@ -1067,7 +1099,7 @@ public class ExportManager {
                 filler.setAudioMuted(true);
                 filler.setDisplayName("Tail filler"); // TODO(strings)
                 EditedMediaItem fillItem = buildClipItem(project, filler, 0L, tailMs,
-                        timelineCursorMs, outW, outH, canvasDims, waveformSlots);
+                        timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate);
                 items.add(fillItem);
                 FLog.i(TAG, "buildComposition: project runs to " + projectTotalMs
                         + "ms but the master track ends at " + timelineCursorMs
@@ -1103,7 +1135,7 @@ public class ExportManager {
         }
         // SPEC_PIP_AUDIO: PiP audio rides its own audio-only sequence (the pixels come from
         // the overlay pass above). Null unless a PiP opted in → composition unchanged.
-        EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline);
+        EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline, projectSampleRate);
         if (overlayAudio != null) {
             sequences.add(overlayAudio);
         }
@@ -1167,6 +1199,36 @@ public class ExportManager {
             extractor.release();
         }
         sourceAudioDurMs.put(key, result);
+        return result;
+    }
+
+    /**
+     * Probe the sample rate of the first audio track in {@code uri}.
+     * Returns 48000 (project default) if probing fails or no audio track found.
+     */
+    private int sampleRateOf(@NonNull Uri uri) {
+        String key = uri.toString();
+        Integer cached = sourceAudioSampleRate.get(key);
+        if (cached != null) return cached;
+        int result = 48000; // project default
+        android.media.MediaExtractor extractor = new android.media.MediaExtractor();
+        try {
+            extractor.setDataSource(context, uri, null);
+            for (int i = 0; i < extractor.getTrackCount(); i++) {
+                android.media.MediaFormat f = extractor.getTrackFormat(i);
+                String mime = f.getString(android.media.MediaFormat.KEY_MIME);
+                if (mime == null || !mime.startsWith("audio/")) continue;
+                if (f.containsKey(android.media.MediaFormat.KEY_SAMPLE_RATE)) {
+                    result = f.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE);
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            // keep default
+        } finally {
+            extractor.release();
+        }
+        sourceAudioSampleRate.put(key, result);
         return result;
     }
 
@@ -1413,7 +1475,8 @@ public class ExportManager {
                                            long timelineCursorMs,
                                            int outW, int outH,
                                            @Nullable int[] canvasDims,
-                                           @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots) {
+                                           @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots,
+                                           int projectSampleRate) {
         float speed = clip.getSpeedMultiplier();
 
         MediaItem mediaItem;
@@ -1464,6 +1527,12 @@ public class ExportManager {
         float volume = clip.getVolumeLevel();
 
         if (!dropAudio) {
+            // A6: resample to project sample rate if needed (before speed/volume).
+            int clipSampleRate = sampleRateOf(resolveSeekableSourceUri(clip));
+            if (clipSampleRate != projectSampleRate) {
+                audioProcessors.add(new ResamplingAudioProcessor(clipSampleRate, projectSampleRate));
+                FLog.d(TAG, "A6: clip " + clip.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
+            }
             if (speed != 1.0f) {
                 SonicAudioProcessor sonicProcessor = new SonicAudioProcessor();
                 sonicProcessor.setSpeed(speed);
@@ -1473,7 +1542,8 @@ public class ExportManager {
             VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
             boolean volumeAdjusted = false;
             if (clip.hasVolumeKeyframes()) {
-                List<Clip.VolumeKeyframe> kfs = clip.getVolumeKeyframes();
+                @SuppressWarnings("unchecked")
+                List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
                 long[] times = new long[kfs.size()];
                 float[] vols = new float[kfs.size()];
                 for (int i = 0; i < kfs.size(); i++) {
@@ -2033,6 +2103,19 @@ public class ExportManager {
         FLog.d(TAG, "buildAudioSequences: audioClipCount=" + clips.size());
         if (clips.isEmpty()) return Collections.emptyList();
 
+        // A6: determine project sample rate from the first audio clip that has audio data.
+        int projectSampleRate = 48000;
+        for (AudioClip ac : clips) {
+            if (!ac.isMuted()) {
+                int sr = sampleRateOf(ac.getSourceUri());
+                if (sr > 0) {
+                    projectSampleRate = sr;
+                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from audio clip " + ac.getId() + ")");
+                    break;
+                }
+            }
+        }
+
         // Group by lane EXACTLY as Timeline.getAudioTracks() does: null layerId == the
         // default "audio" lane. Insertion order of the map follows the flat list, so a
         // single-lane project yields exactly one sequence in the same clip order as before.
@@ -2052,7 +2135,7 @@ public class ExportManager {
 
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
         for (Map.Entry<String, List<AudioClip>> e : byLane.entrySet()) {
-            EditedMediaItemSequence seq = buildLaneAudioSequence(timeline, e.getKey(), e.getValue(), silenceUri);
+            EditedMediaItemSequence seq = buildLaneAudioSequence(timeline, e.getKey(), e.getValue(), silenceUri, projectSampleRate);
             if (seq != null) sequences.add(seq);
         }
         return sequences;
@@ -2062,7 +2145,8 @@ public class ExportManager {
      *  between them, each clip carrying its own trim/volume/envelope treatment. */
     @Nullable
     private EditedMediaItemSequence buildLaneAudioSequence(@NonNull Timeline timeline,
-            @NonNull String laneId, @NonNull List<AudioClip> clips, @NonNull Uri silenceUri) {
+            @NonNull String laneId, @NonNull List<AudioClip> clips, @NonNull Uri silenceUri,
+            int projectSampleRate) {
         // Sort by offset so we insert gaps correctly
         Collections.sort(clips, Comparator.comparingLong(AudioClip::getOffsetMs));
 
@@ -2121,6 +2205,13 @@ public class ExportManager {
             // export. Times are clip-local ms (0 = clip in-point), matching
             // VolumeAudioProcessor's frame-position clock for the clipped item.
             float volume = ac.getVolumeLevel();
+            List<AudioProcessor> processors = new ArrayList<>();
+            // A6: resample to project sample rate if needed.
+            int clipSampleRate = sampleRateOf(ac.getSourceUri());
+            if (clipSampleRate != projectSampleRate) {
+                processors.add(new ResamplingAudioProcessor(clipSampleRate, projectSampleRate));
+                FLog.d(TAG, "A6: audio clip " + ac.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
+            }
             VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
             volumeProcessor.setPan(ac.getPan());
             boolean volumeAdjusted = false;
@@ -2142,8 +2233,9 @@ public class ExportManager {
                 volumeAdjusted = true;
             }
             if (volumeAdjusted) {
-                List<AudioProcessor> processors = new ArrayList<>();
                 processors.add(volumeProcessor);
+            }
+            if (!processors.isEmpty()) {
                 editBuilder.setEffects(new Effects(processors, Collections.emptyList()));
             }
 
@@ -2180,7 +2272,7 @@ public class ExportManager {
      * skipping never shifts a later one (identical treatment to a muted audio clip).</p>
      */
     @Nullable
-    private EditedMediaItemSequence buildOverlayAudioSequence(@NonNull Timeline timeline) {
+    private EditedMediaItemSequence buildOverlayAudioSequence(@NonNull Timeline timeline, int projectSampleRate) {
         // Source the clip list from the SHARED visibility authority, not the raw list: a PiP
         // hidden by its lane's eye (or its own per-object eye) is excluded from the exported
         // PIXELS by this same method, and an object excluded from the export must not keep
@@ -2260,17 +2352,22 @@ public class ExportManager {
             // envelope shape — same VolumeAudioProcessor, same times[]/vols[] pair — so PiP and
             // master audio cannot drift apart in how they read the same keyframe list.
             float volume = volumes.get(c.getId());
+            // A6: resample PiP clip to project sample rate if needed.
+            int clipSampleRate = sampleRateOf(resolveSeekableSourceUri(c));
+            if (clipSampleRate != projectSampleRate) {
+                processors.add(new ResamplingAudioProcessor(clipSampleRate, projectSampleRate));
+                FLog.d(TAG, "A6: PiP clip " + c.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
+            }
             if (c.hasVolumeKeyframes()) {
-                List<Clip.VolumeKeyframe> kfs = c.getVolumeKeyframes();
+                @SuppressWarnings("unchecked")
+                List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) c.getVolumeKeyframes();
                 long[] times = new long[kfs.size()];
                 float[] vols = new float[kfs.size()];
                 for (int i = 0; i < kfs.size(); i++) {
                     times[i] = kfs.get(i).timeMs;
-                    // B1.Q: raw MULTIPLIERS now — the base rides via setVolume below,
-                    // matching the processor's contract (was: pre-multiplied here, which
-                    // left the processor's own base at 1.0 and two ways to compute one gain).
                     vols[i] = kfs.get(i).volume;
                 }
+                // B1.Q: raw MULTIPLIERS now — the base rides via setVolume below,
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
                 vp.setVolume(volume);
                 vp.setVolumeEnvelope(times, vols);

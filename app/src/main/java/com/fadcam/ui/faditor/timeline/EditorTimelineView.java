@@ -3353,7 +3353,8 @@ public class EditorTimelineView extends View {
             // The clip's volume rubber-band (keyframes) rides ON TOP of the tape — same
             // visual as the audio rows' envelope, mapped clip-local over the trimmed span.
             if (sd.clip != null && sd.clip.hasVolumeKeyframes()) {
-                java.util.List<Clip.VolumeKeyframe> kfs = sd.clip.getVolumeKeyframes();
+                @SuppressWarnings("unchecked")
+                java.util.List<Clip.VolumeKeyframe> kfs = (java.util.List<Clip.VolumeKeyframe>) sd.clip.getVolumeKeyframes();
                 long dur = Math.max(1, sd.trimmedMs);
                 float w = seg.width();
                 // Envelope maps over the TAPE region only (above the black word band).
@@ -4186,9 +4187,10 @@ public class EditorTimelineView extends View {
 
         // Light-blue volume envelope for video clips that carry audio with keyframes.
         // x = clip-local time across the rect; y maps volume 0..2 (bottom..top).
-        if (sd.clip.hasVolumeKeyframes()) {
-            java.util.List<Clip.VolumeKeyframe> kfs = sd.clip.getVolumeKeyframes();
-            long dur = Math.max(1, sd.effectiveMs);
+if (sd.clip.hasVolumeKeyframes()) {
+                @SuppressWarnings("unchecked")
+                java.util.List<Clip.VolumeKeyframe> kfs = (java.util.List<Clip.VolumeKeyframe>) sd.clip.getVolumeKeyframes();
+                long dur = Math.max(1, sd.effectiveMs);
             float h = r.height();
             canvas.save();
             canvas.clipRect(r);

@@ -34,8 +34,7 @@ import java.util.regex.Pattern;
  * </pre>
  * We parse the integrated loudness via {@code I:\s+([-\d.]+)\s+LUFS}.</p>
  *
- * <p>Like {@link BakedAudioCache}, the caller supplies {@code projectDir} is NOT needed here —
- * this is a pure analysis pass on a single file, no caching.</p>
+ * <p>A pure analysis pass on a single file — no cache, no project dir needed.</p>
  */
 public class LoudnessAnalyzer {
 

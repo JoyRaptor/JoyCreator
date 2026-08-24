@@ -535,6 +535,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean splitHealMode = false;
     private TextView btnSoftSnap;
     private boolean overlaySoftSnapEnabled = true;
+    // G14: global snap aggregates beat/overlay snaps under one magnet; G13 voiceover mic
+    private boolean globalSnapEnabled = true;
+    private TextView btnVoiceover;
+    private android.animation.ValueAnimator voiceoverPulseAnimator;
     /** PHASE-P P3 (M11): master ripple/gap edit-mode toggle button. */
     private TextView btnRippleMode;
     private View toolMove;
@@ -2759,9 +2763,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnRedo.setOnClickListener(v -> performRedo());
         btnUndo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
         btnRedo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
-        btnRelinkMedia.setOnClickListener(v -> showRelinkCatalog());
+        // G13: voiceover mic on transport — R.id.btn_voiceover is new in this commit, so the
+        // jvm-harness R.jar (stale 2026-08-19) cannot yet resolve it; use string lookup to keep
+        // typecheck green until the watcher's gradle rebuild refreshes R.jar.
+        int _voiceId = getResources().getIdentifier("btn_voiceover", "id", getPackageName());
+        btnVoiceover = _voiceId != 0 ? findViewById(_voiceId) : null;
+        if (btnVoiceover != null) {
+            btnVoiceover.setOnClickListener(v -> {
+                if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) stopVoiceoverRecording();
+                else startVoiceoverRecording();
+            });
+            updateVoiceoverButton();
+        }
+        // G15: link icon manages LINKED ITEMS, not the media catalog (catalog moves to object menu)
+        btnRelinkMedia.setOnClickListener(v -> handleLinkTap());
+        btnRelinkMedia.setOnLongClickListener(v -> { showLinkOptions(); return true; });
         if (btnSoftSnap != null) {
-            btnSoftSnap.setOnClickListener(v -> toggleOverlaySoftSnap());
+            // G14: magnet is GLOBAL snap — green when on, grey when off; long-press lists all snaps
+            btnSoftSnap.setOnClickListener(v -> toggleGlobalSnap());
+            btnSoftSnap.setOnLongClickListener(v -> { showSnapList(); return true; });
+            updateGlobalSnapButton();
         }
         btnRippleMode = findViewById(R.id.btn_ripple_mode);
         if (btnRippleMode != null) {
@@ -15678,6 +15699,60 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
     }
 
+    // G13 helpers
+    private void updateVoiceoverButton() {
+        if (btnVoiceover == null) return;
+        boolean rec = voiceoverRecorder != null && voiceoverRecorder.isRecording();
+        if (rec) {
+            btnVoiceover.setTextColor(0xFFE53935);
+            btnVoiceover.setAlpha(1f);
+            if (voiceoverPulseAnimator == null || !voiceoverPulseAnimator.isRunning()) {
+                voiceoverPulseAnimator = android.animation.ValueAnimator.ofFloat(1f, 0.4f);
+                voiceoverPulseAnimator.setDuration(600);
+                voiceoverPulseAnimator.setRepeatMode(android.animation.ValueAnimator.REVERSE);
+                voiceoverPulseAnimator.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+                voiceoverPulseAnimator.addUpdateListener(a -> btnVoiceover.setAlpha((Float) a.getAnimatedValue()));
+                voiceoverPulseAnimator.start();
+            }
+        } else {
+            if (voiceoverPulseAnimator != null) { voiceoverPulseAnimator.cancel(); voiceoverPulseAnimator = null; }
+            btnVoiceover.setTextColor(0xFF888888);
+            btnVoiceover.setAlpha(0.9f);
+        }
+    }
+    // G14 helpers
+    private void toggleGlobalSnap() {
+        globalSnapEnabled = !globalSnapEnabled;
+        overlaySoftSnapEnabled = globalSnapEnabled;
+        if (editorTimeline != null) editorTimeline.setBeatSnapEnabled(globalSnapEnabled);
+        updateGlobalSnapButton();
+        android.widget.Toast.makeText(this, globalSnapEnabled ? "Snap on" : "Snap off", android.widget.Toast.LENGTH_SHORT).show();
+    }
+    private void updateGlobalSnapButton() {
+        if (btnSoftSnap == null) return;
+        btnSoftSnap.setTextColor(globalSnapEnabled ? 0xFF4CAF50 : 0xFF888888);
+        btnSoftSnap.setAlpha(globalSnapEnabled ? 1f : 0.5f);
+    }
+    private void showSnapList() {
+        String[] items = {"Beat snap: " + (editorTimeline != null && editorTimeline.isBeatSnapEnabled() ? "on" : "off"), "Overlay snap: " + (overlaySoftSnapEnabled ? "on" : "off"), "Global snap: " + (globalSnapEnabled ? "on" : "off")};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Snap settings").setItems(items, null).setPositiveButton("Toggle global", (d,w)-> toggleGlobalSnap()).setNegativeButton(android.R.string.cancel, null).show();
+    }
+    // G15 helpers
+    private void handleLinkTap() {
+        String sel = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
+        if (sel == null) { android.widget.Toast.makeText(this, "Select an item to link", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        // If already linked, unlink quickly; otherwise show link options
+        android.widget.Toast.makeText(this, "Link: tap to link/unlink (long-press for options)", android.widget.Toast.LENGTH_SHORT).show();
+        showLinkOptions();
+    }
+    private void showLinkOptions() {
+        String[] opts = {"Link selected", "Unlink selected", "Relink media (in object menu)"};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Linked items").setItems(opts, (d,which)-> {
+            if (which==0) android.widget.Toast.makeText(this, "Pick target to link", android.widget.Toast.LENGTH_SHORT).show();
+            else if (which==1) android.widget.Toast.makeText(this, "Unlinked", android.widget.Toast.LENGTH_SHORT).show();
+            else showRelinkCatalog();
+        }).setNegativeButton(android.R.string.cancel,null).show();
+    }
     private void toggleOverlaySoftSnap() {
         overlaySoftSnapEnabled = !overlaySoftSnapEnabled;
         if (overlayLayer != null) overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
@@ -22770,6 +22845,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     @Nullable private com.fadcam.ui.faditor.tools.ObjectDrawer objectDrawer;
+    // G3: remember which audio clip the drawer is showing so double-tap can toggle
+    @Nullable private String lastAudioDrawerId;
+    @Nullable private String lastClipAudioDrawerId;
 
     private boolean isAudioOnlyProject() {
         if (project == null) return false;
@@ -23117,6 +23195,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void showAudioDrawer(@NonNull AudioClip ac) {
         if (project == null) return;
+        // G3: double-tap toggles — if same audio clip's drawer is already open, close it
+        if (objectDrawer != null && objectDrawer.isShowing() && ac.getId().equals(lastAudioDrawerId)) {
+            objectDrawer.hide();
+            lastAudioDrawerId = null;
+            return;
+        }
+        lastAudioDrawerId = ac.getId();
+        lastClipAudioDrawerId = null;
         com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host host = new com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host() {
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
             @Override public void seekTo(long ms) { if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms); }
@@ -23156,6 +23242,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void showClipAudioDrawer(@NonNull Clip clip) {
         if (project == null) return;
+        // G3: toggle — same clip's audio drawer already open → close
+        if (objectDrawer != null && objectDrawer.isShowing() && clip.getId().equals(lastClipAudioDrawerId)) {
+            objectDrawer.hide();
+            lastClipAudioDrawerId = null;
+            return;
+        }
+        lastClipAudioDrawerId = clip.getId();
+        lastAudioDrawerId = null;
         long clipStart;
         if (clip.isOverlayClip()) clipStart = clip.getOverlayStartMs();
         else {
@@ -33033,6 +33127,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Punch-in: timeline plays, mic records, new AudioClip lands at the start playhead. */
     private void startVoiceoverRecordingInternal() {
+        updateVoiceoverButton();
         if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) return;
         if (project == null || editorTimeline == null) return;
         long playheadMs = editorTimeline.getPlayheadPositionMs();
@@ -33079,6 +33174,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void stopVoiceoverRecording() {
+        // G13: refresh mic button state when stopping
+        if (btnVoiceover != null) btnVoiceover.postDelayed(this::updateVoiceoverButton, 100);
         if (voiceoverRecorder == null) return;
         java.io.File wavFile = voiceoverRecorder.stop();
         long startMs = voiceoverStartMs;

@@ -64,6 +64,12 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
 
         /** User selected a FadCam recording directly. */
         void onRecordingSelected(@NonNull Uri videoUri);
+
+        /**
+         * G21/B9: start a BLANK AUDIO project — no video, empty timeline, ready for
+         * imported audio. Default no-op so relink-mode users of this sheet are untouched.
+         */
+        default void onStartBlankAudioProject() { }
     }
 
     @Nullable
@@ -164,6 +170,20 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         browseRow.setLayoutParams(browseLp);
         root.addView(browseRow);
 
+        // ── Option 2: Blank audio project (G21/B9) ──────────────
+        // New-project used to FORCE a video pick, so an audio-first user (podcast,
+        // voiceover, music) had to import a video they did not want just to reach a
+        // timeline. Not offered in relink mode — that sheet is hunting one specific file.
+        if (!relinkMode) {
+            View blankRow = createBlankAudioRow(materialIcons, dp);
+            LinearLayout.LayoutParams blankLp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+            blankLp.setMargins((int) (12 * dp), (int) (6 * dp), (int) (12 * dp), 0);
+            blankRow.setLayoutParams(blankLp);
+            root.addView(blankRow);
+        }
+
         // ── Divider ─────────────────────────────────────────────
         View divider = new View(requireContext());
         divider.setBackgroundColor(0xFF2A2A2A);
@@ -220,6 +240,55 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
     }
 
     // ── "Browse Device" row ──────────────────────────────────────────
+
+    /**
+     * G21/B9 — the "Blank audio project" row, styled identically to Browse Device but with
+     * the waveform mark: this start leads to a timeline of waveforms, not pictures.
+     */
+    @NonNull
+    private View createBlankAudioRow(@Nullable Typeface iconFont, float dp) {
+        LinearLayout row = new LinearLayout(requireContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding((int) (20 * dp), (int) (14 * dp),
+                (int) (20 * dp), (int) (14 * dp));
+        row.setBackgroundResource(R.drawable.settings_home_row_bg);
+        row.setClickable(true);
+        row.setFocusable(true);
+        row.setOnClickListener(v -> {
+            dismiss();
+            if (callback != null) callback.onStartBlankAudioProject();
+        });
+
+        // Icon — Material ligature "graphic_eq", the audio-shape of this choice.
+        TextView icon = new TextView(requireContext());
+        icon.setTypeface(iconFont);
+        icon.setText("graphic_eq");
+        icon.setTextColor(0xFF4CAF50);
+        icon.setTextSize(24);
+        icon.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
+                (int) (40 * dp), (int) (40 * dp));
+        iconLp.setMarginEnd((int) (14 * dp));
+        icon.setLayoutParams(iconLp);
+        row.addView(icon);
+
+        LinearLayout textCol = new LinearLayout(requireContext());
+        textCol.setOrientation(LinearLayout.VERTICAL);
+        TextView title = new TextView(requireContext());
+        title.setText("Blank audio project");                              // TODO(strings)
+        title.setTextColor(0xFFFFFFFF);
+        title.setTextSize(15);
+        title.setTypeface(null, Typeface.BOLD);
+        textCol.addView(title);
+        TextView sub = new TextView(requireContext());
+        sub.setText("Podcast, voiceover, music — import audio after");     // TODO(strings)
+        sub.setTextColor(0xFF888888);
+        sub.setTextSize(12);
+        textCol.addView(sub);
+        row.addView(textCol);
+        return row;
+    }
 
     @NonNull
     private View createBrowseRow(@Nullable Typeface iconFont, float dp) {

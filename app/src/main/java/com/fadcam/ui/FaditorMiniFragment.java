@@ -877,6 +877,21 @@ public class FaditorMiniFragment extends BaseFragment {
             }
 
             @Override
+            public void onStartBlankAudioProject() {
+                // G21/B9: no video pick — the editor opens an empty audio project.
+                Intent intent = new Intent(requireContext(), FaditorEditorActivity.class);
+                intent.putExtra(FaditorEditorActivity.EXTRA_START_BLANK_AUDIO, true);
+                try {
+                    editorLauncher.launch(intent);
+                } catch (Exception e) {
+                    FLog.e(TAG, "Failed to launch blank audio project", e);
+                    android.widget.Toast.makeText(requireContext(),
+                            "Couldn't open the project.",
+                            android.widget.Toast.LENGTH_LONG).show();
+                }
+            }
+
+            @Override
             public void onRecordingSelected(@NonNull Uri videoUri) {
                 launchEditor(videoUri);
             }

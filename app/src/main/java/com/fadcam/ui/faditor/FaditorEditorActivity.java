@@ -114,6 +114,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Intent extra key for opening a saved project by ID. */
     public static final String EXTRA_PROJECT_ID = "faditor_project_id";
+
+    /**
+     * G21/B9: start a BLANK AUDIO project — no video pick, empty spine, timeline ready for
+     * imported audio. Set by the new-project sheet's "Blank audio project" row. An audio-first
+     * user (podcast, voiceover, music) must not have to import a video they do not want just
+     * to reach a timeline.
+     */
+    public static final String EXTRA_START_BLANK_AUDIO = "faditor_start_blank_audio";
+
     /**
      * When true, open the project from its {@code project.json.bak} backup instead of
      * the main file. Set only by the "open the last backup instead" choice offered when
@@ -1378,8 +1387,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FaditorProject loaded = openBackup
                     ? projectStorage.loadBackupOnly(projectId)
                     : projectStorage.load(projectId);
-            if (loaded != null && !loaded.getTimeline().isEmpty()) {
-                initViews();
+            if (loaded != null && hasLoadableContent(loaded)) {                initViews();
                 project = loaded;
                 warnIfProjectIsReadOnly(loaded);
                 warnIfItemsSkipped(loaded, projectId, openBackup);
@@ -1470,6 +1478,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // recover the original source before loading.
                 recoverStaleCachePaths();
 
+                // B9: an audio-only saved project has NO spine clip to resolve, remux or
+                // feed the player. Everything from here to continueLoadFromSavedProject
+                // assumes clip 0 exists, so take the player-less branch instead — the audio
+                // lanes load exactly as they saved. The opening overlay is NOT shown here:
+                // it dismisses on the player's first STATE_READY, which never fires without
+                // a player — it would cover the editor forever.
+                if (project.getTimeline().getClipCount() == 0) {
+                    wireBookmarks();
+                    continueLoadFromSavedProject();
+                    FLog.d(TAG, "Editor opened SAVED AUDIO-ONLY project: " + projectId);
+                    return;
+                }
+
                 Uri playUri = project.getTimeline().getClip(0).getSourceUri();
                 // Resolve to file:// and check remux
                 File sourceFile = resolveToFile(playUri);
@@ -1499,11 +1520,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 showRemuxProgress();
                 if (remuxProgressText != null) remuxProgressText.setText(
                         "Opening project…"); // TODO(strings): rebrand-freeze rule
-                continueLoadFromSavedProject(playUri);
+                continueLoadFromSavedProject();
                 FLog.d(TAG, "Editor opened saved project: " + projectId);
                 return;
             }
             FLog.w(TAG, "Could not load saved project: " + projectId + ", falling back");
+        }
+
+        // G21: a BLANK AUDIO start is legal — no video pick, empty spine. The editor's own
+        // content door (the Add sheet) opens so the first thing on screen is how to add audio.
+        if (getIntent().getBooleanExtra(EXTRA_START_BLANK_AUDIO, false)) {
+            startBlankAudioProject();
+            return;
         }
 
         // Parse video URI from intent (new project)
@@ -1523,6 +1551,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
         attemptRemuxAndLoad(videoUri);
 
         FLog.d(TAG, "Editor opened with: " + videoUri);
+    }
+
+    /**
+     * G21/B9 — enter the editor with an EMPTY project: no spine clip, no player, timeline
+     * waiting for imported audio. The Add sheet opens immediately because for an audio-first
+     * user the first act is always "add audio", and the sheet is the editor's own door for
+     * that — landing on a bare timeline with no hint would read as broken (the G18 lesson at
+     * entry scale).
+     *
+     * <p>Everything downstream already tolerates a zero-clip spine: the renderer no-ops on
+     * empty rows, {@code getSelectedClip()} null-guards, and the audio-only export path
+     * (B9) builds a valid Composition from the audio lanes alone — see SPEC B9's engine
+     * note. No player is created; there is nothing to play until audio lands.</p>
+     */
+    private void startBlankAudioProject() {
+        initViews();
+        project = new FaditorProject("Untitled audio");
+        updateEditorTitle();
+        wireBookmarks();
+        editorTimeline.setTimeline(project.getTimeline(), 0);
+        editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        syncTimelineOverlays();
+        refreshTotalTimeDisplay();
+        saveProjectNow();
+        FLog.i(TAG, "G21: blank audio project started");
+        Toast.makeText(this,
+                "Blank project — add audio to begin",      // TODO(strings)
+                Toast.LENGTH_LONG).show();
+        showAddAssetPicker();
+    }
+
+    /**
+     * B9: whether a saved project carries anything loadable. The old gate was
+     * {@code !timeline.isEmpty()} — spine clips ONLY, so a saved AUDIO-ONLY project (the
+     * kind G21 now makes creatable) read as empty and the loader fell through to the
+     * new-project path, which finished the activity for lack of a video URI. A podcast
+     * project that could never be reopened is not storage, it is a bit bucket.
+     */
+    private static boolean hasLoadableContent(@NonNull com.fadcam.ui.faditor.model.FaditorProject p) {
+        return !p.getTimeline().isEmpty() || p.getTimeline().hasAudioClips();
     }
 
     @Override
@@ -2997,7 +3065,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *
      * @param playUri URI to use for preview playback (may be remuxed)
      */
-    private void continueLoadFromSavedProject(@NonNull Uri playUri) {
+    private void continueLoadFromSavedProject() {
         // Project is already set from saved data, refresh time display
         refreshTotalTimeDisplay();
         updateEditorTitle();
@@ -3006,7 +3074,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         initPlayer();
         initTimeline();
         Clip initialClip = getSelectedClip();
-        if (initialClip != null && initialClip.isGeneratedSlide()) {
+        if (initialClip == null) {
+            // B9: an audio-only project has NO spine clip — there is nothing to feed the
+            // player. The audio lanes below still restore, preview stays black until video
+            // is added, and export runs the audio-only composition.
+        } else if (initialClip.isGeneratedSlide()) {
             showSlidePreview(initialClip, 0);
         } else {
             loadClipForPlayback(initialClip);
@@ -11386,6 +11458,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 qualSpinner.setAlpha(checked ? 0.4f : 1f);
             });
 
+            // B9: an AUDIO-ONLY project (no spine clip) has no picture to encode, so the
+            // choice is not offered — it IS an audio export. The video-only controls come
+            // off the dialog entirely rather than sitting disabled: a control that cannot
+            // ever apply is clutter reading as broken (§0 rule 6 / G18 family).
+            final boolean audioProject = isAudioOnlyProject();
+            if (audioProject) {
+                audioOnlyBox.setChecked(true);
+                audioOnlyBox.setEnabled(false);
+                audioOnlyDesc.setText("This project has no video — it exports as audio");
+                resSpinner.setVisibility(View.GONE);
+                qualSpinner.setVisibility(View.GONE);
+                lowBandwidthChip.setVisibility(View.GONE);
+            }
+
             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.faditor_export_confirm_title)
                     .setView(root)
@@ -13574,6 +13660,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             addTrackMenuRow(list, popup, soloedNow ? "Unsolo" : "Solo",   // TODO(strings)
                     () -> toggleTrackSolo(track));
         }
+        // C5.U - the way in to ducking. Offered only where it could mean something: this lane
+        // must hold audio to duck, and some OTHER lane must hold the voice to duck under.
+        if (!duckTargetClips(track).isEmpty() && !duckKeyCandidates(track).isEmpty()) {
+            addTrackMenuRow(list, popup, "Duck under\u2026",          // TODO(strings)
+                    () -> promptDuckUnder(track));
+        }
         if (userCreated) {
             addTrackMenuRow(list, popup, "Delete lane", () -> confirmDeleteLayerTrack(track));
         }
@@ -13711,6 +13803,136 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> applySoloState(afterSolo, afterMuted, afterClipMuted, tlForUndo),
                 () -> applySoloState(beforeSolo, beforeMuted, beforeClipMuted, tlForUndo)));
         applySoloState(afterSolo, afterMuted, afterClipMuted, tl);
+    }
+
+    /** Audio clips this lane could have a duck curve written onto. */
+    @NonNull
+    private java.util.List<AudioClip> duckTargetClips(
+            @NonNull com.fadcam.ui.faditor.layers.Track track) {
+        java.util.List<AudioClip> out = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.TimedItem it : track.getItems()) {
+            AudioClip ac = it.getAudioClip();
+            if (ac != null) out.add(ac);
+        }
+        return out;
+    }
+
+    /** Lanes that could supply the VOICE - any other lane carrying audio clips. */
+    @NonNull
+    private java.util.List<com.fadcam.ui.faditor.layers.Track> duckKeyCandidates(
+            @NonNull com.fadcam.ui.faditor.layers.Track target) {
+        java.util.List<com.fadcam.ui.faditor.layers.Track> out = new java.util.ArrayList<>();
+        if (project == null) return out;
+        for (com.fadcam.ui.faditor.layers.Track t : project.getTimeline().getAudioTracks()) {
+            if (t.getId().equals(target.getId())) continue;
+            if (!duckTargetClips(t).isEmpty()) out.add(t);
+        }
+        return out;
+    }
+
+    /**
+     * C5.U - "Duck under...": pick which lane holds the voice, then write the curve.
+     *
+     * <p>Deliberately NOT a dialog full of knobs. The generator's output is ordinary keyframes
+     * the user can already drag, so the honest interaction is "do it, then fix it by hand" - a
+     * threshold slider would ask the user to tune something they cannot hear until after they
+     * have committed. Defaults come from {@code Ducker.Params}.</p>
+     *
+     * <p><b>The signal is chosen, and the choice is stated.</b> Word timings beat amplitude
+     * whenever a transcript exists (D11: they know a voice from a door slam, and they are
+     * deterministic), so they win - but the toast says which one ran, because silently picking
+     * between two algorithms that produce different curves is how a feature becomes
+     * unpredictable.</p>
+     */
+    private void promptDuckUnder(@NonNull com.fadcam.ui.faditor.layers.Track target) {
+        java.util.List<com.fadcam.ui.faditor.layers.Track> keys = duckKeyCandidates(target);
+        if (keys.isEmpty() || project == null) return;
+        if (keys.size() == 1) { applyDuck(target, keys.get(0)); return; }
+        CharSequence[] names = new CharSequence[keys.size()];
+        for (int i = 0; i < keys.size(); i++) {
+            String n = keys.get(i).getName();
+            names[i] = (n == null || n.isEmpty()) ? keys.get(i).getId() : n;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Duck under which lane?")                  // TODO(strings)
+                .setItems(names, (d, w) -> applyDuck(target, keys.get(w)))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /**
+     * Compute and apply a duck curve for every clip on {@code target}, as ONE undo step.
+     *
+     * <p>One step for the whole lane, not one per clip: the user asked for a single thing, and
+     * an undo that peels a lane off clip by clip is worse than no undo (spec rule 7).</p>
+     */
+    private void applyDuck(@NonNull com.fadcam.ui.faditor.layers.Track target,
+                           @NonNull com.fadcam.ui.faditor.layers.Track key) {
+        if (project == null || editorTimeline == null) return;
+        java.util.List<AudioClip> keyClips = duckTargetClips(key);
+        java.util.List<AudioClip> targets = duckTargetClips(target);
+        if (keyClips.isEmpty() || targets.isEmpty()) return;
+
+        final com.fadcam.ui.faditor.audio.Ducker.Params params =
+                new com.fadcam.ui.faditor.audio.Ducker.Params();
+        final java.util.List<Runnable> redos = new java.util.ArrayList<>();
+        final java.util.List<Runnable> undos = new java.util.ArrayList<>();
+        int displaced = 0, written = 0;
+        boolean usedTranscript = false;
+
+        for (AudioClip tgt : targets) {
+            java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> curve = null;
+            for (AudioClip kc : keyClips) {
+                com.fadcam.ui.faditor.transcript.Transcript tr = kc.getTranscript();
+                if (tr != null && !tr.words.isEmpty()) {
+                    curve = com.fadcam.ui.faditor.audio.Ducker.computeFromWords(
+                            tr.words, kc.getOffsetMs(), kc.getInPointMs(),
+                            tgt.getOffsetMs(), tgt.getTrimmedDurationMs(), params);
+                    usedTranscript = true;
+                } else {
+                    com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env =
+                            editorTimeline.analysisEnvelopeFor(kc);
+                    if (env == null) continue;
+                    curve = com.fadcam.ui.faditor.audio.Ducker.compute(
+                            env.samples, env.framesPerSecond,
+                            kc.getOffsetMs() + (env.sourceStartMs - kc.getInPointMs()),
+                            tgt.getOffsetMs(), tgt.getTrimmedDurationMs(), params);
+                }
+                if (curve != null && !curve.isEmpty()) break;   // first key clip that speaks
+            }
+            if (curve == null) continue;
+            final com.fadcam.ui.faditor.audio.DuckApplier.Result r =
+                    com.fadcam.ui.faditor.audio.DuckApplier.apply(tgt, curve);
+            displaced += r.replacedKeyframes;
+            written += r.writtenKeyframes;
+            redos.add(() -> r.action.execute());
+            undos.add(() -> r.action.undo());
+        }
+
+        if (redos.isEmpty()) {
+            // Nothing to duck under is a real answer and the user must SEE it land, or the
+            // feature is indistinguishable from broken (the G18 lesson).
+            Toast.makeText(this, "Nothing to duck under \u2014 no speech found in that lane",
+                    Toast.LENGTH_LONG).show();                   // TODO(strings)
+            return;
+        }
+        undoManager.recordAction(new EditActions.LambdaAction("Duck under voice",
+                () -> { for (Runnable r : redos) r.run(); afterDuckApplied(); },
+                () -> { for (Runnable r : undos) r.run(); afterDuckApplied(); }));
+        for (Runnable r : redos) r.run();
+        afterDuckApplied();
+
+        String how = usedTranscript ? "transcript" : "levels";
+        String msg = "Ducked \u2014 " + written + " keyframes from " + how;
+        if (displaced > 0) msg += ", replaced " + displaced + " existing (undo restores them)";
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();      // TODO(strings)
+    }
+
+    /** Redraw + persist after a duck curve lands or is taken back. */
+    private void afterDuckApplied() {
+        if (editorTimeline != null) editorTimeline.invalidate();
+        if (project != null) applyAudioTrackMuteLive(project.getTimeline());
+        scheduleAutoSave();
     }
 
     /** The single applier for solo state — redo, undo and first-engage all go through it. */
@@ -23504,6 +23726,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
                             Toast.LENGTH_SHORT).show();                     // TODO(strings)
                 }, true));
+        // B9: audio-only projects raise the drawer's height cap to 0.75 (§2.3 rider) —
+        // there is no picture being covered worth protecting.
+        ensureObjectDrawer().setAudioOnly(isAudioOnlyProject());
         ensureObjectDrawer().setOnClose(null);
         ensureObjectDrawer().show(tabs, toggles, false);
     }
@@ -23551,6 +23776,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
                             Toast.LENGTH_SHORT).show();                     // TODO(strings)
                 }, true));
+        // B9: same audio-only drawer cap for the clip-audio shelf drawer.
+        ensureObjectDrawer().setAudioOnly(isAudioOnlyProject());
         ensureObjectDrawer().setOnClose(null);
         ensureObjectDrawer().show(tabs, toggles, false);
     }

@@ -432,6 +432,14 @@ status: IDLE (2026-08-24 — all four rows BUILT at 5b89b76a. TYPECHECK OK — 6
 files: (none)
 since: 2026-08-24
 
+## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)
+status: IDLE (2026-08-24 — G21 BUILT + B9 v1 BUILT. TYPECHECK OK — 653 sources, 1808 classes.
+        export/ NOT touched (coordinated around LANE C's active ownership) — .wav/.mp3 containers
+        and the zero-spine DEVICE export are the owed remainder; full preview-reclaim layout open.)
+files: FaditorEditorActivity.java (new-project entry + export dialog + saved-load gate),
+        VideoSourceBottomSheet.java, ui/FaditorMiniFragment.java
+since: 2026-08-24
+
 ## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)
 status: IDLE (2026-08-24 — 17 rows BUILT: G1/G2 8c6b0c66 fid fade fix, G3 2d34beb0 toggle, G4 f613dce6 picker, G5 1ead8ea4+b9118ff8 pin fix, G6-17 7813914a+2d34beb0 transcript/caption/drawer/transport. TYPECHECK OK — 648 sources, 1795 classes)
 files: (none)

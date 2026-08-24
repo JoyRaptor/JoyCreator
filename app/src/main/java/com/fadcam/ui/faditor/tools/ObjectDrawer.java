@@ -143,6 +143,9 @@ public final class ObjectDrawer extends LinearLayout {
         iconRow = new LinearLayout(ctx);
         iconRow.setOrientation(HORIZONTAL);
         iconRow.setGravity(Gravity.CENTER_VERTICAL);
+        // G9: header toggles were reported invisible — ensure iconRow is above scrim
+        iconRow.setElevation(4f * density);
+        header.setElevation(3f * density);
         header.addView(iconRow, new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
@@ -400,12 +403,16 @@ public final class ObjectDrawer extends LinearLayout {
             boolean on = t.state.isOn();
             ImageView iv = toggleIcons.get(i);
             iv.setImageResource(on ? t.iconOn : t.iconOff);
+            // G9: ensure visible tint even over dark scrim — use solid colours with shadow
             iv.setColorFilter(on ? (t.dangerWhenOn ? DANGER : ACCENT) : TXT_DIM);
+            iv.setAlpha(1f);
+            iv.setElevation(6f * density);
+            iv.invalidate();
         }
         for (int i = 0; i < tabIcons.size(); i++) {
-            // Tab index 0 is Video, which has no icon of its own — the icons are 1..n, so an
-            // icon is green exactly when ITS tab is the one on screen.
             tabIcons.get(i).setColorFilter(activeTab == i + 1 ? ACCENT : TXT_DIM);
+            tabIcons.get(i).setAlpha(1f);
+            tabIcons.get(i).setElevation(6f * density);
         }
     }
 
@@ -445,14 +452,15 @@ public final class ObjectDrawer extends LinearLayout {
         iv.setImageResource(res);
         iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
         iv.setPadding(dp(7), dp(7), dp(7), dp(7));
-        // 38dp touch target around a 24dp glyph — a 24dp target is not finger-sized, the same
-        // correction the lane mute icon needed.
+        // G9: draw over scrim with elevation and slightly more opaque oval so it does not vanish on dark video
+        iv.setElevation(5f * density);
         LayoutParams lp = new LayoutParams(dp(38), dp(38));
         iv.setLayoutParams(lp);
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x22FFFFFF);
+        bg.setColor(0x33FFFFFF);
         iv.setBackground(bg);
+        iv.setAlpha(1f);
         return iv;
     }
 

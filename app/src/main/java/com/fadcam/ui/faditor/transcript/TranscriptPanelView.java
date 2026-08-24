@@ -487,7 +487,16 @@ public class TranscriptPanelView extends View {
                         continue;
                     }
                 } else {
-                    pp = isSelected ? gutterSelectedPaint : gutterPaint;
+                    // G16: selected paragraph rail changes colour so its extent is obvious (not just white)
+                    if (isSelected) {
+                        Paint sel = new Paint(Paint.ANTI_ALIAS_FLAG);
+                        sel.setStyle(Paint.Style.FILL);
+                        sel.setColor(0xFF4DD0E1);
+                        sel.setAlpha(210);
+                        pp = sel;
+                    } else {
+                        pp = gutterPaint;
+                    }
                 }
                 if (gutterReorderDragging && p == draggedParagraph) pp.setAlpha(120);
                 canvas.drawRoundRect(r, railR, railR, pp);

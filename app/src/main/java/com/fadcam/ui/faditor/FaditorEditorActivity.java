@@ -16960,18 +16960,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
-        // size slider
+        // G8: size row now has position toggle LEFT of the size slider, and slider is smaller
         android.widget.LinearLayout sizeRow = new android.widget.LinearLayout(ctx);
         sizeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         sizeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
         sizeRow.setPadding(0, pad, 0, 0);
         root.addView(sizeRow);
+        // position toggle on the left (was a separate Position tab)
+        android.view.View posToggle = makeCaptionPositionToggle(d);
+        sizeRow.addView(posToggle);
         com.google.android.material.slider.Slider sizeSlider = new com.google.android.material.slider.Slider(new androidx.appcompat.view.ContextThemeWrapper(ctx, R.style.Widget_FadCam_BottomSheetSlider));
         sizeSlider.setValueFrom(0.02f);
         sizeSlider.setValueTo(0.20f);
         sizeSlider.setStepSize(0.005f);
         sizeSlider.setValue(Math.max(0.02f, Math.min(0.20f, getCurrentCaptionSize())));
-        android.widget.LinearLayout.LayoutParams slp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        android.widget.LinearLayout.LayoutParams slp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f);
         slp.leftMargin = (int)(10*d);
         sizeSlider.setLayoutParams(slp);
         sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
@@ -17019,12 +17022,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fontScroll.addView(fontChips);
         fontRow.addView(fontScroll, new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         final java.util.Map<String, android.widget.TextView> fontChipByKey = new java.util.HashMap<>();
+        // G11: selected chip stays somewhat transparent (see-through contract 2.3), not fully opaque
         final Runnable markSelectedFont = () -> {
             String sel = currentCaptionStyle().fontKey;
             for (java.util.Map.Entry<String, android.widget.TextView> e : fontChipByKey.entrySet()) {
                 boolean on = e.getKey().equals(sel);
                 e.getValue().setTextColor(on ? 0xFF4CAF50 : 0xFFEEEEEE);
-                e.getValue().setAlpha(on ? 1f : 0.72f);
+                e.getValue().setAlpha(on ? 0.88f : 0.72f);
             }
         };
         for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
@@ -17043,6 +17047,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fontChips.addView(fc);
         }
         markSelectedFont.run();
+        // G10: scroll font list to the SELECTED font so it is not off-screen
+        fontScroll.post(() -> {
+            String sel = currentCaptionStyle().fontKey;
+            android.view.View v = fontChipByKey.get(sel);
+            if (v != null) {
+                int scrollX = Math.max(0, v.getLeft() - fontScroll.getWidth() / 2 + v.getWidth() / 2);
+                fontScroll.smoothScrollTo(scrollX, 0);
+            }
+        });
         addCaptionActionIcon(fontRow, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
         addCaptionActionIcon(fontRow, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
         addCaptionActionIcon(fontRow, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
@@ -17066,12 +17079,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             android.widget.TextView ab = new android.widget.TextView(ctx);
             styleDrawerChip(ab, d);
             ab.setText(animNames[a]);
-            ab.setAlpha(cur.anim == anim ? 1f : 0.45f);
+            ab.setAlpha(cur.anim == anim ? 0.88f : 0.45f);
             final android.widget.LinearLayout rowRef = animRow;
             ab.setOnClickListener(v -> {
                 tweakCaptionStyle(s -> s.anim = anim);
                 for (int i = 1; i < rowRef.getChildCount(); i++) {
-                    rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 1f : 0.45f);
+                    rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 0.88f : 0.45f);
                 }
             });
             animRow.addView(ab);
@@ -18018,10 +18031,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     + (in + out >= maxPercent * 2 ? "  ·  in ends as out begins" : ""));
         };
 
-        root.addView(makeCaptionAnimSlider(root, d, "In", maxPercent,
-                Math.round(target.getCaptionAnimInPct() * 100f), true, refresh));
-        root.addView(makeCaptionAnimSlider(root, d, "Out", maxPercent,
-                Math.round(target.getCaptionAnimOutPct() * 100f), false, refresh));
+        // G12: In and Out on ONE line — same half treatment as audio fades
+        android.widget.LinearLayout timingRow = new android.widget.LinearLayout(this);
+        timingRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        timingRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        View inSlider = makeCaptionAnimSlider(timingRow, d, "In", maxPercent,
+                Math.round(target.getCaptionAnimInPct() * 100f), true, refresh);
+        View outSlider = makeCaptionAnimSlider(timingRow, d, "Out", maxPercent,
+                Math.round(target.getCaptionAnimOutPct() * 100f), false, refresh);
+        android.widget.LinearLayout.LayoutParams lpIn = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f);
+        android.widget.LinearLayout.LayoutParams lpOut = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.5f);
+        lpOut.leftMargin = (int)(8*d);
+        timingRow.addView(inSlider, lpIn);
+        timingRow.addView(outSlider, lpOut);
+        root.addView(timingRow);
         readout.setPadding(0, (int) (2 * d), 0, 0);
         root.addView(readout);
         refresh.run();
@@ -27077,12 +27100,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 input.setHint("Speaker name (empty to clear)");
                 input.setSingleLine(true);
                 input.selectAll();
+                final String beforeSpeaker = currentTranscript.getParagraphSpeaker(pIdx);
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
                         .setTitle("Speaker for paragraph " + (paraIndex + 1))
                         .setView(input)
                         .setNegativeButton(android.R.string.cancel, null)
+                        .setNeutralButton("Clear", (dlg, w) -> {
+                            String old = beforeSpeaker;
+                            if (undoManager != null) {
+                                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                                        "Clear speaker",
+                                        () -> { if (old == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, old); if (transcriptView != null) transcriptView.invalidate(); },
+                                        () -> { currentTranscript.paragraphSpeakers.remove(pIdx); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); }));
+                            } else {
+                                currentTranscript.paragraphSpeakers.remove(pIdx);
+                            }
+                            if (transcriptView != null) transcriptView.invalidate();
+                            scheduleAutoSave();
+                            android.widget.Toast.makeText(FaditorEditorActivity.this, "Speaker cleared", android.widget.Toast.LENGTH_SHORT).show();
+                        })
                         .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                             String name = input.getText().toString().trim();
+                            String old = beforeSpeaker;
+                            String applied = name.isEmpty() ? null : name;
+                            if (undoManager != null) {
+                                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                                        name.isEmpty() ? "Clear speaker" : "Set speaker",
+                                        () -> { if (old == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, old); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); },
+                                        () -> { if (applied == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, applied); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); }));
+                            }
                             if (name.isEmpty()) currentTranscript.paragraphSpeakers.remove(pIdx);
                             else currentTranscript.paragraphSpeakers.put(pIdx, name);
                             if (transcriptView != null) transcriptView.invalidate();
@@ -27137,12 +27183,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 input.setSingleLine(true);
                 input.selectAll();
                 final int pIdx = para;
+                final String beforeSpeaker2 = currentTranscript.getParagraphSpeaker(pIdx);
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                         .setTitle("Speaker for paragraph " + (para + 1))
                         .setView(input)
                         .setNegativeButton(android.R.string.cancel, null)
+                        .setNeutralButton("Clear", (dlg, w) -> {
+                            String old = beforeSpeaker2;
+                            if (undoManager != null) {
+                                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                                        "Clear speaker",
+                                        () -> { if (old == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, old); transcriptView.invalidate(); },
+                                        () -> { currentTranscript.paragraphSpeakers.remove(pIdx); transcriptView.invalidate(); scheduleAutoSave(); }));
+                            } else {
+                                currentTranscript.paragraphSpeakers.remove(pIdx);
+                            }
+                            currentTranscript.paragraphSpeakers.remove(pIdx);
+                            transcriptView.invalidate();
+                            scheduleAutoSave();
+                            android.widget.Toast.makeText(this, "Speaker cleared", android.widget.Toast.LENGTH_SHORT).show();
+                        })
                         .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                             String name = input.getText().toString().trim();
+                            String old = beforeSpeaker2;
+                            String applied = name.isEmpty() ? null : name;
+                            if (undoManager != null) {
+                                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                                        name.isEmpty() ? "Clear speaker" : "Set speaker",
+                                        () -> { if (old == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, old); transcriptView.invalidate(); scheduleAutoSave(); },
+                                        () -> { if (applied == null) currentTranscript.paragraphSpeakers.remove(pIdx); else currentTranscript.paragraphSpeakers.put(pIdx, applied); transcriptView.invalidate(); scheduleAutoSave(); }));
+                            }
                             if (name.isEmpty()) currentTranscript.paragraphSpeakers.remove(pIdx);
                             else currentTranscript.paragraphSpeakers.put(pIdx, name);
                             transcriptView.invalidate();
@@ -27164,6 +27234,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 transcriptView.invalidate();
                 updateTranscriptBreakButton();
                 scheduleAutoSave();
+                android.widget.Toast.makeText(this,
+                        w.forceLineBreakAfter ? "Paragraph break added" : "Paragraph break removed",
+                        android.widget.Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -30151,8 +30224,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final int fSegmentIndex = isAudio ? -1 : selectedClipIndex;
 
         transcriptModelChoice.setVisibility(View.GONE);
-        transcriptView.setVisibility(View.GONE);
-        transcriptView.setTranscript(null);
+        // G6: keep existing transcript readable while transcribing - progress overlays, does not replace
+        if (currentTranscript != null && !currentTranscript.isEmpty() && transcriptView.getVisibility() == View.VISIBLE) {
+            // keep transcriptView visible with current content
+        } else {
+            transcriptView.setVisibility(View.GONE);
+            transcriptView.setTranscript(null);
+        }
         transcriptProgress.setVisibility(View.VISIBLE);
         transcriptProgressText.setText(R.string.faditor_transcript_working);
         addActiveTranscription(type);

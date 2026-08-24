@@ -41,6 +41,7 @@ import com.fadcam.ui.faditor.CanvasPickerBottomSheet;
 import com.fadcam.ui.faditor.gltransitions.GlTransitionExportEffect;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.audio.LoudnessAnalyzer;
+import com.fadcam.ui.faditor.audio.fx.AudioFxChainFactory;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.ExportSettings;
 import com.fadcam.ui.faditor.model.FaditorProject;
@@ -150,6 +151,14 @@ public class ExportManager {
      */
     @Nullable private volatile Double lastExportLoudnessBefore;
     @Nullable private volatile Double lastExportLoudnessAfter;
+
+    /**
+     * C7 — A/B bypass snapshot taken ONCE at export start and passed into every FX chain
+     * this export builds. Export runs in a service: it must consult screen state exactly
+     * once, deterministically, at a defined moment — never mid-flight, and never as an
+     * ambient read that goes stale after process death.
+     */
+    private boolean fxBypassedSnapshot = false;
 
     @Nullable
     public Double getLastExportLoudnessBeforeLUFS() { return lastExportLoudnessBefore; }
@@ -380,6 +389,9 @@ public class ExportManager {
 
         String outputPath = generateOutputPath(project);
         isExporting = true;
+        // C7 snapshot: one deterministic read at export start (see the field's doc).
+        fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+        FLog.d(TAG, "C1.E FX chain: bypassed=" + fxBypassedSnapshot);
 
         try {
             // Build the Transformer
@@ -563,6 +575,9 @@ public class ExportManager {
 
         String outputPath = generateOutputPath(project, "m4a");
         isExporting = true;
+        // C7 snapshot: one deterministic read at export start (see the field's doc).
+        fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+        FLog.d(TAG, "C1.E FX chain (audio-only): bypassed=" + fxBypassedSnapshot);
 
         try {
             Transformer.Builder builder = new Transformer.Builder(context)
@@ -1647,6 +1662,11 @@ public class ExportManager {
             if (volumeAdjusted) {
                 audioProcessors.add(volumeProcessor);
             }
+            // C1.E: real-time FX chain — same factory the preview uses, so what the
+            // user hears while editing is what lands in the file. The C7 bypass flag is
+            // SNAPSHOT here (once per composition build): export runs in a service, so
+            // it must never read a UI static mid-flight.
+            AudioFxChainFactory.addTo(audioProcessors, clip, fxBypassedSnapshot);
         }
 
         List<Effect> videoEffects = assembleClipVideoEffects(
@@ -2351,6 +2371,9 @@ public class ExportManager {
             if (volumeAdjusted) {
                 processors.add(volumeProcessor);
             }
+            // C1.E: FX chain rides the audio-lane clips too — same factory as preview,
+            // same per-export bypass snapshot.
+            AudioFxChainFactory.addTo(processors, ac, fxBypassedSnapshot);
             if (!processors.isEmpty()) {
                 editBuilder.setEffects(new Effects(processors, Collections.emptyList()));
             }
@@ -2493,6 +2516,8 @@ public class ExportManager {
                 vp.setVolume(volume);
                 processors.add(vp);
             }
+            // C1.E: FX chain on PiP audio too — one factory everywhere, one snapshot.
+            AudioFxChainFactory.addTo(processors, c, fxBypassedSnapshot);
             if (!processors.isEmpty()) {
                 eb.setEffects(new Effects(processors, Collections.emptyList()));
             }

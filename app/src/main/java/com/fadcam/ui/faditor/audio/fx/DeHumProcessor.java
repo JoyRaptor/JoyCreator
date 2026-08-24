@@ -78,13 +78,12 @@ public final class DeHumProcessor extends BaseAudioProcessor {
             for (int ch = 0; ch < channelCount; ch++) {
                 float x = inShort.get() / 32768.0f;
                 float y = x;
-                int stateBase = ch * 12; // 3 harmonics * 4 state vars
                 for (int h = 0; h < 3; h++) {
                     float[] coeff = notchCoeffs[h];
                     if (coeff[0] == 0f) continue;
                     float b0 = coeff[0], b1 = coeff[1], b2 = coeff[2];
                     float a1 = coeff[3], a2 = coeff[4];
-                    int sb = stateBase + h * 4;
+                    int sb = h * 4;
                     float x1 = notchState[ch][sb];
                     float x2 = notchState[ch][sb + 1];
                     float y1 = notchState[ch][sb + 2];

@@ -22,6 +22,7 @@ public final class CompressorProcessor extends BaseAudioProcessor {
     private int sampleRate;
     private int channelCount;
     private float[] envelope; // per-channel
+    private float lastGainReductionDb = 0f;
 
     public CompressorProcessor() {}
 
@@ -30,6 +31,12 @@ public final class CompressorProcessor extends BaseAudioProcessor {
     public void setAttackMs(float ms) { this.attackMs = Math.max(0.1f, ms); }
     public void setReleaseMs(float ms) { this.releaseMs = Math.max(1f, ms); }
     public void setMakeupGainDb(float db) { this.makeupGainDb = db; }
+
+    /** C6: the worst gain reduction applied in the most recent input block, in dB
+     *  (0 = none, negative = pushed down). Polled by the wiring layer. */
+    public float getGainReductionDb() {
+        return lastGainReductionDb;
+    }
 
     @Override
     protected AudioFormat onConfigure(AudioFormat inputAudioFormat)
@@ -60,6 +67,7 @@ public final class CompressorProcessor extends BaseAudioProcessor {
         float makeupGain = (float) Math.pow(10, makeupGainDb / 20.0);
 
         int frameCount = remaining / (2 * channelCount);
+        float maxReductionDb = 0f;
 
         for (int f = 0; f < frameCount; f++) {
             for (int ch = 0; ch < channelCount; ch++) {
@@ -77,6 +85,7 @@ public final class CompressorProcessor extends BaseAudioProcessor {
                     float excessDb = 20f * (float) Math.log10(envelope[ch] / thresholdLin);
                     float reductionDb = excessDb * (1 - 1f / ratio);
                     gain = (float) Math.pow(10, -reductionDb / 20.0);
+                    if (reductionDb > maxReductionDb) maxReductionDb = reductionDb;
                 }
 
                 float y = x * gain * makeupGain;
@@ -85,6 +94,10 @@ public final class CompressorProcessor extends BaseAudioProcessor {
                 outShort.put((short) scaled);
             }
         }
+
+        // Report the worst-case reduction in this block (negative value expected by the bar).
+        // Stored on the PROCESSOR — the wiring layer polls it; no UI dependency here.
+        lastGainReductionDb = maxReductionDb > 0.01f ? -maxReductionDb : 0f;
 
         inputBuffer.position(inputBuffer.limit());
         // Parent-buffer limit must be set explicitly (see EqProcessor note).

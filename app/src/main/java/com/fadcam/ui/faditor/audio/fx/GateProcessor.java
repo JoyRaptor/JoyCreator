@@ -79,7 +79,10 @@ public final class GateProcessor extends BaseAudioProcessor {
                     gain = 1f;
                     holdCounter[ch]--;
                 } else {
-                    // Below threshold: release (close gate)
+                    // Below threshold: release (close gate). The extra envelope decay here
+                    // is DELIBERATE release shaping — it closes the gate far faster than the
+                    // follower alone would, and run-audio-fx.sh certifies that speed
+                    // ("gate re-closes after the loud passage"). Do not "simplify" it away.
                     float coeffR = (float) Math.exp(-1000.0 / (releaseMs * sampleRate));
                     envelope[ch] = envelope[ch] * coeffR;
                     gain = envelope[ch] / Math.max(thresholdLin, 1e-6f);

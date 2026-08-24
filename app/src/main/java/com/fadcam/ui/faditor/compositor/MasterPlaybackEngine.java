@@ -8,7 +8,9 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.audio.AudioSink;
 import androidx.media3.ui.PlayerView;
 
 import com.fadcam.FLog;
@@ -401,8 +403,7 @@ public class MasterPlaybackEngine {
             }
         }
 
-        ExoPlayer p = new ExoPlayer.Builder(context).build();
-        p.setRepeatMode(Player.REPEAT_MODE_OFF);
+        ExoPlayer p = new ExoPlayer.Builder(context, fxChainRenderersFactory()).build();        p.setRepeatMode(Player.REPEAT_MODE_OFF);
         // NOTE (2026-07-28): playlist preloading was TRIED HERE AND DID NOT HELP — do not
         // re-add it without new evidence. media3's PreloadConfiguration.DEFAULT disables
         // preloading, so setting a 2s target looked like the obvious fix for the per-seam
@@ -579,6 +580,110 @@ public class MasterPlaybackEngine {
         if (player == null || window < 0 || window >= windows.size()) return;
         float speed = windows.get(window).speed;
         player.setPlaybackParameters(new PlaybackParameters(speed));
+    }
+
+    /**
+     * C1.E — the renderers factory that mounts the REAL-TIME FX chain into preview audio.
+     * The chain is built by the SAME factory export uses ({@code AudioFxChainFactory}), so
+     * what the user hears while editing is what lands in the file. A fresh chain per player
+     * build (processors are stateful; one instance serves exactly one pipeline).
+     *
+     * <p>The chain is wrapped by {@link UiSyncAudioProcessor}, which per AUDIO BUFFER
+     * (~10–40 ms) bridges the UI toggle into the injected bypass flag (so a C7 A/B flip is
+     * audible instantly, no rebuild) and mirrors the compressor's live gain reduction back
+     * onto the drawer's C6 bar. The UI coupling lives HERE — a full-tree layer — never in
+     * {@code faditor/audio/fx/}, which run-audio-fx.sh compiles against stubs.</p>
+     */
+    @NonNull
+    private androidx.media3.exoplayer.DefaultRenderersFactory fxChainRenderersFactory() {
+        return new androidx.media3.exoplayer.DefaultRenderersFactory(context) {
+            @Override
+            @Nullable
+            protected AudioSink buildAudioSink(android.content.Context context,
+                    boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+                return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
+                        .setEnableFloatOutput(enableFloatOutput)
+                        .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                        .setAudioProcessors(new androidx.media3.common.audio.AudioProcessor[] {
+                                new UiSyncAudioProcessor(
+                                        com.fadcam.ui.faditor.audio.fx.FxChain.createVoiceChain(48000))})
+                        .build();
+            }
+        };
+    }
+
+    /**
+     * Delegates every {@code AudioProcessor} call to the real chain and, per buffer, keeps
+     * the UI toggle and the engine's bypass flag consistent in BOTH directions:
+     *
+     * <p>UI → engine (C7): {@code AudioDrawerTabs.fxChainBypassed} →
+     * {@link FxChain#setBypassed}. Engine → UI (C6): {@link FxChain#getGainReductionDb} →
+     * {@code AudioDrawerTabs.reportGainReductionDb}.</p>
+     */
+    private static final class UiSyncAudioProcessor implements AudioProcessor {
+
+        private final com.fadcam.ui.faditor.audio.fx.FxChain delegate;
+
+        UiSyncAudioProcessor(@NonNull com.fadcam.ui.faditor.audio.fx.FxChain delegate) {
+            this.delegate = delegate;
+        }
+
+        private void sync() {
+            boolean uiBypassed = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+            if (delegate.isBypassed() != uiBypassed) {
+                delegate.setBypassed(uiBypassed);
+            }
+            float gr = delegate.getGainReductionDb();
+            if (!Float.isNaN(gr)) {
+                com.fadcam.ui.faditor.tools.AudioDrawerTabs.reportGainReductionDb(gr);
+            }
+        }
+
+        @Override
+        @NonNull
+        public AudioProcessor.AudioFormat configure(
+                @NonNull AudioProcessor.AudioFormat inputAudioFormat)
+                throws UnhandledAudioFormatException {
+            sync();
+            return delegate.configure(inputAudioFormat);
+        }
+
+        @Override
+        public boolean isActive() {
+            return delegate.isActive();
+        }
+
+        @Override
+        public void queueInput(@NonNull java.nio.ByteBuffer inputBuffer) {
+            sync();
+            delegate.queueInput(inputBuffer);
+        }
+
+        @Override
+        public java.nio.ByteBuffer getOutput() {
+            return delegate.getOutput();
+        }
+
+        @Override
+        public void queueEndOfStream() {
+            delegate.queueEndOfStream();
+        }
+
+        @Override
+        public boolean isEnded() {
+            return delegate.isEnded();
+        }
+
+        @Override
+        public void flush() {
+            sync();
+            delegate.flush();
+        }
+
+        @Override
+        public void reset() {
+            delegate.reset();
+        }
     }
 
     public void releasePlayer() {

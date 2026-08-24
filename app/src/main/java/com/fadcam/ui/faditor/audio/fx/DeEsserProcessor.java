@@ -23,10 +23,11 @@ public final class DeEsserProcessor extends BaseAudioProcessor {
     private int sampleRate;
     private int channelCount;
     private float[][] fftBuffer; // [channel][fftSize]
-    private float[] fftReal;
-    private float[] fftImag;
-    private int[][] writeIndex;
+    private float[][] fftReal;
+    private float[][] fftImag;
+    private int[] writeIndex;
     private float[] window;
+    private float[] currentGain; // per-channel smoothed gain
 
     public DeEsserProcessor() {}
 
@@ -42,10 +43,12 @@ public final class DeEsserProcessor extends BaseAudioProcessor {
         this.sampleRate = inputAudioFormat.sampleRate;
         this.channelCount = inputAudioFormat.channelCount;
 
-        this.fftReal = new float[fftSize];
-        this.fftImag = new float[fftSize];
+        this.fftReal = new float[channelCount][fftSize];
+        this.fftImag = new float[channelCount][fftSize];
         this.fftBuffer = new float[channelCount][fftSize];
-        this.writeIndex = new int[channelCount][1];
+        this.writeIndex = new int[channelCount];
+        this.currentGain = new float[channelCount];
+        for (int ch = 0; ch < channelCount; ch++) currentGain[ch] = 1f;
         this.window = new float[fftSize];
         for (int i = 0; i < fftSize; i++) {
             window[i] = (float) (0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1))));
@@ -69,16 +72,16 @@ public final class DeEsserProcessor extends BaseAudioProcessor {
         for (int f = 0; f < frameCount; f++) {
             for (int ch = 0; ch < channelCount; ch++) {
                 float x = inShort.get() / 32768.0f;
-                int wi = writeIndex[ch][0];
+                int wi = writeIndex[ch];
 
-                // Accumulate windowed frames
-                fftReal[wi] = x * window[wi];
-                fftImag[wi] = 0f;
-                writeIndex[ch][0] = (wi + 1) % fftSize;
+                // Accumulate windowed frames per channel
+                fftReal[ch][wi] = x * window[wi];
+                fftImag[ch][wi] = 0f;
+                writeIndex[ch] = (wi + 1) % fftSize;
 
                 if (wi == fftSize - 1) {
-                    // Process FFT on full window
-                    Fft.transform(fftReal, fftImag);
+                    // Process FFT on full window for this channel
+                    Fft.transform(fftReal[ch], fftImag[ch]);
 
                     // Detect sibilance in 4-8 kHz range
                     int binStart = (int) (4000.0 * fftSize / sampleRate);
@@ -87,26 +90,25 @@ public final class DeEsserProcessor extends BaseAudioProcessor {
 
                     float sibilanceEnergy = 0f;
                     for (int bin = binStart; bin < binEnd; bin++) {
-                        float mag = (float) Math.sqrt(fftReal[bin] * fftReal[bin] + fftImag[bin] * fftImag[bin]);
+                        float mag = (float) Math.sqrt(fftReal[ch][bin] * fftReal[ch][bin] + fftImag[ch][bin] * fftImag[ch][bin]);
                         sibilanceEnergy += mag;
                     }
-                    sibilanceEnergy /= (binEnd - binStart);
+                    sibilanceEnergy /= Math.max(1, binEnd - binStart);
 
                     float thresholdLin = (float) Math.pow(10, thresholdDb / 20.0);
-                    float reduction = 1f;
+                    float targetGain = 1f;
                     if (sibilanceEnergy > thresholdLin) {
                         float excessDb = 20f * (float) Math.log10(sibilanceEnergy / thresholdLin);
                         float reductionDb = Math.min(maxReductionDb, excessDb);
-                        reduction = (float) Math.pow(10, -reductionDb / 20.0);
+                        targetGain = (float) Math.pow(10, -reductionDb / 20.0);
                     }
-
-                    // Apply gain to output (simplified: apply to next hopSize frames)
-                    // Note: proper implementation would use overlap-add with phase preservation
-                    // This is a simplified version for the engine proof.
+                    // Smooth gain with simple attack/release (fast attack, slower release)
+                    float coeff = targetGain < currentGain[ch] ? 0.3f : 0.05f;
+                    currentGain[ch] = currentGain[ch] * (1 - coeff) + targetGain * coeff;
                 }
 
-                // Output current sample (simplified: just pass through for now)
-                int scaled = Math.round(x * 32767.0f);
+                float y = x * currentGain[ch];
+                int scaled = Math.round(y * 32767.0f);
                 scaled = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, scaled));
                 outShort.put((short) scaled);
             }

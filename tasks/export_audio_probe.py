@@ -14,10 +14,15 @@ Usage:
                                        [--source-dur 3.0] [--expect-gain 1.0]
                                        [--silent-before]
 
-E1 loudness-parity mode (no source/offset needed):
+E1/C1.E loudness-parity mode (no source/offset needed):
     python tasks/export_audio_probe.py EXPORT.mp4 --preview PREVIEW.m4a [--lufs-tol 1.0]
     Measures both files with ebur128 and asserts preview LUFS == export LUFS.
-    A negative control (two files at deliberately different levels) exits FAIL.
+    Also least-squares fits the two decoded waveforms against each other and requires
+    them to MATCH (ncc > 0.9): loudness alone cannot see an EQ-shaped difference, a
+    correlated waveform can. A negative control (two files at deliberately different
+    levels or shapes) exits FAIL. This is the instrument that closes C1.E's row: run it
+    with PREVIEW = a captured preview render of a project with the FX chain engaged and
+    EXPORT = the exported file of the same project.
 
 Requires ffmpeg on PATH. Both inputs are decoded to mono 48 kHz so containers,
 channel counts and sample rates do not have to match.
@@ -125,20 +130,64 @@ def main():
     if not args.export:
         ap.error('EXPORT file is required')
     if args.preview:
-        # ── E1: preview/export loudness parity mode ──────────────────
+        # ── E1/C1.E: preview/export parity mode ──────────────────────
         ex_lufs = ebur128_lufs(args.export)
         pv_lufs = ebur128_lufs(args.preview)
         print(f'preview : {os.path.basename(args.preview)}  '
               f'integrated LUFS = {pv_lufs if pv_lufs is not None else "UNMEASURABLE (silence?)"}')
         print(f'export  : {os.path.basename(args.export)}  '
               f'integrated LUFS = {ex_lufs if ex_lufs is not None else "UNMEASURABLE (silence?)"}')
-        ok = False
+        checks = []
         if pv_lufs is None or ex_lufs is None:
             print('\nFAIL  a side was unmeasurable — cannot claim parity over silence')
+            checks.append(('loudness measurable on both sides', False))
         else:
             delta = abs(pv_lufs - ex_lufs)
             ok = delta <= args.lufs_tol
             print(f'\nloudness delta    : {delta:.2f} LU   (tolerance {args.lufs_tol:.1f})')
+            checks.append(('loudness parity (delta <= tol)', ok))
+
+        # Waveform match: decode both sides and least-squares fit one against the other.
+        # Preview and export run the SAME processors, so their renders must correlate
+        # ~perfectly; an EQ/spectrum-only difference (invisible to LUFS) shows up here.
+        tmp = tempfile.mkdtemp(prefix='fxparity_')
+        ex_w = os.path.join(tmp, 'ex.wav')
+        pv_w = os.path.join(tmp, 'pv.wav')
+        to_wav(args.export, ex_w)
+        to_wav(args.preview, pv_w)
+        ex, fs = read(ex_w)
+        pv, fs2 = read(pv_w)
+        if not len(ex) or not len(pv):
+            print('FAIL: a side decoded to zero samples.')
+            checks.append(('waveform decodable on both sides', False))
+        else:
+            n = min(len(ex), len(pv))
+            hay, needle = ex[:n] - ex[:n].mean(), pv[:n] - pv[:n].mean()
+            # Search +/-120 ms of alignment for the best match (AAC priming differs per
+            # encode); fit gain at that lag like the offset mode does.
+            search = int(0.12 * fs)
+            corr_full = np.correlate(hay[search:len(hay) - search],
+                                     needle, mode='valid') if n > 2 * search + len(needle) else None
+            if corr_full is None:
+                lag, seg, pr = 0, hay[:len(needle)], needle
+            else:
+                lag = int(np.argmax(np.abs(corr_full))) + search
+                seg = hay[lag:lag + len(needle)]
+                pr = needle
+            denom = float(np.dot(pr, pr))
+            scale = float(np.dot(seg, pr) / denom) if denom else 0.0
+            ncc = (float(np.dot(seg, pr) / np.sqrt(float(np.dot(seg, seg)) * denom))
+                   if denom and float(np.dot(seg, seg)) else 0.0)
+            sign = 1.0 if scale >= 0 else -1.0
+            ncc *= sign
+            scale *= sign
+            print(f'waveform match    : lag {lag / fs * 1000.0:+.1f} ms  fitted gain '
+                  f'{scale:.3f}  corr {ncc:.3f}')
+            checks.append(('waveform actually matches preview vs export (corr > 0.9)',
+                           ncc > 0.9))
+        ok = all(r for _, r in checks)
+        for name, res in checks:
+            print(f'  {"PASS" if res else "FAIL"}  {name}')
         print(f'\n{"PASS" if ok else "FAIL"}')
         sys.exit(0 if ok else 1)
 

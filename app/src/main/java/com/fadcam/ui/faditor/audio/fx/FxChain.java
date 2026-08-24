@@ -100,6 +100,23 @@ public final class FxChain extends BaseAudioProcessor {
     /** @see #createVoiceChain(int) */
     public static FxChain createVoiceChain(int sampleRate, boolean bypassed) {
         FxChain chain = new FxChain(bypassed);
+        // De-hum FIRST. Mains hum has to go before anything reacts to level, or the gate
+        // and the compressor both spend their range responding to a 60 Hz tone that should
+        // not be in the signal at all.
+        //
+        // This processor existed, worked, and was referenced by NOTHING until 2026-08-24 --
+        // the C1.E row lists six processors and only five were ever in a chain. Found by
+        // tools/jvm-harness/run-orphan-lint.sh, not by any behavioural test, because a
+        // harness constructs the class itself and so cannot notice the app never does.
+        //
+        // 60 Hz is the North American mains frequency and JoyRaptor records there (both test
+        // devices are US variants). It is a REGIONAL guess and belongs in settings; 50 Hz
+        // is correct for most of the rest of the world. The notch is narrow (Q=50), so on
+        // speech it is inaudible where there is no hum to remove.
+        DeHumProcessor deHum = new DeHumProcessor();
+        deHum.setHumFreqHz(60);
+        deHum.setQ(50f);
+        chain.addProcessor(deHum);
         chain.addProcessor(new EqProcessor(new EqProcessor.Band[]{new EqProcessor.Band(100, -6, 0.707)})); // highpass
         chain.addProcessor(new GateProcessor());
         chain.addProcessor(new EqProcessor(new EqProcessor.Band[]{new EqProcessor.Band(3000, 3, 1.0)})); // presence boost

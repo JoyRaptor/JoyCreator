@@ -506,3 +506,23 @@ stop. Fix the build environment (stale lock on R.jar); never convert direct
 
 **Trigger:** The urge to write `getResources().getIdentifier(` anywhere in
 app code, or any "cannot find symbol R.id.X" where X exists in res/.
+
+## `git commit` without pathspecs sweeps other agents' staged work — verify the stat
+
+**Pattern:** Multi-agent sessions share one working tree. Another lane's finished-but-
+uncommitted files sit STAGED in the index. `git commit` with no pathspec commits the whole
+index, not "my changes".
+
+**Problem:** Twice in one night, commits meant to be renderer-only or UI-only swept in a
+parallel lane's staged ExportManager/fx-wiring hunks (13 files instead of 5; an export file
+inside a "renderer-only" commit). Each time required `git reset --soft` + selective
+unstage + recommit — and each reset momentarily rewound shared history while another agent
+was actively building.
+
+**Rule:** Stage by NAMED path (`git add <file> ...`, never `-A`), then BEFORE finishing run
+`git show --stat HEAD` and confirm every file in the list is yours. If a foreign path
+appears: `git reset --soft HEAD~1`, `git restore --staged <foreign paths>`, re-commit.
+Never `--amend` a hash another lane may have already read.
+
+**Trigger:** Any commit whose stat lists a file you did not edit this session, or a count
+of files larger than the number you named.

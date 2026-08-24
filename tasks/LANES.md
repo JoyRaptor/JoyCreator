@@ -408,13 +408,16 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-24 — split rulings landed ff793784: passThrough COPIED (both halves keep
+status: ACTIVE (2026-08-24 — SPEC_20260824_VERIFIED_FIXES Pass One, S1–S5 only)
+files: faditor/undo/EditActions.java, faditor/waveform/WaveformExtractor.java,
+        FaditorEditorActivity.java
+since: 2026-08-24
+
+prior-status: IDLE (2026-08-24 — split rulings landed ff793784: passThrough COPIED (both halves keep
         tap pass-through), offsetMs DELETED (never read; master pos derived in getMasterTrack,
         overlay pos is overlayStartMs), linkedClipId kept exempt (fresh-id half unlinked until
         splitLinkedPartnerAndRecord re-links pairwise). run-splitcopy.sh ALL PASS incl NEGCTRL;
         run-copy-lint.sh green with 2 exemptions removed; TYPECHECK OK — 655 sources, 1815 classes)
-files: (none)
-since: 2026-08-24
 
 ## LANE C — dynamic lane (overnight: A6 VERIFIED · A9 BUILT · C1.E file-proof)
 status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb37273:

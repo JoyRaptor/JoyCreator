@@ -435,3 +435,74 @@ operator.
 `gl_FragColor = vec4(c.rgb * uOpacity, c.a)` was correct for H.264 by
 accident only.
 
+
+## A falling source count means code left the tree — stop and find out what
+
+**Pattern:** `typecheck.sh` prints "TYPECHECK OK — N sources, M classes". That
+N is not noise: it is an inventory of what compiled. A fix commit that moves
+649 → 640 sources did not fix anything; it silently dropped ~870 lines and the
+checker stayed green precisely because the broken code was no longer there to
+compile.
+
+**Problem:** C1.E's seven FX processors and A6's ResamplingAudioProcessor were
+committed, reported BUILT, then vanished when branch history was rewritten.
+`git log --diff-filter=D` finds nothing because nothing deleted them — they
+just stopped being ancestors. The next typecheck read "OK" on a tree missing
+nine files.
+
+**Rule:** Before trusting any green typecheck, compare the source count to the
+last known count. If it DROPPED, stop and account for every file that left
+(`git show --stat`, `git log --all --follow` on the missing paths). Green after
+a shrink usually means the thing you were supposed to be testing is absent.
+Never report BUILT off a run whose counts you did not read.
+
+**Trigger:** Any "TYPECHECK OK — N sources" line where N is lower than the
+previous green run, or any row whose code files are not all present in HEAD.
+
+## Compiling is not working — model-touching rows need a harness before BUILT
+
+**Pattern:** `typecheck.sh` proves types resolve. It says nothing about
+behavior. A processor that outputs silence, a resampler that glitches at chunk
+boundaries, an EQ that ignores its gain parameter — all of these typecheck
+clean and are broken.
+
+**Problem:** A6's ResamplingAudioProcessor carried the wrong fractional phase
+across queueInput calls (997-frame chunks produced 13044 output frames vs 12000
+monolithic for the same 0.25 s input) and FxChain drained each child processor
+twice (`getOutput()` swaps in EMPTY_BUFFER, so the second call returned nothing
+and the chain emitted silence). Both shipped as "BUILT" behind a green
+typecheck. Nothing had ever executed them.
+
+**Rule:** Nothing reads BUILT on a typecheck alone. Every row that touches
+model/processor/math code gets a JVM harness (run-envelope.sh pattern: pure
+math, off device) with a NEGATIVE CONTROL — a deliberately wrong implementation
+fed through the same measurement code, which must be caught. If the negative
+control passes undetected, the harness has no teeth and cannot certify
+anything.
+
+**Trigger:** Marking any row BUILT where the only evidence is "TYPECHECK OK".
+
+## Never change shipped code to make a checker happy
+
+**Pattern:** typecheck.sh compiles against R.jar, a build ARTEFACT. A resource
+id added today is not in yesterday's R.jar, so a DIRECT `R.id.foo` reference
+fails typecheck even though `res/layout/*.xml` plainly contains it. The
+tempting workaround — `getResources().getIdentifier("foo", "id", pkg)` — makes
+the checker green by deleting the very reference the checker exists to verify.
+
+**Problem:** Two shipped call sites were written as getIdentifier string
+lookups purely to silence typecheck (`transcript_speaker`, then
+`btn_voiceover`). A string lookup loses compile-time checking (a rename
+becomes a silent no-op button), costs a runtime scan, and R8 resource shrinking
+in RELEASE builds can strip an id with no compiled reference — works in debug,
+quietly dead in the shipped app. The actual root cause was a stale FILE LOCK on
+R.jar that blocked Gradle from regenerating it; the checker was reporting a
+real environment failure all along.
+
+**Rule:** If typecheck cannot see a resource that plainly exists in res/, that
+is a TRUE NEGATIVE about the checker — its own header says so. Report it and
+stop. Fix the build environment (stale lock on R.jar); never convert direct
+`R.id` references to reflection-style lookups to get a green run.
+
+**Trigger:** The urge to write `getResources().getIdentifier(` anywhere in
+app code, or any "cannot find symbol R.id.X" where X exists in res/.

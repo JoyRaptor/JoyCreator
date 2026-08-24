@@ -16,15 +16,28 @@ import java.nio.ShortBuffer;
  * rate conversions typical in this app (44.1kHz ↔ 48kHz). For higher quality
  * or larger ratios a windowed-sinc or polyphase resampler would be better,
  * but the 44.1↔48 conversion is only ~7% and linear is transparent here.</p>
+ *
+ * <p>Correctness across queueInput calls matters: the export pipeline hands the
+ * processor arbitrary buffer sizes, so the fractional input-frame position is
+ * carried between calls via {@link #carry} and the previous chunk's last frame is
+ * retained in {@link #tail} as interpolation partner. Without both, every chunk
+ * boundary injects a phase glitch (audible as periodic pitch wobble) and the
+ * output length drifts with chunk count — proven by ResampleTest before this
+ * fix, which measured a 997-frame-chunked feed at 13044 output frames vs 12000
+ * monolithic for a 0.25 s input.</p>
  */
 public class ResamplingAudioProcessor extends BaseAudioProcessor {
 
     private final int sourceSampleRate;
     private final int targetSampleRate;
-    private final double ratio; // target / source
+    private final double step; // input frames per output frame = source / target
 
     private int channelCount;
-    private double sourceFrameAccumulator;
+    /** Fractional input-frame position of the NEXT output sample, relative to {@link #tail}. */
+    private double carry;
+    /** Last input frame of the previously queued chunk (interpolation partner), null at stream start. */
+    private short[] tail;
+    private boolean endHandled;
 
     public ResamplingAudioProcessor(int sourceSampleRate, int targetSampleRate) {
         if (sourceSampleRate <= 0 || targetSampleRate <= 0) {
@@ -32,7 +45,7 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
         }
         this.sourceSampleRate = sourceSampleRate;
         this.targetSampleRate = targetSampleRate;
-        this.ratio = (double) targetSampleRate / sourceSampleRate;
+        this.step = (double) sourceSampleRate / targetSampleRate;
     }
 
     @Override
@@ -42,7 +55,9 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
             throw new UnhandledAudioFormatException(inputAudioFormat);
         }
         this.channelCount = inputAudioFormat.channelCount;
-        this.sourceFrameAccumulator = 0.0;
+        this.carry = 0.0;
+        this.tail = null;
+        this.endHandled = false;
         // Output format has the target sample rate; channel count and encoding unchanged.
         return new AudioFormat(targetSampleRate, channelCount, inputAudioFormat.encoding);
     }
@@ -50,55 +65,106 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
     @Override
     public void queueInput(ByteBuffer inputBuffer) {
         int remaining = inputBuffer.remaining();
-        if (remaining == 0) return;
+        if (remaining == 0 || endHandled) return;
 
         ShortBuffer inShort = inputBuffer.asShortBuffer();
-        int inputFrames = remaining / (2 * channelCount); // 2 bytes per sample (16-bit)
+        int frames = remaining / (2 * channelCount); // 2 bytes per sample (16-bit)
+        boolean hasTail = tail != null;
+        // Effective stream: [tail] ++ current chunk; index 0 is tail when present.
+        int effFrames = frames + (hasTail ? 1 : 0);
 
-        // Estimate output frames needed (ceil(inputFrames * ratio))
-        int estimatedOutputFrames = (int) Math.ceil(inputFrames * ratio) + channelCount;
-        int outputCapacity = estimatedOutputFrames * channelCount * 2; // bytes
-
-        ByteBuffer output = replaceOutputBuffer(outputCapacity);
+        int maxOutFrames = (int) (effFrames / step) + 2;
+        ByteBuffer output = replaceOutputBuffer(maxOutFrames * channelCount * 2);
         output.order(ByteOrder.nativeOrder());
         ShortBuffer outShort = output.asShortBuffer();
 
-        // Linear interpolation resampling
-        // We conceptually have a continuous input signal sampled at source rate.
-        // We want output samples at target rate.
-        // sourceFrameAccumulator tracks the current position in input frames (can be fractional).
-        for (int outFrame = 0; outFrame < estimatedOutputFrames && outShort.hasRemaining(); outFrame++) {
-            double idealInputFrame = outFrame / ratio + sourceFrameAccumulator;
-            int inputFrame0 = (int) Math.floor(idealInputFrame);
-            double frac = idealInputFrame - inputFrame0;
-
+        double pos = carry;
+        // Need both interpolation partners inside the stream: the LAST usable input
+        // position is effFrames-2 (its partner is effFrames-1). Equality with the last
+        // frame must be carried, not interpolated against a phantom zero.
+        while (pos < effFrames - 1) {
+            int i0 = (int) pos;
+            double frac = pos - i0;
             for (int ch = 0; ch < channelCount; ch++) {
-                short sample0 = (inputFrame0 >= 0 && inputFrame0 < inputFrames)
-                        ? inShort.get(inputFrame0 * channelCount + ch)
-                        : 0;
-                short sample1 = (inputFrame0 + 1 < inputFrames)
-                        ? inShort.get((inputFrame0 + 1) * channelCount + ch)
-                        : 0;
-                int interpolated = (int) Math.round(sample0 + frac * (sample1 - sample0));
+                short s0 = frameAt(i0, hasTail, inShort, frames, ch);
+                short s1 = frameAt(i0 + 1, hasTail, inShort, frames, ch);
+                int interpolated = (int) Math.round(s0 + frac * (s1 - s0));
                 interpolated = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, interpolated));
                 outShort.put((short) interpolated);
             }
+            pos += step;
         }
 
-        // Update accumulator for next call (continuity across queueInput calls)
-        sourceFrameAccumulator = (sourceFrameAccumulator + inputFrames) % (1.0 / ratio);
+        // Retain the last effective frame as the next chunk's interpolation partner.
+        tail = new short[channelCount];
+        for (int ch = 0; ch < channelCount; ch++) {
+            tail[ch] = frameAt(effFrames - 1, hasTail, inShort, frames, ch);
+        }
+        // Positions beyond effFrames-1 are expressed relative to that retained frame.
+        carry = pos - (effFrames - 1);
 
         inputBuffer.position(inputBuffer.limit());
-        outShort.limit(outShort.position());
+        // CRITICAL: a ShortBuffer view's position/limit are INDEPENDENT of the parent
+        // ByteBuffer — outShort.limit(...) does NOT propagate. The consumer reads
+        // getOutput() from position to limit, so the PARENT must be limited to exactly
+        // the bytes written, or every drained buffer carries capacity-sized garbage
+        // (and buffer reuse in replaceOutputBuffer re-ships stale samples).
+        output.limit(outShort.position() * 2);
+    }
+
+    /** Sample ch of effective-stream index i; index 0 is the retained tail, negatives/overflow read as 0. */
+    private short frameAt(int i, boolean hasTail, ShortBuffer cur, int curFrames, int ch) {
+        if (hasTail) {
+            if (i == 0) return tail[ch];
+            i -= 1;
+        }
+        if (i >= 0 && i < curFrames) return cur.get(i * channelCount + ch);
+        return 0;
+    }
+
+    @Override
+    protected void onQueueEndOfStream() {
+        // queueEndOfStream() is final in this media3 tree and its default hook is a no-op,
+        // so the resampler owns its tail: emit any outputs still owed inside/beyond the
+        // retained last frame, interpolating against silence.
+        if (endHandled || channelCount == 0) return;
+        endHandled = true;
+
+        int maxOutFrames = (int) (1.0 / step) + 2;
+        ByteBuffer output = replaceOutputBuffer(maxOutFrames * channelCount * 2);
+        output.order(ByteOrder.nativeOrder());
+        ShortBuffer outShort = output.asShortBuffer();
+
+        double pos = carry;
+        while (pos <= 1.0 + 1e-9) { // index 0 = tail frame, index 1 = implicit silence
+            int i0 = (int) pos;
+            double frac = pos - i0;
+            for (int ch = 0; ch < channelCount; ch++) {
+                short s0 = (i0 == 0 && tail != null) ? tail[ch] : 0;
+                short s1 = 0;
+                int interpolated = (int) Math.round(s0 + frac * (s1 - s0));
+                interpolated = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, interpolated));
+                outShort.put((short) interpolated);
+            }
+            pos += step;
+        }
+        tail = null;
+        carry = 0.0;
+        output.position(0);
+        output.limit(outShort.position() * 2);
     }
 
     @Override
     protected void onFlush() {
-        sourceFrameAccumulator = 0.0;
+        carry = 0.0;
+        tail = null;
+        endHandled = false;
     }
 
     @Override
     protected void onReset() {
-        sourceFrameAccumulator = 0.0;
+        carry = 0.0;
+        tail = null;
+        endHandled = false;
     }
 }

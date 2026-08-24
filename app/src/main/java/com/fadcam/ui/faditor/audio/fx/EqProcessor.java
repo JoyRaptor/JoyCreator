@@ -55,15 +55,7 @@ public final class EqProcessor extends BaseAudioProcessor {
         for (int ch = 0; ch < channelCount; ch++) {
             java.util.ArrayList<Biquad> chain = new java.util.ArrayList<>();
             for (Band b : bands) {
-                // Use bandChain kind=1 (voice) which gives HP at freq + LP at freq
-                // as a peaking-ish filter centered at freqHz
-                // Note: this is an approximation; true peaking EQ needs custom coeffs
-                // which would require Biquad constructor access
-                Biquad[] bandFilters = Biquad.bandChain(1, sampleRate, 
-                        b.freqHz, b.freqHz, b.freqHz * 2, b.freqHz);
-                for (Biquad bq : bandFilters) {
-                    if (bq != null) chain.add(bq);
-                }
+                chain.add(Biquad.peaking(sampleRate, b.freqHz, b.gainDb, b.q));
             }
             chains[ch] = chain.toArray(new Biquad[0]);
         }

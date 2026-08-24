@@ -93,6 +93,21 @@ public final class Biquad {
         }
     }
 
+    /** RBJ peaking EQ at {@code freqHz} with {@code gainDb} and {@code q}. */
+    public static Biquad peaking(int sampleRate, double freqHz, double gainDb, double q) {
+        double A = Math.pow(10, gainDb / 40.0);
+        double w0 = 2 * Math.PI * clampFreq(freqHz, sampleRate) / sampleRate;
+        double cos = Math.cos(w0), sin = Math.sin(w0);
+        double alpha = sin / (2 * Math.max(0.1, q));
+        double b0 = 1 + alpha * A;
+        double b1 = -2 * cos;
+        double b2 = 1 - alpha * A;
+        double a0 = 1 + alpha / A;
+        double a1 = -2 * cos;
+        double a2 = 1 - alpha / A;
+        return new Biquad(b0, b1, b2, a0, a1, a2);
+    }
+
     /** Run one sample through a whole cascade in series. */
     public static float processChain(Biquad[] chain, float x) {
         float v = x;

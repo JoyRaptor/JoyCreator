@@ -413,12 +413,19 @@ files: (none)
 since: 2026-08-23
 
 ## LANE C — dynamic lane (audio export: A8 → E4 → A5.E/U → A6 → C1.E)
-status: IDLE (2026-08-23 — 5-row autonomous run complete. Rule 9 ENFORCED:
-        literal harness tail in every row report: "TYPECHECK OK — 640 sources, 653 classes" / envelope "ALL PASS"+"ALL GREEN" / bakedparse "ALL PASS". B1.Q envelope regression fixed by restoring missing VolumeKeyframe base class (A7). build.log timestamp checked against commit time.)
+status: IDLE (2026-08-23 — A6+C1.E harness rows done. run-resample.sh ALL GREEN
+        (duration/pitch/level exact, chunk-seam rel 0.00001 <0.02, 3 NEGCTRLs with teeth);
+        run-audio-fx.sh ALL GREEN (19/19, spec-exact Eq/Comp/Gate + chain integration + 3 NEGCTRLs).
+        Harnesses exposed and drove REAL fixes: resampler phase-carry rewrite (bb095d21), output-buffer
+        view-limit bug in all six fx processors + FxChain double-drain silence + unflipped copy (274e96ea).
+        TYPECHECK OK — 648 sources, 1795 classes; source count verified NOT shrunk. A6/C1.E stay PENDING
+        until device export proof (tasks/a6/ artifacts + export_resample_probe.py). NOTE: work sits on the
+        detached line at 71994dc6^...274e96ea — joy-creator has DIVERGED (11 stale commits); branch
+        reconciliation is a user decision, NOT agent-done.)
 files: export/ExportManager.java (JoyRaptor-instructed exception to standing lock),
         export/VolumeAudioProcessor.java, tools/AudioDrawerTabs.java,
-        NEW audio/fx/*, model/AudioClip.java, ResamplingAudioProcessor.java,
-        tasks/export_audio_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
+        audio/fx/*, model/AudioClip.java, export/ResamplingAudioProcessor.java,
+        tasks/export_audio_probe.py, tasks/export_resample_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
 since: 2026-08-23
 
 ## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)

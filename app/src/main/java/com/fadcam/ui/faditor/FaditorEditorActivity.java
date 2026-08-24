@@ -9316,6 +9316,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateCurrentTimeDisplay(long positionInCurrentSegmentMs) {
         long absoluteMs = getAbsolutePlayheadMs(positionInCurrentSegmentMs);
         lastPlayheadAbsoluteMs = absoluteMs;
+        // B4: feed the level meters. The renderer cannot be reached through
+        // EditorTimelineView (it owns its instance privately), so the playhead goes through
+        // the static channel and the master meter ticks alongside — both read the SAME value
+        // this method already computed, so gutter bars and corner meter can never disagree.
+        com.fadcam.ui.faditor.layers.LayerRowRenderer.reportHostPlayheadMs(absoluteMs);
+        if (project != null) {
+            ensureMasterMeter().setTracks(project.getTimeline().getLayers(),
+                    project.getTimeline().getAudioTracks());
+            masterMeter.tick();
+        }
         // BEFORE syncAdjustmentPreview, and that order is load-bearing. The GL composite asks the
         // overlay layer where each effected image overlay IS (TextOverlayLayer.fxPipFor), and the
         // layer answers from its OWN clock — the overlay clock, which is not this method's
@@ -13556,6 +13566,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Removed 2026-07-28 along with showRenameTrackDialog. See tasks/LEDGER.md §3c.
         addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
         addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
+        // B3: solo — only where a solo could mean anything, i.e. lanes that carry audio.
+        // Same content-based rule that decides whether the mute glyph is drawn at all, so
+        // the menu never offers a control the header does not have.
+        if (com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(track)) {
+            final boolean soloedNow = com.fadcam.ui.faditor.layers.LayerRowRenderer.isSoloed(track);
+            addTrackMenuRow(list, popup, soloedNow ? "Unsolo" : "Solo",   // TODO(strings)
+                    () -> toggleTrackSolo(track));
+        }
         if (userCreated) {
             addTrackMenuRow(list, popup, "Delete lane", () -> confirmDeleteLayerTrack(track));
         }
@@ -13581,6 +13599,89 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.setBackgroundResource(tv.resourceId);
         row.setOnClickListener(v -> { popup.dismiss(); action.run(); });
         parent.addView(row);
+    }
+
+    /**
+     * B3 — solo, implemented as DERIVED MUTING over the existing {@code Track.muted}
+     * machinery, so it is real in preview AND export with zero engine change: both already
+     * consult track mute ({@code LayerPreviewController.isAudioClipTrackMuted}), and the
+     * live-player push is the same call the MUTE menu row uses.
+     *
+     * <p>Soloing lane X silences every OTHER audio-carrying lane across BOTH bands; X is
+     * forced unmuted. Clearing the LAST solo restores each lane's pre-solo-session muted
+     * state from {@link LayerRowRenderer#preSoloMuted()} rather than blanket-unmuting, so
+     * lanes the user had deliberately muted stay muted. One undo step per toggle.</p>
+     *
+     * <p>KNOWN LIMITS, stated not hidden: the MASTER spine's own audio is untouched (solo
+     * answers "hear this LANE alone", not "mute the whole video" — JoyRaptor's call if that
+     * changes); solos are session-scoped and not persisted; while a solo is active the
+     * derived mutes ARE what autosave writes, so a crash mid-solo reloads muted lanes
+     * (clearing the solo restores them).</p>
+     */
+    private void toggleTrackSolo(@NonNull com.fadcam.ui.faditor.layers.Track track) {
+        if (project == null) return;
+        final Timeline tl = project.getTimeline();
+        java.util.List<com.fadcam.ui.faditor.layers.Track> carriers = new java.util.ArrayList<>();
+        java.util.List<com.fadcam.ui.faditor.layers.Track> all = new java.util.ArrayList<>();
+        all.addAll(tl.getLayers());
+        all.addAll(tl.getAudioTracks());
+        for (com.fadcam.ui.faditor.layers.Track t : all) {
+            if (t.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER) continue;
+            if (com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(t)) carriers.add(t);
+        }
+        if (carriers.isEmpty()) return;
+
+        java.util.Set<String> beforeSolo =
+                com.fadcam.ui.faditor.layers.LayerRowRenderer.soloedIdsSnapshot();
+        boolean engaging = !beforeSolo.contains(track.getId());
+        java.util.Set<String> afterSolo = new java.util.HashSet<>(beforeSolo);
+        if (engaging) afterSolo.add(track.getId()); else afterSolo.remove(track.getId());
+
+        // BEFORE map: this step's starting mutes (the undo target).
+        java.util.Map<String, Boolean> beforeMuted = new java.util.HashMap<>();
+        for (com.fadcam.ui.faditor.layers.Track t : carriers) beforeMuted.put(t.getId(), t.isMuted());
+
+        // AFTER map: engage → capture originals once per session, then derive; clear-last →
+        // restore exactly what this step started with.
+        java.util.Map<String, Boolean> afterMuted = new java.util.HashMap<>();
+        if (!afterSolo.isEmpty()) {
+            java.util.Map<String, Boolean> pre =
+                    com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted();
+            if (pre.isEmpty()) {
+                for (com.fadcam.ui.faditor.layers.Track t : carriers) pre.put(t.getId(), t.isMuted());
+            }
+            for (com.fadcam.ui.faditor.layers.Track t : carriers) {
+                afterMuted.put(t.getId(), !afterSolo.contains(t.getId()));
+            }
+        } else {
+            afterMuted.putAll(beforeMuted);
+        }
+
+        final String label = engaging ? "Solo lane" : "Unsolo lane";       // TODO(strings)
+        final Timeline tlForUndo = tl;
+        undoManager.recordAction(new EditActions.LambdaAction(label,
+                () -> applySoloState(afterSolo, afterMuted, tlForUndo),
+                () -> applySoloState(beforeSolo, beforeMuted, tlForUndo)));
+        applySoloState(afterSolo, afterMuted, tl);
+    }
+
+    /** The single applier for solo state — redo, undo and first-engage all go through it. */
+    private void applySoloState(@NonNull java.util.Set<String> soloIds,
+                                @NonNull java.util.Map<String, Boolean> mutesById,
+                                @NonNull Timeline tl) {
+        com.fadcam.ui.faditor.layers.LayerRowRenderer.setSoloedIds(soloIds);
+        // Persisted side-table only: every getLayers()/getAudioTracks() call rebuilds Track
+        // views FROM these flags (onTrackHeaderAction's discipline), so downstream readers —
+        // the rebuilt rows, LayerPreviewController, applyAudioTrackMuteLive — all see this.
+        for (java.util.Map.Entry<String, Boolean> e : mutesById.entrySet()) {
+            tl.getOrCreateTrackFlags(e.getKey()).muted = e.getValue();
+        }
+        tl.pruneDefaultTrackFlags();
+        syncTimelineOverlays();
+        refreshPreviewOverlayVisibility();
+        applyAudioTrackMuteLive(tl);
+        if (editorTimeline != null) editorTimeline.invalidate();
+        scheduleAutoSave();
     }
 
     /**
@@ -22906,6 +23007,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private String lastAudioDrawerId;
     @Nullable private String lastClipAudioDrawerId;
 
+    /**
+     * B4: the master level meter in the preview's top-right corner. Created lazily on the
+     * first playhead tick so construction order never matters; it lives in editor_root's
+     * PARENT (the same full-screen FrameLayout the ObjectDrawer attaches to) because that
+     * is the only true overlay surface — everything inside editor_root reflows.
+     */
+    @Nullable private com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView masterMeter;
+
+    @NonNull
+    private com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView ensureMasterMeter() {
+        if (masterMeter == null) {
+            float dp = getResources().getDisplayMetrics().density;
+            masterMeter = new com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView(this);
+            android.view.ViewGroup root =
+                    (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
+            android.widget.FrameLayout.LayoutParams lp =
+                    new android.widget.FrameLayout.LayoutParams(
+                            Math.round(8 * dp), Math.round(64 * dp),
+                            android.view.Gravity.TOP | android.view.Gravity.END);
+            lp.topMargin = Math.round(68 * dp);
+            lp.rightMargin = Math.round(10 * dp);
+            root.addView(masterMeter, lp);
+        }
+        return masterMeter;
+    }
+
     private boolean isAudioOnlyProject() {
         if (project == null) return false;
         Timeline tl = project.getTimeline();
@@ -23268,6 +23395,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
+        // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -23293,6 +23422,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }, false));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, ac::isMuted, () -> { ac.setMuted(!ac.isMuted()); applyAudioLivePlayerGain(ac); if (editorTimeline != null) editorTimeline.invalidate(); scheduleAutoSave(); }, true));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_lock, R.drawable.ic_lock, ac::isLocked, () -> { ac.setLocked(!ac.isLocked()); scheduleAutoSave(); }, false));
+        // C7: A/B bypass — one tap silences the WHOLE FX chain so a tuned sound can be
+        // compared against the untouched mix. Global by nature (it is the chain, not the
+        // clip), so it lives beside mute/lock as a header toggle on every audio drawer.
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_fx_24, R.drawable.ic_fx_24,
+                () -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed,
+                () -> {
+                    boolean now = !com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+                    com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed = now;
+                    Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
+                            Toast.LENGTH_SHORT).show();                     // TODO(strings)
+                }, true));
         ensureObjectDrawer().setOnClose(null);
         ensureObjectDrawer().show(tabs, toggles, false);
     }
@@ -23326,8 +23467,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, synth, host)));
+        // C6: same FX tab a standalone audio clip gets (§2.2 — identical four tabs).
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
+        // C7: A/B bypass — identical to the audio-clip drawer's (one global chain).
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_fx_24, R.drawable.ic_fx_24,
+                () -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed,
+                () -> {
+                    boolean now = !com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+                    com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed = now;
+                    Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
+                            Toast.LENGTH_SHORT).show();                     // TODO(strings)
+                }, true));
         ensureObjectDrawer().setOnClose(null);
         ensureObjectDrawer().show(tabs, toggles, false);
     }

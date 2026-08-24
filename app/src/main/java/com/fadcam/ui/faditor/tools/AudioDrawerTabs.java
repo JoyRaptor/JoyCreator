@@ -586,6 +586,135 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         return root;
     }
 
+    // ── Tab 3: FX ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * C7: A/B bypass of the WHOLE real-time FX chain. One flag, session-scoped, read by
+     * whatever wires the chain into preview/export (C1.E) — flipping it must mute every
+     * effect at once so a tuned sound can be compared against the untouched source.
+     *
+     * <p>HONESTY (§0 rule 6): until that wiring lands, no engine reads this flag, so the
+     * toggle says exactly that in its toast and the FX tab carries the standing note. The
+     * control is not pretending to do something it does not; it is the switch the engine
+     * will be wired to, shipped first so the wiring has a consumer on day one.</p>
+     */
+    public static volatile boolean fxChainBypassed = false;
+
+    /**
+     * C6: live gain reduction reported by the wired chain's compressor, in dB (0 = no
+     * reduction). {@code Float.NaN} means nothing has reported yet — the bar rests at zero.
+     * The engine calls {@link #reportGainReductionDb} per buffer or per tick; the drawer only
+     * ever READS it, so preview and export can both feed it without touching this class.
+     */
+    public static volatile float reportedGainReductionDb = Float.NaN;
+
+    /** Engine-side hook: report the compressor's current gain reduction in dB. */
+    public static void reportGainReductionDb(float db) {
+        reportedGainReductionDb = db;
+    }
+
+    /**
+     * The FX tab (C6): the compressor's gain-reduction bar — because a compressor tuned blind
+     * is guesswork. The bar is ALWAYS drawn (G18 resting-state rule): full-width dim track,
+     * fill showing how many dB are being pushed down right now, value readout beside it.
+     * Scale is 0..−12 dB, the range where vocal compression actually lives.
+     */
+    @NonNull
+    public static View fxTab(@NonNull Context ctx, @NonNull Host host) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout root = column(ctx);
+
+        TextView title = new TextView(ctx);
+        title.setText("Compressor");                                       // TODO(strings)
+        title.setTextColor(TXT);
+        title.setTextSize(12.5f);
+        title.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        root.addView(title);
+
+        GainReductionBar bar = new GainReductionBar(ctx);
+        root.addView(bar, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, Math.round(10 * d)));
+
+        LinearLayout valRow = row(ctx);
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT_DIM);
+        value.setTextSize(10);
+        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setPadding(Math.round(8 * d), 0, Math.round(8 * d), 0);
+        valRow.addView(value, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        root.addView(valRow);
+
+        // §0 rule 6: say what the control IS, including when it cannot be live yet.
+        TextView note = new TextView(ctx);
+        note.setTextColor(TXT_DIM);
+        note.setTextSize(10);
+        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
+        root.addView(note);
+
+        Runnable refresh = () -> {
+            float gr = reportedGainReductionDb;
+            boolean live = !Float.isNaN(gr);
+            bar.setLevelDb(live ? Math.max(0f, -gr) : 0f);
+            value.setText(live ? fmtGr(gr)
+                    : "0.0 dB");                                           // TODO(strings)
+            note.setText(fxChainBypassed
+                    ? "FX chain BYPASSED — hearing the untouched mix."      // TODO(strings)
+                    : live ? "Gain reduction, live from the compressor."   // TODO(strings)
+                    : "Waits for the real-time chain (C1.E) to report.");  // TODO(strings));
+        };
+        refresh.run();
+        // Same row-refresh contract as levelTab: PipDrawerTabs.refreshRows walks the showing
+        // drawer on every playhead tick, so the bar tracks live GR without owning a timer.
+        root.setTag(R.id.faditor_tag_row_refresh, refresh);
+        return root;
+    }
+
+    @NonNull
+    private static String fmtGr(float negativeDb) {
+        return String.format(java.util.Locale.US, "%.1f dB", negativeDb);
+    }
+
+    /**
+     * The gain-reduction meter itself: a horizontal track whose fill grows RIGHT-TO-LEFT as
+     * the compressor pushes the level down — reduction reads as subtraction, leftward.
+     */
+    private static final class GainReductionBar extends android.view.View {
+        private static final int TRACK_COLOR = 0x22FFFFFF;
+        private static final int FILL_COLOR = 0xFFFFB74D;
+        /** Full scale: 12 dB of reduction sweeps the whole bar. */
+        private static final float MAX_DB = 12f;
+        private final android.graphics.Paint trackPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Paint fillPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private float level01 = 0f;
+
+        GainReductionBar(@NonNull Context ctx) {
+            super(ctx);
+        }
+
+        void setLevelDb(float reductionDb) {
+            float f = Math.max(0f, Math.min(1f, reductionDb / MAX_DB));
+            if (Math.abs(f - level01) > 0.002f) {
+                level01 = f;
+                invalidate();
+            }
+        }
+
+        @Override
+        protected void onDraw(@NonNull android.graphics.Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            float r = h / 2f;
+            trackPaint.setColor(TRACK_COLOR);
+            canvas.drawRoundRect(0f, 0f, w, h, r, r, trackPaint);
+            if (level01 > 0.005f) {
+                fillPaint.setColor(FILL_COLOR);
+                canvas.drawRoundRect(w - w * level01, 0f, w, h, r, r, fillPaint);
+            }
+        }
+    }
+
     // ── shared builders (the PipDrawerTabs idiom) ────────────────────────────────────────
 
     @NonNull

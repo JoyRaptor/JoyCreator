@@ -14,6 +14,11 @@ Usage:
                                        [--source-dur 3.0] [--expect-gain 1.0]
                                        [--silent-before]
 
+E1 loudness-parity mode (no source/offset needed):
+    python tasks/export_audio_probe.py EXPORT.mp4 --preview PREVIEW.m4a [--lufs-tol 1.0]
+    Measures both files with ebur128 and asserts preview LUFS == export LUFS.
+    A negative control (two files at deliberately different levels) exits FAIL.
+
 Requires ffmpeg on PATH. Both inputs are decoded to mono 48 kHz so containers,
 channel counts and sample rates do not have to match.
 
@@ -23,7 +28,9 @@ offset within ~60 ms of the intended one is therefore not distinguishable from e
 and this script says so rather than pretending to millisecond precision.
 """
 import argparse
+import math
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -32,6 +39,28 @@ import wave
 import numpy as np
 
 AAC_DELAY_TOLERANCE_MS = 60
+
+
+def ebur128_lufs(path):
+    """Integrated loudness of `path` in LUFS via `ffmpeg -af ebur128`, or None.
+
+    Mirrors LoudnessAnalyzer.measure on-device: same filter, and like it we read
+    the LAST `I:` line (the integrated summary, not the per-frame gates).
+    Non-finite summaries (digital silence -> `-inf`) return None rather than a
+    number that would silently compare as a huge gain difference.
+    """
+    r = subprocess.run(
+        ['ffmpeg', '-hide_banner', '-nostats', '-i', path,
+         '-filter:a', 'ebur128=framelog=verbose', '-f', 'null', '-'],
+        capture_output=True, text=True)
+    matches = re.findall(r'I:\s+(-?[0-9.]+|[-+]inf|nan)\s+LUFS', r.stderr)
+    if not matches:
+        return None
+    try:
+        v = float(matches[-1])
+    except ValueError:
+        return None
+    return v if math.isfinite(v) else None
 
 
 def has_audio(path):
@@ -65,9 +94,17 @@ def rms(x):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('export')
-    ap.add_argument('source')
-    ap.add_argument('--expect-offset-ms', type=float, required=True)
+    ap.add_argument('export', nargs='?', default=None,
+                    help='export file (required in both modes)')
+    ap.add_argument('source', nargs='?', default=None,
+                    help='source file (offset mode only)')
+    ap.add_argument('--preview', metavar='PREVIEW_FILE', default=None,
+                    help='E1 parity mode: measure both files with ebur128 and assert '
+                         "the preview's integrated LUFS equals the export's within "
+                         '--lufs-tol. Replaces the offset/gain checks.')
+    ap.add_argument('--lufs-tol', type=float, default=1.0,
+                    help='max |preview LUFS - export LUFS| for parity PASS (default 1.0)')
+    ap.add_argument('--expect-offset-ms', type=float, default=None)
     ap.add_argument('--source-dur', type=float, default=3.0,
                     help='seconds of SOURCE to use as the probe (default 3)')
     ap.add_argument('--expect-gain', type=float, default=1.0)
@@ -84,6 +121,30 @@ def main():
     ap.add_argument('--expect-offset-b-ms', type=float, default=None,
                     help='authored timeline offset of SOURCE_B (required with --overlap-with)')
     args = ap.parse_args()
+
+    if not args.export:
+        ap.error('EXPORT file is required')
+    if args.preview:
+        # ── E1: preview/export loudness parity mode ──────────────────
+        ex_lufs = ebur128_lufs(args.export)
+        pv_lufs = ebur128_lufs(args.preview)
+        print(f'preview : {os.path.basename(args.preview)}  '
+              f'integrated LUFS = {pv_lufs if pv_lufs is not None else "UNMEASURABLE (silence?)"}')
+        print(f'export  : {os.path.basename(args.export)}  '
+              f'integrated LUFS = {ex_lufs if ex_lufs is not None else "UNMEASURABLE (silence?)"}')
+        ok = False
+        if pv_lufs is None or ex_lufs is None:
+            print('\nFAIL  a side was unmeasurable — cannot claim parity over silence')
+        else:
+            delta = abs(pv_lufs - ex_lufs)
+            ok = delta <= args.lufs_tol
+            print(f'\nloudness delta    : {delta:.2f} LU   (tolerance {args.lufs_tol:.1f})')
+        print(f'\n{"PASS" if ok else "FAIL"}')
+        sys.exit(0 if ok else 1)
+
+    if args.source is None or args.expect_offset_ms is None:
+        ap.error('offset mode needs SOURCE and --expect-offset-ms '
+                 '(or use --preview for E1 parity mode)')
 
     if args.overlap_with and args.expect_offset_b_ms is None:
         ap.error('--overlap-with requires --expect-offset-b-ms')

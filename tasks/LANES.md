@@ -412,21 +412,17 @@ status: IDLE (2026-08-23 — D3/D2/A3 all BUILT, typecheck 635 green, lane relea
 files: (none)
 since: 2026-08-23
 
-## LANE C — dynamic lane (audio export: A8 → E4 → A5.E/U → A6 → C1.E)
-status: IDLE (2026-08-23 — A6+C1.E harness rows done. run-resample.sh ALL GREEN
-        (duration/pitch/level exact, chunk-seam rel 0.00001 <0.02, 3 NEGCTRLs with teeth);
-        run-audio-fx.sh ALL GREEN (19/19, spec-exact Eq/Comp/Gate + chain integration + 3 NEGCTRLs).
-        Harnesses exposed and drove REAL fixes: resampler phase-carry rewrite (bb095d21), output-buffer
-        view-limit bug in all six fx processors + FxChain double-drain silence + unflipped copy (274e96ea).
-        TYPECHECK OK — 648 sources, 1795 classes; source count verified NOT shrunk. A6/C1.E stay PENDING
-        until device export proof (tasks/a6/ artifacts + export_resample_probe.py). NOTE: work sits on the
-        detached line at 71994dc6^...274e96ea — joy-creator has DIVERGED (11 stale commits); branch
-        reconciliation is a user decision, NOT agent-done.)
-files: export/ExportManager.java (JoyRaptor-instructed exception to standing lock),
-        export/VolumeAudioProcessor.java, tools/AudioDrawerTabs.java,
-        audio/fx/*, model/AudioClip.java, export/ResamplingAudioProcessor.java,
-        tasks/export_audio_probe.py, tasks/export_resample_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
-since: 2026-08-23
+## LANE C — dynamic lane (C4 loudness targets + C8 Clean Audio + E1 probe)
+status: ACTIVE (2026-08-24 — export only: ExportManager, FaditorEditorActivity export dialog, export_audio_probe.py, NEW LoudnessAnalyzer.java)
+files: export/ExportManager.java, FaditorEditorActivity.java (export dialog only), tasks/export_audio_probe.py, faditor/audio/LoudnessAnalyzer.java
+since: 2026-08-24
+
+## LANE D — dynamic lane (audio UI: B3 solo · B4 level meters · C6 GR bar · C7 A/B bypass)
+status: ACTIVE→rows BUILT 2026-08-24 (UI only; model/, export/, faditor/audio/ untouched — two other agents own those)
+files: layers/LayerRowRenderer.java, tools/AudioDrawerTabs.java, tools/ObjectDrawer.java,
+        FaditorEditorActivity.java (track-header menu + audio-drawer tab/toggle assembly +
+        playhead-tick meter hook ONLY — no overlap with LANE C's export-dialog regions)
+since: 2026-08-24
 
 ## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)
 status: IDLE (2026-08-24 — 17 rows BUILT: G1/G2 8c6b0c66 fid fade fix, G3 2d34beb0 toggle, G4 f613dce6 picker, G5 1ead8ea4+b9118ff8 pin fix, G6-17 7813914a+2d34beb0 transcript/caption/drawer/transport. TYPECHECK OK — 648 sources, 1795 classes)

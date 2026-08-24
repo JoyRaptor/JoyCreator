@@ -115,9 +115,122 @@ public final class LayerRowRenderer {
     private float fadeHandleCornerRadiusPx = -1f;
     private final Path fadeHandlePath = new Path();
 
+    // ── B3/B4 header chrome ─────────────────────────────────────────
+    /** Solo ring around the mute glyph — amber, the colour solo reads as in every DAW. */
+    private static final int COLOR_SOLO_RING = 0xFFFFC107;
+    private static final int COLOR_METER_TRACK = 0x26FFFFFF;
+    private static final int COLOR_METER_FILL = 0xFF4CAF50;
+    private static final int COLOR_METER_CLIP = 0xFFFF5252;
+    /** Width of the per-track level gutter bar (B4). */
+    private static final float METER_BAR_W_DP = 3f;
+    /** Full-scale for the bar's linear display range; past 1.0 the cap turns clip-red. */
+    private static final float METER_FULL_SCALE = 1.0f;
+    private final Paint meterTrackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint meterFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint soloRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     /** Bucket tolerance for consolidating property key times into ONE row diamond — matches
      *  the drawer's on-key tolerance so an X and a Y key from the same gesture read as one. */
     static final long KF_CONSOLIDATE_TOLERANCE_MS = 66L;
+
+    // ── B3 solo + B4 meters: session state the HOST drives, the renderer only READS ────
+    /**
+     * Solo is keyed by TRACK ID, never by {@code Track} reference: rows are rebuilt-from-flat
+     * views on every sync (the same reason {@code onTrackHeaderAction} persists through
+     * TrackFlags), so a reference-keyed set would silently forget on the next rebuild and the
+     * ring would blink off — the G18 trap in miniature. Session-scoped by design: solos do not
+     * survive a project reload (standard DAW behaviour).
+     */
+    private static final java.util.Set<String> SOLOED_TRACK_IDS = new java.util.HashSet<>();
+    /**
+     * Each carrier lane's muted state as it was when the FIRST solo of the current solo
+     * session engaged, so clearing the last solo restores what the user actually had instead
+     * of blanket-unmuting. Written by the track-header menu ({@code toggleTrackSolo}), read
+     * back when the set empties.
+     */
+    private static final java.util.Map<String, Boolean> PRE_SOLO_MUTED = new java.util.HashMap<>();
+
+    /** True while this row's lane is soloed — draws the ring around the mute glyph. */
+    public static boolean isSoloed(@NonNull Track t) {
+        return SOLOED_TRACK_IDS.contains(t.getId());
+    }
+
+    /** Snapshot of the current solo selection (ids). The menu owns all mutation. */
+    @NonNull
+    public static java.util.Set<String> soloedIdsSnapshot() {
+        return new java.util.HashSet<>(SOLOED_TRACK_IDS);
+    }
+
+    /** The pre-solo muted map (id → was muted). Menu-owned mutation, renderer-held memory. */
+    @NonNull
+    public static java.util.Map<String, Boolean> preSoloMuted() {
+        return PRE_SOLO_MUTED;
+    }
+
+    /** Replace the whole solo selection (menu + its undo steps are the only callers). */
+    public static void setSoloedIds(@NonNull java.util.Collection<String> ids) {
+        SOLOED_TRACK_IDS.clear();
+        SOLOED_TRACK_IDS.addAll(ids);
+    }
+
+    /**
+     * Whether this lane can be heard RIGHT NOW: not muted, AND not excluded by someone
+     * else's solo. Preview and export both already consult {@code Track.isMuted()} (via
+     * {@code LayerPreviewController.isAudioClipTrackMuted}), so solo is implemented as
+     * DERIVED muting over that existing machinery — no engine change, real silence.
+     */
+    public static boolean isTrackAudible(@NonNull Track t) {
+        if (t.isMuted()) return false;
+        return SOLOED_TRACK_IDS.isEmpty() || SOLOED_TRACK_IDS.contains(t.getId());
+    }
+
+    /**
+     * B4: the host pushes the absolute playhead here once per tick
+     * ({@code FaditorEditorActivity.updateCurrentTimeDisplay}) because the playhead lives in
+     * the host and {@code EditorTimelineView} owns this renderer privately — a static channel
+     * is the only way to feed it without widening that view's surface. Read by the gutter
+     * level bars during every draw pass; {@link Long#MIN_VALUE} means "no tick yet", which
+     * keeps every bar at its resting baseline.
+     */
+    private static volatile long hostPlayheadMs = Long.MIN_VALUE;
+
+    public static void reportHostPlayheadMs(long absoluteMs) {
+        hostPlayheadMs = absoluteMs;
+    }
+
+    /**
+     * Program level of ONE lane at the given playhead: the sum of every contributing clip's
+     * FINAL audible gain (B1.Q — envelope × volumeLevel) at the moment, gated by clip mute
+     * and {@link #isTrackAudible}. This is the intended loudness the mix maths produce, not a
+     * post-DSP measurement — no engine tap exists yet (Visualizer-based true metering is the
+     * noted upgrade path). Unscaled linear units, 0..~2.
+     */
+    public static float trackLevelAt(@NonNull Track t, long playheadAbsMs) {
+        if (playheadAbsMs == Long.MIN_VALUE || !isTrackAudible(t)) return 0f;
+        float sum = 0f;
+        for (TimedItem item : t.getItems()) {
+            com.fadcam.ui.faditor.model.AudioClip ac = item.getAudioClip();
+            if (ac != null) {
+                sum += clipContribution(ac, item.getTimelineStartMs(), playheadAbsMs);
+                continue;
+            }
+            com.fadcam.ui.faditor.model.Clip c = item.getClip();
+            if (c != null && c.isOverlayClip() && c.isOverlayAudioEnabled()) {
+                long start = item.getTimelineStartMs();
+                sum += clipContribution(c, start, playheadAbsMs);
+            }
+        }
+        return sum;
+    }
+
+    private static float clipContribution(@NonNull com.fadcam.ui.faditor.model.AudioParams p,
+                                          long startMs, long playheadAbsMs) {
+        if (p.isMuted()) return 0f;
+        long local = playheadAbsMs - startMs;
+        if (local < 0 || local > p.getTrimmedDurationMs()) return 0f;
+        float g = p.gainAtClipMs(local);
+        return g > 0f ? g : 0f;
+    }
 
     /** Which header icon zone a touch landed on. */
     public enum HitZone { CARET, HIDE, LOCK, MUTE, NONE }
@@ -784,6 +897,29 @@ public final class LayerRowRenderer {
         rowBodyBgPaint.setColor(COLOR_ROW_BODY_BG);
         canvas.drawRect(row.bodyRect, rowBodyBgPaint);
 
+        // B4: the 3dp level gutter bar. It sits on the header's RIGHT edge, flush against
+        // the lane body — the left edge is the caret's home and a bar there would read as
+        // caret chrome. ALWAYS drawn: a dim baseline track at zero is the resting state
+        // (the G18 lesson — a meter that renders nothing until audio plays reads as broken,
+        // not as idle), so the lane's loudness control is visible before any clip exists.
+        if (rowCarriesAudio(t)) {
+            float barW = METER_BAR_W_DP * density;
+            float trackTop = row.headerRect.top + 2f * density;
+            float trackBottom = row.headerRect.bottom - 2f * density;
+            meterTrackPaint.setColor(COLOR_METER_TRACK);
+            canvas.drawRect(row.headerRect.right - barW, trackTop,
+                    row.headerRect.right, trackBottom, meterTrackPaint);
+            float level = trackLevelAt(t, hostPlayheadMs);
+            float frac = Math.max(0f, Math.min(1.2f, level)) / METER_FULL_SCALE;
+            if (frac > 0f) {
+                float fillTop = Math.max(trackTop, trackBottom - (trackBottom - trackTop) * frac);
+                boolean clipping = level > METER_FULL_SCALE;
+                meterFillPaint.setColor(clipping ? COLOR_METER_CLIP : COLOR_METER_FILL);
+                canvas.drawRect(row.headerRect.right - barW, fillTop,
+                        row.headerRect.right, trackBottom, meterFillPaint);
+            }
+        }
+
         // Caret (collapse toggle) — right-pointing when collapsed, down when expanded.
         drawCaret(canvas, row.caretRect, collapsed);
 
@@ -800,6 +936,19 @@ public final class LayerRowRenderer {
         // anything. hitTestHeader already refuses the tap on these rows; now the icon agrees.
         if (rowCarriesAudio(t)) {
             drawMuteIcon(canvas, row.muteRect, !t.isMuted());
+            // B3: the solo ring — drawn around the mute glyph so one glance answers "why is
+            // everything else silent?" Amber, distinct from the muted-red glyph and the
+            // white unmuted one; a state ring, not a second control.
+            if (isSoloed(t)) {
+                float inf = 2f * density;
+                soloRingPaint.setStyle(Paint.Style.STROKE);
+                soloRingPaint.setStrokeWidth(1.5f * density);
+                soloRingPaint.setColor(COLOR_SOLO_RING);
+                canvas.drawRoundRect(row.muteRect.left - inf, row.muteRect.top - inf,
+                        row.muteRect.right + inf, row.muteRect.bottom + inf,
+                        (row.muteRect.height() + 2f * inf) / 2f,
+                        (row.muteRect.height() + 2f * inf) / 2f, soloRingPaint);
+            }
         }
 
         if (collapsed) {
@@ -1102,7 +1251,7 @@ public final class LayerRowRenderer {
      * by default, so muting a lane that holds only silent PiPs would do nothing, and the
      * icon must not promise otherwise).</p>
      */
-    private static boolean rowCarriesAudio(@NonNull Track t) {
+    public static boolean rowCarriesAudio(@NonNull Track t) {
         if (t.getKind() == TrackKind.AUDIO || t.getKind() == TrackKind.MASTER) return true;
         for (TimedItem item : t.getItems()) {
             if (item.getAudioClip() != null) return true;
@@ -3408,6 +3557,80 @@ public final class LayerRowRenderer {
     public float setMaxVisibleRowsDp(float dp) {
         maxVisibleRowsDp = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(MAX_VISIBLE_ROWS_CAP_DP, dp));
         return maxVisibleRowsDp;
+    }
+
+    /**
+     * B4: the master level meter for the preview corner. A small vertical bar that sums the
+     * per-track program levels ({@link #trackLevelAt}) across BOTH lane bands at the playhead
+     * the host pushes via {@link #reportHostPlayheadMs}.
+     *
+     * <p>It is a dumb view on purpose: it holds no clock and runs no timer — the host's
+     * existing playhead tick calls {@link #invalidate()}, and each draw reads the pushed
+     * playhead. Resting state is the dim baseline track at zero, ALWAYS drawn (the G18
+     * lesson: a meter that appears only when audio plays reads as broken).</p>
+     *
+     * <p>Like the gutter bars this shows the mix maths' intended loudness — envelope × gain,
+     * mute/solo-gated — not a post-DSP measurement; no engine tap exists yet.</p>
+     */
+    public static final class MasterMeterView extends android.view.View {
+
+        private static final int TRACK_COLOR = 0x33000000;
+        private static final int FILL_COLOR = 0xFF4CAF50;
+        private static final int CLIP_COLOR = 0xFFFF5252;
+        private static final float FULL_SCALE = 1.0f;
+
+        @Nullable private java.util.List<Track> floatingBand;
+        @Nullable private java.util.List<Track> audioBand;
+        private final android.graphics.Paint trackPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Paint fillPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+
+        /** Smoothed display level so the bar falls like a real PPM instead of flickering. */
+        private float displayLevel = 0f;
+
+        public MasterMeterView(@NonNull android.content.Context ctx) {
+            super(ctx);
+            setElevation(6f);
+        }
+
+        public void setTracks(@Nullable java.util.List<Track> floating,
+                              @Nullable java.util.List<Track> audio) {
+            floatingBand = floating;
+            audioBand = audio;
+            invalidate();
+        }
+
+        /** One tick from the host: advance smoothing + repaint. */
+        public void tick() {
+            long ph = hostPlayheadMs;
+            float target = 0f;
+            if (ph != Long.MIN_VALUE) {
+                if (floatingBand != null) {
+                    for (Track t : floatingBand) target += trackLevelAt(t, ph);
+                }
+                if (audioBand != null) {
+                    for (Track t : audioBand) target += trackLevelAt(t, ph);
+                }
+                target = Math.max(0f, Math.min(1.2f, target));
+            }
+            // Attack instant, release ~300ms at 60fps ticks — reads as a meter, not a strobe.
+            displayLevel = target > displayLevel ? target : displayLevel * 0.94f + target * 0.06f;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(@NonNull android.graphics.Canvas canvas) {
+            float w = getWidth();
+            float h = getHeight();
+            if (w < 2f || h < 2f) return;
+            float r = w / 2f;
+            trackPaint.setColor(TRACK_COLOR);
+            canvas.drawRoundRect(0f, 0f, w, h, r, r, trackPaint);
+            float frac = Math.max(0f, Math.min(1f, displayLevel / FULL_SCALE));
+            if (frac > 0.01f) {
+                fillPaint.setColor(displayLevel > FULL_SCALE ? CLIP_COLOR : FILL_COLOR);
+                canvas.drawRoundRect(0f, h - h * frac, w, h, r, r, fillPaint);
+            }
+        }
     }
 }
 

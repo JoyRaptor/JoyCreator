@@ -50,10 +50,6 @@ EXPECTED = {
         # Each of these is genuinely dropped by the copy constructor, hand-verified in the
         # source rather than taken from this lint. They are listed so the lint is green and
         # the debt is visible, NOT because dropping them is known to be right.
-        "fx": "FxStack has NO copy constructor, so `this.fx = other.fx` would ALIAS the "
-              "stack and editing one half of a split would edit the other -- worse than "
-              "dropping it. Needs a deep copy on FxStack first. Splitting a clip currently "
-              "loses its visual effects.",
         "linkedClipId": "G9 link-group membership. Whether both halves of a split stay in "
                         "the group is a design question, not an oversight to patch.",
         "offsetMs": "master-clip offset is derived from sequence position at render time "

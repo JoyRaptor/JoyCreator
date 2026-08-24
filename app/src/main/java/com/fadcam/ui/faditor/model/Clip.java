@@ -553,6 +553,11 @@ public class Clip implements AudioParams {
         // unlike `fx` — see the copy lint's EXPECTED list for the ones still owed a ruling.
         this.label = other.label;
         this.hidden = other.hidden;
+        // Visual effects travel with a copy, DEEP. `this.fx = other.fx` would alias the
+        // stack so editing one half of a split edited the other; FxStack.copy() already
+        // deep-copies every card and its keyframes, so the safe form was one line away the
+        // whole time. Splitting a clip used to discard its effects entirely.
+        this.fx = other.fx == null ? null : other.fx.copy();
         this.speedMultiplier = other.speedMultiplier;
         this.pitchCompensation = other.pitchCompensation;
         this.audioMuted = other.audioMuted;

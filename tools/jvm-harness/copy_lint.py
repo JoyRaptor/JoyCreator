@@ -106,6 +106,59 @@ def copies_in(text):
     return copied
 
 
+# A second copy SURFACE: methods that build a new instance from `this`. relinked() points
+# a clip at a new source file while "keeping every edit" (its own words), so anything it
+# forgets is an edit the user loses when media is moved or restored — which is precisely
+# when they are already anxious about their work.
+RELINK = [
+    ("Clip.relinked", "app/src/main/java/com/fadcam/ui/faditor/model/Clip.java",
+     "public Clip relinked(@NonNull Uri newUri)"),
+]
+
+RELINK_EXPECTED = {
+    "Clip.relinked": {
+        "id": "relinked() KEEPS the id by design — it is the same clip pointing at a new "
+              "file, not a copy. Verified: `new Clip(id, newUri, ...)`.",
+        "sourceUri": "replaced by newUri — that is the entire point of the method.",
+        "locked": "workspace state, as in the copy constructor.",
+    },
+}
+
+
+def method_body(text, signature):
+    """Brace-matched body of one method."""
+    i = text.index(signature)
+    depth, start = 0, text.index("{", i)
+    for j in range(start, len(text)):
+        if text[j] == "{":
+            depth += 1
+        elif text[j] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:j + 1]
+    raise SystemExit("unbalanced braces after " + signature)
+
+
+def check_relink(missing):
+    for label, path, sig in RELINK:
+        raw = io.open(path, encoding="utf-8", errors="replace").read()
+        text = COMMENT_RE.sub(" ", raw)
+        if sig not in text:
+            print("FAIL  %s not found (%r)" % (label, sig))
+            sys.exit(1)
+        body = method_body(text, sig)
+        allowed = RELINK_EXPECTED.get(label, {})
+        n = 0
+        for f in fields_of(text):
+            if f in allowed:
+                continue
+            n += 1
+            # Bare name covers both `c.field = field` and positional constructor args.
+            if not re.search(r"(?<![\w.])" + re.escape(f) + r"(?![\w])", body):
+                missing.append((label, f))
+        print("%-16s %d fields checked, %d exempt" % (label, n, len(allowed)))
+
+
 def main():
     missing, checked, exempt = [], 0, 0
     for label, path, sig in TARGETS:
@@ -125,10 +178,12 @@ def main():
                 missing.append((label, f))
         print("%-10s %d fields checked, %d exempt" % (label, checked, len(allowed)))
 
+    check_relink(missing)
+
     if missing:
         print()
         for label, f in missing:
-            print("FAIL  %s.%s is DROPPED by the copy constructor" % (label, f))
+            print("FAIL  %s.%s is DROPPED" % (label, f))
         print()
         print("The copy constructor is what SPLIT uses. A field missing from it is a")
         print("setting the user loses the moment they cut a clip in two -- silently.")

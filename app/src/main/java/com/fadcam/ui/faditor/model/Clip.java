@@ -647,6 +647,19 @@ public class Clip implements AudioParams {
                 speedMultiplier, audioMuted, volumeLevel, rotationDegrees,
                 flipHorizontal, flipVertical, cropPreset,
                 cropLeft, cropTop, cropRight, cropBottom);
+        // These five were dropped, and relinked()'s own javadoc promises to keep "every
+        // edit". Relinking happens when media has moved or been restored — precisely when
+        // the user is already worried about their work — so losing their clip's name, its
+        // visibility, its touch behaviour, its voice-FX choice and its whole visual effect
+        // stack is the worst possible moment to lose anything at all.
+        //
+        // fx is DEEP-copied: `c.fx = fx` would alias the stack, so editing the relinked
+        // clip would edit the original that is still in the project.
+        c.label = label;
+        c.hidden = hidden;
+        c.passThrough = passThrough;
+        c.voiceFxEnabled = voiceFxEnabled;
+        c.fx = fx == null ? null : fx.copy();
         c.imageClip = imageClip;
         c.removedSpans.addAll(removedSpans);
         c.transcripts.addAll(transcripts); // shared, not forked — see the copy constructor

@@ -408,9 +408,13 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-23 — D3/D2/A3 all BUILT, typecheck 635 green, lane released)
+status: IDLE (2026-08-24 — split rulings landed ff793784: passThrough COPIED (both halves keep
+        tap pass-through), offsetMs DELETED (never read; master pos derived in getMasterTrack,
+        overlay pos is overlayStartMs), linkedClipId kept exempt (fresh-id half unlinked until
+        splitLinkedPartnerAndRecord re-links pairwise). run-splitcopy.sh ALL PASS incl NEGCTRL;
+        run-copy-lint.sh green with 2 exemptions removed; TYPECHECK OK — 655 sources, 1815 classes)
 files: (none)
-since: 2026-08-23
+since: 2026-08-24
 
 ## LANE C — dynamic lane (overnight: A6 VERIFIED · A9 BUILT · C1.E file-proof)
 status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb37273:
@@ -450,8 +454,8 @@ status: IDLE (2026-08-24 — 17 rows BUILT: G1/G2 8c6b0c66 fid fade fix, G3 2d34
 files: (none)
 since: 2026-08-24
 
-## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)
-status: WIP (agent 1, 2026-08-24) � code landed, commit pending. G22: master-band
+## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)
+status: WIP (agent 1, 2026-08-24) � code landed, commit pending. G22: master-band
         long-press hit-test in EditorTimelineView routes to onTrackHeaderLongPress;
         MASTER exclusion lifted, z-order rows gated off for master. Per-clip voiceFx:
         AudioParams + Clip/AudioClip field + ProjectStorage round-trip; three export

@@ -79,9 +79,6 @@ public class Clip implements AudioParams {
      */
     private boolean voiceFxEnabled = false;
 
-    /** Offset from the beginning of the project timeline (ms). */
-    private long offsetMs = 0;
-
     /**
      * OVERLAY (PiP) clips only: whether this clip contributes its audio to preview/export.
      * Defaults to {@code false} — a PiP has always been pixels-only, and simply making every
@@ -553,6 +550,16 @@ public class Clip implements AudioParams {
         // unlike `fx` — see the copy lint's EXPECTED list for the ones still owed a ruling.
         this.label = other.label;
         this.hidden = other.hidden;
+        // passThrough travels with a copy (copy-lint ruling 2026-08-24). Its whole purpose
+        // is "keep behaving exactly as it did": the readers (hitsInPreview in
+        // FaditorEditorActivity, OverlayVideoPreviewView's touch interception, the lane
+        // badge in LayerRowRenderer) ask "stop catching taps aimed at what is behind me" —
+        // a property of the OBJECT, not of its trim window. Cutting an object in two does
+        // not stop it covering the thing behind it; both halves keep the premise, so both
+        // halves keep the flag. splitLinkedPartnerAndRecord splits overlay pairs through
+        // this constructor, so dropping it here un-pass-through'd half of every linked
+        // pair that got cut. Plain boolean — no aliasing risk.
+        this.passThrough = other.passThrough;
         // Visual effects travel with a copy, DEEP. `this.fx = other.fx` would alias the
         // stack so editing one half of a split edited the other; FxStack.copy() already
         // deep-copies every card and its keyframes, so the safe form was one line away the
@@ -714,14 +721,30 @@ public class Clip implements AudioParams {
         sourceUri = uri;
     }
 
+    /**
+     * AudioParams conformance ONLY — a Clip has no stored timeline offset, and must not
+     * grow one. A MASTER clip's position is DERIVED by summation at view-build time
+     * ({@code Timeline#getMasterTrack} walks {@code clips} with a duration cursor,
+     * Timeline.java) and an OVERLAY clip's position is {@link #overlayStartMs}; a stored
+     * value here was never read by anything (every {@code getOffsetMs()} call site in the
+     * tree receives an {@link AudioClip}), so the field existed only to silently hold
+     * whatever a copy forgot to carry — the dead-state bug in another costume. Deleted
+     * rather than copied (copy-lint ruling 2026-08-24).
+     */
     @Override
     public long getOffsetMs() {
-        return offsetMs;
+        return 0;
     }
 
+    /**
+     * No-op for the same reason as {@link #getOffsetMs()}: position is derived, never
+     * stored. Kept as a silent no-op rather than deleted because {@link AudioParams}
+     * requires it and generic {@code AudioParams} consumers may call it on either
+     * implementation.
+     */
     @Override
     public void setOffsetMs(long ms) {
-        this.offsetMs = Math.max(0, ms);
+        // deliberately empty — see getOffsetMs()
     }
 
 

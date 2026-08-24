@@ -46,17 +46,23 @@ EXPECTED = {
         "locked": "as AudioClip.locked",
         "id": "a copy MUST get a fresh id -- Clip(other, newId) assigns one by design. "
               "Inheriting it would give two clips the same identity.",
-        # ── OWED A RULING, not silently allowed ───────────────────────────────────────
-        # Each of these is genuinely dropped by the copy constructor, hand-verified in the
-        # source rather than taken from this lint. They are listed so the lint is green and
-        # the debt is visible, NOT because dropping them is known to be right.
-        "linkedClipId": "G9 link-group membership. Whether both halves of a split stay in "
-                        "the group is a design question, not an oversight to patch.",
-        "offsetMs": "master-clip offset is derived from sequence position at render time "
-                    "(getMasterTrack sums prior durations), so the stored value may be "
-                    "vestigial. Confirm before copying.",
-        "passThrough": "render-path flag; its javadoc says it exists to keep a clip "
-                       "'behaving exactly as it did'. Needs a read of that path.",
+        # ── RULED, not silently allowed ───────────────────────────────────────────────
+        # Ruled 2026-08-24 from the code, both directions traced. Kept here so the
+        # exemption stays visible and re-litigable; do not delete without re-reading
+        # Timeline.linkClips/findLinkedClip and splitLinkedPartnerAndRecord.
+        "linkedClipId": "DUAL-STREAM partner pointer (not G9 membership -- link groups live "
+                        "in Timeline.linkGroups keyed by item id, so a fresh-id split half "
+                        "is simply not a member and pruneLinkGroups handles the rest; no "
+                        "(item, axis) duplicate can arise from this field). Copying it "
+                        "would make BOTH halves point at one partner while the partner "
+                        "still points at the dead original id: findLinkedClip becomes "
+                        "one-way and ambiguous (two clips resolve to the same partner). "
+                        "The design is 'fresh-id child is independent until the operation "
+                        "re-links it' (Clip.linkedClipId javadoc), and the linked-pair "
+                        "split path does exactly that: splitLinkedPartnerAndRecord builds "
+                        "unlinked halves then calls Timeline.linkClips pairwise "
+                        "(masterA<->left, masterB<->right). Both halves stay out of the "
+                        "pair until the operation re-links them -- by design, keep exempt.",
     },
 }
 

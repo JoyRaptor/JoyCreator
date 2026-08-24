@@ -23,7 +23,7 @@ import java.util.List;
  *
  * <ul>
  *   <li><b>Bypass (C7)</b> — callers pass the flag in
- *       ({@link #buildForClip(AudioParams, boolean)} / {@link #buildGlobal(boolean)});
+ *       ({@link #addTo} / {@link #buildGlobal(boolean)});
  *       export snapshots it once per composition build (a service must never consult a
  *       UI static), preview's wiring layer flips it live on the mounted chain so A/B is
  *       audible without a rebuild.</li>
@@ -35,31 +35,29 @@ public final class AudioFxChainFactory {
 
     private AudioFxChainFactory() {}
 
-    /**
-     * Build processors for one clip: resample/speed/volume ride earlier in the caller's
-     * list; this appends the FX chain. Empty when the chain would be inaudible anyway
-     * (muted clip). {@code bypassed} mounts the chain anyway — it passes through at
-     * stream time, so an A/B flip needs no rebuild.
-     */
-    @NonNull
-    public static List<AudioProcessor> buildForClip(@Nullable AudioParams clip,
-                                                    boolean bypassed) {
-        if (clip != null && clip.isMuted()) return Collections.emptyList();
-        return Collections.<AudioProcessor>singletonList(
-                FxChain.createVoiceChain(48000, bypassed));
-    }
-
-    /** Convenience overload using the default (not bypassed) state. */
-    @NonNull
-    public static List<AudioProcessor> buildForClip(@Nullable AudioParams clip) {
-        return buildForClip(clip, false);
-    }
-
-    /** Convenience: append to an existing processor list when non-empty. */
+    /** Back-compatible form: no voice chain, 48 kHz. See the five-argument form. */
     public static void addTo(@NonNull List<AudioProcessor> out, @Nullable AudioParams clip,
                              boolean bypassed) {
-        List<AudioProcessor> built = buildForClip(clip, bypassed);
-        if (!built.isEmpty()) out.addAll(built);
+        addTo(out, clip, bypassed, false, 48000);
+    }
+
+    /**
+     * Master-spine form, with the same opt-in the lane path uses.
+     *
+     * @param applyVoiceChain the user's "process my audio" intent. This path applied the voice
+     *        chain UNCONDITIONALLY, exactly as the lane path did — so a video of music, a
+     *        concert, or any ambient footage had a gate and a de-esser across it on every
+     *        export, with no control but the A/B bypass. Fixing only the lane path would have
+     *        left the video's own audio still being processed without being asked.
+     * @param sampleRate the PROJECT rate. This was hardcoded to 48000, so in a 44.1 kHz project
+     *        every filter in the chain sat about 9% off its intended frequency — the 60 Hz hum
+     *        notch landing near 55 Hz, which is the difference between removing hum and not.
+     */
+    public static void addTo(@NonNull List<AudioProcessor> out, @Nullable AudioParams clip,
+                             boolean bypassed, boolean applyVoiceChain, int sampleRate) {
+        if (!applyVoiceChain) return;
+        if (clip != null && clip.isMuted()) return;
+        out.add(FxChain.createVoiceChain(sampleRate > 0 ? sampleRate : 48000, bypassed));
     }
 
     /**

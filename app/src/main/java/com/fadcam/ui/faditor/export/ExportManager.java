@@ -1686,7 +1686,8 @@ public class ExportManager {
             // user hears while editing is what lands in the file. The C7 bypass flag is
             // SNAPSHOT here (once per composition build): export runs in a service, so
             // it must never read a UI static mid-flight.
-            AudioFxChainFactory.addTo(audioProcessors, clip, fxBypassedSnapshot);
+            AudioFxChainFactory.addTo(audioProcessors, clip, fxBypassedSnapshot,
+                    cleanAudioSnapshot, projectSampleRate);
         }
 
         List<Effect> videoEffects = assembleClipVideoEffects(
@@ -2512,7 +2513,8 @@ public class ExportManager {
                 processors.add(vp);
             }
             // C1.E: FX chain on PiP audio too — one factory everywhere, one snapshot.
-            AudioFxChainFactory.addTo(processors, c, fxBypassedSnapshot);
+            AudioFxChainFactory.addTo(processors, c, fxBypassedSnapshot,
+                    cleanAudioSnapshot, projectSampleRate);
             if (!processors.isEmpty()) {
                 eb.setEffects(new Effects(processors, Collections.emptyList()));
             }

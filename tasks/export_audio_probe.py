@@ -24,6 +24,18 @@ E1/C1.E loudness-parity mode (no source/offset needed):
     with PREVIEW = a captured preview render of a project with the FX chain engaged and
     EXPORT = the exported file of the same project.
 
+C1.E FX-engaged mode (prove an export actually ran the chain, from two files):
+    python tasks/export_audio_probe.py EXPORT.mp4 --fx-source SOURCE.m4a --expect-fx-gain 0.4
+    Fits SOURCE inside EXPORT (same correlation machinery as offset mode, +/-120 ms
+    search) and asserts:
+      a) the source IS present (corr > 0.9) — the export did not lose it;
+      b) the fitted gain DIFFERS from unity by more than --fx-gain-tol — i.e. some
+         processor genuinely reshaped it (NEGATIVE CONTROL: a no-op chain fits at ~1.00
+         and FAILS here; so does an export that dropped the clip);
+      c) loudness moved by roughly the same amount (|20*log10(gain)| vs LUFS delta).
+    Choose --expect-fx-gain from the known compressor/EQ maths for the project's input
+    level (e.g. a -3 dBFS tone through the voice chain compresses to ~0.35-0.55).
+
 Requires ffmpeg on PATH. Both inputs are decoded to mono 48 kHz so containers,
 channel counts and sample rates do not have to match.
 
@@ -109,6 +121,14 @@ def main():
                          '--lufs-tol. Replaces the offset/gain checks.')
     ap.add_argument('--lufs-tol', type=float, default=1.0,
                     help='max |preview LUFS - export LUFS| for parity PASS (default 1.0)')
+    ap.add_argument('--fx-source', metavar='SOURCE_FILE', default=None,
+                    help='C1.E FX-engaged mode: locate SOURCE_FILE inside EXPORT and '
+                         'assert the chain actually reshaped it (gain != unity).')
+    ap.add_argument('--expect-fx-gain', type=float, default=0.5,
+                    help='approximate gain the FX chain should apply (default 0.5)')
+    ap.add_argument('--fx-gain-tol', type=float, default=0.2,
+                    help='how far from --expect-fx-gain still counts (default 0.2); '
+                         'a fitted gain within tol of 1.00 FAILS — that is a no-op chain')
     ap.add_argument('--expect-offset-ms', type=float, default=None)
     ap.add_argument('--source-dur', type=float, default=3.0,
                     help='seconds of SOURCE to use as the probe (default 3)')
@@ -129,6 +149,68 @@ def main():
 
     if not args.export:
         ap.error('EXPORT file is required')
+
+    if args.fx_source:
+        # ── C1.E: FX-engaged export proof, from files alone ──────────
+        tmp = tempfile.mkdtemp(prefix='fxengaged_')
+        ex_w = os.path.join(tmp, 'ex.wav')
+        src_w = os.path.join(tmp, 'src.wav')
+        to_wav(args.export, ex_w)
+        to_wav(args.fx_source, src_w, 4.0)   # probe = first 4 s of the source
+        ex, fs = read(ex_w)
+        sc, fs2 = read(src_w)
+        if not len(ex) or not len(sc):
+            print('FAIL: a side decoded to zero samples.')
+            sys.exit(1)
+        print(f'export : {len(ex)} samples = {len(ex)/fs:.3f}s @ {fs}Hz  rms={rms(ex):.6f}')
+        print(f'source : {min(len(sc), int(4*fs))} samples @ {fs2}Hz  rms={rms(sc):.6f}')
+
+        needle = sc[:int(4 * fs)] - (sc[:int(4 * fs)].mean() if len(sc) else 0)
+        hay = ex - ex.mean()
+        search = int(0.12 * fs)
+        if len(hay) <= 2 * search + len(needle):
+            print('FAIL: export too short to search for the source.')
+            sys.exit(1)
+        corr_full = np.correlate(hay[search:len(hay) - search], needle, mode='valid')
+        lag = int(np.argmax(np.abs(corr_full))) + search
+        seg = ex[lag:lag + len(needle)]
+        m = min(len(seg), len(needle))
+        seg, pr = seg[:m], needle[:m]
+        denom = float(np.dot(pr, pr))
+        scale = float(np.dot(seg, pr) / denom) if denom else 0.0
+        ncc = (float(np.dot(seg, pr) / np.sqrt(float(np.dot(seg, seg)) * denom))
+               if denom and float(np.dot(seg, seg)) else 0.0)
+        sign = 1.0 if scale >= 0 else -1.0
+        ncc *= sign
+        scale *= sign
+
+        checks = []
+        present = ncc > 0.9
+        print(f'best-match lag : {lag / fs * 1000.0:+.1f} ms   fitted gain {scale:.3f}   corr {ncc:.3f}')
+        checks.append(('source IS in the export (corr > 0.9)', present))
+
+        # THE assertion: unity-gain fit means the chain was a NO-OP (or never ran).
+        not_noop = abs(scale - 1.0) > args.fx_gain_tol
+        checks.append(('chain actually reshaped the audio (gain != 1.00 '
+                       f'+/- {args.fx_gain_tol})', not_noop))
+        near_expected = abs(scale - args.expect_fx_gain) < args.fx_gain_tol
+        checks.append((f'gain near the expected FX maths ({args.expect_fx_gain} '
+                       f'+/- {args.fx_gain_tol})', near_expected))
+
+        ex_lufs = ebur128_lufs(args.export)
+        src_lufs = ebur128_lufs(args.fx_source)
+        if ex_lufs is not None and src_lufs is not None:
+            lufs_move = abs(ex_lufs - src_lufs)
+            gain_db = abs(20 * math.log10(max(scale, 1e-6)))
+            close = abs(lufs_move - gain_db) < 3.0
+            print(f'loudness moved {lufs_move:.2f} LU; fitted gain implies {gain_db:.2f} dB')
+            checks.append(('loudness movement agrees with fitted gain (<3 dB apart)', close))
+        ok = all(r for _, r in checks)
+        for name, res in checks:
+            print(f'  {"PASS" if res else "FAIL"}  {name}')
+        print(f'\n{"PASS" if ok else "FAIL"}')
+        sys.exit(0 if ok else 1)
+
     if args.preview:
         # ── E1/C1.E: preview/export parity mode ──────────────────────
         ex_lufs = ebur128_lufs(args.export)

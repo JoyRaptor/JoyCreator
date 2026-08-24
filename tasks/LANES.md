@@ -412,19 +412,18 @@ status: IDLE (2026-08-23 — D3/D2/A3 all BUILT, typecheck 635 green, lane relea
 files: (none)
 since: 2026-08-23
 
-## LANE C — dynamic lane (C1.E FX wiring · C6 GR feed · C7 bypass read)
-status: IDLE (2026-08-24 — C1.E WIRED ece300c1: one AudioFxChainFactory (fx/) feeds BOTH
-        preview sink (MasterPlaybackEngine DefaultRenderersFactory → UiSyncAudioProcessor,
-        per-buffer UI bridge) AND export (ExportManager addTo at all 3 audio sites, C7
-        snapshot at composition start). Bypass INJECTED via FxChain.setBypassed — engine
-        never reads UI statics. Wiring found+fixed DeEsser pass-through stub + DeHum
-        channel-stride bug; Gate extra decay confirmed deliberate + documented.
-        Evidence: run-audio-fx.sh ALL GREEN (19/19); FxParityTest desktop driver ALL PASS
-        (parity bit-identical / not-noop / GR −10.54 dB live / bypass bit-exact);
-        typecheck.sh "TYPECHECK OK — 653 sources, 1809 classes"; probe --preview mode
-        gained corr>0.9 with NEGCTRL proof. DEVICE OWED to close C1.E as VERIFIED:
-        preview render + export of an FX-active project through export_audio_probe
-        --preview. C6/C7 rows appended with WIRED notes.)
+## LANE C — dynamic lane (overnight: A6 VERIFIED · A9 BUILT · C1.E file-proof)
+status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb37273:
+        four real exports through resolveProjectSampleRate on device, measured FROM FILES
+        (mixed-rate resampler install proven by a6_mixed_check.py pitch/bursts vs the real
+        chipmunk NEGCTRL; equal-rate skip; silence; hot input). ADVERSARIAL FIND+FIX:
+        audio-only export refused empty-spine projects ("Timeline is empty") - the exact
+        zero-clip case G21/B9 made reachable. A9 BUILT 6a216b00: AudioClipPreviewPlayer
+        (ExoPlayer) + buildLaneChain one-factory unification; HARNESS-CAUGHT pan-only-clip
+        bug (pan vanished in preview AND export); run-lane-parity.sh ALL PASS; editor smoke
+        clean. C1.E file-proof: probe --fx-source mode, on-device PASS (gain .286 corr .998
+        LUFS-agree) + no-op NEGCTRL FAILs. Probe also gained corr>0.9 in --preview mode.
+        typecheck TYPECHECK OK — 654 sources, 1812 classes.)
 files: (none)
 since: 2026-08-24
 

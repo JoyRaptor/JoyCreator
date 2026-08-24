@@ -114,12 +114,21 @@ public class PreviewPipController {
      */
     public float maxBandDpFor(float currentBandDp) {
         float slot = prospectiveSlotPx();
-        // UNKNOWN IS NOT ZERO. prospectiveSlotPx returns -1 before the column has been laid
+        // UNKNOWN IS NOT ZERO. prospectiveSlotPx returns NaN before the column has been laid
         // out, and clamping to "current + 0" on that answer pins the band at exactly its
         // present height — the timeline then refuses to grow and the grab bar feels dead,
         // which is indistinguishable from it not being draggable at all. No measurement means
         // no ceiling; the next MOVE event will have one.
-        if (slot < 0f) return Float.MAX_VALUE;
+        //
+        // BOTH READERS OF prospectiveSlotPx MUST AGREE ON THE SENTINEL. It used to be -1, and
+        // this guard caught it via `slot < 0f`. When it became NaN, evaluate() was updated and
+        // THIS WAS NOT — and NaN fails `< 0f`, so an unmeasured root fell through to
+        // `currentBandDp + NaN` = NaN. The caller does Math.min(targetDp, thatNaN), and
+        // Math.min returns NaN if EITHER argument is NaN, so the band cap became NaN and the
+        // grab bar died. A rotation re-measures the root, which is why it presented as
+        // "landscape lost the PiP and the drawer won't reach fullscreen" — one stale sentinel
+        // check, both symptoms. If the sentinel ever changes again, grep every caller.
+        if (Float.isNaN(slot) || slot < 0f) return Float.MAX_VALUE;
         return currentBandDp + slot / density;
     }
 

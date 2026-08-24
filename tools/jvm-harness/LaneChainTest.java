@@ -160,6 +160,55 @@ public class LaneChainTest {
         check(!has(AudioFxChainFactory.buildLaneChain(music, SR, SR, true, true), "FxChain"),
                 "bypass still wins over an explicit request");
 
+        // ── 8. ALL THREE AUDIO PATHS MUST AGREE ───────────────────────────────────
+        // There are three, not one: audio lanes go through buildLaneChain, while the MASTER
+        // spine and PiP overlays go through addTo. On 2026-08-24 the voice chain was gated
+        // for lanes and left unconditional on the other two, so the VIDEO's own audio was
+        // still processed without being asked. Fixing one path and calling the bug fixed is
+        // the mistake this section exists to prevent.
+        java.util.List<AudioProcessor> mNo = new java.util.ArrayList<>();
+        AudioFxChainFactory.addTo(mNo, clip(), false, false, SR);
+        java.util.List<AudioProcessor> mYes = new java.util.ArrayList<>();
+        AudioFxChainFactory.addTo(mYes, clip(), false, true, SR);
+        System.out.println("      addTo applyVoiceChain=false -> " + names(mNo));
+        System.out.println("      addTo applyVoiceChain=true  -> " + names(mYes));
+        check(!has(mNo, "FxChain"),
+                "MASTER/PiP path: no voice chain when not asked for");
+        check(has(mYes, "FxChain"),
+                "MASTER/PiP path: voice chain when asked for");
+        check(has(mNo, "FxChain") == has(noFx, "FxChain")
+                        && has(mYes, "FxChain") == has(withFx, "FxChain"),
+                "all three paths AGREE on whether the voice chain applies");
+
+        // The back-compatible overload must be safe by default on this path too.
+        java.util.List<AudioProcessor> mOld = new java.util.ArrayList<>();
+        AudioFxChainFactory.addTo(mOld, clip(), false);
+        check(!has(mOld, "FxChain"),
+                "MASTER/PiP 3-arg overload defaults to NO voice chain");
+
+        // A muted clip gets nothing here either.
+        java.util.List<AudioProcessor> mMuted = new java.util.ArrayList<>();
+        AudioClip mm = clip();
+        mm.setMuted(true);
+        AudioFxChainFactory.addTo(mMuted, mm, false, true, SR);
+        check(mMuted.isEmpty(), "MASTER/PiP path: a muted clip gets nothing");
+
+        // Bypass wins here too.
+        java.util.List<AudioProcessor> mByp = new java.util.ArrayList<>();
+        AudioFxChainFactory.addTo(mByp, clip(), true, true, SR);
+        check(!has(mByp, "FxChain") || mByp.size() == 1,
+                "MASTER/PiP path: bypass is honoured");
+
+        // NEGCTRL: addTo must APPEND, never replace what the caller already built —
+        // the master path assembles speed and volume processors before calling it.
+        java.util.List<AudioProcessor> pre = new java.util.ArrayList<>();
+        pre.add(new com.fadcam.ui.faditor.export.VolumeAudioProcessor());
+        int before = pre.size();
+        AudioFxChainFactory.addTo(pre, clip(), false, true, SR);
+        check(pre.size() > before && pre.get(0) instanceof
+                        com.fadcam.ui.faditor.export.VolumeAudioProcessor,
+                "NEGCTRL: addTo APPENDS and preserves the caller's existing processors");
+
         System.out.println(fails == 0 ? ("ALL GREEN (" + total + "/" + total + ")")
                 : (fails + " FAILED of " + total));
         if (fails != 0) System.exit(1);

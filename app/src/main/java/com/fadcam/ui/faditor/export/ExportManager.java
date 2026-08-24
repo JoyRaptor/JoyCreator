@@ -40,6 +40,7 @@ import com.fadcam.playback.FragmentedMp4Remuxer;
 import com.fadcam.ui.faditor.CanvasPickerBottomSheet;
 import com.fadcam.ui.faditor.gltransitions.GlTransitionExportEffect;
 import com.fadcam.ui.faditor.model.AudioClip;
+import com.fadcam.ui.faditor.audio.LoudnessAnalyzer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.ExportSettings;
 import com.fadcam.ui.faditor.model.FaditorProject;
@@ -140,6 +141,21 @@ public class ExportManager {
     public LoudnessTarget getPendingLoudnessTarget() {
         return pendingLoudnessTarget;
     }
+
+    /**
+     * C4 — integrated LUFS of the LAST completed export, measured with ebur128
+     * immediately before ({@code Before}) and immediately after ({@code After}) the
+     * loudnorm correction pass. {@code After} is null when no correction ran (target
+     * OFF and Clean Audio unchecked) or the pass failed.
+     */
+    @Nullable private volatile Double lastExportLoudnessBefore;
+    @Nullable private volatile Double lastExportLoudnessAfter;
+
+    @Nullable
+    public Double getLastExportLoudnessBeforeLUFS() { return lastExportLoudnessBefore; }
+
+    @Nullable
+    public Double getLastExportLoudnessAfterLUFS() { return lastExportLoudnessAfter; }
 
     /** Handler for periodic progress polling. */
     private final Handler progressHandler = new Handler(Looper.getMainLooper());
@@ -456,25 +472,7 @@ public class ExportManager {
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
                     isExporting = false;
-                    String finalPath = outputPath;
-
-                    // If exported to temp for SAF, copy to custom storage now
-                    if (pendingSafCopy) {
-                        String safResult = copyTempToSaf(outputPath);
-                        if (safResult != null) {
-                            finalPath = safResult;
-                            FLog.d(TAG, "Export copied to SAF: " + safResult);
-                        } else {
-                            FLog.e(TAG, "SAF copy failed, file remains at: " + outputPath);
-                        }
-                        pendingSafCopy = false;
-                        safExportFileName = null;
-                    }
-
-                    FLog.d(TAG, "Export completed: " + finalPath);
-                    if (listener != null) {
-                        listener.onExportCompleted(finalPath, result);
-                    }
+                    finalizeExportAsync(project, outputPath, result, "Export completed");
                 }
 
                 @Override
@@ -576,21 +574,7 @@ public class ExportManager {
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
                     isExporting = false;
-                    String finalPath = outputPath;
-                    if (pendingSafCopy) {
-                        String safResult = copyTempToSaf(outputPath);
-                        if (safResult != null) {
-                            finalPath = safResult;
-                        } else {
-                            FLog.e(TAG, "SAF copy failed, file remains at: " + outputPath);
-                        }
-                        pendingSafCopy = false;
-                        safExportFileName = null;
-                    }
-                    FLog.d(TAG, "Audio-only export completed: " + finalPath);
-                    if (listener != null) {
-                        listener.onExportCompleted(finalPath, result);
-                    }
+                    finalizeExportAsync(project, outputPath, result, "Audio-only export completed");
                 }
 
                 @Override
@@ -637,6 +621,99 @@ public class ExportManager {
             if (listener != null) {
                 listener.onExportError(e);
             }
+        }
+    }
+
+    /**
+     * C4/C8 — shared post-export finalize for BOTH export paths: run the loudness
+     * correction pass on the finished temp file (if requested), THEN do the SAF copy
+     * (so the copied file is already normalized), then notify the listener.
+     *
+     * <p>The correction pass runs ffmpeg three times (measure, apply, re-measure) —
+     * always OFF the main thread Media3 delivers {@code onCompleted} on.</p>
+     */
+    private void finalizeExportAsync(@NonNull FaditorProject project,
+                                     @NonNull String outputPath,
+                                     @NonNull ExportResult result,
+                                     @NonNull String completedLogTag) {
+        final LoudnessTarget target = pendingLoudnessTarget;
+        // C8 — THE consumer of ExportSettings.isCleanAudio(): when no explicit C4 target is
+        // chosen, Clean Audio still runs its chain at BakedAudioCache's default -16 LUFS.
+        final boolean cleanAudio = project.getExportSettings() != null
+                && project.getExportSettings().isCleanAudio();
+        final boolean needsPass = target.lufs != null || cleanAudio;
+        if (!needsPass) {
+            FLog.d(TAG, "C4/C8 loudness pass not requested (target Off, Clean Audio unchecked)");
+        }
+        new Thread(() -> {
+            String finalPath = outputPath;
+            if (needsPass) {
+                applyLoudnessPass(new File(outputPath), target, cleanAudio);
+            }
+            // If exported to temp for SAF, copy to custom storage now
+            if (pendingSafCopy) {
+                String safResult = copyTempToSaf(outputPath);
+                if (safResult != null) {
+                    finalPath = safResult;
+                    FLog.d(TAG, completedLogTag + " (copied to SAF): " + safResult);
+                } else {
+                    FLog.e(TAG, "SAF copy failed, file remains at: " + outputPath);
+                }
+                pendingSafCopy = false;
+                safExportFileName = null;
+            }
+            FLog.d(TAG, completedLogTag + ": " + finalPath);
+            if (listener != null) {
+                listener.onExportCompleted(finalPath, result);
+            }
+        }, "faditor-loudness-finalize").start();
+    }
+
+    /**
+     * C4/C8 — measure → two-pass loudnorm → re-measure one exported file, IN PLACE
+     * (temp sibling + atomic rename). Best-effort: any failure leaves the original
+     * export untouched and logs it; never throws. BLOCKS on ffmpeg — bg thread only.
+     */
+    private void applyLoudnessPass(@NonNull File outFile,
+                                   @NonNull LoudnessTarget target,
+                                   boolean cleanAudio) {
+        try {
+            double effectiveTargetLUFS = target.lufs != null ? target.lufs : -16.0d;
+            LoudnessAnalyzer.Result before = LoudnessAnalyzer.measure(outFile);
+            lastExportLoudnessBefore = before != null ? before.integratedLUFS : null;
+            lastExportLoudnessAfter = null;
+            if (before == null) {
+                FLog.w(TAG, "C4/C8 loudness pass skipped: mix measured as silence/unreadable");
+                return;
+            }
+            File tmp = new File(outFile.getParentFile(), outFile.getName() + ".loudnorm.tmp");
+            boolean ok = LoudnessAnalyzer.normalize(outFile, tmp, effectiveTargetLUFS, cleanAudio);
+            if (!ok) {
+                tmp.delete();
+                FLog.w(TAG, String.format(Locale.US,
+                        "C4/C8 loudnorm failed — export kept UN-normalized at %.1f LUFS",
+                        before.integratedLUFS));
+                return;
+            }
+            if (!tmp.renameTo(outFile)) {
+                // rename can refuse over an existing file on some filesystems
+                outFile.delete();
+                if (!tmp.renameTo(outFile)) {
+                    tmp.delete();
+                    FLog.e(TAG, "C4/C8 loudnorm commit failed — keeping un-normalized export");
+                    return;
+                }
+            }
+            LoudnessAnalyzer.Result after = LoudnessAnalyzer.measure(outFile);
+            lastExportLoudnessAfter = after != null ? after.integratedLUFS : null;
+            FLog.i(TAG, String.format(Locale.US,
+                    "C4 LOUDNESS: before %.1f LUFS → after %s LUFS (target %.0f LUFS%s)",
+                    before.integratedLUFS,
+                    after != null ? String.format(Locale.US, "%.1f", after.integratedLUFS) : "?",
+                    effectiveTargetLUFS,
+                    cleanAudio ? ", Clean Audio chain" : ""));
+        } catch (Throwable t) {
+            FLog.w(TAG, "C4/C8 loudness pass crashed — export kept un-normalized", t);
         }
     }
 

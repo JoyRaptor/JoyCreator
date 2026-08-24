@@ -161,6 +161,97 @@ public class LoudnessAnalyzer {
         return new Result(integrated, lra, thresh);
     }
 
+    // ── C4/C8 — two-pass loudnorm correction ─────────────────────────────
+
+    /** Clean-Audio (C8) chain prefix: denoise + dynamics, mirroring BakedAudioCache.CHAIN_FIX
+     *  (duplicated because that class is outside this lane's file list). */
+    private static final String CLEAN_CHAIN_PREFIX =
+            "highpass=f=80,afftdn=nf=-25.0,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,";
+
+    private static final double TARGET_TP = -1.5;
+    private static final double TARGET_LRA = 11.0;
+
+    // Same patterns as BakedAudioCache.parseMeasured (private there; this lane may not edit it).
+    private static final Pattern P_INPUT_I =
+            Pattern.compile("\"input_i\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
+    private static final Pattern P_INPUT_TP =
+            Pattern.compile("\"input_tp\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
+    private static final Pattern P_INPUT_LRA =
+            Pattern.compile("\"input_lra\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
+    private static final Pattern P_INPUT_THRESH =
+            Pattern.compile("\"input_thresh\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
+    private static final Pattern P_TARGET_OFFSET =
+            Pattern.compile("\"target_offset\"\\s*:\\s*\"?(-?[\\d.]+|-?inf|nan)\"?");
+
+    /**
+     * Two-pass loudnorm of {@code inFile} written to {@code outFile} (must differ).
+     *
+     * <p>Pass 1 measures with {@code loudnorm=print_format=json} ({@code -vn}: audio only,
+     * no video decode); pass 2 re-encodes ONLY the audio ({@code -c:v copy} — same
+     * stream-copy pattern as FragmentedMp4Remuxer) applying the measured values in
+     * {@code linear=true} gain-only mode. When {@code cleanChain} is set, the Clean-Audio
+     * (C8) denoise/dynamics prefix runs ahead of loudnorm.</p>
+     *
+     * <p>BLOCKS on ffmpeg (twice). Call OFF the main thread. All filter/output args were
+     * checked against real ffmpeg's {@code -h filter=loudnorm} (7.0.2): every option used
+     * here exists (I, TP, LRA, measured_I/TP/LRA/thresh, offset, linear, print_format).</p>
+     *
+     * @return true when the file was written successfully.
+     */
+    public static boolean normalize(@NonNull File inFile, @NonNull File outFile,
+                                    double targetLUFS, boolean cleanChain) {
+        if (!inFile.canRead()) {
+            FLog.w(TAG, "normalize: unreadable input " + inFile);
+            return false;
+        }
+        String in = inFile.getAbsolutePath();
+        // Pass 1 — measure. -vn so a video track costs nothing; audio stream 0 only.
+        String measureCmd = String.format(Locale.US,
+                "-y -i \"%s\" -vn -af loudnorm=I=%.1f:TP=%.1f:LRA=%.1f:print_format=json -f null -",
+                in, targetLUFS, TARGET_TP, TARGET_LRA);
+        FLog.d(TAG, "loudnorm pass1: ffmpeg " + measureCmd);
+        FFmpegSession s1 = FFmpegKit.execute(measureCmd);
+        String logs1 = s1.getAllLogsAsString();
+        if (!ReturnCode.isSuccess(s1.getReturnCode())) {
+            FLog.w(TAG, "loudnorm pass1 failed rc=" + s1.getReturnCode()
+                    + "; tail: " + tail(logs1));
+            return false;
+        }
+        String mI = find(P_INPUT_I, logs1), mTp = find(P_INPUT_TP, logs1),
+                mLra = find(P_INPUT_LRA, logs1), mTh = find(P_INPUT_THRESH, logs1),
+                mOff = find(P_TARGET_OFFSET, logs1);
+        if (mI == null || mTp == null || mLra == null || mTh == null || mOff == null
+                || "inf".equals(mI) || "-inf".equals(mI)) {
+            // Silence or an unparseable stats block: correcting digital silence is a no-op
+            // at best — refuse rather than feed loudnorm garbage measured_* values.
+            FLog.w(TAG, "loudnorm pass1 produced no finite measurable stats (silence?)");
+            return false;
+        }
+        // Pass 2 — apply. Video stream-copied (no re-encode); audio re-encoded AAC,
+        // pulled back to project-standard 48 kHz (loudnorm internally works at 192 kHz).
+        String applyCmd = String.format(Locale.US,
+                "-y -i \"%s\" -af \"%sloudnorm=measured_I=%s:measured_TP=%s:measured_LRA=%s"
+                        + ":measured_thresh=%s:offset=%s:linear=true:I=%.1f:TP=%.1f:LRA=%.1f\" "
+                        + "-c:v copy -c:a aac -b:a 192k -ar 48000 \"%s\"",
+                in, cleanChain ? CLEAN_CHAIN_PREFIX : "",
+                mI, mTp, mLra, mTh, mOff, targetLUFS, TARGET_TP, TARGET_LRA,
+                outFile.getAbsolutePath());
+        FLog.d(TAG, "loudnorm pass2: ffmpeg " + applyCmd);
+        FFmpegSession s2 = FFmpegKit.execute(applyCmd);
+        if (!ReturnCode.isSuccess(s2.getReturnCode())) {
+            FLog.w(TAG, "loudnorm pass2 failed rc=" + s2.getReturnCode()
+                    + "; tail: " + tail(s2.getAllLogsAsString()));
+            return false;
+        }
+        return outFile.exists() && outFile.length() > 0;
+    }
+
+    @Nullable
+    private static String find(@NonNull Pattern p, @NonNull String logs) {
+        Matcher m = p.matcher(logs);
+        return m.find() ? m.group(1) : null;
+    }
+
     @NonNull
     private static String tail(@Nullable String s) {
         if (s == null) return "(none)";

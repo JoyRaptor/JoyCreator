@@ -11245,6 +11245,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
             cleanDesc.setTextSize(11);
             root.addView(cleanDesc);
 
+            // ── C4 Loudness targets + measured LUFS (ebur128) ──
+            final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] loudValues = {
+                    com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.OFF,
+                    com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.YOUTUBE,
+                    com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.PODCAST,
+                    com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.TIKTOK,
+                    com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.BROADCAST};
+            final String[] loudLabels = {"Off", "YouTube -14 LUFS", "Podcast -16 LUFS", "TikTok -14 LUFS", "Broadcast -23 LUFS"};
+            // Current target is stored transiently on the ExportManager (lane forbids touching model/ExportSettings for C4)
+            final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] currentTarget = {com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.OFF};
+            TextView loudMeasured = new TextView(this);
+            loudMeasured.setText("Measured: -- LUFS → Target: Off");
+            loudMeasured.setTextColor(0xFFAAAAAA);
+            loudMeasured.setTextSize(11);
+            loudMeasured.setPadding(0, pad/2, 0, 0);
+            root.addView(loudMeasured);
+            // Run ebur128 measurement off the main thread and update the readout
+            new Thread(() -> {
+                try {
+                    // For dialog preview, measure the first audio source if any, else show --.
+                    // Full mix measurement happens in ExportManager before/after export.
+                    String probePath = null;
+                    if (project.getTimeline().hasAudioClips() && !project.getTimeline().getAudioClips().isEmpty()) {
+                        android.net.Uri uri = project.getTimeline().getAudioClips().get(0).getSourceUri();
+                        if (uri != null && "file".equals(uri.getScheme()) && uri.getPath() != null) probePath = uri.getPath();
+                    } else if (project.getTimeline().getClipCount() > 0) {
+                        android.net.Uri uri = project.getTimeline().getClip(0).getSourceUri();
+                        if (uri != null && "file".equals(uri.getScheme()) && uri.getPath() != null) probePath = uri.getPath();
+                    }
+                    if (probePath != null) {
+                        java.io.File f = new java.io.File(probePath);
+                        com.fadcam.ui.faditor.audio.LoudnessAnalyzer.Result r = com.fadcam.ui.faditor.audio.LoudnessAnalyzer.measure(f);
+                        final String txt = r != null ? String.format(java.util.Locale.US, "Measured: %.1f LUFS → Target: %s", r.integratedLUFS, currentTarget[0].label) : "Measured: -- LUFS → Target: Off";
+                        runOnUiThread(() -> loudMeasured.setText(txt));
+                    }
+                } catch (Exception ignored) {}
+            }).start();
+            final android.widget.Spinner loudSpinner = buildExportSettingSpinner(root, "Loudness target", loudLabels, 0, pad);
+            loudSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override public void onItemSelected(android.widget.AdapterView<?> p, android.view.View v, int pos, long id) {
+                    currentTarget[0] = loudValues[Math.max(0, Math.min(pos, loudValues.length-1))];
+                    String cur = loudMeasured.getText().toString();
+                    // update target part without re-measuring
+                    if (cur.contains("→")) {
+                        String before = cur.split("→")[0].trim();
+                        loudMeasured.setText(before + " → Target: " + currentTarget[0].label);
+                    }
+                }
+                @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
+            });
+
             // ── Resolution + Quality pickers (persisted on the project's ExportSettings;
             //    defaults = Original/High = the legacy byte-identical export path) ──
             final com.fadcam.ui.faditor.model.ExportSettings.Resolution[] resValues = {
@@ -11338,6 +11389,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 sanitizeExportFileName(
                                         fileNameInput.getText().toString(),
                                         defaultExportBaseName));
+                        // C4: loudness target — store in ExportManager for this export (lane forbids touching model/ExportSettings)
+                        // and also as an intent extra for the :export process (see doStartOutOfProcessExport).
+                        com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget chosen = loudValues[Math.max(0, loudSpinner.getSelectedItemPosition())];
+                        if (exportManager != null) exportManager.setPendingLoudnessTarget(chosen);
+                        // Stash for ExportService via SharedPreferences (cross-process, survives snapshot)
+                        getSharedPreferences("faditor_export", MODE_PRIVATE).edit().putString("pending_loudness_target", chosen.name()).apply();
                         scheduleAutoSave();
                         startExportViaService(audioOnlyBox.isChecked());
                     })
@@ -11656,6 +11713,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
         serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
         serviceIntent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
+        // C4: pass loudness target to the :export process (ExportManager reads it there)
+        String loudName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
+        serviceIntent.putExtra("extra_loudness_target", loudName);
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent);

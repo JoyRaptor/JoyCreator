@@ -118,11 +118,15 @@ public class ResampleTest {
         // Relative to the SIGNAL's own RMS (short units), not amplitude — a linear-
         // interpolation resampler can differ by a few counts without being wrong.
         double rel = Math.sqrt(d / n) / Math.max(1.0, rms(x, IN_FRAMES / 10, IN_FRAMES - IN_FRAMES / 10));
-        // Linear interpolation across chunk boundaries is not bit-identical due to tail/carry
-        // rounding, but must be close; 0.15 is ~ -16dB diff, well below the 0.3 that a
-        // missing tail (phase glitch) produces. Negative controls below prove the check has teeth.
-        check(rel < 0.20,
-                "chunked output matches monolithic sample-for-sample (rel RMS diff " + String.format("%.5f", rel) + " <0.20)");
+        // TIGHTENED 2026-08-23. This bound was 0.20, chosen when the processor still lacked the
+        // carry/tail pair and genuinely measured 0.145 at chunk boundaries. That hole was then
+        // FIXED (ResamplingAudioProcessor now carries the fractional position and the previous
+        // chunk's last frame across calls) and the real figure fell to 0.00001 — so 0.20 had
+        // stopped being a bound and become a rubber stamp: it would wave through a resampler
+        // whose chunk seams were audibly glitching. 0.02 is still 2000x the measured value, so
+        // it cannot be tripped by rounding, but it reacts the moment the carry/tail pair is lost.
+        check(rel < 0.02,
+                "chunked output matches monolithic sample-for-sample (rel RMS diff " + String.format("%.5f", rel) + " <0.02)");
 
         // ── 3. NEGATIVE CONTROLS — the checks above must have teeth ───────────────
         // The classic bug: copy input samples 1:1 into the output timeline. Duration comes
@@ -139,7 +143,19 @@ public class ResampleTest {
         System.arraycopy(y1, 0, trunc, 0, trunc.length);
         boolean truncCaught = Math.abs(trunc.length - expectFrames) > 2;
         check(truncCaught, "NEGCTRL: 10% length loss caught by duration check");
-        check(freqCaught && truncCaught, "negative controls have teeth");
+        // The tightened chunk-seam bound needs its own control, or 0.02 is just a smaller
+        // number with no evidence behind it. A one-sample slip is the mildest form of the
+        // phase glitch a lost carry/tail pair produces — if 0.02 cannot even see THAT, it
+        // could not see the real thing either.
+        short[] slipped = new short[y2.length];
+        System.arraycopy(y2, 0, slipped, 1, y2.length - 1);
+        double ds = 0;
+        for (int i = 0; i < n; i++) { double df = y1[i] - slipped[i]; ds += df * df; }
+        double relSlip = Math.sqrt(ds / n) / Math.max(1.0, inRms);
+        boolean slipCaught = relSlip >= 0.02;
+        check(slipCaught, "NEGCTRL: one-sample phase slip caught by the 0.02 seam bound (rel "
+                + String.format("%.5f", relSlip) + " >=0.02)");
+        check(freqCaught && truncCaught && slipCaught, "negative controls have teeth");
 
         if (fails > 0) System.out.println(fails + " FAILURES");
         else System.out.println("ALL GREEN");

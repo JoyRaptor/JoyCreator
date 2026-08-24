@@ -88,6 +88,19 @@ public class ExportManager {
 
     private static final String TAG = "ExportManager";
 
+    /** C4 — Loudness targets for export (EBU R128). Stored in ExportSettings via ProjectStorage, but also mirrored here for wiring. */
+    public enum LoudnessTarget {
+        OFF(null, "Off"),
+        YOUTUBE(-14d, "YouTube -14 LUFS"),
+        PODCAST(-16d, "Podcast -16 LUFS"),
+        TIKTOK(-14d, "TikTok -14 LUFS"),
+        BROADCAST(-23d, "Broadcast -23 LUFS");
+
+        @Nullable public final Double lufs;
+        @NonNull public final String label;
+        LoudnessTarget(@Nullable Double lufs, @NonNull String label) { this.lufs = lufs; this.label = label; }
+    }
+
     // Compatibility hook: when true, non-default-quality exports request the H.264 Baseline
     // profile instead of the encoder's default (High on API >= 26). Default OFF — flip this (or
     // later wire it to an ExportSettings flag) to opt into Baseline. Requires the matching
@@ -114,6 +127,19 @@ public class ExportManager {
     /** The display filename used for the SAF DocumentFile. */
     @Nullable
     private String safExportFileName = null;
+
+    /** C4 — pending loudness target for the next export (set by the export dialog, not persisted in model/). */
+    @NonNull
+    private LoudnessTarget pendingLoudnessTarget = LoudnessTarget.OFF;
+
+    public void setPendingLoudnessTarget(@NonNull LoudnessTarget target) {
+        this.pendingLoudnessTarget = target;
+    }
+
+    @NonNull
+    public LoudnessTarget getPendingLoudnessTarget() {
+        return pendingLoudnessTarget;
+    }
 
     /** Handler for periodic progress polling. */
     private final Handler progressHandler = new Handler(Looper.getMainLooper());

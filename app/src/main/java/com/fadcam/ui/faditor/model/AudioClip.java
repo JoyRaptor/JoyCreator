@@ -202,6 +202,11 @@ public class AudioClip implements AudioParams {
         this.outPointMs = other.outPointMs;
         this.offsetMs = other.offsetMs;
         this.volumeLevel = other.volumeLevel;
+        // Pan travels with the clip. Omitting it here meant SPLIT (FaditorEditorActivity's
+        // left/right halves are both built with this constructor) silently centred both
+        // halves of a panned clip. Same field, second mechanism: pan was also missing from
+        // ProjectStorage until 2026-08-24, so it was lost on save AND on split.
+        this.pan = other.pan;
         this.muted = other.muted;
         this.voiceFxEnabled = other.voiceFxEnabled;
         this.label = other.label;

@@ -547,6 +547,12 @@ public class Clip implements AudioParams {
         this.inPointMs = other.inPointMs;
         this.outPointMs = other.outPointMs;
         this.sourceDurationMs = other.sourceDurationMs;
+        // label and hidden travel with a copy. SPLIT builds both halves through this
+        // constructor, so leaving them out meant cutting a clip in two silently threw away
+        // its name and un-hid a hidden clip. Both are plain values with no aliasing risk,
+        // unlike `fx` — see the copy lint's EXPECTED list for the ones still owed a ruling.
+        this.label = other.label;
+        this.hidden = other.hidden;
         this.speedMultiplier = other.speedMultiplier;
         this.pitchCompensation = other.pitchCompensation;
         this.audioMuted = other.audioMuted;

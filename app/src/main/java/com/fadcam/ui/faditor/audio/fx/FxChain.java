@@ -82,21 +82,23 @@ public final class FxChain extends BaseAudioProcessor {
         int remaining = inputBuffer.remaining();
         if (remaining == 0) return;
 
-        // Chain processors: output of one feeds into next
-        ByteBuffer currentInput = inputBuffer;
+        // Chain processors: output of one feeds into the next. getOutput() SWAPS in
+        // EMPTY_BUFFER, so each processor is drained EXACTLY ONCE here — calling it
+        // again (e.g. via processors.get(size-1).getOutput() afterwards) returns an
+        // empty buffer and the chain would emit silence for every non-empty input.
+        ByteBuffer out = inputBuffer;
         for (AudioProcessor p : processors) {
-            if (currentInput.remaining() == 0) break;
-            p.queueInput(currentInput);
-            currentInput = p.getOutput();
+            if (out.remaining() == 0) break;
+            p.queueInput(out);
+            out = p.getOutput();
         }
 
-        // Final output goes to our output buffer
-        ByteBuffer finalOutput = processors.isEmpty() ? inputBuffer : processors.get(processors.size() - 1).getOutput();
-        if (finalOutput != null && finalOutput.remaining() > 0) {
-            ByteBuffer out = replaceOutputBuffer(finalOutput.remaining());
-            out.order(ByteOrder.nativeOrder());
-            out.put(finalOutput);
-        }
+        ByteBuffer o = replaceOutputBuffer(out.remaining());
+        o.order(ByteOrder.nativeOrder());
+        o.put(out);
+        // put() leaves position at the end; flip() sets position=0 / limit=n so the
+        // consumer draining getOutput() actually reads the bytes just written.
+        o.flip();
     }
 
     @Override

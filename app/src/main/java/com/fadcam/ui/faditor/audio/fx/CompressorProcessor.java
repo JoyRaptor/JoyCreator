@@ -87,7 +87,8 @@ public final class CompressorProcessor extends BaseAudioProcessor {
         }
 
         inputBuffer.position(inputBuffer.limit());
-        outShort.limit(outShort.position());
+        // Parent-buffer limit must be set explicitly (see EqProcessor note).
+        output.limit(outShort.position() * 2);
     }
 
     @Override

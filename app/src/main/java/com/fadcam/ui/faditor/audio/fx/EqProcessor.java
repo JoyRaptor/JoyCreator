@@ -89,7 +89,11 @@ public final class EqProcessor extends BaseAudioProcessor {
         }
 
         inputBuffer.position(inputBuffer.limit());
-        outShort.limit(outShort.position());
+        // ShortBuffer views have position/limit INDEPENDENT of the parent ByteBuffer:
+        // the consumer reads getOutput() from position to PARENT limit, so it must be
+        // set to exactly the bytes written (replaceOutputBuffer reuses its internal
+        // buffer, so a smaller-than-before call would otherwise ship stale samples).
+        output.limit(outShort.position() * 2);
     }
 
     @Override

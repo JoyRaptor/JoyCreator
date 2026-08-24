@@ -11677,6 +11677,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.faditor_export_in_progress, Toast.LENGTH_SHORT).show();
             return;
         }
+        // G21/B9: a BLANK project (no spine clip, no audio) has nothing to export. The
+        // audio-only composition would happily emit its 500ms silence fallback and hand the
+        // user a silent .m4a that looks like a finished export — a silent lie with a file
+        // attached. Refuse at the door instead.
+        if (project != null && project.getTimeline().getClipCount() == 0
+                && !project.getTimeline().hasAudioClips()) {
+            Toast.makeText(this,
+                    "Nothing to export yet — add audio or video first", // TODO(strings)
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
 
         // Pre-flight check for missing media
         if (countMissingMedia() > 0) {

@@ -455,6 +455,20 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
      * {@link Host} so wiring this tab touches nothing else: the caller passes
      * {@code ProjectStorage.projectDir(id)} and one shared cache instance.</p>
      */
+    /**
+     * Clips with a bake IN FLIGHT (ids). The Clean tab is rebuilt every time the drawer
+     * opens, so its {@code baking} local cannot see across close/reopen — without this,
+     * reopening mid-bake offered a second "Reduce noise" tap that started a SECOND ffmpeg
+     * job on the same clip: last writer wins on sourceUri and the loser's output is an
+     * orphaned artifact eating disk.
+     */
+    private static final java.util.Set<String> BAKING_CLIP_IDS = new java.util.HashSet<>();
+
+    /** True while the named clip has a bake running, regardless of drawer rebuilds. */
+    public static boolean isBaking(@NonNull String clipId) {
+        return BAKING_CLIP_IDS.contains(clipId);
+    }
+
     @NonNull
     public static View cleanTab(@NonNull Context ctx, @NonNull AudioParams clip,
                                 @NonNull Host host, @NonNull java.io.File projectDir,
@@ -462,7 +476,9 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
         final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
-        final boolean[] baking = {false};
+        // Seeded from the CLIP-id registry, not a fresh local: a reopen mid-bake must show
+        // the honest "Processing…" state, not an idle sheet inviting a duplicate job.
+        final boolean[] baking = {BAKING_CLIP_IDS.contains(clip.getId())};
 
         TextView state = new TextView(ctx);
         state.setTextColor(TXT_DIM);
@@ -532,6 +548,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             @Override public void run() {
                 if (baking[0] || clip.isBakedSource()) return;
                 baking[0] = true;
+                BAKING_CLIP_IDS.add(clip.getId());
                 refresh.run();
                 long startMs = clip.getInPointMs();
                 long endMs = clip.getOutPointMs();
@@ -543,6 +560,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                                 : label + " · " + Math.round(frac * 100f) + "%")),
                         (result, error) -> main.post(() -> {
                             baking[0] = false;
+                            BAKING_CLIP_IDS.remove(clip.getId());
                             if (result == null) {
                                 state.setText("Failed: "
                                         + (error != null ? error : "?"));   // TODO(strings)

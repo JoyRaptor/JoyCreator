@@ -13654,7 +13654,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 afterMuted.put(t.getId(), !afterSolo.contains(t.getId()));
             }
         } else {
-            afterMuted.putAll(beforeMuted);
+            // CLEARING THE LAST SOLO. Restore the mutes from BEFORE the solo session, not the
+            // ones this step started with — while a solo is engaged, "the ones this step
+            // started with" ARE the derived mutes, so copying them left every other lane
+            // silent after the solo was cleared. And because those derived mutes are what
+            // autosave writes, the silence survived a reload: the user is left with muted
+            // lanes and nothing on screen still saying "solo". Same shape as G19 — a control
+            // that cannot be undone by the control that caused it.
+            java.util.Map<String, Boolean> pre =
+                    com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted();
+            for (com.fadcam.ui.faditor.layers.Track t : carriers) {
+                Boolean was = pre.get(t.getId());
+                // Fall back to this step's state for a lane created DURING the solo session,
+                // which has no pre-solo entry to restore.
+                afterMuted.put(t.getId(), was != null ? was : beforeMuted.get(t.getId()));
+            }
         }
 
         final String label = engaging ? "Solo lane" : "Unsolo lane";       // TODO(strings)
@@ -13670,6 +13684,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 @NonNull java.util.Map<String, Boolean> mutesById,
                                 @NonNull Timeline tl) {
         com.fadcam.ui.faditor.layers.LayerRowRenderer.setSoloedIds(soloIds);
+        // The pre-solo snapshot belongs to ONE solo session. Dropping it when the last solo
+        // clears means the next session captures the user's real mutes; keeping it would make
+        // every later solo restore state from the first one, indefinitely. Undo does not need
+        // it — undo carries its own explicit before-map.
+        if (soloIds.isEmpty()) com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted().clear();
         // Persisted side-table only: every getLayers()/getAudioTracks() call rebuilds Track
         // views FROM these flags (onTrackHeaderAction's discipline), so downstream readers —
         // the rebuilt rows, LayerPreviewController, applyAudioTrackMuteLive — all see this.

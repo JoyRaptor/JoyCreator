@@ -1995,6 +1995,12 @@ public class ProjectStorage {
                 // one explicitly on the default track (Timeline#getAudioTracks()).
                 if (ac.getLayerId() != null) acJson.addProperty("layerId", ac.getLayerId());
                 acJson.addProperty("volumeLevel", ac.getVolumeLevel());
+                // A5 stereo pan. This was MISSING: pan was a live, working control that was
+                // never written to disk, so every pan the user set was silently discarded on
+                // save. ProjectStorage hand-serializes every field -- nothing here is derived
+                // by reflection -- so a new model field that is not added HERE simply does not
+                // exist tomorrow. Found by diffing AudioClip's fields against this file's keys.
+                acJson.addProperty("pan", ac.getPan());
                 acJson.addProperty("muted", ac.isMuted());
                 acJson.addProperty("label", ac.getLabel());
                 // Serialize waveform as int array
@@ -2683,6 +2689,11 @@ public class ProjectStorage {
                         }
                         if (hasValue(acObj, "volumeLevel")) {
                             ac.setVolumeLevel(acObj.get("volumeLevel").getAsFloat());
+                        }
+                        // A5 pan. Absent in every project saved before this fix, and the
+                        // guard leaves those centred -- which is what they sounded like.
+                        if (hasValue(acObj, "pan")) {
+                            ac.setPan(acObj.get("pan").getAsFloat());
                         }
                         if (hasValue(acObj, "muted")) {
                             ac.setMuted(acObj.get("muted").getAsBoolean());

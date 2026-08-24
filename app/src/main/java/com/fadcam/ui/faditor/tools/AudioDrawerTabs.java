@@ -214,7 +214,10 @@ public final class AudioDrawerTabs {
         label.setWidth(Math.round(52 * d));
         label.setMaxLines(1);
         label.setText("Pan");                                            // TODO(strings)
-        parent.addView(label);
+        // A5.U BUGFIX 2026-08-24: this read parent.addView(label) — the label rendered as
+        // its own full-width LINE above a label-less slider row, breaking the one-line
+        // "Label · slider · value · diamond" idiom every other row in this file follows.
+        row.addView(label);
 
         FineSeekBar bar = new FineSeekBar(ctx);
         bar.setMax(SLIDER_STEPS);

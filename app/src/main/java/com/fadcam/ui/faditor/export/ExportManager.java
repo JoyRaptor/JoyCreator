@@ -1685,9 +1685,10 @@ public class ExportManager {
             // C1.E: real-time FX chain — same factory the preview uses, so what the
             // user hears while editing is what lands in the file. The C7 bypass flag is
             // SNAPSHOT here (once per composition build): export runs in a service, so
-            // it must never read a UI static mid-flight.
+            // it must never read a UI static mid-flight. The voice chain itself is
+            // PER-CLIP now: only a clip whose own toggle asks for it is processed.
             AudioFxChainFactory.addTo(audioProcessors, clip, fxBypassedSnapshot,
-                    cleanAudioSnapshot, projectSampleRate);
+                    clip.isVoiceFxEnabled(), projectSampleRate);
         }
 
         List<Effect> videoEffects = assembleClipVideoEffects(
@@ -2361,12 +2362,12 @@ public class ExportManager {
             // mounts for preview. Two call sites building their own chains is how preview
             // ignored pan and approximated fades while export applied them sample-exactly.
             int clipSampleRate = sampleRateOf(ac.getSourceUri());
-            // The voice chain runs only when the user asked for audio processing. Passing
-            // `true` unconditionally here is what put a GATE and a DE-ESSER across every
-            // music track in every export.
+            // The voice chain runs only when THIS CLIP asked for it (per-clip toggle in the
+            // drawer's FX tab). The project-wide "Clean Audio" setting used to gate it here,
+            // which processed a music lane underneath a voice lane identically to the voice.
             List<AudioProcessor> processors = AudioFxChainFactory.buildLaneChain(
                     ac, clipSampleRate, projectSampleRate, fxBypassedSnapshot,
-                    cleanAudioSnapshot);
+                    ac.isVoiceFxEnabled());
             if (clipSampleRate > 0 && clipSampleRate != projectSampleRate) {
                 FLog.d(TAG, "A6: audio clip " + ac.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
             }
@@ -2513,8 +2514,9 @@ public class ExportManager {
                 processors.add(vp);
             }
             // C1.E: FX chain on PiP audio too — one factory everywhere, one snapshot.
+            // Voice chain is PER-CLIP, same as the master and lane paths.
             AudioFxChainFactory.addTo(processors, c, fxBypassedSnapshot,
-                    cleanAudioSnapshot, projectSampleRate);
+                    c.isVoiceFxEnabled(), projectSampleRate);
             if (!processors.isEmpty()) {
                 eb.setEffects(new Effects(processors, Collections.emptyList()));
             }

@@ -27,6 +27,9 @@ STORAGE = "app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java"
 ALIASES = {
     "envelopeMultiplier": "envMul",
     "activeTranscriptIndex": "activeTranscript",
+    # Written only when TRUE ("omit at default") and read back with hasValue, so false
+    # round-trips as the field default. The JSON key is shorter than the field name.
+    "voiceFxEnabled": "voiceFx",
 }
 
 # field -> why it needs no key. Keep the reason concrete and checkable.

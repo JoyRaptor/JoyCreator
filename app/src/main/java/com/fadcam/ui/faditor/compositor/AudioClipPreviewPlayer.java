@@ -49,12 +49,12 @@ public final class AudioClipPreviewPlayer {
     private final int projectSampleRate;
     private final boolean fxBypassedSnapshot;
     /**
-     * Whether the voice chain applies — the project's "Clean Audio" intent.
+     * Whether the voice chain applies — the CLIP's own opt-in ({@code isVoiceFxEnabled}).
      *
      * <p>Carried here for PARITY. The factory's four-argument overload defaults this to false,
      * which is the right default for a factory and the wrong one for preview: export passes the
-     * user's actual setting, so preview reading a hardcoded false would put the two engines back
-     * out of step, which is the exact split A9 existed to close.</p>
+     * clip's actual per-clip flag, so preview reading a hardcoded false would put the two
+     * engines back out of step, which is the exact split A9 existed to close.</p>
      */
     private final boolean applyVoiceChain;
 

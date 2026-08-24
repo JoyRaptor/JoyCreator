@@ -7,6 +7,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -66,6 +67,22 @@ public final class AudioDrawerTabs {
         void onChanged();
         /** Record one undo step. */
         void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo);
+        /**
+         * The per-clip voice-chain flag flipped: chains are built once per player, so the
+         * host must rebuild whichever preview players carry this clip. Default no-op so a
+         * host that cannot rebuild live still compiles.
+         */
+        default void onVoiceFxChanged() {}
+
+        /**
+         * D8: whether the host can source an audio-reactive link from THIS drawer's clip.
+         * Gates the "Beat-reactive link…" row — a control a host cannot honour must not
+         * be offered at all (the G18 rule).
+         */
+        default boolean supportsAudioReactiveLink() { return false; }
+
+        /** D8: open the audio-reactive link sheet with this drawer's clip as the SOURCE. */
+        default void onAudioReactiveLinkRequested() {}
     }
 
     /**
@@ -675,8 +692,95 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
      */
     @NonNull
     public static View fxTab(@NonNull Context ctx, @NonNull Host host) {
+        return fxTab(ctx, host, null);
+    }
+
+    /**
+     * FX tab with the PER-CLIP voice-chain switch. Pass the clip the drawer is really for —
+     * for the clip-audio shelf drawer that is the REAL {@code Clip}, not a proxy, so the
+     * setting cannot die with a throwaway object (the pan lesson, {@code levelTab}).
+     * {@code null} omits the row (no dead controls).
+     *
+     * <p>This is §2's "Clean" intent as one honest control until the full Clean/Tone tabs
+     * exist: the chain it gates is de-hum, low cut, gate, presence boost, compressor,
+     * de-esser and limiter — speech processing that must be ASKED for per clip, because on
+     * music it chops tails and dulls cymbals.</p>
+     */
+    @NonNull
+    public static View fxTab(@NonNull Context ctx, @NonNull Host host,
+                             @Nullable AudioParams clip) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
+
+        if (clip != null) {
+            LinearLayout vRow = new LinearLayout(ctx);
+            vRow.setOrientation(LinearLayout.HORIZONTAL);
+            vRow.setGravity(Gravity.CENTER_VERTICAL);
+            TextView vLabel = new TextView(ctx);
+            vLabel.setText("Enhance voice");                               // TODO(strings)
+            vLabel.setTextColor(TXT);
+            vLabel.setTextSize(12.5f);
+            vLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            vLabel.setLayoutParams(new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            vRow.addView(vLabel);
+            android.widget.Switch vSwitch = new android.widget.Switch(ctx);
+            vSwitch.setChecked(clip.isVoiceFxEnabled());
+            vSwitch.setOnCheckedChangeListener((b, on) -> {
+                if (on == clip.isVoiceFxEnabled()) return;
+                final boolean before = !on;
+                host.recordUndo("Voice enhance",                           // TODO(strings)
+                        () -> clip.setVoiceFxEnabled(on),
+                        () -> clip.setVoiceFxEnabled(before));
+                clip.setVoiceFxEnabled(on);
+                Toast.makeText(ctx, on
+                                ? "Voice chain ON \u2014 this clip only"
+                                : "Voice chain OFF \u2014 this clip only",  // TODO(strings)
+                        Toast.LENGTH_SHORT).show();
+                host.onVoiceFxChanged();
+                host.onChanged();
+            });
+            vRow.addView(vSwitch);
+            root.addView(vRow);
+
+            TextView vNote = new TextView(ctx);                            // TODO(strings)
+            vNote.setText("De-hum, gate, de-ess, presence, compressor, limiter \u2014 "
+                    + "for speech. Rebuilds this clip's preview sound.");
+            vNote.setTextColor(TXT_DIM);
+            vNote.setTextSize(10);
+            vNote.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            vNote.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), Math.round(4 * d));
+            root.addView(vNote);
+        }
+
+        // D8: the door to audio-reactive links — pick a band of THIS clip's sound, a target
+        // property on an overlay clip, and the linker writes ordinary editable keyframes.
+        if (host.supportsAudioReactiveLink()) {
+            TextView linkBtn = new TextView(ctx);
+            linkBtn.setText("\u25C6 Beat-reactive link\u2026");                // TODO(strings)
+            linkBtn.setTextColor(TXT);
+            linkBtn.setTextSize(12.5f);
+            linkBtn.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            linkBtn.setPadding(Math.round(8 * d), Math.round(6 * d),
+                    Math.round(8 * d), Math.round(6 * d));
+            linkBtn.setBackgroundColor(0x22FFFFFF);
+            linkBtn.setOnClickListener(v -> host.onAudioReactiveLinkRequested());
+            root.addView(linkBtn, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT));
+            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) linkBtn.getLayoutParams();
+            lp.topMargin = Math.round(6 * d);
+            linkBtn.setLayoutParams(lp);
+
+            TextView linkNote = new TextView(ctx);                         // TODO(strings)
+            linkNote.setText("Drive an overlay's scale / opacity / rotation from one band "
+                    + "of this clip. Writes normal keyframes you can drag afterwards.");
+            linkNote.setTextColor(TXT_DIM);
+            linkNote.setTextSize(10);
+            linkNote.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            linkNote.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
+            root.addView(linkNote);
+        }
 
         TextView title = new TextView(ctx);
         title.setText("Compressor");                                       // TODO(strings)

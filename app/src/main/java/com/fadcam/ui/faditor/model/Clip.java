@@ -72,6 +72,13 @@ public class Clip implements AudioParams {
     /** Whether audio is muted for this clip. */
     private boolean audioMuted = false;
 
+    /**
+     * Per-clip opt-in to the real-time VOICE chain (see {@link AudioParams#isVoiceFxEnabled}).
+     * Covers this clip's OWN audio wherever it plays — the master spine AND, when a PiP has
+     * opted its audio in, the overlay lane. Tolerant storage: absent = false.
+     */
+    private boolean voiceFxEnabled = false;
+
     /** Offset from the beginning of the project timeline (ms). */
     private long offsetMs = 0;
 
@@ -544,6 +551,7 @@ public class Clip implements AudioParams {
         this.pitchCompensation = other.pitchCompensation;
         this.audioMuted = other.audioMuted;
         this.overlayAudioEnabled = other.overlayAudioEnabled;
+        this.voiceFxEnabled = other.voiceFxEnabled;
         this.volumeLevel = other.volumeLevel;
         this.rotationDegrees = other.rotationDegrees;
         this.flipHorizontal = other.flipHorizontal;
@@ -1497,6 +1505,16 @@ public class Clip implements AudioParams {
     @Override
     public void setMuted(boolean muted) {
         audioMuted = muted;
+    }
+
+    @Override
+    public boolean isVoiceFxEnabled() {
+        return voiceFxEnabled;
+    }
+
+    @Override
+    public void setVoiceFxEnabled(boolean enabled) {
+        this.voiceFxEnabled = enabled;
     }
 
     // ── A7 shared audio carrier ───────────────────────────────────────

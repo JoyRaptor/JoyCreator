@@ -8682,9 +8682,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         new com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer(
                                 this, ac, /* projectRate: preview needs no container resample */ -1,
                                 com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed,
-                                // Same intent export uses, so what is heard is what is written.
-                                project != null
-                                        && project.getExportSettings().isCleanAudio());
+                                // Same per-clip intent export uses, so what is heard is what
+                                // is written.
+                                ac.isVoiceFxEnabled());
                 audioPlayers.add(player);
                 audioPlayersReady.add(false);
 
@@ -13653,15 +13653,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Long-press on a layer/audio row header (PHASE-P P1): compact dark-card menu with
      * Rename / Move up / Move down / Delete layer (delete only for user-created
-     * {@code LayerTrackDef} tracks — the fixed default tracks and the master row have
-     * nothing to delete; the master row never even reaches here because it is not part
-     * of the {@code LayerRowRenderer} row band). Styling mirrors the undo-history popup
+     * {@code LayerTrackDef} tracks — the fixed default tracks have nothing to delete).
+     * G22: the MASTER row now reaches here too, via its own hit-test in
+     * {@code EditorTimelineView} — it is not a renderer row, but solo must be askable
+     * for it ("hear only the video"), so the menu shows only what can mean something
+     * on each kind of lane. Styling mirrors the undo-history popup
      * (dark 0xFF1A1A2E card, 12dp radius). Every action records ONE undo step.
      */
     private void onTrackHeaderLongPress(@NonNull com.fadcam.ui.faditor.layers.Track track,
                                         float viewX, float viewY) {
         if (project == null || editorTimeline == null) return;
-        if (track.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER) return; // structural exclusion
         final Timeline timeline = project.getTimeline();
         final boolean floatingBand = editorTimeline.isLayerTrackFloatingBand(track);
         final boolean userCreated = timeline.getLayerTrackDef(track.getId()) != null;
@@ -13691,8 +13692,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // names" — and the renderer never drew a track name anywhere, so the action typed a
         // name, pushed an undo step and wrote to disk while the screen showed nothing at all.
         // Removed 2026-07-28 along with showRenameTrackDialog. See tasks/LEDGER.md §3c.
-        addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
-        addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
+        // Z-order rows are meaningless on the master spine (it has no band to reorder within),
+        // so they are offered only on real lanes; the menu must never offer a control that
+        // cannot do anything (the G18 trap).
+        final boolean masterRow =
+                track.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER;
+        if (!masterRow) {
+            addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
+            addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
+        }
         // B3: solo — only where a solo could mean anything, i.e. lanes that carry audio.
         // Same content-based rule that decides whether the mute glyph is drawn at all, so
         // the menu never offers a control the header does not have.
@@ -13745,10 +13753,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * state from {@link LayerRowRenderer#preSoloMuted()} rather than blanket-unmuting, so
      * lanes the user had deliberately muted stay muted. One undo step per toggle.</p>
      *
-     * <p>KNOWN LIMITS, stated not hidden: the MASTER spine's own audio is untouched (solo
-     * answers "hear this LANE alone", not "mute the whole video" — JoyRaptor's call if that
-     * changes); solos are session-scoped and not persisted; while a solo is active the
-     * derived mutes ARE what autosave writes, so a crash mid-solo reloads muted lanes
+     * <p>G22 — the master spine participates like any lane: soloing it answers
+     * "hear only the video" (its clips' audio stays audible via the per-CLIP map below,
+     * every other carrier is muted), and soloing any other lane silences the spine.
+     * Solos are session-scoped and not persisted; while a solo is active the derived
+     * mutes ARE what autosave writes, so a crash mid-solo reloads muted lanes
      * (clearing the solo restores them).</p>
      */
     private void toggleTrackSolo(@NonNull com.fadcam.ui.faditor.layers.Track track) {
@@ -13782,9 +13791,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // clip maps below) — writing both would silence it twice and leave a stray master
         // TrackFlag behind on undo. Its solo membership is still honoured via masterTrackId.
         //
-        // KNOWN, and tracked as G22: no UI path routes a long-press to the master row, so a
-        // user cannot yet ask for "hear only the video". The logic below is ready for it.
-        if (carriers.isEmpty()) return;
+        // G22: with zero carrier lanes this used to bail entirely — which silently refused
+        // the master's own Solo row the menu was already offering (G18 trap). Soloing the
+        // master on a lane-less project changes nothing audibly (only the spine sounds), but
+        // it IS the correct state: a later solo of any new lane will keep the video audible.
+        final boolean masterRow =
+                track.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER;
+        if (carriers.isEmpty() && !masterRow) return;
 
         java.util.Set<String> beforeSolo =
                 com.fadcam.ui.faditor.layers.LayerRowRenderer.soloedIdsSnapshot();
@@ -13987,6 +14000,150 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void afterDuckApplied() {
         if (editorTimeline != null) editorTimeline.invalidate();
         if (project != null) applyAudioTrackMuteLive(project.getTimeline());
+        scheduleAutoSave();
+    }
+
+    /**
+     * D8 — the door to audio-reactive links: pick a BAND of the source clip's sound, a
+     * TARGET property, and an overlay clip to drive; {@link AudioReactiveLinker} writes
+     * sparse, ordinary keyframes onto that overlay's transform. The result is made of the
+     * same material as every hand-drawn keyframe, so undo is DuckApplier's pattern: one
+     * step restoring the pre-link property track (and warning when it displaces keys).
+     *
+     * <p>Offered only from a standalone audio clip's drawer (the only source with a banded
+     * tape in this lane), and only when an overlay clip exists to drive — a menu row with
+     * nothing behind it is the G18 trap.</p>
+     */
+    private void showAudioReactiveLinkSheet(@NonNull AudioClip src) {
+        if (project == null || editorTimeline == null) return;
+        final java.util.List<Clip> overlays = project.getTimeline().getOverlayClips();
+        if (overlays.isEmpty()) {
+            Toast.makeText(this,
+                    "No overlay (PiP) clips to drive \u2014 add one first",
+                    Toast.LENGTH_LONG).show();                             // TODO(strings)
+            return;
+        }
+
+        final String[] bands = {"Bass", "Voice", "Presence", "Highs"};      // TODO(strings)
+        final int[] bandIdx = {com.fadcam.ui.faditor.model.BandedWaveformData.BAND_BASS};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("React to which band?")                           // TODO(strings)
+                .setSingleChoiceItems(bands, 0, (d, w) -> bandIdx[0] = w)
+                .setPositiveButton(android.R.string.ok, (d, w) -> pickReactiveProperty(src, overlays, bandIdx[0]))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** D8 sheet, step 2: what should the band drive? */
+    private void pickReactiveProperty(@NonNull AudioClip src,
+                                      @NonNull java.util.List<Clip> overlays, int band) {
+        final String[] props = {"Scale pulse", "Opacity breathe", "Rotation kick"}; // TODO(strings)
+        final int[] propIdx = {0};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Drive which property?")                          // TODO(strings)
+                .setSingleChoiceItems(props, 0, (d, w) -> propIdx[0] = w)
+                .setPositiveButton(android.R.string.ok, (d, w) -> pickReactiveTarget(src, overlays, band, propIdx[0]))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** D8 sheet, step 3: which overlay clip receives the keyframes? */
+    private void pickReactiveTarget(@NonNull AudioClip src,
+                                    @NonNull java.util.List<Clip> overlays,
+                                    int band, int prop) {
+        CharSequence[] names = new CharSequence[overlays.size()];
+        for (int i = 0; i < overlays.size(); i++) {
+            String n = overlays.get(i).getDisplayName();
+            names[i] = (n == null || n.isEmpty()) ? "Overlay " + (i + 1) : n;
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Drive which clip?")                              // TODO(strings)
+                .setItems(names, (d, w) -> applyAudioReactiveLink(src, overlays.get(w), band, prop))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** D8 sheet, step 4: compute the curve and write it as ONE undoable step. */
+    private void applyAudioReactiveLink(@NonNull AudioClip src, @NonNull Clip target,
+                                        int band, int prop) {
+        if (project == null || editorTimeline == null) return;
+        EditorTimelineView.AnalysisEnvelope env = editorTimeline.bandedEnvelopeFor(src, band);
+        if (env == null) {
+            // The cache fetches asynchronously; this is "try again", not "no result".
+            Toast.makeText(this, "Waveform not ready \u2014 try again",
+                    Toast.LENGTH_LONG).show();                             // TODO(strings)
+            return;
+        }
+
+        // Output ranges chosen per property: scale pulses around rest, opacity breathes
+        // WITHOUT ever reaching zero (a fully transparent object reads as gone), rotation
+        // kicks stay small enough not to fling the frame off-screen.
+        final com.fadcam.ui.faditor.audio.AudioReactiveLinker.Params p =
+                new com.fadcam.ui.faditor.audio.AudioReactiveLinker.Params();
+        final String property;
+        switch (prop) {
+            case 1:  property = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
+                     p.outMin = 0.4f; p.outMax = 1.0f; break;
+            case 2:  property = com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION;
+                     p.outMin = -6f;  p.outMax = 6f;  break;
+            default: property = com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE;
+                     p.outMin = 1.0f; p.outMax = 1.5f; break;
+        }
+
+        // Where the envelope's first frame sits on the TIMELINE (same conversion the
+        // ducking path uses): envelope frames are SOURCE-ms; the clip plays source[in..out]
+        // at offsetMs.
+        final long envStartTimelineMs = src.getOffsetMs()
+                + (env.sourceStartMs - src.getInPointMs());
+        final long tgtStart = target.getOverlayStartMs();
+        java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> curve =
+                com.fadcam.ui.faditor.audio.AudioReactiveLinker.link(
+                        env.samples, env.framesPerSecond,
+                        envStartTimelineMs, tgtStart, target.getTrimmedDurationMs(), p);
+        if (curve.isEmpty()) {
+            // A silent or steady band says nothing — a real answer, and the user sees it.
+            Toast.makeText(this, "That band has nothing to react to here",
+                    Toast.LENGTH_LONG).show();                             // TODO(strings)
+            return;
+        }
+
+        // ONE undo step restoring the WHOLE pre-link KeyframeSet — per-key unwinding of a
+        // displaced hand-drawn curve would be worse than no undo (spec rule 7).
+        final com.fadcam.ui.faditor.keyframe.KeyframeSet before =
+                target.getOverlayTransform() != null
+                        ? target.getOverlayTransform().copy() : null;
+
+        com.fadcam.ui.faditor.keyframe.KeyframeSet set = target.getOverlayTransform();
+        if (set == null) set = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack track = set.getOrCreate(property);
+        int displaced = track.keyframes.size();
+        for (com.fadcam.ui.faditor.model.VolumeKeyframe kf : curve) {
+            // link() returns TARGET-LOCAL ms; overlay transforms sample by ABSOLUTE
+            // timeline ms (PipFrameOverlay), so the target's start rides along here.
+            track.put(tgtStart + kf.timeMs, kf.volume,
+                    com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+        }
+        final com.fadcam.ui.faditor.keyframe.KeyframeSet after = set.copy();
+        final Clip tgt = target;
+        undoManager.recordAction(new EditActions.LambdaAction("Beat-reactive link",
+                () -> { tgt.setOverlayTransform(after.copy()); afterLinkApplied(); },
+                () -> { tgt.setOverlayTransform(before != null ? before.copy() : null); afterLinkApplied(); }));
+        tgt.setOverlayTransform(set);
+        afterLinkApplied();
+
+        String bandName = new String[]{"Bass", "Voice", "Presence", "Highs"}[band];
+        String msg = curve.size() + " keyframes: " + bandName + " \u2192 "
+                + property + " on \"" + (tgt.getDisplayName() != null
+                        ? tgt.getDisplayName() : "overlay") + "\"";
+        if (displaced > 0) msg += " (replaced " + displaced
+                + " existing \u2014 undo restores them)";
+        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();               // TODO(strings)
+    }
+
+    /** Redraw + persist after a beat-reactive link lands or is taken back. */
+    private void afterLinkApplied() {
+        if (editorTimeline != null) editorTimeline.invalidate();
+        syncTimelineOverlays();
         scheduleAutoSave();
     }
 
@@ -23739,11 +23896,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override public void seekTo(long ms) { if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms); }
             @Override public void onChanged() { if (editorTimeline != null) editorTimeline.invalidate(); applyAudioLivePlayerGain(ac); scheduleAutoSave(); }
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo) { undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo)); }
+            // Per-clip voice chain: chains are built once per player, so rebuild this
+            // clip's preview player fleet or the toggle would only be audible at export.
+            @Override public void onVoiceFxChanged() { prepareAudioPlayer(); }
+            // D8: this drawer's clip is a real AudioClip with a banded tape — it can
+            // source an audio-reactive link.
+            @Override public boolean supportsAudioReactiveLink() { return true; }
+            @Override public void onAudioReactiveLinkRequested() { showAudioReactiveLinkSheet(ac); }
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host)));
+        // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -23820,7 +23985,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // so a pan row here would move, show a value, and discard it. See levelTab.
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, synth, host, false)));
         // C6: same FX tab a standalone audio clip gets (§2.2 — identical four tabs).
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host)));
+        // The REAL Clip is passed, not the synth proxy, so the per-clip voice-chain
+        // switch writes straight through and cannot die with the drawer (pan lesson).
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, clip)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
         // C7: A/B bypass — identical to the audio-clip drawer's (one global chain).

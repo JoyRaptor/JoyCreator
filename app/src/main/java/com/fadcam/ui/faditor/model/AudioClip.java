@@ -73,6 +73,13 @@ public class AudioClip implements AudioParams {
     private boolean muted = false;
 
     /**
+     * Per-clip opt-in to the real-time VOICE chain (see {@link AudioParams#isVoiceFxEnabled}).
+     * Tolerant storage: absent = false. This replaced the project-wide "Clean Audio" gate,
+     * which processed a music lane underneath a voice lane identically to the voice.
+     */
+    private boolean voiceFxEnabled = false;
+
+    /**
      * Downsampled amplitude data for waveform visualisation.
      * Each value is 0–255 representing the peak amplitude for that sample window.
      * Null until waveform extraction has been performed.
@@ -196,6 +203,7 @@ public class AudioClip implements AudioParams {
         this.offsetMs = other.offsetMs;
         this.volumeLevel = other.volumeLevel;
         this.muted = other.muted;
+        this.voiceFxEnabled = other.voiceFxEnabled;
         this.label = other.label;
         // Layer-track membership must survive cloning (split creates both halves via
         // this constructor): dropping it re-lanes the copy onto the default AUDIO row.
@@ -246,6 +254,12 @@ public class AudioClip implements AudioParams {
     }
 
     public boolean isMuted() { return muted; }
+
+    @Override
+    public boolean isVoiceFxEnabled() { return voiceFxEnabled; }
+
+    @Override
+    public void setVoiceFxEnabled(boolean enabled) { this.voiceFxEnabled = enabled; }
 
     public int[] getWaveform() { return waveform; }
 

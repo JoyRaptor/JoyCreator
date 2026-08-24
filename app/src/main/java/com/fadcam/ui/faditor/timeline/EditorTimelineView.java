@@ -536,8 +536,9 @@ public class EditorTimelineView extends View {
 
     /**
      * PHASE-P P1: long-press on a layer/audio row HEADER (the pinned left icon column)
-     * opens the track-management menu (rename / move up / move down / delete). The
-     * MASTER row never appears in these rows, so it is structurally excluded.
+     * opens the track-management menu (move up / move down / solo / delete). The
+     * MASTER row is not one of the renderer's rows, so it reaches this listener through
+     * its OWN hit-test below (G22) rather than {@code hitTestHeader}.
      * {@code viewX}/{@code viewY} are raw view-space coords for menu anchoring.
      */
     public interface OnTrackHeaderLongPressListener {
@@ -572,6 +573,32 @@ public class EditorTimelineView extends View {
         longPressHandler.removeCallbacks(headerLongPressRunnable);
         pendingHeaderHit = null;
         headerLongPressFired = false;
+    }
+
+    // ── G22: the MASTER row's door into the track-header menu ──────────────────────
+    // The master band is drawn by this view, not LayerRowRenderer, so hitTestHeader can
+    // never see it and no UI path could route a long-press to the master row — the solo
+    // logic in the host was ready and permanently unreachable for it ("hear only the
+    // video" could not be asked for). A stationary hold on the master band that is NOT on
+    // a clip (segment hits keep their own pickup long-press) fires the same listener the
+    // lane headers use, with the live Timeline's master Track.
+    private final Runnable masterHeaderLongPressRunnable = new Runnable() {
+        @Override public void run() {
+            masterHeaderLongPressArmed = false;
+            if (liveTimeline == null) return;
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            if (trackHeaderLongPressListener != null) {
+                trackHeaderLongPressListener.onTrackHeaderLongPress(
+                        liveTimeline.getMasterTrack(), downX, downY);
+            }
+        }
+    };
+    private boolean masterHeaderLongPressArmed;
+
+    /** Cancel a pending master-row long-press (move-past-slop, second finger, pinch, UP). */
+    private void cancelMasterHeaderLongPress() {
+        longPressHandler.removeCallbacks(masterHeaderLongPressRunnable);
+        masterHeaderLongPressArmed = false;
     }
 
     /**
@@ -5461,6 +5488,33 @@ if (sd.clip.hasVolumeKeyframes()) {
         return new AnalysisEnvelope(env, 1000.0 / wd.bucketMs, wd.startOffsetMs);
     }
 
+    /**
+     * D8: ONE BAND's RMS envelope for an audio clip, from the quad-band cache this view
+     * already draws with — no new extraction, no new I/O. Samples normalised to 0..1000,
+     * same single-normalisation discipline as {@link #analysisEnvelopeFor}, and the rate
+     * travels WITH the samples for the same reason.
+     *
+     * @return null while the cache has not finished this clip, or when the requested band
+     *         was never computed (presence off). The cache invalidates the view when the
+     *         extraction lands, so callers may simply retry.
+     */
+    @Nullable
+    public AnalysisEnvelope bandedEnvelopeFor(
+            @NonNull com.fadcam.ui.faditor.model.AudioClip ac, int band) {
+        if (tapeWaveformCache == null) return null;
+        com.fadcam.ui.faditor.waveform.BandedTimelineWaveformCache.Shaped shaped =
+                tapeWaveformCache.get(ac);
+        if (shaped == null || shaped.raw == null) return null;
+        float[] b = shaped.raw.band(band);
+        if (b == null || b.length < 8 || shaped.raw.envRate <= 0f) return null;
+        float max = 0f;
+        for (float v : b) if (v > max) max = v;
+        if (max <= 0f) return null;
+        int[] env = new int[b.length];
+        for (int i = 0; i < env.length; i++) env[i] = Math.round(b[i] / max * 1000f);
+        return new AnalysisEnvelope(env, shaped.raw.envRate, shaped.raw.startOffsetMs);
+    }
+
     public boolean detectBeatsForAudioClip(
             @NonNull com.fadcam.ui.faditor.model.AudioClip ac, float sensitivity) {
         if (timelineWaveformCache == null) return false;
@@ -6336,6 +6390,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         // any pending long-press the instant multi-touch begins.
         if (e.getPointerCount() > 1) {
             longPressHandler.removeCallbacks(longPressRunnable);
+            cancelMasterHeaderLongPress();
             cancelMarqueeTouch();
         }
 
@@ -7048,6 +7103,15 @@ if (sd.clip.hasVolumeKeyframes()) {
             if (segments.size() > 1) {
                 longPressHandler.postDelayed(longPressRunnable, LONG_PRESS_MS);
             }
+            // A clip owns the master-band hold; the G22 menu must not fight its pickup.
+            cancelMasterHeaderLongPress();
+        } else if (liveTimeline != null && y >= masterTopPx() && y <= masterBotPx()) {
+            // G22: stationary hold on the master band's own tape (empty spine, rails) —
+            // same timeout and haptic contract as the B7 clip-audio shelf long-press.
+            cancelMasterHeaderLongPress();
+            masterHeaderLongPressArmed = true;
+            longPressHandler.postDelayed(masterHeaderLongPressRunnable,
+                    android.view.ViewConfiguration.getLongPressTimeout());
         }
         // Always accept touch for scrolling (anywhere on timeline, not just on segments)
         getParent().requestDisallowInterceptTouchEvent(true);
@@ -7765,6 +7829,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         // Cancel long press if finger moved beyond slop
         if (dx > touchSlopPx) {
             longPressHandler.removeCallbacks(longPressRunnable);
+            cancelMasterHeaderLongPress();
         }
 
         if (assetDragActive) {
@@ -8013,6 +8078,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         // Stop edge auto-scroll and cancel long presses
         stopEdgeScroll();
         longPressHandler.removeCallbacks(longPressRunnable);
+        cancelMasterHeaderLongPress();
 
         // Tear down the frame-accurate trim-edge preview when a trim drag ends.
         if (last == Drag.LEFT_HANDLE || last == Drag.RIGHT_HANDLE) {
@@ -9366,6 +9432,7 @@ if (sd.clip.hasVolumeKeyframes()) {
             isScaling = true;  // Set flag to block other touches
             // Cancel any pending reorder long-press — this is a pinch.
             longPressHandler.removeCallbacks(longPressRunnable);
+            cancelMasterHeaderLongPress();
             // Bug A ("row scrub sticks sometimes") — while isScaling is true, onTouchEvent
             // early-returns for EVERY subsequent event including the terminal UP/CANCEL, so
             // onUp() never runs and whichever M6/M7 row-gesture flag was set (a pinch that
@@ -9432,6 +9499,7 @@ if (sd.clip.hasVolumeKeyframes()) {
             if (VLOG) FLog.d(TAG, "GestureListener.onScroll: distanceX=" + distanceX + " activeDrag=" + activeDrag);
             // Cancel long press — user is scrolling, not holding
             longPressHandler.removeCallbacks(longPressRunnable);
+            cancelMasterHeaderLongPress();
             // Only handle scroll if not dragging handles
             if (activeDrag != Drag.NONE) {
                 if (VLOG) FLog.d(TAG, "GestureListener.onScroll: ignoring, activeDrag=" + activeDrag);

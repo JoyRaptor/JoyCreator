@@ -68,3 +68,30 @@
 - ffmpeg-kit-full 6.0 LTS `ebur128` syntax may differ from desktop 7.0.2 — must verify against bundled docs or `ffmpeg -h filter=ebur128` from the kit, not just plausibility
 - `model/` is forbidden but `ExportSettings` is in `model/` — need to confirm if C4 target field is allowed or must live elsewhere
 - A6 lesson: ensure `projectSampleRate` is resolved once and passed consistently to all `ResamplingAudioProcessor` instances in `ExportManager` (currently three call sites: master, audio lanes, PiP)
+
+## Agent 2 — file-provable probes for BUILT audio rows (2026-08-24)
+
+Convert B3/B4/C6/C7/C5.E from 'needs ears' to 'needs an exported file':
+- [ ] tasks/audio_probe_lib.py — shared DSP (Goertzel, band envelope, wav/aac IO, selftest harness)
+- [ ] tasks/probe_solo_b3.py   — solo lane A => lane B tone ABSENT from export (band measurement)
+- [ ] tasks/probe_meters_b4.py — reported meter dB == measured RMS ratio at same playhead
+- [ ] tasks/probe_gr_c6.py     — measured reduction (on/off exports) matches compressor maths + reported bar value
+- [ ] tasks/probe_bypass_c7.py — fx vs bypassed differ measurably; bypassed == plain re-encode
+- [ ] tasks/probe_duck_c5e.py  — music-band dip matches keyframe-predicted curve (depth/ramp/recovery)
+- [ ] export/make_fixtures.py  — device test media (tones, stepped levels, duck pair)
+- [ ] export/run_negctl_suite.py — runs every probe --selftest; every probe must FAIL on broken input
+Rule: no probe is trusted until its negative control has been RUN and FAILED.
+
+### REVIEW (agent 2)
+All five probes built and PROVEN against deliberately broken inputs this session:
+- B3 solo  : mix(A+B)->FAIL / A-only->PASS / wrong-fA->FAIL
+- B4 meters: honest readouts->PASS / one readout +6dB lie->FAIL / silence window->FAIL
+- C6 GR    : real compression+bar agrees->PASS / ON==OFF no-op->FAIL / bar lies 0dB->FAIL / wrong ratio->FAIL
+             (python port of CompressorProcessor maths matches measurement to 0.17 dB on fixture)
+- C7 bypass: fx+bypass differ 0.569 rel rms; bypass fits source at gain 1.000 corr 1.000;
+             fx==bypass->FAIL / secretly-processed 'bypass'->FAIL (fit gain 0.431 caught)
+- C5.E duck: keyed curve matched x0.250 measured vs x0.250 keyed, ramp midpoint x0.600 vs x0.625;
+             never-ducked->FAIL / shallow x0.8->FAIL / wrong voice window->FAIL
+python export/run_negctl_suite.py -> SUITE PASS, exit 0.
+Device fixtures generated to export/fixtures/ via export/make_fixtures.py.
+NOT touched: layers/, tools/, faditor/audio/fx/, faditor/compositor (read-only reference).

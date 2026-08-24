@@ -68,6 +68,18 @@ public interface AudioParams {
     /** Set pan value (-1..1). */
     void setPan(float pan);
 
+    /**
+     * Per-clip opt-in to the REAL-TIME VOICE CHAIN (de-hum, low cut, gate, presence boost,
+     * compressor, de-esser, limiter) that {@code AudioFxChainFactory} builds for preview AND
+     * export. Default {@code false}: the chain is tuned for speech and actively destructive
+     * on music (the gate chops reverb tails, the de-esser dulls cymbals), so processing is
+     * something a clip must ASK for — per clip, not project-wide.
+     */
+    boolean isVoiceFxEnabled();
+
+    /** Set the per-clip voice-chain opt-in. */
+    void setVoiceFxEnabled(boolean enabled);
+
     /** Source URI of the media. */
     @NonNull Uri getSourceUri();
 

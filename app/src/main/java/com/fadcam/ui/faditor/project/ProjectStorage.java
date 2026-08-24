@@ -1481,6 +1481,11 @@ public class ProjectStorage {
             if (clip.isOverlayAudioEnabled()) {
                 clipJson.addProperty("overlayAudioEnabled", true);
             }
+            // Per-clip voice-chain opt-in. Omit-at-default (absent => false), so projects
+            // saved before it stay byte-identical.
+            if (clip.isVoiceFxEnabled()) {
+                clipJson.addProperty("voiceFx", true);
+            }
             if (!"NORMAL".equals(clip.getOverlayBlendMode())) {
                 clipJson.addProperty("overlayBlendMode", clip.getOverlayBlendMode());
             }
@@ -1756,6 +1761,10 @@ public class ProjectStorage {
         if (hasValue(clipObj, "overlayAudioEnabled")) {
             clip.setOverlayAudioEnabled(clipObj.get("overlayAudioEnabled").getAsBoolean());
         }
+        // Per-clip voice-chain opt-in — tolerant absence = false.
+        if (hasValue(clipObj, "voiceFx")) {
+            clip.setVoiceFxEnabled(clipObj.get("voiceFx").getAsBoolean());
+        }
         // Audit 1.3: `.has()` alone is not an optional-field guard — an EXPLICIT
         // `"layerId": null` satisfies it and then JsonNull.getAsString() throws. Here that
         // exception escapes deserialize() entirely and load() catches it as "file corrupt",
@@ -2002,6 +2011,12 @@ public class ProjectStorage {
                 // exist tomorrow. Found by diffing AudioClip's fields against this file's keys.
                 acJson.addProperty("pan", ac.getPan());
                 acJson.addProperty("muted", ac.isMuted());
+                // Per-clip voice-chain opt-in. Omit-at-default: absent => false, so every
+                // project saved before it stays byte-identical. (A5's lesson above applies:
+                // a model field that is not added HERE simply does not exist tomorrow.)
+                if (ac.isVoiceFxEnabled()) {
+                    acJson.addProperty("voiceFx", true);
+                }
                 acJson.addProperty("label", ac.getLabel());
                 // Serialize waveform as int array
                 int[] waveform = ac.getWaveform();
@@ -2697,6 +2712,10 @@ public class ProjectStorage {
                         }
                         if (hasValue(acObj, "muted")) {
                             ac.setMuted(acObj.get("muted").getAsBoolean());
+                        }
+                        // Per-clip voice-chain opt-in — tolerant absence = false.
+                        if (hasValue(acObj, "voiceFx")) {
+                            ac.setVoiceFxEnabled(acObj.get("voiceFx").getAsBoolean());
                         }
                         if (hasValue(acObj, "label")) {
                             ac.setLabel(acObj.get("label").getAsString());

@@ -380,7 +380,16 @@ public class MasterPlaybackEngine {
 
         List<MediaItem> items = new ArrayList<>();
         windows.clear();
+        // Per-clip voice-chain parity with export: mount the preview chain only when at
+        // least one spine clip opted in, or preview would process audio the export will
+        // not. KNOWN LIMIT, disclosed: a MIXED spine (one clip opted in, one not) is
+        // processed whole in preview — one audio sink serves every window, so per-clip
+        // gating mid-playback needs per-window chains and is not built.
+        boolean anyVoiceFx = false;
         int count = timeline.getClipCount();
+        for (int i = 0; i < count; i++) {
+            if (timeline.getClip(i).isVoiceFxEnabled()) { anyVoiceFx = true; break; }
+        }
         for (int i = 0; i < count; i++) {
             Clip clip = timeline.getClip(i);
             if (clip.isImageClip()) {
@@ -403,7 +412,7 @@ public class MasterPlaybackEngine {
             }
         }
 
-        ExoPlayer p = new ExoPlayer.Builder(context, fxChainRenderersFactory()).build();        p.setRepeatMode(Player.REPEAT_MODE_OFF);
+        ExoPlayer p = new ExoPlayer.Builder(context, fxChainRenderersFactory(anyVoiceFx)).build();        p.setRepeatMode(Player.REPEAT_MODE_OFF);
         // NOTE (2026-07-28): playlist preloading was TRIED HERE AND DID NOT HELP — do not
         // re-add it without new evidence. media3's PreloadConfiguration.DEFAULT disables
         // preloading, so setting a 2s target looked like the obvious fix for the per-seam
@@ -595,18 +604,22 @@ public class MasterPlaybackEngine {
      * {@code faditor/audio/fx/}, which run-audio-fx.sh compiles against stubs.</p>
      */
     @NonNull
-    private androidx.media3.exoplayer.DefaultRenderersFactory fxChainRenderersFactory() {
+    private androidx.media3.exoplayer.DefaultRenderersFactory fxChainRenderersFactory(
+            boolean mountVoiceChain) {
         return new androidx.media3.exoplayer.DefaultRenderersFactory(context) {
             @Override
             @Nullable
             protected AudioSink buildAudioSink(android.content.Context context,
                     boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+                androidx.media3.common.audio.AudioProcessor[] processors = mountVoiceChain
+                        ? new androidx.media3.common.audio.AudioProcessor[] {
+                                new UiSyncAudioProcessor(
+                                        com.fadcam.ui.faditor.audio.fx.FxChain.createVoiceChain(48000))}
+                        : new androidx.media3.common.audio.AudioProcessor[0];
                 return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
                         .setEnableFloatOutput(enableFloatOutput)
                         .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                        .setAudioProcessors(new androidx.media3.common.audio.AudioProcessor[] {
-                                new UiSyncAudioProcessor(
-                                        com.fadcam.ui.faditor.audio.fx.FxChain.createVoiceChain(48000))})
+                        .setAudioProcessors(processors)
                         .build();
             }
         };

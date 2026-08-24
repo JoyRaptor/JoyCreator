@@ -449,3 +449,17 @@ since: 2026-08-24
 status: IDLE (2026-08-24 â€” 17 rows BUILT: G1/G2 8c6b0c66 fid fade fix, G3 2d34beb0 toggle, G4 f613dce6 picker, G5 1ead8ea4+b9118ff8 pin fix, G6-17 7813914a+2d34beb0 transcript/caption/drawer/transport. TYPECHECK OK â€” 648 sources, 1795 classes)
 files: (none)
 since: 2026-08-24
+
+## LANE F — dynamic lane (three doors onto built engines: G22 master-solo door · per-clip voice chain (C1.U follow-up) · D8 link door)
+status: WIP (agent 1, 2026-08-24) — code landed, commit pending. G22: master-band
+        long-press hit-test in EditorTimelineView routes to onTrackHeaderLongPress;
+        MASTER exclusion lifted, z-order rows gated off for master. Per-clip voiceFx:
+        AudioParams + Clip/AudioClip field + ProjectStorage round-trip; three export
+        call sites pass clip.isVoiceFxEnabled(); switch lives in the FX tab; lane
+        preview rebuilds players. D8: bandedEnvelopeFor + FX-tab row +
+        showAudioReactiveLinkSheet (band/property/target -> linker keyframes, one-undo).
+files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/AudioDrawerTabs.java,
+       model/{AudioParams,AudioClip,Clip}.java, project/ProjectStorage.java, compositor/
+       {MasterPlaybackEngine,AudioClipPreviewPlayer}.java (preview parity only),
+       FaditorEditorActivity.java
+since: 2026-08-24

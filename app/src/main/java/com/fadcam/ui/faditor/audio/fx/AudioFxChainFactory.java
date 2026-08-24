@@ -93,11 +93,45 @@ public final class AudioFxChainFactory {
      * @param projectSampleRate the project rate everything must land on
      * @param bypassed        C7 snapshot / live flag
      */
+    /**
+     * Back-compatible overload: resample and gain only, NO voice processing.
+     *
+     * <p>This is the safe default on purpose. See the {@code applyVoiceChain} parameter on the
+     * five-argument form for why leaving it on for everything was wrong.</p>
+     */
     @NonNull
     public static List<AudioProcessor> buildLaneChain(@NonNull AudioParams clip,
                                                       int sourceSampleRate,
                                                       int projectSampleRate,
                                                       boolean bypassed) {
+        return buildLaneChain(clip, sourceSampleRate, projectSampleRate, bypassed, false);
+    }
+
+    /**
+     * @param applyVoiceChain run the speech processing chain (de-hum, low cut, gate, presence
+     *        boost, compressor, de-esser, limiter) over this clip.
+     *
+     *        <p><b>Opt-in since 2026-08-24, and it must stay that way.</b> This chain used to be
+     *        appended to EVERY audio clip in both preview and export, with no user control at
+     *        all except the A/B bypass toggle. That is fine for a voice recording and actively
+     *        destructive for anything else: the GATE chops quiet passages and reverb tails out
+     *        of music, the DE-ESSER dulls cymbals and hi-hats, and the presence boost at 3 kHz
+     *        is a vocal shape nobody asked to put on a song. Measured on a clean 800 Hz tone
+     *        with no hum present, the chain alone took it to x0.605 — a 4.4 dB change to audio
+     *        the user never asked to process.</p>
+     *
+     *        <p>Found by asking what the chain CONTAINS for a plain clip rather than whether
+     *        each processor works: every processor was individually correct and the composition
+     *        was wrong. Callers now pass the user's expressed intent — today that is the
+     *        project's "Clean Audio" setting, the only control that means "process my audio".
+     *        A per-clip FX toggle (§2's Clean/Tone/FX tabs) should replace it when it exists.</p>
+     */
+    @NonNull
+    public static List<AudioProcessor> buildLaneChain(@NonNull AudioParams clip,
+                                                      int sourceSampleRate,
+                                                      int projectSampleRate,
+                                                      boolean bypassed,
+                                                      boolean applyVoiceChain) {
         List<AudioProcessor> out = new ArrayList<>();
         if (clip.isMuted()) return out;
         // A6: resample to project rate when the source differs (BEFORE gain math).
@@ -134,7 +168,7 @@ public final class AudioFxChainFactory {
         if (volumeAdjusted || Math.abs(clip.getPan()) >= 0.001f) {
             out.add(vp);
         }
-        if (!bypassed) {
+        if (applyVoiceChain && !bypassed) {
             out.add(FxChain.createVoiceChain(
                     projectSampleRate > 0 ? projectSampleRate : 48000));
         }

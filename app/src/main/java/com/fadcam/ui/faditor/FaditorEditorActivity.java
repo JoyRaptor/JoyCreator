@@ -8681,7 +8681,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer player =
                         new com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer(
                                 this, ac, /* projectRate: preview needs no container resample */ -1,
-                                com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed);
+                                com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed,
+                                // Same intent export uses, so what is heard is what is written.
+                                project != null
+                                        && project.getExportSettings().isCleanAudio());
                 audioPlayers.add(player);
                 audioPlayersReady.add(false);
 

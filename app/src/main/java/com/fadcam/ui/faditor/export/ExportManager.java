@@ -160,6 +160,16 @@ public class ExportManager {
      */
     private boolean fxBypassedSnapshot = false;
 
+    /**
+     * Whether the user asked for audio PROCESSING on this export ("Clean Audio").
+     *
+     * <p>Snapshotted beside {@link #fxBypassedSnapshot} at export start for the same reason:
+     * an export runs in a service and must not read a screen's live state part-way through.
+     * Gates the voice chain, which until 2026-08-24 was applied to every audio clip
+     * unconditionally — a gate and a de-esser across every music track.</p>
+     */
+    private boolean cleanAudioSnapshot = false;
+
     @Nullable
     public Double getLastExportLoudnessBeforeLUFS() { return lastExportLoudnessBefore; }
 
@@ -392,6 +402,8 @@ public class ExportManager {
         // C7 snapshot: one deterministic read at export start (see the field's doc).
         fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
         FLog.d(TAG, "C1.E FX chain: bypassed=" + fxBypassedSnapshot);
+        cleanAudioSnapshot = project.getExportSettings().isCleanAudio();
+        FLog.d(TAG, "C1.E voice chain applied=" + cleanAudioSnapshot + " (Clean Audio)");
 
         try {
             // Build the Transformer
@@ -584,6 +596,8 @@ public class ExportManager {
         // C7 snapshot: one deterministic read at export start (see the field's doc).
         fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
         FLog.d(TAG, "C1.E FX chain (audio-only): bypassed=" + fxBypassedSnapshot);
+        cleanAudioSnapshot = project.getExportSettings().isCleanAudio();
+        FLog.d(TAG, "C1.E voice chain applied=" + cleanAudioSnapshot + " (Clean Audio)");
 
         try {
             Transformer.Builder builder = new Transformer.Builder(context)
@@ -2346,8 +2360,12 @@ public class ExportManager {
             // mounts for preview. Two call sites building their own chains is how preview
             // ignored pan and approximated fades while export applied them sample-exactly.
             int clipSampleRate = sampleRateOf(ac.getSourceUri());
+            // The voice chain runs only when the user asked for audio processing. Passing
+            // `true` unconditionally here is what put a GATE and a DE-ESSER across every
+            // music track in every export.
             List<AudioProcessor> processors = AudioFxChainFactory.buildLaneChain(
-                    ac, clipSampleRate, projectSampleRate, fxBypassedSnapshot);
+                    ac, clipSampleRate, projectSampleRate, fxBypassedSnapshot,
+                    cleanAudioSnapshot);
             if (clipSampleRate > 0 && clipSampleRate != projectSampleRate) {
                 FLog.d(TAG, "A6: audio clip " + ac.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
             }

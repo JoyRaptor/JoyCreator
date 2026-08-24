@@ -48,6 +48,15 @@ public final class AudioClipPreviewPlayer {
     @NonNull private final AudioClip clip;
     private final int projectSampleRate;
     private final boolean fxBypassedSnapshot;
+    /**
+     * Whether the voice chain applies — the project's "Clean Audio" intent.
+     *
+     * <p>Carried here for PARITY. The factory's four-argument overload defaults this to false,
+     * which is the right default for a factory and the wrong one for preview: export passes the
+     * user's actual setting, so preview reading a hardcoded false would put the two engines back
+     * out of step, which is the exact split A9 existed to close.</p>
+     */
+    private final boolean applyVoiceChain;
 
     @Nullable private ExoPlayer player;
     @Nullable private List<AudioProcessor> chain;
@@ -56,11 +65,13 @@ public final class AudioClipPreviewPlayer {
     public AudioClipPreviewPlayer(@NonNull Context context,
                                   @NonNull AudioClip clip,
                                   int projectSampleRate,
-                                  boolean fxBypassedSnapshot) {
+                                  boolean fxBypassedSnapshot,
+                                  boolean applyVoiceChain) {
         this.context = context.getApplicationContext();
         this.clip = clip;
         this.projectSampleRate = projectSampleRate;
         this.fxBypassedSnapshot = fxBypassedSnapshot;
+        this.applyVoiceChain = applyVoiceChain;
     }
 
     /** Async prepare — mirrors MediaPlayer.prepareAsync(). Safe to call twice. */
@@ -70,7 +81,8 @@ public final class AudioClipPreviewPlayer {
             // The chain must exist BEFORE the sink is built (processors configure when the
             // pipeline starts). Built from the ONE factory export uses.
             chain = AudioFxChainFactory.buildLaneChain(
-                    clip, sampleRateOfSource(), projectSampleRate, fxBypassedSnapshot);
+                    clip, sampleRateOfSource(), projectSampleRate, fxBypassedSnapshot,
+                    applyVoiceChain);
 
             androidx.media3.exoplayer.DefaultRenderersFactory rf =
                     new androidx.media3.exoplayer.DefaultRenderersFactory(context) {

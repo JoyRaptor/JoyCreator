@@ -142,8 +142,12 @@ public class ExportService extends Service {
         }
 
         if (ACTION_START_EXPORT.equals(action)) {
+            String loudName = intent.getStringExtra("extra_loudness_target");
+            if (loudName == null) {
+                loudName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
+            }
             startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH),
-                    intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false));
+                    intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName);
         }
 
         return START_NOT_STICKY;
@@ -173,6 +177,10 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
+        startExportInternal(snapshotPath, audioOnly, null);
+    }
+
+    private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -224,6 +232,20 @@ public class ExportService extends Service {
         // Create ExportManager and run
         SharedPreferencesManager prefsManager = SharedPreferencesManager.getInstance(this);
         exportManager = new ExportManager(this, prefsManager);
+        // C4: apply pending loudness target from dialog (via intent or prefs)
+        String targetName = loudnessTargetName;
+        if (targetName == null) {
+            targetName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
+        }
+        if (targetName != null) {
+            try {
+                ExportManager.LoudnessTarget t = ExportManager.LoudnessTarget.valueOf(targetName);
+                exportManager.setPendingLoudnessTarget(t);
+                FLog.d(TAG, "C4 loudness target: " + t + " (" + t.lufs + " LUFS)");
+            } catch (Exception e) {
+                FLog.w(TAG, "Unknown loudness target: " + targetName);
+            }
+        }
         exportManager.setExportListener(new ExportManager.ExportListener() {
             @Override
             public void onExportStarted(@NonNull String outputPath) {

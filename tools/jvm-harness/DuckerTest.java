@@ -1,5 +1,7 @@
 import com.fadcam.ui.faditor.audio.Ducker;
 import com.fadcam.ui.faditor.model.VolumeKeyframe;
+import com.fadcam.ui.faditor.audio.DuckApplier;
+import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.transcript.TranscriptWord;
 
 import java.util.Arrays;
@@ -39,7 +41,7 @@ public class DuckerTest {
     }
 
     /** Gain at a clip-local time, reading the keyframe list the way the model does. */
-    static float gainAt(List<VolumeKeyframe> kfs, long ms) {
+    static float gainAt(List<? extends VolumeKeyframe> kfs, long ms) {
         if (kfs.isEmpty()) return 1f;
         if (ms <= kfs.get(0).timeMs) return kfs.get(0).volume;
         for (int i = 1; i < kfs.size(); i++) {
@@ -184,6 +186,62 @@ public class DuckerTest {
                         Arrays.asList(new TranscriptWord("x", 1000, 1000)), 0, 0, 0, 6000, p)
                         .isEmpty(),
                 "NEGCTRL D11: a zero-length word is discarded, not ducked under");
+
+        // ── DuckApplier: the curve must land, and must be takeable back ──────────────
+        System.out.println("      -- DuckApplier undo --");
+        AudioClip clip = new AudioClip((android.net.Uri) null, 6000);
+        // A curve the user drew by hand, which ducking is about to displace.
+        clip.addOrUpdateVolumeKeyframe(0, 1.0f);
+        clip.addOrUpdateVolumeKeyframe(3000, 0.8f);
+
+        DuckApplier.Result res = DuckApplier.apply(clip, t1);
+        check(res.replacedKeyframes == 2,
+                "applier reports the 2 hand-drawn keyframes it would displace (got "
+                        + res.replacedKeyframes + ")");
+        check(res.displacesExistingWork(), "and flags that real work is at stake");
+        check(clip.getVolumeKeyframes().size() == 2,
+                "apply() does NOT mutate until the action is executed (undo entry first)");
+
+        res.action.execute();
+        check(clip.getVolumeKeyframes().size() == t1.size(),
+                "executing writes the duck curve (" + clip.getVolumeKeyframes().size() + ")");
+        check(gainAt(clip.getVolumeKeyframes(), 1200) < 0.30f,
+                "the applied curve ducks where the words are");
+
+        res.action.undo();
+        check(clip.getVolumeKeyframes().size() == 2,
+                "undo restores the hand-drawn envelope (count)");
+        check(Math.abs(clip.getVolumeKeyframes().get(1).volume - 0.8f) < 1e-4f,
+                "undo restores the hand-drawn VALUES exactly, not an approximation");
+        check(clip.getVolumeKeyframes().get(1).timeMs == 3000L,
+                "undo restores the hand-drawn TIMES exactly");
+
+        // Redo must still work after undo — the snapshots must not have been consumed.
+        res.action.execute();
+        check(clip.getVolumeKeyframes().size() == t1.size(), "redo re-applies the duck curve");
+        res.action.undo();
+
+        // ── APPLIER NEGATIVE CONTROLS ────────────────────────────────────────────────
+        // Aliasing is the bug this class exists to prevent: if the snapshot shared storage
+        // with the model, editing the clip afterwards would rewrite the undo state and undo
+        // would restore the very thing it was meant to reverse.
+        AudioClip alias = new AudioClip((android.net.Uri) null, 6000);
+        alias.addOrUpdateVolumeKeyframe(0, 1.0f);
+        DuckApplier.Result r2 = DuckApplier.apply(alias, t1);
+        alias.addOrUpdateVolumeKeyframe(1000, 0.1f);      // user edits AFTER apply() was called
+        r2.action.execute();
+        r2.action.undo();
+        check(alias.getVolumeKeyframes().size() == 1,
+                "NEGCTRL: undo restores the snapshot taken at apply() time, unaliased (got "
+                        + alias.getVolumeKeyframes().size() + ")");
+
+        // A clip with no envelope must report nothing at stake, or the warning becomes noise
+        // that users learn to dismiss.
+        AudioClip fresh = new AudioClip((android.net.Uri) null, 6000);
+        DuckApplier.Result r3 = DuckApplier.apply(fresh, t1);
+        check(!r3.displacesExistingWork(),
+                "NEGCTRL: a clip with no envelope reports nothing at stake");
+        check(r3.writtenKeyframes == t1.size(), "NEGCTRL: and still writes the full curve");
 
         System.out.println(fails == 0 ? "ALL PASS" : (fails + " FAILED"));
         if (fails != 0) System.exit(1);

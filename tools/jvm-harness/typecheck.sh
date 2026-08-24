@@ -37,7 +37,12 @@ CP="$CP$(find "$M3/libraries" -path '*compile_library_classes_jar*' -name 'class
 # leaves gaps that surface as "cannot find symbol androidx.annotation.NonNull".
 CP="$CP$(find "$HOME/.gradle/caches/modules-2" -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' 2>/dev/null | sed 's|^/c/|C:/|' | tr '\n' ';')"
 
-OUT=tools/jvm-harness/out-typecheck
+# Per-process output directory. A SHARED one is a false-green generator: when two agents
+# run this at once they compile into the same tree and delete each other's classes, and the
+# loser still prints "TYPECHECK OK" — observed 2026-08-24 as "652 sources, 294 classes"
+# against a true 1806. A low class count is the only tell, and it is easy to skim past.
+OUT=tools/jvm-harness/out-typecheck.$$
+trap 'rm -rf "$OUT"' EXIT
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 # @argfile, not a bare -cp: this classpath is ~70KB, well past what a Windows command line
@@ -67,6 +72,10 @@ STATUS=${PIPESTATUS[0]}
 # which a grep for "error:" reports as success. run-matte.sh was bitten by exactly this.
 CLASSES=$(find "$OUT" -name '*.class' | wc -l)
 [ "$CLASSES" -gt 100 ] || { echo "FAIL: only $CLASSES class files — the compile did not really run"; exit 1; }
+# Second positive control: class count must be in the same ballpark as source count. A run
+# that emits far fewer classes than sources compiled SOMETHING, so the >100 gate above waves
+# it through, but it did not compile THIS tree. See the shared-directory race noted at OUT=.
+[ "$CLASSES" -gt "$COUNT" ] || { echo "FAIL: $CLASSES classes for $COUNT sources — the output tree is not this compile's"; exit 1; }
 
 if [ "$STATUS" -eq 0 ]; then echo "TYPECHECK OK — $COUNT sources, $CLASSES classes"; else echo "TYPECHECK FAILED"; fi
 exit "$STATUS"

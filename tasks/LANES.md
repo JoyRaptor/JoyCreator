@@ -421,7 +421,7 @@ files: export/ExportManager.java (JoyRaptor-instructed exception to standing loc
         tasks/export_audio_probe.py, tasks/LANES.md, tasks/SPEC_AUDIO_UX_V1.md (my rows only)
 since: 2026-08-23
 
-## LANE A — dynamic lane (D6 → A7, 3 rows in order)
-status: ACTIVE (2026-08-23 15:30 — ROW 2 D7 clap sync in progress)
-files: FaditorEditorActivity.java, tools/FaditorToolRegistry.java, res/values/ids.xml, res/values/strings.xml, model/AudioClip.java, model/Clip.java, transcript/*
-since: 2026-08-23 15:30
+## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)
+status: IDLE (2026-08-24 — 17 rows BUILT: G1/G2 8c6b0c66 fid fade fix, G3 2d34beb0 toggle, G4 f613dce6 picker, G5 1ead8ea4+b9118ff8 pin fix, G6-17 7813914a+2d34beb0 transcript/caption/drawer/transport. TYPECHECK OK — 648 sources, 1795 classes)
+files: (none)
+since: 2026-08-24

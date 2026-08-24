@@ -30,9 +30,11 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$CP" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/AudioClipEnvelopeTest.java tools/jvm-harness/VolumeEnvelopeTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/AudioClipEnvelopeTest.java tools/jvm-harness/VolumeEnvelopeTest.java tools/jvm-harness/ClipVolumeTest.java || exit 1
 # Positive control on the COMPILE itself — the run-matte lesson.
 [ -f "$OUT/AudioClipEnvelopeTest.class" ] || { echo "no AudioClipEnvelopeTest class — compile did not run"; exit 1; }
 [ -f "$OUT/VolumeEnvelopeTest.class" ] || { echo "no VolumeEnvelopeTest class"; exit 1; }
+[ -f "$OUT/ClipVolumeTest.class" ] || { echo "no ClipVolumeTest class"; exit 1; }
 java @"$RUNARGS" AudioClipEnvelopeTest || exit 1
 java @"$RUNARGS" VolumeEnvelopeTest || exit 1
+java @"$RUNARGS" ClipVolumeTest || exit 1

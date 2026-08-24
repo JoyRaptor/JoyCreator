@@ -446,11 +446,18 @@ public class Clip implements AudioParams {
 
     /** A single point on the clip volume envelope (for video clips that carry audio). */
     public static class VolumeKeyframe extends com.fadcam.ui.faditor.model.VolumeKeyframe {
-        /** Clip-local time in ms (0 = clip start on the timeline). */
-        public long timeMs;
-        /** Volume/gain 0.0–2.0 (0 = silent, 1 = original, 2 = 200%). */
-        public float volume;
+        // DO NOT re-declare timeMs/volume here — they are INHERITED. This class did, and the
+        // constructor assigns through super(...), so the shadowing copies stayed 0 while the
+        // base copies held the real values. volumeAt() multiplies by the shadowed `volume`,
+        // so the instant a video clip got a volume keyframe its audio went to zero and no
+        // amount of raising the slider or un-muting could bring it back. Reported from the
+        // device as "I could not get my voice back".
+        //
+        // Identical to the bug fixed in AudioClip.VolumeKeyframe — A7's carrier refactor
+        // introduced it in BOTH subclasses. Field shadowing neither warns nor fails to
+        // compile, so nothing but a behavioural check will ever catch it.
 
+        /** @param timeMs clip-local ms. @param volume gain 0.0-2.0 (1 = original). */
         public VolumeKeyframe(long timeMs, float volume) {
             super(timeMs, volume);
         }

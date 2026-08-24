@@ -526,3 +526,12 @@ Never `--amend` a hash another lane may have already read.
 
 **Trigger:** Any commit whose stat lists a file you did not edit this session, or a count
 of files larger than the number you named.
+
+**Hardening (same night, second occurrence):** named  is NOT enough — the
+index may already hold another lane
+
+**Hardening (same night, second occurrence):** named `git add` is NOT enough — the
+index may already hold another lane's staged entries, and bare `git commit` commits the
+whole index. The bulletproof form is a PATH-LIMITED commit: `git commit -m "..." -- <my
+files>`, which commits exactly those paths from the working tree and ignores everything
+else in the index. Follow with `git show --stat HEAD` every time.

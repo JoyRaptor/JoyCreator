@@ -2341,45 +2341,16 @@ public class ExportManager {
             EditedMediaItem.Builder editBuilder = new EditedMediaItem.Builder(mediaItem)
                     .setRemoveVideo(true); // audio only
 
-            // Apply volume: the keyframe envelope (blue automation curve) takes
-            // precedence over a static level. The envelope was previously dropped here
-            // (only the static level was honored), so audio-clip fades did nothing on
-            // export. Times are clip-local ms (0 = clip in-point), matching
-            // VolumeAudioProcessor's frame-position clock for the clipped item.
-            float volume = ac.getVolumeLevel();
-            List<AudioProcessor> processors = new ArrayList<>();
-            // A6: resample to project sample rate if needed.
+            // A9: the lane chain is built by the ONE shared factory (fx/AudioFxChainFactory)
+            // — resample + volume/envelope/pan + FX — exactly what AudioClipPreviewPlayer
+            // mounts for preview. Two call sites building their own chains is how preview
+            // ignored pan and approximated fades while export applied them sample-exactly.
             int clipSampleRate = sampleRateOf(ac.getSourceUri());
-            if (clipSampleRate != projectSampleRate) {
-                processors.add(new ResamplingAudioProcessor(clipSampleRate, projectSampleRate));
+            List<AudioProcessor> processors = AudioFxChainFactory.buildLaneChain(
+                    ac, clipSampleRate, projectSampleRate, fxBypassedSnapshot);
+            if (clipSampleRate > 0 && clipSampleRate != projectSampleRate) {
                 FLog.d(TAG, "A6: audio clip " + ac.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
             }
-            VolumeAudioProcessor volumeProcessor = new VolumeAudioProcessor();
-            volumeProcessor.setPan(ac.getPan());
-            boolean volumeAdjusted = false;
-            if (ac.hasVolumeKeyframes()) {
-                List<AudioClip.VolumeKeyframe> kfs = ac.getVolumeKeyframes();
-                long[] times = new long[kfs.size()];
-                float[] vols = new float[kfs.size()];
-                for (int i = 0; i < kfs.size(); i++) {
-                    times[i] = kfs.get(i).timeMs;
-                    vols[i] = kfs.get(i).volume;
-                }
-                // B1.Q: envelope values are MULTIPLIERS over the static level — the base
-                // must ride along or a boosted clip's fade caps its length at 100%.
-                volumeProcessor.setVolume(volume);
-                volumeProcessor.setVolumeEnvelope(times, vols);
-                volumeAdjusted = true;
-            } else if (Math.abs(volume - 1.0f) >= 0.01f) {
-                volumeProcessor.setVolume(volume);
-                volumeAdjusted = true;
-            }
-            if (volumeAdjusted) {
-                processors.add(volumeProcessor);
-            }
-            // C1.E: FX chain rides the audio-lane clips too — same factory as preview,
-            // same per-export bypass snapshot.
-            AudioFxChainFactory.addTo(processors, ac, fxBypassedSnapshot);
             if (!processors.isEmpty()) {
                 editBuilder.setEffects(new Effects(processors, Collections.emptyList()));
             }

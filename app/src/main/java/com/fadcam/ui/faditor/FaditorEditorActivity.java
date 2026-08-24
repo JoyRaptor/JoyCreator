@@ -620,7 +620,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final ExecutorService assetImportExecutor = Executors.newSingleThreadExecutor();
 
     /** MediaPlayers for audio clips — one per clip, synced with playhead. */
-    private final List<MediaPlayer> audioPlayers = new ArrayList<>();
+    /** A9: audio-clip preview players - one ExoPlayer-backed player per clip, routed through
+ *  the SAME processor chain export builds (volume/envelope/pan + FX), replacing the
+ *  legacy MediaPlayer fleet whose preview ignored pan and approximated fades. */
+private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audioPlayers = new ArrayList<>();
     /** Whether each audioPlayer is prepared and ready. */
     private final List<Boolean> audioPlayersReady = new ArrayList<>();
 
@@ -8675,32 +8678,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final int idx = i;
 
             try {
-                MediaPlayer mp = new MediaPlayer();
-                mp.setDataSource(this, ac.getSourceUri());
-                mp.setLooping(false);
-                // M-COMP-1: track-mute multiplies over the clip's own mute/level (never
-                // overwrites it) — see LayerPreviewController#effectivePreviewVolume.
-                float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
-                        .effectivePreviewVolume(project.getTimeline(), ac);
-                mp.setVolume(vol, vol);
-
-                audioPlayers.add(mp);
+                com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer player =
+                        new com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer(
+                                this, ac, /* projectRate: preview needs no container resample */ -1,
+                                com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed);
+                audioPlayers.add(player);
                 audioPlayersReady.add(false);
 
-                mp.setOnPreparedListener(p -> {
-                    if (idx < audioPlayersReady.size()) {
-                        audioPlayersReady.set(idx, true);
-                    }
-                    FLog.d(TAG, "AudioPlayer[" + idx + "] prepared, duration=" + p.getDuration() + "ms");
-                });
-                mp.setOnErrorListener((p, what, extra) -> {
-                    FLog.e(TAG, "AudioPlayer[" + idx + "] error: what=" + what + " extra=" + extra);
-                    if (idx < audioPlayersReady.size()) {
-                        audioPlayersReady.set(idx, false);
-                    }
-                    return true;
-                });
-                mp.prepareAsync();
+                player.prepareAsync();
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to prepare audio player[" + i + "]", e);
             }
@@ -8720,7 +8705,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
             if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
             AudioClip ac = clips.get(i);
-            MediaPlayer mp = audioPlayers.get(i);
+            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null) continue;
 
             long audioStartMs = ac.getOffsetMs();
@@ -8730,13 +8715,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (playheadMs >= audioStartMs && playheadMs < audioEndMs) {
                     long seekPos = ac.getInPointMs() + (playheadMs - audioStartMs);
                     // Guard against seeking past the audio file's actual duration
-                    int mediaDuration = mp.getDuration();
+                    long mediaDuration = mp.getDuration();
                     if (mediaDuration > 0 && seekPos >= mediaDuration) {
                         FLog.w(TAG, "AudioPlayer[" + i + "] seekPos=" + seekPos
                                 + " exceeds mediaDuration=" + mediaDuration + ", clamping");
                         seekPos = Math.max(0, mediaDuration - 100); // seek near end
                     }
-                    mp.seekTo((int) seekPos);
+                    mp.seekTo(seekPos);
                     float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
                             .effectivePreviewVolume(project.getTimeline(), ac);
                     mp.setVolume(vol, vol);
@@ -8777,7 +8762,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
             if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
             AudioClip ac = clips.get(i);
-            MediaPlayer mp = audioPlayers.get(i);
+            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null) continue;
 
             long audioStartMs = ac.getOffsetMs();
@@ -8787,13 +8772,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (playheadMs >= audioStartMs && playheadMs < audioEndMs) {
                     if (!mp.isPlaying()) {
                         long seekPos = ac.getInPointMs() + (playheadMs - audioStartMs);
-                        int mediaDuration = mp.getDuration();
+                        long mediaDuration = mp.getDuration();
                         if (mediaDuration > 0 && seekPos >= mediaDuration) {
                             FLog.w(TAG, "AudioSync[" + i + "] seekPos=" + seekPos
                                     + " exceeds mediaDuration=" + mediaDuration + ", clamping");
                             seekPos = Math.max(0, mediaDuration - 100);
                         }
-                        mp.seekTo((int) seekPos);
+                    mp.seekTo(seekPos);
                         float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
                                 .effectivePreviewVolume(project.getTimeline(), ac);
                         mp.setVolume(vol, vol);
@@ -8822,7 +8807,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
             if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
             AudioClip ac = clips.get(i);
-            MediaPlayer mp = audioPlayers.get(i);
+            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null || !ac.hasVolumeKeyframes()) continue;
             try {
                 if (!mp.isPlaying()) continue;
@@ -8843,7 +8828,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < audioPlayers.size(); i++) {
             if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
             try {
-                MediaPlayer mp = audioPlayers.get(i);
+            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
                 if (mp != null && mp.isPlaying()) mp.pause();
             } catch (Exception ignored) {}
         }
@@ -8861,23 +8846,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
             if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
             AudioClip ac = clips.get(i);
-            MediaPlayer mp = audioPlayers.get(i);
+            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null) continue;
             long audioStartMs = ac.getOffsetMs();
             long audioEndMs = ac.getEndOnTimelineMs();
             try {
                 if (playheadMs >= audioStartMs && playheadMs < audioEndMs) {
                     long seekPos = ac.getInPointMs() + (playheadMs - audioStartMs);
-                    int mediaDuration = mp.getDuration();
+                    long mediaDuration = mp.getDuration();
                     if (mediaDuration > 0 && seekPos >= mediaDuration) {
                         seekPos = Math.max(0, mediaDuration - 100);
                     }
-                    if (android.os.Build.VERSION.SDK_INT >= 26) {
-                        mp.seekTo((int) seekPos, MediaPlayer.SEEK_CLOSEST);
-                    } else {
-                        mp.seekTo((int) seekPos);
-                    }
+                    // ExoPlayer seeks are frame-exact; the SEEK_CLOSEST branch is legacy.
+                    mp.seekTo(seekPos);
                     if (mp.isPlaying()) {
+                        // Pushes the live model into the processors (A9 contract).
                         float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
                                 .effectivePreviewVolume(project.getTimeline(), ac);
                         mp.setVolume(vol, vol);
@@ -8893,9 +8876,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Releases all audio player resources.
      */
     private void releaseAudioPlayer() {
-        for (MediaPlayer mp : audioPlayers) {
+        for (com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp : audioPlayers) {
             if (mp != null) {
-                try { mp.stop(); } catch (Exception ignored) {}
                 try { mp.release(); } catch (Exception ignored) {}
             }
         }

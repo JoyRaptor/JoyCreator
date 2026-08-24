@@ -413,8 +413,16 @@ files: (none)
 since: 2026-08-23
 
 ## LANE C — dynamic lane (C4 loudness targets + C8 Clean Audio + E1 probe)
-status: ACTIVE (2026-08-24 — export only: ExportManager, FaditorEditorActivity export dialog, export_audio_probe.py, NEW LoudnessAnalyzer.java)
-files: export/ExportManager.java, FaditorEditorActivity.java (export dialog only), tasks/export_audio_probe.py, faditor/audio/LoudnessAnalyzer.java
+status: IDLE (2026-08-24 — ALL THREE ROWS BUILT + desktop-verified: 4eb07a01 tree-unblock
+        (LoudnessTarget int→Double), c7eb026a C4/C8 engine (two-pass loudnorm post-pass in
+        ExportManager consumes LoudnessTarget AND isCleanAudio — C8's first real consumer;
+        measured-LUFS before/after logged + getters), dialog/ExportService plumbing committed
+        with them; E1 probe parity mode landed via 5b89b76a (index swept by lane D's commit —
+        content is E1's). Evidence: typecheck "TYPECHECK OK — 652 sources, 1806 classes";
+        exact-command harness -21.8→-14.0 LUFS vs unchanged negative control; probe PASS/
+        FAIL both directions. DEVICE VERIFY OWED: export w/ target -14 → logcat
+        "C4 LOUDNESS: before X LUFS → after Y LUFS"; Clean Audio ON + target Off → -16 chain.)
+files: (none)
 since: 2026-08-24
 
 ## LANE D — dynamic lane (audio UI: B3 solo · B4 level meters · C6 GR bar · C7 A/B bypass)

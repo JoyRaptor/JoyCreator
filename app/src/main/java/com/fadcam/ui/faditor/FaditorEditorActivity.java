@@ -13761,12 +13761,26 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // opened it from. rowCarriesAudio() already returns true for MASTER, so its header was
         // ALREADY offering a Solo row that the logic then ignored: the menu promised a control
         // that did nothing, which is the G18 trap wearing a different hat.
-        String masterTrackId = null;
+        // The master id comes from getMasterTrack(), NOT from the loop below. `all` is built
+        // from getLayers() + getAudioTracks(), and the master spine is neither — it is a third,
+        // separately-built Track. So scanning `all` for KIND == MASTER found nothing and left
+        // this null forever, which made "is the master one of the soloed lanes?" permanently
+        // false. That happened to give the behaviour JoyRaptor asked for (soloing any lane silences
+        // the video, because masterAudible was always false), so it worked for the wrong
+        // reason — exactly the shape of mismatch between a comment and its code that this
+        // project keeps getting caught by.
+        final String masterTrackId = tl.getMasterTrack().getId();
         for (com.fadcam.ui.faditor.layers.Track t : all) {
             if (!com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(t)) continue;
-            if (t.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER) masterTrackId = t.getId();
             carriers.add(t);
         }
+        // The master is deliberately NOT added to `carriers`. Carriers get their mute written
+        // through TrackFlags, and the master spine's audio is a per-CLIP flag instead (see the
+        // clip maps below) — writing both would silence it twice and leave a stray master
+        // TrackFlag behind on undo. Its solo membership is still honoured via masterTrackId.
+        //
+        // KNOWN, and tracked as G22: no UI path routes a long-press to the master row, so a
+        // user cannot yet ask for "hear only the video". The logic below is ready for it.
         if (carriers.isEmpty()) return;
 
         java.util.Set<String> beforeSolo =

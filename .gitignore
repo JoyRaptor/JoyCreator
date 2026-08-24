@@ -54,3 +54,9 @@ prebuild.log
 # JVM test harness compiled output (each harness run uses its own outN/ dir)
 tools/jvm-harness/out/
 tools/jvm-harness/out*/
+
+# Overnight audio measurement artefacts (2026-08-24). Reproducible: the fixtures and
+# probes are committed, these are just the pulled exports and ffmpeg scratch they were
+# measured from. Numbers live in the SPEC rows, which is where they are actually read.
+tasks/a6/night/
+tasks/a6/lufs/

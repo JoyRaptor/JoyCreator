@@ -75,10 +75,36 @@ public final class AudioDrawerTabs {
     @NonNull
     public static View levelTab(@NonNull Context ctx, @NonNull AudioClip clip,
                                 @NonNull Host host) {
+        return levelTab(ctx, clip, host, true);
+    }
+
+    /**
+     * @param allowPan offer the stereo pan row.
+     *
+     *        <p><b>False for a VIDEO clip's audio, and it has to be.</b> A video clip is shown
+     *        this tab through a throwaway {@code AudioClip} proxy (see the drawer's construction
+     *        in {@code FaditorEditorActivity}), because §2.2 promises a video clip's audio the
+     *        same drawer. The proxy's Host copies volume, keyframes and mute back to the real
+     *        {@code Clip} — but {@code Clip} has no pan at all ({@code getPan()} returns 0,
+     *        {@code setPan()} is a documented no-op), so pan had nowhere to be copied to.</p>
+     *
+     *        <p>The result was worse than an inert control: the slider MOVED, showed its new
+     *        value, and the pan died with the proxy the moment the drawer closed. Reopening
+     *        showed centre again with no explanation. That is the same family as the volume
+     *        rubber-band that only drew when keyframes existed (`G18`) and the master Solo row
+     *        the logic ignored (`G22`) — a control that looks like it works.</p>
+     *
+     *        <p>Offering nothing is honest; offering something that silently discards the
+     *        user's input is not. Giving {@code Clip} real pan is a feature — model field,
+     *        persistence, and the master export path's VolumeAudioProcessor all need it — not
+     *        a fix, so it is left as one.</p>
+     */
+    public static View levelTab(@NonNull Context ctx, @NonNull AudioClip clip,
+                                @NonNull Host host, boolean allowPan) {
         LinearLayout root = column(ctx);
         final List<Runnable> refreshers = new ArrayList<>();
         refreshers.add(levelRow(ctx, root, clip, host));
-        refreshers.add(panRow(ctx, root, clip, host));
+        if (allowPan) refreshers.add(panRow(ctx, root, clip, host));
         refreshers.add(envelopeStateRow(ctx, root, clip, host));
         // A zero-length clip has nothing to fade — omit the rows rather than show dead ones.
         if (clip.getTrimmedDurationMs() > 0) {

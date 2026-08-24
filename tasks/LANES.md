@@ -418,10 +418,10 @@ files: export/ExportManager.java, FaditorEditorActivity.java (export dialog only
 since: 2026-08-24
 
 ## LANE D — dynamic lane (audio UI: B3 solo · B4 level meters · C6 GR bar · C7 A/B bypass)
-status: ACTIVE→rows BUILT 2026-08-24 (UI only; model/, export/, faditor/audio/ untouched — two other agents own those)
-files: layers/LayerRowRenderer.java, tools/AudioDrawerTabs.java, tools/ObjectDrawer.java,
-        FaditorEditorActivity.java (track-header menu + audio-drawer tab/toggle assembly +
-        playhead-tick meter hook ONLY — no overlap with LANE C's export-dialog regions)
+status: IDLE (2026-08-24 — all four rows BUILT at 5b89b76a. TYPECHECK OK — 652 sources,
+        1806 classes; resample/audio-fx/envelope/beats/align/fx/sequence harnesses ALL GREEN.
+        NOT device-seen or device-heard yet — that proof is owed on JoyRaptor's next look.)
+files: (none)
 since: 2026-08-24
 
 ## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)

@@ -381,7 +381,8 @@ public class WaveformExtractor {
                                    int bucketsPerSec, boolean withSpectrum) {
         File f = cacheFile(uri, bands, startMs, endMs, bucketsPerSec, withSpectrum);
         if (!f.exists()) return null;
-        try (DataInputStream in = new DataInputStream(new FileInputStream(f))) {
+        try (DataInputStream in = new DataInputStream(
+                new java.io.BufferedInputStream(new FileInputStream(f)))) {
             if (in.readInt() != CACHE_VERSION) return null;
             long durationMs = in.readLong();
             long startOffsetMs = in.readLong();

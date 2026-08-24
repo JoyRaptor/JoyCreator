@@ -1758,6 +1758,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (imageBaseStills != null) imageBaseStills.release();
         audioExecutor.shutdownNow();
         assetImportExecutor.shutdownNow();
+        // These three were never shut down, so their non-daemon threads kept running stale
+        // jobs after the editor exited. Unlike transcription (deliberately left running above)
+        // none of them needs to outlive the Activity: every UI callback is destroyed-guarded,
+        // a reverse bake lands in a re-kickable cache and slide renders are re-run by the
+        // export pre-pass.
+        if (reverseBakeExecutor != null) reverseBakeExecutor.shutdownNow();
+        if (slideRenderExecutor != null) slideRenderExecutor.shutdownNow();
+        transitionDecodeExecutor.shutdownNow();
         // S4: release the shared sprite-sheet bitmaps.
         for (android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
                 com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> p : spriteRendererCache.values()) {

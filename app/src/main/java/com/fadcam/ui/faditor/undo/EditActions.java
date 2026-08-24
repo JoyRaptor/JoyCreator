@@ -152,15 +152,34 @@ public final class EditActions {
     public static final class SpeedAction implements EditAction {
         private final Clip clip;
         private final float oldSpeed, newSpeed;
+        /** The timeline this clip lives on, so undo/redo can RIPPLE its riders. See TrimAction. */
+        @Nullable private final Timeline timeline;
 
         public SpeedAction(@NonNull Clip clip, float oldSpeed, float newSpeed) {
+            this(null, clip, oldSpeed, newSpeed);
+        }
+
+        public SpeedAction(@Nullable Timeline timeline, @NonNull Clip clip,
+                           float oldSpeed, float newSpeed) {
+            this.timeline = timeline;
             this.clip = clip;
             this.oldSpeed = oldSpeed;
             this.newSpeed = newSpeed;
         }
 
-        @Override public void execute() { clip.setSpeedMultiplier(newSpeed); }
-        @Override public void undo() { clip.setSpeedMultiplier(oldSpeed); }
+        /** Apply a speed change and carry the riders with it, as the live edit paths do. */
+        private void apply(float speed) {
+            if (timeline == null) {
+                clip.setSpeedMultiplier(speed);
+                return;
+            }
+            java.util.Map<String, Long> before = timeline.beginStructural();
+            clip.setSpeedMultiplier(speed);
+            timeline.endStructural(before);
+        }
+
+        @Override public void execute() { apply(newSpeed); }
+        @Override public void undo() { apply(oldSpeed); }
         @NonNull @Override public String getDescription() {
             return "Speed " + oldSpeed + "x → " + newSpeed + "x";
         }
@@ -471,10 +490,20 @@ public final class EditActions {
     public static final class AudioTrimAction implements EditAction {
         private final AudioClip clip;
         private final long oldIn, oldOut, newIn, newOut;
+        /** The timeline the clip lives on, so undo/redo can RIPPLE its riders. See TrimAction. */
+        @Nullable private final Timeline timeline;
 
         public AudioTrimAction(@NonNull AudioClip clip,
                                long oldIn, long oldOut,
                                long newIn, long newOut) {
+            this(null, clip, oldIn, oldOut, newIn, newOut);
+        }
+
+        public AudioTrimAction(@Nullable Timeline timeline,
+                               @NonNull AudioClip clip,
+                               long oldIn, long oldOut,
+                               long newIn, long newOut) {
+            this.timeline = timeline;
             this.clip = clip;
             this.oldIn = oldIn;
             this.oldOut = oldOut;
@@ -482,14 +511,21 @@ public final class EditActions {
             this.newOut = newOut;
         }
 
-        @Override public void execute() {
-            clip.setInPointMs(newIn);
-            clip.setOutPointMs(newOut);
+        /** Apply a bounds change and carry the riders with it, as the live edit paths do. */
+        private void retrim(long in, long out) {
+            if (timeline == null) {
+                clip.setInPointMs(in);
+                clip.setOutPointMs(out);
+                return;
+            }
+            java.util.Map<String, Long> before = timeline.beginStructural();
+            clip.setInPointMs(in);
+            clip.setOutPointMs(out);
+            timeline.endStructural(before);
         }
-        @Override public void undo() {
-            clip.setInPointMs(oldIn);
-            clip.setOutPointMs(oldOut);
-        }
+
+        @Override public void execute() { retrim(newIn, newOut); }
+        @Override public void undo() { retrim(oldIn, oldOut); }
         @NonNull @Override public String getDescription() {
             return "Audio trim [" + oldIn + "–" + oldOut + "] → [" + newIn + "–" + newOut + "]";
         }
@@ -748,7 +784,9 @@ public final class EditActions {
             this.timeline = timeline;
             this.index = index;
             this.original = original;
-            this.replacements = replacements;
+            // Defensive copy: the silence-removal pass reuses/mutates its list after
+            // recordAction, and redo must replay what was recorded, not what it became.
+            this.replacements = new java.util.ArrayList<>(replacements);
         }
 
         @Override public void execute() {
@@ -897,10 +935,20 @@ public final class EditActions {
         private final Clip clip;
         private final int oldMode, newMode;
         private final long oldBefore, oldAfter, newBefore, newAfter;
+        /** The timeline this clip lives on, so undo/redo can RIPPLE its riders. See TrimAction. */
+        @Nullable private final Timeline timeline;
 
         public LoopAction(@NonNull Clip clip,
                           int oldMode, long oldBefore, long oldAfter,
                           int newMode, long newBefore, long newAfter) {
+            this(null, clip, oldMode, oldBefore, oldAfter, newMode, newBefore, newAfter);
+        }
+
+        public LoopAction(@Nullable Timeline timeline,
+                          @NonNull Clip clip,
+                          int oldMode, long oldBefore, long oldAfter,
+                          int newMode, long newBefore, long newAfter) {
+            this.timeline = timeline;
             this.clip = clip;
             this.oldMode = oldMode;
             this.oldBefore = oldBefore;
@@ -910,16 +958,23 @@ public final class EditActions {
             this.newAfter = newAfter;
         }
 
-        @Override public void execute() {
-            clip.setLoopMode(newMode);
-            clip.setLoopBeforeMs(newBefore);
-            clip.setLoopAfterMs(newAfter);
+        /** Apply a loop change and carry the riders with it, as the live edit paths do. */
+        private void apply(int mode, long beforeMs, long afterMs) {
+            if (timeline == null) {
+                clip.setLoopMode(mode);
+                clip.setLoopBeforeMs(beforeMs);
+                clip.setLoopAfterMs(afterMs);
+                return;
+            }
+            java.util.Map<String, Long> before = timeline.beginStructural();
+            clip.setLoopMode(mode);
+            clip.setLoopBeforeMs(beforeMs);
+            clip.setLoopAfterMs(afterMs);
+            timeline.endStructural(before);
         }
-        @Override public void undo() {
-            clip.setLoopMode(oldMode);
-            clip.setLoopBeforeMs(oldBefore);
-            clip.setLoopAfterMs(oldAfter);
-        }
+
+        @Override public void execute() { apply(newMode, newBefore, newAfter); }
+        @Override public void undo() { apply(oldMode, oldBefore, oldAfter); }
         @NonNull @Override public String getDescription() {
             return "Loop " + oldMode + " → " + newMode + " [" + oldBefore + "+" + oldAfter + "] → [" + newBefore + "+" + newAfter + "]";
         }

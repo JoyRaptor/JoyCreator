@@ -757,7 +757,8 @@ public class BandWaveformExtractor {
                                          int lowHz, int presHz, int highHz, boolean presenceOn) {
         File f = cacheFile(uri, startMs, endMs, lowHz, presHz, highHz, presenceOn);
         if (!f.exists()) return null;
-        try (DataInputStream in = new DataInputStream(new FileInputStream(f))) {
+        try (DataInputStream in = new DataInputStream(
+                new java.io.BufferedInputStream(new FileInputStream(f)))) {
             if (in.readInt() != CACHE_VERSION) return null;
             long durationMs = in.readLong();
             long startOffsetMs = in.readLong();

@@ -562,7 +562,13 @@ public class ExportManager {
             FLog.w(TAG, "Export already in progress");
             return;
         }
-        if (project.getTimeline().isEmpty()) {
+        // EMPTY means NO master clips AND no audio lanes. An audio-first project (G21/B9:
+        // blank video start + audio lane) has an empty MASTER SPINE by design — refusing it
+        // here made audio-only export impossible for exactly the projects the feature was
+        // built for ("Timeline is empty" on a timeline that holds an hour of audio).
+        // buildAudioOnlyComposition already renders a valid short silence when literally
+        // nothing is audible, so this guard only needs to catch the truly-empty case.
+        if (project.getTimeline().isEmpty() && !project.getTimeline().hasAudioClips()) {
             if (listener != null) {
                 listener.onExportError(new IllegalStateException("Timeline is empty"));
             }

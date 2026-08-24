@@ -2763,11 +2763,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnRedo.setOnClickListener(v -> performRedo());
         btnUndo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
         btnRedo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
-        // G13: voiceover mic on transport — R.id.btn_voiceover is new in this commit, so the
-        // jvm-harness R.jar (stale 2026-08-19) cannot yet resolve it; use string lookup to keep
-        // typecheck green until the watcher's gradle rebuild refreshes R.jar.
-        int _voiceId = getResources().getIdentifier("btn_voiceover", "id", getPackageName());
-        btnVoiceover = _voiceId != 0 ? findViewById(_voiceId) : null;
+        // G13: voiceover mic on transport — direct R.id (R.jar lock fixed, no getIdentifier workaround)
+        btnVoiceover = findViewById(R.id.btn_voiceover);
         if (btnVoiceover != null) {
             btnVoiceover.setOnClickListener(v -> {
                 if (voiceoverRecorder != null && voiceoverRecorder.isRecording()) stopVoiceoverRecording();

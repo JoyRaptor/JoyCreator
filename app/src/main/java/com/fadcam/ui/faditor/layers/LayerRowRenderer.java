@@ -150,6 +150,20 @@ public final class LayerRowRenderer {
      */
     private static final java.util.Map<String, Boolean> PRE_SOLO_MUTED = new java.util.HashMap<>();
 
+    /**
+     * Master-spine clip audio-mute states from before the current solo session.
+     *
+     * <p>Twin of {@link #PRE_SOLO_MUTED}, kept separate because the master spine's audio is a
+     * per-CLIP flag rather than a track mute. Solo silences it too: JoyRaptor soloed an audio lane,
+     * still heard the video, and ruled that solo means hear ONLY this.</p>
+     */
+    private static final java.util.Map<String, Boolean> PRE_SOLO_CLIP_MUTED = new java.util.HashMap<>();
+
+    /** Live map — see {@link #PRE_SOLO_CLIP_MUTED}. Cleared when the last solo clears. */
+    public static java.util.Map<String, Boolean> preSoloClipMuted() {
+        return PRE_SOLO_CLIP_MUTED;
+    }
+
     /** True while this row's lane is soloed — draws the ring around the mute glyph. */
     public static boolean isSoloed(@NonNull Track t) {
         return SOLOED_TRACK_IDS.contains(t.getId());

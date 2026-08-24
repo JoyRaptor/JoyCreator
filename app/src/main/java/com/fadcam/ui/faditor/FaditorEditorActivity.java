@@ -13625,9 +13625,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.layers.Track> all = new java.util.ArrayList<>();
         all.addAll(tl.getLayers());
         all.addAll(tl.getAudioTracks());
+        // The MASTER spine is a lane like any other here. It was excluded, which made solo
+        // mean "hear this lane alone, except the video, which you keep hearing" — JoyRaptor soloed
+        // a beeps lane, still heard the video, and ruled that solo belongs to the lane you
+        // opened it from. rowCarriesAudio() already returns true for MASTER, so its header was
+        // ALREADY offering a Solo row that the logic then ignored: the menu promised a control
+        // that did nothing, which is the G18 trap wearing a different hat.
+        String masterTrackId = null;
         for (com.fadcam.ui.faditor.layers.Track t : all) {
-            if (t.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER) continue;
-            if (com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(t)) carriers.add(t);
+            if (!com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(t)) continue;
+            if (t.getKind() == com.fadcam.ui.faditor.layers.TrackKind.MASTER) masterTrackId = t.getId();
+            carriers.add(t);
         }
         if (carriers.isEmpty()) return;
 
@@ -13641,6 +13649,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.Map<String, Boolean> beforeMuted = new java.util.HashMap<>();
         for (com.fadcam.ui.faditor.layers.Track t : carriers) beforeMuted.put(t.getId(), t.isMuted());
 
+        // MASTER SPINE. Solo originally left the video's own audio alone, on the reading that
+        // it answers "hear this LANE alone". JoyRaptor soloed a beeps track, still heard the video,
+        // and ruled: solo means hear ONLY this. So the master clips' audio is silenced too.
+        // Carried in its own map because master audio is a per-CLIP flag, not a track mute.
+        java.util.Map<String, Boolean> beforeClipMuted = new java.util.HashMap<>();
+        for (int ci = 0; ci < tl.getClipCount(); ci++) {
+            Clip mc = tl.getClip(ci);
+            if (mc != null) beforeClipMuted.put(mc.getId(), mc.isAudioMuted());
+        }
+        java.util.Map<String, Boolean> afterClipMuted = new java.util.HashMap<>();
+
         // AFTER map: engage → capture originals once per session, then derive; clear-last →
         // restore exactly what this step started with.
         java.util.Map<String, Boolean> afterMuted = new java.util.HashMap<>();
@@ -13653,6 +13672,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             for (com.fadcam.ui.faditor.layers.Track t : carriers) {
                 afterMuted.put(t.getId(), !afterSolo.contains(t.getId()));
             }
+            // Master spine audio follows the same rule as every other lane: audible only when
+            // the master itself is one of the soloed lanes. Carried per CLIP rather than as a
+            // track mute because that is the flag preview and export actually read for master
+            // clips (playerManager volume; buildComposition skipping audioMuted clips).
+            java.util.Map<String, Boolean> preClip =
+                    com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloClipMuted();
+            if (preClip.isEmpty()) preClip.putAll(beforeClipMuted);
+            final boolean masterAudible = masterTrackId != null && afterSolo.contains(masterTrackId);
+            for (String id : beforeClipMuted.keySet()) afterClipMuted.put(id, !masterAudible);
         } else {
             // CLEARING THE LAST SOLO. Restore the mutes from BEFORE the solo session, not the
             // ones this step started with — while a solo is engaged, "the ones this step
@@ -13669,26 +13697,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // which has no pre-solo entry to restore.
                 afterMuted.put(t.getId(), was != null ? was : beforeMuted.get(t.getId()));
             }
+            java.util.Map<String, Boolean> preClip =
+                    com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloClipMuted();
+            for (String id : beforeClipMuted.keySet()) {
+                Boolean was = preClip.get(id);
+                afterClipMuted.put(id, was != null ? was : beforeClipMuted.get(id));
+            }
         }
 
         final String label = engaging ? "Solo lane" : "Unsolo lane";       // TODO(strings)
         final Timeline tlForUndo = tl;
         undoManager.recordAction(new EditActions.LambdaAction(label,
-                () -> applySoloState(afterSolo, afterMuted, tlForUndo),
-                () -> applySoloState(beforeSolo, beforeMuted, tlForUndo)));
-        applySoloState(afterSolo, afterMuted, tl);
+                () -> applySoloState(afterSolo, afterMuted, afterClipMuted, tlForUndo),
+                () -> applySoloState(beforeSolo, beforeMuted, beforeClipMuted, tlForUndo)));
+        applySoloState(afterSolo, afterMuted, afterClipMuted, tl);
     }
 
     /** The single applier for solo state — redo, undo and first-engage all go through it. */
     private void applySoloState(@NonNull java.util.Set<String> soloIds,
                                 @NonNull java.util.Map<String, Boolean> mutesById,
+                                @NonNull java.util.Map<String, Boolean> clipMutesById,
                                 @NonNull Timeline tl) {
         com.fadcam.ui.faditor.layers.LayerRowRenderer.setSoloedIds(soloIds);
         // The pre-solo snapshot belongs to ONE solo session. Dropping it when the last solo
         // clears means the next session captures the user's real mutes; keeping it would make
         // every later solo restore state from the first one, indefinitely. Undo does not need
         // it — undo carries its own explicit before-map.
-        if (soloIds.isEmpty()) com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted().clear();
+        if (soloIds.isEmpty()) {
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted().clear();
+            com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloClipMuted().clear();
+        }
+        // Master spine audio: a per-clip flag, which both preview (playerManager volume) and
+        // export (buildAudioOnlyComposition / buildComposition skip audioMuted clips) already
+        // consult — so this needs no engine change either.
+        for (int ci = 0; ci < tl.getClipCount(); ci++) {
+            Clip mc = tl.getClip(ci);
+            if (mc == null) continue;
+            Boolean want = clipMutesById.get(mc.getId());
+            if (want != null) mc.setAudioMuted(want);
+        }
+        Clip sel = getSelectedClip();
+        if (sel != null && playerManager != null) {
+            playerManager.setVolume(sel.isAudioMuted() ? 0f : sel.getVolumeLevel());
+        }
         // Persisted side-table only: every getLayers()/getAudioTracks() call rebuilds Track
         // views FROM these flags (onTrackHeaderAction's discipline), so downstream readers —
         // the rebuilt rows, LayerPreviewController, applyAudioTrackMuteLive — all see this.

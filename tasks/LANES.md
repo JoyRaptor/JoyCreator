@@ -436,11 +436,14 @@ files: (none)
 since: 2026-08-24
 
 ## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)
-status: IDLE (2026-08-24 — G21 BUILT + B9 v1 BUILT. TYPECHECK OK — 653 sources, 1808 classes.
-        export/ NOT touched (coordinated around LANE C's active ownership) — .wav/.mp3 containers
-        and the zero-spine DEVICE export are the owed remainder; full preview-reclaim layout open.)
-files: FaditorEditorActivity.java (new-project entry + export dialog + saved-load gate),
-        VideoSourceBottomSheet.java, ui/FaditorMiniFragment.java
+status: IDLE (2026-08-24 overnight — G21 BUILT (508f71f5), B9 v1 + preview-reclaim BUILT
+        (05e0a5d8), audit sweep landed (05e0a5d8/7eb45a3f/bd0e59fe): pan undo fiction, pan
+        label wrong parent, meter-in-mute-target, meter-over-drawer, duplicate bake on
+        reopen, empty-project silent export. SPEC audit answers written for
+        B4/C6/C7/B10; A2 re-audited closed; G22 master-solo door gap documented.
+        TYPECHECK OK — 653 sources, 1809 classes. .wav/.mp3 containers + zero-spine device
+        export still owed in export/'s lane.)
+files: (none)
 since: 2026-08-24
 
 ## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)

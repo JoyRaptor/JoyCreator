@@ -15,10 +15,10 @@ CP="$CP;$(find "$HOME/.gradle/caches/modules-2" -name 'guava-*.jar' ! -name '*so
 CP="$CP;$(find /c/+Projects/Screenrecorder/media3-patched/libraries/common \
     -path '*compile_library_classes_jar*' -name 'classes.jar' 2>/dev/null | head -1 | sed 's|^/c/|C:/|')"
 
-OUT=/tmp/opencode-a9parity-out
+OUT=/c/Users/JoyRaptor/AppData/Local/Temp/opencode/a9parity-out
 rm -rf "$OUT"; mkdir -p "$OUT"
 
 javac -nowarn -encoding UTF-8 -cp "$CP" \
-  -sourcepath "tools/jvm-harness/stubs;app/src/main/java" -d "$OUT" \
+  -sourcepath "tasks/a9/jvmsupport;tools/jvm-harness/stubs;app/src/main/java" -d "$OUT" \
   tasks/a9/LaneChainParityTest.java || exit 1
-java -cp "$OUT;$CP" LaneChainParityTest
+java -cp "C:/Users/JoyRaptor/AppData/Local/Temp/opencode/a9parity-out;$CP" LaneChainParityTest

@@ -3603,7 +3603,8 @@ public final class LayerRowRenderer {
 
         public MasterMeterView(@NonNull android.content.Context ctx) {
             super(ctx);
-            setElevation(6f);
+            // Deliberately NO elevation: at 6f it drew ABOVE the ObjectDrawer, an idle
+            // indicator floating over the workbench the user was actively using.
         }
 
         public void setTracks(@Nullable java.util.List<Track> floating,

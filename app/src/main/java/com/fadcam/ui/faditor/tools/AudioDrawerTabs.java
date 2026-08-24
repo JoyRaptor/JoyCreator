@@ -232,6 +232,8 @@ public final class AudioDrawerTabs {
         };
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            float beforePan;
+
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser && !bar.isFineDriving()) return;
                 writePan(clip, host, panOf(p));
@@ -239,13 +241,18 @@ public final class AudioDrawerTabs {
                 host.onChanged();
             }
             @Override public void onStartTrackingTouch(SeekBar s) {
-                // no envelope to snapshot; one undo per gesture via recordUndo below
+                // Captured HERE, not in undo: undo must restore the value the user had
+                // BEFORE the drag, not the neutral centre — an undo that recentres is not
+                // an undo, it is a second edit wearing its clothes.
+                beforePan = panAt(clip);
             }
             @Override public void onStopTrackingTouch(SeekBar s) {
-                // Pan has no envelope, so undo is just the pan change itself
+                final float was = beforePan;
+                final float now = panAt(clip);
+                if (was == now) return;
                 host.recordUndo("Pan",
-                        () -> { /* redo handled by onProgressChanged */ },
-                        () -> { clip.setPan(0f); host.onChanged(); });
+                        () -> { clip.setPan(now); host.onChanged(); },
+                        () -> { clip.setPan(was); host.onChanged(); });
             }
         });
 
@@ -984,7 +991,14 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         confirmDialog(ctx, "Pan (%)", wrap, () -> {                          // TODO(strings)
             Float typed = leadingNumber(input.getText().toString());
             if (typed == null) return;
-            writePan(clip, host, Math.max(-1f, Math.min(1f, typed / 100f)));
+            float was = panAt(clip);
+            float now = Math.max(-1f, Math.min(1f, typed / 100f));
+            if (was == now) return;
+            writePan(clip, host, now);
+            // Rule 7: a typed value is a mutation like a drag — it gets an undo step.
+            host.recordUndo("Pan",
+                    () -> { clip.setPan(now); host.onChanged(); },
+                    () -> { clip.setPan(was); host.onChanged(); });
             host.onChanged();
             if (refresh != null) refresh.run();
         });

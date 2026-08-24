@@ -1593,6 +1593,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return !p.getTimeline().isEmpty() || p.getTimeline().hasAudioClips();
     }
 
+    // ── B9: audio-only preview reclaim ──────────────────────────────────────────────────
+
+    /** Whether the audio-only layout is currently applied (edge-triggered, lazy off the tick). */
+    private boolean audioOnlyLayoutApplied = false;
+    /** The band cap the user had before the audio-only reclaim took it over. */
+    private float preAudioOnlyBandDp = -1f;
+
+    /**
+     * Make the TIMELINE the subject of an audio-only project. A blank start otherwise opens
+     * a video-shaped editor around an empty spine: half the screen is a black player that
+     * can never show anything. When there is no picture, {@code player_container} goes away
+     * entirely — the timeline band (whose audio rows ARE waveforms) takes the whole middle —
+     * and the band cap widens so the extra room is actually usable. Re-evaluated lazily on
+     * every playhead tick and self-reversing: the moment a spine clip exists again (video
+     * added, undo of a delete), the editor reverts to the standard split with the user's own
+     * prior band size.
+     */
+    private void updateAudioOnlyLayout() {
+        if (project == null || editorTimeline == null) return;
+        boolean want = isAudioOnlyProject();
+        if (want == audioOnlyLayoutApplied) return;
+        audioOnlyLayoutApplied = want;
+        View preview = findViewById(R.id.player_container);
+        if (preview != null) preview.setVisibility(want ? View.GONE : View.VISIBLE);
+        if (want) {
+            if (preAudioOnlyBandDp < 0) {
+                preAudioOnlyBandDp = editorTimeline.getLayerBandMaxHeightDp();
+            }
+            editorTimeline.setLayerBandMaxHeightDp(400f);
+        } else if (preAudioOnlyBandDp >= 0) {
+            editorTimeline.setLayerBandMaxHeightDp(preAudioOnlyBandDp);
+            preAudioOnlyBandDp = -1f;
+        }
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
@@ -9393,10 +9428,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the static channel and the master meter ticks alongside — both read the SAME value
         // this method already computed, so gutter bars and corner meter can never disagree.
         com.fadcam.ui.faditor.layers.LayerRowRenderer.reportHostPlayheadMs(absoluteMs);
+        updateAudioOnlyLayout();
         if (project != null) {
-            ensureMasterMeter().setTracks(project.getTimeline().getLayers(),
-                    project.getTimeline().getAudioTracks());
-            masterMeter.tick();
+        com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView meter = ensureMasterMeter();
+            // The meter is an indicator, not a control: while a drawer is open it hides —
+            // competing with the workbench for the corner is noise, and a frozen reading
+            // beside active sliders reads as a stuck control.
+            boolean drawerOpen = objectDrawer != null && objectDrawer.isShowing();
+            int wantVis = drawerOpen ? View.GONE : View.VISIBLE;
+            if (meter.getVisibility() != wantVis) meter.setVisibility(wantVis);
+            if (!drawerOpen) {
+                meter.setTracks(project.getTimeline().getLayers(),
+                        project.getTimeline().getAudioTracks());
+                meter.tick();
+            }
         }
         // BEFORE syncAdjustmentPreview, and that order is load-bearing. The GL composite asks the
         // overlay layer where each effected image overlay IS (TextOverlayLayer.fxPipFor), and the

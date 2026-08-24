@@ -412,16 +412,19 @@ status: IDLE (2026-08-23 — D3/D2/A3 all BUILT, typecheck 635 green, lane relea
 files: (none)
 since: 2026-08-23
 
-## LANE C — dynamic lane (C4 loudness targets + C8 Clean Audio + E1 probe)
-status: IDLE (2026-08-24 — ALL THREE ROWS BUILT + desktop-verified: 4eb07a01 tree-unblock
-        (LoudnessTarget int→Double), c7eb026a C4/C8 engine (two-pass loudnorm post-pass in
-        ExportManager consumes LoudnessTarget AND isCleanAudio — C8's first real consumer;
-        measured-LUFS before/after logged + getters), dialog/ExportService plumbing committed
-        with them; E1 probe parity mode landed via 5b89b76a (index swept by lane D's commit —
-        content is E1's). Evidence: typecheck "TYPECHECK OK — 652 sources, 1806 classes";
-        exact-command harness -21.8→-14.0 LUFS vs unchanged negative control; probe PASS/
-        FAIL both directions. DEVICE VERIFY OWED: export w/ target -14 → logcat
-        "C4 LOUDNESS: before X LUFS → after Y LUFS"; Clean Audio ON + target Off → -16 chain.)
+## LANE C — dynamic lane (C1.E FX wiring · C6 GR feed · C7 bypass read)
+status: IDLE (2026-08-24 — C1.E WIRED ece300c1: one AudioFxChainFactory (fx/) feeds BOTH
+        preview sink (MasterPlaybackEngine DefaultRenderersFactory → UiSyncAudioProcessor,
+        per-buffer UI bridge) AND export (ExportManager addTo at all 3 audio sites, C7
+        snapshot at composition start). Bypass INJECTED via FxChain.setBypassed — engine
+        never reads UI statics. Wiring found+fixed DeEsser pass-through stub + DeHum
+        channel-stride bug; Gate extra decay confirmed deliberate + documented.
+        Evidence: run-audio-fx.sh ALL GREEN (19/19); FxParityTest desktop driver ALL PASS
+        (parity bit-identical / not-noop / GR −10.54 dB live / bypass bit-exact);
+        typecheck.sh "TYPECHECK OK — 653 sources, 1809 classes"; probe --preview mode
+        gained corr>0.9 with NEGCTRL proof. DEVICE OWED to close C1.E as VERIFIED:
+        preview render + export of an FX-active project through export_audio_probe
+        --preview. C6/C7 rows appended with WIRED notes.)
 files: (none)
 since: 2026-08-24
 

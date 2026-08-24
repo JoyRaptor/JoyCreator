@@ -103,9 +103,17 @@ def main():
     check(len(edges) == N_BURSTS,
           "all %d bursts present (found %d)" % (N_BURSTS, len(edges)))
     if len(edges) >= 2:
-        drift = max(abs(e - i * BURST_PERIOD) for i, e in enumerate(edges))
+        # Measure drift RELATIVE TO THE FIRST ONSET, and report the constant offset
+        # separately. A real export starts the whole file a few tens of ms late (encoder
+        # priming, container timestamps) — that is a constant shift, not a time-warp, and
+        # every burst carries it equally. Charging it to "drift" made a correct export read
+        # as 0.062s of warp when the actual spacing error was 0.021s. Warp is what stretches
+        # a file and it shows up as the gap between bursts CHANGING, which this measures.
+        lead = edges[0]
+        drift = max(abs((e - lead) - i * BURST_PERIOD) for i, e in enumerate(edges))
+        print("      constant lead-in %.3fs (encoder priming; not drift)" % lead)
         check(drift < 0.050,
-              "burst grid holds to the end: worst drift %.3fs (<0.050)" % drift)
+              "burst SPACING holds to the end: worst drift %.3fs (<0.050)" % drift)
 
     # ── NEGATIVE CONTROLS ────────────────────────────────────────────────────
     # Without these the checks above are assertions, not evidence. Each one

@@ -43,6 +43,18 @@ Note on offset tolerance: an AAC encoder adds priming/delay of roughly 1024-2112
 samples (21-44 ms at 48 kHz), and the muxer aligns to frame boundaries. A measured
 offset within ~60 ms of the intended one is therefore not distinguishable from exact,
 and this script says so rather than pretending to millisecond precision.
+
+Spec-row siblings (B3/B4/C6/C7/C5.E), sharing this file's decode/fit machinery via
+tasks/audio_probe_lib.py, each with a --selftest negative control; fixtures and the
+suite runner live in export/:
+    probe_solo_b3.py    solo lane A => lane B tone absent from the export
+    probe_meters_b4.py  reported meter dB == measured rms ratio at the same playhead
+    probe_gr_c6.py      measured reduction through the compressor == predicted maths
+                        == what reportGainReductionDb showed on the bar
+    probe_bypass_c7.py  FX export differs measurably; bypassed export == plain re-encode
+    probe_duck_c5e.py   music band dips exactly on the keyframed curve, then recovers
+Run `python export/run_negctl_suite.py` to re-prove every probe still fails on a
+deliberately broken input before trusting any of them.
 """
 import argparse
 import math

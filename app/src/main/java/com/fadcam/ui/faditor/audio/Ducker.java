@@ -134,6 +134,67 @@ public final class Ducker {
         }
         if (regions.isEmpty()) return out;
 
+        return fromRegions(regions, targetStartMs, targetDurationMs, p);
+    }
+
+    /**
+     * Same curve, keyed off TRANSCRIPT WORD TIMINGS instead of amplitude — row {@code D11}.
+     *
+     * <p><b>Why this is the better signal when it exists.</b> Amplitude cannot tell a voice from
+     * a door slam, a cough, or the music itself bleeding into the microphone; word timings can,
+     * because something already decided those spans were speech. It is also deterministic: the
+     * same transcript yields the same curve every time, where an amplitude threshold sits a
+     * hair away from flipping on borderline frames. And it degrades honestly — no transcript
+     * means no keyframes, rather than a plausible-looking wrong answer.</p>
+     *
+     * <p><b>Struck words are skipped.</b> A struck word is deleted from the render, so it will
+     * not be heard, so nothing should duck under it. Ducking under words the viewer never hears
+     * is the exact bug this signal is supposed to be immune to.</p>
+     *
+     * @param words            recognised words, times in the key clip's SOURCE timeline.
+     * @param keyStartMs       where the key clip starts on the TIMELINE.
+     * @param keyInPointMs     the key clip's trim in-point, to map source time to timeline time.
+     * @param targetStartMs    where the target clip starts on the TIMELINE.
+     * @param targetDurationMs trimmed duration of the target clip.
+     */
+    @NonNull
+    public static List<VolumeKeyframe> computeFromWords(
+            @NonNull List<? extends com.fadcam.ui.faditor.transcript.TranscriptWord> words,
+            long keyStartMs, long keyInPointMs,
+            long targetStartMs, long targetDurationMs,
+            @NonNull Params p) {
+
+        List<VolumeKeyframe> out = new ArrayList<>();
+        if (words.isEmpty() || targetDurationMs <= 0) return out;
+        if (p.duckMultiplier >= 1.0f) return out;
+
+        List<long[]> regions = new ArrayList<>();
+        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : words) {
+            if (w.struck) continue;                       // deleted: never heard, never ducks
+            if (w.endMs <= w.startMs) continue;
+            regions.add(new long[]{
+                    keyStartMs + (w.startMs - keyInPointMs),
+                    keyStartMs + (w.endMs - keyInPointMs)});
+        }
+        if (regions.isEmpty()) return out;
+        // Words arrive in order, but a merged or re-ordered transcript need not be, and the
+        // bridging pass below assumes ascending starts.
+        regions.sort((a, b) -> Long.compare(a[0], b[0]));
+        return fromRegions(regions, targetStartMs, targetDurationMs, p);
+    }
+
+    /**
+     * Turn speech regions on the TIMELINE into a sparse, editable curve.
+     *
+     * <p>Shared by the amplitude and transcript paths so the two cannot drift apart. Which
+     * signal decided "this span is speech" is the only thing that differs between them; the
+     * bridging, the four-keyframe shape and the clipping to the target are identical, and a
+     * second copy of this would be a second set of pumping bugs to fix.</p>
+     */
+    @NonNull
+    private static List<VolumeKeyframe> fromRegions(@NonNull List<long[]> regions,
+            long targetStartMs, long targetDurationMs, @NonNull Params p) {
+        List<VolumeKeyframe> out = new ArrayList<>();
         // 2. Bridge short gaps BEFORE generating keyframes, so a bridged pair yields one dip
         //    instead of two that overlap and fight each other.
         List<long[]> merged = new ArrayList<>();

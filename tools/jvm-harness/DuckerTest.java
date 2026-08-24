@@ -1,5 +1,8 @@
 import com.fadcam.ui.faditor.audio.Ducker;
 import com.fadcam.ui.faditor.model.VolumeKeyframe;
+import com.fadcam.ui.faditor.transcript.TranscriptWord;
+
+import java.util.Arrays;
 
 import java.util.List;
 
@@ -130,6 +133,57 @@ public class DuckerTest {
         check(Ducker.compute(new int[0], FPS, 0, 0, 6000, p).isEmpty(), "empty envelope is safe");
         check(Ducker.compute(one, 0, 0, 0, 6000, p).isEmpty(), "zero frame-rate is safe");
         check(Ducker.compute(one, FPS, 0, 0, 0, p).isEmpty(), "zero-duration target is safe");
+
+        // ── D11: TRANSCRIPT-KEYED DUCKING ────────────────────────────────────────────
+        // Word timings know a voice from a door slam; amplitude does not. Same curve shape,
+        // different signal, so the shared region->keyframe stage is exercised both ways.
+        System.out.println("      -- D11 transcript-keyed --");
+        TranscriptWord w1 = new TranscriptWord("hello", 1000, 1400);
+        TranscriptWord w2 = new TranscriptWord("there", 1500, 2000);
+        List<VolumeKeyframe> t1 = Ducker.computeFromWords(
+                Arrays.asList(w1, w2), 0, 0, 0, 6000, p);
+        System.out.println("      keyframes: " + t1.size());
+        check(!t1.isEmpty(), "D11: words produce a duck");
+        check(gainAt(t1, 500) > 0.95f, "D11: full level before the first word");
+        check(gainAt(t1, 1200) < 0.30f, "D11: ducked on the first word");
+        check(gainAt(t1, 1450) < 0.30f, "D11: stays down in the 100ms between words");
+        check(gainAt(t1, 4000) > 0.95f, "D11: recovered well after the last word");
+        check(t1.size() <= 4, "D11: two adjacent words cost at most 4 keyframes (got "
+                + t1.size() + ")");
+
+        // Source-to-timeline mapping: a trimmed key clip placed later on the timeline.
+        // Word at source 1000ms, clip trimmed from 500ms and placed at timeline 2000ms,
+        // so it is heard at timeline 2500ms. Target starts at 2000ms -> local 500ms.
+        List<VolumeKeyframe> t2 = Ducker.computeFromWords(
+                Arrays.asList(new TranscriptWord("word", 1000, 1600)), 2000, 500, 2000, 6000, p);
+        check(gainAt(t2, 700) < 0.30f, "D11: trim in-point and clip offset both applied");
+        check(gainAt(t2, 100) > 0.95f, "D11: full level before that word arrives");
+
+        // ── D11 NEGATIVE CONTROLS ────────────────────────────────────────────────────
+        // A struck word is deleted from the render: it is never heard, so nothing may duck
+        // under it. Ducking under words the viewer cannot hear is the precise failure this
+        // signal is meant to be immune to.
+        TranscriptWord struck = new TranscriptWord("deleted", 1000, 2000);
+        struck.struck = true;
+        check(Ducker.computeFromWords(Arrays.asList(struck), 0, 0, 0, 6000, p).isEmpty(),
+                "NEGCTRL D11: a struck (deleted) word ducks NOTHING");
+
+        // ...but an identical UNstruck word must duck, or the check above passes on a build
+        // that simply ignores every word.
+        TranscriptWord kept = new TranscriptWord("kept", 1000, 2000);
+        check(!Ducker.computeFromWords(Arrays.asList(kept), 0, 0, 0, 6000, p).isEmpty(),
+                "NEGCTRL D11: the same word UNstruck does duck (strike check is not vacuous)");
+
+        check(Ducker.computeFromWords(
+                        java.util.Collections.<TranscriptWord>emptyList(), 0, 0, 0, 6000, p)
+                        .isEmpty(),
+                "NEGCTRL D11: no transcript means no keyframes, not a guess");
+
+        // Zero-length words (a recogniser artefact) must not become zero-length regions.
+        check(Ducker.computeFromWords(
+                        Arrays.asList(new TranscriptWord("x", 1000, 1000)), 0, 0, 0, 6000, p)
+                        .isEmpty(),
+                "NEGCTRL D11: a zero-length word is discarded, not ducked under");
 
         System.out.println(fails == 0 ? "ALL PASS" : (fails + " FAILED"));
         if (fails != 0) System.exit(1);

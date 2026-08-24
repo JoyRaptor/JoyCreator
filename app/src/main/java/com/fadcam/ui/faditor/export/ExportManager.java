@@ -627,18 +627,7 @@ public class ExportManager {
         Uri silenceUri = silenceFile != null ? Uri.fromFile(silenceFile) : null;
 
         // A6: determine project sample rate from the master track's first audio source.
-        int projectSampleRate = 48000;
-        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
-            Clip probeClip = timeline.getClip(ci);
-            if (!probeClip.isAudioMuted() && !probeClip.isImageClip()) {
-                Uri src = resolveSeekableSourceUri(probeClip);
-                if (audioDurationMsOf(src) > 0) {
-                    projectSampleRate = sampleRateOf(src);
-                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from master clip " + probeClip.getId() + ")");
-                    break;
-                }
-            }
-        }
+        int projectSampleRate = resolveProjectSampleRate(timeline);
 
         List<EditedMediaItem> master = new ArrayList<>();
         for (int ci = 0; ci < timeline.getClipCount(); ci++) {
@@ -929,18 +918,7 @@ public class ExportManager {
 
         // A6: determine project sample rate from the master track's first audio source.
         // If the master track has no audio, default to 48 kHz.
-        int projectSampleRate = 48000;
-        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
-            Clip probeClip = timeline.getClip(ci);
-            if (!probeClip.isAudioMuted() && !probeClip.isImageClip()) {
-                Uri src = resolveSeekableSourceUri(probeClip);
-                if (audioDurationMsOf(src) > 0) {
-                    projectSampleRate = sampleRateOf(src);
-                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from master clip " + probeClip.getId() + ")");
-                    break;
-                }
-            }
-        }
+        int projectSampleRate = resolveProjectSampleRate(timeline);
 
         List<EditedMediaItem> items = new ArrayList<>();
         long timelineCursorMs = 0;
@@ -2097,24 +2075,59 @@ public class ExportManager {
      * @param timeline the project timeline
      * @return one sequence per inhabited audio lane (possibly empty; never null)
      */
+    /**
+     * The ONE sample rate every audio stream in this export is resampled to (A6).
+     *
+     * <p><b>Why this is centralised.</b> Three call sites each computed this for themselves and
+     * they did not agree: the two video paths read the master clip (48000 Hz on JoyRaptor's test
+     * project) while the audio-only path read the first AUDIO clip (44100 Hz). A rate derived
+     * from the very clip being resampled makes {@code clipSampleRate != projectSampleRate}
+     * false by construction, so the audio-only path installed no resampler AT ALL and A6 was a
+     * silent no-op — confirmed on device by two contradictory "A6: project sample rate" lines in
+     * one export and no "resampled" line at all.</p>
+     *
+     * <p><b>Order of preference.</b> Master video clips win, because the video's own audio track
+     * is the one stream that cannot be resampled without also touching the muxed video, and
+     * because it is what the viewer hears as "the recording". Added audio (music, voiceover) is
+     * the guest and moves to meet it. With no usable video audio we fall back to the first audio
+     * clip, and finally to 48000 Hz — the Android export default.</p>
+     */
+    private int resolveProjectSampleRate(@NonNull Timeline timeline) {
+        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+            Clip probeClip = timeline.getClip(ci);
+            if (!probeClip.isAudioMuted() && !probeClip.isImageClip()) {
+                Uri src = resolveSeekableSourceUri(probeClip);
+                if (audioDurationMsOf(src) > 0) {
+                    int sr = sampleRateOf(src);
+                    if (sr > 0) {
+                        FLog.d(TAG, "A6: project sample rate = " + sr
+                                + " Hz (from master clip " + probeClip.getId() + ")");
+                        return sr;
+                    }
+                }
+            }
+        }
+        for (AudioClip ac : timeline.getAudioClips()) {
+            if (!ac.isMuted()) {
+                int sr = sampleRateOf(ac.getSourceUri());
+                if (sr > 0) {
+                    FLog.d(TAG, "A6: project sample rate = " + sr
+                            + " Hz (no master audio; from audio clip " + ac.getId() + ")");
+                    return sr;
+                }
+            }
+        }
+        FLog.d(TAG, "A6: project sample rate = 48000 Hz (default; nothing to probe)");
+        return 48000;
+    }
+
     @NonNull
     private List<EditedMediaItemSequence> buildAudioSequences(@NonNull Timeline timeline) {
         List<AudioClip> clips = new ArrayList<>(timeline.getAudioClips());
         FLog.d(TAG, "buildAudioSequences: audioClipCount=" + clips.size());
         if (clips.isEmpty()) return Collections.emptyList();
 
-        // A6: determine project sample rate from the first audio clip that has audio data.
-        int projectSampleRate = 48000;
-        for (AudioClip ac : clips) {
-            if (!ac.isMuted()) {
-                int sr = sampleRateOf(ac.getSourceUri());
-                if (sr > 0) {
-                    projectSampleRate = sr;
-                    FLog.d(TAG, "A6: project sample rate = " + projectSampleRate + " Hz (from audio clip " + ac.getId() + ")");
-                    break;
-                }
-            }
-        }
+        int projectSampleRate = resolveProjectSampleRate(timeline);
 
         // Group by lane EXACTLY as Timeline.getAudioTracks() does: null layerId == the
         // default "audio" lane. Insertion order of the map follows the flat list, so a

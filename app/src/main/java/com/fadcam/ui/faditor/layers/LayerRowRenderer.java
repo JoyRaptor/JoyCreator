@@ -1379,7 +1379,12 @@ public final class LayerRowRenderer {
         drawItemPreviews(canvas, item, x0, x1, top, bottom, timeToX);
         // AUDIO volume-automation envelope (audio consolidation 2026-07-07): keep the blue
         // rubber-band + keyframe dots on the unified audio rows (legacy drawAudioTrack port).
-        if (item.getAudioClip() != null && !ghosted && item.getAudioClip().hasVolumeKeyframes()) {
+        // Drawn for EVERY audio clip, not only keyframed ones. Gating this on
+        // hasVolumeKeyframes() meant moving the volume slider produced no visible change
+        // whatsoever — the clip just got quieter with nothing on screen to say so, and there
+        // was no rubber-band to grab in order to MAKE the first keyframe. The flat line at the
+        // clip's level is both the readout and the affordance.
+        if (item.getAudioClip() != null && !ghosted) {
             drawVolumeEnvelope(canvas, item.getAudioClip(), x0, top, x1, bottom);
         }
         // C4 §3: opacity-only rubber-band for overlay/sprite item blocks — over a subtle
@@ -1664,12 +1669,24 @@ public final class LayerRowRenderer {
         }
         java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> kfs =
                 ac.getVolumeKeyframes();
-        if (kfs.isEmpty()) return;
+        // NOTE: an empty keyframe list is NOT an early return any more — see the flat-line
+        // branch below, which is the whole point of drawing this for unautomated clips.
         long dur = Math.max(1, ac.getTrimmedDurationMs());
         float w = x1 - x0;
         float h = bottom - top;
         canvas.save();
         canvas.clipRect(x0, top, x1, bottom);
+        if (kfs.isEmpty()) {
+            // No automation yet: one flat line at the clip's own level. This is what makes a
+            // volume change VISIBLE, and it is the line the user grabs to place a first
+            // keyframe. Same 0..2 vertical scale as the keyframed path below, so the line does
+            // not jump the moment a keyframe is added.
+            float gFrac = Math.max(0f, Math.min(1f, ac.getVolumeLevel() / 2.0f));
+            float y = bottom - gFrac * h;
+            canvas.drawLine(x0, y, x1, y, volEnvLinePaint);
+            canvas.restore();
+            return;
+        }
         float prevX = 0f, prevY = 0f;
         for (int k = 0; k < kfs.size(); k++) {
             com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf = kfs.get(k);

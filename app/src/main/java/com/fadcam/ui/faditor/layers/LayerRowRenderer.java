@@ -897,8 +897,13 @@ public final class LayerRowRenderer {
         // reliably. The DRAWN box stays 12dp; the TOUCH box is the full row height and runs
         // from just left of the glyph to the header's edge. The caret is hit-tested first, so
         // the small overlap on the left cannot steal a caret tap.
+        //
+        // B4: the level meter's 3dp strip lives at the header's RIGHT edge — INSIDE what this
+        // touch box used to cover, so a tap aimed at the meter muted the lane. The instrument
+        // is read-only; its strip is reserved out of the mute target.
+        float meterReserve = rowCarriesAudio(row.track) ? (METER_BAR_W_DP + 2f) * density : 0f;
         row.muteHitRect.set(row.muteRect.left - gap / 2f, row.headerRect.top,
-                row.headerRect.right, row.headerRect.top + rowH);
+                row.headerRect.right - meterReserve, row.headerRect.top + rowH);
     }
 
     private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,

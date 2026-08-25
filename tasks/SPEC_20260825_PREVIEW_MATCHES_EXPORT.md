@@ -120,6 +120,62 @@ destroyed at least six times). Commit by explicit path; never `git add -A`.
 
 ---
 
+## 3A. ROUND 2 — the actual cause, found 2026-08-25 after the first pass
+
+The first pass landed real work (one crop decision, crop in the GL chain, dead path deleted)
+but items 2 and 3 are still failing on device. JoyRaptor, testing:
+
+> "the mask does not show up when set to normal. And if I send it to any blending modes, it
+> does not apply those blending modes to an image underneath it, only to the main video …
+> I have it on video objects, and it does seem to apply to them."
+
+**Both symptoms are one predicate.** `TextOverlayItem.wantsGlExport()` (`:730`) is the single
+authority deciding whether an image overlay leaves the Canvas path for the GL one:
+
+```java
+public boolean wantsGlExport() {
+    return wantsExportBlend() || hasExportFx() || hasExportKey();
+}
+```
+
+- **A mask is not a term in it.** No mask predicate exists in `model/` at all.
+- `wantsExportBlend()` (`:695`) is `isImage() && BlendModes.modeCode(overlayBlendMode) != 0`,
+  and NORMAL is code 0.
+
+Therefore an image with a mask and NORMAL blend stays on the Canvas path, which cannot clip to
+a mask, so **the mask is invisible until a blend mode drags the image into GL**. That is
+exactly what JoyRaptor sees, and it is why he was told "normal doesn't do GL."
+
+The same gate causes the second symptom: a plain image BELOW a blending layer has no blend, no
+FX and no key, so it stays on Canvas. A GL blend above it can only composite against surfaces
+that are in GL — the main video is, the image is not. Video overlays composite correctly
+because they already live on the GL path.
+
+The comment above `hasExportKey()` states the original reasoning — "routing a merely-masked
+image into GL would shift its z for nothing." That reasoning is wrong for the user: it trades
+a correct picture for a z-order convenience.
+
+**Required:**
+
+1. **An active mask must route an image into GL**, independent of blend mode. Add the mask
+   predicate beside `hasExportKey()` and include it in `wantsGlExport()`. Keep the "single
+   authority" discipline the comment describes — every caller asks `wantsGlExport()`, never
+   the terms separately, or an image gets drawn twice or not at all.
+2. **A layer must also join the GL path when something ABOVE it needs to composite against
+   it.** Wanting GL for your own sake and being needed in GL by a blend above are different
+   questions, and only the first is currently asked. Solve it generally — do not special-case
+   images while leaving text and sprites broken the same way; if a rasterizer for those does
+   not exist, say so and name the gap (the first pass named it honestly; keep that standard).
+3. Verify the z-order the original comment was protecting is still correct once masked and
+   below-blend images move into GL. That is the real risk in this change: state how you
+   checked it.
+
+Extend `tools/jvm-harness/preview_parity_lint.py` so a property that routes to GL for export
+but not for preview fails the check. Its 9 properties passed while both of these were broken,
+so as written it does not cover routing.
+
+---
+
 ## 4. Out of scope
 
 - The floating PiP / landscape pop-out work — a different, in-flight task.

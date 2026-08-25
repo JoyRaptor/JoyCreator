@@ -1,4 +1,4 @@
-﻿package com.fadcam.ui.faditor.player;
+package com.fadcam.ui.faditor.player;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -18,9 +18,9 @@ import com.fadcam.FLog;
 import com.fadcam.R;
 
 /**
- * G6.3 / G6.4 (contract Â§5): when the inline preview's slot shrinks below a threshold â€”
+ * G6.3 / G6.4 (contract §5): when the inline preview's slot shrinks below a threshold —
  * because the timeline grab bar was dragged to its top extreme (G6.3) OR the device
- * rotated to landscape / anything else squeezed the column (G6.4) â€” the preview is
+ * rotated to landscape / anything else squeezed the column (G6.4) — the preview is
  * PROMOTED to a small draggable PiP window floating over the editor, and the timeline
  * band auto-grows to absorb the freed space (near-fullscreen timeline). When the slot
  * would be comfortable again (grab bar dragged back down, portrait restored, or the
@@ -31,12 +31,11 @@ import com.fadcam.R;
  * the real preview height while inline and the leftover gap while promoted, so both
  * G6.3 and G6.4 funnel through the same promote/demote hysteresis with no special
  * cases. The whole {@code player_container} (player + canvas + every overlay child) is
- * reparented as one unit â€” all overlay math is container-relative and the existing
+ * reparented as one unit — all overlay math is container-relative and the existing
  * {@code reflowPreview()} size-change listener re-fits the canvas automatically. The
  * PlayerView uses a TextureView surface, which survives reparenting.</p>
  */
 public class PreviewPipController {
-    // Watcher nudge 2026-08-24: prior build log went stale mid-session; harmless marker.
     private static final String TAG = "PreviewPip";
 
     /** Promote when the inline slot falls below this height. */
@@ -53,7 +52,7 @@ public class PreviewPipController {
     /** H2: release the drag this close to a root edge and the shell docks to that edge. */
     private static final float DOCK_SNAP_DP = 56f;
 
-    /** Host hooks â€” all cheap, called on the main thread. */
+    /** Host hooks — all cheap, called on the main thread. */
     public interface Host {
         /** Canvas aspect (w/h), or <= 0 when unknown. */
         float canvasAspect();
@@ -89,7 +88,7 @@ public class PreviewPipController {
     private float lastPipTx = 0f;
     private float lastPipTy = 0f;
     /**
-     * H2 (SPEC_20260824_HORIZONTAL_REFLOW): which edge the shell is parked at â€”
+     * H2 (SPEC_20260824_HORIZONTAL_REFLOW): which edge the shell is parked at —
      * -1 left, 0 nowhere (free position), +1 right. Remembered across promote/demote
      * within the session: a re-promotion re-docks at that edge, vertically centred,
      * instead of restoring lastPipTx/lastPipTy (a docked spot is derived from CURRENT
@@ -97,7 +96,7 @@ public class PreviewPipController {
      */
     private int dockedEdge = 0;
     /** Gap size (px) at the last band auto-fill attempt. When a fill produced no layout
-     *  change (row content shorter than the cap â€” growing the cap can't grow the view),
+     *  change (row content shorter than the cap — growing the cap can't grow the view),
      *  the identical gap on the next pass skips the fill, breaking the layout loop. */
     private float lastFillGapPx = -1f;
 
@@ -126,23 +125,23 @@ public class PreviewPipController {
         float slot = prospectiveSlotPx();
         // UNKNOWN IS NOT ZERO. prospectiveSlotPx returns NaN before the column has been laid
         // out, and clamping to "current + 0" on that answer pins the band at exactly its
-        // present height â€” the timeline then refuses to grow and the grab bar feels dead,
+        // present height — the timeline then refuses to grow and the grab bar feels dead,
         // which is indistinguishable from it not being draggable at all. No measurement means
         // no ceiling; the next MOVE event will have one.
         //
         // BOTH READERS OF prospectiveSlotPx MUST AGREE ON THE SENTINEL. It used to be -1, and
         // this guard caught it via `slot < 0f`. When it became NaN, evaluate() was updated and
-        // THIS WAS NOT â€” and NaN fails `< 0f`, so an unmeasured root fell through to
+        // THIS WAS NOT — and NaN fails `< 0f`, so an unmeasured root fell through to
         // `currentBandDp + NaN` = NaN. The caller does Math.min(targetDp, thatNaN), and
         // Math.min returns NaN if EITHER argument is NaN, so the band cap became NaN and the
         // grab bar died. A rotation re-measures the root, which is why it presented as
-        // "landscape lost the PiP and the drawer won't reach fullscreen" â€” one stale sentinel
+        // "landscape lost the PiP and the drawer won't reach fullscreen" — one stale sentinel
         // check, both symptoms. If the sentinel ever changes again, grep every caller.
         if (Float.isNaN(slot) || slot < 0f) return Float.MAX_VALUE;
         return currentBandDp + slot / density;
     }
 
-    // â”€â”€ Core signal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Core signal ──────────────────────────────────────────────────
 
     /**
      * Height (px) the inline preview slot has (inline) or would have (promoted): the
@@ -153,7 +152,7 @@ public class PreviewPipController {
     /**
      * The height the inline preview WOULD get: the root minus every other visible child.
      *
-     * <p>Returns {@link Float#NaN} â€” not a negative number â€” when the root has not been measured
+     * <p>Returns {@link Float#NaN} — not a negative number — when the root has not been measured
      * yet. A NEGATIVE result is a real, meaningful answer: the column's other children already
      * overflow the root, so the preview has less than zero space. Landscape produces exactly
      * that, and it is the strongest possible case for promoting.</p>
@@ -166,7 +165,7 @@ public class PreviewPipController {
             View c = editorRoot.getChildAt(i);
             if (c == playerContainer || c.getVisibility() == View.GONE) continue;
             int h = c.getHeight();
-            if (h >= rootH) continue; // full-height overlay child â€” not part of the column budget
+            if (h >= rootH) continue; // full-height overlay child — not part of the column budget
             others += h;
             ViewGroup.LayoutParams lp = c.getLayoutParams();
             if (lp instanceof ViewGroup.MarginLayoutParams) {
@@ -181,7 +180,7 @@ public class PreviewPipController {
      * Re-run the promote/demote/fill decision after the grab bar is released.
      *
      * <p>Both places that absorb the freed preview slot into the timeline band are gated on
-     * {@code !host.isGrabBarDragging()} â€” promote()'s band-fill and evaluate()'s fill branch â€”
+     * {@code !host.isGrabBarDragging()} — promote()'s band-fill and evaluate()'s fill branch —
      * so a promotion that happens DURING a drag deliberately leaves the gap alone. Something
      * has to close it once the finger is up, and the layout listener cannot be relied on: if
      * the release lands far from a detent, snapTimelineBandToDetent changes nothing, no layout
@@ -222,7 +221,7 @@ public class PreviewPipController {
             } else if (promoted && slotDp > FILL_SLACK_DP && !host.isGrabBarDragging()
                     && Math.abs(slotPx - lastFillGapPx) > 1f) {
                 // Fill a leftover sub-demote gap so the timeline really is near-fullscreen
-                // (in-memory only â€” the grab bar owns persistence). Skipped when the last
+                // (in-memory only — the grab bar owns persistence). Skipped when the last
                 // fill left the gap unchanged (viewport already fits all rows).
                 lastFillGapPx = slotPx;
                 host.setBandDp(host.getBandDp() + slotDp);
@@ -232,7 +231,7 @@ public class PreviewPipController {
         }
     }
 
-    // â”€â”€ Promote / demote â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Promote / demote ─────────────────────────────────────────────
 
     private void promote(float slotDp) {
         if (promoted || pipShell != null) return;
@@ -260,7 +259,7 @@ public class PreviewPipController {
             shell.setOrientation(LinearLayout.VERTICAL);
             // Elevation 8dp: ABOVE all zero-elevation editor content, but BELOW the
             // transcript panel's 12dp (activity_faditor_editor.xml) so a docked PiP is a
-            // layout citizen â€” the transcript drawer slides OVER it, per spec H2. The
+            // layout citizen — the transcript drawer slides OVER it, per spec H2. The
             // shell also sits after editor_root in rootFrame, so equal-Z order alone would
             // already put it above the whole editor column; elevation only has to lose to
             // the one overlay that must win (the panel).
@@ -278,7 +277,7 @@ public class PreviewPipController {
             playerContainer.setScaleX(1f);
             playerContainer.setScaleY(1f);
             playerContainer.setTranslationY(0f);
-            // H1 (SPEC_20260824_HORIZONTAL_REFLOW): same for the horizontal axis â€” a stale
+            // H1 (SPEC_20260824_HORIZONTAL_REFLOW): same for the horizontal axis — a stale
             // transcript reflow shift must not ride into the popped-out shell.
             playerContainer.setTranslationX(0f);
             // The transcript panel and its reopen tab are CHILDREN of this container and
@@ -320,7 +319,7 @@ public class PreviewPipController {
             if (!host.isGrabBarDragging() && slotDp > FILL_SLACK_DP) {
                 host.setBandDp(host.getBandDp() + slotDp);
             }
-            FLog.i(TAG, "PROMOTED preview â†’ PiP (" + pipW + "x" + contentH + "px, slot was "
+            FLog.i(TAG, "PROMOTED preview → PiP (" + pipW + "x" + contentH + "px, slot was "
                     + (int) slotDp + "dp)");
         } finally {
             mutating = false;
@@ -347,13 +346,13 @@ public class PreviewPipController {
             playerContainer.setScaleX(1f);
             playerContainer.setScaleY(1f);
             playerContainer.setTranslationY(0f);
-            // H1: horizontal axis too â€” never inherit a stale shift into the inline slot.
+            // H1: horizontal axis too — never inherit a stale shift into the inline slot.
             playerContainer.setTranslationX(0f);
             resetTranscriptStation();
             editorRoot.addView(playerContainer, index, lp);
             promoted = false;
             lastFillGapPx = -1f;
-            FLog.i(TAG, "DEMOTED PiP â†’ inline preview (index " + index + ")");
+            FLog.i(TAG, "DEMOTED PiP → inline preview (index " + index + ")");
         } finally {
             mutating = false;
         }
@@ -361,12 +360,12 @@ public class PreviewPipController {
 
     /** Expand button: hand the preview a comfortable slot again; demotion follows on layout. */
     private void requestExpand() {
-        // Balanced detent â€” mirrors G6.2's middle snap point.
+        // Balanced detent — mirrors G6.2's middle snap point.
         host.setBandDp(140f);
         editorRoot.requestLayout();
     }
 
-    // â”€â”€ Chrome (drag handle + expand button) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Chrome (drag handle + expand button) ─────────────────────────
 
     @SuppressLint("ClickableViewAccessibility")
     @NonNull
@@ -390,7 +389,7 @@ public class PreviewPipController {
                     ctx, R.font.materialicons);
             if (icons != null) expand.setTypeface(icons);
         } catch (Exception ignored) {
-            expand.setText("â¤¢"); // glyph fallback if the icon font is unavailable
+            expand.setText("⤢"); // glyph fallback if the icon font is unavailable
         }
         expand.setTextColor(0xFFCCCCCC);
         expand.setTextSize(13);
@@ -429,7 +428,7 @@ public class PreviewPipController {
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         v.performClick();
-                        // H2: released near a left/right edge â†’ dock there, vertically
+                        // H2: released near a left/right edge → dock there, vertically
                         // centred. A mere TAP never re-docks: the default spawn spot sits
                         // inside the snap window, so an accidental tap would otherwise
                         // yank the PiP to the edge (audit 084b1bc5 #5).
@@ -459,7 +458,7 @@ public class PreviewPipController {
         shell.setTranslationY(Math.max(minTy, Math.min(maxTy, shell.getTranslationY())));
     }
 
-    // â”€â”€ H2 Â· PiP edge parking â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── H2 · PiP edge parking ────────────────────────────────────────
 
     /**
      * If the shell was released within {@link #DOCK_SNAP_DP} of the root's left or right
@@ -474,7 +473,7 @@ public class PreviewPipController {
     private int maybeDock(@NonNull View shell, boolean animate) {
         int rootW = rootFrame.getWidth();
         if (rootW <= 0 || shell.getWidth() <= 0) {
-            // Not measured yet â€” defer exactly like clampShellIntoRoot does.
+            // Not measured yet — defer exactly like clampShellIntoRoot does.
             final View s = shell;
             s.post(() -> { if (pipShell == s) dockedEdge = maybeDock(s, animate); });
             return dockedEdge;
@@ -529,4 +528,5 @@ public class PreviewPipController {
         View tab = playerContainer.findViewById(R.id.transcript_reopen_tab);
         if (tab != null) tab.setTranslationX(0f);
     }
-}
+}
+

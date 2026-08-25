@@ -102,6 +102,13 @@ public final class FxLivePreviewController {
          * line was not good enough. Already on the main thread, fired once per failing stack.
          */
         default void onFxShaderUnavailable(@NonNull String reason) { }
+
+        /**
+         * True while the crop EDITOR has the clip's own overlay up: the user must see the FULL
+         * frame there to drag a rectangle over it, so the chain suppresses the crop pass until
+         * editing ends. The export never sees this flag — it only ever shapes the live view.
+         */
+        default boolean suppressPreviewCrop() { return false; }
     }
 
     /**
@@ -286,13 +293,46 @@ public final class FxLivePreviewController {
         // runs on every playhead tick — asking twice is the same doubled cost partitionAroundVideo
         // already warns against, on the same per-frame path.
         List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages = glImageOverlays(timeline);
-        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()) {
+        // IMAGE OVERLAYS carrying an ACTIVE MASK but nothing else a shader needs. Export
+        // masks them on its canvas path (ImageOverlayDraw), so they are deliberately NOT in
+        // wantsGlExport() — but the PREVIEW's canvas is a plain ImageView, which clips
+        // nothing: a mask showed up only once the user ALSO picked a blend mode and pushed
+        // the image into GL. Routing them here (and hiding their views via onGlOwnedImages)
+        // makes the preview's mask real without touching the export gate — SPEC_20260825 §2.2.
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> maskedImages =
+                maskedImageOverlays(timeline);
+        // A project that CROPS any master clip routes too — and stays routed. Crop is a
+        // per-CLIP property, so deciding per tick would tear the decoder off its surface at
+        // every cropped/uncropped seam; per-project, an uncropped clip just passes through
+        // untouched. The crop itself is applied below from the PLAYHEAD clip.
+        boolean anyCrop = false;
+        for (Clip c : timeline.getClips()) {
+            if (!c.isImageClip() && c.effectiveCropFractions() != null) {
+                anyCrop = true;
+                break;
+            }
+        }
+        if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
+                && maskedImages.isEmpty() && !anyCrop) {
             stop();
             return;
         }
 
         if (view.getVisibility() != View.VISIBLE) view.setVisibility(View.VISIBLE);
         view.setGrade(g);
+
+        // THE CLIP CROP, from the PLAYHEAD clip — never the selection (getSelectedClip()
+        // falls back to clip 0 when nothing is selected and silently crops by the wrong
+        // clip). effectiveCropFractions() is the SAME model authority ExportManager builds
+        // its media3 Crop effect from (Clip.effectiveCropRectNdc), so scrubbing across clips
+        // with different crops re-crops this chain exactly as the export cuts between them.
+        // Image master clips are excluded because the export gates crop on isVideo.
+        Clip playheadClip = host.clipAtPlayhead();
+        float[] cropFractions =
+                playheadClip != null && !playheadClip.isImageClip() && !host.suppressPreviewCrop()
+                        ? playheadClip.effectiveCropFractions()
+                        : null;
+        view.setClipCrop(cropFractions);
 
         // An IMAGE master clip's pixels come from a bitmap, not the decoder. The chain then runs
         // at the PICTURE's size and with no rotation — matching export, whose rotate/flip stage is
@@ -368,6 +408,23 @@ public final class FxLivePreviewController {
         }
         List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
         int pipRungs = 0;
+        // The BELOW-bucket plain images must enter the chain BEFORE the PiPs: the export
+        // inserts its below-bucket overlay pass ahead of the PiP blend block
+        // (ExportManager.assembleClipVideoEffects), so a Screen-blend PiP composites AGAINST
+        // them. Left as sibling views — which sit underneath this GL surface — the blend had
+        // nothing under it and JoyRaptor saw "Screen" work over the spine but not over the images
+        // below (SPEC_20260825 §2.3). Above-bucket plain images stay appended after the walk,
+        // where the export's final canvas pass paints them.
+        java.util.Set<String> belowPlainImageIds = new java.util.HashSet<>();
+        for (LayerPreviewController.VisualItem v
+                : LayerPreviewController.partitionAroundVideo(timeline).get(0)) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
+            if (o != null && o.isImage() && !o.wantsGlExport()) belowPlainImageIds.add(o.getId());
+        }
+        java.util.Set<String> owned = new java.util.HashSet<>();
+        // Plain/masked image overlays whose lane sits ABOVE the PiP plane: appended after the
+        // walk, where the export's final canvas pass paints them.
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> deferredImages = new ArrayList<>();
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedCompositedItems(timeline)) {
             Clip vc = v.item.getClip();
@@ -384,7 +441,26 @@ public final class FxLivePreviewController {
                 continue;
             }
             AdjustmentLayer al = v.item.getAdjustment();
-            if (al == null) continue;
+            if (al == null) {
+                // A PLAIN image overlay (masked ones included) resolved to where its LANE
+                // puts it. Below the PiP plane it rides HERE — beneath every PiP rung still
+                // to come, exactly as the export's below-pass is; above it, after the walk.
+                // Its view is hidden through onGlOwnedImages once it actually rides the chain.
+                com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
+                if (o != null && o.isImage() && !o.wantsGlExport()) {
+                    if (belowPlainImageIds.contains(o.getId())
+                            || hasActiveMask(o)) {
+                        FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
+                        if (p != null) {
+                            rungs.add(FxPreviewTextureView.Rung.pip(p));
+                            owned.add(o.getId());
+                        }
+                    } else {
+                        deferredImages.add(o);
+                    }
+                }
+                continue;
+            }
             Integer idx = layerIndex.get(al);
             if (idx != null) rungs.add(FxPreviewTextureView.Rung.layer(idx));
         }
@@ -400,13 +476,22 @@ public final class FxLivePreviewController {
         // position is paint order, so a blended or effected image composites over the graded
         // frame. ImageBlendGlEffect states the same z caveat from the other side, and it is why
         // going through GL is opt-in rather than the path every image takes.
-        java.util.Set<String> owned = new java.util.HashSet<>();
+        java.util.Set<String> glOwned = new java.util.HashSet<>();
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) {
             FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
             if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
             rungs.add(FxPreviewTextureView.Rung.pip(p));
-            owned.add(o.getId());
+            glOwned.add(o.getId());
         }
+        // Then the above-bucket plain/masked images, after the effected ones — the order the
+        // export paints them in (ImageBlendGlEffects first, the canvas overlay pass last).
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : deferredImages) {
+            FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
+            if (p == null) continue;
+            rungs.add(FxPreviewTextureView.Rung.pip(p));
+            glOwned.add(o.getId());
+        }
+        owned.addAll(glOwned);
         // Told every tick, INCLUDING when the set is empty — see Host#onGlOwnedImages.
         host.onGlOwnedImages(owned);
 
@@ -443,6 +528,31 @@ public final class FxLivePreviewController {
                 : LayerPreviewController.orderedVisualItems(timeline)) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
             if (o != null && o.wantsGlExport()) out.add(o);
+        }
+        return out;
+    }
+
+    /** True when the item's CompositingSpec carries at least one mask shape. */
+    private static boolean hasActiveMask(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        com.fadcam.ui.faditor.model.CompositingSpec cs = o.getCompositing();
+        return cs != null && !cs.masks.isEmpty();
+    }
+
+    /**
+     * Every IMAGE overlay whose CompositingSpec carries masks but whose export path stays
+     * Canvas ({@code wantsGlExport()} false — see {@link #glImageOverlays} for why THAT gate
+     * must not grow to include masks).
+     */
+    @NonNull
+    private static List<com.fadcam.ui.faditor.model.TextOverlayItem> maskedImageOverlays(
+            @NonNull Timeline timeline) {
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> out = new ArrayList<>();
+        for (LayerPreviewController.VisualItem v
+                : LayerPreviewController.orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
+            if (o == null || !o.isImage() || o.wantsGlExport()) continue;
+            com.fadcam.ui.faditor.model.CompositingSpec cs = o.getCompositing();
+            if (cs != null && !cs.masks.isEmpty()) out.add(o);
         }
         return out;
     }

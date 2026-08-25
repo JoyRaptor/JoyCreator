@@ -404,8 +404,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * shifted LEFT to clear the open transcript drawer, and by implication how far the
      * drawer + reopen tab are counter-shifted RIGHT to hold station. 0 = no shift.
      * TRANSLATE ONLY — never scale; see {@link #reflowPreviewUnderDrawer(int)} for why.
+     *
+     * <p>Read back by {@link #reflowPreviewUnderDrawer(int)}: {@code View.animate()} hands
+     * out ONE shared {@code ViewPropertyAnimator} per view, so every writer must carry BOTH
+     * axes' current targets — an animation that names only its own axis CANCELS the other
+     * axis's in-flight tween at its mid-flight value (audit finding 084b1bc5 #1).</p>
      */
     private float transcriptReflowShiftX = 0f;
+    /** The vertical twin, for the same reason — H1's animator carries this as its Y target. */
+    private float drawerReflowShiftY = 0f;
     private boolean transitionPanelOpen = false;
     private View transitionPanel;
     /** The collapsible GL-transitions row + its "More effects" affordance label (pull-down to reveal). */
@@ -23631,7 +23638,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         // Identity scale, explicitly: a build that HAD scaled could otherwise leave the
         // container shrunk forever, since nothing else ever writes these.
-        container.animate().translationY(shift).scaleX(1f).scaleY(1f).setDuration(220)
+        // BOTH translation axes are named on every write: one shared ViewPropertyAnimator
+        // serves this view, so naming only Y would CANCEL an in-flight H1 transcript shift
+        // at its mid-flight value (audit 084b1bc5 #1).
+        drawerReflowShiftY = shift;
+        container.animate().translationY(shift).translationX(-transcriptReflowShiftX)
+                .scaleX(1f).scaleY(1f).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
         setTopBarHiddenForDrawer(drawerHeightPx > 0);
     }
@@ -27756,6 +27768,22 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptPanel = findViewById(R.id.transcript_panel);
         transcriptView = findViewById(R.id.transcript_view);
         transcriptReopenTab = findViewById(R.id.transcript_reopen_tab);
+        // H1 recovery: the shift is derived from geometry that can change UNDER an open
+        // panel — rotation (the activity self-handles config changes, so nothing re-runs
+        // showTranscriptPanel) and the very first layout when the panel was opened before
+        // player_container had been measured (transcriptDrawerShiftPx answered 0 then).
+        // Re-station instantly whenever the container's width changes while open. Skipped
+        // while promoted: inside the PiP shell the container's width is not pillarbox
+        // geometry (audit 084b1bc5 #2/#3/#4).
+        View reflowContainer = findViewById(R.id.player_container);
+        if (reflowContainer != null) {
+            reflowContainer.addOnLayoutChangeListener(
+                    (v, l, t, r, b, ol, ot, or2, ob2) -> {
+                        if (!transcriptPanelOpen) return;
+                        if (previewPip != null && previewPip.isPromoted()) return;
+                        if ((r - l) != (or2 - ol)) applyTranscriptReflow(false);
+                    });
+        }
         transcriptBreakBtn = findViewById(R.id.transcript_break);
         transcriptProgress = findViewById(R.id.transcript_progress);
         transcriptProgressText = findViewById(R.id.transcript_progress_text);
@@ -28111,16 +28139,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // The drawer's width just changed, so its half-width claim on the
                         // pillarbox slack changed with it (H1). Re-derive and re-station
                         // without animation — the finger already provided the motion.
-                        if (!transcriptPanelOpen) return true;
-                        View container1 = findViewById(R.id.player_container);
-                        float newShift = transcriptDrawerShiftPx();
-                        transcriptReflowShiftX = newShift;
-                        if (container1 != null) {
-                            container1.animate().translationX(-newShift)
-                                    .setDuration(0).start();
+                        // Skipped while promoted: player_container then lives inside the
+                        // PiP shell, so its width is NOT the pillarbox geometry (audit #4).
+                        if (transcriptPanelOpen
+                                && (previewPip == null || !previewPip.isPromoted())) {
+                            applyTranscriptReflow(false);
                         }
-                        transcriptPanel.setTranslationX(newShift);
-                        transcriptReopenTab.setTranslationX(newShift);
                         return true;
                 }
                 return false;
@@ -31744,6 +31768,40 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return Math.min(drawerW / 2f, slack);
     }
 
+    /**
+     * H1: apply (or clear) the transcript reflow — container to −shift, panel + reopen tab
+     * counter-shifted to hold station. One write-point so the open animation, the resize
+     * handle's re-station and the layout-change recovery all agree.
+     *
+     * <p>Both translation axes are named on the container's animator: {@code View.animate()}
+     * is ONE shared object per view, so naming only X would cancel an in-flight vertical
+     * drawer reflow at its mid-flight value (audit 084b1bc5 #1).</p>
+     *
+     * @param animate true for the 220ms slide matching the drawer; false for instant
+     *                re-stationing after a geometry change (resize handle, rotation).
+     */
+    private void applyTranscriptReflow(boolean animate) {
+        View container = findViewById(R.id.player_container);
+        if (container == null) return;
+        float shift = transcriptPanelOpen ? transcriptDrawerShiftPx() : 0f;
+        transcriptReflowShiftX = shift;
+        android.view.animation.Interpolator decel =
+                new android.view.animation.DecelerateInterpolator();
+        if (animate) {
+            container.animate().translationX(-shift).translationY(drawerReflowShiftY)
+                    .scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(decel).start();
+        } else {
+            container.animate().cancel();
+            container.setTranslationX(-shift);
+            // Keep the vertical writer's last target — not the view's possibly mid-flight value.
+            container.setTranslationY(drawerReflowShiftY);
+        }
+        if (transcriptPanelOpen) {
+            transcriptPanel.setTranslationX(shift);
+            transcriptReopenTab.setTranslationX(shift);
+        }
+    }
+
     private void showTranscriptPanel(boolean show) {
         if (transcriptPanel == null) return;
         ViewGroup.LayoutParams lp = transcriptPanel.getLayoutParams();
@@ -31764,29 +31822,25 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // own translationX IS its open/close slide property, the counter-shift is folded
         // INTO the slide endpoints: station = layout + shift, off-screen = layout + screenW.
         // TRANSLATE ONLY — never scale (§0 of the spec).
-        View container = findViewById(R.id.player_container);
-        float shift = show ? transcriptDrawerShiftPx() : 0f;
-        android.view.animation.Interpolator decel =
-                new android.view.animation.DecelerateInterpolator();
-        if (container != null) {
-            transcriptReflowShiftX = shift;
-            container.animate().translationX(-shift).scaleX(1f).scaleY(1f)
-                    .setDuration(220).setInterpolator(decel).start();
-        }
         if (show) {
+            // Flag first: applyTranscriptReflow derives the shift only while "open".
+            transcriptPanelOpen = true;
+            applyTranscriptReflow(true);
             transcriptPanel.setVisibility(View.VISIBLE);
-            transcriptPanel.setTranslationX(transcriptPanelOpen ? shift : screenW);
+            transcriptPanel.setTranslationX(screenW);
             transcriptPanel.animate()
-                    .translationX(shift)
+                    .translationX(transcriptReflowShiftX)
                     .setDuration(220)
-                    .setInterpolator(decel)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
                     .start();
             transcriptReopenTab.setVisibility(View.GONE);
-            transcriptReopenTab.setTranslationX(shift);
-            transcriptPanelOpen = true;
+            transcriptReopenTab.setTranslationX(transcriptReflowShiftX);
             updateTranscriptBreakButton();
         } else {
             transcriptPanelOpen = false;
+            // The picture returns to centre while the drawer slides out; both axes named
+            // (see applyTranscriptReflow) so neither cancels the other's tween.
+            applyTranscriptReflow(true);
             transcriptPanel.animate()
                     .translationX(screenW)
                     .setDuration(180)

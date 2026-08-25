@@ -95,3 +95,17 @@ All five probes built and PROVEN against deliberately broken inputs this session
 python export/run_negctl_suite.py -> SUITE PASS, exit 0.
 Device fixtures generated to export/fixtures/ via export/make_fixtures.py.
 NOT touched: layers/, tools/, faditor/audio/fx/, faditor/compositor (read-only reference).
+
+### REVIEW — overnight 2026-08-24 (HORIZONTAL_REFLOW + file-proofs)
+- H1+H2 landed: 084b1bc5, audit fixes 584904f9 (+23e47cda marker). TRANSLATE-only per spec §0.
+- Round-1 adversarial audit (subagent) found 1 BUG (shared ViewPropertyAnimator cross-axis
+  cancel) + 4 RISKs; all fixed in 584904f9. Round-2 audit done inline (subagents rate-limited):
+  all vectors OK — ObjectDrawer.hide() reports 0 synchronously so drawerReflowShiftY can't
+  stale; init order safe via null-guard; elevation map verified (panel 12dp > shell 8dp).
+- C9 file-proof probe d1f0090d; negctl suite SUITE PASS (6 probes); spec index c9d8e8af.
+- Split rulings earlier: ff793784.
+- BLOCKED, needs JoyRaptor: (1) watcher died 22:36 — build.log stale, no BUILD SUCCESSFUL for the
+  final state (typecheck.sh javac green on final state; no gradle run per LANES rule 6);
+  (2) adb shows no device — fresh APK install + drag-class verifications (grab bar, PiP drag/
+  dock feel, transcript open/close visual) must be hand-run; one-gesture instructions are in
+  SPEC_20260824_HORIZONTAL_REFLOW.md §1 verify + §4 checklist.

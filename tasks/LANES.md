@@ -362,9 +362,12 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-24 — SPEC Pass One S1–S4 landed 35599adf, BUILD SUCCESSFUL 17:21.
-        S5 STOPPED per spec stop-rule: getSelectedClip() has ~120 call sites in
-        FaditorEditorActivity alone — caller list reported to user, not fixed.)
+status: IDLE (2026-08-24 overnight — HORIZONTAL_REFLOW landed: H1 transcript reflow
+        084b1bc5 + audit fixes 584904f9 (shared-animator both-axes carry, rotation/
+        first-layout re-station, tap-no-dock, elevation 8dp under panel); C9 file-proof
+        d1f0090d; spec instrument index c9d8e8af. TYPECHECK OK 655 sources. BLOCKED FOR
+        JOYRAPTOR: watcher died 22:36 (build.log stale; no gradle run per rule 6) and adb
+        shows NO device — fresh APK + drag-class/drawer verifications owed.)
 files: (none)
 since: 2026-08-24
 

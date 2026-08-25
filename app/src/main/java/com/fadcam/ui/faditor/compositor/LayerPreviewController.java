@@ -72,7 +72,29 @@ public final class LayerPreviewController {
         // Per-item zHint is deliberately NOT consulted: TimedItem views are rebuilt with
         // default zHint=0 on every getLayers() call (M5 ephemeral-views note), so within a
         // lane, insertion order IS the z order today.
-        lanes.sort(java.util.Comparator.comparingInt(Track::getZIndex));
+        //
+        // BAND POSITION IS THE TIE-BREAK, AND IT RUNS BACKWARDS. The editor draws the band
+        // top-down straight from getLayers() (FaditorEditorActivity builds layerBand as an
+        // unsorted copy), so band index 0 is the TOP row. moveTrackZ states the contract for
+        // that: "zIndex = (n-1-i) so the top row carries the highest z" — top row paints LAST.
+        //
+        // Explicit reorders satisfy it. The DEFAULT case did not, and the default case is
+        // almost every project: TrackFlags are pruned when they hold defaults, so a project
+        // that never had a lane moved by hand stores no zIndex at all — verified on JoyRaptor's
+        // main project, whose trackFlags map is empty. Every lane then answers 0, a plain
+        // stable sort is a no-op, and the lanes paint in emission order: band index 0 painted
+        // FIRST, i.e. at the BOTTOM. Exactly inverted from the row order the user is looking
+        // at, which is what he reported: "the top one is showing above in the timeline, and
+        // yet it is being covered in the preview".
+        //
+        // Tie-breaking on DESCENDING band index restores the contract for equal-z lanes (last
+        // row paints first, top row paints last) and cannot disturb explicitly-ordered lanes,
+        // where the zIndex comparison decides before the tie-break is ever consulted.
+        final java.util.Map<String, Integer> bandPos = new java.util.HashMap<>();
+        for (int i = 0; i < lanes.size(); i++) bandPos.put(lanes.get(i).getId(), i);
+        lanes.sort(java.util.Comparator
+                .comparingInt(Track::getZIndex)
+                .thenComparing(t -> -bandPos.getOrDefault(((Track) t).getId(), 0)));
         List<VisualItem> out = new ArrayList<>();
         for (Track lane : lanes) {
             if (lane.isHidden()) continue; // mirrored on export — these methods are shared

@@ -224,6 +224,42 @@ public class FxPreviewTextureView extends TextureView
             .replace("vec2 s = (uPipTexMatrix * vec4(uv, 0.0, 1.0)).xy;",
                      "vec2 s = vec2(uv.x, 1.0 - uv.y);");
 
+    /**
+     * The CLIP CROP pass: keep only {@code uCropSrc}'s sub-rectangle of the staged frame and
+     * fit-centre it into this target, transparent outside.
+     *
+     * <p><b>Fit-centred, not stretched, and that is not a style choice.</b> media3's
+     * {@code Crop} is a MatrixTransformation whose {@code configure} returns a Size scaled by
+     * the crop fractions — the exported frame IS the crop region at its own aspect, which the
+     * trailing {@code Presentation(LAYOUT_SCALE_TO_FIT)} then letterboxes onto the canvas
+     * (bytecode-verified against media3-effect 1.8.0, 2026-08-25). Reproducing the stretch
+     * instead would distort exactly the crops whose aspect differs from the source — most of
+     * them, given the preset table.</p>
+     *
+     * <p>{@code uCropSrc}/{@code uCropDst} are rects as x0,y0,w,h in bottom-up uv space,
+     * precomputed per frame on the caller side so the shader stays one comparison and one mix.
+     * Runs BEFORE the grade — the export chain orders rotate → crop → grade, and grading the
+     * letterbox bars black-on-grade would tint them.</p>
+     */
+    private static final String CROP_FRAGMENT =
+            "#version 100\n"
+            + "precision mediump float;\n"
+            + "varying vec2 vFxUv;\n"
+            + "uniform sampler2D uTexSampler;\n"
+            + "uniform vec4 uCropSrc;\n"
+            + "uniform vec4 uCropDst;\n"
+            + "void main() {\n"
+            + "  if (vFxUv.x < uCropDst.x || vFxUv.x > uCropDst.x + uCropDst.z\n"
+            + "      || vFxUv.y < uCropDst.y || vFxUv.y > uCropDst.y + uCropDst.w) {\n"
+            + "    gl_FragColor = vec4(0.0);\n"
+            + "    return;\n"
+            + "  }\n"
+            + "  float sx = clamp((vFxUv.x - uCropDst.x) / max(uCropDst.z, 0.0001), 0.0, 1.0);\n"
+            + "  float sy = clamp((vFxUv.y - uCropDst.y) / max(uCropDst.w, 0.0001), 0.0, 1.0);\n"
+            + "  gl_FragColor = texture2D(uTexSampler,\n"
+            + "      vec2(uCropSrc.x + sx * uCropSrc.z, uCropSrc.y + sy * uCropSrc.w));\n"
+            + "}\n";
+
     /** Full-frame quad in clip space — the same bounds media3 feeds {@code aFramePosition}. */
     private static final float[] QUAD = {
             -1f, -1f, 0f, 1f,
@@ -612,6 +648,13 @@ public class FxPreviewTextureView extends TextureView
     /** The clip grade, or null when the clip under the playhead has none. */
     @Nullable private volatile Grade grade;
     /**
+     * The CLIP CROP under the playhead, as fractions {@code {left, top, right, bottom}} with a
+     * TOP-LEFT origin — the exact array {@code Clip.effectiveCropFractions()} returns — or null
+     * when the playhead's clip is uncropped (or crop display is suppressed, e.g. inside the
+     * crop editor). Applied between staging and grading, which is the export chain's order.
+     */
+    @Nullable private volatile float[] clipCrop;
+    /**
      * The BASE frame as a bitmap — an image master clip — or null to stage the decoder instead.
      *
      * <p>Not owned here. The publisher must never recycle a bitmap it has handed over; retire it
@@ -651,7 +694,7 @@ public class FxPreviewTextureView extends TextureView
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
-    private int stageProgram, presentProgram, gradeProgram;
+    private int stageProgram, presentProgram, gradeProgram, cropProgram;
     /** @see #STAGE_STILL_FRAGMENT — the bitmap-base variant of {@link #stageProgram}. */
     private int stageStillProgram;
     /** The 2D texture holding {@link #baseStill}, and which bitmap it currently holds. */
@@ -817,6 +860,25 @@ public class FxPreviewTextureView extends TextureView
     }
 
     /**
+     * The crop the chain must apply to the base frame, or null for none.
+     *
+     * <p>Pushed EVERY tick by {@code FxLivePreviewController} from
+     * {@code Clip.effectiveCropFractions()} — the same per-clip decision
+     * {@code ExportManager} builds its {@code Crop} effect from, so scrubbing across clips
+     * with different crops re-crops this chain exactly as the export cuts between them.
+     * Fractions are copied on arrival: the caller's array is resolved once per sync and must
+     * not alias GL-thread state.</p>
+     */
+    public void setClipCrop(@Nullable float[] ltrb) {
+        boolean same = (ltrb == null && clipCrop == null)
+                || (ltrb != null && clipCrop != null
+                    && java.util.Arrays.equals(ltrb, clipCrop));
+        if (same) return;
+        clipCrop = ltrb == null ? null : java.util.Arrays.copyOf(ltrb, ltrb.length);
+        requestFrame();
+    }
+
+    /**
      * Stage {@code b} as the base frame instead of the decoder, or null to go back to the decoder.
      *
      * <p>This is what lets an IMAGE master clip be graded: there is no decoder callback behind a
@@ -950,6 +1012,7 @@ public class FxPreviewTextureView extends TextureView
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
+            cropProgram = buildProgram(FxGlSource.VERTEX_SHADER, CROP_FRAGMENT);
             // The PiP programs are compiled lazily by pipProgramFor, because their source
             // depends on each object's effect stack. Any ids cached from a previous surface
             // belong to a destroyed context — clearing the maps is not optional.
@@ -1060,6 +1123,16 @@ public class FxPreviewTextureView extends TextureView
             drawStage(vw, vh);
             int cur = 0;
 
+            // 1b — the CLIP CROP, BEFORE the grade — the export chain's order
+            //     (rotate → crop → grade). Fit-centred with transparent bars, matching what
+            //     media3's Crop plus the trailing SCALE_TO_FIT Presentation actually write:
+            //     see CROP_FRAGMENT. A failed pass leaves the frame uncropped rather than
+            //     half-cropped; the setter's null restores full frame on the next sync tick.
+            float[] cropRect = clipCrop;
+            if (!degraded && cropRect != null && cropRect.length == 4) {
+                cur = drawCrop(cropRect, cur, vw, vh);
+            }
+
             // 2 — the CLIP grade, before any composited item, exactly as the export chain
             //     orders them (ExportManager:2560 against the PiP block at :2714).
             Grade g = grade;
@@ -1166,9 +1239,50 @@ public class FxPreviewTextureView extends TextureView
         return true;
     }
 
-    /** The clip colour grade: {@code src} → {@code dst}, one pass, media3's own math. */
-    private void drawGrade(@NonNull Grade g, int src, int dst, int vw, int vh) {
+    /**
+     * The clip-crop pass: {@code src} → the other slot, fit-centring the crop region and
+     * clearing the rest to transparent. Returns the slot holding the result — or {@code src}
+     * unchanged when the rect is degenerate, so a bad crop can never blank the preview.
+     */
+    private int drawCrop(@NonNull float[] c, int src, int vw, int vh) {
+        float cw = c[2] - c[0];
+        float ch = c[3] - c[1];
+        if (cw <= 0.001f || ch <= 0.001f || cw > 1f || ch > 1f) return src;
+        // Fit-centre the crop region into this target: media3's Crop emits frames AT THE
+        // CROP'S OWN ASPECT (configure scales the Size by the crop fractions), and the
+        // export's trailing SCALE_TO_FIT Presentation letterboxes that onto the canvas.
+        float contentAspect = (cw * vw) / (ch * vh);
+        float frameAspect = (float) vw / (float) vh;
+        float dw, dh;
+        if (contentAspect >= frameAspect) {
+            dw = 1f;
+            dh = frameAspect / contentAspect;
+        } else {
+            dh = 1f;
+            dw = contentAspect / frameAspect;
+        }
+        int dst = src == 0 ? 1 : 0;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        // The bars must be TRANSPARENT, not stale pixels from whatever last used this FBO —
+        // the view is non-opaque so the canvas backdrop shows through them, exactly as the
+        // exported file's letterbox sits on the player's surface.
+        GLES20.glClearColor(0f, 0f, 0f, 0f);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(cropProgram);
+        bindQuad(cropProgram);
+        setSampler(cropProgram, "uTexSampler", targets[src][0], 0, true);
+        // uv is bottom-up; the fractions are top-down, so the source window flips y.
+        setFn(cropProgram, "uCropSrc",
+                new float[]{c[0], 1f - c[3], cw, ch}, 4);
+        setFn(cropProgram, "uCropDst",
+                new float[]{(1f - dw) / 2f, (1f - dh) / 2f, dw, dh}, 4);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return dst;
+    }
+
+    /** The clip colour grade: {@code src} → {@code dst}, one pass, media3's own math. */
+    private void drawGrade(@NonNull Grade g, int src, int dst, int vw, int vh) {        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
         GLES20.glViewport(0, 0, vw, vh);
         GLES20.glUseProgram(gradeProgram);
         bindQuad(gradeProgram);

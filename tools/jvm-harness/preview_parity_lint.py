@@ -69,6 +69,26 @@ CLIP_PROPERTIES = [
     "getOverlayBlendMode", "getCompositing",
 ]
 
+# TextOverlayItem routing — the GL path decision. 3A.1 showed the lint passed while
+# hasExportMask was invisible on the preview side and below-blend plain images were
+# stranded on Canvas; export had the predicates, preview had no reader.
+TEXT_OVERLAY_ROUTING_PROPS = [
+    "hasExportMask", "wantsGlExport", "wantsExportBlend", "hasExportFx", "hasExportKey",
+]
+TEXT_OVERLAY_EXPORT_DIR = "com/fadcam/ui/faditor/export"
+TEXT_OVERLAY_PREVIEW_FILES = PREVIEW_FILES  # same preview files + model
+
+REQUIRED_ROUTING_CALLSITES = {
+    "TextOverlayItem.hasExportMask in wantsGlExport": (
+        "app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java",
+        ["hasExportMask", "wantsGlExport"],
+    ),
+    "FxLivePreviewController promotes plain images below a blend": (
+        "app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java",
+        ["plainImagesBelowBlend", "belowBlendIds"],
+    ),
+}
+
 # property -> why the preview legitimately does not render it. Name the row that will,
 # or why it never will.
 EXPECTED = {}
@@ -101,34 +121,76 @@ def strip_crop_wiring(text):
     return "".join(kept)
 
 
+def strip_routing_wiring_preview(text):
+    kept = []
+    for line in text.splitlines(True):
+        if "plainImagesBelowBlend" in line or "belowBlendIds" in line:
+            continue
+        kept.append(line)
+    return "".join(kept)
+
+
+def strip_routing_wiring_model(text):
+    kept = []
+    for line in text.splitlines(True):
+        if "hasExportMask" in line:
+            continue
+        kept.append(line)
+    return "".join(kept)
+
+
 def run_check(sources):
-    export_props = set()
+    export_clip_props = set()
+    export_routing_props = set()
     export_dir_abs = os.path.join(SRC, EXPORT_DIR)
     for name in sorted(os.listdir(export_dir_abs)):
         if name.endswith(".java"):
             t = sources[norm(os.path.join(export_dir_abs, name))]
             for prop in CLIP_PROPERTIES:
                 if re.search(r"\b" + prop + r"\b", t):
-                    export_props.add(prop)
+                    export_clip_props.add(prop)
+            for prop in TEXT_OVERLAY_ROUTING_PROPS:
+                if re.search(r"\b" + prop + r"\b", t):
+                    export_routing_props.add(prop)
 
     preview_text = "".join(
         sources[norm(os.path.join(SRC, f))] for f in PREVIEW_FILES
         if norm(os.path.join(SRC, f)) in sources)
     builder_text = sources.get(norm(os.path.join(SRC, SHARED_BUILDER_FILE)), "")
+    text_overlay_builder = sources.get(
+        norm(os.path.join(SRC, "com/fadcam/ui/faditor/model/TextOverlayItem.java")), "")
 
     gaps = []
     checked = 0
-    for prop in sorted(export_props):
+    for prop in sorted(export_clip_props):
         if prop in EXPECTED:
             continue
         checked += 1
         covered = (re.search(r"\b" + prop + r"\b", preview_text) is not None
-                   or re.search(r"\b" + prop + r"\b", builder_text) is not None)
+                   or re.search(r"\b" + prop + r"\b", builder_text) is not None
+                   or re.search(r"\b" + prop + r"\b", text_overlay_builder) is not None)
         if not covered:
             gaps.append(prop)
+    for prop in sorted(export_routing_props):
+        if prop in EXPECTED:
+            continue
+        checked += 1
+        # Routing to GL must be read by a preview renderer, not just the shared builder.
+        covered = re.search(r"\b" + prop + r"\b", preview_text) is not None
+        if not covered:
+            gaps.append(prop + " (routing: preview must read it, not just the model)")
 
     wiring_failures = []
     for label, (rel, needles) in sorted(REQUIRED_CALLSITES.items()):
+        t = sources.get(norm(rel))
+        if t is None:
+            wiring_failures.append("%s: file missing (%s)" % (label, rel))
+            continue
+        for needle in needles:
+            if needle not in t:
+                wiring_failures.append("%s: '%s' no longer called in %s"
+                                       % (label, needle, os.path.basename(rel)))
+    for label, (rel, needles) in sorted(REQUIRED_ROUTING_CALLSITES.items()):
         t = sources.get(norm(rel))
         if t is None:
             wiring_failures.append("%s: file missing (%s)" % (label, rel))
@@ -153,11 +215,17 @@ def main():
                                                     errors="replace").read())
 
     if negctl:
+        # Two independent negative controls: crop wiring and routing wiring. Either must
+        # trip for the probe to prove it can fail; we strip BOTH and require at least one.
         ctl_path = norm(os.path.join(SRC, PREVIEW_FILES[0]))
+        model_path = norm(os.path.join(SRC, "com/fadcam/ui/faditor/model/TextOverlayItem.java"))
         sources[ctl_path] = strip_crop_wiring(sources[ctl_path])
+        sources[ctl_path] = strip_routing_wiring_preview(sources[ctl_path])
+        if model_path in sources:
+            sources[model_path] = strip_routing_wiring_model(sources[model_path])
         checked, gaps, wiring = run_check(sources)
         failed = bool(gaps or wiring)
-        print("NEGCTL: stripped the controller's crop wiring; %d props checked, "
+        print("NEGCTL: stripped crop+routing wiring; %d props checked, "
               "%d gap(s), %d wiring failure(s)" % (checked, len(gaps), len(wiring)))
         for g in gaps:
             print("  (expected gap) %s affects export, not preview" % g)

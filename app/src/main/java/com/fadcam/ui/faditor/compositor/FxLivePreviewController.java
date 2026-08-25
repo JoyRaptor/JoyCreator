@@ -293,14 +293,21 @@ public final class FxLivePreviewController {
         // runs on every playhead tick — asking twice is the same doubled cost partitionAroundVideo
         // already warns against, on the same per-frame path.
         List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages = glImageOverlays(timeline);
-        // IMAGE OVERLAYS carrying an ACTIVE MASK but nothing else a shader needs. Export
-        // masks them on its canvas path (ImageOverlayDraw), so they are deliberately NOT in
-        // wantsGlExport() — but the PREVIEW's canvas is a plain ImageView, which clips
-        // nothing: a mask showed up only once the user ALSO picked a blend mode and pushed
-        // the image into GL. Routing them here (and hiding their views via onGlOwnedImages)
-        // makes the preview's mask real without touching the export gate — SPEC_20260825 §2.2.
+        // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
+        // glImages. This second list is kept for the pre-3A.1 path where masks were NOT in the
+        // gate and were stranded on Canvas; it is now empty for new code but the routing
+        // check stays so a build against an old TextOverlayItem still routes.
         List<com.fadcam.ui.faditor.model.TextOverlayItem> maskedImages =
                 maskedImageOverlays(timeline);
+        // IMAGES that must join GL not for their own sake but because a BLEND ABOVE needs to
+        // composite against them. A plain NORMAL image below a SCREEN image is stranded on
+        // Canvas while the blend above lives in GL — the blend then composites against the
+        // video instead of the image below (spec §3A.2). This promotes every plain image
+        // whose z is below any blending GL image's z, regardless of its own blend/mask/fx.
+        // Text and sprites need the same but have no preview rasterizer (see buildPlan's
+        // gap note); this general solution is image-only, the gap is named explicitly.
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> belowBlendImages =
+                plainImagesBelowBlend(timeline, glImages);
         // A project that CROPS any master clip routes too — and stays routed. Crop is a
         // per-CLIP property, so deciding per tick would tear the decoder off its surface at
         // every cropped/uncropped seam; per-project, an uncropped clip just passes through
@@ -313,7 +320,7 @@ public final class FxLivePreviewController {
             }
         }
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
-                && maskedImages.isEmpty() && !anyCrop) {
+                && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyCrop) {
             stop();
             return;
         }
@@ -421,6 +428,15 @@ public final class FxLivePreviewController {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
             if (o != null && o.isImage() && !o.wantsGlExport()) belowPlainImageIds.add(o.getId());
         }
+        // Plain images that must composite in GL because a blending image above needs a GL
+        // background — see plainImagesBelowBlend. This is the general fix for §3A.2: the
+        // question is not "do I want GL for myself?" but "does something above me need me
+        // in GL to composite against?". Images are handled here; text/sprites remain on
+        // Canvas and are documented as a gap (no preview rasterizer, see report).
+        java.util.Set<String> belowBlendIds = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem b : plainImagesBelowBlend(timeline, glImages)) {
+            belowBlendIds.add(b.getId());
+        }
         java.util.Set<String> owned = new java.util.HashSet<>();
         // Plain/masked image overlays whose lane sits ABOVE the PiP plane: appended after the
         // walk, where the export's final canvas pass paints them.
@@ -449,6 +465,7 @@ public final class FxLivePreviewController {
                 com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
                 if (o != null && o.isImage() && !o.wantsGlExport()) {
                     if (belowPlainImageIds.contains(o.getId())
+                            || belowBlendIds.contains(o.getId())
                             || hasActiveMask(o)) {
                         FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
                         if (p != null) {
@@ -553,6 +570,46 @@ public final class FxLivePreviewController {
             if (o == null || !o.isImage() || o.wantsGlExport()) continue;
             com.fadcam.ui.faditor.model.CompositingSpec cs = o.getCompositing();
             if (cs != null && !cs.masks.isEmpty()) out.add(o);
+        }
+        return out;
+    }
+
+    /**
+     * Every plain (NORMAL, unmasked, no-FX, no-key) IMAGE that sits below a blending
+     * GL image in z. Those plain images are stranded on Canvas while the blend above
+     * lives in GL, so the blend composites against video instead of the image below
+     * (§3A.2). The fix is to promote them to GL at their lane z, exactly where export's
+     * below-pass composites them. Text/sprites need the same promotion but have no
+     * preview rasterizer — that gap is named explicitly in buildPlan and in the report,
+     * not hidden by special-casing images only.
+     */
+    @NonNull
+    private static List<com.fadcam.ui.faditor.model.TextOverlayItem> plainImagesBelowBlend(
+            @NonNull Timeline timeline,
+            @NonNull List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages) {
+        if (glImages.isEmpty()) return java.util.Collections.emptyList();
+        // Highest z among blending images — any plain below this is below at least one blend.
+        List<LayerPreviewController.VisualItem> ordered =
+                LayerPreviewController.orderedVisualItems(timeline);
+        java.util.Map<String, Integer> idxById = new java.util.HashMap<>();
+        for (int i = 0; i < ordered.size(); i++) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o =
+                    ordered.get(i).item.getTextOverlay();
+            if (o != null && o.isImage()) idxById.put(o.getId(), i);
+        }
+        int maxBlendIdx = -1;
+        for (com.fadcam.ui.faditor.model.TextOverlayItem g : glImages) {
+            if (!g.wantsExportBlend()) continue;
+            Integer idx = idxById.get(g.getId());
+            if (idx != null && idx > maxBlendIdx) maxBlendIdx = idx;
+        }
+        if (maxBlendIdx <= 0) return java.util.Collections.emptyList();
+        List<com.fadcam.ui.faditor.model.TextOverlayItem> out = new ArrayList<>();
+        for (int i = 0; i < maxBlendIdx; i++) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o =
+                    ordered.get(i).item.getTextOverlay();
+            if (o == null || !o.isImage() || o.wantsGlExport()) continue;
+            out.add(o);
         }
         return out;
     }

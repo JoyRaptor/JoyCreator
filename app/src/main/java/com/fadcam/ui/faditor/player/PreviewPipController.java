@@ -50,6 +50,8 @@ public class PreviewPipController {
     /** PiP content height cap as a fraction of the root height (portrait canvases). */
     private static final float PIP_MAX_HEIGHT_FRACTION = 0.40f;
     private static final float CHROME_HEIGHT_DP = 22f;
+    /** H2: release the drag this close to a root edge and the shell docks to that edge. */
+    private static final float DOCK_SNAP_DP = 56f;
 
     /** Host hooks — all cheap, called on the main thread. */
     public interface Host {
@@ -86,6 +88,14 @@ public class PreviewPipController {
     // Remembered PiP translation so re-promotions keep the user's spot.
     private float lastPipTx = 0f;
     private float lastPipTy = 0f;
+    /**
+     * H2 (SPEC_20260824_HORIZONTAL_REFLOW): which edge the shell is parked at —
+     * -1 left, 0 nowhere (free position), +1 right. Remembered across promote/demote
+     * within the session: a re-promotion re-docks at that edge, vertically centred,
+     * instead of restoring lastPipTx/lastPipTy (a docked spot is derived from CURRENT
+     * geometry; a remembered translation is only right for the geometry it was made in).
+     */
+    private int dockedEdge = 0;
     /** Gap size (px) at the last band auto-fill attempt. When a fill produced no layout
      *  change (row content shorter than the cap — growing the cap can't grow the view),
      *  the identical gap on the next pass skips the fill, breaking the layout loop. */
@@ -262,6 +272,14 @@ public class PreviewPipController {
             playerContainer.setScaleX(1f);
             playerContainer.setScaleY(1f);
             playerContainer.setTranslationY(0f);
+            // H1 (SPEC_20260824_HORIZONTAL_REFLOW): same for the horizontal axis — a stale
+            // transcript reflow shift must not ride into the popped-out shell.
+            playerContainer.setTranslationX(0f);
+            // The transcript panel and its reopen tab are CHILDREN of this container and
+            // hold station against the shift with their own +shift translation; that offset
+            // meant something under the old parent, so zero it too or the open drawer lands
+            // shifted inside its new shell.
+            resetTranscriptStation();
             shell.addView(playerContainer, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, contentH));
 
@@ -272,8 +290,16 @@ public class PreviewPipController {
             // Keep the PiP UNDER the drawers/overlays declared after editor_root in the
             // XML: inserting right after editor_root preserves their stacking.
             rootFrame.addView(shell, rootFrame.indexOfChild(editorRoot) + 1, shellLp);
-            shell.setTranslationX(lastPipTx);
-            shell.setTranslationY(lastPipTy);
+            if (dockedEdge != 0) {
+                // H2: re-dock at the remembered edge rather than restoring a translation
+                // that was computed against the previous promotion's geometry.
+                shell.post(() -> {
+                    if (pipShell == shell) dockTo(shell, dockedEdge, false);
+                });
+            } else {
+                shell.setTranslationX(lastPipTx);
+                shell.setTranslationY(lastPipTy);
+            }
             clampShellIntoRoot(shell);
 
             pipShell = shell;
@@ -310,6 +336,9 @@ public class PreviewPipController {
             playerContainer.setScaleX(1f);
             playerContainer.setScaleY(1f);
             playerContainer.setTranslationY(0f);
+            // H1: horizontal axis too — never inherit a stale shift into the inline slot.
+            playerContainer.setTranslationX(0f);
+            resetTranscriptStation();
             editorRoot.addView(playerContainer, index, lp);
             promoted = false;
             lastFillGapPx = -1f;
@@ -384,6 +413,9 @@ public class PreviewPipController {
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         v.performClick();
+                        // H2: released near a left/right edge → dock there, vertically
+                        // centred. Otherwise the shell stays wherever the finger left it.
+                        dockedEdge = maybeDock(shell, true);
                         return true;
                 }
                 return false;
@@ -404,5 +436,76 @@ public class PreviewPipController {
         float maxTy = rootFrame.getHeight() - shell.getHeight() - shell.getTop();
         shell.setTranslationX(Math.max(minTx, Math.min(maxTx, shell.getTranslationX())));
         shell.setTranslationY(Math.max(minTy, Math.min(maxTy, shell.getTranslationY())));
+    }
+
+    // ── H2 · PiP edge parking ────────────────────────────────────────
+
+    /**
+     * If the shell was released within {@link #DOCK_SNAP_DP} of the root's left or right
+     * edge, park it flush at THAT edge, vertically centred, and return the edge (-1/+1).
+     * Otherwise leave it alone and return 0. When both edges qualify (a shell wider than
+     * the snap window can straddle), the nearer edge wins.
+     *
+     * @param animate true for the release snap (150ms decelerate); false when re-applying
+     *                a remembered dock on re-promotion, where the position should simply
+     *                be correct at first layout.
+     */
+    private int maybeDock(@NonNull View shell, boolean animate) {
+        int rootW = rootFrame.getWidth();
+        if (rootW <= 0 || shell.getWidth() <= 0) {
+            // Not measured yet — defer exactly like clampShellIntoRoot does.
+            final View s = shell;
+            s.post(() -> { if (pipShell == s) dockedEdge = maybeDock(s, animate); });
+            return dockedEdge;
+        }
+        float snapPx = DOCK_SNAP_DP * density;
+        float screenLeft = shell.getLeft() + shell.getTranslationX();
+        float distL = screenLeft;
+        float distR = rootW - (screenLeft + shell.getWidth());
+        if (distL > snapPx && distR > snapPx) return 0;
+        int edge = distL <= distR ? -1 : 1;
+        dockTo(shell, edge, animate);
+        return edge;
+    }
+
+    /**
+     * Park the shell flush at {@code edge}, vertically centred in the root. Docking is a
+     * LAYOUT citizen's position: flush to the edge and centred, so a drawer sliding in
+     * from that side lands over the parked PiP rather than shoving it.
+     */
+    private void dockTo(@NonNull View shell, int edge, boolean animate) {
+        if (shell.getWidth() <= 0 || rootFrame.getWidth() <= 0) {
+            final View s = shell;
+            final int e = edge;
+            final boolean a = animate;
+            s.post(() -> { if (pipShell == s) dockTo(s, e, a); });
+            return;
+        }
+        float tx = edge < 0 ? -shell.getLeft()
+                : rootFrame.getWidth() - shell.getWidth() - shell.getLeft();
+        float ty = Math.max(0f,
+                (rootFrame.getHeight() - shell.getHeight()) / 2f) - shell.getTop();
+        if (animate) {
+            shell.animate().translationX(tx).translationY(ty).setDuration(150)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .start();
+        } else {
+            shell.animate().cancel();
+            shell.setTranslationX(tx);
+            shell.setTranslationY(ty);
+        }
+    }
+
+    /**
+     * H1 support: zero the transcript panel / reopen tab station-holding translations.
+     * They are children of {@code playerContainer}; their +shift offset is meaningful only
+     * while that container sits inline with an active reflow, so promote and demote both
+     * clear it alongside the container's own transform.
+     */
+    private void resetTranscriptStation() {
+        View tp = playerContainer.findViewById(R.id.transcript_panel);
+        if (tp != null) tp.setTranslationX(0f);
+        View tab = playerContainer.findViewById(R.id.transcript_reopen_tab);
+        if (tab != null) tab.setTranslationX(0f);
     }
 }

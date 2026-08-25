@@ -399,6 +399,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView timeCurrent;
     private TextView timeTotal;
     private boolean transcriptPanelOpen = false;
+    /**
+     * H1 (SPEC_20260824_HORIZONTAL_REFLOW): how far the preview container is currently
+     * shifted LEFT to clear the open transcript drawer, and by implication how far the
+     * drawer + reopen tab are counter-shifted RIGHT to hold station. 0 = no shift.
+     * TRANSLATE ONLY — never scale; see {@link #reflowPreviewUnderDrawer(int)} for why.
+     */
+    private float transcriptReflowShiftX = 0f;
     private boolean transitionPanelOpen = false;
     private View transitionPanel;
     /** The collapsible GL-transitions row + its "More effects" affordance label (pull-down to reveal). */
@@ -28099,6 +28106,22 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         lp.width = w;
                         transcriptPanel.setLayoutParams(lp);
                         return true;
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        // The drawer's width just changed, so its half-width claim on the
+                        // pillarbox slack changed with it (H1). Re-derive and re-station
+                        // without animation — the finger already provided the motion.
+                        if (!transcriptPanelOpen) return true;
+                        View container1 = findViewById(R.id.player_container);
+                        float newShift = transcriptDrawerShiftPx();
+                        transcriptReflowShiftX = newShift;
+                        if (container1 != null) {
+                            container1.animate().translationX(-newShift)
+                                    .setDuration(0).start();
+                        }
+                        transcriptPanel.setTranslationX(newShift);
+                        transcriptReopenTab.setTranslationX(newShift);
+                        return true;
                 }
                 return false;
             }
@@ -31696,6 +31719,31 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 .show();
     }
 
+    /**
+     * H1: the pillarbox slack the transcript drawer may claim, in px — the horizontal twin
+     * of {@link #reflowPreviewUnderDrawer(int)}'s arithmetic. Half the drawer's width
+     * re-centres the picture in what is left of the slot; clamped to the letterbox bars so
+     * the picture's own edge never leaves the container. On a 16:9 project there is no
+     * pillarbox slack and this returns 0 — opening the transcript then moves nothing,
+     * exactly how the vertical version no-ops on 9:16.
+     */
+    private float transcriptDrawerShiftPx() {
+        View container = findViewById(R.id.player_container);
+        if (container == null) return 0f;
+        int slotW = container.getWidth();
+        if (slotW <= 0) return 0f;
+        int videoW = 0;
+        if (playerView != null && playerView.getVideoSurfaceView() != null) {
+            videoW = playerView.getVideoSurfaceView().getWidth();
+        }
+        if (videoW <= 0) videoW = slotW;
+        float slack = Math.max(0f, (slotW - videoW) / 2f);
+        float drawerW = transcriptPanel.getWidth() > 0 ? transcriptPanel.getWidth()
+                : transcriptPanel.getLayoutParams().width;
+        if (drawerW <= 0) return 0f;
+        return Math.min(drawerW / 2f, slack);
+    }
+
     private void showTranscriptPanel(boolean show) {
         if (transcriptPanel == null) return;
         ViewGroup.LayoutParams lp = transcriptPanel.getLayoutParams();
@@ -31707,15 +31755,34 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptPanel.animate().cancel();
         boolean alreadyOpen = transcriptPanel.getVisibility() == View.VISIBLE && transcriptPanelOpen;
         if (show == alreadyOpen) return;
+        // H1 (SPEC_20260824_HORIZONTAL_REFLOW): slide the picture into its own pillarbox
+        // slack while the drawer is out. THE TRAP: transcript_panel is a CHILD of
+        // player_container, so translating the container drags the drawer along with it.
+        // Fix is counter-translation, NOT reparenting — reparenting would change z-order
+        // against every overlay declared after it. The container gets -shift; the panel
+        // and reopen tab get +shift so they hold station on screen. Because the panel's
+        // own translationX IS its open/close slide property, the counter-shift is folded
+        // INTO the slide endpoints: station = layout + shift, off-screen = layout + screenW.
+        // TRANSLATE ONLY — never scale (§0 of the spec).
+        View container = findViewById(R.id.player_container);
+        float shift = show ? transcriptDrawerShiftPx() : 0f;
+        android.view.animation.Interpolator decel =
+                new android.view.animation.DecelerateInterpolator();
+        if (container != null) {
+            transcriptReflowShiftX = shift;
+            container.animate().translationX(-shift).scaleX(1f).scaleY(1f)
+                    .setDuration(220).setInterpolator(decel).start();
+        }
         if (show) {
             transcriptPanel.setVisibility(View.VISIBLE);
-            transcriptPanel.setTranslationX(transcriptPanelOpen ? 0f : screenW);
+            transcriptPanel.setTranslationX(transcriptPanelOpen ? shift : screenW);
             transcriptPanel.animate()
-                    .translationX(0f)
+                    .translationX(shift)
                     .setDuration(220)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                    .setInterpolator(decel)
                     .start();
             transcriptReopenTab.setVisibility(View.GONE);
+            transcriptReopenTab.setTranslationX(shift);
             transcriptPanelOpen = true;
             updateTranscriptBreakButton();
         } else {
@@ -31729,6 +31796,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         transcriptPanel.setVisibility(View.GONE);
                         transcriptReopenTab.setVisibility(
                                 currentTranscript != null ? View.VISIBLE : View.GONE);
+                        // Reset path: both counter-translated views return to station 0
+                        // now that the container itself is back at 0.
+                        transcriptPanel.setTranslationX(0f);
+                        transcriptReopenTab.setTranslationX(0f);
                     })
                     .start();
         }

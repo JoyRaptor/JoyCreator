@@ -362,7 +362,20 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-24 overnight — HORIZONTAL_REFLOW landed: H1 transcript reflow
+status: IDLE (2026-08-25 — SPEC_20260825_PREVIEW_MATCHES_EXPORT BUILT, all committed
+        70b6bc3c/c88070f4/af1c2996/cbfb00d5/ebe8b173. TYPECHECK OK 655 sources / 1815
+        classes; parity lint PASS incl negctl. OWED: (a) gradle BUILD SUCCESSFUL with
+        mtime NEWER than 13:07 2026-08-25 — watcher had not rebuilt at session end, per
+        rule 6 no gradle was run; (b) JoyRaptor's eye on device for crop-in-preview, masks-
+        without-blend, blend-over-below-images, seam flash. Texts/sprites BELOW a blend
+        PiP still cannot ride the GL chain (no rasterizer) — known gap, named in report.)
+files: (none)
+since: 2026-08-25
+
+prior-status: ACTIVE (2026-08-25 — same task, claim during work; released above.)
+files: (none)
+
+prior-status: IDLE (2026-08-24 overnight — HORIZONTAL_REFLOW landed: H1 transcript reflow
         084b1bc5 + audit fixes 584904f9 (shared-animator both-axes carry, rotation/
         first-layout re-station, tap-no-dock, elevation 8dp under panel); C9 file-proof
         d1f0090d; spec instrument index c9d8e8af. TYPECHECK OK 655 sources. BLOCKED FOR

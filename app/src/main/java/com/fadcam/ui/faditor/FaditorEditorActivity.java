@@ -8917,7 +8917,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void updatePreviewTransforms() {
         if (project == null || project.getTimeline().isEmpty()) return;
-        Clip clip = getSelectedClip();
+        // THE PREVIEW SHOWS THE PLAYHEAD, NOT THE SELECTION. This used to read
+        // getSelectedClip(), which returns clip 0 whenever nothing is selected — so on a
+        // project whose first clip happens to be uncropped, every OTHER clip's crop silently
+        // stopped being applied and the preview showed the full uncropped frame while the
+        // saved crop sat untouched in project.json and exported correctly. JoyRaptor, 2026-08-25:
+        // "during playback and paused it still looks uncropped".
+        //
+        // Even with a selection it was wrong: scrubbing across clips with different crops kept
+        // rendering whichever one happened to be selected. The playhead is the only correct
+        // source for what the preview is currently showing; clipUnderPlayhead() already falls
+        // back to the selection when the timeline cannot answer yet (pre-layout).
+        Clip clip = clipUnderPlayhead();
+        if (clip == null) return;
 
         int degrees = clip.getRotationDegrees();
         boolean flipH = clip.isFlipHorizontal();

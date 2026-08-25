@@ -2817,18 +2817,14 @@ public class ExportManager {
         // shader program's output size follows its input, so the segment's geometry
         // class is unchanged (crop dims now, source dims before); the incoming leg is
         // cropped inside GlTransitionFrameOverlay.
+        //
+        // The rect comes from Clip.effectiveCropRectNdc() — the ONE per-clip crop decision,
+        // which FxLivePreviewController reads for the GL preview from the same method. The
+        // inline custom-preset conversion that used to sit here was the second copy that let
+        // the preview drift to full-frame while the export stayed correct.
         if (isVideo) {
-            String cropPreset = clip.getCropPreset();
-            if ("custom".equals(cropPreset)) {
-                float left   = clip.getCropLeft()  * 2f - 1f;
-                float right  = clip.getCropRight() * 2f - 1f;
-                float top    = 1f - clip.getCropTop()    * 2f;
-                float bottom = 1f - clip.getCropBottom() * 2f;
-                videoEffects.add(new Crop(left, right, bottom, top));
-            } else if (!"none".equals(cropPreset)) {
-                float[] cr = getCropRect(cropPreset);
-                if (cr != null) videoEffects.add(new Crop(cr[0], cr[1], cr[2], cr[3]));
-            }
+            float[] cr = clip.effectiveCropRectNdc();
+            if (cr != null) videoEffects.add(new Crop(cr[0], cr[1], cr[2], cr[3]));
         }
 
         if (!isTransitionItem && clip.getEffectStack().isActive()) {
@@ -3144,21 +3140,6 @@ public class ExportManager {
         }
 
         return videoEffects;
-    }
-
-    /**
-     * Returns crop bounds [left, right, bottom, top] for a Crop effect based on
-     * the aspect ratio preset, or null if the preset is unknown.
-     *
-     * @param preset crop preset key
-     * @return float array or null
-     */
-    @Nullable
-    private static float[] getCropRect(@NonNull String preset) {
-        // Single source of truth: the preview compositor reads the SAME table through
-        // Clip.effectiveCropFractions(), so a preset cannot mean one thing in a blend and
-        // another at the cut.
-        return Clip.cropRectNdc(preset);
     }
 
     /**

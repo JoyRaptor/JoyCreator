@@ -910,6 +910,39 @@ public class Clip implements AudioParams {
     }
 
     /**
+     * This clip's crop in media3 {@code Crop} NDC order {@code {left, right, bottom, top}},
+     * or null when the clip carries none — THE per-clip crop decision BOTH renderers call.
+     *
+     * <p>{@code ExportManager.assembleClipVideoEffects} builds its {@code Crop} effect from
+     * this and nothing else; {@code FxLivePreviewController} hands the same clip's
+     * {@link #effectiveCropFractions()} to the GL preview chain. Before this method existed,
+     * the exporter owned its own inline copy of the "custom" conversion while the preview read
+     * nothing at all — which is why a cropped clip exported cropped and previewed full-frame
+     * (SPEC_20260825_PREVIEW_MATCHES_EXPORT §1). One method, two consumers, no third copy.</p>
+     *
+     * <p>Deliberately UNFILTERED, unlike {@link #effectiveCropFractions()}: a custom rect that
+     * fractions would dismiss as a no-op still reaches the exporter exactly as the inline math
+     * it replaces did, so switching the exporter onto this method cannot change exported bytes
+     * (§4: any byte drift is a regression). The preview applies its own no-op filter by asking
+     * THIS method's twin instead.</p>
+     */
+    @Nullable
+    public float[] effectiveCropRectNdc() {
+        if (cropPreset == null || "none".equals(cropPreset)) return null;
+        if ("custom".equals(cropPreset)) {
+            // Same arithmetic ExportManager carried inline at :2823-2826 — moved here, not
+            // reimplemented, so the two renderers cannot drift apart again.
+            return new float[]{
+                    cropLeft * 2f - 1f,
+                    cropRight * 2f - 1f,
+                    1f - cropBottom * 2f,
+                    1f - cropTop * 2f,
+            };
+        }
+        return cropRectNdc(cropPreset);
+    }
+
+    /**
      * Whether this clip represents a still image rather than a video.
      */
     public boolean isImageClip() {

@@ -632,3 +632,26 @@ The dependency chain is real, not a preference:
 | 2026-08-22 | **`D10` rescoped after verification** â€” the strike-cut path already ships; only the standalone-`AudioClip` route and the darkened-tape render are missing | The row as filed would have sent an agent to rebuild a working feature, and had been promoted to "cheapest differentiator" in the build order. Row kept per Â§0 rule 4, description corrected |
 | 2026-08-22 | Pill properties get a peek-sheet inspector (Â§5.5), not new UI | The peek/expand sandwich is the established pattern for timeline objects; a cross-fade has exactly four properties |
 | 2026-08-22 | Status tokens stay; no markdown checkboxes | Greppable tokens + evidence column beat checkbox lists: `grep -c "VERIFIED"` is an audit a machine can run, a ticked box is not |
+
+---
+
+## FILE-PROOF INSTRUMENTS (agent 2, overnight 2026-08-24)
+
+Rows whose acceptance previously waited on JoyRaptor's ears now have file-provable
+instruments (exported file + optional bar readout; no device session needed).
+Every probe carries a --selftest whose negative controls were DEMONSTRATED this
+session; python export/run_negctl_suite.py re-proves all of them (SUITE PASS).
+Fixtures: python export/make_fixtures.py -> export/fixtures/.
+
+| Row | Instrument | What it proves |
+|-----|------------|----------------|
+| B3 | python tasks/probe_solo_b3.py SOLO_EXPORT.m4a | soloing lane A removes lane B's tone from the export; un-soloed export is the operator negctl and MUST FAIL |
+| B4 (+B1.Q on export) | python tasks/probe_meters_b4.py EXPORT SOURCE --at T_MS:DB ... | meter-reported dB == measured export/source rms ratio at the same playhead; fade points prove B1.Q stacking outside the harness |
+| C6 | python tasks/probe_gr_c6.py ON OFF SOURCE --reported-gr-db X | measured reduction matches a float port of CompressorProcessor maths AND the GR bar readout |
+| C7 | python tasks/probe_bypass_c7.py FX BYPASS SOURCE | FX/bypass differ measurably; bypass fits plain source at gain ~1 |
+| C5.E | python tasks/probe_duck_c5e.py EXPORT --voice-start-ms .. --voice-end-ms .. | music band tracks the exact keyframed curve (depth/ramp/recovery) after AAC-shift alignment |
+| C9 | python tasks/probe_voicefx_c9.py ON OFF SOURCE | Enhance-voice ON differs measurably; OFF is a transparent opt-out (fits plain source) |
+
+Still needing JoyRaptor (cannot be driven by db input, per SPEC §4 / HORIZONTAL_REFLOW):
+drag-class verifications (G6 grab bar, PiP drag/dock feel), and listening checks where
+the question is taste rather than measurement.

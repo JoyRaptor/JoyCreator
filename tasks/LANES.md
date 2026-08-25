@@ -362,15 +362,12 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-25 — SPEC_20260825_PREVIEW_MATCHES_EXPORT BUILT, all committed
-        70b6bc3c/c88070f4/af1c2996/cbfb00d5/ebe8b173. TYPECHECK OK 655 sources / 1815
-        classes; parity lint PASS incl negctl. OWED: (a) gradle BUILD SUCCESSFUL with
-        mtime NEWER than 13:07 2026-08-25 — watcher had not rebuilt at session end, per
-        rule 6 no gradle was run; (b) JoyRaptor's eye on device for crop-in-preview, masks-
-        without-blend, blend-over-below-images, seam flash. Texts/sprites BELOW a blend
-        PiP still cannot ride the GL chain (no rasterizer) — known gap, named in report.)
-files: (none)
-since: 2026-08-25
+status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining. Files: FaditorEditorActivity.java,
+        MasterPlaybackEngine.java, FaditorPlayerManager.java, EditorTimelineView.java, TextOverlayItem.java,
+        CompositingSpec.java, LayerPreviewController.java, FxLivePreviewController.java, FxPreviewTextureView.java,
+        preview_parity_lint.py)
+files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java, app/src/main/java/com/fadcam/ui/faditor/compositor/MasterPlaybackEngine.java, app/src/main/java/com/fadcam/ui/faditor/player/FaditorPlayerManager.java, app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java, app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java, app/src/main/java/com/fadcam/ui/faditor/model/CompositingSpec.java, app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java, tools/jvm-harness/preview_parity_lint.py
+since: 2026-08-25 15:00
 
 prior-status: ACTIVE (2026-08-25 — same task, claim during work; released above.)
 files: (none)

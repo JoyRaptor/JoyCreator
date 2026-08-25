@@ -711,13 +711,26 @@ public class TextOverlayItem {
     /**
      * True when this IMAGE overlay carries an ACTIVE chroma key, which only a shader can apply.
      *
-     * <p>Masks are deliberately NOT here: a mask is a Canvas clip, {@code ImageOverlayDraw} applies
-     * it on either path, and routing a merely-masked image into GL would shift its z for nothing.
-     * A key with its switch off is inert — {@code ChromaKey.isActive} is false — so an image that
+     * <p>A key with its switch off is inert — {@code ChromaKey.isActive} is false — so an image that
      * has never been keyed keeps the canvas path exactly as before.</p>
      */
     public boolean hasExportKey() {
         return isImage() && com.fadcam.ui.faditor.model.ChromaKey.isActive(compositing);
+    }
+
+    /**
+     * True when this IMAGE overlay carries an ACTIVE mask (at least one shape).
+     *
+     * <p>An image with a mask must leave the Canvas path: a plain {@code ImageView} cannot clip to
+     * a mask, so the mask is invisible until something else (a blend mode, an effect, a key)
+     * drags the image into GL. That is exactly what JoyRaptor saw — "the mask does not show up
+     * when set to normal. And if I send it to any blending modes, it does not apply those
+     * blending modes to an image underneath it" — the mask and the below-image were both stranded
+     * on Canvas (see §3A). A mask list that is empty is inert, so an image that has never been
+     * masked keeps the canvas path exactly as before.</p>
+     */
+    public boolean hasExportMask() {
+        return isImage() && compositing != null && !compositing.masks.isEmpty();
     }
 
     /**
@@ -728,7 +741,7 @@ public class TextOverlayItem {
      * never the two halves separately.</p>
      */
     public boolean wantsGlExport() {
-        return wantsExportBlend() || hasExportFx() || hasExportKey();
+        return wantsExportBlend() || hasExportFx() || hasExportKey() || hasExportMask();
     }
 
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */

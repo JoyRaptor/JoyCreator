@@ -25,13 +25,17 @@ Fixture -> spec row -> proof command:
         python tasks/probe_meters_b4.py EXPORT.m4a meter_steps.m4a \
             --at 1000:<meter dB> --at 3000:<meter dB> --at 5000:<meter dB>
 
-  gr_tone.m4a                                   C6 (+ C7 EXPORT_FX side)
+  gr_tone.m4a                                   C6 (+ C7 EXPORT_FX side, + C9)
       Steady 1 kHz tone at ~-6 dBFS, well above the default -18 dB threshold.
       Export with the voice chain live (EXPORT_ON) and bypassed via the C7
       toggle (EXPORT_OFF); read the GR bar mid-playback for --reported-gr-db.
         python tasks/probe_gr_c6.py ON.m4a OFF.m4a gr_tone.m4a \
             --reported-gr-db <bar value>
         python tasks/probe_bypass_c7.py ON.m4a OFF.m4a gr_tone.m4a
+      C9 uses the SAME fixture with the per-clip Enhance-voice switch instead of
+      the global A/B toggle — that is the point: the clip-level switch must move
+      the audio exactly like the chain, and OFF must be transparent.
+        python tasks/probe_voicefx_c9.py ON.m4a OFF.m4a gr_tone.m4a
 
   duck_music.m4a / duck_voice.m4a               C5.E
       Music = continuous 330 Hz tone (the target lane); voice = 1200 Hz tone

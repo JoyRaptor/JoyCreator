@@ -18,6 +18,7 @@ PROBES = [
     ('C6 gain-reduction', 'probe_gr_c6.py'),
     ('C7 bypass', 'probe_bypass_c7.py'),
     ('C5.E ducking', 'probe_duck_c5e.py'),
+    ('C9 voice-chain opt-in', 'probe_voicefx_c9.py'),
 ]
 
 

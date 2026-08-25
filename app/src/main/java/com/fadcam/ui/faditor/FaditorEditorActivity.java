@@ -7417,6 +7417,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void enterCropMode() {
         if (inCropMode) return;
         inCropMode = true;
+        // The GL chain must show the FULL frame while the crop overlay is up — the user is
+        // dragging a rectangle over it. syncAdjustmentPreview reads suppressPreviewCrop().
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
 
         // Hide ALL interactive overlays while cropping so they can't capture
         // touches / be nudged: text overlays, the audio visualizer, and captions.
@@ -7505,6 +7508,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void exitCropMode(boolean apply) {
         if (!inCropMode) return;
         inCropMode = false;
+        // Back to showing the crop (or the new one, if applied) in the GL chain.
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
 
         // Restore text overlays after cropping.
         if (overlayLayer != null) {
@@ -8917,17 +8922,26 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void updatePreviewTransforms() {
         if (project == null || project.getTimeline().isEmpty()) return;
-        // THE PREVIEW SHOWS THE PLAYHEAD, NOT THE SELECTION. This used to read
-        // getSelectedClip(), which returns clip 0 whenever nothing is selected — so on a
-        // project whose first clip happens to be uncropped, every OTHER clip's crop silently
-        // stopped being applied and the preview showed the full uncropped frame while the
-        // saved crop sat untouched in project.json and exported correctly. JoyRaptor, 2026-08-25:
-        // "during playback and paused it still looks uncropped".
+        // CROP DOES NOT LIVE HERE ANYMORE — and it must never come back.
         //
-        // Even with a selection it was wrong: scrubbing across clips with different crops kept
-        // rendering whichever one happened to be selected. The playhead is the only correct
-        // source for what the preview is currently showing; clipUnderPlayhead() already falls
-        // back to the selection when the timeline cannot answer yet (pre-layout).
+        // This method used to crop by clipping and scaling the PlayerView (setClipBounds plus
+        // scale/translate from effectiveVideoSize()). That was a THIRD crop implementation
+        // whose pixels nobody sees: the user watches FxPreviewTextureView's GL surface, which
+        // draws OVER the PlayerView whenever the FX chain is routed, so these transforms
+        // moved a picture hidden underneath. Worse, effectiveVideoSize() reads the PLAYER'S
+        // CURRENT video size, which is stale or zero for a frame at every clip transition —
+        // producing the "squish to a third height, then pop" flash at each seam
+        // (SPEC_20260825_PREVIEW_MATCHES_EXPORT §1).
+        //
+        // Crop now renders INSIDE the GL chain: FxLivePreviewController reads the playhead
+        // clip's Clip.effectiveCropFractions() — the same model authority
+        // ExportManager.effectiveCropRectNdc builds its media3 Crop effect from — and
+        // FxPreviewTextureView applies it between staging and grading. Rotation and flip are
+        // kept here because they shape the PlayerView when NO GL routing exists at all.
+        //
+        // THE PREVIEW SHOWS THE PLAYHEAD, NOT THE SELECTION. This used to read
+        // getSelectedClip(), which returns clip 0 whenever nothing is selected; the playhead
+        // is the only correct source for what the preview is currently showing.
         Clip clip = clipUnderPlayhead();
         if (clip == null) return;
 
@@ -8949,107 +8963,6 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 float rotScale = Math.min((float) w / h, (float) h / w);
                 baseScaleX *= rotScale;
                 baseScaleY *= rotScale;
-            }
-        }
-
-        // ── Crop preview ─────────────────────────────────────────────
-        // When a crop is applied and we're NOT in crop-mode (overlay active),
-        // clip the PlayerView to the crop region and scale it to fill the view.
-        FrameLayout container = findViewById(R.id.player_container);
-        String cropPreset = clip.getCropPreset();
-        boolean applyCropZoom = false;
-
-        if ("custom".equals(cropPreset) && !inCropMode) {
-            float cropL = clip.getCropLeft();
-            float cropT = clip.getCropTop();
-            float cropR = clip.getCropRight();
-            float cropB = clip.getCropBottom();
-            float cropW = cropR - cropL;
-            float cropH = cropB - cropT;
-
-            if (cropW > 0.01f && cropH > 0.01f
-                    && (cropW < 0.99f || cropH < 0.99f)) {
-
-                int viewW = playerView.getWidth();
-                int viewH = playerView.getHeight();
-                if (viewW > 0 && viewH > 0) {
-                    // Compute video render rect inside PlayerView (no parent offset)
-                    float renderW = viewW, renderH = viewH;
-                    float videoLeft = 0f, videoTop = 0f;
-
-                    int[] vsz = effectiveVideoSize();
-                    if (vsz != null) {
-                        {
-                            float vidAspect = (float) vsz[0] / vsz[1];
-                            float viewAspect = (float) viewW / viewH;
-                            if (vidAspect > viewAspect) {
-                                renderW = viewW;
-                                renderH = viewW / vidAspect;
-                            } else {
-                                renderH = viewH;
-                                renderW = viewH * vidAspect;
-                            }
-                            videoLeft = (viewW - renderW) / 2f;
-                            videoTop = (viewH - renderH) / 2f;
-                        }
-                    }
-
-                    // Crop rect in PlayerView's own coordinate space
-                    float cL = videoLeft + cropL * renderW;
-                    float cT = videoTop + cropT * renderH;
-                    float cR = videoLeft + cropR * renderW;
-                    float cB = videoTop + cropB * renderH;
-
-                    // Clip the PlayerView so only the crop region is drawn
-                    playerView.setClipBounds(new android.graphics.Rect(
-                            Math.round(cL), Math.round(cT),
-                            Math.round(cR), Math.round(cB)));
-
-                    // Scale up so the clipped crop region fills the container
-                    float cropPixW = cR - cL;
-                    float cropPixH = cB - cT;
-                    float sX = (float) viewW / cropPixW;
-                    float sY = (float) viewH / cropPixH;
-                    float cropScale = Math.min(sX, sY);
-
-                    baseScaleX *= cropScale;
-                    baseScaleY *= cropScale;
-
-                    // Crop center in PlayerView coordinates
-                    float cropCX = (cL + cR) / 2f;
-                    float cropCY = (cT + cB) / 2f;
-
-                    // Pivot stays at view center. We need translation so that
-                    // the crop center maps to the container center after scaling.
-                    // With pivot = (vW/2, vH/2):
-                    //   mapped_x = vW/2 + totalScaleX*(cx - vW/2) + tx
-                    //   Want mapped_x = vW/2 → tx = -totalScaleX*(cx - vW/2)
-                    // Use absolute cropScale for translation (flip sign handled by scaleX).
-                    float tx = cropScale * (viewW / 2f - cropCX);
-                    float ty = cropScale * (viewH / 2f - cropCY);
-
-                    playerView.setPivotX(viewW / 2f);
-                    playerView.setPivotY(viewH / 2f);
-                    playerView.setTranslationX(tx);
-                    playerView.setTranslationY(ty);
-
-                    container.setClipChildren(true);
-                    container.setClipToPadding(true);
-                    applyCropZoom = true;
-                }
-            }
-        }
-
-        if (!applyCropZoom) {
-            // Reset crop-related transforms
-            playerView.setClipBounds(null);
-            playerView.setPivotX(playerView.getWidth() / 2f);
-            playerView.setPivotY(playerView.getHeight() / 2f);
-            playerView.setTranslationX(0f);
-            playerView.setTranslationY(0f);
-            if (container != null) {
-                container.setClipChildren(false);
-                container.setClipToPadding(false);
             }
         }
 
@@ -22822,6 +22735,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             // previous symptom was an effect quietly doing nothing.
                             android.widget.Toast.makeText(FaditorEditorActivity.this, reason,
                                     android.widget.Toast.LENGTH_LONG).show();
+                        }
+                        @Override public boolean suppressPreviewCrop() {
+                            // Crop EDITING shows the full frame; see enterCropMode.
+                            return inCropMode;
                         }
                     });
         }

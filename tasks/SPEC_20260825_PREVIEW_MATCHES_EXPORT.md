@@ -146,14 +146,27 @@ Therefore an image with a mask and NORMAL blend stays on the Canvas path, which 
 a mask, so **the mask is invisible until a blend mode drags the image into GL**. That is
 exactly what JoyRaptor sees, and it is why he was told "normal doesn't do GL."
 
-The same gate causes the second symptom: a plain image BELOW a blending layer has no blend, no
-FX and no key, so it stays on Canvas. A GL blend above it can only composite against surfaces
-that are in GL — the main video is, the image is not. Video overlays composite correctly
-because they already live on the GL path.
+The same gate explains the second symptom, but **read the correction below before acting on it**:
+a plain image BELOW a blending layer has no blend, no FX and no key, so it stays on Canvas. A
+GL blend above it can only composite against surfaces that are in GL — the main video is, a
+NORMAL image is not. Video overlays composite correctly because they already live on GL.
+
+> **CORRECTED 2026-08-25, after device testing.** The original wording here said blend modes do
+> not composite image over image at all. That is FALSE and must not be chased. JoyRaptor, testing:
+> "images can affect other images if both images have a blending mode on … I am seeing a screen
+> affecting on the image." Two images that BOTH carry a blend mode are both in GL and composite
+> correctly. What made the whole area look broken was a separate bug — the preview painted lanes
+> in the exact reverse of the timeline's row order (fixed in `78032689`), so it was impossible to
+> tell which image was supposed to be on top. With z-order correct, the ONLY real gap left here
+> is the one above: an image on NORMAL never reaches GL, so it can neither show its own mask nor
+> be composited against by a blend above it.
 
 The comment above `hasExportKey()` states the original reasoning — "routing a merely-masked
 image into GL would shift its z for nothing." That reasoning is wrong for the user: it trades
-a correct picture for a z-order convenience.
+a correct picture for a z-order convenience. **It is also now largely obsolete**: the z-order it
+was protecting was itself inverted against the timeline for any default project, and was fixed
+in `78032689`. Do not treat that comment as a live objection; note in your report whether the z
+it was guarding still moves at all once masked images route to GL.
 
 **Required:**
 

@@ -535,3 +535,21 @@ index may already hold another lane's staged entries, and bare `git commit` comm
 whole index. The bulletproof form is a PATH-LIMITED commit: `git commit -m "..." -- <my
 files>`, which commits exactly those paths from the working tree and ignores everything
 else in the index. Follow with `git show --stat HEAD` every time.
+
+## View.animate() is ONE shared animator per view — name EVERY axis you don't own
+
+**Pattern:** Multiple features translate the same container on different axes
+(eflowPreviewUnderDrawer uses translationY; H1 transcript reflow uses
+translationX). View.animate() returns the same ViewPropertyAnimator instance
+every call. Starting an animation that names only YOUR axis CANCELS the other
+axis's in-flight tween at its mid-flight value — the other feature's transform
+freezes halfway and nothing ever re-derives it.
+
+**Rule:** Every writer of a shared view's transforms must carry the current
+TARGETS of all axes it does not own (keep them in fields: drawerReflowShiftY /
+transcriptReflowShiftX pattern). Bare setTranslationX/Y are safe mid-flight only
+in the sense that a later animate() restart picks up current values — but only
+if that later writer also names both axes.
+
+**Trigger:** Two features animating different properties of one view; symptom is
+a transform stuck at a partial value after opening two drawers quickly.

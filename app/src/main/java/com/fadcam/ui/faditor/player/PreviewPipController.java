@@ -99,6 +99,8 @@ public class PreviewPipController {
      *  change (row content shorter than the cap — growing the cap can't grow the view),
      *  the identical gap on the next pass skips the fill, breaking the layout loop. */
     private float lastFillGapPx = -1f;
+    /** Last slot written to the log, so the trace only fires on real movement. */
+    private float lastLoggedSlotDp = Float.NaN;
 
     public PreviewPipController(@NonNull LinearLayout editorRoot,
                                 @NonNull FrameLayout playerContainer,
@@ -110,10 +112,40 @@ public class PreviewPipController {
         this.density = editorRoot.getResources().getDisplayMetrics().density;
         editorRoot.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) ->
                 v.post(this::evaluate));
+        FLog.i(TAG, "attached (playerContainer is child #"
+                + editorRoot.indexOfChild(playerContainer) + " of editor_root)");
     }
 
     public boolean isPromoted() {
         return promoted;
+    }
+
+    /**
+     * The largest band cap that can ever do anything: the whole editor column's height.
+     *
+     * <p>THE BAND FILL IS ADDITIVE AND WAS UNBOUNDED. Both fill sites do
+     * {@code setBandDp(getBandDp() + slotDp)}, and the only brake was
+     * {@link #lastFillGapPx} skipping a repeat when the gap landed within 1px of the last
+     * one. Any wobble in the measured gap defeats that, so the cap ratchets upward; the
+     * grab bar's ACTION_UP then persists whatever it has grown to, and the inflation
+     * survives restarts. Found on JoyRaptor's Note 9 at <b>820dp</b> on a 1128dp-tall screen.
+     *
+     * <p>Past the content height the cap stops being the binding constraint, so dragging
+     * up changes a number nothing can render and dragging down does nothing until it has
+     * travelled all the way back — the grab bar reads as completely dead in both
+     * directions ("i couldent grab the bar either"). Clamping here is what makes the
+     * runaway impossible; {@code sanitizeBandDp} on the restore path is what rescues
+     * installs that already ran away.</p>
+     */
+    public float maxUsefulBandDp() {
+        int h = editorRoot.getHeight();
+        if (h <= 0) h = editorRoot.getResources().getDisplayMetrics().heightPixels;
+        return h / density;
+    }
+
+    /** Additive band fill, clamped so it can never ratchet past what the column can show. */
+    private void fillBandBy(float slotDp) {
+        host.setBandDp(Math.min(host.getBandDp() + slotDp, maxUsefulBandDp()));
     }
 
     /**
@@ -213,6 +245,13 @@ public class PreviewPipController {
         // promotes without ever adding negative height to the timeline band.
         if (Float.isNaN(slotPx)) return;
         float slotDp = slotPx / density;
+        // Trace the ONE signal everything keys off, but only when it actually moves
+        // -- enough to explain a missing promote without spamming every layout pass.
+        if (Math.abs(slotDp - lastLoggedSlotDp) > 20f) {
+            lastLoggedSlotDp = slotDp;
+            FLog.i(TAG, "slot " + (int) slotDp + "dp (promote<" + (int) PROMOTE_BELOW_DP
+                    + ", demote>=" + (int) DEMOTE_ABOVE_DP + ", promoted=" + promoted + ")");
+        }
         try {
             if (!promoted && slotDp < PROMOTE_BELOW_DP) {
                 promote(slotDp);
@@ -224,7 +263,7 @@ public class PreviewPipController {
                 // (in-memory only — the grab bar owns persistence). Skipped when the last
                 // fill left the gap unchanged (viewport already fits all rows).
                 lastFillGapPx = slotPx;
-                host.setBandDp(host.getBandDp() + slotDp);
+                fillBandBy(slotDp);
             }
         } catch (Exception e) {
             FLog.e(TAG, "evaluate failed (promoted=" + promoted + ")", e);
@@ -239,7 +278,12 @@ public class PreviewPipController {
         try {
             savedIndexInRoot = editorRoot.indexOfChild(playerContainer);
             savedInlineLp = playerContainer.getLayoutParams();
-            if (savedIndexInRoot < 0) return;
+            if (savedIndexInRoot < 0) {
+                // A SILENT RETURN HERE LOOKS EXACTLY LIKE THE FEATURE NOT EXISTING: no
+                // PiP, no log, nothing to grep. Say so instead.
+                FLog.w(TAG, "promote SKIPPED - player_container is not a child of editor_root");
+                return;
+            }
 
             Context ctx = editorRoot.getContext();
             int rootW = rootFrame.getWidth();
@@ -317,7 +361,7 @@ public class PreviewPipController {
             lastFillGapPx = -1f;
             // Absorb the freed slot into the timeline band (near-fullscreen timeline).
             if (!host.isGrabBarDragging() && slotDp > FILL_SLACK_DP) {
-                host.setBandDp(host.getBandDp() + slotDp);
+                fillBandBy(slotDp);
             }
             FLog.i(TAG, "PROMOTED preview → PiP (" + pipW + "x" + contentH + "px, slot was "
                     + (int) slotDp + "dp)");

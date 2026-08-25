@@ -78,6 +78,8 @@ public final class LayerRowRenderer {
      * to a floating PiP so the band can absorb its slot (near-fullscreen timeline). */
     private static final float MIN_VISIBLE_ROWS_DP = 40f;
     private static final float MAX_VISIBLE_ROWS_CAP_DP = 1000f;
+    /** Slack over the measured content so the cap never clips the last row by a pixel. */
+    private static final float BAND_CAP_SLACK_DP = 8f;
     /** G6: the current layer-band viewport cap (dp), user-resizable via the preview/timeline grab bar. */
     private float maxVisibleRowsDp = DEFAULT_MAX_VISIBLE_ROWS_DP;
 
@@ -3574,7 +3576,25 @@ public final class LayerRowRenderer {
      * can persist / feed a slider without re-clamping. Pure state — the caller triggers relayout.
      */
     public float setMaxVisibleRowsDp(float dp) {
-        maxVisibleRowsDp = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(MAX_VISIBLE_ROWS_CAP_DP, dp));
+        float capped = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(MAX_VISIBLE_ROWS_CAP_DP, dp));
+        // A VIEWPORT CAP TALLER THAN THE CONTENT IS DEAD TRAVEL. This is a cap on how much of
+        // the rows to show, so once it passes the rows' own height, raising it further renders
+        // identically -- but it is still stored, and the grab bar still persists it. The PiP's
+        // additive band fill runs on every promote, so promote/demote cycles ratcheted it up
+        // with nothing to push back: JoyRaptor's Note 9 reached 820dp over content worth ~420dp.
+        //
+        // From there the grab bar is dead in BOTH directions -- dragging up moves a number
+        // nothing can render, and dragging down does nothing for the ~400dp it takes to get
+        // back to the content height ("i couldent grab the bar either"). Clamping to the
+        // content makes the stored value always meaningful, so the very next drag rescues an
+        // install that already ran away. Only clamp once the content has actually been
+        // measured; contentHeightPx is 0 before the first layout and pinning to that would
+        // freeze the band at its minimum.
+        if (contentHeightPx > 0f) {
+            float contentDp = contentHeightPx / density + BAND_CAP_SLACK_DP;
+            capped = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(capped, contentDp));
+        }
+        maxVisibleRowsDp = capped;
         return maxVisibleRowsDp;
     }
 

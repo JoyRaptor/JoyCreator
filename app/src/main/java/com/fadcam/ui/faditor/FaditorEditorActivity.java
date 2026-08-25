@@ -12942,6 +12942,22 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Restore the persisted band cap (default = the view's built-in default).
         editorTimeline.setLayerBandMaxHeightDp(
                 ui.getFloat(PREF_TIMELINE_BAND_DP, editorTimeline.getLayerBandDefaultMaxHeightDp()));
+        // ...then re-apply it once the rows have actually been measured. The clamp in
+        // setMaxVisibleRowsDp can only bound the cap against content it has measured, and
+        // contentHeightPx is still 0 here, so a stored cap taller than the rows would survive
+        // this restore untouched and keep the grab bar feeling dead until it had been dragged
+        // all the way back down. One post-layout re-apply lets the clamp see real content,
+        // and writing the applied value back heals an install that already ran away without
+        // the user having to do anything.
+        editorTimeline.post(() -> {
+            float before = editorTimeline.getLayerBandMaxHeightDp();
+            float applied = editorTimeline.setLayerBandMaxHeightDp(before);
+            if (Math.abs(applied - before) > 0.5f) {
+                FLog.w(TAG, "Timeline band cap " + before + "dp exceeded the rows' height — "
+                        + "clamped to " + applied + "dp and re-saved");
+                ui.edit().putFloat(PREF_TIMELINE_BAND_DP, applied).apply();
+            }
+        });
         final float density = getResources().getDisplayMetrics().density;
         grabBar.setOnTouchListener(new View.OnTouchListener() {
             float downRawY;
@@ -12981,8 +12997,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             editorTimeline.setLayerBandMaxHeightDp(snapped);
                             v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
                         }
+                        // PERSIST WHAT WAS APPLIED, NOT WHAT WAS ASKED FOR. setLayerBandMaxHeightDp
+                        // clamps its argument to the rows' measured height; storing the raw
+                        // request instead let an over-tall cap survive restarts and made the grab
+                        // bar feel dead until it had been dragged all the way back down.
                         ui.edit().putFloat(PREF_TIMELINE_BAND_DP,
-                                editorTimeline.getLayerBandMaxHeightDp()).apply();
+                                editorTimeline.setLayerBandMaxHeightDp(
+                                        editorTimeline.getLayerBandMaxHeightDp())).apply();
                         // The PiP suppresses its band-fill while a drag is in flight, so the
                         // slot freed by promoting is still sitting under the timeline as dead
                         // space. Ask for one more evaluation now the finger is up.

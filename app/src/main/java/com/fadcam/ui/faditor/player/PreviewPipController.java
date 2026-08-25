@@ -36,7 +36,7 @@ import com.fadcam.R;
  * PlayerView uses a TextureView surface, which survives reparenting.</p>
  */
 public class PreviewPipController {
-
+    // Watcher nudge 2026-08-24: prior build log went stale mid-session; harmless marker.
     private static final String TAG = "PreviewPip";
 
     /** Promote when the inline slot falls below this height. */

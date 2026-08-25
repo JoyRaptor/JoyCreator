@@ -525,6 +525,7 @@ public class MasterPlaybackEngine {
             }
             MediaItem item = new MediaItem.Builder()
                     .setUri(uri)
+                    .setMediaId(clip.getId() + "#" + kind.name() + r)
                     .setClippingConfiguration(
                             new MediaItem.ClippingConfiguration.Builder()
                                     .setStartPositionMs(startMs)
@@ -547,6 +548,7 @@ public class MasterPlaybackEngine {
         long outMs = clip.getOutPointMs();
         MediaItem item = new MediaItem.Builder()
                 .setUri(seekable)
+                .setMediaId(clip.getId())
                 .setClippingConfiguration(
                         new MediaItem.ClippingConfiguration.Builder()
                                 .setStartPositionMs(inMs)
@@ -577,6 +579,7 @@ public class MasterPlaybackEngine {
         // in both surfaces from one authority so they cannot diverge.
         MediaItem item = new MediaItem.Builder()
                 .setUri(clip.getSourceUri())
+                .setMediaId(clip.getId())
                 .setMimeType(com.fadcam.ui.faditor.util.ImageMime.of(context, clip.getSourceUri()))
                 .setImageDurationMs(visualLenMs)
                 .build();
@@ -829,6 +832,26 @@ public class MasterPlaybackEngine {
         long local = Math.max(0L, player.getCurrentPosition());
         if (currentWindow < 0 || currentWindow >= windows.size()) return local;
         return windows.get(currentWindow).visualStartMs + local;
+    }
+
+    /**
+     * Absolute TIMELINE position (ms, 0-based) of the current playback point — the single
+     * authoritative mapping from engine window+local to timeline. For a non-looped timeline it
+     * is the sum of prior clips' visual spans plus the window-local position within the current
+     * clip. This is what the activity must use to derive the playhead segment during gapless
+     * playback, not a per-clip fraction clamped into the wrong clip's in/out range (the bug that
+     * pinned the head at 11811 while the engine ran to 9863+).
+     */
+    public long getCurrentTimelineMs(@NonNull Timeline timeline) {
+        if (player == null || currentWindow < 0 || currentWindow >= windows.size()) return 0L;
+        int clipIdx = windows.get(currentWindow).clipIndex;
+        long timelineMs = 0;
+        for (int i = 0; i < clipIdx && i < timeline.getClipCount(); i++) {
+            Clip c = timeline.getClip(i);
+            timelineMs += c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+        }
+        timelineMs += getCurrentPositionInWindow();
+        return timelineMs;
     }
 
     /**

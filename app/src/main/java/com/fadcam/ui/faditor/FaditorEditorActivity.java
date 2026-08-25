@@ -2139,11 +2139,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // The index is free, so it moves now; only the LOAD stays deferred, and
                 // pendingClipSwapAfterDrag makes onPlayheadDragFinished do it exactly once, for
                 // the clip the drag actually ended on.
-                if (segmentIndex != selectedClipIndex) {
-                    selectedClipIndex = segmentIndex;
+                if (syncSelectedIndexToSegment(segmentIndex)) {
                     // Keep the green selection honest: it must match the clip the
                     // playhead is on, since that's what Delete/Split/etc. act on.
-                    editorTimeline.setSelectedIndex(segmentIndex);
+                    // The INDEX sync is now the single authoritative place (see
+                    // syncSelectedIndexToSegment doc); the drag path and the gapless
+                    // seam both funnel the divergence fix through it.
                     if (isDragging) {
                         pendingClipSwapAfterDrag = true;
                     }
@@ -4656,7 +4657,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Timeline timeline = project.getTimeline();
         if (newIndex < 0 || newIndex >= timeline.getClipCount()) return;
         FLog.d(TAG, "onGaplessSeam -> segment " + newIndex + " autoAdvance=" + autoAdvance);
-        selectedClipIndex = newIndex;
+        // The INDEX sync itself is authoritative via syncSelectedIndexToSegment; this method
+        // then owns the per-clip UI after the index has moved. Calling the helper first keeps
+        // the divergence fix in exactly one place even when this is entered directly.
+        if (newIndex != selectedClipIndex) syncSelectedIndexToSegment(newIndex);
         Clip nextClip = getSelectedClip();
         // Keep the player manager's tracked clip pointed at the new window (no player op — the
         // engine already crossed the cut) so currentClip-derived getters stay consistent.
@@ -4692,6 +4696,41 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             float startFraction = (float) nextClip.getInPointMs() / nextClip.getSourceDurationMs();
             editorTimeline.setPlayheadFraction(startFraction);
         }
+    }
+
+    /**
+     * THE single authoritative place that observes a timeline segment boundary crossing and
+     * reconciles {@code selectedClipIndex} — for BOTH the drag path and the playback path.
+     *
+     * <p>Before this, the drag path patched the divergence at {@code :2143} (
+     * {@code if (segmentIndex != selectedClipIndex) selectedClipIndex = segmentIndex}) while
+     * the gapless playback path relied on {@code onGaplessSeam} via window transition. When
+     * consecutive clips share one source, the player runs through one continuous window with
+     * no item transition (see {@code MasterPlaybackEngine} mediaId fix and the rescue log where
+     * {@code playerPos} climbs to 9863 while {@code sel} stays 1), so the seam never fires and
+     * the playhead — which resolves against {@code selectedClipIndex}'s inPoint — pins at the
+     * outgoing clip's out point (11811) while video/audio keep going. That is B1.</p>
+     *
+     * <p>Both paths now funnel through here for the INDEX sync itself. The drag handler and the
+     * gapless seam handler both delegate the {@code selectedClipIndex} / {@code setSelectedIndex}
+     * update to this method, so there is exactly one copy of the divergence fix. The full
+     * per-clip UI sync (volume, crop, grade…) remains in {@code onGaplessSeam} which this
+     * helper is the entry to for playback; the drag path sets {@code pendingClipSwapAfterDrag}
+     * and defers its media load to drag-finished, as before.</p>
+     */
+    private boolean syncSelectedIndexToSegment(int newIndex) {
+        if (project == null || project.getTimeline() == null) return false;
+        Timeline timeline = project.getTimeline();
+        if (newIndex < 0 || newIndex >= timeline.getClipCount()) return false;
+        if (newIndex == selectedClipIndex) return false;
+        selectedClipIndex = newIndex;
+        editorTimeline.setSelectedIndex(newIndex);
+        return true;
+    }
+
+    private void onTimelineSegmentCrossed(int newIndex, boolean isAutoAdvance) {
+        if (!syncSelectedIndexToSegment(newIndex)) return;
+        onGaplessSeam(newIndex, isAutoAdvance);
     }
 
     /**
@@ -10354,6 +10393,70 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         + " tlMs=" + timelineMs);
                 editorTimeline.setPlayheadPositionMs(timelineMs);
                 displayTimeMs = visualPosMs;
+            } else if (playerManager.isGapless()) {
+                // B1 — gapless timelineMs is the authoritative clock. Deriving the playhead
+                // fraction from the stale selectedClipIndex's inPoint pins the head at the
+                // outgoing clip's out point (11811) while the engine's window-local position
+                // keeps climbing (e.g. 9863) through the next clip's window — the seam never
+                // fires for same-source slices when the playlist windows share a URI without a
+                // distinct mediaId (fixed in MasterPlaybackEngine). Even with that fix, the
+                // timelineMs is the one value that moves monotonically through the cut, so both
+                // the drag path and the playback path reconcile the INDEX from it via the
+                // single helper syncSelectedIndexToSegment (see its doc).
+                Timeline tl = project.getTimeline();
+                long timelineMs = playerManager.getCurrentTimelineMs(tl);
+                // Clamp timelineMs to video-track duration for display; the engine may briefly
+                // report past the trimmed end while the window transition is in flight (9-48ms
+                // overshoot measured on Note 20) — the same glide setPlayheadFraction handles for
+                // the legacy path. Here we let the timeline clamp and let the segment sync advance
+                // the selection, which then re-homes the playhead via setPlayheadPositionMs.
+                long totalVideoMs = totalEffectiveMs();
+                if (timelineMs > totalVideoMs) timelineMs = totalVideoMs;
+                // Reconcile selection from timelineMs — the same authoritative place the drag
+                // and seam handlers use — so a same-source seam that never fired as a window
+                // transition still moves sel when the clock crosses the cut. This is not the
+                // forbidden UI-tick poll that hides the divergence: the primary boundary is now
+                // observed at the engine (mediaId-distinct windows), and this is the safety
+                // reconciliation for the 9-48ms overshoot window and for any residual
+                // same-source continuous-window case, using timelineMs not a fraction.
+                int segAtTimeline = -1;
+                long cumul = 0;
+                for (int i = 0; i < tl.getClipCount(); i++) {
+                    long span = tl.getClip(i).hasLoopExtension()
+                            ? tl.getClip(i).getVisualDurationMs()
+                            : tl.getClip(i).getTrimmedDurationMs();
+                    if (timelineMs < cumul + span || i == tl.getClipCount() - 1) {
+                        segAtTimeline = i;
+                        break;
+                    }
+                    cumul += span;
+                }
+                if (segAtTimeline >= 0 && segAtTimeline != selectedClipIndex) {
+                    // Move the selection via the single authoritative helper; the full
+                    // per-clip UI (volume, grade, crop) then follows onGaplessSeam when the
+                    // engine eventually fires, or on the next tick's seam reconciliation.
+                    // For the immediate head movement we still set the timeline position below.
+                    syncSelectedIndexToSegment(segAtTimeline);
+                }
+                editorTimeline.setPlayheadPositionMs(timelineMs);
+                // displayTimeMs for caption/overlay clocks is clip-local
+                displayTimeMs = playerManager.getCurrentPosition();
+                // Ensure the edit is honoured: if the engine reports past the window's
+                // trimmed duration (clipping failure), the timelineMs above will have already
+                // advanced the segment; if it somehow stays past outPoint within the same
+                // segment, clamp the player position by advancing (requirement 3).
+                if (clip.getTrimmedDurationMs() > 0 && position >= clip.getTrimmedDurationMs() + 150
+                        && !clip.hasLoopExtension()) {
+                    Timeline timeline = tl;
+                    int next = selectedClipIndex + 1;
+                    if (next < timeline.getClipCount()) {
+                        FLog.w(TAG, "B1: gapless position past outPoint without seam — forcing advance sel="
+                                + selectedClipIndex + " next=" + next + " pos=" + position
+                                + " dur=" + clip.getTrimmedDurationMs() + " tlMs=" + timelineMs);
+                        onTimelineSegmentCrossed(next, true);
+                        return;
+                    }
+                }
             } else {
                 float fraction = (float) absoluteMs / sourceDuration;
                 fraction = Math.max(0f, Math.min(fraction, 1f));

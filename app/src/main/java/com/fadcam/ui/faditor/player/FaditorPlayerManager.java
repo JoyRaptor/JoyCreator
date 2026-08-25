@@ -968,6 +968,19 @@ public class FaditorPlayerManager implements DefaultLifecycleObserver {
     /**
      * Get current playback position relative to trim start (0-based).
      */
+    /**
+     * Absolute TIMELINE position (ms) when gapless — sum of prior clips' spans plus the
+     * window-local position. Returns 0 when not gapless (caller must use legacy path).
+     * This is the single authoritative clock for the seam-freeze fix: it keeps moving
+     * through a timeline of same-source slices even while the window index appears stuck,
+     * so the activity can observe the boundary crossing at the timeline level instead of
+     * waiting for a window transition that never comes (see SPEC_20260825_PLAYBACK_SEAM B1).
+     */
+    public long getCurrentTimelineMs(@NonNull com.fadcam.ui.faditor.model.Timeline timeline) {
+        if (gapless()) return gaplessEngine.getCurrentTimelineMs(timeline);
+        return 0L;
+    }
+
     public long getCurrentPosition() {
         if (gapless()) {
             // Engine reports clip-local position for the current window already.

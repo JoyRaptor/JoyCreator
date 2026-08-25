@@ -120,6 +120,14 @@ public class PreviewPipController {
         return promoted;
     }
 
+    /** Reasons already reported, so a per-frame guard says its piece once and then shuts up. */
+    private final java.util.Set<String> whyNotSeen = new java.util.HashSet<>();
+
+    /** Report a refusal ONCE per distinct reason. See the note in {@link #promote}. */
+    private void whyNot(@NonNull String reason) {
+        if (whyNotSeen.add(reason)) FLog.w(TAG, "promote SKIPPED - " + reason);
+    }
+
     /**
      * The largest band cap that can ever do anything: the whole editor column's height.
      *
@@ -273,7 +281,17 @@ public class PreviewPipController {
     // ── Promote / demote ─────────────────────────────────────────────
 
     private void promote(float slotDp) {
-        if (promoted || pipShell != null) return;
+        // WHY-NOT DIAGNOSTICS. On JoyRaptor's Note 9 the PiP never appears — not in landscape, not
+        // at the grab bar's top extreme — and logcat carries NO PreviewPip lines at all: no
+        // PROMOTED, no DEMOTED, no "setup failed". That silence is the symptom. Every guard
+        // below could return without a word, so a working controller and a controller that
+        // bails on its first guard looked identical from the outside. Each now says so once
+        // per reason (whyNotLogged), which is enough to name the cause in one session without
+        // spamming a per-frame path.
+        if (promoted || pipShell != null) {
+            whyNot("already promoted (promoted=" + promoted + " shell=" + (pipShell != null) + ")");
+            return;
+        }
         mutating = true;
         try {
             savedIndexInRoot = editorRoot.indexOfChild(playerContainer);

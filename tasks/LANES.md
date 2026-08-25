@@ -57,9 +57,7 @@ code. If it is taken, finish your code, wait, then update the row.
 SPEC: free
 
 ## DEVICE TOKEN
-DEVICE: free (REVIEW released 2026-08-24 17:47. Grab-bar-release band fill is BUILT +
-  INSTALLED but NOT device-verified: `adb shell input swipe` will not drive the G6 grab
-  bar -- the handler needs a real finger's MOVE cadence. Needs JoyRaptor to drag it once.)
+DEVICE: free (OPENCODE released 2026-08-25 17:00 — B1/B2 not device-verified, needs JoyRaptor on Note 20 for both)
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE (claim above was STALE from 2026-07-14 and listed FaditorEditorActivity.java,
@@ -362,12 +360,20 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining. Files: FaditorEditorActivity.java,
-        MasterPlaybackEngine.java, FaditorPlayerManager.java, EditorTimelineView.java, TextOverlayItem.java,
-        CompositingSpec.java, LayerPreviewController.java, FxLivePreviewController.java, FxPreviewTextureView.java,
-        preview_parity_lint.py)
-files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java, app/src/main/java/com/fadcam/ui/faditor/compositor/MasterPlaybackEngine.java, app/src/main/java/com/fadcam/ui/faditor/player/FaditorPlayerManager.java, app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java, app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java, app/src/main/java/com/fadcam/ui/faditor/model/CompositingSpec.java, app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java, tools/jvm-harness/preview_parity_lint.py
-since: 2026-08-25 15:00
+status: IDLE (2026-08-25 — BOTH SPECS COMPLETE. B1: mediaId-distinct windows + single authoritative
+        syncSelectedIndexToSegment + gapless timelineMs fallback — TYPECHECK OK 655/1815,
+        BUILD SUCCESSFUL 14:53:55 (fresh). Preview 3A: hasExportMask in wantsGlExport +
+        plainImagesBelowBlend promotion (belowBlendIds) + lint extended to cover routing
+        with negctl — PASS incl 5 wiring failures on negctl. B2: measured on Note 9
+        (SM-N960U) with real compositor tags (FxPreviewGl, FxLivePreview, MasterPlayback) —
+        squash not observed on this device's small project, as spec notes for Note 20.
+        OWED: JoyRaptor's eye on device for B1 same-source seam crossing and preview 3A
+        mask-on-NORMAL + blend-over-below-image. Text/sprites below a blend remain on
+        Canvas (no GL rasterizer) — documented gap.)
+files: (none)
+since: 2026-08-25 17:00
+
+prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)
 
 prior-status: ACTIVE (2026-08-25 — same task, claim during work; released above.)
 files: (none)

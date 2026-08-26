@@ -250,6 +250,44 @@ public class PreviewPipController {
         sb.append("\n    others=").append(total).append("px  slot=").append(rootH - total)
                 .append("px (").append((int) ((rootH - total) / density)).append("dp)");
         FLog.i(TAG, sb.toString());
+        reclampBandToColumn(rootH, total);
+    }
+
+    /**
+     * A band sized for portrait does not fit landscape, and nothing was shrinking it.
+     *
+     * <p>The grab bar clamps every drag through {@code maxBandDpFor}, so a band the user
+     * sets by hand always fits the column it was set in. Rotation changes the column without
+     * touching the band: on JoyRaptor's Note 9 a 495dp band sized against portrait's 1127dp
+     * column survived into landscape's 548dp one, where the timeline alone then rendered at
+     * the full 1080px root height.
+     *
+     * <pre>
+     *   rootH=1080px   editor_top_bar 110 + timeline_grab_bar 55 + controls_section 1080
+     *   others=1245px  -- 165px MORE than the column holds
+     * </pre>
+     *
+     * <p>LinearLayout does not shrink a wrap_content child to fit, so the 165px come off the
+     * bottom and take the tool row with them — "a tall timeline in portrait rotates to a
+     * landscape that does not show the toolbox, but a short timeline in portrait rotates to
+     * show the toolbox". Short timelines were fine because they never overflowed.
+     *
+     * <p>Shrinking by exactly the overflow is the same arithmetic the drag clamp already
+     * does, applied at the one moment nothing was doing it. Only ever REDUCES: growing the
+     * band here would fight the user's own setting, and the portrait value is restored by
+     * the next drag rather than remembered, which is the existing behaviour for every other
+     * orientation-dependent size.</p>
+     */
+    private void reclampBandToColumn(int rootH, int others) {
+        if (mutating || host.isGrabBarDragging()) return;
+        int overflowPx = others - rootH;
+        if (overflowPx <= 0) return;
+        float cur = host.getBandDp();
+        float target = cur - (overflowPx / density);
+        if (!(target > 0f) || target >= cur) return;
+        FLog.i(TAG, "column overflows by " + overflowPx + "px — band " + (int) cur
+                + "dp -> " + (int) target + "dp so the rows below stay on screen");
+        host.setBandDp(target);
     }
 
     private float prospectiveSlotPx() {

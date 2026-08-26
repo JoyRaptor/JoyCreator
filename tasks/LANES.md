@@ -360,18 +360,9 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-25 — BOTH SPECS COMPLETE. B1: mediaId-distinct windows + single authoritative
-        syncSelectedIndexToSegment + gapless timelineMs fallback — TYPECHECK OK 655/1815,
-        BUILD SUCCESSFUL 14:53:55 (fresh). Preview 3A: hasExportMask in wantsGlExport +
-        plainImagesBelowBlend promotion (belowBlendIds) + lint extended to cover routing
-        with negctl — PASS incl 5 wiring failures on negctl. B2: measured on Note 9
-        (SM-N960U) with real compositor tags (FxPreviewGl, FxLivePreview, MasterPlayback) —
-        squash not observed on this device's small project, as spec notes for Note 20.
-        OWED: JoyRaptor's eye on device for B1 same-source seam crossing and preview 3A
-        mask-on-NORMAL + blend-over-below-image. Text/sprites below a blend remain on
-        Canvas (no GL rasterizer) — documented gap.)
-files: (none)
-since: 2026-08-25 17:00
+status: ACTIVE (2026-08-26 — GL pilot: layer_image_overlay -> GL texture via still machinery, reuse bitmap→GL path, on-demand raster + GL composite at real z, keep View hit-test. Measure on Note 9 SANDBOX_SERIAL.)
+files: app/src/main/java/com/fadcam/ui/faditor/compositor/LayerImageOverlayView.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java, app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java
+since: 2026-08-26
 
 prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)
 

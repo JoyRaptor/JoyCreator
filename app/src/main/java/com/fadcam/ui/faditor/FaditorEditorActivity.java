@@ -22839,6 +22839,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             android.widget.Toast.makeText(FaditorEditorActivity.this, reason,
                                     android.widget.Toast.LENGTH_LONG).show();
                         }
+                        @Override public android.graphics.Bitmap layerImageOverlayFor(int frameW, int frameH, long playheadMs) {
+                            if (layerImageOverlay == null) return null;
+                            return layerImageOverlay.getOverlayBitmap(frameW, frameH, playheadMs);
+                        }
+                        @Override public void onLayerImageOverlayRouted(boolean routed) {
+                            // Keep View for interaction (hit-test) — only drawing moves to GL.
+                            // Alpha 0 keeps it VISIBLE so it still receives touch, unlike GONE.
+                            if (layerImageOverlay != null) layerImageOverlay.setAlpha(routed ? 0f : 1f);
+                        }
                         @Override public boolean suppressPreviewCrop() {
                             // Crop EDITING shows the full frame; see enterCropMode.
                             return inCropMode;

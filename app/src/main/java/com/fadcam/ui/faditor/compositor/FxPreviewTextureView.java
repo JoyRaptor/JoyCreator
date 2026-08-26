@@ -260,6 +260,25 @@ public class FxPreviewTextureView extends TextureView
             + "      vec2(uCropSrc.x + sx * uCropSrc.z, uCropSrc.y + sy * uCropSrc.w));\n"
             + "}\n";
 
+    /**
+     * GL pilot: composite a full-frame rasterised Canvas layer (layer_image_overlay) over
+     * the frame so far. Top-row-first upload flips v, so sample with 1.0 - y like the
+     * still variant. Simple alpha-over; no blend/mask in this pilot — the Canvas already
+     * baked per-item opacity/position into the bitmap. This is the convergence path that
+     * would make promote rules deletable if cheap enough.
+     */
+    private static final String LAYER_FRAGMENT =
+            "#version 100\n"
+            + "precision mediump float;\n"
+            + "varying vec2 vFxUv;\n"
+            + "uniform sampler2D uBaseSampler;\n"
+            + "uniform sampler2D uLayerSampler;\n"
+            + "void main() {\n"
+            + "  vec4 base = texture2D(uBaseSampler, vFxUv);\n"
+            + "  vec4 layer = texture2D(uLayerSampler, vec2(vFxUv.x, 1.0 - vFxUv.y));\n"
+            + "  gl_FragColor = vec4(mix(base.rgb, layer.rgb, layer.a), max(base.a, layer.a));\n"
+            + "}\n";
+
     /** Full-frame quad in clip space — the same bounds media3 feeds {@code aFramePosition}. */
     private static final float[] QUAD = {
             -1f, -1f, 0f, 1f,
@@ -694,12 +713,21 @@ public class FxPreviewTextureView extends TextureView
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
-    private int stageProgram, presentProgram, gradeProgram, cropProgram;
+    private int stageProgram, presentProgram, gradeProgram, cropProgram, layerProgram;
     /** @see #STAGE_STILL_FRAGMENT — the bitmap-base variant of {@link #stageProgram}. */
     private int stageStillProgram;
     /** The 2D texture holding {@link #baseStill}, and which bitmap it currently holds. */
     private int baseStillTexId;
     @Nullable private android.graphics.Bitmap baseStillUploaded;
+    /** GL pilot: full-frame raster of layer_image_overlay, uploaded as a 2D texture */
+    @Nullable private volatile android.graphics.Bitmap layerOverlayBitmap;
+    private int layerOverlayTexId;
+    @Nullable private android.graphics.Bitmap layerOverlayUploaded;
+    /** Pilot measurement: frame time */
+    private long pilotFrameCount = 0;
+    private long pilotTotalFrameNs = 0;
+    private long pilotMaxFrameNs = 0;
+    private long pilotLastFrameNs = 0;
     /**
      * PiP composite programs, keyed by effect-stack source AND texture variant (live OES vs
      * uploaded still) — two PiPs carrying different object stacks must not recompile each
@@ -897,6 +925,37 @@ public class FxPreviewTextureView extends TextureView
     }
 
     /**
+     * GL pilot: full-frame raster of layer_image_overlay. Null means nothing to composite
+     * (no visible images at this playhead), so the pass is skipped. Bitmap handed here
+     * must be retired via stillTrash(), never recycled directly — see baseStill.
+     */
+    public void setLayerOverlayBitmap(@Nullable android.graphics.Bitmap b) {
+        if (b == layerOverlayBitmap) return;
+        android.graphics.Bitmap old = layerOverlayBitmap;
+        if (old != null && old != b && !old.isRecycled()) {
+            stillTrash.offer(old);
+        }
+        layerOverlayBitmap = b;
+        requestFrame();
+    }
+
+    /** Pilot measurement: reset frame-time stats */
+    public void resetPilotStats() {
+        pilotFrameCount = 0;
+        pilotTotalFrameNs = 0;
+        pilotMaxFrameNs = 0;
+        pilotLastFrameNs = 0;
+    }
+    public long getPilotFrameCount() { return pilotFrameCount; }
+    public long getPilotAvgFrameNs() { return pilotFrameCount == 0 ? 0 : pilotTotalFrameNs / pilotFrameCount; }
+    public long getPilotMaxFrameNs() { return pilotMaxFrameNs; }
+    public long getPilotLastFrameNs() { return pilotLastFrameNs; }
+    public int getPilotLayerBitmapBytes() {
+        android.graphics.Bitmap b = layerOverlayBitmap;
+        return b == null || b.isRecycled() ? 0 : b.getByteCount();
+    }
+
+    /**
      * Redraw with current state even if no new decoder frame arrived (a paused scrub).
      *
      * <p>COALESCED. {@code sync()} pushes size, rotation, grade, layers and the PiP every tick,
@@ -1013,6 +1072,7 @@ public class FxPreviewTextureView extends TextureView
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
             cropProgram = buildProgram(FxGlSource.VERTEX_SHADER, CROP_FRAGMENT);
+            layerProgram = buildProgram(FxGlSource.VERTEX_SHADER, LAYER_FRAGMENT);
             // The PiP programs are compiled lazily by pipProgramFor, because their source
             // depends on each object's effect stack. Any ids cached from a previous surface
             // belong to a destroyed context — clearing the maps is not optional.
@@ -1027,6 +1087,9 @@ public class FxPreviewTextureView extends TextureView
             // Same reasoning for the bitmap BASE: its texture id belonged to the dead context.
             baseStillTexId = 0;
             baseStillUploaded = null;
+            layerOverlayTexId = 0;
+            layerOverlayUploaded = null;
+            resetPilotStats();
 
             oesTexId = newOesTexture();
 
@@ -1102,6 +1165,7 @@ public class FxPreviewTextureView extends TextureView
 
     private void drawFrame() {
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
+        long frameStartNs = System.nanoTime();
         try {
             EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
             // Retired stills are freed HERE, before any upload can touch them — see stillTrash.
@@ -1165,9 +1229,30 @@ public class FxPreviewTextureView extends TextureView
             }
             evictUnusedStills();
 
+            // 3b — GL pilot: layer_image_overlay as a full-frame texture at its real z.
+            // This composite sits AFTER the PiP/adjustment walk (which is bottom→top in
+            // orderedVisualItems order) — layer_image_overlay is above PiPs and waveform per
+            // the XML stack, so compositing here puts it where the Canvas would have painted
+            // over the GL surface unconditionally. With this, the promote rules for this
+            // layer can eventually be deleted; for the pilot they stay.
+            android.graphics.Bitmap layerBmp = layerOverlayBitmap;
+            if (!degraded && layerBmp != null && !layerBmp.isRecycled() && layerProgram != 0) {
+                int dst = cur == 0 ? 1 : 0;
+                if (drawLayerOverlay(layerBmp, cur, dst, vw, vh)) cur = dst;
+            }
+
             // 4 — present the finished frame, fit-centred, at view resolution.
             drawPresent(targets[cur][0]);
             EGL14.eglSwapBuffers(eglDisplay, eglSurface);
+            // Pilot measurement: frame time
+            long frameNs = System.nanoTime() - frameStartNs;
+            pilotFrameCount++;
+            pilotTotalFrameNs += frameNs;
+            if (frameNs > pilotMaxFrameNs) pilotMaxFrameNs = frameNs;
+            pilotLastFrameNs = frameNs;
+            if ((pilotFrameCount % 60) == 0) {
+                FLog.d("GLPilot", "frame " + pilotFrameCount + " last=" + (frameNs/1_000_000) + "ms avg=" + ((pilotTotalFrameNs/pilotFrameCount)/1_000_000) + "ms max=" + (pilotMaxFrameNs/1_000_000) + "ms layerBytes=" + getPilotLayerBitmapBytes());
+            }
         } catch (Exception e) {
             // A lost preview must never take the editor down, and it cannot affect the export.
             if (!degraded) {
@@ -1302,6 +1387,33 @@ public class FxPreviewTextureView extends TextureView
         setF(gradeProgram, "uVignette", g.vignette);
         setF(gradeProgram, "uGrain", g.grain);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    /**
+     * GL pilot: composite a full-frame Canvas layer (layer_image_overlay) over the frame.
+     * Uploads the bitmap on demand (top-row-first v-flip like stills) and alpha-overs it.
+     * Returns false if upload failed and nothing was drawn.
+     */
+    private boolean drawLayerOverlay(@NonNull android.graphics.Bitmap b, int src, int dst, int vw, int vh) {
+        if (layerOverlayTexId == 0) layerOverlayTexId = newStillTexture();
+        if (layerOverlayUploaded != b) {
+            try {
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, layerOverlayTexId);
+                android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+                layerOverlayUploaded = b;
+            } catch (RuntimeException e) {
+                FLog.w(TAG, "layer overlay upload failed", e);
+                return false;
+            }
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(layerProgram);
+        bindQuad(layerProgram);
+        setSampler(layerProgram, "uBaseSampler", targets[src][0], 0, true);
+        setSampler(layerProgram, "uLayerSampler", layerOverlayTexId, 1, true);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return true;
     }
 
     /**

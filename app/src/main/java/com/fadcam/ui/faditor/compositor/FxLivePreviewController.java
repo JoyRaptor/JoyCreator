@@ -104,6 +104,15 @@ public final class FxLivePreviewController {
         default void onFxShaderUnavailable(@NonNull String reason) { }
 
         /**
+         * Full-frame raster of layer_image_overlay at video resolution, or null when nothing
+         * visible. The layer stays in layout as an invisible hit-test surface (spec §4.3).
+         */
+        @Nullable default android.graphics.Bitmap layerImageOverlayFor(int frameW, int frameH, long playheadMs) {
+            return null;
+        }
+        default void onLayerImageOverlayRouted(boolean routed) { }
+
+        /**
          * True while the crop EDITOR has the clip's own overlay up: the user must see the FULL
          * frame there to drag a rectangle over it, so the chain suppresses the crop pass until
          * editing ends. The export never sees this flag — it only ever shapes the live view.
@@ -308,6 +317,10 @@ public final class FxLivePreviewController {
         // gap note); this general solution is image-only, the gap is named explicitly.
         List<com.fadcam.ui.faditor.model.TextOverlayItem> belowBlendImages =
                 plainImagesBelowBlend(timeline, glImages);
+        // GL pilot: layer_image_overlay — if this project has any IMAGE-track items, the
+        // pilot must route so the rasterised layer can composite at its real z. Per-project
+        // like crop: an empty section still passes through.
+        boolean anyLayerImage = !LayerPreviewController.visibleImageItems(timeline).isEmpty();
         // A project that CROPS any master clip routes too — and stays routed. Crop is a
         // per-CLIP property, so deciding per tick would tear the decoder off its surface at
         // every cropped/uncropped seam; per-project, an uncropped clip just passes through
@@ -320,7 +333,8 @@ public final class FxLivePreviewController {
             }
         }
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
-                && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyCrop) {
+                && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyCrop
+                && !anyLayerImage) {
             stop();
             return;
         }
@@ -357,6 +371,19 @@ public final class FxLivePreviewController {
                 : videoSize();
         view.setVideoSize(size[0], size[1]);
         view.setVideoRotation(still != null ? 0 : rotationDegrees());
+        // GL pilot: layer_image_overlay rasterised to a full-frame bitmap at video
+        // resolution, composited at its real z inside the GL pass. The View stays in
+        // layout as an invisible hit-test surface (alpha 0, still VISIBLE so it receives
+        // touch — spec §4.3). Bitmap is provided on demand, not per frame, and handed
+        // via stillTrash discipline so GL never touches a recycled bitmap (trap 6.4).
+        android.graphics.Bitmap layerOverlay = host.layerImageOverlayFor(size[0], size[1], playheadMs);
+        if (layerOverlay != null && layerOverlay.isRecycled()) layerOverlay = null;
+        view.setLayerOverlayBitmap(layerOverlay);
+        boolean layerRouted = layerOverlay != null;
+        if (layerRouted != layerOverlayRouted) {
+            layerOverlayRouted = layerRouted;
+            host.onLayerImageOverlayRouted(layerRouted);
+        }
         view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
@@ -372,6 +399,7 @@ public final class FxLivePreviewController {
 
     /** @see #setBaseStillRouted */
     private boolean baseStillRouted;
+    private boolean layerOverlayRouted;
 
     /**
      * Build the z-ordered composite plan: every live adjustment layer (resolved to its immutable
@@ -746,6 +774,11 @@ public final class FxLivePreviewController {
         // routes, and leaving the ImageView hidden there would blank the picture entirely.
         setBaseStillRouted(false);
         view.setBaseStill(null);
+        if (layerOverlayRouted) {
+            layerOverlayRouted = false;
+            host.onLayerImageOverlayRouted(false);
+        }
+        view.setLayerOverlayBitmap(null);
         // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());

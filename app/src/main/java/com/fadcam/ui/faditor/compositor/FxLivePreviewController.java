@@ -597,9 +597,25 @@ public final class FxLivePreviewController {
                     ordered.get(i).item.getTextOverlay();
             if (o != null && o.isImage()) idxById.put(o.getId(), i);
         }
+        // THE TRIGGER IS "WENT TO GL", NOT "BLENDS". Anything that leaves the Canvas path is
+        // composited in a different pass, so a plain image left behind on Canvas lands at the
+        // wrong depth relative to it — the reason for promoting is the SPLIT between passes,
+        // and blending is only one of four ways to cause that split (see wantsGlExport).
+        //
+        // Filtering on wantsExportBlend() here is what broke z the moment masks started
+        // routing to GL: a masked image on NORMAL blend went to GL, counted for nothing, and
+        // the plain image beneath it stayed on Canvas. JoyRaptor, 2026-08-25, testing exactly that
+        // pair on the Note 9: "the mask WORKED on normal, HOWEVER it moved its z-depth so that
+        // even though it was on top the top img rendered AS IF it was under the second IMG …
+        // when i added a mask to the second img it then properly ordered (because they both
+        // were rendering the same)." Two masked images agreed because both were in GL; one of
+        // each did not, because they were in different passes.
+        //
+        // glImages is already the GL-routed set, so every member is a reason to promote what
+        // sits below it. This is what §3A.2 asked for — the general question, not the blend
+        // special case.
         int maxBlendIdx = -1;
         for (com.fadcam.ui.faditor.model.TextOverlayItem g : glImages) {
-            if (!g.wantsExportBlend()) continue;
             Integer idx = idxById.get(g.getId());
             if (idx != null && idx > maxBlendIdx) maxBlendIdx = idx;
         }

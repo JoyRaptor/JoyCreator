@@ -8253,6 +8253,38 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * for "original" the first clip's intrinsic aspect (slide dimensions for an AI
      * slide). Returns -1 when unknown (caller fills the preview).
      */
+    /** The generated black spacer's filename — a gap, never content. See firstAspectBearingClip. */
+    private static final String GAP_IMAGE_NAME = "faditor_gap_black.png";
+
+    /**
+     * The first clip whose shape may define the canvas — never a generated black spacer.
+     *
+     * <p>A 16x16 PNG DECIDED THE SHAPE OF THE WHOLE PROJECT. {@code resolveCanvasAspect}
+     * resolves the "original" preset from CLIP 0, and {@code faditor_gap_black.png} — written
+     * 16x16 by the gap writer below — is a spacer, not content. Land one at position 0 and the
+     * canvas becomes 1:1, so a 9:16 project renders square in the preview and every overlay
+     * anchors to a square box. JoyRaptor, over several days: "the aspect ratio of the project
+     * changed to square, was 9:16", "that changed a while back, never solved". His
+     * canvasPreset on disk read "original" the whole time, which is why nothing looked wrong
+     * in the project file.
+     *
+     * <p>Skips gap spacers and keeps looking. Falls back to the first clip when a project is
+     * nothing BUT spacers, so behaviour is unchanged for every project without one.</p>
+     */
+    @Nullable
+    private Clip firstAspectBearingClip() {
+        Timeline tl = project.getTimeline();
+        int n = tl.getClipCount();
+        for (int i = 0; i < n; i++) {
+            Clip c = tl.getClip(i);
+            if (c == null) continue;
+            android.net.Uri u = c.getSourceUri();
+            if (u != null && String.valueOf(u).endsWith(GAP_IMAGE_NAME)) continue;
+            return c;
+        }
+        return n > 0 ? tl.getClip(0) : null;
+    }
+
     private float resolveCanvasAspect() {
         String rawPreset = project.getCanvasPreset();
         if (rawPreset != null && rawPreset.startsWith("custom_")) {
@@ -8275,7 +8307,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             default: break; // original
         }
         if (project.getTimeline().getClipCount() > 0) {
-            Clip c = project.getTimeline().getClip(0);
+            Clip c = firstAspectBearingClip();
+            if (c == null) return 16f / 9f;
             com.fadcam.ui.faditor.model.GeneratedSource gs = c.getGeneratedSource();
             if (gs != null && gs.width > 0 && gs.height > 0) {
                 return (float) gs.width / gs.height;
@@ -14789,7 +14822,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         try {
             java.io.File dir = new java.io.File(getFilesDir(), "images");
             if (!dir.exists()) dir.mkdirs();
-            java.io.File f = new java.io.File(dir, "faditor_gap_black.png");
+            java.io.File f = new java.io.File(dir, GAP_IMAGE_NAME);
             if (!f.exists() || f.length() == 0) {
                 android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(
                         16, 16, android.graphics.Bitmap.Config.ARGB_8888);

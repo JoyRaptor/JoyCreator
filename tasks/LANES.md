@@ -67,11 +67,12 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: IDLE (2026-08-26 — REVERTED both of today's PiP/slide changes after device test:
-  the band-cap split regressed landscape promote, and the slide re-fit broke the project's
-  aspect ratio. Frame-parity harness KEPT (tools only, no app code). Back to the pre-08:00
-  behaviour; diagnosis restarts from measurement.)
-files: (none)
+status: ACTIVE (2026-08-26 — canvas aspect resolved from a 16x16 black gap spacer at clip 0,
+  making whole projects render square. Also holds the PiP/layout files.)
+files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java,
+  app/src/main/java/com/fadcam/ui/faditor/player/PreviewPipController.java,
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java,
+  app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
 
 ## OPENCODE — dynamic lane
 status: IDLE (2026-08-27 — S5 BOTH HALVES done: Timeline.getClip @Nullable bounds, getSelectedClip @Nullable guard, 124 callers audited — 92 selection (kept + null-guarded), 16 playhead->clipUnderPlayhead, 12 target->timeline.getClip(segmentIndex), 4 comments. TYPECHECK OK 656/1817, BUILD SUCCESSFUL 11:34:49 (fresh), visual preview + crop + heal/split at playhead need JoyRaptor's eye.)
@@ -130,13 +131,8 @@ files: (none)
 since: 2026-08-24
 
 ## LANE A — dynamic lane (GL TEXT/SPRITE BELOW BLEND: rasterize static text/sprite to GL texture, composite at real z)
-status: ACTIVE (2026-08-27 — text/sprite layers below blending image via GL raster, static path + animated fallback, export parity)
-files: app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
-       app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
-       app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
-       app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java
-       app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java
-       app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java
+status: IDLE (2026-08-27 — BUILT 0f943fb6, 322 insertions. Static text/sprite below blend raster at video res, cached, composited before blend via belowBlend bitmap/GL texture (stillTrash). Animated gap left on Canvas (~17ms >16.6ms budget, documented). Export parity via belowBlend overlay before ImageBlend. TYPECHECK OK 656/1817, preview_parity_lint PASS, build.log stale 3:15:08 (watcher), device SANDBOX_SERIAL present, visual verify owed)
+files: (none)
 since: 2026-08-27
 
 ## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)

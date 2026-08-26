@@ -249,6 +249,45 @@ public class PreviewPipController {
         }
         sb.append("\n    others=").append(total).append("px  slot=").append(rootH - total)
                 .append("px (").append((int) ((rootH - total) / density)).append("dp)");
+        // ONE LEVEL DEEPER for controls_section. The column dump says it fills the root,
+        // which is true but not actionable: the tool row lives INSIDE it as a wrap_content
+        // child (faditor_tools_overlay), so when its siblings there eat the space it is
+        // squeezed to ZERO height and vanishes from the view tree altogether — not pushed
+        // off-screen, ABSENT, which is exactly what the uiautomator dump showed. Shrinking
+        // the timeline band by the column's overflow did not bring it back, so the band is
+        // not the only thing competing in there. This names what is.
+        for (int i = 0; i < editorRoot.getChildCount(); i++) {
+            View c = editorRoot.getChildAt(i);
+            if (!(c instanceof ViewGroup) || c.getVisibility() == View.GONE) continue;
+            String nm;
+            try {
+                nm = c.getId() == View.NO_ID ? ""
+                        : c.getResources().getResourceEntryName(c.getId());
+            } catch (Exception e) {
+                nm = "";
+            }
+            if (!"controls_section".equals(nm)) continue;
+            ViewGroup g = (ViewGroup) c;
+            sb.append("\n  controls_section h=").append(g.getHeight()).append("px:");
+            int inner = 0;
+            for (int j = 0; j < g.getChildCount(); j++) {
+                View k = g.getChildAt(j);
+                String kn;
+                try {
+                    kn = k.getId() == View.NO_ID ? "(no-id)"
+                            : k.getResources().getResourceEntryName(k.getId());
+                } catch (Exception e) {
+                    kn = "(id?)";
+                }
+                boolean kgone = k.getVisibility() == View.GONE;
+                if (!kgone) inner += k.getHeight();
+                sb.append("\n      [").append(j).append("] ").append(kn)
+                        .append(" h=").append(k.getHeight())
+                        .append(kgone ? "  <- GONE" : "")
+                        .append(k.getHeight() == 0 && !kgone ? "  <- SQUEEZED TO ZERO" : "");
+            }
+            sb.append("\n      children total=").append(inner).append("px");
+        }
         FLog.i(TAG, sb.toString());
         reclampBandToColumn(rootH, total);
     }

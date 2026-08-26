@@ -74,8 +74,8 @@ status: IDLE (2026-08-26 — REVERTED both of today's PiP/slide changes after de
 files: (none)
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-27 — track matte LIVE PREVIEW BUILT. FxPreviewTextureView: PIP_FRAGMENT matte luma (dot 0.299/0.587/0.114 * alpha, same as BlendModeGlEffect) via still fallback per Note9 budget (FEEDBACK B3), Pip.withMatte, matteTexIds cache + eviction. OverlayVideoPreviewView.mattePipFor still-only. FxLivePreviewController: servingMatteIds hide + withMatte via visibleOverlayVideoClips lookup, anyMatte routing. FaditorEditorActivity feeds VISIBLE clips for matte still. TYPECHECK OK 656/1817, BUILD SUCCESSFUL 11:34:49 (fresh, newer than 11:24 edit), adb SANDBOX_SERIAL device, MatteVisibilityTest + ImageBlendGateTest ALL GREEN. Visual matte result needs JoyRaptor's eye.)
-files: (none)
+status: ACTIVE (2026-08-27 — S5 BOTH HALVES agent 3: getSelectedClip empty guard + ~120 caller audit via clipUnderPlayhead)
+files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java, app/src/main/java/com/fadcam/ui/faditor/model/Timeline.java, app/src/main/java/com/fadcam/ui/faditor/undo/EditActions.java, app/src/main/java/com/fadcam/ui/faditor/undo/UndoManager.java
 since: 2026-08-27
 
 prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)
@@ -113,12 +113,13 @@ status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb372
 files: (none)
 since: 2026-08-24
 
-## LANE D — dynamic lane (audio UI: B3 solo · B4 level meters · C6 GR bar · C7 A/B bypass)
-status: IDLE (2026-08-24 — all four rows BUILT at 5b89b76a. TYPECHECK OK — 652 sources,
-        1806 classes; resample/audio-fx/envelope/beats/align/fx/sequence harnesses ALL GREEN.
-        NOT device-seen or device-heard yet — that proof is owed on JoyRaptor's next look.)
-files: (none)
-since: 2026-08-24
+## LANE D — dynamic lane (frame parity matrix — agent 2)
+status: ACTIVE (2026-08-27 — frame parity combination matrix: mask/blend/FX/matte/crop/z)
+files: tools/frame_parity_matrix.py
+       tools/run-frame-parity-matrix.sh
+       tools/jvm-harness/frame_parity.py
+       export/fixtures/parity/*
+since: 2026-08-27
 
 ## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)
 status: IDLE (2026-08-24 overnight — G21 BUILT (508f71f5), B9 v1 + preview-reclaim BUILT

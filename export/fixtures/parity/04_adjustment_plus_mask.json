@@ -1,0 +1,58 @@
+{
+  "id": "5f8617d0-d425-4bae-b6f4-f3f2d18945fa",
+  "name": "Parity 04 adjustment + mask",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "970e6f22-53aa-4a8b-b965-28cfc144b606",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [],
+    "textOverlays": [],
+    "adjustmentLayers": [
+      {
+        "id": "e4434f31-943d-47ec-b171-65af7ba351bc",
+        "layerId": "adjustment",
+        "startMs": 0,
+        "durationMs": 5000,
+        "name": "Grade",
+        "fx": {
+          "cards": [
+            {
+              "id": "invert",
+              "enabled": true
+            }
+          ]
+        },
+        "compositing": {
+          "masks": [
+            {
+              "cx": 0.5,
+              "cy": 0.5,
+              "w": 0.6,
+              "h": 0.6,
+              "corner": 0.2,
+              "mode": 0,
+              "slot": 0
+            }
+          ],
+          "invertMasks": false,
+          "feather": 0.3
+        },
+        "blendMode": "NORMAL"
+      }
+    ],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

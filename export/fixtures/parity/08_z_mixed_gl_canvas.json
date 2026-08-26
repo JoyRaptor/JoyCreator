@@ -1,0 +1,60 @@
+{
+  "id": "2d6b30cc-6eea-4f75-8719-5068185052a0",
+  "name": "Parity 08 z mixed GL Canvas",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "a528e722-3870-46d7-b5db-dc702b1e5364",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [
+      {
+        "id": "02adb901-f0ba-4aa7-bc27-2b13ffcfae8a",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video-bottom",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "NORMAL"
+      },
+      {
+        "id": "0dde7102-ff17-4bcc-a254-5a4fd1587e37",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_b.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video-top",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "NORMAL"
+      }
+    ],
+    "textOverlays": [
+      {
+        "id": "87772813-85be-4141-9667-99790af1c564",
+        "layerId": "text",
+        "startMs": 0,
+        "endMs": 5000,
+        "text": "TEXT LAYER Z-MIDDLE",
+        "style": "default"
+      }
+    ],
+    "adjustmentLayers": [],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

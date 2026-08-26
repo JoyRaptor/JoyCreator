@@ -114,11 +114,8 @@ files: (none)
 since: 2026-08-24
 
 ## LANE D — dynamic lane (frame parity matrix — agent 2)
-status: ACTIVE (2026-08-27 — frame parity combination matrix: mask/blend/FX/matte/crop/z)
-files: tools/frame_parity_matrix.py
-       tools/run-frame-parity-matrix.sh
-       tools/jvm-harness/frame_parity.py
-       export/fixtures/parity/*
+status: IDLE (2026-08-27 — matrix done: 8/8 synthetic parity PASS, 8/8 neg controls PASS; one-command via bash tools/run-frame-parity-matrix.sh; fixtures in export/fixtures/parity/; live device pending)
+files: (none)
 since: 2026-08-27
 
 ## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)
@@ -132,10 +129,15 @@ status: IDLE (2026-08-24 overnight — G21 BUILT (508f71f5), B9 v1 + preview-rec
 files: (none)
 since: 2026-08-24
 
-## LANE A — dynamic lane (G batch: G1/G2/G3 + G5/G6/G7/G16/G17 + G8-G12/G9 + G13/G14/G15 — all 17 hands-on rows done)
-status: IDLE (2026-08-24 — 17 rows BUILT: G1/G2 8c6b0c66 fid fade fix, G3 2d34beb0 toggle, G4 f613dce6 picker, G5 1ead8ea4+b9118ff8 pin fix, G6-17 7813914a+2d34beb0 transcript/caption/drawer/transport. TYPECHECK OK — 648 sources, 1795 classes)
-files: (none)
-since: 2026-08-24
+## LANE A — dynamic lane (GL TEXT/SPRITE BELOW BLEND: rasterize static text/sprite to GL texture, composite at real z)
+status: ACTIVE (2026-08-27 — text/sprite layers below blending image via GL raster, static path + animated fallback, export parity)
+files: app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
+       app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
+       app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
+       app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java
+       app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java
+       app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java
+since: 2026-08-27
 
 ## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)
 status: WIP (agent 1, 2026-08-24) � code landed, commit pending. G22: master-band

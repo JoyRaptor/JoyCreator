@@ -1,0 +1,44 @@
+{
+  "id": "d7e2fab4-ce1a-49e1-9c61-9f9767a2393e",
+  "name": "Parity 06 crop + blend",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "73fb37ce-a5d6-4b08-ada8-6e1da84a1d0d",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [
+      {
+        "id": "55fd58ce-8dc5-4a0a-9f4e-02162166e114",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "MULTIPLY",
+        "cropPreset": "custom",
+        "cropLeft": 0.15,
+        "cropTop": 0.15,
+        "cropRight": 0.85,
+        "cropBottom": 0.85
+      }
+    ],
+    "textOverlays": [],
+    "adjustmentLayers": [],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

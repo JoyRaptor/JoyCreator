@@ -1,0 +1,54 @@
+{
+  "id": "281a41c5-6b84-4f3f-8322-528f4e63e962",
+  "name": "Parity 01 mask x blend",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "8bb7c206-4674-4ec0-a39b-129e93c268a9",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [
+      {
+        "id": "16746af1-b583-42a1-b033-bad10918ef77",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "MULTIPLY",
+        "compositing": {
+          "masks": [
+            {
+              "cx": 0.5,
+              "cy": 0.5,
+              "w": 0.3,
+              "h": 0.2,
+              "corner": 0.2,
+              "mode": 0,
+              "slot": 0
+            }
+          ],
+          "invertMasks": false,
+          "feather": 0.3
+        }
+      }
+    ],
+    "textOverlays": [],
+    "adjustmentLayers": [],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

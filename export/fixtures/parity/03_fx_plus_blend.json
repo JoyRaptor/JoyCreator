@@ -1,0 +1,47 @@
+{
+  "id": "c12f6e42-2089-4ebb-828d-e0c299851ec7",
+  "name": "Parity 03 FX + blend",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "20f6c729-5afb-46c0-bc9a-d5222b8ed123",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [
+      {
+        "id": "f9708f0b-451e-43e4-a662-e982581ff037",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "MULTIPLY",
+        "fx": {
+          "cards": [
+            {
+              "id": "invert",
+              "enabled": true
+            }
+          ]
+        }
+      }
+    ],
+    "textOverlays": [],
+    "adjustmentLayers": [],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

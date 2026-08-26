@@ -1,0 +1,54 @@
+{
+  "id": "b715ae03-57f9-45d6-a2ce-3959c767c96b",
+  "name": "Parity 02 mask on NORMAL",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "c64431d0-bb1a-4029-8b3b-5e3323887057",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [
+      {
+        "id": "e6b766d7-70ee-46c4-90b0-a4e91eb640fb",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "NORMAL",
+        "compositing": {
+          "masks": [
+            {
+              "cx": 0.5,
+              "cy": 0.5,
+              "w": 0.3,
+              "h": 0.2,
+              "corner": 0.1,
+              "mode": 0,
+              "slot": 0
+            }
+          ],
+          "invertMasks": false,
+          "feather": 0.3
+        }
+      }
+    ],
+    "textOverlays": [],
+    "adjustmentLayers": [],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

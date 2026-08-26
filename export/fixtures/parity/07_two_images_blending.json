@@ -1,0 +1,51 @@
+{
+  "id": "d4ba2e0e-719c-4698-a3bc-51c57cccbe83",
+  "name": "Parity 07 two images blending",
+  "createdAt": 1720000000000,
+  "lastModified": 1720000000000,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "3e8320d7-75ed-4aa2-83e3-a9ab2cae49e5",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/base.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": false
+      }
+    ],
+    "overlayClips": [
+      {
+        "id": "72d170e5-1bbd-4d22-933e-7e6c7715eabd",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_a.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video-a",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "MULTIPLY"
+      },
+      {
+        "id": "58335729-2f23-4e9b-8023-fbd2a49bfefd",
+        "sourceUri": "file:///C:/%2BProjects/Screenrecorder/FadCam/export/fixtures/parity/assets/overlay_b.png",
+        "inPointMs": 0,
+        "outPointMs": 5000,
+        "sourceDurationMs": 5000,
+        "speedMultiplier": 1.0,
+        "imageClip": true,
+        "layerId": "video-b",
+        "overlayStartMs": 0,
+        "overlayBlendMode": "SCREEN"
+      }
+    ],
+    "textOverlays": [],
+    "adjustmentLayers": [],
+    "audioClips": []
+  },
+  "exportSettings": {}
+}

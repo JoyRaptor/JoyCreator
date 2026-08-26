@@ -673,16 +673,44 @@ public final class FxLivePreviewController {
      * what a blur radius means relative to the export. Falls back to 1080p rather than to the
      * view's size, because the view is letterboxed and its height would make the aspect wrong.</p>
      */
+    /**
+     * Last size the decoder actually reported, held across item transitions.
+     *
+     * <p>THE 1920x1080 FALLBACK IS THE SEAM SQUASH. {@code getVideoSize()} returns 0x0 for a
+     * few frames while the decoder re-initialises for a new media item, and falling back to a
+     * hard-coded LANDSCAPE 16:9 renders a portrait frame at the wrong aspect for exactly that
+     * window: a 9:16 source fitted to 16:9 keeps 0.32 of its height — JoyRaptor, 2026-08-25, "the
+     * clip squashes to a third of the height and then centered ... before it pops in at the
+     * correct size."
+     *
+     * <p>It got dramatically worse on the Note 9 in the same session, which is the tell: B1
+     * gave same-source slices distinct mediaIds so they would fire item transitions, and a cut
+     * recording is nothing BUT same-source slices. Every seam became a transition, so every
+     * seam became a squash. The glitch is older than B1; B1 only made it fire constantly.
+     *
+     * <p>A remembered size is right where a constant is wrong: the previous item's dimensions
+     * are almost always the next item's too (same source), and when they genuinely differ the
+     * real value lands a frame or two later anyway. The constant stays only as a cold-start
+     * default, before any frame has ever been decoded.</p>
+     */
+    @Nullable private int[] lastReportedVideoSize;
+
     @NonNull
     private int[] videoSize() {
         ExoPlayer p = host.activeVideoPlayer();
-        if (p == null) return new int[]{1920, 1080};
+        if (p == null) return lastReportedVideoSize != null
+                ? lastReportedVideoSize : new int[]{1920, 1080};
         VideoSize vs = p.getVideoSize();
-        if (vs.width <= 0 || vs.height <= 0) return new int[]{1920, 1080};
+        if (vs.width <= 0 || vs.height <= 0) {
+            return lastReportedVideoSize != null
+                    ? lastReportedVideoSize : new int[]{1920, 1080};
+        }
         // The UPRIGHT size: the renderer stages the frame already rotated, so everything
         // downstream — the FBOs, uTexel, uAspect, the fit rect — is in display orientation.
         boolean swap = vs.unappliedRotationDegrees == 90 || vs.unappliedRotationDegrees == 270;
-        return swap ? new int[]{vs.height, vs.width} : new int[]{vs.width, vs.height};
+        int[] upright = swap ? new int[]{vs.height, vs.width} : new int[]{vs.width, vs.height};
+        lastReportedVideoSize = upright;
+        return upright;
     }
 
     /** @see FxPreviewTextureView#setVideoRotation */

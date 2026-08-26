@@ -63,3 +63,4 @@ tasks/a6/lufs/
 
 # Python bytecode from the probe library
 tasks/__pycache__/
+tools/jvm-harness/out-frameparity/

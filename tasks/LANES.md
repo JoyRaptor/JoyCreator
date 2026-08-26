@@ -67,15 +67,11 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: ACTIVE (2026-08-26 — band clamp split: user drag stays clamped to content, the PiP's
-  automatic gap-absorb may exceed it; then GeneratedSlideView refit-on-resize; then the
-  preview/export frame-comparison harness.)
-files: app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java,
-  app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java,
-  app/src/main/java/com/fadcam/ui/faditor/player/PreviewPipController.java,
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java,
-  app/src/main/java/com/fadcam/ui/faditor/slides/GeneratedSlideView.java,
-  tools/jvm-harness/*, export/*
+status: IDLE (2026-08-26 — three landed: band-cap split (user drag clamped, PiP gap-absorb
+  may exceed content), GeneratedSlideView re-fits its stage on resize, and a frame-parity
+  harness that compares EXPORT pixels to PREVIEW pixels with four negative controls.
+  TYPECHECK OK 655/1815. BUILD + device verify owed on all three.)
+files: (none)
 
 ## OPENCODE — dynamic lane
 status: IDLE (2026-08-26 — GL pilot complete. LayerImageOverlayView rasterises on demand to 1920x1080 bitmap via still machinery (top-row-first v-flip, stillTrash lifetime), composited as GL texture at real z via FxPreviewTextureView LAYER_FRAGMENT, View kept alpha 0 for hit-test. TYPECHECK OK 655/1815, BUILD SUCCESSFUL 08:00:20 fresh, installed on SM-N960U. Measurement: on-demand raster ~3-5ms, upload ~3-7ms, per-raster ~5-12ms, frequency 1-2 per 30s static (placeholder rect, real image decode +10-20ms extra), GL composite +0.5-1ms per frame, median frame 11→12ms, worst 14ms under 16.6ms budget — pilot suggests Note 9 CAN carry text/sprites via same path if dirty-region or lower-res not needed, but visual check and 30s capture with real image still owed to JoyRaptor. Promote rules kept.)

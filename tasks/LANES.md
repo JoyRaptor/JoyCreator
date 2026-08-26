@@ -74,8 +74,8 @@ status: IDLE (2026-08-26 — REVERTED both of today's PiP/slide changes after de
 files: (none)
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-27 — S5 BOTH HALVES agent 3: getSelectedClip empty guard + ~120 caller audit via clipUnderPlayhead)
-files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java, app/src/main/java/com/fadcam/ui/faditor/model/Timeline.java, app/src/main/java/com/fadcam/ui/faditor/undo/EditActions.java, app/src/main/java/com/fadcam/ui/faditor/undo/UndoManager.java
+status: IDLE (2026-08-27 — S5 BOTH HALVES done: Timeline.getClip @Nullable bounds, getSelectedClip @Nullable guard, 124 callers audited — 92 selection (kept + null-guarded), 16 playhead->clipUnderPlayhead, 12 target->timeline.getClip(segmentIndex), 4 comments. TYPECHECK OK 656/1817, BUILD SUCCESSFUL 11:34:49 (fresh), visual preview + crop + heal/split at playhead need JoyRaptor's eye.)
+files: (none)
 since: 2026-08-27
 
 prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)

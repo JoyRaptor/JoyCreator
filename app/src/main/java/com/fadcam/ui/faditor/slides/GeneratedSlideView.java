@@ -63,9 +63,6 @@ public class GeneratedSlideView extends WebView {
                 super.onReceivedTitle(view, title);
                 if (READY_TITLE.equals(title)) {
                     ready = true;
-                    // Fit before the first seek so the very first frame the user sees is
-                    // already at the right scale, not corrected a beat later.
-                    fitStageToView();
                     if (pendingSeekMs >= 0) {
                         seekTo(pendingSeekMs);
                         pendingSeekMs = -1;
@@ -78,49 +75,6 @@ public class GeneratedSlideView extends WebView {
 
     public void setOnReadyListener(@Nullable Runnable listener) {
         this.onReadyListener = listener;
-    }
-
-    /**
-     * Re-fit the fixed-pixel slide stage to whatever size this view is NOW.
-     *
-     * <p>{@code setLoadWithOverviewMode(true)} fits the page to the view exactly once, when it
-     * loads. Every other preview layer recomputes itself from the video content rect when the
-     * container is reparented — into the floating PiP, or back inline — but a WebView lays its
-     * content out at a CSS viewport size and does not re-lay-out just because its View got
-     * smaller. So the slide kept rendering at load-time scale inside a shrunken PiP: JoyRaptor,
-     * 2026-08-26, "the html clip stays at unrotated scale so in the popout it is not ground
-     * truth. seems to be the outlier."
-     *
-     * <p>The authored HTML declares NO viewport meta (see {@code SlideContract}), so WebView
-     * falls back to its default 980px layout width while {@code #stage} is a fixed pixel size
-     * of its own — the two never agreed even before a resize. Injecting a viewport that IS the
-     * stage width puts WebView's own fit machinery on the right number, and a fixed-width
-     * viewport is re-scaled by the engine when the view resizes, which is exactly the behaviour
-     * that was missing. Nothing here scales anything by hand, so there is no second transform
-     * to fight the engine's.</p>
-     *
-     * <p>Idempotent and safe to call at any time; a no-op until the stage exists.</p>
-     */
-    public void fitStageToView() {
-        if (!ready) return;
-        evaluateJavascript(
-                "(function(){var s=document.getElementById('stage');if(!s)return;"
-                        + "var w=s.offsetWidth||0;if(!w)return;"
-                        + "var m=document.querySelector('meta[name=\"viewport\"]');"
-                        + "if(!m){m=document.createElement('meta');m.setAttribute('name','viewport');"
-                        + "(document.head||document.documentElement).appendChild(m);}"
-                        + "var c='width='+w;if(m.getAttribute('content')!==c)"
-                        + "m.setAttribute('content',c);"
-                        + "document.documentElement.style.margin='0';"
-                        + "if(document.body)document.body.style.margin='0';})();",
-                null);
-    }
-
-    @Override
-    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
-        super.onSizeChanged(w, h, oldw, oldh);
-        // The PiP promote/demote reparent is exactly this: a size change with no reload.
-        if (w > 0 && h > 0 && (w != oldw || h != oldh)) fitStageToView();
     }
 
     /** Double-tap on the slide preview = the slide's advanced menu (code editor). */

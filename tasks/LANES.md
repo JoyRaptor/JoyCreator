@@ -74,7 +74,7 @@ status: IDLE (2026-08-26 — REVERTED both of today's PiP/slide changes after de
 files: (none)
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-27 — S6/S7 pass two complete. S6: TranscriptStrikesAction with defensive copy, one press=one undo, wired in onStrikesChanged + Clean fillers, snapshot handling, refreshEditorAfterUndoRedo sync. S7: ExportFailureCause enum per-cause Retry, dialog not toast with Details disclosure, structured FLog EXPORT_FAILURE record via scrubbed Log substrate. TYPECHECK OK 656/1817, build stale 08:53:18 — watcher stalled, not run gradle per rule 6.)
+status: IDLE (2026-08-27 — track matte LIVE PREVIEW BUILT. FxPreviewTextureView: PIP_FRAGMENT matte luma (dot 0.299/0.587/0.114 * alpha, same as BlendModeGlEffect) via still fallback per Note9 budget (FEEDBACK B3), Pip.withMatte, matteTexIds cache + eviction. OverlayVideoPreviewView.mattePipFor still-only. FxLivePreviewController: servingMatteIds hide + withMatte via visibleOverlayVideoClips lookup, anyMatte routing. FaditorEditorActivity feeds VISIBLE clips for matte still. TYPECHECK OK 656/1817, BUILD SUCCESSFUL 11:34:49 (fresh, newer than 11:24 edit), adb SANDBOX_SERIAL device, MatteVisibilityTest + ImageBlendGateTest ALL GREEN. Visual matte result needs JoyRaptor's eye.)
 files: (none)
 since: 2026-08-27
 

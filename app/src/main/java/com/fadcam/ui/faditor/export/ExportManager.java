@@ -862,7 +862,12 @@ public class ExportManager {
 
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
         if (!master.isEmpty()) {
-            sequences.add(new EditedMediaItemSequence.Builder(master).build());
+            // Same reason as the video spine below: this list interleaves addSilence() items,
+            // which carry audio and no video, with real clips. Force the audio track so a
+            // leading item without one cannot abort the export.
+            sequences.add(new EditedMediaItemSequence.Builder(master)
+                    .experimentalSetForceAudioTrack(true)
+                    .build());
         }
         if (timeline.hasAudioClips()) {
             // A8: one sequence PER AUDIO LANE, mixed in parallel by the Composition.
@@ -1230,8 +1235,28 @@ public class ExportManager {
             }
         }
 
+        // AN IMAGE FIRST IN THE SPINE KILLED THE WHOLE EXPORT. media3 refuses a sequence that
+        // begins with an item carrying no audio track and later reaches one that does, and it
+        // names its own remedy in the thrown message:
+        //
+        //   "The preceding MediaItem does not contain any audio track. If the sequence starts
+        //    with an item without audio track (like images), followed by items with audio
+        //    tracks, then EditedMediaItemSequence.Builder.experimentalSetForceAudioTrack()
+        //    needs to be set to true."
+        //
+        // Every export of such a project failed with a bare "Asset loader error" — JoyRaptor,
+        // 2026-08-26, two attempts, structured record: cause=UNKNOWN clips=11 hasPip=true
+        // hasText=true hasAudio=false. Starting a project with a title card or a photo is
+        // completely ordinary, so this was not an edge case.
+        //
+        // Safe when it is not needed: the flag is documented as having NO EFFECT when the
+        // first item already contains audio, so a project that opens on a video is unchanged.
+        // It is only incompatible with setTransmuxAudio, which this exporter never calls
+        // (checked: zero setTransmux* anywhere in export/).
         EditedMediaItemSequence videoSequence =
-                new EditedMediaItemSequence.Builder(items).build();
+                new EditedMediaItemSequence.Builder(items)
+                        .experimentalSetForceAudioTrack(true)
+                        .build();
 
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
         sequences.add(videoSequence);

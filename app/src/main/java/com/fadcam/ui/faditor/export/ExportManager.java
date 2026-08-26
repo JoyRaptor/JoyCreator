@@ -408,6 +408,24 @@ public class ExportManager {
         try {
             // Build the Transformer
             Transformer.Builder builder = new Transformer.Builder(context)
+                    // TEN SECONDS IS NOT ENOUGH ON AN OLD PHONE. media3 kills an export when
+                    // the muxer goes DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS (10_000 on a
+                    // real device) without receiving a sample, and reports it as the bare
+                    // "Muxer error" that JoyRaptor hit on 2026-08-26 after a long wait — the
+                    // structured record caught the watchdog frames in the stack:
+                    // Transformer.maybeInitializeExportWatchdogTimer -> WatchdogTimer.onTimeout.
+                    //
+                    // His project is 11 clips drawn from six distinct sources, with PiP
+                    // compositing, text overlays and an 18-second still at the end, on a Note 9
+                    // (API 29, ~2 hardware decoders). A single hard segment there can easily
+                    // out-wait ten seconds without emitting one sample, and the export dies
+                    // having done all the work up to that point.
+                    //
+                    // This raises the ceiling; it does NOT make export faster, and the slowness
+                    // is worth attacking separately. A watchdog exists to catch a genuine hang,
+                    // and a hang still trips this one — it just no longer mistakes a slow device
+                    // for a broken one.
+                    .setMaxDelayBetweenMuxerSamplesMs(120_000L)
                     .setVideoMimeType(MimeTypes.VIDEO_H264)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC)
                     // Encode portrait output NATIVELY (coded WxH portrait, rotation=0)
@@ -601,6 +619,8 @@ public class ExportManager {
 
         try {
             Transformer.Builder builder = new Transformer.Builder(context)
+                    // Same watchdog headroom as the video path above.
+                    .setMaxDelayBetweenMuxerSamplesMs(120_000L)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC);
 
             builder.addListener(new Transformer.Listener() {

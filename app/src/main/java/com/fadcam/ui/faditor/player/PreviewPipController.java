@@ -238,13 +238,14 @@ public class PreviewPipController {
             }
             boolean isPlayer = c == playerContainer;
             boolean gone = c.getVisibility() == View.GONE;
-            boolean skippedAsOverlay = h >= rootH;
+            boolean skippedAsOverlay =
+                    lp != null && lp.height == ViewGroup.LayoutParams.MATCH_PARENT;
             if (!isPlayer && !gone && !skippedAsOverlay) total += h + mt + mb;
             sb.append("\n    [").append(i).append("] ").append(name)
                     .append(" h=").append(h).append(" m=").append(mt).append('/').append(mb)
                     .append(isPlayer ? "  <- PLAYER (excluded)" : "")
                     .append(gone ? "  <- GONE" : "")
-                    .append(skippedAsOverlay && !isPlayer ? "  <- >=rootH, treated as overlay" : "");
+                    .append(skippedAsOverlay && !isPlayer ? "  <- match_parent, overlay" : "");
         }
         sb.append("\n    others=").append(total).append("px  slot=").append(rootH - total)
                 .append("px (").append((int) ((rootH - total) / density)).append("dp)");
@@ -260,9 +261,25 @@ public class PreviewPipController {
             View c = editorRoot.getChildAt(i);
             if (c == playerContainer || c.getVisibility() == View.GONE) continue;
             int h = c.getHeight();
-            if (h >= rootH) continue; // full-height overlay child — not part of the column budget
-            others += h;
             ViewGroup.LayoutParams lp = c.getLayoutParams();
+            // AN OVERLAY IS DECLARED, NOT MEASURED. This used to skip any child as tall as the
+            // root — meaning to skip match_parent overlays like remux_progress_overlay, which
+            // sit on top of the column rather than inside its budget.
+            //
+            // But controls_section is layout_height=wrap_content and in LANDSCAPE it grows to
+            // exactly the column height, so the measured test called the TIMELINE an overlay
+            // and dropped it from the budget. Measured on JoyRaptor's Note 9: rootH=1080,
+            // controls_section h=1080, others collapses to 165px and the slot reads 915px
+            // (464dp) — nowhere near the 110dp trigger, so landscape could not promote.
+            //
+            // It is also why growing the band broke landscape: a taller timeline reaches root
+            // height sooner, trips this guard, and the slot jumps from negative to 464dp. The
+            // band change was not wrong on its own terms; it walked the column into this test.
+            //
+            // layout_height tells the two apart with no ambiguity: MATCH_PARENT is an overlay,
+            // anything else is in the flow however tall it happens to render.
+            if (lp != null && lp.height == ViewGroup.LayoutParams.MATCH_PARENT) continue;
+            others += h;
             if (lp instanceof ViewGroup.MarginLayoutParams) {
                 ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) lp;
                 others += mlp.topMargin + mlp.bottomMargin;

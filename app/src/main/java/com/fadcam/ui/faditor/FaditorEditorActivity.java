@@ -222,6 +222,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // so a silent :export-process death can never wedge future exports.
     private static final long EXPORT_START_GRACE_MS = 30_000;
     private volatile long exportStartedLocallyAtMs = 0;
+    private boolean lastExportWasAudioOnly = false;
     private boolean exportEventsReceiverRegistered = false;
     private final android.content.BroadcastReceiver exportEventsReceiver =
             new android.content.BroadcastReceiver() {
@@ -244,7 +245,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             break;
                         case ExportService.ACTION_EXPORT_ERROR:
                             exportStartedLocallyAtMs = 0;
-                            exportUiOnError(intent.getStringExtra(ExportService.EXTRA_ERROR_MESSAGE));
+                            exportUiOnError(intent.getStringExtra(ExportService.EXTRA_ERROR_MESSAGE),
+                                    intent.getStringExtra(ExportService.EXTRA_ERROR_CLASS));
                             break;
                         case ExportService.ACTION_EXPORT_CANCELLED:
                             exportStartedLocallyAtMs = 0;
@@ -340,6 +342,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.transcript.TranscriptionEngine transcriptionEngine;
     private com.fadcam.ui.faditor.transcript.Transcript currentTranscript;
     private String transcriptClipId;
+    /** Last snapshot of word-strike states for S6 undo coalescing (one press = one undo). */
+    @Nullable private java.util.List<Boolean> lastTranscriptStrikesSnapshot = null;
     private boolean transcriptIsForAudio = false;
     private int transcriptAudioIndex = -1;
     /** Target (trim-relative ms) of an in-flight live-skip seek, or -1. Prevents
@@ -9159,13 +9163,81 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     private void exportUiOnError(@Nullable String errorMessage) {
+        exportUiOnError(errorMessage, null);
+    }
+
+    private void exportUiOnError(@Nullable String errorMessage, @Nullable String errorClass) {
                     runOnUiThread(() -> {
                         hideExportProgress();
-                        Toast.makeText(FaditorEditorActivity.this,
-                                getString(R.string.faditor_export_error,
-                                        errorMessage != null ? errorMessage : "Unknown error"),
-                                Toast.LENGTH_LONG).show();
-                        FLog.e(TAG, "Export failed: " + errorMessage);
+                        // Classify cause for user message and Retry visibility (per-cause, JoyRaptor ruling)
+                        com.fadcam.ui.faditor.export.ExportFailureCause cause =
+                                com.fadcam.ui.faditor.export.ExportFailureCause.classify(errorClass, errorMessage);
+                        String raw = errorMessage != null ? errorMessage : "Unknown error";
+                        String rawClass = errorClass != null ? errorClass : "Unknown";
+
+                        // Structured record — first stone of bug-reporting pipeline (§3)
+                        // Single tagged line, machine-readable, privacy-scrubbed (FLog already scrubs)
+                        try {
+                            String version = "unknown";
+                            try {
+                                version = getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+                            } catch (Exception ignored) {}
+                            int api = android.os.Build.VERSION.SDK_INT;
+                            int clipCount = project != null ? project.getTimeline().getClipCount() : -1;
+                            long totalMs = project != null ? project.getTimeline().getTotalDurationMs() : -1;
+                            boolean hasAudio = project != null && !project.getTimeline().getAudioClips().isEmpty();
+                            boolean hasPip = project != null && !project.getTimeline().getOverlayClips().isEmpty();
+                            boolean hasText = false;
+                            try {
+                                hasText = project != null && !com.fadcam.ui.faditor.compositor.LayerPreviewController
+                                        .visibleTextOverlays(project.getTimeline()).isEmpty();
+                            } catch (Exception ignored) {}
+                            // Single line JSON-like for machine parsing, scrubbed by FLog
+                            String record = String.format(java.util.Locale.US,
+                                    "EXPORT_FAILURE cause=%s rawClass=%s rawMsg=%s version=%s api=%d clips=%d totalMs=%d hasAudio=%b hasPip=%b hasText=%b",
+                                    cause.name(), rawClass.replaceAll("\\s+", "_"), raw.replaceAll("[\\r\\n]+", " ").replaceAll("\\s+", " ").trim(),
+                                    version, api, clipCount, totalMs, hasAudio, hasPip, hasText);
+                            FLog.e("EXPORT_FAILURE", record);
+                        } catch (Exception ignored) {
+                            FLog.e(TAG, "Export failed: " + raw + " [" + rawClass + "]");
+                        }
+
+                        // Dialog, not toast — must hold Retry and Details
+                        String userMsg = cause.userMessage;
+                        if (!userMsg.toLowerCase(java.util.Locale.ROOT).contains("safe")) {
+                            userMsg += "\n\nYour project is safe.";
+                        }
+                        com.google.android.material.dialog.MaterialAlertDialogBuilder b =
+                                new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                                        .setTitle("Export failed")
+                                        .setMessage(userMsg)
+                                        .setCancelable(false)
+                                        .setNegativeButton("Close", null);
+                        if (cause.retryable) {
+                            b.setPositiveButton("Retry", (dlg, w) -> {
+                                startExportViaService(lastExportWasAudioOnly);
+                            });
+                        }
+                        // Details disclosure: raw engine text demoted but not deleted — what makes a bug report useful
+                        b.setNeutralButton("Details", (dlg, w) -> {
+                            new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                                    .setTitle("Export error details")
+                                    .setMessage(rawClass + ":\n" + raw)
+                                    .setPositiveButton("Copy", (d2, w2) -> {
+                                        android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                                        if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("Export error", rawClass + ": " + raw));
+                                        android.widget.Toast.makeText(FaditorEditorActivity.this, "Copied", android.widget.Toast.LENGTH_SHORT).show();
+                                    })
+                                    .setNegativeButton("Close", null)
+                                    .show();
+                        });
+                        try {
+                            b.show();
+                        } catch (Exception e) {
+                            // Fallback to toast if dialog fails (e.g. activity finishing)
+                            android.widget.Toast.makeText(FaditorEditorActivity.this, userMsg, android.widget.Toast.LENGTH_LONG).show();
+                        }
+                        FLog.e(TAG, "Export failed [" + cause.name() + "]: " + raw + " (" + rawClass + ")");
                     });
     }
 
@@ -9575,6 +9647,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // playhead updater, causing a flicker).
                     currentTranscript = activeNt.transcript;
                     transcriptClipId = clip.getId();
+                    lastTranscriptStrikesSnapshot = captureTranscriptStrikes();
                     if (transcriptView != null && transcriptPanel != null
                             && transcriptPanel.getVisibility() == View.VISIBLE) {
                         transcriptView.setTranscript(currentTranscript);
@@ -11811,6 +11884,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Toast.makeText(this, "Preparing "
                 + (pendingSlides.size() + pendingOverlaySlides.size())
                 + " animated slide(s)…", Toast.LENGTH_SHORT).show();
+        lastExportWasAudioOnly = audioOnly;
         exportStartedLocallyAtMs = System.currentTimeMillis();
         final java.io.File pd = slideProjectDir;
         final java.util.List<Clip> pending = pendingSlides;
@@ -11910,6 +11984,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         } else {
             startService(serviceIntent);
         }
+        lastExportWasAudioOnly = audioOnly;
         exportStartedLocallyAtMs = System.currentTimeMillis();
 
         // Show export info on the overlay (progress arrives via exportEventsReceiver).
@@ -12610,6 +12685,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 audioCaptionClipId != null ? findAudioClipById(audioCaptionClipId) : null;
         if (boundAudioCaption != null) {
             bindAudioCaptionData(boundAudioCaption);
+        }
+        // S6: transcript strikes — recompute skip-list and refresh the rail so undo/redo
+        // of a strike set is visible immediately. syncRemovedSpansFromTranscript also
+        // refreshes lastTranscriptStrikesSnapshot, so the next strike has a correct before.
+        if (currentTranscript != null) {
+            syncRemovedSpansFromTranscript();
+            if (transcriptView != null) transcriptView.invalidate();
         }
     }
 
@@ -27981,9 +28063,26 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onStrikesChanged() {
+                // S6: one drag = one undo step. Capture before snapshot (lastSnapshot is the
+                // state before this drag), sync which recomputes removedSpans and updates
+                // lastSnapshot to after, then record the before→after transition.
+                java.util.List<Boolean> before = lastTranscriptStrikesSnapshot != null
+                        ? new java.util.ArrayList<>(lastTranscriptStrikesSnapshot)
+                        : captureTranscriptStrikes();
                 // Live, non-destructive: update the clip's skip-list so preview
                 // skips it and the timeline shows it immediately.
                 syncRemovedSpansFromTranscript();
+                java.util.List<Boolean> after = captureTranscriptStrikes();
+                boolean changed = false;
+                int n = Math.min(before.size(), after.size());
+                for (int i = 0; i < n; i++) if (!before.get(i).equals(after.get(i))) { changed = true; break; }
+                if (changed || before.size() != after.size()) {
+                    if (undoManager != null && currentTranscript != null) {
+                        undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.TranscriptStrikesAction(
+                                currentTranscript, before, after));
+                    }
+                    lastTranscriptStrikesSnapshot = new java.util.ArrayList<>(after);
+                }
             }
 
             @Override
@@ -28096,9 +28195,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptReopenTab.setOnClickListener(v -> showTranscriptPanel(true));
         findViewById(R.id.transcript_clean).setOnClickListener(v -> {
             if (currentTranscript == null) return;
+            java.util.List<Boolean> before = captureTranscriptStrikes();
             int n = currentTranscript.strikeFillers();
             transcriptView.invalidate();
             syncRemovedSpansFromTranscript();
+            java.util.List<Boolean> after = captureTranscriptStrikes();
+            if (!before.equals(after) && n > 0) {
+                if (undoManager != null) {
+                    undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.TranscriptStrikesAction(
+                            currentTranscript, before, after));
+                }
+                lastTranscriptStrikesSnapshot = new java.util.ArrayList<>(after);
+            }
             Toast.makeText(this, getString(R.string.faditor_transcript_cleaned, n),
                     Toast.LENGTH_SHORT).show();
         });
@@ -31992,6 +32100,33 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
         scheduleAutoSave();
+        // Keep S6 snapshot in sync with the live state so the next strike has a correct before
+        lastTranscriptStrikesSnapshot = captureTranscriptStrikes();
+    }
+
+    @NonNull private java.util.List<Boolean> captureTranscriptStrikes() {
+        java.util.List<Boolean> out = new java.util.ArrayList<>();
+        if (currentTranscript != null) {
+            for (com.fadcam.ui.faditor.transcript.TranscriptWord w : currentTranscript.words) out.add(w.struck);
+        }
+        return out;
+    }
+
+    private void recordTranscriptStrikesIfChanged(@NonNull java.util.List<Boolean> before) {
+        if (currentTranscript == null) return;
+        java.util.List<Boolean> after = captureTranscriptStrikes();
+        if (before.size() != after.size()) {
+            // Size changed (words added/removed) — treat as distinct edit, still one undo step
+        }
+        boolean changed = false;
+        int n = Math.min(before.size(), after.size());
+        for (int i = 0; i < n; i++) if (!before.get(i).equals(after.get(i))) { changed = true; break; }
+        if (!changed && before.size() == after.size()) return;
+        if (undoManager != null) {
+            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.TranscriptStrikesAction(
+                    currentTranscript, before, after));
+        }
+        lastTranscriptStrikesSnapshot = new java.util.ArrayList<>(after);
     }
 
     /**

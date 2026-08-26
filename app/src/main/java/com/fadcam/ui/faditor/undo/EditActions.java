@@ -979,4 +979,36 @@ public final class EditActions {
             return "Loop " + oldMode + " → " + newMode + " [" + oldBefore + "+" + oldAfter + "] → [" + newBefore + "+" + newAfter + "]";
         }
     }
+
+    /** Transcript word-strikes (S6) — one button press = one undo step, however many words. */
+    public static final class TranscriptStrikesAction implements EditAction {
+        @NonNull private final com.fadcam.ui.faditor.transcript.Transcript transcript;
+        @NonNull private final java.util.List<Boolean> beforeStrikes;
+        @NonNull private final java.util.List<Boolean> afterStrikes;
+
+        public TranscriptStrikesAction(@NonNull com.fadcam.ui.faditor.transcript.Transcript transcript,
+                                       @NonNull java.util.List<Boolean> before,
+                                       @NonNull java.util.List<Boolean> after) {
+            this.transcript = transcript;
+            // Defensive copy — see S2; the caller reuses/mutates its list after recordAction
+            this.beforeStrikes = new java.util.ArrayList<>(before);
+            this.afterStrikes = new java.util.ArrayList<>(after);
+        }
+
+        private void apply(@NonNull java.util.List<Boolean> strikes) {
+            int n = Math.min(strikes.size(), transcript.words.size());
+            for (int i = 0; i < n; i++) {
+                transcript.words.get(i).struck = strikes.get(i);
+            }
+        }
+
+        @Override public void execute() { apply(afterStrikes); }
+        @Override public void undo() { apply(beforeStrikes); }
+        @NonNull @Override public String getDescription() {
+            int changed = 0;
+            int m = Math.min(beforeStrikes.size(), afterStrikes.size());
+            for (int i = 0; i < m; i++) if (!beforeStrikes.get(i).equals(afterStrikes.get(i))) changed++;
+            return "Transcript strikes (" + changed + " words)";
+        }
+    }
 }

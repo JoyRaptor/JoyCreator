@@ -73,6 +73,7 @@ public class ExportService extends Service {
     public static final String EXTRA_OUTPUT_PATH = "output_path";
     public static final String EXTRA_PROGRESS = "progress";
     public static final String EXTRA_ERROR_MESSAGE = "error_message";
+    public static final String EXTRA_ERROR_CLASS = "error_class";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
     /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
@@ -288,6 +289,7 @@ public class ExportService extends Service {
                 showErrorNotification(error.getMessage());
                 Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                 broadcast.putExtra(EXTRA_ERROR_MESSAGE, error.getMessage());
+                broadcast.putExtra(EXTRA_ERROR_CLASS, error.getClass().getName());
                 sendExportBroadcast(broadcast);
                 stopSelf();
             }

@@ -197,8 +197,63 @@ public class PreviewPipController {
      * overflow the root, so the preview has less than zero space. Landscape produces exactly
      * that, and it is the strongest possible case for promoting.</p>
      */
+    /** Root height at the last column dump, so a rotation triggers exactly one. */
+    private int lastDumpedRootH = -1;
+
+    /**
+     * Print the column's ACTUAL arithmetic, once per root-height change.
+     *
+     * <p>Five theories about this subsystem have now died against JoyRaptor's device, the last
+     * two after being shipped: a band-cap split that regressed landscape promote, and a slide
+     * refit that changed the project's aspect ratio. Every one of them was an argument about
+     * what the geometry must be doing. Nobody had ever looked at the geometry.
+     *
+     * <p>This prints each child's height and margins against the root, so "the drawer will not
+     * reach the top" and "rotating with a tall timeline pushes the toolbox off the bottom"
+     * become arithmetic instead of hypotheses. A root-height change IS a rotation, which is
+     * the exact moment both symptoms appear, and gating on it keeps this off the per-frame
+     * path entirely.</p>
+     */
+    private void dumpColumn(int rootH) {
+        if (rootH == lastDumpedRootH) return;
+        lastDumpedRootH = rootH;
+        StringBuilder sb = new StringBuilder("COLUMN rootH=").append(rootH)
+                .append("px (").append((int) (rootH / density)).append("dp) promoted=")
+                .append(promoted);
+        int total = 0;
+        for (int i = 0; i < editorRoot.getChildCount(); i++) {
+            View c = editorRoot.getChildAt(i);
+            String name;
+            try {
+                name = c.getId() == View.NO_ID ? "(no-id)"
+                        : c.getResources().getResourceEntryName(c.getId());
+            } catch (Exception e) {
+                name = "(id?)";
+            }
+            int h = c.getHeight(), mt = 0, mb = 0;
+            ViewGroup.LayoutParams lp = c.getLayoutParams();
+            if (lp instanceof ViewGroup.MarginLayoutParams) {
+                mt = ((ViewGroup.MarginLayoutParams) lp).topMargin;
+                mb = ((ViewGroup.MarginLayoutParams) lp).bottomMargin;
+            }
+            boolean isPlayer = c == playerContainer;
+            boolean gone = c.getVisibility() == View.GONE;
+            boolean skippedAsOverlay = h >= rootH;
+            if (!isPlayer && !gone && !skippedAsOverlay) total += h + mt + mb;
+            sb.append("\n    [").append(i).append("] ").append(name)
+                    .append(" h=").append(h).append(" m=").append(mt).append('/').append(mb)
+                    .append(isPlayer ? "  <- PLAYER (excluded)" : "")
+                    .append(gone ? "  <- GONE" : "")
+                    .append(skippedAsOverlay && !isPlayer ? "  <- >=rootH, treated as overlay" : "");
+        }
+        sb.append("\n    others=").append(total).append("px  slot=").append(rootH - total)
+                .append("px (").append((int) ((rootH - total) / density)).append("dp)");
+        FLog.i(TAG, sb.toString());
+    }
+
     private float prospectiveSlotPx() {
         int rootH = editorRoot.getHeight();
+        if (rootH > 0) dumpColumn(rootH);
         if (rootH <= 0) return Float.NaN;
         float others = 0f;
         for (int i = 0; i < editorRoot.getChildCount(); i++) {

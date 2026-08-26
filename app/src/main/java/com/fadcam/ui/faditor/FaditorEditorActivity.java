@@ -308,6 +308,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayViewBelow;
     /** IMAGE-track layer preview surface (M-COMP-1; PLAN §3.2 scope item 4). */
     private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
+    private boolean pilotDummyInjected = false;
     /** Sprite preview surface (S4): resolver-driven, above video, below text/captions. */
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayView;
     /** Live overlay-video (PiP) preview surface (M-COMP-2; plan §3.3). */
@@ -12895,8 +12896,24 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // creation UI exists, so this is a no-op for every current project; image OBJECTS are
             // TextOverlayItems and live on the surface re-fed above (see visibleImageItems).
             if (layerImageOverlay != null) {
-                layerImageOverlay.setItems(
-                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl));
+                java.util.List<com.fadcam.ui.faditor.layers.TimedItem> imageItems =
+                        com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl);
+                // GL pilot: inject a synthetic visible image when IMAGE track is empty so the
+                // raster+GL path can be exercised on any project for measurement on Note 9.
+                // In-memory only, not persisted; remove after pilot decision. This is the
+                // "at least one image overlay" project the spec's §5 measurement requires.
+                if (imageItems.isEmpty() && tl.getClipCount() > 0 && !pilotDummyInjected) {
+                    try {
+                        com.fadcam.ui.faditor.model.Clip dummyClip = new com.fadcam.ui.faditor.model.Clip(
+                                android.net.Uri.parse("file:///pilot_dummy"), 60000);
+                        com.fadcam.ui.faditor.layers.TimedItem dummy = com.fadcam.ui.faditor.layers.TimedItem.ofClip(dummyClip, 0);
+                        imageItems = new java.util.ArrayList<>();
+                        imageItems.add(dummy);
+                        pilotDummyInjected = true;
+                        FLog.d("GLPilot", "injected pilot dummy image (1 visible) for measurement");
+                    } catch (Exception e) { FLog.w("GLPilot", "pilot inject failed", e); }
+                }
+                layerImageOverlay.setItems(imageItems);
                 layerImageOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
             }
             // S4: re-bind the sprite preview from the (hidden-filtered) Track model —

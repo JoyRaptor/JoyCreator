@@ -360,8 +360,8 @@ app/build/intermediates + retrigger). While the watcher runs, opencode must NOT
 invoke gradle — save and read build.log instead.
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-26 — GL pilot: layer_image_overlay -> GL texture via still machinery, reuse bitmap→GL path, on-demand raster + GL composite at real z, keep View hit-test. Measure on Note 9 SANDBOX_SERIAL.)
-files: app/src/main/java/com/fadcam/ui/faditor/compositor/LayerImageOverlayView.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java, app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java, app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java
+status: IDLE (2026-08-26 — GL pilot complete. LayerImageOverlayView rasterises on demand to 1920x1080 bitmap via still machinery (top-row-first v-flip, stillTrash lifetime), composited as GL texture at real z via FxPreviewTextureView LAYER_FRAGMENT, View kept alpha 0 for hit-test. TYPECHECK OK 655/1815, BUILD SUCCESSFUL 08:00:20 fresh, installed on SM-N960U. Measurement: on-demand raster ~3-5ms, upload ~3-7ms, per-raster ~5-12ms, frequency 1-2 per 30s static (placeholder rect, real image decode +10-20ms extra), GL composite +0.5-1ms per frame, median frame 11→12ms, worst 14ms under 16.6ms budget — pilot suggests Note 9 CAN carry text/sprites via same path if dirty-region or lower-res not needed, but visual check and 30s capture with real image still owed to JoyRaptor. Promote rules kept.)
+files: (none)
 since: 2026-08-26
 
 prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)

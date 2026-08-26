@@ -812,7 +812,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         + " img=" + imagePlaybackActive
                         + " imgClip=" + (project != null
                                 && !project.getTimeline().isEmpty()
-                                && getSelectedClip().isImageClip()));
+                                && clipUnderPlayhead() != null && clipUnderPlayhead().isImageClip()));
             }
             // Only keep ticking if actively playing — avoids wasting CPU
             // redrawing the playhead position when nothing is moving.
@@ -854,19 +854,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     // ── Segment helpers ──────────────────────────────────────────────
 
     /**
-     * Returns the currently selected clip.
-     * Falls back to clip 0 if the index is out of range.
+     * Returns the currently selected clip, or null when nothing is selected or the
+     * timeline is empty. Previously fell back to clip 0 when nothing was selected,
+     * which silently returned the WRONG clip and made the preview render clip 0's
+     * crop for weeks. Callers that mean "what the playhead is on" must use
+     * {@link #clipUnderPlayhead()} instead — do not reintroduce the fallback.
      */
-    @NonNull
+    @Nullable
     private Clip getSelectedClip() {
+        if (project == null || project.getTimeline() == null) return null;
         int count = project.getTimeline().getClipCount();
-        if (selectedClipIndex < 0 || selectedClipIndex >= count) {
-            // Don't mutate selectedClipIndex — callers must handle -1 explicitly.
-            // Falling back to clip 0 for convenience but NOT changing the field,
-            // otherwise updatePlayheadPosition would silently advance to the wrong
-            // segment when no clip is actually selected (e.g. after audio tap).
-            return project.getTimeline().getClip(0);
-        }
+        if (count == 0) return null;
+        if (selectedClipIndex < 0 || selectedClipIndex >= count) return null;
         return project.getTimeline().getClip(selectedClipIndex);
     }
 
@@ -877,7 +876,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Non-video layer selections (text/sprite/adjustment) fall back to the master clip, which is
      * the only remaining video surface.
      */
-    @NonNull
+    @Nullable
     private Clip selectedTargetClip() {
         if (project != null && editorTimeline != null) {
             String id = editorTimeline.getSelectedLayerItemId();
@@ -1902,15 +1901,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onTrimChanged(int segmentIndex, float startFraction, float endFraction, boolean isLeft) {
                 if (!userDragging) {
-                    // First drag callback — capture pre-trim values for undo
-                    Clip clip = getSelectedClip();
+                    // First drag callback — capture pre-trim values for undo — target the clip being trimmed
+                    Clip clip = project != null ? project.getTimeline().getClip(segmentIndex) : null;
                     if (clip != null) {
                         preTrimInMs = clip.getInPointMs();
                         preTrimOutMs = clip.getOutPointMs();
                     }
                 }
                 userDragging = true;
-                Clip clip = getSelectedClip();
+                Clip clip = project != null ? project.getTimeline().getClip(segmentIndex) : null;
                 if (clip == null) return;
                 long duration = clip.getSourceDurationMs();
                 clip.setInPointMs((long)(startFraction * duration));
@@ -1941,7 +1940,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onTrimFinished(int segmentIndex, float startFraction, float endFraction) {
                 userDragging = false;
-                Clip clip = getSelectedClip();
+                Clip clip = project != null ? project.getTimeline().getClip(segmentIndex) : null;
                 if (clip == null) return;
                 long duration = clip.getSourceDurationMs();
                 long newIn = (long)(startFraction * duration);
@@ -2009,7 +2008,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onSlideFreezeChanged(int segmentIndex, long freezeStartMs,
                     long freezeEndMs) {
-                Clip clip = getSelectedClip();
+                Clip clip = project != null ? project.getTimeline().getClip(segmentIndex) : null;
                 if (clip == null || !clip.isGeneratedSlide()) return;
                 com.fadcam.ui.faditor.model.GeneratedSource gs = clip.getGeneratedSource();
                 if (gs == null) return;
@@ -6262,7 +6261,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
             muted = ac != null && ac.isMuted();
         } else {
-            muted = getSelectedClip().isAudioMuted();
+            Clip _sel6264 = getSelectedClip();
+            muted = _sel6264 != null && _sel6264.isAudioMuted();
         }
         int color = (muted || vol > 1.01f) ? 0xFFF44336 : 0xFF4CAF50;
         if (volumeDrawerValue != null) {
@@ -7210,6 +7210,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     private void showSpeedSlider() {
         Clip clip = selectedTargetClip();
+        if (clip == null) {
+            Toast.makeText(this, "Select a clip first", Toast.LENGTH_SHORT).show();
+            return;
+        }
         float oldSpeed = clip.getSpeedMultiplier();
         boolean oldPitch = clip.isPitchCompensationEnabled();
         SpeedSliderBottomSheet sheet = SpeedSliderBottomSheet.newInstance(
@@ -9325,7 +9329,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         long playerDurationMs = playerManager.getSourceDuration();
         if (playerDurationMs <= 0) return;
 
-        Clip clip = getSelectedClip();
+        Clip clip = clipUnderPlayhead();
+        if (clip == null) return;
         // Image clips have a fixed duration; no correction needed
         if (clip.isImageClip()) return;
 
@@ -9429,23 +9434,40 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private long segmentRelativeForAbsolute(long absoluteMs) {
         if (project == null) return 0L;
         Timeline tl = project.getTimeline();
+        Clip clip = clipUnderPlayhead();
+        if (clip == null) return absoluteMs;
+        int idx = -1;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c != null && c.getId().equals(clip.getId())) { idx = i; break; }
+        }
         long segStart = 0L;
-        for (int i = 0; i < selectedClipIndex && i < tl.getClipCount(); i++) {
-            segStart += tl.getClip(i).getTrimmedDurationMs();
+        for (int i = 0; i < idx && i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c != null) segStart += c.getTrimmedDurationMs();
         }
         long timelineOffset = Math.max(0L, absoluteMs - segStart);
-        Clip clip = tl.getClipCount() > 0 ? getSelectedClip() : null;
-        float speed = clip != null ? clip.getSpeedMultiplier() : 1f;
+        float speed = clip.getSpeedMultiplier();
         return speed > 0 ? (long) (timelineOffset * speed) : timelineOffset;
     }
 
     private long getAbsolutePlayheadMs(long positionInCurrentSegmentMs) {
         Timeline tl = project.getTimeline();
-        long absoluteMs = 0;
-        for (int i = 0; i < selectedClipIndex && i < tl.getClipCount(); i++) {
-            absoluteMs += tl.getClip(i).getTrimmedDurationMs();
+        Clip clip = clipUnderPlayhead();
+        int idx = -1;
+        if (clip != null) {
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                Clip c = tl.getClip(i);
+                if (c != null && c.getId().equals(clip.getId())) { idx = i; break; }
+            }
+        } else {
+            idx = selectedClipIndex;
         }
-        Clip clip = getSelectedClip();
+        long absoluteMs = 0;
+        for (int i = 0; i < idx && i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c != null) absoluteMs += c.getTrimmedDurationMs();
+        }
         if (clip != null) {
             float speed = clip.getSpeedMultiplier();
             if (speed > 0) {
@@ -9499,7 +9521,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // it early-outs unless the RESOLVED state changed, so an unanimated stack costs one
         // string compare per tick rather than a subtree invalidation.
         syncAdjustmentPreview(absoluteMs);
-        Clip currentClip = getSelectedClip();
+        Clip currentClip = clipUnderPlayhead();
         float currentSpeed = currentClip != null ? currentClip.getSpeedMultiplier() : 1f;
         long timelineLocalMs = (currentSpeed > 0) ? (long) (positionInCurrentSegmentMs / currentSpeed) : positionInCurrentSegmentMs;
         lastPositionInSegmentMs = timelineLocalMs;
@@ -9574,7 +9596,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Captions are CLIP-SPECIFIC: show the captions of the clip under the playhead, switching at
         // each cut (fixes captions sticking on a previously-selected clip's transcript across a seam).
         if (captionsActive && captionOverlay != null) {
-            Clip phClip = getSelectedClip();
+            Clip phClip = clipUnderPlayhead();
             if (phClip != null && phClip.isCaptionsEnabled() && phClip.hasTranscript()) {
                 if (!phClip.getId().equals(captionClipId)) {
                     bindCaptionData(phClip);
@@ -9630,7 +9652,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Drive the transcript highlight and animated captions from playback.
         if (currentTranscript != null) {
-            Clip clip = getSelectedClip();
+            Clip clip = clipUnderPlayhead();
             if (clip != null) {
                 // Check if THIS clip has its own transcript — if so, use it.
                 // This fixes the bug where the transcript highlight only worked
@@ -9686,7 +9708,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Apply volume keyframe envelope to the video clip's audio in live preview.
         {
-            Clip clip = getSelectedClip();
+            Clip clip = clipUnderPlayhead();
             if (clip != null && clip.hasVolumeKeyframes()) {
                 float gain = Math.max(0f, Math.min(2f, clip.gainAtClipMs(timelineLocalMs)));
                 if (playerManager != null) playerManager.setVolume(gain);
@@ -9695,7 +9717,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Apply clip opacity (keyframe envelope or default 1.0) to the video preview.
         {
-            Clip clip = getSelectedClip();
+            Clip clip = clipUnderPlayhead();
             float opacity = 1f;
             if (clip != null && clip.hasOpacityKeyframes()) {
                 opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(timelineLocalMs)));
@@ -9711,7 +9733,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Apply caption style keyframe to the caption overlay each tick.
         if (captionOverlay != null) {
-            Clip cc = getSelectedClip();
+            Clip cc = clipUnderPlayhead();
             if (cc != null && cc.hasCaptionStyleKeyframes() && cc.isCaptionsEnabled()) {
                 String sid = cc.captionStyleAtClipMs(positionInCurrentSegmentMs);
                 if ("hidden".equals(sid)) {
@@ -9992,7 +10014,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             return;
         }
 
-        Clip clip = getSelectedClip();
+        Clip clip = clipUnderPlayhead();
+        if (clip == null) return;
         long sourceDuration = clip.getSourceDurationMs();
         if (sourceDuration <= 0) return;
 
@@ -33849,23 +33872,30 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             int splitIndex = -1;
             final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBeforeAll =
                     tl.snapshotTransitions();
-            if (insertIndex >= 0 && selectedClipIndex >= 0) {
-                Clip currentClip = getSelectedClip();
-                if (currentClip != null && !currentClip.isImageClip()) {
-                    long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
+            Clip currentClip = clipUnderPlayhead();
+            int playheadIdx = -1;
+            if (currentClip != null) {
+                for (int i = 0; i < tl.getClipCount(); i++) {
+                    Clip c = tl.getClip(i);
+                    if (c != null && c.getId().equals(currentClip.getId())) { playheadIdx = i; break; }
+                }
+            }
+            if (insertIndex >= 0 && playheadIdx >= 0) {
+                if (!currentClip.isImageClip()) {
+                    long segStart = editorTimeline.getSegmentStartTimeMs(playheadIdx);
                     long segEffective = currentClip.getEffectiveDurationMs();
                     long localMs = playheadMs - segStart;
                     // Only split if playhead is strictly inside the clip (not at edges)
                     if (localMs > 200 && localMs < segEffective - 200) {
                         long sourceSplitMs = currentClip.getInPointMs()
                                 + (long)(localMs * currentClip.getSpeedMultiplier());
-                        splitIndex = selectedClipIndex;
+                        splitIndex = playheadIdx;
                         splitOriginal = currentClip;
-                        tl.splitAt(selectedClipIndex, sourceSplitMs);
-                        tl.shiftTransitionsAfterSplit(selectedClipIndex);
-                        splitLeft = tl.getClip(selectedClipIndex);
-                        splitRight = tl.getClip(selectedClipIndex + 1);
-                        insertIndex = selectedClipIndex + 1;
+                        tl.splitAt(playheadIdx, sourceSplitMs);
+                        tl.shiftTransitionsAfterSplit(playheadIdx);
+                        splitLeft = tl.getClip(playheadIdx);
+                        splitRight = tl.getClip(playheadIdx + 1);
+                        insertIndex = playheadIdx + 1;
                     }
                 }
             }
@@ -35043,16 +35073,22 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 return;
             }
 
-            Clip clip = getSelectedClip();
+            final Clip clip = clipUnderPlayhead();
             if (clip == null || clip.isImageClip()) {
                 Toast.makeText(this, R.string.faditor_heal_error, Toast.LENGTH_SHORT).show();
                 return;
             }
+            int playheadIdx = -1;
+            for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                Clip c = project.getTimeline().getClip(i);
+                if (c != null && c.getId().equals(clip.getId())) { playheadIdx = i; break; }
+            }
+            if (playheadIdx < 0) return;
 
             playerManager.pause();
 
             long playheadMs = editorTimeline.getPlayheadPositionMs();
-            long segStartMs = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
+            long segStartMs = editorTimeline.getSegmentStartTimeMs(playheadIdx);
             long localEffectiveMs = Math.max(0, playheadMs - segStartMs);
             long playheadSourceMs = clip.getInPointMs()
                     + (long)(localEffectiveMs * clip.getSpeedMultiplier());
@@ -35083,7 +35119,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     .setMessage(getString(R.string.faditor_heal_msg,
                             TimeFormatter.formatAuto(finalEnd - finalStart)))
                     .setPositiveButton(android.R.string.ok, (dialog, which) -> {
-                        Clip c = getSelectedClip();
+                        Clip c = clip;
                         if (c == null) return;
                         c.getRemovedSpans().add(new long[]{finalStart, finalEnd});
                         undoManager.recordAction(new EditActions.AddRemovedSpanAction(
@@ -35121,8 +35157,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (splitSelectedLayerItem()) return;   // §3.5: text/sprite/PiP split their OWN span
             if (splitSelectedAdjustmentLayer()) return;
 
-            Clip clip = getSelectedClip();
+            Clip clip = clipUnderPlayhead();
             if (clip == null) return;
+            int playheadIdx = -1;
+            for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                Clip c = project.getTimeline().getClip(i);
+                if (c != null && c.getId().equals(clip.getId())) { playheadIdx = i; break; }
+            }
+            if (playheadIdx < 0) return;
 
             playerManager.pause();
 
@@ -35130,7 +35172,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // rather than playerManager.getCurrentPosition(), which may not have settled
             // yet if a seek was still in-flight when the user tapped the split button.
             long playheadMs = editorTimeline.getPlayheadPositionMs();
-            long segStartMs = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
+            long segStartMs = editorTimeline.getSegmentStartTimeMs(playheadIdx);
             long localEffectiveMs = Math.max(0, playheadMs - segStartMs);
             // Convert effective (timeline) time → absolute source position (accounts for speed)
             long absoluteSplitMs = clip.getInPointMs()

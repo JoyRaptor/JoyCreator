@@ -294,8 +294,9 @@ public class Timeline {
     /**
      * Returns the clip at the given index, or null if out of bounds.
      */
-    @NonNull
+    @Nullable
     public Clip getClip(int index) {
+        if (index < 0 || index >= clips.size()) return null;
         return clips.get(index);
     }
 

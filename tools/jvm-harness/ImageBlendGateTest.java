@@ -68,11 +68,13 @@ public class ImageBlendGateTest {
     }
 
     /**
-     * A CHROMA KEY needs a shader too, so it routes; a MASK does not, so it must NOT.
+     * A CHROMA KEY needs a shader too, so it routes; a MASK does too, so it must route.
      *
-     * <p>A mask is a Canvas clip and {@code ImageOverlayDraw} applies it on either export path.
-     * Routing a merely-masked image into GL would move it in z (chain position is paint order)
-     * for no benefit at all — the caveat in {@code ImageBlendGlEffect}'s class doc, applied.</p>
+     * <p>A mask was once a Canvas clip that ImageOverlayDraw applied on either path, so
+     * routing a merely-masked image into GL was considered a z shift for nothing. That
+     * reasoning is now obsolete: the preview must show the mask correctly (3A), and a mask
+     * on NORMAL was invisible on Canvas (preview) — routing it to GL via hasExportMask is
+     * required for parity, and the z shift it protects was itself inverted (78032689).</p>
      */
     static void aKeyRoutesButAMaskDoesNot() {
         TextOverlayItem keyed = image(BlendModes.NORMAL);
@@ -90,8 +92,10 @@ public class ImageBlendGateTest {
         TextOverlayItem masked = image(BlendModes.NORMAL);
         masked.getOrCreateCompositing().masks.add(
                 new com.fadcam.ui.faditor.model.CompositingSpec.MaskShape());
-        check("a MASK alone stays on the canvas path — no z shift for nothing",
-                !masked.wantsGlExport());
+        check("a MASK alone routes to the shader (hasExportMask in wantsGlExport)",
+                masked.wantsGlExport());
+        check("…and that is the MASK, not blend or fx",
+                masked.hasExportMask() && !masked.wantsExportBlend() && !masked.hasExportFx());
     }
 
     static void normalIsNotABlend() {

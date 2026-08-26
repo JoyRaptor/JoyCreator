@@ -321,6 +321,13 @@ public final class FxLivePreviewController {
         // pilot must route so the rasterised layer can composite at its real z. Per-project
         // like crop: an empty section still passes through.
         boolean anyLayerImage = !LayerPreviewController.visibleImageItems(timeline).isEmpty();
+        // Track matte: any overlay clip whose CompositingSpec names a matte peer needs the GL
+        // chain to composite it — otherwise the peer vanishes and the recipient renders unmatted.
+        boolean anyMatte = false;
+        for (Clip c : timeline.getOverlayClips()) {
+            com.fadcam.ui.faditor.model.CompositingSpec cs = c.getCompositing();
+            if (cs != null && cs.mattePeerId != null) { anyMatte = true; break; }
+        }
         // A project that CROPS any master clip routes too — and stays routed. Crop is a
         // per-CLIP property, so deciding per tick would tear the decoder off its surface at
         // every cropped/uncropped seam; per-project, an uncropped clip just passes through
@@ -334,7 +341,7 @@ public final class FxLivePreviewController {
         }
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyCrop
-                && !anyLayerImage) {
+                && !anyLayerImage && !anyMatte) {
             stop();
             return;
         }
@@ -465,6 +472,14 @@ public final class FxLivePreviewController {
         for (com.fadcam.ui.faditor.model.TextOverlayItem b : plainImagesBelowBlend(timeline, glImages)) {
             belowBlendIds.add(b.getId());
         }
+        // Track matte: peers are hidden from normal rendering while they serve as mattes
+        // (LayerPreviewController.servingMatteClipIds), but their luma is needed for the
+        // recipient's alpha. Same model field and same luma math as export (BlendModeGlEffect).
+        // Still-frame fallback per FEEDBACK_20260702 §B3: master + overlay + matte =3 decoders
+        // exceeds Note 9's ~2, so a STILL-frame matte in preview is the correct fallback.
+        java.util.Set<String> servingMatteIds = LayerPreviewController.servingMatteClipIds(timeline);
+        java.util.Map<String, Clip> visibleById = new java.util.HashMap<>();
+        for (Clip c : LayerPreviewController.visibleOverlayVideoClips(timeline)) visibleById.put(c.getId(), c);
         java.util.Set<String> owned = new java.util.HashSet<>();
         // Plain/masked image overlays whose lane sits ABOVE the PiP plane: appended after the
         // walk, where the export's final canvas pass paints them.
@@ -473,8 +488,29 @@ public final class FxLivePreviewController {
                 : LayerPreviewController.orderedCompositedItems(timeline)) {
             Clip vc = v.item.getClip();
             if (vc != null && vc.isOverlayClip()) {
+                if (servingMatteIds.contains(vc.getId())) {
+                    // This clip's pixels exist only as another clip's luma matte — don't also
+                    // render it as a PiP of its own (LayerPreviewController.renderableOverlayVideoClips).
+                    continue;
+                }
                 FxPreviewTextureView.Pip p = offer ? ov.fxPipFor(vc) : null;
-                if (p != null) { rungs.add(FxPreviewTextureView.Rung.pip(p)); pipRungs++; }
+                if (p != null) {
+                    com.fadcam.ui.faditor.model.CompositingSpec cs = vc.getCompositing();
+                    if (cs != null && cs.mattePeerId != null) {
+                        Clip peer = visibleById.get(cs.mattePeerId);
+                        if (peer != null) {
+                            FxPreviewTextureView.Pip mattePip = ov != null ? ov.mattePipFor(peer) : null;
+                            if (mattePip != null) {
+                                p = p.withMatte(mattePip);
+                            } else {
+                                FLog.d("FxMatte", "matte peer " + peer.getId() + " not ready for recipient " + vc.getId() + " — unmatted");
+                            }
+                        } else {
+                            FLog.d("FxMatte", "dangling matte peerId " + cs.mattePeerId + " for " + vc.getId() + " — unmatted");
+                        }
+                    }
+                    rungs.add(FxPreviewTextureView.Rung.pip(p)); pipRungs++;
+                }
                 else if (!loggedNullPip) {
                     // ONCE, not per frame: a PiP with no geometry yet is the normal state for
                     // the first frames after a clip appears, so this fired 60 times a second

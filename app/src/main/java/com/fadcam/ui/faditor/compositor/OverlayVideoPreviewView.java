@@ -414,6 +414,28 @@ public class OverlayVideoPreviewView extends FrameLayout {
     }
 
     /**
+     * Still-frame matte for live preview: same placement math as {@link #pipFor} but always
+     * via the cached still, never a live decoder. This is the decoder-budget fallback
+     * (FEEDBACK_20260702 §B3): master + overlay + matte =3 decoders exceeds Note 9's ~2,
+     * so a STILL-frame matte in preview is the correct result, not a dropped frame.
+     * Returns null when the matte peer is not visible at the playhead, has no decoded
+     * frame yet, or is dangling — the recipient then degrades to unmatted (same as export).
+     */
+    @Nullable
+    public FxPreviewTextureView.Pip mattePipFor(@NonNull Clip mattePeer) {
+        if (callback == null || !clips.contains(mattePeer)) return null;
+        long start = mattePeer.getOverlayStartMs();
+        long end = start + Math.max(0, mattePeer.getTrimmedDurationMs());
+        if (currentTimeMs < start || currentTimeMs > end) return null;
+        StillFrame sf = stills.get(mattePeer.getId());
+        android.graphics.Bitmap b = sf == null ? null : sf.bitmap;
+        if (b == null || b.isRecycled()) {
+            return null;
+        }
+        return pipFor(mattePeer, b.getWidth(), b.getHeight(), b, 0);
+    }
+
+    /**
      * One PiP's placement on the master frame, normalised — the maths {@link #applyTransform}
      * feeds View properties, re-expressed for the GL composite. {@code srcW}×{@code srcH} is the
      * clip's own decoded size (the live decoder's, or the still bitmap's): the fit box of a 16:9

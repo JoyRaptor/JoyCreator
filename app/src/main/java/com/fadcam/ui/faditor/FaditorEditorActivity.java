@@ -13011,12 +13011,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 spritePalettePanel.setData(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleSpriteItemsAboveVideo(tl));
             }
-            // M-COMP-2: re-bind the live PiP layer from the (hidden-filtered) Track
-            // model — the same single authority M-EXPORT-2's export must consume.
+            // M-COMP-2: re-bind the live PiP layer from the Track model. Use VISIBLE
+            // (not renderable) so a clip serving as a track matte still decodes a still
+            // for the matte luma — renderable hides it from normal PiP rendering, but
+            // FxLivePreviewController hides it from the rung walk and samples its luma
+            // via mattePipFor (still-frame fallback per FEEDBACK B3 budget).
             if (overlayVideoLayer != null) {
                 overlayVideoLayer.setClips(
                         com.fadcam.ui.faditor.compositor.LayerPreviewController
-                                .renderableOverlayVideoClips(tl),
+                                .visibleOverlayVideoClips(tl),
                         overlayVideoCallback());
                 overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
                         playerManager != null && playerManager.isPlaying());

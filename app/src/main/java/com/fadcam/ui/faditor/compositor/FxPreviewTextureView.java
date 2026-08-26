@@ -178,6 +178,13 @@ public class FxPreviewTextureView extends TextureView
             + "uniform float uPipMaskFeather;\n"
             + "uniform float uPipMaskInvert;\n"
             + "uniform vec2 uPipTexel;\n"
+            + "uniform float uMatteOn;\n"
+            + "uniform sampler2D uMatteSampler;\n"
+            + "uniform vec2 uMatteCentre;\n"
+            + "uniform vec2 uMatteHalf;\n"
+            + "uniform float uMatteCos;\n"
+            + "uniform float uMatteSin;\n"
+            + "uniform float uMatteAspect;\n"
             + com.fadcam.ui.faditor.model.BlendModes.glslBlendFnWithModeParam()
             + com.fadcam.ui.faditor.model.MaskSdf.GLSL_MASK_FN
             + "void main() {\n"
@@ -204,6 +211,22 @@ public class FxPreviewTextureView extends TextureView
             + "                           uPipMaskCorner);\n"
             + "      float inside = fxCoverageOf(sd, uPipMaskFeather);\n"
             + "      cover = uPipMaskInvert > 0.5 ? 1.0 - inside : inside;\n"
+            + "    }\n"
+            + "    if (uMatteOn > 0.5) {\n"
+            + "      vec2 mp = vFxUv - uMatteCentre;\n"
+            + "      mp.x *= uMatteAspect;\n"
+            + "      vec2 mr = vec2(mp.x * uMatteCos + mp.y * uMatteSin,\n"
+            + "               -mp.x * uMatteSin + mp.y * uMatteCos);\n"
+            + "      mr.x /= uMatteAspect;\n"
+            + "      vec2 mq = mr / uMatteHalf;\n"
+            + "      vec4 mt = vec4(0.0);\n"
+            + "      if (abs(mq.x) <= 1.0 && abs(mq.y) <= 1.0) {\n"
+            + "        vec2 muv = mq * 0.5 + 0.5;\n"
+            + "        mt = texture2D(uMatteSampler, vec2(muv.x, 1.0 - muv.y));\n"
+            + "      }\n"
+            + "      vec3 mc = mt.rgb / max(mt.a, 0.001);\n"
+            + "      float luma = dot(mc, vec3(0.299, 0.587, 0.114)) * mt.a;\n"
+            + "      cover *= clamp(luma, 0.0, 1.0);\n"
             + "    }\n"
             + "    vec3 blended = blendPix(base.rgb, src.rgb, uPipBlend);\n"
             + "    float amt = clamp(uPipAlpha * src.a * cover, 0.0, 1.0);\n"
@@ -381,6 +404,11 @@ public class FxPreviewTextureView extends TextureView
          * change (narrowing the box would STRETCH the picture instead of uncovering it).
          */
         final float revealFrac;
+        /** Track matte: luma of matte peer becomes this clip's alpha (B3). Reuses same math as export. */
+        final boolean matteOn;
+        @Nullable final String matteClipId;
+        @Nullable final android.graphics.Bitmap matteStill;
+        final float matteCx, matteCy, matteHalfW, matteHalfH, matteRotationDeg;
 
         public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
                    @Nullable FxCompiler.Pass fused,
@@ -391,6 +419,20 @@ public class FxPreviewTextureView extends TextureView
                    int liveSlot,
                    boolean extras, @NonNull float[] keyColor, @NonNull float[] keyParams,
                    float revealFrac) {
+            this(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac, false, null, null, 0f, 0f, 0f, 0f, 0f);
+        }
+
+        public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
+                   @Nullable FxCompiler.Pass fused,
+                   @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey,
+                   float timeSec, float blendMode, boolean maskOn, boolean maskInvert,
+                   @NonNull float[] maskGeo,
+                   @NonNull String clipId, @Nullable android.graphics.Bitmap still,
+                   int liveSlot,
+                   boolean extras, @NonNull float[] keyColor, @NonNull float[] keyParams,
+                   float revealFrac,
+                   boolean matteOn, @Nullable String matteClipId, @Nullable android.graphics.Bitmap matteStill,
+                   float matteCx, float matteCy, float matteHalfW, float matteHalfH, float matteRotationDeg) {
             this.extras = extras;
             this.keyColor = keyColor;
             this.keyParams = keyParams;
@@ -412,6 +454,36 @@ public class FxPreviewTextureView extends TextureView
             this.clipId = clipId;
             this.still = still;
             this.liveSlot = Math.max(0, Math.min(MAX_LIVE_PIPS - 1, liveSlot));
+            this.matteOn = matteOn;
+            this.matteClipId = matteClipId;
+            this.matteStill = matteStill;
+            this.matteCx = matteCx;
+            this.matteCy = matteCy;
+            this.matteHalfW = matteHalfW;
+            this.matteHalfH = matteHalfH;
+            this.matteRotationDeg = matteRotationDeg;
+        }
+
+        /** Copy this Pip with a still-frame matte peer (budget-safe fallback). */
+        @NonNull
+        public Pip withMatte(@NonNull Pip mattePeer) {
+            // Matte peer's own still may be null if it's live; fallback still is already in mattePeer.still if available, else null -> degrade to unmatted
+            boolean on = mattePeer.still != null && !mattePeer.still.isRecycled() && mattePeer.matteClipId == null;
+            // Actually mattePeer is a normal Pip for the matte clip; its still is the matte texture.
+            // We treat matteOn true only when mattePeer has a bitmap.
+            if (mattePeer.still == null || mattePeer.still.isRecycled()) {
+                on = false;
+            }
+            return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac,
+                    on, mattePeer.clipId, mattePeer.still, mattePeer.cx, mattePeer.cy, mattePeer.halfW, mattePeer.halfH, mattePeer.rotationDeg);
+        }
+
+        /** Copy with matte disabled (dangling peer). */
+        @NonNull
+        public Pip withoutMatte() {
+            if (!matteOn) return this;
+            return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac,
+                    false, null, null, 0f, 0f, 0f, 0f, 0f);
         }
 
         boolean rendersAnything() {
@@ -743,6 +815,10 @@ public class FxPreviewTextureView extends TextureView
             new java.util.HashMap<>();
     /** Clip ids the frame being drawn referenced; still textures for the rest are freed. */
     @NonNull private final java.util.Set<String> stillKeysInFrame = new java.util.HashSet<>();
+    /** Matte peers: same still machinery but keyed by recipient clip id + matte clip id. */
+    @NonNull private final java.util.Map<String, Integer> matteTexIds = new java.util.HashMap<>();
+    @NonNull private final java.util.Map<String, android.graphics.Bitmap> matteUploaded = new java.util.HashMap<>();
+    @NonNull private final java.util.Set<String> matteKeysInFrame = new java.util.HashSet<>();
     /**
      * Stills the cache retired while this chain might be mid-upload on them. Recycled HERE, on
      * the GL thread — the only thread that touches their pixels — because freeing a bitmap
@@ -1213,6 +1289,7 @@ public class FxPreviewTextureView extends TextureView
             //     from its decoder surface and the rest from their cached stills, rather than
             //     the sibling-View stills that used to paint UNGRADED over this chain.
             stillKeysInFrame.clear();
+            matteKeysInFrame.clear();
             CompositePlan cp = plan;
             if (!degraded && cp != null) {
                 boolean layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
@@ -1228,6 +1305,7 @@ public class FxPreviewTextureView extends TextureView
                 }
             }
             evictUnusedStills();
+            evictUnusedMattes();
 
             // 3b — GL pilot: layer_image_overlay as a full-frame texture at its real z.
             // This composite sits AFTER the PiP/adjustment walk (which is bottom→top in
@@ -1598,6 +1676,24 @@ public class FxPreviewTextureView extends TextureView
         setF(program, "uPipAspect", (float) vw / (float) vh);
         setF(program, "uPipAlpha", p.alpha);
         setF(program, "uPipRotation", p.rotationDeg);
+        // Track matte: luma of matte peer becomes recipient's alpha (export's BlendModeGlEffect)
+        setF(program, "uMatteOn", p.matteOn ? 1f : 0f);
+        if (p.matteOn) {
+            double mRad = Math.toRadians(p.matteRotationDeg);
+            setF2(program, "uMatteCentre", p.matteCx, p.matteCy);
+            setF2(program, "uMatteHalf", p.matteHalfW, p.matteHalfH);
+            setF(program, "uMatteCos", (float) Math.cos(mRad));
+            setF(program, "uMatteSin", (float) Math.sin(mRad));
+            setF(program, "uMatteAspect", (float) vw / (float) vh);
+            int matteTex = matteTextureFor(p);
+            // Bind on unit 2; driver will ignore if location -1
+            int matteLoc = GLES20.glGetUniformLocation(program, "uMatteSampler");
+            if (matteLoc >= 0 && matteTex != 0) {
+                GLES20.glActiveTexture(GLES20.GL_TEXTURE2);
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, matteTex);
+                GLES20.glUniform1i(matteLoc, 2);
+            }
+        }
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         return true;
     }
@@ -1682,6 +1778,41 @@ public class FxPreviewTextureView extends TextureView
             catch (Exception ignored) { }
             it.remove();
             stillUploaded.remove(e.getKey());
+        }
+    }
+
+    private int matteTextureFor(@NonNull Pip p) {
+        if (!p.matteOn || p.matteClipId == null) return 0;
+        String key = p.clipId + "#matte#" + p.matteClipId;
+        matteKeysInFrame.add(key);
+        android.graphics.Bitmap b = p.matteStill;
+        Integer have = matteTexIds.get(key);
+        if (b == null || b.isRecycled()) return have == null ? 0 : have;
+        if (have != null && matteUploaded.get(key) == b) return have;
+        int id = have == null ? newStillTexture() : have;
+        try {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, id);
+            android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+            FLog.d("FxMatte", "matte upload OK " + key + " tex=" + id + " " + b.getWidth() + "x" + b.getHeight());
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "matte upload failed for " + key, e);
+            return have == null ? 0 : have;
+        }
+        matteTexIds.put(key, id);
+        matteUploaded.put(key, b);
+        return id;
+    }
+
+    private void evictUnusedMattes() {
+        java.util.Iterator<java.util.Map.Entry<String, Integer>> it =
+                matteTexIds.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<String, Integer> e = it.next();
+            if (matteKeysInFrame.contains(e.getKey())) continue;
+            try { GLES20.glDeleteTextures(1, new int[]{e.getValue()}, 0); }
+            catch (Exception ignored) { }
+            it.remove();
+            matteUploaded.remove(e.getKey());
         }
     }
 
@@ -2057,6 +2188,13 @@ public class FxPreviewTextureView extends TextureView
                 }
                 stillTexIds.clear();
                 stillUploaded.clear();
+                for (Integer id : matteTexIds.values()) {
+                    try { GLES20.glDeleteTextures(1, new int[]{id}, 0); }
+                    catch (Exception ignored) { }
+                }
+                matteTexIds.clear();
+                matteUploaded.clear();
+                matteKeysInFrame.clear();
                 if (baseStillTexId != 0) {
                     try { GLES20.glDeleteTextures(1, new int[]{baseStillTexId}, 0); }
                     catch (Exception ignored) { }

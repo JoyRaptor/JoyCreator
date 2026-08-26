@@ -3576,7 +3576,27 @@ public final class LayerRowRenderer {
      * can persist / feed a slider without re-clamping. Pure state — the caller triggers relayout.
      */
     public float setMaxVisibleRowsDp(float dp) {
+        return setMaxVisibleRowsDp(dp, false);
+    }
+
+    /**
+     * @param mayExceedContent true for the PiP's automatic gap-absorb, which legitimately needs
+     *        a band TALLER than its rows — that is what "near-fullscreen timeline" means, empty
+     *        space below the last row. False for a user drag, which must stay clamped or the
+     *        grab bar develops dead travel.
+     *
+     * <p>ONE CAP CANNOT SERVE BOTH, and treating it as if it could is what broke the pop-out.
+     * The clamp was added to stop a runaway that reached 820dp; it also stopped
+     * {@code PreviewPipController}'s fill from ever closing the gap left where the promoted
+     * preview used to be. An unabsorbed gap keeps the slot above the demote threshold, so the
+     * timeline could not reach the top in portrait and the PiP had nothing to hold onto.</p>
+     */
+    public float setMaxVisibleRowsDp(float dp, boolean mayExceedContent) {
         float capped = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(MAX_VISIBLE_ROWS_CAP_DP, dp));
+        if (mayExceedContent) {
+            maxVisibleRowsDp = capped;
+            return maxVisibleRowsDp;
+        }
         // A VIEWPORT CAP TALLER THAN THE CONTENT IS DEAD TRAVEL. This is a cap on how much of
         // the rows to show, so once it passes the rows' own height, raising it further renders
         // identically -- but it is still stored, and the grab bar still persists it. The PiP's

@@ -63,6 +63,15 @@ public class PreviewPipController {
         /** Set the layer-band viewport cap in dp (in-memory; persistence stays with the grab bar). */
         void setBandDp(float dp);
 
+        /**
+         * Same, for the AUTOMATIC gap-absorb after a promote — which may exceed the rows'
+         * own height, because a near-fullscreen timeline is mostly empty space below the last
+         * row. A user drag must NOT: clamping it is what keeps the grab bar free of dead
+         * travel. Defaults to the clamped setter so a host that does not distinguish them
+         * behaves exactly as before.
+         */
+        default void setBandDpForFill(float dp) { setBandDp(dp); }
+
         /** True while the user is actively dragging the timeline grab bar. */
         boolean isGrabBarDragging();
     }
@@ -153,7 +162,7 @@ public class PreviewPipController {
 
     /** Additive band fill, clamped so it can never ratchet past what the column can show. */
     private void fillBandBy(float slotDp) {
-        host.setBandDp(Math.min(host.getBandDp() + slotDp, maxUsefulBandDp()));
+        host.setBandDpForFill(Math.min(host.getBandDp() + slotDp, maxUsefulBandDp()));
     }
 
     /**

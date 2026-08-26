@@ -2587,7 +2587,16 @@ public class EditorTimelineView extends View {
      * + smaller preview; shorter band ⇒ bigger preview. Returns the clamped value actually applied.
      */
     public float setLayerBandMaxHeightDp(float dp) {
-        float applied = layerRowRenderer.setMaxVisibleRowsDp(dp);
+        return setLayerBandMaxHeightDp(dp, false);
+    }
+
+    /**
+     * @param mayExceedContent true only for the PiP's automatic gap-absorb — see
+     *        {@code LayerRowRenderer.setMaxVisibleRowsDp(float, boolean)}. A user drag passes
+     *        false and stays clamped to the rows' own height.
+     */
+    public float setLayerBandMaxHeightDp(float dp, boolean mayExceedContent) {
+        float applied = layerRowRenderer.setMaxVisibleRowsDp(dp, mayExceedContent);
         requestLayout();
         invalidate();
         return applied;

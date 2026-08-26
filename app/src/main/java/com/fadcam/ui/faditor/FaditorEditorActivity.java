@@ -13080,14 +13080,6 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             @Override public void setBandDp(float dp) {
                                 editorTimeline.setLayerBandMaxHeightDp(dp);
                             }
-                            @Override public void setBandDpForFill(float dp) {
-                                // The gap-absorb after a promote is the ONE caller allowed past
-                                // the rows' own height: a near-fullscreen timeline is mostly
-                                // empty space below the last row, so clamping this to content
-                                // left the gap open, kept the slot above the demote threshold,
-                                // and stopped the timeline reaching the top in portrait.
-                                editorTimeline.setLayerBandMaxHeightDp(dp, true);
-                            }
                             @Override public boolean isGrabBarDragging() {
                                 return grabBarDragging;
                             }

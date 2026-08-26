@@ -67,10 +67,10 @@ files: (none)
 since: 2026-08-23
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: IDLE (2026-08-26 — three landed: band-cap split (user drag clamped, PiP gap-absorb
-  may exceed content), GeneratedSlideView re-fits its stage on resize, and a frame-parity
-  harness that compares EXPORT pixels to PREVIEW pixels with four negative controls.
-  TYPECHECK OK 655/1815. BUILD + device verify owed on all three.)
+status: IDLE (2026-08-26 — REVERTED both of today's PiP/slide changes after device test:
+  the band-cap split regressed landscape promote, and the slide re-fit broke the project's
+  aspect ratio. Frame-parity harness KEPT (tools only, no app code). Back to the pre-08:00
+  behaviour; diagnosis restarts from measurement.)
 files: (none)
 
 ## OPENCODE — dynamic lane

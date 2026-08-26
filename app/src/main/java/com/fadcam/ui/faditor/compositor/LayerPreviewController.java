@@ -376,7 +376,71 @@ public final class LayerPreviewController {
         return result;
     }
 
-    // ── Visualizer overlays → WaveformOverlayView / export slots ───────────────────
+    // ── TEXT/SPRITE below a blending/masked GL IMAGE → promote to GL (gap close) ───
+
+    /**
+     * Plain TEXT overlays (non-image, not hidden) whose lane sits below a GL-routed
+     * IMAGE overlay. Those texts are stranded on Canvas while the blend above lives
+     * in GL, so the blend composites against video instead of the text below — the
+     * same split described for plainImagesBelowBlend but for text.
+     */
+    @NonNull
+    public static List<TextOverlayItem> plainTextsBelowBlend(
+            @NonNull Timeline timeline,
+            @NonNull List<TextOverlayItem> glImages) {
+        if (glImages.isEmpty()) return java.util.Collections.emptyList();
+        List<VisualItem> ordered = orderedVisualItems(timeline);
+        java.util.Map<String, Integer> idxById = new java.util.HashMap<>();
+        for (int i = 0; i < ordered.size(); i++) {
+            TextOverlayItem o = ordered.get(i).item.getTextOverlay();
+            if (o != null && o.isImage()) idxById.put(o.getId(), i);
+        }
+        int maxBlendIdx = -1;
+        for (TextOverlayItem g : glImages) {
+            Integer idx = idxById.get(g.getId());
+            if (idx != null && idx > maxBlendIdx) maxBlendIdx = idx;
+        }
+        if (maxBlendIdx <= 0) return java.util.Collections.emptyList();
+        List<TextOverlayItem> out = new ArrayList<>();
+        for (int i = 0; i < maxBlendIdx; i++) {
+            TextOverlayItem o = ordered.get(i).item.getTextOverlay();
+            if (o == null || o.isImage() || o.isHidden()) continue;
+            out.add(o);
+        }
+        return out;
+    }
+
+    /**
+     * Plain SPRITE overlays whose lane sits below a GL-routed IMAGE overlay — the
+     * sprite twin of plainTextsBelowBlend.
+     */
+    @NonNull
+    public static List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> plainSpritesBelowBlend(
+            @NonNull Timeline timeline,
+            @NonNull List<TextOverlayItem> glImages) {
+        if (glImages.isEmpty()) return java.util.Collections.emptyList();
+        List<VisualItem> ordered = orderedVisualItems(timeline);
+        java.util.Map<String, Integer> idxById = new java.util.HashMap<>();
+        for (int i = 0; i < ordered.size(); i++) {
+            TextOverlayItem o = ordered.get(i).item.getTextOverlay();
+            if (o != null && o.isImage()) idxById.put(o.getId(), i);
+        }
+        int maxBlendIdx = -1;
+        for (TextOverlayItem g : glImages) {
+            Integer idx = idxById.get(g.getId());
+            if (idx != null && idx > maxBlendIdx) maxBlendIdx = idx;
+        }
+        if (maxBlendIdx <= 0) return java.util.Collections.emptyList();
+        List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
+        for (int i = 0; i < maxBlendIdx; i++) {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = ordered.get(i).item.getSprite();
+            if (s == null || s.isHidden()) continue;
+            out.add(s);
+        }
+        return out;
+    }
+
+        // ── Visualizer overlays → WaveformOverlayView / export slots ───────────────────
 
     /**
      * §4.5: every visualizer instance whose per-OBJECT eye is open. The SHARED authority

@@ -3043,7 +3043,56 @@ public class ExportManager {
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
 
-            // ── Image overlays that chose a BLEND MODE ─────────────────────────────────────
+            // TEXT/SPRITE below a blending GL IMAGE — static and animated both need to be under
+            // the blend for the file to match the preview's promoted static raster. This is the
+            // export twin of FxLivePreviewController's belowBlend bitmap: chain order IS paint
+            // order, so an overlay added here composites BEFORE the ImageBlendGlEffects below.
+            // Animated text/sprite below a blend remain a preview gap (per-frame raster would
+            // blow 16.6ms), but the export can raster them correctly here — that divergence
+            // is documented as a preview-only gap, so the file is correct even when the preview
+            // shows the animated text over the blend.
+            {
+                java.util.List<TextOverlayItem> allGlImages = new java.util.ArrayList<>();
+                for (LayerPreviewController.VisualItem vv : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
+                    TextOverlayItem oo = vv.item.getTextOverlay();
+                    if (oo != null && oo.wantsGlExport()) allGlImages.add(oo);
+                }
+                java.util.List<TextOverlayItem> belowBlendTextsAll = LayerPreviewController.plainTextsBelowBlend(project.getTimeline(), allGlImages);
+                java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> belowBlendSpritesAll = LayerPreviewController.plainSpritesBelowBlend(project.getTimeline(), allGlImages);
+                java.util.Set<String> alreadyBelowIds = new java.util.HashSet<>();
+                for (TextOverlayItem b : belowTexts) alreadyBelowIds.add(b.getId());
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem b : belowSprites) alreadyBelowIds.add(b.getId());
+                java.util.List<TextOverlayItem> belowBlendTexts = new java.util.ArrayList<>();
+                for (TextOverlayItem b : belowBlendTextsAll) if (!alreadyBelowIds.contains(b.getId())) belowBlendTexts.add(b);
+                java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> belowBlendSprites = new java.util.ArrayList<>();
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem b : belowBlendSpritesAll) if (!alreadyBelowIds.contains(b.getId())) belowBlendSprites.add(b);
+                if (!belowBlendTexts.isEmpty() || !belowBlendSprites.isEmpty()) {
+                    java.util.Set<String> promoteIds = new java.util.HashSet<>();
+                    for (TextOverlayItem b : belowBlendTexts) promoteIds.add(b.getId());
+                    for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem b : belowBlendSprites) promoteIds.add(b.getId());
+                    java.util.List<TextOverlayItem> filteredExportTexts = new java.util.ArrayList<>();
+                    for (TextOverlayItem o : exportTextOverlays) if (!promoteIds.contains(o.getId())) filteredExportTexts.add(o);
+                    exportTextOverlays = filteredExportTexts;
+                    java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> filteredSprites = new java.util.ArrayList<>();
+                    for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : exportSpriteItems) if (!promoteIds.contains(s.getId())) filteredSprites.add(s);
+                    exportSpriteItems = filteredSprites;
+                    CompositeExportOverlay belowBlendOverlay = new CompositeExportOverlay(
+                            context, timelineCursorMs, clip,
+                            overlayW, overlayH,
+                            belowBlendTexts,
+                            Collections.emptyList(),
+                            project.getTimeline().getAudioClips(),
+                            belowBlendSprites,
+                            project.getSpriteSheets(),
+                            project.getAvatarRigs(),
+                            project.getTimeline().getTotalDurationMs(),
+                            editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                                    - (isLoopBeforeItem ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
+                            isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                    videoEffects.add(new OverlayEffect(Collections.singletonList(belowBlendOverlay)));
+                }
+            }
+                        // ── Image overlays that chose a BLEND MODE ─────────────────────────────────────
             // Blending against the video is the one thing a BitmapOverlay cannot do — a Canvas
             // has nothing underneath it — so these leave the canvas path for a shader, exactly
             // as a blended PiP does. CompositeExportOverlay.filterTextOverlays drops the same

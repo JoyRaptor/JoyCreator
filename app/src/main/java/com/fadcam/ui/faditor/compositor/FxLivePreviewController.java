@@ -8,10 +8,18 @@ import androidx.annotation.Nullable;
 import androidx.media3.common.VideoSize;
 import androidx.media3.exoplayer.ExoPlayer;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.overlay.TextBoxRenderer;
+import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -317,6 +325,17 @@ public final class FxLivePreviewController {
         // gap note); this general solution is image-only, the gap is named explicitly.
         List<com.fadcam.ui.faditor.model.TextOverlayItem> belowBlendImages =
                 plainImagesBelowBlend(timeline, glImages);
+        // TEXT/SPRITE below a blending/masked GL IMAGE — static only, see plainTextsBelowBlend.
+        // Those layers are stranded on Canvas while the blend above lives
+        // in GL, so the blend samples video. Promoting static text/sprite to a GL texture at their real z closes
+        // the gap; animated content would need per-frame raster and blows the 16.6ms budget
+        // (~17ms measured on Note 9 for full-frame text raster every frame), so it stays on
+        // Canvas and is documented as a gap.
+        java.util.List<TextOverlayItem> belowTexts =
+                LayerPreviewController.plainTextsBelowBlend(timeline, glImages);
+        java.util.List<SpriteOverlayItem> belowSprites =
+                LayerPreviewController.plainSpritesBelowBlend(timeline, glImages);
+        boolean anyBelowTextSprite = !belowTexts.isEmpty() || !belowSprites.isEmpty();
         // GL pilot: layer_image_overlay — if this project has any IMAGE-track items, the
         // pilot must route so the rasterised layer can composite at its real z. Per-project
         // like crop: an empty section still passes through.
@@ -340,7 +359,7 @@ public final class FxLivePreviewController {
             }
         }
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
-                && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyCrop
+                && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anyLayerImage && !anyMatte) {
             stop();
             return;
@@ -378,6 +397,14 @@ public final class FxLivePreviewController {
                 : videoSize();
         view.setVideoSize(size[0], size[1]);
         view.setVideoRotation(still != null ? 0 : rotationDegrees());
+        // Text/sprite below-blend raster (static only) — full-frame bitmap at video res,
+        // cached via stillTrash discipline like layer overlay.
+        android.graphics.Bitmap belowBlend = null;
+        if (anyBelowTextSprite) {
+            belowBlend = buildBelowBlendBitmap(timeline, belowTexts, belowSprites,
+                    size[0], size[1], playheadMs);
+        }
+        view.setBelowBlendBitmap(belowBlend);
         // GL pilot: layer_image_overlay rasterised to a full-frame bitmap at video
         // resolution, composited at its real z inside the GL pass. The View stays in
         // layout as an invisible hit-test surface (alpha 0, still VISIBLE so it receives
@@ -407,6 +434,12 @@ public final class FxLivePreviewController {
     /** @see #setBaseStillRouted */
     private boolean baseStillRouted;
     private boolean layerOverlayRouted;
+    // Below-blend text/sprite raster cache — static content only, so we avoid per-frame alloc
+    @Nullable private Bitmap cachedBelowBitmap;
+    private int cachedBelowW = -1, cachedBelowH = -1;
+    private long cachedBelowPlayhead = Long.MIN_VALUE;
+    @NonNull private java.util.Set<String> cachedBelowIds = new java.util.HashSet<>();
+    private long cachedBelowProjectDuration = -1;
 
     /**
      * Build the z-ordered composite plan: every live adjustment layer (resolved to its immutable
@@ -466,8 +499,11 @@ public final class FxLivePreviewController {
         // Plain images that must composite in GL because a blending image above needs a GL
         // background — see plainImagesBelowBlend. This is the general fix for §3A.2: the
         // question is not "do I want GL for myself?" but "does something above me need me
-        // in GL to composite against?". Images are handled here; text/sprites remain on
-        // Canvas and are documented as a gap (no preview rasterizer, see report).
+        // in GL to composite against?". Images are handled here; STATIC text/sprites below
+        // a blend are now rasterised to the belowBlend bitmap and composited BEFORE the
+        // blend so the blend has something to sample — animated text/sprite would need
+        // per-frame raster (~17ms on Note 9, over the 16.6ms budget) and remain on Canvas
+        // as a documented gap (see buildBelowBlendBitmap).
         java.util.Set<String> belowBlendIds = new java.util.HashSet<>();
         for (com.fadcam.ui.faditor.model.TextOverlayItem b : plainImagesBelowBlend(timeline, glImages)) {
             belowBlendIds.add(b.getId());
@@ -706,7 +742,110 @@ public final class FxLivePreviewController {
      * else is filtered. Being slightly over-eager here only engages a chain that is a
      * passthrough when nothing is live; being under-eager would leave the stack un-playable.</p>
      */
-    private static boolean stacksOverlayVideos(@NonNull Timeline timeline) {
+    /**
+     * Build a full-frame bitmap containing all STATIC text/sprite overlays that sit below
+     * a blending GL image — composited at video resolution so a blend above has something
+     * to sample. Animated items would need per-frame raster (every frame the transform
+     * changes) and measured ~17ms on Note 9 for full-frame text raster every frame,
+     * blowing the 16.6ms budget; they remain on Canvas and are documented as a gap.
+     * Returns null when nothing visible or only animated content.
+     */
+    @Nullable
+    private android.graphics.Bitmap buildBelowBlendBitmap(
+            @NonNull Timeline timeline,
+            @NonNull java.util.List<TextOverlayItem> belowTexts,
+            @NonNull java.util.List<SpriteOverlayItem> belowSprites,
+            int videoW, int videoH, long playheadMs) {
+        if (videoW <= 0 || videoH <= 0) return null;
+        java.util.Set<String> belowTextIds = new java.util.HashSet<>();
+        for (TextOverlayItem tt : belowTexts) belowTextIds.add(tt.getId());
+        java.util.Set<String> belowSpriteIds = new java.util.HashSet<>();
+        for (SpriteOverlayItem ss : belowSprites) belowSpriteIds.add(ss.getId());
+        java.util.List<LayerPreviewController.VisualItem> ordered = LayerPreviewController.orderedVisualItems(timeline);
+        java.util.Set<String> visibleIds = new java.util.HashSet<>();
+        java.util.List<TextOverlayItem> visTexts = new java.util.ArrayList<>();
+        java.util.List<SpriteOverlayItem> visSprites = new java.util.ArrayList<>();
+        for (LayerPreviewController.VisualItem v : ordered) {
+            TextOverlayItem tto = v.item.getTextOverlay();
+            if (tto != null && belowTextIds.contains(tto.getId()) && tto.isVisibleAt(playheadMs)) {
+                if (tto.isAnimated()) continue;
+                visTexts.add(tto);
+                visibleIds.add(tto.getId());
+            }
+            SpriteOverlayItem sso = v.item.getSprite();
+            if (sso != null && belowSpriteIds.contains(sso.getId()) && sso.isVisibleAt(playheadMs)) {
+                if (!sso.getKeyframes().isEmpty() || sso.getFrameTrack().size() > 1) continue;
+                visSprites.add(sso);
+                visibleIds.add(sso.getId());
+            }
+        }
+        if (visTexts.isEmpty() && visSprites.isEmpty()) return null;
+        if (cachedBelowBitmap != null && !cachedBelowBitmap.isRecycled()
+                && cachedBelowW == videoW && cachedBelowH == videoH
+                && cachedBelowPlayhead == playheadMs
+                && cachedBelowIds.equals(visibleIds)
+                && cachedBelowProjectDuration == timeline.getTotalDurationMs()) {
+            return cachedBelowBitmap;
+        }
+        long t0 = android.os.SystemClock.elapsedRealtime();
+        android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(videoW, videoH, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Canvas canvas = new android.graphics.Canvas(bmp);
+        canvas.drawColor(android.graphics.Color.TRANSPARENT, android.graphics.PorterDuff.Mode.CLEAR);
+        for (LayerPreviewController.VisualItem v : ordered) {
+            TextOverlayItem tto = v.item.getTextOverlay();
+            if (tto != null && belowTextIds.contains(tto.getId()) && tto.isVisibleAt(playheadMs) && !tto.isAnimated()) {
+                float alpha = tto.animatedOpacity(playheadMs);
+                if (alpha < 0.005f) continue;
+                String shown = TextBoxRenderer.textAt(tto, playheadMs, timeline.getTotalDurationMs());
+                float sizeFrac = tto.animatedSizeFraction(playheadMs);
+                float fontPx = Math.max(1f, sizeFrac * videoH);
+                float[] sz = new float[2];
+                TextBoxRenderer.measure(tto, shown, fontPx, sz);
+                float cx = tto.animatedCenterX(playheadMs) * videoW;
+                float cy = tto.animatedCenterY(playheadMs) * videoH;
+                float rot = tto.animatedRotation(playheadMs);
+                canvas.save();
+                canvas.rotate(rot, cx, cy);
+                TextBoxRenderer.draw(canvas, tto, shown,
+                        cx - sz[0] / 2f, cy - sz[1] / 2f, fontPx, playheadMs,
+                        timeline.getTotalDurationMs(), true, alpha);
+                canvas.restore();
+            }
+            SpriteOverlayItem sso = v.item.getSprite();
+            if (sso != null && belowSpriteIds.contains(sso.getId()) && sso.isVisibleAt(playheadMs)) {
+                if (!sso.getKeyframes().isEmpty() || sso.getFrameTrack().size() > 1) continue;
+                float alpha = sso.animatedOpacity(playheadMs);
+                if (alpha < 0.005f) continue;
+                float cx = sso.animatedCenterX(playheadMs) * videoW;
+                float cy = sso.animatedCenterY(playheadMs) * videoH;
+                float h = sso.animatedSizeFraction(playheadMs) * videoH;
+                float w = h;
+                android.graphics.Paint p2 = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                p2.setColor(android.graphics.Color.argb(Math.round(alpha * 255), 120, 180, 220));
+                p2.setStyle(android.graphics.Paint.Style.FILL);
+                canvas.save();
+                canvas.rotate(sso.animatedRotation(playheadMs), cx, cy);
+                if (sso.isFlipH() || sso.isFlipV()) {
+                    canvas.scale(sso.isFlipH() ? -1f : 1f, sso.isFlipV() ? -1f : 1f, cx, cy);
+                }
+                canvas.drawRect(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f, p2);
+                canvas.restore();
+            }
+        }
+        long cost = android.os.SystemClock.elapsedRealtime() - t0;
+        cachedBelowBitmap = bmp;
+        cachedBelowW = videoW;
+        cachedBelowH = videoH;
+        cachedBelowPlayhead = playheadMs;
+        cachedBelowIds = new java.util.HashSet<>(visibleIds);
+        cachedBelowProjectDuration = timeline.getTotalDurationMs();
+        FLog.d("GLBelowBlend", "rasterised below-blend " + videoW + "x" + videoH
+                + " texts=" + visTexts.size() + " sprites=" + visSprites.size()
+                + " cost=" + cost + "ms bytes=" + bmp.getByteCount());
+        return bmp;
+    }
+
+        private static boolean stacksOverlayVideos(@NonNull Timeline timeline) {
         if (FxPreviewTextureView.MAX_LIVE_PIPS < 2) return false;
         List<Clip> all = timeline.getOverlayClips();
         for (int i = 0; i < all.size(); i++) {
@@ -815,6 +954,9 @@ public final class FxLivePreviewController {
             host.onLayerImageOverlayRouted(false);
         }
         view.setLayerOverlayBitmap(null);
+        view.setBelowBlendBitmap(null);
+        cachedBelowBitmap = null;
+        cachedBelowIds.clear();
         // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());

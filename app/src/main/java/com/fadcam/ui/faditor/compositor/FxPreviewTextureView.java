@@ -795,6 +795,10 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private volatile android.graphics.Bitmap layerOverlayBitmap;
     private int layerOverlayTexId;
     @Nullable private android.graphics.Bitmap layerOverlayUploaded;
+    /** Text/sprite below-blend raster (static only) — composited BEFORE the blending image */
+    @Nullable private volatile android.graphics.Bitmap belowBlendBitmap;
+    private int belowBlendTexId;
+    @Nullable private android.graphics.Bitmap belowBlendUploaded;
     /** Pilot measurement: frame time */
     private long pilotFrameCount = 0;
     private long pilotTotalFrameNs = 0;
@@ -1015,6 +1019,23 @@ public class FxPreviewTextureView extends TextureView
         requestFrame();
     }
 
+    /**
+     * Text/sprite layers below a blending image, rasterised as a full-frame bitmap at
+     * video resolution (static only). Composited BEFORE the blending image so the blend
+     * has something to composite against — without it the blend sampled video. Null =
+     * nothing below to promote or only animated content (gap left on Canvas, see
+     * FxLivePreviewController report).
+     */
+    public void setBelowBlendBitmap(@Nullable android.graphics.Bitmap b) {
+        if (b == belowBlendBitmap) return;
+        android.graphics.Bitmap old = belowBlendBitmap;
+        if (old != null && old != b && !old.isRecycled()) {
+            stillTrash.offer(old);
+        }
+        belowBlendBitmap = b;
+        requestFrame();
+    }
+
     /** Pilot measurement: reset frame-time stats */
     public void resetPilotStats() {
         pilotFrameCount = 0;
@@ -1165,6 +1186,8 @@ public class FxPreviewTextureView extends TextureView
             baseStillUploaded = null;
             layerOverlayTexId = 0;
             layerOverlayUploaded = null;
+            belowBlendTexId = 0;
+            belowBlendUploaded = null;
             resetPilotStats();
 
             oesTexId = newOesTexture();
@@ -1279,6 +1302,16 @@ public class FxPreviewTextureView extends TextureView
             if (!degraded && g != null && g.rendersAnything()) {
                 drawGrade(g, cur, 1, vw, vh);
                 cur = 1;
+            }
+
+            // 2b — text/sprite below a blending image (static only) — full-frame raster at
+            // video resolution, composited BEFORE the blending image so the blend has
+            // something to composite against. Animated items would need per-frame raster
+            // (~17ms measured) and are left on Canvas as a documented gap.
+            android.graphics.Bitmap belowBmp = belowBlendBitmap;
+            if (!degraded && belowBmp != null && !belowBmp.isRecycled() && layerProgram != 0) {
+                int dst = cur == 0 ? 1 : 0;
+                if (drawBelowBlend(belowBmp, cur, dst, vw, vh)) cur = dst;
             }
 
             // 3 — the composited items, bottom→top, in the EXPORT's chain order: each PiP
@@ -1490,6 +1523,28 @@ public class FxPreviewTextureView extends TextureView
         bindQuad(layerProgram);
         setSampler(layerProgram, "uBaseSampler", targets[src][0], 0, true);
         setSampler(layerProgram, "uLayerSampler", layerOverlayTexId, 1, true);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return true;
+    }
+
+    private boolean drawBelowBlend(@NonNull android.graphics.Bitmap b, int src, int dst, int vw, int vh) {
+        if (belowBlendTexId == 0) belowBlendTexId = newStillTexture();
+        if (belowBlendUploaded != b) {
+            try {
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, belowBlendTexId);
+                android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+                belowBlendUploaded = b;
+            } catch (RuntimeException e) {
+                FLog.w(TAG, "below-blend overlay upload failed", e);
+                return false;
+            }
+        }
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(layerProgram);
+        bindQuad(layerProgram);
+        setSampler(layerProgram, "uBaseSampler", targets[src][0], 0, true);
+        setSampler(layerProgram, "uLayerSampler", belowBlendTexId, 1, true);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         return true;
     }
@@ -2201,6 +2256,12 @@ public class FxPreviewTextureView extends TextureView
                     baseStillTexId = 0;
                 }
                 baseStillUploaded = null;
+                if (belowBlendTexId != 0) {
+                    try { GLES20.glDeleteTextures(1, new int[]{belowBlendTexId}, 0); }
+                    catch (Exception ignored) { }
+                    belowBlendTexId = 0;
+                }
+                belowBlendUploaded = null;
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

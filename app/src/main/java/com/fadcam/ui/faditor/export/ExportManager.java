@@ -408,6 +408,7 @@ public class ExportManager {
         try {
             // Build the Transformer
             Transformer.Builder builder = new Transformer.Builder(context)
+                    .setAssetLoaderFactory(hardwareFirstAssetLoaderFactory())
                     // TEN SECONDS IS NOT ENOUGH ON AN OLD PHONE. media3 kills an export when
                     // the muxer goes DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS (10_000 on a
                     // real device) without receiving a sample, and reports it as the bare
@@ -619,6 +620,7 @@ public class ExportManager {
 
         try {
             Transformer.Builder builder = new Transformer.Builder(context)
+                    .setAssetLoaderFactory(hardwareFirstAssetLoaderFactory())
                     // Same watchdog headroom as the video path above.
                     .setMaxDelayBetweenMuxerSamplesMs(120_000L)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC);
@@ -914,6 +916,67 @@ public class ExportManager {
     /** Append chunked silence totalling {@code durationMs} to {@code items} (no-op if there
      *  is no silence source or the duration is non-positive). Chunks at {@link #SILENCE_FILE_MS}
      *  so gaps longer than the silence file are covered by multiple items. */
+
+    /**
+     * An asset loader that decodes with the HARDWARE decoder whenever the device has one.
+     *
+     * <p>MEASURED, NOT ASSUMED. On JoyRaptor's Note 9 a 46-second 720p export took about fifteen
+     * minutes, and the codec counts during it were unambiguous:
+     *
+     * <pre>
+     *   OMX.qcom.video.decoder.hevc     4    hardware, advertised to 4096x2160@60
+     *   c2.android.hevc.decoder      1414    SOFTWARE, doing essentially all of it
+     * </pre>
+     *
+     * His camera records HEVC Main 1080x1920, so the whole export was decoding H.265 in
+     * software on a 2019 phone. The same phone plays the same footage back live, with masks
+     * and effects, because PREVIEW gets the hardware decoder -- which is exactly why "export
+     * should be close to parity with playback" is the right expectation.
+     *
+     * <p>Why media3 chose software: {@code DefaultDecoderFactory} orders candidates with
+     * {@code getDecoderInfosSortedByFullFormatSupport} and then, with decoder fallback OFF by
+     * default, tries ONLY THE FIRST ONE. That sort is stable and scores purely on
+     * {@code isFormatSupported}, so whenever the software decoder claims support and the
+     * hardware one does not fully claim it for this profile/level, software wins outright and
+     * hardware is never even attempted. Nothing was misconfigured; the default simply is not
+     * built for a device whose hardware decoder under-advertises.
+     *
+     * <p>Two changes fix it together, and both are needed. The selector lists hardware
+     * candidates first, and because the media3 sort is STABLE that order survives whenever the
+     * two score equally. Decoder fallback is switched ON so the list is walked rather than
+     * truncated to one entry -- which also means a hardware decoder that genuinely cannot
+     * handle a file still degrades to software instead of failing the export.
+     */
+    @androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
+    private androidx.media3.transformer.AssetLoader.Factory hardwareFirstAssetLoaderFactory() {
+        androidx.media3.exoplayer.mediacodec.MediaCodecSelector hardwareFirst =
+                (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+                    java.util.List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> infos =
+                            new java.util.ArrayList<>(
+                                    androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
+                                            .getDecoderInfos(mimeType, requiresSecureDecoder,
+                                                    requiresTunnelingDecoder));
+                    // Stable partition: hardware-accelerated entries keep their relative order
+                    // and move ahead of software ones.
+                    java.util.List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> hw =
+                            new java.util.ArrayList<>();
+                    java.util.List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> sw =
+                            new java.util.ArrayList<>();
+                    for (androidx.media3.exoplayer.mediacodec.MediaCodecInfo i : infos) {
+                        (i.hardwareAccelerated ? hw : sw).add(i);
+                    }
+                    hw.addAll(sw);
+                    return hw;
+                };
+        androidx.media3.transformer.DefaultDecoderFactory decoderFactory =
+                new androidx.media3.transformer.DefaultDecoderFactory.Builder(context)
+                        .setMediaCodecSelector(hardwareFirst)
+                        .setEnableDecoderFallback(true)
+                        .build();
+        return new androidx.media3.transformer.DefaultAssetLoaderFactory(
+                context, decoderFactory, androidx.media3.common.util.Clock.DEFAULT, null);
+    }
+
     private void addSilence(@NonNull List<EditedMediaItem> items, @Nullable Uri silenceUri,
                             long durationMs) {
         if (silenceUri == null || durationMs <= 0) return;

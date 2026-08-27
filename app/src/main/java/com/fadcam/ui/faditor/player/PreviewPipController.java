@@ -575,6 +575,7 @@ public class PreviewPipController {
             playerContainer.setTranslationX(0f);
             resetTranscriptStation();
             applyParkInset(0, 0);   // no shell, nothing parked: give the column its full width
+            removeDockResizeHandle();
             editorRoot.addView(playerContainer, index, lp);
             promoted = false;
             lastFillGapPx = -1f;
@@ -725,6 +726,92 @@ public class PreviewPipController {
      *                a remembered dock on re-promotion, where the position should simply
      *                be correct at first layout.
      */
+    /** Docked pane width as a fraction of the root, dragged by the resize handle. */
+    private float dockWidthFraction = PIP_WIDTH_FRACTION;
+    /** The vertical grip on a docked pane's inner edge. Null while floating. */
+    @Nullable private View dockResizeHandle;
+
+    /** Narrowest and widest a docked preview may be dragged, as a fraction of the root. */
+    private static final float DOCK_MIN_FRACTION = 0.18f;
+    private static final float DOCK_MAX_FRACTION = 0.60f;
+
+    /**
+     * The docked pane's own grab bar — the landscape twin of the portrait one.
+     *
+     * <p>JoyRaptor: "there should be a resize handle so you can change how much of ratio preview
+     * to timeline the screen real-estate, just like the portrait mode." Portrait splits the
+     * screen vertically and lets the grab bar move the divide; a docked pane splits it
+     * horizontally and had no equivalent, so the preview/timeline balance was whatever the
+     * PiP happened to be. Same idea, rotated ninety degrees.</p>
+     *
+     * <p>Lives on the pane's INNER edge — the one facing the editor — because that is the
+     * divider being moved. Dragging it resizes the shell and re-insets the column in the same
+     * frame, so the two never disagree about where the boundary is.</p>
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void installDockResizeHandle(@NonNull LinearLayout shell, int edge) {
+        removeDockResizeHandle();
+        View grip = new View(shell.getContext());
+        grip.setBackgroundColor(0x66FFFFFF);
+        int gripW = (int) (6 * density);
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                gripW, ViewGroup.LayoutParams.MATCH_PARENT,
+                edge < 0 ? Gravity.END : Gravity.START);
+        rootFrame.addView(grip, lp);
+        grip.setTranslationX(edge < 0
+                ? shell.getWidth() - gripW
+                : rootFrame.getWidth() - shell.getWidth());
+        grip.setOnTouchListener(new View.OnTouchListener() {
+            float downX, baseW;
+            @Override public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = e.getRawX();
+                        baseW = shell.getWidth();
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        float delta = e.getRawX() - downX;
+                        float w = baseW + (edge < 0 ? delta : -delta);
+                        float rootW = Math.max(1, rootFrame.getWidth());
+                        dockWidthFraction = Math.max(DOCK_MIN_FRACTION,
+                                Math.min(DOCK_MAX_FRACTION, w / rootW));
+                        applyDockWidth(shell, edge);
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.performClick();
+                        return true;
+                }
+                return false;
+            }
+        });
+        dockResizeHandle = grip;
+    }
+
+    private void removeDockResizeHandle() {
+        if (dockResizeHandle != null) {
+            rootFrame.removeView(dockResizeHandle);
+            dockResizeHandle = null;
+        }
+    }
+
+    /** Resize the docked pane and re-inset the column together, so they cannot disagree. */
+    private void applyDockWidth(@NonNull View shell, int edge) {
+        int w = Math.round(dockWidthFraction * rootFrame.getWidth());
+        ViewGroup.LayoutParams lp = shell.getLayoutParams();
+        if (lp != null && lp.width != w) {
+            lp.width = w;
+            shell.setLayoutParams(lp);
+        }
+        applyParkInset(edge, w);
+        if (dockResizeHandle != null) {
+            int gripW = dockResizeHandle.getWidth() > 0 ? dockResizeHandle.getWidth() : (int) (6 * density);
+            dockResizeHandle.setTranslationX(edge < 0 ? w - gripW : rootFrame.getWidth() - w);
+        }
+        shell.post(() -> dockTo(shell, edge, false));
+    }
+
     /** The band shown under the shell while a drag hovers a dock edge. Null when not showing. */
     @Nullable private View dockHint;
     /** Chrome's undock control — only meaningful while docked. */
@@ -748,6 +835,7 @@ public class PreviewPipController {
         if (pipShell == null) return;
         dockedEdge = 0;
         applyParkInset(0, 0);
+        removeDockResizeHandle();
         updateUndockButton();
         float inset = 24 * density;
         pipShell.animate()
@@ -825,10 +913,13 @@ public class PreviewPipController {
         int edge = edgeUnderShell(shell);
         if (edge == 0) {
             applyParkInset(0, 0);   // dragged back into the middle — the editor takes its width back
+            removeDockResizeHandle();
             updateUndockButton();
             return 0;
         }
         dockTo(shell, edge, animate);
+        applyDockWidth(shell, edge);          // honour any width the user already dragged
+        installDockResizeHandle(pipShell, edge);
         updateUndockButton();
         return edge;
     }

@@ -186,6 +186,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
     @Nullable private Bitmap bitmapB;
     @Nullable private Canvas canvasB;
     /** EXPORT COST INSTRUMENTATION: how much of an export this clip's overlay pass actually is. */
+    /** Identity-stable, never drawn into; see the empty-frame branch in getBitmap. */
+    @Nullable private Bitmap emptyBitmap;
+    private int emptyFrames = 0;
     private int costFrames = 0;
     private long costDrawNanos = 0L;
 
@@ -947,6 +950,30 @@ public class CompositeExportOverlay extends BitmapOverlay {
         // upload is synchronous inside getTextureId, so a buffer is free again by the time it
         // comes back around — strictly safer than the recycle-the-previous-one dance this
         // replaces, which handed the driver a bitmap it might still be caching.
+        // NOTHING TO SAY, SO SAY IT WITH THE SAME OBJECT TWICE. The identity check above cuts
+        // both ways: hand back the SAME bitmap as last frame and media3 skips the upload
+        // entirely. An overlay pass is added to a clip's chain when the PROJECT has content for
+        // it, not when this clip's window does, so a project with one lane below a blend puts
+        // three of these in every item and two of them draw nothing for most of the export —
+        // and each was still uploading a full transparent frame thirty times a second.
+        //
+        // The empty bitmap is allocated once, never drawn into, and never enters the ping-pong,
+        // so its identity and generationId are both stable for as long as the run of empty
+        // frames lasts. The pass still runs on the GPU; what stops is the CPU->GPU traffic.
+        if (drawnSprite == 0 && drawnText == 0 && !drewCaption && drawnWaveform == 0) {
+            if (emptyBitmap == null || emptyBitmap.isRecycled()
+                    || emptyBitmap.getWidth() != bitmap.getWidth()
+                    || emptyBitmap.getHeight() != bitmap.getHeight()) {
+                if (emptyBitmap != null && !emptyBitmap.isRecycled()) emptyBitmap.recycle();
+                emptyBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(),
+                        Bitmap.Config.ARGB_8888);
+            }
+            emptyFrames++;
+            costFrames++;
+            costDrawNanos += System.nanoTime() - drawStartNs;
+            return emptyBitmap;
+        }
+
         if (bitmapB == null || bitmapB.isRecycled()) {
             bitmapB = Bitmap.createBitmap(Math.max(1, outW), Math.max(1, outH),
                     Bitmap.Config.ARGB_8888);
@@ -983,6 +1010,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         if (costFrames > 0) {
             FLog.i(TAG, "EXPORT_COST clip@" + clipTimelineStartMs + "ms frames=" + costFrames
                     + " overlayDrawMs=" + (costDrawNanos / 1_000_000L)
+                    + " emptyFrames=" + emptyFrames
                     + " avgMsPerFrame=" + (costDrawNanos / 1_000_000L / Math.max(1, costFrames))
                     + " size=" + outW + "x" + outH);
         }
@@ -1015,6 +1043,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
             lastReturnedBitmap.recycle();
         }
         lastReturnedBitmap = null;
+        if (emptyBitmap != null && !emptyBitmap.isRecycled()) emptyBitmap.recycle();
+        emptyBitmap = null;
         if (pendingRecycleBitmap != null && !pendingRecycleBitmap.isRecycled()) {
             pendingRecycleBitmap.recycle();
         }

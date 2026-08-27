@@ -61,6 +61,12 @@ final class SequentialFrameReader {
     /** After this many backward jumps the sweep is the wrong tool; hand back to the retriever. */
     private static final int MAX_REWINDS = 8;
     /**
+     * How far into a source the first request must land before it is worth seeking to reach it.
+     * Below this the linear decode is already about to arrive and a seek only risks landing
+     * somewhere unhelpful.
+     */
+    private static final long SEEK_WORTH_IT_US = 1_500_000L;
+    /**
      * Floor on the converted size, as a fraction of the source. A PiP scaled far down does not
      * need full-resolution pixels, but past this the nearest-neighbour sampling starts to show
      * on a slow zoom, so the saving stops here.
@@ -102,6 +108,10 @@ final class SequentialFrameReader {
     private int sourceW = 0, sourceH = 0, displayW = 0, displayH = 0;
     /** Width the last conversion produced BEFORE rotation, which is what wantW is measured in. */
     private int lastConvertOutW = 0;
+    /** Whether the one permitted forward seek (to the first frame actually wanted) has run. */
+    private boolean triedInitialSeek = false;
+    /** Cached container sniff; null until asked. See {@link #isFragmented}. */
+    @Nullable private Boolean fragmented;
 
     SequentialFrameReader(@NonNull Context context, @NonNull Uri uri) {
         this.context = context.getApplicationContext();
@@ -236,6 +246,40 @@ final class SequentialFrameReader {
         MediaCodec c = codec;
         MediaExtractor ex = extractor;
         if (c == null || ex == null) return null;
+        // ONE FORWARD SEEK, TO WHERE THE WORK ACTUALLY STARTS. A reader is built per clip
+        // ITEM, and an item late in the timeline still opened its source at frame zero and
+        // decoded everything before its own window to get there. Measured on the Note 9: the
+        // reader serving the black-spacer item decoded 764 frames to hand out 323.
+        //
+        // Only on the first decode, only forwards, and only when the container can be trusted
+        // to seek. FadCam's own recordings are fragmented MP4 without sidx, where seekTo()
+        // SCANS the file - an uninterruptible call measured at >45s for ONE seek on a
+        // 46-minute source. That is why the sniff below runs BEFORE the seek and not as a
+        // recovery afterwards; FilmstripSweepExtractor learned this the same way.
+        if (!triedInitialSeek) {
+            triedInitialSeek = true;
+            if (targetUs > SEEK_WORTH_IT_US && !isFragmented()) {
+                try {
+                    ex.seekTo(targetUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);
+                    long landed = ex.getSampleTime();
+                    if (landed < 0 || landed > targetUs) {
+                        // Landed past what we want, or nowhere: rewind by rebuilding, since
+                        // seeking back is exactly the call that is not trustworthy here.
+                        FLog.d(TAG, "Initial seek landed at " + landed + " for target "
+                                + targetUs + "; decoding from the start instead");
+                        releaseDecoder();
+                        triedInitialSeek = true;
+                        if (!open()) return null;
+                        ex = extractor;
+                        c = codec;
+                        if (ex == null || c == null) return null;
+                    }
+                } catch (Exception e) {
+                    FLog.w(TAG, "Initial seek failed; decoding from the start", e);
+                }
+            }
+        }
+
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         int stalledDrains = 0;
         final long pumpStart = System.nanoTime();
@@ -415,6 +459,40 @@ final class SequentialFrameReader {
         return scratch;
     }
 
+    /**
+     * True if this source is a fragmented MP4 - i.e. a {@code moof} box appears in its first
+     * 64KB. Mirrors {@code FilmstripSweepExtractor.isFragmentedMp4}, and fails CLOSED for the
+     * same reason: any read error answers "fragmented", which costs a linear decode, whereas
+     * guessing "seekable" wrongly costs an uninterruptible multi-minute stall.
+     */
+    private boolean isFragmented() {
+        if (fragmented != null) return fragmented;
+        boolean result = true;
+        try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+            if (in != null) {
+                byte[] buf = new byte[65536];
+                int n = 0;
+                while (n < buf.length) {
+                    int r = in.read(buf, n, buf.length - n);
+                    if (r < 0) break;
+                    n += r;
+                }
+                result = false;
+                for (int i = 0; i + 4 <= n; i++) {
+                    if (buf[i] == 'm' && buf[i + 1] == 'o' && buf[i + 2] == 'o'
+                            && buf[i + 3] == 'f') {
+                        result = true;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not sniff container for " + uri + "; assuming fragmented", e);
+        }
+        fragmented = result;
+        return result;
+    }
+
     private void releaseDecoder() {
         if (codec != null) {
             try { codec.stop(); } catch (Exception ignored) { }
@@ -433,6 +511,7 @@ final class SequentialFrameReader {
         currentPtsUs = Long.MIN_VALUE;
         currentOutW = 0;
         lastConvertOutW = 0;
+        triedInitialSeek = false;
         sourceW = sourceH = displayW = displayH = 0;
         started = false;
         inputDone = false;

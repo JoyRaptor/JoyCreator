@@ -956,8 +956,6 @@ public class ExportManager {
                                     androidx.media3.exoplayer.mediacodec.MediaCodecSelector.DEFAULT
                                             .getDecoderInfos(mimeType, requiresSecureDecoder,
                                                     requiresTunnelingDecoder));
-                    // Stable partition: hardware-accelerated entries keep their relative order
-                    // and move ahead of software ones.
                     java.util.List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> hw =
                             new java.util.ArrayList<>();
                     java.util.List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> sw =
@@ -965,8 +963,25 @@ public class ExportManager {
                     for (androidx.media3.exoplayer.mediacodec.MediaCodecInfo i : infos) {
                         (i.hardwareAccelerated ? hw : sw).add(i);
                     }
-                    hw.addAll(sw);
-                    return hw;
+                    // ORDERING ALONE LOSES, SO OFFER ONLY HARDWARE WHEN THERE IS ANY.
+                    // media3 re-sorts whatever this returns by decoderInfo.isFormatSupported
+                    // (MediaCodecUtil.getDecoderInfosSortedByFullFormatSupport), and that
+                    // question is being answered with a LIE about these files: FadCam's own
+                    // recordings declare r_frame_rate = 90000/1 -- the MP4 timescale leaking
+                    // into the frame-rate field -- while their real rate is ~29.9fps.
+                    // Verified on both the camera original and the remuxed copy, so it is the
+                    // recorder, not the remuxer. Asked "can you do 1080x1920 at 90000fps?" the
+                    // hardware decoder correctly says no, scores 0, and sorts below the
+                    // software decoder, which claims everything. Merely listing hardware first
+                    // could not survive that sort -- measured: hardware HEVC use went 4 -> 22
+                    // while software still did 1191.
+                    //
+                    // Preview decodes these very files on hardware, live, with effects. That
+                    // is the proof the decoder can do it and the advertised rate is what is
+                    // wrong. So when the device has a hardware decoder for this MIME, that is
+                    // the list; software is kept only when there is no hardware option at all.
+                    if (!hw.isEmpty()) return hw;
+                    return sw;
                 };
         androidx.media3.transformer.DefaultDecoderFactory decoderFactory =
                 new androidx.media3.transformer.DefaultDecoderFactory.Builder(context)

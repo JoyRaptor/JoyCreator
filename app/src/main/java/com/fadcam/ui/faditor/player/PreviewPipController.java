@@ -560,6 +560,7 @@ public class PreviewPipController {
             // H1: horizontal axis too — never inherit a stale shift into the inline slot.
             playerContainer.setTranslationX(0f);
             resetTranscriptStation();
+            applyParkInset(0, 0);   // no shell, nothing parked: give the column its full width
             editorRoot.addView(playerContainer, index, lp);
             promoted = false;
             lastFillGapPx = -1f;
@@ -693,7 +694,10 @@ public class PreviewPipController {
         float screenLeft = shell.getLeft() + shell.getTranslationX();
         float distL = screenLeft;
         float distR = rootW - (screenLeft + shell.getWidth());
-        if (distL > snapPx && distR > snapPx) return 0;
+        if (distL > snapPx && distR > snapPx) {
+            applyParkInset(0, 0);   // dragged back into the middle — the editor takes its width back
+            return 0;
+        }
         int edge = distL <= distR ? -1 : 1;
         dockTo(shell, edge, animate);
         return edge;
@@ -725,6 +729,34 @@ public class PreviewPipController {
             shell.setTranslationX(tx);
             shell.setTranslationY(ty);
         }
+        applyParkInset(edge, shell.getWidth());
+    }
+
+    /**
+     * PARKED means the editor gets out of the way, not that the window merely sits on top.
+     *
+     * <p>Docking to an edge already worked — verified on the Note 9, the shell snaps flush —
+     * but the timeline kept running underneath it, so a parked preview covered the very rows
+     * the user was trying to reach. JoyRaptor's whole ask is one continuous experience:
+     * "should be a smooth experience going from portrait to landscape to popout to parked",
+     * with the parked window a companion to the editor rather than a lid on it — "you could
+     * have it parked on the left hand side or the right hand side, and the drawers would come
+     * in just over that."
+     *
+     * <p>Insetting the COLUMN rather than moving each row keeps every child's own layout
+     * untouched: the tool row, the timeline and the top bar all simply have less width, which
+     * is what they already handle on a narrower device. It costs nothing when nothing is
+     * parked, and it cannot disturb the slot arithmetic, which is entirely about height.</p>
+     *
+     * @param edge -1 left, +1 right, 0 not parked (clears the inset)
+     */
+    private void applyParkInset(int edge, int shellWidth) {
+        int inset = (edge == 0 || shellWidth <= 0) ? 0 : shellWidth;
+        int left = edge < 0 ? inset : 0;
+        int right = edge > 0 ? inset : 0;
+        if (editorRoot.getPaddingLeft() == left && editorRoot.getPaddingRight() == right) return;
+        editorRoot.setPadding(left, editorRoot.getPaddingTop(),
+                right, editorRoot.getPaddingBottom());
     }
 
     /**

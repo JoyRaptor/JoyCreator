@@ -182,6 +182,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
     // short-lived internal reference to the Java bitmap after upload.
     @Nullable private Bitmap lastReturnedBitmap;
     @Nullable private Bitmap pendingRecycleBitmap;
+    /** Second scratch buffer — see the ping-pong note in {@link #getBitmap}. */
+    @Nullable private Bitmap bitmapB;
+    @Nullable private Canvas canvasB;
 
     public static class WaveformSlot {
         @NonNull public final WaveformOverlayInstance instance;
@@ -921,19 +924,38 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     + " pixel(0,0)=" + Integer.toHexString(bitmap.getPixel(0, 0)));
         }
 
-        // BitmapOverlay.getTextureId() uses Bitmap.getGenerationId() to decide
-        // whether to re-upload the texture. The generationId only changes when
-        // the bitmap's underlying memory is reallocated — drawing into the
-        // scratch bitmap in place does NOT bump it. Returning the same scratch
-        // bitmap every frame would cause the first frame to be uploaded once
-        // and then frozen for the rest of the export. createBitmap(scratch)
-        // makes a fresh allocation with a new generationId so the texture
-        // upload fires every frame.
-        if (pendingRecycleBitmap != null && !pendingRecycleBitmap.isRecycled()) {
-            pendingRecycleBitmap.recycle();
+        // PING-PONG INSTEAD OF ALLOCATING. BitmapOverlay.getTextureId() decides whether to
+        // re-upload with:
+        //
+        //     if (bitmap != lastBitmap || generationId != lastBitmapGenerationId)
+        //
+        // The FIRST half of that is an identity check, and it is the half that matters here.
+        // This used to satisfy the test with Bitmap.createBitmap(scratch) — a full copy of an
+        // outW x outH ARGB_8888 frame, EVERY FRAME, purely to obtain a fresh generationId.
+        // At 720p that is ~3.7MB allocated, copied and thrown away thirty times a second;
+        // JoyRaptor's export crawled through its trailing 18-second black spacer at roughly one
+        // percent a minute ("export took a long time and then failed", and after the watchdog
+        // fix, took a long time and kept going).
+        //
+        // Handing back two scratch bitmaps in alternation satisfies `bitmap != lastBitmap` on
+        // every frame with ZERO per-frame allocation: consecutive frames are always different
+        // objects. The one being drawn into is never the one media3 just uploaded, and the
+        // upload is synchronous inside getTextureId, so a buffer is free again by the time it
+        // comes back around — strictly safer than the recycle-the-previous-one dance this
+        // replaces, which handed the driver a bitmap it might still be caching.
+        if (bitmapB == null || bitmapB.isRecycled()) {
+            bitmapB = Bitmap.createBitmap(Math.max(1, outW), Math.max(1, outH),
+                    Bitmap.Config.ARGB_8888);
+            canvasB = new Canvas(bitmapB);
         }
-        Bitmap result = Bitmap.createBitmap(bitmap);
-        pendingRecycleBitmap = lastReturnedBitmap;
+        Bitmap result = bitmap;
+        // Swap: next frame draws into the buffer we are handing over now, and vice versa.
+        Bitmap heldBitmap = bitmapB;
+        Canvas heldCanvas = canvasB;
+        bitmapB = bitmap;
+        canvasB = canvas;
+        bitmap = heldBitmap;
+        canvas = heldCanvas;
         lastReturnedBitmap = result;
         return result;
     }
@@ -966,6 +988,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (b != null && !b.isRecycled()) b.recycle();
         }
         imageOverlayBitmaps.clear();
+        if (bitmapB != null && !bitmapB.isRecycled()) {
+            bitmapB.recycle();
+        }
+        bitmapB = null;
+        canvasB = null;
         if (lastReturnedBitmap != null && !lastReturnedBitmap.isRecycled()) {
             lastReturnedBitmap.recycle();
         }

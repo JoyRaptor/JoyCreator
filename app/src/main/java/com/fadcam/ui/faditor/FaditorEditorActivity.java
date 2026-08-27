@@ -240,11 +240,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             break;
                         case ExportService.ACTION_EXPORT_COMPLETED:
                             exportStartedLocallyAtMs = 0;
+                            restorePreviewAfterExport();
                             exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH),
                                     intent.getBooleanExtra(ExportService.EXTRA_AUDIO_ONLY, false));
                             break;
                         case ExportService.ACTION_EXPORT_ERROR:
                             exportStartedLocallyAtMs = 0;
+                            restorePreviewAfterExport();
                             exportUiOnError(intent.getStringExtra(ExportService.EXTRA_ERROR_MESSAGE),
                                     intent.getStringExtra(ExportService.EXTRA_ERROR_CLASS));
                             break;
@@ -9116,7 +9118,48 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void exportUiOnStarted() {
         exportStartTimeMs = System.currentTimeMillis();
-        runOnUiThread(() -> showExportProgress());
+        runOnUiThread(() -> {
+            showExportProgress();
+            // GIVE THE EXPORTER THE HARDWARE DECODERS. Measured on JoyRaptor's Note 9,
+            // 2026-08-27, while a 46-second project took ~15 minutes at 720p/Low:
+            //
+            //     c2.android.avc.decoder      2152   <- Android's SOFTWARE H.264 decoder
+            //     OMX.SEC.avc.sw.dec           420   <- also software
+            //     OMX.qcom.video.decoder.avc     7   <- the hardware one, barely used
+            //
+            // The device has roughly two hardware AVC decoders. The editor was still holding
+            // them -- the master player plus every PiP overlay player -- because export start
+            // only ever showed a progress bar. media3 then fell back to software decode for
+            // the export itself, which is what "export time is obscene" actually was.
+            //
+            // OverlayVideoPreviewView.releasePlayer already names this exact case in its own
+            // comment ("every caller here (export start, onDestroy, a decoder error) is a
+            // reason to be holding no overlay codecs at all") -- the call was simply never
+            // wired, and onDestroy was its only external caller.
+            //
+            // Safe to drop: the export runs from an isolated snapshot, so nothing here feeds
+            // it, and the overlay layer re-prepares its players on the next playhead tick.
+            try {
+                if (playerManager != null) playerManager.pause();
+            } catch (RuntimeException ignored) { }
+            if (overlayVideoLayer != null) overlayVideoLayer.releasePlayer();
+            updatePlayPauseButton(false);
+        });
+    }
+
+    /**
+     * Hand the preview its decoders back once the exporter is finished with them.
+     *
+     * <p>Deliberately a no-op beyond a resync: {@code OverlayVideoPreviewView} builds players
+     * on demand for whatever is live at the playhead, so re-running the overlay sync is enough
+     * and avoids guessing which of them were up before the export began.</p>
+     */
+    private void restorePreviewAfterExport() {
+        try {
+            syncTimelineOverlays();
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "overlay resync after export failed", e);
+        }
     }
 
     private void exportUiOnProgress(float progress) {

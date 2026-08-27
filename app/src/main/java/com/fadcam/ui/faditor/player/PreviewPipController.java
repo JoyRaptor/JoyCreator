@@ -49,8 +49,22 @@ public class PreviewPipController {
     /** PiP content height cap as a fraction of the root height (portrait canvases). */
     private static final float PIP_MAX_HEIGHT_FRACTION = 0.40f;
     private static final float CHROME_HEIGHT_DP = 22f;
-    /** H2: release the drag this close to a root edge and the shell docks to that edge. */
-    private static final float DOCK_SNAP_DP = 56f;
+    /**
+     * How close to a wall counts as "pushed against it", and therefore as DOCKING.
+     *
+     * <p>Deliberately tiny. Floating and docked are different states, and only docking
+     * reflows the editor, so the gesture that triggers it has to be one the user meant.
+     * JoyRaptor: "the snapping to edge would be a very small snap. Not very powerful at all
+     * because I want people to have control of where they place it so they can move it
+     * around as they work."
+     *
+     * <p>At 56dp the window was yanked to an edge — and, once docking reflowed the column,
+     * would have rearranged the whole editor — from a third of a centimetre away, which made
+     * free placement anywhere near an edge impossible. {@link #clampShellIntoRoot} already
+     * stops the shell at the wall, so a deliberate shove lands at distance ~0 and this
+     * threshold only needs to forgive the last pixel or two of travel.</p>
+     */
+    private static final float DOCK_SNAP_DP = 12f;
 
     /** Host hooks — all cheap, called on the main thread. */
     public interface Host {
@@ -615,6 +629,33 @@ public class PreviewPipController {
         expand.setOnClickListener(v -> requestExpand());
         chrome.addView(expand);
 
+        // UNDOCK: back to a free-floating window without leaving PiP.
+        // JoyRaptor: "perhaps at the top there should be a pop-out button to bring it back into
+        // pop-out mode. Because sometimes a little tiny thing is all you need to see when you
+        // really have a big project with a lot of different lanes." Docked and floating are
+        // both useful states, so there has to be a way back from the one that reflows the
+        // editor -- otherwise docking is a trapdoor.
+        TextView undock = new TextView(ctx);
+        undock.setText("picture_in_picture");
+        try {
+            Typeface icons = androidx.core.content.res.ResourcesCompat.getFont(
+                    ctx, R.font.materialicons);
+            if (icons != null) undock.setTypeface(icons);
+        } catch (Exception ignored) {
+            undock.setText("⇲");
+        }
+        undock.setTextColor(0xFFCCCCCC);
+        undock.setTextSize(13);
+        undock.setGravity(Gravity.CENTER);
+        undock.setPadding(pad, 0, pad, 0);
+        undock.setLayoutParams(new FrameLayout.LayoutParams(
+                (int) (30 * density), ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.START | Gravity.CENTER_VERTICAL));
+        undock.setOnClickListener(v -> undock());
+        undock.setVisibility(dockedEdge == 0 ? View.GONE : View.VISIBLE);
+        chrome.addView(undock);
+        undockButton = undock;
+
         chrome.setOnTouchListener(new View.OnTouchListener() {
             float downRawX, downRawY, baseTx, baseTy;
             float movedSquared;
@@ -636,10 +677,12 @@ public class PreviewPipController {
                         shell.setTranslationX(baseTx + (e.getRawX() - downRawX));
                         shell.setTranslationY(baseTy + (e.getRawY() - downRawY));
                         clampShellIntoRoot(shell);
+                        showDockHint(edgeUnderShell(shell));
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
                         v.performClick();
+                        showDockHint(0);   // the preview band never outlives the drag
                         // H2: released near a left/right edge → dock there, vertically
                         // centred. A mere TAP never re-docks: the default spawn spot sits
                         // inside the snap window, so an accidental tap would otherwise
@@ -682,6 +725,95 @@ public class PreviewPipController {
      *                a remembered dock on re-promotion, where the position should simply
      *                be correct at first layout.
      */
+    /** The band shown under the shell while a drag hovers a dock edge. Null when not showing. */
+    @Nullable private View dockHint;
+    /** Chrome's undock control — only meaningful while docked. */
+    @Nullable private View undockButton;
+
+    /** Show the undock control exactly while there is something to undock FROM. */
+    private void updateUndockButton() {
+        if (undockButton != null) {
+            undockButton.setVisibility(dockedEdge == 0 ? View.GONE : View.VISIBLE);
+        }
+    }
+
+    /**
+     * Leave the docked slot and float again, without demoting back inline.
+     *
+     * <p>Releases the column inset first so the editor is already whole by the time the shell
+     * animates off the edge — the reverse order leaves a frame where the window has moved but
+     * the editor is still narrowed, which reads as a glitch.</p>
+     */
+    private void undock() {
+        if (pipShell == null) return;
+        dockedEdge = 0;
+        applyParkInset(0, 0);
+        updateUndockButton();
+        float inset = 24 * density;
+        pipShell.animate()
+                .translationX(pipShell.getTranslationX() > 0 ? -inset : inset)
+                .setDuration(150)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(() -> { if (pipShell != null) clampShellIntoRoot(pipShell); })
+                .start();
+        FLog.i(TAG, "UNDOCKED — floating again, editor width restored");
+    }
+
+    /**
+     * Which edge this shell would dock to if released now — 0 for none.
+     *
+     * <p>Split out of {@link #maybeDock} so the drag can ASK without committing. Docking and
+     * previewing a dock have to agree exactly, or the band promises a landing the release does
+     * not honour.</p>
+     */
+    private int edgeUnderShell(@NonNull View shell) {
+        int rootW = rootFrame.getWidth();
+        if (rootW <= 0 || shell.getWidth() <= 0) return 0;
+        float snapPx = DOCK_SNAP_DP * density;
+        float screenLeft = shell.getLeft() + shell.getTranslationX();
+        float distL = screenLeft;
+        float distR = rootW - (screenLeft + shell.getWidth());
+        if (distL > snapPx && distR > snapPx) return 0;
+        return distL <= distR ? -1 : 1;
+    }
+
+    /**
+     * Preview where a release would land, the way every dockable UI does.
+     *
+     * <p>JoyRaptor drew the distinction that this exists for: a window RESTING near an edge and a
+     * window DOCKED to it are different states, and only the second reflows the editor —
+     * "there might be a blue line or a green line or something, previewing where it would be.
+     * And then if you let go while it's in there, then it would dock to that side."
+     *
+     * <p>Without it, docking is a hidden gesture with a large consequence: the whole editor
+     * shifts, and nothing warned that it would. The band is the promise; {@link #maybeDock}
+     * keeps it, because both ask {@link #edgeUnderShell} rather than each deciding for
+     * itself.</p>
+     */
+    private void showDockHint(int edge) {
+        if (edge == 0) {
+            if (dockHint != null) {
+                rootFrame.removeView(dockHint);
+                dockHint = null;
+            }
+            return;
+        }
+        int w = pipShell != null && pipShell.getWidth() > 0
+                ? pipShell.getWidth() : (int) (PIP_WIDTH_FRACTION * rootFrame.getWidth());
+        if (dockHint == null) {
+            dockHint = new View(editorRoot.getContext());
+            // Below the shell being dragged, above the editor, so the band reads as a slot the
+            // window is about to occupy rather than an overlay on top of it.
+            rootFrame.addView(dockHint, rootFrame.indexOfChild(editorRoot) + 1);
+        }
+        dockHint.setBackgroundColor(0x3355E0F9);            // the cyan already used for selection
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                w, ViewGroup.LayoutParams.MATCH_PARENT,
+                edge < 0 ? Gravity.START : Gravity.END);
+        dockHint.setLayoutParams(lp);
+        dockHint.setVisibility(View.VISIBLE);
+    }
+
     private int maybeDock(@NonNull View shell, boolean animate) {
         int rootW = rootFrame.getWidth();
         if (rootW <= 0 || shell.getWidth() <= 0) {
@@ -690,16 +822,14 @@ public class PreviewPipController {
             s.post(() -> { if (pipShell == s) dockedEdge = maybeDock(s, animate); });
             return dockedEdge;
         }
-        float snapPx = DOCK_SNAP_DP * density;
-        float screenLeft = shell.getLeft() + shell.getTranslationX();
-        float distL = screenLeft;
-        float distR = rootW - (screenLeft + shell.getWidth());
-        if (distL > snapPx && distR > snapPx) {
+        int edge = edgeUnderShell(shell);
+        if (edge == 0) {
             applyParkInset(0, 0);   // dragged back into the middle — the editor takes its width back
+            updateUndockButton();
             return 0;
         }
-        int edge = distL <= distR ? -1 : 1;
         dockTo(shell, edge, animate);
+        updateUndockButton();
         return edge;
     }
 

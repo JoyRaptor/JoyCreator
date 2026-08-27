@@ -61,11 +61,11 @@ final class SequentialFrameReader {
     /** After this many backward jumps the sweep is the wrong tool; hand back to the retriever. */
     private static final int MAX_REWINDS = 8;
     /**
-     * Ceiling on the subsample factor in {@link #imageToBitmap}. A PiP scaled far down does not
-     * need full-resolution pixels, but past 4x the nearest-neighbour sampling starts to show
+     * Floor on the converted size, as a fraction of the source. A PiP scaled far down does not
+     * need full-resolution pixels, but past this the nearest-neighbour sampling starts to show
      * on a slow zoom, so the saving stops here.
      */
-    private static final int MAX_SUBSAMPLE = 4;
+    private static final float MIN_CONVERT_FRACTION = 0.25f;
 
     private final Context context;
     private final Uri uri;
@@ -81,8 +81,8 @@ final class SequentialFrameReader {
     /** The frame currently in hand, and its source presentation time. */
     @Nullable private Bitmap current;
     private long currentPtsUs = Long.MIN_VALUE;
-    /** The subsample factor {@link #current} was converted at, so a finer request re-decodes. */
-    private int currentStep = 0;
+    /** The width {@link #current} was converted at, so a request needing MORE detail re-decodes. */
+    private int currentOutW = 0;
     private long lastRequestUs = Long.MIN_VALUE;
 
     private int decodedFrames = 0;
@@ -92,6 +92,16 @@ final class SequentialFrameReader {
     /** Where the linear pass actually spends itself: pumping the codec vs converting pixels. */
     private long pumpNanos = 0L;
     private long convertNanos = 0L;
+    /** Reused across frames by {@link #imageToBitmap}; see its note on why this matters. */
+    @Nullable private byte[] yArr;
+    @Nullable private byte[] uArr;
+    @Nullable private byte[] vArr;
+    @Nullable private int[] argbArr;
+    @Nullable private Bitmap scratch;
+    /** Source geometry, learned in {@link #open}. Raw = as coded; display = after rotation. */
+    private int sourceW = 0, sourceH = 0, displayW = 0, displayH = 0;
+    /** Width the last conversion produced BEFORE rotation, which is what wantW is measured in. */
+    private int lastConvertOutW = 0;
 
     SequentialFrameReader(@NonNull Context context, @NonNull Uri uri) {
         this.context = context.getApplicationContext();
@@ -131,11 +141,11 @@ final class SequentialFrameReader {
 
             if (!started && !open()) { degraded = true; return null; }
 
-            int step = subsampleFor(maxOutW, maxOutH);
+            int wantW = wantWidthFor(maxOutW, maxOutH);
             // Already past the request: the frame in hand IS the first one at/after it, unless
             // it was converted coarser than this request needs.
             if (current != null && !current.isRecycled() && currentPtsUs >= sourceUs
-                    && currentStep <= step) {
+                    && currentOutW >= wantW) {
                 reuseHits++;
                 return current;
             }
@@ -143,7 +153,7 @@ final class SequentialFrameReader {
                 // Nothing further will decode; the last frame is the best answer there is.
                 return (current != null && !current.isRecycled()) ? current : null;
             }
-            return decodeForwardTo(sourceUs, step);
+            return decodeForwardTo(sourceUs, wantW);
         } catch (Exception e) {
             FLog.w(TAG, "Sequential read failed for " + uri + "; degrading to retriever", e);
             degraded = true;
@@ -152,15 +162,20 @@ final class SequentialFrameReader {
         }
     }
 
-    private int subsampleFor(int maxOutW, int maxOutH) {
-        if (maxOutW <= 0 || maxOutH <= 0 || current == null) {
-            // No hint, or nothing decoded yet to measure against - full resolution.
-            return 1;
-        }
-        int srcW = current.getWidth() * Math.max(1, currentStep);
-        int srcH = current.getHeight() * Math.max(1, currentStep);
-        int step = Math.min(srcW / Math.max(1, maxOutW), srcH / Math.max(1, maxOutH));
-        return Math.max(1, Math.min(MAX_SUBSAMPLE, step));
+    /**
+     * The width to convert at, from the caller's ceiling on how large the frame will be DRAWN.
+     * Zero means "as wide as the source" and is what the first frame of a clip gets, before
+     * there is a decoded frame to measure the source against.
+     */
+    private int wantWidthFor(int maxOutW, int maxOutH) {
+        if (maxOutW <= 0 || maxOutH <= 0 || displayW <= 0 || displayH <= 0) return 0;
+        // The frame is drawn FIT inside the caller's box, so the limiting axis decides. The box
+        // is in canvas space, hence display (post-rotation) dimensions here and the RAW width
+        // in the answer, which is the space the conversion loop works in.
+        float f = Math.min(maxOutW / (float) displayW, maxOutH / (float) displayH);
+        if (f >= 1f) return sourceW;                     // drawn at or above 1:1 - no saving
+        if (f < MIN_CONVERT_FRACTION) f = MIN_CONVERT_FRACTION;
+        return Math.max(1, Math.round(sourceW * f));
     }
 
     /** Opens extractor+codec at the head of the source. Returns false if it cannot. */
@@ -184,6 +199,13 @@ final class SequentialFrameReader {
             if (mime == null) { try { ex.release(); } catch (Exception ignored) { } return false; }
             rotationDeg = format.containsKey(MediaFormat.KEY_ROTATION)
                     ? format.getInteger(MediaFormat.KEY_ROTATION) : 0;
+            sourceW = format.containsKey(MediaFormat.KEY_WIDTH)
+                    ? format.getInteger(MediaFormat.KEY_WIDTH) : 0;
+            sourceH = format.containsKey(MediaFormat.KEY_HEIGHT)
+                    ? format.getInteger(MediaFormat.KEY_HEIGHT) : 0;
+            boolean quarterTurn = ((rotationDeg % 360) + 360) % 360 % 180 == 90;
+            displayW = quarterTurn ? sourceH : sourceW;
+            displayH = quarterTurn ? sourceW : sourceH;
             // Flexible YUV so getOutputImage() yields YUV_420_888 on every device.
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
@@ -210,7 +232,7 @@ final class SequentialFrameReader {
      * cheap.
      */
     @Nullable
-    private Bitmap decodeForwardTo(long targetUs, int step) {
+    private Bitmap decodeForwardTo(long targetUs, int wantW) {
         MediaCodec c = codec;
         MediaExtractor ex = extractor;
         if (c == null || ex == null) return null;
@@ -246,7 +268,7 @@ final class SequentialFrameReader {
                         Image img = c.getOutputImage(outIdx);
                         if (img != null) {
                             long t0 = System.nanoTime();
-                            made = imageToBitmap(img, step);
+                            made = imageToBitmap(img, wantW);
                             convertNanos += System.nanoTime() - t0;
                             img.close();
                         }
@@ -259,10 +281,14 @@ final class SequentialFrameReader {
                 if (made != null) {
                     pumpNanos += System.nanoTime() - pumpStart;
                     convertedFrames++;
-                    if (current != null && !current.isRecycled()) current.recycle();
+                    // `made` may BE the reused scratch bitmap, so identity-check before
+                    // recycling — recycling it here would destroy the frame being returned.
+                    if (current != null && current != made && !current.isRecycled()) {
+                        current.recycle();
+                    }
                     current = made;
                     currentPtsUs = info.presentationTimeUs;
-                    currentStep = step;
+                    currentOutW = lastConvertOutW;
                     return current;
                 }
                 if (eos) {
@@ -291,15 +317,34 @@ final class SequentialFrameReader {
      * filmstrip needs but costs tens of milliseconds apiece - thirty times a second that is
      * back to being the bottleneck. This walks the planes directly instead, and at
      * {@code step > 1} it never even reads the pixels it is going to drop.
+     *
+     * <p><b>The planes are bulk-copied into byte arrays first, and this is the whole trick.</b>
+     * The first version of this method read the decoder's direct ByteBuffers a pixel at a time
+     * with {@code get(index)}. Measured on the Note 9 (2026-08-27) that cost 216ms per
+     * 1080p frame and was 93% of the reader's entire runtime — it had simply replaced the
+     * retriever as the bottleneck. Each of those calls is a bounds-checked read into off-heap
+     * memory that the JIT will not fold into the loop, and there were six million of them per
+     * frame. Three bulk {@code get(byte[])} copies cost one memcpy each, after which the same
+     * arithmetic runs on plain Java arrays the JIT can actually optimise.
+     *
+     * <p>The output bitmap and both working arrays are reused between frames, so a long PiP
+     * allocates once rather than thirty times a second.
      */
     @Nullable
-    private Bitmap imageToBitmap(@NonNull Image image, int step) {
+    private Bitmap imageToBitmap(@NonNull Image image, int wantW) {
         int w = image.getWidth();
         int h = image.getHeight();
         if (w <= 0 || h <= 0) return null;
-        int s = Math.max(1, step);
-        int outW = Math.max(1, w / s);
-        int outH = Math.max(1, h / s);
+        // Sample straight to the size this frame will be DRAWN at. An earlier version stepped
+        // by an integer factor, which on the common case - a 1080-wide source drawn into a
+        // 720-wide export - rounded down to a factor of ONE and converted every pixel of a
+        // frame that was about to be shrunk by more than half. Fixed-point stepping has no
+        // such cliff: the loop touches exactly as many pixels as the destination has.
+        int outW = (wantW > 0 && wantW < w) ? wantW : w;
+        int outH = Math.max(1, Math.round(h * (outW / (float) w)));
+        lastConvertOutW = outW;
+        final int xStep = (int) (((long) w << 16) / outW);
+        final int yStep = (int) (((long) h << 16) / outH);
 
         Image.Plane[] planes = image.getPlanes();
         ByteBuffer yBuf = planes[0].getBuffer();
@@ -310,19 +355,38 @@ final class SequentialFrameReader {
         int uvRow = planes[1].getRowStride();
         int uvPix = planes[1].getPixelStride();
 
-        int[] argb = new int[outW * outH];
+        int yLen = yBuf.remaining();
+        int uLen = uBuf.remaining();
+        int vLen = vBuf.remaining();
+        if (yArr == null || yArr.length < yLen) yArr = new byte[yLen];
+        if (uArr == null || uArr.length < uLen) uArr = new byte[uLen];
+        if (vArr == null || vArr.length < vLen) vArr = new byte[vLen];
+        yBuf.get(yArr, 0, yLen);
+        uBuf.get(uArr, 0, uLen);
+        vBuf.get(vArr, 0, vLen);
+        final byte[] yA = yArr, uA = uArr, vA = vArr;
+
+        int pixels = outW * outH;
+        if (argbArr == null || argbArr.length < pixels) argbArr = new int[pixels];
+        final int[] argb = argbArr;
+
         int p = 0;
         for (int oy = 0; oy < outH; oy++) {
-            int sy = oy * s;
+            int sy = (oy * yStep) >> 16;
+            if (sy >= h) sy = h - 1;
             int yLine = sy * yRow;
             int uvLine = (sy >> 1) * uvRow;
-            for (int ox = 0; ox < outW; ox++) {
-                int sx = ox * s;
-                int Y = (yBuf.get(yLine + sx * yPix) & 0xFF) - 16;
-                if (Y < 0) Y = 0;
+            int sxFixed = 0;
+            for (int ox = 0; ox < outW; ox++, sxFixed += xStep) {
+                int sx = sxFixed >> 16;
+                if (sx >= w) sx = w - 1;
+                int yIdx = yLine + sx * yPix;
                 int uvIdx = uvLine + (sx >> 1) * uvPix;
-                int U = (uBuf.get(uvIdx) & 0xFF) - 128;
-                int V = (vBuf.get(uvIdx) & 0xFF) - 128;
+                if (yIdx >= yLen || uvIdx >= uLen || uvIdx >= vLen) { argb[p++] = 0xFF000000; continue; }
+                int Y = (yA[yIdx] & 0xFF) - 16;
+                if (Y < 0) Y = 0;
+                int U = (uA[uvIdx] & 0xFF) - 128;
+                int V = (vA[uvIdx] & 0xFF) - 128;
                 // BT.601 limited-range, the same matrix YuvImage's JPEG path applies.
                 int y1192 = 1192 * Y;
                 int r = (y1192 + 1634 * V) >> 10;
@@ -334,15 +398,21 @@ final class SequentialFrameReader {
                 argb[p++] = 0xFF000000 | (r << 16) | (g << 8) | b;
             }
         }
-        Bitmap bmp = Bitmap.createBitmap(argb, outW, outH, Bitmap.Config.ARGB_8888);
+
+        if (scratch == null || scratch.isRecycled()
+                || scratch.getWidth() != outW || scratch.getHeight() != outH) {
+            if (scratch != null && !scratch.isRecycled()) scratch.recycle();
+            scratch = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888);
+        }
+        scratch.setPixels(argb, 0, outW, 0, 0, outW, outH);
         if (rotationDeg % 360 != 0) {
             android.graphics.Matrix m = new android.graphics.Matrix();
             m.postRotate(rotationDeg);
-            Bitmap rotated = Bitmap.createBitmap(bmp, 0, 0, outW, outH, m, true);
-            if (rotated != bmp) bmp.recycle();
-            return rotated;
+            // A fresh bitmap, because the rotation changes the dimensions; the caller
+            // identity-checks before recycling so the scratch survives.
+            return Bitmap.createBitmap(scratch, 0, 0, outW, outH, m, true);
         }
-        return bmp;
+        return scratch;
     }
 
     private void releaseDecoder() {
@@ -355,10 +425,15 @@ final class SequentialFrameReader {
             try { extractor.release(); } catch (Exception ignored) { }
             extractor = null;
         }
-        if (current != null && !current.isRecycled()) current.recycle();
+        // `current` is often the scratch itself, so recycle by identity, once each.
+        if (current != null && current != scratch && !current.isRecycled()) current.recycle();
+        if (scratch != null && !scratch.isRecycled()) scratch.recycle();
         current = null;
+        scratch = null;
         currentPtsUs = Long.MIN_VALUE;
-        currentStep = 0;
+        currentOutW = 0;
+        lastConvertOutW = 0;
+        sourceW = sourceH = displayW = displayH = 0;
         started = false;
         inputDone = false;
         streamEnded = false;

@@ -57,14 +57,16 @@ code. If it is taken, finish your code, wait, then update the row.
 SPEC: free
 
 ## DEVICE TOKEN
-DEVICE: free (OPENCODE released 2026-08-25 17:00 — B1/B2 not device-verified, needs JoyRaptor on Note 20 for both)
+DEVICE: free (FABLE released 2026-08-27 08:15 — export timing runs done)
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (claim above was STALE from 2026-07-14 and listed FaditorEditorActivity.java,
-        which LANE A holds today. Cleared by review 2026-08-23 per rule 5 — every file it named
-        was clean in the tree. History preserved below as prior-status.)
+status: IDLE (2026-08-27 08:15 — EXPORT SPEED done and device-verified on the Note 9:
+        ~15m00s -> 1m38s on JoyRaptor's 46s project at 720p/Low, 9.2x. Output verified
+        PIXEL-IDENTICAL (PSNR inf) across the last two runs. Remaining gap to realtime
+        parity is architectural — the CPU bitmap round-trip per PiP per frame — and is
+        the GL texture layer pilot, not another micro-fix.)
 files: (none)
-since: 2026-08-23
+since: 2026-08-27
 
 ## REVIEW (Claude Opus 5) — integration lane
 status: ACTIVE (2026-08-26 — canvas aspect resolved from a 16x16 black gap spacer at clip 0,

@@ -145,17 +145,56 @@ final class PipFrameOverlay extends BitmapOverlay {
         return Bitmap.createBitmap(bitmap);
     }
 
+    /** Source time of {@link #cachedFrame}, or Long.MIN_VALUE when nothing is cached. */
+    private long cachedFrameSourceMs = Long.MIN_VALUE;
+    @Nullable private Bitmap cachedFrame;
+    private int frameHits = 0;
+    private int frameMisses = 0;
+
     @Nullable
     private Bitmap frameAt(long sourceMs) {
         long clamped = Math.min(sourceMs, Math.max(clip.getInPointMs(), clip.getOutPointMs() - 1));
         synchronized (retrieverLock) {
+            // THE SAME SOURCE FRAME, ASKED FOR AGAIN, COST A FULL SEEK-AND-DECODE.
+            // This is the single most expensive thing in an export. Measured on JoyRaptor's Note 9
+            // on 2026-08-27: 275 getFrameAtTime calls at roughly 0.8 SECONDS each, which is
+            // the entire stall between progress 0.29 and 0.37 — 8% of the timeline eating 80%
+            // of the wall clock. OPTION_CLOSEST re-seeks to the preceding sync frame and
+            // decodes forward to the requested time on EVERY call, so a clip with keyframes a
+            // second or two apart re-decodes dozens of frames to produce one.
+            //
+            // The device log showed consecutive requests for the identical timestamp
+            // (8401000us twice in a row), so some of that work was for a frame already in
+            // hand. Whenever the export's frame rate does not divide the source's evenly, or a
+            // PiP is slowed, that repetition is systematic rather than occasional.
+            //
+            // This only removes the repeats. The real fix is a SEQUENTIAL reader — decode
+            // forward once and hand out frames in order, the way FilmstripSweepExtractor
+            // already does for the timeline ("ONE sequential MediaCodec decode sweep per
+            // source ... never seeks per frame"), which the export path never adopted. That is
+            // a proper piece of work and it wants daylight: sweep() returns every bitmap at
+            // once, which is too much memory at export resolution, and its seek probe would
+            // fail on FadCam's index-less fMP4 and degrade to a full linear decode per window.
+            if (cachedFrame != null && !cachedFrame.isRecycled()
+                    && cachedFrameSourceMs == clamped) {
+                frameHits++;
+                // A COPY, because the caller recycles what it is handed.
+                return Bitmap.createBitmap(cachedFrame);
+            }
             try {
                 if (retriever == null) {
                     retriever = new MediaMetadataRetriever();
                     retriever.setDataSource(context, clip.getSourceUri());
                 }
-                return retriever.getFrameAtTime(clamped * 1000L,
+                Bitmap decoded = retriever.getFrameAtTime(clamped * 1000L,
                         MediaMetadataRetriever.OPTION_CLOSEST);
+                frameMisses++;
+                if (decoded != null) {
+                    if (cachedFrame != null && !cachedFrame.isRecycled()) cachedFrame.recycle();
+                    cachedFrame = Bitmap.createBitmap(decoded);
+                    cachedFrameSourceMs = clamped;
+                }
+                return decoded;
             } catch (Exception e) {
                 if (!loggedError) {
                     FLog.w(TAG, "blend-PiP frame failed for " + clip.getSourceUri()
@@ -171,6 +210,12 @@ final class PipFrameOverlay extends BitmapOverlay {
     public void release() throws androidx.media3.common.VideoFrameProcessingException {
         super.release();
         synchronized (retrieverLock) {
+            if (frameHits + frameMisses > 0) {
+                FLog.i(TAG, "PIP_FRAMES decoded=" + frameMisses + " reusedFromCache=" + frameHits
+                        + " (each decode is a seek + forward-decode; see frameAt)");
+            }
+            if (cachedFrame != null && !cachedFrame.isRecycled()) cachedFrame.recycle();
+            cachedFrame = null;
             if (retriever != null) {
                 try { retriever.release(); } catch (Exception ignored) { }
                 retriever = null;

@@ -1273,6 +1273,27 @@ public class ExportManager {
         // first item already contains audio, so a project that opens on a video is unchanged.
         // It is only incompatible with setTransmuxAudio, which this exporter never calls
         // (checked: zero setTransmux* anywhere in export/).
+        // WHICH ITEM IS SLOW. The progress curve is the only clock the export exposes, so
+        // print the item boundaries in the SAME units and the two can be laid side by side.
+        // JoyRaptor's Note 9 stalls between progress 0.29 and 0.37 -- 8% of the timeline eating
+        // 80% of the wall time -- and neither the overlay pass (1-2ms/frame, measured) nor the
+        // trailing black spacer is anywhere near there. Seven theories about this subsystem
+        // have already died against this device; this one gets to name the item first.
+        {
+            long cum = 0L;
+            for (int i = 0; i < items.size(); i++) {
+                EditedMediaItem it = items.get(i);
+                long durUs = it.durationUs;
+                long durMs = durUs > 0 ? durUs / 1000L : -1L;
+                String uri = it.mediaItem.localConfiguration != null
+                        ? String.valueOf(it.mediaItem.localConfiguration.uri) : "?";
+                FLog.i(TAG, "EXPORT_ITEM[" + i + "] startMs=" + cum + " durMs=" + durMs
+                        + " effects=" + it.effects.videoEffects.size()
+                        + " src=" + uri.substring(Math.max(0, uri.length() - 46)));
+                if (durMs > 0) cum += durMs;
+            }
+            FLog.i(TAG, "EXPORT_ITEM total=" + cum + "ms across " + items.size() + " items");
+        }
         EditedMediaItemSequence videoSequence =
                 new EditedMediaItemSequence.Builder(items)
                         .experimentalSetForceAudioTrack(true)

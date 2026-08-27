@@ -185,6 +185,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
     /** Second scratch buffer — see the ping-pong note in {@link #getBitmap}. */
     @Nullable private Bitmap bitmapB;
     @Nullable private Canvas canvasB;
+    /** EXPORT COST INSTRUMENTATION: how much of an export this clip's overlay pass actually is. */
+    private int costFrames = 0;
+    private long costDrawNanos = 0L;
 
     public static class WaveformSlot {
         @NonNull public final WaveformOverlayInstance instance;
@@ -461,6 +464,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
     @NonNull
     @Override
     public Bitmap getBitmap(long presentationTimeUs) {
+        long drawStartNs = System.nanoTime();
         if (bitmap == null || bitmap.isRecycled()) {
             bitmap = Bitmap.createBitmap(Math.max(1, outW), Math.max(1, outH), Bitmap.Config.ARGB_8888);
             canvas = new Canvas(bitmap);
@@ -957,6 +961,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
         bitmap = heldBitmap;
         canvas = heldCanvas;
         lastReturnedBitmap = result;
+        costFrames++;
+        costDrawNanos += System.nanoTime() - drawStartNs;
         return result;
     }
 
@@ -968,6 +974,18 @@ public class CompositeExportOverlay extends BitmapOverlay {
 
     @Override
     public void release() {
+        // WHERE THE EXPORT ACTUALLY GOES. JoyRaptor, 2026-08-27: "export time is obscene." A
+        // 46-second project at 720p/Low took ~15 minutes on the Note 9, and progress stalled
+        // hard around 30% -- nowhere near the trailing black spacer that looked like the
+        // obvious suspect. Guessing has cost enough this week; this says, per clip, how many
+        // overlay frames were drawn and how long they took, so the next change targets the
+        // clip that is actually expensive.
+        if (costFrames > 0) {
+            FLog.i(TAG, "EXPORT_COST clip@" + clipTimelineStartMs + "ms frames=" + costFrames
+                    + " overlayDrawMs=" + (costDrawNanos / 1_000_000L)
+                    + " avgMsPerFrame=" + (costDrawNanos / 1_000_000L / Math.max(1, costFrames))
+                    + " size=" + outW + "x" + outH);
+        }
         FLog.i(TAG, "Export overlay summary: frames=" + frameCount
                 + " textFrames=" + framesWithText
                 + " captionFrames=" + framesWithCaption

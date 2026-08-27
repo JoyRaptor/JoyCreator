@@ -980,6 +980,22 @@ public class ExportManager {
                     // is the proof the decoder can do it and the advertised rate is what is
                     // wrong. So when the device has a hardware decoder for this MIME, that is
                     // the list; software is kept only when there is no hardware option at all.
+                    // SAY WHAT WAS ACTUALLY ON OFFER. Three attempts at this have now failed
+                    // against assumptions about what this list contains; print it once per
+                    // MIME rather than reason about it a fourth time.
+                    if (loggedSelectorMimes.add(mimeType)) {
+                        StringBuilder sb = new StringBuilder("DECODER_PICK ").append(mimeType);
+                        for (androidx.media3.exoplayer.mediacodec.MediaCodecInfo i : infos) {
+                            sb.append("\n    ").append(i.name)
+                                    .append(" hardwareAccelerated=").append(i.hardwareAccelerated)
+                                    .append(" softwareOnly=").append(i.softwareOnly)
+                                    .append(" vendor=").append(i.vendor);
+                        }
+                        sb.append("\n    -> offering ").append(hw.isEmpty()
+                                ? "SOFTWARE (no hardware entry found)"
+                                : (hw.size() + " hardware"));
+                        FLog.i(TAG, sb.toString());
+                    }
                     if (!hw.isEmpty()) return hw;
                     return sw;
                 };
@@ -991,6 +1007,9 @@ public class ExportManager {
         return new androidx.media3.transformer.DefaultAssetLoaderFactory(
                 context, decoderFactory, androidx.media3.common.util.Clock.DEFAULT, null);
     }
+
+    /** MIMEs already reported by the decoder selector, so it logs once each, not once per clip. */
+    private final java.util.Set<String> loggedSelectorMimes = new java.util.HashSet<>();
 
     private void addSilence(@NonNull List<EditedMediaItem> items, @Nullable Uri silenceUri,
                             long durationMs) {

@@ -376,8 +376,25 @@ public class CompositingSpec {
         return false;
     }
 
-    /** {@link #maskFeather} = 1 blurs by this fraction of the frame's SHORTER side. */
-    public static final float MAX_FEATHER_FRACTION = 0.08f;
+    /**
+     * {@link #maskFeather} = 1 blurs by this fraction of the frame's SHORTER side.
+     *
+     * <p>Raised from 0.08 to 0.25 on 2026-08-26. At 8% the slider's MAXIMUM was about 86px on
+     * a 1080-wide frame — a tidy edge, not a soft one, and nowhere near enough to fade an
+     * object into what is behind it. JoyRaptor: "soften edges is too small, should blur much more
+     * at max to make soft gradient." A feathered mask whose softest setting still reads as a
+     * cut is a slider that only does one thing.
+     *
+     * <p>Cheap where it matters: the GL path feathers with a distance band in the shader
+     * ({@code MaskSdf.fxCoverageOf}), so a wider band costs the same as a narrow one, and
+     * masked images route to GL since {@code hasExportMask} joined {@code wantsGlExport}. Only
+     * the legacy Canvas path pays, through {@code BlurMaskFilter} in {@code MaskPathBuilder},
+     * whose cost grows with radius — and that path is no longer the one a masked image takes.
+     *
+     * <p>Preview and export read this same constant through {@link #featherRadiusPx}, so they
+     * cannot disagree about how soft "soft" is.</p>
+     */
+    public static final float MAX_FEATHER_FRACTION = 0.25f;
 
     /**
      * The single authority turning authored {@link #maskFeather} into a blur radius in

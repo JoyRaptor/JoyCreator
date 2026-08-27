@@ -181,6 +181,9 @@ public class ExportManager {
 
     /** Reusable progress holder to avoid allocation on every poll. */
     private final ProgressHolder progressHolder = new ProgressHolder();
+    /** EXPORT_PACE state: last percent printed, and the clock it is measured from. */
+    private int lastLoggedProgressPct = -1;
+    private long progressEpochMs = 0L;
 
     /** Interval between progress polls (ms). */
     private static final long PROGRESS_POLL_INTERVAL_MS = 300;
@@ -399,6 +402,8 @@ public class ExportManager {
 
         String outputPath = generateOutputPath(project);
         isExporting = true;
+        lastLoggedProgressPct = -1;
+        progressEpochMs = 0L;
         // C7 snapshot: one deterministic read at export start (see the field's doc).
         fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
         FLog.d(TAG, "C1.E FX chain: bypassed=" + fxBypassedSnapshot);
@@ -612,6 +617,8 @@ public class ExportManager {
 
         String outputPath = generateOutputPath(project, "m4a");
         isExporting = true;
+        lastLoggedProgressPct = -1;
+        progressEpochMs = 0L;
         // C7 snapshot: one deterministic read at export start (see the field's doc).
         fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
         FLog.d(TAG, "C1.E FX chain (audio-only): bypassed=" + fxBypassedSnapshot);
@@ -1116,6 +1123,19 @@ public class ExportManager {
                 int state = transformer.getProgress(progressHolder);
                 if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
                     float progress = progressHolder.progress / 100f;
+                    // EXPORT_PACE: the wall clock against the progress curve. Laid beside the
+                    // EXPORT_ITEM boundaries above (same units), this names the slow item
+                    // without guessing. One line per whole percent, so a fast export prints a
+                    // hundred lines and a stalled one prints almost none — the silence is
+                    // itself the signal.
+                    int pct = progressHolder.progress;
+                    if (pct != lastLoggedProgressPct) {
+                        long now = android.os.SystemClock.elapsedRealtime();
+                        if (progressEpochMs == 0L) progressEpochMs = now;
+                        FLog.i(TAG, "EXPORT_PACE " + pct + "% at +"
+                                + ((now - progressEpochMs) / 1000L) + "s");
+                        lastLoggedProgressPct = pct;
+                    }
                     if (listener != null) {
                         listener.onExportProgress(progress);
                     }
@@ -1384,8 +1404,16 @@ public class ExportManager {
                 long durMs = durUs > 0 ? durUs / 1000L : -1L;
                 String uri = it.mediaItem.localConfiguration != null
                         ? String.valueOf(it.mediaItem.localConfiguration.uri) : "?";
+                // WHICH EFFECTS, not just how many. Each entry is a separate full-frame GL pass,
+                // so the names are the per-frame cost of this item spelled out.
+                StringBuilder fx = new StringBuilder();
+                for (androidx.media3.common.Effect e : it.effects.videoEffects) {
+                    if (fx.length() > 0) fx.append(',');
+                    fx.append(e.getClass().getSimpleName());
+                }
                 FLog.i(TAG, "EXPORT_ITEM[" + i + "] startMs=" + cum + " durMs=" + durMs
                         + " effects=" + it.effects.videoEffects.size()
+                        + " [" + fx + "]"
                         + " src=" + uri.substring(Math.max(0, uri.length() - 46)));
                 if (durMs > 0) cum += durMs;
             }

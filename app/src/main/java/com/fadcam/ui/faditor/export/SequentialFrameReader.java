@@ -89,6 +89,9 @@ final class SequentialFrameReader {
     private int convertedFrames = 0;
     private int reuseHits = 0;
     private int rewinds = 0;
+    /** Where the linear pass actually spends itself: pumping the codec vs converting pixels. */
+    private long pumpNanos = 0L;
+    private long convertNanos = 0L;
 
     SequentialFrameReader(@NonNull Context context, @NonNull Uri uri) {
         this.context = context.getApplicationContext();
@@ -213,6 +216,7 @@ final class SequentialFrameReader {
         if (c == null || ex == null) return null;
         MediaCodec.BufferInfo info = new MediaCodec.BufferInfo();
         int stalledDrains = 0;
+        final long pumpStart = System.nanoTime();
 
         while (true) {
             if (!inputDone) {
@@ -241,7 +245,9 @@ final class SequentialFrameReader {
                     try {
                         Image img = c.getOutputImage(outIdx);
                         if (img != null) {
+                            long t0 = System.nanoTime();
                             made = imageToBitmap(img, step);
+                            convertNanos += System.nanoTime() - t0;
                             img.close();
                         }
                     } catch (Exception e) {
@@ -251,6 +257,7 @@ final class SequentialFrameReader {
                 c.releaseOutputBuffer(outIdx, false);
                 stalledDrains = 0;
                 if (made != null) {
+                    pumpNanos += System.nanoTime() - pumpStart;
                     convertedFrames++;
                     if (current != null && !current.isRecycled()) current.recycle();
                     current = made;
@@ -259,12 +266,14 @@ final class SequentialFrameReader {
                     return current;
                 }
                 if (eos) {
+                    pumpNanos += System.nanoTime() - pumpStart;
                     streamEnded = true;
                     return (current != null && !current.isRecycled()) ? current : null;
                 }
             } else if (outIdx == MediaCodec.INFO_TRY_AGAIN_LATER) {
                 if (inputDone && ++stalledDrains > MAX_STALLED_DRAINS) {
                     FLog.w(TAG, "Decoder stalled after EOS input for " + uri.getLastPathSegment());
+                    pumpNanos += System.nanoTime() - pumpStart;
                     streamEnded = true;
                     return (current != null && !current.isRecycled()) ? current : null;
                 }
@@ -362,6 +371,8 @@ final class SequentialFrameReader {
                     + " converted=" + convertedFrames
                     + " reused=" + reuseHits
                     + " rewinds=" + rewinds
+                    + " pumpMs=" + (pumpNanos / 1_000_000L)
+                    + " convertMs=" + (convertNanos / 1_000_000L)
                     + (degraded ? " DEGRADED" : ""));
         }
         releaseDecoder();

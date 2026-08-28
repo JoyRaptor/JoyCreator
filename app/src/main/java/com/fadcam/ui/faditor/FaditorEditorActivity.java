@@ -13301,6 +13301,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             @Override public boolean isGrabBarDragging() {
                                 return grabBarDragging;
                             }
+                            @Override public void onPreviewStationChanged() {
+                                // The controller has just zeroed the transcript station (it has
+                                // to - the shift means nothing in a popped-out shell). Put the
+                                // correct one back immediately, or the container keeps its
+                                // reflow while the panel does not and the two disagree.
+                                applyTranscriptReflow(false);
+                            }
                         });
             }
         } catch (Exception e) {
@@ -32120,18 +32127,54 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptReflowShiftX = shift;
         android.view.animation.Interpolator decel =
                 new android.view.animation.DecelerateInterpolator();
+        // THE HATCHING IS NOT PART OF THE PICTURE, SO IT MUST NOT TRAVEL WITH IT.
+        // canvas_frame draws the diagonal workspace pattern whose whole job is to be an
+        // obviously-not-video backdrop, so a black frame edge can never be mistaken for the
+        // workspace. It is a child of the container, so the reflow was sliding it left along
+        // with the video and exposing a black band down the right of the slot - measured at
+        // 208px, canvas_frame's right edge landing exactly where the container's did while
+        // editor_root still ran the full width. Counter-translate it, exactly like the panel:
+        // the video moves into its pillarbox slack, the backdrop stays where the slot is.
+        View canvasFrame = container.findViewById(R.id.canvas_frame);
         if (animate) {
             container.animate().translationX(-shift).translationY(drawerReflowShiftY)
                     .scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(decel).start();
+            if (canvasFrame != null) {
+                canvasFrame.animate().translationX(shift)
+                        .setDuration(220).setInterpolator(decel).start();
+            }
         } else {
             container.animate().cancel();
             container.setTranslationX(-shift);
             // Keep the vertical writer's last target — not the view's possibly mid-flight value.
             container.setTranslationY(drawerReflowShiftY);
+            if (canvasFrame != null) {
+                canvasFrame.animate().cancel();
+                canvasFrame.setTranslationX(shift);
+            }
         }
-        if (transcriptPanelOpen) {
-            transcriptPanel.setTranslationX(shift);
-            transcriptReopenTab.setTranslationX(shift);
+        // Re-station the counter-translated views.
+        //
+        // On the ANIMATED path the panel's own translationX IS the open/close slide, so the
+        // slide owns the property and writing it here would fight the animator (on close it
+        // would snap the panel to station and start the slide-out from the wrong place).
+        // Only the caller that opens it may seed the station, exactly as before.
+        //
+        // On the INSTANT path — rotation, the resize handle, and now promote/demote — there is
+        // no slide, and this must run whatever the panel's open flag says. That guard is what
+        // made the bug look intermittent: resetTranscriptStation() zeroes these translations on
+        // every promote/demote, nothing put them back, and the container kept its shift while
+        // the panel lost its counter-shift. The panel then sat 208px left of station with its
+        // right edge under the clip, slicing words mid-glyph. When the panel is closed `shift`
+        // is 0, so this writes the same 0 the close slide already ends on.
+        if (animate) {
+            if (transcriptPanelOpen) {
+                transcriptPanel.setTranslationX(shift);
+                transcriptReopenTab.setTranslationX(shift);
+            }
+        } else {
+            if (transcriptPanel != null) transcriptPanel.setTranslationX(shift);
+            if (transcriptReopenTab != null) transcriptReopenTab.setTranslationX(shift);
         }
     }
 

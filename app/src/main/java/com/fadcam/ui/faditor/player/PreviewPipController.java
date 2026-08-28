@@ -79,6 +79,20 @@ public class PreviewPipController {
 
         /** True while the user is actively dragging the timeline grab bar. */
         boolean isGrabBarDragging();
+
+        /**
+         * The preview container has just been re-parented or re-stationed (promote, demote,
+         * dock, undock). Anything the host holds against the container's station - the
+         * transcript reflow's counter-translations, above all - must be re-applied now.
+         *
+         * <p>{@link #resetTranscriptStation()} zeroes those translations because a station
+         * that meant something inline is meaningless in a popped-out shell. Nothing put them
+         * back: the container kept its reflow shift while the transcript panel lost its
+         * counter-shift, so the panel slid 208px left of where it belonged and its right edge
+         * ran off under the clip. Rotation is the common trigger, which is what made it look
+         * intermittent - "did a screen rotate and came back and the black is back".
+         */
+        void onPreviewStationChanged();
     }
 
     private final ViewGroup rootFrame;      // the activity's root FrameLayout
@@ -549,6 +563,7 @@ public class PreviewPipController {
         } finally {
             mutating = false;
         }
+        host.onPreviewStationChanged();
     }
 
     private void demote() {
@@ -583,6 +598,7 @@ public class PreviewPipController {
         } finally {
             mutating = false;
         }
+        host.onPreviewStationChanged();
     }
 
     /** Expand button: hand the preview a comfortable slot again; demotion follows on layout. */

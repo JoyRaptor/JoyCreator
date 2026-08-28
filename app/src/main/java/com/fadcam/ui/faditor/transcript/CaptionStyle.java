@@ -38,6 +38,30 @@ public class CaptionStyle {
     @NonNull public Anim anim;
     /** Font key — same vocabulary as text overlays ("default", "serif", "mono", …). */
     @NonNull public String fontKey = "default";
+
+    /**
+     * How many words a single caption may hold before it breaks to the next one.
+     *
+     * <p>This was a private constant of 6 inside {@link CaptionPhrases}, chosen so a spoken
+     * caption stays readable. That is the right default and the wrong ceiling: JoyRaptor is putting
+     * scripture references on screen and needs a whole verse to sit there long enough to pause
+     * and read it, which six words cannot express. A cue longer than the box can hold is a
+     * separate problem, solved by {@link #autoFit}.</p>
+     */
+    public int maxWords = 6;
+
+    /**
+     * Shrink the caption's text until the whole cue fits its box, instead of overflowing.
+     *
+     * <p>Off by default, because a caption that resizes itself is the wrong behaviour for
+     * ordinary speech: cue lengths vary constantly and the text would breathe in and out on
+     * every phrase. It earns its place when the cues are long and deliberate — a verse, a
+     * paragraph — where fitting matters more than a constant size.</p>
+     */
+    public boolean autoFit = false;
+
+    /** Floor for {@link #autoFit}, as a fraction of the authored size. Never shrink past this. */
+    public static final float AUTO_FIT_MIN_SCALE = 0.45f;
     /** Stroke outline around every word. */
     public boolean outline = false;
     public int outlineColor = 0xFF000000;
@@ -63,6 +87,8 @@ public class CaptionStyle {
         CaptionStyle c = new CaptionStyle(newId, newLabel, baseColor, activeColor,
                 pill, pillColor, bold, anim);
         c.fontKey = fontKey;
+        c.maxWords = maxWords;
+        c.autoFit = autoFit;
         c.outline = outline;
         c.outlineColor = outlineColor;
         c.shadow = shadow;
@@ -160,6 +186,8 @@ public class CaptionStyle {
             o.put("bold", bold);
             o.put("anim", anim.name());
             o.put("font", fontKey);
+            o.put("maxWords", maxWords);
+            o.put("autoFit", autoFit);
             o.put("outline", outline);
             o.put("outlineColor", outlineColor);
             o.put("shadow", shadow);
@@ -184,6 +212,8 @@ public class CaptionStyle {
                     o.optBoolean("pill", false), o.optInt("pillColor", 0xCC000000),
                     o.optBoolean("bold", true), anim);
             s.fontKey = o.optString("font", "default");
+            s.maxWords = Math.max(1, o.optInt("maxWords", 6));
+            s.autoFit = o.optBoolean("autoFit", false);
             s.outline = o.optBoolean("outline", false);
             s.outlineColor = o.optInt("outlineColor", 0xFF000000);
             s.shadow = o.optBoolean("shadow", true);

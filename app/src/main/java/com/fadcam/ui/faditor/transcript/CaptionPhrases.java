@@ -42,9 +42,28 @@ public final class CaptionPhrases {
         this.phrases = phrases;
     }
 
+    /**
+     * Group a transcript at the caption's own word limit.
+     *
+     * <p>The limit used to be the private constant {@link #MAX_WORDS}, which is a fine DEFAULT
+     * for speech and a poor ceiling for anything deliberate: a scripture or a paragraph cannot
+     * be said in six words, and chopping it into six-word pieces is not a caption, it is a
+     * ticker. The value now travels with the style, so it is saved, exported and shared with the
+     * look it belongs to.</p>
+     */
+    @NonNull
+    public static CaptionPhrases of(Transcript t, int maxWords) {
+        return build(t, Math.max(1, maxWords));
+    }
+
     /** Group a transcript. An empty or null transcript yields no phrases rather than throwing. */
     @NonNull
     public static CaptionPhrases of(Transcript t) {
+        return build(t, MAX_WORDS);
+    }
+
+    @NonNull
+    private static CaptionPhrases build(Transcript t, int maxWords) {
         List<int[]> out = new ArrayList<>();
         if (t == null || t.words.isEmpty()) {
             return new CaptionPhrases(t, new int[0], out);
@@ -56,7 +75,7 @@ public final class CaptionPhrases {
             boolean brk = i == n;
             if (!brk) {
                 long gap = t.words.get(i).startMs - t.words.get(i - 1).endMs;
-                brk = gap > GAP_BREAK_MS || (i - start) >= MAX_WORDS
+                brk = gap > GAP_BREAK_MS || (i - start) >= maxWords
                         || t.words.get(i - 1).forceLineBreakAfter;
             }
             if (brk) {

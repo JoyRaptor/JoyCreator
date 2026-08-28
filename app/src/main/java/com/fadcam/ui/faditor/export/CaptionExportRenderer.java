@@ -78,7 +78,9 @@ public class CaptionExportRenderer {
         this.outH = Math.max(1, outH);
         this.bitmap = Bitmap.createBitmap(this.outW, this.outH, Bitmap.Config.ARGB_8888);
         this.canvas = new Canvas(bitmap);
-        this.grouping = com.fadcam.ui.faditor.transcript.CaptionPhrases.of(transcript);
+        // Same word limit the preview groups at - one style, one grouping, no drift.
+        this.grouping = com.fadcam.ui.faditor.transcript.CaptionPhrases.of(
+                transcript, style != null ? style.maxWords : 6);
     }
 
     /** Output frame size the overlay bitmap is rendered at. */

@@ -18197,6 +18197,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         sizeVal.setPadding((int)(6*d), 0, 0, 0);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
         sizeRow.addView(sizeVal);
+        sizeRow.addView(makeCaptionWordCountDial(ctx, d));
         sizeSlider.addOnChangeListener((sl, value, fromUser) -> {
             if (!fromUser) return;
             sizeVal.setText(Math.round(value * 100) + "%");
@@ -18445,6 +18446,96 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (c[0].equals(key)) return c[1];
         }
         return "Standard"; // TODO(strings)
+    }
+
+    /**
+     * Words-per-caption, as a dial you pull like a jog wheel. Drag DOWN for fewer, UP for more;
+     * tap to type an exact number.
+     *
+     * <p>JoyRaptor's shape, and the reason for it: "just have it be a number that I can put my
+     * finger on and pull down like a dial ... We don't need to be adding any more vertical space
+     * to the drawer." So it rides the existing size row beside the position toggle rather than
+     * claiming a row, and it is a bare number rather than a slider — a slider for a 1..60 range
+     * would be both wide and imprecise at the end that matters.</p>
+     *
+     * <p>The limit is a STYLE property, so it saves, exports and travels with the look. Six is
+     * still the default; a scripture wants twenty or more.</p>
+     */
+    @NonNull
+    private View makeCaptionWordCountDial(@NonNull android.content.Context ctx, float d) {
+        final TextView dial = new TextView(ctx);
+        dial.setTextSize(12);
+        dial.setTypeface(null, android.graphics.Typeface.BOLD);
+        dial.setTextColor(0xFF4CAF50);
+        dial.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        dial.setGravity(android.view.Gravity.CENTER);
+        dial.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (6 * d));
+        dial.setBackgroundResource(R.drawable.floating_button_item_bg);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = (int) (8 * d);
+        dial.setLayoutParams(lp);
+        final Runnable label = () -> dial.setText(currentCaptionStyle().maxWords + "w");
+        label.run();
+        dial.setContentDescription("Words per caption");
+
+        dial.setOnTouchListener(new View.OnTouchListener() {
+            float downY;
+            int startVal;
+            boolean dragged;
+            @Override public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downY = e.getRawY();
+                        startVal = currentCaptionStyle().maxWords;
+                        dragged = false;
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        // One step per ~10dp of travel: fine enough to land on a number, coarse
+                        // enough to cross the useful range without lifting a finger.
+                        float dy = downY - e.getRawY();
+                        int steps = Math.round(dy / (10f * d));
+                        if (steps == 0 && !dragged) return true;
+                        dragged = true;
+                        int want = Math.max(1, Math.min(60, startVal + steps));
+                        if (want != currentCaptionStyle().maxWords) {
+                            tweakCaptionStyle(s -> s.maxWords = want);
+                            label.run();
+                        }
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        if (!dragged) promptCaptionWordCount(label);
+                        return true;
+                }
+                return false;
+            }
+        });
+        return dial;
+    }
+
+    /** Tap target for the words-per-caption dial: type an exact number. */
+    private void promptCaptionWordCount(@NonNull Runnable afterChange) {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setText(String.valueOf(currentCaptionStyle().maxWords));
+        input.setSelectAllOnFocus(true);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Words per caption") // TODO(strings)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                    int want;
+                    try { want = Integer.parseInt(input.getText().toString().trim()); }
+                    catch (Exception e) { return; }
+                    final int clamped = Math.max(1, Math.min(60, want));
+                    tweakCaptionStyle(s -> s.maxWords = clamped);
+                    afterChange.run();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /**

@@ -116,7 +116,7 @@ public class CaptionOverlayView extends View {
         this.transcript = t;
         this.style = s;
         this.callback = cb;
-        grouping = CaptionPhrases.of(t);
+        grouping = CaptionPhrases.of(t, s.maxWords);
         if (sameTranscript) {
             activeWordIdx = Math.min(activeWordIdx, grouping.wordPhrase.length - 1);
         } else {
@@ -126,7 +126,12 @@ public class CaptionOverlayView extends View {
     }
 
     public void setStyle(@NonNull CaptionStyle s) {
+        // The word limit travels with the style, so a style change - or a turn of the dial -
+        // has to re-group. Without this the caption keeps the previous style's phrasing and the
+        // control looks dead until something else happens to rebuild it.
+        boolean regroup = s.maxWords != this.style.maxWords;
         this.style = s;
+        if (regroup) grouping = CaptionPhrases.of(transcript, s.maxWords);
         invalidate();
     }
 

@@ -3173,6 +3173,7 @@ public class ExportManager {
             // Where the PiP block begins, so adjustment layers can be inserted BETWEEN its
             // entries below rather than only after all of them.
             final int pipEffectStart = videoEffects.size();
+            PipFrameStats.logForClips(exportOverlayVideoClips);
             for (Clip oc : exportOverlayVideoClips) {
                 if (servingMatteIds.contains(oc.getId())) continue; // matte source: hidden
                 com.fadcam.ui.faditor.model.CompositingSpec cs = oc.getCompositing();

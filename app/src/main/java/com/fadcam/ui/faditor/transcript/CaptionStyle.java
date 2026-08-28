@@ -46,22 +46,24 @@ public class CaptionStyle {
      * caption stays readable. That is the right default and the wrong ceiling: JoyRaptor is putting
      * scripture references on screen and needs a whole verse to sit there long enough to pause
      * and read it, which six words cannot express. A cue longer than the box can hold is a
-     * separate problem, solved by {@link #autoFit}.</p>
+     * separate problem, solved by {@link #fitMode}.</p>
      */
     public int maxWords = 6;
 
-    /**
-     * Shrink the caption's text until the whole cue fits its box, instead of overflowing.
-     *
-     * <p>Off by default, because a caption that resizes itself is the wrong behaviour for
-     * ordinary speech: cue lengths vary constantly and the text would breathe in and out on
-     * every phrase. It earns its place when the cues are long and deliberate — a verse, a
-     * paragraph — where fitting matters more than a constant size.</p>
-     */
-    public boolean autoFit = false;
+    /** How a cue's size is chosen. Replaces the old {@code autoFit} boolean (see {@link #fromJson}). */
+    public enum FitMode { OFF, UNIFORM, PER_CUE }
 
-    /** Floor for {@link #autoFit}, as a fraction of the authored size. Never shrink past this. */
+    /** Fit mode — OFF is ordinary speech (default), UNIFORM and PER_CUE shrink to fit. */
+    @NonNull public FitMode fitMode = FitMode.OFF;
+
+    /** Floor for fitting, as a fraction of the authored size. Never shrink past this. */
     public static final float AUTO_FIT_MIN_SCALE = 0.45f;
+
+    /** Minimum size as fraction of authored size for the Fit tab (default 45%). */
+    public float fitMinScale = AUTO_FIT_MIN_SCALE;
+
+    /** Max lines, 0 = unlimited. When set, a cue must also fit within this many lines. */
+    public int fitMaxLines = 0;
     /** Stroke outline around every word. */
     public boolean outline = false;
     public int outlineColor = 0xFF000000;
@@ -88,7 +90,9 @@ public class CaptionStyle {
                 pill, pillColor, bold, anim);
         c.fontKey = fontKey;
         c.maxWords = maxWords;
-        c.autoFit = autoFit;
+        c.fitMode = fitMode;
+        c.fitMinScale = fitMinScale;
+        c.fitMaxLines = fitMaxLines;
         c.outline = outline;
         c.outlineColor = outlineColor;
         c.shadow = shadow;
@@ -175,7 +179,11 @@ public class CaptionStyle {
             o.put("anim", anim.name());
             o.put("font", fontKey);
             o.put("maxWords", maxWords);
-            o.put("autoFit", autoFit);
+            o.put("fitMode", fitMode.name());
+            o.put("fitMinScale", (double) fitMinScale);
+            o.put("fitMaxLines", fitMaxLines);
+            // Keep old key for readers that still look for it (migrated on read).
+            o.put("autoFit", fitMode != FitMode.OFF);
             o.put("outline", outline);
             o.put("outlineColor", outlineColor);
             o.put("shadow", shadow);
@@ -201,7 +209,20 @@ public class CaptionStyle {
                     o.optBoolean("bold", true), anim);
             s.fontKey = o.optString("font", "default");
             s.maxWords = Math.max(1, o.optInt("maxWords", 6));
-            s.autoFit = o.optBoolean("autoFit", false);
+            String fitModeStr = o.optString("fitMode", null);
+            if (fitModeStr != null) {
+                try { s.fitMode = FitMode.valueOf(fitModeStr); } catch (IllegalArgumentException e) { s.fitMode = FitMode.OFF; }
+            } else if (o.has("autoFit")) {
+                s.fitMode = o.optBoolean("autoFit", false) ? FitMode.UNIFORM : FitMode.OFF;
+            } else {
+                s.fitMode = FitMode.OFF;
+            }
+            s.fitMinScale = (float) o.optDouble("fitMinScale", AUTO_FIT_MIN_SCALE);
+            if (s.fitMinScale < 0.15f) s.fitMinScale = 0.15f;
+            if (s.fitMinScale > 1f) s.fitMinScale = 1f;
+            s.fitMaxLines = o.optInt("fitMaxLines", 0);
+            if (s.fitMaxLines < 0) s.fitMaxLines = 0;
+            if (s.fitMaxLines > 20) s.fitMaxLines = 20;
             s.outline = o.optBoolean("outline", false);
             s.outlineColor = o.optInt("outlineColor", 0xFF000000);
             s.shadow = o.optBoolean("shadow", true);

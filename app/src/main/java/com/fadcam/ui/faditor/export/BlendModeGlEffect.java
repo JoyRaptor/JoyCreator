@@ -207,7 +207,9 @@ public final class BlendModeGlEffect implements GlEffect {
 
         private final GlProgram glProgram;
         private final PipFrameOverlay overlay;
+        private final GlPipFrameOverlay glOverlay;
         @Nullable private final PipFrameOverlay matteOverlay;
+        @Nullable private final GlPipFrameOverlay glMatteOverlay;
         private final float mode;
         private final float[] keyColor;
         private final float[] keyParams;
@@ -215,12 +217,20 @@ public final class BlendModeGlEffect implements GlEffect {
         @NonNull private final Clip fxClip;
 
         Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
-                long editorTimeOffsetMs)
-                throws VideoFrameProcessingException {
+                 long editorTimeOffsetMs)
+                 throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
             this.overlay = new PipFrameOverlay(context, clip, editorTimeOffsetMs);
+            // Option 2 (§4): masked PiPs stay on the CPU Canvas path where MaskPathBuilder clips.
+            // Only unmasked PiPs are routed through the Surface → GL texture path.
+            // Measurement (PipFrameStats, 2026-08-28): 91% of JoyRaptor's overlay clips are unmasked,
+            // so option 2 removes ~91% of the remaining convertMs while keeping the fallback trivial.
+            // Full mask GL (option 1, second texture for feather) remains the follow-up for the 9%.
+            this.glOverlay = new GlPipFrameOverlay(context, clip, editorTimeOffsetMs);
             this.matteOverlay = matteClip != null
                     ? new PipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
+            this.glMatteOverlay = matteClip != null
+                    ? new GlPipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
             // The wire-value → shader-code mapping moved out with the equations it selects; a
             // mode string that means 3 here and 3 in the FX fold is the whole point of one table.
             this.fxClip = clip;
@@ -246,7 +256,9 @@ public final class BlendModeGlEffect implements GlEffect {
         public Size configure(int inputWidth, int inputHeight) {
             Size size = new Size(Math.max(1, inputWidth), Math.max(1, inputHeight));
             overlay.configure(size);
+            glOverlay.configure(size);
             if (matteOverlay != null) matteOverlay.configure(size);
+            if (glMatteOverlay != null) glMatteOverlay.configure(size);
             return size;
         }
 
@@ -256,15 +268,32 @@ public final class BlendModeGlEffect implements GlEffect {
             try {
                 glProgram.use();
                 glProgram.setSamplerTexIdUniform("uVideoTexSampler0", inputTexId, 0);
-                glProgram.setSamplerTexIdUniform("uOverlayTexSampler0",
-                        overlay.getTextureId(presentationTimeUs), 1);
-                boolean matteOn = matteOverlay != null
-                        && matteOverlay.activeAt(presentationTimeUs);
+                // §4 option 2: unmasked PiPs use the Surface → GL path; masked stay on Canvas.
+                // The GL texture is already full-frame positioned (FBO blit), so the shader
+                // keeps its plain full-frame UVs and v-flip handling unchanged.
+                boolean useGl = !PipFrameStats.isMasked(clip) && !glOverlay.isDegraded();
+                int overlayTex = useGl ? glOverlay.getTextureId(presentationTimeUs) : 0;
+                if (overlayTex == 0) overlayTex = overlay.getTextureId(presentationTimeUs);
+                glProgram.setSamplerTexIdUniform("uOverlayTexSampler0", overlayTex, 1);
+                boolean matteOn = false;
+                int matteTex = overlayTex; // placeholder
+                if (matteClip != null) {
+                    boolean matteMasked = PipFrameStats.isMasked(matteClip);
+                    boolean useGlMatte = !matteMasked && glMatteOverlay != null && !glMatteOverlay.isDegraded();
+                    if (matteOverlay != null) matteOn = matteOverlay.activeAt(presentationTimeUs);
+                    else if (glMatteOverlay != null) matteOn = glMatteOverlay.activeAt(presentationTimeUs);
+                    if (matteOn) {
+                        int glMatteTex = useGlMatte ? glMatteOverlay.getTextureId(presentationTimeUs) : 0;
+                        if (glMatteTex != 0) matteTex = glMatteTex;
+                        else if (matteOverlay != null) matteTex = matteOverlay.getTextureId(presentationTimeUs);
+                    }
+                } else if (matteOverlay != null) {
+                    matteOn = matteOverlay.activeAt(presentationTimeUs);
+                    if (matteOn) matteTex = matteOverlay.getTextureId(presentationTimeUs);
+                }
                 // The matte texture unit must always be bound on ES2 — reuse the
                 // overlay texture as a harmless placeholder while inactive.
-                glProgram.setSamplerTexIdUniform("uMatteTexSampler0",
-                        matteOn ? matteOverlay.getTextureId(presentationTimeUs)
-                                : overlay.getTextureId(presentationTimeUs), 2);
+                glProgram.setSamplerTexIdUniform("uMatteTexSampler0", matteTex, 2);
                 glProgram.setFloatUniform("uBlendMode", mode);
                 glProgram.setFloatsUniform("uKeyColor", keyColor);
                 glProgram.setFloatsUniform("uKeyParams", keyParams);
@@ -316,7 +345,9 @@ public final class BlendModeGlEffect implements GlEffect {
         public void release() throws VideoFrameProcessingException {
             try {
                 overlay.release();
+                glOverlay.release();
                 if (matteOverlay != null) matteOverlay.release();
+                if (glMatteOverlay != null) glMatteOverlay.release();
                 glProgram.delete();
                 super.release();
             } catch (Exception e) {

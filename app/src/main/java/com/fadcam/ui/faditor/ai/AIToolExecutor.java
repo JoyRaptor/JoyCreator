@@ -202,13 +202,13 @@ public class AIToolExecutor {
                 args: {}
             18. add_broll_overlay — Add an image from the B-roll bucket as an overlay
                 args: {"assetName":"photo.jpg", "centerX":0.5, "centerY":0.5, "sizeFraction":0.3, "startMs":0, "endMs":5000}
-            19. get_transcript — Get the full transcript text for a clip
-                args: {"clipId":"..."}
-            19b. correct_transcript — Fix a transcription/caption error: replace a run of words (matched
+            19. get_transcript — Get the full transcript text for a clip or audio clip
+                args: {"clipId":"..."} (clipId may be a video clip or an audio clip)
+            19b. correct_transcript — Fix a transcription/caption error on a clip or audio clip: replace a run of words (matched
                 by text, case/punctuation-insensitive) with corrected text, keeping the timing. Use this
                 when the user points out wrong/missing caption words. Call get_transcript first to see the
                 exact words. `replace` empty deletes the run.
-                args: {"clipId":"...", "find":"the to eat", "replace":"In the day you eat"}
+                args: {"clipId":"...", "find":"the to eat", "replace":"In the day you eat"} (clipId may be a video clip or an audio clip; with no clipId the first clip of either kind that has a transcript is used)
             20. retime_words — Anchor one or more words to exact timeline times and
                  interpolate the words between them. Use when the user wants specific
                  words to land at specific times (e.g. "set 'in' at 6s, space
@@ -247,19 +247,19 @@ public class AIToolExecutor {
                        "duration_ms_hint":4000, "placement":{"startMs":12000}}
 
             28. analyze_narrative_structure — Read-only. Propose a reordered/trimmed
-                sequence for one long recording: segment the transcript into chunks,
+                sequence for a clip or audio clip: segment its transcript into chunks,
                 summarize each, mark KEEP/DROP, and rank kept chunks. Returns a
                 proposal for the user to confirm; applies NOTHING. To apply after
-                the user confirms, call apply_narrative_proposal (preferred — it builds
-                the splits+reorder reliably) rather than hand-writing apply_edit_script.
-                args: {"clipId":"..."}
-            29. apply_narrative_proposal — Apply a CONFIRMED narrative proposal. Pass the
+                the user confirms, call apply_narrative_proposal (for video clips — it builds
+                the splits+reorder reliably; audio clips will receive an error explaining why reordering the video spine has no meaning for audio) rather than hand-writing apply_edit_script.
+                args: {"clipId":"..."} (clipId may be a video clip or an audio clip; with no clipId the first clip of either kind that has a transcript is used)
+            29. apply_narrative_proposal — Apply a CONFIRMED narrative proposal for a VIDEO clip. Pass the
                 same chunk list analyze_narrative_structure returned (optionally edited by
                 the user's KEEP/DROP/order changes). Builds and atomically applies the
                 SPLIT×N + REORDER_CLIPS script with matching ids; other clips on the
-                timeline are preserved. Only call AFTER the user confirms.
+                timeline are preserved. Only call AFTER the user confirms. Audio clips return an error: this operation splits and reorders the video spine (SPLIT_CLIP_AT_TIME / REORDER_CLIPS), which has no meaning for an audio clip on the separate audio track.
                 args: {"clipId":"...","chunks":[{"startMs":0,"endMs":47000,"keep":true,
-                "order":1}, ...]}
+                "order":1}, ...]} (clipId must be a video clip; audio clip ids are rejected with a reason)
             30. apply_broll_proposal — Apply CONFIRMED b-roll cutaways. Pass the accepted
                 items from suggest_broll_placements (each must include assetUri). Inserts
                 each cutaway atomically (narration audio keeps playing underneath). Only
@@ -299,11 +299,11 @@ public class AIToolExecutor {
                 Or: {"overlayId":"...", "sizeFraction":0.15} (absolute size as fraction of screen height)
 
             37. suggest_broll_placements — Read-only. Suggest documentary-style b-roll
-                cutaways (b-roll replaces the visible frame while the original narration
+                cutaways for a VIDEO clip (b-roll replaces the visible frame while the original narration
                 keeps playing). Returns guardrail-checked candidates with reasons;
                 applies NOTHING. To apply after confirmation, emit apply_edit_script
-                with INSERT_BROLL_CUTAWAY per accepted suggestion.
-                args: {"clipId":"..."}
+                with INSERT_BROLL_CUTAWAY per accepted suggestion. Audio clips return an error: b-roll cutaways (INSERT_BROLL_CUTAWAY) require a video clip target and have no meaning for an audio clip.
+                args: {"clipId":"..."} (clipId must be a video clip; audio clip ids are rejected with a reason; with no clipId the first video clip that has a transcript is used)
 
             38. tag_broll_assets — Vision-tag the b-roll bucket: extracts a thumbnail
                 from each untagged image/video asset, sends it to the configured
@@ -809,15 +809,42 @@ public class AIToolExecutor {
         String clipId = args.optString("clipId", "");
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
-        Clip clip = clipId.isEmpty()
-                ? (proj.getTimeline().getClipCount() > 0 ? proj.getTimeline().getClip(0) : null)
-                : findClip(proj, clipId);
-        if (clip == null) return "Error: clip not found: " + clipId;
-        NamedTranscript nt = clip.getActiveNamedTranscript();
+        String hostId = clipId;
+        if (hostId.isEmpty()) {
+            // Do not default to getClip(0) — on a music project that is the auto-blank
+            // black spacer ("Blank (auto)"), which never has a transcript. Follow
+            // correct_transcript's precedent: the first clip of either kind that actually
+            // HAS a transcript.
+            for (int i = 0; i < proj.getTimeline().getClipCount(); i++) {
+                String cid = proj.getTimeline().getClip(i).getId();
+                if (findActiveTranscript(proj, cid) != null) { hostId = cid; break; }
+            }
+            if (hostId.isEmpty()) {
+                for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+                    if (ac != null && findActiveTranscript(proj, ac.getId()) != null) {
+                        hostId = ac.getId(); break;
+                    }
+                }
+            }
+            if (hostId.isEmpty())
+                return "Error: no clip with a transcript found. Generate a transcript first. (The first video clip is often \"Blank (auto)\" and never has one — a transcript on an audio clip is valid.)";
+        }
+        boolean isVideo = findClip(proj, hostId) != null;
+        boolean isAudio = findAudioClip(proj, hostId) != null;
+        if (!isVideo && !isAudio) return "Error: clip not found: " + clipId;
+        NamedTranscript nt = findActiveTranscript(proj, hostId);
         if (nt == null || nt.transcript.words.isEmpty())
             return "Error: clip has no transcript. Run generate_transcript first.";
+        long inPoint; long outPoint;
+        if (isVideo) {
+            Clip c = findClip(proj, hostId);
+            inPoint = c.getInPointMs(); outPoint = c.getOutPointMs();
+        } else {
+            com.fadcam.ui.faditor.model.AudioClip ac = findAudioClip(proj, hostId);
+            inPoint = ac.getInPointMs(); outPoint = ac.getOutPointMs();
+        }
         com.fadcam.ui.faditor.transcript.Transcript windowed =
-                nt.transcript.windowed(clip.getInPointMs(), clip.getOutPointMs());
+                nt.transcript.windowed(inPoint, outPoint);
         if (windowed.words.isEmpty())
             return "Error: no transcript words in clip's visible region. Run generate_transcript first.";
 
@@ -835,13 +862,13 @@ public class AIToolExecutor {
         String json = SlideContract.stripFences(reply).trim();
         // Machine-parseable sentinel so the chat layer can render a visual KEEP/DROP card; the
         // human text below keeps the transcript readable and the conversational apply path working.
-        String payload = "{\"clipId\":\"" + clip.getId() + "\",\"chunks\":" + json + "}";
+        String payload = "{\"clipId\":\"" + hostId + "\",\"chunks\":" + json + "}";
         return "@@PROPOSAL:narrative@@" + payload + "\n"
-                + "NARRATIVE PROPOSAL for clip " + clip.getId()
+                + "NARRATIVE PROPOSAL for clip " + hostId
                 + " (read-only — confirm before applying):\n" + json
                 + "\n\nA confirmation card is shown to the user — WAIT for them to review and tap Apply."
                 + " If they instead tell you to apply in chat, call apply_narrative_proposal with"
-                + " {\"clipId\":\"" + clip.getId() + "\",\"chunks\":<this array>} (it builds the"
+                + " {\"clipId\":\"" + hostId + "\",\"chunks\":<this array>} (it builds the"
                 + " splits+reorder with matching ids). Drop a chunk by setting keep:false.";
     }
 
@@ -883,9 +910,38 @@ public class AIToolExecutor {
         if (proj == null) return "Error: project not found";
         String clipId = args.optString("clipId", "");
         Timeline tl = proj.getTimeline();
-        Clip clip = clipId.isEmpty()
-                ? (tl.getClipCount() > 0 ? tl.getClip(0) : null)
-                : findClip(proj, clipId);
+        String hostId = clipId;
+        if (hostId.isEmpty()) {
+            // Same trap as the other transcript tools: getClip(0) is the auto-blank
+            // black spacer on a music project. Search for the first video clip that
+            // actually has a transcript, then audio.
+            for (int i = 0; i < tl.getClipCount(); i++) {
+                String cid = tl.getClip(i).getId();
+                if (findActiveTranscript(proj, cid) != null) { hostId = cid; break; }
+            }
+            if (hostId.isEmpty()) {
+                for (com.fadcam.ui.faditor.model.AudioClip ac : tl.getAudioClips()) {
+                    if (ac != null && findActiveTranscript(proj, ac.getId()) != null) {
+                        hostId = ac.getId(); break;
+                    }
+                }
+            }
+            if (hostId.isEmpty())
+                return "Error: no clip with a transcript found for apply_narrative_proposal.";
+        }
+        // This tool edits the VIDEO spine (SPLIT_CLIP_AT_TIME / REORDER_CLIPS).
+        // For an audio clip the operation has no meaning — audio clips live on a
+        // separate track with their own offsetMs/in-point and are not split/reordered
+        // by this EditScript. Refuse with a reason rather than silently acting on the
+        // wrong (video) clip.
+        if (findAudioClip(proj, hostId) != null) {
+            com.fadcam.ui.faditor.model.AudioClip ac = findAudioClip(proj, hostId);
+            return "Error: apply_narrative_proposal operates on the video timeline (SPLIT_CLIP_AT_TIME / REORDER_CLIPS), which has no meaning for an audio clip id=" + hostId
+                    + " (\"" + (ac.getLabel() == null ? "Audio" : ac.getLabel()) + "\" at offsetMs=" + ac.getOffsetMs()
+                    + ", trim [" + ac.getInPointMs() + "," + ac.getOutPointMs() + "])."
+                    + " Audio clips are not split or reordered by this tool; trim or reposition the audio clip directly if you need to restructure it.";
+        }
+        Clip clip = findClip(proj, hostId);
         if (clip == null) return "Error: clip not found: " + clipId;
         clipId = clip.getId();
 
@@ -1058,11 +1114,40 @@ public class AIToolExecutor {
         String clipId = args.optString("clipId", "");
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
-        Clip clip = clipId.isEmpty()
-                ? (proj.getTimeline().getClipCount() > 0 ? proj.getTimeline().getClip(0) : null)
-                : findClip(proj, clipId);
+        String hostId = clipId;
+        if (hostId.isEmpty()) {
+            // Do not default to getClip(0) — that is often "Blank (auto)" on an audio-
+            // first project. Find the first VIDEO clip that actually has a transcript;
+            // audio clips are not valid b-roll targets (INSERT_BROLL_CUTAWAY needs video).
+            for (int i = 0; i < proj.getTimeline().getClipCount(); i++) {
+                String cid = proj.getTimeline().getClip(i).getId();
+                if (findActiveTranscript(proj, cid) != null) { hostId = cid; break; }
+            }
+            if (hostId.isEmpty()) {
+                // No video clip has a transcript — see if the project only has an audio transcript.
+                for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+                    if (ac != null && findActiveTranscript(proj, ac.getId()) != null) {
+                        return "Error: suggest_broll_placements inserts video b-roll cutaways (INSERT_BROLL_CUTAWAY) over the video track, which has no meaning for an audio clip id=" + ac.getId()
+                                + " (\"" + (ac.getLabel() == null ? "Audio" : ac.getLabel()) + "\")."
+                                + " With no clipId the tool searched for the first video clip with a transcript and found none; the only transcript is on audio. Provide a video clip id, or use analyze_narrative_structure which does support audio.";
+                    }
+                }
+                return "Error: no video clip with a transcript found. Generate a transcript first. (The first video clip is often \"Blank (auto)\" and never has one.)";
+            }
+        }
+        // b-roll cutaways are VIDEO edits (INSERT_BROLL_CUTAWAY). For an audio clip the
+        // operation has no meaning — there is no visible frame to replace. Refuse with
+        // a reason rather than silently suggesting placements on the wrong (video) clip.
+        if (findAudioClip(proj, hostId) != null) {
+            com.fadcam.ui.faditor.model.AudioClip ac = findAudioClip(proj, hostId);
+            return "Error: suggest_broll_placements inserts video b-roll cutaways (INSERT_BROLL_CUTAWAY) over the video track, which has no meaning for an audio clip id=" + hostId
+                    + " (\"" + (ac.getLabel() == null ? "Audio" : ac.getLabel()) + "\" at offsetMs=" + ac.getOffsetMs()
+                    + ", trim [" + ac.getInPointMs() + "," + ac.getOutPointMs() + "])."
+                    + " The narration transcript is on audio; b-roll cutaways require a video clip target. Use analyze_narrative_structure if you want to segment the audio transcript.";
+        }
+        Clip clip = findClip(proj, hostId);
         if (clip == null) return "Error: clip not found: " + clipId;
-        NamedTranscript nt = clip.getActiveNamedTranscript();
+        NamedTranscript nt = findActiveTranscript(proj, hostId);
         if (nt == null || nt.transcript.words.isEmpty())
             return "Error: clip has no transcript. Run generate_transcript first.";
         com.fadcam.ui.faditor.transcript.Transcript windowed =

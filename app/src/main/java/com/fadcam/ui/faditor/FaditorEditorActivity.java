@@ -1316,6 +1316,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     onVisualizerStyleImported(target, imported);
                 });
 
+        // Once, at startup, so the font directory exists and every reader can find it.
+        // CaptionStyle.fontChoices() is static model code with no Context: it can only ASK
+        // FontLibrary where fonts live, never work it out. Leaving init to the pickers meant
+        // the caption font row listed no imported fonts until the TEXT picker had been opened
+        // at least once — a dependency no user could guess at.
+        com.fadcam.ui.faditor.text.FontLibrary.init(this);
         fontImportLauncher = registerForActivityResult(
                 new ActivityResultContracts.OpenDocument(),
                 uri -> {
@@ -1328,10 +1334,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         Toast.makeText(this, "Not a .ttf/.otf font file", Toast.LENGTH_SHORT).show(); // TODO(strings)
                         return;
                     }
-                    File fontsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
-                            android.os.Environment.DIRECTORY_PICTURES), "FadCam/fonts");
-                    if (!fontsDir.exists()) fontsDir.mkdirs();
-                    File dest = new File(fontsDir, name);
+                    // App-private storage, NOT Pictures/. Scoped storage refuses a plain write
+                    // of a non-media file into a public media folder: every import JoyRaptor tried
+                    // died with "open failed: EPERM (Operation not permitted)", .ttf and .otf
+                    // alike, on both his phones. The SOURCE being on an SD card was never the
+                    // problem — reading through the picker worked; the destination was refused.
+                    // See FontLibrary for the trade-off this buys.
+                    com.fadcam.ui.faditor.text.FontLibrary.init(this);
+                    File dest = com.fadcam.ui.faditor.text.FontLibrary.destFor(name);
+                    if (dest == null) {
+                        Toast.makeText(this, "Import failed", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
                     try (java.io.InputStream in = getContentResolver().openInputStream(uri);
                          java.io.OutputStream out = new java.io.FileOutputStream(dest)) {
                         if (in == null) throw new java.io.IOException("null stream");

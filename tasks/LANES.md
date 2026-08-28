@@ -68,13 +68,9 @@ files: app/src/main/java/com/fadcam/ui/faditor/export/PipFrameOverlay.java,
 since: 2026-08-28
 
 ## MUSE (agent 1) — caption text fitting
-status: ACTIVE (2026-08-28 — tasks/SPEC_20260828_CAPTION_FIT.md)
-files: app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionStyle.java,
-  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionPhrases.java,
-  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionOverlayView.java,
-  app/src/main/java/com/fadcam/ui/faditor/export/CaptionExportRenderer.java,
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (caption drawer only)
-since: 2026-08-28
+status: IDLE (2026-08-28 — handed to OPENCODE for implementation; prior claim above)
+files: (none)
+since: 2026-08-28T10:35
 
 ## REVIEW (Claude Opus 5) — integration lane
 status: ACTIVE (2026-08-26 — canvas aspect resolved from a 16x16 black gap spacer at clip 0,
@@ -85,9 +81,13 @@ files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java,
   app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-27 — S5 BOTH HALVES done: Timeline.getClip @Nullable bounds, getSelectedClip @Nullable guard, 124 callers audited — 92 selection (kept + null-guarded), 16 playhead->clipUnderPlayhead, 12 target->timeline.getClip(segmentIndex), 4 comments. TYPECHECK OK 656/1817, BUILD SUCCESSFUL 11:34:49 (fresh), visual preview + crop + heal/split at playhead need JoyRaptor's eye.)
-files: (none)
-since: 2026-08-27
+status: ACTIVE (2026-08-28 — SPEC_20260828_CAPTION_FIT: caption text fitting — FitMode, CaptionFit shared fitter, Fit tab)
+files: app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionStyle.java,
+  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionFit.java,
+  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionOverlayView.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/CaptionExportRenderer.java,
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (caption drawer — Fit tab only; REVIEW holds same file for PiP/layout, different regions)
+since: 2026-08-28T10:35
 
 prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)
 
@@ -124,10 +124,15 @@ status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb372
 files: (none)
 since: 2026-08-24
 
-## LANE D — dynamic lane (frame parity matrix — agent 2)
-status: IDLE (2026-08-27 — matrix done: 8/8 synthetic parity PASS, 8/8 neg controls PASS; one-command via bash tools/run-frame-parity-matrix.sh; fixtures in export/fixtures/parity/; live device pending)
-files: (none)
-since: 2026-08-27
+## LANE D — dynamic lane (export GL frames — Surface decode)
+status: ACTIVE (2026-08-28 — export speed phase 2: SurfaceFrameReader + GlPipFrameOverlay, option 2 unmasked-only, PSNR harness)
+files: app/src/main/java/com/fadcam/ui/faditor/export/SurfaceFrameReader.java
+       app/src/main/java/com/fadcam/ui/faditor/export/GlPipFrameOverlay.java
+       app/src/main/java/com/fadcam/ui/faditor/export/PipFrameStats.java
+       app/src/main/java/com/fadcam/ui/faditor/export/BlendModeGlEffect.java
+       app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java
+       tools/psnr_parity.sh
+since: 2026-08-28
 
 ## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)
 status: IDLE (2026-08-24 overnight — G21 BUILT (508f71f5), B9 v1 + preview-reclaim BUILT

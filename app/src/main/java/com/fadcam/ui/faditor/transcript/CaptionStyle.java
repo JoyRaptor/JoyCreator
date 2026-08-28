@@ -136,24 +136,12 @@ public class CaptionStyle {
     @NonNull
     public static String[][] fontChoices() {
         String[][] builtIn = builtInFontChoices();
-        // Offer whatever the user has imported, marked the same way the text picker marks them.
+        // Imported fonts come from FontLibrary, which owns the one location they are written
+        // to. This used to scan Pictures/FadCam/fonts directly - the folder the importer could
+        // never write to on modern Android, so the list was always just the built-ins.
         java.util.List<String[]> all = new java.util.ArrayList<>(java.util.Arrays.asList(builtIn));
-        try {
-            java.io.File dir = new java.io.File(
-                    android.os.Environment.getExternalStoragePublicDirectory(
-                            android.os.Environment.DIRECTORY_PICTURES), "FadCam/fonts");
-            java.io.File[] files = dir.listFiles((d, name) -> {
-                String n = name.toLowerCase(java.util.Locale.US);
-                return n.endsWith(".ttf") || n.endsWith(".otf");
-            });
-            if (files != null) {
-                for (java.io.File f : files) {
-                    all.add(new String[]{"file:" + f.getAbsolutePath(),
-                            f.getName().replaceFirst("\\.[^.]+$", "") + " ★"});
-                }
-            }
-        } catch (Exception ignored) {
-            // No storage permission or no folder yet — the built-ins are a complete list.
+        for (String[] f : com.fadcam.ui.faditor.text.FontLibrary.imported()) {
+            all.add(new String[]{f[0], f[1] + " *"});
         }
         return all.toArray(new String[0][]);
     }

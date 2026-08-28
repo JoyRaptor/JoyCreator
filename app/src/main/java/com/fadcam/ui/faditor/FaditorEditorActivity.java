@@ -26819,19 +26819,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 {"dramatic", "Dramatic"}, {"mono", "Mono"}, {"mono_bold", "Mono Bold"},
                 {"casual", "Casual"}, {"cursive", "Cursive"},
         };
-        File fontsDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_PICTURES), "FadCam/fonts");
-        List<String[]> customFonts = new ArrayList<>();
-        if (fontsDir.exists()) {
-            File[] files = fontsDir.listFiles((dir, name) -> name.toLowerCase(java.util.Locale.US).endsWith(".ttf")
-                    || name.toLowerCase(java.util.Locale.US).endsWith(".otf"));
-            if (files != null) {
-                for (File f : files) {
-                    customFonts.add(new String[]{"file:" + f.getAbsolutePath(),
-                            f.getName().replaceFirst("\\.[^.]+$", "")});
-                }
-            }
-        }
+        com.fadcam.ui.faditor.text.FontLibrary.init(this);
+        List<String[]> customFonts = com.fadcam.ui.faditor.text.FontLibrary.imported();
 
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         android.widget.LinearLayout list = new android.widget.LinearLayout(this);

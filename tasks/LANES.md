@@ -63,8 +63,13 @@ code. If it is taken, finish your code, wait, then update the row.
 
 SPEC: free
 
+## SPEC_20260828_DEVICE_VERIFY — device verification sweep (eight checks)
+status: ACTIVE (2026-08-28T12:00 — eight checks, no production code; screenshots + uiautomator bounds)
+files: (none — reporting only; three other lanes live in these files)
+since: 2026-08-28T12:00
+
 ## DEVICE TOKEN
-DEVICE: free (FABLE 2026-08-28 — Note 20 UNPLUGGED; 3 fixes built but not installed/verified)
+DEVICE: SPEC_20260828_DEVICE_VERIFY (Note 20 REAL_SERIAL + Note 9 — FABLE note UNPLUGGED is stale)
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE (2026-08-28 — released the export claim: an agent is implementing
@@ -97,6 +102,18 @@ files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java,
   app/src/main/java/com/fadcam/ui/faditor/player/PreviewPipController.java,
   app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java,
   app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
+
+## SPEC_20260828_SLIDE_OBJECT — timed slide object (styled cards on transcript clock)
+status: ACTIVE (2026-08-28T12:10 — agent claims lane; files below)
+files: app/src/main/java/com/fadcam/ui/faditor/slides/SlideDeck.java,
+  app/src/main/java/com/fadcam/ui/faditor/slides/SlideRenderer.java,
+  app/src/main/java/com/fadcam/ui/faditor/slides/SlideOverlay.java,
+  app/src/main/java/com/fadcam/ui/faditor/slides/SlideDeckView.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/SlideDeckOverlay.java,
+  app/src/main/java/com/fadcam/ui/faditor/model/Timeline.java,
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java,
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (drawer glue only)
+since: 2026-08-28T12:10
 
 ## OPENCODE — dynamic lane
 status: IDLE (2026-08-28 — SPEC_20260828_CAPTION_FIT landed 7acdf2d3: shared CaptionFit, FitMode, Fit tab; BUILD SUCCESSFUL 11:28:34, 303 insertions. Preview vs export frame comparison and 30-word cue visual check need JoyRaptor's eye — device was unplugged (Note 20).)
@@ -137,6 +154,11 @@ status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb372
         typecheck TYPECHECK OK — 654 sources, 1812 classes.)
 files: (none)
 since: 2026-08-24
+
+## SPEC_20260828_TRANSCRIPT_SOURCE — transcript source affordance
+status: IDLE (2026-08-28T12:40 — header source name + switch, +Source chip first, one-time offer with don't-show-again + long-press shortcut; BUILD SUCCESSFUL 12:36)
+files: (none)
+since: 2026-08-28T12:40
 
 ## LANE D — dynamic lane (export GL frames — Surface decode)
 status: IDLE (2026-08-28 — SurfaceFrameReader + GlPipFrameOverlay landed, option 2 unmasked-only (91% coverage per PipFrameStats), PSNR harness tools/psnr_parity.sh; TYPECHECK OK 662/1829, build.log pending watcher, fallback via degraded path verified)

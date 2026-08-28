@@ -18260,12 +18260,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             fontChipByKey.put(key, fc);
             fontChips.addView(fc);
         };
-        for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
-            addFontChip.accept(choice[0], choice[1]);
-        }
-        // "+ Import" - the SAME importer the text font picker uses (it copies the chosen
-        // .ttf/.otf into Pictures/FadCam/fonts and hands back a "file:" key), so a font
-        // imported from captions is immediately available to text and the other way round.
+        // "+ Import" goes FIRST, not last. Appended after the built-ins it sat past six chips
+        // in a horizontally scrolling row, off the right edge and behind the style action
+        // icons - present, working, and undiscoverable. Device-checked 2026-08-28: the row
+        // showed "Standard / Serif / Mono" and then ran under the save/delete/share buttons.
+        // It uses the SAME importer as the text font picker (copies the chosen .ttf/.otf into
+        // Pictures/FadCam/fonts and hands back a "file:" key), so a font imported from
+        // captions is immediately available to text and the other way round.
         final android.widget.TextView importChip = new android.widget.TextView(ctx);
         styleDrawerChip(importChip, d);
         importChip.setText("+ Import"); // TODO(strings)
@@ -18276,15 +18277,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 int dot = base.lastIndexOf('.');
                 String label = (dot > 0 ? base.substring(0, dot) : base) + " *";
                 if (!fontChipByKey.containsKey(key)) addFontChip.accept(key, label);
-                // Keep Import last now that a chip has been appended after it.
-                fontChips.removeView(importChip);
-                fontChips.addView(importChip);
                 tweakCaptionStyle(st -> st.fontKey = key);
                 markSelectedFont.run();
             };
             fontImportLauncher.launch(new String[]{"*/*"});
         });
         fontChips.addView(importChip);
+        for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
+            addFontChip.accept(choice[0], choice[1]);
+        }
         markSelectedFont.run();
         // G10: scroll font list to the SELECTED font so it is not off-screen
         fontScroll.post(() -> {

@@ -2747,6 +2747,10 @@ public class EditorTimelineView extends View {
         // geometry itemBodyRect reads, and because they must paint over the item body rather than
         // under it. Still inside the translate: the carets are content-x / screen-y, which is
         // exactly this space (see the block comment on drawTextAnimHandles).
+        // Audio tapes carry their words too — see drawAudioTranscripts. Drawn here, in the same
+        // content-x / screen-y space as the handles below, and AFTER layout() because that is
+        // what establishes the row geometry itemBodyRect reads.
+        drawAudioTranscripts(canvas, totalEffectiveMs);
         drawTextAnimHandles(canvas);
         // Motion-range window carrots — after the amber carets so the purple window reads as
         // wrapping them (it does: the window is where the whole entrance+exit tape runs).
@@ -4323,6 +4327,103 @@ if (sd.clip.hasVolumeKeyframes()) {
         this.searchWordIndices =
                 (wordIndices == null || wordIndices.isEmpty()) ? null : wordIndices;
         invalidate();
+    }
+
+
+    /**
+     * Transcript words along the bottom of each AUDIO clip's tape, exactly as
+     * {@link #drawSegmentTranscript} puts them along a video segment's.
+     *
+     * <p><b>This did not exist.</b> {@code setAudioClipTranscript} filled {@code audioTranscripts}
+     * and the activity dutifully pushed every audio clip's transcript into it on each sync — and
+     * nothing ever read the map. The words were parsed, stored, and drawn nowhere, so a music or
+     * voice track showed a bare waveform while the video beside it showed its words. JoyRaptor needs
+     * the audio tape for a project built on a song: "transcription text still not showing on
+     * audio file tape. thats a top issue for me."
+     *
+     * <p>Geometry comes from the renderer ({@code itemBodyRect}) rather than being re-derived
+     * here, so the words cannot drift from the tape they belong to when the audio band scrolls,
+     * collapses or is re-ordered. Word times are SOURCE ms, mapped through the clip's trim the
+     * same way the video path maps through its in/out points.
+     */
+    private void drawAudioTranscripts(@NonNull Canvas canvas, long totalMs) {
+        if (audioTranscripts.isEmpty() || audioClips.isEmpty()) return;
+
+        float fontSize = 9f * density;
+        transcriptTextPaint.setTextSize(fontSize);
+        transcriptTextPaint.setTypeface(Typeface.DEFAULT);
+        transcriptTextPaint.setShadowLayer(1.5f * density, 0, 0, 0xFF000000);
+        transcriptHighlightPaint.setTextSize(fontSize);
+        transcriptHighlightPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        transcriptHighlightPaint.setColor(0xFF4CAF50);
+        transcriptHighlightPaint.setShadowLayer(2f * density, 0, 0, 0xFF000000);
+        float descent = transcriptTextPaint.getFontMetrics().descent;
+
+        // Same word/mark crossfade the video tape uses, so both bands thin out together
+        // instead of one going to marks while the other still draws text.
+        float dps = dpPerSecondPx / density;
+        float wordsAlpha = Math.max(0f, Math.min(1f, (dps - 22f) / 13f));
+        int markAlpha = (int) ((1f - wordsAlpha) * 0xB4);
+        float markW = 1.5f * density, markH = 4.5f * density;
+        float cullL = scrollOffsetPx - 80f * density;
+        float cullR = scrollOffsetPx + getWidth() + 20f * density;
+        long playheadMs = getPlayheadPositionMs();
+
+        for (int i = 0; i < audioClips.size(); i++) {
+            com.fadcam.ui.faditor.transcript.Transcript tr = audioTranscripts.get(i);
+            if (tr == null || tr.words.isEmpty()) continue;
+            AudioClip ac = audioClips.get(i);
+            if (ac == null) continue;
+            RectF body = layerRowRenderer.itemBodyRect(
+                    ac.getId(), audioBandTopPx(), totalMs, this::timeToX);
+            if (body == null || body.width() <= 0f) continue;
+
+            long inMs = ac.getInPointMs();
+            long outMs = ac.getOutPointMs();
+            long span = outMs - inMs;
+            if (span <= 0) continue;
+            float pxPerMs = body.width() / (float) span;
+            float textY = body.bottom - 1f * density - descent;
+
+            // The playhead in this clip's SOURCE time, for the active-word highlight.
+            long sourceMs = (playheadMs - ac.getOffsetMs()) + inMs;
+
+            canvas.save();
+            canvas.clipRect(body.left, textY - fontSize, body.right, textY + descent + 1f * density);
+            for (int w = 0; w < tr.words.size(); w++) {
+                com.fadcam.ui.faditor.transcript.TranscriptWord word = tr.words.get(w);
+                if (word.startMs < inMs || word.endMs > outMs) continue;
+                float wordX = body.left + (word.startMs - inMs) * pxPerMs;
+                if (wordX > cullR) break;   // time-ordered: nothing further is visible
+                if (wordX < cullL) continue;
+                boolean isActive = sourceMs >= word.startMs && sourceMs <= word.endMs;
+
+                if (markAlpha > 0) {
+                    transcriptTextPaint.setColor((word.struck ? markAlpha / 3 : markAlpha) << 24
+                            | 0x00FFFFFF);
+                    canvas.drawRect(wordX, textY - markH, wordX + markW, textY,
+                            transcriptTextPaint);
+                    transcriptTextPaint.setColor(0xFFFFFFFF);
+                }
+                if (wordsAlpha <= 0f) continue;
+                int wA = (int) (wordsAlpha * 0xFF);
+                if (isActive) {
+                    transcriptHighlightPaint.setAlpha(wA);
+                    canvas.drawText(word.text, wordX, textY, transcriptHighlightPaint);
+                    transcriptHighlightPaint.setAlpha(0xFF);
+                } else if (word.struck) {
+                    transcriptTextPaint.setColor(((0x44 * wA / 0xFF) << 24) | 0x00FFFFFF);
+                    canvas.drawText(word.text, wordX, textY, transcriptTextPaint);
+                    transcriptTextPaint.setColor(0xFFFFFFFF);
+                } else {
+                    transcriptTextPaint.setColor(0xFFFFFFFF);
+                    transcriptTextPaint.setAlpha(wA);
+                    canvas.drawText(word.text, wordX, textY, transcriptTextPaint);
+                    transcriptTextPaint.setAlpha(0xFF);
+                }
+            }
+            canvas.restore();
+        }
     }
 
     private void drawSegmentTranscript(Canvas canvas, RectF rect, SegmentData sd, int segIndex) {

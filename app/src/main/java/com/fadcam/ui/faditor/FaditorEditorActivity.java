@@ -9824,7 +9824,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         {
             Clip clip = clipUnderPlayhead();
             if (clip != null && clip.hasVolumeKeyframes()) {
-                float gain = Math.max(0f, Math.min(2f, clip.gainAtClipMs(timelineLocalMs)));
+                // MUTE OUTRANKS THE ENVELOPE. This runs every tick, so without the mute check
+                // it re-asserted the envelope's gain a few times a second and walked straight
+                // over a muted clip - JoyRaptor: "adjusting opacity keyframes undoes volume on
+                // clips ... the sound keeps coming back." Opacity was not the cause; it was
+                // just what kept the playhead moving, and every tick handed the volume back.
+                // Every other writer of this player's volume already gates on isAudioMuted();
+                // this was the one that did not.
+                float gain = clip.isAudioMuted() ? 0f
+                        : Math.max(0f, Math.min(2f, clip.gainAtClipMs(timelineLocalMs)));
                 if (playerManager != null) playerManager.setVolume(gain);
             }
         }

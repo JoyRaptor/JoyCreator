@@ -9787,7 +9787,31 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
 
         // Drive the transcript highlight and animated captions from playback.
-        if (currentTranscript != null) {
+        //
+        // AN AUDIO CLIP'S TRANSCRIPT FOLLOWS ITS OWN CLOCK. Everything below compares
+        // clipUnderPlayhead()'s id against transcriptClipId, which can only ever match a SPINE
+        // clip. With the panel showing a music track's transcript the id is the audio clip's,
+        // the comparison is false on every tick, and setActiveSourceMs is never called — the
+        // words simply stop following. JoyRaptor: "it goes through words correctly in closed
+        // caption, but it no longer follows in the transcript. Period." Captions kept working
+        // because they are driven separately, further up.
+        if (currentTranscript != null && transcriptIsForAudio) {
+            AudioClip host = null;
+            if (project != null && transcriptClipId != null) {
+                for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                    if (ac != null && transcriptClipId.equals(ac.getId())) { host = ac; break; }
+                }
+            }
+            if (host != null && absoluteMs >= host.getOffsetMs()
+                    && absoluteMs < host.getEndOnTimelineMs()) {
+                // Timeline time -> this clip's SOURCE time, the space its word stamps live in.
+                long sourceMs = (absoluteMs - host.getOffsetMs()) + host.getInPointMs();
+                if (transcriptView != null && transcriptPanel != null
+                        && transcriptPanel.getVisibility() == View.VISIBLE) {
+                    transcriptView.setActiveSourceMs(sourceMs);
+                }
+            }
+        } else if (currentTranscript != null) {
             Clip clip = clipUnderPlayhead();
             if (clip != null) {
                 // Check if THIS clip has its own transcript — if so, use it.

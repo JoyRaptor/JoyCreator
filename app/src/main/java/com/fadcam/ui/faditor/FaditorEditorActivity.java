@@ -13200,10 +13200,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // and writing the applied value back heals an install that already ran away without
         // the user having to do anything.
         editorTimeline.post(() -> {
+            // Heal a stored cap that no longer fits, bounding it by the space the COLUMN has
+            // rather than by the rows' height. A stored value came from a deliberate drag, and
+            // re-clamping it to content on every open would silently shrink the split the user
+            // chose on any sparse project. The runaway this heals was written by the PiP's
+            // additive fill, which still goes through the content-clamped path.
             float before = editorTimeline.getLayerBandMaxHeightDp();
-            float applied = editorTimeline.setLayerBandMaxHeightDp(before);
+            float ceiling = previewPip != null ? previewPip.maxBandDpFor(before) : Float.MAX_VALUE;
+            float applied = editorTimeline.setLayerBandMaxHeightDp(
+                    Math.min(before, ceiling), false);
             if (Math.abs(applied - before) > 0.5f) {
-                FLog.w(TAG, "Timeline band cap " + before + "dp exceeded the rows' height — "
+                FLog.w(TAG, "Timeline band cap " + before + "dp did not fit the column — "
                         + "clamped to " + applied + "dp and re-saved");
                 ui.edit().putFloat(PREF_TIMELINE_BAND_DP, applied).apply();
             }
@@ -13232,7 +13239,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             targetDp = Math.min(targetDp, previewPip.maxBandDpFor(
                                     editorTimeline.getLayerBandMaxHeightDp()));
                         }
-                        editorTimeline.setLayerBandMaxHeightDp(targetDp);
+                        // USER DRAG — not clamped to the rows' own height. maxBandDpFor above is
+                        // the real ceiling (the space the column has); clamping to content as
+                        // well killed the bar outright on any project with only a couple of
+                        // lanes, which is every project on its first day.
+                        editorTimeline.setLayerBandMaxHeightDp(targetDp, false);
                         return true;
                     }
                     case MotionEvent.ACTION_UP:
@@ -13244,16 +13255,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // positions further from any detent are kept as-is.
                         float snapped = snapTimelineBandToDetent(editorTimeline.getLayerBandMaxHeightDp());
                         if (snapped != editorTimeline.getLayerBandMaxHeightDp()) {
-                            editorTimeline.setLayerBandMaxHeightDp(snapped);
+                            editorTimeline.setLayerBandMaxHeightDp(snapped, false);
                             v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
                         }
                         // PERSIST WHAT WAS APPLIED, NOT WHAT WAS ASKED FOR. setLayerBandMaxHeightDp
                         // clamps its argument to the rows' measured height; storing the raw
                         // request instead let an over-tall cap survive restarts and made the grab
                         // bar feel dead until it had been dragged all the way back down.
+                        // Also user-drag: re-applying with the content clamp here would have
+                        // undone the drag between the finger lifting and the value being stored.
                         ui.edit().putFloat(PREF_TIMELINE_BAND_DP,
                                 editorTimeline.setLayerBandMaxHeightDp(
-                                        editorTimeline.getLayerBandMaxHeightDp())).apply();
+                                        editorTimeline.getLayerBandMaxHeightDp(), false)).apply();
                         // The PiP suppresses its band-fill while a drag is in flight, so the
                         // slot freed by promoting is still sitting under the timeline as dead
                         // space. Ask for one more evaluation now the finger is up.

@@ -2553,6 +2553,29 @@ public class EditorTimelineView extends View {
         if (!layerTracks.isEmpty() || !audioLayerTracks.isEmpty()) {
             defH += (int) (LAYER_TOP_GAP_DP * density);
         }
+        // THE GRAB BAR RESIZES THE TIMELINE, NOT JUST THE LAYER BAND.
+        //
+        // Everything above sizes this view from its CONTENT. The band cap only bounded
+        // measureExtraHeightPx, i.e. the floating layer band — so on a project with no layer
+        // lanes the cap had nothing to act on and the grab bar was completely dead. JoyRaptor hit
+        // this the moment he started a music video: one video lane, one music lane, "i dont
+        // have drag still". Device log, mid-drag: the cap moved 203dp -> 248dp with a 654dp
+        // ceiling and plenty of preview to give, while the measured height sat at 717px for
+        // every single event.
+        //
+        // The layout has always described this control as the preview/timeline split ("Drag UP
+        // -> taller timeline ... smaller preview"), and the preview is layout_weight=1, so
+        // whatever this view measures IS the split. Treating the cap as a FLOOR on the whole
+        // view makes the control do what it says: content still wins when it is taller (nothing
+        // changes for a busy project), and asking for more than the content exists gives empty
+        // band below the rows — which is exactly what "give the timeline more of the screen"
+        // means when there are only two lanes to show. It is also what makes the preview
+        // collapse far enough to promote to a pop-out on a sparse project, which was
+        // unreachable before.
+        //
+        // Only a USER drag can push the cap past the content (LayerRowRenderer clamps every
+        // other caller), so the PiP's additive band fill still cannot ratchet this open.
+        defH = Math.max(defH, (int) (layerRowRenderer.getMaxVisibleRowsDp() * density));
         int h = resolveSize(defH, hSpec);
         // Audio-band clipping fix (2026-07-08, found in the audio-consolidation smoke):
         // when the parent grants LESS than desired, every band used to keep its ideal
@@ -2587,7 +2610,17 @@ public class EditorTimelineView extends View {
      * + smaller preview; shorter band ⇒ bigger preview. Returns the clamped value actually applied.
      */
     public float setLayerBandMaxHeightDp(float dp) {
-        float applied = layerRowRenderer.setMaxVisibleRowsDp(dp);
+        return setLayerBandMaxHeightDp(dp, /* clampToContent = */ true);
+    }
+
+    /**
+     * As {@link #setLayerBandMaxHeightDp(float)}, but pass {@code false} for a cap the user
+     * asked for by dragging the grab bar — see
+     * {@link com.fadcam.ui.faditor.layers.LayerRowRenderer#setMaxVisibleRowsDp(float, boolean)}
+     * for why a drag must not be clamped to the rows' own height.
+     */
+    public float setLayerBandMaxHeightDp(float dp, boolean clampToContent) {
+        float applied = layerRowRenderer.setMaxVisibleRowsDp(dp, clampToContent);
         requestLayout();
         invalidate();
         return applied;

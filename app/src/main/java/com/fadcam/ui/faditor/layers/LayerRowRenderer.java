@@ -3576,6 +3576,26 @@ public final class LayerRowRenderer {
      * can persist / feed a slider without re-clamping. Pure state — the caller triggers relayout.
      */
     public float setMaxVisibleRowsDp(float dp) {
+        return setMaxVisibleRowsDp(dp, /* clampToContent = */ true);
+    }
+
+    /**
+     * As {@link #setMaxVisibleRowsDp(float)}, but {@code clampToContent=false} for a cap the
+     * USER asked for by dragging the grab bar.
+     *
+     * <p>The content clamp below exists to stop the PiP's additive band fill ratcheting the cap
+     * past anything renderable. That is the right guard for the AUTOMATIC path and the wrong one
+     * for a deliberate drag: on a sparse project - one video lane and one music lane, which is
+     * exactly how a music video starts - the content is only a couple of rows tall, so the cap
+     * is already at the content ceiling and every drag returns the value it was given. The bar
+     * does not move at all, and the preview can never be collapsed far enough to pop out.
+     *
+     * <p>A user drag has its own, correct ceiling already: the grab bar clamps through
+     * {@code PreviewPipController.maxBandDpFor}, which is the space the column actually has.
+     * Empty band below the rows is a legitimate thing to ask for - it is what "give the timeline
+     * more of the screen" means when there are only two lanes to show.
+     */
+    public float setMaxVisibleRowsDp(float dp, boolean clampToContent) {
         float capped = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(MAX_VISIBLE_ROWS_CAP_DP, dp));
         // A VIEWPORT CAP TALLER THAN THE CONTENT IS DEAD TRAVEL. This is a cap on how much of
         // the rows to show, so once it passes the rows' own height, raising it further renders
@@ -3590,7 +3610,7 @@ public final class LayerRowRenderer {
         // install that already ran away. Only clamp once the content has actually been
         // measured; contentHeightPx is 0 before the first layout and pinning to that would
         // freeze the band at its minimum.
-        if (contentHeightPx > 0f) {
+        if (clampToContent && contentHeightPx > 0f) {
             float contentDp = contentHeightPx / density + BAND_CAP_SLACK_DP;
             capped = Math.max(MIN_VISIBLE_ROWS_DP, Math.min(capped, contentDp));
         }

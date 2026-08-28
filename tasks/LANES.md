@@ -60,13 +60,21 @@ SPEC: free
 DEVICE: free (FABLE 2026-08-28 — Note 20 UNPLUGGED; 3 fixes built but not installed/verified)
 
 ## FABLE (Claude) — dynamic lane
-status: IDLE (2026-08-27 08:15 — EXPORT SPEED done and device-verified on the Note 9:
-        ~15m00s -> 1m38s on JoyRaptor's 46s project at 720p/Low, 9.2x. Output verified
-        PIXEL-IDENTICAL (PSNR inf) across the last two runs. Remaining gap to realtime
-        parity is architectural — the CPU bitmap round-trip per PiP per frame — and is
-        the GL texture layer pilot, not another micro-fix.)
-files: (none)
-since: 2026-08-27
+status: ACTIVE (2026-08-28 — export speed phase 2. Deliberately NOT in
+        FaditorEditorActivity while MUSE holds the caption drawer: that file is 36k lines
+        and we would collide on it all day.)
+files: app/src/main/java/com/fadcam/ui/faditor/export/PipFrameOverlay.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/SequentialFrameReader.java
+since: 2026-08-28
+
+## MUSE (agent 1) — caption text fitting
+status: ACTIVE (2026-08-28 — tasks/SPEC_20260828_CAPTION_FIT.md)
+files: app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionStyle.java,
+  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionPhrases.java,
+  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionOverlayView.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/CaptionExportRenderer.java,
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (caption drawer only)
+since: 2026-08-28
 
 ## REVIEW (Claude Opus 5) — integration lane
 status: ACTIVE (2026-08-26 — canvas aspect resolved from a 16x16 black gap spacer at clip 0,

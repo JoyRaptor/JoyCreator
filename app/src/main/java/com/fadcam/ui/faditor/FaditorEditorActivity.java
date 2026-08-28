@@ -24130,10 +24130,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // serves this view, so naming only Y would CANCEL an in-flight H1 transcript shift
         // at its mid-flight value (audit 084b1bc5 #1).
         drawerReflowShiftY = shift;
-        container.animate().translationY(shift).translationX(-transcriptReflowShiftX)
+        // VERTICAL on the container, HORIZONTAL on the picture's own layers. This is the second
+        // writer of the reflow — it re-asserts the horizontal shift on every top-drawer open and
+        // close (volume, opacity, loop, captions, move, transition) — so it has to agree with
+        // applyTranscriptReflow about where that shift lives.
+        container.animate().translationY(shift)
                 .scaleX(1f).scaleY(1f).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-        holdCanvasFrameStation(container, transcriptReflowShiftX, true);
+        applyPictureShiftX(container, transcriptReflowShiftX, true);
         setTopBarHiddenForDrawer(drawerHeightPx > 0);
     }
 
@@ -32312,14 +32316,53 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * rotated or opped out the screen at all. it just started randomly doing that now."
      */
     private void holdCanvasFrameStation(@NonNull View container, float shift, boolean animate) {
-        View frame = container.findViewById(R.id.canvas_frame);
-        if (frame == null) return;
+        applyPictureShiftX(container, shift, animate);
+    }
+
+    /**
+     * Slide the PICTURE sideways inside the preview slot, leaving the backdrop and the
+     * transcript drawer where they are.
+     *
+     * <p><b>Why not translate the container.</b> That is what this used to do, with the backdrop
+     * and the panel counter-translated by the same amount to hold station. The arithmetic was
+     * right and it still failed, because <b>a child pushed outside its parent is clipped by
+     * it</b>. player_container clips its children, so counter-shifting the panel by +315 moved
+     * its right 315px past the container's edge and straight into the bin — which is precisely
+     * the black band down the side and the letters sliced mid-glyph. The device said so
+     * plainly: containerTx=-315, canvasTx=+315, panelTx=+315, every number in agreement, and
+     * the band still there in the screenshot.
+     *
+     * <p>So nothing moves outside its parent any more. The picture's own layers take the shift
+     * individually; the backdrop, the drawer and its reopen tab simply never move. No
+     * counter-translation, nothing to keep in step, and no way for one path to remember the
+     * shift while another forgets it — which was the shape of every previous attempt at this.
+     */
+    private void applyPictureShiftX(@NonNull View container, float shift, boolean animate) {
+        if (!(container instanceof ViewGroup)) return;
+        // The container itself must sit at zero: any shift on it clips the station-holders.
         if (animate) {
-            frame.animate().translationX(shift).setDuration(220)
-                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+            container.animate().translationX(0f);
         } else {
-            frame.animate().cancel();
-            frame.setTranslationX(shift);
+            container.setTranslationX(0f);
+        }
+        ViewGroup group = (ViewGroup) container;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            int id = child.getId();
+            // HOLD STATION. canvas_frame is the workspace hatching, whose whole job is to be a
+            // not-black backdrop; the panel and its tab own their own open/close slide.
+            if (id == R.id.canvas_frame || id == R.id.transcript_panel
+                    || id == R.id.transcript_reopen_tab) {
+                continue;
+            }
+            if (animate) {
+                child.animate().translationX(-shift).setDuration(220)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                        .start();
+            } else {
+                child.animate().cancel();
+                child.setTranslationX(-shift);
+            }
         }
     }
 
@@ -32330,47 +32373,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptReflowShiftX = shift;
         android.view.animation.Interpolator decel =
                 new android.view.animation.DecelerateInterpolator();
-        // THE HATCHING IS NOT PART OF THE PICTURE, SO IT MUST NOT TRAVEL WITH IT.
-        // canvas_frame draws the diagonal workspace pattern whose whole job is to be an
-        // obviously-not-video backdrop, so a black frame edge can never be mistaken for the
-        // workspace. It is a child of the container, so the reflow was sliding it left along
-        // with the video and exposing a black band down the right of the slot - measured at
-        // 208px, canvas_frame's right edge landing exactly where the container's did while
-        // editor_root still ran the full width. Counter-translate it, exactly like the panel:
-        // the video moves into its pillarbox slack, the backdrop stays where the slot is.
+        // The container carries the VERTICAL drawer reflow only. Horizontal movement is applied
+        // to the picture's own layers by applyPictureShiftX, because a container shift clips
+        // whatever has to hold station inside it — see that method for the measurement.
         if (animate) {
-            container.animate().translationX(-shift).translationY(drawerReflowShiftY)
+            container.animate().translationY(drawerReflowShiftY)
                     .scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(decel).start();
         } else {
             container.animate().cancel();
-            container.setTranslationX(-shift);
             // Keep the vertical writer's last target — not the view's possibly mid-flight value.
             container.setTranslationY(drawerReflowShiftY);
         }
-        holdCanvasFrameStation(container, shift, animate);
-        // Re-station the counter-translated views.
-        //
-        // On the ANIMATED path the panel's own translationX IS the open/close slide, so the
-        // slide owns the property and writing it here would fight the animator (on close it
-        // would snap the panel to station and start the slide-out from the wrong place).
-        // Only the caller that opens it may seed the station, exactly as before.
-        //
-        // On the INSTANT path — rotation, the resize handle, and now promote/demote — there is
-        // no slide, and this must run whatever the panel's open flag says. That guard is what
-        // made the bug look intermittent: resetTranscriptStation() zeroes these translations on
-        // every promote/demote, nothing put them back, and the container kept its shift while
-        // the panel lost its counter-shift. The panel then sat 208px left of station with its
-        // right edge under the clip, slicing words mid-glyph. When the panel is closed `shift`
-        // is 0, so this writes the same 0 the close slide already ends on.
-        if (animate) {
-            if (transcriptPanelOpen) {
-                transcriptPanel.setTranslationX(shift);
-                transcriptReopenTab.setTranslationX(shift);
-            }
-        } else {
-            if (transcriptPanel != null) transcriptPanel.setTranslationX(shift);
-            if (transcriptReopenTab != null) transcriptReopenTab.setTranslationX(shift);
-        }
+        applyPictureShiftX(container, shift, animate);
     }
 
     private void showTranscriptPanel(boolean show) {
@@ -32399,13 +32413,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             applyTranscriptReflow(true);
             transcriptPanel.setVisibility(View.VISIBLE);
             transcriptPanel.setTranslationX(screenW);
+            // Station is plain ZERO now. The panel used to slide to +shift to counter the
+            // container's -shift; the container no longer moves horizontally, so the counter is
+            // gone and with it the reason the panel's right edge kept ending up outside the
+            // container's clip.
             transcriptPanel.animate()
-                    .translationX(transcriptReflowShiftX)
+                    .translationX(0f)
                     .setDuration(220)
                     .setInterpolator(new android.view.animation.DecelerateInterpolator())
                     .start();
             transcriptReopenTab.setVisibility(View.GONE);
-            transcriptReopenTab.setTranslationX(transcriptReflowShiftX);
+            transcriptReopenTab.setTranslationX(0f);
             updateTranscriptBreakButton();
         } else {
             transcriptPanelOpen = false;

@@ -57,7 +57,7 @@ code. If it is taken, finish your code, wait, then update the row.
 SPEC: free
 
 ## DEVICE TOKEN
-DEVICE: free (FABLE released 2026-08-28 — transcript reflow verified on Note 20; opacity keyframe snap built, needs JoyRaptor's eye)
+DEVICE: free (FABLE 2026-08-28 — Note 20 UNPLUGGED; 3 fixes built but not installed/verified)
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE (2026-08-27 08:15 — EXPORT SPEED done and device-verified on the Note 9:

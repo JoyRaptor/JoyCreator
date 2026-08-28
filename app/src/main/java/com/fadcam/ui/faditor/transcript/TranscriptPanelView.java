@@ -797,7 +797,7 @@ public class TranscriptPanelView extends View {
                             // don't consume the tap as a caption line-break instead.
                             lastTapIndex = -1;
                             lastTapTime = 0;
-                            listener.onSeekToMs(transcript.words.get(idx).startMs);
+                            listener.onSeekToMs(seekTargetMsFor(idx));
                         } else if (idx == lastTapIndex
                                 && now - lastTapTime <= DOUBLE_TAP_TIMEOUT_MS) {
                             transcript.words.get(idx).forceLineBreakAfter =
@@ -814,7 +814,7 @@ public class TranscriptPanelView extends View {
                             lastTapTime = now;
                             activeIndex = idx;
                             invalidate();
-                            listener.onSeekToMs(transcript.words.get(idx).startMs);
+                            listener.onSeekToMs(seekTargetMsFor(idx));
                         }
                     }
                 }
@@ -949,6 +949,29 @@ public class TranscriptPanelView extends View {
     }
 
     /** Returns the word index at content coordinates (y already includes scroll), or -1. */
+    /**
+     * Where a tap on word {@code idx} should put the playhead — just INSIDE the word, not
+     * exactly on its first millisecond.
+     *
+     * <p>Seeking to {@code startMs} exactly lands on a knife edge. The position that comes back
+     * from the player can be a millisecond or two shy of what was asked for, and every consumer
+     * of "which word is active" tests {@code startMs <= now}. One millisecond short and the
+     * answer is the PREVIOUS word, so the highlight does not move — which reads as the tap
+     * having done nothing at all, in the panel, on the timeline tape and in the caption
+     * overlay at once. JoyRaptor: tapping "dreams" moved the playhead to dreams and highlighted
+     * nothing, and "scrubbing ever so slightly to the right will trigger it".
+     *
+     * <p>The nudge is bounded by the word's own length, so a very short word cannot be skipped
+     * past, and is under one frame at 30fps either way — invisible in the picture, decisive for
+     * every one of those comparisons.
+     */
+    private long seekTargetMsFor(int idx) {
+        if (transcript == null || idx < 0 || idx >= transcript.words.size()) return 0L;
+        TranscriptWord w = transcript.words.get(idx);
+        long span = Math.max(0L, w.endMs - w.startMs);
+        return w.startMs + Math.min(25L, span / 3L);
+    }
+
     private int wordAt(float x, float contentY) {
         for (int i = 0; i < wordX.length; i++) {
             int para = paragraphData != null ? paragraphData.paragraphOf(i) : -1;

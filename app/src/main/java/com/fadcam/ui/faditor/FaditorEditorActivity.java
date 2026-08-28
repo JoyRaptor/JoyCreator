@@ -14838,7 +14838,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
         }
 
-        long neededMs = timeline.maxBoundedOverlayEndMs() - realSpineMs;
+        // AUDIO COUNTS AS SOMETHING THE SPINE MUST COVER. JoyRaptor: "shouldn't audio insert
+        // black?" - loading a song and then placing pictures along it is a music video, and
+        // without a spine under the song there is no base frame to place anything onto. The
+        // export already appended its own black filler over exactly this region, so the file
+        // was longer than the timeline claimed; this makes the two agree.
+        long audioEndMs = timeline.maxAudioEndMs();
+        long neededMs = Math.max(timeline.maxBoundedOverlayEndMs(), audioEndMs) - realSpineMs;
         // Ignore sub-frame slivers; a 1ms blank is visual noise on the timeline, not a fix.
         if (neededMs < 100) neededMs = 0;
 
@@ -14850,7 +14856,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // would measure the padding the previous pass added. A cap cannot be reached by correct
         // behaviour, so it costs nothing, and it converts a hypothetical infinite black tail
         // (which would destroy a project and an export) into a bounded amount plus a loud log.
-        long capMs = Math.max(60_000L, realSpineMs);
+        // The audio-driven part of the need is exempt from this backstop: an audio clip's end
+        // is its offset plus a real file's duration, so it cannot be the runaway the cap
+        // guards against, and truncating a six-minute song to sixty seconds of spine would be
+        // a bug wearing a safety belt.
+        long capMs = Math.max(Math.max(60_000L, realSpineMs), audioEndMs - realSpineMs);
         if (neededMs > capMs) {
             FLog.w(TAG, "Auto-blank wanted " + neededMs + "ms but capped at " + capMs
                     + "ms — an overlay end is probably tracking the project length."

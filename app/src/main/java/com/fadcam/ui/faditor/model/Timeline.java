@@ -342,9 +342,9 @@ public class Timeline {
      * the behaviour a user expects and asked for. Only an object with a definite end can push the
      * project longer.
      *
-     * <p>Audio is not consulted here: {@link #getTotalDurationMs()} already lets audio extend the
-     * timeline on its own, because silence is the identity for mixing and needs no picture under
-     * it. Visual objects are the ones that need a base frame to composite onto.
+     * <p>Audio is not counted HERE - see {@link #maxAudioEndMs()}, which the spine sync adds
+     * alongside this. The two are kept apart because the open-ended reasoning above applies only
+     * to overlay items; an audio clip always has a definite end, bounded by a real file.
      */
     public long maxBoundedOverlayEndMs() {
         long max = 0;
@@ -366,6 +366,34 @@ public class Timeline {
         for (AdjustmentLayer a : adjustmentLayers) {
             if (a.getDurationMs() <= 0) continue; // open-ended: "grade everything"
             long e = a.getEndMs();
+            if (e > max) max = e;
+        }
+        return max;
+    }
+
+    /**
+     * The latest point any audio clip reaches on the timeline, or 0 if there is none.
+     *
+     * <p>Used by the spine sync to extend the black tail. It used to be deliberate that audio did
+     * NOT do this - the reasoning being that silence needs no picture under it - and that holds
+     * for a video with a music bed laid over it. It fails for the case JoyRaptor hit first: load a
+     * song, then place pictures along it. There the song IS the project, and with no spine under
+     * it there is no base frame to drop a picture onto and nowhere for the playhead to go.
+     *
+     * <p>It was also already inconsistent. {@link #getTotalDurationMs()} counts audio, so the
+     * project was ALREADY 6:11 long with a 4.6s spine, and the exporter appends its own black
+     * filler to cover the difference ("appended a 1201ms black filler so overlays and audio past
+     * the last clip are still rendered"). The file you got already had the black in it; only the
+     * timeline was hiding it. This makes the spine tell the truth about the export.
+     *
+     * <p>Bounded by construction: an audio clip's end is its offset plus a trimmed duration that
+     * came from a real file, so unlike an open-ended overlay it cannot chase the project length.
+     */
+    public long maxAudioEndMs() {
+        long max = 0;
+        for (AudioClip a : audioClips) {
+            if (a == null) continue;
+            long e = a.getEndOnTimelineMs();
             if (e > max) max = e;
         }
         return max;

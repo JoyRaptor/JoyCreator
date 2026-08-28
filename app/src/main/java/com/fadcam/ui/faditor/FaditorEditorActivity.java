@@ -116,7 +116,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     public static final String EXTRA_PROJECT_ID = "faditor_project_id";
 
     /**
-     * G21/B9: start a BLANK AUDIO project â no video pick, empty spine, timeline ready for
+     * G21/B9: start a BLANK AUDIO project — no video pick, empty spine, timeline ready for
      * imported audio. Set by the new-project sheet's "Blank audio project" row. An audio-first
      * user (podcast, voiceover, music) must not have to import a video they do not want just
      * to reach a timeline.
@@ -135,7 +135,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /**
      * How far a still on the spine may be STRETCHED by its trim handle. A still has no inherent
-     * length, so the only thing that ever bounded one was {@code sourceDurationMs} â and creating
+     * length, so the only thing that ever bounded one was {@code sourceDurationMs} — and creating
      * it as {@code new Clip(uri, IMAGE_CLIP_DURATION_MS)} set that equal to the 5s starting
      * length. The handle then had nothing left to give and a still could never exceed 5 seconds,
      * which is not a decision anyone made: 5000 was meant to be the DEFAULT length, and it
@@ -144,7 +144,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *
      * <p>Stills are created with this as their source bound and {@link #IMAGE_CLIP_DURATION_MS}
      * as their visible length, so they still ARRIVE at 5s and the handle can now take them to an
-     * hour. Costs nothing: for a still, source duration is a pure trim bound â the frame is
+     * hour. Costs nothing: for a still, source duration is a pure trim bound — the frame is
      * decoded once and held, so a larger bound decodes no more and allocates no more.
      */
     private static final long IMAGE_CLIP_MAX_MS = 60 * 60 * 1000L; // 1 hour
@@ -165,7 +165,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable
     private List<Uri> initialVideoUris;
 
-    // ââ Core components ââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Core components ──────────────────────────────────────────────
     private FaditorProject project;
     private FaditorPlayerManager playerManager;
     private ExportManager exportManager;
@@ -178,9 +178,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private java.util.concurrent.ExecutorService reverseBakeExecutor;
 
     /**
-     * Serial executor for slide HTMLâMP4 renders ({@link com.fadcam.ui.faditor.slides.SlideRenderer}).
+     * Serial executor for slide HTML→MP4 renders ({@link com.fadcam.ui.faditor.slides.SlideRenderer}).
      * Single-threaded on purpose: each render hosts one headless SlideRenderActivity,
-     * and renders must never overlap. Lazy â most projects have no slides.
+     * and renders must never overlap. Lazy — most projects have no slides.
      */
     private java.util.concurrent.ExecutorService slideRenderExecutor;
     /** Source-URI+in+out keys whose reverse bake is in flight, so we don't double-launch. */
@@ -199,7 +199,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
     /**
      * RANK-1 loop breaker (2026-07-16): consecutive recovery rebuilds per clip where there was
-     * NOTHING to poison (forward-source parse failures â corrupt file). Each such rebuild is
+     * NOTHING to poison (forward-source parse failures — corrupt file). Each such rebuild is
      * byte-identical to the last, so past {@link #MAX_UNPOISONED_RECOVERY_REBUILDS} we stop
      * instead of storming the main thread. Main-thread only (the recovery hook's thread).
      */
@@ -214,10 +214,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private volatile int rebuildGeneration = 0;
 
-    // ââ Export status (OOP) ââââââââââââââââââââââââââââââââââââââââââ
-    // ExportService runs in its own :export process â no binding (a cross-process
+    // ── Export status (OOP) ──────────────────────────────────────────
+    // ExportService runs in its own :export process — no binding (a cross-process
     // Binder cast would throw), no static bridge. Status arrives as package-scoped
-    // global broadcasts; this local timestamp bridges the tapâforeground-notification
+    // global broadcasts; this local timestamp bridges the tap→foreground-notification
     // window so isExportRunning() can't double-start. Time-bounded (not a plain flag)
     // so a silent :export-process death can never wedge future exports.
     private static final long EXPORT_START_GRACE_MS = 30_000;
@@ -257,20 +257,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             };
 
-    // ââ Asset pickers ââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Asset pickers ────────────────────────────────────────────────
     private ActivityResultLauncher<Intent> imagePickerLauncher;
     private ActivityResultLauncher<Intent> videoPickerLauncher;
     private ActivityResultLauncher<Intent> overlayImagePickerLauncher;
     private ActivityResultLauncher<Intent> audioPickerLauncher;
     private androidx.activity.result.ActivityResultLauncher<String> voiceoverPermissionLauncher;
     /** S7: inline sprite-SHEET relink picker (system file picker, no separate
-     *  activity) â mirrors the clip relink pattern (relinkPendingIndex + a
+     *  activity) — mirrors the clip relink pattern (relinkPendingIndex + a
      *  dedicated launcher), keyed by sheet id instead of timeline index. */
     private ActivityResultLauncher<Intent> spriteRelinkPickerLauncher;
     @Nullable private String spriteRelinkPendingSheetId;
-    /** SPEC_IMAGE_SEQUENCE Â§3: multi-select frames, and the folder route that enables Â§3a
+    /** SPEC_IMAGE_SEQUENCE §3: multi-select frames, and the folder route that enables §3a
      *  sibling DETECTION (a document picked with OPEN_DOCUMENT cannot enumerate its own
-     *  folder â only a tree grant can). */
+     *  folder — only a tree grant can). */
     private ActivityResultLauncher<Intent> sequenceFilesPickerLauncher;
     private ActivityResultLauncher<Intent> sequenceFolderPickerLauncher;
     /** Visualizer Rolodex: SAF export/import of the effective {@code WaveformStyle} JSON
@@ -281,7 +281,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private com.fadcam.ui.faditor.model.WaveformStyle pendingVisualizerExportStyle;
     @Nullable private com.fadcam.ui.faditor.model.WaveformOverlayInstance pendingVisualizerImportOverlay;
 
-    // ââ Views ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Views ────────────────────────────────────────────────────────
     private PlayerView playerView;
     /** MISSING overlay in the preview area (shown when source is inaccessible). */
     @Nullable private View missingOverlayView;
@@ -310,12 +310,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  "behind the PiP plane" bucket, which is empty until a lane is ordered under a PiP. */
     private com.fadcam.ui.faditor.overlay.TextOverlayLayer overlayLayerBelow;
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayViewBelow;
-    /** IMAGE-track layer preview surface (M-COMP-1; PLAN Â§3.2 scope item 4). */
+    /** IMAGE-track layer preview surface (M-COMP-1; PLAN §3.2 scope item 4). */
     private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
     private boolean pilotDummyInjected = false;
     /** Sprite preview surface (S4): resolver-driven, above video, below text/captions. */
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayView;
-    /** Live overlay-video (PiP) preview surface (M-COMP-2; plan Â§3.3). */
+    /** Live overlay-video (PiP) preview surface (M-COMP-2; plan §3.3). */
     private com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView overlayVideoLayer;
     /** The next videoPickerLauncher result creates a PiP overlay, not a master clip. */
     private boolean overlayVideoPickerPending;
@@ -324,7 +324,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean imageAsNewLayerPending;
     /** Decode-once sprite sheet renderers for the preview, keyed by sheetId. The
      *  paired SpriteSheet reference validates the cache across project reloads
-     *  (new model objects â stale entry recycled + re-decoded). */
+     *  (new model objects → stale entry recycled + re-decoded). */
     private final java.util.Map<String, android.util.Pair<com.fadcam.ui.faditor.sprite.SpriteSheet,
             com.fadcam.ui.faditor.sprite.SpriteSheetRenderer>> spriteRendererCache =
             new java.util.HashMap<>();
@@ -340,7 +340,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             new java.util.HashMap<>();
     private final java.util.Set<String> waveformExtractInFlight = new java.util.HashSet<>();
 
-    // ââ Transcript editing âââââââââââââââââââââââââââââââââââââââââââ
+    // ── Transcript editing ───────────────────────────────────────────
     private com.fadcam.ui.faditor.transcript.TranscriptionEngine transcriptionEngine;
     private com.fadcam.ui.faditor.transcript.Transcript currentTranscript;
     private String transcriptClipId;
@@ -367,7 +367,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private View transcriptModelChoice;
     private android.widget.LinearLayout transcriptVersionBar;
     private View transcriptVersionScroll;
-    /** Most recent absolute playhead time (ms) â used as the keyframe time base. */
+    /** Most recent absolute playhead time (ms) — used as the keyframe time base. */
     private long lastPlayheadAbsoluteMs = 0;
     private long lastPositionInSegmentMs = 0;
     private long lastSourcePositionInSegmentMs = 0;
@@ -377,10 +377,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.transcript.CaptionOverlayView audioCaptionOverlay;
     private View captionStyleBar;
     /**
-     * True once the user has explicitly asked for captions this session â tapped the CC tool,
+     * True once the user has explicitly asked for captions this session — tapped the CC tool,
      * picked a style, or selected a caption span.
      *
-     * <p>LEDGER Â§5 shipped option (a): the chooser appeared whenever a captioned clip sat under
+     * <p>LEDGER §5 shipped option (a): the chooser appeared whenever a captioned clip sat under
      * the playhead, which on a fully captioned project means ALWAYS, permanently occupying the
      * bottom of the preview. JoyRaptor had leaned option (b) at the time and confirmed it on
      * 2026-08-04 after living with (a) on the Note 20: *"it should only be when I am tapping on
@@ -410,15 +410,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * H1 (SPEC_20260824_HORIZONTAL_REFLOW): how far the preview container is currently
      * shifted LEFT to clear the open transcript drawer, and by implication how far the
      * drawer + reopen tab are counter-shifted RIGHT to hold station. 0 = no shift.
-     * TRANSLATE ONLY â never scale; see {@link #reflowPreviewUnderDrawer(int)} for why.
+     * TRANSLATE ONLY — never scale; see {@link #reflowPreviewUnderDrawer(int)} for why.
      *
      * <p>Read back by {@link #reflowPreviewUnderDrawer(int)}: {@code View.animate()} hands
      * out ONE shared {@code ViewPropertyAnimator} per view, so every writer must carry BOTH
-     * axes' current targets â an animation that names only its own axis CANCELS the other
+     * axes' current targets — an animation that names only its own axis CANCELS the other
      * axis's in-flight tween at its mid-flight value (audit finding 084b1bc5 #1).</p>
      */
     private float transcriptReflowShiftX = 0f;
-    /** The vertical twin, for the same reason â H1's animator carries this as its Y target. */
+    /** The vertical twin, for the same reason — H1's animator carries this as its Y target. */
     private float drawerReflowShiftY = 0f;
     private boolean transitionPanelOpen = false;
     private View transitionPanel;
@@ -438,10 +438,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.assetbrowser.AssetBrowserPanel assetBrowserPanel;
     /** Launcher for picking a pinned directory (SAF tree URI). */
     private androidx.activity.result.ActivityResultLauncher<android.net.Uri> assetDirPickerLauncher;
-    /** SPEC_TEXT_DRAWER: "Import font" in the text drawer's font picker â SAF file pick, copied
+    /** SPEC_TEXT_DRAWER: "Import font" in the text drawer's font picker — SAF file pick, copied
      *  into Pictures/FadCam/fonts/ (the same folder the font scanner already reads). */
     private androidx.activity.result.ActivityResultLauncher<String[]> fontImportLauncher;
-    /** Runs after {@link #fontImportLauncher} returns â reopens the font picker on the new file. */
+    /** Runs after {@link #fontImportLauncher} returns — reopens the font picker on the new file. */
     @Nullable private java.util.function.Consumer<String> pendingFontImportCallback;
     /** Currently selected asset for the insert-at-playhead button. */
     @Nullable
@@ -468,12 +468,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private long exportStartTimeMs;
     private View remuxProgressOverlay;
     private TextView remuxProgressText;
-    /** True while the open-time "Opening projectâ¦" overlay waits for the first STATE_READY. */
+    /** True while the open-time "Opening project…" overlay waits for the first STATE_READY. */
     private boolean openingOverlayPending = false;
     private com.fadcam.ui.faditor.crop.CropOverlayView cropOverlay;
     private android.widget.ImageView imagePreview;
 
-    // ââ Crop mode state ââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Crop mode state ──────────────────────────────────────────────
     private boolean inCropMode = false;
     // Last known non-zero decoded video size. getPlayer().getVideoSize() returns 0
     // right after a seek/clip-switch, which made the crop-zoom preview flip between
@@ -496,7 +496,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView cropAutoCrop;
     private boolean cropSnapToCenter = false;
 
-    // ââ Tool buttons âââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Tool buttons ─────────────────────────────────────────────────
     private View toolSpeed;
     private View toolMute;
     private TextView toolMuteIcon;
@@ -584,7 +584,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView toolLoopIcon, toolLoopLabel;
     private View loopDrawer;
     /** L3: scrolls the drawer's content (mode chips + extend rows) under the pinned
-     *  grab-handle/header so the drawer never clips off the bottom of a short screen â
+     *  grab-handle/header so the drawer never clips off the bottom of a short screen —
      *  see {@link #showLoopDrawer()} for the runtime height cap. */
     private androidx.core.widget.NestedScrollView loopDrawerScroll;
     private TextView loopDrawerIcon, loopDrawerModeLabel;
@@ -603,13 +603,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean loopDrawerOpen = false;
     private boolean loopDrawerWired = false;
 
-    // ââ Undo/Redo ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Undo/Redo ────────────────────────────────────────────────────
     private UndoManager undoManager;
     private TextView btnUndo;
     private TextView btnRedo;
     private TextView btnRelinkMedia;
 
-    // ââ Relink catalog âââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Relink catalog ───────────────────────────────────────────────
     private RelinkCatalogBottomSheet relinkCatalogSheet;
     private int relinkPendingIndex = -1;
 
@@ -620,7 +620,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private long lastTrimPreviewSeekMs = 0;
     private static final long TRIM_PREVIEW_SEEK_THROTTLE_MS = 45;
 
-    // ââ Multi-segment state ââââââââââââââââââââââââââââââââââââââââââ
+    // ── Multi-segment state ──────────────────────────────────────────
     /** Index of the currently selected clip/segment in the timeline. */
     private int selectedClipIndex = 0;
     private boolean transitionPlaybackActive = false;
@@ -632,7 +632,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private Bitmap transitionLastBitmap;
     private long transitionLastSourceMs = -1;
 
-    // ââ Audio extraction âââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Audio extraction ─────────────────────────────────────────────
     private final ExecutorService audioExecutor = Executors.newSingleThreadExecutor();
 
     // Off-main-thread file copy + duration probe for imported assets. These ops
@@ -640,7 +640,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // SAF/content URI and were ANR-ing the main thread on every video insert.
     private final ExecutorService assetImportExecutor = Executors.newSingleThreadExecutor();
 
-    /** MediaPlayers for audio clips â one per clip, synced with playhead. */
+    /** MediaPlayers for audio clips — one per clip, synced with playhead. */
     /** A9: audio-clip preview players - one ExoPlayer-backed player per clip, routed through
  *  the SAME processor chain export builds (volume/envelope/pan + FX), replacing the
  *  legacy MediaPlayer fleet whose preview ignored pan and approximated fades. */
@@ -654,7 +654,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     // Asking the player directly is the fix AND makes the class of bug impossible: there is
     // no second copy of the truth to go stale. See readyAudioPlayer(int).
 
-    // ââ Voiceover punch-in (B5) âââââââââââââââââââââââââââââââââââââââ
+    // ── Voiceover punch-in (B5) ───────────────────────────────────────
     @Nullable private com.fadcam.ui.faditor.audio.VoiceoverRecorder voiceoverRecorder;
     private long voiceoverStartMs = 0;
     private boolean voiceoverKeepAudible = false;
@@ -663,7 +663,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * When ON (armed), changing the volume of the selected audio clip writes a volume
      * KEYFRAME at the current playhead (the blue envelope) instead of setting the
      * whole-clip volume. Toggled by long-pressing the Volume tool with an audio clip
-     * selected (grey â green "stopwatch" essence).
+     * selected (grey → green "stopwatch" essence).
      */
     private boolean audioVolumeKeyframeMode = false;
     private boolean clipOpacityKeyframeMode = false;
@@ -672,12 +672,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     // Debounce for the audio reconcile: when did real playback stop (0 = playing). Used to pause
     // runaway audio after playback truly stops, without dipping the music at short clip boundaries.
     private long audioStoppedSinceMs = 0L;
-    // ââ Audio-tail mode: playhead continues past video for audio âââââ
+    // ── Audio-tail mode: playhead continues past video for audio ─────
     private boolean audioTailActive = false;
     private long audioTailStartWall = 0;   // SystemClock.elapsedRealtime() when tail started
     private long audioTailStartMs = 0;     // playheadPositionMs when tail started
 
-    // ââ Persistence ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Persistence ──────────────────────────────────────────────────
     private ProjectStorage projectStorage;
     private final Handler autoSaveHandler = new Handler(Looper.getMainLooper());
     private static final long AUTO_SAVE_DELAY_MS = 3000;
@@ -703,14 +703,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // UNDO_HISTORY_SAVE_THROTTLE_MS above, which is what that constant's comment has
             // always claimed happens on the ordinary edit path). This used to call
             // projectStorage.saveAsync(project) directly, which advanced project.json and
-            // left undo_history.json behind â and edits that only schedule an autosave (the
+            // left undo_history.json behind — and edits that only schedule an autosave (the
             // rotate button, for one) never wrote the sidecar at all.
             //
             // The consequence is not cosmetic and was reproduced on the Note 9: after any
             // process death that skips onPause (a crash, a low-memory kill, `am force-stop`),
             // project.json is at edit N while the sidecar still describes edit M << N. On
             // reload the newest sidecar entry's snapshotBefore is a PRE-state for edit M, so
-            // ONE undo press silently reverts the project past every edit since â measured as
+            // ONE undo press silently reverts the project past every edit since — measured as
             // 441 changed fields restored from the previous day, under a row labelled with an
             // edit from that day. Same family as audit 1.6, and this app has an OOM-crash
             // history, so the window is real rather than theoretical.
@@ -742,7 +742,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Set when a playhead DRAG moved the selection onto a different clip. The selection itself
      * follows the playhead live (positions have to be computed in the right clip's coordinate
-     * space â LEDGER Â§2a), but the media LOAD stays deferred to the end of the drag, because
+     * space — LEDGER §2a), but the media LOAD stays deferred to the end of the drag, because
      * preparing a source at every crossing snaps the preview at each split point. This flag is
      * what carries "a crossing happened" across the drag now that the index comparison can no
      * longer detect it; {@code onPlayheadDragFinished} consumes it and loads exactly once.
@@ -752,7 +752,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /** Tracks the last playhead fraction set by the user (drag or trim). */
     private float lastUserPlayheadFraction = 0f;
 
-    // ââ Image clip playback ââââââââââââââââââââââââââââââââââââââââââ
+    // ── Image clip playback ──────────────────────────────────────────
     /** True while an image clip is being "played" via internal timer. */
     private boolean imagePlaybackActive = false;
     /** System time (ms) when image playback started, for computing elapsed. */
@@ -760,22 +760,22 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /** Position within the image clip when playback started (ms). */
     private long imagePlaybackStartOffsetMs = 0;
 
-    // ââ Playhead sync ââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Playhead sync ────────────────────────────────────────────────
     private final Handler playheadHandler = new Handler(Looper.getMainLooper());
     private static final long PLAYHEAD_UPDATE_INTERVAL_MS = 50;
     // How close to the timeline end the playhead must be for a play-tap to be treated
     // as "at the end" and rewind to the start instead of no-op'ing (B2). ~1.5 frames at
-    // 30fps â large enough to catch the terminal playhead left just short of the end,
+    // 30fps — large enough to catch the terminal playhead left just short of the end,
     // small enough not to hijack a deliberate "play the last sliver" intent.
     private static final long END_REPLAY_EPSILON_MS = 50;
 
-    // ââ PHDIAG (temporary, 2026-07-27) âââââââââââââââââââââââââââââââ
+    // ── PHDIAG (temporary, 2026-07-27) ───────────────────────────────
     // Field diagnosis for the Note 20 report: during playback the playhead/timeline freeze
     // and overlays stop compositing in, while video+audio keep playing normally. Proven from
     // logcat that the main thread is NOT blocked and the player keeps advancing, so the fault
     // is somewhere in this update path. updatePlayheadPosition() has ~20 early returns and
-    // logs nothing on the happy path, so one call site here â measuring whether the playhead
-    // actually MOVED while the player advanced â separates "ticker not running" from "ticker
+    // logs nothing on the happy path, so one call site here — measuring whether the playhead
+    // actually MOVED while the player advanced — separates "ticker not running" from "ticker
     // running but returning early" from "ticker fine, view not repainting". Throttled to
     // ~500ms. REMOVE once the root cause is fixed.
     private int phDiagTick = 0;
@@ -813,7 +813,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // Added 2026-08-15 to test the standing theory that a latched flag here
                         // caused the ~200% idle CPU. It DISPROVED that theory: with the Note 20
                         // parked on a paused 48-minute project at ~200% CPU, this line did not
-                        // print ONCE in 10 seconds â the ticker was not running at all. The real
+                        // print ONCE in 10 seconds — the ticker was not running at all. The real
                         // consumer was the filmstrip sweep (EditorTimelineView.thumbnailExecutor,
                         // now the "filmstrip-sweep" threads). Kept because the flags are still
                         // the right first question for any "playhead won't stop/start" report.
@@ -822,31 +822,31 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 && !project.getTimeline().isEmpty()
                                 && clipUnderPlayhead() != null && clipUnderPlayhead().isImageClip()));
             }
-            // Only keep ticking if actively playing â avoids wasting CPU
+            // Only keep ticking if actively playing — avoids wasting CPU
             // redrawing the playhead position when nothing is moving.
             // transitionPlaybackActive keeps the loop alive across a transition even when
             // isPlaying() drops (STATE_ENDED at a file-end seam, a buffering blip, or a
-            // user pause mid-blend) â if the ticker dies here the transition freezes with
+            // user pause mid-blend) — if the ticker dies here the transition freezes with
             // no completion path (sandbox repro 2026-07-18).
             // imagePlaybackActive belongs here for the SAME reason transitionPlaybackActive
             // does. A legacy-path IMAGE clip is driven by its own timer (startImagePlayback),
-            // not by the player â but this condition only kept ticking while the PLAYER said it
+            // not by the player — but this condition only kept ticking while the PLAYER said it
             // was playing, and advanceToSegment's image branch neither pauses nor re-speeds the
             // outgoing video player. So an image clip only kept advancing by accident, on the
             // back of the previous clip still running underneath it; the moment that source hit
             // STATE_ENDED the ticker died and the image froze mid-clip with a dead transport.
             // Reproduced on the Note 9 (project aeb0517e, clip 0 = 2x video, clip 1 = 10s
-            // image): head advanced 1.014x while playerPos advanced 1.98x â the stale player
-            // racing at the previous clip's speed â then "Playback state: ENDED" 4.8s in and the
+            // image): head advanced 1.014x while playerPos advanced 1.98x — the stale player
+            // racing at the previous clip's speed — then "Playback state: ENDED" 4.8s in and the
             // readout stuck at 00:04 of 00:14. Note isPlayingAnything() at ~:7325 ALREADY counts
             // imagePlaybackActive as playing; this ticker was the one place that did not.
-            // getPlayWhenReady() â NOT just isPlaying() â because isPlaying() is FALSE while the
+            // getPlayWhenReady() — NOT just isPlaying() — because isPlaying() is FALSE while the
             // player is buffering, and this condition is the loop's only self-restart gate. A
             // transient stall therefore killed the ticker permanently: the designated restart
             // point is the isPlaying=true callback (~:3766), so if the player never resumes,
             // nothing ever posts the loop again and the playhead is frozen for good.
             // Reproduced on device 2026-07-28 (drag alternating with play): the final beat read
-            // "playing=false pwr=TRUE ... head=12982 moved=false" â the player still WANTED to
+            // "playing=false pwr=TRUE ... head=12982 moved=false" — the player still WANTED to
             // play, was parked at the last clip's out point, and never rendered another frame.
             // playWhenReady is the honest "the user asked for playback and hasn't cancelled it"
             // signal, and it still goes false on a real pause, so the loop still self-terminates.
@@ -859,14 +859,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     };
 
-    // ââ Segment helpers ââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Segment helpers ──────────────────────────────────────────────
 
     /**
      * Returns the currently selected clip, or null when nothing is selected or the
      * timeline is empty. Previously fell back to clip 0 when nothing was selected,
      * which silently returned the WRONG clip and made the preview render clip 0's
      * crop for weeks. Callers that mean "what the playhead is on" must use
-     * {@link #clipUnderPlayhead()} instead â do not reintroduce the fallback.
+     * {@link #clipUnderPlayhead()} instead — do not reintroduce the fallback.
      */
     @Nullable
     private Clip getSelectedClip() {
@@ -878,8 +878,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§3.5 "selected = target": the clip a video verb (speed/filter/volume) should act on.
-     * When a PiP (overlay clip) is the selected LAYER item, return IT â the old code always
+     * §3.5 "selected = target": the clip a video verb (speed/filter/volume) should act on.
+     * When a PiP (overlay clip) is the selected LAYER item, return IT — the old code always
      * grabbed the master clip, so "Speed" on a selected PiP silently re-sped the video under it.
      * Non-video layer selections (text/sprite/adjustment) fall back to the master clip, which is
      * the only remaining video surface.
@@ -898,10 +898,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Whether the player is actually serving {@code clip} right now â in gapless mode, whether
+     * Whether the player is actually serving {@code clip} right now — in gapless mode, whether
      * it is the current playlist window. Any position expressed relative to a clip is only
      * meaningful to a player holding that clip, so this is the question a seek has to be able
-     * to ask (LEDGER Â§2a).
+     * to ask (LEDGER §2a).
      */
     private boolean playerHoldsClip(@Nullable Clip clip) {
         return clip != null && playerManager != null
@@ -941,13 +941,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Returns the total effective VISUAL video duration â the sum of each clip's on-timeline
+     * Returns the total effective VISUAL video duration — the sum of each clip's on-timeline
      * length INCLUDING its loop/ping-pong/still extensions (a looped clip contributes its full
      * {@link Clip#getVisualDurationMs()}, not just its trimmed pass). This is the "video track
      * ends here" boundary the audio-tail feature gates on (see {@code btnPlayPause} / the playback
      * tick): if this undercounted the real timeline (as it did when it summed only
-     * {@code getTrimmedDurationMs()}), pressing Play while paused INSIDE a loop extension â whose
-     * back half sits past the sum-of-trimmed value â wrongly entered audio-tail mode (video frozen,
+     * {@code getTrimmedDurationMs()}), pressing Play while paused INSIDE a loop extension — whose
+     * back half sits past the sum-of-trimmed value — wrongly entered audio-tail mode (video frozen,
      * playhead driven purely by wall-clock) instead of resuming real ExoPlayer playback. Mirrors
      * the {@code hasLoopExtension() ? getVisualDurationMs() : getTrimmedDurationMs()} convention
      * already used elsewhere in this file (e.g. the STILL-extension cumulative math ~6978).
@@ -993,7 +993,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Tell the VIEW its new selection BEFORE anything reads or writes segment data
         // through it. Everything below resolves against EditorTimelineView.selectedIndex,
         // which used to still hold the PREVIOUS selection until the setTimeline() call at
-        // the very end of this method â so a selection change corrupted itself twice:
+        // the very end of this method — so a selection change corrupted itself twice:
         //   1. setTrimFromClip() writes SegmentData built from the NEW clip into the OLD
         //      segment's slot, after which getSegmentStartTimeMs() sums the wrong
         //      durations, and
@@ -1121,7 +1121,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Data-driven bottom tools carousel (Stage 1) ââââââââââââââââââ
+    // ── Data-driven bottom tools carousel (Stage 1) ──────────────────
     /**
      * Builds the bottom tools carousel from {@link
      * com.fadcam.ui.faditor.tools.FaditorToolRegistry}. Each generated cell
@@ -1214,11 +1214,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
-    // ââ Lifecycle ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Lifecycle ────────────────────────────────────────────────────
 
     @Override
     public boolean dispatchTouchEvent(@NonNull MotionEvent ev) {
-        // Â§3a eyedropper â one-shot, and it must be taken HERE. Five sibling overlay layers
+        // §3a eyedropper — one-shot, and it must be taken HERE. Five sibling overlay layers
         // sit above the PiP view in the layout and the text layer swallows preview taps, so a
         // dropper armed inside that view is never called at all. Disarms whatever the outcome:
         // an armed dropper surviving a miss would eat the user's next real gesture. The event
@@ -1232,7 +1232,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // DIVIDE BY THE SCALE. getLocationOnScreen is matrix-aware and returns the scaled
             // top-left, but the delta from it is still in SCREEN pixels while sampleAt wants
             // this view's own. The dropper is only ever armed from the chroma tab, so the
-            // drawer that shrinks player_container is open by construction â every pick was
+            // drawer that shrinks player_container is open by construction — every pick was
             // sampling too near the top of the frame, and a tap past the scale fraction
             // sampled outside it entirely.
             float ui = com.fadcam.ui.faditor.overlay.UiScale.of(overlayVideoLayer);
@@ -1278,7 +1278,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // Re-show the browser now that we have a pinned directory
                         showAssetBrowser();
                     } else {
-                        // User cancelled â clear relink mode
+                        // User cancelled — clear relink mode
                         relinkPendingIndex = -1;
                     }
                 });
@@ -1371,7 +1371,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     importSlideHtml(html, "external-file");
                 });
 
-        // ââ True fullscreen: hide status bar and nav bar ââââââââââââ
+        // ── True fullscreen: hide status bar and nav bar ────────────
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
@@ -1403,7 +1403,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void scheduleBaselineRefresh(@NonNull Runnable r) {
                 // Post to the main looper so the rolling baseline is captured AFTER the current
-                // edit handler unwinds â i.e. it reflects the final post-edit state regardless
+                // edit handler unwinds — i.e. it reflects the final post-edit state regardless
                 // of whether the call site recorded before or after mutating (audit 1.6).
                 autoSaveHandler.post(r);
             }
@@ -1422,7 +1422,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 warnIfItemsSkipped(loaded, projectId, openBackup);
 
                 // T8: split any legacy sprites that share one lane (pre-T8 placements all
-                // left layerId=null â one overlapping "sprite" track). Idempotent + purely
+                // left layerId=null → one overlapping "sprite" track). Idempotent + purely
                 // model-level, so it is safe here before the timeline view is wired up; the
                 // deterministic lane ids persist on the next autosave.
                 int movedSprites = project.getTimeline().migrateSpriteLayers();
@@ -1430,11 +1430,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     FLog.i(TAG, "T8 sprite-layer migration: moved " + movedSprites
                             + " overlapping sprite(s) to their own lanes");
                 }
-                // Â§4.5: per-layer eye/lock retired â push any persisted track flags down
+                // §4.5: per-layer eye/lock retired — push any persisted track flags down
                 // onto the objects so nothing is stuck hidden with the gutter toggle gone.
                 int eyeLockMigrated = project.getTimeline().migrateTrackEyeLockToObjects();
                 if (eyeLockMigrated > 0) {
-                    FLog.i(TAG, "Â§4.5 eye/lock migration: " + eyeLockMigrated
+                    FLog.i(TAG, "§4.5 eye/lock migration: " + eyeLockMigrated
                             + " track flag(s) pushed onto their objects");
                 }
                 // Slice F: enforce the no-overlap invariant on text overlay lanes (two text overlays
@@ -1446,7 +1446,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             + " overlapping text overlay(s) onto their own lanes");
                 }
                 // Slice F: same no-overlap invariant for PiP / video-overlay lanes (two PiPs could share
-                // a lane and overlap in time) â completes text/sprite/audio/PiP coverage. Model-level +
+                // a lane and overlap in time) — completes text/sprite/audio/PiP coverage. Model-level +
                 // idempotent; deterministic "video-<id>" lane ids persist on the next autosave.
                 int movedVideo = project.getTimeline().enforceNoOverlapVideoLanes();
                 if (movedVideo > 0) {
@@ -1459,8 +1459,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 com.fadcam.ui.faditor.project.ExitDiagnostics.report(getApplicationContext());
                 // INTEGRITY: does everything this project points at still OPEN? Nothing asked
                 // before, so a project whose source was deleted, moved, or had its permission
-                // grant revoked opened looking perfectly normal â right clips, right lengths,
-                // right thumbnails (they live in the project dir, not the source) â and the user
+                // grant revoked opened looking perfectly normal — right clips, right lengths,
+                // right thumbnails (they live in the project dir, not the source) — and the user
                 // found out at preview, or at export after paying the render. The answer was
                 // available at open the whole time. Reports only; see ProjectIntegrity's class doc
                 // for why repairing would be worse than reporting.
@@ -1481,13 +1481,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     for (com.fadcam.ui.faditor.project.ProjectIntegrity.Missing m : rep.missing) {
                         FLog.w(TAG, "INTEGRITY missing: " + m.label + " -> " + m.uri);
                         if (sb.length() > 0) sb.append(System.lineSeparator());
-                        sb.append("â¢ ").append(m.label);
+                        sb.append("• ").append(m.label);
                     }
                     final String body = sb.toString();
                     final int n = rep.missing.size();
                     // DELAYED, not immediate. Fired straight from the load path the dialog was
                     // lost: the editor is still opening its own sheets at that moment (the Media
-                    // Catalog among them) and the warning never reached the screen â verified by
+                    // Catalog among them) and the warning never reached the screen — verified by
                     // a uiautomator dump finding no dialog while the log showed the scan had found
                     // the missing file. A warning the user never sees is the same as no warning,
                     // and worse than none because it reads as covered.
@@ -1509,10 +1509,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                 // B9: an audio-only saved project has NO spine clip to resolve, remux or
                 // feed the player. Everything from here to continueLoadFromSavedProject
-                // assumes clip 0 exists, so take the player-less branch instead â the audio
+                // assumes clip 0 exists, so take the player-less branch instead — the audio
                 // lanes load exactly as they saved. The opening overlay is NOT shown here:
                 // it dismisses on the player's first STATE_READY, which never fires without
-                // a player â it would cover the editor forever.
+                // a player — it would cover the editor forever.
                 if (project.getTimeline().getClipCount() == 0) {
                     wireBookmarks();
                     continueLoadFromSavedProject();
@@ -1530,7 +1530,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // Always prefer file:// URI for reliable seeking
                         playUri = Uri.fromFile(sourceFile);
                         // Saved projects never kicked a remux, so a fragmented source played
-                        // RAW forever (sticky seeks / slow prepare on long recordings â JoyRaptor's
+                        // RAW forever (sticky seeks / slow prepare on long recordings — JoyRaptor's
                         // 45-min lecture, 2026-07-16). F1: the deferred background remux is
                         // now centralized in scheduleBackgroundRemux (same 120s round-3
                         // deferral, deduped with resolvePlaybackUri's own scheduling).
@@ -1539,16 +1539,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         }
                     }
                 }
-                // KineMaster-playhead lane: bookmarks sidecar â view (+ persist-on-change).
+                // KineMaster-playhead lane: bookmarks sidecar → view (+ persist-on-change).
                 wireBookmarks();
 
-                // Honest loading indicator while a (possibly long) source parses â the
+                // Honest loading indicator while a (possibly long) source parses — the
                 // overlay drops on the player's first STATE_READY. Long fMP4 recordings
                 // used to look like a frozen black screen here (JoyRaptor 2026-07-16).
                 openingOverlayPending = true;
                 showRemuxProgress();
                 if (remuxProgressText != null) remuxProgressText.setText(
-                        "Opening projectâ¦"); // TODO(strings): rebrand-freeze rule
+                        "Opening project…"); // TODO(strings): rebrand-freeze rule
                 continueLoadFromSavedProject();
                 FLog.d(TAG, "Editor opened saved project: " + projectId);
                 return;
@@ -1556,7 +1556,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             FLog.w(TAG, "Could not load saved project: " + projectId + ", falling back");
         }
 
-        // G21: a BLANK AUDIO start is legal â no video pick, empty spine. The editor's own
+        // G21: a BLANK AUDIO start is legal — no video pick, empty spine. The editor's own
         // content door (the Add sheet) opens so the first thing on screen is how to add audio.
         if (getIntent().getBooleanExtra(EXTRA_START_BLANK_AUDIO, false)) {
             startBlankAudioProject();
@@ -1583,15 +1583,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * G21/B9 â enter the editor with an EMPTY project: no spine clip, no player, timeline
+     * G21/B9 — enter the editor with an EMPTY project: no spine clip, no player, timeline
      * waiting for imported audio. The Add sheet opens immediately because for an audio-first
      * user the first act is always "add audio", and the sheet is the editor's own door for
-     * that â landing on a bare timeline with no hint would read as broken (the G18 lesson at
+     * that — landing on a bare timeline with no hint would read as broken (the G18 lesson at
      * entry scale).
      *
      * <p>Everything downstream already tolerates a zero-clip spine: the renderer no-ops on
      * empty rows, {@code getSelectedClip()} null-guards, and the audio-only export path
-     * (B9) builds a valid Composition from the audio lanes alone â see SPEC B9's engine
+     * (B9) builds a valid Composition from the audio lanes alone — see SPEC B9's engine
      * note. No player is created; there is nothing to play until audio lands.</p>
      */
     private void startBlankAudioProject() {
@@ -1606,14 +1606,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         saveProjectNow();
         FLog.i(TAG, "G21: blank audio project started");
         Toast.makeText(this,
-                "Blank project â add audio to begin",      // TODO(strings)
+                "Blank project — add audio to begin",      // TODO(strings)
                 Toast.LENGTH_LONG).show();
         showAddAssetPicker();
     }
 
     /**
      * B9: whether a saved project carries anything loadable. The old gate was
-     * {@code !timeline.isEmpty()} â spine clips ONLY, so a saved AUDIO-ONLY project (the
+     * {@code !timeline.isEmpty()} — spine clips ONLY, so a saved AUDIO-ONLY project (the
      * kind G21 now makes creatable) read as empty and the loader fell through to the
      * new-project path, which finished the activity for lack of a video URI. A podcast
      * project that could never be reopened is not storage, it is a bit bucket.
@@ -1622,7 +1622,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return !p.getTimeline().isEmpty() || p.getTimeline().hasAudioClips();
     }
 
-    // ââ B9: audio-only preview reclaim ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── B9: audio-only preview reclaim ──────────────────────────────────────────────────
 
     /** Whether the audio-only layout is currently applied (edge-triggered, lazy off the tick). */
     private boolean audioOnlyLayoutApplied = false;
@@ -1633,7 +1633,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Make the TIMELINE the subject of an audio-only project. A blank start otherwise opens
      * a video-shaped editor around an empty spine: half the screen is a black player that
      * can never show anything. When there is no picture, {@code player_container} goes away
-     * entirely â the timeline band (whose audio rows ARE waveforms) takes the whole middle â
+     * entirely — the timeline band (whose audio rows ARE waveforms) takes the whole middle —
      * and the band cap widens so the extra room is actually usable. Re-evaluated lazily on
      * every playhead tick and self-reversing: the moment a spine clip exists again (video
      * added, undo of a delete), the editor reverts to the standard split with the user's own
@@ -1681,7 +1681,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 && project != null
                 && project.getId().equals(
                     com.fadcam.ui.faditor.ai.AIChatState.modifiedProjectId)) {
-            FLog.i(TAG, "AI modified project on disk â reloading from storage");
+            FLog.i(TAG, "AI modified project on disk — reloading from storage");
             String aiWhat = com.fadcam.ui.faditor.ai.AIChatState.modifiedDescription;
             com.fadcam.ui.faditor.ai.AIChatState.clearModified();
 
@@ -1690,7 +1690,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         projectStorage.load(project.getId());
                 if (reloaded != null && !reloaded.getTimeline().isEmpty()) {
                     // The AI's work becomes ONE undoable step, and it has to be captured
-                    // from the state we are still holding â i.e. BEFORE the swap below.
+                    // from the state we are still holding — i.e. BEFORE the swap below.
                     // Snapshot-based on purpose: the AI edited a separate copy on disk, so
                     // no EditAction can describe it against the live object graph.
                     boolean aiStepRecorded = undoManager.recordAiCheckpoint(
@@ -1725,14 +1725,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to reload project after AI edits", e);
-                Toast.makeText(this, "AI edits saved â reopen project to see them",
+                Toast.makeText(this, "AI edits saved — reopen project to see them",
                         Toast.LENGTH_LONG).show();
             }
         }
 
         // Files can change while we are backgrounded (the user goes to a file manager, or to the
         // sprite-sheet editor and relinks). Missing-frame state is cached to keep it off the draw
-        // path, so this is the moment to let it be re-asked â lazily, on the next thing that needs
+        // path, so this is the moment to let it be re-asked — lazily, on the next thing that needs
         // it, not by re-statting anything here.
         invalidateSpriteMissingState();
 
@@ -1750,7 +1750,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         hideTransitionPreview();
         // M-COMP-2: park the overlay decoder while backgrounded.
         if (overlayVideoLayer != null) overlayVideoLayer.pausePlayback();
-        // Save project on pause (e.g. user switches away) â force-flush undo history.
+        // Save project on pause (e.g. user switches away) — force-flush undo history.
         saveProjectNow(true);
     }
 
@@ -1761,7 +1761,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         if (silenceDetector != null) silenceDetector.shutdown();
         // Do NOT kill a transcription that is still running. This shutdown() is what threw away
-        // a 20-minute Whisper/Accurate run when the user closed the editor on it (2026-07-28) â
+        // a 20-minute Whisper/Accurate run when the user closed the editor on it (2026-07-28) —
         // the engine's single-thread executor was torn down mid-job and the half-built version
         // was left behind with zero words. A run now keeps going, kept alive by the foreground
         // AIJobService started in startTranscription(), and persists its result itself; the
@@ -1771,7 +1771,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 transcriptionEngine.shutdown();
             } else {
                 FLog.i(TAG, "Editor closing with " + activeTranscriptionModels.size()
-                        + " transcription(s) in flight â leaving the engine running");
+                        + " transcription(s) in flight — leaving the engine running");
             }
         }
         if (waveformExtractor != null) waveformExtractor.shutdown();
@@ -1799,7 +1799,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         spriteRendererCache.clear();
         saveProjectNow(true);
-        // Stop listening for export status but do NOT cancel â the :export process
+        // Stop listening for export status but do NOT cancel — the :export process
         // continues on its own and reports via the system notification.
         if (exportEventsReceiverRegistered) {
             try {
@@ -1823,7 +1823,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Initialization âââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Initialization ───────────────────────────────────────────────
 
     @Nullable
     private Uri parseVideoUri() {
@@ -1879,7 +1879,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         imagePreview = findViewById(R.id.image_preview);
         slidePreview = findViewById(R.id.slide_preview);
         if (slidePreview != null) {
-            // JoyRaptor 2026-07-16: double-tap the slide in the preview â its code
+            // JoyRaptor 2026-07-16: double-tap the slide in the preview → its code
             // editor (view / tweak / paste-replace the HTML, then re-render).
             slidePreview.setOnDoubleTapListener(this::showSlideCodeSheetForCurrentSlide);
         }
@@ -1909,7 +1909,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onTrimChanged(int segmentIndex, float startFraction, float endFraction, boolean isLeft) {
                 if (!userDragging) {
-                    // First drag callback â capture pre-trim values for undo â target the clip being trimmed
+                    // First drag callback — capture pre-trim values for undo — target the clip being trimmed
                     Clip clip = project != null ? project.getTimeline().getClip(segmentIndex) : null;
                     if (clip != null) {
                         preTrimInMs = clip.getInPointMs();
@@ -1970,7 +1970,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 endStructuralEdit(anchorsBeforeTrim, "trim");
                 editorTimeline.setTrimFromClip(clip);
                 if (!clip.isImageClip()) {
-                    // RANK-1c: trim-edge drag rebuilds the playlist â advance the generation so a
+                    // RANK-1c: trim-edge drag rebuilds the playlist — advance the generation so a
                     // bake kicked before this drag discards its stale auto-promote.
                     rebuildGeneration++;
                     playerManager.updateTrimBounds(clip);
@@ -1978,18 +1978,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // EXACT during the trim-edge preview) and land on the new in-frame.
                     playerManager.setExactSeek(false);
                 }
-                // L2: a trim changes in/out â the reverse-bake key changes â the OLD baked file no
+                // L2: a trim changes in/out → the reverse-bake key changes → the OLD baked file no
                 // longer matches (cache miss), so a PING_PONG clip drops to forward-tail until a
                 // fresh bake for the new range lands and rebuilds the playlist. Kick that re-bake.
                 kickReverseBakeIfNeeded(clip);
                 // Slide stretch (JoyRaptor 2026-07-16): a slide's trim window IS its
-                // animation window, so the baked MP4 is now stale â re-render.
+                // animation window, so the baked MP4 is now stale — re-render.
                 if (clip.isGeneratedSlide()) {
                     loadedSlideClipId = null;
                     renderSlidesInBackground();
                 }
                 // Re-derive the playhead from the TAPE (which a trim drag never moves)
-                // instead of passing 0 â 0 means "position 0 within this segment", i.e. it
+                // instead of passing 0 — 0 means "position 0 within this segment", i.e. it
                 // parked the editor's whole notion of the playhead at the clip's START
                 // after every trim, which then read back as a jump on the next play.
                 // Clamped into the new trimmed range in case the edge was dragged past it.
@@ -2072,7 +2072,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {
                 // NOTE: as of the resize-revert fix, a loop-extension edge drag fires THIS callback
-                // ONLY (never onTrimFinished â see EditorTimelineView ACTION_UP), because the clip's
+                // ONLY (never onTrimFinished — see EditorTimelineView ACTION_UP), because the clip's
                 // in/out points did not change (they were pinned to source bounds while the handle
                 // moved the overshoot into loopBefore/loopAfter). So this handler owns all the
                 // end-of-drag bookkeeping onTrimFinished used to do for this case.
@@ -2085,7 +2085,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         clip.getLoopMode(), newBefore, newAfter));
                 // A resized extension changes this clip's on-timeline span, so everything after it
                 // moves. The drag wrote the new values to the model as it went, so there is nothing
-                // left to bracket AROUND â the pre-drag lengths are put back for the length of one
+                // left to bracket AROUND — the pre-drag lengths are put back for the length of one
                 // capture and immediately restored, which costs two setters and makes the delta
                 // real. Capturing without this would compare the new state against itself and
                 // ripple nothing, which is precisely how a drag ends up silently desyncing.
@@ -2101,7 +2101,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // NORMAL loop) or so a stored PING_PONG clip stays correctly on the legacy
                 // forward-tail path (parked). This applies + persists the resized extension.
                 if (!clip.isImageClip()) {
-                    // RANK-1c: loop-edge resize rebuilds the playlist â advance the generation so a
+                    // RANK-1c: loop-edge resize rebuilds the playlist — advance the generation so a
                     // bake kicked before this resize discards its stale auto-promote (the old
                     // resize-revert race the parking commit called out).
                     rebuildGeneration++;
@@ -2119,13 +2119,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onPlayheadSeeked(int segmentIndex, float fractionInSegment, boolean isDragging) {
                 loopVisualOffsetMs = 0;
                 loopStillExtensionStartMs = -1;
-                // Only a real DRAG latches. A discrete seek (isDragging=false â a tap, a
+                // Only a real DRAG latches. A discrete seek (isDragging=false — a tap, a
                 // tap-a-word jump) has no matching drag-finished edge to clear it, so latching
                 // there could freeze the playhead with no finger ever on screen.
                 userDragging = isDragging;
                 audioTailActive = false;  // Cancel audio-tail on seek
-                // Get clip directly â DON'T call selectSegment() during scrubbing.
-                // selectSegment triggers setPlayheadFraction â centerPlayhead which
+                // Get clip directly — DON'T call selectSegment() during scrubbing.
+                // selectSegment triggers setPlayheadFraction → centerPlayhead which
                 // modifies scrollOffsetPx, causing a feedback loop that makes the
                 // timeline bounce between segments.
                 Timeline tl = project.getTimeline();
@@ -2134,19 +2134,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (clip == null) return;
                 final int previousSelection = selectedClipIndex;
 
-                // SELECTION FOLLOWS THE PLAYHEAD â during a drag too (LEDGER Â§2a).
+                // SELECTION FOLLOWS THE PLAYHEAD — during a drag too (LEDGER §2a).
                 // The INDEX and the MEDIA LOAD are two different costs and used to be tied
                 // together: because loading a clip mid-drag snaps the preview at every split
                 // point, this block was gated on !isDragging, which left selectedClipIndex
-                // pointing at the clip the drag STARTED on. Everything downstream â
+                // pointing at the clip the drag STARTED on. Everything downstream —
                 // getAbsolutePlayheadMs(), updateCurrentTimeDisplay() and the whole overlay time
-                // base, and the seek arithmetic below â resolves against selectedClipIndex, so a
+                // base, and the seek arithmetic below — resolves against selectedClipIndex, so a
                 // crossing produced positions in ONE clip's coordinate space and handed them to a
                 // player holding ANOTHER. Measured on the Note 9 2026-07-28: a single backward
                 // drag out of a 500ms clip into a 3051ms one emitted 22 seeks running
-                // rel=582â¦2886 into a 500ms window (SEEKRANGE, all from this method). Each clamps
+                // rel=582…2886 into a 500ms window (SEEKRANGE, all from this method). Each clamps
                 // to the out point, so the player runs out, reaches ENDED with play still
-                // switched on, and parks â the "playback stops mid-timeline and only recovers by
+                // switched on, and parks — the "playback stops mid-timeline and only recovers by
                 // scrubbing back to zero" report. It is also the `sel=3 segAtHead=2` divergence.
                 // The index is free, so it moves now; only the LOAD stays deferred, and
                 // pendingClipSwapAfterDrag makes onPlayheadDragFinished do it exactly once, for
@@ -2161,8 +2161,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         pendingClipSwapAfterDrag = true;
                     }
                 }
-                // The preview/media swap keeps its ORIGINAL trigger â "the playhead moved to a
-                // clip other than the one that was selected on entry, and this is not a drag" â
+                // The preview/media swap keeps its ORIGINAL trigger — "the playhead moved to a
+                // clip other than the one that was selected on entry, and this is not a drag" —
                 // hence previousSelection rather than the (now already updated) field.
                 if (segmentIndex != previousSelection && !isDragging) {
                     pendingClipSwapAfterDrag = false;
@@ -2221,14 +2221,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         updateCurrentTimeDisplay(seekPosition);
                         return;
                     }
-                    // â  TAP LATENCY IS REAL BUT NOT FIXED HERE â a first attempt was
+                    // ⚠ TAP LATENCY IS REAL BUT NOT FIXED HERE — a first attempt was
                     // REVERTED on 2026-08-04 because it made the problem WORSE.
                     //
                     // The measurement stands: a tap seeks EXACTly, which decodes forward from the
                     // previous keyframe, and this project measured keyframes ~1.0s apart. But the
                     // fix (fast seek + a delayed exact settle) does not help, because
                     // seekToTimelineMs calls onPlayheadSeeked and then onPlayheadDragFinished on
-                    // the very next line, and THAT does an unconditional exact seek â with onUp
+                    // the very next line, and THAT does an unconditional exact seek — with onUp
                     // firing it a second time. A tap therefore already costs TWO exact decodes;
                     // adding a settle made it four.
                     //
@@ -2243,9 +2243,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // is only meaningful to a player holding THIS clip. Gapless serves every clip
                     // from one playlist, so it just homes to the right window and the preview
                     // stays correct across the whole drag. On the legacy single-clip path the
-                    // seek is REFUSED while the drag is still over a clip that isn't loaded â
+                    // seek is REFUSED while the drag is still over a clip that isn't loaded —
                     // holding the last rendered frame is honest, where applying the position to
-                    // the wrong clip parked the player at its out point (LEDGER Â§2a). The load
+                    // the wrong clip parked the player at its out point (LEDGER §2a). The load
                     // then happens once, on the clip the drag ends on, in
                     // onPlayheadDragFinished.
                     playerManager.seekInClip(clip, seekPosition);
@@ -2265,9 +2265,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 updateSplitHealButton();
                 seekAudioPlayersToPlayhead();
 
-                // G5 â transcript panel re-resolve: if panel is open and playhead has
+                // G5 — transcript panel re-resolve: if panel is open and playhead has
                 // LEFT the current transcript's clip span, re-resolve to follow the playhead.
-                // No pin toggle â scrubbing inside the current clip keeps it; leaving follows.
+                // No pin toggle — scrubbing inside the current clip keeps it; leaving follows.
                 if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE
                         && transcriptClipId != null) {
                     if (transcriptIsForAudio) {
@@ -2305,7 +2305,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onPlayheadDragFinished() {
                 // Was this actually a drag? userDragging is set only by the real drag path
                 // (onPlayheadDragStarted), so a plain tap arrives here with it FALSE. Read it
-                // before clearing, and use it to skip the exact-seek settle below â see the note
+                // before clearing, and use it to skip the exact-seek settle below — see the note
                 // there for why a tap paid for two extra keyframe decodes without this.
                 final boolean wasRealDrag = userDragging;
                 userDragging = false;
@@ -2313,7 +2313,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // Now that drag is finished, check if we crossed into a different segment
                 // If so, load that clip now (we skipped it during the drag to avoid snapping).
                 // The SELECTION now follows the playhead live (see onPlayheadSeeked), so the
-                // index comparison alone can no longer detect a crossing â pendingClipSwapAfterDrag
+                // index comparison alone can no longer detect a crossing — pendingClipSwapAfterDrag
                 // carries that fact across the drag. It only forces a load when the player is not
                 // already serving the clip the drag ended on, so crossing out of a clip and back
                 // into it does not re-prepare the source it is still holding.
@@ -2384,12 +2384,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                 // Frame-accurate settle: drag-scrubbing uses fast KEYFRAME seeking, so
                 // when the finger lifts the preview is sitting on the nearest keyframe,
-                // not the exact frame â which made it impossible to line a cut/transition
+                // not the exact frame — which made it impossible to line a cut/transition
                 // up to a music beat by eye. Re-seek EXACTly to the final playhead frame.
                 //
-                // â  ONLY AFTER A REAL DRAG. This handler runs on plain TAPS too â seekToTimelineMs
+                // ⚠ ONLY AFTER A REAL DRAG. This handler runs on plain TAPS too — seekToTimelineMs
                 // calls onPlayheadSeeked and then this on the very next line, and onUp fires it
-                // again â so a tap that had ALREADY seeked exactly then paid for two MORE exact
+                // again — so a tap that had ALREADY seeked exactly then paid for two MORE exact
                 // decodes. With keyframes ~1.0s apart that is most of the tap latency JoyRaptor
                 // reported on the Note 20. A tap needs no settle: its own seek was already exact.
                 if (!wasRealDrag) {
@@ -2413,7 +2413,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
                 seekAudioPlayersToPlayhead();
 
-                // G5 â same re-resolve logic as onPlayheadSeeked
+                // G5 — same re-resolve logic as onPlayheadSeeked
                 if (transcriptPanel != null && transcriptPanel.getVisibility() == View.VISIBLE
                         && transcriptClipId != null) {
                     if (transcriptIsForAudio) {
@@ -2457,7 +2457,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 selectSegment(toIndex);
                 syncTimelineOverlays();
                 editorTimeline.invalidate();
-                // GAPLESS: playlist order is stale â rebuild and home to the moved clip. No-op legacy.
+                // GAPLESS: playlist order is stale — rebuild and home to the moved clip. No-op legacy.
                 Clip movedClip = toIndex >= 0 && toIndex < tl.getClipCount()
                         ? tl.getClip(toIndex) : null;
                 resyncGaplessAfterStructuralEdit(movedClip != null ? movedClip.getId() : null, 0L, false);
@@ -2480,8 +2480,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public String onClipDislodgeRequested(int segmentIndex) {
-                // Â§3A.5b â hold armed it, a vertical pull committed it. Reuses the SAME model op
-                // and undo path as the Move drawer's â button, so the gesture and the button can
+                // §3A.5b — hold armed it, a vertical pull committed it. Reuses the SAME model op
+                // and undo path as the Move drawer's ↑ button, so the gesture and the button can
                 // never drift apart in behaviour.
                 if (project == null) return null;
                 if (segmentIndex < 0 || segmentIndex >= project.getTimeline().getClipCount()) {
@@ -2495,7 +2495,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onClipCarriedToLayer(int segmentIndex, long atMs, String laneId,
                                              long trimToMs, boolean newLane) {
                 // ONE mutation for the whole gesture. moveSelectedClipToLayer already records its
-                // own undo entry, so this needs no merge â which is the point of committing at
+                // own undo entry, so this needs no merge — which is the point of committing at
                 // release instead of at pull-up.
                 if (project == null) return;
                 if (segmentIndex < 0 || segmentIndex >= project.getTimeline().getClipCount()) return;
@@ -2510,16 +2510,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // TRIM TO FIT. The card was drawn narrowed to exactly this length and
                         // outlined in red with scissors, so the user chose this knowingly.
                         //
-                        // â  This mutation happens AFTER moveSelectedClipToLayer() recorded its
+                        // ⚠ This mutation happens AFTER moveSelectedClipToLayer() recorded its
                         // undo entry, so it is outside that entry. Device-verified failure before
-                        // this fix: trim a 5526ms clip to 1000ms, press undo â the clip returned
+                        // this fix: trim a 5526ms clip to 1000ms, press undo — the clip returned
                         // to the spine STILL 1000ms. Undo moved it back and silently kept the cut,
                         // so the only destructive path here was also the only unrecoverable one.
                         // (The comment that used to sit here asserted the opposite. It was wrong,
                         // and asserting it is presumably why nobody checked.)
                         //
                         // amendTopAction folds the restore into the demote's entry, so it stays
-                        // ONE press â the same mechanism, and the same reasoning, as the dislodge
+                        // ONE press — the same mechanism, and the same reasoning, as the dislodge
                         // merge in 4caa631.
                         final Clip trimmed = oc;
                         final long beforeOut = oc.getOutPointMs();
@@ -2532,8 +2532,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 () -> trimmed.setOutPointMs(beforeOut)));
                     }
                     if (newLane) {
-                        // NO ROOM. Timeline documents the invariant for text lanes â "it must be
-                        // IMPOSSIBLE for two items to overlap on one lane" â and packs overflow
+                        // NO ROOM. Timeline documents the invariant for text lanes — "it must be
+                        // IMPOSSIBLE for two items to overlap on one lane" — and packs overflow
                         // onto a fresh sub-lane. Clips get the same treatment rather than silently
                         // stacking, which is what this drop used to do. Deterministic id so undo
                         // and redo land on the same lane instead of minting a new one each time.
@@ -2545,7 +2545,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
                 // ENFORCE THE INVARIANT IN-SESSION, not just on load. enforceNoOverlapVideoLanes
                 // already runs at open (:1276), so a stacked pair silently repaired itself the
-                // NEXT time the project was opened â meaning the whole editing session showed a
+                // NEXT time the project was opened — meaning the whole editing session showed a
                 // state the model says is impossible. The gesture's own resolution is a PREVIEW
                 // and can be wrong (it resolved against a null lane when the row layout shifted
                 // mid-drag); this is the authority, and it is idempotent, so calling it here costs
@@ -2572,7 +2572,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onDislodgeAdopted() {
                 // The demote is already on the undo stack; fold the coming drop into it so the
-                // whole dislodge-and-place is one press. Â§3A.5b.
+                // whole dislodge-and-place is one press. §3A.5b.
                 if (undoManager != null) undoManager.mergeNextIntoTop();
             }
 
@@ -2592,7 +2592,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void onReorderModeChanged(boolean entering) {
                 // Hide/show bottom toolbar during reorder mode
-                // Skip timeline_scroll (first HorizontalScrollView) â target the bottom toolbar
+                // Skip timeline_scroll (first HorizontalScrollView) — target the bottom toolbar
                 HorizontalScrollView toolbar = null;
                 LinearLayout controlsSection = findViewById(R.id.controls_section);
                 if (controlsSection != null) {
@@ -2647,7 +2647,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
                 // The drag may have dropped a PiP or a text on top of another object on the same
                 // lane. enforceNoOverlapVideoLanes ran only at OPEN, so the overlap survived the
-                // whole session and the two objects drew stacked on one row â the "stacked PiP
+                // whole session and the two objects drew stacked on one row — the "stacked PiP
                 // bands after two Move PiP actions" that was reported, captured and never
                 // explained. Enforced here too, and undoably.
                 enforceLaneInvariantUndoably();
@@ -2706,7 +2706,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // TODO(strings): externalize this toast text.
                 if (editorTimeline != null && editorTimeline.wasLastTransitionDragSpanClamped()) {
                     String msg = "Limited to " + String.format(java.util.Locale.US, "%.1fs", durationMs / 1000f)
-                            + " â the clips at this seam aren't long enough for more";
+                            + " — the clips at this seam aren't long enough for more";
                     Toast.makeText(FaditorEditorActivity.this, msg, Toast.LENGTH_SHORT).show();
                 }
             }
@@ -2904,7 +2904,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         btnRedo.setOnClickListener(v -> performRedo());
         btnUndo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
         btnRedo.setOnLongClickListener(v -> { showUndoRedoHistoryPopup(v); return true; });
-        // G13: voiceover mic on transport â direct R.id (R.jar lock fixed, no getIdentifier workaround)
+        // G13: voiceover mic on transport — direct R.id (R.jar lock fixed, no getIdentifier workaround)
         btnVoiceover = findViewById(R.id.btn_voiceover);
         if (btnVoiceover != null) {
             btnVoiceover.setOnClickListener(v -> {
@@ -2917,7 +2917,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         btnRelinkMedia.setOnClickListener(v -> handleLinkTap());
         btnRelinkMedia.setOnLongClickListener(v -> { showLinkOptions(); return true; });
         if (btnSoftSnap != null) {
-            // G14: magnet is GLOBAL snap â green when on, grey when off; long-press lists all snaps
+            // G14: magnet is GLOBAL snap — green when on, grey when off; long-press lists all snaps
             btnSoftSnap.setOnClickListener(v -> toggleGlobalSnap());
             btnSoftSnap.setOnLongClickListener(v -> { showSnapList(); return true; });
             updateGlobalSnapButton();
@@ -2976,7 +2976,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         View toolCompact = findViewById(R.id.tool_compact);
         if (toolCompact != null) toolCompact.setOnClickListener(v -> compactLayers());
-        // G8 (contract Â§5.5): three-state marquee multi-select toggle.
+        // G8 (contract §5.5): three-state marquee multi-select toggle.
         View toolSelect = findViewById(R.id.tool_select);
         if (toolSelect != null) toolSelect.setOnClickListener(v -> cycleMarqueeMode());
         // JoyRaptor 2026-07-19: promoted transport-row twin of the select toggle.
@@ -3013,7 +3013,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             timeCurrent.setOnClickListener(v -> showSeekToTimeDialog());
         }
 
-        // Close button â show confirmation bottom sheet
+        // Close button — show confirmation bottom sheet
         findViewById(R.id.btn_close).setOnClickListener(v -> {
             if (inCropMode) {
                 exitCropMode(false);
@@ -3022,10 +3022,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             showCloseConfirmation();
         });
 
-        // Asset Browser button â opens the pinned-folder asset panel
+        // Asset Browser button — opens the pinned-folder asset panel
         findViewById(R.id.btn_asset_browser).setOnClickListener(v -> showAssetBrowser());
 
-        // AI Assistant button â opens the chat assistant with project context
+        // AI Assistant button — opens the chat assistant with project context
         findViewById(R.id.btn_ai_assistant).setOnClickListener(v -> {
             Intent intent = new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class);
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID,
@@ -3061,7 +3061,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             // Show progress and remux async
             showRemuxProgress();
-            FLog.i(TAG, "Remuxing fragmented MP4 for seekable previewâ¦");
+            FLog.i(TAG, "Remuxing fragmented MP4 for seekable preview…");
 
             remuxer.remuxAsync(sourceFile, new FragmentedMp4Remuxer.RemuxCallback() {
                 @Override
@@ -3090,7 +3090,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
             });
         } else {
-            // No remux needed â still use file:// URI when available for
+            // No remux needed — still use file:// URI when available for
             // reliable seeking and duration extraction.
             continueLoadWithUri(fileUri, videoUri);
         }
@@ -3148,7 +3148,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         initTimeline();
         Clip initialClip = getSelectedClip();
         if (initialClip == null) {
-            // B9: an audio-only project has NO spine clip â there is nothing to feed the
+            // B9: an audio-only project has NO spine clip — there is nothing to feed the
             // player. The audio lanes below still restore, preview stays black until video
             // is added, and export runs the audio-only composition.
         } else if (initialClip.isGeneratedSlide()) {
@@ -3185,7 +3185,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Restore animated captions if a clip had them enabled.
         editorTimeline.post(this::restoreCaptionsAfterLoad);
 
-        // Restore undo history from disk â but never for a read-only (newer-schema)
+        // Restore undo history from disk — but never for a read-only (newer-schema)
         // project. Its snapshots describe edits that this build refuses to save, so
         // restoring them offers an undo stack that can only ever produce state the file
         // will not receive. Also stops any sidecar already written by a build that
@@ -3200,7 +3200,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
 
         // Transcript labels now name the trade-off ("Fast timing" / "Balanced" / "Best
-        // wording"). The label is persisted, so projects made before that carry the old names â
+        // wording"). The label is persisted, so projects made before that carry the old names —
         // rename them here or the picker shows both spellings for the same engine and dedup,
         // which keys on engine+label, stops collapsing re-runs of the same model.
         int relabelled = com.fadcam.ui.faditor.transcript.TranscriptLabelMigration.migrate(project);
@@ -3225,7 +3225,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         editorTimeline.post(this::checkMissingMedia);
     }
 
-    // ââ Relink missing media (catalog-based, Ã  la After Effects) ââââââ
+    // ── Relink missing media (catalog-based, à la After Effects) ──────
 
     private boolean isSourceAccessible(@NonNull Uri uri) {
         try {
@@ -3360,12 +3360,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     /**
      * DURABILITY (road_map Tier-1): rescue AudioClips whose PERSISTED sourceUri still points at the OLD
-     * cache dir ({@code getCacheDir()/faditor_audio}). Before the extractâgetFilesDir fix, extracted audio
+     * cache dir ({@code getCacheDir()/faditor_audio}). Before the extract→getFilesDir fix, extracted audio
      * lived in the OS-cleanable cache; those clips' URIs are persisted in project.json. For each such clip
      * whose file STILL EXISTS, copy it into the durable {@code getFilesDir()/faditor_audio} and rewrite the
      * URI so a later cache-clear can't break the track. Idempotent (a files/-based URI has no
-     * "cache/faditor_audio" segment â skipped), fully GUARDED (any per-clip failure leaves that clip's
-     * original URI untouched â never breaks loading), saves once if anything moved.
+     * "cache/faditor_audio" segment → skipped), fully GUARDED (any per-clip failure leaves that clip's
+     * original URI untouched — never breaks loading), saves once if anything moved.
      */
     private void migrateAudioClipsToDurableStorage() {
         if (project == null) return;
@@ -3378,7 +3378,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 String path = uri.getPath();
                 if (path == null || !path.contains("cache/faditor_audio")) continue;
                 java.io.File src = new java.io.File(path);
-                if (!src.exists()) continue; // cache already wiped â nothing left to rescue
+                if (!src.exists()) continue; // cache already wiped — nothing left to rescue
                 if (!durableDir.exists()) durableDir.mkdirs();
                 java.io.File dst = new java.io.File(durableDir, src.getName());
                 if (!dst.exists() || dst.length() != src.length()) {
@@ -3419,7 +3419,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     || uriStr.contains("faditor_export_src")
                     || uriStr.contains("faditor_remux")
                     || uriStr.contains("/tmp/")) {
-                // This is a cache path â the original is lost.
+                // This is a cache path — the original is lost.
                 // Mark the display name so the relink catalog can show it.
                 String displayName = clip.getDisplayName();
                 if (displayName == null) {
@@ -3432,7 +3432,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     }
                 }
                 FLog.w(TAG, "Clip " + i + " has stale cache path: " + uriStr
-                        + " â will offer relink. Recovered name: " + displayName);
+                        + " — will offer relink. Recovered name: " + displayName);
             }
         }
 
@@ -3462,7 +3462,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Timeline tl = project.getTimeline();
         for (int i = 0; i < tl.getClipCount(); i++) {
             // A generated slide's MP4 is a regenerable render cache, not source
-            // media â an unrendered slide is never "missing" (the export pre-pass
+            // media — an unrendered slide is never "missing" (the export pre-pass
             // materializes it from the authored HTML).
             if (tl.getClip(i).isGeneratedSlide()) continue;
             if (!isSourceAccessible(tl.getClip(i).getSourceUri())) count++;
@@ -3707,7 +3707,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             msg.append("\n\n").append(getString(R.string.faditor_relink_warn_same_file,
                     dupIndex + 1));
         } else if (dupIndex == -2) {
-            msg.append("\n\nâ  This file is already used by an audio clip.");
+            msg.append("\n\n⚠ This file is already used by an audio clip.");
         }
 
         // Warn about duration mismatch
@@ -3766,7 +3766,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /** Apply the relink: replace the clip/audio source, update the catalog, save. */
     private void applyRelink(int timelineIndex, @NonNull Uri newUri,
                              @NonNull String newName, long newDuration) {
-        // Invalidate resolvability cache â sources may have changed
+        // Invalidate resolvability cache — sources may have changed
         resolvableCache.clear();
         Timeline tl = project.getTimeline();
 
@@ -3965,7 +3965,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private final java.util.HashMap<String, Uri> playbackUriCache = new java.util.HashMap<>();
     /**
      * F1 (PERF_SPEC_LONGFILE_20260718): source URIs (as strings) that resolved to a
-     * STILL-FRAGMENTED raw file this session â no remuxed copy existed at resolve time.
+     * STILL-FRAGMENTED raw file this session — no remuxed copy existed at resolve time.
      * Gapless is skipped while any master clip is in here (ClippingConfiguration windows
      * need a seekable SeekMap the raw fMP4 can't provide); the legacy single-clip path
      * exists precisely for fMP4. Next open picks up the background-remuxed copy.
@@ -3977,7 +3977,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Forget a cached playback resolution whose file has gone missing.
      *
-     * @return true when an entry was dropped â i.e. this source is worth retrying, because the
+     * @return true when an entry was dropped — i.e. this source is worth retrying, because the
      *         next resolve will fall back to the raw file instead of the vanished derived copy.
      */
     private boolean dropStalePlaybackUri(@Nullable Uri sourceUri) {
@@ -3993,19 +3993,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     @NonNull
     private Uri resolvePlaybackUri(@NonNull Uri sourceUri) {
         // Cached: needsRemux() reads the file header from disk, and scrubbing over a
-        // transition resolves the same URIs on every tick â without this the header
+        // transition resolves the same URIs on every tick — without this the header
         // read + remux check ran on the UI thread each frame and snagged the scrub.
         String key = sourceUri.toString();
         Uri cached = playbackUriCache.get(key);
         // A CACHED PATH IS NOT A PROMISE THE FILE IS STILL THERE.
         //
-        // The remuxed copy lives in getCacheDir(), which Android may reclaim at ANY time â that is
+        // The remuxed copy lives in getCacheDir(), which Android may reclaim at ANY time — that is
         // what a cache dir IS. This map, however, held the resolved file:// URI for the whole
         // session, so once the OS evicted the remux every player build kept opening a path that no
         // longer existed: ENOENT, four retries, then "RANK-1 recovery ... STOPPING the rebuild
         // loop", and from that moment the preview was black and nothing played until the app was
-        // restarted. JoyRaptor hit exactly this mid-session (2026-08-12) â cache/remuxed was empty on
-        // his phone while every clip still resolved to a file inside it â and it looked like
+        // restarted. JoyRaptor hit exactly this mid-session (2026-08-12) — cache/remuxed was empty on
+        // his phone while every clip still resolved to a file inside it — and it looked like
         // adding images had broken playback, because that is what he happened to be doing while
         // the eviction fired.
         //
@@ -4026,7 +4026,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 } else {
                     // F1 (PERF_SPEC_LONGFILE_20260718): NEVER remux synchronously here.
                     // remuxSync on a 2.3GB 45-min source was a ~40s MAIN-THREAD block at
-                    // project open (ffmpeg copy + faststart second pass â 9GB of I/O) â
+                    // project open (ffmpeg copy + faststart second pass ≈ 9GB of I/O) —
                     // the ANR dialog it triggered killed the app mid-remux, discarding
                     // the .part temp, so EVERY open paid the full cost again. This
                     // session plays the RAW file (legacy player path handles fMP4);
@@ -4045,7 +4045,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * F1: kick ONE deferred kill-safe background remux for a fragmented source. Deferred
-     * 120s â kicking a multi-GB ffmpeg copy at open starved the player/analysis/thumbnails
+     * 120s — kicking a multi-GB ffmpeg copy at open starved the player/analysis/thumbnails
      * all reading the same file (the round-3 finding on the 2026-07-16 deferral this
      * replaces). The remuxed copy is NOT hot-swapped into this session (player positions
      * would need remapping); {@link #resolvePlaybackUri}'s cache keeps the raw URI until
@@ -4087,7 +4087,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return clip.relinked(playbackUri);
     }
 
-    // ââ L2: reversed-segment (ping-pong) cache plumbing ââââââââââââââââââ
+    // ── L2: reversed-segment (ping-pong) cache plumbing ──────────────────
 
     private com.fadcam.ui.faditor.export.ReversedSegmentCache reversedCache() {
         if (reversedCache == null) {
@@ -4100,14 +4100,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * PURE LOOKUP for the gapless engine's {@code SourceResolver.resolveReversed}: returns the
      * CACHED baked-reversed file URI for a PING_PONG clip's current trimmed sub-range, or null if
      * the clip is not PING_PONG, its span is too long to bake, or the bake hasn't finished. Never
-     * blocks / never bakes â the bake is warmed off-main by {@link #kickReverseBakeIfNeeded} (drawer)
+     * blocks / never bakes — the bake is warmed off-main by {@link #kickReverseBakeIfNeeded} (drawer)
      * or {@code ExportService} (pre-export). Determines the clip's gapless eligibility.
      */
     @Nullable
     private Uri resolveReversedUri(@NonNull Clip clip) {
         // PARKED: while ping-pong is dormant, NEVER hand the gapless engine a reversed file. With
         // this returning null, MasterPlaybackEngine.isEligible treats every PING_PONG clip as
-        // ineligible, so the whole project falls to the legacy path â where the tick plays a
+        // ineligible, so the whole project falls to the legacy path — where the tick plays a
         // PING_PONG clip as a plain forward-tail wrap (a NORMAL loop). Graceful degrade, no black,
         // no baked item ever referenced. (Un-park by flipping Clip.PING_PONG_PARKED.)
         if (Clip.PING_PONG_PARKED) return null;
@@ -4122,10 +4122,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (reversedCache().isCached(src, in, out)) {
             Uri revUri = Uri.fromFile(reversedCache().fileFor(src, in, out));
             // RANK-1: a reversed URI that already failed to decode in the gapless player is poisoned
-            // for this session â return null so this clip degrades to forward reps ONLY (scoped),
+            // for this session → return null so this clip degrades to forward reps ONLY (scoped),
             // instead of re-feeding the player a file that black-outs the whole timeline.
             if (poisonedReversedUris.contains(revUri)) {
-                FLog.w(TAG, "resolveReversedUri: URI is POISONED (prior decode failure) â "
+                FLog.w(TAG, "resolveReversedUri: URI is POISONED (prior decode failure) — "
                         + "degrading clip " + clip.getId() + " to forward reps");
                 return null;
             }
@@ -4138,7 +4138,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * RANK-1 recovery hook (registered on the player manager, fired on the main thread from the
      * gapless engine's onPlayerError). A baked reversed leg failed to decode. Poison its URI so the
      * resolver stops handing it out, rebuild the gapless playlist (that clip now degrades to forward
-     * reps â same clamp math, scoped to this ONE clip), and reseek to the pre-error visual position
+     * reps — same clamp math, scoped to this ONE clip), and reseek to the pre-error visual position
      * so playback resumes exactly where it black-outed instead of blacking the whole timeline.
      */
     private void onReverseWindowFailed(@Nullable String clipId, @Nullable Uri reversedUri,
@@ -4158,21 +4158,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (toPoison != null) {
             poisonedReversedUris.add(toPoison);
             // A poison actually changes the next playlist, so this clip's unpoisoned-failure
-            // streak (if any) is stale â the rebuild below is now meaningfully different.
+            // streak (if any) is stale — the rebuild below is now meaningfully different.
             unpoisonedRecoveryFailures.remove(clipId != null ? clipId : "?");
             FLog.w(TAG, "RANK-1 recovery: POISONED reversed URI " + toPoison
-                    + " (clip " + clipId + ") â degrading this clip to forward reps");
+                    + " (clip " + clipId + ") — degrading this clip to forward reps");
         } else {
             // LOOP BREAKER (2026-07-16, found live on the real 45-min project): a FORWARD
-            // source that fails to parse (ERROR_CODE_PARSING_CONTAINER_MALFORMED â corrupt /
+            // source that fails to parse (ERROR_CODE_PARSING_CONTAINER_MALFORMED — corrupt /
             // truncated file) also lands here, with nothing to poison. Rebuilding "anyway"
-            // recreates the identical playlist â identical error â infinite rebuild storm at
+            // recreates the identical playlist → identical error → infinite rebuild storm at
             // ~18Hz on the main thread (black preview, glitched loading, choppy everything).
             // Cap the identical-rebuild attempts per clip; past the cap, stop and tell the
-            // user instead of melting the UI thread. Sticky for the session â a malformed
+            // user instead of melting the UI thread. Sticky for the session — a malformed
             // file does not heal by retrying.
             String key = clipId != null ? clipId : "?";
-            // A MISSING FILE *DOES* HEAL BY RETRYING â which is the one case the cap above gets
+            // A MISSING FILE *DOES* HEAL BY RETRYING — which is the one case the cap above gets
             // wrong. The remuxed copy this clip resolves to lives in a cache dir the OS may
             // reclaim whenever it likes; when that happens the path is gone but the SOURCE is
             // perfectly fine, so dropping the stale resolution lets the very next rebuild fall
@@ -4182,21 +4182,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (failedClip != null && dropStalePlaybackUri(failedClip.getSourceUri())) {
                 unpoisonedRecoveryFailures.remove(key);
                 FLog.w(TAG, "RANK-1 recovery: clip " + key + " resolved to a file that no longer"
-                        + " exists â dropped the stale resolution and rebuilding from source");
+                        + " exists — dropped the stale resolution and rebuilding from source");
             } else {
             int n = 1 + unpoisonedRecoveryFailures.getOrDefault(key, 0);
             unpoisonedRecoveryFailures.put(key, n);
             if (n > MAX_UNPOISONED_RECOVERY_REBUILDS) {
                 FLog.e(TAG, "RANK-1 recovery: clip " + key + " failed " + n
-                        + "x with no poisonable URI â STOPPING the rebuild loop"
+                        + "x with no poisonable URI — STOPPING the rebuild loop"
                         + " (malformed/corrupt source?)");
                 // Toast on the first capped failure and every 5th after (round 2: play into
-                // a dead clip minutes later gave no feedback at all â "play does nothing").
+                // a dead clip minutes later gave no feedback at all — "play does nothing").
                 if ((n - (MAX_UNPOISONED_RECOVERY_REBUILDS + 1)) % 5 == 0) {
                     // TODO(strings): hardcoded per the rebrand-freeze standing rule.
                     android.widget.Toast.makeText(this,
-                            "Playback paused â this clip's media isn't reading right now. "
-                                    + "Retrying shortlyâ¦",
+                            "Playback paused — this clip's media isn't reading right now. "
+                                    + "Retrying shortly…",
                             android.widget.Toast.LENGTH_LONG).show();
                 }
                 // COOLDOWN, not a permanent kill (round 3, 2026-07-16): source errors can be
@@ -4209,16 +4209,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             FLog.w(TAG, "RANK-1 recovery: source failure with no poisonable URI (clip "
                     + clipId + ", attempt " + n + "/" + MAX_UNPOISONED_RECOVERY_REBUILDS
-                    + ") â rebuilding");
+                    + ") — rebuilding");
             }
         }
         if (playerManager == null) return;
-        // A recovery rebuild is a user-visible timeline change â bump the generation so any in-flight
+        // A recovery rebuild is a user-visible timeline change → bump the generation so any in-flight
         // stale bake auto-promote is discarded (rank-1c) and can't re-introduce the poisoned file.
         rebuildGeneration++;
         // rebuildGaplessTimeline() captures the current clip-id + visual position (which, at the
         // error, is the failing reverse leg's pre-error visual position) and restores it after the
-        // rebuild â so the reseek to the pre-error position is handled there. Force playback to
+        // rebuild — so the reseek to the pre-error position is handled there. Force playback to
         // resume afterward (the errored player's play-intent may not survive the teardown).
         playerManager.rebuildGaplessTimeline();
         if (playerManager.isGapless()) {
@@ -4227,7 +4227,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The on-disk file ffmpeg should reverse for {@code clip} â a remuxed/faststart copy when the
+     * The on-disk file ffmpeg should reverse for {@code clip} — a remuxed/faststart copy when the
      * raw source is a fragmented MP4 (so the reverse bake's fast-seek is accurate + linear-decodes
      * cleanly), otherwise the raw file. Returns null if no local file can be resolved.
      */
@@ -4243,11 +4243,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Kick an OFF-MAIN reverse bake for a PING_PONG clip if one isn't cached / in flight, then on
      * completion rebuild the gapless playlist on the MAIN thread so the (now-eligible) project
      * promotes to the gapless engine with a TRUE reverse leg. Mirrors L1's lesson that a loop edit
-     * must rebuild the engine â here the rebuild is deferred until the bake lands. Long spans
+     * must rebuild the engine — here the rebuild is deferred until the bake lands. Long spans
      * (> guard) skip the bake and show a one-time toast; the clip stays on the legacy forward-tail.
      */
     private void kickReverseBakeIfNeeded(@NonNull Clip clip) {
-        // PARKED: no reverse bake is ever kicked while ping-pong is dormant â from ANY caller
+        // PARKED: no reverse bake is ever kicked while ping-pong is dormant — from ANY caller
         // (drawer applyLoopMode/extendLoop, trim-edge drag onTrimFinished, or loop-edge drag
         // onLoopTrimFinished). This is the "no new bakes, incl. from resize" guarantee.
         if (Clip.PING_PONG_PARKED) return;
@@ -4259,7 +4259,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final long in = clip.getInPointMs();
         final long out = clip.getOutPointMs();
         if (!com.fadcam.ui.faditor.export.ReversedSegmentCache.canBake(in, out)) {
-            // Guard: span too long to bake â one-time toast, keep forward-tail fallback.
+            // Guard: span too long to bake — one-time toast, keep forward-tail fallback.
             if (!reverseLongGuardToastShown) {
                 reverseLongGuardToastShown = true;
                 Toast.makeText(this, R.string.faditor_reverse_long_loop_later,
@@ -4274,14 +4274,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final String clipId = clip.getId();
         // RANK-1c: capture the rebuild generation at KICK time. If a later user edit rebuilds the
         // playlist before this bake lands, the generation advances and we DISCARD the stale
-        // auto-promote below â so a bake finishing after the user re-trimmed/removed the loop can't
+        // auto-promote below — so a bake finishing after the user re-trimmed/removed the loop can't
         // revert the timeline (the old resize-revert race).
         final int kickGeneration = rebuildGeneration;
         if (reverseBakeExecutor == null) {
             reverseBakeExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
         }
         reverseBakeExecutor.execute(() -> {
-            // Resolve the input file OFF-MAIN â it may trigger a (blocking) fMP4 remux.
+            // Resolve the input file OFF-MAIN — it may trigger a (blocking) fMP4 remux.
             File input = resolveReverseInputFile(bakeClip);
             File baked = reversedCache().bakeSync(src, input, in, out);
             reverseBakeInFlight.remove(key);
@@ -4289,14 +4289,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (isFinishing() || isDestroyed() || playerManager == null) return;
                 if (baked == null) {
                     FLog.w(TAG, "Reverse bake unavailable for clip " + clipId
-                            + " â staying on forward-tail");
+                            + " — staying on forward-tail");
                     return;
                 }
-                // RANK-1c: discard a stale auto-promote â a user edit rebuilt since the kick.
+                // RANK-1c: discard a stale auto-promote — a user edit rebuilt since the kick.
                 if (rebuildGeneration != kickGeneration) {
                     FLog.i(TAG, "Reverse bake for clip " + clipId + " landed but rebuild generation "
                             + "advanced (" + kickGeneration + "->" + rebuildGeneration
-                            + ") â DISCARDING stale auto-promote");
+                            + ") — DISCARDING stale auto-promote");
                     return;
                 }
                 // The bake landed. If the clip is still PING_PONG with the same range, rebuild the
@@ -4306,7 +4306,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         && cur.getInPointMs() == in && cur.getOutPointMs() == out
                         && !cur.isImageClip()) {
                     FLog.i(TAG, "Reverse bake ready for clip " + clipId
-                            + " â rebuilding gapless playlist for TRUE ping-pong");
+                            + " — rebuilding gapless playlist for TRUE ping-pong");
                     rebuildGeneration++;
                     playerManager.rebuildGaplessTimeline();
                 }
@@ -4317,16 +4317,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void loadClipForPlayback(@NonNull Clip clip) {
         if (playerManager == null) return;
         transitionPlaybackActive = false;
-        // Loading a VIDEO clip means no image timer can still be running â clear it HERE, at the
+        // Loading a VIDEO clip means no image timer can still be running — clear it HERE, at the
         // funnel, exactly as transitionPlaybackActive is cleared on the line above. Patching the
         // individual callers was not enough: a timeline drag loads a clip through this method
-        // WITHOUT going via advanceToSegment, so the flag leaked anyway (device 2026-07-28 â the
+        // WITHOUT going via advanceToSegment, so the flag leaked anyway (device 2026-07-28 — the
         // playhead froze at 9870ms while the ticker kept running on the stale flag, and
         // syncAudioPlayerWithPlayhead re-seeked the audio to that frozen position every tick,
         // replaying the same second of narration on a loop).
         //
         // Sets the field directly rather than calling stopImagePlayback(), because that also
-        // forces the play/pause button to "paused" â wrong here, since this method is on the
+        // forces the play/pause button to "paused" — wrong here, since this method is on the
         // path that advances into the NEXT clip mid-playback.
         imagePlaybackActive = false;
         hideTransitionPreview();
@@ -4355,7 +4355,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     : "/storage/" + storageId;
 
             String fullPath = mountPoint + "/" + relativePath;
-            FLog.d(TAG, "resolveSafPath: storageId='" + storageId + "' â " + fullPath);
+            FLog.d(TAG, "resolveSafPath: storageId='" + storageId + "' → " + fullPath);
             return fullPath;
         } catch (Exception e) {
             FLog.w(TAG, "resolveSafPath failed for " + uri, e);
@@ -4497,13 +4497,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         getLifecycle().addObserver(playerManager);
         playerManager.setPlayerView(playerView);
 
-        // ââ M-COMP-0: hand the manager the master track + a seekable-URI resolver so it
+        // ── M-COMP-0: hand the manager the master track + a seekable-URI resolver so it
         // can (behind FaditorPlayerManager.GAPLESS_ENGINE) play the whole track as a
         // pre-buffered ClippingConfiguration playlist and cross plain cuts with no cold
         // re-prepare. Route auto-seam UI sync through onGaplessSeam(). No-op when the flag
         // is off or the project isn't eligible (loops/transitions/images keep the legacy path).
         // F1 (PERF_SPEC_LONGFILE_20260718): also skipped while any master clip still plays
-        // a RAW fragmented source (no remuxed copy yet) â ClippingConfiguration windows
+        // a RAW fragmented source (no remuxed copy yet) — ClippingConfiguration windows
         // need a seekable SeekMap the raw fMP4 can't provide. The legacy single-clip path
         // (built for fMP4) carries this session; the next open finds the background-remuxed
         // copy and goes gapless again.
@@ -4529,8 +4529,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     this::onGaplessSeam);
         }
 
-        // ââ RANK-1 resilience: when the gapless player errors on a baked REVERSED leg, poison that
-        // reversed URI (so resolveReversedUri returns null â this clip degrades to forward reps
+        // ── RANK-1 resilience: when the gapless player errors on a baked REVERSED leg, poison that
+        // reversed URI (so resolveReversedUri returns null → this clip degrades to forward reps
         // ONLY, scoped per-clip) and rebuild the playlist, reseeking to the pre-error visual
         // position. This contains what was the ffcdc86 whole-timeline blackout to zero clips.
         playerManager.setErrorRecoveryListener(this::onReverseWindowFailed);
@@ -4562,7 +4562,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (!audioTailActive) {
                     updatePlayPauseButton(isPlaying);
                 }
-                // M-COMP-2: the overlay decoder must see every master play/pause EDGE â
+                // M-COMP-2: the overlay decoder must see every master play/pause EDGE —
                 // the playhead tick loop can stop (pause/ENDED) before delivering one,
                 // which left the PiP free-running (device-caught 2026-07-05).
                 if (overlayVideoLayer != null && !overlayVideoLayer.isEmpty()) {
@@ -4578,12 +4578,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onRenderedFirstFrame() {
-                // The incoming clip has a real frame on the surface â drop the held
+                // The incoming clip has a real frame on the surface — drop the held
                 // GL blend frame (see startGlTransitionAnimator's handoff hold).
                 releaseGlTransitionHold();
                 // OPENING a project with effects already saved must SHOW them. Otherwise the
                 // editor opens ungraded and stays that way until the first scrub, which reads
-                // as "my effects were lost" â the preview only syncs on a playhead tick, and
+                // as "my effects were lost" — the preview only syncs on a playhead tick, and
                 // opening a project produces none.
                 syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
             }
@@ -4597,7 +4597,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // The real decoded video size is only known now. The crop-zoom
                 // preview and overlay geometry are both derived from it, so they
                 // were being computed from a stale/zero size right after a seek or
-                // a clip switch (different-resolution clips) â which is why the crop
+                // a clip switch (different-resolution clips) — which is why the crop
                 // looked inconsistent and captions resized when scrubbing. Recompute
                 // them here so the preview converges to the correct, export-matching
                 // result instead of whatever transient size was current earlier.
@@ -4627,8 +4627,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     durationCorrectionPending = false;
                     correctDurationFromPlayer();
                 }
-                // Honest open-time indicator (JoyRaptor 2026-07-16): the "Opening projectâ¦"
-                // overlay stays up until the player can actually show a frame â long
+                // Honest open-time indicator (JoyRaptor 2026-07-16): the "Opening project…"
+                // overlay stays up until the player can actually show a frame — long
                 // sources legitimately take a while to parse and this is the signal.
                 if (playbackState == Player.STATE_READY && openingOverlayPending) {
                     openingOverlayPending = false;
@@ -4645,23 +4645,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * M-COMP-0 seam callback: fired by {@link FaditorPlayerManager}'s gapless engine when the
      * player auto-advances across a plain cut to a new master window. Runs ONLY the non-player
-     * half of {@link #advanceToSegment} (UI sync, per-clip speed/volume, timeline playhead) â
+     * half of {@link #advanceToSegment} (UI sync, per-clip speed/volume, timeline playhead) —
      * the player has already crossed the seam warm, so there is no re-prepare here. Runs on the
      * main thread (ExoPlayer callbacks are delivered on the app main thread).
      *
      * <p>L1: the engine now ALSO plays NORMAL-loop clips as extra playlist windows (before/after
-     * loop reps). It fires this callback ONLY when the TIMELINE CLIP actually changes â reps of
+     * loop reps). It fires this callback ONLY when the TIMELINE CLIP actually changes — reps of
      * the SAME looped clip are crossed silently inside the engine (see
      * {@code MasterPlaybackEngine.SeamListener}), so the caption/overlay rebind and playhead
      * re-homing below never re-run mid-loop, and {@code newIndex} is always a genuinely NEW clip.</p>
      *
-     * @param newIndex    the master clip index the engine advanced to (a real clip change â never
+     * @param newIndex    the master clip index the engine advanced to (a real clip change — never
      *                    fired for a same-clip loop-rep wrap)
      * @param autoAdvance true when playback PLAYED THROUGH a plain cut (the playhead is naturally
      *                    at the new clip's start); false when the window change was caused by a
      *                    user ruler tap/scrub seeking across a boundary. On a user seek the tapped
      *                    position was already set by {@link Listener#onPlayheadSeeked}, so this
-     *                    handler must NOT re-home the playhead to the new clip's start â doing so
+     *                    handler must NOT re-home the playhead to the new clip's start — doing so
      *                    snapped it back (to 0 when the target was clip 0). See handoff 2026-07-02.
      */
     private void onGaplessSeam(int newIndex, boolean autoAdvance) {
@@ -4674,7 +4674,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // the divergence fix in exactly one place even when this is entered directly.
         if (newIndex != selectedClipIndex) syncSelectedIndexToSegment(newIndex);
         Clip nextClip = getSelectedClip();
-        // Keep the player manager's tracked clip pointed at the new window (no player op â the
+        // Keep the player manager's tracked clip pointed at the new window (no player op — the
         // engine already crossed the cut) so currentClip-derived getters stay consistent.
         playerManager.syncGaplessCurrentClip(nextClip);
         // Image windows are DISPLAYED by the proven Glide overlay (showImagePreview hides the
@@ -4712,7 +4712,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * THE single authoritative place that observes a timeline segment boundary crossing and
-     * reconciles {@code selectedClipIndex} â for BOTH the drag path and the playback path.
+     * reconciles {@code selectedClipIndex} — for BOTH the drag path and the playback path.
      *
      * <p>Before this, the drag path patched the divergence at {@code :2143} (
      * {@code if (segmentIndex != selectedClipIndex) selectedClipIndex = segmentIndex}) while
@@ -4720,13 +4720,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * consecutive clips share one source, the player runs through one continuous window with
      * no item transition (see {@code MasterPlaybackEngine} mediaId fix and the rescue log where
      * {@code playerPos} climbs to 9863 while {@code sel} stays 1), so the seam never fires and
-     * the playhead â which resolves against {@code selectedClipIndex}'s inPoint â pins at the
+     * the playhead — which resolves against {@code selectedClipIndex}'s inPoint — pins at the
      * outgoing clip's out point (11811) while video/audio keep going. That is B1.</p>
      *
      * <p>Both paths now funnel through here for the INDEX sync itself. The drag handler and the
      * gapless seam handler both delegate the {@code selectedClipIndex} / {@code setSelectedIndex}
      * update to this method, so there is exactly one copy of the divergence fix. The full
-     * per-clip UI sync (volume, crop, gradeâ¦) remains in {@code onGaplessSeam} which this
+     * per-clip UI sync (volume, crop, grade…) remains in {@code onGaplessSeam} which this
      * helper is the entry to for playback; the drag path sets {@code pendingClipSwapAfterDrag}
      * and defers its media load to drag-finished, as before.</p>
      */
@@ -4746,13 +4746,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Resync the ACTIVE player to the timeline after a STRUCTURAL edit â anything that changes
+     * Resync the ACTIVE player to the timeline after a STRUCTURAL edit — anything that changes
      * clip COUNT, ORDER, or IDENTITY (split, delete, gap-delete, reorder, silence-cut, insert,
      * slide replace) or gapless ELIGIBILITY (add/remove a transition).
      *
      * <p>The gapless {@code MasterPlaybackEngine} plays a ClippingConfiguration playlist that is a
      * SNAPSHOT of the timeline taken at prepare time. Mutating the {@code Timeline} model alone
-     * leaves it playing the pre-edit cut â video runs straight through deleted/split seams while
+     * leaves it playing the pre-edit cut — video runs straight through deleted/split seams while
      * the tape (reading the new model) diverges, and on the next play() a stale window index seeks
      * the audio back to window 0 (the 2026-07-18 seam bug). Trim-handle and loop edits already
      * rebuild via {@code updateTrimBounds}; undo/redo via {@code refreshEditorAfterUndoRedo}; but
@@ -4760,7 +4760,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * one call they all funnel through.</p>
      *
      * <p>No-op on the legacy single-clip path (its callers seek/re-prepare the single player
-     * directly â unchanged). For an eligibility flip (transition added â project ineligible), pass
+     * directly — unchanged). For an eligibility flip (transition added → project ineligible), pass
      * a null home id; {@link FaditorPlayerManager#rebuildGaplessResumingAt} re-checks eligibility
      * and tears the engine down to the legacy path, which renders the transition.</p>
      *
@@ -4768,9 +4768,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * @param clipLocalMs 0-based visual position within {@code homeClipId}.
      * @param playAfter   resume playback after the rebuild (false = park paused).
      */
-    // ââ M12: the spine â layer move, button-driven ââââââââââââââââââââââââââââââââââââââââââ
+    // ── M12: the spine ⇄ layer move, button-driven ──────────────────────────────────────────
 
-    /** Default landing lane for a demoted clip â the seeded video lane (neutral substrate). */
+    /** Default landing lane for a demoted clip — the seeded video lane (neutral substrate). */
     private static final String M12_DEFAULT_LAYER_ID = "video";
 
     /** Paragraph break for dialog copy. A literal escape here keeps tripping the
@@ -4780,7 +4780,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Audit 3.4's packaging half: copy every referenced file into the project so it stops depending
      * on media it does not own. Confirms first, because it costs disk and time proportional to the
-     * footage â silently duplicating gigabytes would be its own bug.
+     * footage — silently duplicating gigabytes would be its own bug.
      */
     private void consolidateProjectMedia() {
         if (project == null) return;
@@ -4789,7 +4789,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 .setMessage("Every video, image and audio file this project uses will be COPIED "
                         + "into the project. It will then keep working even if the originals are "
                         + "moved or deleted." + BLANK_LINE
-                        + "This uses extra storage â roughly the size of the footage. Your original "
+                        + "This uses extra storage — roughly the size of the footage. Your original "
                         + "files are never changed or removed.")
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton("Copy files", (d, w) -> runConsolidation())
@@ -4799,7 +4799,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void runConsolidation() {
         final com.fadcam.ui.faditor.model.FaditorProject target = project;
         if (target == null) return;
-        Toast.makeText(this, "Copying filesâ¦", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Copying files…", Toast.LENGTH_SHORT).show();
         // Off the main thread: this copies whole video files and would ANR for any real project.
         new Thread(() -> {
             java.io.File mediaDir = new java.io.File(
@@ -4817,7 +4817,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         ? ("Copied " + r.copied + ", but " + r.failed + " could not be read. "
                                 + "Those still point at the original files.")
                         : (r.copied == 0
-                                ? "Already self-contained â nothing to copy."
+                                ? "Already self-contained — nothing to copy."
                                 : "Copied " + r.copied + " file(s). This project no longer depends "
                                         + "on anything outside itself.");
                 new androidx.appcompat.app.AlertDialog.Builder(FaditorEditorActivity.this)
@@ -4835,7 +4835,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p><b>Why it must be undoable.</b> The repair moves OTHER objects onto fresh lanes. Running
      * it outside the undo entry means pressing undo restores the dragged item but leaves the
-     * bystander on a lane it was moved to â the user undoes one thing and a second, unrelated
+     * bystander on a lane it was moved to — the user undoes one thing and a second, unrelated
      * thing stays moved. Same shape as the trim bug: mutate after recording, and undo cannot see
      * it.</p>
      *
@@ -4880,7 +4880,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 .setMessage("These will play black and will not export correctly:"
                         + BLANK_LINE + body + BLANK_LINE
                         + "If they are on an SD card or in cloud storage, reconnect it and reopen "
-                        + "the project â nothing has been changed or removed.")
+                        + "the project — nothing has been changed or removed.")
                 .setPositiveButton(android.R.string.ok, null)
                 .show();
     }
@@ -4891,9 +4891,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     /**
      * @return the demoted clip's id, so a DISLODGE GESTURE can hand its still-live touch to the
-     *         layer drag engine (Â§3A.5b). The Move drawer's button ignores it. Null on every
+     *         layer drag engine (§3A.5b). The Move drawer's button ignores it. Null on every
      *         refusal path, which the caller must treat as "no adoption" rather than falling back
-     *         to a guess â adopting the wrong item would drag a clip the user never touched.
+     *         to a guess — adopting the wrong item would drag a clip the user never touched.
      */
     private String moveSelectedClipToLayer() {
         if (project == null) return null;
@@ -4911,8 +4911,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         final Clip moving = timeline.getClip(idx);
 
-        // â  demoteToLayer runs removeTransitionsForDeletedClip, which is DESTRUCTIVE and
-        // renumbers in place â re-inserting the clip does NOT undo it. Snapshot first, exactly as
+        // ⚠ demoteToLayer runs removeTransitionsForDeletedClip, which is DESTRUCTIVE and
+        // renumbers in place — re-inserting the clip does NOT undo it. Snapshot first, exactly as
         // DeleteClipAction does, or undo silently loses the dissolves on both seams.
         final java.util.List<com.fadcam.ui.faditor.model.Transition> transBefore =
                 timeline.snapshotTransitions();
@@ -4922,7 +4922,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
         Clip demoted = timeline.demoteToLayer(idx, M12_DEFAULT_LAYER_ID);
-        // Close the bracket on the failure path too. Nothing moved, so the shift is a no-op â but
+        // Close the bracket on the failure path too. Nothing moved, so the shift is a no-op — but
         // an OPEN bracket makes every later edit look nested, and nested edits defer their shift.
         if (demoted == null) { endStructuralEdit(anchorsBefore, "demoteToLayer:declined"); return null; }
         endStructuralEdit(anchorsBefore, "demoteToLayer");
@@ -4955,8 +4955,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Drop the SELECTED FLOATING CLIP into the main track at the spine position matching its own
      * time, pushing later clips right. ONE undo step.
      *
-     * <p>Only VIDEO/IMAGE payloads are legal on the spine (Â§3A.5). A text or sticker selection is
-     * refused with a reason rather than ignored â a silent no-op reads as a broken button.</p>
+     * <p>Only VIDEO/IMAGE payloads are legal on the spine (§3A.5). A text or sticker selection is
+     * refused with a reason rather than ignored — a silent no-op reads as a broken button.</p>
      */
     private void moveSelectedItemToMainTrack() { moveSelectedItemToMainTrack(-1); }
 
@@ -4964,14 +4964,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * @param insertIndexOverride spine index to land at, or -1 to derive it from the object's own
      *        time (the Move-drawer button's behaviour). The DRAG passes an explicit index because
      *        the user is pointing at a seam -- deriving it from time would land the clip somewhere
-     *        other than the place the indicator promised, which is the whole thing Â§3A.4 exists to
+     *        other than the place the indicator promised, which is the whole thing §3A.4 exists to
      *        prevent.
      */
     private void moveSelectedItemToMainTrack(int insertIndexOverride) {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
         String itemId = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
-        // Â§2.3: promoting an object onto the master spine is as structural as a delete, so a lock
+        // §2.3: promoting an object onto the master spine is as structural as a delete, so a lock
         // is worth honouring here too.
         if (askedAboutLockedSelection(() -> moveSelectedItemToMainTrack(insertIndexOverride))) {
             return;
@@ -4985,7 +4985,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (oc.getId().equals(itemId)) { overlay = oc; break; }
         }
         if (overlay == null) {
-            // Selected object exists but is not an overlay CLIP â i.e. text/sticker/sprite.
+            // Selected object exists but is not an overlay CLIP — i.e. text/sticker/sprite.
             Toast.makeText(this, R.string.faditor_m12_only_video_images, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -5021,8 +5021,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     afterSpineLayerMove(0L);
                 },
                 () -> {
-                    // NOT demoteToLayer(insertAt, â¦): that demotes whatever now sits at the
-                    // index, to the DEFAULT lane, at the SPINE's start time â three ways to
+                    // NOT demoteToLayer(insertAt, …): that demotes whatever now sits at the
+                    // index, to the DEFAULT lane, at the SPINE's start time — three ways to
                     // return the wrong object. Restore the captured state instead.
                     if (timeline.getClips().contains(promoting)) {
                         timeline.removeClip(promoting);
@@ -5053,7 +5053,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 ? project.getTimeline().getClip(selectedClipIndex) : null;
         // homeMs is where the move landed; pass it through as the clip-local resume position so
         // the playhead follows the clip instead of snapping to its head. (It was computed at both
-        // call sites and then discarded â adversarial review 2026-08-03.)
+        // call sites and then discarded — adversarial review 2026-08-03.)
         long localMs = 0L;
         if (home != null && selectedClipIndex >= 0) {
             localMs = Math.max(0L,
@@ -5069,19 +5069,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         saveProjectNow();
     }
 
-    // ââ Rider anchoring (M11 Â§4A) âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Rider anchoring (M11 §4A) ───────────────────────────────────────────────────────────
     // Layer objects anchored to a master clip travel with it. There is NO clip start FIELD to
-    // hook â a start is a prefix sum â so every structural edit must bracket itself:
+    // hook — a start is a prefix sum — so every structural edit must bracket itself:
     //
     //     Map<String,Long> before = beginStructuralEdit();
-    //     â¦mutate the clip list / trim / speed / loopâ¦
+    //     …mutate the clip list / trim / speed / loop…
     //     endStructuralEdit(before, "whatDidIt");
     //
     // Bracket at the USER-ACTION boundary, never per primitive: one split is remove+add+add, and
     // a per-primitive bracket would shift each rider two or three times.
 
     /**
-     * Snapshot clip starts before a structural master edit. Cheap: one pass, ids â longs.
+     * Snapshot clip starts before a structural master edit. Cheap: one pass, ids → longs.
      *
      * <p>Goes through {@code beginStructural} rather than {@code captureClipStarts} so that an edit
      * ACTION that brackets itself (TrimAction does, to stay correct off-editor) sees an outer
@@ -5097,7 +5097,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Apply the anchor consequences of the edit that {@code before} bracketed.
      *
-     * <p>Orphans (host deleted) are LOGGED, not resolved â Â§4A makes re-anchor-vs-delete the
+     * <p>Orphans (host deleted) are LOGGED, not resolved — §4A makes re-anchor-vs-delete the
      * user's choice, and the prompt that asks it is a separate slice. Until it lands an orphan
      * simply stops tracking, which is the status quo for every project today, not a regression.</p>
      */
@@ -5106,7 +5106,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>Snapshot-based undo ({@code restoreProjectFromSnapshot}) throws the entire object graph
      * away and deserialises a new one, in which every object is ALREADY at the position that state
-     * had. Applying a shift on top of that moves everything a second time â and this is the common
+     * had. Applying a shift on top of that moves everything a second time — and this is the common
      * case, not an edge one: once a project has been closed and reopened, every history entry is
      * snapshot-only, so every undo takes this path.</p>
      *
@@ -5122,7 +5122,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @NonNull String where) {
         if (project == null) return null;
         if (openedOn != null && openedOn != project.getTimeline()) {
-            FLog.d(TAG, "ANCHOR[" + where + "] skipped â a snapshot restore replaced the document");
+            FLog.d(TAG, "ANCHOR[" + where + "] skipped — a snapshot restore replaced the document");
             return null;
         }
         return endStructuralEdit(before, where);
@@ -5133,7 +5133,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @NonNull java.util.Map<String, Long> before, @NonNull String where) {
         // No early-out on an empty map any more: beginStructuralEdit opened a bracket and this must
         // close it, or the depth leaks and every later edit is treated as nested and shifts nothing.
-        // An empty "before" is harmless â a rider whose host is absent from it is simply skipped.
+        // An empty "before" is harmless — a rider whose host is absent from it is simply skipped.
         if (project == null) return null;
         Timeline.AnchorShiftResult r = project.getTimeline().endStructural(before);
         if (!r.isEmpty()) {
@@ -5145,11 +5145,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§4A â a deleted clip's riders: re-anchor them, or delete them with it?
+     * §4A — a deleted clip's riders: re-anchor them, or delete them with it?
      *
      * <p>Genuinely ambiguous, so it ASKS, unlike a split (where the clip still exists as two
-     * halves and re-homing is unambiguous). The remembered answer is TRI-STATE â "ask" /
-     * "reanchor" / "delete" â because a boolean cannot record WHICH choice was remembered.</p>
+     * halves and re-homing is unambiguous). The remembered answer is TRI-STATE — "ask" /
+     * "reanchor" / "delete" — because a boolean cannot record WHICH choice was remembered.</p>
      *
      * <p>Silent when there is nothing to decide. Note this runs only on the one path where a
      * human pressed delete; the AI and undo paths take the policy without a dialog, which is why
@@ -5187,15 +5187,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     deleteOrphans(ids, true);
                 })
                 // CANCEL THE WHOLE THING. A question offering only "keep" or "delete" forces the
-                // user to complete an edit they may already regret â JoyRaptor (2026-08-12): "maybe
-                // you didn't want to actually delete that thing â¦ sometimes I'll be like, oh, I
+                // user to complete an edit they may already regret — JoyRaptor (2026-08-12): "maybe
+                // you didn't want to actually delete that thing … sometimes I'll be like, oh, I
                 // didn't actually mean to do that, and I'll wanna back out." Both other answers
                 // are commitments; there was no way to say "put it back".
                 //
                 // Order matters here. The clip delete is ALREADY applied and recorded by the time
                 // this dialog is raised, so backing out means re-anchoring the riders first (the
                 // non-destructive resolution, which the dismiss path also chooses) and then
-                // undoing â the undo restores the clip, and the re-anchor step is what stops the
+                // undoing — the undo restores the clip, and the re-anchor step is what stops the
                 // riders being left pointing at a clip that has come back underneath them.
                 //
                 // The remember checkbox is deliberately IGNORED on this path: cancelling says
@@ -5208,10 +5208,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 })
                 .setCancelable(false)   // an unanswered question must not silently pick a side
                 .create();
-        // â  setCancelable(false) stops BACK, but it cannot stop the activity being destroyed by a
+        // ⚠ setCancelable(false) stops BACK, but it cannot stop the activity being destroyed by a
         // config change this manifest does not declare (locale, density, dark mode). The clip
         // delete is already saved by then, so losing the dialog would leave the riders dangling
-        // with no question ever asked â the silent outcome Â§4A forbids. Default to the
+        // with no question ever asked — the silent outcome §4A forbids. Default to the
         // NON-DESTRUCTIVE side if the dialog dies unanswered.
         dlg.setOnDismissListener(d -> { if (!answered[0]) reanchorOrphans(ids); });
         dlg.show();
@@ -5223,7 +5223,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Timeline tl = project.getTimeline();
         // Capture the PRIOR anchors so this is undoable. Without it, undoing the clip deletion
         // afterwards brought the clip back while its riders stayed anchored to a DIFFERENT clip,
-        // and every later structural edit then moved them by the wrong delta â a silent, growing
+        // and every later structural edit then moved them by the wrong delta — a silent, growing
         // wrongness from a button labelled "keep them".
         final java.util.Map<String, String> beforeHost = new java.util.HashMap<>();
         final java.util.Map<String, Long> beforeOff = new java.util.HashMap<>();
@@ -5256,7 +5256,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** Delete orphans, as ONE undo step alongside nothing else â the user asked for exactly this. */
+    /** Delete orphans, as ONE undo step alongside nothing else — the user asked for exactly this. */
     private void deleteOrphans(@NonNull java.util.List<String> ids, boolean announce) {
         if (project == null) return;
         Timeline tl = project.getTimeline();
@@ -5282,14 +5282,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         saveProjectNow();
         if (announce) {
             // A remembered "delete" makes this silent otherwise, and silently removing the user's
-            // objects is exactly the kind of thing Â§4A forbids.
+            // objects is exactly the kind of thing §4A forbids.
             Toast.makeText(this, getString(R.string.faditor_orphan_removed, removed.size()),
                     Toast.LENGTH_SHORT).show();
         }
     }
 
     /**
-     * DEBUG PROBE â every anchored rider's start must still equal {@code hostStart + offset}.
+     * DEBUG PROBE — every anchored rider's start must still equal {@code hostStart + offset}.
      *
      * <p>This exists because the bracket above has to be applied at ~49 call sites across the
      * activity, the undo actions and the AI appliers, and "we got them all" is not a claim anyone
@@ -5297,7 +5297,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * instead of silently in someone's export weeks later. Same intent as the {@code SEEKRANGE} /
      * {@code PHDIAG} probes already in this codebase.</p>
      *
-     * <p>Debug builds only â it is O(riders) and buys nothing in release.</p>
+     * <p>Debug builds only — it is O(riders) and buys nothing in release.</p>
      */
     private void assertAnchorsConsistent(@NonNull String where) {
         if (!com.fadcam.BuildConfig.DEBUG || project == null) return;
@@ -5315,7 +5315,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 FLog.w(TAG, "ANCHORDRIFT[" + where + "] overlay=" + o.getId()
                         + " start=" + o.getStartMs() + " expected=" + expected
                         + " (host=" + host + " off=" + o.getHostOffsetMs() + ")"
-                        + " â a structural edit did not bracket itself");
+                        + " — a structural edit did not bracket itself");
             }
         }
     }
@@ -5323,31 +5323,31 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void resyncGaplessAfterStructuralEdit(@Nullable String homeClipId, long clipLocalMs,
                                                   boolean playAfter) {
         if (playerManager == null || !playerManager.isGapless()) return;
-        // A structural edit is a user-visible timeline change â bump the generation so any
+        // A structural edit is a user-visible timeline change → bump the generation so any
         // in-flight reverse-bake auto-promote kicked before this edit discards itself (RANK-1c),
         // mirroring the loop/trim rebuild paths.
         rebuildGeneration++;
         playerManager.rebuildGaplessResumingAt(homeClipId, clipLocalMs, playAfter);
         if (!playerManager.isGapless()) {
             // The edit flipped gapless ELIGIBILITY off (e.g. a transition was added) and the
-            // rebuild tore the engine down â but teardown alone leaves NO player prepared, i.e. a
+            // rebuild tore the engine down — but teardown alone leaves NO player prepared, i.e. a
             // dead preview until the user happens to reselect a segment. Hand the selected clip to
             // the legacy single-clip path explicitly.
             Clip sel = getSelectedClip();
             if (sel != null) loadClipForPlayback(sel);
             // The crop-zoom transform (scale/translate/clipBounds on the PlayerView) was computed
             // against the ENGINE's render geometry; recompute for the legacy player NOW instead of
-            // waiting on its first onVideoSizeChanged â the stale transform is exactly the
+            // waiting on its first onVideoSizeChanged — the stale transform is exactly the
             // "reframed on canvas" jank JoyRaptor hit on the 2026-07-18 GL-transition test.
             updatePreviewTransforms();
         }
     }
 
     /**
-     * Player resync for a TRANSITION add/remove/undo/redo â the eligibility-FLIPPING edits.
+     * Player resync for a TRANSITION add/remove/undo/redo — the eligibility-FLIPPING edits.
      * Unlike {@link #resyncGaplessAfterStructuralEdit} (which no-ops on legacy sessions), this
      * must work in BOTH directions: an add tears gapless down to the legacy path (which renders
-     * transitions), and a remove/undo RE-PROMOTES to gapless if the project is eligible again â
+     * transitions), and a remove/undo RE-PROMOTES to gapless if the project is eligible again —
      * without this, removing a transition stranded the session on the legacy single-clip player
      * with whatever transform state it had (the leftover jank of the 2026-07-18 report).
      */
@@ -5370,10 +5370,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Add {@code transition} at its seam (replacing {@code replaced}, the seam's previous
      * transition, if any), RECORD IT ON THE UNDO STACK, and resync the player. Until 2026-07-18
      * neither insert path recorded an undo action, so "undo" after adding a transition silently
-     * unwound the user's PREVIOUS edit while the transition stayed â the "undo did not undo it"
+     * unwound the user's PREVIOUS edit while the transition stayed — the "undo did not undo it"
      * half of JoyRaptor's GL-transition report. The refresh inside the lambdas is needed because
      * {@code refreshEditorAfterUndoRedo} does not re-feed transitions to the timeline view, and
-     * the player resync must run in BOTH directions (add â legacy fallback, undo â re-promote).
+     * the player resync must run in BOTH directions (add ⇒ legacy fallback, undo ⇒ re-promote).
      */
     private void addTransitionUndoable(@NonNull Transition transition,
                                        @Nullable Transition replaced) {
@@ -5396,7 +5396,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         resyncPlayerForTransitionChange();
     }
 
-    /** Remove by object identity â indices shift as other transitions come and go. */
+    /** Remove by object identity — indices shift as other transitions come and go. */
     private static void removeTransitionObject(@NonNull Timeline timeline,
                                                @NonNull Transition t) {
         int idx = timeline.getTransitions().indexOf(t);
@@ -5450,7 +5450,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 return;
             }
             // If we're in the audio-tail (the visual track has ended but music/audio is still
-            // playing past it), a tap must PAUSE everything â regardless of whether the last
+            // playing past it), a tap must PAUSE everything — regardless of whether the last
             // visual clip is video or image. (Bug: the image branch below restarted image
             // playback and never paused the audio players, so the music kept going.)
             if (audioTailActive) {
@@ -5492,7 +5492,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // Belt-and-braces with the advanceToSegment fix above: a PAUSE must stop
                     // every clock, not just the player's. If an image timer were still running
                     // here, the ticker would survive on imagePlaybackActive and keep advancing
-                    // the playhead â which is what "stop doesn't stop" looked like on device.
+                    // the playhead — which is what "stop doesn't stop" looked like on device.
                     stopImagePlayback();
                     updatePlayPauseButton(false);
                 } else {
@@ -5501,24 +5501,24 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     long timelineEndMs = editorTimeline.getTimelineEndMs();
 
                     // B2 (2026-07-26): pressing play with the playhead already at the very
-                    // end of the timeline used to be a silent no-op â the engine started,
+                    // end of the timeline used to be a silent no-op — the engine started,
                     // immediately hit end-of-timeline and stopped ("Playback stopped at last
                     // segment end"), so the playhead never moved and no audio played. The
                     // transport button looked dead. Auto-rewind to the start and play from
                     // there, mirroring the image-clip branch above and standard player UX.
                     //
                     // Detecting "at the end" is subtle, so three OR'd signals:
-                    //  â¢ isAtTrimEnd() on the LAST segment â the primary case. On natural end
+                    //  • isAtTrimEnd() on the LAST segment — the primary case. On natural end
                     //    the Activity detects the last clip's trim-end BY POSITION (isAtTrimEnd
                     //    fires ~150ms before STATE_ENDED) and PAUSES proactively, so the engine
                     //    is left in READY (isEnded()==false) and the terminal playhead sits
                     //    short of getTimelineEndMs()'s sum-of-clips whenever transitions overlap
-                    //    clips. Reusing isAtTrimEnd() â the very signal the natural-end handler
-                    //    uses â is what makes this robust to transition-shortened timelines.
+                    //    clips. Reusing isAtTrimEnd() — the very signal the natural-end handler
+                    //    uses — is what makes this robust to transition-shortened timelines.
                     //    Gated on the playhead being in the last segment so a pause landing on
                     //    an interior clip's trim-end (== the next clip's seam) does NOT rewind.
-                    //  â¢ isEnded() â the engine actually reached STATE_ENDED. Reset by any scrub.
-                    //  â¢ position within END_REPLAY_EPSILON_MS of getTimelineEndMs() â a manual
+                    //  • isEnded() — the engine actually reached STATE_ENDED. Reset by any scrub.
+                    //  • position within END_REPLAY_EPSILON_MS of getTimelineEndMs() — a manual
                     //    scrub to the very end, where the engine is READY (re-seeked), not ENDED.
                     // None fires at video-end when a real audio tail still follows: that case is
                     // caught by the audioTailActive branch at the top of this listener, and a
@@ -5568,7 +5568,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         }
                         // CRITICAL: Ensure player position matches timeline playhead before play.
                         // Convert timeline playhead position to source-relative position
-                        // accounting for clip speed (effective time â source time).
+                        // accounting for clip speed (effective time → source time).
                         Clip playClip = getSelectedClip();
                         // For an AI slide, playback uses the rendered MP4 (present once
                         // the slide has been rendered/exported). Hide the live WebView
@@ -5587,11 +5587,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         if (playClip != null && playClip.isImageClip() && playerManager.isGapless()) {
                             // Scrubs over an image never seek the engine (the Glide overlay is the
                             // scrub display), so the engine's current window may still be a prior
-                            // clip â point it at this image window before the window-local seek.
+                            // clip — point it at this image window before the window-local seek.
                             playerManager.loadClip(playClip);
                         }
                         // Clip-scoped: relativePlayheadMs was computed against playClip, so it is
-                        // only meaningful to a player holding playClip (LEDGER Â§2a).
+                        // only meaningful to a player holding playClip (LEDGER §2a).
                         if (playClip != null) {
                             playerManager.seekInClip(playClip, relativePlayheadMs);
                         } else {
@@ -5604,10 +5604,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         });
 
-        // Volume tool: three gestures, all handled in one touch listener â
-        //  â¢ TAP        â open the volume sheet (mute / ducking / fine control)
-        //  â¢ LONG-PRESS â toggle keyframe mode (green stopwatch)
-        //  â¢ DRAG â     â raise/lower the selected clip's volume live (drag up = louder).
+        // Volume tool: three gestures, all handled in one touch listener —
+        //  • TAP        → open the volume sheet (mute / ducking / fine control)
+        //  • LONG-PRESS → toggle keyframe mode (green stopwatch)
+        //  • DRAG ↕     → raise/lower the selected clip's volume live (drag up = louder).
         //                 With keyframes ON, the drag drops/updates a keyframe at the playhead
         //                 and raises/lowers it (the blue envelope tracks the drag).
         toolMute.setOnTouchListener(new View.OnTouchListener() {
@@ -5615,7 +5615,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             float curVolume;
             boolean dragging;
             boolean longPressFired;
-            // ~1 inch of drag = 1.0 volume â the full 0â200% range is ~2 inches of travel.
+            // ~1 inch of drag = 1.0 volume → the full 0–200% range is ~2 inches of travel.
             final float unitPx = Math.max(1f, getResources().getDisplayMetrics().densityDpi);
             final int slop = android.view.ViewConfiguration.get(FaditorEditorActivity.this)
                     .getScaledTouchSlop();
@@ -5661,7 +5661,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             scheduleAutoSave(); // persist the drag-adjusted volume/keyframe
                         } else if (!longPressFired) {
                             v.performClick();
-                            showVolumeControl(); // tap â open the sheet (top drawer)
+                            showVolumeControl(); // tap → open the sheet (top drawer)
                         }
                         dragging = false;
                         return true;
@@ -5676,9 +5676,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
 
         // Opacity tool: three gestures (mirrors the volume tool pattern):
-        //  â¢ TAP        â open the opacity drawer
-        //  â¢ LONG-PRESS â toggle keyframe mode (green stopwatch)
-        //  â¢ DRAG â     â raise/lower the selected clip's opacity live.
+        //  • TAP        → open the opacity drawer
+        //  • LONG-PRESS → toggle keyframe mode (green stopwatch)
+        //  • DRAG ↕     → raise/lower the selected clip's opacity live.
         //                 With keyframes ON, the drag drops/updates a keyframe at the playhead.
         toolOpacity.setOnTouchListener(new View.OnTouchListener() {
             float lastY;
@@ -5776,7 +5776,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // The crop will be applied on export regardless.
     }
 
-    // ââ Volume ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Volume ────────────────────────────────────────────────────────
 
     /**
      * Toggle volume-keyframe ("stopwatch") mode for the selected audio clip. Only valid
@@ -5786,23 +5786,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int audioIdx = editorTimeline.getSelectedAudioIndex();
         Clip clip = getSelectedClip();
         if (audioIdx >= 0 && project.getTimeline().hasAudioClips()) {
-            // Standalone audio clip selected â keyframe on AudioClip
+            // Standalone audio clip selected → keyframe on AudioClip
             audioVolumeKeyframeMode = !audioVolumeKeyframeMode;
             updateVolumeKeyframeModeUI();
             Toast.makeText(this,
                     audioVolumeKeyframeMode
-                            ? "Volume keyframes ON â adjust volume at each point to set fades"
+                            ? "Volume keyframes ON — adjust volume at each point to set fades"
                             : "Volume keyframes OFF",
                     Toast.LENGTH_SHORT).show();
             return true;
         }
         if (clip != null && project.getTimeline().getClipCount() > 0) {
-            // Video clip selected â keyframe on Clip.VolumeKeyframe
+            // Video clip selected → keyframe on Clip.VolumeKeyframe
             audioVolumeKeyframeMode = !audioVolumeKeyframeMode;
             updateVolumeKeyframeModeUI();
             Toast.makeText(this,
                     audioVolumeKeyframeMode
-                            ? "Volume keyframes ON â adjust volume at each point to set fades"
+                            ? "Volume keyframes ON — adjust volume at each point to set fades"
                             : "Volume keyframes OFF",
                     Toast.LENGTH_SHORT).show();
             return true;
@@ -5820,7 +5820,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         updateVolumeUI(clip.getVolumeLevel(), clip.isAudioMuted());
     }
 
-    /** Tap on the Volume tool â open the volume TOP drawer (was a bottom sheet). */
+    /** Tap on the Volume tool → open the volume TOP drawer (was a bottom sheet). */
     private void showVolumeControl() {
         if (toolPrefs != null) toolPrefs.recordUse("mute");
         if (volumeDrawerOpen) {
@@ -5830,7 +5830,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Clip-opacity keyframe helpers (mirrors volume automation) ââââ
+    // ── Clip-opacity keyframe helpers (mirrors volume automation) ────
 
     private boolean toggleClipOpacityKeyframeMode() {
         Clip clip = getSelectedClip();
@@ -5843,7 +5843,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         updateOpacityKeyframeModeUI();
         Toast.makeText(this,
                 clipOpacityKeyframeMode
-                        ? "Opacity keyframes ON â adjust opacity at each point to set fades"
+                        ? "Opacity keyframes ON — adjust opacity at each point to set fades"
                         : "Opacity keyframes OFF",
                 Toast.LENGTH_SHORT).show();
         return true;
@@ -5853,7 +5853,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         updateOpacityUI();
     }
 
-    // ââ Caption style keyframes âââââââââââââââââââââââââââââââââââââââ
+    // ── Caption style keyframes ───────────────────────────────────────
 
     private boolean toggleCaptionStyleKeyframeMode() {
         Clip clip = getSelectedClip();
@@ -5870,7 +5870,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 clip.addOrUpdateCaptionStyleKeyframe(0, initialStyle);
                 clip.setCaptionsEnabled(true);
             }
-            Toast.makeText(this, "Caption style keyframes ON â tap a style pill to drop a keyframe",
+            Toast.makeText(this, "Caption style keyframes ON — tap a style pill to drop a keyframe",
                     Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(this, "Caption style keyframes OFF", Toast.LENGTH_SHORT).show();
@@ -5880,7 +5880,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return true;
     }
 
-    /** Tap on the Opacity tool â open the opacity top drawer. */
+    /** Tap on the Opacity tool → open the opacity top drawer. */
     private void showOpacityControl() {
         if (toolPrefs != null) toolPrefs.recordUse("opacity");
         if (opacityDrawerOpen) {
@@ -5920,7 +5920,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /** Legacy bottom-sheet volume control (kept for reference / ducking; not wired to the tap). */
     private void showVolumeControlSheet() {
-        // Check if an audio clip is selected â control its volume instead
+        // Check if an audio clip is selected — control its volume instead
         int audioIdx = editorTimeline.getSelectedAudioIndex();
         if (audioIdx >= 0 && project.getTimeline().hasAudioClips()) {
             AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
@@ -5996,7 +5996,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         sheet.show(getSupportFragmentManager(), "volumeControl");
     }
 
-    // ââ Volume drag-adjust (vertical drag on the Volume tool) âââââââââ
+    // ── Volume drag-adjust (vertical drag on the Volume tool) ─────────
     // Drag the Volume tool up/down to raise/lower the SELECTED audio clip's volume live.
     // When keyframe mode is armed, the drag drops/updates a keyframe at the playhead and
     // raises/lowers it (the blue envelope tracks the drag). On a video clip it adjusts the
@@ -6068,7 +6068,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Volume drag HUD (center overlay shown while dragging) ââââââââ
+    // ── Volume drag HUD (center overlay shown while dragging) ────────
 
     private void showVolumeDragHud() {
         if (volumeDragHud != null) volumeDragHud.setVisibility(View.VISIBLE);
@@ -6083,7 +6083,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             String icon = volume < 0.01f ? "volume_off"
                     : volume <= 0.5f ? "volume_down" : "volume_up";
             volumeDragHudIcon.setText(icon);
-            // Red tint above 100% (overdrive), green otherwise â matches the toolbar logic.
+            // Red tint above 100% (overdrive), green otherwise — matches the toolbar logic.
             int color = volume > 1.01f ? 0xFFF44336 : 0xFF4CAF50;
             volumeDragHudIcon.setTextColor(color);
             if (volumeDragHudValue != null) volumeDragHudValue.setTextColor(color);
@@ -6116,7 +6116,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Volume top-drawer (tap the Volume tool) ââââââââââââââââââââââ
+    // ── Volume top-drawer (tap the Volume tool) ──────────────────────
 
     /** One-time wiring of the volume drawer's bar / stopwatch / mute / carets / dismiss. */
     private void wireVolumeDrawer() {
@@ -6335,7 +6335,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     private void updateVolumeUI(float volume, boolean muted) {
-        // Keyframe mode armed on an audio clip â keep the green stopwatch indicator
+        // Keyframe mode armed on an audio clip → keep the green stopwatch indicator
         // (otherwise selecting/scrubbing would reset it to the plain volume icon).
         if (audioVolumeKeyframeMode
                 && editorTimeline != null && editorTimeline.getSelectedAudioIndex() >= 0) {
@@ -6388,7 +6388,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Opacity drawer (mirrors the volume drawer pattern) ââââââââââ
+    // ── Opacity drawer (mirrors the volume drawer pattern) ──────────
 
     private void wireOpacityDrawer() {
         if (opacityDrawerWired || opacityDrawer == null) return;
@@ -6444,7 +6444,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (header != null) header.setOnTouchListener(swipeUp);
     }
 
-    // ââ Caption style keyframe drawer wiring ââââââââââââââââââââââ
+    // ── Caption style keyframe drawer wiring ──────────────────────
 
     private boolean captionKeyframeDrawerWired = false;
 
@@ -6486,9 +6486,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Stopwatch shortcut (caption drawer's "advanced" area) âââââââââ
+    // ── Stopwatch shortcut (caption drawer's "advanced" area) ─────────
     // Always-reachable entry point into the SAME arm state + drawer that
-    // wireCaptionKeyframeDrawer()/openCaptionKeyframeDrawer() own â this does not
+    // wireCaptionKeyframeDrawer()/openCaptionKeyframeDrawer() own — this does not
     // duplicate the arming logic, it just gives the bottom caption-style bar a way to
     // reach it without requiring a long-press on the CC timeline lane.
 
@@ -6578,7 +6578,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return true;
     }
 
-    // ââ Loop drawer âââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Loop drawer ─────────────────────────────────────────────────
 
     private void wireLoopDrawer() {
         if (loopDrawerWired || loopDrawer == null) return;
@@ -6589,10 +6589,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         loopModeNormal.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_NORMAL));
         loopModeStill.setOnClickListener(v -> applyLoopMode(Clip.LOOP_MODE_STILL));
         if (Clip.PING_PONG_PARKED) {
-            // PARKED: the ping-pong chip is a disabled "coming soon" affordance â tapping it shows a
+            // PARKED: the ping-pong chip is a disabled "coming soon" affordance — tapping it shows a
             // toast and does NOT switch the clip into PING_PONG (so no new ping-pong project state,
             // no bake, no gapless-eligibility flip). The dim styling is applied in refreshLoopDrawer.
-            // (loopModePingpong is a View field but the drawer chip is a <TextView> â safe cast.)
+            // (loopModePingpong is a View field but the drawer chip is a <TextView> — safe cast.)
             if (loopModePingpong instanceof TextView) {
                 ((TextView) loopModePingpong).setText(R.string.faditor_loop_pingpong_parked);
             }
@@ -6642,7 +6642,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // L3: cap the scrollable content (mode chips + extend rows) BEFORE the slide-in
         // below reads loopDrawer.getHeight() for its translation distance, so a screen too
         // short for the full drawer clamps first and the slide-in uses the corrected
-        // (already-scrollable) height â same measure-then-clamp shape as the layer-history
+        // (already-scrollable) height — same measure-then-clamp shape as the layer-history
         // popup's scroll cap, just applied to a fixed top drawer instead of a popup card.
         clampLoopDrawerScrollHeight();
         loopDrawer.post(() -> {
@@ -6652,13 +6652,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Menu philosophy (DESIGN_JOY_CREATOR.md Â§5): "vertically shrink upper drawers where
-     * possible" â a large drawer covering the timeline is as bad as covering the preview.
+     * Menu philosophy (DESIGN_JOY_CREATOR.md §5): "vertically shrink upper drawers where
+     * possible" — a large drawer covering the timeline is as bad as covering the preview.
      * loop_drawer is a direct FrameLayout child anchored to the top, so its wrap_content
      * height is only bounded by the screen itself; on a short/dense screen (or with the
      * status bar + top app bar already eating space above it) its content could in
      * principle run past the bottom. Rather than restructuring the drawer, only
-     * loop_drawer_scroll (everything below the pinned grab-handle/header) gets capped â
+     * loop_drawer_scroll (everything below the pinned grab-handle/header) gets capped —
      * inner scroll only, per the plan.
      */
     private void clampLoopDrawerScrollHeight() {
@@ -6699,7 +6699,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         loopModeNormal.setBackgroundColor(mode == Clip.LOOP_MODE_NORMAL ? activeBg : normalBg);
         loopModeStill.setBackgroundColor(mode == Clip.LOOP_MODE_STILL ? activeBg : normalBg);
         if (Clip.PING_PONG_PARKED) {
-            // PARKED: never highlight the ping-pong chip green â even a legacy PING_PONG clip is now
+            // PARKED: never highlight the ping-pong chip green — even a legacy PING_PONG clip is now
             // playing as a plain forward loop, so a green "active" chip would misrepresent state.
             // Keep it dim/disabled-looking regardless of the clip's stored mode.
             loopModePingpong.setBackgroundColor(normalBg);
@@ -6713,7 +6713,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             switch (mode) {
                 case Clip.LOOP_MODE_NORMAL: label = R.string.faditor_loop_normal; break;
                 case Clip.LOOP_MODE_STILL: label = R.string.faditor_loop_still; break;
-                // PARKED: a stored PING_PONG clip degrades to a forward loop â reflect that in the
+                // PARKED: a stored PING_PONG clip degrades to a forward loop — reflect that in the
                 // header label instead of advertising ping-pong the app no longer performs.
                 case Clip.LOOP_MODE_PING_PONG:
                     label = Clip.PING_PONG_PARKED
@@ -6754,12 +6754,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         refreshLoopDrawer();
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
         // L1: mode/extension changed the clip's loop-rep windows (or its gapless eligibility
-        // entirely, e.g. switching to/from OFF/PING_PONG/STILL) â rebuild the gapless playlist
+        // entirely, e.g. switching to/from OFF/PING_PONG/STILL) — rebuild the gapless playlist
         // the same way the drag path (onLoopTrimFinished) and undo/redo
         // (refreshEditorAfterUndoRedo) already do, or the engine keeps playing the OLD extension
         // until some unrelated action happens to trigger a rebuild.
         if (!clip.isImageClip()) {
-            // RANK-1c: a user loop edit rebuilds the playlist â advance the generation so any
+            // RANK-1c: a user loop edit rebuilds the playlist — advance the generation so any
             // in-flight bake kicked before this edit discards its stale auto-promote.
             rebuildGeneration++;
             playerManager.updateTrimBounds(clip);
@@ -6792,21 +6792,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 mode, clip.getLoopBeforeMs(), clip.getLoopAfterMs()));
         refreshLoopDrawer();
         editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
-        // L1: same reasoning as applyLoopMode above â the extension length changed, so the
+        // L1: same reasoning as applyLoopMode above — the extension length changed, so the
         // gapless engine's playlist (rep count/boundaries) is stale until rebuilt.
         if (!clip.isImageClip()) {
-            // RANK-1c: user loop edit â advance the rebuild generation (see applyLoopMode).
+            // RANK-1c: user loop edit → advance the rebuild generation (see applyLoopMode).
             rebuildGeneration++;
             playerManager.updateTrimBounds(clip);
         }
         // L2: extendLoop doesn't change the trim range (only before/after ms), so the reverse-bake
-        // key is unchanged â but if this clip is PING_PONG and not yet baked, ensure a bake is in
+        // key is unchanged — but if this clip is PING_PONG and not yet baked, ensure a bake is in
         // flight (cheap no-op when already cached).
         kickReverseBakeIfNeeded(clip);
         saveProjectNow();
     }
 
-    // ââ Move drawer (position/layer) ââââââââââââââââââââââââââââââââ
+    // ── Move drawer (position/layer) ────────────────────────────────
 
     private void initMoveDrawer() {
         if (moveDrawer != null) return;
@@ -6853,14 +6853,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         View header = findViewById(R.id.move_drawer_header);
         if (header != null) header.setOnTouchListener(swipeUp);
 
-        // M12 â the RELIABLE path (dragux_v3 design decision 2026-07-05, user-proposed and
-        // endorsed): explicit buttons for the spine â layer move, built BEFORE the drag because
+        // M12 — the RELIABLE path (dragux_v3 design decision 2026-07-05, user-proposed and
+        // endorsed): explicit buttons for the spine ⇄ layer move, built BEFORE the drag because
         // they are tap-testable and work every time. The drag is the delight layer on top.
-        // Direction follows the stacking convention (addendum Â§1): master is the foundation at
-        // the bottom, layers stack upward â so UP lifts a spine clip onto a layer, DOWN drops a
+        // Direction follows the stacking convention (addendum §1): master is the foundation at
+        // the bottom, layers stack upward — so UP lifts a spine clip onto a layer, DOWN drops a
         // floating clip into the main track.
         // DISPATCH ON WHAT IS SELECTED. These two arrows sit side by side and read as one
-        // matched pair â "nudge the selected thing up/down a lane" â and they were wired to two
+        // matched pair — "nudge the selected thing up/down a lane" — and they were wired to two
         // asymmetric operations on a DIFFERENT object: up ran moveSelectedClipToLayer(), which
         // keys off selectedClipIndex and DEMOTES A MASTER CLIP OFF THE SPINE.
         //
@@ -6868,7 +6868,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // 2026-08-15: he nudged a text down until it refused at the main track, pressed up to
         // put it back, and three linked texts jumped later in the video by whole cuts while the
         // one starting before the seam stayed behind. That is exactly what removing a clip from
-        // the spine does â the timeline shortens and the ripple carries every anchored object
+        // the spine does — the timeline shortens and the ripple carries every anchored object
         // inside the moved span with it. He reconstructed the cause from the symptoms alone and
         // was right: "the up button wasn't wired to moving a selected object up a LANE but
         // instead a CLIP up in order."
@@ -7020,7 +7020,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** Move the selected clip by a relative number of positions (â1 = left, +1 = right). */
+    /** Move the selected clip by a relative number of positions (−1 = left, +1 = right). */
     private void moveSelectedClipBy(int delta) {
         if (project == null) return;
         if (selectedClipIndex < 0) {
@@ -7061,7 +7061,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         syncTimelineOverlays();
         editorTimeline.invalidate();
         refreshMoveDrawer();
-        // GAPLESS: playlist order is stale â rebuild and home to the moved clip. No-op legacy.
+        // GAPLESS: playlist order is stale — rebuild and home to the moved clip. No-op legacy.
         Clip movedClip = to >= 0 && to < tl.getClipCount() ? tl.getClip(to) : null;
         resyncGaplessAfterStructuralEdit(movedClip != null ? movedClip.getId() : null, 0L, false);
         saveProjectNow();
@@ -7122,7 +7122,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Caption style keyframe drawer ââââââââââââââââââââââââââââââââ
+    // ── Caption style keyframe drawer ────────────────────────────────
 
     private void refreshCaptionKeyframeDrawer() {
         Clip cc = getSelectedClip();
@@ -7166,7 +7166,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             next.setAlpha(nav.hasNext ? 1f : 0.35f);
         }
 
-        // On-keyframe indicator + delete ("â" affordance)
+        // On-keyframe indicator + delete ("−" affordance)
         boolean onKf = showNav && com.fadcam.ui.faditor.captions.CaptionStyleKeyframeController
                 .isOnKeyframe(cc, lastSourcePositionInSegmentMs);
         View onDot = findViewById(R.id.caption_kf_onkeyframe);
@@ -7231,7 +7231,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Speed ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Speed ────────────────────────────────────────────────────────
 
     private void showSpeedSlider() {
         Clip clip = selectedTargetClip();
@@ -7250,14 +7250,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     undoManager.recordAction(new EditActions.SpeedAction(
                             clip, oldSpeed, speed));
                 }
-                // A speed change IS a length change â getTrimmedDurationMs is raw/speed â so it
+                // A speed change IS a length change — getTrimmedDurationMs is raw/speed — so it
                 // moves every later clip's start, and until this bracket every object after the
                 // clip stayed put while its footage slid. A PiP's speed does not touch the spine,
                 // so there the bracket sees no delta and does nothing.
                 java.util.Map<String, Long> speedBefore = beginStructuralEdit();
                 clip.setSpeedMultiplier(speed);
                 endStructuralEdit(speedBefore, "speed");
-                // Â§3.5: for a selected PiP the model IS the target â the master player rate must
+                // §3.5: for a selected PiP the model IS the target — the master player rate must
                 // NOT follow (adversarial review #2: it played the master at the PiP's speed).
                 if (clip.isOverlayClip()) {
                     refreshOverlayPreview();
@@ -7283,7 +7283,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onSpeedCommitted() {
                 // Only re-bake if the speed ACTUALLY changed: a rebuild is a visible hitch,
                 // and merely peeking at the sheet during playback used to cost one. The gapless
-                // bake is the MASTER clip's concern â a PiP's speed rides the model/compositor.
+                // bake is the MASTER clip's concern — a PiP's speed rides the model/compositor.
                 if (clip.getSpeedMultiplier() != oldSpeed && !clip.isOverlayClip()) {
                     commitClipSpeedToGaplessEngine(clip);
                 }
@@ -7297,21 +7297,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * playback speed is BAKED into the {@link com.fadcam.ui.faditor.compositor.MasterPlaybackEngine}
      * ClippingConfiguration snapshot at {@code prepareTimeline()}. {@code setPlaybackSpeed} mutates
      * the clip's speed in the Timeline model and pushes a crude live GLOBAL playback-param preview,
-     * but the correct per-clip speed is inaudible/invisible until the snapshot is re-baked â so a
+     * but the correct per-clip speed is inaudible/invisible until the snapshot is re-baked — so a
      * speed edit during a live gapless session was a no-op until reopen.
      *
-     * <p>On COMMIT (speed sheet dismissed â see {@link SpeedSliderBottomSheet.Callback#onSpeedCommitted};
+     * <p>On COMMIT (speed sheet dismissed — see {@link SpeedSliderBottomSheet.Callback#onSpeedCommitted};
      * NEVER per slider tick, which would thrash the engine), re-bake the snapshot through the SAME
-     * funnel structural edits use ({@link #resyncGaplessAfterStructuralEdit} â {@code
+     * funnel structural edits use ({@link #resyncGaplessAfterStructuralEdit} → {@code
      * rebuildGaplessResumingAt}): it no-ops off the gapless path, bumps {@code rebuildGeneration},
      * and homes the playhead to the edited clip preserving play/pause.</p>
      *
      * <p>Homes at the VISUAL position recomputed from the still-current SOURCE position at the NEW
      * speed ({@code sourceMs / newSpeed}) so the same source frame stays on screen instead of
-     * jumping (the engine maps visualâsource through the new window's speed).</p>
+     * jumping (the engine maps visual→source through the new window's speed).</p>
      *
      * <p>No-op on the legacy single-clip path: there {@code setPlaybackSpeed} applies live via
-     * {@code player.setPlaybackParameters} and needs no rebuild â leaving that path untouched.</p>
+     * {@code player.setPlaybackParameters} and needs no rebuild — leaving that path untouched.</p>
      */
     private void commitClipSpeedToGaplessEngine(@Nullable Clip clip) {
         if (clip == null || playerManager == null || !playerManager.isGapless()) return;
@@ -7319,14 +7319,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // whose speed was edited: the sheet stays open across a scrub (the other drawers
         // deliberately track it), so the user can move the playhead into another segment
         // before dismissing. lastSourcePositionInSegmentMs then belongs to THAT segment, and
-        // homing it against the edited clip would land at an unrelated offset â a visible
+        // homing it against the edited clip would land at an unrelated offset — a visible
         // jump. In the ordinary case the two are the same clip and this is unchanged.
         Clip home = getSelectedClip();
         if (home == null) home = clip;
         float homeSpeed = home.getSpeedMultiplier();
         // lastSourcePositionInSegmentMs is a SOURCE-domain offset from the clip's in-point
         // (see updateCurrentTimeDisplay), so dividing by the home clip's speed gives the
-        // visual position the engine resumes at â the same frame stays on screen.
+        // visual position the engine resumes at — the same frame stays on screen.
         long homeVisualMs = (homeSpeed > 0)
                 ? (long) (lastSourcePositionInSegmentMs / homeSpeed)
                 : lastSourcePositionInSegmentMs;
@@ -7342,8 +7342,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * class of bug that the old RenderEffect path needed a layout watcher for cannot arise.</p>
      *
      * <p><b>Media3 {@code setVideoEffects} does not render in this preview path.</b> That was
-     * measured again on 2026-08-07 â the export's own {@code Effect} list handed to the player
-     * left saturation 0 fully saturated, routed and unrouted â which is why the grade is
+     * measured again on 2026-08-07 — the export's own {@code Effect} list handed to the player
+     * left saturation 0 fully saturated, routed and unrouted — which is why the grade is
      * rendered by {@code FxPreviewTextureView} instead. Do not spend the afternoon on it twice.</p>
      */
     @Nullable private Clip gradedPreviewClip;
@@ -7352,13 +7352,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Put the clip's grade on the live preview as media3 effects.
      *
      * <p><b>Rebuilt only on change.</b> {@code setVideoEffects} tears down and re-creates the
-     * frame processor, which drops a frame or two â invisible once, a stutter if it ran on every
+     * frame processor, which drops a frame or two — invisible once, a stutter if it ran on every
      * playhead tick. The key is the serialized stack, so dragging a slider rebuilds (as it must)
      * and merely playing does not.</p>
      */
     private void applyPreviewColorGrade(@Nullable Clip clip) {
         // The clip grade is rendered by FxPreviewTextureView, from media3's own matrices and
-        // the export's own grade function â see ColorGradeGlSource. This method used to hold a
+        // the export's own grade function — see ColorGradeGlSource. This method used to hold a
         // second implementation: a ColorMatrix on API 31+, plus an AGSL translation of the
         // shader-only parameters on API 33+, neither of which could show a LUT and both of
         // which were unreachable on the phones this app mostly runs on. It is gone; all that is
@@ -7391,7 +7391,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return String.format(java.util.Locale.US, "%.2gx", speed);
     }
 
-    // ââ Rotate âââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Rotate ───────────────────────────────────────────────────────
 
     private void rotateNext() {
         Clip clip = getSelectedClip();
@@ -7418,7 +7418,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Flip âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Flip ─────────────────────────────────────────────────────────
 
     private void showFlipPicker() {
         Clip clip = getSelectedClip();
@@ -7464,7 +7464,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Crop âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Crop ─────────────────────────────────────────────────────────
 
     /** The aspect ratio presets shown in crop mode. */
     private static final String[][] CROP_ASPECT_PRESETS = {
@@ -7490,7 +7490,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void enterCropMode() {
         if (inCropMode) return;
         inCropMode = true;
-        // The GL chain must show the FULL frame while the crop overlay is up â the user is
+        // The GL chain must show the FULL frame while the crop overlay is up — the user is
         // dragging a rectangle over it. syncAdjustmentPreview reads suppressPreviewCrop().
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
 
@@ -7597,7 +7597,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Clip clip = getSelectedClip();
 
         if (apply) {
-            // Keep current overlay bounds â they were already saved to the clip
+            // Keep current overlay bounds — they were already saved to the clip
             // via the OnCropChangeListener. Determine if user made a meaningful crop.
             boolean isFullFrame = Math.abs(clip.getCropLeft()) < 0.01f
                     && Math.abs(clip.getCropTop()) < 0.01f
@@ -7643,7 +7643,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         updateCropUI(clip.getCropPreset());
 
-        // Defer preview transforms until layout has settled â the player container
+        // Defer preview transforms until layout has settled — the player container
         // changes size when the controls section becomes visible again.
         FrameLayout container = findViewById(R.id.player_container);
         container.getViewTreeObserver().addOnGlobalLayoutListener(
@@ -7858,8 +7858,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * PlayerView exactly to the canvas, so the PlayerView's bounds ARE the canvas.
      *
      * <p>Captions and text overlays are authored and exported in CANVAS
-     * coordinates (font = fraction Ã canvas height; position = fraction of the
-     * canvas). They must therefore size/position against THIS rect â not the
+     * coordinates (font = fraction × canvas height; position = fraction of the
+     * canvas). They must therefore size/position against THIS rect — not the
      * per-clip video content rect, which changes with each clip's decoded source
      * resolution and was making caption size jump around while scrubbing and not
      * match the export.</p>
@@ -7869,7 +7869,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * frame". That holds only while every clip shares one aspect. {@link #resolveCanvasAspect}
      * resolves "original" from CLIP 0 and {@link #applyCanvasFrame} sizes the PlayerView to it,
      * so with a horizontal clip 0 and a vertical clip 2 the PlayerView stayed horizontal while
-     * this method started returning the vertical clip's narrow pillarboxed rect â every overlay
+     * this method started returning the vertical clip's narrow pillarboxed rect — every overlay
      * silently re-anchored to a different box mid-scrub, which is the "objects don't keep their
      * relative positions and sizes" jank. The PlayerView's bounds are the canvas in BOTH cases;
      * the only true unknown is an unresolvable aspect, which is what the fallback is now for.</p>
@@ -7936,11 +7936,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                 float renderW, renderH;
                 if (videoAspect > viewAspect) {
-                    // Video is wider â letterbox top/bottom
+                    // Video is wider — letterbox top/bottom
                     renderW = viewW;
                     renderH = viewW / videoAspect;
                 } else {
-                    // Video is taller â pillarbox left/right
+                    // Video is taller — pillarbox left/right
                     renderH = viewH;
                     renderW = viewH * videoAspect;
                 }
@@ -7949,7 +7949,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 float top = offsetY + (viewH - renderH) / 2f;
                 android.graphics.RectF result = new android.graphics.RectF(
                         left, top, left + renderW, top + renderH);
-                // (F4 PERF_SPEC_LONGFILE_20260718: no per-call log here â this runs on every
+                // (F4 PERF_SPEC_LONGFILE_20260718: no per-call log here — this runs on every
                 // 50ms playhead tick and FLog's redaction regexes made it a hot-path cost.)
                 return result;
             }
@@ -7958,15 +7958,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Fallback: assume full view.
         //
         // MEASURED on the Note 9 opening a 9-clip project: this fires 8-9 times in ~180ms during
-        // load and EVERY call reports view=1080x0 â the PlayerView is unmeasured that early, and
+        // load and EVERY call reports view=1080x0 — the PlayerView is unmeasured that early, and
         // so is its parent, so what comes back has zero height rather than being a guess at the
         // letterbox. The sizes are in the log line because without them this reads as a harmless
         // "we don't know the aspect yet" branch.
         //
         // THIS IS NOT THE LOAD FLICKER, and an earlier version of this comment claimed it was.
-        // Every consumer bails on a degenerate rect already â TextOverlayLayer.position, the four
+        // Every consumer bails on a degenerate rect already — TextOverlayLayer.position, the four
         // sites in PreviewHandlesOverlay, the sprite draw and the mask-drag path all test
-        // width()/height() <= 0 first â so a zero-height rect is ignored, never laid out against.
+        // width()/height() <= 0 first — so a zero-height rect is ignored, never laid out against.
         // The claim was written from the measurement without reading the consumers, which is the
         // same "trusted a plausible signal before checking it" this file has been bitten by.
         //
@@ -7974,7 +7974,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // displaySize (cached per source URI, 948cde3). The parent reports 1080x0 too, so nothing
         // at that moment knows the box at all.
         FLog.d(TAG, "computeVideoContentRect: FALLBACK to full view (view=" + viewW + "x" + viewH
-                + " â UNMEASURED if 0)");
+                + " — UNMEASURED if 0)");
         return new android.graphics.RectF(offsetX, offsetY, offsetX + viewW, offsetY + viewH);
     }
 
@@ -8133,7 +8133,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return null;
     }
 
-    // ââ Canvas ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Canvas ────────────────────────────────────────────────────────
 
     /**
      * Shows the canvas aspect ratio picker bottom sheet.
@@ -8205,7 +8205,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int containerW = container.getWidth();
         int containerH = container.getHeight();
         if (containerW <= 0 || containerH <= 0) {
-            // Not measured yet â retry after layout.
+            // Not measured yet — retry after layout.
             container.post(this::applyCanvasFrame);
             return;
         }
@@ -8236,7 +8236,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // THE GL FX SURFACE IS A VIDEO PLANE, so it must occupy exactly the canvas the
         // player does. It was declared match_parent and never sized here, so the moment an
         // adjustment layer engaged the live preview the picture jumped from the canvas rect
-        // to the whole container â a vertical clip in a horizontal project stopped being
+        // to the whole container — a vertical clip in a horizontal project stopped being
         // pillarboxed and filled the screen, which is not what the export produces.
         sizeToCanvas(findViewById(R.id.fx_preview_view), targetW, targetH);
         // Transition layers must occupy exactly the canvas rect too, or the incoming
@@ -8263,7 +8263,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Enable/disable the preview-only 9:16 safe-zone guide (from the Settings sheet
-     * toggle). Purely a preview visual â the overlay only actually draws when the
+     * toggle). Purely a preview visual — the overlay only actually draws when the
      * canvas aspect is ~9:16 (see {@link com.fadcam.ui.faditor.player.SafeZoneOverlayView}),
      * but visibility itself is gated here so it costs nothing when off.
      */
@@ -8278,15 +8278,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * for "original" the first clip's intrinsic aspect (slide dimensions for an AI
      * slide). Returns -1 when unknown (caller fills the preview).
      */
-    /** The generated black spacer's filename â a gap, never content. See firstAspectBearingClip. */
+    /** The generated black spacer's filename — a gap, never content. See firstAspectBearingClip. */
     private static final String GAP_IMAGE_NAME = "faditor_gap_black.png";
 
     /**
-     * The first clip whose shape may define the canvas â never a generated black spacer.
+     * The first clip whose shape may define the canvas — never a generated black spacer.
      *
      * <p>A 16x16 PNG DECIDED THE SHAPE OF THE WHOLE PROJECT. {@code resolveCanvasAspect}
-     * resolves the "original" preset from CLIP 0, and {@code faditor_gap_black.png} â written
-     * 16x16 by the gap writer below â is a spacer, not content. Land one at position 0 and the
+     * resolves the "original" preset from CLIP 0, and {@code faditor_gap_black.png} — written
+     * 16x16 by the gap writer below — is a spacer, not content. Land one at position 0 and the
      * canvas becomes 1:1, so a 9:16 project renders square in the preview and every overlay
      * anchors to a square box. JoyRaptor, over several days: "the aspect ratio of the project
      * changed to square, was 9:16", "that changed a while back, never solved". His
@@ -8313,7 +8313,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private float resolveCanvasAspect() {
         String rawPreset = project.getCanvasPreset();
         if (rawPreset != null && rawPreset.startsWith("custom_")) {
-            // Literal WÃH custom resolution: resolve via the same parser the
+            // Literal W×H custom resolution: resolve via the same parser the
             // export path uses, source dims don't matter here (already fixed).
             int[] dims = CanvasPickerBottomSheet.resolveCanvasDimensions(rawPreset, 0, 0);
             if (dims != null && dims[0] > 0 && dims[1] > 0) {
@@ -8354,19 +8354,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The clip's size AS DISPLAYED â rotation already applied. Never the raw stored size.
+     * The clip's size AS DISPLAYED — rotation already applied. Never the raw stored size.
      *
      * <p><b>This is the difference between a portrait video and a landscape one.</b> A phone
-     * records "portrait" as a LANDSCAPE frame plus a 90Â°/270Â° rotation flag; the player applies
+     * records "portrait" as a LANDSCAPE frame plus a 90°/270° rotation flag; the player applies
      * that flag, the container metadata does not. Reading
      * {@code METADATA_KEY_VIDEO_WIDTH/HEIGHT} alone therefore reports a 9:16 clip as 1920x1080,
      * i.e. 16:9. {@link #resolveCanvasAspect} sizes the whole canvas off clip 0, so promoting a
      * portrait PiP to the front of the timeline silently flipped an entire 9:16 project to
-     * landscape â reported 2026-08-11. Stills have the identical trap in EXIF orientation, so
+     * landscape — reported 2026-08-11. Stills have the identical trap in EXIF orientation, so
      * both are handled here rather than in one branch.</p>
      *
      * <p>One retriever pass for all three values: the previous pair of methods each opened their
-     * own {@code MediaMetadataRetriever} and called {@code setDataSource} â two full decodes to
+     * own {@code MediaMetadataRetriever} and called {@code setDataSource} — two full decodes to
      * answer one question, on a path {@code applyCanvasFrame} runs at layout time.</p>
      *
      * @return {@code {width, height}}, or {@code {0, 0}} when nothing can be read.
@@ -8378,7 +8378,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * {@code MediaMetadataRetriever} (or two {@code BitmapFactory} passes for a still) and there
      * was no cache anywhere, while {@code applyCanvasFrame} calls it through
      * {@code resolveCanvasAspect} AT LAYOUT TIME from four sites plus a {@code container.post}
-     * retry. Measured on the Note 9 (2026-08-12): 97 skipped frames â about 1.6 seconds â during
+     * retry. Measured on the Note 9 (2026-08-12): 97 skipped frames — about 1.6 seconds — during
      * project open, which is the flicker-and-jank-on-load report.</p>
      *
      * <p>Keyed by URI rather than by clip: a clip's intrinsic size is a property of its SOURCE, so
@@ -8463,7 +8463,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return displaySize(clip)[1];
     }
 
-    // ââ AV4: Waveform visualizer settings + analysis timing ââââââââââââ
+    // ── AV4: Waveform visualizer settings + analysis timing ────────────
 
     /** SharedPreferences flag: the one-time "analyze eagerly or lazily?" chooser has been shown. */
     private static final String PREF_WAVE_VIZ_ASKED = "wave_viz_analyze_asked";
@@ -8495,7 +8495,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>Trigger choice: the two genuine user-initiated audio-add funnels (extract-audio-from-clip
      * and import-audio-file). Deliberately NOT {@code setAudioClips}, which also fires on project
-     * load/restore â showing the dialog there would be intrusive and ill-defined.</p>
+     * load/restore — showing the dialog there would be intrusive and ill-defined.</p>
      */
     private void maybeAskWaveformAnalysisTiming() {
         if (editorTimeline == null || isFinishing()) return;
@@ -8511,8 +8511,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Analyze audio waveforms")
                 .setMessage("When should the detailed audio waveform be analyzed?\n\n"
-                        + "â¢ Eagerly â right when you add audio (uses more work up front)\n"
-                        + "â¢ Lazily â only when a clip is first opened")
+                        + "• Eagerly — right when you add audio (uses more work up front)\n"
+                        + "• Lazily — only when a clip is first opened")
                 .setCancelable(false)
                 .setPositiveButton("Eagerly", (d, w) -> applyWaveformAnalysisChoice(style, p, true))
                 .setNegativeButton("Lazily", (d, w) -> applyWaveformAnalysisChoice(style, p, false))
@@ -8526,14 +8526,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         style.analyzeEager = eager;
         style.saveTo(p);
         p.edit().putBoolean(PREF_WAVE_VIZ_ASKED, true).apply();
-        // Eager: prime the tape cache over the current clips immediately (no clear â keep any
+        // Eager: prime the tape cache over the current clips immediately (no clear — keep any
         // already-analyzed data; primeEagerTapeAnalysis is idempotent).
         if (eager && editorTimeline != null) {
             editorTimeline.primeEagerTapeAnalysis();
         }
     }
 
-    // ââ Audio âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Audio ─────────────────────────────────────────────────────────
 
     /**
      * Extracts the audio track from the currently selected video clip,
@@ -8552,7 +8552,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         audioExecutor.execute(() -> {
             try {
-                // ââ Step 1: Extract raw audio to AAC file ââââââââââââââââ
+                // ── Step 1: Extract raw audio to AAC file ────────────────
                 MediaExtractor extractor = new MediaExtractor();
                 extractor.setDataSource(this, videoUri, null);
 
@@ -8585,7 +8585,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                 // Mux audio track into a proper M4A container (MediaPlayer needs headers).
                 // DURABILITY (road_map Tier-1): this file's Uri becomes the AudioClip's PERSISTED
-                // sourceUri, so it must survive the OS clearing the cache dir â use getFilesDir()
+                // sourceUri, so it must survive the OS clearing the cache dir — use getFilesDir()
                 // (app-internal, not OS-cleared) like the images dir, NOT getCacheDir(). A cache-dir
                 // path would also be silently unrecoverable (recoverStaleCachePaths handles only video).
                 extractor.selectTrack(audioTrackIndex);
@@ -8620,10 +8620,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Uri audioUri = Uri.fromFile(audioFile);
                 final long finalDurationMs = durationMs;
 
-                // ââ Step 2: Generate waveform ââââââââââââââââââââââââââââ
+                // ── Step 2: Generate waveform ────────────────────────────
                 int[] waveform = generateWaveform(videoUri, audioTrackIndex, 800);
 
-                // ââ Step 3: Create AudioClip and add to timeline âââââââââ
+                // ── Step 3: Create AudioClip and add to timeline ─────────
                 AudioClip audioClip = new AudioClip(audioUri, finalDurationMs);
                 audioClip.setLabel(getString(R.string.faditor_audio_extract_current));
                 audioClip.setWaveform(waveform);
@@ -8636,7 +8636,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                     project.getTimeline().addAudioClip(audioClip);
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
-                    // AV4: first-ever audio add â offer eager/lazy waveform analysis (once).
+                    // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).
                     maybeAskWaveformAnalysisTiming();
 
                     // Record undo action for adding audio clip
@@ -8679,7 +8679,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * @param uri              source media URI
      * @param audioTrackIndex  index of the audio track in the container
      * @param targetSamples    desired number of waveform bars
-     * @return amplitude array (0â255), or null on failure
+     * @return amplitude array (0–255), or null on failure
      */
     @Nullable
     private int[] generateWaveform(@NonNull Uri uri, int audioTrackIndex, int targetSamples) {
@@ -8753,7 +8753,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (allSamples.isEmpty()) return null;
 
             // Downsample to PEAK bins. W1 accuracy (JoyRaptor 2026-07-06): store the peak (max |sample|)
-            // per bin, NOT the mean â averaging smeared out onsets/transients so words couldn't be
+            // per bin, NOT the mean — averaging smeared out onsets/transients so words couldn't be
             // lined up by ear. Resolution scales with duration (~60 bins/sec, capped) so a long clip
             // isn't crushed into a coarse 800-bin smear; short clips keep the caller's fine target.
             int totalSamples = allSamples.size();
@@ -8773,7 +8773,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     int a = Math.abs(allSamples.get(j));
                     if (a > peak) peak = a;
                 }
-                // Normalise to 0â255.
+                // Normalise to 0–255.
                 waveform[i] = (int) Math.min(255, ((long) peak * 255) / 32768);
             }
             return waveform;
@@ -8794,14 +8794,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (toolAudioLabel != null) toolAudioLabel.setTextColor(color);
     }
 
-    // ââ Audio player (playback sync) âââââââââââââââââââââââââââââââââ
+    // ── Audio player (playback sync) ─────────────────────────────────
 
     /**
      * Prepares MediaPlayers for ALL audio clips in the timeline.
      * One MediaPlayer per clip, each pre-prepared for instant playback.
      */
     /**
-     * The player for audio clip {@code index}, but only once it can actually be driven â
+     * The player for audio clip {@code index}, but only once it can actually be driven —
      * otherwise null.
      *
      * <p>Readiness is asked of the player itself. It used to be mirrored in a parallel
@@ -8894,7 +8894,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void syncAudioPlayerWithPlayhead() {
         if (project == null || !project.getTimeline().hasAudioClips()) return;
 
-        // Gate on ACTUAL playback (isPlaying), NOT getPlayWhenReady â the latter stays true at
+        // Gate on ACTUAL playback (isPlaying), NOT getPlayWhenReady — the latter stays true at
         // STATE_ENDED and when the player is stuck in a gap, which kept the music running after the
         // video stopped (bug). A short debounce avoids dipping the music during brief clip-boundary
         // buffering while still pausing runaway audio once playback has really stopped.
@@ -9036,27 +9036,27 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         audioPlayers.clear();
     }
 
-    // ââ Live Preview Transforms ââââââââââââââââââââââââââââââââââââââ
+    // ── Live Preview Transforms ──────────────────────────────────────
 
     /**
      * Apply rotation, flip, and crop transforms to the PlayerView for live preview.
      */
     private void updatePreviewTransforms() {
         if (project == null || project.getTimeline().isEmpty()) return;
-        // CROP DOES NOT LIVE HERE ANYMORE â and it must never come back.
+        // CROP DOES NOT LIVE HERE ANYMORE — and it must never come back.
         //
         // This method used to crop by clipping and scaling the PlayerView (setClipBounds plus
         // scale/translate from effectiveVideoSize()). That was a THIRD crop implementation
         // whose pixels nobody sees: the user watches FxPreviewTextureView's GL surface, which
         // draws OVER the PlayerView whenever the FX chain is routed, so these transforms
         // moved a picture hidden underneath. Worse, effectiveVideoSize() reads the PLAYER'S
-        // CURRENT video size, which is stale or zero for a frame at every clip transition â
+        // CURRENT video size, which is stale or zero for a frame at every clip transition —
         // producing the "squish to a third height, then pop" flash at each seam
-        // (SPEC_20260825_PREVIEW_MATCHES_EXPORT Â§1).
+        // (SPEC_20260825_PREVIEW_MATCHES_EXPORT §1).
         //
         // Crop now renders INSIDE the GL chain: FxLivePreviewController reads the playhead
-        // clip's Clip.effectiveCropFractions() â the same model authority
-        // ExportManager.effectiveCropRectNdc builds its media3 Crop effect from â and
+        // clip's Clip.effectiveCropFractions() — the same model authority
+        // ExportManager.effectiveCropRectNdc builds its media3 Crop effect from — and
         // FxPreviewTextureView applies it between staging and grading. Rotation and flip are
         // kept here because they shape the PlayerView when NO GL routing exists at all.
         //
@@ -9107,10 +9107,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             exportEventsReceiverRegistered = true;
         }
 
-        // Export button â show confirmation bottom sheet
+        // Export button → show confirmation bottom sheet
         findViewById(R.id.btn_export).setOnClickListener(v -> showExportConfirmation());
 
-        // Cancel export button â a start-intent action reaches the :export process
+        // Cancel export button — a start-intent action reaches the :export process
         // (no binding exists across processes).
         findViewById(R.id.btn_cancel_export).setOnClickListener(v -> {
             android.content.Intent cancelIntent =
@@ -9139,7 +9139,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             exportProgressStripe.setOnClickListener(v -> reshowExportProgress());
         }
 
-        // Done button â navigate to Faditor Mini tab
+        // Done button → navigate to Faditor Mini tab
         if (exportBtnDone != null) {
             exportBtnDone.setOnClickListener(v -> {
                 hideExportProgress();
@@ -9263,11 +9263,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         View backBtn = findViewById(R.id.export_btn_back);
                         if (backBtn != null) backBtn.setVisibility(View.INVISIBLE);
 
-                        // Export is done â the running-indicator stripe no longer applies.
+                        // Export is done — the running-indicator stripe no longer applies.
                         hideExportProgressStripe();
 
                         // Minimized (user is editing): don't yank them back to the
-                        // overlay â a toast + the system notification announce it.
+                        // overlay — a toast + the system notification announce it.
                         if (exportProgressOverlay != null
                                 && exportProgressOverlay.getVisibility() != View.VISIBLE) {
                             reacquirePreviewIfReleased();
@@ -9293,7 +9293,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         String raw = errorMessage != null ? errorMessage : "Unknown error";
                         String rawClass = errorClass != null ? errorClass : "Unknown";
 
-                        // Structured record â first stone of bug-reporting pipeline (Â§3)
+                        // Structured record — first stone of bug-reporting pipeline (§3)
                         // Single tagged line, machine-readable, privacy-scrubbed (FLog already scrubs)
                         try {
                             String version = "unknown";
@@ -9320,7 +9320,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             FLog.e(TAG, "Export failed: " + raw + " [" + rawClass + "]");
                         }
 
-                        // Dialog, not toast â must hold Retry and Details
+                        // Dialog, not toast — must hold Retry and Details
                         String userMsg = cause.userMessage;
                         if (!userMsg.toLowerCase(java.util.Locale.ROOT).contains("safe")) {
                             userMsg += "\n\nYour project is safe.";
@@ -9336,7 +9336,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 startExportViaService(lastExportWasAudioOnly);
                             });
                         }
-                        // Details disclosure: raw engine text demoted but not deleted â what makes a bug report useful
+                        // Details disclosure: raw engine text demoted but not deleted — what makes a bug report useful
                         b.setNeutralButton("Details", (dlg, w) -> {
                             new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
                                     .setTitle("Export error details")
@@ -9432,7 +9432,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
     }
 
-    // ââ Playback helpers âââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Playback helpers ─────────────────────────────────────────────
 
     /**
      * Correct the project's source duration using ExoPlayer's actual reported duration.
@@ -9456,7 +9456,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // (e.g. 4 096 ms). We trust FFprobe for "longer" values.
         if (playerDurationMs < storedDuration && (storedDuration - playerDurationMs) > 500) {
             FLog.w(TAG, "Duration correction (shorter): stored=" + storedDuration
-                    + "ms â ExoPlayer=" + playerDurationMs + "ms");
+                    + "ms → ExoPlayer=" + playerDurationMs + "ms");
 
             long oldIn = clip.getInPointMs();
             long oldOut = clip.getOutPointMs();
@@ -9470,18 +9470,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (newOut <= newIn) { newIn = 0; newOut = playerDurationMs; }
             // Bracketed: this SHORTENS the clip, so it moves every later clip's start and
             // everything riding on them. It is the only length change in the app the user did not
-            // ask for â it fires by itself when ExoPlayer disagrees with the stored duration, which
-            // is routine for fragmented MP4 â and it was the one place a silent desync could appear
+            // ask for — it fires by itself when ExoPlayer disagrees with the stored duration, which
+            // is routine for fragmented MP4 — and it was the one place a silent desync could appear
             // with no edit having been made at all.
             java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
             clip.setInPointMs(newIn);
             clip.setOutPointMs(newOut);
             endStructuralEdit(anchorsBefore, "durationCorrection");
 
-            FLog.d(TAG, "Trim clamped: in=" + oldIn + "â" + newIn
-                    + ", out=" + oldOut + "â" + newOut);
+            FLog.d(TAG, "Trim clamped: in=" + oldIn + "→" + newIn
+                    + ", out=" + oldOut + "→" + newOut);
 
-            // Refresh UI with corrected duration â but DO NOT reset playhead or player position.
+            // Refresh UI with corrected duration — but DO NOT reset playhead or player position.
             refreshTotalTimeDisplay();
             editorTimeline.setTrimFromClip(clip);
             // Update BOTH trim bounds silently so seeks use the corrected values.
@@ -9495,11 +9495,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void updatePlayPauseButton(boolean isPlaying) {
         btnPlayPause.setText(isPlaying ? "pause" : "play_arrow");
         // F3c (PERF_SPEC_LONGFILE_20260718): every play/pause transition funnels through
-        // here â gate background waveform analysis while playback owns the codec/disk.
+        // here — gate background waveform analysis while playback owns the codec/disk.
         if (editorTimeline != null) editorTimeline.setAnalysisSuspended(isPlaying);
     }
 
-    // ââ Time display helpers âââââââââââââââââââââââââââââââââââââââââ
+    // ── Time display helpers ─────────────────────────────────────────
 
     /**
      * Refresh the total time display to show full project duration.
@@ -9507,8 +9507,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void refreshTotalTimeDisplay() {
         if (project == null || project.getTimeline().isEmpty()) return;
-        // Show the EFFECTIVE (post-edit) length â what the export will be â using
-        // "â" when blacked-out spans shorten it from the raw timeline length.
+        // Show the EFFECTIVE (post-edit) length — what the export will be — using
+        // "≈" when blacked-out spans shorten it from the raw timeline length.
         long effective = 0;
         boolean edited = false;
         for (Clip c : project.getTimeline().getClips()) {
@@ -9516,7 +9516,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (c.hasRemovedSpans()) edited = true;
         }
         if (edited) {
-            timeTotal.setText("â" + TimeFormatter.formatAuto(effective));
+            timeTotal.setText("≈" + TimeFormatter.formatAuto(effective));
         } else {
             timeTotal.setText(TimeFormatter.formatAuto(
                     project.getTimeline().getTotalDurationMs()));
@@ -9535,7 +9535,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * back to {@code absoluteMs}.
      *
      * <p>Exists because {@code updateCurrentTimeDisplay} takes a SEGMENT-RELATIVE position, not
-     * an absolute one â its parameter is {@code positionInCurrentSegmentMs} and it calls
+     * an absolute one — its parameter is {@code positionInCurrentSegmentMs} and it calls
      * getAbsolutePlayheadMs to convert. Anything holding an absolute time (and
      * {@code lastPlayheadAbsoluteMs} is the obvious one) has to come back through here first, or
      * the segment start gets added a second time.
@@ -9605,13 +9605,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         lastPlayheadAbsoluteMs = absoluteMs;
         // B4: feed the level meters. The renderer cannot be reached through
         // EditorTimelineView (it owns its instance privately), so the playhead goes through
-        // the static channel and the master meter ticks alongside â both read the SAME value
+        // the static channel and the master meter ticks alongside — both read the SAME value
         // this method already computed, so gutter bars and corner meter can never disagree.
         com.fadcam.ui.faditor.layers.LayerRowRenderer.reportHostPlayheadMs(absoluteMs);
         updateAudioOnlyLayout();
         if (project != null) {
         com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView meter = ensureMasterMeter();
-            // The meter is an indicator, not a control: while a drawer is open it hides â
+            // The meter is an indicator, not a control: while a drawer is open it hides —
             // competing with the workbench for the corner is noise, and a frozen reading
             // beside active sliders reads as a stuck control.
             boolean drawerOpen = objectDrawer != null && objectDrawer.isShowing();
@@ -9625,13 +9625,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         // BEFORE syncAdjustmentPreview, and that order is load-bearing. The GL composite asks the
         // overlay layer where each effected image overlay IS (TextOverlayLayer.fxPipFor), and the
-        // layer answers from its OWN clock â the overlay clock, which is not this method's
+        // layer answers from its OWN clock — the overlay clock, which is not this method's
         // absoluteMs (see overlayClockMs). Ticked afterwards, the composite would place every
         // image where it was one tick ago, so a scrub would drag the picture behind the video it
         // sits on. Advancing the clock first costs nothing: this call is idempotent and the
         // surfaces below re-derive from the same value.
         setTextOverlayPlayhead(absoluteMs);
-        // M5: put the topmost adjustment layer's effect stack on the preview. Cheap by design â
+        // M5: put the topmost adjustment layer's effect stack on the preview. Cheap by design —
         // it early-outs unless the RESOLVED state changed, so an unanimated stack costs one
         // string compare per tick rather than a subtree invalidation.
         syncAdjustmentPreview(absoluteMs);
@@ -9653,8 +9653,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         // The PiP drawer tracks it for the SAME reason, and did not until 2026-08-05: without
         // this its rows are a snapshot of the moment it opened, so scrubbing changed no value
-        // and no diamond ever turned green. The drawer exists to be used WHILE scrubbing â
-        // that is why it is anchored at the top and leaves the timeline clear â so a drawer
+        // and no diamond ever turned green. The drawer exists to be used WHILE scrubbing —
+        // that is why it is anchored at the top and leaves the timeline clear — so a drawer
         // that ignores the playhead is the one thing it must not be.
         if (objectDrawer != null && objectDrawer.isShowing()) {
             com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(objectDrawer.currentTabContent());
@@ -9679,10 +9679,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // GL composite started reading the layer's clock; the call moved to the top of this
         // method, where the reason it has to run first is written out.
         // Every surface below is time-range driven, so each one had the same past-the-last-clip
-        // blindness â see overlayClockMs. Corrected once here rather than four times.
+        // blindness — see overlayClockMs. Corrected once here rather than four times.
         long overlayMs = overlayClockMs(absoluteMs);
         // M-COMP-1: same playhead tick drives the IMAGE-track preview surface (scrub +
-        // live playback both flow through this one method â PLAN Â§3.2 scope item 5).
+        // live playback both flow through this one method — PLAN §3.2 scope item 5).
         if (layerImageOverlay != null) {
             layerImageOverlay.setPlayheadMs(overlayMs);
         }
@@ -9690,7 +9690,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (spriteOverlayView != null && !spriteOverlayView.isEmpty()) {
             setSpriteOverlayPlayhead(overlayMs);
         }
-        // M-COMP-2: same tick drives the live PiP layer â time-range visibility,
+        // M-COMP-2: same tick drives the live PiP layer — time-range visibility,
         // keyframed transform, and overlay-decoder sync against the master clock.
         if (overlayVideoLayer != null && !overlayVideoLayer.isEmpty()) {
             overlayVideoLayer.setPlayheadMs(overlayMs,
@@ -9701,7 +9701,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             spritePalettePanel.setPlayheadMs(absoluteMs);
         }
         // Drive waveform/spectrum visualizers from the TIMELINE playhead position,
-        // not the source position â visualizers are placed at timeline positions
+        // not the source position — visualizers are placed at timeline positions
         // and their mapToSourceMs needs a timeline timestamp.
         if (waveformOverlayView != null) {
             waveformOverlayView.setPlayheadMs(editorTimeline.getPlayheadPositionMs());
@@ -9741,8 +9741,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 audioCaptionOverlay.setVisibility(View.GONE);
             }
         }
-        // FEEDBACK #4 (layers-UX): the caption STYLE chooser (Pop/Zoom/Boxed/â¦) is only useful
-        // while a captioned clip or audio clip is actually under the playhead â it used to stay
+        // FEEDBACK #4 (layers-UX): the caption STYLE chooser (Pop/Zoom/Boxed/…) is only useful
+        // while a captioned clip or audio clip is actually under the playhead — it used to stay
         // pinned to the bottom of the preview permanently. Mirror the video/audio caption-overlay
         // visibility just computed above (both were toggled from the model this same pass) so the
         // chooser auto-hides the moment no caption is in play, and reappears when one is.
@@ -9751,12 +9751,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     (captionOverlay != null && captionOverlay.getVisibility() == View.VISIBLE)
                     || (audioCaptionOverlay != null
                         && audioCaptionOverlay.getVisibility() == View.VISIBLE);
-            // (b): in-play is necessary but no longer SUFFICIENT â the user must have asked.
+            // (b): in-play is necessary but no longer SUFFICIENT — the user must have asked.
             int wantCaptionBarVis = (captionInPlay && captionStyleBarRequested)
                     ? View.VISIBLE : View.GONE;
-            // â  And RESET the request once no caption is in play. Without this the flag was
-            // one-way: a single tap on a caption â easy to hit by accident while tapping the
-            // preview â restored the permanent bottom bar for the rest of the session, which is
+            // ⚠ And RESET the request once no caption is in play. Without this the flag was
+            // one-way: a single tap on a caption — easy to hit by accident while tapping the
+            // preview — restored the permanent bottom bar for the rest of the session, which is
             // the annoyance this was meant to remove, merely deferred.
             if (!captionInPlay) captionStyleBarRequested = false;
             if (captionStyleBar.getVisibility() != wantCaptionBarVis) {
@@ -9768,7 +9768,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (currentTranscript != null) {
             Clip clip = clipUnderPlayhead();
             if (clip != null) {
-                // Check if THIS clip has its own transcript â if so, use it.
+                // Check if THIS clip has its own transcript — if so, use it.
                 // This fixes the bug where the transcript highlight only worked
                 // on the clip that was originally transcribed, not on other clips
                 // that also have transcripts.
@@ -9796,7 +9796,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // split (both halves share one whole-source transcript in memory, see
                     // Timeline.partitionAfterSplit). The branch above only re-homes when the
                     // transcript instance differs, so without this the panel stayed pinned to
-                    // the pre-split clip id and the gate below went false â the playback
+                    // the pre-split clip id and the gate below went false — the playback
                     // highlight froze the moment you crossed the seam.
                     transcriptClipId = clip.getId();
                 }
@@ -9877,7 +9877,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     }
 
-    // ââ Image preview helpers ââââââââââââââââââââââââââââââââââââââââ
+    // ── Image preview helpers ────────────────────────────────────────
 
     /**
      * Show the image preview overlay and hide the video player.
@@ -9890,7 +9890,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Clear stale content before async Glide load
         imagePreview.setImageBitmap(null);
         imagePreview.setVisibility(View.VISIBLE);
-        // Re-showing must not resurrect the raw photo over a graded one â the GL chain may
+        // Re-showing must not resurrect the raw photo over a graded one — the GL chain may
         // already own this clip's pixels (crossing a seam calls straight into here).
         imagePreview.setAlpha(glOwnsImagePreview ? 0f : 1f);
         com.bumptech.glide.Glide.with(this)
@@ -10012,7 +10012,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // Keep editable overlays (and their touch targets) above the slide.
             if (overlayLayer != null) overlayLayer.bringToFront();
         }
-        // Stretch/freeze mapping (JoyRaptor 2026-07-16): clip-local time â authored
+        // Stretch/freeze mapping (JoyRaptor 2026-07-16): clip-local time → authored
         // animation time, mirroring exactly what the baked render does.
         long sourceMs = clip.getInPointMs() + Math.max(0, localMs);
         slidePreview.seekTo(
@@ -10048,8 +10048,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         imagePlaybackStartOffsetMs = startOffsetMs;
         imagePlaybackStartSystemMs = System.currentTimeMillis();
         updatePlayPauseButton(true);
-        // An image clip has NO player, so the loop's usual restart point â the player's
-        // isPlaying=true callback (~:3766) â never fires for it. Setting the flag alone is not
+        // An image clip has NO player, so the loop's usual restart point — the player's
+        // isPlaying=true callback (~:3766) — never fires for it. Setting the flag alone is not
         // enough: after a pause the loop has already self-terminated, so nothing would ever post
         // it again and play would look dead. This was masked until 2a0329d, when pausing the
         // outgoing player on entry to an image clip removed the accidental life support that had
@@ -10080,7 +10080,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void updatePlayheadPosition() {
         if (playerManager == null || project == null || project.getTimeline().isEmpty()) return;
 
-        // Guard: no clip selected â skip auto-advance.
+        // Guard: no clip selected — skip auto-advance.
         // This can happen transiently (e.g. during thumbnail preview or after
         // audio tap when onSegmentSelected(-1) is suppressed). Without this
         // guard the playhead could jump to the wrong segment.
@@ -10093,7 +10093,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (selectedClipIndex < 0) {
             if (playerManager != null && playerManager.isPlaying()) {
                 int seg = editorTimeline.getSegmentAtPlayhead();
-                FLog.w(TAG, "updatePlayheadPosition: playing with no selection â recovering seg=" + seg);
+                FLog.w(TAG, "updatePlayheadPosition: playing with no selection — recovering seg=" + seg);
                 if (seg < 0) return;
                 selectSegment(seg);
             } else {
@@ -10101,14 +10101,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         }
 
-        // ââ Audio-tail mode: playhead continues past video end âââââââ
+        // ── Audio-tail mode: playhead continues past video end ───────
         if (audioTailActive) {
             long elapsed = android.os.SystemClock.elapsedRealtime() - audioTailStartWall;
             long playheadMs = audioTailStartMs + elapsed;
             long timelineEndMs = editorTimeline.getTimelineEndMs();
 
             if (playheadMs >= timelineEndMs) {
-                // Audio tail finished â fully stop
+                // Audio tail finished — fully stop
                 audioTailActive = false;
                 pauseAudioPlayer();
                 playheadMs = timelineEndMs;
@@ -10120,7 +10120,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             timeCurrent.setText(TimeFormatter.formatAuto(playheadMs));
             // The audio tail is the ONLY path that advances the playhead past the last video
             // clip during playback, and it used to update the tape and the clock and then
-            // return â so the overlay surfaces were never ticked here and every overlay living
+            // return — so the overlay surfaces were never ticked here and every overlay living
             // in the tail simply never appeared while the audio played over it. Same omission
             // the "below" surface had (see setTextOverlayPlayhead's note), in a different path.
             // These take playheadMs directly: it is already the absolute timeline position, and
@@ -10145,7 +10145,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // SELF-HEAL (device-proven 2026-07-27, Note 20): userDragging is a latch set by
         // onPlayheadSeeked and cleared by onPlayheadDragFinished, but a dozen touch branches in
         // EditorTimelineView can return before the shared ACTION_UP block that fires the clear
-        // â the post-pinch handback pan did exactly that. A stranded latch made this early
+        // — the post-pinch handback pan did exactly that. A stranded latch made this early
         // return permanent, freezing the playhead, the timeline scroll and every overlay's
         // time-driven visibility while video and audio kept playing (PHDIAG showed drag=true
         // with playerPos advancing and head unchanged for 30s straight). Rather than trust each
@@ -10153,9 +10153,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (userDragging) {
             if (editorTimeline != null && !editorTimeline.isGestureActive()) {
                 // The lastUpState snapshot names which touch branch swallowed the release that
-                // should have ended this drag â the second stranding path, still unidentified
+                // should have ended this drag — the second stranding path, still unidentified
                 // after the post-pinch pan was fixed directly (device-confirmed 2026-07-27).
-                FLog.w(TAG, "userDragging was stranded with no active gesture â clearing"
+                FLog.w(TAG, "userDragging was stranded with no active gesture — clearing"
                         + " | lastUp: " + (editorTimeline != null
                                 ? editorTimeline.getLastUpState() : "?"));
                 userDragging = false;
@@ -10164,15 +10164,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         }
 
-        // ââ Image clip playback (internal timer â LEGACY path only; in gapless mode the
+        // ── Image clip playback (internal timer — LEGACY path only; in gapless mode the
         // engine plays the image as a native playlist window and the ExoPlayer path below
-        // drives the playhead like any other clip) âââââââââââââââââââââ
+        // drives the playhead like any other clip) ─────────────────────
         if (clip.isImageClip() && imagePlaybackActive && !playerManager.isGapless()) {
             long positionMs = getImagePlaybackPositionMs();
             long clipDuration = clip.getTrimmedDurationMs();
 
             if (positionMs >= clipDuration) {
-                // Image clip reached its end â auto-advance or pause
+                // Image clip reached its end — auto-advance or pause
                 stopImagePlayback();
                 Timeline timeline = project.getTimeline();
                 int nextIndex = selectedClipIndex + 1;
@@ -10181,7 +10181,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 } else {
                     long timelineEndMs = editorTimeline.getTimelineEndMs();
                     if (timelineEndMs > totalEffectiveMs()) {
-                        // Audio extends beyond image clip â enter audio-tail
+                        // Audio extends beyond image clip — enter audio-tail
                         stopImagePlayback();
                         audioTailActive = true;
                         audioTailStartMs = totalEffectiveMs();
@@ -10189,7 +10189,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         updatePlayPauseButton(true);
                         FLog.d(TAG, "Image: entering audio-tail");
                     } else {
-                        // Last segment â set playhead to end
+                        // Last segment — set playhead to end
                         float endFraction = (float) clip.getOutPointMs() / sourceDuration;
                         lastUserPlayheadFraction = endFraction;
                         editorTimeline.setPlayheadFraction(endFraction);
@@ -10210,9 +10210,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             return;
         }
 
-        // ââ Video clip playback (ExoPlayer) ââââââââââââââââââââââââââ
+        // ── Video clip playback (ExoPlayer) ──────────────────────────
         // Skip ExoPlayer polling for image clips ONLY on the legacy path (no media loaded
-        // there). In gapless mode the image IS a playlist window â poll it like a video.
+        // there). In gapless mode the image IS a playlist window — poll it like a video.
         if (clip.isImageClip() && !playerManager.isGapless()) return;
 
         boolean isPlaying = playerManager.isPlaying();
@@ -10233,7 +10233,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // (L2). When the flag is off (or a bake isn't ready) the preview must NOT fake
                 // reverse: Media3 REQUIRES playbackSpeed > 0, so the old setPlaybackSpeed(-1f) hack
                 // threw / was swallowed and never actually reversed. Instead we replay the trimmed
-                // pass FORWARD each wrap â exactly what export used to do for ping-pong before L2 â
+                // pass FORWARD each wrap — exactly what export used to do for ping-pong before L2 —
                 // so the legacy path is simple, non-crashing, and matches its own (old) export.
                 FLog.d(TAG, "PingPong(legacy fwd-tail): isAtEnd pending=" + loopRestartPending
                         + " vOff=" + loopVisualOffsetMs + " pos=" + currentPos + "/" + trimmedDur);
@@ -10267,10 +10267,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (clip.isLoopModeLooping() && clip.getLoopMode() == Clip.LOOP_MODE_NORMAL
                     && playerManager.isGapless()) {
                 // L1: the gapless engine's playlist already contains this clip's before/after
-                // loop reps as warm ExoPlayer windows â wraps are crossed natively (no polling,
+                // loop reps as warm ExoPlayer windows — wraps are crossed natively (no polling,
                 // no cold seekTo(0)) and internal rep-to-rep seams are suppressed by the engine
                 // (MasterPlaybackEngine.SeamListener fires only on a TIMELINE CLIP change), so
-                // isAtTrimEnd()/isAtEnd is false throughout the whole looped clip's playback â
+                // isAtTrimEnd()/isAtEnd is false throughout the whole looped clip's playback —
                 // this legacy branch only reaches "true" here once the ENTIRE PLAYLIST truly
                 // ends. If this looped clip is also the LAST clip on the timeline, fall through
                 // to the shared end-of-timeline handling below (advance/pause) instead of running
@@ -10292,7 +10292,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
 
             if (clip.isLoopModeLooping()) {
-                // NORMAL loop (legacy poll-based path â gapless-active NORMAL clips return
+                // NORMAL loop (legacy poll-based path — gapless-active NORMAL clips return
                 // above; PING_PONG already returned earlier, so isLoopModeLooping() here can
                 // only mean NORMAL).
                 FLog.d(TAG, "Loop: isAtEnd pending=" + loopRestartPending
@@ -10383,17 +10383,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         } // end of if (isAtEnd && clip.hasLoopExtension())
 
         // (L2) The legacy ping-pong "backward pass" detection was removed with the
-        // setPlaybackSpeed(-1f) reverse hack â legacy ping-pong now replays FORWARD (handled in
+        // setPlaybackSpeed(-1f) reverse hack — legacy ping-pong now replays FORWARD (handled in
         // the isAtEnd block above, identically to a NORMAL loop). True reverse is the gapless
         // engine's baked-segment path only.
 
         // Transition completion when the outgoing clip's source ENDED under the blend: with the
         // seam at the file end, ExoPlayer hits STATE_ENDED before a poll can observe
-        // progress >= 1 â isPlaying() goes false, the in-playback branch below never ticks
+        // progress >= 1 — isPlaying() goes false, the in-playback branch below never ticks
         // again, and the transition froze mid-blend without ever starting clip B (sandbox
         // repro 2026-07-18, 3200ms clip / seam == file end). isAtTrimEnd distinguishes a true
         // end from a user pause mid-transition (which should just hold).
-        // glTransitionAnimator == null: while the animator runs, it owns completion â A ending
+        // glTransitionAnimator == null: while the animator runs, it owns completion — A ending
         // under a still-animating blend is NORMAL (the blend outlives A's last frame).
         if (transitionPlaybackActive && !isPlaying && playerManager.isAtTrimEnd()
                 && glTransitionAnimator == null) {
@@ -10402,11 +10402,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             return;
         }
 
-        // ââ SAFETY NET: "wants to play, will never play" (LEDGER Â§2a, layer ii) ââââââââââ
+        // ── SAFETY NET: "wants to play, will never play" (LEDGER §2a, layer ii) ──────────
         // The end-of-clip advance lives inside the `isPlaying` block below, but isPlaying() is
         // FALSE at STATE_ENDED while playWhenReady stays TRUE. So any path that leaves the
-        // player parked at its out point with play still switched on â a position that clamped
-        // there, a source that ran out early, a decode that never resumed â wedges the transport
+        // player parked at its out point with play still switched on — a position that clamped
+        // there, a source that ran out early, a decode that never resumed — wedges the transport
         // permanently: nothing in this method converts ENDED into an advance, and the user's only
         // escape was to scrub back to zero. That is the reported "playback stops mid-timeline and
         // the transport goes unresponsive".
@@ -10417,14 +10417,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 && playerManager.getPlayWhenReady()) {
             Timeline timeline = project.getTimeline();
             int nextIndex = selectedClipIndex + 1;
-            FLog.w(TAG, "ENDEDNET: parked at end with play still on â sel=" + selectedClipIndex
+            FLog.w(TAG, "ENDEDNET: parked at end with play still on — sel=" + selectedClipIndex
                     + " next=" + nextIndex + "/" + timeline.getClipCount()
                     + " pos=" + playerManager.getCurrentPosition()
                     + " head=" + editorTimeline.getPlayheadPositionMs());
             if (nextIndex < timeline.getClipCount()) {
                 advanceToSegment(nextIndex, true);
             } else if (editorTimeline.getTimelineEndMs() > totalEffectiveMs()) {
-                // Audio outlasts the video track â same handoff the in-playback path makes.
+                // Audio outlasts the video track — same handoff the in-playback path makes.
                 playerManager.pause();
                 audioTailActive = true;
                 audioTailStartMs = totalEffectiveMs();
@@ -10505,7 +10505,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
             }
 
-            // End of non-looped clip reached while playing â advance or stop
+            // End of non-looped clip reached while playing — advance or stop
             // (runs after transition detection so transitions are not skipped)
             if (isAtEnd) {
                 Timeline timeline = project.getTimeline();
@@ -10571,12 +10571,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     && playerManager.isGapless()) {
                 // L1: the gapless engine's getCurrentPosition() ALREADY reports a position
                 // that's continuous across the whole looped clip (loop-before start = 0, main
-                // pass, loop-after end = getVisualDurationMs()) â see
+                // pass, loop-after end = getVisualDurationMs()) — see
                 // MasterPlaybackEngine#getCurrentPositionInWindow(). So `position` here IS
                 // visualPosMs already; the legacy reconstruction below
                 // (loopBeforeMs + loopVisualOffsetMs + position) would DOUBLE-COUNT loopBeforeMs,
                 // since loopVisualOffsetMs never advances in gapless mode (the poll-based wrap
-                // block that increments it is bypassed â see the isAtEnd branch above).
+                // block that increments it is bypassed — see the isAtEnd branch above).
                 long visualPosMs = Math.min(position, clip.getVisualDurationMs());
                 Timeline tl = project.getTimeline();
                 long clipStartMs = 0;
@@ -10613,10 +10613,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 editorTimeline.setPlayheadPositionMs(timelineMs);
                 displayTimeMs = visualPosMs;
             } else if (playerManager.isGapless()) {
-                // B1 â gapless timelineMs is the authoritative clock. Deriving the playhead
+                // B1 — gapless timelineMs is the authoritative clock. Deriving the playhead
                 // fraction from the stale selectedClipIndex's inPoint pins the head at the
                 // outgoing clip's out point (11811) while the engine's window-local position
-                // keeps climbing (e.g. 9863) through the next clip's window â the seam never
+                // keeps climbing (e.g. 9863) through the next clip's window — the seam never
                 // fires for same-source slices when the playlist windows share a URI without a
                 // distinct mediaId (fixed in MasterPlaybackEngine). Even with that fix, the
                 // timelineMs is the one value that moves monotonically through the cut, so both
@@ -10626,13 +10626,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 long timelineMs = playerManager.getCurrentTimelineMs(tl);
                 // Clamp timelineMs to video-track duration for display; the engine may briefly
                 // report past the trimmed end while the window transition is in flight (9-48ms
-                // overshoot measured on Note 20) â the same glide setPlayheadFraction handles for
+                // overshoot measured on Note 20) — the same glide setPlayheadFraction handles for
                 // the legacy path. Here we let the timeline clamp and let the segment sync advance
                 // the selection, which then re-homes the playhead via setPlayheadPositionMs.
                 long totalVideoMs = totalEffectiveMs();
                 if (timelineMs > totalVideoMs) timelineMs = totalVideoMs;
-                // Reconcile selection from timelineMs â the same authoritative place the drag
-                // and seam handlers use â so a same-source seam that never fired as a window
+                // Reconcile selection from timelineMs — the same authoritative place the drag
+                // and seam handlers use — so a same-source seam that never fired as a window
                 // transition still moves sel when the clock crosses the cut. This is not the
                 // forbidden UI-tick poll that hides the divergence: the primary boundary is now
                 // observed at the engine (mediaId-distinct windows), and this is the safety
@@ -10669,7 +10669,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     Timeline timeline = tl;
                     int next = selectedClipIndex + 1;
                     if (next < timeline.getClipCount()) {
-                        FLog.w(TAG, "B1: gapless position past outPoint without seam â forcing advance sel="
+                        FLog.w(TAG, "B1: gapless position past outPoint without seam — forcing advance sel="
                                 + selectedClipIndex + " next=" + next + " pos=" + position
                                 + " dur=" + clip.getTrimmedDurationMs() + " tlMs=" + timelineMs);
                         onTimelineSegmentCrossed(next, true);
@@ -10740,7 +10740,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (transition.isGlShader()) {
             transitionPreviewOverlay.setVisibility(View.GONE);
             if (playerView != null) playerView.setAlpha(1f);
-            // currentPos is already the trim-relative SOURCE position inside A â
+            // currentPos is already the trim-relative SOURCE position inside A —
             // during the transition window it runs [startPosition..clipDuration],
             // i.e. A's TAIL. The old formula subtracted startPosition again, which
             // remapped the window onto A's HEAD (JoyRaptor: "a sample from the
@@ -10792,7 +10792,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * While scrubbing (paused) over the trailing transition window of a clip, blend
      * the outgoing clip toward the incoming clip in the preview window so the user
-     * sees the transition resolve in real time â mirroring playback's transition
+     * sees the transition resolve in real time — mirroring playback's transition
      * window detection but driven by the scrub seek position instead of the player.
      *
      * @param clip          the clip the playhead is currently on
@@ -10855,11 +10855,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (transitionPreviewOverlay != null) {
             transitionPreviewOverlay.setVisibility(View.GONE);
         }
-        // During the blendâincoming-clip handoff the GL view HOLDS the blend's final frame
-        // over the canvas â clearing it here (advanceToSegment â loadClipForPlayback â
+        // During the blend→incoming-clip handoff the GL view HOLDS the blend's final frame
+        // over the canvas — clearing it here (advanceToSegment → loadClipForPlayback →
         // hideTransitionPreview) popped to a black canvas + buffering spinner until the
         // incoming player produced a frame. Released in onRenderedFirstFrame (+ timeout).
-        // (clear() also tears down the live OES pipeline â deferred with the hold so the
+        // (clear() also tears down the live OES pipeline — deferred with the hold so the
         // held frame survives; releasing B's PLAYER above is safe, the consumer keeps the
         // last latched frame.)
         if (glTransitionPreviewView != null && !glTransitionHold) glTransitionPreviewView.clear();
@@ -10877,9 +10877,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ GL transition playback: animator-driven blend ââââââââââââââââââââââââ
+    // ── GL transition playback: animator-driven blend ────────────────────────
     // The old flow decoded BOTH legs' frames via MediaMetadataRetriever ON THE MAIN
-    // THREAD on every 50ms poll tick â each decode costs 100-300ms, so on a 600ms
+    // THREAD on every 50ms poll tick — each decode costs 100-300ms, so on a 600ms
     // window nothing ever rendered: the "transition" was a black flash (sandbox
     // repro 2026-07-18). New flow: prefetch the two ENDPOINT frames off-main as the
     // seam approaches, then run the shader off a 60fps ValueAnimator. The underlying
@@ -10908,7 +10908,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * The endpoint frames must be composed at the GL VIEW's aspect (the canvas rect the quad
-     * fills), NOT the whole preview container's â a container-aspect bitmap stretched onto the
+     * fills), NOT the whole preview container's — a container-aspect bitmap stretched onto the
      * canvas-rect quad squashed the incoming clip for the blend's duration, then it snapped to
      * the correct pillarbox at handoff (sandbox repro 2026-07-18, landscape canvas + vertical B).
      */
@@ -10939,7 +10939,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
     }
 
-    // ââ GL transition LIVE tier: both legs move during the blend âââââââââââââ
+    // ── GL transition LIVE tier: both legs move during the blend ─────────────
     // Leg A = the main (legacy) player's real output, diverted into a SurfaceTexture for the
     // window; leg B = this muted warm-up player, playing B's head into the second
     // SurfaceTexture. The static endpoint-bitmap animator keeps running underneath and is the
@@ -10961,7 +10961,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (seam + 1 >= tl.getClipCount()) return;
         Clip next = tl.getClip(seam + 1);
         Clip prev = tl.getClip(seam);
-        // Live needs two VIDEO decoders; images/slides render elsewhere â static tier.
+        // Live needs two VIDEO decoders; images/slides render elsewhere → static tier.
         if (next.isImageClip() || next.isGeneratedSlide()
                 || prev.isImageClip() || prev.isGeneratedSlide()) {
             return;
@@ -10979,7 +10979,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             androidx.media3.common.MediaItem item = androidx.media3.common.MediaItem.fromUri(resolved);
             boolean usedFmp4 = false;
             try {
-                // Raw fMP4 has no seek index â same treatment as the main player (F6) or the
+                // Raw fMP4 has no seek index — same treatment as the main player (F6) or the
                 // in-point seek lands at 0 and the blend would show B's file start.
                 if (glTransitionLiveFmp4Factory == null) {
                     glTransitionLiveFmp4Factory =
@@ -11016,8 +11016,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Try to upgrade the just-started static blend to live two-decoder rendering. Called on the
-     * main thread right after the animator starts (the GL view is VISIBLE, so its surface â and
-     * with it the OES pipeline â can come up). Any missing precondition returns silently: the
+     * main thread right after the animator starts (the GL view is VISIBLE, so its surface — and
+     * with it the OES pipeline — can come up). Any missing precondition returns silently: the
      * static endpoint blend is always the floor.
      */
     private void maybeStartLiveBlend(final int seam, @NonNull Clip prev, @NonNull Clip next,
@@ -11029,7 +11029,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (bPlayer == null || glTransitionNextPlayerSeam != seam) return;
         // Leg aspect sources: A = the decoded size the main player reported (post-rotation);
         // B = the warm-up player's track format (container-parsed, so available without a
-        // surface), rotated to display orientation. Unknown size â no live this window.
+        // surface), rotated to display orientation. Unknown size → no live this window.
         int aW = lastDecodedVideoW, aH = lastDecodedVideoH;
         androidx.media3.common.Format bFormat = bPlayer.getVideoFormat();
         if (aW <= 0 || aH <= 0 || bFormat == null || bFormat.width <= 0 || bFormat.height <= 0) {
@@ -11047,7 +11047,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 liveLegGeometry(next, bW, bH, dims[0], dims[1]));
         glTransitionPreviewView.startLive((fromSurface, toSurface) -> {
             // Main thread, ~a frame later. The window may already be over (scrub, pause+seek,
-            // ENDED fallback) â in that case do NOT touch the players; teardown of the GL
+            // ENDED fallback) — in that case do NOT touch the players; teardown of the GL
             // objects is owned by hideTransitionPreview/releaseGlTransitionHold's clear().
             if (!transitionPlaybackActive || transitionPlaybackSeam != seam
                     || glTransitionAnimator == null || playerManager == null) {
@@ -11073,7 +11073,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private float[] liveLegGeometry(@NonNull Clip clip, int videoW, int videoH,
                                     int viewW, int viewH) {
         float l = 0f, t = 0f, r = 1f, b = 1f;
-        // "custom" only, for the same reason as cropToClipBounds â see the note there.
+        // "custom" only, for the same reason as cropToClipBounds — see the note there.
         if ("custom".equals(clip.getCropPreset())) {
             float cl = clip.getCropLeft(), ct = clip.getCropTop();
             float cr = clip.getCropRight(), cb = clip.getCropBottom();
@@ -11093,7 +11093,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Decode the endpoint frames (cache-hit when prefetched), then blend A's last frame into
-     * B's first with the shader at animator rate. On finish, advance to the incoming clip â
+     * B's first with the shader at animator rate. On finish, advance to the incoming clip —
      * honoring a pause made mid-blend. The bitmaps are DEFENSIVE COPIES: the frame cache
      * recycles its entries on {@link #hideTransitionPreview}, which would otherwise yank them
      * out from under the GL renderer.
@@ -11105,7 +11105,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final Clip prev = tl.getClip(seam);
         final Clip next = tl.getClip(seam + 1);
         cancelGlTransitionAnimator();
-        final int[] dims = glTransitionFrameDims(); // GL-view aspect â see glTransitionFrameDims
+        final int[] dims = glTransitionFrameDims(); // GL-view aspect — see glTransitionFrameDims
         final int outW = dims[0], outH = dims[1];
         transitionDecodeExecutor.execute(() -> {
             Bitmap fromCached = decodeTransitionFrame(prev, prev.getOutPointMs(), outW, outH, true);
@@ -11117,7 +11117,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     ? toCached.copy(Bitmap.Config.ARGB_8888, false) : null;
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                // Window already over (ENDED fallback advanced, user paused+scrubbed, â¦)
+                // Window already over (ENDED fallback advanced, user paused+scrubbed, …)
                 if (!transitionPlaybackActive || transitionPlaybackSeam != seam
                         || glTransitionPreviewView == null || from == null || to == null) {
                     return; // poll fallback (hard cut at progress>=1 / ENDED) covers it
@@ -11144,7 +11144,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             boolean resume = playerManager == null || playerManager.isPlaying()
                                     || playerManager.isAtTrimEnd();
                             // Live tier: if B actually PLAYED its head inside the blend, the
-                            // handoff must continue B from where the blend left it â starting
+                            // handoff must continue B from where the blend left it — starting
                             // at the in-point would visibly rewind B by the transition's
                             // duration (and contradict the overlap timeline model, which
                             // already subtracts the transition from the output duration).
@@ -11162,8 +11162,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 // which case this offset addresses a position past the end of B.
                                 // Measured on the Note 9: a 600ms blend into a 500ms clip
                                 // (SEEKRANGE "rel=600 window=500"), which parks B at its out
-                                // point with play still on â the same "wants to play, will never
-                                // play" park as LEDGER Â§2a, reached by a different road. Clamp to
+                                // point with play still on — the same "wants to play, will never
+                                // play" park as LEDGER §2a, reached by a different road. Clamp to
                                 // B's own length, a frame short of the end so it still has
                                 // something to play.
                                 long bTrimmedMs = Math.max(0L, next.getTrimmedDurationMs());
@@ -11181,7 +11181,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 glTransitionAnimator = va;
                 va.start();
                 // Upgrade the running static blend to LIVE motion (both legs' real decoders).
-                // Failure at any step leaves the static animator untouched â same floor as F13.
+                // Failure at any step leaves the static animator untouched — same floor as F13.
                 maybeStartLiveBlend(seam, prev, next, transition);
             });
         });
@@ -11209,7 +11209,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     if (oldValue != null && !oldValue.isRecycled()) oldValue.recycle();
                 }
             };
-    // Keys that failed to decode (e.g. broken SAF link) â don't retry the slow,
+    // Keys that failed to decode (e.g. broken SAF link) — don't retry the slow,
     // failing setDataSource/getFrameAtTime on every scrub tick.
     private final java.util.HashSet<String> transitionFrameFailed = new java.util.HashSet<>();
 
@@ -11230,7 +11230,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * @param letterbox when true (the GL shader path), the frame is composed
-     *                  fit-centered onto a black {@code outW}Ã{@code outH} canvas â
+     *                  fit-centered onto a black {@code outW}×{@code outH} canvas —
      *                  the GL quad fills the whole view, so an un-letterboxed 9:16
      *                  frame would stretch to a 16:9 canvas for the duration of the
      *                  transition (JoyRaptor 2026-07-17).
@@ -11263,12 +11263,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (transitionFrameFailed.contains(key)) return null;
             Bitmap frame;
             // The retriever is shared between the scrub path (main thread) and the GL
-            // endpoint prefetch (decode thread) â MediaMetadataRetriever is not thread-safe.
+            // endpoint prefetch (decode thread) — MediaMetadataRetriever is not thread-safe.
             synchronized (transitionDecodeLock) {
                 if (transitionRetriever == null || !uriString.equals(transitionRetrieverUri)) {
                     releaseTransitionRetriever();
                     transitionRetriever = new MediaMetadataRetriever();
-                    // file:// URIs must use the path form â setDataSource(Context, fileUri)
+                    // file:// URIs must use the path form — setDataSource(Context, fileUri)
                     // fails with status 0x80000000 (which killed the decode and, because
                     // nothing cached, retried the slow failing call on every scrub tick).
                     if ("file".equals(playbackUri.getScheme()) && playbackUri.getPath() != null) {
@@ -11286,7 +11286,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             if (frame == null) return null;
             // Crop BEFORE letterbox/scale so the transition legs match the player's
-            // crop-zoomed framing â a raw decode here made the clip POP to the uncropped
+            // crop-zoomed framing — a raw decode here made the clip POP to the uncropped
             // frame (black bars around it) for the transition's duration (JoyRaptor 2026-07-18).
             Bitmap cropped = cropToClipBounds(frame, clip);
             if (cropped != frame) frame.recycle();
@@ -11306,13 +11306,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Crop {@code frame} to {@code clip}'s custom crop bounds; returns {@code frame} unchanged
      * when the clip has no effective crop. The live preview crop-zooms via the PlayerView
-     * transform, which transition frames bypass entirely â this is the decode-side equivalent.
+     * transform, which transition frames bypass entirely — this is the decode-side equivalent.
      * (Rotation/flip are not applied here; none of the transition paths applied them before
      * either, and crop is the visually glaring miss.)
      */
     @NonNull
     private Bitmap cropToClipBounds(@NonNull Bitmap frame, @NonNull Clip clip) {
-        // DELIBERATELY "custom" only â do NOT switch this to Clip.effectiveCropFractions()
+        // DELIBERATELY "custom" only — do NOT switch this to Clip.effectiveCropFractions()
         // on its own. The live preview does not render a NAMED preset crop at all
         // (applyCropZoom is custom-only), so cropping presets here would make the preview
         // snap the other way: cropped during the blend, uncropped the moment the cut lands.
@@ -11333,13 +11333,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         try {
             return Bitmap.createBitmap(frame, x, y, pw, ph);
         } catch (Exception e) {
-            return frame; // out-of-memory etc. â uncropped beats no frame
+            return frame; // out-of-memory etc. — uncropped beats no frame
         }
     }
 
     /**
      * Cache-key fragment for {@code clip}'s crop ("" when uncropped). Kept in lockstep with
-     * {@link #cropToClipBounds} â it must key exactly what that method actually applies, so
+     * {@link #cropToClipBounds} — it must key exactly what that method actually applies, so
      * it stays "custom" only until the preview honours presets too.
      */
     @NonNull
@@ -11372,7 +11372,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** Compose {@code src} fit-centered on a black {@code outW}Ã{@code outH} canvas. */
+    /** Compose {@code src} fit-centered on a black {@code outW}×{@code outH} canvas. */
     @NonNull
     private Bitmap composeLetterbox(@NonNull Bitmap src, int outW, int outH) {
         Bitmap out = Bitmap.createBitmap(Math.max(1, outW), Math.max(1, outH),
@@ -11401,9 +11401,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Downscale a decoded frame to fit within {@code maxW}Ã{@code maxH} while preserving its
+     * Downscale a decoded frame to fit within {@code maxW}×{@code maxH} while preserving its
      * native aspect ratio, so the transition overlay letterboxes the frame the same way the
-     * player fits the clip on the canvas â instead of stretching a wide clip to fill a tall one.
+     * player fits the clip on the canvas — instead of stretching a wide clip to fill a tall one.
      */
     @NonNull
     private Bitmap scalePreservingAspect(@NonNull Bitmap src, int maxW, int maxH) {
@@ -11496,7 +11496,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // timer, no ExoPlayer", but nothing on this path enforced that: the previous clip's
             // player kept decoding underneath the still, at the PREVIOUS clip's speed, until it
             // ran out of source. Measured on the Note 9 (aeb0517e, clip 0 = 2x): playerPos ran
-            // 1338 -> 9714ms at ~2x across the image while head advanced at 1x â ~8.4s of a clip
+            // 1338 -> 9714ms at ~2x across the image while head advanced at 1x — ~8.4s of a clip
             // the user is not watching, and its audio is not muted by anything here either. The
             // transport toggle already pauses for this exact reason (see the audio-tail branch
             // ~:4056, "the music kept going"); this path just never did.
@@ -11513,7 +11513,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // Video clip: load and play
             hideImagePreview();
             // (The image-timer flag is cleared inside loadClipForPlayback, the funnel every
-            // video-clip load goes through â see the comment there for why the call site is the
+            // video-clip load goes through — see the comment there for why the call site is the
             // wrong place to fix it.)
             loadClipForPlayback(nextClip);
             playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
@@ -11535,7 +11535,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         updateCurrentTimeDisplay(0);
     }
 
-    // ââ Export helpers ââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Export helpers ────────────────────────────────────────────────
 
     /**
      * Show an export confirmation bottom sheet with project info.
@@ -11551,14 +11551,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int clipCount = tl.getClipCount();
         // The PROJECT duration, not the video-track duration. totalEffectiveMs() sums master
         // clips only, so this dialog used to announce 00:05 for a file the exporter wrote at
-        // 30.9s â the export's own length is getTotalDurationMs(), and since the tail filler
+        // 30.9s — the export's own length is getTotalDurationMs(), and since the tail filler
         // (ExportManager.buildComposition) the video really does cover all of it. The other
         // totalEffectiveMs() callers mean "where does the video track end" and are correct.
         long totalDurationMs = tl.getTotalDurationMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
         String audioInfo = hasAudio
-                ? " â¢ " + tl.getAudioClips().size() + " audio"
+                ? " • " + tl.getAudioClips().size() + " audio"
                 : "";
 
         String helperText = getString(R.string.faditor_export_confirm_helper,
@@ -11576,7 +11576,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             helper.setTextSize(13);
             root.addView(helper);
 
-            // ââ Editable output file name (pre-filled with the default name) ââ
+            // ── Editable output file name (pre-filled with the default name) ──
             TextView fileNameLabel = new TextView(this);
             fileNameLabel.setText(R.string.faditor_export_filename_label);
             fileNameLabel.setTextColor(0xFF888888);
@@ -11626,7 +11626,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             cleanDesc.setTextSize(11);
             root.addView(cleanDesc);
 
-            // ââ C4 Loudness targets + measured LUFS (ebur128) ââ
+            // ── C4 Loudness targets + measured LUFS (ebur128) ──
             final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] loudValues = {
                     com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.OFF,
                     com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.YOUTUBE,
@@ -11637,7 +11637,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // Current target is stored transiently on the ExportManager (lane forbids touching model/ExportSettings for C4)
             final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] currentTarget = {com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.OFF};
             TextView loudMeasured = new TextView(this);
-            loudMeasured.setText("Measured: -- LUFS â Target: Off");
+            loudMeasured.setText("Measured: -- LUFS → Target: Off");
             loudMeasured.setTextColor(0xFFAAAAAA);
             loudMeasured.setTextSize(11);
             loudMeasured.setPadding(0, pad/2, 0, 0);
@@ -11658,7 +11658,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     if (probePath != null) {
                         java.io.File f = new java.io.File(probePath);
                         com.fadcam.ui.faditor.audio.LoudnessAnalyzer.Result r = com.fadcam.ui.faditor.audio.LoudnessAnalyzer.measure(f);
-                        final String txt = r != null ? String.format(java.util.Locale.US, "Measured: %.1f LUFS â Target: %s", r.integratedLUFS, currentTarget[0].label) : "Measured: -- LUFS â Target: Off";
+                        final String txt = r != null ? String.format(java.util.Locale.US, "Measured: %.1f LUFS → Target: %s", r.integratedLUFS, currentTarget[0].label) : "Measured: -- LUFS → Target: Off";
                         runOnUiThread(() -> loudMeasured.setText(txt));
                     }
                 } catch (Exception ignored) {}
@@ -11669,16 +11669,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     currentTarget[0] = loudValues[Math.max(0, Math.min(pos, loudValues.length-1))];
                     String cur = loudMeasured.getText().toString();
                     // update target part without re-measuring
-                    if (cur.contains("â")) {
-                        String before = cur.split("â")[0].trim();
-                        loudMeasured.setText(before + " â Target: " + currentTarget[0].label);
+                    if (cur.contains("→")) {
+                        String before = cur.split("→")[0].trim();
+                        loudMeasured.setText(before + " → Target: " + currentTarget[0].label);
                     }
                 }
                 @Override public void onNothingSelected(android.widget.AdapterView<?> p) {}
             });
 
-            // ââ Resolution + Quality pickers (persisted on the project's ExportSettings;
-            //    defaults = Original/High = the legacy byte-identical export path) ââ
+            // ── Resolution + Quality pickers (persisted on the project's ExportSettings;
+            //    defaults = Original/High = the legacy byte-identical export path) ──
             final com.fadcam.ui.faditor.model.ExportSettings.Resolution[] resValues = {
                     com.fadcam.ui.faditor.model.ExportSettings.Resolution.ORIGINAL,
                     com.fadcam.ui.faditor.model.ExportSettings.Resolution.FHD_1080P,
@@ -11691,8 +11691,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     com.fadcam.ui.faditor.model.ExportSettings.Quality.LOW};
             final String[] qualLabels = {"High", "Medium", "Low"};
 
-            // ââ One-tap "Low bandwidth" preset chip: 720p + Low quality in one tap
-            //    (cosmetic â just drives the two spinners below, no encoder changes). ââ
+            // ── One-tap "Low bandwidth" preset chip: 720p + Low quality in one tap
+            //    (cosmetic — just drives the two spinners below, no encoder changes). ──
             final TextView lowBandwidthChip = new TextView(this);
             lowBandwidthChip.setText("Low bandwidth");
             lowBandwidthChip.setTextColor(0xFFFFFFFF);
@@ -11727,9 +11727,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (qualIdx >= 0) qualSpinner.setSelection(qualIdx);
             });
 
-            // ââ Audio-only export (mux the composed audio mix to .m4a, no video).
+            // ── Audio-only export (mux the composed audio mix to .m4a, no video).
             //    Not persisted on ExportSettings: an audio pull is a one-off act,
-            //    defaulting back to video export next time is the safe behavior. ââ
+            //    defaulting back to video export next time is the safe behavior. ──
             final android.widget.CheckBox audioOnlyBox = new android.widget.CheckBox(this);
             audioOnlyBox.setText("Export audio only (.m4a)");
             audioOnlyBox.setTextColor(0xFFFFFFFF);
@@ -11743,12 +11743,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             TextView audioOnlyDesc = new TextView(this);
             audioOnlyDesc.setText(
-                    "Mixes clip audio + music into one audio file â no video track");
+                    "Mixes clip audio + music into one audio file — no video track");
             audioOnlyDesc.setTextColor(0xFF888888);
             audioOnlyDesc.setTextSize(11);
             root.addView(audioOnlyDesc);
 
-            // Resolution/Quality only shape the video encode â grey them out while
+            // Resolution/Quality only shape the video encode — grey them out while
             // audio-only is checked so the dialog doesn't promise a video setting.
             audioOnlyBox.setOnCheckedChangeListener((b, checked) -> {
                 resSpinner.setEnabled(!checked);
@@ -11758,14 +11758,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             });
 
             // B9: an AUDIO-ONLY project (no spine clip) has no picture to encode, so the
-            // choice is not offered â it IS an audio export. The video-only controls come
+            // choice is not offered — it IS an audio export. The video-only controls come
             // off the dialog entirely rather than sitting disabled: a control that cannot
-            // ever apply is clutter reading as broken (Â§0 rule 6 / G18 family).
+            // ever apply is clutter reading as broken (§0 rule 6 / G18 family).
             final boolean audioProject = isAudioOnlyProject();
             if (audioProject) {
                 audioOnlyBox.setChecked(true);
                 audioOnlyBox.setEnabled(false);
-                audioOnlyDesc.setText("This project has no video â it exports as audio");
+                audioOnlyDesc.setText("This project has no video — it exports as audio");
                 resSpinner.setVisibility(View.GONE);
                 qualSpinner.setVisibility(View.GONE);
                 lowBandwidthChip.setVisibility(View.GONE);
@@ -11784,7 +11784,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 sanitizeExportFileName(
                                         fileNameInput.getText().toString(),
                                         defaultExportBaseName));
-                        // C4: loudness target â store in ExportManager for this export (lane forbids touching model/ExportSettings)
+                        // C4: loudness target — store in ExportManager for this export (lane forbids touching model/ExportSettings)
                         // and also as an intent extra for the :export process (see doStartOutOfProcessExport).
                         com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget chosen = loudValues[Math.max(0, loudSpinner.getSelectedItemPosition())];
                         if (exportManager != null) exportManager.setPendingLoudnessTarget(chosen);
@@ -11907,7 +11907,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         reacquirePreviewIfReleased();
         Toast.makeText(this,
-                "Exporting in background â edits won't affect this export",
+                "Exporting in background — edits won't affect this export",
                 Toast.LENGTH_LONG).show();
     }
 
@@ -11933,12 +11933,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         // G21/B9: a BLANK project (no spine clip, no audio) has nothing to export. The
         // audio-only composition would happily emit its 500ms silence fallback and hand the
-        // user a silent .m4a that looks like a finished export â a silent lie with a file
+        // user a silent .m4a that looks like a finished export — a silent lie with a file
         // attached. Refuse at the door instead.
         if (project != null && project.getTimeline().getClipCount() == 0
                 && !project.getTimeline().hasAudioClips()) {
             Toast.makeText(this,
-                    "Nothing to export yet â add audio or video first", // TODO(strings)
+                    "Nothing to export yet — add audio or video first", // TODO(strings)
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -11997,12 +11997,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Hand the export to the out-of-process ExportService: free editor memory + the
      * preview codec first (the exporter has its own heap, but releasing the preview
-     * codec still matters â hardware codec instances are a device-global resource),
+     * codec still matters — hardware codec instances are a device-global resource),
      * snapshot the project to a file, and start the foreground service with its path.
      */
     private void startOutOfProcessExport(boolean audioOnly) {
         // ensureGeneratedSlidesRendered pre-pass: slides render HERE, in the editor
-        // process â the :export process can't host the WebView capture. The rendered
+        // process — the :export process can't host the WebView capture. The rendered
         // MP4 lands at the content-addressed cache path the slide clip's sourceUri
         // already points to, so the exporter just reads a normal file.
         java.util.List<Clip> pendingSlides;
@@ -12028,7 +12028,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // TODO(strings)
         Toast.makeText(this, "Preparing "
                 + (pendingSlides.size() + pendingOverlaySlides.size())
-                + " animated slide(s)â¦", Toast.LENGTH_SHORT).show();
+                + " animated slide(s)…", Toast.LENGTH_SHORT).show();
         lastExportWasAudioOnly = audioOnly;
         exportStartedLocallyAtMs = System.currentTimeMillis();
         final java.io.File pd = slideProjectDir;
@@ -12066,7 +12066,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Fire-and-forget: materialize any missing slide MP4s so slide play-through and
-     * timeline thumbnails work without waiting for an export. Failures only log â
+     * timeline thumbnails work without waiting for an export. Failures only log —
      * the export pre-pass re-runs the render and is the path that surfaces errors.
      */
     private void renderSlidesInBackground() {
@@ -12139,7 +12139,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Check if an export is currently running. The service lives in the :export
      * process, so the truth is its ongoing foreground notification (plus a local
-     * flag bridging the tapâfirst-broadcast window).
+     * flag bridging the tap→first-broadcast window).
      */
     private boolean isExportRunning() {
         if (exportStartedLocallyAtMs > 0
@@ -12163,13 +12163,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         Timeline tl = project.getTimeline();
         int clipCount = tl.getClipCount();
-        // Project duration, for the same reason as showExportConfirmation() above â this is the
+        // Project duration, for the same reason as showExportConfirmation() above — this is the
         // length of the file the export actually writes.
         long totalDurationMs = tl.getTotalDurationMs();
         String durationStr = TimeFormatter.formatAuto(totalDurationMs);
         boolean hasAudio = tl.hasAudioClips();
         String audioInfo = hasAudio
-                ? " â¢ " + tl.getAudioClips().size() + " audio"
+                ? " • " + tl.getAudioClips().size() + " audio"
                 : "";
 
         exportInfoText.setText(getString(R.string.faditor_export_info,
@@ -12181,7 +12181,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (exportProgressOverlay == null) return;
 
         // Reset to initial exporting state (indeterminate until first progress poll)
-        if (exportProgressPercent != null) exportProgressPercent.setText("â");
+        if (exportProgressPercent != null) exportProgressPercent.setText("–");
         if (exportProgressBar != null) {
             exportProgressBar.setIndeterminate(true);
         }
@@ -12240,12 +12240,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         exportProgressStripe.setVisibility(View.GONE);
     }
 
-    // ââ Navigation âââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Navigation ───────────────────────────────────────────────────
 
     /**
      * Show a confirmation dialog before closing the editor.
      * Uses a centered dialog (not bottom sheet) because the close button
-     * is in the top bar â one-handed users shouldn't have to reach the bottom.
+     * is in the top bar — one-handed users shouldn't have to reach the bottom.
      */
     private void showCloseConfirmation() {
         try {
@@ -12266,19 +12266,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         finish();
     }
 
-    // ââ Persistence ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Persistence ──────────────────────────────────────────────────
 
     /**
      * Schedule a debounced auto-save (resets timer on each call).
      */
-    // ââ Undo / Redo âââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Undo / Redo ───────────────────────────────────────────────
 
     /**
      * Perform undo: reverts the last edit action and refreshes all relevant UI.
      */
     private void performUndo() {
         if (!undoManager.canUndo()) return;
-        // Read the description BEFORE undoing â afterwards this entry has moved to the redo stack.
+        // Read the description BEFORE undoing — afterwards this entry has moved to the redo stack.
         String what = undoManager.peekUndoDescription();
         Timeline openedOn = project == null ? null : project.getTimeline();
         java.util.Map<String, Long> anchorsBefore = beginStructuralEdit();
@@ -12311,7 +12311,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Say WHICH edit a press of undo/redo just consumed.
      *
-     * <p>Every action already carries a description â the history popup shows them â but a plain
+     * <p>Every action already carries a description — the history popup shows them — but a plain
      * press gave no feedback at all, so on a long stack you lose count of where you are and press
      * one time too many. The name of the thing that just changed is the cheapest possible fix.</p>
      *
@@ -12363,11 +12363,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final boolean[] dismissAnimStarted = new boolean[1];
         // Filled in below once `card` (the animated content root) exists; row taps call this
         // instead of popup.dismiss() directly so the "shrink back into the button" animation
-        // gets to play. The actual jump (undo/redo) runs immediately/synchronously â only the
+        // gets to play. The actual jump (undo/redo) runs immediately/synchronously — only the
         // popup's own visual dismissal is deferred behind the short reverse animation.
         final Runnable[] animateOutAndDismiss = new Runnable[1];
 
-        // ââ Redo rows (top), numbered +N .. +1 top-to-bottom ââ
+        // ── Redo rows (top), numbered +N .. +1 top-to-bottom ──
         for (int i = redoEntries.size() - 1; i >= 0; i--) {
             com.fadcam.ui.faditor.undo.UndoManager.HistoryEntry entry = redoEntries.get(i);
             int stepsForward = i + 1; // how many redo() calls to reach this entry
@@ -12380,12 +12380,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }));
         }
 
-        // ââ Centerline (current position) ââ
+        // ── Centerline (current position) ──
         View centerRow = buildCenterlineRow();
         centerRowHolder[0] = centerRow;
         list.addView(centerRow);
 
-        // ââ Undo rows (bottom), numbered -1 .. -N top-to-bottom ââ
+        // ── Undo rows (bottom), numbered -1 .. -N top-to-bottom ──
         // undoEntriesOldestFirst is oldest-first; nearest undo (-1) is the LAST element.
         for (int i = undoEntriesOldestFirst.size() - 1; i >= 0; i--) {
             com.fadcam.ui.faditor.undo.UndoManager.HistoryEntry entry = undoEntriesOldestFirst.get(i);
@@ -12428,7 +12428,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         popup.setElevation(8 * dp);
         popupHolder[0] = popup;
 
-        // ââ Spring-from-button pop-in / shrink-back-out animation ââ
+        // ── Spring-from-button pop-in / shrink-back-out animation ──
         // `card` is the whole visible content root; it's positioned at a FIXED top-left
         // screen offset by showAtLocation() below (loc[0] - widthPx/2 + anchor.width/2,
         // loc[1] - maxHeightPx - 16dp), regardless of its actual wrap-content height, so
@@ -12476,10 +12476,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Outside touch would otherwise call PopupWindow's own dismiss() directly, which
         // removes the window instantly with no chance to animate it out. Intercept it via
         // ACTION_OUTSIDE (delivered here because setOutsideTouchable(true)): consuming it
-        // (return true â suppress the default dismiss) and routing through the same
+        // (return true → suppress the default dismiss) and routing through the same
         // animate-out-then-dismiss path as a row tap keeps the shrink-back animation
         // consistent regardless of how the popup is closed.
-        // (System back-press still dismisses instantly â PopupWindow handles that key event
+        // (System back-press still dismisses instantly — PopupWindow handles that key event
         // internally in its decor view with no public pre-dismiss hook to intercept; a minor,
         // accepted gap for this polish-level animation.)
         popup.setTouchInterceptor((v, event) -> {
@@ -12544,7 +12544,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * @param aiOrigin the AI assistant made this step, not the user â drawn in a distinct
+     * @param aiOrigin the AI assistant made this step, not the user — drawn in a distinct
      *                 colour so a glance down the list separates "I did that" from
      *                 "the AI did the other thing"
      */
@@ -12626,7 +12626,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Jump to a point in history by repeating undo()/redo() {@code steps} times
      * (data-only, no per-step UI refresh), then performing exactly ONE UI refresh
-     * and save at the end â mirrors the post-processing in performUndo()/performRedo().
+     * and save at the end — mirrors the post-processing in performUndo()/performRedo().
      *
      * @param steps  number of undo/redo calls to perform (>= 1)
      * @param isRedo true to call redo() repeatedly, false to call undo() repeatedly
@@ -12698,14 +12698,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Clip clip = getSelectedClip();
         if (clip == null) return;
 
-        // â  An undo can change master-clip MEMBERSHIP (M12's spineâlayer move is the first
+        // ⚠ An undo can change master-clip MEMBERSHIP (M12's spine⇄layer move is the first
         // action that does so through a bare LambdaAction), which leaves the gapless playlist
-        // describing the pre-undo clip order â the 2026-07-18 seam bug, reached from the other
+        // describing the pre-undo clip order — the 2026-07-18 seam bug, reached from the other
         // side. The forward paths all resync; undo/redo did not.
         //
-        // â â  BUT ONLY WHEN MEMBERSHIP ACTUALLY CHANGED. The first version of this fix resynced
+        // ⚠⚠ BUT ONLY WHEN MEMBERSHIP ACTUALLY CHANGED. The first version of this fix resynced
         // unconditionally, which bumps rebuildGeneration (killing in-flight reverse bakes) and
-        // rebuilds the playlist â so undoing a VOLUME or a TEXT COLOUR while playing at 0:42
+        // rebuilds the playlist — so undoing a VOLUME or a TEXT COLOUR while playing at 0:42
         // stopped playback and snapped to the clip head. A fix for one action applied to all of
         // them. The caller records the id list beforehand; a plain equality test is enough.
         if (clipMembershipChanged) {
@@ -12719,13 +12719,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Update player state
         if (!clip.isImageClip()) {
-            // SILENTLY. updateTrimBounds(clip) ends in player.seekTo(trimStartMs) â right for a
+            // SILENTLY. updateTrimBounds(clip) ends in player.seekTo(trimStartMs) — right for a
             // real trim edit, wrong for a generic refresh. Undoing a layer move or a text colour
             // re-homed the player to the SELECTED clip's first frame while the playhead stayed
             // where it was, so the preview showed one moment and the timeline claimed another
             // until the user scrubbed. JoyRaptor, 2026-08-19: "it doesn't move the timeline back
             // there. It only moves the preview there... it is disorienting." His ~9:44 is clip
-            // 10's head at 9:45.361. Not seeking is the whole fix â the player is already on the
+            // 10's head at 9:45.361. Not seeking is the whole fix — the player is already on the
             // correct frame, so leaving it alone keeps the preview honest.
             playerManager.updateTrimBoundsSilently(clip);
             playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
@@ -12747,7 +12747,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Update preview transforms (rotation, flip, crop, canvas)
         updatePreviewTransforms();
 
-        // Update time displays â AT THE PLAYHEAD, not at zero.
+        // Update time displays — AT THE PLAYHEAD, not at zero.
         //
         // updateCurrentTimeDisplay is not a readout refresher: its first act is
         // `lastPlayheadAbsoluteMs = absoluteMs`, and it then feeds that value to
@@ -12756,23 +12756,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // t=0 and re-timed every overlay to t=0.
         //
         // In gapless mode the composite renders the CURRENT window, so "t=0" is that clip's first
-        // frame â which is exactly what JoyRaptor saw: "every time an undo happens, preview goes to
+        // frame — which is exactly what JoyRaptor saw: "every time an undo happens, preview goes to
         // the beginning of a clip", landing on the clip his viewport was over, with the timeline's
         // own playhead never moving and one scrub putting it right. Captured by PREVDIAG:
-        // "sync ms=0 playheadClip=3ce5d6eb selIdx=10 segAtPlayhead=10 lastPlayhead=0" â the
+        // "sync ms=0 playheadClip=3ce5d6eb selIdx=10 segAtPlayhead=10 lastPlayhead=0" — the
         // timeline knew we were in clip 10 while this had just zeroed the time.
         //
         // Why only SOME clips looked affected: a clip whose preview comes straight off the player
         // surface does not repaint on a composite sync, so nothing visibly changes. JoyRaptor chased
         // that difference from the outside and was right that it correlated with what was on the
-        // lower rows â those are the clips that go through the composite.
+        // lower rows — those are the clips that go through the composite.
         //
         // The three lines below (setTextOverlayPlayhead, and the caption/overlay re-binds) read
         // lastPlayheadAbsoluteMs AFTER this call, so zeroing it here also mistimed them.
         // Pass the value we ALREADY hold, not the timeline's. Reading it back from
         // editorTimeline here was worse than the zero it replaced: setTimeline() runs earlier in
         // THIS method, the view keeps the playhead as a FRACTION, and after an undo changes clip
-        // durations that fraction maps onto a different absolute time â so the preview landed
+        // durations that fraction maps onto a different absolute time — so the preview landed
         // somewhere different every press, sometimes past the end and black (JoyRaptor, 2026-08-19:
         // "it's actually MORE chaotic... wildly different preview locations... some seem
         // completely black like off the project or at the end"). Deterministically wrong beat
@@ -12785,14 +12785,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // positionInCurrentSegmentMs and it adds the preceding clips' durations itself.
         //
         // The original call passed a literal 0, which means "position 0 within the current
-        // segment" â i.e. the clip's first frame. That was the whole bug: undo parked the
+        // segment" — i.e. the clip's first frame. That was the whole bug: undo parked the
         // preview at the head of whatever clip was selected, and since selection follows the
         // viewport, at the head of the clip you happened to be looking at.
         //
         // My first attempt passed lastPlayheadAbsoluteMs straight in, which was WORSE: an
         // absolute time landing in a relative parameter, so getAbsolutePlayheadMs added the
         // segment start a second time. Device-caught on the sandbox at exactly the moment it
-        // happened â "PHJUMP 34180 -> 54888 (+20708)", and 20708 is precisely clip 8's start.
+        // happened — "PHJUMP 34180 -> 54888 (+20708)", and 20708 is precisely clip 8's start.
         // That is what made it chaotic rather than merely wrong, and why times could land past
         // the end of the project and render black.
         updateCurrentTimeDisplay(segmentRelativeForAbsolute(Math.max(0L, lastPlayheadAbsoluteMs)));
@@ -12831,7 +12831,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (boundAudioCaption != null) {
             bindAudioCaptionData(boundAudioCaption);
         }
-        // S6: transcript strikes â recompute skip-list and refresh the rail so undo/redo
+        // S6: transcript strikes — recompute skip-list and refresh the rail so undo/redo
         // of a strike set is visible immediately. syncRemovedSpansFromTranscript also
         // refreshes lastTranscriptStrikesSnapshot, so the next strike has a correct before.
         if (currentTranscript != null) {
@@ -12848,7 +12848,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (project == null || waveformOverlayView == null) return;
         java.util.List<com.fadcam.ui.faditor.model.WaveformOverlayInstance> overlays =
                 com.fadcam.ui.faditor.compositor.LayerPreviewController
-                        .visibleWaveformOverlays(project.getTimeline()); // Â§4.5 per-object eye
+                        .visibleWaveformOverlays(project.getTimeline()); // §4.5 per-object eye
         waveformOverlayView.setOverlays(overlays);
         waveformOverlayView.setData(waveformDataBySource);
         waveformOverlayView.setPlayheadMs(editorTimeline.getPlayheadPositionMs());
@@ -12866,7 +12866,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         undoManager.recordAction(new EditActions.LambdaAction("Remove visualizer",
                                 () -> project.getTimeline().removeWaveformOverlay(overlay),
                                 () -> project.getTimeline().addWaveformOverlay(overlay)));
-                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // Â§4.5 per-object eye
+                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
                         scheduleAutoSave();
                         Toast.makeText(FaditorEditorActivity.this, "Visualizer removed",
@@ -12882,10 +12882,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     @Override
                     public void onWaveformLongPressed(
                             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
-                        // Gesture contract Â§4.5: hold opens the object menu; delete
+                        // Gesture contract §4.5: hold opens the object menu; delete
                         // lives inside it (was an instant, confirm-less delete).
                         // TODO(strings)
-                        String[] items = {"Customize styleâ¦", "Delete visualizer"};
+                        String[] items = {"Customize style…", "Delete visualizer"};
                         new com.google.android.material.dialog.MaterialAlertDialogBuilder(
                                 FaditorEditorActivity.this)
                                 .setTitle("Visualizer")
@@ -12929,7 +12929,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             Clip clip = findClipById(ref);
             if (clip == null) continue;
             // F3b (PERF_SPEC_LONGFILE_20260718): extract from the RAW source file, not
-            // resolvePlaybackUri's output â that flips between the raw file and the
+            // resolvePlaybackUri's output — that flips between the raw file and the
             // remuxed cache copy across sessions, and WaveformExtractor's disk cache is
             // keyed by URI, so the same audio silently re-extracted under a new key.
             // The audio stream is identical in both files; the raw path is stable.
@@ -12941,7 +12941,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             waveformExtractInFlight.add(ref);
             // Only extract the source span the clip actually uses (its trim window + a ~1.2s lead-in
-            // for the amplitude scrolling window) instead of the whole â possibly 30-min â file.
+            // for the amplitude scrolling window) instead of the whole — possibly 30-min — file.
             long spanStartMs = Math.max(0, clip.getInPointMs() - 1200);
             long spanEndMs = clip.getOutPointMs() + 200;
             FLog.d(TAG, "Waveform extract START ref=" + ref + " uri=" + uri
@@ -12982,7 +12982,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Text overlays ââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Text overlays ────────────────────────────────────────────────
 
     /**
      * Bind the overlay layer to the project's text overlays and keep the
@@ -12995,14 +12995,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * AV3 discovery default: the FIRST audio track loads expanded (full quad-band tape), the rest
      * as thin collapsed bars the user taps to expand. Applied ONCE, only to audio tracks that have
-     * no persisted {@link com.fadcam.ui.faditor.layers.TrackFlags} yet â so a saved project's
+     * no persisted {@link com.fadcam.ui.faditor.layers.TrackFlags} yet — so a saved project's
      * explicit collapse states and any later user toggle always win (and flag-pruning can't cause a
      * re-collapse loop, since collapsed=true is non-default and survives pruning).
      */
     private void applyDefaultAudioCollapseOnce(@NonNull Timeline tl) {
         if (audioCollapseDefaultsApplied) return;
         java.util.List<com.fadcam.ui.faditor.layers.Track> audio = tl.getAudioTracks();
-        if (audio.isEmpty()) return; // nothing to seed yet â try again next sync
+        if (audio.isEmpty()) return; // nothing to seed yet — try again next sync
         audioCollapseDefaultsApplied = true;
         for (int i = 1; i < audio.size(); i++) {
             String id = audio.get(i).getId();
@@ -13022,9 +13022,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void syncTimelineOverlays() {
         if (editorTimeline != null && project != null) {
             Timeline tl = project.getTimeline();
-            // SPEC_IMAGE_SEQUENCE Â§6: "resolve it to a concrete length whenever anything
+            // SPEC_IMAGE_SEQUENCE §6: "resolve it to a concrete length whenever anything
             // changes". Every edit path funnels through this sync, so this is the one place
-            // that has to know â the same reasoning the visualizer/link resyncs below use.
+            // that has to know — the same reasoning the visualizer/link resyncs below use.
             if (!resolvingOpenEnds) {
                 resolvingOpenEnds = true;
                 try { resolveSequenceOpenEnds(); } finally { resolvingOpenEnds = false; }
@@ -13048,7 +13048,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // spans. Every edit path funnels through this sync, so time-riding is one call.
             tl.resyncAttachedVisualizers();
             // G9: host/rider link groups re-derive rider times; peer TIME groups propagate
-            // single-mover deltas (G9e lives inside resyncLinkGroups â one write-point).
+            // single-mover deltas (G9e lives inside resyncLinkGroups — one write-point).
             tl.resyncLinkGroups();
             // G9c: refresh the preset view + feed every linked member id to the row
             // renderer so linked items wear the chain badge.
@@ -13064,11 +13064,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
             }
             editorTimeline.setLinkedItemIds(linkedIds);
-            // Layers-UX Slice C: the OLD read-only layer bars (EditorTimelineView#drawLayers â
+            // Layers-UX Slice C: the OLD read-only layer bars (EditorTimelineView#drawLayers —
             // text/image overlays, visualizers, captions) are RETIRED. Captions & visualizers
             // are now first-class headered Track rows in LayerRowRenderer (Slice A/B), so still
             // feeding the old renderer would DOUBLE-RENDER them (JoyRaptor's FEEDBACK #1). We stop
-            // feeding setOverlays/setWaveformLayers/setCaptionSpans; those lists stay empty â
+            // feeding setOverlays/setWaveformLayers/setCaptionSpans; those lists stay empty →
             // drawLayers early-returns, its old hit-testing goes inert (handleM6RowTouch already
             // takes priority), and its reserved band collapses (getM6RowsTopPx == getLayerTopPx,
             // no empty reserved band). (Audio's old bar path is consolidated in a later slice.)
@@ -13083,12 +13083,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // Audio consolidation (2026-07-07, replaces the FEEDBACK #1 suppression): audio
             // rows now ride the unified LayerRowRenderer in their own band BELOW master
             // (Slice-E order preserved), and the legacy audio bar path in EditorTimelineView
-            // is gated off whenever these tracks are non-empty â so there is exactly ONE
+            // is gated off whenever these tracks are non-empty — so there is exactly ONE
             // audio UI. Every op anchored on getSelectedAudioIndex keeps working: that
             // method now DERIVES the index from LayerGestureController's unified selection
             // (TimedItem id == AudioClip id).
             editorTimeline.setLayerTracks(layerBand, tl.getAudioTracks());
-            // LANE_BADGES Â§2: feed sprite sheets so the sprite-item cell previews can decode
+            // LANE_BADGES §2: feed sprite sheets so the sprite-item cell previews can decode
             // + resolve them (renderer stays pure-draw; EditorTimelineView owns the decode).
             if (project != null) editorTimeline.setSpriteSheets(project.getSpriteSheets());
             // RE-FEED THE TEXT/IMAGE SURFACE HERE. The comment that used to sit in this spot
@@ -13096,19 +13096,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // at each of its own call sites", and that was the bug: this method is the funnel
             // EVERY edit path runs through, and it refreshed the timeline rows, the image-track
             // surface and the sprite surface while leaving untouched the one surface that
-            // actually renders text AND images â and therefore owns their z-order. Eleven
+            // actually renders text AND images — and therefore owns their z-order. Eleven
             // scattered call sites meant depth refreshed only if you happened to trigger one.
             //
             // Device-diagnosed 2026-08-19 from a live repro JoyRaptor held open: an image dragged to
-            // the BOTTOM lane still painted above the 2 and 4 emoji boxes and below 3/1/5 â the
+            // the BOTTOM lane still painted above the 2 and 4 emoji boxes and below 3/1/5 — the
             // model was already correct (image laneZ=1, boxes at 2,3,5,6,7), the VIEW was stuck
             // at the image's old slot. It also explains the whole "it comes in and out" family:
             // a cold open is always right (load rebuilds), and an unrelated action could fix it
             // by happening to hit one of those eleven call sites. JoyRaptor's own lead pointed here
-            // â he uses consolidate lanes constantly, and lane compaction routes through this
+            // — he uses consolidate lanes constantly, and lane compaction routes through this
             // method and nothing else.
             //
-            // Cheap by construction: setData's first act is "same items, same order â reposition,
+            // Cheap by construction: setData's first act is "same items, same order → reposition,
             // do not rebuild", which is the guard that exists for exactly this per-tick traffic.
             // A no-op costs one size check and an identity scan.
             if (overlayLayer != null) {
@@ -13119,7 +13119,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 overlayLayerBelow.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController
                         .visibleTextOverlaysBelowVideo(tl), overlayLayerCallback());
             }
-            // The IMAGE-track preview surface is separate and still empty today â no IMAGE-track
+            // The IMAGE-track preview surface is separate and still empty today — no IMAGE-track
             // creation UI exists, so this is a no-op for every current project; image OBJECTS are
             // TextOverlayItems and live on the surface re-fed above (see visibleImageItems).
             if (layerImageOverlay != null) {
@@ -13128,7 +13128,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // GL pilot: inject a synthetic visible image when IMAGE track is empty so the
                 // raster+GL path can be exercised on any project for measurement on Note 9.
                 // In-memory only, not persisted; remove after pilot decision. This is the
-                // "at least one image overlay" project the spec's Â§5 measurement requires.
+                // "at least one image overlay" project the spec's §5 measurement requires.
                 if (imageItems.isEmpty() && tl.getClipCount() > 0 && !pilotDummyInjected) {
                     try {
                         com.fadcam.ui.faditor.model.Clip dummyClip = new com.fadcam.ui.faditor.model.Clip(
@@ -13143,7 +13143,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 layerImageOverlay.setItems(imageItems);
                 layerImageOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
             }
-            // S4: re-bind the sprite preview from the (hidden-filtered) Track model â
+            // S4: re-bind the sprite preview from the (hidden-filtered) Track model —
             // same single-authority filter S6's export will consume.
             if (spriteOverlayView != null) {
                 spriteOverlayView.setData(
@@ -13158,7 +13158,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             // M-COMP-2: re-bind the live PiP layer from the Track model. Use VISIBLE
             // (not renderable) so a clip serving as a track matte still decodes a still
-            // for the matte luma â renderable hides it from normal PiP rendering, but
+            // for the matte luma — renderable hides it from normal PiP rendering, but
             // FxLivePreviewController hides it from the rung walk and samples its luma
             // via mattePipFor (still-frame fallback per FEEDBACK B3 budget).
             if (overlayVideoLayer != null) {
@@ -13170,7 +13170,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         playerManager != null && playerManager.isPlaying());
             }
             // PHASE-P P3: keep the ripple/gap button in sync with the model (covers
-            // initial load, toggle, and undo/redo â all funnel through this sync).
+            // initial load, toggle, and undo/redo — all funnel through this sync).
             updateRippleModeButton();
         }
     }
@@ -13178,13 +13178,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private static final String PREF_TIMELINE_BAND_DP = "timeline_band_max_dp";
 
     /**
-     * G6.2 snap detents (contract Â§5): the sensible band-height splits the grab bar snaps to on release.
-     * Match {@code LayerRowRenderer}'s MIN (40) / DEFAULT (140) / CAP (460) â video-dominant Â· balanced Â·
+     * G6.2 snap detents (contract §5): the sensible band-height splits the grab bar snaps to on release.
+     * Match {@code LayerRowRenderer}'s MIN (40) / DEFAULT (140) / CAP (460) — video-dominant · balanced ·
      * timeline-dominant. {@code setLayerBandMaxHeightDp} re-clamps to that same range, so these self-heal
      * if the renderer's bounds ever change.
      */
     private static final float[] TIMELINE_BAND_DETENTS_DP = { 40f, 140f, 460f };
-    /** Snap radius (dp): within this of a detent on release â snap; further out keeps the free-drag split. */
+    /** Snap radius (dp): within this of a detent on release → snap; further out keeps the free-drag split. */
     private static final float TIMELINE_BAND_SNAP_RADIUS_DP = 32f;
 
     /** G6.2: nearest detent to {@code dp} within {@link #TIMELINE_BAND_SNAP_RADIUS_DP}, else {@code dp} unchanged. */
@@ -13198,9 +13198,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * G6 resizable timeline (contract Â§5): wire the grab bar sitting on the previewâtimeline boundary.
-     * A vertical drag reallocates space â drag UP â taller timeline (more layer rows visible, smaller
-     * preview); drag DOWN â bigger preview â by driving {@link EditorTimelineView}'s layer-band viewport
+     * G6 resizable timeline (contract §5): wire the grab bar sitting on the preview↔timeline boundary.
+     * A vertical drag reallocates space — drag UP → taller timeline (more layer rows visible, smaller
+     * preview); drag DOWN → bigger preview — by driving {@link EditorTimelineView}'s layer-band viewport
      * cap (the band grows/shrinks inside the cap, changing the timeline's measured height, which reflows
      * the {@code layout_weight=1} preview above it). The chosen size PERSISTS per install.
      */
@@ -13235,7 +13235,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             float applied = editorTimeline.setLayerBandMaxHeightDp(
                     Math.min(before, ceiling), false);
             if (Math.abs(applied - before) > 0.5f) {
-                FLog.w(TAG, "Timeline band cap " + before + "dp did not fit the column â "
+                FLog.w(TAG, "Timeline band cap " + before + "dp did not fit the column — "
                         + "clamped to " + applied + "dp and re-saved");
                 ui.edit().putFloat(PREF_TIMELINE_BAND_DP, applied).apply();
             }
@@ -13257,14 +13257,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // Drag UP (rawY decreases) grows the timeline; DOWN shrinks it.
                         float deltaDp = (downRawY - e.getRawY()) / density;
                         float targetDp = baselineDp + deltaDp;
-                        // G6.3: never grow the band past the space actually available â
+                        // G6.3: never grow the band past the space actually available —
                         // the preview promotes to PiP as it collapses, but the tool row /
-                        // caption strip below must always stay on screen (contract Â§5).
+                        // caption strip below must always stay on screen (contract §5).
                         if (previewPip != null) {
                             targetDp = Math.min(targetDp, previewPip.maxBandDpFor(
                                     editorTimeline.getLayerBandMaxHeightDp()));
                         }
-                        // USER DRAG â not clamped to the rows' own height. maxBandDpFor above is
+                        // USER DRAG — not clamped to the rows' own height. maxBandDpFor above is
                         // the real ceiling (the space the column has); clamping to content as
                         // well killed the bar outright on any project with only a couple of
                         // lanes, which is every project on its first day.
@@ -13275,7 +13275,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     case MotionEvent.ACTION_CANCEL:
                         grabBarDragging = false;
                         v.setPressed(false);
-                        // G6.2 (contract Â§5): snap the released split to the nearest sensible detent
+                        // G6.2 (contract §5): snap the released split to the nearest sensible detent
                         // (video-dominant / balanced / timeline-dominant) when close; free-drag
                         // positions further from any detent are kept as-is.
                         float snapped = snapTimelineBandToDetent(editorTimeline.getLayerBandMaxHeightDp());
@@ -13303,7 +13303,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         });
 
-        // G6.3/G6.4 (contract Â§5): PiP promotion of the preview when its slot collapses â
+        // G6.3/G6.4 (contract §5): PiP promotion of the preview when its slot collapses —
         // via the grab bar's top extreme OR landscape rotation. Fully additive: with a
         // comfortable preview slot the controller never engages.
         try {
@@ -13336,13 +13336,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         });
             }
         } catch (Exception e) {
-            FLog.e(TAG, "PreviewPipController setup failed â inline preview only", e);
+            FLog.e(TAG, "PreviewPipController setup failed — inline preview only", e);
         }
     }
 
-    // âââââââââââ G8 marquee multi-select (contract Â§5.5) â activity glue âââââââââââ
+    // ═══════════ G8 marquee multi-select (contract §5.5) — activity glue ═══════════
 
-    /** OFF â INCLUSIVE (crossing) â EXCLUSIVE (window) â OFF, with icon tint + hint. */
+    /** OFF → INCLUSIVE (crossing) → EXCLUSIVE (window) → OFF, with icon tint + hint. */
     private void cycleMarqueeMode() {
         if (editorTimeline == null) return;
         com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode next;
@@ -13368,7 +13368,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         editorTimeline.setMarqueeMode(next);
         TextView icon = findViewById(R.id.tool_select_icon);
         if (icon != null) icon.setTextColor(tint);
-        // JoyRaptor 2026-07-19: the toggle also lives on the transport row now â keep
+        // JoyRaptor 2026-07-19: the toggle also lives on the transport row now — keep
         // both affordances' state tint in sync.
         TextView transportIcon = findViewById(R.id.btn_select_mode);
         if (transportIcon != null) transportIcon.setTextColor(tint);
@@ -13392,8 +13392,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 });
     }
 
-    /** Batch menu: only actions UNIVERSAL to every selected type appear (contract Â§5.5).
-     *  Ships DELETE + G9d LINK TIMING (the multi-select link-creation entry point â
+    /** Batch menu: only actions UNIVERSAL to every selected type appear (contract §5.5).
+     *  Ships DELETE + G9d LINK TIMING (the multi-select link-creation entry point —
      *  the batch menu, not the relink toolbar button, is the v1 surface: it already
      *  appears on exactly the gesture the contract wants, long-press over a
      *  multi-selection, and leaves media-relink untouched). */
@@ -13404,11 +13404,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final java.util.List<Runnable> handlers = new java.util.ArrayList<>();
         labels.add("Delete selected");                                        // TODO(strings)
         handlers.add(() -> confirmMarqueeBatchDelete(items));
-        labels.add("Link objectsâ¦");                                          // TODO(strings)
+        labels.add("Link objects…");                                          // TODO(strings)
         handlers.add(() -> showLinkCreationDialog(items));
         // Dual-stream Phase 4 (manual entry point B): a master clip + an overlay video
         // clip can be linked as a synced pair; any selection touching a linked clip can
-        // be unlinked. These are the masterâoverlay `linkedClipId` mechanism, distinct
+        // be unlinked. These are the master↔overlay `linkedClipId` mechanism, distinct
         // from the G9 peer link-timing groups above.
         Clip[] pair = eligibleDualStreamLinkPair(items);
         if (pair != null) {
@@ -13440,7 +13440,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * One-shot batch delete with ONE composite undo step. Handles every payload type
      * whose add/remove pairs are pure timeline mutations (text/image overlays, sprites,
-     * visualizers, PiP overlay clips, and â since the audio-band marquee landed â
+     * visualizers, PiP overlay clips, and — since the audio-band marquee landed —
      * audio clips, with a player resync). Captions (clip-owned, no delete semantics)
      * are skipped with a note.
      */
@@ -13467,8 +13467,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final java.util.List<Clip> pips = new java.util.ArrayList<>();
         final java.util.List<AudioClip> audios = new java.util.ArrayList<>();
         int skipped = 0;
-        // LOCKED OBJECTS ARE HELD BACK, not swept up. Â§2.3: a lock the batch path ignores is not
-        // a lock â the user locks a title so a stray gesture cannot take it, and a marquee that
+        // LOCKED OBJECTS ARE HELD BACK, not swept up. §2.3: a lock the batch path ignores is not
+        // a lock — the user locks a title so a stray gesture cannot take it, and a marquee that
         // happened to cross it is exactly such a gesture. They are counted and then offered, once,
         // through the same "unlock and continue?" question a single delete asks.
         final java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> locked =
@@ -13532,14 +13532,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // "the app could not handle them"; "2 locked" reads as "you protected those", which is the
         // difference between a limitation and a decision the user made.
         StringBuilder msg = new StringBuilder().append(deletable).append(" deleted");
-        if (!locked.isEmpty()) msg.append(" Â· ").append(locked.size()).append(" locked, kept");
-        if (skipped > 0) msg.append(" Â· ").append(skipped).append(" skipped");
+        if (!locked.isEmpty()) msg.append(" · ").append(locked.size()).append(" locked, kept");
+        if (skipped > 0) msg.append(" · ").append(skipped).append(" skipped");
         Toast.makeText(this, msg.toString(), Toast.LENGTH_SHORT).show();   // TODO(strings)
     }
 
 
     /**
-     * P1 (multi-axis membership) â axis-choice dialog for link creation. Checked axes
+     * P1 (multi-axis membership) — axis-choice dialog for link creation. Checked axes
      * become ONE peer group; per JoyRaptor's model an item may simultaneously belong to
      * DIFFERENT groups on DIFFERENT axes, so conflicts are enforced per (item, axis).
      */
@@ -13550,7 +13550,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 .setTitle("Link objects")                                      // TODO(strings)
                 .setMultiChoiceItems(new CharSequence[]{
                         "Timing (move together)",
-                        "Opacity (fade together â text & sprites)"},           // TODO(strings)
+                        "Opacity (fade together — text & sprites)"},           // TODO(strings)
                         checked, (d, w, isChecked) -> checked[w] = isChecked)
                 .setNegativeButton("Cancel", null)                             // TODO(strings)
                 .setPositiveButton("Link", (d, w) -> {                         // TODO(strings)
@@ -13562,9 +13562,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * G9d/P1 â create a peer link group over the chosen axes. JoyRaptor's re-scope
+     * G9d/P1 — create a peer link group over the chosen axes. JoyRaptor's re-scope
      * (2026-07-19 #3): each (item, axis) must be uniquely owned. STRICT axis rule: a
-     * chosen axis survives only if EVERY member supports it AND has it free â otherwise
+     * chosen axis survives only if EVERY member supports it AND has it free — otherwise
      * that axis is dropped with a note (members are never silently split per axis, so
      * the group's meaning stays legible). ONE undo step; the SAME group object
      * round-trips undo/redo (id stable).
@@ -13618,7 +13618,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             String why = members.size() < 2
                     ? (stripped > 0 ? "Not enough linkable objects"
                                     : "Select at least 2 linkable objects")
-                    : "Nothing to link â " + android.text.TextUtils.join(", ", droppedAxes);
+                    : "Nothing to link — " + android.text.TextUtils.join(", ", droppedAxes);
             Toast.makeText(this, why, Toast.LENGTH_LONG).show();               // TODO(strings)
             return;
         }
@@ -13635,7 +13635,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
         String axesLabel = describeLinkAxes(g);
         Toast.makeText(this, g.members.size() + " objects linked (" + axesLabel + ")"
-                + (droppedAxes.isEmpty() ? "" : " â dropped: "
+                + (droppedAxes.isEmpty() ? "" : " — dropped: "
                         + android.text.TextUtils.join(", ", droppedAxes)),
                 Toast.LENGTH_LONG).show();                                     // TODO(strings)
     }
@@ -13661,7 +13661,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Clip master = null, overlay = null;
         for (com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit h : items) {
             Clip c = h.item.getClip();
-            if (c == null) return null; // a non-clip payload in the selection â not a pair
+            if (c == null) return null; // a non-clip payload in the selection → not a pair
             if (c.isOverlayClip()) {
                 if (overlay != null) return null;
                 overlay = c;
@@ -13697,7 +13697,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         syncTimelineOverlays(); }));
         scheduleAutoSave();
         if (editorTimeline != null) editorTimeline.clearMarqueeSelection();
-        Toast.makeText(this, "Clips linked â edits mirror across both",
+        Toast.makeText(this, "Clips linked — edits mirror across both",
                 Toast.LENGTH_SHORT).show();                                    // TODO(strings)
     }
 
@@ -13706,7 +13706,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
         final Clip partner = timeline.findLinkedClip(clip);
-        if (partner == null) { // link was one-sided/stale â just clear this side
+        if (partner == null) { // link was one-sided/stale — just clear this side
             clip.setLinkedClipId(null);
             syncTimelineOverlays();
             scheduleAutoSave();
@@ -13725,21 +13725,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * G9c â append an "Unlink timingâ¦" action when {@code itemId} is in an AD-HOC TIME
+     * G9c — append an "Unlink timing…" action when {@code itemId} is in an AD-HOC TIME
      * group (G5 preset tethers keep their own detach affordance in the viz drawer).
-     * The dialog offers the plan Â§5.3 scopes: this object only vs whole group.
+     * The dialog offers the plan §5.3 scopes: this object only vs whole group.
      */
     private void maybeAddLinkActions(
             @NonNull java.util.List<ObjectMenuSheet.Action> actions, @NonNull String itemId) {
         if (project == null) return;
         // P1 multi-axis membership: an item may sit in SEVERAL ad-hoc groups (one per
-        // axis) â one unlink action per group, labeled by that group's axes.
+        // axis) — one unlink action per group, labeled by that group's axes.
         for (com.fadcam.ui.faditor.layers.LinkGroup owner
                 : project.getTimeline().getLinkGroups()) {
             if (owner.findMember(itemId) == null) continue;
             final com.fadcam.ui.faditor.layers.LinkGroup g = owner;
             final String axes = describeLinkAxes(g);
-            actions.add(new ObjectMenuSheet.Action("Unlink " + axes + "â¦", false, () -> // TODO(strings)
+            actions.add(new ObjectMenuSheet.Action("Unlink " + axes + "…", false, () -> // TODO(strings)
                     new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                             .setTitle("Unlink " + axes)                        // TODO(strings)
                             .setItems(new CharSequence[]{
@@ -13751,10 +13751,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§4.5: per-object eye/lock toggle actions for the general drawer (the eye/lock
+     * §4.5: per-object eye/lock toggle actions for the general drawer (the eye/lock
      * moved OFF the row gutter onto the object). Payload-agnostic via lambdas; each
      * toggle = ONE undo step; refresh rides refreshAfterMarqueeBatchDelete (it already
-     * re-feeds every preview surface through the Â§4.5-aware visible* filters). The
+     * re-feeds every preview surface through the §4.5-aware visible* filters). The
      * sheet closes on toggle so its action labels never go stale.
      */
     private void addObjectVisibilityActions(
@@ -13823,7 +13823,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final Runnable undo = () -> {
             g.members.clear();
             g.members.addAll(beforeMembers);
-            timeline.removeLinkGroup(g.id); // avoid double-add on redoâundo cycles
+            timeline.removeLinkGroup(g.id); // avoid double-add on redo→undo cycles
             timeline.addLinkGroup(g);
             syncTimelineOverlays();
         };
@@ -13838,7 +13838,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Z3 (SPEC_CROSSTYPE_Z): feed the BELOW-video surfaces. Fed from here alone rather than
      * from all fourteen above-surface call sites, because bucket membership only changes when
-     * a lane's zIndex or an item's lane membership changes â and every one of those paths
+     * a lane's zIndex or an item's lane membership changes — and every one of those paths
      * funnels through {@code syncTimelineOverlays()}.
      *
      * <p>Costs nothing until used: the bucket is empty for every project that has not ordered
@@ -13848,7 +13848,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (overlayLayerBelow != null) {
             // Real callbacks: the below surface still needs the content rect to lay items out
             // (and the sprite one needs sheet/renderer lookups to draw at all). It is made
-            // non-interactive explicitly instead â clickable=false does not stop a custom
+            // non-interactive explicitly instead — clickable=false does not stop a custom
             // view's touch handling.
             overlayLayerBelow.setInteractive(false);
             overlayLayerBelow.setData(
@@ -13874,7 +13874,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             overlayLayer.invalidate();
         }
         if (waveformOverlayView != null && project != null) {
-            waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // Â§4.5 per-object eye
+            waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
             waveformOverlayView.invalidate();
         }
         refreshSpritePreviewData();
@@ -13883,7 +13883,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /** Audio half of a batch delete/undo: legacy feed + player resync (mirror of
      *  deleteAudioClipWithConfirmation's refresh half). Called only when the batch
-     *  actually touched audio items â no player churn otherwise. */
+     *  actually touched audio items — no player churn otherwise. */
     private void resyncAudioPlayerAfterBatch() {
         if (project == null || editorTimeline == null) return;
         Timeline tl = project.getTimeline();
@@ -13895,11 +13895,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * M6 row-header toggle glue (PLAN Part 7, row M6; scope items 3-5): flips the
      * tapped flag in {@code Timeline}'s persistent {@code TrackFlags} side-table
-     * (the fix for the M5 status note â ï¸ â a plain mutation on the Track VIEW object
+     * (the fix for the M5 status note ⚠️ — a plain mutation on the Track VIEW object
      * would be lost on the next rebuild-from-flat), records it as one undo step via
      * the same {@code EditActions.LambdaAction} pattern used elsewhere in this class
      * (e.g. "Remove visualizer" / "Delete text overlay" above), then refreshes the
-     * timeline. Toggles only affect THIS row's rendering/hit-testing in M6 â preview/
+     * timeline. Toggles only affect THIS row's rendering/hit-testing in M6 — preview/
      * export wiring is M-COMP-1 / M-EXPORT-1 (TODOs below at each effect site).
      */
     private void onTrackHeaderAction(@NonNull com.fadcam.ui.faditor.layers.Track track,
@@ -13944,7 +13944,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 return;
         }
 
-        // Persist into the side-table (the Track passed in is a rebuilt-from-flat VIEW â
+        // Persist into the side-table (the Track passed in is a rebuilt-from-flat VIEW —
         // writing through it directly would be lost on the next getLayers()/etc. call).
         com.fadcam.ui.faditor.layers.TrackFlags flags = timeline.getOrCreateTrackFlags(trackId);
         flags.collapsed = track.isCollapsed();
@@ -13964,7 +13964,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         syncTimelineOverlays();
         // PHASE-R R1 (M-EXPORT-1 finding): syncTimelineOverlays() refreshes the TIMELINE
         // rows + the (always-empty) image overlay surface, but the on-canvas PREVIEW
-        // TextOverlayLayer keeps whatever list its last setData() call fed it â so a
+        // TextOverlayLayer keeps whatever list its last setData() call fed it — so a
         // hide toggle dimmed the row while the text stayed visible in the preview until
         // a project reload re-fed it. Re-feed it through the same visibility authority
         // here (and in the undo/redo lambdas above; performUndo/-Redo additionally goes
@@ -13990,14 +13990,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ PHASE-P P1: layer header long-press menu (rename / move / delete) ââââââââââ
+    // ── PHASE-P P1: layer header long-press menu (rename / move / delete) ──────────
 
     /**
      * Long-press on a layer/audio row header (PHASE-P P1): compact dark-card menu with
      * Rename / Move up / Move down / Delete layer (delete only for user-created
-     * {@code LayerTrackDef} tracks â the fixed default tracks have nothing to delete).
+     * {@code LayerTrackDef} tracks — the fixed default tracks have nothing to delete).
      * G22: the MASTER row now reaches here too, via its own hit-test in
-     * {@code EditorTimelineView} â it is not a renderer row, but solo must be askable
+     * {@code EditorTimelineView} — it is not a renderer row, but solo must be askable
      * for it ("hear only the video"), so the menu shows only what can mean something
      * on each kind of lane. Styling mirrors the undo-history popup
      * (dark 0xFF1A1A2E card, 12dp radius). Every action records ONE undo step.
@@ -14031,9 +14031,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // TODO(strings): hardcoded per the rebrand-freeze standing rule.
         // NO "Rename" row. The user decided twice that "layers don't need names, OBJECTS need
-        // names" â and the renderer never drew a track name anywhere, so the action typed a
+        // names" — and the renderer never drew a track name anywhere, so the action typed a
         // name, pushed an undo step and wrote to disk while the screen showed nothing at all.
-        // Removed 2026-07-28 along with showRenameTrackDialog. See tasks/LEDGER.md Â§3c.
+        // Removed 2026-07-28 along with showRenameTrackDialog. See tasks/LEDGER.md §3c.
         // Z-order rows are meaningless on the master spine (it has no band to reorder within),
         // so they are offered only on real lanes; the menu must never offer a control that
         // cannot do anything (the G18 trap).
@@ -14043,7 +14043,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             addTrackMenuRow(list, popup, "Move up", () -> moveTrackZ(track, true, floatingBand));
             addTrackMenuRow(list, popup, "Move down", () -> moveTrackZ(track, false, floatingBand));
         }
-        // B3: solo â only where a solo could mean anything, i.e. lanes that carry audio.
+        // B3: solo — only where a solo could mean anything, i.e. lanes that carry audio.
         // Same content-based rule that decides whether the mute glyph is drawn at all, so
         // the menu never offers a control the header does not have.
         if (com.fadcam.ui.faditor.layers.LayerRowRenderer.rowCarriesAudio(track)) {
@@ -14085,7 +14085,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * B3 â solo, implemented as DERIVED MUTING over the existing {@code Track.muted}
+     * B3 — solo, implemented as DERIVED MUTING over the existing {@code Track.muted}
      * machinery, so it is real in preview AND export with zero engine change: both already
      * consult track mute ({@code LayerPreviewController.isAudioClipTrackMuted}), and the
      * live-player push is the same call the MUTE menu row uses.
@@ -14095,7 +14095,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * state from {@link LayerRowRenderer#preSoloMuted()} rather than blanket-unmuting, so
      * lanes the user had deliberately muted stay muted. One undo step per toggle.</p>
      *
-     * <p>G22 â the master spine participates like any lane: soloing it answers
+     * <p>G22 — the master spine participates like any lane: soloing it answers
      * "hear only the video" (its clips' audio stays audible via the per-CLIP map below,
      * every other carrier is muted), and soloing any other lane silences the spine.
      * Solos are session-scoped and not persisted; while a solo is active the derived
@@ -14110,18 +14110,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         all.addAll(tl.getLayers());
         all.addAll(tl.getAudioTracks());
         // The MASTER spine is a lane like any other here. It was excluded, which made solo
-        // mean "hear this lane alone, except the video, which you keep hearing" â JoyRaptor soloed
+        // mean "hear this lane alone, except the video, which you keep hearing" — JoyRaptor soloed
         // a beeps lane, still heard the video, and ruled that solo belongs to the lane you
         // opened it from. rowCarriesAudio() already returns true for MASTER, so its header was
         // ALREADY offering a Solo row that the logic then ignored: the menu promised a control
         // that did nothing, which is the G18 trap wearing a different hat.
         // The master id comes from getMasterTrack(), NOT from the loop below. `all` is built
-        // from getLayers() + getAudioTracks(), and the master spine is neither â it is a third,
+        // from getLayers() + getAudioTracks(), and the master spine is neither — it is a third,
         // separately-built Track. So scanning `all` for KIND == MASTER found nothing and left
         // this null forever, which made "is the master one of the soloed lanes?" permanently
         // false. That happened to give the behaviour JoyRaptor asked for (soloing any lane silences
         // the video, because masterAudible was always false), so it worked for the wrong
-        // reason â exactly the shape of mismatch between a comment and its code that this
+        // reason — exactly the shape of mismatch between a comment and its code that this
         // project keeps getting caught by.
         final String masterTrackId = tl.getMasterTrack().getId();
         for (com.fadcam.ui.faditor.layers.Track t : all) {
@@ -14130,10 +14130,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         // The master is deliberately NOT added to `carriers`. Carriers get their mute written
         // through TrackFlags, and the master spine's audio is a per-CLIP flag instead (see the
-        // clip maps below) â writing both would silence it twice and leave a stray master
+        // clip maps below) — writing both would silence it twice and leave a stray master
         // TrackFlag behind on undo. Its solo membership is still honoured via masterTrackId.
         //
-        // G22: with zero carrier lanes this used to bail entirely â which silently refused
+        // G22: with zero carrier lanes this used to bail entirely — which silently refused
         // the master's own Solo row the menu was already offering (G18 trap). Soloing the
         // master on a lane-less project changes nothing audibly (only the spine sounds), but
         // it IS the correct state: a later solo of any new lane will keep the video audible.
@@ -14162,7 +14162,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         java.util.Map<String, Boolean> afterClipMuted = new java.util.HashMap<>();
 
-        // AFTER map: engage â capture originals once per session, then derive; clear-last â
+        // AFTER map: engage → capture originals once per session, then derive; clear-last →
         // restore exactly what this step started with.
         java.util.Map<String, Boolean> afterMuted = new java.util.HashMap<>();
         if (!afterSolo.isEmpty()) {
@@ -14185,11 +14185,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             for (String id : beforeClipMuted.keySet()) afterClipMuted.put(id, !masterAudible);
         } else {
             // CLEARING THE LAST SOLO. Restore the mutes from BEFORE the solo session, not the
-            // ones this step started with â while a solo is engaged, "the ones this step
+            // ones this step started with — while a solo is engaged, "the ones this step
             // started with" ARE the derived mutes, so copying them left every other lane
             // silent after the solo was cleared. And because those derived mutes are what
             // autosave writes, the silence survived a reload: the user is left with muted
-            // lanes and nothing on screen still saying "solo". Same shape as G19 â a control
+            // lanes and nothing on screen still saying "solo". Same shape as G19 — a control
             // that cannot be undone by the control that caused it.
             java.util.Map<String, Boolean> pre =
                     com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted();
@@ -14346,14 +14346,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * D8 â the door to audio-reactive links: pick a BAND of the source clip's sound, a
+     * D8 — the door to audio-reactive links: pick a BAND of the source clip's sound, a
      * TARGET property, and an overlay clip to drive; {@link AudioReactiveLinker} writes
      * sparse, ordinary keyframes onto that overlay's transform. The result is made of the
      * same material as every hand-drawn keyframe, so undo is DuckApplier's pattern: one
      * step restoring the pre-link property track (and warning when it displaces keys).
      *
      * <p>Offered only from a standalone audio clip's drawer (the only source with a banded
-     * tape in this lane), and only when an overlay clip exists to drive â a menu row with
+     * tape in this lane), and only when an overlay clip exists to drive — a menu row with
      * nothing behind it is the G18 trap.</p>
      */
     private void showAudioReactiveLinkSheet(@NonNull AudioClip src) {
@@ -14443,13 +14443,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         env.samples, env.framesPerSecond,
                         envStartTimelineMs, tgtStart, target.getTrimmedDurationMs(), p);
         if (curve.isEmpty()) {
-            // A silent or steady band says nothing â a real answer, and the user sees it.
+            // A silent or steady band says nothing — a real answer, and the user sees it.
             Toast.makeText(this, "That band has nothing to react to here",
                     Toast.LENGTH_LONG).show();                             // TODO(strings)
             return;
         }
 
-        // ONE undo step restoring the WHOLE pre-link KeyframeSet â per-key unwinding of a
+        // ONE undo step restoring the WHOLE pre-link KeyframeSet — per-key unwinding of a
         // displaced hand-drawn curve would be worse than no undo (spec rule 7).
         final com.fadcam.ui.faditor.keyframe.KeyframeSet before =
                 target.getOverlayTransform() != null
@@ -14489,7 +14489,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         scheduleAutoSave();
     }
 
-    /** The single applier for solo state â redo, undo and first-engage all go through it. */
+    /** The single applier for solo state — redo, undo and first-engage all go through it. */
     private void applySoloState(@NonNull java.util.Set<String> soloIds,
                                 @NonNull java.util.Map<String, Boolean> mutesById,
                                 @NonNull java.util.Map<String, Boolean> clipMutesById,
@@ -14498,14 +14498,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // The pre-solo snapshot belongs to ONE solo session. Dropping it when the last solo
         // clears means the next session captures the user's real mutes; keeping it would make
         // every later solo restore state from the first one, indefinitely. Undo does not need
-        // it â undo carries its own explicit before-map.
+        // it — undo carries its own explicit before-map.
         if (soloIds.isEmpty()) {
             com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloMuted().clear();
             com.fadcam.ui.faditor.layers.LayerRowRenderer.preSoloClipMuted().clear();
         }
         // Master spine audio: a per-clip flag, which both preview (playerManager volume) and
         // export (buildAudioOnlyComposition / buildComposition skip audioMuted clips) already
-        // consult â so this needs no engine change either.
+        // consult — so this needs no engine change either.
         for (int ci = 0; ci < tl.getClipCount(); ci++) {
             Clip mc = tl.getClip(ci);
             if (mc == null) continue;
@@ -14517,8 +14517,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             playerManager.setVolume(sel.isAudioMuted() ? 0f : sel.getVolumeLevel());
         }
         // Persisted side-table only: every getLayers()/getAudioTracks() call rebuilds Track
-        // views FROM these flags (onTrackHeaderAction's discipline), so downstream readers â
-        // the rebuilt rows, LayerPreviewController, applyAudioTrackMuteLive â all see this.
+        // views FROM these flags (onTrackHeaderAction's discipline), so downstream readers —
+        // the rebuilt rows, LayerPreviewController, applyAudioTrackMuteLive — all see this.
         for (java.util.Map.Entry<String, Boolean> e : mutesById.entrySet()) {
             tl.getOrCreateTrackFlags(e.getKey()).muted = e.getValue();
         }
@@ -14538,7 +14538,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * LayerPreviewController#visibleTextOverlays} stable-sort ASC, later = on top) and
      * export (same shared authority, M-EXPORT-1) all follow the same field, so "row
      * above" always means "painted on top". Per-item zHint stays out of scope
-     * (ephemeral view field â PLAN M5 note). One undo step restores the whole band.
+     * (ephemeral view field — PLAN M5 note). One undo step restores the whole band.
      */
     private void moveTrackZ(@NonNull com.fadcam.ui.faditor.layers.Track track,
                             boolean up, boolean floatingBand) {
@@ -14611,10 +14611,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * P1 Delete layer (user-created tracks only â the menu row is hidden otherwise):
-     * items still on the layer MIGRATE to the default track of their band (layerId â
+     * P1 Delete layer (user-created tracks only — the menu row is hidden otherwise):
+     * items still on the layer MIGRATE to the default track of their band (layerId →
      * null routes text/sticker items to "text", sprites to "sprite", audio to "audio"
-     * â see {@code Timeline#getLayers()}/{@code getAudioTracks()} grouping), then the
+     * — see {@code Timeline#getLayers()}/{@code getAudioTracks()} grouping), then the
      * def + its flags entry are removed. Confirmed first when items exist. ONE undo
      * step restores the def, the flags, and every migrated item's layerId.
      */
@@ -14684,10 +14684,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ PHASE-P P3 (M11): master ripple/gap edit-mode toggle âââââââââââââââââââââââ
+    // ── PHASE-P P3 (M11): master ripple/gap edit-mode toggle ───────────────────────
 
     /**
-     * Toggle {@code Timeline.rippleMode} "ripple" â "gap" (M11). Ripple (today's
+     * Toggle {@code Timeline.rippleMode} "ripple" ↔ "gap" (M11). Ripple (today's
      * default) is untouched: a master delete shifts later clips left. Gap mode makes
      * {@link #deleteSelectedSegment()} leave a black spacer instead (see
      * {@link #gapDeleteSelectedSegment}). Persisted via the existing rippleMode
@@ -14722,7 +14722,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Gap-mode master delete (M11): the clip is REPLACED in place by a black still-image
      * spacer of the same timeline duration, so later clips do NOT shift and the timeline
      * keeps its length. Representation choice: an {@code isImageClip} Clip pointing at a
-     * generated black PNG â the least invasive form that already survives save/load
+     * generated black PNG — the least invasive form that already survives save/load
      * (plain clip serialization), previews (the existing image-clip preview path) and
      * exports black (ExportManager's existing image-clip branch) with ZERO new machinery;
      * a true first-class gap object would touch every clip iterator in the app. Floating
@@ -14756,11 +14756,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         syncTimelineOverlays();
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
-        // GAPLESS: the clipâspacer swap is a structural change; rebuild and home to the spacer
+        // GAPLESS: the clip→spacer swap is a structural change; rebuild and home to the spacer
         // (image window) so the engine stops playing the removed clip's stale window. No-op legacy.
         resyncGaplessAfterStructuralEdit(spacer.getId(), 0L, false);
         saveProjectNow();
-        Toast.makeText(this, "Clip removed â gap left in place", Toast.LENGTH_SHORT).show(); // TODO(strings)
+        Toast.makeText(this, "Clip removed — gap left in place", Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
     /**
@@ -14768,7 +14768,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>JoyRaptor, 2026-08-18: "This also allows me to put in cheap title screens or black spaces."
      * It is the same still-clip representation the gap-delete spacer and the auto-blank already
-     * use â an isImageClip Clip pointing at the shared black PNG â so it saves, previews and
+     * use — an isImageClip Clip pointing at the shared black PNG — so it saves, previews and
      * exports with ZERO new machinery. See gapDeleteSelectedSegment for why that representation
      * was chosen over a first-class gap object.
      *
@@ -14777,7 +14777,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * boundary is somewhere they can predict, and Split already exists for the other intent.
      *
      * <p>Named {@link #USER_BLANK_NAME}, NOT the auto-blank's name, so
-     * {@link #syncTrailingBlankForOverhang} will never resize or delete it â a deliberate black
+     * {@link #syncTrailingBlankForOverhang} will never resize or delete it — a deliberate black
      * clip is content, and content does not get tidied away by a housekeeping pass.
      */
     private void insertBlankClipAfterSelected(long durationMs) {
@@ -14816,7 +14816,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Display name marking a trailing blank clip this class OWNS â created, resized and removed
+     * Display name marking a trailing blank clip this class OWNS — created, resized and removed
      * automatically to cover objects hanging past the end of the spine. A user-inserted black
      * clip is deliberately named differently so it is never resized or deleted behind their back.
      */
@@ -14834,7 +14834,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * that hangs past its end.
      *
      * <p>Why this exists: the spine is the visual coordinate system, and an object past the last
-     * clip has no frame to composite onto â which is why extending an image layer never lengthened
+     * clip has no frame to composite onto — which is why extending an image layer never lengthened
      * the project and why keyframes mistimed out there. A Blank clip IS that missing base, so
      * "should overlays extend the project?" and "insert a black clip" are the same mechanism. This
      * is the automatic half; {@link #insertBlankClipAtPlayhead} is the manual one, and both build
@@ -14846,7 +14846,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *       "spans the whole project" can never ask the project to grow to contain it.</li>
      *   <li>The spine length it compares against EXCLUDES the auto-blank itself. The target is
      *       therefore a function of the user's real content only, so re-running this is
-     *       idempotent â it converges on the second pass and stays there, rather than each pass
+     *       idempotent — it converges on the second pass and stays there, rather than each pass
      *       measuring the padding the previous pass added.</li>
      * </ul>
      *
@@ -14861,7 +14861,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int lastIdx = n - 1;
         boolean hasAuto = AUTO_BLANK_NAME.equals(timeline.getClip(lastIdx).getDisplayName());
 
-        // Spine length WITHOUT the auto-blank â the fixed point that makes this idempotent.
+        // Spine length WITHOUT the auto-blank — the fixed point that makes this idempotent.
         long realSpineMs = 0;
         int realCount = hasAuto ? lastIdx : n;
         for (int i = 0; i < realCount; i++) {
@@ -14883,7 +14883,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // BACKSTOP. The reasoning above says this cannot run away: the target is computed from
         // the user's real content with the auto-blank excluded, so it is a fixed point. But this
         // runs inside syncTimelineOverlays, alongside resolveSequenceOpenEnds and the link-group
-        // resyncs, which also rewrite item times â and if any of those ever resolves an item's
+        // resyncs, which also rewrite item times — and if any of those ever resolves an item's
         // end against the PROJECT length, the exclusion above stops being enough and each pass
         // would measure the padding the previous pass added. A cap cannot be reached by correct
         // behaviour, so it costs nothing, and it converts a hypothetical infinite black tail
@@ -14895,14 +14895,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         long capMs = Math.max(Math.max(60_000L, realSpineMs), audioEndMs - realSpineMs);
         if (neededMs > capMs) {
             FLog.w(TAG, "Auto-blank wanted " + neededMs + "ms but capped at " + capMs
-                    + "ms â an overlay end is probably tracking the project length."
+                    + "ms — an overlay end is probably tracking the project length."
                     + " Investigate rather than raising the cap.");
             neededMs = capMs;
         }
 
         if (neededMs <= 0) {
             if (!hasAuto) return false;
-            timeline.removeClip(lastIdx);   // nothing overhangs any more â take the padding away
+            timeline.removeClip(lastIdx);   // nothing overhangs any more — take the padding away
             FLog.i(TAG, "Auto-blank removed (nothing overhangs the spine)");
             return true;
         }
@@ -14918,7 +14918,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         Uri blackUri = ensureBlackSpacerUri();
         if (blackUri == null) {
-            FLog.w(TAG, "Cannot extend spine for overhang â no black spacer available");
+            FLog.w(TAG, "Cannot extend spine for overhang — no black spacer available");
             return false;
         }
         Clip blank = new Clip(blackUri, neededMs);
@@ -14931,8 +14931,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Lazily generate the shared 16Ã16 black PNG the gap spacer clips reference
-     * (internal files dir, "images" â same home {@code copyUriToInternalStorage} uses
+     * Lazily generate the shared 16×16 black PNG the gap spacer clips reference
+     * (internal files dir, "images" — same home {@code copyUriToInternalStorage} uses
      * for imported image assets, so project bundling/export asset resolution treat it
      * exactly like any user image).
      */
@@ -14981,7 +14981,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * M7 glue: {@link com.fadcam.ui.faditor.layers.LayerGestureController} owns the
      * move/trim/delete gesture math for floating items on the M6 rows (PLAN Part 7 row
-     * M7); this callback only does what the activity is uniquely responsible for â
+     * M7); this callback only does what the activity is uniquely responsible for —
      * recording exactly ONE undo step per completed gesture using the SAME undo action
      * classes the on-canvas/existing-lane edits already use ({@code OverlayTransformAction}
      * for text, {@code AudioTrimAction}/{@code LambdaAction} for audio), and re-running the
@@ -14993,10 +14993,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * fire BEFORE {@code onGestureFinished} for the same gesture (see
      * {@code LayerGestureController#onRowBodyUp}). They apply the track mutation
      * immediately (so the model + preview are correct right away) but do NOT call
-     * {@code undoManager.recordAction} themselves â they stash the mutation's undo/redo
+     * {@code undoManager.recordAction} themselves — they stash the mutation's undo/redo
      * halves in {@link #pendingLayerTrackUndo}, which {@code onGestureFinished} below
      * picks up and folds into the SAME single action it records for the position
-     * change. A diagonal drag (changes both time AND track â the common case) therefore
+     * change. A diagonal drag (changes both time AND track — the common case) therefore
      * still produces exactly one {@code undoStack} entry (PLAN M10 acceptance (d)).</p>
      */
     private com.fadcam.ui.faditor.layers.LayerGestureController.Callback layerGestureCallback() {
@@ -15024,7 +15024,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                 // M10: pick up (and clear) any track-change staged by onItemMovedToTrack/
                 // onItemDroppedOnNewLayer, which ran immediately before this callback for
-                // the SAME gesture â see class doc above.
+                // the SAME gesture — see class doc above.
                 PendingLayerTrackUndo trackChange = pendingLayerTrackUndo;
                 pendingLayerTrackUndo = null;
 
@@ -15044,11 +15044,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 positionChanged ? () -> o.restoreTransform(before) : null,
                                 trackChange));
                     }
-                    // â  THE ANCHOR ATTACH. Without a call here the whole M11 feature is inert:
+                    // ⚠ THE ANCHOR ATTACH. Without a call here the whole M11 feature is inert:
                     // hostClipId stays null forever, applyAnchorShift `continue`s on its first
                     // line, and an overlay never travels with its clip no matter how many harness
                     // checks pass. A move or a trim is precisely when an overlay's host changes,
-                    // so re-resolve it here. (Adversarial review 2026-08-03 â the feature was
+                    // so re-resolve it here. (Adversarial review 2026-08-03 — the feature was
                     // "proved" only in the harness.)
                     project.getTimeline().attachOverlayToHostUnderStart(o);
                     if (overlayLayer != null) {
@@ -15139,7 +15139,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         }
                     }
                 } else if (item.getSprite() != null) {
-                    // SPEC_IMAGE_SEQUENCE Â§2a: a sequence resize changes the item's range and,
+                    // SPEC_IMAGE_SEQUENCE §2a: a sequence resize changes the item's range and,
                     // in RELATIVE mode, the sheet's cadence. BOTH have to be in the same undo
                     // step or undoing a drag would restore the length while leaving the object
                     // playing at the speed the drag chose.
@@ -15156,7 +15156,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // or undoing the drag would restore the length and leave the intent off.
                     boolean beforeContinues = ctrl.getSpriteBeforeContinues();
                     boolean continuesChanged = beforeContinues != s.isContinuesUntilBlocked();
-                    // Â§2a ABSOLUTE left-trim moves which frame the run starts on.
+                    // §2a ABSOLUTE left-trim moves which frame the run starts on.
                     final int beforeStartFrame = ctrl.getSpriteBeforeStartFrame();
                     final int afterStartFrame = s.getSequenceStartFrame();
                     boolean startFrameChanged = beforeStartFrame != afterStartFrame;
@@ -15200,7 +15200,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     if (spriteOverlayView != null) spriteOverlayView.invalidate();
                 } else if (item.getAdjustment() != null) {
                     // Without this branch a move or trim of an adjustment layer mutated the
-                    // model and recorded NO undo â and before the controller learned about it,
+                    // model and recorded NO undo — and before the controller learned about it,
                     // did not even mutate. It is a lane object; it gets the same treatment as
                     // every other one.
                     com.fadcam.ui.faditor.model.AdjustmentLayer a = item.getAdjustment();
@@ -15244,12 +15244,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     // (the old long-press-on-bar path is retired with drawLayers).
                     deleteVisualizerWithConfirmation(item.getWaveform());
                 } else if (item.getSprite() != null) {
-                    // The drawer trash is gone (JoyRaptor 2026-07-17) â the badge is now
+                    // The drawer trash is gone (JoyRaptor 2026-07-17) — the badge is now
                     // the ONE sprite delete affordance, so it needs its own branch.
                     deleteSpriteWithConfirmation(item.getSprite());
                 } else if (item.getAdjustment() != null) {
                     // The trash badge was a no-op on an adjustment layer, which reads exactly
-                    // like the object being locked â and it was the only delete affordance it
+                    // like the object being locked — and it was the only delete affordance it
                     // had, so there was no way to remove one at all.
                     deleteAdjustmentLayerWithConfirmation(item.getAdjustment());
                 }
@@ -15270,7 +15270,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onItemDoubleTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
-                // G1 (gesture contract Â§1): double-tap a layer-row item = the express lane
+                // G1 (gesture contract §1): double-tap a layer-row item = the express lane
                 // to that object's type editor / power-tools drawer. The item is already
                 // selected (first tap); here we just open the right editor per payload type.
                 if (item.getTextOverlay() != null) {
@@ -15300,25 +15300,25 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getAdjustment() != null) {
-                    // Â§3.3 follow-up (2026-08-08): double-tap an adjustment layer = the same
-                    // express lane the other types get â its Mask/Chroma/Blend drawer.
+                    // §3.3 follow-up (2026-08-08): double-tap an adjustment layer = the same
+                    // express lane the other types get — its Mask/Chroma/Blend drawer.
                     showAdjustmentDrawer(item.getAdjustment());
                 }
-                // Audio now has its own drawer (B6) â the old "no dedicated type editor yet"
+                // Audio now has its own drawer (B6) — the old "no dedicated type editor yet"
                 // comment is retired; any other unhandled type keeps the selection only.
             }
 
             @Override
             public void onItemMenuRequested(@NonNull com.fadcam.ui.faditor.layers.Track track,
                     @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
-                // G1âG2 (gesture contract Â§1/Â§2): hold â release-in-place opens the
-                // object's general advanced menu â now the G2 peek/expand bottom sheet:
+                // G1→G2 (gesture contract §1/§2): hold → release-in-place opens the
+                // object's general advanced menu — now the G2 peek/expand bottom sheet:
                 // peek = active property row + diamond with the timeline still live;
-                // expand = full property/action menu; Moreâ¦ = the double-tap type editor.
+                // expand = full property/action menu; More… = the double-tap type editor.
                 if (item.getTextOverlay() != null) {
                     if (item.getTextOverlay().isImage()) {
-                        // Images: the top drawer IS their type editor (Blend Â· Mask Â· Key Â·
-                        // FX Â· Move) â see showImageOverlayDrawer.
+                        // Images: the top drawer IS their type editor (Blend · Mask · Key ·
+                        // FX · Move) — see showImageOverlayDrawer.
                         showImageOverlayDrawer(item.getTextOverlay());
                     } else {
                         showObjectMenuSheetForTextOverlay(item.getTextOverlay());
@@ -15332,33 +15332,33 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 } else if (item.getWaveform() != null) {
                     showObjectMenuSheetForVisualizer(item.getWaveform());
                 } else if (item.getAdjustment() != null) {
-                    // Â§3.3 (2026-08-08): the long-press route for an adjustment layer was missing
+                    // §3.3 (2026-08-08): the long-press route for an adjustment layer was missing
                     // entirely, so its Mask/Chroma/Blend drawer was only reachable via the Adjust
-                    // tool. An adjustment layer has no pose of its own â the drawer IS its editor.
+                    // tool. An adjustment layer has no pose of its own — the drawer IS its editor.
                     showAdjustmentDrawer(item.getAdjustment());
                 }
-                // Any other type (a master-track clip, caption span) has no Â§2 general
-                // menu â the item stays lifted-then-dropped-in-place, no side effect.
+                // Any other type (a master-track clip, caption span) has no §2 general
+                // menu — the item stays lifted-then-dropped-in-place, no side effect.
             }
 
             @Override
             public void onItemSelectionChanged(
                     @Nullable com.fadcam.ui.faditor.layers.Track track,
                     @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
-                // G4 (gesture contract Â§1): tap-select spawns manipulation handles
+                // G4 (gesture contract §1): tap-select spawns manipulation handles
                 // in the preview; deselect (or selecting a type without a handles
                 // target yet) hides them.
                 updatePreviewHandlesForSelection(item);
-                // G7 (contract Â§6/Â§7): first-ever selection teaches the invisible
+                // G7 (contract §6/§7): first-ever selection teaches the invisible
                 // per-item gestures (double-tap / hold / drag) once.
                 if (item != null) maybeShowGestureCoachMark();
-                // The TEXT STYLE drawer follows the selection too â same C6 rule as the
+                // The TEXT STYLE drawer follows the selection too — same C6 rule as the
                 // object sheet below, which already retargets. It did not, so with the editor
                 // open a timeline tap selected a new box while the drawer kept editing the OLD
                 // one: every control in it, including Start/End here and the trash, was aimed
                 // at an object the user was no longer pointing at.
                 //
-                // JoyRaptor asked for this to chain edits â "end here, tap on another, end here" â
+                // JoyRaptor asked for this to chain edits — "end here, tap on another, end here" —
                 // and it is also the safer behaviour, which is why it is worth doing rather
                 // than merely convenient.
                 //
@@ -15380,7 +15380,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
                 // C6 (JoyRaptor 2026-07-17): ONE open drawer, owned by the selection.
                 // Selecting a different object RETARGETS the sheet when the new
-                // type has drawer adapters, closes it otherwise â no more "sprite
+                // type has drawer adapters, closes it otherwise — no more "sprite
                 // menu over the image editor" stacking.
                 if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
                     if (item != null && item.getTextOverlay() != null) {
@@ -15407,7 +15407,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
                 // THE TOP DRAWER FOLLOWS THE SELECTION TOO. It did not, so tapping a second
                 // PiP in the preview left the first one's mask, chroma and effects on screen
-                // â every slider then edited an object the user was no longer looking at.
+                // — every slider then edited an object the user was no longer looking at.
                 // Only retargets while it is already open: selecting something must not
                 // conjure a drawer nobody asked for.
                 if (objectDrawer != null && objectDrawer.isShowing() && item != null) {
@@ -15429,7 +15429,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     editorTimeline.revealLayerRowForItem(item.getId());
                 }
                 // Audio consolidation: selecting/deselecting an audio ROW item replaces the
-                // legacy audio-selection side effect â keep the open transcript panel
+                // legacy audio-selection side effect — keep the open transcript panel
                 // following the audio selection (getSelectedAudioIndex now derives from
                 // this same unified selection, so the panel reads the right clip).
                 if ((item == null || item.getAudioClip() != null)
@@ -15441,8 +15441,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onItemKeyframeShiftBegin(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
-                // C4 Â§2: snapshot BEFORE the row-diamond time-shift (mirrors the drawer
-                // sliders' onSliderStart) â the transform snapshots deep-copy the KeyframeSet,
+                // C4 §2: snapshot BEFORE the row-diamond time-shift (mirrors the drawer
+                // sliders' onSliderStart) — the transform snapshots deep-copy the KeyframeSet,
                 // so the committed undo captures the moved key times.
                 kfShiftOverlayBefore = null;
                 kfShiftSpriteBefore = null;
@@ -15455,7 +15455,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onItemKeyframeShiftCommitted(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
-                // C4 Â§2: ONE undo step for the whole drag (recordXxxMenuUndo no-ops when the
+                // C4 §2: ONE undo step for the whole drag (recordXxxMenuUndo no-ops when the
                 // before/after snapshots match, so a tap or fully-clamped drag records nothing).
                 if (item.getTextOverlay() != null && kfShiftOverlayBefore != null) {
                     recordOverlayMenuUndo(item.getTextOverlay(), kfShiftOverlayBefore, "Move keyframe"); // TODO(strings)
@@ -15473,14 +15473,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         };
     }
 
-    /** C4 Â§2: before-snapshots for the row keyframe time-shift, captured on begin, consumed on commit. */
+    /** C4 §2: before-snapshots for the row keyframe time-shift, captured on begin, consumed on commit. */
     @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot kfShiftOverlayBefore;
     @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot kfShiftSpriteBefore;
 
     /**
      * M10: the track-mutation half of a completed cross-row drag, staged by
      * {@code onItemMovedToTrack}/{@code onItemDroppedOnNewLayer} and picked up by the
-     * immediately-following {@code onGestureFinished} call (same gesture â see
+     * immediately-following {@code onGestureFinished} call (same gesture — see
      * {@code LayerGestureController#onRowBodyUp}) so BOTH halves land in exactly one
      * {@code undoStack} entry (PLAN M10 acceptance (d)). {@code redo}/{@code undo} only
      * touch the {@code layerId} (+ track creation/pruning); the position-change
@@ -15501,8 +15501,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Builds ONE {@code EditActions.LambdaAction} covering the position-change redo/undo
-     * (nullable â a drag can change track without changing time) AND the staged
-     * track-change redo/undo (nullable â a drag can change time without changing track),
+     * (nullable — a drag can change track without changing time) AND the staged
+     * track-change redo/undo (nullable — a drag can change time without changing track),
      * running the track half AFTER the position half on redo and BEFORE it on undo (undo
      * order mirrors "last mutation applied, first mutation reverted"), so the merged
      * action is a faithful single step regardless of which half(es) are present. At
@@ -15526,7 +15526,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * A MOVE gesture can end with a track change but NO position change (e.g. the
-     * before-snapshot was unavailable, or the finger moved purely vertically) â in that
+     * before-snapshot was unavailable, or the finger moved purely vertically) — in that
      * case {@code onGestureFinished}'s normal "did the position change" guard would
      * otherwise silently DROP the already-applied track mutation's undo step. Called
      * from every early-return path in {@code onGestureFinished} so a track-only change
@@ -15565,9 +15565,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Each payload type has its own SEEDED default lane id ("text"/"sprite"/"audio");
         // storing null (rather than the literal string) for a move BACK to that lane keeps
         // old-shaped/never-touched items indistinguishable from ones explicitly re-homed
-        // there (the serializer's omit-when-default convention â see ProjectStorage).
+        // there (the serializer's omit-when-default convention — see ProjectStorage).
         // Under the neutral substrate a payload can land on ANOTHER type's seeded lane
-        // (e.g. a sprite onto "text"), which stores that id literally â routing is
+        // (e.g. a sprite onto "text"), which stores that id literally — routing is
         // layerId-first, so the item merges into that lane. See Timeline#getLayers().
         final String defaultId = textPayload != null ? "text"
                 : spritePayload != null ? "sprite"
@@ -15579,9 +15579,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final String clipToStored = toTrackId;
         final String clipFromStored = fromTrackId != null ? fromTrackId : "video";
         // Moving the LAST item off a user-created lane prunes that lane's definition
-        // (maybeRemoveEmptyLayerTrack). Snapshot it â with its index â so undo restores the
+        // (maybeRemoveEmptyLayerTrack). Snapshot it — with its index — so undo restores the
         // lane itself, not just the item: without this, undo returned the item into a
-        // NAMELESS orphan row ("My titles" â "Text") at the end of its phase.
+        // NAMELESS orphan row ("My titles" → "Text") at the end of its phase.
         final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
                 project.getTimeline().getLayerTrackDef(fromTrackId);
         final int fromDefIndex = project.getTimeline().indexOfLayerTrackDef(fromTrackId);
@@ -15639,9 +15639,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>NEUTRAL SUBSTRATE: a drop in the FLOATING band creates a neutral
      * {@link com.fadcam.ui.faditor.layers.TrackKind#LAYER} lane ("Layer n") that accepts
-     * any visual payload afterwards â the item that opened the lane does not brand it.
+     * any visual payload afterwards — the item that opened the lane does not brand it.
      * The audio band still creates an AUDIO lane (audio is never visually composited).
-     * Cross-band drops are not offered by the gesture controller â see
+     * Cross-band drops are not offered by the gesture controller — see
      * {@code LayerGestureController#updateDragTarget}'s same-band guard.</p>
      */
     @Nullable
@@ -15689,7 +15689,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Slice 2 (gap-insertion): land the new FLOATING lane at the visual position the
         // user dropped into. Row order = getLayers() DESC by persisted zIndex, so we
         // renumber the whole floating band in one pass (N..1 top-to-bottom) with the new
-        // track spliced in at insertionIndex (MAX_VALUE = append at bottom â the
+        // track spliced in at insertionIndex (MAX_VALUE = append at bottom — the
         // cross-band arm's pre-Slice-2 semantics). Old zIndexes are snapshotted so the
         // undo half restores the exact prior ordering. Audio lanes keep append semantics.
         final java.util.LinkedHashMap<String, Integer> zBefore = new java.util.LinkedHashMap<>();
@@ -15746,7 +15746,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * PLAN Part 7 row M10 scope 2: "deleting the last item of a non-migrated layer
      * removes the empty track." Removes {@code trackId}'s {@code LayerTrackDef} if it
-     * is a user-created track (no-op for the fixed "text"/"audio" ids â they always
+     * is a user-created track (no-op for the fixed "text"/"audio" ids — they always
      * exist) AND it no longer has any items pointing at it. Called after every move/
      * delete that could have emptied a track.
      */
@@ -15754,7 +15754,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Prune an emptied lane and return its definition so the CALLER can restore it on undo.
      *
      * <p>{@link #maybeRemoveEmptyLayerTrack} deletes the lane and tells nobody, which is fine for
-     * paths that already snapshot the whole track list â but the text-overlay removal paths do
+     * paths that already snapshot the whole track list — but the text-overlay removal paths do
      * not, so an undo re-added the item into a track id that no longer existed. The codebase's own
      * pattern (see the drag-to-new-lane undo) captures the def and restores it; this is that,
      * packaged for the one-line call sites.</p>
@@ -15799,7 +15799,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>fps, loop type, resize mode and weights live on the SHEET, but the gestures that change
      * them act on ONE placed object. Place a sequence twice, drag one shorter, and the other
-     * silently played at the new speed and then froze on its last frame â no cue on its row, and
+     * silently played at the new speed and then froze on its last frame — no cue on its row, and
      * no undo entry of its own. That is the "the app changed something I didn't touch" class this
      * project's ledger is full of.</p>
      *
@@ -15807,7 +15807,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * object at the clone. Sharing survives until the moment it would surprise someone. Frame
      * URIs are copied by reference, so the clone is cheap and no media is duplicated.</p>
      *
-     * @return the sheet the caller should edit â the original when it is used once, otherwise a
+     * @return the sheet the caller should edit — the original when it is used once, otherwise a
      *         fresh clone already registered on the project and already pointed at by
      *         {@code item}. Null only when the item has no sheet at all.
      */
@@ -15831,7 +15831,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return clone;
     }
 
-    /** "frames" â "frames 2", "frames 3", â¦ so the manager list stays readable. */
+    /** "frames" → "frames 2", "frames 3", … so the manager list stays readable. */
     @NonNull
     private String uniqueSheetCopyName(@NonNull String base) {
         String stem = base.replaceAll("\\s+\\d+$", "");
@@ -15847,7 +15847,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The model lookups the gesture controller needs for SPEC_IMAGE_SEQUENCE Â§2a resizing.
+     * The model lookups the gesture controller needs for SPEC_IMAGE_SEQUENCE §2a resizing.
      * Kept as a small interface so the gesture code never learns about project lookup.
      */
     @NonNull
@@ -15980,7 +15980,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (project == null) return;
         Timeline timeline = project.getTimeline();
         // Dual-stream Phase 4: a linked webcam overlay drags its master screen clip with
-        // it â confirm + delete both as one undo step (master index used for undo re-insert).
+        // it — confirm + delete both as one undo step (master index used for undo re-insert).
         Clip linkPartner = timeline.findLinkedClip(clip);
         if (linkPartner != null && !linkPartner.isOverlayClip()) {
             confirmDeleteLinkedPair(linkPartner, timeline.indexOfClip(linkPartner), clip);
@@ -16019,7 +16019,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             () -> project.getTimeline().removeWaveformOverlay(wv),
                             () -> project.getTimeline().addWaveformOverlay(wv)));
                     if (waveformOverlayView != null) {
-                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // Â§4.5 per-object eye
+                        waveformOverlayView.setOverlays(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleWaveformOverlays(project.getTimeline())); // §4.5 per-object eye
                         waveformOverlayView.invalidate();
                     }
                     syncTimelineOverlays();
@@ -16044,7 +16044,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
         final float speed = Math.max(0.01f, clip.getSpeedMultiplier());
         final long clipIn = clip.getInPointMs();
-        final long frameMs = 33L; // â one frame at 30fps
+        final long frameMs = 33L; // ≈ one frame at 30fps
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
@@ -16057,7 +16057,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         input.setTextColor(0xFFFFFFFF);
         col.addView(input);
 
-        // ââ Timing row: [â frame] [absolute timestamp box, tap to type] [âº frame] ââ
+        // ── Timing row: [◄ frame] [absolute timestamp box, tap to type] [► frame] ──
         LinearLayout timeRow = new LinearLayout(this);
         timeRow.setOrientation(LinearLayout.HORIZONTAL);
         timeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -16116,7 +16116,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             long absMs = segStart + (long) ((w.startMs - clipIn) / speed);
             applyAbs.accept(absMs + frameMs);
         });
-        // Tap the timestamp box â type an exact value
+        // Tap the timestamp box → type an exact value
         tsBox.setOnClickListener(v -> {
             com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(index);
             if (w == null) return;
@@ -16134,7 +16134,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         col.addView(timeRow);
 
         TextView hint = new TextView(this);
-        hint.setText("Tap the time to type an exact value Â· â âº nudge Â±1 frame");
+        hint.setText("Tap the time to type an exact value · ◄ ► nudge ±1 frame");
         hint.setTextColor(0xFF888888);
         hint.setTextSize(11);
         hint.setPadding(0, (int) (8 * dp), 0, 0);
@@ -16199,7 +16199,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         row.addView(origTimeView);
 
         TextView arrowView = new TextView(this);
-        arrowView.setText(" â ");
+        arrowView.setText(" → ");
         arrowView.setTextColor(0xFF888888);
         arrowView.setTextSize(16);
         row.addView(arrowView);
@@ -16390,7 +16390,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             wordScrubCenter.setOnClickListener(v -> centerSelectedWord());
         }
 
-        // WordScrubView listener â scrub applies to every word in the group.
+        // WordScrubView listener — scrub applies to every word in the group.
         if (wordScrubStrip != null) {
             wordScrubStrip.setListener(new com.fadcam.ui.faditor.WordScrubView.Listener() {
                 @Override
@@ -16551,7 +16551,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
         // Reposition overlays whenever the preview area changes. On a SIZE change (rotation, or a
-        // preview/timeline split), RE-FLOW the whole preview â the canvas rect + every explicitly-
+        // preview/timeline split), RE-FLOW the whole preview — the canvas rect + every explicitly-
         // sized preview view are pinned to the container size in applyCanvasFrame(), so without this
         // they stay stuck at the old framing (the "preview went tiny to fit landscape and stayed tiny
         // back in portrait" bug, JoyRaptor 2026-07-07). A position-only change just rebuilds the overlays.
@@ -16569,7 +16569,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Re-flow the entire preview after the player container changes size (rotation, or a
      * preview/timeline split change): recompute the canvas rect + every explicitly-sized preview
-     * view via {@link #applyCanvasFrame()}, then â once those have laid out â re-apply the
+     * view via {@link #applyCanvasFrame()}, then — once those have laid out — re-apply the
      * crop/rotation transforms and reposition every overlay. Root fix for "the preview went tiny to
      * fit landscape and stayed tiny back in portrait" (JoyRaptor 2026-07-07): applyCanvasFrame pins pixel
      * sizes to the container, so a resize must recompute them or the old framing sticks.
@@ -16591,7 +16591,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Slice F â "compact lanes" tool (JoyRaptor 2026-07-07): drop every overlay into the FEWEST no-overlap
+     * Slice F — "compact lanes" tool (JoyRaptor 2026-07-07): drop every overlay into the FEWEST no-overlap
      * lanes, reclaiming the orphan-lane sprawl (incl. the T8 one-sprite-per-lane sprawl). Snapshots
      * each item's lane id before/after so the whole thing folds into ONE undo step, then re-derives
      * the timeline rows.
@@ -16666,7 +16666,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * What compaction actually did, in the user's terms. The old text said "Compacted N lanes" where
-     * N was the number of ITEMS that changed lane â so the verb could report five lanes compacted on
+     * N was the number of ITEMS that changed lane — so the verb could report five lanes compacted on
      * a project whose lane count had not gone down at all.
      */
     @NonNull
@@ -16811,7 +16811,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void openFilterSheet() {
         if (project == null) return;
         if (inCropMode) exitCropMode(false);
-        Clip clip = selectedTargetClip();   // Â§3.5: a selected PiP grades itself, not the master
+        Clip clip = selectedTargetClip();   // §3.5: a selected PiP grades itself, not the master
         if (clip == null) {
             Toast.makeText(this, "Select a clip first", Toast.LENGTH_SHORT).show();
             return;
@@ -16824,7 +16824,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         sheet.setTarget(clip.getEffectStack(), new FilterBottomSheet.Callback() {
             @Override
             public void onEffectsChanged() {
-                // RenderEffect is a cheap GPU View property â apply directly each change (no decode).
+                // RenderEffect is a cheap GPU View property — apply directly each change (no decode).
                 applyPreviewColorGrade(clip);
                 updateFilterUI(clip);
                 scheduleAutoSave();
@@ -16862,7 +16862,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /** Re-tap a visualizer to choose its style from the built-in presets. */
     /**
      * Visualizer chooser: a GRADIENT list (the look) plus quick-cycle ARCHITECTURE toggles (justify,
-     * data mode, horizontal mirror) that are orthogonal to the gradient â pick a gradient you like,
+     * data mode, horizontal mirror) that are orthogonal to the gradient — pick a gradient you like,
      * then cycle only the structural aspect that bothers you. Non-dimming + top-anchored so the live
      * video + seek/play stay visible while you test.
      */
@@ -16878,7 +16878,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (styles.isEmpty()) return;
         final float dp = getResources().getDisplayMetrics().density;
 
-        // STAGE 2: 3-column Rolodex (left icons Â· centre style carousel Â· right gradient carousel).
+        // STAGE 2: 3-column Rolodex (left icons · centre style carousel · right gradient carousel).
         View root = buildVisualizerRolodex(overlay, styles);
 
         // Show in the NON-BLOCKING top drawer (the live canvas stays visible below, so style/colour/
@@ -16893,11 +16893,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         showVisualizerDrawer(true);
     }
 
-    // ââ Visualizer Stage-2 Rolodex (3-column: icons Â· style carousel Â· gradient carousel) ââ
+    // ── Visualizer Stage-2 Rolodex (3-column: icons · style carousel · gradient carousel) ──
 
     private interface RolodexSettle { void onSettle(int pos); }
 
-    // ââ Layers UI session state (SPEC_VIZ_ENGINE Â§4/Â§5 Layers UI lane) ââ
+    // ── Layers UI session state (SPEC_VIZ_ENGINE §4/§5 Layers UI lane) ──
     /** The editable layer-stack working copy for the drawer that's open (null = not yet materialized). */
     @Nullable private com.fadcam.ui.faditor.model.WaveformStyle visualizerWorkingStyle;
     /** Index of the layer whose props are shown/edited. */
@@ -16926,7 +16926,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (10 * dp));
 
-        // ââ Top row: sensitivity slider + Save (room for more buttons later) ââ
+        // ── Top row: sensitivity slider + Save (room for more buttons later) ──
         LinearLayout topRow = new LinearLayout(this);
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -16955,7 +16955,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         topRow.addView(sensSeek, ssp);
         TextView saveBtn = new TextView(this);
-        saveBtn.setText("ð¾");
+        saveBtn.setText("💾");
         saveBtn.setTextSize(18);
         saveBtn.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
         saveBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -16963,9 +16963,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         topRow.addView(saveBtn);
 
         // Export/Import: SAF round-trip of the style JSON to anywhere (vs. Save's pinned-folder
-        // shortcut) â same machinery as WaveformDebugActivity, surfaced here in the real drawer.
+        // shortcut) — same machinery as WaveformDebugActivity, surfaced here in the real drawer.
         TextView exportBtn = new TextView(this);
-        exportBtn.setText("â©");
+        exportBtn.setText("⇩");
         exportBtn.setTextSize(18);
         exportBtn.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
         exportBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -16977,7 +16977,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         topRow.addView(exportBtn);
 
         TextView importBtn = new TextView(this);
-        importBtn.setText("â§");
+        importBtn.setText("⇧");
         importBtn.setTextSize(18);
         importBtn.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
         importBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -16992,7 +16992,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         topRow.addView(importBtn);
         root.addView(topRow);
 
-        // ââ Frequency range + bar count row (compact, below sensitivity) ââ
+        // ── Frequency range + bar count row (compact, below sensitivity) ──
         LinearLayout freqRow = new LinearLayout(this);
         freqRow.setOrientation(LinearLayout.HORIZONTAL);
         freqRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -17012,7 +17012,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         freqRow.addView(lowHzText);
 
         SeekBar lowSeek = new SeekBar(this);
-        lowSeek.setMax(200); // 0..200 â 1..2000 Hz (geometric-ish via progress)
+        lowSeek.setMax(200); // 0..200 → 1..2000 Hz (geometric-ish via progress)
         int lowProg = Math.max(0, Math.min(200, overlay.getFrequencyRangeLowHz()));
         lowSeek.setProgress(lowProg);
         LinearLayout.LayoutParams lowLp = new LinearLayout.LayoutParams(0,
@@ -17079,7 +17079,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         freqRow.addView(barsText);
 
         SeekBar barsSeek = new SeekBar(this);
-        barsSeek.setMax(120); // 0..120 â offset from 8
+        barsSeek.setMax(120); // 0..120 → offset from 8
         int bcount = overlay.getBandCountOverride();
         if (bcount > 0) barsSeek.setProgress(Math.max(0, Math.min(120, bcount - 8)));
         else barsSeek.setProgress(40); // default ~48
@@ -17106,8 +17106,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
         root.addView(freqRow);
 
-        // ââ Bar width + gap row (visualizer-studio Phase 3: per-instance overrides,
-        //    0/left edge = "auto" i.e. the preset's own values) ââ
+        // ── Bar width + gap row (visualizer-studio Phase 3: per-instance overrides,
+        //    0/left edge = "auto" i.e. the preset's own values) ──
         LinearLayout barRow = new LinearLayout(this);
         barRow.setOrientation(LinearLayout.HORIZONTAL);
         barRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -17186,7 +17186,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
         root.addView(barRow);
 
-        // ââ Columns area (with a faint centre groove band behind the carousels) ââ
+        // ── Columns area (with a faint centre groove band behind the carousels) ──
         android.widget.FrameLayout colsFrame = new android.widget.FrameLayout(this);
         LinearLayout.LayoutParams cflp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, colH);
@@ -17252,7 +17252,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         mirBtn.setOnClickListener(v -> { overlay.toggleHorizontalMirror(); labels.run(); live.run(); });
         centerBtn.setOnClickListener(v -> { overlay.cycleCenterMode(); labels.run(); live.run(); });
         rendBtn.setOnClickListener(v -> { overlay.toggleRenderMode(); labels.run(); live.run(); });
-        // G5 attach/detach (contract Â§4): tether the visualizer to the master clip under its
+        // G5 attach/detach (contract §4): tether the visualizer to the master clip under its
         // start so it TIME-RIDES that clip (trims/moves/reorders shift it along); detach keeps
         // the current absolute window. ONE undo step restoring the full attachment + window +
         // audio-source state either way.
@@ -17268,7 +17268,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (wo.isAttached()) {
                 tl.detachVisualizer(wo);
                 desc = "Detach visualizer";
-                Toast.makeText(this, "Visualizer detached â window frozen where it is",
+                Toast.makeText(this, "Visualizer detached — window frozen where it is",
                         Toast.LENGTH_SHORT).show();
             } else {
                 Clip host = tl.attachVisualizerToHostUnderStart(wo);
@@ -17279,7 +17279,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 int hostIdx = tl.getClips().indexOf(host) + 1;
                 desc = "Attach visualizer";
                 Toast.makeText(this, "Attached to clip " + hostIdx
-                        + " â rides its trims and moves", Toast.LENGTH_SHORT).show();
+                        + " — rides its trims and moves", Toast.LENGTH_SHORT).show();
             }
             final String afterId = wo.getAttachedClipId();
             final long afterOff = wo.getAttachOffsetMs(), afterDur = wo.getAttachDurationMs();
@@ -17348,7 +17348,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // RIGHT: gradient + solid swatch carousel. spec: null=clear, [hex]=solid, [a,b]=gradient.
         final java.util.List<String[]> swatches = new java.util.ArrayList<>();
-        swatches.add(null); // clear â preset
+        swatches.add(null); // clear → preset
         for (String hex : new String[]{"#00E676", "#2196F3", "#FF1744", "#FFEA00", "#E040FB", "#FF6D00", "#FFFFFF"})
             swatches.add(new String[]{hex});
         for (String[] g : new String[][]{
@@ -17402,7 +17402,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (pos < 0 || pos >= styles.size()) return;
             com.fadcam.ui.faditor.model.WaveformStyle s = styles.get(pos);
             overlay.setStyleId(s.id);
-            // SPEC_VIZ_ENGINE Â§4 (Layers UI lane): picking a new preset drops any customized layer
+            // SPEC_VIZ_ENGINE §4 (Layers UI lane): picking a new preset drops any customized layer
             // stack (back to preset + scalar overrides); the Layers section re-materializes on next edit.
             overlay.setCustomStyleJson(null);
             if (waveformOverlayView != null) { waveformOverlayView.putStyle(s); waveformOverlayView.invalidate(); }
@@ -17420,13 +17420,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             scheduleAutoSave();
         });
 
-        // ââ Layers section (SPEC_VIZ_ENGINE Â§4/Â§5 Layers UI lane) ââ
+        // ── Layers section (SPEC_VIZ_ENGINE §4/§5 Layers UI lane) ──
         root.addView(buildVisualizerLayersSection(overlay, styles, dp));
         return root;
     }
 
     /**
-     * Build the drawer's Layers section (SPEC_VIZ_ENGINE Â§4/Â§5 Layers UI lane): a horizontal row of
+     * Build the drawer's Layers section (SPEC_VIZ_ENGINE §4/§5 Layers UI lane): a horizontal row of
      * per-layer chips + add/dup/delete/reorder buttons, then a height-capped scroll of compact prop
      * rows for the SELECTED layer. The layer stack is a session working copy of the visualizer's
      * effective style; the FIRST edit that mutates it materializes it (legacy single-shape wrapped via
@@ -17463,7 +17463,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         chipsScroll.addView(chipsRow);
         section.addView(chipsScroll);
 
-        // Prop area â capped ScrollView (~0.25 screen height) so the drawer stays compact.
+        // Prop area — capped ScrollView (~0.25 screen height) so the drawer stays compact.
         android.widget.ScrollView propScroll = new android.widget.ScrollView(this);
         int propMaxH = (int) (getResources().getDisplayMetrics().heightPixels * 0.25f);
         LinearLayout.LayoutParams psLp = new LinearLayout.LayoutParams(
@@ -17500,7 +17500,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return section;
     }
 
-    /** Lazily materialize the editable working stack (SPEC_VIZ_ENGINE Â§4): from the instance's
+    /** Lazily materialize the editable working stack (SPEC_VIZ_ENGINE §4): from the instance's
      *  {@code customStyleJson} when present, else a copy of the styleId preset wrapped to one layer. */
     @NonNull
     private com.fadcam.ui.faditor.model.WaveformStyle ensureVisualizerWorkingStyle(
@@ -17550,7 +17550,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** The emitter cycle order for the â¸ button. */
+    /** The emitter cycle order for the ▸ button. */
     private static final String[] VIZ_EMITTERS = {
             com.fadcam.ui.faditor.model.VizLayer.EMITTER_BARS,
             com.fadcam.ui.faditor.model.VizLayer.EMITTER_LINE,
@@ -17597,9 +17597,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             chipsRow.addView(chip);
         }
 
-        // Action buttons: ï¼ add Â· â§ duplicate Â· ð delete Â· â â¶ reorder.
+        // Action buttons: ＋ add · ⧉ duplicate · 🗑 delete · ◀ ▶ reorder.
         final java.util.List<com.fadcam.ui.faditor.model.VizLayer> fLayers = layers;
-        chipsRow.addView(makeVizActionBtn("ï¼", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("＋", dp, v -> {
             com.fadcam.ui.faditor.model.VizLayer nl = fLayers.isEmpty()
                     ? new com.fadcam.ui.faditor.model.VizLayer()
                     : fLayers.get(Math.min(visualizerSelectedLayer, fLayers.size() - 1)).copy();
@@ -17608,7 +17608,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("â§", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("⧉", dp, v -> {
             if (fLayers.isEmpty()) return;
             com.fadcam.ui.faditor.model.VizLayer dup = fLayers.get(visualizerSelectedLayer).copy();
             fLayers.add(visualizerSelectedLayer + 1, dup);
@@ -17616,7 +17616,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("ð", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("🗑", dp, v -> {
             if (fLayers.size() <= 1) { // min 1 layer stays
                 Toast.makeText(this, "At least one lane", Toast.LENGTH_SHORT).show();
                 return;
@@ -17626,14 +17626,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("â", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("◀", dp, v -> {
             if (visualizerSelectedLayer <= 0) return;
             java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer - 1);
             visualizerSelectedLayer--;
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("â¶", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("▶", dp, v -> {
             if (visualizerSelectedLayer >= fLayers.size() - 1) return;
             java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer + 1);
             visualizerSelectedLayer++;
@@ -17791,7 +17791,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 v -> { layer.releaseMs = Math.round(v); commit.run(); }));
     }
 
-    /** Small square action button for the layer chip row (ï¼ â§ ð â â¶). */
+    /** Small square action button for the layer chip row (＋ ⧉ 🗑 ◀ ▶). */
     @NonNull
     private TextView makeVizActionBtn(@NonNull String label, float dp, @NonNull View.OnClickListener onClick) {
         TextView b = new TextView(this);
@@ -17902,10 +17902,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Apply the barrel barrel-perspective transform to each carousel child:
      * <ul>
-     *   <li><b>Y projection</b>: {@code R * sin(delta/R)} â items near the centre map
-     *       approximately linearly (sin(x)âx), but farther items saturate so they bunch up
+     *   <li><b>Y projection</b>: {@code R * sin(delta/R)} — items near the centre map
+     *       approximately linearly (sin(x)≈x), but farther items saturate so they bunch up
      *       toward the centre, giving the apparent roundness of a Rolodex cylinder.
-     *       The selected (centred) item has translationY = 0 â no overlap.</li>
+     *       The selected (centred) item has translationY = 0 → no overlap.</li>
      *   <li><b>Scale + fade</b>: smooth-step falloff so the centred item is full-size
      *       and visible; edges shrink and dim.</li>
      * </ul>
@@ -17957,7 +17957,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (visualizerDrawerChromeWired) return;
         View close = findViewById(R.id.visualizer_drawer_close);
         if (close != null) close.setOnClickListener(v -> showVisualizerDrawer(false));
-        // Tapping the preview area (player_container) dismisses the drawer â but NOT the
+        // Tapping the preview area (player_container) dismisses the drawer — but NOT the
         // timeline/play area since those are separate views outside player_container.
         View playerContainer = findViewById(R.id.player_container);
         if (playerContainer != null) {
@@ -18025,15 +18025,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         closeAllTopPanels();
         com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
-        // ââ Style tab ââ size, font, highlight, colours, box/outline/shadow, save/delete/copy/import
+        // ── Style tab ── size, font, highlight, colours, box/outline/shadow, save/delete/copy/import
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Style", 0,
                 ctx -> buildCaptionStyleTab(ctx)));
-        // ââ Timing tab ââ motion + range
+        // ── Timing tab ── motion + range
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Timing", 0,
                 ctx -> buildCaptionTimingTab(ctx)));
-        // ââ Position tab ââ position toggle
+        // ── Position tab ── position toggle
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Position", 0,
                 ctx -> buildCaptionPositionTab(ctx)));
@@ -18142,18 +18142,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
             addFontChip.accept(choice[0], choice[1]);
         }
-        // "+ Import" â the SAME importer the text font picker uses (it copies the chosen
+        // "+ Import" - the SAME importer the text font picker uses (it copies the chosen
         // .ttf/.otf into Pictures/FadCam/fonts and hands back a "file:" key), so a font
-        // imported from captions is immediately available to text and vice versa.
+        // imported from captions is immediately available to text and the other way round.
         final android.widget.TextView importChip = new android.widget.TextView(ctx);
         styleDrawerChip(importChip, d);
-        importChip.setText("ï¼ Import"); // TODO(strings)
+        importChip.setText("+ Import"); // TODO(strings)
         importChip.setTextColor(0xFF64B5F6);
         importChip.setOnClickListener(v -> {
             pendingFontImportCallback = key -> {
                 String base = key.substring(key.lastIndexOf('/') + 1);
                 int dot = base.lastIndexOf('.');
-                String label = (dot > 0 ? base.substring(0, dot) : base) + " ★";
+                String label = (dot > 0 ? base.substring(0, dot) : base) + " *";
                 if (!fontChipByKey.containsKey(key)) addFontChip.accept(key, label);
                 // Keep Import last now that a chip has been appended after it.
                 fontChips.removeView(importChip);
@@ -18293,7 +18293,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         root.setPadding(pad, pad, pad, pad);
         root.addView(makeCaptionPositionToggle(d));
         android.widget.TextView hint = new android.widget.TextView(ctx);
-        hint.setText("Tap to cycle Top â Middle â Bottom");
+        hint.setText("Tap to cycle Top → Middle → Bottom");
         hint.setTextColor(0xFFAAAAAA);
         hint.setTextSize(11);
         hint.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
@@ -18302,7 +18302,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return root;
     }
 
-    // ââ Caption style drawer helpers
+    // ── Caption style drawer helpers
 
 
     /** Common look for the drawer's tappable chips. */
@@ -18329,7 +18329,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Single position button: three stacked lines, the active one green.
-     * Tap cycles Top â Middle â Bottom (replaces the old three-button row).
+     * Tap cycles Top → Middle → Bottom (replaces the old three-button row).
      */
     @NonNull
     private View makeCaptionPositionToggle(float d) {
@@ -18401,14 +18401,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // The per-preset names come from CaptionAnimator.presetLabel, the ONE authority. This
         // switch used to spell them out with a `default: p.name()` fallback, and MATRIX shipped a
         // session reading a bare "MATRIX" because a case was missed. NONE is special-cased because
-        // it is a state, not a style â "None Â· word" would read as an animation with a granularity.
+        // it is a state, not a style — "None · word" would read as an animation with a granularity.
         if (p == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE) return "None";
-        return com.fadcam.ui.faditor.transcript.CaptionAnimator.presetLabel(p) + " Â· " + gran;
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.presetLabel(p) + " · " + gran;
     }
 
     /**
      * The reporter's icon for this feature: "an 'A' in motion with motion lines". Drawn rather
-     * than picked from the icon font â no ligature in the set is an A with motion lines, and a
+     * than picked from the icon font — no ligature in the set is an A with motion lines, and a
      * near-miss glyph on the one entry point to a feature is how the feature stays undiscovered.
      * Same bespoke-View precedent as {@link #makeCaptionPositionToggle}.
      */
@@ -18427,12 +18427,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int in = Math.round(o.getTextAnimInPct() * 100f);
         int out = Math.round(o.getTextAnimOutPct() * 100f);
         // From the ONE authority. This used to title-case the enum constant, which would have
-        // rendered MASK_WIPE as "Mask_wipe" â the same class of defect as the bare "MATRIX" the
+        // rendered MASK_WIPE as "Mask_wipe" — the same class of defect as the bare "MATRIX" the
         // caption row shipped, and the reason presetLabel exists.
         String name = com.fadcam.ui.faditor.transcript.CaptionAnimator.presetLabel(p);
         // "of this box" rather than a bare percentage, for the same reason the caption readout
         // says "of each line": a bare 50% invites reading it as half the project.
-        label.setText(name + " Â· " + in + "% in / " + out + "% out of this box");
+        label.setText(name + " · " + in + "% in / " + out + "% out of this box");
     }
 
     /**
@@ -18517,9 +18517,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Live, un-recorded zone update while a timing caret is being dragged (LEDGER Â§3h).
+     * Live, un-recorded zone update while a timing caret is being dragged (LEDGER §3h).
      *
-     * <p>No undo step and no autosave â a drag fires this on every frame, and one entry per frame
+     * <p>No undo step and no autosave — a drag fires this on every frame, and one entry per frame
      * would bury the user's real history under the gesture's own. The commit is
      * {@link #applyTextAnimZones}, once, on release. Exactly the split the caption sliders use.</p>
      *
@@ -18559,7 +18559,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final float clampedBeforeOut =
                 com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(beforeOut);
         if (clampedBeforeIn == afterIn && clampedBeforeOut == afterOut) {
-            // Nothing changed, but the live preview may have moved and come back â put the model
+            // Nothing changed, but the live preview may have moved and come back — put the model
             // where the caller believes it is and refresh, without writing history.
             setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
             return;
@@ -18577,12 +18577,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         editorTimeline.invalidate();
     }
 
-    // ââ Motion-range window (SPEC_TEXT_DRAWER follow-up, 2026-08-08) ââââââââââââââââââââââââ
+    // ── Motion-range window (SPEC_TEXT_DRAWER follow-up, 2026-08-08) ────────────────────────
     // The timeline carrots and the drawer's Start/End-here buttons both write this window; the
     // drawer's buttons are plain writes, the carrots are preview-on-move / commit-on-release with
     // ONE undo step, mirroring the text-anim zone carets exactly.
 
-    /** Live carrot drag â write the window, reseat the playhead (zones are read at position time). */
+    /** Live carrot drag — write the window, reseat the playhead (zones are read at position time). */
     private void previewMotionRange(@NonNull String itemId, long startMs, long endMs) {
         com.fadcam.ui.faditor.model.TextOverlayItem o = textOverlayById(itemId);
         if (o == null) return;
@@ -18591,7 +18591,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Commit a carrot drag â ONE undo step. The before-window arrives from the view (captured on
+     * Commit a carrot drag — ONE undo step. The before-window arrives from the view (captured on
      * DOWN); by release the model already holds the gesture's live preview, so reading the model
      * here would undo to the last pixel of the drag instead of where it began.
      */
@@ -18853,7 +18853,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (cm == null) return;
         cm.setPrimaryClip(android.content.ClipData.newPlainText(
                 "Faditor caption style", cur.toJson().toString()));
-        Toast.makeText(this, "Style copied â paste it into Import on any device",
+        Toast.makeText(this, "Style copied — paste it into Import on any device",
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -18938,7 +18938,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             () -> { ac.setCaptionStyleId(beforeStyle); ac.setCaptionsEnabled(beforeEnabled);
                                     editorTimeline.invalidate(); }));
                 }
-                // The CC tape tints by style â repaint NOW, not on the next scrub (JoyRaptor 2026-07-14).
+                // The CC tape tints by style — repaint NOW, not on the next scrub (JoyRaptor 2026-07-14).
                 editorTimeline.invalidate();
                 scheduleAutoSave();
             }
@@ -18959,7 +18959,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             () -> { cc.setCaptionStyleId(beforeStyle); cc.setCaptionsEnabled(beforeEnabled);
                                     editorTimeline.invalidate(); }));
                 }
-                // The CC tape tints by style â repaint NOW, not on the next scrub (JoyRaptor 2026-07-14).
+                // The CC tape tints by style — repaint NOW, not on the next scrub (JoyRaptor 2026-07-14).
                 editorTimeline.invalidate();
                 scheduleAutoSave();
             }
@@ -19065,17 +19065,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Text animation (SPEC_TEXT_ANIMATION step 2) ââââââââââââââââââââ
+    // ── Text animation (SPEC_TEXT_ANIMATION step 2) ────────────────────
     //
     // The four captionAnim* fields live on Clip only. Audio-clip captions have no animation
     // fields, so the drawer's motion control is hidden rather than shown-and-inert when an audio
-    // caption is the selection â a control that silently does nothing is the failure mode this
+    // caption is the selection — a control that silently does nothing is the failure mode this
     // whole area is being cleaned up from.
 
     /**
      * The clip these controls act on: the selected clip, if it is captioned.
      *
-     * <p>Returns null when an AUDIO clip's captions are the current target â the same
+     * <p>Returns null when an AUDIO clip's captions are the current target — the same
      * {@code getSelectedAudioIndex()} test {@code tweakCaptionStyle} uses. Without it the drawer
      * would show a motion control while an audio caption is selected and then apply it to
      * whatever video clip happened to be selected underneath, which is a silent edit to the wrong
@@ -19090,13 +19090,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The caption timing control: two sliders, In and Out, each 0â50% of every caption line.
+     * The caption timing control: two sliders, In and Out, each 0–50% of every caption line.
      *
      * <p><b>Why this is not the tape carets.</b> The carets were the first design and the user
      * rejected them for captions after driving them: <i>"to get a fifty percent fade in, fifty
      * percent fade out, I'm gonna be having to do a lot of dragging over perhaps a thirty minute
      * clip. And that just won't do."</i> Captions ride long videos and arrive line after line, so
-     * a per-line gesture on a timeline is the wrong instrument entirely â the value wanted is one
+     * a per-line gesture on a timeline is the wrong instrument entirely — the value wanted is one
      * value for the whole clip, and it belongs where the rest of the caption's look is authored.
      * The carets remain the right control for a TEXT BOX, which is a single object with a single
      * span you can actually see.</p>
@@ -19104,7 +19104,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * <p><b>Why a percentage and not a duration.</b> The same reason the model changed: a
      * duration set once is most of a short line and a flicker on a long one, so it could not be
      * set once at all. 40% is 40% of every line, which is what "set it and forget it" requires.
-     * The readout says "% of each line" for that reason â a bare "40%" would invite reading it as
+     * The readout says "% of each line" for that reason — a bare "40%" would invite reading it as
      * 40% of the clip.</p>
      *
      * <p>Dragging previews live but records NOTHING; the undo step is written once on release,
@@ -19146,10 +19146,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             int out = Math.round(now.getCaptionAnimOutPct() * 100f);
             // TODO(strings)
             readout.setText("In " + in + "%   Out " + out + "%   of each line"
-                    + (in + out >= maxPercent * 2 ? "  Â·  in ends as out begins" : ""));
+                    + (in + out >= maxPercent * 2 ? "  ·  in ends as out begins" : ""));
         };
 
-        // G12: In and Out on ONE line â same half treatment as audio fades
+        // G12: In and Out on ONE line — same half treatment as audio fades
         android.widget.LinearLayout timingRow = new android.widget.LinearLayout(this);
         timingRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         timingRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -19169,9 +19169,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * One labelled 0â50% slider for {@link #addCaptionAnimRangeControl}.
+     * One labelled 0–50% slider for {@link #addCaptionAnimRangeControl}.
      *
-     * @param isIn true for the entrance zone, false for the exit â the ONLY difference between
+     * @param isIn true for the entrance zone, false for the exit — the ONLY difference between
      *             the two sliders, so they are one method rather than two that can drift apart.
      */
     @NonNull
@@ -19221,7 +19221,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Clip now = captionAnimTarget();
                 if (now == null) return;
                 // Hand the model back to where the gesture started, then commit forward through
-                // the one recording path â so the undo step spans the WHOLE drag as one entry
+                // the one recording path — so the undo step spans the WHOLE drag as one entry
                 // rather than the last pixel of it.
                 float endIn = now.getCaptionAnimInPct();
                 float endOut = now.getCaptionAnimOutPct();
@@ -19234,10 +19234,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Commit an in/out zone change. Values arrive as a FRACTION OF EACH LINE (0â¦0.5) and go
+     * Commit an in/out zone change. Values arrive as a FRACTION OF EACH LINE (0…0.5) and go
      * through {@code setCaptionAnimZones}, the one setter, which clamps them.
      *
-     * <p>For a caller that has not already moved the clip â a caret drag, which paints its own
+     * <p>For a caller that has not already moved the clip — a caret drag, which paints its own
      * ghost and commits once on release. A slider is live, so it must use the four-argument form
      * and hand over the values from BEFORE its gesture started; by the time it releases, the
      * clip's current value is its own preview, not the undo target.</p>
@@ -19286,7 +19286,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Choose a preset.
      *
      * <p><b>Picking a preset with both zones at zero seeds an entrance.</b> Zero-length zones ARE
-     * the off state â that is the timing model and it is why there is no enable switch â but it
+     * the off state — that is the timing model and it is why there is no enable switch — but it
      * means that on a fresh clip every tile in the picker would apply cleanly and change nothing
      * on screen, and the user would reasonably conclude the feature is broken. Choosing a preset
      * is an explicit request to animate, so it seeds half the usable entrance range and leaves the
@@ -19331,7 +19331,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         scheduleAutoSave();
     }
 
-    /** Choose what animates as one unit. Orthogonal to the preset â see SPEC_TEXT_ANIMATION. */
+    /** Choose what animates as one unit. Orthogonal to the preset — see SPEC_TEXT_ANIMATION. */
     private void applyCaptionAnimGranularity(
             @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
         final Clip cc = captionAnimTarget();
@@ -19399,7 +19399,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (base == null && !builtins.isEmpty()) base = builtins.get(0);
         if (base == null) return;
         // Route through the shared resolver so a CUSTOMIZED layer stack (customStyleJson) is saved,
-        // not just the preset+overrides (SPEC_VIZ_ENGINE Â§4, Layers UI lane).
+        // not just the preset+overrides (SPEC_VIZ_ENGINE §4, Layers UI lane).
         com.fadcam.ui.faditor.model.WaveformStyle resolved =
                 com.fadcam.ui.faditor.waveform.WaveformStyleIO.resolveEffectiveStyle(overlay, base);
         com.fadcam.ui.faditor.model.WaveformStyle effective = (resolved != null ? resolved : base).copy();
@@ -19426,7 +19426,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (base == null && !builtins.isEmpty()) base = builtins.get(0);
         if (base == null) return;
-        // Same shared resolver as Save â export the customized stack when present.
+        // Same shared resolver as Save — export the customized stack when present.
         com.fadcam.ui.faditor.model.WaveformStyle resolved =
                 com.fadcam.ui.faditor.waveform.WaveformStyleIO.resolveEffectiveStyle(overlay, base);
         com.fadcam.ui.faditor.model.WaveformStyle effective = (resolved != null ? resolved : base).copy();
@@ -19437,8 +19437,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /** SAF import: applies an imported {@link com.fadcam.ui.faditor.model.WaveformStyle} JSON
-     *  live to {@code target} (the overlay open in the Rolodex) â same effect as picking a
-     *  carousel style. Session-only (not persisted); use ð¾ Save afterward to pin it. */
+     *  live to {@code target} (the overlay open in the Rolodex) — same effect as picking a
+     *  carousel style. Session-only (not persisted); use 💾 Save afterward to pin it. */
     private void onVisualizerStyleImported(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance target,
             @NonNull com.fadcam.ui.faditor.model.WaveformStyle imported) {
@@ -19497,13 +19497,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         getString(R.string.faditor_text_hint),
                         0xFFFFFFFF, 0.5f, 0.5f, 0.10f, 0f);
         // FEEDBACK (2026-07-18): a new text must never stack onto a lane where its
-        // time range overlaps an existing item â route it to the first free TEXT
+        // time range overlaps an existing item — route it to the first free TEXT
         // lane, creating a new lane if every existing one is occupied.
         assignTextOverlayToFreeLane(item);
         project.getTimeline().addTextOverlay(item);
         // Anchor it to whatever master clip it was born over, so it travels with that clip from
         // the moment it exists. Deliberately here and NOT inside Timeline.addTextOverlay, which
-        // the DESERIALIZER also calls â attaching there would overwrite every persisted anchor
+        // the DESERIALIZER also calls — attaching there would overwrite every persisted anchor
         // on load.
         project.getTimeline().attachOverlayToHostUnderStart(item);
         textOverlayCreatedHere.add(item.getId());   // only THIS one may be auto-cleaned on cancel
@@ -19517,18 +19517,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Route a (not-yet-added) text overlay onto the TOP-most lane whose existing items don't
      * overlap the new item's time range. If every lane is occupied over the range, create a
-     * fresh track and assign the item there â the user should never have to manually untangle
+     * fresh track and assign the item there — the user should never have to manually untangle
      * two objects stacked on one lane.
      *
      * <p><b>Top-most first, and that is a change.</b> This used to try the DEFAULT lane first
      * and work upward, so a new text landed on the bottom-most lane that happened to be free.
      * Two things were wrong with that. JoyRaptor asked for the obvious one directly (2026-08-13):
-     * "text should be created on the top layer initially" â a thing you just made should be in
+     * "text should be created on the top layer initially" — a thing you just made should be in
      * front of the things you made earlier, not behind them.
      *
      * <p>The other is not cosmetic at all. {@code SPEC_CROSSTYPE_Z} splits overlays into two
      * paint buckets around the PiP plane, and the in-canvas text EDITOR only ever attaches to
-     * the ABOVE-video surface ({@code showTextOverlayEditor} â {@code overlayLayer}). A new text
+     * the ABOVE-video surface ({@code showTextOverlayEditor} → {@code overlayLayer}). A new text
      * routed to a lane below a PiP lane is therefore drawn by the OTHER surface, where
      * {@code attachToBox} finds no box, returns silently, and the user gets a text object with
      * no keyboard and nowhere to type. Preferring the top lane keeps a new text on the side of
@@ -19547,9 +19547,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             candidates.add(def.getId());
             textTrackCount++;
         }
-        // Top-most first: getLayers() emits lanes bottomâtop, so the last extra track is the
+        // Top-most first: getLayers() emits lanes bottom→top, so the last extra track is the
         // highest. The default lane (layerId null) is the FLOOR and is tried last, which is the
-        // reversal â it used to be tried first.
+        // reversal — it used to be tried first.
         java.util.Collections.reverse(candidates);
         candidates.add(null);
         for (String trackId : candidates) {
@@ -19576,14 +19576,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Move the selected LAYER OBJECT one lane up or down. Returns false when the selection is
      * not a layer object, so the caller can fall through to its master-clip behaviour.
      *
-     * <p>The lane order is {@code getLayers()}' â bottomâtop by zIndex â so "up" is the next
+     * <p>The lane order is {@code getLayers()}' — bottom→top by zIndex — so "up" is the next
      * lane along that list and "down" the previous. Landing is refused if the destination lane
      * is already occupied over this object's time range, which is the same no-overlap rule the
      * drag path enforces; refusing with a reason beats silently stacking two objects on one lane
      * or, worse, quietly doing something else.</p>
      *
      * <p>ONE undo step, and it only ever writes a {@code layerId}. Nothing here can touch the
-     * master spine â see the note at the click wiring for why that matters.</p>
+     * master spine — see the note at the click wiring for why that matters.</p>
      */
     private boolean nudgeSelectedObjectLane(boolean up) {
         if (project == null || editorTimeline == null) return false;
@@ -19596,7 +19596,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (item == null) return false;   // sprites/PiPs/adjustments keep their own paths
 
-        // Candidate lanes bottomâtop: the default lane, then each extra non-audio track in the
+        // Candidate lanes bottom→top: the default lane, then each extra non-audio track in the
         // order getLayers() emits them.
         java.util.List<String> lanes = new java.util.ArrayList<>();
         lanes.add(null);
@@ -19704,7 +19704,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public long getProjectDurationMs() {
                 // SPEC_TIMER_OBJECT: the same value export passes to CompositeExportOverlay
                 // (project.getTimeline().getTotalDurationMs()), so a timer reads identically
-                // in both. 0 when no project is loaded â TimerText degrades to a zero span
+                // in both. 0 when no project is loaded — TimerText degrades to a zero span
                 // rather than overflowing.
                 return project == null ? 0L : project.getTimeline().getTotalDurationMs();
             }
@@ -19713,7 +19713,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onEditRequested(
                     @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
                 // Double-tap = type editor (grammar 2026-07-17). For images the
-                // type editor IS the general drawer â showTextOverlayEditor
+                // type editor IS the general drawer — showTextOverlayEditor
                 // delegates image items there (the modal dialog is retired).
                 showTextOverlayEditor(item);
             }
@@ -19733,8 +19733,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onOverlayHeld(
                     @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
                 // Hold = general properties drawer (grammar 2026-07-17). Images now get the
-                // full top drawer (Blend Â· Mask Â· Key Â· FX Â· Move) instead of the interim
-                // bottom sheet â the sheet cannot offer per-axis scale, pass-through, blend or
+                // full top drawer (Blend · Mask · Key · FX · Move) instead of the interim
+                // bottom sheet — the sheet cannot offer per-axis scale, pass-through, blend or
                 // compositing, which is the whole point of the drawer.
                 if (editorTimeline != null) {
                     editorTimeline.selectLayerItemById(item.getId());
@@ -19765,7 +19765,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * S3: Sprites tool now opens the PALETTE PANEL (micro/palette detents);
-     * the sheet-manager dialog stays reachable via the panel's â / empty-state
+     * the sheet-manager dialog stays reachable via the panel's ⚙ / empty-state
      * "+ Load" (and still handles new-sheet import + Avatar Studio entry).
      */
     private void openSpritePalette() {
@@ -19889,7 +19889,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 sweepPerformanceFromVideo(item);
             }
 
-            // ââ Dope sheet (SPEC_IMAGE_SEQUENCE Â§5) ââââââââââââââââââââââ
+            // ── Dope sheet (SPEC_IMAGE_SEQUENCE §5) ──────────────────────
 
             @Override
             public void onSequenceWeightsChanged(
@@ -19954,11 +19954,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         project.spriteSheetById(item.getSheetId());
                 if (sheet == null) {
                     Toast.makeText(FaditorEditorActivity.this,
-                            "Sheet missing â can't stamp preset", Toast.LENGTH_SHORT).show();
+                            "Sheet missing — can't stamp preset", Toast.LENGTH_SHORT).show();
                     return;
                 }
                 // Anchor at the item-LOCAL playhead; HOLD_CURRENT wants the cell
-                // showing right now (NO_CELL/-1 â stamper falls back to cell 0).
+                // showing right now (NO_CELL/-1 → stamper falls back to cell 0).
                 final long localMs = Math.max(0, item.toLocalMs(lastPlayheadAbsoluteMs));
                 int currentCell = com.fadcam.ui.faditor.sprite.SpriteFrameResolver
                         .resolveCellAt(sheet, item, lastPlayheadAbsoluteMs);
@@ -19970,7 +19970,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             "No enabled cells to stamp", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                // Whole-track before/after swap, ONE undo step â mirrors the
+                // Whole-track before/after swap, ONE undo step — mirrors the
                 // avatar-take swap in stopPerformanceRecording.
                 final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
                         new java.util.ArrayList<>(item.getFrameTrack().keys());
@@ -20052,12 +20052,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         root.addView(p);
     }
 
-    // ââ Avatar performance recording (bake-to-keyframes, PLAN_AVATAR_STUDIO
-    //    Â§MINED): mount the tracking bus (camera single-owner â the studio's
+    // ── Avatar performance recording (bake-to-keyframes, PLAN_AVATAR_STUDIO
+    //    §MINED): mount the tracking bus (camera single-owner — the studio's
     //    startTracking pattern verbatim), roll playback, and sample the bus's
     //    RESOLVED driver params once per frame at the item-LOCAL playhead time
     //    into an AvatarParamTrack. Export replays that track through the
-    //    resolver â the webcam never re-runs (AvatarItemPuppet). ââââââââââââ
+    //    resolver — the webcam never re-runs (AvatarItemPuppet). ────────────
 
     @Nullable private com.fadcam.ui.faditor.avatar.TrackingDriverBus perfRecordBus;
     @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem perfRecordItem;
@@ -20065,7 +20065,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     @Nullable private com.fadcam.ui.faditor.avatar.AvatarParamTrack perfRecordBefore;
     private static final int RC_PERF_CAMERA = 4022;
 
-    /** Per-frame sampler: bus snapshot â track at item-local playhead ms. The
+    /** Per-frame sampler: bus snapshot → track at item-local playhead ms. The
      *  item's live track IS the growing one, so the replay renderer shows the
      *  puppet following the user's face while the take rolls. */
     private final Runnable perfRecordTick = new Runnable() {
@@ -20102,7 +20102,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     Toast.LENGTH_SHORT).show();
             return;
         }
-        // Camera + model gating â the studio's D4 source swap verbatim:
+        // Camera + model gating — the studio's D4 source swap verbatim:
         // real face tracking when possible, synthetic fallback so the whole
         // path stays exercisable without a camera grant.
         boolean camGranted = androidx.core.content.ContextCompat.checkSelfPermission(
@@ -20114,10 +20114,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (!camGranted) {
             androidx.core.app.ActivityCompat.requestPermissions(this,
                     new String[]{android.Manifest.permission.CAMERA}, RC_PERF_CAMERA);
-            Toast.makeText(this, "Grant camera, then tap ð¯ again for face tracking",
+            Toast.makeText(this, "Grant camera, then tap 🎯 again for face tracking",
                     Toast.LENGTH_SHORT).show();
         } else if (!modelPresent) {
-            Toast.makeText(this, "Face model missing â recording synthetic tracking",
+            Toast.makeText(this, "Face model missing — recording synthetic tracking",
                     Toast.LENGTH_SHORT).show();
         }
         java.util.List<String> ikParts = new java.util.ArrayList<>();
@@ -20140,8 +20140,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (playerManager != null && !playerManager.isPlaying()) playerManager.play();
         if (spriteOverlayView != null) spriteOverlayView.postOnAnimation(perfRecordTick);
         Toast.makeText(this, face
-                ? "Recording performance â tap âº Stop to finish"
-                : "Recording (synthetic) â tap âº Stop to finish",
+                ? "Recording performance — tap ⏺ Stop to finish"
+                : "Recording (synthetic) — tap ⏺ Stop to finish",
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -20161,9 +20161,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         perfRecordBefore = null;
         if (item == null) return;
         if (after == null || after.isEmpty()) {
-            item.setAvatarTrack(before); // nothing captured â keep the prior take
+            item.setAvatarTrack(before); // nothing captured — keep the prior take
             if (spriteOverlayView != null) spriteOverlayView.resetAvatarPuppet(item.getId());
-            Toast.makeText(this, "No tracking captured â kept the previous take",
+            Toast.makeText(this, "No tracking captured — kept the previous take",
                     Toast.LENGTH_SHORT).show();
         } else {
             undoManager.recordAction(new EditActions.LambdaAction("Record performance",
@@ -20190,10 +20190,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Point-at-video (PLAN_AVATAR_STUDIO A4-NEXT): sweep the master clips
+    // ── Point-at-video (PLAN_AVATAR_STUDIO A4-NEXT): sweep the master clips
     //    under an avatar item through VIDEO-mode FaceLandmarker into its
     //    AvatarParamTrack. Same undo shape as a recorded take (one step swaps
-    //    whole takes); replay/export ride AvatarItemPuppet untouched. ââââââââ
+    //    whole takes); replay/export ride AvatarItemPuppet untouched. ────────
 
     @Nullable private com.fadcam.ui.faditor.avatar.VideoFaceSweeper perfSweeper;
     @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem perfSweepItem;
@@ -20213,10 +20213,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     Toast.LENGTH_SHORT).show();
             return;
         }
-        // Unlike ð¯ Record there is no synthetic fallback â sweeping a video
+        // Unlike 🎯 Record there is no synthetic fallback — sweeping a video
         // without the face model would only ever bake an empty track.
         if (!com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.isModelPresent(this)) {
-            Toast.makeText(this, "Face model missing â can't sweep video",
+            Toast.makeText(this, "Face model missing — can't sweep video",
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -20230,7 +20230,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (playerManager != null && playerManager.isPlaying()) playerManager.pause();
 
-        // Progress dialog (inline strings â strings.xml is another agent's file).
+        // Progress dialog (inline strings — strings.xml is another agent's file).
         android.widget.ProgressBar bar = new android.widget.ProgressBar(
                 this, null, android.R.attr.progressBarStyleHorizontal);
         bar.setMax(100);
@@ -20240,7 +20240,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         wrap.addView(bar);
         androidx.appcompat.app.AlertDialog dialog =
                 new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("Tracking face in videoâ¦")
+                        .setTitle("Tracking face in video…")
                         .setView(wrap)
                         .setCancelable(false)
                         .setNegativeButton("Cancel", (d, w) -> {
@@ -20271,7 +20271,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     public void onCancelled() {
                         finishSweep(dialog);
                         Toast.makeText(FaditorEditorActivity.this,
-                                "Sweep cancelled â kept the previous take",
+                                "Sweep cancelled — kept the previous take",
                                 Toast.LENGTH_SHORT).show();
                     }
 
@@ -20296,7 +20296,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
             @NonNull com.fadcam.ui.faditor.avatar.AvatarParamTrack after) {
         if (after.isEmpty()) {
-            Toast.makeText(this, "No face found in the video â kept the previous take",
+            Toast.makeText(this, "No face found in the video — kept the previous take",
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -20337,14 +20337,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (spritePalettePanel != null) spritePalettePanel.setPlayheadMs(lastPlayheadAbsoluteMs);
     }
 
-    /** S4: sprite preview callback â mirrors {@link #overlayLayerCallback()}. */
+    /** S4: sprite preview callback — mirrors {@link #overlayLayerCallback()}. */
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView.Callback spriteOverlayCallback() {
         return new com.fadcam.ui.faditor.sprite.SpriteOverlayView.Callback() {
             @Override
             public void onSpriteDoubleTapped(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
                 // Grammar 2026-07-17: double-tap = TYPE editor (what JoyRaptor expects
-                // when tapping a sprite) â same route as the timeline G1 double-tap.
+                // when tapping a sprite) — same route as the timeline G1 double-tap.
                 openSpritePalette();
             }
 
@@ -20446,7 +20446,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public float overlayVolumeFor(@NonNull Clip clip) {
                 // SPEC_PIP_AUDIO: one authority shared with the export audio sequence.
-                // 0 for every PiP that has not opted in â the default, and exactly the
+                // 0 for every PiP that has not opted in — the default, and exactly the
                 // silence this view hardcoded before.
                 if (project == null) return 0f;
                 return com.fadcam.ui.faditor.compositor.LayerPreviewController
@@ -20484,8 +20484,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Select the lane item with this id, from anywhere.
      *
-     * <p>Written once because there are now two ways to select an object â its timeline row and
-     * its body on the canvas â and they must land on the same state.</p>
+     * <p>Written once because there are now two ways to select an object — its timeline row and
+     * its body on the canvas — and they must land on the same state.</p>
      */
     private void selectLayerItemById(@NonNull String id) {
         if (editorTimeline == null || project == null) return;
@@ -20505,10 +20505,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Tell the user when this project is READ-ONLY because it was written by a newer build
-     * (the schema downgrade guard, PLAN Â§4.1(2)).
+     * (the schema downgrade guard, PLAN §4.1(2)).
      *
-     * <p>The guard itself was already correct â {@code save()}/{@code saveAsync()} both refuse,
-     * so the newer data can never be clobbered â but it was entirely SILENT. The editor opened
+     * <p>The guard itself was already correct — {@code save()}/{@code saveAsync()} both refuse,
+     * so the newer data can never be clobbered — but it was entirely SILENT. The editor opened
      * normally, every edit appeared to work, each autosave was refused with only a log line,
      * and the whole session's work vanished on close. From the user's side that is
      * indistinguishable from losing their work at random. A refusal the user cannot see is
@@ -20532,12 +20532,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Load-failure SHAPE fix (2026-07-26): a project that loaded but had to SKIP one or
      * more malformed items (a bad/absent required field that would previously have
      * aborted the whole load and dropped the user to a silent {@code project.json.bak}).
-     * The user's decision: never a silent skip and never a silent rollback â tell them
+     * The user's decision: never a silent skip and never a silent rollback — tell them
      * exactly what was dropped and let them choose "open the last backup instead".
      *
      * @param openedBackup true if THIS load already came from the backup (via
      *                     {@link #EXTRA_LOAD_BACKUP}); then we don't offer the backup
-     *                     again (it's what we're already showing) â we just report.
+     *                     again (it's what we're already showing) — we just report.
      */
     private void warnIfItemsSkipped(@NonNull FaditorProject p, @NonNull String projectId,
                                     boolean openedBackup) {
@@ -20550,13 +20550,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 ? "The backup also had parts this app couldn't read, so they were left out:\n"
                 : "Some parts of this project couldn't be read and were left out so the rest "
                         + "could still open:\n");                                 // TODO(strings)
-        for (String s : skips) sb.append("\n  â¢ ").append(s);
+        for (String s : skips) sb.append("\n  • ").append(s);
         boolean canOfferBackup = !openedBackup && projectStorage.hasBackup(projectId);
         if (canOfferBackup) {
             sb.append("\n\nYou can keep going without them, or open the last saved "
                     + "backup instead.");                                        // TODO(strings)
         }
-        // Block all saves until the user resolves this â otherwise an autosave/onPause
+        // Block all saves until the user resolves this — otherwise an autosave/onPause
         // would rotate the current (skipped) file into .bak and destroy the clean backup
         // we're offering. Cleared on "keep going"; kept true through an "open backup"
         // restart so the dying activity never persists over the backup.
@@ -20610,10 +20610,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * M-COMP-2b: place a picked video as a floating overlay (PiP) starting at the
-     * playhead â mirrors {@link #onVideoAssetPicked}'s background import (the copy +
+     * playhead — mirrors {@link #onVideoAssetPicked}'s background import (the copy +
      * duration probe ANR lesson), then creates an overlay {@link Clip} on the default
      * "video" layer with the standard top-right-corner starter transform (keyframes at
-     * t=0 â the same convention preview AND export sample via KeyframeSet.valueAt).
+     * t=0 — the same convention preview AND export sample via KeyframeSet.valueAt).
      * One undo step; persists via {@code Timeline.overlayClips} (schema v8 stamp).
      */
     private void onOverlayVideoPicked(@NonNull Uri pickedUri) {
@@ -20676,7 +20676,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Decode-once renderer for a sheet, cache-validated by SpriteSheet object
      * identity so a project reload (new model objects, possibly re-sliced
      * geometry) re-decodes once instead of serving stale pixels. A null
-     * renderer (missing art) is cached too â no per-frame retry storm; the
+     * renderer (missing art) is cached too — no per-frame retry storm; the
      * overlay draws the MISSING placeholder (S7 rule).
      */
     private com.fadcam.ui.faditor.sprite.SpriteSheetRenderer spriteRendererFor(
@@ -20698,7 +20698,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Build an OPEN_DOCUMENT picker intent that grants PERSISTABLE read access.
      * (ACTION_GET_CONTENT cannot be persisted, so its URIs go blank once the
-     * process is killed â the cause of imported images vanishing after idle.)
+     * process is killed — the cause of imported images vanishing after idle.)
      */
     @NonNull
     private Intent openDocumentIntent(@NonNull String mime) {
@@ -20748,10 +20748,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * com.fadcam.ui.faditor.compositor.LayerPreviewController#visibleTextOverlays}),
      * and the SAME project-bundle asset copy the other imported assets use
      * ({@link #importInsertedAsset}, which yields a URI that serializes as a
-     * portable {@code project://} path â see {@code ProjectStorage#toStorageUri}).
+     * portable {@code project://} path — see {@code ProjectStorage#toStorageUri}).
      * The image is dropped onto a fresh TEXT-kind {@link
      * com.fadcam.ui.faditor.layers.LayerTrackDef} sitting on TOP of every existing
-     * layer (highest zIndex â reuses the Phase-P z convention), at the current
+     * layer (highest zIndex — reuses the Phase-P z convention), at the current
      * playhead with a bounded {@value #IMAGE_CLIP_DURATION_MS}ms window. ONE undo
      * step covers track-creation + item-add (mirrors {@link
      * #stageCreateLayerAndMoveItem}'s create+assign+prune pattern).
@@ -20771,7 +20771,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final Timeline timeline = project.getTimeline();
 
         // Create a new NEUTRAL lane ABOVE all existing layers (it holds this image now,
-        // but accepts any visual payload later â see tasks/SPEC_NEUTRAL_SUBSTRATE.md).
+        // but accepts any visual payload later — see tasks/SPEC_NEUTRAL_SUBSTRATE.md).
         final String newTrackId = timeline.createLayerTrack(
                 com.fadcam.ui.faditor.layers.TrackKind.LAYER,
                 "Image " + (timeline.getLayers().size() + 1)); // TODO(strings)
@@ -20807,7 +20807,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Highest persisted {@code zIndex} across the floating (text/sticker/image/â¦)
+     * Highest persisted {@code zIndex} across the floating (text/sticker/image/…)
      * layer band, or 0 when nothing has ever been z-ordered. Used to place a
      * newly-created layer above ({@code +1}) or below ({@code min-1}) the stack,
      * matching the Phase-P {@code moveTrackZ} convention (higher z = painted on
@@ -20835,7 +20835,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Shared refresh after any change to the floating-overlay layer set (add/move/
      * new-layer): re-feed the preview overlay from the shared visibility authority,
-     * resync the timeline rows, and refresh preview visibility â the exact trio the
+     * resync the timeline rows, and refresh preview visibility — the exact trio the
      * existing overlay mutations call individually.
      */
     private void refreshAfterOverlayLayerChange() {
@@ -20851,15 +20851,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (editorTimeline != null) editorTimeline.invalidate();
     }
 
-    // ââ P2: reliable cross-layer move (button-driven â closes the "sandwich" blocker) ââ
+    // ── P2: reliable cross-layer move (button-driven — closes the "sandwich" blocker) ──
 
     /**
      * The move-clip dialog for a SELECTED LAYER ITEM (P2 reliable path). Explicit
-     * buttons â never the fragile drag engine â that let the user put an item onto a
+     * buttons — never the fragile drag engine — that let the user put an item onto a
      * new layer above/below (enabling the layer sandwich they want) or shift it to an
      * adjacent existing layer. Each action is ONE undo step. Delete stays available.
      */
-    // ââ G2: general advanced menu â peek/expand bottom sheet (contract Â§2/Â§3) ââ
+    // ── G2: general advanced menu — peek/expand bottom sheet (contract §2/§3) ──
 
     /** Lazily created, lives in the root FrameLayout ABOVE editor_root so peek
      *  mode overlays only the bottom strip while timeline + preview stay live. */
@@ -20876,9 +20876,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                     android.view.Gravity.BOTTOM);
             root.addView(objectMenuSheet, lp);
-            // G3: the focused keyframeable property drives the top ribbon. Â§2
+            // G3: the focused keyframeable property drives the top ribbon. §2
             // STATIC props (visualizer / audio placement) have no keyframes, so
-            // they must NOT raise a keyframe ribbon over the preview â gate here.
+            // they must NOT raise a keyframe ribbon over the preview — gate here.
             objectMenuSheet.setFocusListener(prop -> {
                 ribbonProp = (prop != null && prop.keyframeable) ? prop : null;
                 refreshKeyframeRibbon();
@@ -20887,8 +20887,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return objectMenuSheet;
     }
 
-    // ââ G3: top keyframe ribbon â rides the preview's lower edge while a
-    //    keyframeable property is focused; the timeline stays fully clear ââ
+    // ── G3: top keyframe ribbon — rides the preview's lower edge while a
+    //    keyframeable property is focused; the timeline stays fully clear ──
 
     @Nullable private android.widget.LinearLayout keyframeRibbon;
     @Nullable private ObjectMenuSheet.Prop ribbonProp;
@@ -20915,17 +20915,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ribbonLabel.setPadding(0, 0, (int) (6 * d), 0);
         keyframeRibbon.addView(ribbonLabel);
 
-        TextView prev = ribbonGlyph("â");
+        TextView prev = ribbonGlyph("◀");
         prev.setOnClickListener(v -> {
             if (ribbonProp != null) ribbonProp.prevKey();
         });
         keyframeRibbon.addView(prev);
 
-        ribbonDiamond = ribbonGlyph("â");
+        ribbonDiamond = ribbonGlyph("◇");
         ribbonDiamond.setTextSize(18);
         ribbonDiamond.setOnClickListener(v -> {
             if (ribbonProp == null) return;
-            // On a key â delete it; off a key â drop one (contract Â§3 add/del).
+            // On a key → delete it; off a key → drop one (contract §3 add/del).
             if (ribbonProp.onKeyAt(lastPlayheadAbsoluteMs)) ribbonProp.deleteKey();
             else ribbonProp.dropKey();
             refreshKeyframeRibbon();
@@ -20934,7 +20934,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         });
         // D2a: long-press the ribbon diamond = ease picker for the focused prop
-        // (same popover the drawer's â¹â¦âº opens, anchored here instead).
+        // (same popover the drawer's ‹♦› opens, anchored here instead).
         ribbonDiamond.setOnLongClickListener(v -> {
             if (ribbonProp == null) return false;
             v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
@@ -20951,7 +20951,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
         keyframeRibbon.addView(ribbonDiamond);
 
-        TextView next = ribbonGlyph("â¶");
+        TextView next = ribbonGlyph("▶");
         next.setOnClickListener(v -> {
             if (ribbonProp != null) ribbonProp.nextKey();
         });
@@ -20993,13 +20993,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         keyframeRibbon.setVisibility(View.VISIBLE);
         ribbonLabel.setText(ribbonProp.label());
         boolean on = ribbonProp.onKeyAt(lastPlayheadAbsoluteMs);
-        ribbonDiamond.setText(on ? "â" : "â");
+        ribbonDiamond.setText(on ? "◆" : "◇");
         ribbonDiamond.setTextColor(on ? 0xFF4CAF50 : 0xFFAAAAAA);
     }
 
-    // ââ G4: preview manipulation handles â tap-select a layer-row item and its
+    // ── G4: preview manipulation handles — tap-select a layer-row item and its
     //    bounding box + scale corners + rotate stalk appear over the preview,
-    //    wired to the SAME keyframe-aware transform writes as the G2 menu ââ
+    //    wired to the SAME keyframe-aware transform writes as the G2 menu ──
 
     @Nullable private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay previewHandlesOverlay;
 
@@ -21022,11 +21022,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return previewHandlesOverlay;
     }
 
-    // ââ Gradient CURVE: direct manipulation in the preview âââââââââââââââââââââââââââââââ
+    // ── Gradient CURVE: direct manipulation in the preview ───────────────────────────────
     //
     // A gradient's Curve path is up to five positions and five handle vectors. There is no
     // honest way to author that with sliders, so FxPanel hands it here and the anchors become
-    // draggable dots over the video â through PreviewHandlesOverlay's PointHandles, NOT a new
+    // draggable dots over the video — through PreviewHandlesOverlay's PointHandles, NOT a new
     // touch layer, because a second view competing for the preview's touches is the bug this
     // project has already paid for once.
 
@@ -21034,7 +21034,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     @Nullable private com.fadcam.ui.faditor.fx.FxStack curveEditStack;
     @Nullable private com.fadcam.ui.faditor.fx.FxInstance curveEditCard;
     @Nullable private com.fadcam.ui.faditor.fx.FxParam curveEditParam;
-    /** Whole-stack snapshot taken when a point drag begins â FxPanel's own undo grain. */
+    /** Whole-stack snapshot taken when a point drag begins — FxPanel's own undo grain. */
     @Nullable private com.fadcam.ui.faditor.fx.FxStack curveEditBefore;
 
     /** {@code card == null} leaves the mode. See {@code FxPanel.Host.editGradientInPreview}. */
@@ -21083,13 +21083,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The gradient's START and END, dragged on the picture â what Photoshop's gradient tool has
+     * The gradient's START and END, dragged on the picture — what Photoshop's gradient tool has
      * always been, and what a centre-plus-angle-plus-length trio of sliders is a worse spelling
      * of. Point 0 is the start, point 1 the end; between them they write all three params.
      *
      * <p><b>The arithmetic is done in SCREEN pixels on purpose.</b> The shader corrects for
-     * aspect before it rotates, which is exactly what makes a 45Â° gradient look like 45Â° on a
-     * 16:9 frame â and it means the gradient's geometry is Euclidean in the canvas rect, not in
+     * aspect before it rotates, which is exactly what makes a 45° gradient look like 45° on a
+     * 16:9 frame — and it means the gradient's geometry is Euclidean in the canvas rect, not in
      * normalised uv. So the angle is the on-screen angle and the length is the on-screen distance
      * divided by the rect HEIGHT, which is the unit the body's {@code length} is expressed in.
      * Doing this in normalised coordinates would put the handles somewhere the gradient is
@@ -21161,7 +21161,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 com.fadcam.ui.faditor.fx.FxInstance c = curveEditCard;
                 com.fadcam.ui.faditor.fx.FxParam q = curveEditParam;
                 if (c == null || q == null) return;
-                // The OTHER end stays put and the dragged one follows the finger â the two
+                // The OTHER end stays put and the dragged one follows the finger — the two
                 // together are the gradient line, so recomputing centre/angle/length from the
                 // pair is the only way each handle means what it looks like it means.
                 int other = 1 - i;
@@ -21199,8 +21199,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * The draggable dots: every anchor, then every anchor's bezier handle, in that order.
      *
-     * <p>Anchors first so the index arithmetic is trivial â handle {@code i} belongs to anchor
-     * {@code i - anchorCount} â and so the tether the overlay draws is a subtraction rather than
+     * <p>Anchors first so the index arithmetic is trivial — handle {@code i} belongs to anchor
+     * {@code i - anchorCount} — and so the tether the overlay draws is a subtraction rather than
      * a lookup table that could drift out of step with the path.</p>
      */
     @NonNull
@@ -21236,7 +21236,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override public float[] guide() {
                 // The REAL curve, from the same sampler the shader's uniforms come from, so the
                 // line the user drags along is the line the gradient actually runs along. 64
-                // points is a drawing resolution, unrelated to the shader's 26 â a Canvas
+                // points is a drawing resolution, unrelated to the shader's 26 — a Canvas
                 // polyline costs nothing and a visibly faceted guide would read as the curve
                 // itself being faceted.
                 return curveEditPath().samplePoints(64);
@@ -21254,7 +21254,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (i < 0 || i >= n * 2) return;
                 if (i < n) {
                     // Moving an ANCHOR carries its handle along, because the handle is stored as
-                    // an offset FROM the anchor â write the position only and the bend is
+                    // an offset FROM the anchor — write the position only and the bend is
                     // preserved, which is what every pen tool does and what the user expects.
                     a.get(i).x = nx;
                     a.get(i).y = ny;
@@ -21273,7 +21273,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 curveEditBefore = null;
                 if (s == null || h == null || before == null) return;
                 // The SAME whole-stack snapshot grain FxPanel's sliders use, through FxPanel's
-                // own helper â two undo authorities over one FxStack cannot agree, and this
+                // own helper — two undo authorities over one FxStack cannot agree, and this
                 // project has already been bitten by exactly that.
                 com.fadcam.ui.faditor.tools.FxPanel.recordSnapshot(s, h, () -> {}, "Curve", before);
             }
@@ -21288,7 +21288,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * That is why one object could not be grabbed at all, why nothing you picked in the preview
      * showed up in the timeline, and why the drawer kept showing a different item's options.
      * Selection now goes through {@code setSelectedItem}, the SAME call the timeline makes, so
-     * the timeline row, the handles and the drawer cannot disagree about what is selected â
+     * the timeline row, the handles and the drawer cannot disagree about what is selected —
      * they are all downstream of one event.</p>
      *
      * <p>Candidates are tested TOP-DOWN in paint order (text and sprites over PiPs), so tapping
@@ -21304,7 +21304,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 java.util.List<com.fadcam.ui.faditor.layers.TimedItem> hits =
                         new java.util.ArrayList<>();
                 // THE Z AUTHORITY, not the raw lane list. This walked getLayers() in list order
-                // and assumed "later in the list = painted later = on top" â but orderedVisualItems
+                // and assumed "later in the list = painted later = on top" — but orderedVisualItems
                 // SORTS lanes by zIndex, and the two orders diverge the moment a lane is added out
                 // of z sequence, which duplicating an object does every time (it appends a lane).
                 // So the topmost pick was wrong, and wrong the same way every time: JoyRaptor, with two
@@ -21312,7 +21312,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // selected, repeatably (2026-08-12). Same call the renderers order themselves by,
                 // so what the eye sees on top is now what the tap resolves to by construction.
                 //
-                // It also applies the lane eye and the per-object eye, which the raw walk did not â
+                // It also applies the lane eye and the per-object eye, which the raw walk did not —
                 // a HIDDEN object could previously swallow taps aimed at what was visible under it.
                 for (com.fadcam.ui.faditor.compositor.LayerPreviewController.VisualItem v
                         : com.fadcam.ui.faditor.compositor.LayerPreviewController
@@ -21320,7 +21320,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     if (hitsInPreview(v.item, x, y, timeMs)) hits.add(v.item);
                 }
                 if (hits.isEmpty()) return false;
-                // Bottomâtop order, so the LAST hit is the one drawn most recently â the one the
+                // Bottom→top order, so the LAST hit is the one drawn most recently — the one the
                 // eye says was touched.
                 com.fadcam.ui.faditor.layers.TimedItem pick = hits.get(hits.size() - 1);
                 selectLayerItemById(pick.getId());
@@ -21330,7 +21330,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override
             public void selectNone() {
                 // Deliberately NOT clearing the selection. A miss in the preview is usually a
-                // miss, not a decision to deselect â and dropping the selection would close the
+                // miss, not a decision to deselect — and dropping the selection would close the
                 // drawer the user is working in. The timeline's own empty-space tap still does.
             }
         };
@@ -21340,7 +21340,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Is {@code (x,y)} inside this item's drawn box in the preview?
      *
      * <p>Asks the item's OWN handles target for the box, rather than recomputing geometry per
-     * type here â the target is what draws the selection rectangle, so a hit-test that used
+     * type here — the target is what draws the selection rectangle, so a hit-test that used
      * anything else could disagree with the thing the user is aiming at.</p>
      */
     private boolean hitsInPreview(@NonNull com.fadcam.ui.faditor.layers.TimedItem item,
@@ -21349,12 +21349,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (item.getTextOverlay() != null) {
             // Pass-through is the same question for an image overlay as it is for a PiP: "stop
             // catching the taps I'm aiming at the thing behind it". A pass-through image is
-            // deliberately ungrabbable â that is the whole point of the toggle.
+            // deliberately ungrabbable — that is the whole point of the toggle.
             if (item.getTextOverlay().isPassThrough()) return false;
             t = textHandlesTarget(item.getTextOverlay());
         } else if (item.getSprite() != null) t = spriteHandlesTarget(item.getSprite());
         else if (item.getClip() != null && item.getClip().isOverlayClip()) {
-            // A PiP whose taps are set to pass through is deliberately ungrabbable â that is
+            // A PiP whose taps are set to pass through is deliberately ungrabbable — that is
             // the whole point of the toggle, and its lane badge says so.
             if (item.getClip().isPassThrough()) return false;
             t = pipHandlesTarget(item.getClip());
@@ -21365,7 +21365,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         float rot = t.rotationDeg(timeMs);
         if (rot != 0f) {
             // Inverse-rotate the point into the box's own frame, the same way the overlay's
-            // own inside-test does â otherwise a rotated object is only grabbable by the
+            // own inside-test does — otherwise a rotated object is only grabbable by the
             // axis-aligned rectangle that happens to bound it.
             double rad = Math.toRadians(-rot);
             float cx = r.centerX(), cy = r.centerY();
@@ -21379,7 +21379,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * G4 routing from {@code onItemSelectionChanged}: text/image, sprite and PiP get handle
-     * targets; audio/visualizer/caption â handles hidden (an audio clip has no canvas box, and
+     * targets; audio/visualizer/caption → handles hidden (an audio clip has no canvas box, and
      * the other two are drawn by layers that own their own gesture surfaces).
      */
     private void updatePreviewHandlesForSelection(
@@ -21390,7 +21390,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             ensurePreviewHandlesOverlay().setTarget(spriteHandlesTarget(item.getSprite()));
         } else if (item != null && item.getClip() != null && item.getClip().isOverlayClip()) {
             // PiPs at last. Handles on selection have been asked for since 2026-07-06
-            // (FEEDBACK_20260706_layers_ux Â§6), re-specified in PLAN_LAYERS_UX_ADDENDUM Â§6 and
+            // (FEEDBACK_20260706_layers_ux §6), re-specified in PLAN_LAYERS_UX_ADDENDUM §6 and
             // again in FEEDBACK_20260717 D1. Text and sprites got them; a PiP fell through to
             // setTarget(null), so selecting one showed nothing on the canvas and there was no
             // way to resize or rotate it there at all.
@@ -21403,7 +21403,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ G7: one-time gesture coach-mark (contract Â§6/Â§7) ââââââââââââââââââ
+    // ── G7: one-time gesture coach-mark (contract §6/§7) ──────────────────
     /** Pref flag (in {@code faditor_ui}): the per-item gesture coach-mark has been shown. */
     private static final String PREF_COACHMARK_ITEM_GESTURES = "coachmark_item_gestures_shown";
     /** Live coach-mark banner view, if one is on screen (null otherwise). */
@@ -21413,7 +21413,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * The first time the user ever selects a timeline item, surface a one-time,
      * non-blocking banner teaching the three invisible per-item gestures
      * (double-tap = edit, hold = its menu, drag = move). Hold and double-tap are
-     * undiscoverable, so JoyRaptor explicitly asked for a first-run hint (contract Â§6).
+     * undiscoverable, so JoyRaptor explicitly asked for a first-run hint (contract §6).
      * Shows once ever (persisted), auto-dismisses after a few seconds or on tap,
      * and is fully wrapped so a layout hiccup can never break selection.
      */
@@ -21506,10 +21506,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Handles target for a text/image overlay. Box = the EXACT laid-out
      * {@link com.fadcam.ui.faditor.overlay.TextOverlayLayer} child for this item
-     * (same view the user sees â no duplicated measure math; both layers are
+     * (same view the user sees — no duplicated measure math; both layers are
      * MATCH_PARENT siblings in player_container so coordinates line up). Writes
-     * mirror {@link #overlayMenuProp}'s setter: armed â record/update keys at
-     * the playhead, unarmed â static setters. ONE undo step per gesture via
+     * mirror {@link #overlayMenuProp}'s setter: armed → record/update keys at
+     * the playhead, unarmed → static setters. ONE undo step per gesture via
      * {@link #recordOverlayMenuUndo}.
      */
     @NonNull
@@ -21520,7 +21520,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onDoubleTapped() {
-                // Grammar: double-tap = type editor â works even while the handles
+                // Grammar: double-tap = type editor — works even while the handles
                 // consume in-box touches (JoyRaptor 2026-07-19 fix).
                 showTextOverlayEditor(o);
             }
@@ -21534,7 +21534,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 }
                 // BOTH surfaces. An overlay whose lane is ordered BELOW the video plane is
                 // rendered by overlayLayerBelow, so searching only overlayLayer reported "no box"
-                // for it â and since this same target answers the preview hit-test, a below-z
+                // for it — and since this same target answers the preview hit-test, a below-z
                 // object could not be selected by tapping it AT ALL. That is JoyRaptor's 2026-08-12
                 // report: tapping picked the foreground images and the text box but never the
                 // background image. Same neglected surface as the per-tick rebuild in setData.
@@ -21560,8 +21560,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 lp.leftMargin + lp.width, lp.topMargin + lp.height);
                         // A TextBoxView is deliberately LARGER than the text box it draws, so a
                         // glyph animating outside the box is not clipped by the view edge
-                        // (TextBoxView.EXCURSION_EM). The selection frame must hug the BOX â the
-                        // thing the user placed â not the view. Without this the dashed rect and
+                        // (TextBoxView.EXCURSION_EM). The selection frame must hug the BOX — the
+                        // thing the user placed — not the view. Without this the dashed rect and
                         // its corner handles stand about two type-sizes clear of the text on
                         // every side, which reads as a broken selection rather than as slack.
                         if (v instanceof com.fadcam.ui.faditor.overlay.TextBoxView) {
@@ -21630,7 +21630,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void commit(@NonNull String what) {
-                // A committed transform gesture is the user claiming this object â see the
+                // A committed transform gesture is the user claiming this object — see the
                 // placeholder cleanup in showTextOverlayEditor for why that has to be recorded.
                 textOverlayTouchedHere.add(o.getId());
                 if (before != null) recordOverlayMenuUndo(o, before, what + " overlay");
@@ -21653,11 +21653,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Re-read the open drawer's numeric rows after a HAND write.
      *
      * <p>The drawer's readouts were refreshed only on a playhead tick, and dragging or pinching an
-     * object in the preview does not move the playhead â so every hand gesture left the numbers,
+     * object in the preview does not move the playhead — so every hand gesture left the numbers,
      * the slider thumbs and the keyframe diamonds showing the pose the object had BEFORE it was
-     * touched. That is JoyRaptor's "divergence between zooms by hand vs sliders â¦ not showing
+     * touched. That is JoyRaptor's "divergence between zooms by hand vs sliders … not showing
      * consistently" (2026-08-12): the two surfaces were not computing different answers, one of
-     * them simply was not being asked again. Measured on the Note 9 â a hand drag moved the image
+     * them simply was not being asked again. Measured on the Note 9 — a hand drag moved the image
      * and the drawer still read 4%.</p>
      */
     private void refreshOpenDrawerRows() {
@@ -21669,14 +21669,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
 
     /**
-     * Drive BOTH text-overlay surfaces from the playhead â the normal one and the
+     * Drive BOTH text-overlay surfaces from the playhead — the normal one and the
      * draw-only below-the-PiP one added by SPEC_CROSSTYPE_Z Z3.
      *
      * <p>The below surface was never being ticked (21 call sites for the above surface, 0
      * for it), so it sat frozen at {@code currentTimeMs == 0} forever: an item ordered
      * under the PiP plane never animated its keyframes and was VISIBLE ONLY IF its time
      * range happened to contain 0ms. Export draws that same item correctly in its own Z4
-     * pass, so the two disagreed â the precise preview/export divergence Z3 and Z4 were
+     * pass, so the two disagreed — the precise preview/export divergence Z3 and Z4 were
      * landed together to prevent. Timers made it impossible to miss: one on a below lane
      * would simply never count.</p>
      */
@@ -21685,7 +21685,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ms = overlayClockMs(ms);
         // Each surface gates on its OWN visibility. The per-tick caller used to gate both
         // on the ABOVE layer's, which would starve the below one whenever the above was
-        // hidden â the same starvation in a different disguise.
+        // hidden — the same starvation in a different disguise.
         if (overlayLayer != null && overlayLayer.getVisibility() == View.VISIBLE) {
             overlayLayer.setPlayheadMs(ms);
         }
@@ -21703,23 +21703,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * construction</b>. The timeline's scrub emitter makes that worse rather than better: when the
      * playhead goes past the last clip, {@code EditorTimelineView.updatePlayheadFromX} clamps
      * {@code targetSegment} to the last segment AND clamps {@code posInSegmentMs} to that
-     * segment's end, then reports it â so the overlays are told "5743ms" while the timeline's own
+     * segment's end, then reports it — so the overlays are told "5743ms" while the timeline's own
      * {@code playheadPositionMs} (which is what the on-screen time chip draws) says 20872ms.</p>
      *
      * <p>The visible result was that <b>nothing whose time range begins past the last video clip
      * was drawn, positioned or keyframable in the editor at all</b>, while the export renders it
-     * correctly since {@code 9b03bdc}/{@code 5a6cb4c} â preview and export disagreeing about a
+     * correctly since {@code 9b03bdc}/{@code 5a6cb4c} — preview and export disagreeing about a
      * whole region of the timeline, in the direction that hides work the user has already done.
-     * Measured on the Note 9: at 20.872s, inside {@code LayerOne}'s 20556â25117 span, the preview
-     * drew the always-visible PICKERTEST box and not {@code LayerOne}. See LEDGER Â§1.</p>
+     * Measured on the Note 9: at 20.872s, inside {@code LayerOne}'s 20556–25117 span, the preview
+     * drew the always-visible PICKERTEST box and not {@code LayerOne}. See LEDGER §1.</p>
      *
      * <p><b>Why it is written as a conditional rather than "just use the timeline's value".</b>
-     * Inside the master track the segment-derived number is the AUTHORITATIVE one â it comes from
+     * Inside the master track the segment-derived number is the AUTHORITATIVE one — it comes from
      * the player, so it is what keeps the preview frame and the overlays on the same clock during
-     * playback, and the whole Â§2a playhead/clip-mapping fix is built on it. So this changes
+     * playback, and the whole §2a playhead/clip-mapping fix is built on it. So this changes
      * nothing there: it only takes over in the region where the segment-derived value is a clamp
      * rather than a measurement. That is deliberately the smallest possible blast radius in a
-     * method the Â§2a work hardened.</p>
+     * method the §2a work hardened.</p>
      */
     private long overlayClockMs(long segmentDerivedMs) {
         if (editorTimeline == null || project == null) return segmentDerivedMs;
@@ -21729,7 +21729,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return absoluteMs > masterEndMs ? absoluteMs : segmentDerivedMs;
     }
 
-    /** Sprite twin of {@link #setTextOverlayPlayhead} â same frozen-below-surface bug. */
+    /** Sprite twin of {@link #setTextOverlayPlayhead} — same frozen-below-surface bug. */
     private void setSpriteOverlayPlayhead(long ms) {
         if (spriteOverlayView != null) spriteOverlayView.setPlayheadMs(ms);
         if (spriteOverlayViewBelow != null) spriteOverlayViewBelow.setPlayheadMs(ms);
@@ -21737,7 +21737,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Handles target for a sprite. Box math mirrors SpriteOverlayView#drawSprite
-     * (height fraction Ã cell aspect); writes/undo mirror {@link #spriteMenuProp}.
+     * (height fraction × cell aspect); writes/undo mirror {@link #spriteMenuProp}.
      */
     @NonNull
     private com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target spriteHandlesTarget(
@@ -21894,8 +21894,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             /**
              * The PiP's own scale multiplier. The overlay treats {@code sizeFraction} as an
-             * opaque magnitude â it only ever computes {@code startSize * dragRatio} and hands
-             * it back to {@link #scaleTo} â so the PiP's native unit round-trips exactly, with
+             * opaque magnitude — it only ever computes {@code startSize * dragRatio} and hands
+             * it back to {@link #scaleTo} — so the PiP's native unit round-trips exactly, with
              * no conversion through frame height to get wrong in one direction.
              */
             private float pipScale(long t) {
@@ -21915,8 +21915,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // their item's own window (isVisibleAt); this one never did, and drawnRectFor
                 // hands back the rect from whenever the PiP last drew. So a PiP that finished
                 // long ago kept a live selection box: JoyRaptor's project (2026-08-12) has one whose
-                // window is 0â5226ms, and at 2:15 its box still sat over the right half of the
-                // canvas â a "free floating thing completely detached from the thing it's
+                // window is 0–5226ms, and at 2:15 its box still sat over the right half of the
+                // canvas — a "free floating thing completely detached from the thing it's
                 // supposed to be bounding", stealing taps meant for the images beneath it, and
                 // rotating or scaling it changed nothing visible because the PiP was not being
                 // rendered at all. Same window PipFrameOverlay.activeAt uses.
@@ -21998,7 +21998,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void refreshPipAfterHandleWrite() {
         if (overlayVideoLayer != null) {
             // setPlayheadMs re-runs applyTransform; the time is unchanged so no reseek fires.
-            // Pass the REAL playing state â a hardcoded false would pause the PiP decoder the
+            // Pass the REAL playing state — a hardcoded false would pause the PiP decoder the
             // moment a handle is touched during playback.
             overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
                     playerManager != null && playerManager.isPlaying());
@@ -22012,7 +22012,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * overlay into a clock; the rest appear ONLY once it is one, so an ordinary caption's
      * drawer is untouched.
      *
-     * <p>Images are excluded â a timer replaces the displayed STRING, which an image
+     * <p>Images are excluded — a timer replaces the displayed STRING, which an image
      * overlay does not have.</p>
      */
     private void addTimerActions(@NonNull java.util.List<ObjectMenuSheet.Action> actions,
@@ -22031,7 +22031,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final boolean down =
                 spec.getDirection() == com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_DOWN;
         actions.add(new ObjectMenuSheet.Action(
-                down ? "Counting: down â¾" : "Counting: up â´", false, () -> {  // TODO(strings)
+                down ? "Counting: down ▾" : "Counting: up ▴", false, () -> {  // TODO(strings)
             com.fadcam.ui.faditor.model.TimerSpec next = spec.copy();
             next.setDirection(down
                     ? com.fadcam.ui.faditor.model.TimerSpec.Direction.COUNT_UP
@@ -22133,7 +22133,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * A timer edit changes the STRING an overlay draws, so the preview view must be rebuilt
-     * (not just repositioned) before the playhead re-evaluates it â the TextView caches its
+     * (not just repositioned) before the playhead re-evaluates it — the TextView caches its
      * text, and turning a timer off has to restore the authored text.
      */
     private void refreshAfterTimerEdit(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
@@ -22149,10 +22149,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * G2 (gesture contract Â§2): the general advanced menu for a text/image
-     * overlay â general keyframeable property rows (position/scale/rotation/
+     * G2 (gesture contract §2): the general advanced menu for a text/image
+     * overlay — general keyframeable property rows (position/scale/rotation/
      * opacity, each with a G2-basic keyframe diamond), the object's layer
-     * actions, header delete, and "Moreâ¦" into the same type editor double-tap
+     * actions, header delete, and "More…" into the same type editor double-tap
      * opens. Supersedes the interim showLayerItemActionsDialog list dialog.
      * One undo step per slider gesture / keyframe drop (TransformSnapshot).
      */
@@ -22167,15 +22167,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final String K_OP = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
 
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "Â°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
 
-        // Contract Â§2 general order: Transform (position Â· scale Â· rotation),
+        // Contract §2 general order: Transform (position · scale · rotation),
         // then Opacity. Peek still defaults to Opacity (the everyday row).
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         // Transform slider travel is scale-proportional (user, 2026-08-09): the
         // render layer grows the centre's travel limit with the object's own
         // rendered size, so a huge overlay can be pushed until it just leaves the
-        // frame â a fixed 0..100% range could only ever get an object fully off
+        // frame — a fixed 0..100% range could only ever get an object fully off
         // frame for at most one frame-height (KeyframeSet.POS_MIN rationale).
         props.add(overlayMenuProp(o, K_X, "Pos X",
                 -o.getCenterLimitX(), 1f + o.getCenterLimitX(), pct,   // TODO(strings)
@@ -22201,16 +22201,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int rowIdx = overlayItemRowIndex(o, layers);
         if (layers.size() > 1 && rowIdx >= 0) {
             if (rowIdx > 0) { // not already the top row (row 0 = highest z)
-                actions.add(new ObjectMenuSheet.Action("Move layer â²", false, // TODO(strings)
+                actions.add(new ObjectMenuSheet.Action("Move layer ▲", false, // TODO(strings)
                         () -> moveOverlayItemToAdjacentLayer(o, true)));
             }
             if (rowIdx < layers.size() - 1) {
-                actions.add(new ObjectMenuSheet.Action("Move layer â¼", false, // TODO(strings)
+                actions.add(new ObjectMenuSheet.Action("Move layer ▼", false, // TODO(strings)
                         () -> moveOverlayItemToAdjacentLayer(o, false)));
             }
         }
         // "Clear all keyframes" moved off the old animation panel into the drawer
-        // (D2a) â one undo step, no confirm (the Ã diamond removes single keys).
+        // (D2a) — one undo step, no confirm (the × diamond removes single keys).
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
                 () -> clearAllOverlayKeyframes(o)));
 
@@ -22224,7 +22224,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         };
 
-        // Peek-visible range chips (C2): Start/End here must work WHILE scrubbing â
+        // Peek-visible range chips (C2): Start/End here must work WHILE scrubbing —
         // exactly what the retired modal dialog made impossible.
         java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
         rangeChips.add(new ObjectMenuSheet.Action(getString(R.string.faditor_trim_start_here), false,
@@ -22233,11 +22233,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 () -> setOverlayRangeEdgeAtPlayhead(o, false)));
 
         String title = o.isImage() ? "Image"                            // TODO(strings)
-                : (o.getText().length() > 18 ? o.getText().substring(0, 18) + "â¦" : o.getText());
+                : (o.getText().length() > 18 ? o.getText().substring(0, 18) + "…" : o.getText());
         Integer swatch = o.isImage() ? null : o.getColorInt();
         addObjectVisibilityActions(actions, o::isHidden, o::setHidden, o::isLocked, o::setLocked);
         maybeAddLinkActions(actions, o.getId());
-        // Images: the drawer IS their type editor â no "Moreâ¦" target left.
+        // Images: the drawer IS their type editor — no "More…" target left.
         Runnable onMore = o.isImage() ? null : () -> showTextOverlayEditor(o);
         ObjectMenuSheet sheet = ensureObjectMenuSheet();
         sheet.show(title, swatch, props, actions,
@@ -22245,10 +22245,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         attachTextOverlayTimeScrub(sheet, o);
     }
 
-    // ââ Object time-scrubber wiring (SPEC_OBJECT_TIME_SCRUBBER Â§8) ââââââââââââââââââââââââ
+    // ── Object time-scrubber wiring (SPEC_OBJECT_TIME_SCRUBBER §8) ────────────────────────
     // v1 slice: TEXT OVERLAYS only, LOCK-only collision (push-through relayer + cross-lane glide
     // are the next slice; the toggle is hidden). Per frame it moves the overlay's WHOLE span and
-    // refreshes the timeline LIGHT (updateLayerItemStartLight â no full sync, so no long-project
+    // refreshes the timeline LIGHT (updateLayerItemStartLight — no full sync, so no long-project
     // ANR); one undo step on release. Keyframes ride along automatically because they are stored
     // in item-LOCAL time (TextOverlayItem.localTime = timelineMs - startMs).
 
@@ -22258,7 +22258,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     private void attachTextOverlayTimeScrub(@NonNull ObjectMenuSheet sheet,
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
-        // A LOCKED object must not be movable (its menu is still openable â that's where Unlock
+        // A LOCKED object must not be movable (its menu is still openable — that's where Unlock
         // lives), so leave the Move-in-time section hidden; show() already reset it hidden.
         if (project == null || o.isLocked()) return;
         final long[] fromRange = new long[2]; // [start, end] snapshot at gesture begin (for undo)
@@ -22364,7 +22364,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * "Start here" / "End here" off the drawer's peek chips: clip the overlay's
      * visible range to the playhead (same validation as the old dialog buttons,
-     * now with ONE undo step â the dialog version recorded none).
+     * now with ONE undo step — the dialog version recorded none).
      */
     private void setOverlayRangeEdgeAtPlayhead(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, boolean startEdge) {
@@ -22415,8 +22415,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * "â Span whole": stretch the overlay's visible range over the whole project â the common
-     * shape for an image is "everything" â in ONE undo step (mirrors
+     * "↔ Span whole": stretch the overlay's visible range over the whole project — the common
+     * shape for an image is "everything" — in ONE undo step (mirrors
      * spanAdjustmentLayerOverTimeline; overlays use startMs/endMs where endMs == Long.MAX_VALUE
      * means "to the end", so setTimeRange(0, total) is the exact span).
      */
@@ -22439,7 +22439,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * G2: the same general advanced menu for a SPRITE instance (SpriteOverlayItem
-     * mirrors TextOverlayItem's transform/keyframe shape deliberately). Moreâ¦ =
+     * mirrors TextOverlayItem's transform/keyframe shape deliberately). More… =
      * the sprite palette (same as double-tap); delete = confirm + one undo step.
      */
     private void showObjectMenuSheetForSprite(
@@ -22449,7 +22449,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final String K_OP = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
 
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "Â°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
 
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
@@ -22475,9 +22475,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(s.getSheetId());
         String title = sheet != null ? sheet.getName() : "Sprite";        // TODO(strings)
-        // Delete lives on the timeline selection badge only (JoyRaptor 2026-07-17 â
-        // the drawer trash was confusing next to Ã, and duplicated the badge).
-        // Sprites are one-per-lane (T8) so no layer-move actions â just the
+        // Delete lives on the timeline selection badge only (JoyRaptor 2026-07-17 —
+        // the drawer trash was confusing next to ×, and duplicated the badge).
+        // Sprites are one-per-lane (T8) so no layer-move actions — just the
         // drawer's "Clear all keyframes" (D2a).
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         actions.add(new ObjectMenuSheet.Action("Clear all keyframes", true, // TODO(strings)
@@ -22489,7 +22489,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Sprite delete confirmation â one undo step. Was the drawer trash's inline
+     * Sprite delete confirmation — one undo step. Was the drawer trash's inline
      * dialog; now fired from the timeline selection badge (the single delete
      * affordance, JoyRaptor 2026-07-17).
      */
@@ -22570,7 +22570,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /** Sprite twin of {@link #clearAllOverlayKeyframes} (no clearKeyframes() on
-     *  SpriteOverlayItem â remove each track's keys through the KeyframeSet). */
+     *  SpriteOverlayItem — remove each track's keys through the KeyframeSet). */
     private void clearAllSpriteKeyframes(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
         if (!s.isArmed()) return;
@@ -22714,19 +22714,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         scheduleAutoSave();
     }
 
-    // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-    // Â§2 ObjectMenuSheet adapters for AUDIO / PiP / VISUALIZER (spec: the
+    // ═══════════════════════════════════════════════════════════════════
+    // §2 ObjectMenuSheet adapters for AUDIO / PiP / VISUALIZER (spec: the
     // hold-drawer's general menu, previously text/sprite only). Three backends:
-    //   â¢ Audio  â its OWN volume envelope (VolumeKeyframe, clip-local ms,
+    //   • Audio  — its OWN volume envelope (VolumeKeyframe, clip-local ms,
     //     linear only), NOT a KeyframeSet; one "Volume" prop, no ease picker.
-    //   â¢ PiP    â an overlay Clip whose getOverlayTransform() IS a KeyframeSet
+    //   • PiP    — an overlay Clip whose getOverlayTransform() IS a KeyframeSet
     //     with ABSOLUTE-ms keys (preview + export sample valueAt at absolute ms).
-    //   â¢ Viz    â static transform only (no KeyframeSet) â Prop.staticProp, no
-    //     diamond; the rich per-type editor stays behind Moreâ¦/showVisualizerDrawer.
+    //   • Viz    — static transform only (no KeyframeSet) → Prop.staticProp, no
+    //     diamond; the rich per-type editor stays behind More…/showVisualizerDrawer.
     // C6 retarget starts working for all three the moment they dispatch here.
-    // âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ═══════════════════════════════════════════════════════════════════
 
-    // ââ AUDIO (volume envelope) ââââââââââââââââââââââââââââââââââââââââââ
+    // ── AUDIO (volume envelope) ──────────────────────────────────────────
 
 
     private void setAudioRangeEdgeAtPlayhead(@NonNull com.fadcam.ui.faditor.model.AudioClip ac, boolean startEdge) {
@@ -22866,7 +22866,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
 
-    // ââ PiP (overlay video clip transform) âââââââââââââââââââââââââââââââ
+    // ── PiP (overlay video clip transform) ───────────────────────────────
 
     /** PiP overlay-clip transform property keys (the shared KeyframeSet primitives). */
     private static final String[] PIP_KEYS = {
@@ -22877,32 +22877,32 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY};
 
     /**
-     * Â§2 general menu for a PiP overlay {@link Clip}. Its {@code getOverlayTransform()}
-     * KeyframeSet holds ABSOLUTE-timeline-ms keys â preview ({@code OverlayVideoPreviewView})
-     * and export ({@code PipFrameOverlay}) both sample {@code valueAt} at absolute ms â so
+     * §2 general menu for a PiP overlay {@link Clip}. Its {@code getOverlayTransform()}
+     * KeyframeSet holds ABSOLUTE-timeline-ms keys — preview ({@code OverlayVideoPreviewView})
+     * and export ({@code PipFrameOverlay}) both sample {@code valueAt} at absolute ms — so
      * the diamond helpers run with itemStart=0. Undo reuses {@link #restoreOverlayTransform}.
      */
     /**
-     * Â§3a eyedropper â armed by the Mask &amp; Key panel, consumed by the NEXT tap anywhere in
+     * §3a eyedropper — armed by the Mask &amp; Key panel, consumed by the NEXT tap anywhere in
      * the editor. Held here rather than on {@code overlayVideoLayer} because five sibling
      * overlay layers (waveform, layer image, sprite, TEXT, captions) sit above it in
-     * {@code activity_faditor_editor.xml}, and the text layer swallows preview taps â so a
+     * {@code activity_faditor_editor.xml}, and the text layer swallows preview taps — so a
      * dropper armed inside the PiP view never receives a touch at all. Only
      * {@link #dispatchTouchEvent} is above every sibling.
      */
     @Nullable private com.fadcam.ui.faditor.tools.MaskKeyPanel.ColorPicked pendingEyedropper;
 
     /**
-     * Â§3a MASK &amp; KEY â the authoring UI for {@code CompositingSpec}.
+     * §3a MASK &amp; KEY — the authoring UI for {@code CompositingSpec}.
      *
      * <p>The panel itself lives in {@link com.fadcam.ui.faditor.tools.MaskKeyPanel}; this method
      * is only the {@code Host} wiring. It USED to be ~120 lines of dialog inline here, and the
-     * key half would have added as many again to a file that is already 27,000 lines â so it
+     * key half would have added as many again to a file that is already 27,000 lines — so it
      * moved out rather than growing, matching {@code ObjectMenuSheet}/{@code FilterBottomSheet}.
      *
      * <p><b>Both halves now render live in the preview.</b> The mask goes through
      * {@code MaskPathBuilder} and the key through {@code ChromaKeyTextureView}, which compiles
-     * the same {@code ChromaKey.GLSL_KEY_FN} the export effect does â so every slider is tuned
+     * the same {@code ChromaKey.GLSL_KEY_FN} the export effect does — so every slider is tuned
      * against what the file will actually contain. That was the binding condition (2026-07-28)
      * on the key getting a UI at all.</p>
      */
@@ -22940,7 +22940,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * time; the only writer of {@code Clip.setOverlayBlendMode} was the deserializer, so the modes
      * were unreachable. A single-choice list, one undo step.</p>
      *
-     * <p><b>The preview composites NORMAL only</b> â that is a documented, long-standing tradeoff
+     * <p><b>The preview composites NORMAL only</b> — that is a documented, long-standing tradeoff
      * (PLAN_LAYERS_V2 M-COMP-2: the preview layers a TextureView rather than running a GL
      * compositor, and blend-mode preview is the one thing that would force that rewrite). The
      * chosen mode is therefore labelled as applying on export, so the user is told rather than
@@ -22994,7 +22994,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * why half the film is ungraded is not.</p>
      *
      * <p>It lands in the {@code "adjustment"} lane, which {@code Timeline.getLayers} emits
-     * ABOVE the video/PiP phase â so a new layer affects everything built so far, which is the
+     * ABOVE the video/PiP phase — so a new layer affects everything built so far, which is the
      * After Effects reading.</p>
      *
      * <p><b>It renders nothing yet</b>, by design (M3). What it does do is exist: it can be
@@ -23006,17 +23006,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>Deliberately one button doing two things, and it is the right two. The drawer that
      * would normally own an object's editor is reached by hold-then-release on its timeline
-     * chip â a gesture that is undiscoverable enough to need a coach-mark, and which cannot be
+     * chip — a gesture that is undiscoverable enough to need a coach-mark, and which cannot be
      * driven by adb at all, so it is also unverifiable from here. Routing the FX panel through
      * the tool the user already pressed to make the layer means the feature is reachable by tap
      * on the first try.</p>
      *
-     * <p>Add a SECOND layer by pressing the tool while the panel is open â the panel's own
+     * <p>Add a SECOND layer by pressing the tool while the panel is open — the panel's own
      * header says so. That keeps "make another" possible without making it the default, since
      * wanting two adjustment layers is much rarer than wanting to edit the one you just made.</p>
      */
     /**
-     * The live-preview controller â one renderer, on every device this app ships to.
+     * The live-preview controller — one renderer, on every device this app ships to.
      *
      * @see com.fadcam.ui.faditor.compositor.FxLivePreviewController
      */
@@ -23033,7 +23033,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * True while the GL chain is drawing the image clip itself.
      *
      * <p>{@link #imagePreview} must then be transparent, or the RAW photo would sit on top of the
-     * graded one and the grade would look like it had done nothing â the exact symptom this whole
+     * graded one and the grade would look like it had done nothing — the exact symptom this whole
      * change exists to remove. Alpha rather than GONE, so nothing that measures the view moves.</p>
      */
     private boolean glOwnsImagePreview;
@@ -23062,7 +23062,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * The clip the PLAYHEAD is inside, which is not the same thing as the selected clip.
      *
      * <p>The live preview asked {@code getSelectedClip()} for the grade to show, and that
-     * returns the clip the user last TAPPED â falling back to clip 0 when nothing is selected.
+     * returns the clip the user last TAPPED — falling back to clip 0 when nothing is selected.
      * So on any multi-clip project the editor applied one clip's exposure, contrast and vignette
      * to another clip's frames, and during playback the grade never changed at all because the
      * selection never changed. The preview cannot claim to match the export while it is grading
@@ -23085,7 +23085,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     findViewById(R.id.fx_preview_view);
             if (v == null) return;
             // The image-clip bitmap source, wired to the SAME GL-thread trash queue the PiP
-            // stills use â a bitmap handed to the chain must never be recycled by this side.
+            // stills use — a bitmap handed to the chain must never be recycled by this side.
             imageBaseStills = new com.fadcam.ui.faditor.compositor.ImageBaseStillCache(
                     this, () -> syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs)));
             imageBaseStills.setTrash(v.stillTrash());
@@ -23150,7 +23150,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             return layerImageOverlay.getOverlayBitmap(frameW, frameH, playheadMs);
                         }
                         @Override public void onLayerImageOverlayRouted(boolean routed) {
-                            // Keep View for interaction (hit-test) â only drawing moves to GL.
+                            // Keep View for interaction (hit-test) — only drawing moves to GL.
                             // Alpha 0 keeps it VISIBLE so it still receives touch, unlike GONE.
                             if (layerImageOverlay != null) layerImageOverlay.setAlpha(routed ? 0f : 1f);
                         }
@@ -23167,7 +23167,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Does this project composite any picture-in-picture video?
      *
      * <p>Used only to decide whether the FX panel owes the user a caveat. Cheap enough to answer
-     * on each panel build â a timeline has tens of clips, not thousands.</p>
+     * on each panel build — a timeline has tens of clips, not thousands.</p>
      */
     private boolean projectHasKeyedOverlayVideo() {
         if (project == null) return false;
@@ -23187,8 +23187,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * press and edit the topmost one afterwards, which conflated two different things. Adjusting
      * an OBJECT stacks effects that ride with that object and change only it; an ADJUSTMENT
      * LAYER is an empty container in the lanes whose effects change everything beneath it. One
-     * button cannot mean both. Creating a layer now lives in Add â where the user looked for it
-     * and did not find it â and this tool is the second, discoverable route to the panel that
+     * button cannot mean both. Creating a layer now lives in Add — where the user looked for it
+     * and did not find it — and this tool is the second, discoverable route to the panel that
      * long-pressing an object already gives.</p>
      *
      * <p>Any open sheet is dismissed first. With a modal sheet up, the tap that reaches this
@@ -23262,28 +23262,28 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Close any modal object sheet that is up.
      *
      * <p>Without this the first tap on a tool is eaten by the sheet's scrim and the tool looks
-     * broken â which is exactly how the Adjust tool was reported.</p>
+     * broken — which is exactly how the Adjust tool was reported.</p>
      */
     private void dismissOpenObjectSheets() {
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) objectMenuSheet.hide();
         // The curve handles belong to a panel that is about to be replaced or closed. Leaving
         // them up would put a live drag surface over the preview for a card the user can no
-        // longer see â and every drawer-opening path comes through here.
+        // longer see — and every drawer-opening path comes through here.
         setGradientPreviewEdit(null, null, null, null);
     }
 
     /** The FX stack editor for one adjustment layer (SPEC_ADJUSTMENT_LAYERS_FX M6). */
     private void showAdjustmentDrawer(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
-        // NO SESSION SNAPSHOT. FxPanel records one step per edit now â add, delete, bypass,
-        // reorder, preset, each chip, and one per slider DRAG rather than per value â so a
+        // NO SESSION SNAPSHOT. FxPanel records one step per edit now — add, delete, bypass,
+        // reorder, preset, each chip, and one per slider DRAG rather than per value — so a
         // whole-session action on top of them double-counted every change. Concretely: add
         // Blur, drag it to 0.8, close the drawer, then undo/undo/redo. The redo restored the
         // stack as it was BEFORE the slider moved, because that snapshot predated it, landing
         // the user in a state that never existed. Two authorities for one delta cannot agree.
         com.fadcam.ui.faditor.tools.FxPanel.Host fxHost =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
-            // Curve gradients are placed in the PREVIEW, not on sliders â see
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(
                     @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
@@ -23299,8 +23299,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override public void onFxChanged() {
                 if (editorTimeline != null) editorTimeline.invalidate();
                 // Push the new stack at the preview NOW. syncAdjustmentPreview otherwise only
-                // runs on a playhead tick, so editing a stack while PAUSED â which is how
-                // anyone actually dials in an effect â would change nothing on screen until
+                // runs on a playhead tick, so editing a stack while PAUSED — which is how
+                // anyone actually dials in an effect — would change nothing on screen until
                 // playback was started. The first device run showed exactly that: the card
                 // appeared, the picture did not move.
                 syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
@@ -23315,7 +23315,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
             }
             @Override public String previewCaveat() {
-                // A PiP IS composited into the graded chain now â except a CHROMA-KEYED one,
+                // A PiP IS composited into the graded chain now — except a CHROMA-KEYED one,
                 // which keeps its own live tier because that produces per-pixel alpha this
                 // composite has no equivalent for. So the caveat narrowed from "any PiP" to
                 // "a keyed PiP", and is still asked per-project rather than stated always.
@@ -23325,7 +23325,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         };
 
-        // Flush whatever compositing session the PREVIOUS object left open â same reason
+        // Flush whatever compositing session the PREVIOUS object left open — same reason
         // showPipDrawer does it first: the drawer is one reused instance that show() retargets
         // without ever closing, so skipping this would silently drop the prior object's Mask/Key
         // edits from the undo stack. See commitPendingCompUndo's doc.
@@ -23343,12 +23343,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override public void pickColorFromPreview(
                     @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
                 // The PiP eyedropper hit-tests a CLIP's own decoder texture (see
-                // OverlayVideoPreviewView.sampleAt) â there is no equivalent surface for an
+                // OverlayVideoPreviewView.sampleAt) — there is no equivalent surface for an
                 // adjustment layer to sample, since it has no footage of its own. Declining
                 // honestly beats arming a dropper that would silently sample the wrong thing
                 // (or nothing) on the next tap.
                 android.widget.Toast.makeText(FaditorEditorActivity.this,
-                        "Pick a swatch â the eyedropper isn't available on an adjustment layer",
+                        "Pick a swatch — the eyedropper isn't available on an adjustment layer",
                         android.widget.Toast.LENGTH_SHORT).show();     // TODO(strings)
                 cb.onPicked(null);
             }
@@ -23366,7 +23366,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
                     col.setOrientation(android.widget.LinearLayout.VERTICAL);
                     float dp = ctx.getResources().getDisplayMetrics().density;
-                    // THREE trim moves â "â¤ Start here" / "â Span whole" / "End here â¥" (JoyRaptor,
+                    // THREE trim moves — "⇤ Start here" / "↔ Span whole" / "End here ⇥" (JoyRaptor,
                     // 2026-08-08). The two flanking buttons move the layer's respective EDGE to
                     // wherever the playhead is, the centre one spans it over everything.
                     //
@@ -23412,12 +23412,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             ctx, layer.getFx(), fxHost));
                     return col;
                 }));
-        // Masks, chroma key and blend mode â the same three tabs a PiP's drawer offers,
+        // Masks, chroma key and blend mode — the same three tabs a PiP's drawer offers,
         // reusing PipDrawerTabs' content wholesale (JoyRaptor, 2026-08-08: "much the same UI as
         // video overlay ... we dont need a later redundant [Effects tab]", which is why there
         // is no fourth tab here duplicating what "layer.getName()" above already is). Masks and
-        // chroma key restrict WHERE the grade lands rather than what is drawn â see the class
-        // doc on AdjustmentLayer â and both are ALREADY wired into the shared FxGlSource seam
+        // chroma key restrict WHERE the grade lands rather than what is drawn — see the class
+        // doc on AdjustmentLayer — and both are ALREADY wired into the shared FxGlSource seam
         // that AdjustmentLayerGlEffect (export) and FxPreviewTextureView (preview) both compile,
         // so this tab list is not decoration: every control here changes the exported picture.
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
@@ -23436,7 +23436,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(ctx,
                         layer::getBlendMode,
                         mode -> {
-                            // A single tap, not a drag â cheap to give it its own undo step
+                            // A single tap, not a drag — cheap to give it its own undo step
                             // rather than folding it into the mask/key session snapshot below,
                             // which only ever tracks CompositingSpec.
                             String before = layer.getBlendMode();
@@ -23465,16 +23465,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     scheduleAutoSave();
                 }, true));
 
-        // NO SESSION-CLOSE UNDO for the FX tab. FxPanel records one step per edit now â add,
-        // delete, bypass, reorder, preset, each chip, each slider drag â so a whole-session
+        // NO SESSION-CLOSE UNDO for the FX tab. FxPanel records one step per edit now — add,
+        // delete, bypass, reorder, preset, each chip, each slider drag — so a whole-session
         // action on top of them double-counted every change. Concretely: add Blur, drag it to
         // 0.8, close. Undo, undo, redo restored the stack as it was BEFORE the slider moved,
-        // because that snapshot predated it â one press of redo landed the user in a state that
+        // because that snapshot predated it — one press of redo landed the user in a state that
         // never existed. Two authorities for one delta cannot both be right.
         //
-        // The Mask/Key tabs are the OPPOSITE case â a slider drag on them is a stream of values
+        // The Mask/Key tabs are the OPPOSITE case — a slider drag on them is a stream of values
         // with no per-frame undo of its own (PipDrawerTabs.Host.recordUndo is declared and never
-        // called from those tabs, exactly as it was for the PiP drawer) â so they get ONE
+        // called from those tabs, exactly as it was for the PiP drawer) — so they get ONE
         // session-snapshot step, taken and committed the same way showPipDrawer's does.
         final String compBefore = spec.toJson().toString();
         pendingCompUndoCommit = () -> {
@@ -23499,7 +23499,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Cut the selected adjustment layer in two at the playhead.
      *
-     * <p>Both halves keep the whole effect stack â splitting a grade is how you make it diverge
+     * <p>Both halves keep the whole effect stack — splitting a grade is how you make it diverge
      * over time (fade one half out, retune the other), so starting the right half empty would be
      * the opposite of the reason anyone splits one.</p>
      *
@@ -23507,7 +23507,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * can fall through to its clip path.</p>
      */
     /**
-     * Â§3.5 "selected = target": Split must act on the selected LAYER object, not whatever master
+     * §3.5 "selected = target": Split must act on the selected LAYER object, not whatever master
      * clip sits under the playhead. Text/sprite overlays split their visible span at the playhead
      * (two objects, keyframes re-based to each half's new start); an overlay clip (PiP) splits
      * its source range. Returns true when the selection was handled (so the caller never falls
@@ -23517,7 +23517,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (project == null || editorTimeline == null) return false;
         String selectedId = editorTimeline.getSelectedLayerItemId();
         if (selectedId == null) return false;
-        // Â§2.3: splitting a locked object asks first. Returning true either way is deliberate â
+        // §2.3: splitting a locked object asks first. Returning true either way is deliberate —
         // the interaction IS handled, and letting the caller fall through to the master clip while
         // a dialog about the user's object is on screen would cut something else entirely.
         if (askedAboutLockedSelection(this::splitSelectedLayerItem)) return true;
@@ -23546,10 +23546,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // Keyframes are stored item-LOCAL; the right half's start moved to `cut`, so rebase.
             // The right half must CONTINUE the animation at the cut, not restart it: drop every
             // pre-cut key and pin one at its new local 0 holding the track's value AT the cut
-            // (adversarial review #2 â a naive shift clamped pre-cut keys to 0 with their authored
+            // (adversarial review #2 — a naive shift clamped pre-cut keys to 0 with their authored
             // value, making the object snap at the seam).
             rebaseOverlayKeyframes(right.getKeyframes(), left.getKeyframes(), cut - start);
-            // A host-anchored overlay's offset is relative to its host â slide it with the split.
+            // A host-anchored overlay's offset is relative to its host — slide it with the split.
             if (right.getHostClipId() != null) {
                 right.setHostAnchor(right.getHostClipId(),
                         right.getHostOffsetMs() + (cut - start));
@@ -23625,7 +23625,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             long local = cut - oStart;
             long absSplit = Math.max(in, Math.min(out, in + Math.round(local * speed)));
-            // Extreme slow-mo can round a tiny local span to zero source distance â refuse rather
+            // Extreme slow-mo can round a tiny local span to zero source distance — refuse rather
             // than mint an empty (invisible) left half (adversarial review #2).
             if (absSplit <= in || absSplit >= out) {
                 Toast.makeText(this,
@@ -23663,7 +23663,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Re-base an overlay's keyframes after a split. The right half's track times were authored
      * against the ORIGINAL start; its new start is {@code shift} later. A plain subtraction would
-     * clamp pre-cut keys to local 0 holding their AUTHORED value â making the object snap to a
+     * clamp pre-cut keys to local 0 holding their AUTHORED value — making the object snap to a
      * stale pose at the seam. Instead: drop every pre-cut key and pin ONE at local 0 holding the
      * track's interpolated value AT the cut (from the left/original track), so the right half
      * continues the animation exactly where the left half stops.
@@ -23695,7 +23695,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (layer == null) return false;
 
         long total = Math.max(1L, project.getTimeline().getTotalDurationMs());
-        // Zero duration means open-ended (activeAt agrees) â materialise it before cutting, or
+        // Zero duration means open-ended (activeAt agrees) — materialise it before cutting, or
         // the right half would inherit a length of "whatever the timeline is next week".
         long endMs = layer.getDurationMs() > 0 ? layer.getEndMs() : total;
         long cut = editorTimeline.getPlayheadPositionMs();
@@ -23764,7 +23764,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
     }
 
-    /** "â¤ Start here": move the layer's START edge to the playhead. End is untouched, so a
+    /** "⇤ Start here": move the layer's START edge to the playhead. End is untouched, so a
      *  finite layer keeps its far edge and its span shrinks/grows from the left. One undo step. */
     private void trimAdjustmentLayerStartAtPlayhead(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
@@ -23798,7 +23798,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
     }
 
-    /** "End here â¥": move the layer's END edge to the playhead. Start is untouched. One undo step. */
+    /** "End here ⇥": move the layer's END edge to the playhead. Start is untouched. One undo step. */
     private void trimAdjustmentLayerEndAtPlayhead(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
         trimAdjustmentLayerEndAtMs(layer, Math.max(0L, lastPlayheadAbsoluteMs));
@@ -23855,7 +23855,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         scheduleAutoSave();
         // OPEN IT. A Toast saying "effects come next" is not a next step, it is an announcement
         // that fires behind whatever drawer is already up and leaves the user on the same
-        // screen â which is precisely how this read as "the button did nothing". An empty
+        // screen — which is precisely how this read as "the button did nothing". An empty
         // container is only useful once you can put something in it.
         showAdjustmentDrawer(layer);
     }
@@ -23863,10 +23863,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void showObjectMenuSheetForPipClip(@NonNull Clip c) {
         if (project == null) return;
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "Â°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         // -100%..200%, not 0..100%. These address the object's CENTRE, so a 0..1 range could
-        // only ever slide an object until it was half off â panning on from off-stage left and
+        // only ever slide an object until it was half off — panning on from off-stage left and
         // away to the right was not expressible at all (user, 2026-08-06). See
         // KeyframeSet.POS_MIN for why the limit is one frame of travel beyond each edge.
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
@@ -23876,7 +23876,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 "Pos Y", com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN,
                 com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX, pct));      // TODO(strings)
         // Scale to 400% (user, 2026-08-05). The pinch gesture already clamped at 300% while
-        // this slider stopped at 150%, so the two disagreed about the maximum â the slider
+        // this slider stopped at 150%, so the two disagreed about the maximum — the slider
         // could not express a size the fingers could reach. Both are 4.0 now; see
         // OverlayVideoPreviewView's pinch clamp, which was raised in the same change.
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
@@ -23886,14 +23886,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         props.add(pipMenuProp(c, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
                 "Opacity", 0f, 1f, pct));    // TODO(strings)
         // SPEC_PIP_AUDIO slice C: volume is only meaningful once this PiP contributes
-        // audio at all, so the slider appears only for an opted-in clip (static â a PiP
+        // audio at all, so the slider appears only for an opted-in clip (static — a PiP
         // volume ENVELOPE is not wired through the export sequence yet).
         if (c.isOverlayAudioEnabled()) {
             props.add(pipVolumeProp(c));
         }
 
         // The old ACTION LIST is gone, not merely unused. Mute/hide/lock became header icons,
-        // Mask and Blend became tabs, and "Show audio waveform" was dropped outright â the
+        // Mask and Blend became tabs, and "Show audio waveform" was dropped outright — the
         // double-tap already opens it for a video overlay, so the row was a second door to the
         // same place (user, 2026-08-05). A list built and never read is the dead-code trap this
         // project keeps paying for, so it is deleted rather than left for later.
@@ -23909,7 +23909,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * B4: the master level meter in the preview's top-right corner. Created lazily on the
      * first playhead tick so construction order never matters; it lives in editor_root's
      * PARENT (the same full-screen FrameLayout the ObjectDrawer attaches to) because that
-     * is the only true overlay surface â everything inside editor_root reflows.
+     * is the only true overlay surface — everything inside editor_root reflows.
      */
     @Nullable private com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView masterMeter;
 
@@ -23943,25 +23943,25 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             objectDrawer = new com.fadcam.ui.faditor.tools.ObjectDrawer(this);
             android.view.ViewGroup root =
                     (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
-            // TOP, not BOTTOM â the whole point of the redesign: the timeline stays uncovered
+            // TOP, not BOTTOM — the whole point of the redesign: the timeline stays uncovered
             // so the user can scrub while the drawer is open, which is what keyframing needs.
             android.widget.FrameLayout.LayoutParams lp =
                     new android.widget.FrameLayout.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
                             android.view.Gravity.TOP);
-            // Â§3.2 (2026-08-08): the drawer now COVERS the editor's own top bar instead of
+            // §3.2 (2026-08-08): the drawer now COVERS the editor's own top bar instead of
             // starting below it. JoyRaptor: a drawer stopping just under the header made the header
-            // (project name / â / export) read as the drawer's own title bar and close button,
+            // (project name / ✕ / export) read as the drawer's own title bar and close button,
             // and the inset wasted vertical space. The drawer is added to editor_root's PARENT,
-            // which is a sibling ABOVE the header â so with topMargin 0 it draws over it and the
+            // which is a sibling ABOVE the header — so with topMargin 0 it draws over it and the
             // header stays functionally intact underneath (the drawer dismisses with one gesture).
             root.addView(objectDrawer, lp);
             objectDrawer.setHeightListener(h -> {
                 reflowPreviewUnderDrawer(h);
                 // One place that knows the drawer's visibility, so the tool light
                 // cannot be left on by a close path nobody remembered to hook.
-                // A2: caller-supplied via show(..., lightAdjust) â which tool this open should light.
+                // A2: caller-supplied via show(..., lightAdjust) — which tool this open should light.
                 setAdjustToolActive(objectDrawer.isLightAdjust() && h > 0);
             });
         }
@@ -23971,7 +23971,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Move the picture out from under an open drawer.
      *
-     * <p><b>TRANSLATE ONLY â never shrink.</b> An earlier version scaled the container down to
+     * <p><b>TRANSLATE ONLY — never shrink.</b> An earlier version scaled the container down to
      * fit the band under the drawer, on the reasoning that a smaller picture entirely visible
      * beats a full-size one with its head cut off. The owner disagreed outright ("when the door
      * comes down, I like that preview moves down, but let's not make it smaller"), and the
@@ -23979,12 +23979,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * can keep working through it, so a little overlap is a feature and shrinking the picture
      * to avoid it trades the thing you are judging for the thing you are adjusting.</p>
      *
-     * <p>The shift is half the drawer's height â that re-centres the video in the band below it
-     * â clamped to the letterbox slack so the picture's own bottom never leaves the container.
+     * <p>The shift is half the drawer's height — that re-centres the video in the band below it
+     * — clamped to the letterbox slack so the picture's own bottom never leaves the container.
      * On a 16:9 project in a tall slot that is free. On 9:16 there is almost no slack, so the
      * video barely moves and the translucent drawer overlaps it, which is the intent.</p>
      *
-     * <p>Because nothing is scaled, no gesture surface needs scale compensation â but
+     * <p>Because nothing is scaled, no gesture surface needs scale compensation — but
      * {@code UiScale} stays in the drag paths regardless: it is a no-op at scale 1 and it is
      * what makes those surfaces correct if anything above them is ever scaled again.</p>
      *
@@ -24013,6 +24013,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         container.animate().translationY(shift).translationX(-transcriptReflowShiftX)
                 .scaleX(1f).scaleY(1f).setDuration(220)
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        holdCanvasFrameStation(container, transcriptReflowShiftX, true);
         setTopBarHiddenForDrawer(drawerHeightPx > 0);
     }
 
@@ -24021,17 +24022,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * back when the drawer closes.
      *
      * <p><b>Two headers were superimposed.</b> These drawers are scrims, and they are added above
-     * the header â so the project name, â, AI and export icons showed THROUGH the drawer's own
+     * the header — so the project name, ✕, AI and export icons showed THROUGH the drawer's own
      * title row and controls. JoyRaptor (2026-08-12): the bright bar behind them "makes the legibility
-     * less â¦ we need mask blend key etc icons to read well". Nothing is gained by keeping it: the
-     * drawer carries its own â, and the header's own buttons are not what the user is reaching for
+     * less … we need mask blend key etc icons to read well". Nothing is gained by keeping it: the
+     * drawer carries its own ✕, and the header's own buttons are not what the user is reaching for
      * mid-edit.</p>
      *
      * <p>Chosen over darkening the bar or slipping an opaque layer between the two. Darkening
-     * leaves two competing title rows stacked in the same place, which is the confusion Â§3.2
-     * already recorded â the header reading as the DRAWER's title bar and close button. An opaque
+     * leaves two competing title rows stacked in the same place, which is the confusion §3.2
+     * already recorded — the header reading as the DRAWER's title bar and close button. An opaque
      * interleaved layer fixes contrast and keeps the clutter. Sliding it away answers both, and
-     * hands back the vertical space Â§3.2 wanted, which on a phone is the scarcest thing here.</p>
+     * hands back the vertical space §3.2 wanted, which on a phone is the scarcest thing here.</p>
      *
      * <p>Animated with the same 220ms decelerate the drawer and the preview reflow use, so all
      * three read as one movement rather than three things twitching.</p>
@@ -24057,13 +24058,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The PiP's TOP drawer (user, 2026-08-05) â replaces the bottom sheet for VIDEO OVERLAYS
+     * The PiP's TOP drawer (user, 2026-08-05) — replaces the bottom sheet for VIDEO OVERLAYS
      * ONLY. Text, sprites, audio and visualizers keep {@code ObjectMenuSheet}; porting them is
      * mechanical once this is proven on device.
      *
      * <p>Chrome lives in {@code ObjectDrawer} and content in {@code PipDrawerTabs}, so the
      * feature costs this file ~90 lines of wiring instead of the ~500 it would have taken
-     * inline â the same reason the Mask panel moved out.</p>
+     * inline — the same reason the Mask panel moved out.</p>
      */
     /**
      * Commits the open compositing drawer's session as ONE undo step. Null when no session is
@@ -24080,7 +24081,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * <p>Called from BOTH the drawer's close hook and the top of {@link #showPipDrawer}. The
      * second is not redundant: the drawer is a single reused instance that
      * {@code onItemSelectionChanged} RETARGETS at a different clip by calling {@code show()}
-     * again, and that path never closes the drawer â so without the flush here, the first
+     * again, and that path never closes the drawer — so without the flush here, the first
      * clip's whole editing session would silently vanish from the undo stack.</p>
      */
     private void commitPendingCompUndo() {
@@ -24152,14 +24153,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 ctx -> {
                     // Hoisted, because the host must be able to RE-ATTACH this exact stack.
                     // setFx(getFx()) detaches it the moment the last card is deleted (an empty
-                    // stack normalises to null), and the panel goes on holding the orphan â so
+                    // stack normalises to null), and the panel goes on holding the orphan — so
                     // an undo refilled an object the clip no longer pointed at. The card came
                     // back on screen and the effect stayed gone, which is worse than no undo.
                     final com.fadcam.ui.faditor.fx.FxStack pipFx = c.getOrCreateFx();
                     return com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, pipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
-            // Curve gradients are placed in the PREVIEW, not on sliders â see
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(
                     @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
@@ -24173,7 +24174,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 return isGradientPreviewEdit(curveCard, curveParam);
             }
                             @Override public void onFxChanged() {
-                                // Re-attach when refilled, normalise to null when emptied â the
+                                // Re-attach when refilled, normalise to null when emptied — the
                                 // one call does both, because setFx nulls an empty stack itself.
                                 c.setFx(pipFx);
                                 // PUSH IT NOW. The Pip snapshot only reaches the renderer on a
@@ -24251,7 +24252,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     scheduleAutoSave();
                 }, false));
 
-        // ââ Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX Â§1.5) ââ
+        // ── Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX §1.5) ──
         // PipDrawerTabs.Host.recordUndo was declared and never called, so every slider on the
         // Mask and Chroma tabs had NO undo at all. Per-slider actions would be wrong here: one
         // drag emits a continuous stream of values and would bury the stack, which is why the
@@ -24282,7 +24283,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     private void showAudioDrawer(@NonNull AudioClip ac) {
         if (project == null) return;
-        // G3: double-tap toggles â if same audio clip's drawer is already open, close it
+        // G3: double-tap toggles — if same audio clip's drawer is already open, close it
         if (objectDrawer != null && objectDrawer.isShowing() && ac.getId().equals(lastAudioDrawerId)) {
             objectDrawer.hide();
             lastAudioDrawerId = null;
@@ -24298,21 +24299,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // Per-clip voice chain: chains are built once per player, so rebuild this
             // clip's preview player fleet or the toggle would only be audible at export.
             @Override public void onVoiceFxChanged() { prepareAudioPlayer(); }
-            // D8: this drawer's clip is a real AudioClip with a banded tape â it can
+            // D8: this drawer's clip is a real AudioClip with a banded tape — it can
             // source an audio-reactive link.
             @Override public boolean supportsAudioReactiveLink() { return true; }
             @Override public void onAudioReactiveLinkRequested() { showAudioReactiveLinkSheet(ac); }
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
-        // C6: the FX tab â compressor gain-reduction bar. Tuning blind is guesswork.
+        // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
-        // JoyRaptor 2026-08-23: the â¤/â¥ range CHIPS moved out of the bottom peek sheet and up here,
+        // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
         // A Toggle whose state is permanently false renders as a plain, untinted icon button, so
-        // an ACTION needs no new drawer API â same header row, same geometry, no second system.
+        // an ACTION needs no new drawer API — same header row, same geometry, no second system.
         // "break" is read as SPLIT AT THE PLAYHEAD; it is the only clip-breaking action audio has.
         com.fadcam.ui.faditor.tools.ObjectDrawer.ToggleState never = () -> false;
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
@@ -24327,13 +24328,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     int idx = project.getTimeline().getAudioClips().indexOf(ac);
                     if (idx < 0) return;
                     splitAudioAtPlayhead(idx);
-                    // The clip this drawer is bound to no longer exists after a split â showing
+                    // The clip this drawer is bound to no longer exists after a split — showing
                     // its stale controls would be a lie, so the drawer closes with the object.
                     ensureObjectDrawer().hide();
                 }, false));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, ac::isMuted, () -> { ac.setMuted(!ac.isMuted()); applyAudioLivePlayerGain(ac); if (editorTimeline != null) editorTimeline.invalidate(); scheduleAutoSave(); }, true));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_lock, R.drawable.ic_lock, ac::isLocked, () -> { ac.setLocked(!ac.isLocked()); scheduleAutoSave(); }, false));
-        // C7: A/B bypass â one tap silences the WHOLE FX chain so a tuned sound can be
+        // C7: A/B bypass — one tap silences the WHOLE FX chain so a tuned sound can be
         // compared against the untouched mix. Global by nature (it is the chain, not the
         // clip), so it lives beside mute/lock as a header toggle on every audio drawer.
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
@@ -24345,7 +24346,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     Toast.makeText(this, now ? "A/B: FX chain OFF" : "A/B: FX chain ON",
                             Toast.LENGTH_SHORT).show();                     // TODO(strings)
                 }, true));
-        // B9: audio-only projects raise the drawer's height cap to 0.75 (Â§2.3 rider) â
+        // B9: audio-only projects raise the drawer's height cap to 0.75 (§2.3 rider) —
         // there is no picture being covered worth protecting.
         ensureObjectDrawer().setAudioOnly(isAudioOnlyProject());
         ensureObjectDrawer().setOnClose(null);
@@ -24354,7 +24355,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     private void showClipAudioDrawer(@NonNull Clip clip) {
         if (project == null) return;
-        // G3: toggle â same clip's audio drawer already open â close
+        // G3: toggle — same clip's audio drawer already open → close
         if (objectDrawer != null && objectDrawer.isShowing() && clip.getId().equals(lastClipAudioDrawerId)) {
             objectDrawer.hide();
             lastClipAudioDrawerId = null;
@@ -24383,13 +24384,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // allowPan=false: `synth` is a throwaway proxy and Clip has no pan to copy back into,
         // so a pan row here would move, show a value, and discard it. See levelTab.
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, synth, host, false)));
-        // C6: same FX tab a standalone audio clip gets (Â§2.2 â identical four tabs).
+        // C6: same FX tab a standalone audio clip gets (§2.2 — identical four tabs).
         // The REAL Clip is passed, not the synth proxy, so the per-clip voice-chain
         // switch writes straight through and cannot die with the drawer (pan lesson).
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, clip)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
-        // C7: A/B bypass â identical to the audio-clip drawer's (one global chain).
+        // C7: A/B bypass — identical to the audio-clip drawer's (one global chain).
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_fx_24, R.drawable.ic_fx_24,
                 () -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed,
@@ -24405,7 +24406,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ensureObjectDrawer().show(tabs, toggles, false);
     }
 
-    /** B2.U3 â peek inspector for the selected cross-fade pill (Â§5.5). */
+    /** B2.U3 — peek inspector for the selected cross-fade pill (§5.5). */
     private void showCrossfadeSheet(@NonNull com.fadcam.ui.faditor.model.AudioCrossfade xfade) {
         if (project == null || project.getTimeline() == null) return;
         String title = "Cross-fade";
@@ -24454,7 +24455,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (editorTimeline != null) editorTimeline.invalidate();
             showCrossfadeSheet(xfade);
         }));
-        // Colour swatches: six colours (Â§5)
+        // Colour swatches: six colours (§5)
         int[] colours = {0x4CAF50, 0xFF5722, 0x03A9F4, 0xFFC107, 0x9C27B0, 0xE91E63};
         for (int col : colours) {
             final int c = col;
@@ -24553,7 +24554,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * SPEC_PIP_AUDIO slice C: the opt-in toggle for a PiP's audio, with one undo step.
-     * A PiP is silent by default (see {@code Clip#overlayAudioEnabled}) â this is the only
+     * A PiP is silent by default (see {@code Clip#overlayAudioEnabled}) — this is the only
      * way to turn it on, deliberately: auto-enabling would change existing exports and would
      * double the voice on a dual-stream pair.
      */
@@ -24582,10 +24583,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * The PiP's Volume row, WITH a keyframe diamond (user, 2026-08-05: "the ability for
-     * keyframesâ¦ just like the other options").
+     * keyframes… just like the other options").
      *
      * <p><b>Why it was static before, and why it is not now.</b> It shipped as
-     * {@code staticProp} â no diamond â because {@code buildOverlayAudioSequence} only ever
+     * {@code staticProp} — no diamond — because {@code buildOverlayAudioSequence} only ever
      * called {@code setVolume()}, a constant. A diamond over an export that ignores it is a
      * control that lies, so leaving it off was correct at the time. The envelope is now wired
      * through that sequence, so the diamond can exist honestly.</p>
@@ -24593,11 +24594,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * <p><b>It does NOT ride the transform {@code KeyframeSet}.</b> Volume keys live in
      * {@code Clip.volumeKeyframes}, which the serializer already persists and the export
      * already reads. Mirroring them into the KeyframeSet as well would create two sources of
-     * truth for one quantity â the failure this project keeps paying for â so this adapter
+     * truth for one quantity — the failure this project keeps paying for — so this adapter
      * reads and writes the list directly.</p>
      *
      * <p><b>Time domain, stated because it is the classic units trap.</b> Key times are
-     * CLIP-LOCAL output ms â {@code absoluteMs - overlayStartMs} â which is the same clock the
+     * CLIP-LOCAL output ms — {@code absoluteMs - overlayStartMs} — which is the same clock the
      * export's {@code VolumeAudioProcessor} measures in (its item timeline starts at 0 and is
      * post-Sonic, i.e. after any speed change). Authoring in absolute timeline ms would put
      * every fade at the wrong place on any PiP that does not start at 0.</p>
@@ -24644,7 +24645,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     new java.util.ArrayList<>(c.getVolumeKeyframes());
             float lvl = Math.max(0.01f, c.getVolumeLevel());
             // The FIRST diamond converts the flat level into an envelope by seeding a key at
-            // the playhead holding the value the clip already had â so arming never changes
+            // the playhead holding the value the clip already had — so arming never changes
             // what you hear, it only makes the value animatable from here.
             Clip.VolumeKeyframe on = keyAt.apply(local);
             if (on != null) kfs.remove(on);
@@ -24713,7 +24714,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 kf.getOrCreate(key).put(t, pipValueAt(c, key, ph),
                         com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
             } else {
-                // First diamond ARMS the whole pose â key EVERY prop at the playhead.
+                // First diamond ARMS the whole pose — key EVERY prop at the playhead.
                 for (String k2 : PIP_KEYS) {
                     kf.getOrCreate(k2).put(ph, pipValueAt(c, k2, ph),
                             com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
@@ -24750,7 +24751,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The span a PiP's keyframes may live in â its own on-screen range, read LIVE so a clip
+     * The span a PiP's keyframes may live in — its own on-screen range, read LIVE so a clip
      * that is trimmed or moved after the drawer opened is judged by where it is now, not by
      * where it was.
      *
@@ -24794,7 +24795,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** Armed = any transform track has â¥2 keys, or any key past t=0 (single t=0 = static). */
+    /** Armed = any transform track has ≥2 keys, or any key past t=0 (single t=0 = static). */
     private boolean pipArmed(@NonNull Clip c) {
         com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
         if (kf == null) return false;
@@ -24825,7 +24826,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return kf == null ? new com.fadcam.ui.faditor.keyframe.KeyframeSet() : kf.copy();
     }
 
-    /** KeyframeTrack.put matches EXACT ms â snap a write to an existing near key first. */
+    /** KeyframeTrack.put matches EXACT ms — snap a write to an existing near key first. */
     /** KFDIAG helper: how many keys one track of a snapshot holds. */
     private static int pipKfCount(@Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet kf,
                                   @NonNull String key) {
@@ -24917,19 +24918,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         syncTimelineOverlays();
     }
 
-    // ââ VISUALIZER (static transform) ââââââââââââââââââââââââââââââââââââ
+    // ── VISUALIZER (static transform) ────────────────────────────────────
 
     /**
-     * Â§2 general menu for a VISUALIZER {@link com.fadcam.ui.faditor.model.WaveformOverlayInstance}.
+     * §2 general menu for a VISUALIZER {@link com.fadcam.ui.faditor.model.WaveformOverlayInstance}.
      * It has NO KeyframeSet, so every transform prop is {@link ObjectMenuSheet.Prop#staticProp}
-     * (plain slider, no diamond). Moreâ¦ opens the rich per-type editor; range chips reuse the
+     * (plain slider, no diamond). More… opens the rich per-type editor; range chips reuse the
      * overlay's Start/End-here pattern.
      */
     private void showObjectMenuSheetForVisualizer(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
         if (project == null) return;
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "Â°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         props.add(ObjectMenuSheet.Prop.staticProp("viz_x", "Pos X", 0f, 1f, pct, // TODO(strings)
                 ms -> wf.getCenterX(),
@@ -25042,7 +25043,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
     }
 
-    /** Build one Â§2 property row adapter: keyframe-aware write + diamond state. */
+    /** Build one §2 property row adapter: keyframe-aware write + diamond state. */
     @NonNull
     private ObjectMenuSheet.Prop overlayMenuProp(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
@@ -25051,7 +25052,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ObjectMenuSheet.Setter set = (v, ms) -> {
             if (o.isArmed()) {
                 // Armed = value changes record/update a keyframe at the playhead
-                // (AUTO mode, contract Â§2 [JOYRAPTOR-CAN-FLIP]) â mirrors the shipped
+                // (AUTO mode, contract §2 [JOYRAPTOR-CAN-FLIP]) — mirrors the shipped
                 // opacity-slider behavior in buildOverlayAnimationControls.
                 o.addPropertyKeyframeAt(key, ms, v);
             } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.X.equals(key)) {
@@ -25069,15 +25070,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             } else if (com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY.equals(key)) {
                 o.setOpacity(v);
             }
-            // NO rebuild(). This is a per-TICK path â a finger on a slider fires it dozens of
-            // times a second â and rebuild() tears down every overlay view and builds them again,
+            // NO rebuild(). This is a per-TICK path — a finger on a slider fires it dozens of
+            // times a second — and rebuild() tears down every overlay view and builds them again,
             // which for an image overlay means a fresh setImageURI decode of the source file each
             // time. On a large photo that is the whole "lots of lag, can't see what I'm doing"
             // report (JoyRaptor, 2026-08-12).
             //
             // It was also WRONG, not merely slow, in two ways. A rebuilt view is positioned from
             // a POSTED callback, so the value the user just set landed a frame late and out of
-            // order with the finger â the hand and the sliders visibly disagreed. And the posted
+            // order with the finger — the hand and the sliders visibly disagreed. And the posted
             // position() ran before the ImageView had its drawable, so the image aspect read as
             // 1:1 for that pass: the wrong box, the wrong centre-travel limit computed from it,
             // and therefore a drag that snapped back to a limit belonging to the old size.
@@ -25096,7 +25097,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 o.addPropertyKeyframeAt(key, lastPlayheadAbsoluteMs,
                         get.at(lastPlayheadAbsoluteMs));
             } else {
-                // First key ARMS the overlay â record the whole current pose,
+                // First key ARMS the overlay — record the whole current pose,
                 // same as the type editor's "Add keyframe" button.
                 o.addKeyframeAt(lastPlayheadAbsoluteMs);
             }
@@ -25122,7 +25123,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             syncTimelineOverlays();
         };
         // C7 arming query + D2a segment-ease accessors (the picker edits the key
-        // at-or-before the playhead â that key owns its outgoing segment).
+        // at-or-before the playhead — that key owns its outgoing segment).
         ObjectMenuSheet.ArmedQuery armed = o::isArmed;
         ObjectMenuSheet.EaseGet easeGet =
                 ms -> segmentEasingAt(o.getKeyframes().get(key), o.getStartMs(), ms);
@@ -25132,7 +25133,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 prevKey, nextKey, deleteKey, armed, easeGet, easeSet);
     }
 
-    /** D2a: easing of the segment the playhead is in â the key at-or-before the
+    /** D2a: easing of the segment the playhead is in — the key at-or-before the
      *  playhead owns it. Null when the track is empty or the playhead is before
      *  the first key (no editable segment). */
     @Nullable
@@ -25243,7 +25244,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * P2 core: create a brand-new TEXT-kind layer track ABOVE ({@code above=true},
      * highest z) or BELOW ({@code above=false}, lowest z) the current floating stack
-     * and move {@code o} onto it â this is what builds the user's layer sandwich. The
+     * and move {@code o} onto it — this is what builds the user's layer sandwich. The
      * old track is pruned if it was user-created and is now empty. ONE undo step
      * (create + reassign + z; undo reverts layerId, deletes the track, prunes flags).
      */
@@ -25258,7 +25259,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
         final int newZ = above ? topLayerZIndex(timeline) + 1 : bottomLayerZIndex(timeline) - 1;
-        // The SOURCE lane is pruned when this was its last item â snapshot it (with its
+        // The SOURCE lane is pruned when this was its last item — snapshot it (with its
         // index) so undo restores the lane, not just the item. See stageMoveItemToLayerTrack.
         final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
                 fromLayerId != null ? timeline.getLayerTrackDef(fromLayerId) : null;
@@ -25288,8 +25289,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * P2: move {@code o} onto the ADJACENT existing layer â the row above ({@code
-     * up=true}) or below â reusing the Phase-P row order ({@code getLayers()} sorted
+     * P2: move {@code o} onto the ADJACENT existing layer — the row above ({@code
+     * up=true}) or below — reusing the Phase-P row order ({@code getLayers()} sorted
      * DESC by z; row 0 = top). Just reassigns {@code layerId} (no track creation);
      * the vacated source track is pruned if empty. ONE undo step.
      */
@@ -25330,17 +25331,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /** Type editor: text/colour dialog for TEXT overlays. IMAGE overlays have no
-     *  content of their own â their type editor IS the general drawer, so they
-     *  delegate there (D1, JoyRaptor 2026-07-17: the modal image dialog is retired â
+     *  content of their own — their type editor IS the general drawer, so they
+     *  delegate there (D1, JoyRaptor 2026-07-17: the modal image dialog is retired —
      *  it dimmed the preview and blocked scrubbing, killing "End here"). */
     /**
      * Overlays this editor session created, and may therefore clean up if abandoned.
      *
-     * <p>The placeholder cleanup used to fire for ANY overlay whose text was still "Enter text" â
+     * <p>The placeholder cleanup used to fire for ANY overlay whose text was still "Enter text" —
      * so opening an EXISTING one you had already positioned and timed, then backing out, DELETED
      * it. And that path deliberately records no undo, so targeted undo could not bring it back;
      * only walking far enough to hit a whole-project snapshot did. Reported by JoyRaptor 2026-08-04
-     * ("I clicked End hereâ¦ the text was goneâ¦ undo did not bring back the text layer").</p>
+     * ("I clicked End here… the text was gone… undo did not bring back the text layer").</p>
      */
     private final java.util.Set<String> textOverlayCreatedHere = new java.util.HashSet<>();
     /**
@@ -25350,20 +25351,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private final java.util.Set<String> textOverlayTouchedHere = new java.util.HashSet<>();
 
-    // ââ W5-2 Â§3.8: rich-text session state ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── W5-2 §3.8: rich-text session state ────────────────────────────────────────────────────
     // One TextStyleSession lives per open text drawer. It owns the three questions the drawer
-    // always asks â "is there a real selection?", "what does the selection look like?", "does
-    // every character agree?" â plus the undo bookkeeping (spans compared at CLOSE, one entry
+    // always asks — "is there a real selection?", "what does the selection look like?", "does
+    // every character agree?" — plus the undo bookkeeping (spans compared at CLOSE, one entry
     // per session, folded into the add-undo for items this session created).
 
     /**
-     * One text-drawer session's selection-aware state (W5-2 Â§3.8).
+     * One text-drawer session's selection-aware state (W5-2 §3.8).
      *
-     * <p>Selection indices are taken from the drawer's {@code EditText} â the AUTHORED string â
+     * <p>Selection indices are taken from the drawer's {@code EditText} — the AUTHORED string —
      * and the renderer highlights the same numbers in the DISPLAY string, which is safe because
      * every span-aware case transform is length-preserving (see {@code TextStyleResolver}). A
      * selection covering the WHOLE text is deliberately NOT a selection: it means "edit the base
-     * style" (the field opens select-all, so that is the every-day state â Â§3.8 keeps today's
+     * style" (the field opens select-all, so that is the every-day state — §3.8 keeps today's
      * behaviour on open). Timers have no authored/display mapping (their string is computed), so
      * they never engage spans at all.
      */
@@ -25371,14 +25372,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         @NonNull final com.fadcam.ui.faditor.model.TextOverlayItem item;
         /** The mutable span list the drawer edits through TextStyleResolver. */
         @NonNull final java.util.List<com.fadcam.ui.faditor.model.StyleSpan> spans;
-        /** The spans as the session opened them (deep copy) â the undo pre-state. */
+        /** The spans as the session opened them (deep copy) — the undo pre-state. */
         @Nullable final java.util.List<com.fadcam.ui.faditor.model.StyleSpan> startSpans;
         /** The drawer's live selection, both {@code < 0}/equal meaning none. */
         int selStart = -1;
         int selEnd = -1;
-        /** The item was deleted from this drawer â record no style-undo on close. */
+        /** The item was deleted from this drawer — record no style-undo on close. */
         boolean destroyed;
-        /** True when THIS close recorded the item's "Add text overlay" undo â the style undo
+        /** True when THIS close recorded the item's "Add text overlay" undo — the style undo
          * may then fold into it (one press). A previous close's add-undo does NOT count: folding
          * into an entry that is no longer top would merge two unrelated sessions. */
         boolean addUndoRecordedHere;
@@ -25401,7 +25402,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             return t == null ? 0 : t.length();
         }
 
-        /** Runtime repaint hooks â declared BEFORE {@link #refresh}, which iterates them. */
+        /** Runtime repaint hooks — declared BEFORE {@link #refresh}, which iterates them. */
         @NonNull final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
 
         /** Repaint every selection-aware control and push the preview highlight. */
@@ -25424,7 +25425,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Push the selection the user can SEE into the preview layer.
      *
      * <p><b>What is highlighted and what counts as a style RANGE are two different questions.</b>
-     * This used to ask {@link TextStyleSession#hasSelection()}, which answers the second one â
+     * This used to ask {@link TextStyleSession#hasSelection()}, which answers the second one —
      * and it deliberately reports false for a WHOLE-text selection, because selecting everything
      * means "edit the base style" rather than "make a span". The highlight inherited that
      * meaning and vanished: with everything selected the drag handles sat there with no band
@@ -25432,7 +25433,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * selected' even though the adjustment bars do").
      *
      * <p>Highlighting is now driven by the EDITOR's real selection, so what is drawn always
-     * matches what the handles bracket. The base-versus-span rule is untouched â it just no
+     * matches what the handles bracket. The base-versus-span rule is untouched — it just no
      * longer decides what the user is allowed to see.</p>
      */
     private void pushEditingSelection(@NonNull TextStyleSession session) {
@@ -25447,7 +25448,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** The EditText selection moved â clamp, remember, repaint. */
+    /** The EditText selection moved — clamp, remember, repaint. */
     private void updateTextStyleSelection(@NonNull TextStyleSession session,
                                           int selStart, int selEnd) {
         int len = session.len();
@@ -25476,7 +25477,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** Toggle rule (Â§3.8): mixed â ON; uniform â flip. Routes to a span or the item field. */
+    /** Toggle rule (§3.8): mixed → ON; uniform → flip. Routes to a span or the item field. */
     private void textToggleTap(@NonNull TextStyleSession session,
                                @NonNull TextStyleResolver.Prop prop,
                                @NonNull java.util.function.Consumer<Boolean> setBase) {
@@ -25503,7 +25504,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return session.item.getTextCase();
     }
 
-    /** Case-chip rule: mixed (or different) â set this case; already this case â NONE. */
+    /** Case-chip rule: mixed (or different) → set this case; already this case → NONE. */
     private void textCaseTap(@NonNull TextStyleSession session, @NonNull String caseValue,
                              @NonNull java.util.function.Consumer<String> setBase) {
         String cur = textCaseValue(session);
@@ -25518,13 +25519,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** Chip ON state â purple accent when on, dim off. */
+    /** Chip ON state — purple accent when on, dim off. */
     private static void styleToggleState(@NonNull TextView t, boolean on) {
         t.setTextColor(on ? 0xFFB388FF : 0xFFAAAAAA);
         t.setBackgroundColor(on ? 0x33B388FF : 0x00000000);
     }
 
-    /** Chip MIXED state â purple text, background split half-purple over transparent: "some of
+    /** Chip MIXED state — purple text, background split half-purple over transparent: "some of
      * these characters are on, some off". */
     private static void styleMixedState(@NonNull TextView t) {
         t.setTextColor(0xFFB388FF);
@@ -25547,7 +25548,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Fold ONLY into the add-undo this very close recorded (amendTopAction undoes the fold
         // extra FIRST, so one press restores the style and removes the item). A stale
         // textOverlayAddRecorded from a PREVIOUS close must not pull unrelated entries under
-        // this one â an amend targets whatever is top, which may be an unrelated edit.
+        // this one — an amend targets whatever is top, which may be an unrelated edit.
         if (session.addUndoRecordedHere) {
             undoManager.amendTopAction(act);
         } else {
@@ -25558,7 +25559,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * The FX stack editor for ONE text overlay (SPEC_ADJUSTMENT_LAYERS_FX M7).
      *
-     * <p>The same {@code FxPanel} in the same drawer a PiP and an adjustment layer use â the
+     * <p>The same {@code FxPanel} in the same drawer a PiP and an adjustment layer use — the
      * point of M7 being one model rather than three. Subject OBJECT, so a sampler card is
      * badged "layer only": a text overlay's effects are folded into its compositing shader in
      * one pass, exactly like a PiP's.</p>
@@ -25566,12 +25567,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void showTextFxDrawer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         // Hoisted so the host can RE-ATTACH it: setFx(getFx()) nulls an emptied stack, which
         // detaches the very object the panel is still editing, and an undo then refilled an
-        // orphan â the card reappeared and the effect stayed gone. No session-close undo here
+        // orphan — the card reappeared and the effect stayed gone. No session-close undo here
         // either; FxPanel records per edit now, and two authorities for one delta disagree.
         final com.fadcam.ui.faditor.fx.FxStack textFx = item.getOrCreateFx();
         com.fadcam.ui.faditor.tools.FxPanel.Host host =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
-            // Curve gradients are placed in the PREVIEW, not on sliders â see
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(
                     @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
@@ -25585,7 +25586,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 return isGradientPreviewEdit(curveCard, curveParam);
             }
             @Override public void onFxChanged() {
-                // Re-attach when refilled, normalise to null when emptied â setFx does both.
+                // Re-attach when refilled, normalise to null when emptied — setFx does both.
                 item.setFx(textFx);
                 refreshAfterMarqueeBatchDelete();
                 scheduleAutoSave();
@@ -25611,10 +25612,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ensureObjectDrawer().show(tabs, new java.util.ArrayList<>(), true);
     }
 
-    // ââ IMAGE-OVERLAY DRAWER âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── IMAGE-OVERLAY DRAWER ─────────────────────────────────────────────────────────────
     // The type editor for an IMAGE overlay, in the same top drawer a PiP uses. Hold opens it
     // (onOverlayHeld routes images here instead of the interim bottom sheet); first tap stays
-    // selection-only. Row 1 is Blend Â· Mask Â· Key Â· FX Â· Move, plus the visibility / lock /
+    // selection-only. Row 1 is Blend · Mask · Key · FX · Move, plus the visibility / lock /
     // pass-through toggles in the header. The transform tab is tab 0 and carries the chain-split
     // Scale rows that the object sheet cannot (linked = one SCALE slider, split = Scale X/Y).
 
@@ -25655,10 +25656,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             @Override public void pickColorFromPreview(
                     @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
                 // The chroma tab's eyedropper samples a decoder texture through
-                // OverlayVideoPreviewView.sampleAt â an image overlay has no footage of its own
+                // OverlayVideoPreviewView.sampleAt — an image overlay has no footage of its own
                 // to sample, so decline honestly (same call the adjustment layer makes).
                 android.widget.Toast.makeText(FaditorEditorActivity.this,
-                        "Pick a swatch â the eyedropper isn't available on an image overlay",
+                        "Pick a swatch — the eyedropper isn't available on an image overlay",
                         android.widget.Toast.LENGTH_SHORT).show();         // TODO(strings)
                 cb.onPicked(null);
             }
@@ -25673,7 +25674,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Image", 0,                                              // TODO(strings)
                 ctx -> buildImageTransformTab(o, tabHost)));
-        // ââ Mask / Chroma key / Effects ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── Mask / Chroma key / Effects ──────────────────────────────────────────────────────
         // NO LONGER INERT. This block used to say all three "reach NEITHER renderer for an image
         // overlay" and that the preview draws an image as a plain ImageView. Both halves stopped
         // being true at 20cf0228: an image whose wantsGlExport() is true leaves the Canvas path
@@ -25688,7 +25689,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // them to the GL layer's z, which is the z-order bug fixed on 2026-08-19; the honest fix
         // is to mask on the Canvas path instead. Not done yet.
         //
-        // BLEND is live on BOTH renderers for an image â previewsLive=true. It reaches the export
+        // BLEND is live on BOTH renderers for an image — previewsLive=true. It reaches the export
         // through ImageBlendGlEffect and the editor through the GL composite, and both read the
         // one BlendModes.GLSL_BLEND_FN, so there is no equation to drift. Measured, not assumed:
         // with MULTIPLY chosen, 98% of the image's preview pixels equal image x video.
@@ -25699,11 +25700,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 // NO LinkSource: a text overlay's keyframes are LOCAL-time (item start offset),
-                // while a mask's linkBase is captured in absolute timeline ms â a wrong-time
+                // while a mask's linkBase is captured in absolute timeline ms — a wrong-time
                 // capture is worse than no row, so "Move with the object" waits for a rebased
                 // source. See build-list item.
                 // Masks are real in the export now (ImageOverlayDraw runs the same MaskPathBuilder
-                // a PiP does, so BOTH export paths honour them) â export-only caveat, not inert.
+                // a PiP does, so BOTH export paths honour them) — export-only caveat, not inert.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
                                 ctx, spec, applyComp,
@@ -25712,15 +25713,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 // Chroma key reaches the export shader (ImageBlendGlEffect, the same shared
-                // ChromaKey.GLSL_KEY_FN a PiP keys with) â export-only caveat, not inert.
-                // NO CAVEAT. The key is live in the preview now â the composite runs the same
+                // ChromaKey.GLSL_KEY_FN a PiP keys with) — export-only caveat, not inert.
+                // NO CAVEAT. The key is live in the preview now — the composite runs the same
                 // shared ChromaKey.GLSL_KEY_FN the export effect does, and both were measured on
                 // a device rather than eyeballed (an all-removing key takes the picture out of
                 // the preview as completely as it takes it out of the file). Leaving the old
                 // "applied when you export" note up would now be the lie.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
                         ctx, spec, applyComp, tabHost)));
-        // M7: this object's OWN effects â the same panel a PiP and an adjustment layer use.
+        // M7: this object's OWN effects — the same panel a PiP and an adjustment layer use.
         // Hoisted so the host can RE-ATTACH this exact stack: setFx(getFx()) nulls an emptied
         // stack, which detaches the very object the panel is still editing.
         final com.fadcam.ui.faditor.fx.FxStack imageFx = o.getOrCreateFx();
@@ -25728,7 +25729,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 "Effects", R.drawable.ic_fx_24,                           // TODO(strings)
                 // An image's effect stack reaches BOTH renderers now: ImageBlendGlEffect on
                 // export, FxPreviewTextureView here, from the same fused pass and the same
-                // splice a PiP uses. So the note no longer says "export only" â it says the one
+                // splice a PiP uses. So the note no longer says "export only" — it says the one
                 // thing that IS still true, that a sampler card (blur and friends) needs its own
                 // pass and is skipped on both sides.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
@@ -25771,7 +25772,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     scheduleAutoSave();
                 }, false));
 
-        // ââ Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX Â§1.5) ââ
+        // ── Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX §1.5) ──
         // Identical session idiom to showPipDrawer: one undo step for the whole drawer session,
         // captured as detached JSON so both directions point at immutable states.
         final String compBefore = spec.toJson().toString();
@@ -25795,14 +25796,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The FX panel host for ONE text/image overlay â hoisted stack, so {@code onFxChanged}
+     * The FX panel host for ONE text/image overlay — hoisted stack, so {@code onFxChanged}
      * re-attaches the exact stack the panel is editing (see showTextFxDrawer's rationale).
      */
     private com.fadcam.ui.faditor.tools.FxPanel.Host textOverlayFxHost(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
             @NonNull com.fadcam.ui.faditor.fx.FxStack fx) {
         return new com.fadcam.ui.faditor.tools.FxPanel.Host() {
-            // Curve gradients are placed in the PREVIEW, not on sliders â see
+            // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(
                     @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
@@ -25833,11 +25834,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Tab 0 of the image drawer: the trim row plus the transform rows. The trim row uses the
-     * bottom-up drawer's compact pill chips â â¤ Start here / â Span whole / End here â¥ â with a
+     * bottom-up drawer's compact pill chips — ⇤ Start here / ↔ Span whole / End here ⇥ — with a
      * red "Clear all keyframes" pushed to the far right (user 2026-08-11: "make it the same
      * style as the previous drawer", not purple lettering). The Scale row is CHAIN-SPLIT on ONE
      * line: linked (default) shows a single SCALE slider; split shows Scale X and Scale Y
-     * sliders IN SERIES â never stacked â with the chain icon after the label and each slider's
+     * sliders IN SERIES — never stacked — with the chain icon after the label and each slider's
      * own keyframe diamond (user 2026-08-11). Toggling the chain rebuilds the rows in place,
      * because the slider count changes.
      */
@@ -25851,7 +25852,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         root.setPadding(Math.round(14 * d), 0, Math.round(14 * d), Math.round(10 * d));
 
         // Trim row: Start / Span / End chips on the LEFT (the pill style of the text drawer),
-        // red Clear all keyframes on the RIGHT. Scrub-and-tap while the drawer is open â the
+        // red Clear all keyframes on the RIGHT. Scrub-and-tap while the drawer is open — the
         // chips read the LIVE playhead (see setOverlayRangeEdgeAtPlayhead).
         android.widget.LinearLayout chips = new android.widget.LinearLayout(this);
         chips.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -25894,7 +25895,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final Runnable[] rebuild = new Runnable[1];
 
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "Â°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
         final String K_X = com.fadcam.ui.faditor.keyframe.KeyframeSet.X;
         final String K_Y = com.fadcam.ui.faditor.keyframe.KeyframeSet.Y;
         final String K_SCALE = com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE;
@@ -25935,7 +25936,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         };
         rebuild[0].run();
         root.addView(rows);
-        // The tag refresh re-reads the CURRENT list â rebuild[] swaps refreshers[0] wholesale,
+        // The tag refresh re-reads the CURRENT list — rebuild[] swaps refreshers[0] wholesale,
         // so a post-chain-toggle playhead tick still re-reads the rows that are actually there.
         root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
             for (Runnable r : refreshers[0]) r.run();
@@ -25968,7 +25969,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The Move tab: lane moves (new lane above/below, adjacent â²/â¼), mirroring the object
+     * The Move tab: lane moves (new lane above/below, adjacent ▲/▼), mirroring the object
      * sheet's actions as one drawer tab. "Clear all keyframes" lives on the transform tab's
      * trim row (Row 2), not here (user 2026-08-11).
      */
@@ -25991,11 +25992,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 v -> moveOverlayItemToNewLayer(o, false), d));
         if (layers.size() > 1 && rowIdx >= 0) {
             if (rowIdx > 0) {
-                root.addView(imageMoveRow("Move layer â²",                      // TODO(strings)
+                root.addView(imageMoveRow("Move layer ▲",                      // TODO(strings)
                         v -> moveOverlayItemToAdjacentLayer(o, true), d));
             }
             if (rowIdx < layers.size() - 1) {
-                root.addView(imageMoveRow("Move layer â¼",                      // TODO(strings)
+                root.addView(imageMoveRow("Move layer ▼",                      // TODO(strings)
                         v -> moveOverlayItemToAdjacentLayer(o, false), d));
             }
         }
@@ -26046,16 +26047,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         if (item.isImage()) {
-            // The top drawer IS the image overlay's type editor â the interim sheet had no
+            // The top drawer IS the image overlay's type editor — the interim sheet had no
             // per-axis scale, pass-through, blend or compositing to offer.
             showImageOverlayDrawer(item);
             return;
         }
 
-        // ONE SURFACE AT A TIME. The object menu sheet's "Moreâ¦" is a common door into this
-        // drawer, and the sheet is a modal sibling in the same container â leaving it up would
+        // ONE SURFACE AT A TIME. The object menu sheet's "More…" is a common door into this
+        // drawer, and the sheet is a modal sibling in the same container — leaving it up would
         // stack two bottom panels and trap the drawer behind the sheet's scrim. Verified on the
-        // Note 9 (2026-08-08): "Moreâ¦" opened the drawer with the sheet still rendered on top.
+        // Note 9 (2026-08-08): "More…" opened the drawer with the sheet still rendered on top.
         dismissOpenObjectSheets();
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
@@ -26068,20 +26069,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
 
-        // TOP ROW: colour Â· font Â· B/I/U Â· case Â· alignment Â· motion Â· FX â one scrollable line.
+        // TOP ROW: colour · font · B/I/U · case · alignment · motion · FX — one scrollable line.
         root.addView(buildTextTopRow(item, session));
 
-        // Motion range (Start/Span/End) Â· selection status (Whole/Clear) Â· trash â one line.
+        // Motion range (Start/Span/End) · selection status (Whole/Clear) · trash — one line.
         root.addView(buildTextMotionRangeSection(item, session));
 
-        // Live text: this drawer writes EVERYTHING as it happens (SPEC_TEXT_DRAWER â "you will
+        // Live text: this drawer writes EVERYTHING as it happens (SPEC_TEXT_DRAWER — "you will
         // be seeing it live in the preview window anyway"), so there is no staged "OK" for the
         // string either. The only thing still deferred to close is the placeholder cleanup and
-        // the ADD undo, both below. (The string itself is live via the PREVIEW editor â the
+        // the ADD undo, both below. (The string itself is live via the PREVIEW editor — the
         // WYSIWYG surface attached above.)
         root.addView(buildTextStyleSection(item, session));
         // KEYFRAMES live at the VERY bottom (user, 2026-08-10): discoverable, but they don't
-        // eat the vertical space the style controls need â the animation section and its
+        // eat the vertical space the style controls need — the animation section and its
         // explainer are the last thing in the drawer. (The old bottom Delete button is gone;
         // the trash on the status/motion line handles it.)
         root.addView(buildOverlayAnimationControls(item));
@@ -26095,16 +26096,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         drawer.show(root);
         // WYSIWYG (2026-08-09, Joy): the PREVIEW IS the text box. The selection input is a
         // transparent EditText layered over the drawn box in the preview (native handles, precise
-        // char indices, no gesture conflict with the move/scale/rotate surface) â the drawer
+        // char indices, no gesture conflict with the move/scale/rotate surface) — the drawer
         // keeps the status row and the style controls only. Selection is still read from the
         // editor in AUTHORED indices and the renderer highlights the same numbers in the DISPLAY
         // string; every span-aware case transform is length-preserving, so the mapping holds.
         // Attached AFTER drawer.show: show() fires the PREVIOUS session's close, whose
-        // endTextStyleSession detaches the old editor â attaching first would have the new
+        // endTextStyleSession detaches the old editor — attaching first would have the new
         // editor killed by the old session's teardown (adversarial review 2026-08-09).
         if (editorTimeline != null
                 && !item.isVisibleAt(Math.max(0, lastPlayheadAbsoluteMs))) {
-            // The editor lives ON the box â an off-screen item has no box to type into. The
+            // The editor lives ON the box — an off-screen item has no box to type into. The
             // lane double-tap can open the drawer with the playhead outside the item's range.
             editorTimeline.seekToTimelineMs(Math.max(0, item.getStartMs()));
         }
@@ -26118,13 +26119,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         @Override public void onBeforeTextChanged(int start, int before, int count) {
                             // Align every span to the edit BEFORE the string changes: text typed
                             // inside a span extends it, deletion shrinks it, a span fully deleted
-                            // disappears â the resolver owns the exact convention (Â§3.8, pinned
+                            // disappears — the resolver owns the exact convention (§3.8, pinned
                             // by the JVM harness).
                             TextStyleResolver.adjustForEdit(session.spans, start, before, count);
                         }
                         @Override public void onAfterTextChanged(String text) {
                             item.setText(text);
-                            // The selection may now dangle past a shorter string â clamp, repaint.
+                            // The selection may now dangle past a shorter string — clamp, repaint.
                             session.selStart = Math.min(session.selStart, text.length());
                             session.selEnd = Math.min(session.selEnd, text.length());
                             session.refresh.run();
@@ -26138,24 +26139,24 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             previewHandlesOverlay = ensurePreviewHandlesOverlay();
             previewHandlesOverlay.setEditingItemId(item.getId());
         }
-        // Closing the drawer (â, BACK, grip-drag-dismiss, or opening a different object) is what
+        // Closing the drawer (✕, BACK, grip-drag-dismiss, or opening a different object) is what
         // "OK" used to be: text/colour/font/style all write live as the user works, so all that
         // is left on the way out is recording the ADD undo the first time the box survives a
-        // close â same convention FxPanel/PipDrawerTabs use.
+        // close — same convention FxPanel/PipDrawerTabs use.
         drawer.setOnClose(() -> {
             // A PLACEHOLDER IS KEPT. This used to delete a box created in this session that
-            // still held the placeholder text â the "opened the tool, then changed my mind"
-            // case â and a growing list of things the user does next turned out to close the
+            // still held the placeholder text — the "opened the tool, then changed my mind"
+            // case — and a growing list of things the user does next turned out to close the
             // drawer without counting as wanting the box. Moving it was patched in once
             // (2026-08-12). It was not enough: on the Note 9, pressing BACK to put the keyboard
             // away closes the drawer too, and the box is gone before a single character has
-            // been typed. JoyRaptor hit the same wall from the other side (2026-08-13) â "when I
+            // been typed. JoyRaptor hit the same wall from the other side (2026-08-13) — "when I
             // try to click on it for the dialog box it ends up canceling and nothing is made
             // and the text is deleted."
             //
             // The rule was always trying to guess intent from what the user had NOT done yet,
             // and it guessed wrong in every direction. It is gone. An unwanted box says "Enter
-            // text" in the preview, is one tap from the editor and one tap from the trash â
+            // text" in the preview, is one tap from the editor and one tap from the trash —
             // recoverable. Silent destruction of a thing the user made is not, and this file
             // already said so in as many words when the move exemption went in.
             //
@@ -26172,7 +26173,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             textOverlayTouchedHere.remove(item.getId());
             // AN EMPTY BOX GETS ITS PROMPT BACK. Opening the editor maps the "Enter text" hint to
             // an empty field so the user is not deleting placeholder text before typing their
-            // own â which means a box abandoned AFTER the editor opened holds "", and a text
+            // own — which means a box abandoned AFTER the editor opened holds "", and a text
             // overlay with no text draws nothing at all. Keeping it would then leave an
             // invisible, untappable object: the whole point of keeping it is that the user can
             // see it and deal with it, so it has to say something.
@@ -26215,21 +26216,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             scheduleAutoSave();
             // W5-2: the style entry lands AFTER the add-undo so recordTextStyleUndo can fold
-            // into it (amendTopAction) for a session-created item â one press undoes both.
+            // into it (amendTopAction) for a session-created item — one press undoes both.
             endTextStyleSession(session);
         });
     }
 
     /** The session's close bookkeeping: clear the preview highlight, retire the font-import
-     * callback (it captures THIS session â a SAR result landing after close must not mutate a
+     * callback (it captures THIS session — a SAR result landing after close must not mutate a
      * drawer that is no longer open), then one undo for all of the session's span edits
      * (skipped when the item was deleted instead). */
     private void endTextStyleSession(@NonNull TextStyleSession session) {
         if (overlayLayer != null) {
             overlayLayer.setEditingSelection(session.item.getId(), -1, -1);
-            // WYSIWYG reframe: the drawer is closed â the preview no longer hosts an editor.
+            // WYSIWYG reframe: the drawer is closed — the preview no longer hosts an editor.
             // Guarded by item id: a stale teardown must never un-hook a DIFFERENT item's
-            // editor (adversarial review 2026-08-09 â drawer.show runs the old session's
+            // editor (adversarial review 2026-08-09 — drawer.show runs the old session's
             // close before the new one attaches).
             if (overlayLayer.isEditingItem(session.item.getId())) {
                 overlayLayer.endTextEditing();
@@ -26249,7 +26250,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     @Nullable private com.fadcam.ui.faditor.tools.TextOverlayDrawer textDrawer;
 
     /**
-     * The BOTTOM text drawer â see {@link com.fadcam.ui.faditor.tools.TextOverlayDrawer}'s class
+     * The BOTTOM text drawer — see {@link com.fadcam.ui.faditor.tools.TextOverlayDrawer}'s class
      * doc for why it comes from the bottom (opposite of the PiP drawer, which comes from the
      * top). Unlike the PiP drawer this one does NOT reflow the preview: it deliberately covers
      * the timeline instead, which "doesn't count" per the owner, so the video area is untouched.
@@ -26273,14 +26274,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // TWO ROWS: the font/style toolbar and the trim + selection line. Those are the ones
             // touched constantly; STYLE (outline, glow, shadow, background) and the animation
             // section below them are set once per overlay and then left, so they are worth a
-            // scroll (JoyRaptor, 2026-08-12 â "better that they only have to expand 10% of the time").
+            // scroll (JoyRaptor, 2026-08-12 — "better that they only have to expand 10% of the time").
             // Stated as a row COUNT so it keeps meaning "the first two" if those rows change size.
             textDrawer.setPeekRows(2);
         }
         return textDrawer;
     }
 
-    // ââ SPEC_TEXT_DRAWER top row: font Â· B/I/U Â· case Â· alignment Â· motion ââââââââââââââââââ
+    // ── SPEC_TEXT_DRAWER top row: font · B/I/U · case · alignment · motion ──────────────────
 
     @NonNull
     private View buildTextTopRow(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
@@ -26293,7 +26294,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, pad * 2, 0, pad);
 
-        // TEXT COLOUR swatch â promoted up from the style section to sit FIRST on the top row
+        // TEXT COLOUR swatch — promoted up from the style section to sit FIRST on the top row
         // (user, 2026-08-10: "color text | B I U | Tt TT TT | paragraph | animation | FX").
         // With a selection it reads/writes the FILL span over the range (mixed -> split swatch).
         row.addView(colorSwatchButton(d, false,
@@ -26323,13 +26324,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         session.selStart, session.selEnd, session.len()) == null,
                 repaint -> session.refreshers.add(repaint)));
 
-        // FONT lives in the drawer's HEADER now, not here â see buildTextFontHeaderButton. It was
+        // FONT lives in the drawer's HEADER now, not here — see buildTextFontHeaderButton. It was
         // an "Aa" chip in this row, which spent a button's worth of the tightest row in the drawer
         // to say nothing about which font was actually chosen.
 
-        // B / I / U â independent toggles (see TextOverlayItem javadoc on why not an enum).
-        // With a selection these read and WRITE the SPAN over the range: mixed â two-tone,
-        // tap â ON; uniform â tap flips. No selection: the item's base fields, as before.
+        // B / I / U — independent toggles (see TextOverlayItem javadoc on why not an enum).
+        // With a selection these read and WRITE the SPAN over the range: mixed → two-tone,
+        // tap → ON; uniform → tap flips. No selection: the item's base fields, as before.
         TextView boldBtn = topRowToggle(this, d, "B");
         boldBtn.setTypeface(null, android.graphics.Typeface.BOLD);
         TextView italicBtn = topRowToggle(this, d, "I");
@@ -26362,12 +26363,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         row.addView(italicBtn);
         row.addView(underlineBtn);
 
-        // CASE â three toggles, mutually exclusive with NONE (tapping the active one clears it).
-        // With a selection the active chip is the (possibly MIXED â two-tone) range's case; mixed
-        // or different â tap sets that case over the range, tapping the active case clears it.
+        // CASE — three toggles, mutually exclusive with NONE (tapping the active one clears it).
+        // With a selection the active chip is the (possibly MIXED → two-tone) range's case; mixed
+        // or different → tap sets that case over the range, tapping the active case clears it.
         TextView capFirstBtn = topRowToggle(this, d, "Tt");
         TextView allCapsBtn = topRowToggle(this, d, "TT");
-        TextView smallCapsBtn = topRowToggle(this, d, "á´á´");
+        TextView smallCapsBtn = topRowToggle(this, d, "ᴛᴛ");
         Runnable refreshCase = () -> {
             String active = textCaseValue(session);
             if (active == null) {
@@ -26399,9 +26400,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         row.addView(allCapsBtn);
         row.addView(smallCapsBtn);
 
-        // ALIGNMENT â cycles LEFT â CENTER â RIGHT â JUSTIFY â LEFT, as a DRAWN paragraph in a
+        // ALIGNMENT — cycles LEFT → CENTER → RIGHT → JUSTIFY → LEFT, as a DRAWN paragraph in a
         // fixed square. It was four text glyphs of two different widths, so cycling it resized the
-        // control and shoved every button to its right along â see AlignIconView for the rest.
+        // control and shoved every button to its right along — see AlignIconView for the rest.
         com.fadcam.ui.faditor.tools.AlignIconView alignBtn =
                 new com.fadcam.ui.faditor.tools.AlignIconView(this);
         alignBtn.setAlign(item.getTextAlign());
@@ -26420,9 +26421,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
         row.addView(alignBtn);
 
-        // MOTION â the SAME icon/behaviour, just relocated into this row (owner: "I just moved
+        // MOTION — the SAME icon/behaviour, just relocated into this row (owner: "I just moved
         // its location. I like it the same"). Its label turns the app's purple accent when a
-        // preset is assigned, instead of staying dim â "when there's something there, it
+        // preset is assigned, instead of staying dim — "when there's something there, it
         // changes to a color".
         View motionIcon = makeTextMotionIcon(d);
         TextView motionState = new TextView(this);
@@ -26459,7 +26460,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     }
                 }));
 
-        // FX â a small ROUND button in the top button row (user, 2026-08-10: "fx as a small
+        // FX — a small ROUND button in the top button row (user, 2026-08-10: "fx as a small
         // round button ... in the row with the other buttons"), the same affordance as the
         // video-overlay menu, replacing the old full-width chip. Tapping it opens the shared FX
         // panel; the drawer hides first because the panel lives in the activity window BELOW
@@ -26491,7 +26492,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
         row.addView(fxBtn);
 
-        // The consolidated top row is wider than any phone â [colour] Aa B I U Tt TT TT
+        // The consolidated top row is wider than any phone — [colour] Aa B I U Tt TT TT
         // Paragraph motion FX. Wrap it in a horizontal scroll so everything stays on ONE line.
         android.widget.HorizontalScrollView topScroll = new android.widget.HorizontalScrollView(this);
         topScroll.setHorizontalScrollBarEnabled(false);
@@ -26503,7 +26504,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * " â the first words" for the drawer title, or "" when the overlay has no text yet.
+     * " — the first words" for the drawer title, or "" when the overlay has no text yet.
      *
      * <p>Trimmed to whole words rather than a hard character cut, because a title ending mid-word
      * reads as a rendering fault rather than as an abbreviation.</p>
@@ -26520,9 +26521,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             String cut = t.substring(0, cap);
             int lastSpace = cut.lastIndexOf(' ');
             // Only honour the word boundary if it leaves something worth reading.
-            t = (lastSpace > 8 ? cut.substring(0, lastSpace) : cut) + "â¦";
+            t = (lastSpace > 8 ? cut.substring(0, lastSpace) : cut) + "…";
         }
-        return " Â· " + t;
+        return " · " + t;
     }
 
     /**
@@ -26531,7 +26532,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>JoyRaptor (2026-08-12): "should be moved vertically out of that row and placed between edit
      * text and the color swatch as it seems there's room and it shouldn't have a chip, instead it
-     * should just say and display the font that's chosen." All three parts earn their keep â the
+     * should just say and display the font that's chosen." All three parts earn their keep — the
      * button row is the most crowded strip in the drawer and this was taking a slot in it; "Aa"
      * named no font, so the only way to learn the current one was to open the picker; and rendering
      * the name IN the font makes the label its own preview, so it answers "what am I using" without
@@ -26590,10 +26591,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Font list with a live-typeface preview per entry, plus "Import font" (SAF pick â
+     * Font list with a live-typeface preview per entry, plus "Import font" (SAF pick →
      * copied into Pictures/FadCam/fonts/, the folder the scan below already reads).
      * With a selection every family present in the range lights up (mixed font), and tapping
-     * applies that family over the whole range (Â§3.8).
+     * applies that family over the whole range (§3.8).
      */
     private void showFontPickerPopup(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
                                      @NonNull View anchor,
@@ -26668,10 +26669,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             list.addView(row);
         };
         for (String[] f : fonts) addRow.accept(f[0], f[1]);
-        for (String[] f : customFonts) addRow.accept(f[0], f[1] + " â");
+        for (String[] f : customFonts) addRow.accept(f[0], f[1] + " ★");
 
         TextView importRow = new TextView(this);
-        importRow.setText("ï¼ Import fontâ¦"); // TODO(strings)
+        importRow.setText("＋ Import font…"); // TODO(strings)
         importRow.setTextColor(0xFF64B5F6);
         importRow.setTextSize(15);
         importRow.setPadding(0, Math.round(12 * d), 0, Math.round(4 * d));
@@ -26701,7 +26702,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * True once an explicit dialog button handled the text editor's outcome.
      *
      * <p>NOTE on what the dismiss listener does and does NOT cover: BACK and outside-tap, yes.
-     * ROTATION, no â this activity declares orientation in {@code android:configChanges}, so it is
+     * ROTATION, no — this activity declares orientation in {@code android:configChanges}, so it is
      * never recreated for a rotation and the listener simply does not fire. An earlier comment
      * here claimed rotation was covered; it was wrong in both directions and this path is
      * load-bearing for a destructive revert, so the correction stays visible.</p>
@@ -26711,7 +26712,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Build the keyframe-animation controls for an overlay: add a keyframe at the
      * current playhead, set the visible time range, or clear animation. This is
-     * the "direct manipulation" model â position/scale the overlay, then tap
+     * the "direct manipulation" model — position/scale the overlay, then tap
      * "Add keyframe"; do it again at another time to animate between them.
      */
     @NonNull
@@ -26720,7 +26721,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p><b>Why this exists.</b> All four already render in BOTH the preview
      * ({@code TextBoxRenderer:389-431}) and the export ({@code CompositeExportOverlay:672-678})
-     * and have done for some time â but the only writer in the codebase was the JSON
+     * and have done for some time — but the only writer in the codebase was the JSON
      * deserializer, so no user could ever set them. The engine was complete and had no door
      * (access-point audit, 2026-08-03). This is the door; no renderer changes were needed.</p>
      *
@@ -26730,7 +26731,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * The decoration values as they were when the editor opened, so CANCEL can put them back.
      *
-     * <p>These controls write the model LIVE â that is the point, since a glow radius tuned
+     * <p>These controls write the model LIVE — that is the point, since a glow radius tuned
      * without seeing it is guesswork. But the dialog's other fields (colour, font) are staged and
      * only committed on OK, so live-writing alone would make Cancel a lie for half the dialog.
      * Snapshot on open, restore on cancel: live preview kept, Cancel honest.</p>
@@ -26751,7 +26752,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>Built from the SAME snapshot {@link #restoreDecoration} uses, so "undo" and "cancel"
      * can never disagree about what the previous state was. Recorded only when the values
-     * actually changed â an OK that touched nothing must not push a no-op onto the stack and
+     * actually changed — an OK that touched nothing must not push a no-op onto the stack and
      * make the user press undo twice.</p>
      */
     private void recordDecorationUndo(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
@@ -26796,8 +26797,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         item.setShadowColorInt(decorSnapshotColors[2]);
         item.setBackgroundColorInt(decorSnapshotColors[3]);
         refreshOverlayPreview();
-        // â  The controls call scheduleAutoSave() on every slider release, and the debounce is
-        // 3s â so an edit made and then cancelled has usually ALREADY been written to disk.
+        // ⚠ The controls call scheduleAutoSave() on every slider release, and the debounce is
+        // 3s — so an edit made and then cancelled has usually ALREADY been written to disk.
         // Reverting memory alone left the cancelled value in the file, which is the same failure
         // the dismiss listener was added to close, one layer down. Persist the revert.
         saveProjectNow();
@@ -26831,7 +26832,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 40, 0xFFFFFFFF,
                 item::getGlowRadiusPx, item::setGlowRadiusPx,
                 item::getGlowColorInt, item::setGlowColorInt);
-        // â  SHADOW IS NOT "0 = off": both renderers read `radius > 0 ? radius : fontPx * 0.10f`
+        // ⚠ SHADOW IS NOT "0 = off": both renderers read `radius > 0 ? radius : fontPx * 0.10f`
         // and the colour defaults to opaque, so a text box ALWAYS has a shadow and 0 means the
         // 10%-of-font default. The only way to actually remove it is a transparent colour, which
         // is why this row's swatch strip carries the "none" chip.
@@ -26839,7 +26840,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 item::getShadowRadiusPx, item::setShadowRadiusPx,
                 item::getShadowColorInt, item::setShadowColorInt);
 
-        // Background plate is colour-only â its "size" is the text box itself.
+        // Background plate is colour-only — its "size" is the text box itself.
         TextView bgLabel = new TextView(this);
         bgLabel.setText(R.string.faditor_text_decor_plate);
         bgLabel.setTextColor(0xFFAAAAAA);
@@ -26873,19 +26874,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         android.widget.SeekBar bar = new android.widget.SeekBar(this);
         bar.setMax(maxPx);
         bar.setProgress(Math.round(Math.max(0f, Math.min(maxPx, getSize.get()))));
-        label.setText(getString(labelRes) + "  Â·  " + bar.getProgress() + "%");
+        label.setText(getString(labelRes) + "  ·  " + bar.getProgress() + "%");
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean u) {
                 setSize.accept((float) p);
-                // â  Both renderers gate on radius AND colour, and stroke/glow default to
-                // TRANSPARENT â so dragging the slider on a fresh overlay changed nothing at all
+                // ⚠ Both renderers gate on radius AND colour, and stroke/glow default to
+                // TRANSPARENT — so dragging the slider on a fresh overlay changed nothing at all
                 // and the control read as broken. Give it a visible colour the moment it is
                 // turned on, so the slider always does something.
                 if (p > 0 && getColor.get() == android.graphics.Color.TRANSPARENT) {
                     setColor.accept(defaultColor);
                     refreshSwatchRings.run();
                 }
-                label.setText(getString(labelRes) + "  Â·  " + p + "%");
+                label.setText(getString(labelRes) + "  ·  " + p + "%");
                 refreshOverlayPreview();
             }
             @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
@@ -26978,7 +26979,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 overlayLayerCallback());
     }
 
-    // ââ SPEC_TEXT_DRAWER STYLE section: text / outline / glow / background rows + shadow ââââ
+    // ── SPEC_TEXT_DRAWER STYLE section: text / outline / glow / background rows + shadow ────
 
     @NonNull
     private View buildTextStyleSection(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
@@ -26999,17 +27000,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         header.setLetterSpacing(0.06f);
         box.addView(header);
 
-        // TEXT: colour (no "none" â invisible text is a bug) Â· opacity Â· the existing pose
+        // TEXT: colour (no "none" — invisible text is a bug) · opacity · the existing pose
         // keyframe (isArmed()/addOpacityKeyframeAt), which is the one already wired end to end.
-        // With a selection the FILL swatch reads/writes the SPAN over the range (mixed â
+        // With a selection the FILL swatch reads/writes the SPAN over the range (mixed →
         // split swatch, pick applies to the whole range); the opacity track and diamond stay
-        // item-level â spans carry colours and per-char style, never keyframes.
+        // item-level — spans carry colours and per-char style, never keyframes.
         //
         // The two suppliers are self-contained (no cross-memo): each asks overRange directly,
-        // so the mixed â swatch split and the colour â swatch fill can never disagree on the
+        // so the mixed → swatch split and the colour → swatch fill can never disagree on the
         // first repaint.
         // The TEXT colour control + B/I/U/case/paragraph/motion/FX now live on the single TOP
-        // row (buildTextTopRow) â user, 2026-08-10. The old Text row's opacity slider + keyframe
+        // row (buildTextTopRow) — user, 2026-08-10. The old Text row's opacity slider + keyframe
         // diamond are gone (opacity stays reachable in the Keyframes section at the bottom).
 
         // OUTLINE
@@ -27052,13 +27053,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         },
                         item::isGlowArmed)));
 
-        // SHADOW â everything text/outline/glow have, plus the direction knob and distance.
+        // SHADOW — everything text/outline/glow have, plus the direction knob and distance.
         box.addView(buildShadowRow(item));
 
-        // BACKGROUND â ONE row, ONE field (backgroundColorInt), no "plate" (JoyRaptor 2026-08-08:
+        // BACKGROUND — ONE row, ONE field (backgroundColorInt), no "plate" (JoyRaptor 2026-08-08:
         // "just use background not plate"). No size slider: the background's "size" is the text
         // box itself (TextBoxRenderer draws it as the box's own rounded rect), not a separate
-        // radius â so no keyframeable numeric track applies here either.
+        // radius — so no keyframeable numeric track applies here either.
         {
             TextView label = new TextView(this);
             label.setText(getString(R.string.faditor_text_decor_plate));
@@ -27079,10 +27080,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * A {@link ObjectMenuSheet.Prop} for a TEXT style track (stroke width, glow radius, shadow
      * radius/angle/distance, text opacity) so the drawer's diamonds can be the shared
-     * {@link KeyframeDiamondControl} (â¹ â¦ âº with prev/next, tap-drop/delete and long-press ease
-     * picker) instead of the drop-only glyph. The setter is keyframe-aware: armed â key at the
+     * {@link KeyframeDiamondControl} (‹ ♦ › with prev/next, tap-drop/delete and long-press ease
+     * picker) instead of the drop-only glyph. The setter is keyframe-aware: armed → key at the
      * playhead, else static. Prev/next jump to the object's TIME EDGES when there is no adjacent
-     * key (user, 2026-08-10 â first/last keys are easy to set exactly on the span).
+     * key (user, 2026-08-10 — first/last keys are easy to set exactly on the span).
      */
     @NonNull
     private ObjectMenuSheet.Prop textStyleProp(
@@ -27142,13 +27143,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             editorTimeline.seekToTimelineMs(start + best);
             return;
         }
-        // No adjacent key in that direction â land on the object's edge. An unset end
+        // No adjacent key in that direction — land on the object's edge. An unset end
         // (MAX_VALUE) clamps to the timeline's end inside seekToTimelineMs.
         long end = o.getEndMs();
         editorTimeline.seekToTimelineMs(forward ? end : start);
     }
 
-    /** The shared â¹ â¦ âº control for a text style track, bound to the drawer's playhead. */
+    /** The shared ‹ ♦ › control for a text style track, bound to the drawer's playhead. */
     @NonNull
     private KeyframeDiamondControl buildTextDiamond(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
@@ -27206,7 +27207,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * {@code mixed} â true when this row's colour swatch must show the W5-2 split "MIXED" mark
+     * {@code mixed} — true when this row's colour swatch must show the W5-2 split "MIXED" mark
      * ({@link com.fadcam.ui.faditor.tools.MixedSwatchDrawable}) instead of a colour (a selection
      * whose characters disagree on this property). {@code repaintOut}, when given, receives the
      * swatch's repaint so the drawer session can re-evaluate mixed state when the selection moves.
@@ -27228,7 +27229,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * The full row builder. {@code keyframeProp}, when given, swaps the drop-only diamond for
-     * the shared {@link KeyframeDiamondControl} (â¹ â¦ âº with prev/next, tap-drop/delete and
+     * the shared {@link KeyframeDiamondControl} (‹ ♦ › with prev/next, tap-drop/delete and
      * long-press ease picker); otherwise the old drop-only {@link #diamondButton} is used.
      */
     @NonNull
@@ -27290,7 +27291,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The keyframe diamond â a filled purple diamond when armed, hollow otherwise, tapping
+     * The keyframe diamond — a filled purple diamond when armed, hollow otherwise, tapping
      * drops/updates a key at the current playhead. Same visual language as
      * {@code FxPanel.diamond}, deliberately not shared code with it: that one keys an
      * {@code FxStack} slot, this one keys a {@code TextOverlayItem} style track, and the two
@@ -27305,7 +27306,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         };
         Runnable refresh = () -> {
-            t.setText("â");
+            t.setText("◆");
             t.setTextColor(isArmed.get() ? 0xFFB388FF : 0xFF666666);
         };
         refresh.run();
@@ -27317,7 +27318,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * A small round colour-swatch button that opens {@link ColorPickerDialog} â the one picker
+     * A small round colour-swatch button that opens {@link ColorPickerDialog} — the one picker
      * used for every colour control in the text drawer, live-previewing on every drag and
      * reverting on Cancel per its own contract.
      */
@@ -27367,7 +27368,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             ? null : get.get());
             // The colour picker (a bottom sheet) and this drawer no longer collide: the text
             // drawer is TOP-down since 2026-08-10, so the old W2-4 horizontal slide-aside is
-            // unnecessary here. (The FX panel still needs its own transition â see the FX
+            // unnecessary here. (The FX panel still needs its own transition — see the FX
             // button, which swaps the drawers.)
             com.fadcam.ui.faditor.tools.ColorPickerDialog.show(this, title, initial, allowNone,
                     c -> { onPicked.accept(c); paint.run(); },
@@ -27378,8 +27379,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * The SHADOW row: everything the other STYLE rows have (colour Â· description Â· blur slider Â·
-     * keyframe) PLUS the direction knob and its angle read-out, plus a distance slider â "all of
+     * The SHADOW row: everything the other STYLE rows have (colour · description · blur slider ·
+     * keyframe) PLUS the direction knob and its angle read-out, plus a distance slider — "all of
      * those values will go under the same keyframe" (JoyRaptor), which is
      * {@code TextOverlayItem.addShadowKeyframeAt}: one tap keys angle + distance + blur together.
      */
@@ -27391,7 +27392,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         android.widget.LinearLayout box = new android.widget.LinearLayout(this);
         box.setOrientation(android.widget.LinearLayout.VERTICAL);
 
-        // Main row: colour Â· label Â· BLUR slider Â· diamond (the shared row shape).
+        // Main row: colour · label · BLUR slider · diamond (the shared row shape).
         box.addView(buildStyleRow(item, getString(R.string.faditor_text_decor_shadow), false,
                 item::getShadowColorInt, item::setShadowColorInt,
                 () -> Math.round(item.animatedShadowRadiusPx(lastPlayheadAbsoluteMs)),
@@ -27423,13 +27424,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         angleReadout.setTextSize(13);
         angleReadout.setPadding(gap, 0, gap, 0);
         Runnable syncAngle = () -> {
-            angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "Â°");
+            angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "°");
             knob.setAngleDeg(item.getShadowAngleDeg());
         };
         syncAngle.run();
         knobRow.addView(angleReadout);
 
-        // "tap on to enter specific value" â the same look-like-text idiom ColorPickerDialog's
+        // "tap on to enter specific value" — the same look-like-text idiom ColorPickerDialog's
         // H/S/B fields use.
         angleReadout.setOnClickListener(v -> {
             android.widget.EditText in = new android.widget.EditText(this);
@@ -27455,7 +27456,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         knob.setOnAngleChanged(angle -> {
             item.setShadowAngleDeg(angle);
             if (item.isShadowArmed()) item.addShadowKeyframeAt(lastPlayheadAbsoluteMs);
-            angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "Â°");
+            angleReadout.setText(Math.round(item.getShadowAngleDeg()) + "°");
             refreshOverlayPreview();
         });
         knob.setOnAngleCommitted(() -> scheduleAutoSave());
@@ -27494,7 +27495,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * SPEC_TEXT_DRAWER follow-up (2026-08-08): "start motion here / end motion here", visible
      * only when a motion preset is assigned. Writes {@code TextOverlayItem.motionStartMs/EndMs}
-     * â a SEPARATE range from the on-screen time range, so a box that is visible for a long
+     * — a SEPARATE range from the on-screen time range, so a box that is visible for a long
      * stretch can still have a short animation instead of one stretched across its whole
      * duration.
      *
@@ -27503,14 +27504,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * block the way loop-animation/slide-trim handles do, nor (b) make the entrance/exit
      * evaluator in {@code TextBoxRenderer}/{@code TextOverlayLayer}/{@code CompositeExportOverlay}
      * actually read this range instead of the object's full start..end span. Both are real
-     * remaining work â see the session report.</p>
+     * remaining work — see the session report.</p>
      */
     /**
      * The single horizontal line that holds the motion-trim chips, the selection status and the
      * delete affordance together (user, 2026-08-10: "start span end | whole clear | trashcan
      * icon"). The motion chips appear only when a motion preset is assigned; the selection
      * status ("Whole text"/"N selected") and Clear chip are always present, exactly as the old
-     * status row was â this just puts them on the same line as the range controls to save a row.
+     * status row was — this just puts them on the same line as the range controls to save a row.
      */
     @NonNull
     private View buildTextMotionRangeSection(
@@ -27524,7 +27525,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         row.setGravity(android.view.Gravity.CENTER_VERTICAL);
         row.setPadding(0, gap / 2, 0, gap / 2);
 
-        // ââ TIME TRIM, first on the line ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+        // ── TIME TRIM, first on the line ────────────────────────────────────────────────────
         // Start here / Span whole / End here for the overlay's own visible range, as the three
         // compact purple chips the image drawer uses, ahead of the selection controls. These
         // replace the pair of plain Buttons that sat at the very bottom of the drawer under the
@@ -27551,7 +27552,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         && Math.abs(item.getEndMs() - lastPlayheadAbsoluteMs)
                                 < MARKER_CHIP_EPSILON_MS));
 
-        // MOTION trim chips â the animation sub-range, not the object's time range.
+        // MOTION trim chips — the animation sub-range, not the object's time range.
         //
         // These used to sit on the SAME line as the time trio above, producing two
         // identically-worded "Start here / Span whole / End here" groups on one row, alongside
@@ -27562,12 +27563,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // trio governed.
         //
         // They now get their own labelled line. Same chips, same shared helper, same
-        // long-press-to-type behaviour â only the arrangement changed. The label is the part
+        // long-press-to-type behaviour — only the arrangement changed. The label is the part
         // that was actually missing: identical wording is fine once the group says what it
         // applies to.
         android.widget.LinearLayout motionRow = null;
         // (original comment retained below)
-        // â the animation sub-range, not the object's time range. Only present
+        // — the animation sub-range, not the object's time range. Only present
         // when there is an animation to bound, and deliberately AFTER the time chips so the two
         // identically-worded trios are never adjacent.
         if (item.hasTextAnim()) {
@@ -27592,7 +27593,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // actually live?"
             //
             // Dimmed rather than hidden, deliberately. Hiding them would make the timings feel
-            // deleted â the very anxiety that made clearing them wrong â and would take away the
+            // deleted — the very anxiety that made clearing them wrong — and would take away the
             // ability to adjust timing while auditioning with the animation off. Half opacity
             // reads as "present but inert", which is exactly what they are.
             motionRow.setAlpha(item.isTextAnimActive() ? 1f : 0.45f);
@@ -27643,7 +27644,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             mRow.addView(endBtn);
 
             // THE OTHER TWO TRIANGLES. JoyRaptor counted four markers on the tape and asked whether
-            // "the wiring for four buttons was made and only two shown for lack of room" â the
+            // "the wiring for four buttons was made and only two shown for lack of room" — the
             // honest answer was that the amber entrance/exit carets never had buttons at all, in
             // any amount of room. They do now, and they are the same shapes and colour the tape
             // draws, so the row reads as the tape does. TODO(strings)
@@ -27710,7 +27711,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         row.addView(clearChip);
 
         // The DELETE affordance at the END of the line, as the TRASHCAN ICON the spec actually
-        // asked for â "Start span end | whole clear | trashcan icon" (user, 2026-08-10). It was
+        // asked for — "Start span end | whole clear | trashcan icon" (user, 2026-08-10). It was
         // the literal word "delete" at 16sp, which is the widest thing on a row that now also
         // carries three trim chips: measured on the Note 9 (2026-08-12) it was clipped off the
         // right edge. The icon says the same thing in a fifth of the width, and it is the glyph
@@ -27750,11 +27751,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * The compact pill chip used by the motion-range Start/Span/End trim. Styled to match the
      * long-hold context menu's trim options on a text object in the timeline (user, 2026-08-10:
      * "take the start here / end here stylings from the menu I get when I long-hold on the text
-     * object in the timeline view. It looks better than the purple lettering") â light text on a
+     * object in the timeline view. It looks better than the purple lettering") — light text on a
      * dark rounded pill with a subtle border, not purple lettering.
      */
     @NonNull
-    /** Colour of the object's own range controls â the green of its trim handles. */
+    /** Colour of the object's own range controls — the green of its trim handles. */
     private static final int MARKER_COLOR_OBJECT = 0xFF4CAF50;
     /** Motion-range markers on the tape. */
     private static final int MARKER_COLOR_MOTION = 0xFFB388FF;
@@ -27781,7 +27782,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     private final java.util.List<MarkerChipBinding> markerChips = new java.util.ArrayList<>();
 
-    /** Blend toward white â the hover/press brighten. */
+    /** Blend toward white — the hover/press brighten. */
     private static int lighten(int c, float amt) {
         int a = (c >>> 24) & 0xFF, r = (c >> 16) & 0xFF, g = (c >> 8) & 0xFF, b = c & 0xFF;
         r = Math.round(r + (255 - r) * amt);
@@ -27796,12 +27797,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * <p>JoyRaptor, 2026-08-19: the triangles "are too Vague So I made up little checkered flag icons
      * with arrows to show the starting from a checkered flag, or going to a checkered flag, or a
      * checkered flag expanding". The flag is the destination; the arrow says which way you are
-     * going relative to it. The timeline keeps its triangles â those are markers, these are verbs.
+     * going relative to it. The timeline keeps its triangles — those are markers, these are verbs.
      *
      * <p><b>The tint is the whole point of the control.</b> Idle grey means "tapping does
      * something". When the marker this chip drives is ALREADY where a tap would put it, the chip
-     * adopts that marker's own colour â green for the object's range, purple for the motion range,
-     * amber for the entrance/exit zones â so the answer to "would this change anything?" is
+     * adopts that marker's own colour — green for the object's range, purple for the motion range,
+     * amber for the entrance/exit zones — so the answer to "would this change anything?" is
      * readable without tapping to find out. {@code alreadyThere} is re-evaluated on every playhead
      * move, because the answer changes as the playhead does.
      *
@@ -27817,7 +27818,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         android.widget.ImageView v = new android.widget.ImageView(this);
         v.setImageResource(iconRes);
         v.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-        // Small padding only â no backing plate. JoyRaptor, 2026-08-19: "let's remove the chip behind.
+        // Small padding only — no backing plate. JoyRaptor, 2026-08-19: "let's remove the chip behind.
         // So these things fit together a little bit better". The circle also fought the artwork:
         // each icon fills its own 2048 box edge to edge, so a circle inscribed around it either
         // clipped the arrow or forced the flag smaller than it was drawn to be.
@@ -27856,7 +27857,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return v;
     }
 
-    /** True when the overlay already covers the entire project â what "span whole" would do. */
+    /** True when the overlay already covers the entire project — what "span whole" would do. */
     private boolean overlaySpansWholeTimeline(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (project == null) return false;
@@ -27887,7 +27888,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Re-evaluate every live marker chip. Called as the playhead moves, because "is the marker
      * already here?" is a question about the playhead. Detached chips are dropped rather than
-     * retained â the drawers rebuild often and these must not outlive their rows.
+     * retained — the drawers rebuild often and these must not outlive their rows.
      */
     private void refreshMarkerChips() {
         if (markerChips.isEmpty()) return;
@@ -27900,15 +27901,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Set the entrance or exit ZONE from the playhead â the amber carets' missing buttons.
+     * Set the entrance or exit ZONE from the playhead — the amber carets' missing buttons.
      *
      * <p>JoyRaptor, 2026-08-19, counting the markers: "I wonder if the wiring for four buttons was
      * made and only two shown for lack of room." There are four triangles but only ever one trio
      * of buttons: the purple motion-range pair had them, the amber zone pair did not, and could
      * only be dragged. This is the other half.
      *
-     * <p>The zones are stored as FRACTIONS of the motion span (0â¦MAX_ZONE_PCT), not as times, so
-     * the playhead has to be converted against {@code motionRangeStartMs/EndMs} â the same span
+     * <p>The zones are stored as FRACTIONS of the motion span (0…MAX_ZONE_PCT), not as times, so
+     * the playhead has to be converted against {@code motionRangeStartMs/EndMs} — the same span
      * {@code unitProgress} divides by. Committing through {@link #applyTextAnimZones} rather than
      * writing the model directly means these buttons get the caret drag's undo step, its
      * no-op detection and its clamp for free, and cannot drift from it.
@@ -27948,7 +27949,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
 
     /**
-     * The shadow's direction knob â a small circular scrub control, drag to rotate. Bespoke View
+     * The shadow's direction knob — a small circular scrub control, drag to rotate. Bespoke View
      * for the same reason {@code ColorWheelView} is: no stock Android widget expresses "drag
      * around a centre to pick an angle".
      */
@@ -27974,7 +27975,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             paint.setStrokeWidth(2f);
             paint.setColor(0xFF555555);
             c.drawCircle(cx, cy, r, paint);
-            // 0Â° = straight down, matching TextOverlayItem's shadowDx/shadowDy convention.
+            // 0° = straight down, matching TextOverlayItem's shadowDx/shadowDy convention.
             double rad = Math.toRadians(angleDeg);
             float ix = cx + (float) Math.sin(rad) * r;
             float iy = cy + (float) Math.cos(rad) * r;
@@ -28048,7 +28049,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         };
         refreshStatus.run();
 
-        // ââ Opacity / transparency ââââââââââââââââââââââââââââââââââââââ
+        // ── Opacity / transparency ──────────────────────────────────────
         // Mirrors the volume-keyframe model: when the overlay is ARMED (has
         // keyframes) the slider drops/updates an OPACITY keyframe at the
         // playhead (a fade); otherwise it sets the static opacity for the
@@ -28111,8 +28112,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         });
 
-        // The "â Add keyframe" mega-button + "Clear" button are gone (D2a): the
-        // drawer's â¹â¦âº control drops/removes single keys and "Clear all keyframes"
+        // The "◆ Add keyframe" mega-button + "Clear" button are gone (D2a): the
+        // drawer's ‹♦› control drops/removes single keys and "Clear all keyframes"
         // is a drawer action now. Opacity slider + range controls stay here.
 
         // Time-range controls: clip the overlay's appearance to the playhead.
@@ -28123,21 +28124,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // buildTextMotionRangeSection (JoyRaptor, 2026-08-12: "start | span | end need to look nice and
         // be up on the same line and before select all / clear and delete"). They were also two
         // plain Buttons where the image drawer had three purple chips, and they duplicated
-        // setOverlayRangeEdgeAtPlayhead's validation, undo step and toast â including the fix that
+        // setOverlayRangeEdgeAtPlayhead's validation, undo step and toast — including the fix that
         // reads the LIVE playhead rather than the cached one, which these never got.
         box.addView(rangeRow);
 
         return box;
     }
 
-    // ââ Transcript editing âââââââââââââââââââââââââââââââââââââââââââ
+    // ── Transcript editing ───────────────────────────────────────────
 
     private void setupTranscriptPanel() {
         transcriptPanel = findViewById(R.id.transcript_panel);
         transcriptView = findViewById(R.id.transcript_view);
         transcriptReopenTab = findViewById(R.id.transcript_reopen_tab);
         // H1 recovery: the shift is derived from geometry that can change UNDER an open
-        // panel â rotation (the activity self-handles config changes, so nothing re-runs
+        // panel — rotation (the activity self-handles config changes, so nothing re-runs
         // showTranscriptPanel) and the very first layout when the panel was opened before
         // player_container had been measured (transcriptDrawerShiftPx answered 0 then).
         // Re-station instantly whenever the container's width changes while open. Skipped
@@ -28171,7 +28172,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         findViewById(R.id.transcript_model_whisper).setOnClickListener(v ->
                 startTranscription(com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType.WHISPER_BASE_EN));
 
-        // ââ Search ââ
+        // ── Search ──
         final View searchBar = findViewById(R.id.transcript_search_bar);
         final android.widget.EditText searchInput = findViewById(R.id.transcript_search_input);
         final TextView searchCount = findViewById(R.id.transcript_search_count);
@@ -28223,7 +28224,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // neighbouring clip, which moves the selection, and 165ms later the second
                 // tap of the SAME double-tap gets rebased onto that new clip. Measured on
                 // the Note 20: a word at sourceMs=5700 resolved against a clip whose
-                // in-point is 103389 produced timelineMs=-4608, clamped to 0 â the "jumped
+                // in-point is 103389 produced timelineMs=-4608, clamped to 0 — the "jumped
                 // to 0:00 and ate my double-tap" report.
                 Timeline tl = project.getTimeline();
                 int idx = -1;
@@ -28237,7 +28238,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Clip clip = (idx >= 0 && idx < tl.getClipCount()) ? tl.getClip(idx) : null;
                 if (clip == null) return;
                 // The transcript covers the whole SOURCE, but a source is usually cut into
-                // several clips â so a word the user scrolled to can easily belong to a
+                // several clips — so a word the user scrolled to can easily belong to a
                 // DIFFERENT clip than the one the panel is titled with. Re-home the tap on
                 // whichever clip of the same source actually contains that source time, so
                 // reading down the transcript and tapping lands where the word really is
@@ -28258,7 +28259,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // Whatever clip we settled on, a word can only address time INSIDE its trim.
                 // Clamping is the backstop that stops a word with no home (trimmed away, or
                 // a stale transcript) computing a NEGATIVE timeline position, which the view
-                // then pins to 0 â the original 0:00 report.
+                // then pins to 0 — the original 0:00 report.
                 long srcMs = Math.max(clip.getInPointMs(),
                         Math.min(sourceMs, clip.getOutPointMs()));
                 long segStart = editorTimeline.getSegmentStartTimeMs(idx);
@@ -28272,7 +28273,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             public void onStrikesChanged() {
                 // S6: one drag = one undo step. Capture before snapshot (lastSnapshot is the
                 // state before this drag), sync which recomputes removedSpans and updates
-                // lastSnapshot to after, then record the beforeâafter transition.
+                // lastSnapshot to after, then record the before→after transition.
                 java.util.List<Boolean> before = lastTranscriptStrikesSnapshot != null
                         ? new java.util.ArrayList<>(lastTranscriptStrikesSnapshot)
                         : captureTranscriptStrikes();
@@ -28324,12 +28325,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 input.setSingleLine(true);
                 input.selectAll();
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
-                        .setTitle(paraIndex + 1 + ". Rename paragraph â becomes a chapter")
+                        .setTitle(paraIndex + 1 + ". Rename paragraph — becomes a chapter")
                         .setView(input)
                         .setNegativeButton(android.R.string.cancel, null)
                         .setPositiveButton(android.R.string.ok, (dlg, w) -> {
                             String title = input.getText().toString().trim();
-                            // D4 â a named paragraph IS a chapter; empty clears it
+                            // D4 — a named paragraph IS a chapter; empty clears it
                             if (title.isEmpty()) currentTranscript.chapterTitles.remove(pIdx);
                             else currentTranscript.chapterTitles.put(pIdx, title);
                             if (transcriptView != null) transcriptView.invalidate();
@@ -28340,7 +28341,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         })
                         .setNeutralButton("Copy chapters", (dlg, w) -> {
                             String text = transcriptView != null ? transcriptView.getYoutubeChaptersText() : "";
-                            if (text.isEmpty()) text = "(no chapters yet â name a collapsed paragraph)";
+                            if (text.isEmpty()) text = "(no chapters yet — name a collapsed paragraph)";
                             android.content.ClipboardManager cm = (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
                             if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("YouTube chapters", text));
                             android.widget.Toast.makeText(FaditorEditorActivity.this, "Chapters copied", android.widget.Toast.LENGTH_SHORT).show();
@@ -28424,11 +28425,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // tools/jvm-harness/typecheck.sh, whose R.jar is a build ARTEFACT from 2026-08-19 and
         // therefore cannot contain an id added today. That harness's own header says so, and
         // says what to do about it: "That is a true negative about this checker, not about
-        // your code â it means the change needs a real Gradle build before it can be believed."
+        // your code — it means the change needs a real Gradle build before it can be believed."
         //
         // The workaround is worse than the warning it silenced. A string lookup loses
         // compile-time checking (a rename becomes a silent no-op button), costs a runtime
-        // resource scan, and â the real hazard â R8 resource shrinking in a RELEASE build can
+        // resource scan, and — the real hazard — R8 resource shrinking in a RELEASE build can
         // strip an id that no compiled reference points at, so this would work in debug and
         // quietly vanish in the shipped app. GlTransitionCardBaker's getIdentifier call is
         // legitimate by contrast: those resource names are genuinely dynamic.
@@ -28532,7 +28533,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     case MotionEvent.ACTION_CANCEL:
                         // The drawer's width just changed, so its half-width claim on the
                         // pillarbox slack changed with it (H1). Re-derive and re-station
-                        // without animation â the finger already provided the motion.
+                        // without animation — the finger already provided the motion.
                         // Skipped while promoted: player_container then lives inside the
                         // PiP shell, so its width is NOT the pillarbox geometry (audit #4).
                         if (transcriptPanelOpen
@@ -28545,7 +28546,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         });
 
-        // Bottom grab handle â swipe up to dismiss the transcript panel.
+        // Bottom grab handle — swipe up to dismiss the transcript panel.
         View grabHandle = findViewById(R.id.transcript_grab_handle);
         grabHandle.setOnTouchListener(new View.OnTouchListener() {
             float downRawY;
@@ -28592,7 +28593,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (targetClip == null) {
             if (transcriptIsForAudio) {
-                android.widget.Toast.makeText(this, "Audio paragraph reorder not yet via EditScript â needs audio REORDER op", android.widget.Toast.LENGTH_LONG).show();
+                android.widget.Toast.makeText(this, "Audio paragraph reorder not yet via EditScript — needs audio REORDER op", android.widget.Toast.LENGTH_LONG).show();
                 com.fadcam.FLog.w("Faditor", "Paragraph reorder for audio not yet implemented via EditScript");
                 return;
             }
@@ -28605,7 +28606,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         for (int i = 0; i < paras.paragraphCount(); i++) order.add(i);
         int moved = order.remove(from);
         order.add(to, moved);
-        // D4/D5 â chapter titles and speaker labels ride the paragraph when it moves
+        // D4/D5 — chapter titles and speaker labels ride the paragraph when it moves
         {
             java.util.Map<Integer,String> newChapters = new java.util.HashMap<>();
             java.util.Map<Integer,String> newSpeakers = new java.util.HashMap<>();
@@ -28720,7 +28721,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Animated captions ââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Animated captions ────────────────────────────────────────────
 
     private void setupCaptions() {
         captionsActive = true;
@@ -28734,7 +28735,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * (Re)build the bottom style ticker: built-in presets, then the user's saved
-     * custom styles (JoyRaptor 2026-07-16 â "your own personal style at the ready"),
+     * custom styles (JoyRaptor 2026-07-16 — "your own personal style at the ready"),
      * then the per-clip Hidden pill. Re-run after save/delete/import.
      */
     private void rebuildCaptionStyleChips() {
@@ -28823,7 +28824,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             });
             row.addView(chip);
         }
-        // 6th pill: "Hidden" (eye-slash) â hides captions for THIS clip only (per-clip visibility).
+        // 6th pill: "Hidden" (eye-slash) — hides captions for THIS clip only (per-clip visibility).
         TextView hideChip = new TextView(this);
         hideChip.setText("visibility_off");
         hideChip.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
@@ -28847,7 +28848,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     ac.setCaptionsEnabled(false);
                     if (audioCaptionOverlay != null) audioCaptionOverlay.setVisibility(View.GONE);
                     scheduleAutoSave();
-                    Toast.makeText(this, "Captions hidden â tap a style chip to show again", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
                 }
             } else {
                 Clip cc = getSelectedClip();
@@ -28865,7 +28866,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         cc.setCaptionsEnabled(false);
                         if (captionOverlay != null) captionOverlay.setVisibility(View.GONE);
                         scheduleAutoSave();
-                        Toast.makeText(this, "Captions hidden â tap a style chip to show again", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
                     }
                 }
             }
@@ -28962,7 +28963,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Long-press on a caption style chip: offer to apply {@code styleId} to ALL clips in
      * the timeline (video clips, and audio clips that carry their own caption style/track),
      * optionally also copying caption position and/or size from the long-pressed source clip.
-     * Base style only â per-clip caption-style KEYFRAMES are untouched. Undoable as one step.
+     * Base style only — per-clip caption-style KEYFRAMES are untouched. Undoable as one step.
      */
     private void showApplyStyleToAllClipsDialog(@NonNull String styleId, @NonNull String styleLabel) {
         if (project == null) return;
@@ -28999,7 +29000,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         root.setPadding(pad, pad / 2, pad, 0);
 
         TextView helper = new TextView(this);
-        helper.setText("Apply â" + styleLabel + "â to all clips in the timeline?");
+        helper.setText("Apply “" + styleLabel + "” to all clips in the timeline?");
         helper.setTextColor(0xFFBBBBBB);
         helper.setTextSize(13);
         root.addView(helper);
@@ -29047,7 +29048,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Per-clip caption-style KEYFRAMES take priority over the base style at render time
      * (see {@link Clip#captionStyleAtClipMs(long)}, used by both the live preview and
      * {@code ExportManager}/{@code CompositeExportOverlay}). If a clip has any keyframes,
-     * merely changing its base style is invisible â the keyframed value keeps winning. So
+     * merely changing its base style is invisible — the keyframed value keeps winning. So
      * that "apply to all" actually makes the chosen style show on every clip, any existing
      * caption-style keyframes on the video targets are cleared as part of this same step
      * (and restored verbatim on undo).
@@ -29087,7 +29088,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 c.setCaptionStyleId(styleId);
                 if (copyPosition) c.setCaptionCenter(srcCenterX, srcCenterY);
                 if (copySize) c.setCaptionSizeFraction(srcSizeFraction);
-                // Clear style keyframes so the newly-applied base style actually renders â
+                // Clear style keyframes so the newly-applied base style actually renders —
                 // otherwise a keyframed clip keeps showing its old keyframed style everywhere
                 // the keyframe track covers (preview AND export both read keyframes first).
                 if (c.hasCaptionStyleKeyframes()) {
@@ -29152,7 +29153,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (editorTimeline != null) editorTimeline.invalidate();
         // Bulk apply may have cleared the selected clip's caption-style keyframes (or undo may
-        // have restored them) â keep the keyframe-dot drawer in sync if it's showing.
+        // have restored them) — keep the keyframe-dot drawer in sync if it's showing.
         refreshCaptionKeyframeDrawer();
     }
 
@@ -29163,14 +29164,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Bind and show the caption OVERLAY for {@code clip}, applying its persisted style and
-     * position. Both callers are RESTORES â project load, and re-binding after a transcript
-     * version switch â not user requests.
+     * position. Both callers are RESTORES — project load, and re-binding after a transcript
+     * version switch — not user requests.
      *
      * <p><b>It no longer asks for the style chooser, and that is the fix.</b> It used to set
      * {@code captionStyleBarRequested} and force the bar visible. The flag means "the user asked
      * to see the chooser"; setting it from a restore made that a lie, and since project load
      * runs this for any clip with captions enabled, every such project opened with the chooser
-     * pinned to the bottom of the preview â which is exactly the always-on behaviour that was
+     * pinned to the bottom of the preview — which is exactly the always-on behaviour that was
      * asked to be made contextual, and which JoyRaptor reported again on 2026-08-14. The per-tick
      * gate in updateCurrentTimeDisplay was correct all along; it was being handed a request
      * nobody made.
@@ -29190,20 +29191,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * visibility or the editing toolbar. Used by the playback loop to switch captions to the clip under
      * the playhead at each cut (captions are clip-specific, like the visualizer).
      */
-    // ââ Caption transcript windowing (audit 2.4) âââââââââââââââââââââââââââââ
+    // ── Caption transcript windowing (audit 2.4) ─────────────────────────────
     //
     // The caption overlay must show EXACTLY the words the export will draw. Export builds
     // its captions from `t.windowed(in, out)` (CompositeExportOverlay), while the preview
     // used to bind the RAW full transcript. After a split that lands mid-phrase, the two
     // therefore disagreed: observed on device with a phrase spanning source 2250-4350ms
-    // split at 3300 â the preview drew "is very cute she is white" in BOTH halves, while
+    // split at 3300 — the preview drew "is very cute she is white" in BOTH halves, while
     // the export correctly drew "is very cute" in the first and "she is white" in the
     // second. The user saw words in the preview that the render would never contain.
     //
     // Transcript.windowed() allocates a NEW Transcript on every call (sharing the same
     // TranscriptWord references). Binding it directly would hand CaptionOverlayView a
     // different instance on every re-bind, which defeats the identity check that stops
-    // setData() resetting the active word â i.e. it would silently reintroduce the
+    // setData() resetting the active word — i.e. it would silently reintroduce the
     // "captions vanish on any re-bind while paused" bug fixed in eaff34b. Hence the cache:
     // the same clip at the same trim must yield the SAME object.
     //
@@ -29266,7 +29267,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     @Override
                     public android.graphics.RectF getVideoContentRect() {
                         // Canvas-relative: caption size/position must match the export
-                        // (font = fraction Ã canvas height), not the per-clip video rect.
+                        // (font = fraction × canvas height), not the per-clip video rect.
                         return computeCanvasRect();
                     }
 
@@ -29299,7 +29300,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                     @Override
                     public void onDoubleTapped() {
-                        // JoyRaptor 2026-07-16: double-tap the caption â its advanced UI
+                        // JoyRaptor 2026-07-16: double-tap the caption → its advanced UI
                         // (style bar + the Caption Keyframes drawer).
                         activeCaptionIsAudio = false;
                         if (captionStyleBar != null) {
@@ -29311,7 +29312,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
                     @Override
                     public void onLongPressed() {
-                        // Long-press a caption â hide captions for THIS clip (tap=props,
+                        // Long-press a caption → hide captions for THIS clip (tap=props,
                         // long-hold=delete, the interaction the user likes on the visualizer).
                         final Clip cc = findClipById(captionClipId);
                         if (cc != null) {
@@ -29336,7 +29337,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (audioCaptionOverlay == null) return;
         audioCaptionClipId = clip.getId();
         highlightActiveCaptionChip(clip.getCaptionStyleId());
-        audioCaptionOverlay.setData(windowedCaptionsFor(clip),   // audit 2.4 â match export
+        audioCaptionOverlay.setData(windowedCaptionsFor(clip),   // audit 2.4 — match export
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
                     @NonNull @Override
@@ -29389,7 +29390,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                     () -> ac.setCaptionsEnabled(true)));
                             scheduleAutoSave();
                             Toast.makeText(FaditorEditorActivity.this,
-                                    "Captions hidden â tap a style chip to show again", Toast.LENGTH_SHORT).show();
+                                    "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
                         }
                     }
                 });
@@ -29447,7 +29448,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (transitionPanel == null) return;
         transitionPanel.setTranslationY(-getResources().getDisplayMetrics().heightPixels);
         transitionTypeViews.clear();
-        // The panel must NOT insert on drop â that was sending every drop to the playhead seam (time 0 /
+        // The panel must NOT insert on drop — that was sending every drop to the playhead seam (time 0 /
         // previous scene). Only the TIMELINE inserts now (with nearest-seam snapping + a live preview).
         // Dropping a card back on the panel just cancels. (Tapping a card still quick-inserts at playhead.)
         transitionPanel.setOnDragListener((v, event) ->
@@ -29531,7 +29532,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         glScroll.setHorizontalScrollBarEnabled(false);
         glScroll.addView(glRow);
 
-        // "Pull down for more rows" (studio-drawers Â§C, the last remaining TODO): the GL-effects
+        // "Pull down for more rows" (studio-drawers §C, the last remaining TODO): the GL-effects
         // row starts COLLAPSED so the basic transitions aren't buried; a discoverable affordance
         // bar reveals it on tap or a downward fling (up-fling / re-tap collapses it).
         View affordance = buildTransitionMoreAffordance(d);
@@ -29542,7 +29543,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transitionGlExpanded = false;
     }
 
-    /** The tappable "â More effects" bar that reveals/collapses the GL-transition row. */
+    /** The tappable "⌄ More effects" bar that reveals/collapses the GL-transition row. */
     private View buildTransitionMoreAffordance(float d) {
         android.widget.LinearLayout bar = new android.widget.LinearLayout(this);
         bar.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -29634,7 +29635,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void setupTransitionDrag(View v, final Transition.Type type) {
         if (v == null) return;
         transitionTypeViews.put(type, v);
-        // Swap the static preview swatch (first child) for an ANIMATED AâB demo of this transition.
+        // Swap the static preview swatch (first child) for an ANIMATED A→B demo of this transition.
         // The preview view is non-interactive, so the card's tap (add) and long-press (drag) still work.
         if (v instanceof android.view.ViewGroup) {
             android.view.ViewGroup card = (android.view.ViewGroup) v;
@@ -29699,7 +29700,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Insert a transition at a specific seam (left-clip index) â snapped from the drop point to the
+     * Insert a transition at a specific seam (left-clip index) — snapped from the drop point to the
      * NEAREST seam boundary, so a drop over a cut lands on that cut (buttressing both clips) instead of
      * the old clip-centre mapping that drifted to the previous seam. Scrolls to reveal where it landed.
      */
@@ -29718,7 +29719,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             transition.glTransitionId = glId != null ? glId : "CrossZoom";
         }
         // Records the undo action and resyncs the player (a transition flips the project
-        // gapless-INELIGIBLE â the engine can't render it and would play straight through the
+        // gapless-INELIGIBLE — the engine can't render it and would play straight through the
         // seam, so the resync tears down to the legacy path, which renders transitions).
         addTransitionUndoable(transition, replaced);
         editorTimeline.setTransitions(timeline.getTransitions());
@@ -29750,7 +29751,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void showTransitionPanel(boolean show) {
         if (transitionPanel == null) return;
         if (show && visualizerDrawerOpen) showVisualizerDrawer(false); // mutually exclusive top drawers
-        // Cover the top bar while choosing a transition (AI/pin/close/export aren't needed here) â this
+        // Cover the top bar while choosing a transition (AI/pin/close/export aren't needed here) — this
         // also raises the drawer up. The top bar is restored when the drawer closes.
         View topBar = findViewById(R.id.editor_top_bar);
         if (topBar != null) topBar.setVisibility(show ? View.GONE : View.VISIBLE);
@@ -29796,7 +29797,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (type == Transition.Type.GL_SHADER) {
             transition.glTransitionId = glId != null ? glId : "CrossZoom";
         }
-        // Undo record + player resync (transition â gapless-ineligible â legacy fallback).
+        // Undo record + player resync (transition ⇒ gapless-ineligible ⇒ legacy fallback).
         addTransitionUndoable(transition, replaced);
         editorTimeline.setTransitions(timeline.getTransitions());
         editorTimeline.setSelectedTransitionIndex(timeline.getTransitions().size() - 1);
@@ -29809,7 +29810,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Returns the LEFT-clip index of the seam nearest the playhead â the {@code Transition.clipIndex}
+     * Returns the LEFT-clip index of the seam nearest the playhead — the {@code Transition.clipIndex}
      * convention (seam between clip[i] and clip[i+1], valid i in [0, clipCount-2]). Splits the clip at
      * the playhead to create a new seam when not near an existing boundary. (Previously returned the
      * RIGHT-clip / insert index, off by one, which orphaned every transition.)
@@ -29885,15 +29886,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         Transition t = project.getTimeline().getTransitions().get(index);
         if (typeView != null) {
-            // Tap the type to EXCHANGE it (any transition â any other). GL transitions show their
-            // effect name; picking "GL Effectâ¦" in the type picker opens the 26-entry GL chooser.
+            // Tap the type to EXCHANGE it (any transition → any other). GL transitions show their
+            // effect name; picking "GL Effect…" in the type picker opens the 26-entry GL chooser.
             typeView.setText((t.isGlShader()
                     ? com.fadcam.ui.faditor.gltransitions.GLTransitionCatalog.displayName(t.glTransitionId)
-                    : t.type.name().replace('_', ' ')) + " â¾");
+                    : t.type.name().replace('_', ' ')) + " ▾");
             typeView.setOnClickListener(v -> showTransitionTypePicker(t, index));
         }
         if (durationView != null) {
-            durationView.setText(TimeFormatter.formatAuto(t.durationMs) + " â¾");
+            durationView.setText(TimeFormatter.formatAuto(t.durationMs) + " ▾");
             durationView.setOnClickListener(v -> showTransitionDurationPicker(t, index));
         }
         if (deleteView != null) {
@@ -29935,7 +29936,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Transition.Type.LINEAR_MIRROR_WIPE, Transition.Type.GLITCH,
                 Transition.Type.TV_CHANNEL, Transition.Type.GL_SHADER};
         final CharSequence[] labels = {"Cross Dissolve", "Fade to Black", "Fade to White",
-                "Wipe", "Push", "Radial", "Mirror Wipe", "Glitch", "TV Channel", "GL Effectâ¦"};
+                "Wipe", "Push", "Radial", "Mirror Wipe", "Glitch", "TV Channel", "GL Effect…"};
         int checked = -1;
         for (int i = 0; i < types.length; i++) {
             if (types[i] == transition.type) checked = i;
@@ -29999,7 +30000,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         int checked = -1;
         for (int i = 0; i < entries.size(); i++) {
             com.fadcam.ui.faditor.gltransitions.GLTransitionCatalog.Entry e = entries.get(i);
-            labels[i] = e.displayName + "  Â·  " + e.category;
+            labels[i] = e.displayName + "  ·  " + e.category;
             if (e.id.equals(transition.glTransitionId)) checked = i;
         }
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
@@ -30029,7 +30030,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final Transition removed = timeline.getTransitions().get(index);
         timeline.removeTransition(index);
         // Undoable (was not until 2026-07-18), and the resync RE-PROMOTES the session to the
-        // gapless engine if removing this transition made the project eligible again â without
+        // gapless engine if removing this transition made the project eligible again — without
         // it the session stayed stranded on the legacy single-clip player.
         undoManager.recordAction(new EditActions.LambdaAction("Remove transition", // TODO(strings)
                 () -> { // redo
@@ -30067,7 +30068,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * How many of a SEQUENCE's frames cannot be opened. 0 for a grid sheet.
      *
-     * <p>Needed because a sequence's renderer loads successfully if ANY ONE frame decodes â so
+     * <p>Needed because a sequence's renderer loads successfully if ANY ONE frame decodes — so
      * "is the sheet missing" was answering false for a sequence with 239 of 240 frames deleted.
      * ProjectIntegrity already checks all N; this is the same fact where the user can see it.</p>
      *
@@ -30094,7 +30095,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Memoised per sheet id â the manager list rebuilds often and this touches the filesystem.
+     * Memoised per sheet id — the manager list rebuilds often and this touches the filesystem.
      * Invalidated by {@link #invalidateSpriteMissingState()}; without that the memo answered the
      * question once per Activity lifetime and both directions of the fact went stale.
      */
@@ -30110,15 +30111,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * process died, and a frame RESTORED stayed marked missing just as long.</p>
      *
      * <p><b>Why here and not on the draw path:</b> the per-frame check is a
-     * {@code openFileDescriptor} per frame â a 240-frame sequence re-statted every draw pass or
+     * {@code openFileDescriptor} per frame — a 240-frame sequence re-statted every draw pass or
      * every played frame is file I/O on the hottest path there is. So this invalidates only at
-     * the two coarse moments where the files can actually have changed underneath us â the user
+     * the two coarse moments where the files can actually have changed underneath us — the user
      * opening the sprite-sheet manager (the screen that reports the fact) and the editor
-     * resuming (the user has been away, possibly in a file manager) â and lets the existing lazy
+     * resuming (the user has been away, possibly in a file manager) — and lets the existing lazy
      * per-frame detection repopulate from there.</p>
      *
      * <p>Decoded bitmaps survive: this clears FAILURE state only. Entries holding a null renderer
-     * are dropped though â they cache "this sheet would not load at all", cost no pixels, and are
+     * are dropped though — they cache "this sheet would not load at all", cost no pixels, and are
      * the only way a fully-restored sheet comes back.</p>
      */
     private void invalidateSpriteMissingState() {
@@ -30152,21 +30153,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             com.fadcam.ui.faditor.sprite.SpriteSheet s = sheets.get(i);
             missing[i] = isSpriteSheetMissing(s);
             // S7 discoverability: visible "missing" state right in the manager list
-            // (inline literal â strings.xml is another agent's live file per protocol).
+            // (inline literal — strings.xml is another agent's live file per protocol).
             // A sequence says HOW MANY frames are gone: "missing" on a 240-frame object that
             // still mostly works is not actionable, "12 of 240 frames missing" is.
             int gone = missingSequenceFrames(s);
             items[i] = !missing[i] ? s.getName()
                     : gone > 0
-                        ? s.getName() + "  â  " + gone + " of " + s.cellCount() + " frames missing"
-                        : s.getName() + "  â  missing";
+                        ? s.getName() + "  ⚠ " + gone + " of " + s.cellCount() + " frames missing"
+                        : s.getName() + "  ⚠ missing";
         }
         items[newIdx] = getString(R.string.sprite_sheet_picker_new);
-        // SPEC_IMAGE_SEQUENCE Â§3. Inline literals â strings.xml is another agent's live file
-        // per the protocol note above. Folder first: it is the route Â§3a detection needs and
+        // SPEC_IMAGE_SEQUENCE §3. Inline literals — strings.xml is another agent's live file
+        // per the protocol note above. Folder first: it is the route §3a detection needs and
         // the only one that scales past the persistable-grant limit.
-        items[seqFolderIdx] = "ï¼ Image sequence from folderâ¦";
-        items[seqFilesIdx] = "ï¼ Image sequence from filesâ¦";
+        items[seqFolderIdx] = "＋ Image sequence from folder…";
+        items[seqFilesIdx] = "＋ Image sequence from files…";
         items[avatarsIdx] = getString(R.string.sprite_sheet_picker_avatars);
 
         android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<String>(
@@ -30203,11 +30204,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void showSpriteSheetActions(@NonNull com.fadcam.ui.faditor.sprite.SpriteSheet sheet) {
         boolean missing = isSpriteSheetMissing(sheet);
         String relinkLabel = getString(R.string.sprite_sheet_action_relink)
-                + (missing ? "  â " : ""); // inline literal, see class-level protocol note
+                + (missing ? "  ⚠" : ""); // inline literal, see class-level protocol note
         // An image SEQUENCE has no grid to edit and no single sheetUri to relink: the grid
         // editor would lay cols/rows arithmetic over frame 0 and could rewrite the one preset
         // that carries every authored weight, and "Relink" writes only sheetUri, which
-        // frameUriAt() never reads â a silent no-op the user would read as a failed repair.
+        // frameUriAt() never reads — a silent no-op the user would read as a failed repair.
         // Offering neither is the honest state until a sequence-shaped version of each exists.
         final boolean seq = sheet.isSequence();
         String[] actions = seq
@@ -30217,7 +30218,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         getString(R.string.sprite_sheet_action_place),
                         relinkLabel};
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(sheet.getName() + (seq ? "  Â·  " + sheet.cellCount() + " frames" : ""))
+                .setTitle(sheet.getName() + (seq ? "  ·  " + sheet.cellCount() + " frames" : ""))
                 .setItems(actions, (d, which) -> {
                     if (seq) { placeSpriteOnVideo(sheet); return; }
                     if (which == 0) {
@@ -30233,9 +30234,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * S7 relink UI: system file picker (ACTION_OPEN_DOCUMENT, image/*,
-     * persistable URI permission â same import contract as {@code
+     * persistable URI permission — same import contract as {@code
      * SpriteSheetEditorActivity#importSheetImage}) to replace ONE sheet's
-     * source image in place. Grid/cells/pivot/presets are untouched â only
+     * source image in place. Grid/cells/pivot/presets are untouched — only
      * {@code sheetUri} changes, so every placed {@link
      * com.fadcam.ui.faditor.sprite.SpriteOverlayItem} referencing this sheet
      * keeps working (same object/id, no re-point needed).
@@ -30249,7 +30250,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Apply a picked relink image: copy into the project bundle (mirrors
      * {@code SpriteSheetEditorActivity#importSheetImage}'s assets/ convention
      * so the stored URI stays project-relative on save), update the sheet's
-     * {@code sheetUri} IN PLACE, invalidate the decode cache (identity-keyed â
+     * {@code sheetUri} IN PLACE, invalidate the decode cache (identity-keyed —
      * mutating the same object won't auto-invalidate it), refresh preview +
      * palette, ONE undoable step, autosave.
      */
@@ -30302,7 +30303,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 com.fadcam.ui.faditor.sprite.SpriteSheetRenderer> cached =
                 spriteRendererCache.remove(sheetId);
         if (cached != null && cached.second != null) cached.second.recycle();
-        // The relink is precisely a change to which files exist â the memo's answer is now stale.
+        // The relink is precisely a change to which files exist — the memo's answer is now stale.
         sequenceMissingCounts.remove(sheetId);
         if (spriteOverlayView != null) spriteOverlayView.invalidate();
         if (spritePalettePanel != null && spritePalettePanel.isAttachedToWindow()) {
@@ -30324,7 +30325,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * S4 placement: drop a sprite instance at the playhead, first cell showing
-     * from time 0 of the item (a single-cell "hold" â S5's lane + the S3 palette
+     * from time 0 of the item (a single-cell "hold" — S5's lane + the S3 palette
      * add real frame animation on top). One undo step; persists via autosave.
      */
     @Nullable
@@ -30337,8 +30338,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // collapse onto one shared "sprite" track and overlap (FEEDBACK_20260706 #2).
         item.setLayerId(com.fadcam.ui.faditor.model.Timeline.spriteLayerIdFor(item));
         if (sheet.isSequence()) {
-            // A sequence placed from the manager must ANIMATE. Dropping a cell key here â the
-            // sprite default â pins it to one still, which looks like the import silently
+            // A sequence placed from the manager must ANIMATE. Dropping a cell key here — the
+            // sprite default — pins it to one still, which looks like the import silently
             // failed. Same single preset key and same natural length the import path uses, so
             // both routes produce the same object.
             sheet.ensureSequencePreset();
@@ -30365,13 +30366,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return item;
     }
 
-    // ââ Image sequences (SPEC_IMAGE_SEQUENCE Â§3 import) ââââââââââââââââââââââ
+    // ── Image sequences (SPEC_IMAGE_SEQUENCE §3 import) ──────────────────────
 
     /**
-     * Â§3 entry A: the user picks the frames themselves.
+     * §3 entry A: the user picks the frames themselves.
      *
-     * <p>No detection is needed or wanted here â an explicit multi-selection IS the answer to
-     * "which files", so Â§3a's conservatism has already been satisfied by the user's own fingers.
+     * <p>No detection is needed or wanted here — an explicit multi-selection IS the answer to
+     * "which files", so §3a's conservatism has already been satisfied by the user's own fingers.
      * The frames are still ordered NUMERICALLY by name rather than by pick order, because
      * "select all" in a file picker does not promise an order and {@code frame_9} must still
      * precede {@code frame_10}.</p>
@@ -30383,7 +30384,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§3 entry B: the user points at the FOLDER, and Â§3a detection runs.
+     * §3 entry B: the user points at the FOLDER, and §3a detection runs.
      *
      * <p>This is the route the spec's detection rule actually needs: a document URI from
      * OPEN_DOCUMENT cannot enumerate its own siblings, so "look in the same folder for names that
@@ -30391,7 +30392,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>It is also the route that SCALES. A tree grant is ONE persistable permission covering
      * every child, where multi-selecting 240 frames would try to persist 240 grants and run into
-     * the per-package limit â losing access to arbitrary frames later, which would look like
+     * the per-package limit — losing access to arbitrary frames later, which would look like
      * random files going missing rather than like a permission problem.</p>
      */
     private void pickSequenceFolder() {
@@ -30436,7 +30437,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         }
         // Sort by display name numerically, using the detector's own comparator via a synthetic
-        // run â one ordering rule for both entry points.
+        // run — one ordering rule for both entry points.
         java.util.List<String> names = new java.util.ArrayList<>();
         java.util.Map<String, Uri> byName = new java.util.LinkedHashMap<>();
         for (int i = 0; i < uris.size(); i++) {
@@ -30459,7 +30460,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         // The detector filters siblings to the first pick's stem AND extension, so a mixed
         // selection (shot_001..040.png + shot_041..045.jpg, or two different stems) quietly
-        // loses the rest. The user EXPLICITLY chose those files â dropping them without a word
+        // loses the rest. The user EXPLICITLY chose those files — dropping them without a word
         // is the silent data loss this path's own comment claims cannot happen here.
         final int dropped = uris.size() - ordered.size();
         final java.util.List<String> finalOrdered = ordered;
@@ -30515,9 +30516,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             Toast.makeText(this, "No images in that folder", Toast.LENGTH_SHORT).show();
             return;
         }
-        // Detect from the FIRST numbered image. Â§3a is explicit that the result is an OFFER with
-        // a count â the dialog shows it and the user can decline, which is the whole protection
-        // against a holiday folder of IMG_0001â¦IMG_0400 being read as an animation.
+        // Detect from the FIRST numbered image. §3a is explicit that the result is an OFFER with
+        // a count — the dialog shows it and the user can decline, which is the whole protection
+        // against a holiday folder of IMG_0001…IMG_0400 being read as an animation.
         String seed = null;
         for (String n : names) {
             if (com.fadcam.ui.faditor.sprite.SequenceDetector.isNumbered(n)) {
@@ -30550,7 +30551,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return null;
     }
 
-    /** A readable sheet name from a filename stem: {@code "shot_"} â {@code "shot"}. */
+    /** A readable sheet name from a filename stem: {@code "shot_"} → {@code "shot"}. */
     @NonNull
     private String suggestSequenceName(@Nullable String stemOrName) {
         if (stemOrName == null || stemOrName.trim().isEmpty()) return "Sequence";
@@ -30566,8 +30567,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p><b>Why this exists, proven on device 2026-08-06.</b> Returning from the SAF picker can
      * RECREATE this activity, and the {@code ActivityResult} is delivered before the new window
-     * is attached. A dialog shown at that moment is created â logcat shows the {@code Dialog}
-     * lines â and then destroyed with the old window a few ms later, so the user taps "Allow" on
+     * is attached. A dialog shown at that moment is created — logcat shows the {@code Dialog}
+     * lines — and then destroyed with the old window a few ms later, so the user taps "Allow" on
      * the folder and lands back in the editor with nothing to show for it and no error anywhere.
      *
      * <p>The same shape as the missing-file dialog in HANDOFF_20260804c ("fired during load and
@@ -30575,7 +30576,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     @Nullable private Runnable pendingSequenceOffer;
 
-    /** Ask Â§3b's one question, then build the sheet and place it. */
+    /** Ask §3b's one question, then build the sheet and place it. */
     private void offerSequenceImport(@NonNull String headline,
                                      @NonNull java.util.List<String> frameUris,
                                      @NonNull String name) {
@@ -30602,7 +30603,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>Unlike a sprite, a sequence is placed with a CONCRETE end rather than open-ended: its
      * whole timing model is "total duration divided by weights", so an object with no end has no
-     * frame durations either. That is also Â§6's resolution for open-ended playback â keep the
+     * frame durations either. That is also §6's resolution for open-ended playback — keep the
      * affordance, but always resolve to a real length.</p>
      */
     private void createSequenceSheetAndPlace(@NonNull String name,
@@ -30620,7 +30621,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item =
                 com.fadcam.ui.faditor.sprite.SpriteOverlayItem.create(sheet.getId());
         item.setLayerId(com.fadcam.ui.faditor.model.Timeline.spriteLayerIdFor(item));
-        // ONE frame-track entry running the whole sequence as a preset â which is what makes
+        // ONE frame-track entry running the whole sequence as a preset — which is what makes
         // the timing a single integer array the dope sheet and the AI can both reason about.
         item.getFrameTrack().put(com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(
                 0, com.fadcam.ui.faditor.sprite.SpriteSheet.SEQUENCE_PRESET_ID));
@@ -30648,23 +30649,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     syncTimelineOverlays();
                 }));
         scheduleAutoSave();
-        Toast.makeText(this, frameUris.size() + " frames Â· "
+        Toast.makeText(this, frameUris.size() + " frames · "
                         + com.fadcam.ui.faditor.sprite.DurationParser.formatMs(span),
                 Toast.LENGTH_SHORT).show();
     }
 
-    // ââ Dope-sheet edits (SPEC_IMAGE_SEQUENCE Â§5) ââââââââââââââââââââââââââââ
+    // ── Dope-sheet edits (SPEC_IMAGE_SEQUENCE §5) ────────────────────────────
 
     /**
      * Write new weights onto a sequence and re-length the object to match.
      *
      * <p><b>Adding a hold makes the object LONGER; it does not speed everything else up.</b>
-     * fps is the stored authority (Â§2), so Î£weights/fps is the run's length and holding frame 3
-     * for five beats adds four beats to the whole thing â the animator's expectation, and the
+     * fps is the stored authority (§2), so Σweights/fps is the run's length and holding frame 3
+     * for five beats adds four beats to the whole thing — the animator's expectation, and the
      * direction that leaves the cadence they chose alone. The opposite convention would mean
      * lengthening one hold silently retimed every other frame.</p>
      *
-     * <p>Note this is the exact INVERSE of dragging the object's edge in RELATIVE mode (Â§2a),
+     * <p>Note this is the exact INVERSE of dragging the object's edge in RELATIVE mode (§2a),
      * which keeps the weights and moves fps. Together they are the two things a user can mean,
      * and each leaves the other's authored value untouched.</p>
      */
@@ -30705,7 +30706,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (spriteOverlayView != null) spriteOverlayView.invalidate();
     }
 
-    /** Â§5c.7 order operations. Weights travel WITH their frames, so holds stay on their images. */
+    /** §5c.7 order operations. Weights travel WITH their frames, so holds stay on their images. */
     private void applySequenceReorder(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, @NonNull String op) {
         if (project == null) return;
@@ -30796,7 +30797,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         boolean first = true;
         // CONSUMED, not "selected": a preset key in the selection contributes no frame, so it
         // must not be collapsed away either. Removing keys this loop skipped would delete the
-        // animation they drove and put it in neither the new preset nor the surviving track â
+        // animation they drove and put it in neither the new preset nor the surviving track —
         // a silent destructive edit behind a toast that reads like success.
         final java.util.Set<Integer> consumed = new java.util.HashSet<>();
         for (Integer i : idx) {
@@ -30833,19 +30834,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         apply.run();
         undoManager.recordAction(new EditActions.LambdaAction("Make preset", apply, undo));
         scheduleAutoSave();
-        Toast.makeText(this, preset.name + " Â· " + preset.frames.size() + " frames",
+        Toast.makeText(this, preset.name + " · " + preset.frames.size() + " frames",
                 Toast.LENGTH_SHORT).show();
     }
 
     /**
-     * Â§3d â <b>Convert to sprite sheet</b>, as a drawer ACTION rather than an import branch.
+     * §3d — <b>Convert to sprite sheet</b>, as a drawer ACTION rather than an import branch.
      *
      * <p>The user originally wanted a second import path that builds a sprite object instead.
      * The spec moves it here on purpose: <i>"at import the user cannot yet know which they want;
      * as an action it is discoverable later and reversible."</i></p>
      *
      * <p>Packs the N frames into one grid PNG in the project bundle, builds a grid sheet with the
-     * same cadence, and carries the WEIGHTS across on an equivalent preset â so converting does
+     * same cadence, and carries the WEIGHTS across on an equivalent preset — so converting does
      * not quietly throw away the timing the user authored. The original sequence sheet is left in
      * the project: conversion re-points this item, it does not destroy the source.</p>
      */
@@ -30860,7 +30861,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         final int n = seq.cellCount();
         if (n <= 0) return;
-        Toast.makeText(this, "Packing " + n + " framesâ¦", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Packing " + n + " frames…", Toast.LENGTH_SHORT).show();
 
         final String seqId = seq.getId();
         thumbnailExecutorRun(() -> {
@@ -30871,7 +30872,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         new java.io.File(
                                 projectStorage.projectDir(project.getId()), "assets"));
             } catch (Exception | OutOfMemoryError e) {
-                FLog.w(TAG, "sequence â sheet pack failed", e);
+                FLog.w(TAG, "sequence → sheet pack failed", e);
             }
             final com.fadcam.ui.faditor.sprite.SpriteSheet result = packed;
             runOnUiThread(() -> {
@@ -30907,7 +30908,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 scheduleAutoSave();
                 if (spriteOverlayView != null) spriteOverlayView.invalidate();
                 Toast.makeText(this, "Packed into a "
-                        + result.getCols() + "Ã" + result.getRows() + " sheet",
+                        + result.getCols() + "×" + result.getRows() + " sheet",
                         Toast.LENGTH_SHORT).show();
             });
         });
@@ -30918,15 +30919,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         new Thread(r, "seq-pack").start();
     }
 
-    // ââ Â§6 looping / Â§2a resize mode âââââââââââââââââââââââââââââââââââââââââ
+    // ── §6 looping / §2a resize mode ─────────────────────────────────────────
 
-    /** Cycle the sequence's wrap: once â loop â ping-pong. Ping-pong preserves weights. */
+    /** Cycle the sequence's wrap: once → loop → ping-pong. Ping-pong preserves weights. */
     private void cycleSequenceLoopMode(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
         if (project == null) return;
         // Sheet-scoped (preset.type) AND item-scoped (endBehavior) in one action, so without
         // copy-on-write cycling on one placement left every other copy with a wrap type it
-        // never asked for while keeping its own end behaviour â two halves of one setting out
+        // never asked for while keeping its own end behaviour — two halves of one setting out
         // of step, which is exactly what this method's comment claims to prevent.
         final com.fadcam.ui.faditor.sprite.SpriteSheet sheet = sheetForExclusiveEdit(item);
         if (sheet == null) return;
@@ -30954,7 +30955,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§6: toggle the "continues until blocked" intent, then RESOLVE it immediately.
+     * §6: toggle the "continues until blocked" intent, then RESOLVE it immediately.
      *
      * <p>Resolution is not deferred to playback: the length is written as a real number now, so
      * undo restores a number the user saw and nothing depends on neighbours at render time.</p>
@@ -30983,7 +30984,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         undoManager.recordAction(new EditActions.LambdaAction("Continue to next", apply, undo));
         scheduleAutoSave();
         if (item.isClippedByNeighbour()) {
-            // "Never silently" (Â§6): if a neighbour cut it short, say so at the moment it
+            // "Never silently" (§6): if a neighbour cut it short, say so at the moment it
             // happens as well as marking it on the tape.
             Toast.makeText(this, "Shortened by the next object in this lane",
                     Toast.LENGTH_SHORT).show();
@@ -30991,20 +30992,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§6: give every "continues" sequence a concrete length, per lane.
+     * §6: give every "continues" sequence a concrete length, per lane.
      *
-     * <p>Called after edits that can change what blocks what. Cheap and idempotent â it reports
+     * <p>Called after edits that can change what blocks what. Cheap and idempotent — it reports
      * whether anything actually moved, so calling it on every change cannot create churn.</p>
      */
     private boolean resolveSequenceOpenEnds() {
         if (project == null || project.getTimeline() == null) return false;
-        // ONE lane-grouping rule, shared with the AI path â see
+        // ONE lane-grouping rule, shared with the AI path — see
         // SequenceAiOps.resolveOpenEndsPerLane for what having two of them cost.
         com.fadcam.ui.faditor.ai.SequenceAiOps.resolveOpenEndsPerLane(project);
         return false;
     }
 
-    /** Â§2a: toggle what dragging this sequence's edge MEANS. Also visible on the tape. */
+    /** §2a: toggle what dragging this sequence's edge MEANS. Also visible on the tape. */
     private void cycleSequenceResizeMode(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
         if (project == null) return;
@@ -31040,20 +31041,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Avatar Studio rig list (PLAN_AVATAR_STUDIO A1-UI): the project's rigs +
      * "+ New avatar", launching the matrix editor. Same write-back pattern as
      * the sprite setup editor. Editor-side surface stays THIN per the
-     * architecture contract â authoring lives entirely in Avatar Studio.
+     * architecture contract — authoring lives entirely in Avatar Studio.
      */
     private void openAvatarStudioManager() {
         java.util.List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs = project.getAvatarRigs();
         // A4 editor slice: library avatars are INSERTABLE as timeline objects
         // (architecture contract: avatar = standalone droppable object). The
-        // insert entries live in this same dialog â one avatar surface.
+        // insert entries live in this same dialog — one avatar surface.
         final java.util.List<com.fadcam.ui.faditor.avatar.AvatarLibrary.Entry> lib =
                 com.fadcam.ui.faditor.avatar.AvatarLibrary.list(this);
         String[] items = new String[rigs.size() + 1 + lib.size()];
         for (int i = 0; i < rigs.size(); i++) items[i] = rigs.get(i).getName();
         items[rigs.size()] = getString(R.string.avatar_studio_new);
         for (int i = 0; i < lib.size(); i++) {
-            items[rigs.size() + 1 + i] = "â Insert \"" + lib.get(i).rig.getName() + "\"";
+            items[rigs.size() + 1 + i] = "⇓ Insert \"" + lib.get(i).rig.getName() + "\"";
         }
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(R.string.avatar_studio_title)
@@ -31079,7 +31080,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * A4 editor slice (THIN, per architecture contract): import a library
      * avatar into this project and place it at the playhead. The placed item
      * is a 1-cell sprite sheet holding the rig's NEUTRAL pose baked by
-     * {@link com.fadcam.ui.faditor.avatar.AvatarNeutralBaker} â it rides the
+     * {@link com.fadcam.ui.faditor.avatar.AvatarNeutralBaker} — it rides the
      * complete sprite pipeline (preview/export/lanes/undo) with zero new
      * compositor surface. The rig + its REAL sheets also import (idempotent by
      * id) so the later bake-to-keyframes slice can upgrade the placed item to
@@ -31093,7 +31094,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             Toast.makeText(this, "Couldn't create project assets", Toast.LENGTH_SHORT).show();
             return;
         }
-        // 1) Neutral-pose bake â 1-cell sheet asset.
+        // 1) Neutral-pose bake → 1-cell sheet asset.
         String assetName = com.fadcam.ui.faditor.avatar.AvatarNeutralBaker
                 .neutralAssetName(entry.rig);
         java.io.File baked = new java.io.File(assetsDir, assetName);
@@ -31102,7 +31103,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             Toast.makeText(this, "Avatar bake failed", Toast.LENGTH_SHORT).show();
             return;
         }
-        // 2) Register (or refresh) the baked sheet â stable id from the rig so
+        // 2) Register (or refresh) the baked sheet — stable id from the rig so
         // re-inserting the same avatar reuses one sheet def.
         String bakedSheetId = "avatar-neutral-" + entry.rig.getId();
         com.fadcam.ui.faditor.sprite.SpriteSheet bakedSheet =
@@ -31283,9 +31284,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
 
         // G4: before falling back to model picker, scan for existing transcripts
-        // in the project â if any exist, show a picker so the user can reach them.
+        // in the project — if any exist, show a picker so the user can reach them.
         if (!showTranscriptPicker()) {
-            // No transcripts exist in the project at all â fall back to model picker
+            // No transcripts exist in the project at all — fall back to model picker
             transcriptProgress.setVisibility(View.GONE);
             transcriptView.setVisibility(View.GONE);
             transcriptModelChoice.setVisibility(View.VISIBLE);
@@ -31293,7 +31294,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    /** G4 â show a picker of all clips in the project that have transcripts.
+    /** G4 — show a picker of all clips in the project that have transcripts.
      * Returns true if a picker was shown (i.e. at least one transcript exists),
      * false if no transcripts exist in the project (falls back to model picker). */
     private boolean showTranscriptPicker() {
@@ -31384,8 +31385,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /** Build a human-readable label for a transcript entry.
-     * Format: "MM:SS  filename  â  Engine"
-     * If this is the currently shown transcript, prefix with "â " */
+     * Format: "MM:SS  filename  —  Engine"
+     * If this is the currently shown transcript, prefix with "● " */
     private String formatTranscriptEntry(Object target, boolean isCurrent) {
         String sourceName = "unknown";
         long positionMs = 0;
@@ -31407,8 +31408,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (nt != null) engine = nt.engine;
         }
         String timeStr = formatMsShort(positionMs);
-        String label = timeStr + "  " + sourceName + "  â  " + engine;
-        if (isCurrent) label = "â " + label;
+        String label = timeStr + "  " + sourceName + "  —  " + engine;
+        if (isCurrent) label = "● " + label;
         return label;
     }
 
@@ -31460,7 +31461,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Same as {@link #startTranscription(com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType)},
-     * but invokes {@code onDone} once this run finishes (success or error) â
+     * but invokes {@code onDone} once this run finishes (success or error) —
      * used by {@link #runNextQueuedTranscription()} to chain multiple
      * engines sequentially against the "Transcribe this video?" prompt
      * (Feature A) without running them concurrently.
@@ -31473,9 +31474,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private int transcribeMeterColor(
             @NonNull com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType type) {
         switch (type) {
-            case FAST:     return 0xFF4CAF50;   // green  â quick pass, best timing
-            case ACCURATE: return 0xFFFFC107;   // amber  â slower, better words
-            default:       return 0xFF7E57C2;   // violet â Whisper, slowest, best words
+            case FAST:     return 0xFF4CAF50;   // green  — quick pass, best timing
+            case ACCURATE: return 0xFFFFC107;   // amber  — slower, better words
+            default:       return 0xFF7E57C2;   // violet — Whisper, slowest, best words
         }
     }
 
@@ -31514,7 +31515,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         addActiveTranscription(type);
         // Foreground service + wake lock, so the run survives the editor closing and the screen
         // going off. AIJobService already exists for exactly this ("long tasks (transcription,
-        // silence detection...)") â it simply had never been wired to transcription, which is
+        // silence detection...)") — it simply had never been wired to transcription, which is
         // why a run silently died with the Activity.
         com.fadcam.ui.faditor.ai.AIJobService.start(
                 getApplicationContext(), "Transcribing (" + type.label + ")");
@@ -31547,10 +31548,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     @Override
                     public void onProgress(@NonNull String status, float fraction) {
                         // The run outlives the editor now, so every callback must tolerate a
-                        // destroyed Activity. Keep the SERVICE notification updated regardless â
+                        // destroyed Activity. Keep the SERVICE notification updated regardless —
                         // that is the only progress the user can see once the editor is gone.
                         com.fadcam.ui.faditor.ai.AIJobService.update(getApplicationContext(),
-                                "Transcribing (" + type.label + ") â " + status,
+                                "Transcribing (" + type.label + ") — " + status,
                                 fraction >= 0f ? (int) (fraction * 100) : -1);
                         if (isFinishing() || isDestroyed()) return;
                         transcriptProgressText.setText(status);
@@ -31604,11 +31605,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         if (isFinishing() || isDestroyed()) {
                             // The editor is gone but the work is real: fold the result into the
                             // model and persist it directly, or a completed run would be thrown
-                            // away at the finish line â the very thing this change prevents.
+                            // away at the finish line — the very thing this change prevents.
                             if (updateTranscriptVersion(clipId, versionId, t) && project != null
                                     && projectStorage != null) {
                                 projectStorage.save(project);
-                                FLog.i(TAG, "Transcription finished after the editor closed â saved");
+                                FLog.i(TAG, "Transcription finished after the editor closed — saved");
                             }
                             if (transcriptionEngine != null
                                     && activeTranscriptionModels.isEmpty()) {
@@ -31628,7 +31629,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             // Re-running the same model REPLACES its previous run
                             // instead of stacking another copy: drop older versions
                             // of the same engine+label that carry no user edits.
-                            // (Edited/active versions are never removed â see
+                            // (Edited/active versions are never removed — see
                             // TranscriptDedup's rule.)
                             if (isAudio && fAudioClip != null) {
                                 com.fadcam.ui.faditor.transcript.TranscriptDedup
@@ -31895,7 +31896,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             boolean isActive = i == active;
             // Whisper chips green-tinted, Vosk blue-tinted; active = filled dot.
             int accent = "whisper".equals(v.engine) ? 0xFFFFC107 : 0xFF42A5F5;
-            chip.setText((isActive ? "â " : "") + v.label);
+            chip.setText((isActive ? "● " : "") + v.label);
             chip.setTextColor(isActive ? accent : 0xFF999999);
             chip.setTextSize(12);
             chip.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
@@ -31960,7 +31961,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // The TAPE has to follow the selection too. The audio branch above already
                 // pushes setAudioClipTranscript; this branch updated only the panel and the
                 // captions, so switching version on a VIDEO clip left the timeline tape showing
-                // the previously-active transcript â different words, different timings, and no
+                // the previously-active transcript — different words, different timings, and no
                 // visible response to the picker (user-reported 2026-07-27). Full resync rather
                 // than a single setSegmentTranscript: one transcript object is shared by every
                 // clip of the same source, so a switch can affect more than the selected clip.
@@ -31992,11 +31993,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         String[] items = {
                 "Copy text",
-                "Copy with [mm:ss] stamps  â  simple, readable",
-                "Copy as SRT  â  subtitle standard, works everywhere",
-                "Copy word-level timing  â  exact per-word spans, as the app sees it",
-                "Import timestamped textâ¦",
-                "Delete versionâ¦"
+                "Copy with [mm:ss] stamps  —  simple, readable",
+                "Copy as SRT  —  subtitle standard, works everywhere",
+                "Copy word-level timing  —  exact per-word spans, as the app sees it",
+                "Import timestamped text…",
+                "Delete version…"
         };
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(versions.get(index).label)
@@ -32038,7 +32039,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Toast.makeText(this, "Copied to clipboard", Toast.LENGTH_SHORT).show();
     }
 
-    /** Paste SRT / WebVTT / [mm:ss]-stamped text â new transcript version on the selection. */
+    /** Paste SRT / WebVTT / [mm:ss]-stamped text → new transcript version on the selection. */
     private void promptImportTimestampedText() {
         final android.widget.EditText input = new android.widget.EditText(this);
         input.setHint("Paste SRT, WebVTT, or [mm:ss] stamped lines");
@@ -32054,7 +32055,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                     input.getText().toString());
                     if (parsed == null) {
                         Toast.makeText(this,
-                                "No timestamps found â expected SRT, VTT, or [mm:ss] lines",
+                                "No timestamps found — expected SRT, VTT, or [mm:ss] lines",
                                 Toast.LENGTH_LONG).show();
                         return;
                     }
@@ -32138,11 +32139,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * H1: the pillarbox slack the transcript drawer may claim, in px â the horizontal twin
+     * H1: the pillarbox slack the transcript drawer may claim, in px — the horizontal twin
      * of {@link #reflowPreviewUnderDrawer(int)}'s arithmetic. Half the drawer's width
      * re-centres the picture in what is left of the slot; clamped to the letterbox bars so
      * the picture's own edge never leaves the container. On a 16:9 project there is no
-     * pillarbox slack and this returns 0 â opening the transcript then moves nothing,
+     * pillarbox slack and this returns 0 — opening the transcript then moves nothing,
      * exactly how the vertical version no-ops on 9:16.
      */
     private float transcriptDrawerShiftPx() {
@@ -32163,7 +32164,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * H1: apply (or clear) the transcript reflow â container to âshift, panel + reopen tab
+     * H1: apply (or clear) the transcript reflow — container to −shift, panel + reopen tab
      * counter-shifted to hold station. One write-point so the open animation, the resize
      * handle's re-station and the layout-change recovery all agree.
      *
@@ -32174,6 +32175,34 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * @param animate true for the 220ms slide matching the drawer; false for instant
      *                re-stationing after a geometry change (resize handle, rotation).
      */
+    /**
+     * Hold the workspace hatching still while the picture reflows under it.
+     *
+     * <p>canvas_frame draws the diagonal backdrop whose entire job is to be obviously-not-video,
+     * so a black frame edge can never be mistaken for the workspace. It is a CHILD of
+     * player_container, so every horizontal reflow dragged it along and left bare black down the
+     * side of the slot — measured at 208px, canvas_frame's right edge landing exactly where the
+     * container's did while editor_root still ran the full width.
+     *
+     * <p><b>Called from every writer of the container's translationX, and that is the point.</b>
+     * There are two: {@link #applyTranscriptReflow} and {@link #reflowPreviewUnderDrawer}. Only
+     * the first was counter-shifting the backdrop, and the second re-asserts the same X on every
+     * top-drawer open and close (volume, opacity, loop, captions, move, transition) — which is
+     * how the black band came back with no rotation and no pop-out anywhere near it: "I havent
+     * rotated or opped out the screen at all. it just started randomly doing that now."
+     */
+    private void holdCanvasFrameStation(@NonNull View container, float shift, boolean animate) {
+        View frame = container.findViewById(R.id.canvas_frame);
+        if (frame == null) return;
+        if (animate) {
+            frame.animate().translationX(shift).setDuration(220)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        } else {
+            frame.animate().cancel();
+            frame.setTranslationX(shift);
+        }
+    }
+
     private void applyTranscriptReflow(boolean animate) {
         View container = findViewById(R.id.player_container);
         if (container == null) return;
@@ -32189,24 +32218,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // 208px, canvas_frame's right edge landing exactly where the container's did while
         // editor_root still ran the full width. Counter-translate it, exactly like the panel:
         // the video moves into its pillarbox slack, the backdrop stays where the slot is.
-        View canvasFrame = container.findViewById(R.id.canvas_frame);
         if (animate) {
             container.animate().translationX(-shift).translationY(drawerReflowShiftY)
                     .scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(decel).start();
-            if (canvasFrame != null) {
-                canvasFrame.animate().translationX(shift)
-                        .setDuration(220).setInterpolator(decel).start();
-            }
         } else {
             container.animate().cancel();
             container.setTranslationX(-shift);
-            // Keep the vertical writer's last target â not the view's possibly mid-flight value.
+            // Keep the vertical writer's last target — not the view's possibly mid-flight value.
             container.setTranslationY(drawerReflowShiftY);
-            if (canvasFrame != null) {
-                canvasFrame.animate().cancel();
-                canvasFrame.setTranslationX(shift);
-            }
         }
+        holdCanvasFrameStation(container, shift, animate);
         // Re-station the counter-translated views.
         //
         // On the ANIMATED path the panel's own translationX IS the open/close slide, so the
@@ -32214,7 +32235,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // would snap the panel to station and start the slide-out from the wrong place).
         // Only the caller that opens it may seed the station, exactly as before.
         //
-        // On the INSTANT path â rotation, the resize handle, and now promote/demote â there is
+        // On the INSTANT path — rotation, the resize handle, and now promote/demote — there is
         // no slide, and this must run whatever the panel's open flag says. That guard is what
         // made the bug look intermittent: resetTranscriptStation() zeroes these translations on
         // every promote/demote, nothing put them back, and the container kept its shift while
@@ -32246,12 +32267,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // H1 (SPEC_20260824_HORIZONTAL_REFLOW): slide the picture into its own pillarbox
         // slack while the drawer is out. THE TRAP: transcript_panel is a CHILD of
         // player_container, so translating the container drags the drawer along with it.
-        // Fix is counter-translation, NOT reparenting â reparenting would change z-order
+        // Fix is counter-translation, NOT reparenting — reparenting would change z-order
         // against every overlay declared after it. The container gets -shift; the panel
         // and reopen tab get +shift so they hold station on screen. Because the panel's
         // own translationX IS its open/close slide property, the counter-shift is folded
         // INTO the slide endpoints: station = layout + shift, off-screen = layout + screenW.
-        // TRANSLATE ONLY â never scale (Â§0 of the spec).
+        // TRANSLATE ONLY — never scale (§0 of the spec).
         if (show) {
             // Flag first: applyTranscriptReflow derives the shift only while "open".
             transcriptPanelOpen = true;
@@ -32359,7 +32380,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (currentTranscript == null) return;
         java.util.List<Boolean> after = captureTranscriptStrikes();
         if (before.size() != after.size()) {
-            // Size changed (words added/removed) â treat as distinct edit, still one undo step
+            // Size changed (words added/removed) — treat as distinct edit, still one undo step
         }
         boolean changed = false;
         int n = Math.min(before.size(), after.size());
@@ -32373,7 +32394,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * "Commit" â finalise the transcript edits. They are already live on the
+     * "Commit" — finalise the transcript edits. They are already live on the
      * clip (non-destructive), so this just closes the panel; export will apply
      * them. The clip remains one unit, so the timeline isn't shredded with cuts.
      */
@@ -32396,7 +32417,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptBreakBtn.setTextColor(active ? 0xFF4DD0E1 : 0x80FFFFFF);
     }
 
-    // ââ Silence detection â yellow candidates â tap to cut âââââââââââ
+    // ── Silence detection → yellow candidates → tap to cut ───────────
 
     private SilenceDetector silenceDetector;
 
@@ -32439,7 +32460,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         previewSilenceCandidates(0.5f, preview);
     }
 
-    // ââ C3: Fix audio â one-tap baked chain (highpass â afftdn â acompressor â loudnorm) ââ
+    // ── C3: Fix audio — one-tap baked chain (highpass → afftdn → acompressor → loudnorm) ──
     private void fixSelectedAudio() {
         if (project == null) {
             Toast.makeText(this, "No project", Toast.LENGTH_SHORT).show();
@@ -32470,15 +32491,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             Toast.makeText(this, "Audio has no duration", Toast.LENGTH_SHORT).show();
             return;
         }
-        // If already baked, the Clean tab's revert is the honest path â but Fix should still
+        // If already baked, the Clean tab's revert is the honest path — but Fix should still
         // be reachable via undo, not by stacking bakes. For now, allow re-bake and let the
         // BakedAudioCache's cache-hit handle it (it will be a no-op if already baked).
         java.io.File projectDir = projectStorage.projectDir(project.getId());
         com.fadcam.ui.faditor.audio.BakedAudioCache cache = new com.fadcam.ui.faditor.audio.BakedAudioCache(this);
-        // Progress dialog (honest, not instant â Â§6.2 baked)
+        // Progress dialog (honest, not instant — §6.2 baked)
         android.app.ProgressDialog pd = new android.app.ProgressDialog(this);
         pd.setTitle("Fixing audio");
-        pd.setMessage("Running Fix audio chainâ¦");
+        pd.setMessage("Running Fix audio chain…");
         pd.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
         pd.setMax(100);
         pd.setCancelable(false);
@@ -32494,7 +32515,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Toast.makeText(this, "Fix failed: " + (error != null ? error : "unknown"), Toast.LENGTH_LONG).show();
                 return;
             }
-            // Swap clip to baked file â one undo step (like Clean tab)
+            // Swap clip to baked file — one undo step (like Clean tab)
             String originalUri = target.getSourceUri().toString();
             String bakedPath = result.bakedFile.getAbsolutePath();
             String beforeUri = target.getSourceUri().toString();
@@ -32503,7 +32524,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             android.net.Uri bakedUri = android.net.Uri.fromFile(result.bakedFile);
             target.setSourceUri(bakedUri);
             target.setBakedFrom(originalUri, bakedPath);
-            // Invalidate waveform (stale until re-extract) â keep old for now
+            // Invalidate waveform (stale until re-extract) — keep old for now
             undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
                     "Fix audio",
                     () -> {
@@ -32526,11 +32547,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (editorTimeline != null) editorTimeline.invalidate();
             prepareAudioPlayer();
             scheduleAutoSave();
-            Toast.makeText(this, "Audio fixed â Revert in Clean tab", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Audio fixed — Revert in Clean tab", Toast.LENGTH_SHORT).show();
         }));
     }
 
-    // ââ D6: Beat detection door ââ
+    // ── D6: Beat detection door ──
     private void showBeatDetectionSheet() {
         if (project == null || editorTimeline == null) {
             android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
@@ -32590,13 +32611,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             android.widget.Toast.makeText(this, on ? "Beat snap on" : "Beat snap off", android.widget.Toast.LENGTH_SHORT).show();
         });
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Beats â " + (clip.getLabel() != null ? clip.getLabel() : "Audio"))
+                .setTitle("Beats — " + (clip.getLabel() != null ? clip.getLabel() : "Audio"))
                 .setView(root)
                 .setPositiveButton("Find beats", (d,w) -> {
                     float sens = sensSlider.getValue();
                     boolean ok = editorTimeline.detectBeatsForAudioClip(clip, sens);
                     if (!ok) {
-                        android.widget.Toast.makeText(this, "Waveform not ready â try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, "Waveform not ready — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     long[] newBeats = editorTimeline.getBeatMarkers();
@@ -32618,7 +32639,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 .show();
     }
 
-    // ââ D7: Clap sync door ââ
+    // ── D7: Clap sync door ──
     private void showAlignClipsSheet() {
         if (project == null || project.getTimeline() == null) {
             android.widget.Toast.makeText(this, "No project", android.widget.Toast.LENGTH_SHORT).show();
@@ -32680,17 +32701,17 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env1 = editorTimeline.analysisEnvelopeFor(ref);
                     com.fadcam.ui.faditor.timeline.EditorTimelineView.AnalysisEnvelope env2 = editorTimeline.analysisEnvelopeFor(target);
                     if (env1 == null || env2 == null) {
-                        android.widget.Toast.makeText(this, "Waveform not cached yet â try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, "Waveform not cached yet — try again after it loads", android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     if (Math.abs(env1.framesPerSecond - env2.framesPerSecond) > 1e-6) {
-                        android.widget.Toast.makeText(this, "Waveforms at different resolutions â try again", android.widget.Toast.LENGTH_SHORT).show();
+                        android.widget.Toast.makeText(this, "Waveforms at different resolutions — try again", android.widget.Toast.LENGTH_SHORT).show();
                         return;
                     }
                     long maxOffsetMs = 10000;
                     com.fadcam.ui.faditor.waveform.TrackAligner.Result res = com.fadcam.ui.faditor.waveform.TrackAligner.align(env1.samples, env2.samples, env1.framesPerSecond, maxOffsetMs);
                         if (!res.isUsable()) {
-                            android.widget.Toast.makeText(this, "Couldn\u2019t find a match â clips share nothing (confidence " + String.format(java.util.Locale.US, "%.2f", res.confidence) + ")", android.widget.Toast.LENGTH_LONG).show();
+                            android.widget.Toast.makeText(this, "Couldn\u2019t find a match — clips share nothing (confidence " + String.format(java.util.Locale.US, "%.2f", res.confidence) + ")", android.widget.Toast.LENGTH_LONG).show();
                             return;
                         }
                         long before = target.getOffsetMs();
@@ -32722,13 +32743,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 .show();
     }
 
-    // ââ Gap-detection live preview (JoyRaptor 2026-07-16: settings feel untrustworthy
-    //    without seeing what they'd do â candidates update on the tape as the
-    //    slider moves) ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Gap-detection live preview (JoyRaptor 2026-07-16: settings feel untrustworthy
+    //    without seeing what they'd do — candidates update on the tape as the
+    //    slider moves) ────────────────────────────────────────────────────────
 
     private int silencePreviewGen = 0;
 
-    /** Add a status line under the slider and wire slider-release â live preview. */
+    /** Add a status line under the slider and wire slider-release → live preview. */
     @NonNull
     private android.widget.TextView attachSilenceLivePreview(
             @NonNull android.widget.LinearLayout root, @NonNull android.widget.SeekBar seek) {
@@ -32758,7 +32779,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final Clip clip = getSelectedClip();
         if (clip == null) return;
         final int gen = ++silencePreviewGen;
-        status.setText("Scanningâ¦"); // TODO(strings)
+        status.setText("Scanning…"); // TODO(strings)
         if (silenceDetector == null) silenceDetector = new SilenceDetector(this);
         final long inMs = clip.getInPointMs();
         final long outMs = clip.getOutPointMs();
@@ -32781,7 +32802,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         // TODO(strings)
                         status.setText(silent.isEmpty()
                                 ? "No gaps at this sensitivity"
-                                : silent.size() + " gaps â " + (msSaved / 1000) + "s would be trimmed");
+                                : silent.size() + " gaps — " + (msSaved / 1000) + "s would be trimmed");
                     }
 
                     @Override
@@ -33014,8 +33035,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
 
         Timeline timeline = project.getTimeline();
-        // Silence removal is the biggest length change in the app â one clip becomes several
-        // shorter ones â and it was not bracketed, so every object after it stayed where it was
+        // Silence removal is the biggest length change in the app — one clip becomes several
+        // shorter ones — and it was not bracketed, so every object after it stayed where it was
         // while the footage under it moved left by however much silence was cut. Its UNDO was
         // covered (performUndo brackets wholesale), which made the asymmetry drift: each
         // cut+undo left the project further out of sync.
@@ -33024,7 +33045,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         for (int i = keeps.size() - 1; i >= 0; i--) {
             timeline.addClip(index, keeps.get(i));
         }
-        // Riders anchored to the clip that was cut up are ORPHANED â every keep-clip has a fresh
+        // Riders anchored to the clip that was cut up are ORPHANED — every keep-clip has a fresh
         // id. Which keep should own one is genuinely ambiguous (its footage may have been in a
         // silence that is now gone), so this asks, exactly as a delete does, rather than guessing.
         handleOrphanedAnchors(endStructuralEdit(anchorsBefore, "silenceCuts"));
@@ -33037,7 +33058,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
         // GAPLESS: every keep-clip has a FRESH id, so the engine's playlist window for the
-        // original is orphaned â rebuild and home to the first keep. No-op on legacy.
+        // original is orphaned — rebuild and home to the first keep. No-op on legacy.
         resyncGaplessAfterStructuralEdit(
                 keeps.isEmpty() ? null : keeps.get(0).getId(), 0L, false);
         saveProjectNow();
@@ -33047,7 +33068,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Toast.LENGTH_LONG).show();
     }
 
-    // ââ Jump to time âââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Jump to time ─────────────────────────────────────────────────
 
     /** Prompt for a time (s, m:ss, or h:mm:ss) and seek the timeline there. */
     private void showSeekToTimeDialog() {
@@ -33082,7 +33103,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Parse a typed time to ms; -1 if invalid.
      *
      * <p>Delegates to {@link com.fadcam.ui.faditor.util.FlexibleTimeParser}, the ONE grammar
-     * (SPEC_IMAGE_SEQUENCE Â§3c). This used to hand-roll ss / m:ss / h:mm:ss; all three are still
+     * (SPEC_IMAGE_SEQUENCE §3c). This used to hand-roll ss / m:ss / h:mm:ss; all three are still
      * accepted, so nothing anyone could type here before has stopped working -- it just also
      * takes "10.5s", "1/6 min", "90f" and "2m30s" now.
      */
@@ -33120,7 +33141,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         final android.widget.TextView hint = new android.widget.TextView(this);
         // The hint IS the discoverability for the whole feature: long-press is hidden, so the
         // dialog it opens has to teach the grammar on sight.
-        hint.setText("2m30s  Â·  10.5s  Â·  1:30  Â·  90f  Â·  1/6 min"); // TODO(strings)
+        hint.setText("2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min"); // TODO(strings)
         hint.setTextSize(12);
         hint.setTextColor(0xFF9E9E9E);
 
@@ -33190,7 +33211,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Auto-save ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Auto-save ────────────────────────────────────────────────────
 
     private void scheduleAutoSave() {
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
@@ -33214,27 +33235,27 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (project != null && projectStorage != null) {
             autoSaveHandler.removeCallbacks(autoSaveRunnable);
             // Load-failure SHAPE fix: while the "some parts couldn't be loaded" dialog is
-            // unresolved, refuse to save â a save here would rotate the current file into
+            // unresolved, refuse to save — a save here would rotate the current file into
             // project.json.bak and destroy the clean backup we just offered to open.
             if (loadSkipDialogPending) {
-                FLog.d(TAG, "saveProjectNow skipped â load-skip dialog pending: " + project.getId());
+                FLog.d(TAG, "saveProjectNow skipped — load-skip dialog pending: " + project.getId());
                 return;
             }
             // Downgrade guard, found by running DRILL_SCHEMA_DOWNGRADE end-to-end.
             // save()/saveAsync() each refuse a project written by a NEWER build, but the
-            // undo-history SIDECAR had no such guard â so a read-only project still got a
+            // undo-history SIDECAR had no such guard — so a read-only project still got a
             // multi-MB undo_history.json written into the very directory we promised not
             // to touch (measured: 75,933 bytes for a project whose project.json was
             // correctly left byte-identical). Bail out at the top instead of gating one
             // call: nothing below can legitimately be persisted for a read-only project,
             // and skipping it also saves re-serializing every snapshot for nothing.
             if (project.isLoadedFromNewerVersion()) {
-                FLog.d(TAG, "saveProjectNow skipped â read-only (newer schema v"
+                FLog.d(TAG, "saveProjectNow skipped — read-only (newer schema v"
                         + project.getSchemaVersion() + "): " + project.getId());
                 return;
             }
             // forceUndoHistory is set on the critical paths (onPause/onDestroy) where
-            // we must guarantee the bytes hit disk before the activity can die â use
+            // we must guarantee the bytes hit disk before the activity can die — use
             // the synchronous save + flush there. The per-edit hot path uses the
             // async save (serialize on UI thread, write on a background thread) so
             // trimming/importing/transitions don't block on disk I/O.
@@ -33244,12 +33265,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 projectStorage.saveAsync(project);
             }
 
-            // Persist undo history (throttled â see UNDO_HISTORY_SAVE_THROTTLE_MS).
+            // Persist undo history (throttled — see UNDO_HISTORY_SAVE_THROTTLE_MS).
             long now = android.os.SystemClock.elapsedRealtime();
             if (forceUndoHistory || now - lastUndoHistorySaveMs > UNDO_HISTORY_SAVE_THROTTLE_MS) {
                 lastUndoHistorySaveMs = now;
                 // Persist-ready view: oldest-first, snapshot-bearing only, throttle-collapsed
-                // duplicates removed (audit 1.6) â so a burst of edits inside one baseline
+                // duplicates removed (audit 1.6) — so a burst of edits inside one baseline
                 // window becomes ONE honest cross-session undo step, not a step + no-ops.
                 List<UndoManager.HistoryEntry> history = undoManager.getUndoHistoryForPersist();
                 if (!history.isEmpty()) {
@@ -33276,14 +33297,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
     }
 
-    // ââ Utility ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Utility ──────────────────────────────────────────────────────
 
     /**
      * Get video duration using FFprobeKit (reliable for fragmented MP4),
      * with MediaMetadataRetriever as fallback.
      */
     private long getVideoDuration(@NonNull Uri videoUri) {
-        // ââ FFprobeKit (primary â reliable for fMP4) ââââââââââââ
+        // ── FFprobeKit (primary — reliable for fMP4) ────────────
         try {
             String filePath = getFFprobePathForUri(videoUri);
             com.arthenica.ffmpegkit.MediaInformationSession session =
@@ -33302,7 +33323,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             FLog.e(TAG, "FFprobe duration failed", e);
         }
 
-        // ââ MediaMetadataRetriever fallback ââââââââââââââââââââââ
+        // ── MediaMetadataRetriever fallback ──────────────────────
         MediaMetadataRetriever retriever = null;
         try {
             retriever = new MediaMetadataRetriever();
@@ -33363,7 +33384,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
 
-    // ââ Add Asset ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Add Asset ──────────────────────────────────────────────────
 
     /**
      * Registers ActivityResultLaunchers for image and video asset picking.
@@ -33511,7 +33532,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ac.setOffsetMs(playheadMs);
         project.getTimeline().addAudioClip(ac);
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
-        // AV4: first-ever audio add â offer eager/lazy waveform analysis (once).
+        // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).
         maybeAskWaveformAnalysisTiming();
 
         // Waveform in the background.
@@ -33537,7 +33558,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Show a bottom sheet letting the user choose between adding an image or video asset.
      */
-    // ââ Asset Browser ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Asset Browser ──────────────────────────────────────────────────
 
     /**
      * Show the asset browser panel (drops down from the top bar).
@@ -33625,7 +33646,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 assetBrowserPanel = null;
                 // Clear relink mode if user dismissed without picking
                 relinkPendingIndex = -1;
-                // The insert affordance belongs to the open panel â clear it so a
+                // The insert affordance belongs to the open panel — clear it so a
                 // stray tap can't insert the last-selected asset after closing.
                 selectedAsset = null;
                 if (insertAffordanceBar != null) {
@@ -33817,7 +33838,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void insertSelectedAssetAtPlayhead() {
         if (selectedAsset == null || project == null) return;
         // Dual-stream Phase 4 (auto-detect entry point A): if the picked video has a
-        // recorded partner in the same folder (<name>.mp4 â <name>_webcam.mp4), offer
+        // recorded partner in the same folder (<name>.mp4 ↔ <name>_webcam.mp4), offer
         // to place BOTH as a linked screen+webcam pair in one action.
         if (assetBrowserPanel != null
                 && selectedAsset.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) {
@@ -33834,7 +33855,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Dual-stream Phase 4 (auto-detect): a screen recording and its raw-webcam sibling
      * were both found in the asset folder. Let the user add them as a synced linked pair
-     * (screen â master clip, webcam â overlay/PiP clip, {@code linkedClipId} both ways) or
+     * (screen → master clip, webcam → overlay/PiP clip, {@code linkedClipId} both ways) or
      * fall back to adding only the tapped file. TODO(strings).
      */
     private void offerDualStreamPairInsert(
@@ -33847,11 +33868,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 (webcam == tapped) ? partner : tapped;
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Linked recording detected")
-                .setMessage("â" + screen.shortLabel() + "â has a synced webcam file (â"
-                        + webcam.displayName + "â). Add both as a linked screen + webcam pair?")
+                .setMessage("“" + screen.shortLabel() + "” has a synced webcam file (“"
+                        + webcam.displayName + "”). Add both as a linked screen + webcam pair?")
                 .setPositiveButton("Add as linked pair",
                         (d, w) -> addDualStreamLinkedPair(screen, webcam))
-                .setNeutralButton("Add â" + tapped.shortLabel() + "â only",
+                .setNeutralButton("Add “" + tapped.shortLabel() + "” only",
                         (d, w) -> insertAssetAtPlayhead(tapped))
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -33859,7 +33880,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Dual-stream Phase 4: import a screen recording + its raw-webcam sibling and place them
-     * as ONE linked pair â the screen file as a master tape clip (appended at the timeline
+     * as ONE linked pair — the screen file as a master tape clip (appended at the timeline
      * end) and the webcam file as an overlay/PiP clip pinned to the master's start, with
      * {@link Timeline#linkClips} set both ways so later trim/split/delete mirror across the
      * pair. IO (copy + duration probe) runs off the main thread (the ANR lesson from
@@ -33941,7 +33962,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     timeline.removeOverlayClip(overlay);
                     timeline.removeClip(master);
                     // The insert renumbered every later transition's clipIndex in place;
-                    // removing the clip does not put them back. Exact arithmetic inverse â
+                    // removing the clip does not put them back. Exact arithmetic inverse —
                     // an insert drops nothing. See AUDIT_TRANSITION_INDEX_UNDO.md.
                     timeline.unshiftTransitionsAfterInsert(masterIndex);
                     syncTimelineOverlays();
@@ -33953,7 +33974,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         "Add linked screen + webcam pair", apply, revert)); // TODO(strings)
                 saveProjectNow();
                 if (assetBrowserPanel != null) assetBrowserPanel.collapse();
-                Toast.makeText(this, "Linked pair added â edits mirror across both",
+                Toast.makeText(this, "Linked pair added — edits mirror across both",
                         Toast.LENGTH_SHORT).show(); // TODO(strings)
             });
         });
@@ -33969,11 +33990,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Make an inserted asset durable (B1 fix). All images, plus any file at or under
      * {@link #ASSET_COPY_MAX_BYTES}, are copied into {@code <projectDir>/assets/} and
-     * referenced by the internal {@code file://} URI â so they survive reinstall and
+     * referenced by the internal {@code file://} URI — so they survive reinstall and
      * travel with the project (saved as {@code project://} relative paths). Large
      * videos keep their original URI to avoid duplicating gigabytes; a best-effort
      * persistable tree grant is taken by the caller. Returns the URI to store on the
-     * clip â the copy when copied, otherwise the original.
+     * clip — the copy when copied, otherwise the original.
      */
     @NonNull
     private Uri importInsertedAsset(@NonNull Uri src,
@@ -34154,7 +34175,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
             // GAPLESS: new clip (and possibly a fresh-id split pair around it) isn't in the
-            // engine's playlist â rebuild and home to the inserted clip. No-op on legacy.
+            // engine's playlist — rebuild and home to the inserted clip. No-op on legacy.
             resyncGaplessAfterStructuralEdit(newClip.getId(), 0L, false);
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_asset_added, Toast.LENGTH_SHORT).show();
@@ -34209,7 +34230,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             syncTimelineOverlays();
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
-            // GAPLESS: new clip isn't in the engine's playlist â rebuild, home to it. No-op legacy.
+            // GAPLESS: new clip isn't in the engine's playlist — rebuild, home to it. No-op legacy.
             resyncGaplessAfterStructuralEdit(newClip.getId(), 0L, false);
             saveProjectNow();
             Toast.makeText(this, R.string.faditor_asset_added, Toast.LENGTH_SHORT).show();
@@ -34368,7 +34389,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onOverlayVideoSelected() {
-                // M-COMP-2b: pick a source for the floating PiP layer â same
+                // M-COMP-2b: pick a source for the floating PiP layer — same
                 // FadCam-recordings-first source sheet the master video path uses.
                 VideoSourceBottomSheet vs = new VideoSourceBottomSheet();
                 vs.setCallback(new VideoSourceBottomSheet.Callback() {
@@ -34391,8 +34412,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (isImage) {
                 imagePickerLauncher.launch(openDocumentIntent("image/*"));
             } else {
-                // Offer FadCam's own recordings (file:// â durable, reliable for
-                // export) instead of forcing the OS picker (content:// â loses
+                // Offer FadCam's own recordings (file:// — durable, reliable for
+                // export) instead of forcing the OS picker (content:// — loses
                 // access on reinstall and fails the export asset loader).
                 VideoSourceBottomSheet vs = new VideoSourceBottomSheet();
                 vs.setCallback(new VideoSourceBottomSheet.Callback() {
@@ -34423,8 +34444,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             @Override
             public void onAdjustmentLayerSelected() {
-                // addAdjustmentLayer opens the drawer itself now, so every route into it â
-                // here, the tool, a future shortcut â lands the user on the effects.
+                // addAdjustmentLayer opens the drawer itself now, so every route into it —
+                // here, the tool, a future shortcut — lands the user on the effects.
                 addAdjustmentLayer();
             }
 
@@ -34436,7 +34457,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         sheet.show(getSupportFragmentManager(), "addAsset");
     }
 
-    // ââ Voiceover punch-in (B5) âââââââââââââââââââââââââââââââââââââââ
+    // ── Voiceover punch-in (B5) ───────────────────────────────────────
 
     /** B5.U entry: check permission then delegate to the engine. */
     private void startVoiceoverRecording() {
@@ -34529,10 +34550,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (btnPlayPause != null) btnPlayPause.setText("play_arrow");
         if (wavFile == null) {
-            android.widget.Toast.makeText(this, "Voiceover too short â discarded", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, "Voiceover too short — discarded", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        // Create AudioClip at the punch-in point â one undo step (Â§0 rule 7)
+        // Create AudioClip at the punch-in point — one undo step (§0 rule 7)
         long durationMs = 0;
         try {
             android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
@@ -34558,7 +34579,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         android.widget.Toast.makeText(this, "Voiceover added (" + (durationMs / 1000f) + "s) at " + (startMs / 1000f) + "s", android.widget.Toast.LENGTH_SHORT).show();
     }
 
-    // ââ AI slide: copy-a-prompt / paste-HTML import (API-less path) ââââââ
+    // ── AI slide: copy-a-prompt / paste-HTML import (API-less path) ──────
 
     /** The copy-prompt / paste / file-import chooser for AI-authored slides. */
     private void showSlideImportSheet() {
@@ -34597,7 +34618,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (cm == null) return;
         cm.setPrimaryClip(android.content.ClipData.newPlainText("Faditor slide prompt", prompt));
         // TODO(strings)
-        Toast.makeText(this, "Prompt copied â send it to any AI chatbot, then paste "
+        Toast.makeText(this, "Prompt copied — send it to any AI chatbot, then paste "
                 + "back the HTML it writes", Toast.LENGTH_LONG).show();
     }
 
@@ -34611,7 +34632,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (text == null || text.toString().trim().isEmpty()) {
             // TODO(strings)
-            Toast.makeText(this, "Clipboard is empty â copy the chatbot's HTML first",
+            Toast.makeText(this, "Clipboard is empty — copy the chatbot's HTML first",
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -34699,7 +34720,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             renderSlidesInBackground();
 
             // TODO(strings)
-            Toast.makeText(this, "Animated slide added â preparing video in background",
+            Toast.makeText(this, "Animated slide added — preparing video in background",
                     Toast.LENGTH_SHORT).show();
             FLog.d(TAG, "Imported external slide at index " + insertIndex
                     + " duration=" + durationMs + "ms source=" + sourceLabel
@@ -34712,7 +34733,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Double-tap on the live slide preview â the slide's code editor (JoyRaptor
+     * Double-tap on the live slide preview → the slide's code editor (JoyRaptor
      * 2026-07-16): view the HTML, tweak it, or select-all and paste a whole
      * different slide. Apply re-validates against the contract and re-renders.
      */
@@ -34842,14 +34863,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             syncTimelineOverlays();
             editorTimeline.invalidate();
             refreshTotalTimeDisplay();
-            // GAPLESS: the id survives but the window's source URI + duration are stale â
+            // GAPLESS: the id survives but the window's source URI + duration are stale —
             // rebuild so the playlist points at the new render mp4. No-op on legacy.
             resyncGaplessAfterStructuralEdit(fresh.getId(), 0L, false);
             saveProjectNow();
             renderSlidesInBackground();
             showSlidePreview(fresh, 0);
             // TODO(strings)
-            Toast.makeText(this, "Slide updated â re-rendering in background",
+            Toast.makeText(this, "Slide updated — re-rendering in background",
                     Toast.LENGTH_SHORT).show();
             FLog.d(TAG, "Slide code edited: clip=" + oldClip.getId()
                     + " newDuration=" + durationMs + "ms hash=" + hash.substring(0, 12));
@@ -34915,7 +34936,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void onVideoAssetPicked(@NonNull Uri pickedUri) {
         // The file copy + duration probe (FFprobe/MMR) can block for seconds on a
-        // SAF/content URI â doing it inline ANR-ed the main thread on every insert.
+        // SAF/content URI — doing it inline ANR-ed the main thread on every insert.
         // Run the heavy IO on a background thread, then mutate the timeline on the
         // main thread once the duration is known.
         showRemuxProgress();
@@ -34985,7 +35006,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         });
     }
 
-    // ââ Feature A: "Transcribe this video?" prompt ââââââââââââââââââââââââââ
+    // ── Feature A: "Transcribe this video?" prompt ──────────────────────────
 
     /**
      * Shown right after a new video clip finishes importing (see
@@ -35019,19 +35040,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         final android.widget.CheckBox cbFast = new android.widget.CheckBox(this);
         cbFast.setText(getString(R.string.faditor_transcript_model_fast)
-                + " â " + getString(R.string.faditor_transcript_model_fast_sub));
+                + " — " + getString(R.string.faditor_transcript_model_fast_sub));
         cbFast.setTextColor(0xFFFFFFFF);
         root.addView(cbFast);
 
         final android.widget.CheckBox cbAccurate = new android.widget.CheckBox(this);
         cbAccurate.setText(getString(R.string.faditor_transcript_model_accurate)
-                + " â " + getString(R.string.faditor_transcript_model_accurate_sub));
+                + " — " + getString(R.string.faditor_transcript_model_accurate_sub));
         cbAccurate.setTextColor(0xFFFFFFFF);
         root.addView(cbAccurate);
 
         final android.widget.CheckBox cbWhisper = new android.widget.CheckBox(this);
         cbWhisper.setText(getString(R.string.faditor_transcript_model_whisper)
-                + " â " + getString(R.string.faditor_transcript_model_whisper_sub));
+                + " — " + getString(R.string.faditor_transcript_model_whisper_sub));
         cbWhisper.setTextColor(0xFFFFFFFF);
         root.addView(cbWhisper);
 
@@ -35055,7 +35076,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Central OK button: built ourselves (instead of builder's right-aligned
         // positive button) so it renders centered per spec. Cancel/dismiss (back
-        // press, tap-outside, or system back) is treated as "none selected" â
+        // press, tap-outside, or system back) is treated as "none selected" —
         // no transcription starts and the "don't ask again" pref is untouched,
         // matching MaterialAlertDialogBuilder's default cancel behavior.
         TextView okButton = new TextView(this);
@@ -35125,21 +35146,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         startTranscription(next, this::runNextQueuedTranscription);
     }
 
-    // ââ Segment Operations ââââââââââââââââââââââââââââââââââââââââââââââââââ
+    // ── Segment Operations ──────────────────────────────────────────────────
 
     private static final long HEAL_DEFAULT_RANGE_MS = 500L;
     private static final long HEAL_MIN_EDGE_MS = 100L;
     private static final long SPLIT_HEAL_SEAM_MS = 250L;
     /** A seam within this many source-ms of "exactly contiguous" is still offered as healable,
-     *  with a confirm that says how much will be added/removed (JoyRaptor, Â§3.6). */
+     *  with a confirm that says how much will be added/removed (JoyRaptor, §3.6). */
     private static final long HEAL_NEAR_MS = 150L;
 
     /**
-     * Â§3.6: the index of the LEFT clip of a HEALABLE seam near {@code playheadMs}, or -1.
+     * §3.6: the index of the LEFT clip of a HEALABLE seam near {@code playheadMs}, or -1.
      * A seam is healable only when the two adjacent MASTER clips came from the SAME source and
      * are contiguous and in order in source time (left.outPoint == right.inPoint, or within
-     * {@link #HEAL_NEAR_MS} for the confirm path). Two clips from different sources â or one
-     * rearranged out of order â are NOT healable, and Heal must not be offered for them.
+     * {@link #HEAL_NEAR_MS} for the confirm path). Two clips from different sources — or one
+     * rearranged out of order — are NOT healable, and Heal must not be offered for them.
      */
     private int healableSeam(long playheadMs) {
         if (project == null || editorTimeline == null) return -1;
@@ -35167,8 +35188,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void updateSplitHealButton() {
         Timeline timeline = project != null ? project.getTimeline() : null;
         Clip clip = getSelectedClip();
-        // Â§3.6: Heal is offered ONLY on a genuinely healable seam (same source + contiguous + in
-        // order) â the old code flipped to Heal for ANY seam, so pressing it on a fresh split's
+        // §3.6: Heal is offered ONLY on a genuinely healable seam (same source + contiguous + in
+        // order) — the old code flipped to Heal for ANY seam, so pressing it on a fresh split's
         // seam fired the span-removal path and read as "did nothing".
         long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
         boolean heal = timeline != null && clip != null && !clip.isImageClip()
@@ -35203,7 +35224,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Remove a small non-destructive gap around the playhead.
      */
     /**
-     * Â§3.6 "Heal" â rejoin the two clips at a HEALABLE seam (the exact inverse of a split:
+     * §3.6 "Heal" — rejoin the two clips at a HEALABLE seam (the exact inverse of a split:
      * same source, contiguous, in order). Restores the right clip's source out-point onto the
      * left and removes the right, fixing transitions, as ONE undo step. The OLD behaviour of
      * this button (removing a span from inside ONE clip) moved to {@link #removeSectionAtPlayhead}.
@@ -35282,9 +35303,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * "Remove section" (the old Heal): remove a small non-destructive span from INSIDE the
-     * selected single clip, centred on the playhead â cut out a cough/stumble. Not yet exposed
+     * selected single clip, centred on the playhead — cut out a cough/stumble. Not yet exposed
      * on the toolbar (its honest home is the ripple-delete family / a dedicated control); kept
-     * callable so the feature is not lost in the Â§3.6 rename.
+     * callable so the feature is not lost in the §3.6 rename.
      */
     private void removeSectionAtPlayhead() {
         try {
@@ -35363,7 +35384,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void splitAtPlayhead() {
         try {
-            // Check if an audio clip is selected â split that
+            // Check if an audio clip is selected — split that
             int audioIdx = editorTimeline.getSelectedAudioIndex();
             if (audioIdx >= 0) {
                 splitAudioAtPlayhead(audioIdx);
@@ -35372,9 +35393,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
             // An adjustment layer is a real lane object, so Split has to mean something for it
             // too. Checked BEFORE getSelectedClip, which returns the master clip under the
-            // playhead and would have split THAT while an adjustment layer was selected â
+            // playhead and would have split THAT while an adjustment layer was selected —
             // cutting the wrong object is worse than doing nothing.
-            if (splitSelectedLayerItem()) return;   // Â§3.5: text/sprite/PiP split their OWN span
+            if (splitSelectedLayerItem()) return;   // §3.5: text/sprite/PiP split their OWN span
             if (splitSelectedAdjustmentLayer()) return;
 
             Clip clip = clipUnderPlayhead();
@@ -35394,7 +35415,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             long playheadMs = editorTimeline.getPlayheadPositionMs();
             long segStartMs = editorTimeline.getSegmentStartTimeMs(playheadIdx);
             long localEffectiveMs = Math.max(0, playheadMs - segStartMs);
-            // Convert effective (timeline) time â absolute source position (accounts for speed)
+            // Convert effective (timeline) time → absolute source position (accounts for speed)
             long absoluteSplitMs = clip.getInPointMs()
                     + (long)(localEffectiveMs * clip.getSpeedMultiplier());
             absoluteSplitMs = Math.max(clip.getInPointMs(),
@@ -35424,8 +35445,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             Clip clipA = timeline.getClip(newIndex);
             Clip clipB = timeline.getClip(newIndex + 1);
             // Dual-stream Phase 4: if the master was linked, split the partner overlay at
-            // the SAME source-relative point and re-link the halves pairwise (Aâleft,
-            // Bâright) as ONE undo step. Otherwise the plain single-clip split undo.
+            // the SAME source-relative point and re-link the halves pairwise (A↔left,
+            // B↔right) as ONE undo step. Otherwise the plain single-clip split undo.
             Clip splitPartner = timeline.findLinkedClip(originalClip);
             if (splitPartner != null && splitPartner.isOverlayClip()) {
                 splitLinkedPartnerAndRecord(timeline, originalIndex, originalClip,
@@ -35439,7 +35460,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (playerManager.isGapless()) {
                 // GAPLESS: the ClippingConfiguration playlist still has ONE window for the
                 // pre-split clip, so playback would run straight through the new seam (the
-                // 2026-07-18 bug). Rebuild and home to the seam â start of clip B â so the tape
+                // 2026-07-18 bug). Rebuild and home to the seam — start of clip B — so the tape
                 // playhead (which sits at the split point) and the engine agree, and a play()
                 // from here continues correctly into clip B instead of the old continuous window.
                 resyncGaplessAfterStructuralEdit(clipB.getId(), 0L, false);
@@ -35475,8 +35496,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Dual-stream Phase 4: the master clip was just split into {@code masterA}/{@code masterB}
      * at {@code masterSplitSourceMs}. Split its linked overlay {@code partner} at the SAME
      * source-relative point (offset measured from each clip's in-point), re-link the halves
-     * pairwise (masterAâleft, masterBâright), and record BOTH splits as ONE undo step.
-     * Split children are fresh-id (unlinked) copies â matching {@code splitAt} â so the
+     * pairwise (masterA↔left, masterB↔right), and record BOTH splits as ONE undo step.
+     * Split children are fresh-id (unlinked) copies — matching {@code splitAt} — so the
      * re-link here is what re-establishes the pairing. The overlay split is applied here;
      * the master split already ran in the caller.
      */
@@ -35576,7 +35597,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         editorTimeline.setAudioClips(timeline.getAudioClips());
         // Re-feed the audio rows NOW (the original id is gone), then keep the LEFT half
-        // selected â mirrors the master-split behavior of selectSegment(sameIndex).
+        // selected — mirrors the master-split behavior of selectSegment(sameIndex).
         // Without this the controller's selection points at the removed original and
         // every selection-derived toolbar op falls back to the master clip.
         syncTimelineOverlays();
@@ -35588,7 +35609,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
     /**
      * Dual-stream Phase 4: record a master-clip trim, mirroring the SAME source-time
-     * in/out deltas onto its linked partner when present so both stay synced â as ONE
+     * in/out deltas onto its linked partner when present so both stay synced — as ONE
      * undo step. Mirroring is SCOPED TO SAME-SPEED pairs: across a speed mismatch equal
      * source deltas map to unequal on-timeline deltas, so we trim the master only and log
      * why (spec Phase 4 scope decision). Partner clamps to its own source bounds.
@@ -35604,7 +35625,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (clip.getSpeedMultiplier() != partner.getSpeedMultiplier()) {
             FLog.w(TAG, "Dual-stream trim mirror skipped: speed mismatch ("
                     + clip.getSpeedMultiplier() + " vs " + partner.getSpeedMultiplier()
-                    + ") â trimming master only");
+                    + ") — trimming master only");
             undoManager.recordAction(new EditActions.TrimAction(timeline, clip, oldIn, oldOut, newIn, newOut));
             return;
         }
@@ -35634,7 +35655,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void deleteSelectedSegment() {
         try {
-            // If a transition is selected (blue), the trash icon removes the TRANSITION, not the clip â
+            // If a transition is selected (blue), the trash icon removes the TRANSITION, not the clip —
             // users intuitively hit trash to remove a selected transition and must not lose their clip.
             int transIdx = editorTimeline.getSelectedTransitionIndex();
             if (transIdx >= 0) {
@@ -35645,21 +35666,21 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             // AN OBJECT SELECTION WINS OVER THE MASTER-TRACK SEGMENT, same rule and same order
             // duplicateSelectedObject() already follows. This was the one place that didn't:
             // select a text/sprite/PiP/adjustment layer, tap the toolbar trash, and it deleted
-            // the master clip under the playhead instead â the object stayed on screen and
+            // the master clip under the playhead instead — the object stayed on screen and
             // something the user never touched was gone. Routed through the EXACT per-type
             // confirmation dialogs the layer gesture callback's own delete badge already uses,
             // so the affordance and the undo step are identical regardless of which surface
             // triggered the delete.
-            // Â§2.4: THE WHOLE SELECTION, not one of it. Multi-select already existed but only the
+            // §2.4: THE WHOLE SELECTION, not one of it. Multi-select already existed but only the
             // marquee's own long-press could act on it, so the toolbar trash quietly deleted a
-            // single item â or the master clip â while five objects sat visibly selected. The
+            // single item — or the master clip — while five objects sat visibly selected. The
             // marquee is checked before the single-object lookup for the same reason that lookup
             // is checked before the master clip: the more specific expression of intent wins.
             if (deleteMarqueeSelection()) return;
 
             if (deleteSelectedLayerItem()) return;
 
-            // Check if an audio clip is selected â delete that instead
+            // Check if an audio clip is selected — delete that instead
             int audioIdx = editorTimeline.getSelectedAudioIndex();
             if (audioIdx >= 0) {
                 deleteSelectedAudioClip(audioIdx);
@@ -35704,7 +35725,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             editorTimeline.setTransitions(timeline.getTransitions());
             syncTimelineOverlays();
             editorTimeline.invalidate();
-            // GAPLESS: the removed clip's window is still in the stale playlist â rebuild and home
+            // GAPLESS: the removed clip's window is still in the stale playlist — rebuild and home
             // to the clip that shifted into its place (2026-07-18 seam bug). No-op on legacy.
             Clip homeAfterDelete = timeline.getClip(newIndex);
             resyncGaplessAfterStructuralEdit(
@@ -35719,7 +35740,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * Dual-stream Phase 4: the deleted master clip {@code master} is linked to
      * {@code partner} (its recorded webcam/overlay half). Confirm mentioning the
-     * partner, then remove BOTH as ONE undo step â undo restores the pair intact.
+     * partner, then remove BOTH as ONE undo step — undo restores the pair intact.
      * The partner may live in either lane (master {@code clips} or {@code overlayClips}).
      */
     private void confirmDeleteLinkedPair(@NonNull Clip master, int masterIndex,
@@ -35832,10 +35853,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     /**
      * Duplicate the selected floating OBJECT onto its own new lane, at the SAME time position
-     * (JoyRaptor's request, recorded in START_HERE Â§3D).
+     * (JoyRaptor's request, recorded in START_HERE §3D).
      *
      * <p><b>Why a new lane rather than beside it.</b> Objects on a lane may not overlap, so a
-     * copy at the same time has nowhere to go on the original's row â it would have to be
+     * copy at the same time has nowhere to go on the original's row — it would have to be
      * shoved sideways, which changes WHEN it happens, or pushed through to another lane, which
      * is the complicated gesture the scrubber spec deliberately limits. A fresh lane needs
      * neither: the copy lands exactly on top of the original in time, which is what "duplicate"
@@ -35849,28 +35870,28 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * {@link #deleteSelectedSegment} falls through to its master-clip / audio paths.
      *
      * <p>Same lookup {@link #duplicateSelectedObject} already does, same "object selection
-     * wins" rule, and â critically â the SAME per-type confirmation methods
+     * wins" rule, and — critically — the SAME per-type confirmation methods
      * {@code onItemDeleteRequested} calls for the layer row's own trash badge. Two delete
      * entry points reaching two different pieces of logic is exactly how "select a text box,
      * hit the toolbar trash, and the master clip disappears" happens: one path knew about the
      * selection and one didn't.</p>
      */
     /**
-     * Â§3.5/Â§2.3: gate a verb behind the locked-object confirm. When {@code locked} is true, show
-     * "This object is locked. Unlock and continue?" and only run {@code action} on the confirm â
+     * §3.5/§2.3: gate a verb behind the locked-object confirm. When {@code locked} is true, show
+     * "This object is locked. Unlock and continue?" and only run {@code action} on the confirm —
      * never a silent no-op and never a silent mutation of an object the user locked on purpose.
      */
     /**
-     * Â§2.3 gate for a verb whose body is not one wrappable lambda: ask about the selected object's
+     * §2.3 gate for a verb whose body is not one wrappable lambda: ask about the selected object's
      * lock and, on the confirm, run the verb again.
      *
      * <p>No "already answered" bookkeeping is needed, and that is a consequence of the confirm
      * genuinely unlocking: the retry re-reads the object, finds it unlocked, and walks straight
      * through. A dialog that only <em>said</em> unlock would have needed a remembered answer to
-     * avoid asking forever â the flag it took is exactly the complexity the honest button removes.
+     * avoid asking forever — the flag it took is exactly the complexity the honest button removes.
      * </p>
      *
-     * @return true when the object is locked and the question has been asked â the caller must
+     * @return true when the object is locked and the question has been asked — the caller must
      *         return IMMEDIATELY and do nothing else. Falling through would perform the verb the
      *         user has not agreed to yet, which is worse than the silent no-op this replaces.
      */
@@ -35888,12 +35909,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * An action that clears the lock on the object with this layer-item id, or null when the id
      * matches nothing or the object is not locked.
      *
-     * <p>One walk answering both questions â "is it locked" and "how do I unlock it" â because six
+     * <p>One walk answering both questions — "is it locked" and "how do I unlock it" — because six
      * payload types each with their own setter is exactly the list a second method would fall out
      * of step with.</p>
      */
     /**
-     * Clear the lock on whatever payload {@code it} wraps â the write half of
+     * Clear the lock on whatever payload {@code it} wraps — the write half of
      * {@link com.fadcam.ui.faditor.layers.TimedItem#isPayloadLocked()}. Keep the two in step.
      */
     private void unlockPayload(@NonNull com.fadcam.ui.faditor.layers.TimedItem it) {
@@ -35936,7 +35957,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /**
      * @param unlock clears the object's lock, run BEFORE {@code action} on the confirm. The button
      *        says "Unlock &amp; continue" and JoyRaptor's wording is "unlock and continue?", so it has
-     *        to actually unlock â verified on the Note 9 (2026-08-12) that it previously did not:
+     *        to actually unlock — verified on the Note 9 (2026-08-12) that it previously did not:
      *        the dialog fired, the verb ran, and the object stayed locked. A promise in a button
      *        label that the button does not keep is worse than no dialog, because the user now
      *        believes the lock is off. Null only where the caller has no single object to unlock.
@@ -35956,12 +35977,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§2.4: delete every object in the marquee multi-selection, if there is one.
+     * §2.4: delete every object in the marquee multi-selection, if there is one.
      *
      * @return true when a multi-selection existed and was handled (including when the user
      *         cancelled the confirm), so the caller must NOT fall through to a single-object or
      *         master-clip delete. Falling through after a cancel would delete something else
-     *         entirely â the worst possible reading of "no".
+     *         entirely — the worst possible reading of "no".
      */
     private boolean deleteMarqueeSelection() {
         if (editorTimeline == null) return false;
@@ -35975,7 +35996,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     /**
-     * Â§2.4: duplicate every object in the marquee multi-selection.
+     * §2.4: duplicate every object in the marquee multi-selection.
      *
      * @return true when a multi-selection existed and was handled.
      */
@@ -35991,7 +36012,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             com.fadcam.ui.faditor.layers.TimedItem it = h.item;
             // Locked objects are SKIPPED here rather than offered an unlock, unlike delete.
             // Duplicating is additive and loses nothing, so interrupting a batch of eight with a
-            // dialog buys the user no safety â it only makes them answer a question about an
+            // dialog buys the user no safety — it only makes them answer a question about an
             // object they are not changing.
             if (it.isPayloadLocked()) { lockedCount++; continue; }
             if (it.getTextOverlay() != null) {
@@ -36056,8 +36077,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         refreshAfterMarqueeBatchDelete();
         saveProjectNow();
         StringBuilder msg = new StringBuilder().append(madeFinal).append(" duplicated");
-        if (lockedCount > 0) msg.append(" Â· ").append(lockedCount).append(" locked, skipped");
-        if (skipped > 0) msg.append(" Â· ").append(skipped).append(" skipped");
+        if (lockedCount > 0) msg.append(" · ").append(lockedCount).append(" locked, skipped");
+        if (skipped > 0) msg.append(" · ").append(skipped).append(" skipped");
         Toast.makeText(this, msg.toString(), Toast.LENGTH_SHORT).show();      // TODO(strings)
         return true;
     }
@@ -36107,8 +36128,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      *
      * <p>Every duplicate used to call {@code createLayerTrack} unconditionally, so copying an
      * object always spawned a fresh lane and the copy appeared far from the thing it was copied
-     * from â JoyRaptor, 2026-08-15: "currently it's making new lanes and placing visually far away
-     * lanes." A duplicate is nearly always the start of "â¦and now put this one just here", so it
+     * from — JoyRaptor, 2026-08-15: "currently it's making new lanes and placing visually far away
+     * lanes." A duplicate is nearly always the start of "…and now put this one just here", so it
      * belongs next to its original, and a lane that already exists and has room is a better
      * answer than a new row pushing everything else down.</p>
      *
@@ -36117,7 +36138,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * to be sitting there. {@code Track.getItems()} is the same aggregate the drag path's
      * no-overlap resolver consults, which is why the two agree about what "free" means.</p>
      *
-     * <p>Lane ids are {@code Track.getId()} â the representation {@code onItemMovedToTrack}
+     * <p>Lane ids are {@code Track.getId()} — the representation {@code onItemMovedToTrack}
      * already writes when a drag drops an object on a row, rather than the null-means-default
      * form used when assigning a brand-new overlay.</p>
      */
@@ -36147,7 +36168,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         if (at < 0) return null;
         long total = tl.getTotalDurationMs();
-        // BELOW first, then above â the order JoyRaptor asked for.
+        // BELOW first, then above — the order JoyRaptor asked for.
         int[] tries = {at - 1, at + 1};
         for (int to : tries) {
             if (to < 0 || to >= lanes.size()) continue;
@@ -36176,7 +36197,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // Each payload copies through its OWN deep copy, never a field-by-field one written
         // here: the class that knows which of its references may be shared is the class that
         // holds them, and an aliased keyframe set would surface as two objects animating
-        // together â a bug that reads as the editor having a mind of its own.
+        // together — a bug that reads as the editor having a mind of its own.
         for (com.fadcam.ui.faditor.model.TextOverlayItem t : timeline.getTextOverlays()) {
             if (!t.getId().equals(selectedId)) continue;
             confirmLockedThen(t.isLocked(), () -> t.setLocked(false), () -> {
@@ -36221,11 +36242,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // object reports trace to: text/sprite/adjustment were covered above, a selected PiP
         // fell through every loop and landed in duplicateSelectedSegment()'s master-clip path.
         // Copy constructor mints a fresh id (see Timeline.duplicateClip's identical use), so no
-        // manual id juggling here â same as the other three branches deliberately don't share
+        // manual id juggling here — same as the other three branches deliberately don't share
         // references either.
         for (Clip c : timeline.getOverlayClips()) {
             if (!c.getId().equals(selectedId)) continue;
-            // The lock confirm was MISSING on this branch alone â text, sprite and adjustment all
+            // The lock confirm was MISSING on this branch alone — text, sprite and adjustment all
             // asked, a locked PiP was duplicated without a word. Same gate, same wording.
             confirmLockedThen(c.isLockedObject(), () -> c.setLockedObject(false), () -> {
                 Clip copy = new Clip(c);
@@ -36260,7 +36281,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // An OBJECT selection wins over the master-track segment: if the user has just tapped a
         // text or sprite, "duplicate" can only sensibly mean that one, and duplicating a whole
         // clip underneath them instead would be a startling amount of undo to reach for.
-        // Â§2.4, same ordering as the trash: the whole marquee selection first, then the single
+        // §2.4, same ordering as the trash: the whole marquee selection first, then the single
         // object, then the master clip.
         if (duplicateMarqueeSelection()) return;
         if (duplicateSelectedObject()) return;

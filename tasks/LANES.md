@@ -14,6 +14,13 @@ how they avoid clobbering each other. Protocol — no exceptions:
    files are free. Come back to skipped tasks later.
 2. **Before your first edit of a task**, update YOUR section: set `status: ACTIVE`,
    the date/time, and the exact files you will touch. Save this file.
+
+   **NAME YOUR LANE AFTER YOUR SPEC, not after your harness or model.** Several agents
+   run the same harness (opencode) and the same model (muse) at once, so "OPENCODE" or
+   "MUSE" identifies nobody — on 2026-08-28 three agents were running and a broken build
+   in `export/` could not be traced to its owner from this board at all; it had to be
+   inferred from the filenames. Use the spec: `## SPEC_20260828_EXPORT_GL_FRAMES`. If you
+   have no spec, name the lane after the subsystem you are in.
 3. **After the task's commit** (or when you abandon it), set your section back to
    `status: IDLE` and clear the files list. Never leave a stale ACTIVE claim when you
    stop working — a dead claim blocks the other agent for hours.
@@ -60,12 +67,23 @@ SPEC: free
 DEVICE: free (FABLE 2026-08-28 — Note 20 UNPLUGGED; 3 fixes built but not installed/verified)
 
 ## FABLE (Claude) — dynamic lane
-status: ACTIVE (2026-08-28 — export speed phase 2. Deliberately NOT in
-        FaditorEditorActivity while MUSE holds the caption drawer: that file is 36k lines
-        and we would collide on it all day.)
-files: app/src/main/java/com/fadcam/ui/faditor/export/PipFrameOverlay.java,
-  app/src/main/java/com/fadcam/ui/faditor/export/SequentialFrameReader.java
+status: IDLE (2026-08-28 — released the export claim: an agent is implementing
+        SPEC_20260828_EXPORT_GL_FRAMES in those same files. Coordinating + specs only
+        until FaditorEditorActivity frees up.)
+files: (none)
 since: 2026-08-28
+
+## SPEC_20260828_EXPORT_GL_FRAMES — UNCLAIMED LANE, WORK IN PROGRESS
+status: ACTIVE but NEVER CLAIMED (2026-08-28). Files below are being edited right now by
+        an agent that did not fill in this board. The tree does NOT compile:
+          BlendModeGlEffect.java:274 — non-static variable clip in a static context
+          GlPipFrameOverlay.java:166 — cannot find symbol GlUtil.createProgram
+        That blocks every other agent's build and JoyRaptor's installs. Whoever owns this:
+        claim the lane, get it green.
+files: app/src/main/java/com/fadcam/ui/faditor/export/BlendModeGlEffect.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/GlPipFrameOverlay.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/SurfaceFrameReader.java,
+  app/src/main/java/com/fadcam/ui/faditor/export/PipFrameStats.java
 
 ## MUSE (agent 1) — caption text fitting
 status: IDLE (2026-08-28 — handed to OPENCODE for implementation; prior claim above)

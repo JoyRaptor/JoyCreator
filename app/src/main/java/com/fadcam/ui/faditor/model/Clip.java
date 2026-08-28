@@ -1708,6 +1708,21 @@ public class Clip implements AudioParams {
         return at >= 0 ? opacityKeyframes.get(at).timeMs : timeMs;
     }
 
+    /**
+     * Remove the opacity keyframe the playhead is on, if any. Returns true if one went.
+     *
+     * <p>There was no way to remove one at all — keyframe mode could only add and update, so a
+     * mistimed fade point was permanent short of clearing every keyframe on the clip. Uses the
+     * same {@link #opacityKeyframeIndexAt} window as the write and the indicator, so the
+     * keyframe the UI says you are standing on is the one that gets deleted.
+     */
+    public boolean removeOpacityKeyframeAt(long timeMs) {
+        int at = opacityKeyframeIndexAt(timeMs);
+        if (at < 0) return false;
+        opacityKeyframes.remove(at);
+        return true;
+    }
+
     public void clearOpacityKeyframes() { opacityKeyframes.clear(); }
 
     private void sortOpacityKeyframes() {

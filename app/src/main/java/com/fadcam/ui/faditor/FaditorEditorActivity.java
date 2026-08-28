@@ -6423,6 +6423,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (prev != null) prev.setOnClickListener(v -> jumpOpacityKeyframe(-1));
         View next = findViewById(R.id.opacity_kf_next);
         if (next != null) next.setOnClickListener(v -> jumpOpacityKeyframe(+1));
+        View delKf = findViewById(R.id.opacity_kf_delete);
+        if (delKf != null) delKf.setOnClickListener(v -> {
+            Clip c = getSelectedClip();
+            if (c == null) return;
+            if (!c.removeOpacityKeyframeAt(lastPositionInSegmentMs)) return;
+            // The drawer session's open/close bracket already collapses this into the one undo
+            // entry the whole editing session records, so a delete undoes with the rest of the
+            // session rather than as a separate step.
+            editorTimeline.invalidate();
+            refreshOpacityDrawer();
+            updateOpacityUI();
+            scheduleAutoSave();
+            Toast.makeText(this, "Keyframe removed", Toast.LENGTH_SHORT).show(); // TODO(strings)
+        });
 
         View.OnTouchListener swipeUp = new View.OnTouchListener() {
             float downY;
@@ -7086,17 +7100,25 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             opacityDrawerValue.setText(pct + "%");
             opacityDrawerValue.setTextColor(pct < 100 ? 0xFF4CAF50 : 0xFF888888);
         }
+        // "Armed" and "standing on a keyframe" are different facts and the user needs the second
+        // one to edit confidently. Read through the SAME predicate the write uses, so what the
+        // chrome says and what an edit does cannot disagree.
+        Clip kfClip = getSelectedClip();
+        boolean onKf = kfClip != null
+                && kfClip.opacityKeyframeIndexAt(lastPositionInSegmentMs) >= 0;
         if (opacityDrawerKeyframe != null) {
-            // THREE states, not two, because "armed" and "standing on a keyframe" are different
-            // facts and the user needs the second one to edit confidently. Amber means the next
-            // change edits the keyframe under the playhead; green means it will create one.
-            // Read through the SAME predicate the write uses, so the light cannot lie.
-            Clip kfClip = getSelectedClip();
-            boolean onKf = clipOpacityKeyframeMode && kfClip != null
-                    && kfClip.opacityKeyframeIndexAt(lastPositionInSegmentMs) >= 0;
+            // Amber means the next change edits the keyframe under the playhead; green means it
+            // will create one; grey means keyframe mode is off.
             opacityDrawerKeyframe.setTextColor(
-                    onKf ? 0xFFFFB300 : (clipOpacityKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E));
+                    (onKf && clipOpacityKeyframeMode) ? 0xFFFFB300
+                            : (clipOpacityKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E));
         }
+        View onDot = findViewById(R.id.opacity_kf_onkeyframe);
+        if (onDot != null) onDot.setVisibility(onKf ? View.VISIBLE : View.INVISIBLE);
+        View del = findViewById(R.id.opacity_kf_delete);
+        // Offered only when there is something under the playhead to remove — a delete button
+        // that does nothing most of the time reads as broken.
+        if (del != null) del.setVisibility(onKf ? View.VISIBLE : View.GONE);
     }
 
     private void jumpOpacityKeyframe(int dir) {

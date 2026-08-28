@@ -2047,6 +2047,35 @@
                 android:max="100"
                 android:progress="100" />
 
+            <!-- On-keyframe dot + delete, mirroring the caption keyframe helper. Opacity had
+                 only prev/next, so there was no way to see you were standing on a keyframe and
+                 no way to remove one at all. -->
+            <FrameLayout
+                android:layout_width="20dp"
+                android:layout_height="44dp">
+
+                <View
+                    android:id="@+id/opacity_kf_onkeyframe"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/circle_green"
+                    android:visibility="invisible" />
+
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/opacity_kf_delete"
+                android:layout_width="40dp"
+                android:layout_height="44dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="delete"
+                android:textColor="#FFFF5252"
+                android:textSize="22sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:visibility="gone" />
+
             <TextView
                 android:id="@+id/opacity_kf_next"
                 android:layout_width="40dp"

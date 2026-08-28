@@ -645,8 +645,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
  *  the SAME processor chain export builds (volume/envelope/pan + FX), replacing the
  *  legacy MediaPlayer fleet whose preview ignored pan and approximated fades. */
 private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audioPlayers = new ArrayList<>();
-    /** Whether each audioPlayer is prepared and ready. */
-    private final List<Boolean> audioPlayersReady = new ArrayList<>();
+    // WAS: a parallel List<Boolean> audioPlayersReady, mirroring each player's readiness.
+    // Nothing ever set an entry to true. It was written `add(false)` on create and `clear()`
+    // on release, and every playback path guarded on it, so EVERY audio clip was skipped
+    // forever and no music track could be heard in preview at all. The flag was a leftover
+    // from the MediaPlayer era, where setOnPreparedListener flipped it; AudioClipPreviewPlayer
+    // (A9) tracks its own state and exposes isReady(), and the mirror was never wired up.
+    // Asking the player directly is the fix AND makes the class of bug impossible: there is
+    // no second copy of the truth to go stale. See readyAudioPlayer(int).
 
     // ── Voiceover punch-in (B5) ───────────────────────────────────────
     @Nullable private com.fadcam.ui.faditor.audio.VoiceoverRecorder voiceoverRecorder;
@@ -5926,10 +5932,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                             long clipMs = editorTimeline.getPlayheadPositionMs() - ac.getOffsetMs();
                             ac.addOrUpdateFinalGainKeyframe(clipMs, volume);
                             // Live: apply this gain immediately so the user hears it.
-                            if (audioIdx < audioPlayers.size() && audioIdx < audioPlayersReady.size()
-                                    && audioPlayersReady.get(audioIdx)) {
-                                audioPlayers.get(audioIdx).setVolume(volume, volume);
-                            }
+                            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer livePlayer =
+                                    readyAudioPlayer(audioIdx);
+                            if (livePlayer != null) livePlayer.setVolume(volume, volume);
                             editorTimeline.invalidate();
                             scheduleAutoSave();
                             return;
@@ -5944,10 +5949,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         }
                         ac.setVolumeLevel(volume);
                         ac.setMuted(muted);
-                        if (audioIdx < audioPlayers.size() && audioIdx < audioPlayersReady.size()
-                                && audioPlayersReady.get(audioIdx)) {
+                        com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer sheetPlayer =
+                                readyAudioPlayer(audioIdx);
+                        if (sheetPlayer != null) {
                             float vol = muted ? 0f : volume;
-                            audioPlayers.get(audioIdx).setVolume(vol, vol);
+                            sheetPlayer.setVolume(vol, vol);
                         }
                         updateVolumeUI(volume, muted);
                         scheduleAutoSave();
@@ -6035,10 +6041,9 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     ac.setVolumeLevel(volume);
                     if (volume > 0f) ac.setMuted(false);
                 }
-                if (audioIdx < audioPlayers.size() && audioIdx < audioPlayersReady.size()
-                        && audioPlayersReady.get(audioIdx)) {
-                    audioPlayers.get(audioIdx).setVolume(volume, volume);
-                }
+                com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer volPlayer =
+                        readyAudioPlayer(audioIdx);
+                if (volPlayer != null) volPlayer.setVolume(volume, volume);
                 updateVolumeUI(ac.getVolumeLevel(), ac.isMuted());
                 return;
             }
@@ -6137,11 +6142,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
                     if (ac != null) {
                         ac.setMuted(!ac.isMuted());
-                        if (audioIdx < audioPlayers.size() && audioIdx < audioPlayersReady.size()
-                                && audioPlayersReady.get(audioIdx)) {
+                        com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mutePlayer =
+                                readyAudioPlayer(audioIdx);
+                        if (mutePlayer != null) {
                             float g = com.fadcam.ui.faditor.compositor.LayerPreviewController
                                     .effectivePreviewVolume(project.getTimeline(), ac);
-                            audioPlayers.get(audioIdx).setVolume(g, g);
+                            mutePlayer.setVolume(g, g);
                         }
                     }
                 } else {
@@ -8777,6 +8783,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * Prepares MediaPlayers for ALL audio clips in the timeline.
      * One MediaPlayer per clip, each pre-prepared for instant playback.
      */
+    /**
+     * The player for audio clip {@code index}, but only once it can actually be driven —
+     * otherwise null.
+     *
+     * <p>Readiness is asked of the player itself. It used to be mirrored in a parallel
+     * {@code List<Boolean>} that nothing ever set to true, which silently disabled every
+     * audio path in the editor: the music track was created, prepared, drawn on the timeline
+     * with its waveform, and then skipped by each of the eleven call sites that consulted the
+     * flag. JoyRaptor could see his mp3 and never hear it.</p>
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer readyAudioPlayer(int index) {
+        if (index < 0 || index >= audioPlayers.size()) return null;
+        com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer p = audioPlayers.get(index);
+        return (p != null && p.isReady()) ? p : null;
+    }
+
     private void prepareAudioPlayer() {
         releaseAudioPlayer();
         if (project == null || !project.getTimeline().hasAudioClips()) return;
@@ -8796,7 +8819,6 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                                 // is written.
                                 ac.isVoiceFxEnabled());
                 audioPlayers.add(player);
-                audioPlayersReady.add(false);
 
                 player.prepareAsync();
             } catch (Exception e) {
@@ -8816,7 +8838,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         List<AudioClip> clips = project.getTimeline().getAudioClips();
 
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
-            if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
+            if (readyAudioPlayer(i) == null) continue;
             AudioClip ac = clips.get(i);
             com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null) continue;
@@ -8873,7 +8895,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         List<AudioClip> clips = project.getTimeline().getAudioClips();
 
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
-            if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
+            if (readyAudioPlayer(i) == null) continue;
             AudioClip ac = clips.get(i);
             com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null) continue;
@@ -8918,7 +8940,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         long playheadMs = editorTimeline.getPlayheadPositionMs();
         List<AudioClip> clips = project.getTimeline().getAudioClips();
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
-            if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
+            if (readyAudioPlayer(i) == null) continue;
             AudioClip ac = clips.get(i);
             com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null || !ac.hasVolumeKeyframes()) continue;
@@ -8939,7 +8961,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void pauseAudioPlayer() {
         for (int i = 0; i < audioPlayers.size(); i++) {
-            if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
+            if (readyAudioPlayer(i) == null) continue;
             try {
             com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
                 if (mp != null && mp.isPlaying()) mp.pause();
@@ -8957,7 +8979,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         long playheadMs = editorTimeline.getPlayheadPositionMs();
         java.util.List<AudioClip> clips = project.getTimeline().getAudioClips();
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
-            if (i >= audioPlayersReady.size() || !audioPlayersReady.get(i)) continue;
+            if (readyAudioPlayer(i) == null) continue;
             AudioClip ac = clips.get(i);
             com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
             if (ac == null || mp == null) continue;
@@ -8995,7 +9017,6 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         }
         audioPlayers.clear();
-        audioPlayersReady.clear();
     }
 
     // ── Live Preview Transforms ──────────────────────────────────────
@@ -14893,7 +14914,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void applyAudioTrackMuteLive(@NonNull Timeline timeline) {
         java.util.List<AudioClip> acs = timeline.getAudioClips();
         for (int ai = 0; ai < acs.size() && ai < audioPlayers.size(); ai++) {
-            if (ai >= audioPlayersReady.size() || !audioPlayersReady.get(ai)) continue;
+            if (readyAudioPlayer(ai) == null) continue;
             AudioClip ac = acs.get(ai);
             if (ac == null) continue;
             float v = com.fadcam.ui.faditor.compositor.LayerPreviewController
@@ -22688,10 +22709,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     /** Push the effective gain at the playhead to the live audio player (if ready). */
     private void applyAudioLivePlayerGain(@NonNull com.fadcam.ui.faditor.model.AudioClip ac) {
         int idx = project.getTimeline().getAudioClips().indexOf(ac);
-        if (idx < 0 || idx >= audioPlayers.size() || idx >= audioPlayersReady.size()
-                || !audioPlayersReady.get(idx)) return;
+        com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = readyAudioPlayer(idx);
+        if (mp == null) return;
         float g = ac.isMuted() ? 0f : ac.gainAtClipMs(lastPlayheadAbsoluteMs - ac.getOffsetMs());
-        audioPlayers.get(idx).setVolume(g, g);
+        mp.setVolume(g, g);
     }
 
     /** Snapshot of an audio clip's volume state for one-undo-step bracketing. */
@@ -34329,9 +34350,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (!voiceoverKeepAudible) {
             // Mute live players
             if (playerManager != null) playerManager.setVolume(0f);
-            for (int i = 0; i < audioPlayers.size() && i < audioPlayersReady.size(); i++) {
-                if (i < audioPlayers.size() && audioPlayersReady.get(i)) {
-                    try { audioPlayers.get(i).setVolume(0f, 0f); } catch (Exception ignored) {}
+            for (int i = 0; i < audioPlayers.size(); i++) {
+                com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = readyAudioPlayer(i);
+                if (mp != null) {
+                    try { mp.setVolume(0f, 0f); } catch (Exception ignored) {}
                 }
             }
             android.widget.Toast.makeText(this, "Playback muted to prevent feedback \u2014 use headphones to hear timeline while recording", android.widget.Toast.LENGTH_LONG).show();
@@ -34353,9 +34375,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             if (!voiceoverKeepAudible) {
                 // Re-mute after syncAndPlayAudioPlayer restores volumes
                 if (playerManager != null) playerManager.setVolume(0f);
-                for (int i = 0; i < audioPlayers.size() && i < audioPlayersReady.size(); i++) {
-                    if (i < audioPlayers.size() && audioPlayersReady.get(i)) {
-                        try { audioPlayers.get(i).setVolume(0f, 0f); } catch (Exception ignored) {}
+                for (int i = 0; i < audioPlayers.size(); i++) {
+                    com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp =
+                            readyAudioPlayer(i);
+                    if (mp != null) {
+                        try { mp.setVolume(0f, 0f); } catch (Exception ignored) {}
                     }
                 }
             }

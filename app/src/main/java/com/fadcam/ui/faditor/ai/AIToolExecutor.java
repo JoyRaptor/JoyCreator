@@ -2358,13 +2358,10 @@ public class AIToolExecutor {
         String clipId = args.optString("clipId", "");
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
-        Clip clip = findClip(proj, clipId);
-        if (clip == null) return "Error: clip not found: " + clipId;
-
-        java.util.List<NamedTranscript> versions = clip.getTranscripts();
-        if (versions.isEmpty()) return "Error: no transcript for clip " + clipId;
-        NamedTranscript nt = clip.getActiveNamedTranscript();
-        if (nt == null) nt = versions.get(0);
+        boolean known = findClip(proj, clipId) != null || findAudioClip(proj, clipId) != null;
+        if (!known) return "Error: clip not found: " + clipId;
+        NamedTranscript nt = findActiveTranscript(proj, clipId);
+        if (nt == null) return "Error: no transcript for clip " + clipId;
 
         StringBuilder sb = new StringBuilder();
         sb.append("Transcript for clip ").append(clipId).append(" (").append(nt.engine).append("):\n");
@@ -2389,11 +2386,28 @@ public class AIToolExecutor {
         if (find.isEmpty()) return "Error: 'find' (the wrong text to fix) is required";
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";
-        Clip clip = clipId.isEmpty()
-                ? (proj.getTimeline().getClipCount() > 0 ? proj.getTimeline().getClip(0) : null)
-                : findClip(proj, clipId);
-        if (clip == null) return "Error: clip not found: " + clipId;
-        NamedTranscript nt = clip.getActiveNamedTranscript();
+        String hostId = clipId;
+        if (hostId.isEmpty()) {
+            // No id given: the first thing in the project that actually HAS a transcript,
+            // video or audio. Defaulting to clip 0 picked the auto-blank spine filler on a
+            // music-video project and reported there were no captions to correct.
+            if (proj.getTimeline().getClipCount() > 0) {
+                hostId = proj.getTimeline().getClip(0).getId();
+                if (findActiveTranscript(proj, hostId) == null) hostId = "";
+            }
+            if (hostId.isEmpty()) {
+                for (com.fadcam.ui.faditor.model.AudioClip ac
+                        : proj.getTimeline().getAudioClips()) {
+                    if (ac != null && findActiveTranscript(proj, ac.getId()) != null) {
+                        hostId = ac.getId();
+                        break;
+                    }
+                }
+            }
+        }
+        if (findClip(proj, hostId) == null && findAudioClip(proj, hostId) == null)
+            return "Error: clip not found: " + clipId;
+        NamedTranscript nt = findActiveTranscript(proj, hostId);
         if (nt == null || nt.transcript.words.isEmpty())
             return "Error: clip has no transcript. Run generate_transcript first.";
         java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> words = nt.transcript.words;
@@ -2448,7 +2462,7 @@ public class AIToolExecutor {
 
         storage.save(proj);
         AIChatState.signalModified(projectId);
-        return "Corrected \"" + find + "\" → \"" + replace + "\" in clip " + clip.getId()
+        return "Corrected \"" + find + "\" → \"" + replace + "\" in clip " + hostId
                 + " (" + newTexts.length + " word(s) over " + spanStart + "-" + spanEnd + "ms). "
                 + "Captions + transcript updated.";
     }
@@ -3186,6 +3200,44 @@ public class AIToolExecutor {
         return null;
     }
 
+    /**
+     * The AUDIO clip with this id, or null. Audio clips carry transcripts exactly as video
+     * clips do, and every transcript tool used to look only at the video spine — so a music or
+     * voice track's transcript was invisible to the assistant. JoyRaptor hit this comparing a Vosk
+     * transcription against a lyric sheet: the assistant reported "clip not found" and listed
+     * only the video clip and the black spine filler as the project's contents.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.model.AudioClip findAudioClip(
+            @NonNull FaditorProject proj, @NonNull String clipId) {
+        for (com.fadcam.ui.faditor.model.AudioClip ac : proj.getTimeline().getAudioClips()) {
+            if (ac != null && clipId.equals(ac.getId())) return ac;
+        }
+        return null;
+    }
+
+    /**
+     * The active transcript on the video OR audio clip with this id, or null if neither has
+     * one. One resolver for both kinds, so a tool cannot support one and quietly miss the other.
+     */
+    @Nullable
+    private NamedTranscript findActiveTranscript(
+            @NonNull FaditorProject proj, @NonNull String clipId) {
+        Clip c = findClip(proj, clipId);
+        if (c != null) {
+            NamedTranscript nt = c.getActiveNamedTranscript();
+            if (nt == null && !c.getTranscripts().isEmpty()) nt = c.getTranscripts().get(0);
+            return nt;
+        }
+        com.fadcam.ui.faditor.model.AudioClip ac = findAudioClip(proj, clipId);
+        if (ac != null) {
+            NamedTranscript nt = ac.getActiveNamedTranscript();
+            if (nt == null && !ac.getTranscripts().isEmpty()) nt = ac.getTranscripts().get(0);
+            return nt;
+        }
+        return null;
+    }
+
     @NonNull
     private String buildProjectSummary(@NonNull FaditorProject proj) {
         StringBuilder sb = new StringBuilder();
@@ -3223,7 +3275,35 @@ public class AIToolExecutor {
             }
         }
         if (tl.hasAudioClips()) {
+            // IDS AND TRANSCRIPTS, not just a count. A bare count told the assistant audio
+            // existed but gave it nothing it could address, so asked about a music track it
+            // listed the video clips instead and declared the id did not exist.
             sb.append("Audio clips: ").append(tl.getAudioClipCount()).append("\n");
+            java.util.List<com.fadcam.ui.faditor.model.AudioClip> acs = tl.getAudioClips();
+            for (int i = 0; i < acs.size(); i++) {
+                com.fadcam.ui.faditor.model.AudioClip ac = acs.get(i);
+                if (ac == null) continue;
+                sb.append("Audio ").append(i).append(": id=").append(ac.getId())
+                        .append(" name=\"")
+                        .append(ac.getLabel() == null ? "Audio" : ac.getLabel()).append("\"")
+                        .append(" startMs=").append(ac.getOffsetMs())
+                        .append(" dur=").append(ac.getTrimmedDurationMs()).append("ms")
+                        .append(" muted=").append(ac.isMuted())
+                        .append("\n");
+                java.util.List<NamedTranscript> avs = ac.getTranscripts();
+                if (!avs.isEmpty()) {
+                    NamedTranscript active = ac.getActiveNamedTranscript();
+                    if (active == null) active = avs.get(0);
+                    sb.append("  Transcript (").append(active.engine).append("):\n");
+                    for (int w = 0; w < active.transcript.words.size(); w++) {
+                        var word = active.transcript.words.get(w);
+                        sb.append("    [").append(word.startMs).append("-")
+                                .append(word.endMs).append("] ").append(word.text);
+                        if (word.struck) sb.append(" [CUT]");
+                        sb.append("\n");
+                    }
+                }
+            }
         }
         if (tl.hasTextOverlays()) {
             sb.append("Overlays: ").append(tl.getTextOverlays().size()).append("\n");

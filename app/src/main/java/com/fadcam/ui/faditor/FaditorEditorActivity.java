@@ -5904,7 +5904,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         if (clip == null) return;
         opacity = Math.max(0f, Math.min(1f, opacity));
         if (clipOpacityKeyframeMode) {
-            clip.addOrUpdateOpacityKeyframe(lastPositionInSegmentMs, opacity);
+            // SNAP FIRST. lastPositionInSegmentMs comes back from the player rounded to a frame
+            // boundary, so editing the keyframe you just jumped to could land outside its
+            // window and add a second one beside it. Snapping means re-editing a keyframe
+            // always edits THAT keyframe and never walks it along the timeline.
+            clip.addOrUpdateOpacityKeyframe(
+                    clip.snapToOpacityKeyframeMs(lastPositionInSegmentMs), opacity);
             editorTimeline.invalidate();
         }
         if (playerView != null) {
@@ -7082,7 +7087,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             opacityDrawerValue.setTextColor(pct < 100 ? 0xFF4CAF50 : 0xFF888888);
         }
         if (opacityDrawerKeyframe != null) {
-            opacityDrawerKeyframe.setTextColor(clipOpacityKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E);
+            // THREE states, not two, because "armed" and "standing on a keyframe" are different
+            // facts and the user needs the second one to edit confidently. Amber means the next
+            // change edits the keyframe under the playhead; green means it will create one.
+            // Read through the SAME predicate the write uses, so the light cannot lie.
+            Clip kfClip = getSelectedClip();
+            boolean onKf = clipOpacityKeyframeMode && kfClip != null
+                    && kfClip.opacityKeyframeIndexAt(lastPositionInSegmentMs) >= 0;
+            opacityDrawerKeyframe.setTextColor(
+                    onKf ? 0xFFFFB300 : (clipOpacityKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E));
         }
     }
 
@@ -7090,12 +7103,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         Clip clip = getSelectedClip();
         if (clip == null || !clip.hasOpacityKeyframes()) return;
         java.util.List<Clip.OpacityKeyframe> kfs = clip.getOpacityKeyframes();
+        // Step off the keyframe we are ON by the SHARED window, not a private 30ms. With the
+        // old figure a keyframe could sit inside the write window yet outside the step window,
+        // so "next" would land back on the one you were already editing.
+        long here = lastPositionInSegmentMs;
         long best = -1;
         for (Clip.OpacityKeyframe kf : kfs) {
             if (dir > 0) {
-                if (kf.timeMs > lastPositionInSegmentMs + 30) { best = kf.timeMs; break; }
+                if (kf.timeMs > here + Clip.KEYFRAME_SNAP_MS) { best = kf.timeMs; break; }
             } else {
-                if (kf.timeMs < lastPositionInSegmentMs - 30) best = kf.timeMs;
+                if (kf.timeMs < here - Clip.KEYFRAME_SNAP_MS) best = kf.timeMs;
             }
         }
         if (best >= 0) {

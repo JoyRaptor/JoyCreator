@@ -1657,14 +1657,55 @@ public class Clip implements AudioParams {
     public void addOrUpdateOpacityKeyframe(long timeMs, float opacity) {
         timeMs = Math.max(0, timeMs);
         opacity = Math.max(0f, Math.min(opacity, 1.0f));
-        for (OpacityKeyframe kf : opacityKeyframes) {
-            if (Math.abs(kf.timeMs - timeMs) <= 40) {
-                kf.opacity = opacity;
-                return;
-            }
+        int at = opacityKeyframeIndexAt(timeMs);
+        if (at >= 0) {
+            opacityKeyframes.get(at).opacity = opacity;
+            return;
         }
         opacityKeyframes.add(new OpacityKeyframe(timeMs, opacity));
         sortOpacityKeyframes();
+    }
+
+    /**
+     * How close the playhead has to be to a keyframe to count as ON it.
+     *
+     * <p>ONE constant, because the bug it fixes was two answers to the same question. The
+     * editor lit the keyframe indicator on one test and wrote through a different one, so a
+     * keyframe could light up as "you are on this" and then editing would drop a SECOND
+     * keyframe a few milliseconds beside it — JoyRaptor: "it'll put a keyframe right next to it,
+     * which is a hassle and convoluted."
+     *
+     * <p>It also has to be wider than one frame. Jumping to a keyframe seeks the player, and
+     * the position that comes back is rounded to a frame boundary — 33ms at 30fps, 42ms at
+     * 24fps — so the old 40ms window could be missed by the editor's own jump button. 80ms
+     * clears a frame with margin while still leaving three frames between keyframes that are
+     * genuinely meant to be distinct.
+     */
+    public static final long KEYFRAME_SNAP_MS = 80L;
+
+    /**
+     * Index of the opacity keyframe the playhead is ON at {@code timeMs}, or -1.
+     * NEAREST within {@link #KEYFRAME_SNAP_MS}, not merely the first found — with two
+     * keyframes inside the window the first-match rule would edit the wrong one.
+     */
+    public int opacityKeyframeIndexAt(long timeMs) {
+        int best = -1;
+        long bestDelta = Long.MAX_VALUE;
+        for (int i = 0; i < opacityKeyframes.size(); i++) {
+            long d = Math.abs(opacityKeyframes.get(i).timeMs - timeMs);
+            if (d <= KEYFRAME_SNAP_MS && d < bestDelta) { bestDelta = d; best = i; }
+        }
+        return best;
+    }
+
+    /**
+     * {@code timeMs} snapped to the exact time of the keyframe it is on, or unchanged when it
+     * is not on one. Callers that WRITE a keyframe should snap first, so re-editing an existing
+     * keyframe lands on it exactly instead of walking it a few milliseconds per edit.
+     */
+    public long snapToOpacityKeyframeMs(long timeMs) {
+        int at = opacityKeyframeIndexAt(timeMs);
+        return at >= 0 ? opacityKeyframes.get(at).timeMs : timeMs;
     }
 
     public void clearOpacityKeyframes() { opacityKeyframes.clear(); }

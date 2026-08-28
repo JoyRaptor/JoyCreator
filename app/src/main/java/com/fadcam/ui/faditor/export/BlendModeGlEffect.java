@@ -215,11 +215,15 @@ public final class BlendModeGlEffect implements GlEffect {
         private final float[] keyParams;
         /** Kept for its FX uniform values; the geometry all lives in the overlay. */
         @NonNull private final Clip fxClip;
+        @NonNull private final Clip clip;
+        @Nullable private final Clip matteClip;
 
         Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
                  long editorTimeOffsetMs)
                  throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
+            this.clip = clip;
+            this.matteClip = matteClip;
             this.overlay = new PipFrameOverlay(context, clip, editorTimeOffsetMs);
             // Option 2 (§4): masked PiPs stay on the CPU Canvas path where MaskPathBuilder clips.
             // Only unmasked PiPs are routed through the Surface → GL texture path.

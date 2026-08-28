@@ -163,7 +163,7 @@ final class GlPipFrameOverlay {
                     + "  vec4 c = texture2D(uOesTex, uv);\n"
                     + "  gl_FragColor = vec4(c.rgb, c.a * uAlpha);\n"
                     + "}\n";
-            blitProgram = GlUtil.createProgram(vertex, fragment);
+            blitProgram = createProgram(vertex, fragment);
             aPositionLoc = GLES20.glGetAttribLocation(blitProgram, "aPosition");
             uMvpLoc = GLES20.glGetUniformLocation(blitProgram, "uMvp");
             uTexMatrixLoc = GLES20.glGetUniformLocation(blitProgram, "uTexMatrix");
@@ -181,6 +181,22 @@ final class GlPipFrameOverlay {
             degraded = true;
             return false;
         }
+    }
+
+    private static int createProgram(@NonNull String vertex, @NonNull String fragment) {
+        int v = GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER);
+        GLES20.glShaderSource(v, vertex);
+        GLES20.glCompileShader(v);
+        int f = GLES20.glCreateShader(GLES20.GL_FRAGMENT_SHADER);
+        GLES20.glShaderSource(f, fragment);
+        GLES20.glCompileShader(f);
+        int p = GLES20.glCreateProgram();
+        GLES20.glAttachShader(p, v);
+        GLES20.glAttachShader(p, f);
+        GLES20.glLinkProgram(p);
+        GLES20.glDeleteShader(v);
+        GLES20.glDeleteShader(f);
+        return p;
     }
 
     private int getTransparentTexture() {
@@ -244,7 +260,7 @@ final class GlPipFrameOverlay {
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GLES20.glDisableVertexAttribArray(aPositionLoc);
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-        GlUtil.checkGlError();
+        try { GlUtil.checkGlError(); } catch (Exception ignored) {}
         return overlayTexId;
     }
 

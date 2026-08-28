@@ -31416,14 +31416,64 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void resolveTranscriptTarget() {
         transcriptIsForAudio = false;
         transcriptAudioIndex = -1;
-        if (editorTimeline.getSelectedAudioIndex() >= 0
-                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size()) {
-            AudioClip audioClip = project.getTimeline().getAudioClips()
-                    .get(editorTimeline.getSelectedAudioIndex());
-            if (audioClip != null) {
+        java.util.List<AudioClip> audio = project.getTimeline().getAudioClips();
+
+        // 1) An explicitly SELECTED audio clip that HAS a transcript wins — the user pointed at
+        //    it and there is something to show. A selected clip with no transcript is handled
+        //    at (5), after the live-here checks, so selecting the spine cannot suppress the
+        //    transcript that is actually playing.
+        int sel = editorTimeline.getSelectedAudioIndex();
+        if (sel >= 0 && sel < audio.size() && audio.get(sel) != null
+                && audio.get(sel).hasTranscript()) {
+            transcriptIsForAudio = true;
+            transcriptAudioIndex = sel;
+            return;
+        }
+
+        // 2) OTHERWISE, WHATEVER IS LIVE UNDER THE PLAYHEAD.
+        //
+        // This used to stop at (1), so with nothing selected — or the black auto-blank spine
+        // selected, which is most of a music project — the panel went looking for a transcript
+        // on a clip that could never have one, found none, and put up the "Select a transcript"
+        // chooser. Every single time. JoyRaptor: "it asks to load a transcript onto the black, when
+        // really I just wanted to have it look at the transcript that I already have loaded on
+        // the audio ... I don't want it popping up every single time I'm trying to nudge things
+        // around."
+        //
+        // His rule, and it is the right one: show what is playing here. Only when nothing at
+        // this position has a transcript is there a real question to ask.
+        long ph = editorTimeline.getPlayheadPositionMs();
+        for (int i = 0; i < audio.size(); i++) {
+            AudioClip ac = audio.get(i);
+            if (ac == null || !ac.hasTranscript()) continue;
+            if (ph >= ac.getOffsetMs() && ph < ac.getEndOnTimelineMs()) {
                 transcriptIsForAudio = true;
-                transcriptAudioIndex = editorTimeline.getSelectedAudioIndex();
+                transcriptAudioIndex = i;
+                return;
             }
+        }
+        // 3) A spine clip under the playhead with its own transcript keeps the video branch,
+        //    which is what resolveTranscriptTarget has always meant by "not audio".
+        Clip under = clipUnderPlayhead();
+        if (under != null && under.hasTranscript()) return;
+
+        // 4) Nothing live here. Fall back to any audio clip that DOES have one, so the panel
+        //    opens on real words instead of an empty chooser; the header still lets the user
+        //    switch. Only a project with no transcript anywhere reaches the chooser now.
+        for (int i = 0; i < audio.size(); i++) {
+            AudioClip ac = audio.get(i);
+            if (ac != null && ac.hasTranscript()) {
+                transcriptIsForAudio = true;
+                transcriptAudioIndex = i;
+                return;
+            }
+        }
+        // 5) Nothing anywhere has a transcript. NOW an explicit selection matters again: it is
+        //    the clip the user means to transcribe, and the chooser/transcribe flow below needs
+        //    a target. This is the only remaining path to that dialog.
+        if (sel >= 0 && sel < audio.size() && audio.get(sel) != null) {
+            transcriptIsForAudio = true;
+            transcriptAudioIndex = sel;
         }
     }
 

@@ -367,6 +367,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private View transcriptModelChoice;
     private android.widget.LinearLayout transcriptVersionBar;
     private View transcriptVersionScroll;
+    private TextView transcriptHeader;
     /** Most recent absolute playhead time (ms) — used as the keyframe time base. */
     private long lastPlayheadAbsoluteMs = 0;
     private long lastPositionInSegmentMs = 0;
@@ -3006,6 +3007,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             } else {
                 openTranscriptPanel();
             }
+        });
+        findViewById(R.id.tool_transcript).setOnLongClickListener(v -> {
+            showTranscriptPicker();
+            return true;
         });
         findViewById(R.id.tool_transitions).setOnClickListener(v -> showTransitionPanel(!transitionPanelOpen));
         findViewById(R.id.tool_captions).setOnClickListener(v -> toggleCaptions());
@@ -13240,6 +13245,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     }
 
     private static final String PREF_TIMELINE_BAND_DP = "timeline_band_max_dp";
+    private static final String PREF_TRANSCRIPT_SOURCE_OFFER_DONT_SHOW = "transcript_source_offer_dont_show";
 
     /**
      * G6.2 snap detents (contract §5): the sensible band-height splits the grab bar snaps to on release.
@@ -28550,6 +28556,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         transcriptModelChoice = findViewById(R.id.transcript_model_choice);
         transcriptVersionBar = findViewById(R.id.transcript_version_bar);
         transcriptVersionScroll = findViewById(R.id.transcript_version_scroll);
+        transcriptHeader = findViewById(R.id.transcript_header);
+        if (transcriptHeader != null) {
+            transcriptHeader.setOnClickListener(v -> showTranscriptPicker());
+        }
         if (transcriptPanel == null) return;
 
         if (transcriptionEngine == null) {
@@ -31748,11 +31758,15 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // G4: before falling back to model picker, scan for existing transcripts
         // in the project — if any exist, show a picker so the user can reach them.
         if (!showTranscriptPicker()) {
-            // No transcripts exist in the project at all — fall back to model picker
-            transcriptProgress.setVisibility(View.GONE);
-            transcriptView.setVisibility(View.GONE);
-            transcriptModelChoice.setVisibility(View.VISIBLE);
-            updateModelChoiceReadyLabels();
+            // No transcripts exist in the project at all — §2.3 one-time offer
+            if (isTranscriptSourceOfferSilenced()) {
+                transcriptProgress.setVisibility(View.GONE);
+                transcriptView.setVisibility(View.GONE);
+                transcriptModelChoice.setVisibility(View.VISIBLE);
+                updateModelChoiceReadyLabels();
+            } else {
+                showTranscriptSourceOffer();
+            }
         }
     }
 
@@ -31844,6 +31858,48 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         builder.setNegativeButton(android.R.string.cancel, null);
         builder.show();
         return true;
+    }
+
+    private boolean isTranscriptSourceOfferSilenced() {
+        return getSharedPreferences("faditor_ui", MODE_PRIVATE)
+                .getBoolean(PREF_TRANSCRIPT_SOURCE_OFFER_DONT_SHOW, false);
+    }
+
+    private void showTranscriptSourceOffer() {
+        android.widget.CheckBox cb = new android.widget.CheckBox(this);
+        cb.setText(R.string.faditor_transcript_offer_dont_show);
+        cb.setTextSize(13);
+        cb.setPadding((int) (16 * getResources().getDisplayMetrics().density), 0, 0, 0);
+        android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
+        wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (18 * getResources().getDisplayMetrics().density);
+        wrap.setPadding(pad, pad / 2, pad, 0);
+        TextView msg = new TextView(this);
+        msg.setText(R.string.faditor_transcript_offer_message);
+        msg.setTextColor(0xFFCCCCCC);
+        msg.setTextSize(13);
+        wrap.addView(msg);
+        wrap.addView(cb);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.faditor_transcript_offer_title)
+                .setView(wrap)
+                .setPositiveButton(android.R.string.ok, (d, w) -> {
+                    if (cb.isChecked()) {
+                        getSharedPreferences("faditor_ui", MODE_PRIVATE).edit()
+                                .putBoolean(PREF_TRANSCRIPT_SOURCE_OFFER_DONT_SHOW, true).apply();
+                    }
+                    transcriptProgress.setVisibility(View.GONE);
+                    transcriptView.setVisibility(View.GONE);
+                    transcriptModelChoice.setVisibility(View.VISIBLE);
+                    updateModelChoiceReadyLabels();
+                })
+                .setNegativeButton(android.R.string.cancel, (d, w) -> {
+                    if (cb.isChecked()) {
+                        getSharedPreferences("faditor_ui", MODE_PRIVATE).edit()
+                                .putBoolean(PREF_TRANSCRIPT_SOURCE_OFFER_DONT_SHOW, true).apply();
+                    }
+                })
+                .show();
     }
 
     /** Build a human-readable label for a transcript entry.
@@ -32344,13 +32400,28 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             versions = clip == null ? java.util.Collections.emptyList() : clip.getTranscripts();
             active = clip == null ? -1 : clip.getActiveTranscriptIndex();
         }
-        if (versions.isEmpty()) {
-            if (transcriptVersionScroll != null) transcriptVersionScroll.setVisibility(View.GONE);
-            return;
-        }
+        boolean hasVersions = !versions.isEmpty();
         if (transcriptVersionScroll != null) transcriptVersionScroll.setVisibility(View.VISIBLE);
         float density = getResources().getDisplayMetrics().density;
         int pad = (int) (8 * density);
+        // + Source chip FIRST — Import sat off-screen when appended last (d8bd797d).
+        {
+            TextView sourceChip = new TextView(this);
+            sourceChip.setText(R.string.faditor_transcript_source);
+            sourceChip.setTextColor(0xFFCE93D8);
+            sourceChip.setTextSize(12);
+            sourceChip.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+            sourceChip.setPadding(pad, pad / 2, pad, pad / 2);
+            sourceChip.setBackgroundResource(R.drawable.floating_button_item_bg);
+            android.widget.LinearLayout.LayoutParams lp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            lp.rightMargin = pad / 2;
+            sourceChip.setLayoutParams(lp);
+            sourceChip.setOnClickListener(v -> showTranscriptPicker());
+            transcriptVersionBar.addView(sourceChip);
+        }
         for (int i = 0; i < versions.size(); i++) {
             final int idx = i;
             com.fadcam.ui.faditor.transcript.NamedTranscript v = versions.get(i);
@@ -32389,6 +32460,54 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             updateModelChoiceReadyLabels();
         });
         transcriptVersionBar.addView(add);
+        updateTranscriptHeader();
+    }
+
+    private void updateTranscriptHeader() {
+        if (transcriptHeader == null) return;
+        String text = getString(R.string.faditor_transcript);
+        if (transcriptIsForAudio && transcriptAudioIndex >= 0
+                && transcriptAudioIndex < project.getTimeline().getAudioClips().size()) {
+            AudioClip ac = project.getTimeline().getAudioClips().get(transcriptAudioIndex);
+            if (ac != null && ac.hasTranscript()) {
+                String engine = "";
+                com.fadcam.ui.faditor.transcript.NamedTranscript nt = ac.getActiveNamedTranscript();
+                if (nt != null && nt.engine != null) engine = nt.engine;
+                if (engine.isEmpty() && nt != null) engine = nt.label;
+                if (engine.isEmpty()) engine = "transcript";
+                text = getString(R.string.faditor_transcript_header_audio, engine);
+            }
+        } else {
+            Clip clip = getSelectedClip();
+            if (clip == null) clip = clipUnderPlayhead();
+            if (clip != null && clip.hasTranscript()) {
+                int idx = -1;
+                for (int i = 0; i < project.getTimeline().getClipCount(); i++) {
+                    if (project.getTimeline().getClip(i) == clip) { idx = i + 1; break; }
+                }
+                String engine = "";
+                com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.getActiveNamedTranscript();
+                if (nt != null && nt.engine != null) engine = nt.engine;
+                if (engine.isEmpty() && nt != null) engine = nt.label;
+                if (engine.isEmpty()) engine = "transcript";
+                if (idx > 0) text = getString(R.string.faditor_transcript_header_clip, idx, engine);
+                else text = engine;
+            } else if (clip != null) {
+                // Selected clip has no transcript but project may have one elsewhere — still name it
+                for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                    if (ac != null && ac.hasTranscript()) {
+                        String engine = "";
+                        com.fadcam.ui.faditor.transcript.NamedTranscript nt = ac.getActiveNamedTranscript();
+                        if (nt != null && nt.engine != null) engine = nt.engine;
+                        if (engine.isEmpty() && nt != null) engine = nt.label;
+                        if (engine.isEmpty()) engine = "transcript";
+                        text = getString(R.string.faditor_transcript_header_audio, engine);
+                        break;
+                    }
+                }
+            }
+        }
+        transcriptHeader.setText(text);
     }
 
     /** Switch which transcript version is active (panel + captions follow). */

@@ -1387,6 +1387,12 @@
     <string name="faditor_settings_ask_transcribe_title">Ask to transcribe when adding videos</string>
     <string name="faditor_settings_ask_transcribe_desc">Show a prompt to transcribe a clip right after you add it to the timeline.</string>
     <string name="faditor_transcript_working">Working…</string>
+    <string name="faditor_transcript_header_audio">Audio \u00b7 %1$s</string>
+    <string name="faditor_transcript_header_clip">Clip %1$d \u00b7 %2$s</string>
+    <string name="faditor_transcript_source">+ Source</string>
+    <string name="faditor_transcript_offer_title">Add a transcript source</string>
+    <string name="faditor_transcript_offer_message">Load or generate a transcript for the selected clip.\n\nYou can always add a source later from the transcript header or the + Source chip.</string>
+    <string name="faditor_transcript_offer_dont_show">Don\'t show this again</string>
     <string name="faditor_transcript_image">This clip has no audio to transcribe</string>
     <string name="faditor_transcript_empty">No speech detected</string>
     <string name="faditor_transcript_error">Transcription failed: %1$s</string>

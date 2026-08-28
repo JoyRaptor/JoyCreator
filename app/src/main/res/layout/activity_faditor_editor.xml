@@ -764,6 +764,7 @@
                         android:background="?attr/selectableItemBackgroundBorderless" />
 
                     <TextView
+                        android:id="@+id/transcript_header"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
@@ -772,6 +773,9 @@
                         android:textColor="#FFFFFF"
                         android:textSize="13sp"
                         android:textStyle="bold"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:background="?attr/selectableItemBackgroundBorderless"
                         android:singleLine="true"
                         android:maxLines="1"
                         android:ellipsize="end" />

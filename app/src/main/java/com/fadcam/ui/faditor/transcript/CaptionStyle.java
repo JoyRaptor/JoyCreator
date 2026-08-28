@@ -81,6 +81,19 @@ public class CaptionStyle {
     @NonNull
     public Typeface typeface() {
         Typeface base;
+        // CUSTOM FONTS REACH CAPTIONS TOO. A font imported into Pictures/FadCam/fonts is
+        // stored as the key "file:<abs path>", which TextOverlayItem already resolves - so a
+        // downloaded font worked on text and was silently swallowed here, falling through the
+        // switch to plain sans. JoyRaptor asked for both: "CC and text of course."
+        if (fontKey != null && fontKey.startsWith("file:")) {
+            try {
+                Typeface f = Typeface.createFromFile(fontKey.substring(5));
+                if (f != null) return bold ? Typeface.create(f, Typeface.BOLD) : f;
+            } catch (Exception ignored) {
+                // Font deleted or unreadable since it was chosen — fall through to the
+                // built-ins rather than crashing a render.
+            }
+        }
         switch (fontKey) {
             case "serif":   base = Typeface.SERIF; break;
             case "mono":    base = Typeface.MONOSPACE; break;
@@ -96,6 +109,31 @@ public class CaptionStyle {
     /** Font keys offered by the caption font selector, with display labels. */
     @NonNull
     public static String[][] fontChoices() {
+        String[][] builtIn = builtInFontChoices();
+        // Offer whatever the user has imported, marked the same way the text picker marks them.
+        java.util.List<String[]> all = new java.util.ArrayList<>(java.util.Arrays.asList(builtIn));
+        try {
+            java.io.File dir = new java.io.File(
+                    android.os.Environment.getExternalStoragePublicDirectory(
+                            android.os.Environment.DIRECTORY_PICTURES), "FadCam/fonts");
+            java.io.File[] files = dir.listFiles((d, name) -> {
+                String n = name.toLowerCase(java.util.Locale.US);
+                return n.endsWith(".ttf") || n.endsWith(".otf");
+            });
+            if (files != null) {
+                for (java.io.File f : files) {
+                    all.add(new String[]{"file:" + f.getAbsolutePath(),
+                            f.getName().replaceFirst("\\.[^.]+$", "") + " ★"});
+                }
+            }
+        } catch (Exception ignored) {
+            // No storage permission or no folder yet — the built-ins are a complete list.
+        }
+        return all.toArray(new String[0][]);
+    }
+
+    @NonNull
+    private static String[][] builtInFontChoices() {
         return new String[][]{
                 {"default", "Standard"},
                 {"serif", "Serif"},

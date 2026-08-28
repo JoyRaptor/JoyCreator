@@ -99,13 +99,9 @@ files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java,
   app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
 
 ## OPENCODE — dynamic lane
-status: ACTIVE (2026-08-28 — SPEC_20260828_CAPTION_FIT: caption text fitting — FitMode, CaptionFit shared fitter, Fit tab)
-files: app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionStyle.java,
-  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionFit.java,
-  app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionOverlayView.java,
-  app/src/main/java/com/fadcam/ui/faditor/export/CaptionExportRenderer.java,
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (caption drawer — Fit tab only; REVIEW holds same file for PiP/layout, different regions)
-since: 2026-08-28T10:35
+status: IDLE (2026-08-28 — SPEC_20260828_CAPTION_FIT landed 7acdf2d3: shared CaptionFit, FitMode, Fit tab; BUILD SUCCESSFUL 11:28:34, 303 insertions. Preview vs export frame comparison and 30-word cue visual check need JoyRaptor's eye — device was unplugged (Note 20).)
+files: (none)
+since: 2026-08-28T11:35
 
 prior-status: ACTIVE (2026-08-25 — B1 seam freeze + preview 3A remaining, see above)
 

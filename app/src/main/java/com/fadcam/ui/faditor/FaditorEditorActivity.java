@@ -12931,11 +12931,12 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // so the visualizer reads the correct part of the waveform for trimmed/sped clips.
         for (com.fadcam.ui.faditor.model.WaveformOverlayInstance o : overlays) {
             String ref = o.getAudioSourceRef();
-            Clip src = ref != null ? findClipById(ref) : null;
+            VizSource src = resolveVizSource(ref);
             if (src != null) {
-                o.setSourceMapping(src.getInPointMs(), src.getSpeedMultiplier());
-                if (src.hasLoopExtension()) {
-                    o.setLoopExtension(src.getTrimmedDurationMs());
+                o.setSourceMapping(src.inMs, src.speed);
+                Clip spine = ref != null ? findClipById(ref) : null;
+                if (spine != null && spine.hasLoopExtension()) {
+                    o.setLoopExtension(spine.getTrimmedDurationMs());
                 }
             }
         }
@@ -12948,24 +12949,27 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
         }
         for (String ref : needed) {
-            Clip clip = findClipById(ref);
-            if (clip == null) continue;
+            // Resolves an AUDIO clip as readily as a spine clip — the old findClipById here
+            // returned null for a music track and `continue` meant the visualizer simply never
+            // got any data to draw.
+            VizSource clip = resolveVizSource(ref);
+            if (clip == null || clip.uri == null) continue;
             // F3b (PERF_SPEC_LONGFILE_20260718): extract from the RAW source file, not
             // resolvePlaybackUri's output — that flips between the raw file and the
             // remuxed cache copy across sessions, and WaveformExtractor's disk cache is
             // keyed by URI, so the same audio silently re-extracted under a new key.
             // The audio stream is identical in both files; the raw path is stable.
-            File wfSrc = resolveToFile(clip.getSourceUri());
+            File wfSrc = resolveToFile(clip.uri);
             android.net.Uri uri = wfSrc != null ? Uri.fromFile(wfSrc)
-                    : resolvePlaybackUri(clip.getSourceUri());
+                    : resolvePlaybackUri(clip.uri);
             if (waveformExtractor == null) {
                 waveformExtractor = new com.fadcam.ui.faditor.waveform.WaveformExtractor(this);
             }
             waveformExtractInFlight.add(ref);
             // Only extract the source span the clip actually uses (its trim window + a ~1.2s lead-in
             // for the amplitude scrolling window) instead of the whole — possibly 30-min — file.
-            long spanStartMs = Math.max(0, clip.getInPointMs() - 1200);
-            long spanEndMs = clip.getOutPointMs() + 200;
+            long spanStartMs = Math.max(0, clip.inMs - 1200);
+            long spanEndMs = clip.outMs + 200;
             FLog.d(TAG, "Waveform extract START ref=" + ref + " uri=" + uri
                     + " span=" + spanStartMs + ".." + spanEndMs);
             waveformExtractor.extractAsync(uri, 64, spanStartMs, spanEndMs,
@@ -16801,6 +16805,65 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 Toast.LENGTH_SHORT).show();
     }
 
+    /**
+     * Where a visualizer reads its audio from — a spine clip OR an audio-track clip.
+     *
+     * <p>Everything about the visualizer used to assume the spine: it bound to the selected
+     * Clip, resolved through findClipById, and extracted from that clip's file. On a music
+     * video that is exactly the wrong place to look. JoyRaptor's project is a 4.6s intro plus six
+     * minutes of auto-blank spine under a song, so the visualizer was pointed at a black image
+     * and reported silence: "it only looks at the audio in the video spine ... all it sees is
+     * no data from the blank screen and silence on the video channel."
+     */
+    private static final class VizSource {
+        @Nullable final Uri uri;
+        final long inMs, outMs, visualMs;
+        final float speed;
+        VizSource(@Nullable Uri uri, long inMs, long outMs, float speed, long visualMs) {
+            this.uri = uri; this.inMs = inMs; this.outMs = outMs;
+            this.speed = speed; this.visualMs = visualMs;
+        }
+    }
+
+    /** Resolve a visualizer's {@code audioSourceRef} against BOTH clip kinds, or null. */
+    @Nullable
+    private VizSource resolveVizSource(@Nullable String ref) {
+        if (ref == null) return null;
+        Clip c = findClipById(ref);
+        if (c != null) {
+            return new VizSource(c.getSourceUri(), c.getInPointMs(), c.getOutPointMs(),
+                    c.getSpeedMultiplier(),
+                    c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs());
+        }
+        if (project != null) {
+            for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                if (ac != null && ref.equals(ac.getId())) {
+                    // Audio clips carry no speed multiplier; 1.0 keeps the source mapping honest.
+                    return new VizSource(ac.getSourceUri(), ac.getInPointMs(), ac.getOutPointMs(),
+                            1f, ac.getTrimmedDurationMs());
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The audio-track clip under the playhead, else the first one, else null. Used to point a
+     * new visualizer at the song when the spine beneath it has nothing to hear.
+     */
+    @Nullable
+    private AudioClip audioClipForVisualizer() {
+        if (project == null) return null;
+        long ph = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0L;
+        AudioClip first = null;
+        for (AudioClip ac : project.getTimeline().getAudioClips()) {
+            if (ac == null) continue;
+            if (first == null) first = ac;
+            if (ph >= ac.getOffsetMs() && ph < ac.getEndOnTimelineMs()) return ac;
+        }
+        return first;
+    }
+
     /** Add a new text overlay at the centre and open its editor. */
     /** Place a waveform/spectrum visualizer over the selected clip, driven by its audio. */
     private void addWaveformVisualizer() {
@@ -16813,7 +16876,18 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         }
         com.fadcam.ui.faditor.model.WaveformOverlayInstance wo =
                 new com.fadcam.ui.faditor.model.WaveformOverlayInstance("spectrum_mirror");
-        wo.setAudioSourceRef(clip.getId());
+        // POINT IT AT SOMETHING AUDIBLE. The spine clip stays the source whenever it can
+        // actually be heard; when it cannot — an image or auto-blank spacer, or a muted clip —
+        // fall back to the audio track. Binding a visualizer to six minutes of black spine and
+        // watching it sit flat is not a preference anyone holds.
+        AudioClip vizAudio = audioClipForVisualizer();
+        boolean spineIsSilent = clip.isImageClip() || clip.isAudioMuted();
+        if (spineIsSilent && vizAudio != null) {
+            wo.setAudioSourceRef(vizAudio.getId());
+            Toast.makeText(this, "Visualizer reading the audio track", Toast.LENGTH_SHORT).show();
+        } else {
+            wo.setAudioSourceRef(clip.getId());
+        }
         long start = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
         long durMs = clip.hasLoopExtension() ? clip.getVisualDurationMs() : clip.getTrimmedDurationMs();
         wo.setTimeRange(start, start + durMs);

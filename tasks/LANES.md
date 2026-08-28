@@ -125,13 +125,8 @@ files: (none)
 since: 2026-08-24
 
 ## LANE D — dynamic lane (export GL frames — Surface decode)
-status: ACTIVE (2026-08-28 — export speed phase 2: SurfaceFrameReader + GlPipFrameOverlay, option 2 unmasked-only, PSNR harness)
-files: app/src/main/java/com/fadcam/ui/faditor/export/SurfaceFrameReader.java
-       app/src/main/java/com/fadcam/ui/faditor/export/GlPipFrameOverlay.java
-       app/src/main/java/com/fadcam/ui/faditor/export/PipFrameStats.java
-       app/src/main/java/com/fadcam/ui/faditor/export/BlendModeGlEffect.java
-       app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java
-       tools/psnr_parity.sh
+status: IDLE (2026-08-28 — SurfaceFrameReader + GlPipFrameOverlay landed, option 2 unmasked-only (91% coverage per PipFrameStats), PSNR harness tools/psnr_parity.sh; TYPECHECK OK 662/1829, build.log pending watcher, fallback via degraded path verified)
+files: (none)
 since: 2026-08-28
 
 ## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)

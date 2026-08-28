@@ -28343,6 +28343,28 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 // in-point is 103389 produced timelineMs=-4608, clamped to 0 — the "jumped
                 // to 0:00 and ate my double-tap" report.
                 Timeline tl = project.getTimeline();
+                // AN AUDIO CLIP'S WORDS LIVE IN ITS OWN TIME. Everything below resolves the tap
+                // against a SPINE clip; with an audio transcript on screen the loop is skipped,
+                // idx falls back to selectedClipIndex, and the word's source time is mapped
+                // through — and clamped into — some video clip's trim window. The playhead then
+                // lands somewhere unrelated, and because the panel highlight follows the
+                // playhead it lights up whatever word happens to be there. JoyRaptor: tapping
+                // "brothers" selected "eleventh", and the playhead sat at 29.657 for a word that
+                // starts at 29.1.
+                if (transcriptIsForAudio && transcriptClipId != null) {
+                    for (AudioClip ac : tl.getAudioClips()) {
+                        if (ac == null || !transcriptClipId.equals(ac.getId())) continue;
+                        // Same mapping the tape and the playback follow use: source -> timeline
+                        // through the clip's in-point and offset, clamped to its own window.
+                        long src = Math.max(ac.getInPointMs(),
+                                Math.min(sourceMs, ac.getOutPointMs()));
+                        playerManager.pause();
+                        editorTimeline.seekToTimelineMs(
+                                (src - ac.getInPointMs()) + ac.getOffsetMs());
+                        return;
+                    }
+                    return; // owner audio clip gone: better to do nothing than to seek wrongly
+                }
                 int idx = -1;
                 if (!transcriptIsForAudio && transcriptClipId != null) {
                     for (int i = 0; i < tl.getClipCount(); i++) {

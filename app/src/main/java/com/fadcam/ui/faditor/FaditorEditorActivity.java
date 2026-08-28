@@ -24113,31 +24113,23 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
     private void reflowPreviewUnderDrawer(int drawerHeightPx) {
         View container = findViewById(R.id.player_container);
         if (container == null) return;
+        // Travel room measured from the picture's real rectangle, so the picture slides down
+        // until its BOTTOM edge reaches the slot and then stops. Clipping it would defeat the
+        // point: the reflow exists to show MORE of the picture beside an open drawer.
         float shift = 0f;
-        int slotH = container.getHeight();
-        if (drawerHeightPx > 0 && slotH > 0) {
-            int videoH = 0;
-            if (playerView != null && playerView.getVideoSurfaceView() != null) {
-                videoH = playerView.getVideoSurfaceView().getHeight();
+        if (drawerHeightPx > 0) {
+            android.graphics.RectF pic = computeCanvasRect();
+            if (pic != null && pic.height() > 0) {
+                // Only as far as the drawer actually covers the picture.
+                float covered = Math.max(0f, drawerHeightPx - pic.top);
+                shift = Math.min(covered, pictureTravelRoom()[1]);
             }
-            if (videoH <= 0) videoH = slotH;
-            float slack = Math.max(0f, (slotH - videoH) / 2f);
-            shift = Math.min(drawerHeightPx / 2f, slack);
         }
-        // Identity scale, explicitly: a build that HAD scaled could otherwise leave the
-        // container shrunk forever, since nothing else ever writes these.
-        // BOTH translation axes are named on every write: one shared ViewPropertyAnimator
-        // serves this view, so naming only Y would CANCEL an in-flight H1 transcript shift
-        // at its mid-flight value (audit 084b1bc5 #1).
         drawerReflowShiftY = shift;
-        // VERTICAL on the container, HORIZONTAL on the picture's own layers. This is the second
-        // writer of the reflow — it re-asserts the horizontal shift on every top-drawer open and
-        // close (volume, opacity, loop, captions, move, transition) — so it has to agree with
-        // applyTranscriptReflow about where that shift lives.
-        container.animate().translationY(shift)
-                .scaleX(1f).scaleY(1f).setDuration(220)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-        applyPictureShiftX(container, transcriptReflowShiftX, true);
+        // BOTH axes go to the picture's own layers through the one writer. Putting the vertical
+        // shift on the container instead dragged the workspace backdrop down with it and left
+        // bare black along the top — the same defect as the horizontal band, one axis over.
+        applyPictureReflow(true);
         setTopBarHiddenForDrawer(drawerHeightPx > 0);
     }
 
@@ -32272,19 +32264,16 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private float transcriptDrawerShiftPx() {
         View container = findViewById(R.id.player_container);
-        if (container == null) return 0f;
-        int slotW = container.getWidth();
-        if (slotW <= 0) return 0f;
-        int videoW = 0;
-        if (playerView != null && playerView.getVideoSurfaceView() != null) {
-            videoW = playerView.getVideoSurfaceView().getWidth();
-        }
-        if (videoW <= 0) videoW = slotW;
-        float slack = Math.max(0f, (slotW - videoW) / 2f);
+        if (transcriptPanel == null || container == null || container.getWidth() <= 0) return 0f;
         float drawerW = transcriptPanel.getWidth() > 0 ? transcriptPanel.getWidth()
                 : transcriptPanel.getLayoutParams().width;
         if (drawerW <= 0) return 0f;
-        return Math.min(drawerW / 2f, slack);
+        android.graphics.RectF pic = computeCanvasRect();
+        if (pic == null || pic.width() <= 0) return 0f;
+        // How much of the PICTURE the drawer actually covers, and no more. Moving further would
+        // buy nothing and start pushing the far edge toward the wall for no gain.
+        float covered = Math.max(0f, pic.right - (container.getWidth() - drawerW));
+        return Math.min(covered, pictureTravelRoom()[0]);
     }
 
     /**
@@ -32338,53 +32327,89 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      * shift while another forgets it — which was the shape of every previous attempt at this.
      */
     private void applyPictureShiftX(@NonNull View container, float shift, boolean animate) {
+        applyPictureReflow(animate);
+    }
+
+    /**
+     * Apply BOTH reflow axes to the picture's own layers. One write-point, so the two drawers
+     * cannot disagree about where the picture is.
+     *
+     * <p>The container itself stays at the origin. Anything shifted on the container is clipped
+     * at the container's edge, which is what put a black band down the side and sliced the
+     * transcript; and it drags the workspace backdrop off one edge, which is what leaves black
+     * above the picture when the caption drawer opens.</p>
+     *
+     * <p>The backdrop holds still and hatches the whole slot; only its black canvas rect follows
+     * the picture, via {@link CanvasFrameView#setCanvasOffset}.</p>
+     */
+    private void applyPictureReflow(boolean animate) {
+        View container = findViewById(R.id.player_container);
         if (!(container instanceof ViewGroup)) return;
-        // The container itself must sit at zero: any shift on it clips the station-holders.
+        final float dx = -transcriptReflowShiftX;   // drawer on the right: picture moves LEFT
+        final float dy = drawerReflowShiftY;        // drawer on top: picture moves DOWN
         if (animate) {
-            container.animate().translationX(0f);
+            container.animate().translationX(0f).translationY(0f)
+                    .scaleX(1f).scaleY(1f).setDuration(220)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
         } else {
+            container.animate().cancel();
             container.setTranslationX(0f);
+            container.setTranslationY(0f);
         }
         ViewGroup group = (ViewGroup) container;
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
             int id = child.getId();
-            // HOLD STATION. canvas_frame is the workspace hatching, whose whole job is to be a
-            // not-black backdrop; the panel and its tab own their own open/close slide.
+            // HOLD STATION: the backdrop is the workspace, and the drawer owns its own slide.
             if (id == R.id.canvas_frame || id == R.id.transcript_panel
                     || id == R.id.transcript_reopen_tab) {
                 continue;
             }
             if (animate) {
-                child.animate().translationX(-shift).setDuration(220)
+                child.animate().translationX(dx).translationY(dy).setDuration(220)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator())
                         .start();
             } else {
                 child.animate().cancel();
-                child.setTranslationX(-shift);
+                child.setTranslationX(dx);
+                child.setTranslationY(dy);
             }
         }
+        if (canvasFrame != null) canvasFrame.setCanvasOffset(dx, dy);
+    }
+
+    /**
+     * How far the picture may travel before an edge leaves the slot.
+     *
+     * <p>JoyRaptor's rule, and it is the right one: "the video should stop once its edge reaches the
+     * screen because it's imperative to have the whole video in the preview section ... if we're
+     * clipping it then we're having less, and the problem isn't solved."
+     *
+     * <p>Measured from the CANVAS RECT — the picture's true on-screen rectangle — rather than
+     * from the video surface's reported size, which is the whole view and made the old
+     * {@code (slot - video) / 2} arithmetic over-estimate the room available. That over-estimate
+     * is why a shift of 315px was applied where only ~276px existed, pushing the picture's left
+     * edge off the slot.
+     *
+     * @return {@code {leftRoom, downRoom}} in px, never negative.
+     */
+    @NonNull
+    private float[] pictureTravelRoom() {
+        View container = findViewById(R.id.player_container);
+        if (container == null || container.getWidth() <= 0) return new float[]{0f, 0f};
+        android.graphics.RectF pic = computeCanvasRect();
+        if (pic == null || pic.width() <= 0 || pic.height() <= 0) return new float[]{0f, 0f};
+        return new float[]{
+                Math.max(0f, pic.left),                          // room to move LEFT
+                Math.max(0f, container.getHeight() - pic.bottom) // room to move DOWN
+        };
     }
 
     private void applyTranscriptReflow(boolean animate) {
         View container = findViewById(R.id.player_container);
         if (container == null) return;
-        float shift = transcriptPanelOpen ? transcriptDrawerShiftPx() : 0f;
-        transcriptReflowShiftX = shift;
-        android.view.animation.Interpolator decel =
-                new android.view.animation.DecelerateInterpolator();
-        // The container carries the VERTICAL drawer reflow only. Horizontal movement is applied
-        // to the picture's own layers by applyPictureShiftX, because a container shift clips
-        // whatever has to hold station inside it — see that method for the measurement.
-        if (animate) {
-            container.animate().translationY(drawerReflowShiftY)
-                    .scaleX(1f).scaleY(1f).setDuration(220).setInterpolator(decel).start();
-        } else {
-            container.animate().cancel();
-            // Keep the vertical writer's last target — not the view's possibly mid-flight value.
-            container.setTranslationY(drawerReflowShiftY);
-        }
-        applyPictureShiftX(container, shift, animate);
+        transcriptReflowShiftX = transcriptPanelOpen ? transcriptDrawerShiftPx() : 0f;
+        applyPictureReflow(animate);
     }
 
     private void showTranscriptPanel(boolean show) {

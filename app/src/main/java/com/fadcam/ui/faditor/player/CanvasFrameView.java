@@ -77,6 +77,27 @@ public class CanvasFrameView extends View {
         setCanvasRect(-1, -1);
     }
 
+    private float canvasDx = 0f, canvasDy = 0f;
+
+    /**
+     * Offset the black canvas rect without moving this view.
+     *
+     * <p>The drawer reflows slide the PICTURE aside so more of it clears an open drawer. This
+     * view must not slide with it: it is the workspace backdrop, and moving it drags the hatch
+     * off one edge and leaves bare black there — the exact thing the hatch exists to prevent.
+     * But the black rect underneath the picture DOES have to follow, or the picture sits on
+     * hatching while a black rectangle stays behind where it used to be.
+     *
+     * <p>So the view holds still and hatches the whole slot, and only the black rect moves.</p>
+     */
+    public void setCanvasOffset(float dx, float dy) {
+        if (dx != canvasDx || dy != canvasDy) {
+            canvasDx = dx;
+            canvasDy = dy;
+            invalidate();
+        }
+    }
+
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
@@ -100,8 +121,8 @@ public class CanvasFrameView extends View {
             canvas.drawColor(CANVAS_BLACK);
             return;
         }
-        float left = (w - cw) / 2f;
-        float top = (h - ch) / 2f;
+        float left = (w - cw) / 2f + canvasDx;
+        float top = (h - ch) / 2f + canvasDy;
         canvas.drawRect(left, top, left + cw, top + ch, canvasPaint);
     }
 }

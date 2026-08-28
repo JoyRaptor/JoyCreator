@@ -52,6 +52,15 @@ public class CaptionOverlayView extends View {
     /** Phrase grouping — shared with the export renderer so both agree where a phrase begins. */
     @NonNull private CaptionPhrases grouping = CaptionPhrases.of(null);
 
+    // ── Fit cache for UNIFORM (SPEC §3.2: computed once per transcript+box+style, not per frame)
+    private float cachedUniformSize = -1f;
+    @Nullable private Transcript cachedUniformTranscript;
+    private float cachedUniformBoxW = -1f, cachedUniformBoxH = -1f, cachedUniformAuthored = -1f;
+    @Nullable private CaptionStyle.FitMode cachedUniformFitMode;
+    private float cachedUniformMinScale = -1f;
+    private int cachedUniformMaxLines = -1, cachedUniformMaxWords = -1;
+    private boolean cachedUniformPill;
+
     private int activeWordIdx = -1;
     /** Eased entrance progress of the active word, evaluated from MEDIA time by
      *  {@link CaptionAnimator} — see {@link #setActiveSourceMs}. */
@@ -117,6 +126,7 @@ public class CaptionOverlayView extends View {
         this.style = s;
         this.callback = cb;
         grouping = CaptionPhrases.of(t, s.maxWords);
+        cachedUniformSize = -1f;
         if (sameTranscript) {
             activeWordIdx = Math.min(activeWordIdx, grouping.wordPhrase.length - 1);
         } else {
@@ -130,9 +140,55 @@ public class CaptionOverlayView extends View {
         // has to re-group. Without this the caption keeps the previous style's phrasing and the
         // control looks dead until something else happens to rebuild it.
         boolean regroup = s.maxWords != this.style.maxWords;
+        boolean fitChanged = s.fitMode != this.style.fitMode
+                || s.fitMinScale != this.style.fitMinScale
+                || s.fitMaxLines != this.style.fitMaxLines
+                || s.pill != this.style.pill;
         this.style = s;
         if (regroup) grouping = CaptionPhrases.of(transcript, s.maxWords);
+        if (regroup || fitChanged) cachedUniformSize = -1f;
         invalidate();
+    }
+
+    @NonNull
+    private CaptionFit.Measurer createMeasurer() {
+        return new CaptionFit.Measurer() {
+            @Override public float widthOf(@NonNull String text, float textSizePx) {
+                textPaint.setTextSize(textSizePx);
+                textPaint.setTypeface(style.typeface());
+                return textPaint.measureText(text);
+            }
+            @Override public float lineHeight(float textSizePx) {
+                textPaint.setTextSize(textSizePx);
+                textPaint.setTypeface(style.typeface());
+                Paint.FontMetrics fm = textPaint.getFontMetrics();
+                return (fm.descent - fm.ascent) * 1.15f;
+            }
+        };
+    }
+
+    private float getUniformFittedSize(float authoredSize, float boxW, float boxH) {
+        if (transcript == null || style.fitMode != CaptionStyle.FitMode.UNIFORM) return authoredSize;
+        if (cachedUniformSize > 0
+                && cachedUniformTranscript == transcript
+                && cachedUniformBoxW == boxW && cachedUniformBoxH == boxH
+                && cachedUniformAuthored == authoredSize
+                && cachedUniformFitMode == style.fitMode
+                && cachedUniformMinScale == style.fitMinScale
+                && cachedUniformMaxLines == style.fitMaxLines
+                && cachedUniformPill == style.pill
+                && cachedUniformMaxWords == style.maxWords) {
+            return cachedUniformSize;
+        }
+        CaptionFit.Measurer m = createMeasurer();
+        float fitted = CaptionFit.uniformSizeForTranscript(transcript, style, authoredSize, boxW, boxH, m);
+        cachedUniformSize = fitted;
+        cachedUniformTranscript = transcript;
+        cachedUniformBoxW = boxW; cachedUniformBoxH = boxH; cachedUniformAuthored = authoredSize;
+        cachedUniformFitMode = style.fitMode; cachedUniformMinScale = style.fitMinScale;
+        cachedUniformMaxLines = style.fitMaxLines; cachedUniformPill = style.pill;
+        cachedUniformMaxWords = style.maxWords;
+        return fitted;
     }
 
     @NonNull public CaptionStyle getStyle() { return style; }
@@ -163,6 +219,7 @@ public class CaptionOverlayView extends View {
         float clamped = Math.max(0.02f, Math.min(0.6f, f));
         if (clamped == sizeFraction) return;
         sizeFraction = clamped;
+        cachedUniformSize = -1f;
         invalidate();
     }
 
@@ -255,7 +312,20 @@ public class CaptionOverlayView extends View {
         animInEff = CaptionAnimator.zoneForSpan(animInPct, animSpanEnd - animSpanStart);
         animOutEff = CaptionAnimator.zoneForSpan(animOutPct, animSpanEnd - animSpanStart);
 
-        float fontPx = sizeFraction * r.height();
+        float authoredPx = sizeFraction * r.height();
+        float boxW = r.width() * 0.9f;
+        float boxH = r.height() * 0.9f;
+        float fontPx;
+        if (style.fitMode == CaptionStyle.FitMode.OFF) {
+            fontPx = authoredPx;
+        } else if (style.fitMode == CaptionStyle.FitMode.UNIFORM) {
+            fontPx = getUniformFittedSize(authoredPx, boxW, boxH);
+        } else {
+            List<String> phraseWords = new ArrayList<>(visible.size());
+            for (int wi : visible) phraseWords.add(transcript.words.get(wi).text);
+            fontPx = CaptionFit.fitSizeForWords(phraseWords, authoredPx, boxW, boxH,
+                    style.fitMinScale, style.fitMaxLines, createMeasurer(), style.pill);
+        }
         textPaint.setTextSize(fontPx);
         textPaint.setTypeface(style.typeface());
         if (style.shadow) {
@@ -265,8 +335,8 @@ public class CaptionOverlayView extends View {
         }
         float space = textPaint.measureText(" ");
 
-        // Lay the visible words of this phrase into centred lines.
-        float maxW = r.width() * 0.9f;
+        // Lay the visible words of this phrase into centred lines (same wrap as CaptionFit).
+        float maxW = boxW;
         List<List<Integer>> lines = new ArrayList<>();
         List<Integer> line = new ArrayList<>();
         float lineW = 0;

@@ -18163,6 +18163,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Style", 0,
                 ctx -> buildCaptionStyleTab(ctx)));
+        // ── Fit tab ── mode, words per caption, floor, max lines (SPEC §3.3)
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Fit", 0,
+                ctx -> buildCaptionFitTab(ctx)));
         // ── Timing tab ── motion + range
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Timing", 0,
@@ -18211,7 +18215,6 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         sizeVal.setPadding((int)(6*d), 0, 0, 0);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
         sizeRow.addView(sizeVal);
-        sizeRow.addView(makeCaptionWordCountDial(ctx, d));
         sizeSlider.addOnChangeListener((sl, value, fromUser) -> {
             if (!fromUser) return;
             sizeVal.setText(Math.round(value * 100) + "%");
@@ -18438,6 +18441,106 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         return root;
     }
 
+    private android.view.View buildCaptionFitTab(@NonNull android.content.Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        int pad = (int)(12 * d);
+        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(pad, 0, pad, pad);
+        // ── Fit mode ── Off / Uniform / Per cue (SPEC §3.2)
+        android.widget.LinearLayout modeRow = new android.widget.LinearLayout(ctx);
+        modeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        modeRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        root.addView(modeRow);
+        android.widget.TextView modeLabel = new android.widget.TextView(ctx);
+        modeLabel.setText("Fit");
+        modeLabel.setTextColor(0xFFAAAAAA);
+        modeLabel.setTextSize(12);
+        modeLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        modeRow.addView(modeLabel);
+        com.fadcam.ui.faditor.transcript.CaptionStyle.FitMode[] modes = com.fadcam.ui.faditor.transcript.CaptionStyle.FitMode.values();
+        String[] modeNames = {"Off", "Uniform", "Per cue"};
+        com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+        for (int mi = 0; mi < modes.length; mi++) {
+            final com.fadcam.ui.faditor.transcript.CaptionStyle.FitMode mode = modes[mi];
+            android.widget.TextView chip = new android.widget.TextView(ctx);
+            styleDrawerChip(chip, d);
+            chip.setText(modeNames[mi]);
+            chip.setAlpha(cur.fitMode == mode ? 0.88f : 0.45f);
+            final android.widget.LinearLayout rowRef = modeRow;
+            chip.setOnClickListener(v -> {
+                tweakCaptionStyle(s -> s.fitMode = mode);
+                for (int i = 1; i < rowRef.getChildCount(); i++) {
+                    rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 0.88f : 0.45f);
+                }
+            });
+            modeRow.addView(chip);
+        }
+        root.addView(makeDivider(d));
+        // ── Words per caption (moved from Style row — SPEC §3.3)
+        android.widget.LinearLayout wordsRow = new android.widget.LinearLayout(ctx);
+        wordsRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        wordsRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        wordsRow.setPadding(0, pad, 0, 0);
+        root.addView(wordsRow);
+        android.widget.TextView wordsLabel = new android.widget.TextView(ctx);
+        wordsLabel.setText("Words");
+        wordsLabel.setTextColor(0xFFAAAAAA);
+        wordsLabel.setTextSize(12);
+        wordsLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        wordsRow.addView(wordsLabel);
+        wordsRow.addView(makeCaptionWordCountDial(ctx, d));
+        // Max lines dial beside it
+        android.widget.TextView maxLinesLabel = new android.widget.TextView(ctx);
+        maxLinesLabel.setText("Max lines");
+        maxLinesLabel.setTextColor(0xFFAAAAAA);
+        maxLinesLabel.setTextSize(12);
+        maxLinesLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        maxLinesLabel.setPadding((int)(16*d), 0, 0, 0);
+        wordsRow.addView(maxLinesLabel);
+        wordsRow.addView(makeCaptionMaxLinesDial(ctx, d));
+        // ── Minimum size floor (percentage, default 45%)
+        android.widget.LinearLayout floorRow = new android.widget.LinearLayout(ctx);
+        floorRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        floorRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        floorRow.setPadding(0, pad, 0, 0);
+        root.addView(floorRow);
+        android.widget.TextView floorLabel = new android.widget.TextView(ctx);
+        floorLabel.setText("Floor");
+        floorLabel.setTextColor(0xFFAAAAAA);
+        floorLabel.setTextSize(12);
+        floorLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        floorRow.addView(floorLabel);
+        com.google.android.material.slider.Slider floorSlider = new com.google.android.material.slider.Slider(new androidx.appcompat.view.ContextThemeWrapper(ctx, R.style.Widget_FadCam_BottomSheetSlider));
+        floorSlider.setValueFrom(0.15f);
+        floorSlider.setValueTo(1.0f);
+        floorSlider.setStepSize(0.05f);
+        floorSlider.setValue(Math.max(0.15f, Math.min(1f, currentCaptionStyle().fitMinScale)));
+        android.widget.LinearLayout.LayoutParams flp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        flp.leftMargin = (int)(10*d);
+        floorSlider.setLayoutParams(flp);
+        floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+        floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
+        floorSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF333333));
+        floorRow.addView(floorSlider);
+        android.widget.TextView floorVal = new android.widget.TextView(ctx);
+        floorVal.setTextSize(12);
+        floorVal.setTextColor(0xFF4CAF50);
+        floorVal.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        floorVal.setPadding((int)(6*d), 0, 0, 0);
+        floorVal.setText(Math.round(currentCaptionStyle().fitMinScale * 100) + "%");
+        floorRow.addView(floorVal);
+        floorSlider.addOnChangeListener((sl, value, fromUser) -> {
+            if (!fromUser) return;
+            floorVal.setText(Math.round(value * 100) + "%");
+            tweakCaptionStyle(s -> s.fitMinScale = value);
+        });
+        android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
+        scroll.setVerticalScrollBarEnabled(false);
+        scroll.addView(root);
+        return scroll;
+    }
+
     // ── Caption style drawer helpers
 
 
@@ -18547,6 +18650,82 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     catch (Exception e) { return; }
                     final int clamped = Math.max(1, Math.min(60, want));
                     tweakCaptionStyle(s -> s.maxWords = clamped);
+                    afterChange.run();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    @NonNull
+    private View makeCaptionMaxLinesDial(@NonNull android.content.Context ctx, float d) {
+        final TextView dial = new TextView(ctx);
+        dial.setTextSize(12);
+        dial.setTypeface(null, android.graphics.Typeface.BOLD);
+        dial.setTextColor(0xFF4CAF50);
+        dial.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        dial.setGravity(android.view.Gravity.CENTER);
+        dial.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (6 * d));
+        dial.setBackgroundResource(R.drawable.floating_button_item_bg);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.leftMargin = (int) (8 * d);
+        dial.setLayoutParams(lp);
+        final Runnable label = () -> {
+            int v = currentCaptionStyle().fitMaxLines;
+            dial.setText(v == 0 ? "\u221E" : v + "L");
+        };
+        label.run();
+        dial.setContentDescription("Max lines");
+        dial.setOnTouchListener(new View.OnTouchListener() {
+            float downY;
+            int startVal;
+            boolean dragged;
+            @Override public boolean onTouch(View v, MotionEvent e) {
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downY = e.getRawY();
+                        startVal = currentCaptionStyle().fitMaxLines;
+                        dragged = false;
+                        v.getParent().requestDisallowInterceptTouchEvent(true);
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        float dy = downY - e.getRawY();
+                        int steps = Math.round(dy / (10f * d));
+                        if (steps == 0 && !dragged) return true;
+                        dragged = true;
+                        int want = Math.max(0, Math.min(10, startVal + steps));
+                        if (want != currentCaptionStyle().fitMaxLines) {
+                            tweakCaptionStyle(s -> s.fitMaxLines = want);
+                            label.run();
+                        }
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        if (!dragged) promptCaptionMaxLines(label);
+                        return true;
+                }
+                return false;
+            }
+        });
+        return dial;
+    }
+
+    private void promptCaptionMaxLines(@NonNull Runnable afterChange) {
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        input.setText(String.valueOf(currentCaptionStyle().fitMaxLines));
+        input.setSelectAllOnFocus(true);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Max lines (0 = unlimited)")
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                    int want;
+                    try { want = Integer.parseInt(input.getText().toString().trim()); }
+                    catch (Exception e) { return; }
+                    final int clamped = Math.max(0, Math.min(10, want));
+                    tweakCaptionStyle(s -> s.fitMaxLines = clamped);
                     afterChange.run();
                 })
                 .setNegativeButton(android.R.string.cancel, null)

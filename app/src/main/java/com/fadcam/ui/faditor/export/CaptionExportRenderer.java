@@ -10,6 +10,7 @@ import android.text.TextPaint;
 
 import androidx.annotation.NonNull;
 
+import com.fadcam.ui.faditor.transcript.CaptionFit;
 import com.fadcam.ui.faditor.transcript.CaptionStyle;
 import com.fadcam.ui.faditor.transcript.Transcript;
 
@@ -46,6 +47,10 @@ public class CaptionExportRenderer {
 
     /** Phrase grouping — the SAME class the preview uses, so both agree where a phrase begins. */
     @NonNull private final com.fadcam.ui.faditor.transcript.CaptionPhrases grouping;
+
+    // Fit cache for UNIFORM (SPEC §3.2: computed once per transcript+box+style, not per frame)
+    private float cachedUniformSize = -1f;
+    private float cachedUniformBoxW = -1f, cachedUniformBoxH = -1f, cachedUniformAuthored = -1f;
 
     // Text animation (SPEC_TEXT_ANIMATION). Defaults are the off state, so an export of a
     // project that predates the feature is byte-identical to what it was.
@@ -149,7 +154,20 @@ public class CaptionExportRenderer {
         animOutEff = com.fadcam.ui.faditor.transcript.CaptionAnimator
                 .zoneForSpan(animOutPct, animSpanEnd - animSpanStart);
 
-        float fontPx = sizeFraction * r.height();
+        float authoredPx = sizeFraction * r.height();
+        float boxW = r.width() * 0.9f;
+        float boxH = r.height() * 0.9f;
+        float fontPx;
+        if (style.fitMode == CaptionStyle.FitMode.OFF) {
+            fontPx = authoredPx;
+        } else if (style.fitMode == CaptionStyle.FitMode.UNIFORM) {
+            fontPx = getUniformFittedSize(authoredPx, boxW, boxH);
+        } else {
+            List<String> phraseWords = new ArrayList<>(visible.size());
+            for (int wi : visible) phraseWords.add(transcript.words.get(wi).text);
+            fontPx = CaptionFit.fitSizeForWords(phraseWords, authoredPx, boxW, boxH,
+                    style.fitMinScale, style.fitMaxLines, createMeasurer(), style.pill);
+        }
         textPaint.setTextSize(fontPx);
         textPaint.setTypeface(style.typeface());
         if (style.shadow) {
@@ -159,7 +177,7 @@ public class CaptionExportRenderer {
         }
         float space = textPaint.measureText(" ");
 
-        float maxW = r.width() * 0.9f;
+        float maxW = boxW;
         List<List<Integer>> lines = new ArrayList<>();
         List<Integer> line = new ArrayList<>();
         float lineW = 0;
@@ -222,6 +240,36 @@ public class CaptionExportRenderer {
             widest = Math.max(widest, w);
         }
         return widest;
+    }
+
+    @NonNull
+    private CaptionFit.Measurer createMeasurer() {
+        return new CaptionFit.Measurer() {
+            @Override public float widthOf(@NonNull String text, float textSizePx) {
+                textPaint.setTextSize(textSizePx);
+                textPaint.setTypeface(style.typeface());
+                return textPaint.measureText(text);
+            }
+            @Override public float lineHeight(float textSizePx) {
+                textPaint.setTextSize(textSizePx);
+                textPaint.setTypeface(style.typeface());
+                Paint.FontMetrics fm = textPaint.getFontMetrics();
+                return (fm.descent - fm.ascent) * 1.15f;
+            }
+        };
+    }
+
+    private float getUniformFittedSize(float authoredSize, float boxW, float boxH) {
+        if (cachedUniformSize > 0
+                && cachedUniformBoxW == boxW && cachedUniformBoxH == boxH
+                && cachedUniformAuthored == authoredSize) {
+            return cachedUniformSize;
+        }
+        CaptionFit.Measurer m = createMeasurer();
+        float fitted = CaptionFit.uniformSizeForTranscript(transcript, style, authoredSize, boxW, boxH, m);
+        cachedUniformSize = fitted;
+        cachedUniformBoxW = boxW; cachedUniformBoxH = boxH; cachedUniformAuthored = authoredSize;
+        return fitted;
     }
 
     /** Progress of one animating unit of the current phrase, from the ONE authority. */

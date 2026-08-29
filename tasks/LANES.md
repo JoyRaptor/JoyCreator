@@ -98,7 +98,8 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: SPEC_20260829_DEVICE_VERIFY_ALL (2026-08-29T11:15 joy-creator/muse-spark — fresh install 11:15:10, 41-check sweep with §2b, writes NO prod code)
+DEVICE: free
+  released 2026-08-29T11:30 by SPEC_20260829_DEVICE_VERIFY_ALL after 3rd sweep FRESH APK 11:15:10 (17 PASS 14 FAIL 10 BLOCKED, adversarial — top FAIL #7 play silence regression, see VERIFY_20260829_RESULTS.md) — SANDBOX_SERIAL still attached
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -152,41 +153,24 @@ files: (none)
 since: 2026-08-29T03:20
 
 ## SPEC_20260829_IMAGE_PRESETS_V2 — RESET not stack, 5 defects + drawer + glyph (§1-§4)
-status: ACTIVE (2026-08-29T09:15 — muse-spark joy-creator implementing)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java
-  app/src/main/java/com/fadcam/ui/faditor/model/ImageAnimPreset.java
-  app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeGlyph.java
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
-  app/src/main/java/com/fadcam/ui/faditor/ImagePresetPicker.java (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (drawer row + trim call sites ONLY — 4-site overlap with AUDIO_SYNC_TRUTH/MEDIA_IMPORT noted; LayerRowRenderer/KeyframeGlyph stroke-only, coordinated with KEYFRAME_SHAPES)
-since: 2026-08-29T09:15
+status: IDLE (2026-08-29T11:25 — joy-creator LANDED 7917bdec: full reset on apply, pan full overhang, slide flush + SLIDE_OUT*4, trim reflow helper on every site, zoom focal re-derive with no-peek bump, drawer compact 1 row Fit/Fill + animate picker with real-code previews, glyph white 1px stroke + DETAIL 14→20 + clip to silhouette (option 1+2, silhouette-only on timeline) — TYPECHECK via javac sanity, BUILD LOG STALE (watcher 09:11→no update, did NOT verify BUILD SUCCESSFUL, did NOT verify device, did NOT verify export PSNR). Adversarial harness PASS (5/5 pan/slide/invariant/zoom/trim).)
+files: (none)
+since: 2026-08-29T11:25
 
 ## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 3rd sweep with §2b FRESH APK
-status: ACTIVE (2026-08-29T11:15 — opencode/muse-spark joy-creator — DEVICE held, fresh install 11:15:10, adversarial full 41-check sweep per SPEC+§2b, writes NO prod code)
-files: tasks/VERIFY_20260829_RESULTS.md, tasks/screenshots/v*.png
-since: 2026-08-29T11:15
+status: IDLE (2026-08-29T11:30 — opencode/muse-spark joy-creator FINISHED 3rd sweep: 17 PASS 14 FAIL 10 BLOCKED, adversarial — fresh install 11:15:10 via phone.ps1, playback silence regression #7 top FAIL, see tasks/VERIFY_20260829_RESULTS.md — device SANDBOX_SERIAL, §2b screenshot→tap, writes NO prod code)
+files: (none)
+since: 2026-08-29T11:30
 
 ## SPEC_20260829_PROJECT_BUNDLING — consolidate/export/import + relink fix (fonts survive reinstall)
-status: ACTIVE (2026-08-29T23:45 — muse-spark joy-creator implementing — check 1 first, then 2.1-2.4)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java
-  app/src/main/java/com/fadcam/ui/faditor/project/ProjectBundle.java        (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/project/ProjectConsolidator.java  (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/project/AssetResolver.java         (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/RelinkCatalogBottomSheet.java
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java         (menu entries ONLY — no overlap with AUDIO_SYNC_TRUTH 4 sites / IMAGE_PRESETS_V2 drawer row / MEDIA_IMPORT picker)
-since: 2026-08-29T23:45
+status: IDLE (2026-08-30T00:15 — muse-spark joy-creator LANDED 44b0cfeb: AssetResolver + ProjectBundle + ProjectConsolidator + font project:// + relink auto-hash + consolidate/export/import menu — BUILD LOG STALE (watcher 09:11->00:15 no update, see note), DEVICE free — acceptance 7 (uninstall/import font) needs fresh APK install)
+files: (none)
+since: 2026-08-30T00:15
 
 ## SPEC_20260829_CAPTIONS_GL — captions into the GL compositor (raster per cue, quad per frame, z-real)
-status: ACTIVE (2026-08-29T12:00 — muse-spark joy-creator implementing)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayTextureCache.java
-  app/src/main/java/com/fadcam/ui/faditor/compositor/CaptionTextureCache.java (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
-  app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
-  app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
-since: 2026-08-29T12:00
+status: IDLE (2026-08-29T12:30 — LANDED b4ee2b3b + 0dbc64bc + 943f8f2c: CaptionTextureCache 16/64 LRU + FxLivePreviewController captionOverlays before blend + FxPreviewTextureView + host hide — preview_parity_lint PASS, BUILD LOG STALE (watcher 09:11->no update, PID 37876 -t still running but not triggering on C:+Projects path), DEVICE SANDBOX_SERIAL still attached but APK 09:11 predates caption GL, 7 checks BLOCKED - see tasks/REPORT_20260829_CAPTIONS_GL.md)
+files: (none)
+since: 2026-08-29T12:30
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
 status: UNCLAIMED — free to take (spec written 2026-08-29)

@@ -98,8 +98,7 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: free
-  released 2026-08-29T02:40 by SPEC_20260829_DEVICE_VERIFY_ALL after sweep (SANDBOX_SERIAL still attached, lastUpdate 02:39:00)
+DEVICE: SPEC_20260829_DEVICE_VERIFY_ALL (2026-08-29T11:15 joy-creator/muse-spark — fresh install 11:15:10, 41-check sweep with §2b, writes NO prod code)
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -152,10 +151,42 @@ status: IDLE (2026-08-29T03:20 — LANDED b22af2cd phase 3 Fit/Fill + preset chi
 files: (none)
 since: 2026-08-29T03:20
 
-## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 2nd sweep with §2b
-status: IDLE (2026-08-29T03:00 — opencode/muse-spark 2nd sweep: 3 PASS (7 play+audiotracks, 14 captions, 21 no-amber) 0 FAIL 38 BLOCKED — see tasks/VERIFY_20260829_RESULTS.md — device SANDBOX_SERIAL, navigation via screenshot→tap per runbook, phase 3 image preset code landed b22af2cd but APK 02:39 not yet 03:10)
+## SPEC_20260829_IMAGE_PRESETS_V2 — RESET not stack, 5 defects + drawer + glyph (§1-§4)
+status: ACTIVE (2026-08-29T09:15 — muse-spark joy-creator implementing)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java
+  app/src/main/java/com/fadcam/ui/faditor/model/ImageAnimPreset.java
+  app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeGlyph.java
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
+  app/src/main/java/com/fadcam/ui/faditor/ImagePresetPicker.java (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (drawer row + trim call sites ONLY — 4-site overlap with AUDIO_SYNC_TRUTH/MEDIA_IMPORT noted; LayerRowRenderer/KeyframeGlyph stroke-only, coordinated with KEYFRAME_SHAPES)
+since: 2026-08-29T09:15
+
+## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 3rd sweep with §2b FRESH APK
+status: ACTIVE (2026-08-29T11:15 — opencode/muse-spark joy-creator — DEVICE held, fresh install 11:15:10, adversarial full 41-check sweep per SPEC+§2b, writes NO prod code)
 files: tasks/VERIFY_20260829_RESULTS.md, tasks/screenshots/v*.png
-since: 2026-08-29T03:00
+since: 2026-08-29T11:15
+
+## SPEC_20260829_PROJECT_BUNDLING — consolidate/export/import + relink fix (fonts survive reinstall)
+status: ACTIVE (2026-08-29T23:45 — muse-spark joy-creator implementing — check 1 first, then 2.1-2.4)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectBundle.java        (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectConsolidator.java  (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/project/AssetResolver.java         (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/RelinkCatalogBottomSheet.java
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java         (menu entries ONLY — no overlap with AUDIO_SYNC_TRUTH 4 sites / IMAGE_PRESETS_V2 drawer row / MEDIA_IMPORT picker)
+since: 2026-08-29T23:45
+
+## SPEC_20260829_CAPTIONS_GL — captions into the GL compositor (raster per cue, quad per frame, z-real)
+status: ACTIVE (2026-08-29T12:00 — muse-spark joy-creator implementing)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayTextureCache.java
+  app/src/main/java/com/fadcam/ui/faditor/compositor/CaptionTextureCache.java (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
+  app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
+  app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
+since: 2026-08-29T12:00
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
 status: UNCLAIMED — free to take (spec written 2026-08-29)
@@ -169,20 +200,21 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/assetbrowser/AssetBrowserAdapter.java  (multi-select badge next)
 since: 2026-08-29T04:15
 
-## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
-status: ACTIVE (2026-08-29T00:45)
-  Two pieces, both chosen to avoid the three live lanes:
-  1. GL/mask/blend/z-order survey — READ-ONLY. No edits to any source file.
-  2. PCM scrub engine — NEW files only, self-contained, NOT wired into the activity
-     while AUDIO_SYNC_TRUTH and CAPTION_LAYERS are both in FaditorEditorActivity.
-     Wiring is a later, separate change once those two land.
-files (new, nobody else's):
-  app/src/main/java/com/fadcam/ui/faditor/waveform/PcmSidecar.java      (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/audio/ScrubEngine.java        (NEW)
-NOT touching: FaditorEditorActivity.java, AudioClipPreviewPlayer.java, audio/AudioLayerSync,
-  audio/AudioLatency, any model/ or export/ file, EditorTimelineView, LayerRowRenderer.
-since: 2026-08-29T00:45
-
+## FABLE (Claude) — WORD_SYNC pure/uncontended pieces
+status: IDLE (2026-08-29 midday — landed 3 pieces of SPEC_20260829_WORD_SYNC that need no
+        contended file and no device:
+          6becec92  §3.5 TimeShuttleView 220dp -> 72dp; deflection measured from touch-down
+                    against 1/3 screen instead of the widget's own width
+          51f23ecc  §3.3 WordSyncOnsets cache + OnsetDetector.snapToleranceMs (12 screen px,
+                    clamped 40-120ms) — run-onset.sh 22/22 PASS
+          c4e4eaa0  §3.4 WordSyncRipple ONE/RIPPLE/STRETCH + anchorFor — run-wordsync.sh
+                    22/22 PASS
+        Also af302055 restored strings.xml from UTF-16 corruption + repaired 20 mojibake,
+        and 420ab471 the fade-handle design study (published, awaiting JoyRaptor's pick).
+        REMAINING WORD_SYNC needs FaditorEditorActivity (mode toggle + lockout) and
+        TranscriptPanelView — both contended. Whoever takes WORD_SYNC: these three are DONE,
+        consume them.)
+files: (none)
 ## SPEC_20260828_EXPORT_GL_FRAMES — export GL frames (Surface decode)
 status: IDLE (2026-08-29 — landed 63f31202/4c405edd; the red build described below was
         fixed and the tree is green at 8b3c1d22. §5 acceptance (before/after timing, PSNR)

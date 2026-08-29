@@ -104,7 +104,29 @@ If a focal point would require more scale, increase the scale — silently and a
 The beginner promise is that background never peeks, and that outranks preserving the
 user's exact zoom amount.
 
-### 2.5 "None" is ambiguous
+### 2.5 SLIDE starts on-screen instead of off it
+
+> "For the sliding animations, they don't quite work either. They need to start exactly off
+> screen and then slide on screen, like you're moving to a next slide."
+
+A `SLIDE_IN_*` must begin with the image **completely outside the canvas on the named
+edge** — its trailing edge exactly flush with the canvas edge, not one pixel inside — and
+end in its resting position. `SLIDE_IN_LEFT` means it enters FROM the left.
+
+Compute the off-screen start from the item's covered size, not from a fixed fraction: an
+image scaled to cover needs to travel its own half-width plus the canvas half-width to be
+fully clear. A guessed offset leaves a sliver visible at t=0, which is exactly what JoyRaptor is
+seeing and reads as a broken animation rather than a deliberate one.
+
+**Add `SLIDE_OUT_*` for all four edges too.** JoyRaptor's mental model is presentation slides —
+things arrive and things leave. Having only arrivals means every image has to be trimmed to
+hide its exit.
+
+Acceptance: at t=0 the canvas shows NO part of the image; at t=1 it is at rest. Sample at
+least 8 points and confirm monotonic travel with no overshoot past the resting position
+(unless the easing is deliberately an overshoot curve).
+
+### 2.6 "None" is ambiguous
 
 > "Under animation presets is None. Naturally, I wonder how is this different than clear all
 > keyframes?"
@@ -206,7 +228,9 @@ app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java     (drawer r
 
 Use `bash tools/phone.sh`. Paste `bash tools/phone.sh devices` and `build`.
 
-1. **The invariant.** Apply PAN_RIGHT, then ZOOM_IN, then PAN_RIGHT again. The final state
+1. **SLIDE.** `SLIDE_IN_LEFT`: at t=0 no part of the image is on canvas. Screenshot t=0,
+   t=0.5, t=1. Repeat for one `SLIDE_OUT_*`.
+2. **The invariant.** Apply PAN_RIGHT, then ZOOM_IN, then PAN_RIGHT again. The final state
    must be identical to applying PAN_RIGHT to a fresh item. Screenshot all three, plus the
    fresh reference. **This is the spec in one check.**
 2. Landscape image on a PORTRAIT canvas, PAN_RIGHT: image covers full canvas height, starts

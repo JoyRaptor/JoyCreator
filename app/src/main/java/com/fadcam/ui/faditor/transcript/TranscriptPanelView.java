@@ -597,6 +597,21 @@ public class TranscriptPanelView extends View {
                 canvas.drawLine(cx - s, cy - s, cx, cy + s, breakPaint);
                 canvas.drawLine(cx, cy + s, cx + s, cy - s, breakPaint);
             }
+            // SPEC_20260829_WORD_SYNC — pinned anchor for STRETCH (long-press to pin).
+            if (wordSyncMode != null && wordSyncMode.isActive() && wordSyncMode.isPinned(i)) {
+                float px = wordX[i] + wordW[i] / 2f;
+                float py = wy - 2f * density;
+                // Small filled pin dot above the word
+                Paint pinPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                pinPaint.setColor(0xFFFFC107);
+                pinPaint.setStyle(Paint.Style.FILL);
+                canvas.drawCircle(px, py, 3.5f * density, pinPaint);
+                pinPaint.setStyle(Paint.Style.STROKE);
+                pinPaint.setStrokeWidth(1f * density);
+                pinPaint.setColor(0xFF000000);
+                pinPaint.setAlpha(90);
+                canvas.drawCircle(px, py, 3.5f * density, pinPaint);
+            }
         }
     }
 
@@ -654,16 +669,12 @@ public class TranscriptPanelView extends View {
                 painting = false;
                 scrolling = false;
                 scrollStartY = scrollY;
-                // SPEC_20260829_WORD_SYNC — while active, a word touch starts a timing drag (with snap+ripple)
-                // instead of the normal strike-painting long-press. Scrub audio and onset snap are driven
-                // by WordSyncMode; horizontal drag moves timing, vertical still scrolls if not over a word.
+                // SPEC_20260829_WORD_SYNC — while active, long-press pins for STRETCH anchor,
+                // horizontal drag moves timing (with snap+ripple). Vertical drag still scrolls if not over a word.
+                // Keep long-press alive for pin toggle (see onLongPress), suppress strike-painting there.
                 if (wordSyncMode != null && wordSyncMode.isActive() && downIndex >= 0 && transcript != null) {
-                    handler.removeCallbacks(longPressRunnable);
-                    wordSyncDragging = true;
-                    wordSyncDownX = downX;
-                    wordSyncDownStartMs = transcript.words.get(downIndex).startMs;
-                    wordSyncMode.beginDrag(downIndex);
-                    // Suppress long-press painting while in Word Sync — whole screen is one tool (§3.1 lockout).
+                    // Allow long-press to toggle pin; drag will start on MOVE beyond slop.
+                    handler.postDelayed(longPressRunnable, ViewConfiguration.getLongPressTimeout());
                     return true;
                 }
                 if (downIndex >= 0) {
@@ -677,11 +688,32 @@ public class TranscriptPanelView extends View {
                 if (wordSyncDragging && wordSyncMode != null && wordSyncMode.isActive()) {
                     float dxWord = e.getX() - wordSyncDownX;
                     double msPerPx = wordSyncMode.getMsPerPixel();
-                    // Word Sync §3.3: snap defeatable — lingering between onsets stays put (snap returns input).
                     long desired = wordSyncDownStartMs + (long) (dxWord * msPerPx);
                     wordSyncMode.dragTo(desired);
                     invalidate();
                     return true;
+                }
+                // Word Sync: if finger is on a word and moves horizontally, start timing drag (not scroll).
+                if (wordSyncMode != null && wordSyncMode.isActive() && downIndex >= 0 && !wordSyncDragging
+                        && !painting && !longPressFired && transcript != null) {
+                    float dxWord = e.getX() - downX;
+                    float dyWord = e.getY() - downY;
+                    if (Math.abs(dxWord) > touchSlop && Math.abs(dxWord) > Math.abs(dyWord)) {
+                        handler.removeCallbacks(longPressRunnable);
+                        wordSyncDragging = true;
+                        wordSyncDownX = downX;
+                        wordSyncDownStartMs = transcript.words.get(downIndex).startMs;
+                        wordSyncMode.beginDrag(downIndex);
+                        // Now treat this MOVE as first drag delta.
+                        double msPerPx = wordSyncMode.getMsPerPixel();
+                        long desired = wordSyncDownStartMs + (long) (dxWord * msPerPx);
+                        wordSyncMode.dragTo(desired);
+                        invalidate();
+                        return true;
+                    } else if (Math.abs(dyWord) > touchSlop && Math.abs(dyWord) > Math.abs(dxWord)) {
+                        handler.removeCallbacks(longPressRunnable);
+                        // Vertical dominates — fall through to scrolling below.
+                    }
                 }
                 float dx = e.getX() - downX;
                 float dy = e.getY() - downY;
@@ -892,6 +924,19 @@ public class TranscriptPanelView extends View {
 
     private void onLongPress() {
         if (downIndex < 0 || transcript == null) return;
+        // SPEC_20260829_WORD_SYNC — long-press while Word Sync is ON toggles STRETCH pin, not strike.
+        if (wordSyncMode != null && wordSyncMode.isActive()) {
+            boolean nowPinned = !wordSyncMode.isPinned(downIndex);
+            wordSyncMode.setPinned(downIndex, nowPinned);
+            longPressFired = true;
+            painting = false;
+            strikeStarted = false;
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            invalidate();
+            // Small toast so user learns the gesture (quietly, not every time).
+            if (nowPinned) performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP);
+            return;
+        }
         longPressFired = true;
         painting = true;
         strikeStarted = false;

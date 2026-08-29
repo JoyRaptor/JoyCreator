@@ -258,6 +258,10 @@ public final class WordSyncMode {
         dragBeforeStarts = null;
     }
 
+    public void release() {
+        scrubEngine.release();
+    }
+
     /** Snap a playhead position to nearest onset (for shuttle-engaged tap). */
     public long snapToOnset(long ms) {
         if (!active || !snapEnabled || host == null) return ms;

@@ -1838,6 +1838,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (p.second != null) p.second.recycle();
         }
         spriteRendererCache.clear();
+        // SPEC_20260829_WORD_SYNC — release scrub audio engine (AudioTrack thread) if Word Sync was used.
+        if (wordSyncMode != null) {
+            try { wordSyncMode.release(); } catch (Exception ignored) {}
+        }
         saveProjectNow(true);
         // Stop listening for export status but do NOT cancel — the :export process
         // continues on its own and reports via the system notification.
@@ -30112,6 +30116,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transcriptView.setListener(new com.fadcam.ui.faditor.transcript.TranscriptPanelView.Listener() {
             @Override
             public void onSeekToMs(long sourceMs) {
+                // SPEC_20260829_WORD_SYNC §3.2 — park playhead + shuttle engaged + tap word = word snaps to playhead.
+                if (isWordSyncActive() && wordSyncShuttle != null && wordSyncShuttle.isEngaged()) {
+                    com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
+                    if (t != null) {
+                        int wIdx = -1;
+                        // Find word whose seek target is closest to the tapped sourceMs.
+                        long bestDist = Long.MAX_VALUE;
+                        for (int i = 0; i < t.words.size(); i++) {
+                            long d = Math.abs(t.words.get(i).startMs - sourceMs);
+                            // Also allow seekTarget offset (start+ ~10ms) to match.
+                            long d2 = Math.abs((t.words.get(i).startMs + Math.min(25L, Math.max(0, (t.words.get(i).endMs - t.words.get(i).startMs))/3)) - sourceMs);
+                            long dd = Math.min(d, d2);
+                            if (dd < bestDist) { bestDist = dd; wIdx = i; }
+                        }
+                        if (wIdx >= 0 && bestDist < 2000) {
+                            long playheadMs = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
+                            com.fadcam.ui.faditor.model.Clip phClip = clipUnderPlayhead();
+                            if (phClip == null) phClip = getSelectedClip();
+                            long srcPlayhead = sourceMs; // fallback
+                            if (phClip != null && editorTimeline != null) {
+                                try {
+                                    long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
+                                    float speed = Math.max(0.1f, phClip.getSpeedMultiplier());
+                                    srcPlayhead = phClip.getInPointMs() + (long)((playheadMs - segStart) * speed);
+                                } catch (Exception ignored) {}
+                            } else if (phClip != null) {
+                                srcPlayhead = phClip.getInPointMs();
+                            }
+                            long snapped = wordSyncMode.snapToOnset(srcPlayhead);
+                            wordSyncMode.beginDrag(wIdx);
+                            wordSyncMode.dragTo(snapped);
+                            wordSyncMode.endDrag();
+                            return;
+                        }
+                    }
+                }
                 // A tapped word's time belongs to the clip whose TRANSCRIPT is on screen,
                 // NOT to whatever happens to be selected at this instant. Those two come
                 // apart during a double-tap: the first tap can land the playhead in a

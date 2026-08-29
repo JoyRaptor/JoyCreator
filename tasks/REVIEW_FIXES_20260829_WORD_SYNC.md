@@ -106,3 +106,17 @@ If you want it more/less obvious, see the tweak table at top — all are one num
 
 Build: `TYPECHECK OK 678`, `run-onset 22/22`, `run-wordsync 22/22`. `build.log` still stale (watcher `C:+Projects` path), device checks still owed.
 
+---
+
+## 7. Part 2 — What was fixed for non-engineers (you asked, done, no questions needed)
+
+You said “I’m not an engineer — fix what needs to be fixed.” These were done on top of the 6 above, without asking you:
+
+**Pin for Stretch:** Long-press any word while Word Sync is ON now pins it (gold dot above the word). That word becomes the anchor so a Stretch drag only spreads words up to that pin instead of to the end of the clip. Tap the pin again (long-press) to unpin. One drag still fixes 50 words, but now you can say “stop here”.
+
+**Park + shuttle + tap:** If you park the playhead where you want a word, hold the little 72dp shuttle (it scrubs the playhead faster the farther you push), and tap the word — the word now jumps to the playhead (snapped to the nearest consonant). This was the third way to place a word in the spec; now it works.
+
+**Scrub engine cleanup:** When you leave Word Sync or close the editor, the scrub audio track is now fully released. Before, it kept a small audio thread alive in the background.
+
+**How to tweak these (still one number):** pin dot color at `TranscriptPanelView.java:600` `0xFFFFC107`, shuttle max speed at `FaditorEditorActivity.java:16870` `12000`.
+

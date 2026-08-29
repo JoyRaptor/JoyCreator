@@ -123,6 +123,15 @@ public class OnsetDetectorTest {
         check(OnsetDetector.snap(onsets, 1020, 0) == 1020, "zero tolerance disables snapping");
         check(OnsetDetector.snap(onsets, 900, 100) == 1000, "snaps forward from before the first");
 
+        // 7. Zoom-scaled snap tolerance: constant in PIXELS, clamped in ms.
+        check(OnsetDetector.snapToleranceMs(0.5) == 40, "zoomed way in -> floor 40ms");
+        check(OnsetDetector.snapToleranceMs(5.0) == 60, "5ms/px -> 60ms (12px of forgiveness)");
+        check(OnsetDetector.snapToleranceMs(50.0) == 120, "zoomed way out -> ceiling 120ms");
+        check(OnsetDetector.snapToleranceMs(0) == 40, "degenerate zoom is safe");
+        check(OnsetDetector.snapToleranceMs(Double.NaN) == 40, "NaN zoom is safe");
+        long a = OnsetDetector.snapToleranceMs(3.0), b = OnsetDetector.snapToleranceMs(8.0);
+        check(a <= b, "tolerance grows with ms-per-pixel (" + a + " <= " + b + ")");
+
         System.out.println(failures == 0
                 ? "\nALL PASS"
                 : "\n" + failures + " FAILURE(S)");

@@ -182,6 +182,34 @@ public final class OnsetDetector {
     // ── Snapping ────────────────────────────────────────────────────────────────────────
 
     /**
+     * How close a dragged word has to land before it snaps, given the timeline's current
+     * zoom expressed as {@code msPerPixel}.
+     *
+     * <p>A FIXED tolerance is wrong at both ends of the zoom range, and wrong in opposite
+     * directions: zoomed right in, one pixel is a couple of milliseconds, so a 120ms magnet
+     * fights a user who is deliberately placing a word by eye; zoomed out, one pixel is tens
+     * of milliseconds, so a 40ms magnet is narrower than the finger and never fires. Pinning
+     * it to a constant number of PIXELS instead keeps the feel identical at every zoom —
+     * roughly a thumb-width of forgiveness on screen, whatever that is in time.</p>
+     *
+     * <p>Clamped so it never becomes absurd on an extreme zoom: below {@value #SNAP_MIN_MS}ms
+     * snapping is imperceptible, and above {@value #SNAP_MAX_MS}ms it starts capturing words
+     * the user meant to place somewhere else.</p>
+     */
+    public static long snapToleranceMs(double msPerPixel) {
+        if (msPerPixel <= 0 || Double.isNaN(msPerPixel)) return SNAP_MIN_MS;
+        long t = Math.round(SNAP_PIXELS * msPerPixel);
+        if (t < SNAP_MIN_MS) return SNAP_MIN_MS;
+        if (t > SNAP_MAX_MS) return SNAP_MAX_MS;
+        return t;
+    }
+
+    /** Forgiveness in SCREEN pixels — the constant the tolerance is really expressed in. */
+    private static final int SNAP_PIXELS = 12;
+    private static final long SNAP_MIN_MS = 40;
+    private static final long SNAP_MAX_MS = 120;
+
+    /**
      * The onset nearest {@code ms}, or {@code ms} unchanged when none is within
      * {@code toleranceMs}.
      *

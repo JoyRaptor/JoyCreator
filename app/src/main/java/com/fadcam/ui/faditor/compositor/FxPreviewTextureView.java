@@ -795,10 +795,15 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private volatile android.graphics.Bitmap layerOverlayBitmap;
     private int layerOverlayTexId;
     @Nullable private android.graphics.Bitmap layerOverlayUploaded;
-    /** Text/sprite below-blend raster (static only) — composited BEFORE the blending image */
+    /** Text/sprite below-blend raster — composited BEFORE the blending image (static/fallback path) */
     @Nullable private volatile android.graphics.Bitmap belowBlendBitmap;
     private int belowBlendTexId;
     @Nullable private android.graphics.Bitmap belowBlendUploaded;
+    /** Pose-animated below-blend overlays — per-item textured quads (spec §3), fed via Pip path */
+    @Nullable private volatile java.util.List<Pip> belowBlendOverlays;
+    @NonNull private final java.util.Map<String, Integer> overlayTexIds = new java.util.HashMap<>();
+    @NonNull private final java.util.Map<String, android.graphics.Bitmap> overlayUploaded = new java.util.HashMap<>();
+    @NonNull private final java.util.Set<String> overlayKeysInFrame = new java.util.HashSet<>();
     /** Pilot measurement: frame time */
     private long pilotFrameCount = 0;
     private long pilotTotalFrameNs = 0;
@@ -1021,10 +1026,10 @@ public class FxPreviewTextureView extends TextureView
 
     /**
      * Text/sprite layers below a blending image, rasterised as a full-frame bitmap at
-     * video resolution (static only). Composited BEFORE the blending image so the blend
+     * video resolution. Composited BEFORE the blending image so the blend
      * has something to composite against — without it the blend sampled video. Null =
-     * nothing below to promote or only animated content (gap left on Canvas, see
-     * FxLivePreviewController report).
+     * nothing below to promote. Pose-animated content below a blend rides the
+     * texture-quad path (see setBelowBlendOverlays) — one predicate, one place.
      */
     public void setBelowBlendBitmap(@Nullable android.graphics.Bitmap b) {
         if (b == belowBlendBitmap) return;
@@ -1033,6 +1038,17 @@ public class FxPreviewTextureView extends TextureView
             stillTrash.offer(old);
         }
         belowBlendBitmap = b;
+        requestFrame();
+    }
+
+    /**
+     * Pose-animated text/sprite below a blending image — per-item textured quads (spec §3).
+     * Each Pip carries its own bitmap at authored size (OverlayTextureCache, 1.5×) and is drawn
+     * via the existing Pip path (cx,cy,halfW,halfH,rotationDeg,alpha) — no second transform pipeline.
+     * Null or empty clears the quads.
+     */
+    public void setBelowBlendOverlays(@Nullable java.util.List<Pip> pips) {
+        belowBlendOverlays = pips == null || pips.isEmpty() ? null : new java.util.ArrayList<>(pips);
         requestFrame();
     }
 
@@ -1188,6 +1204,9 @@ public class FxPreviewTextureView extends TextureView
             layerOverlayUploaded = null;
             belowBlendTexId = 0;
             belowBlendUploaded = null;
+            overlayTexIds.clear();
+            overlayUploaded.clear();
+            overlayKeysInFrame.clear();
             resetPilotStats();
 
             oesTexId = newOesTexture();
@@ -1304,15 +1323,23 @@ public class FxPreviewTextureView extends TextureView
                 cur = 1;
             }
 
-            // 2b — text/sprite below a blending image (static only) — full-frame raster at
-            // video resolution, composited BEFORE the blending image so the blend has
-            // something to composite against. Animated items would need per-frame raster
-            // (~17ms measured) and are left on Canvas as a documented gap.
+            // 2b — text/sprite below a blending image — two paths (one predicate, one place):
+            // 2b1: full-frame raster for static/fallback content, composited BEFORE the blend
+            // 2b2: per-item textured quads for pose-animated content (spec §3) — raster once at
+            //      authored size (1.5×), quad per frame via Pip path (no second pipeline)
             android.graphics.Bitmap belowBmp = belowBlendBitmap;
             if (!degraded && belowBmp != null && !belowBmp.isRecycled() && layerProgram != 0) {
                 int dst = cur == 0 ? 1 : 0;
                 if (drawBelowBlend(belowBmp, cur, dst, vw, vh)) cur = dst;
             }
+            overlayKeysInFrame.clear();
+            java.util.List<Pip> overlays = belowBlendOverlays;
+            if (!degraded && overlays != null && !overlays.isEmpty() && layerProgram != 0) {
+                for (Pip p : overlays) {
+                    cur = drawOverlayPip(p, cur, vw, vh);
+                }
+            }
+            evictUnusedOverlays();
 
             // 3 — the composited items, bottom→top, in the EXPORT's chain order: each PiP
             //     drawn over the frame so far, each adjustment layer grading what is beneath
@@ -1547,6 +1574,46 @@ public class FxPreviewTextureView extends TextureView
         setSampler(layerProgram, "uLayerSampler", belowBlendTexId, 1, true);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         return true;
+    }
+
+    /** Pose-animated below-blend overlay: per-item textured quad via Pip path (spec §3). */
+    private int drawOverlayPip(@NonNull Pip p, int src, int vw, int vh) {
+        if (!p.rendersAnything()) return src;
+        int dst = src == 0 ? 1 : 0;
+        int tex = overlayTextureFor(p);
+        if (tex == 0) return src;
+        return drawPip(p, src, dst, vw, vh, tex) ? dst : src;
+    }
+
+    private int overlayTextureFor(@NonNull Pip p) {
+        overlayKeysInFrame.add(p.clipId);
+        android.graphics.Bitmap b = p.still;
+        Integer have = overlayTexIds.get(p.clipId);
+        if (b == null || b.isRecycled()) return have == null ? 0 : have;
+        if (have != null && overlayUploaded.get(p.clipId) == b) return have;
+        int id = have == null ? newStillTexture() : have;
+        try {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, id);
+            android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, b, 0);
+            FLog.d("OverlayTex", "overlay upload OK " + p.clipId + " tex=" + id + " " + b.getWidth() + "x" + b.getHeight());
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "overlay upload failed for " + p.clipId, e);
+            return have == null ? 0 : have;
+        }
+        overlayTexIds.put(p.clipId, id);
+        overlayUploaded.put(p.clipId, b);
+        return id;
+    }
+
+    private void evictUnusedOverlays() {
+        java.util.Iterator<java.util.Map.Entry<String, Integer>> it = overlayTexIds.entrySet().iterator();
+        while (it.hasNext()) {
+            java.util.Map.Entry<String, Integer> e = it.next();
+            if (overlayKeysInFrame.contains(e.getKey())) continue;
+            try { GLES20.glDeleteTextures(1, new int[]{e.getValue()}, 0); } catch (Exception ignored) {}
+            it.remove();
+            overlayUploaded.remove(e.getKey());
+        }
     }
 
     /**
@@ -2262,6 +2329,12 @@ public class FxPreviewTextureView extends TextureView
                     belowBlendTexId = 0;
                 }
                 belowBlendUploaded = null;
+                for (java.util.Map.Entry<String, Integer> e : overlayTexIds.entrySet()) {
+                    try { GLES20.glDeleteTextures(1, new int[]{e.getValue()}, 0); } catch (Exception ignored) {}
+                }
+                overlayTexIds.clear();
+                overlayUploaded.clear();
+                overlayKeysInFrame.clear();
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

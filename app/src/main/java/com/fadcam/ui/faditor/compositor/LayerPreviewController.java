@@ -411,6 +411,19 @@ public final class LayerPreviewController {
     }
 
     /**
+     * SPEC_20260829_PREVIEW_PERF §3: one predicate, one place — whether a below-blend
+     * text/sprite rides the texture-quad path (quad transform) or the Canvas fallback
+     * (per-frame raster). Delegates to {@link OverlayTextureCache} so the two answers
+     * to one question cannot drift (trap 2026-08-28).
+     */
+    public static boolean belowBlendUsesTexture(@NonNull TextOverlayItem t) {
+        return OverlayTextureCache.canUseTexture(t);
+    }
+    public static boolean belowBlendUsesTexture(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+        return OverlayTextureCache.canUseTexture(s);
+    }
+
+    /**
      * Plain SPRITE overlays whose lane sits below a GL-routed IMAGE overlay — the
      * sprite twin of plainTextsBelowBlend.
      */

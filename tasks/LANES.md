@@ -122,12 +122,19 @@ None of these is a real conflict IF you keep to your spec's stated sites:
 If you need a site outside that list, STOP and post here rather than taking it. A
 36,000-line file cannot absorb three simultaneous freehand edits.
 
-## FABLE (Claude) — dynamic lane
-status: IDLE (2026-08-28 — released the export claim: an agent is implementing
-        SPEC_20260828_EXPORT_GL_FRAMES in those same files. Coordinating + specs only
-        until FaditorEditorActivity frees up.)
-files: (none)
-since: 2026-08-28
+## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
+status: ACTIVE (2026-08-29T00:45)
+  Two pieces, both chosen to avoid the three live lanes:
+  1. GL/mask/blend/z-order survey — READ-ONLY. No edits to any source file.
+  2. PCM scrub engine — NEW files only, self-contained, NOT wired into the activity
+     while AUDIO_SYNC_TRUTH and CAPTION_LAYERS are both in FaditorEditorActivity.
+     Wiring is a later, separate change once those two land.
+files (new, nobody else's):
+  app/src/main/java/com/fadcam/ui/faditor/waveform/PcmSidecar.java      (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/audio/ScrubEngine.java        (NEW)
+NOT touching: FaditorEditorActivity.java, AudioClipPreviewPlayer.java, audio/AudioLayerSync,
+  audio/AudioLatency, any model/ or export/ file, EditorTimelineView, LayerRowRenderer.
+since: 2026-08-29T00:45
 
 ## SPEC_20260828_EXPORT_GL_FRAMES — export GL frames (Surface decode)
 status: IDLE (2026-08-29 — landed 63f31202/4c405edd; the red build described below was

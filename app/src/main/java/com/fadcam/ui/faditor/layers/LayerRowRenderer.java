@@ -2743,10 +2743,8 @@ public final class LayerRowRenderer {
     /** Whether this item has a fade host at all (even at 0). Used to suppress veil/knob on wrong kinds. */
     private boolean hasFadeHost(@NonNull TimedItem item) {
         if (item.getAudioClip() != null) return true;
-        if (item.getTextOverlay() != null) return true; // text/image/sprite all use opacity; veil still meaningful
-        if (item.getSprite() != null) return true;
-        if (item.getWaveform() != null) return true;
-        if (item.getClip() != null && item.getClip().isOverlayClip()) return true;
+        if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) return true; // image opacity via imageFade; plain text uses keyframe opacity (separate)
+        // Sprite/Waveform/Clip overlay stubs return 0 today — hide knob until model exists to avoid non-functional grip
         if (item.getCaptionSpan() != null) return true;
         return false;
     }

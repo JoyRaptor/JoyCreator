@@ -1082,14 +1082,6 @@ public final class LayerGestureController {
                             long os = other.getTimelineStartMs();
                             long od = other.getDisplayDurationMs(totalMs);
                             long oe = os + od;
-                            long[] candidates = new long[]{os, oe};
-                            // also other fade boundaries if host
-                            if (other.getAudioClip() != null) {
-                                long ofi = other.getAudioClip().getFadeInMs();
-                                long ofo = other.getAudioClip().getFadeOutMs();
-                                if (ofi > 0) candidates = java.util.Arrays.copyOf(candidates, candidates.length+1);
-                                // Simpler: add manually
-                            }
                             for (long c : new long[]{os, oe}) {
                                 long d = Math.abs(t - c);
                                 if (d < bestDist) { bestDist = d; best = c; }

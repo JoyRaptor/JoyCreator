@@ -6,7 +6,7 @@
 #    report and mark the work UNVERIFIED - do not run gradle, and do not imply it built.
 #
 # ★★ JoyRaptor PICKED the fade design: outboard KNOBS + dark CURTAIN (options 06+07, not the
-#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — UNCLAIMED.
+#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — CLAIMED joy-creator 2026-08-29T15:00.
 #
 # ★★ tasks/TAPMAP_NOTE9.md — verified tap coordinates. TWO sweeps failed on navigation and
 #    one reported a FALSE audio regression from stale coordinates. Read it before device work,
@@ -111,7 +111,7 @@ since: 2026-08-29
 
 ## DEVICE TOKEN
 DEVICE: free
-  released 2026-08-29T11:30 by SPEC_20260829_DEVICE_VERIFY_ALL after 3rd sweep FRESH APK 11:15:10 (17 PASS 14 FAIL 10 BLOCKED, adversarial — top FAIL #7 play silence regression, see VERIFY_20260829_RESULTS.md) — SANDBOX_SERIAL still attached
+  released 2026-08-29T14:15 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator) after 4th attempt BLOCKED — device SANDBOX_SERIAL OFFLINE (still listed, transport_id:1), BUILD FAILED 14:14:52 LayerRowRenderer E2_DEBUG/E2_TAG/FADE_H_DP (24 errors), .\tools\phone.ps1 install->no device, shot->no device — see VERIFY_20260829_RESULTS.md §4. Lane still ACTIVE for re-try when device/build recovers.
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -170,9 +170,9 @@ files: (none)
 since: 2026-08-29T11:25
 
 ## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 3rd sweep with §2b FRESH APK
-status: IDLE (2026-08-29T11:30 — opencode/muse-spark joy-creator FINISHED 3rd sweep: 17 PASS 14 FAIL 10 BLOCKED, adversarial — fresh install 11:15:10 via phone.ps1, playback silence regression #7 top FAIL, see tasks/VERIFY_20260829_RESULTS.md — device SANDBOX_SERIAL, §2b screenshot→tap, writes NO prod code)
-files: (none)
-since: 2026-08-29T11:30
+status: ACTIVE (2026-08-29T14:30 — opencode/muse-spark joy-creator 4th sweep: install+screenshot→re-derive (§2b), writes NO prod code)
+files: tasks/VERIFY_20260829_RESULTS.md, tasks/screenshots/*
+since: 2026-08-29T14:30
 
 ## SPEC_20260829_PROJECT_BUNDLING — consolidate/export/import + relink fix (fonts survive reinstall)
 status: IDLE (2026-08-30T00:15 — muse-spark joy-creator LANDED 44b0cfeb: AssetResolver + ProjectBundle + ProjectConsolidator + font project:// + relink auto-hash + consolidate/export/import menu — BUILD LOG STALE (watcher 09:11->00:15 no update, see note), DEVICE free — acceptance 7 (uninstall/import font) needs fresh APK install)
@@ -190,11 +190,12 @@ files (claim when you start): assetbrowser/AssetBrowserPanel.java + the toolbox/
   entry points you find; FaditorEditorActivity ONLY if unavoidable and only when free.
 
 ## SPEC_20260829_MEDIA_IMPORT — make the app's own browser the picker
-status: ACTIVE (2026-08-29T04:15 — opencode/muse-spark §2.1 picker single-select LANDED f07f3eca — Add→Video/Image now opens internal 4-col grid via VideoThumbnailCache 10% frame + Browse fallback, persistable permission; APK 04:12:25 installed and navigated to PREVIEW_PERF (v32-v34). §2.3 multi-select numbered badge still to do, §2.4 reboot check owed)
+status: ACTIVE (2026-08-29T16:00 — opencode/muse-spark §2.3 multi-select + cache cap + §2.4 reboot — continuing joy-creator; §2.1 single-select LANDED f07f3eca, APK 04:12:25)
 files:
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (showInternalAssetPicker — single-select, Browse row)
-  app/src/main/java/com/fadcam/ui/faditor/assetbrowser/AssetBrowserAdapter.java  (multi-select badge next)
-since: 2026-08-29T04:15
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (showInternalAssetPicker — multi-select numbered, Browse row, durable perm handling)
+  app/src/main/java/com/fadcam/ui/faditor/assetbrowser/AssetBrowserAdapter.java  (numbered badge + selection state)
+  app/src/main/java/com/fadcam/ui/faditor/assetbrowser/VideoThumbnailCache.java  (50MB/500 cap enforce + stats — no spec-site conflict)
+since: 2026-08-29T16:00
 
 ## FABLE (Claude) — WORD_SYNC pure/uncontended pieces
 status: IDLE (2026-08-29 midday — landed 3 pieces of SPEC_20260829_WORD_SYNC that need no
@@ -309,6 +310,15 @@ since: 2026-08-24
 status: IDLE (2026-08-27 — BUILT 0f943fb6, 322 insertions. Static text/sprite below blend raster at video res, cached, composited before blend via belowBlend bitmap/GL texture (stillTrash). Animated gap left on Canvas (~17ms >16.6ms budget, documented). Export parity via belowBlend overlay before ImageBlend. TYPECHECK OK 656/1817, preview_parity_lint PASS, build.log stale 3:15:08 (watcher), device SANDBOX_SERIAL present, visual verify owed)
 files: (none)
 since: 2026-08-27
+
+## SPEC_20260829_FADE_KNOBS — outboard knobs + dark curtain (06+07), knob MOVES (§2.1a)
+status: ACTIVE (2026-08-29T15:00 — joy-creator / muse-spark implementing 2.1a is point)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java  (draw + hit-test: retire E2, knobs+veil+dotted+snap)
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java (drag: model->pixel mapping, clamp, snap)
+  app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java  (top pad for row1 — whichever fix, state which)
+  app/src/main/java/com/fadcam/ui/faditor/model/CaptionBinding.java  (NEW or per-binding fade fields — do caption case)
+since: 2026-08-29T15:00
 
 ## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)
 status: WIP (agent 1, 2026-08-24) � code landed, commit pending. G22: master-band

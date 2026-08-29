@@ -36418,19 +36418,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
         sheet.show(getSupportFragmentManager(), "addAsset");
     }
 
-    // ── Internal asset picker (SPEC_20260829_MEDIA_IMPORT §2.1) — replaces system picker ──
+    // ── Internal asset picker (SPEC_20260829_MEDIA_IMPORT §2.1+§2.3+§2.4) — replaces system picker ──
+    // Shows 4-col grid via VideoThumbnailCache at 10% frame, Browse fallback, numbered multi-select in selection order, durable perm.
     private void showInternalAssetPicker(boolean forImage) {
         if (project == null) return;
-        // Use AssetScanner directly (same pattern AssetBrowserPanel uses) — 4-col grid, thumbnails via VideoThumbnailCache
         String pinned = project.getPinnedAssetDir();
+        float d = getResources().getDisplayMetrics().density;
+
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        float d = getResources().getDisplayMetrics().density;
         root.setPadding(Math.round(12*d), Math.round(12*d), Math.round(12*d), Math.round(12*d));
 
         android.widget.TextView title = new android.widget.TextView(this);
-        title.setText(forImage ? "Choose image" : "Choose video");
-        title.setTextSize(16); title.setTextColor(0xFFEEEEEE); title.setPadding(0,0,0,Math.round(8*d));
+        title.setText(forImage ? "Choose image (tap to select, numbered)" : "Choose video (tap to select, numbered)");
+        title.setTextSize(14); title.setTextColor(0xFFEEEEEE); title.setPadding(0,0,0,Math.round(8*d));
         root.addView(title);
 
         android.widget.TextView browse = new android.widget.TextView(this);
@@ -36451,46 +36452,91 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(bar, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, Math.round(3*d)));
         root.addView(rv, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, Math.round(380*d)));
 
+        // Bottom action bar: Cancel + Add (N) — SPEC §2.3 numbered selection, added in selection order
+        android.widget.LinearLayout bottomBar = new android.widget.LinearLayout(this);
+        bottomBar.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        bottomBar.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        bottomBar.setPadding(0, Math.round(10*d), 0, 0);
+        android.widget.TextView btnCancel = new android.widget.TextView(this);
+        btnCancel.setText(android.R.string.cancel);
+        btnCancel.setTextColor(0xFFAAAAAA); btnCancel.setTextSize(14);
+        btnCancel.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
+        btnCancel.setBackgroundResource(R.drawable.segment_active_background);
+        android.widget.TextView btnAdd = new android.widget.TextView(this);
+        btnAdd.setText("Add (0)");
+        btnAdd.setTextColor(0xFF4CAF50); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
+        btnAdd.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
+        btnAdd.setBackgroundResource(R.drawable.segment_active_background);
+        btnAdd.setAlpha(0.4f); btnAdd.setEnabled(false);
+        android.widget.LinearLayout.LayoutParams cancelLp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        cancelLp.rightMargin = Math.round(8*d);
+        bottomBar.addView(btnCancel, cancelLp);
+        bottomBar.addView(btnAdd);
+        root.addView(bottomBar);
+
         com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
         b.setView(root);
-        b.setNegativeButton(android.R.string.cancel, null);
+        // We handle Cancel/Add ourselves so the dialog stays open for multi-select — no auto-dismiss buttons.
+        b.setCancelable(true);
         androidx.appcompat.app.AlertDialog dlg = b.create();
 
-        // Browse fallback → system picker (spec §2.1 escape hatch)
+        // Selection state — ordered list, badge numbers are 1..N in this order
+        java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> selectedInOrder = new java.util.ArrayList<>();
+
+        Runnable refreshAddButton = new Runnable() {
+            @Override public void run() {
+                int n = selectedInOrder.size();
+                btnAdd.setText(n == 0 ? "Add (0)" : "Add (" + n + ")");
+                btnAdd.setEnabled(n > 0);
+                btnAdd.setAlpha(n > 0 ? 1f : 0.4f);
+                title.setText((forImage ? "Choose image" : "Choose video") + (n > 0 ? " — " + n + " selected" : " (tap to select, numbered)"));
+                adapter.setSelectedOrdered(selectedInOrder);
+            }
+        };
+
+        // Browse fallback → system picker with persistable perm (spec §2.1 escape hatch + §2.4)
         browse.setOnClickListener(v -> {
             dlg.dismiss();
             if (forImage) imagePickerLauncher.launch(openDocumentIntent("image/*"));
             else videoPickerLauncher.launch(openDocumentIntent("video/*"));
         });
+        btnCancel.setOnClickListener(v -> dlg.dismiss());
+        btnAdd.setOnClickListener(v -> {
+            if (selectedInOrder.isEmpty()) return;
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> toAdd = new java.util.ArrayList<>(selectedInOrder);
+            dlg.dismiss();
+            handleInternalPickerMultiAdd(toAdd, forImage);
+        });
 
-        // Tap → add in selection order, single for now (multi-select badge in adapter is next)
+        // Tap toggles selection — shows numbered badge in selection order, does NOT auto-dismiss
         adapter.setCallback(new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter.Callback() {
             @Override public void onItemTapped(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {
-                // Filter by requested type
                 if (forImage && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
                     android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select an image", android.widget.Toast.LENGTH_SHORT).show(); return;
                 }
                 if (!forImage && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) {
                     android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select a video", android.widget.Toast.LENGTH_SHORT).show(); return;
                 }
-                dlg.dismiss();
-                // Take persistable permission for content URIs (spec §2.4)
-                if ("content".equals(item.uri.getScheme())) {
-                    try { getContentResolver().takePersistableUriPermission(item.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (SecurityException ignored) {}
+                // Toggle: if already selected, remove (and renumber remaining); else append.
+                int existing = -1;
+                for (int i = 0; i < selectedInOrder.size(); i++) {
+                    if (selectedInOrder.get(i).uri.toString().equals(item.uri.toString())) { existing = i; break; }
                 }
-                if (forImage) onOverlayImagePicked(item.uri);
-                else onVideoAssetPicked(item.uri);
+                if (existing >= 0) selectedInOrder.remove(existing);
+                else selectedInOrder.add(item);
+                refreshAddButton.run();
+                // Haptic tick for selection
+                rv.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
             }
             @Override public void onItemDragStarted(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item, @NonNull android.view.View sourceView, float localX, float localY) {}
             @Override public void onItemRenameRequested(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {}
         });
 
-        // Load on background, newest-first, 2-thread pool inside AssetScanner
+        // Load on background, 2-thread pool inside AssetScanner (same as drawer)
         new Thread(() -> {
             com.fadcam.ui.faditor.assetbrowser.AssetScanner scanner = new com.fadcam.ui.faditor.assetbrowser.AssetScanner(FaditorEditorActivity.this);
             String dir = pinned != null ? pinned : "";
             java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> all = dir.isEmpty() ? new java.util.ArrayList<>() : scanner.scan(dir, project.getTimeline());
-            // Filter to requested type for picker (plus keep Browse row separate)
             java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> filtered = new java.util.ArrayList<>();
             for (com.fadcam.ui.faditor.assetbrowser.AssetItem it : all) {
                 if (forImage && it.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) filtered.add(it);
@@ -36500,17 +36546,193 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 bar.setVisibility(android.view.View.GONE);
                 if (filtered.isEmpty()) {
                     android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
-                    empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No videos in this folder — try Browse files…");
+                    empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No " + (forImage ? "images" : "videos") + " in this folder — try Browse files…");
                     empty.setTextColor(0xFF888888); empty.setGravity(android.view.Gravity.CENTER);
                     empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
                     root.addView(empty, 2);
                 }
                 adapter.setItems(filtered);
+                refreshAddButton.run();
             });
         }, "AssetPickerScan").start();
 
         dlg.show();
-        // Make dialog taller (panel was 0.55 screen, dialog is 380dp grid + header)
+    }
+
+    /**
+     * SPEC_20260829_MEDIA_IMPORT §2.3 + §2.4: insert the ordered multi-selection.
+     * Numbered badges guarantee selection order is visible; this inserts in exactly that order,
+     * at successive timeline positions (base = selectedClipIndex+1), with durable references.
+     *
+     * <p>Durability after reboot (§2.4 / acceptance 10):
+     * <ul>
+     *   <li>Images + any file ≤25MB (via {@link #importInsertedAsset}) are COPIED into
+     *       {@code <projectDir>/assets/<uuid>.ext} and referenced as {@code file://} → saved as
+     *       {@code project://<rel>} (see ProjectStorage.toStorageUri). These survive reboot, reinstall,
+     *       and even manual file moves outside the app — the project bundle is self-contained.
+     *       This is the category for every image and for most short clips.</li>
+     *   <li>Larger videos (>25MB) are NOT copied (to avoid duplicating gigabytes). They keep their
+     *       original {@code content://} URI and we take a persistable grant. For SAF tree children
+     *       ({@code content://.../tree/.../document/...}) the child grant itself throws — only the
+     *       TREE grant is persistable, and it is already held via {@code assetDirPickerLauncher}'s
+     *       {@code takePersistableUriPermission(treeUri)}. A file under the pinned tree therefore
+     *       remains readable after reboot via the tree permission, not the per-file one. This is
+     *       durable as long as the folder stays pinned; unpinning or the user revoking access in
+     *       Settings would break it — the same class of break the relink catalog exists to repair.</li>
+     *   <li>Anything via the "Browse files…" fallback ({@code ACTION_OPEN_DOCUMENT}) is outside the
+     *       pinned tree — there we DO get a per-file persistable grant (the document itself is the
+     *       grant root), and we take it. That survives reboot but not a reinstall where grants are
+     *       cleared; for those, consolidation (SPEC_20260829_PROJECT_BUNDLING — now landed) can be
+     *       run to copy them into the project, promoting them to the first category.</li>
+     * </ul>
+     * Report plainly: category 1 is fully durable, category 2 is durable iff the tree stays pinned,
+     * category 3 is reboot-durable via per-file grant, reinstall-durable only after consolidation.
+     */
+    private void handleInternalPickerMultiAdd(@NonNull java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> ordered, boolean forImage) {
+        if (ordered.isEmpty() || project == null) return;
+        showRemuxProgress();
+        final int baseInsert = Math.max(0, Math.min(selectedClipIndex + 1, project.getTimeline().getClipCount()));
+        assetImportExecutor.execute(() -> {
+            java.util.List<Uri> storedUris = new java.util.ArrayList<>();
+            java.util.List<Long> durs = new java.util.ArrayList<>();
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> ok = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.assetbrowser.AssetItem item : ordered) {
+                // §2.4: best-effort persistable grant. For tree children this throws — the TREE grant already covers it.
+                if ("content".equals(item.uri.getScheme())) {
+                    try { getContentResolver().takePersistableUriPermission(item.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+                    catch (Exception e) {
+                        // Expected for SAF tree children: "Failed to persist permission for content://.../document/..." — the pinned tree grant is the durable one.
+                        FLog.d(TAG, "Multi-add: child persist threw (tree grant covers it): " + e.getMessage());
+                    }
+                }
+                Uri stored = importInsertedAsset(item.uri, item.type, item.displayName);
+                long dur = -1;
+                if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) {
+                    dur = getVideoDuration(stored);
+                    if (dur <= 0) dur = getVideoDuration(item.uri);
+                    if (dur <= 0) {
+                        FLog.w(TAG, "Multi-add: skip, no duration for " + item.displayName);
+                        continue;
+                    }
+                } else if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
+                    dur = IMAGE_CLIP_DURATION_MS;
+                } else if (item.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.AUDIO) {
+                    dur = getAudioDuration(stored);
+                    if (dur <= 0) continue;
+                }
+                storedUris.add(stored);
+                durs.add(dur);
+                ok.add(item);
+            }
+            runOnUiThread(() -> {
+                hideRemuxProgress();
+                if (isFinishing() || isDestroyed() || project == null) return;
+                if (ok.isEmpty()) {
+                    Toast.makeText(this, R.string.faditor_asset_error, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Timeline tl = project.getTimeline();
+                if (forImage) {
+                    // Image multi-select: add each as an overlay at staggered playhead positions so they don't all stack.
+                    // Each is file:// (copied) and thus fully durable; otherwise tree-grant durable as above.
+                    long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
+                    java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> created = new java.util.ArrayList<>();
+                    for (int i = 0; i < storedUris.size(); i++) {
+                        Uri u = storedUris.get(i);
+                        if ("content".equals(u.getScheme())) {
+                            try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
+                        }
+                        com.fadcam.ui.faditor.model.TextOverlayItem it = com.fadcam.ui.faditor.model.TextOverlayItem.createImage(u.toString(), 0.5f, 0.5f, 0.30f);
+                        // Stagger time so three images appear as a sequence, not a pile: each 5s window.
+                        long start = playhead + i * IMAGE_CLIP_DURATION_MS;
+                        it.setTimeRange(start, start + IMAGE_CLIP_DURATION_MS);
+                        // Slight spatial stagger so the stack is visible: +4% per item
+                        if (i > 0) {
+                            float offset = 0.04f * i;
+                            it.setCenter(0.5f + offset, 0.5f + offset);
+                        }
+                        tl.addTextOverlay(it);
+                        created.add(it);
+                    }
+                    if (!created.isEmpty()) {
+                        java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> fCreated = new java.util.ArrayList<>(created);
+                        undoManager.recordAction(new EditActions.LambdaAction("Add " + fCreated.size() + " images",
+                                () -> { for (com.fadcam.ui.faditor.model.TextOverlayItem it : fCreated) tl.addTextOverlay(it); refreshAfterOverlayLayerChange(); },
+                                () -> { for (com.fadcam.ui.faditor.model.TextOverlayItem it : fCreated) tl.removeTextOverlay(it); refreshAfterOverlayLayerChange(); }));
+                        refreshAfterOverlayLayerChange();
+                        saveProjectNow();
+                        Toast.makeText(this, "Added " + fCreated.size() + " image(s)", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    // Video multi-select: insert clips in selection order at successive indices.
+                    java.util.List<Clip> createdClips = new java.util.ArrayList<>();
+                    java.util.List<Integer> createdIdx = new java.util.ArrayList<>();
+                    for (int i = 0; i < storedUris.size(); i++) {
+                        Clip c = new Clip(storedUris.get(i), durs.get(i));
+                        int at = baseInsert + i;
+                        // Clamp each step (timeline grows as we insert)
+                        at = Math.max(0, Math.min(at, tl.getClipCount()));
+                        tl.addClip(at, c);
+                        tl.shiftTransitionsAfterInsert(at);
+                        createdClips.add(c);
+                        createdIdx.add(at);
+                    }
+                    if (createdClips.size() == 1) {
+                        undoManager.recordAction(new EditActions.AddClipAction(tl, createdClips.get(0), createdIdx.get(0)));
+                    } else {
+                        java.util.List<Clip> fClips = new java.util.ArrayList<>(createdClips);
+                        java.util.List<Integer> fIdx = new java.util.ArrayList<>(createdIdx);
+                        undoManager.recordAction(new EditActions.LambdaAction("Add " + fClips.size() + " clips",
+                                () -> {
+                                    for (int i = 0; i < fClips.size(); i++) {
+                                        int at = fIdx.get(i);
+                                        // Redo re-inserts in original order; indices already account for prior inserts in this batch.
+                                        // To keep arithmetic stable, re-insert at the stored index clipped to current size.
+                                        int clamped = Math.max(0, Math.min(at, tl.getClipCount()));
+                                        tl.addClip(clamped, fClips.get(i));
+                                        tl.shiftTransitionsAfterInsert(clamped);
+                                    }
+                                    refreshAfterBatchClipInsert(fClips, fIdx);
+                                },
+                                () -> {
+                                    for (int i = fClips.size() - 1; i >= 0; i--) {
+                                        tl.removeClip(fClips.get(i));
+                                        tl.unshiftTransitionsAfterInsert(fIdx.get(i));
+                                    }
+                                    refreshAfterBatchClipInsert(null, null);
+                                }));
+                    }
+                    int lastIdx = createdIdx.get(createdIdx.size() - 1);
+                    selectSegment(lastIdx);
+                    editorTimeline.setTransitions(tl.getTransitions());
+                    editorTimeline.scrollToSegment(lastIdx);
+                    syncTimelineOverlays();
+                    editorTimeline.invalidate();
+                    refreshTotalTimeDisplay();
+                    resyncGaplessAfterStructuralEdit(createdClips.get(createdClips.size() - 1).getId(), 0L, false);
+                    saveProjectNow();
+                    String msg = createdClips.size() == 1 ? getString(R.string.faditor_asset_added) : "Added " + createdClips.size() + " clips in selection order";
+                    Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+                    if (createdClips.size() == 1) maybeShowTranscribePrompt();
+                }
+                FLog.d(TAG, "Multi-add: inserted " + ok.size() + "/" + ordered.size() + " in selection order (base=" + baseInsert + ")");
+            });
+        });
+    }
+
+    /** Refresh after batch clip insert — mirrors single-insert housekeeping for undo/redo. */
+    private void refreshAfterBatchClipInsert(@Nullable java.util.List<Clip> clips, @Nullable java.util.List<Integer> idx) {
+        if (project == null || editorTimeline == null) return;
+        if (clips != null && !clips.isEmpty() && idx != null && !idx.isEmpty()) {
+            int last = idx.get(idx.size() - 1);
+            selectSegment(last);
+            editorTimeline.setTransitions(project.getTimeline().getTransitions());
+            editorTimeline.scrollToSegment(last);
+        }
+        syncTimelineOverlays();
+        editorTimeline.invalidate();
+        refreshTotalTimeDisplay();
+        saveProjectNow();
     }
 
     // ── Voiceover punch-in (B5) ───────────────────────────────────────

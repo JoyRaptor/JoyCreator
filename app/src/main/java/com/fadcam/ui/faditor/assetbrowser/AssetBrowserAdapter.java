@@ -48,6 +48,8 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
     private static final String TAG = "AssetBrowserAdapter";
 
     private final List<AssetItem> items = new ArrayList<>();
+    // SPEC_20260829_MEDIA_IMPORT §2.3: ordered multi-select — kept here so badge numbers are live
+    private final List<AssetItem> selectedOrdered = new ArrayList<>();
     @Nullable
     private Callback callback;
     @Nullable
@@ -71,6 +73,31 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
 
     public void setHighlightedItem(@Nullable AssetItem item) {
         highlightedItem = item;
+        notifyDataSetChanged();
+    }
+
+    /** SPEC_20260829_MEDIA_IMPORT §2.3: set the ordered selection — badge shows 1..N in selection order. */
+    public void setSelectedOrdered(@NonNull List<AssetItem> ordered) {
+        selectedOrdered.clear();
+        selectedOrdered.addAll(ordered);
+        notifyDataSetChanged();
+    }
+
+    @NonNull
+    public List<AssetItem> getSelectedOrdered() {
+        return new ArrayList<>(selectedOrdered);
+    }
+
+    /** 0-based index in selection order, or -1 if not selected. */
+    public int selectionIndexOf(@NonNull AssetItem item) {
+        for (int i = 0; i < selectedOrdered.size(); i++) {
+            if (sameAsset(selectedOrdered.get(i), item)) return i;
+        }
+        return -1;
+    }
+
+    public void clearSelection() {
+        selectedOrdered.clear();
         notifyDataSetChanged();
     }
 
@@ -132,6 +159,25 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         usedBadge.setLayoutParams(usedLp);
         thumbFrame.addView(usedBadge);
 
+        // Selection numbered badge (SPEC_20260829_MEDIA_IMPORT §2.3) — circular green with white number, top-end.
+        TextView selectionBadge = new TextView(ctx);
+        selectionBadge.setTextColor(Color.WHITE);
+        selectionBadge.setTextSize(10);
+        selectionBadge.setTypeface(Typeface.DEFAULT_BOLD);
+        selectionBadge.setGravity(Gravity.CENTER);
+        selectionBadge.setVisibility(View.GONE);
+        android.graphics.drawable.GradientDrawable selBg = new android.graphics.drawable.GradientDrawable();
+        selBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        selBg.setColor(Color.parseColor("#FF4CAF50"));
+        selBg.setStroke((int)(1 * density), Color.WHITE);
+        selectionBadge.setBackground(selBg);
+        selectionBadge.setElevation(2 * density);
+        FrameLayout.LayoutParams selLp = new FrameLayout.LayoutParams(
+                (int)(22 * density), (int)(22 * density), Gravity.TOP | Gravity.END);
+        selLp.setMargins(0, (int)(2 * density), (int)(2 * density), 0);
+        selectionBadge.setLayoutParams(selLp);
+        thumbFrame.addView(selectionBadge);
+
         // Duration overlay (bottom-right)
         TextView durationText = new TextView(ctx);
         durationText.setTextColor(Color.WHITE);
@@ -161,7 +207,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         container.addView(nameLabel);
 
         return new AssetViewHolder(container, container, imageView, typeBadge, usedBadge,
-                durationText, nameLabel);
+                selectionBadge, durationText, nameLabel);
     }
 
     @Override
@@ -169,10 +215,25 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         AssetItem item = items.get(position);
         Context ctx = holder.itemView.getContext();
 
-        if (sameAsset(highlightedItem, item)) {
+        int selIdx = selectionIndexOf(item);
+        boolean isSelected = selIdx >= 0;
+        if (isSelected) {
+            // Selected state: green border + badge number; selection takes visual precedence over highlight.
+            holder.container.setBackgroundColor(Color.argb(60, 76, 175, 80));
+            holder.selectionBadge.setVisibility(View.VISIBLE);
+            holder.selectionBadge.setText(String.valueOf(selIdx + 1));
+            // Hide used check when numbered badge occupies the same corner — number is the active state.
+            holder.usedBadge.setVisibility(View.GONE);
+            // Subtle outline for selected thumb
+            holder.imageView.setBackgroundColor(Color.parseColor("#FF4CAF50"));
+        } else if (sameAsset(highlightedItem, item)) {
             holder.container.setBackgroundColor(Color.parseColor("#FF4CAF50"));
+            holder.selectionBadge.setVisibility(View.GONE);
+            holder.imageView.setBackgroundColor(Color.parseColor("#FF222222"));
         } else {
             holder.container.setBackgroundColor(Color.TRANSPARENT);
+            holder.selectionBadge.setVisibility(View.GONE);
+            holder.imageView.setBackgroundColor(Color.parseColor("#FF222222"));
         }
 
         // Filename
@@ -191,8 +252,10 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
                 break;
         }
 
-        // Used badge
-        holder.usedBadge.setVisibility(item.isUsed ? View.VISIBLE : View.GONE);
+        // Used badge — hidden when selected (badge occupies corner, see above)
+        if (!isSelected) {
+            holder.usedBadge.setVisibility(item.isUsed ? View.VISIBLE : View.GONE);
+        }
 
         // Duration
         if (item.durationMs > 0) {
@@ -222,7 +285,8 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             // Audio: show music note placeholder
             VideoThumbnailCache.cancel(holder.imageView);
             holder.imageView.setScaleType(ImageView.ScaleType.CENTER);
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF1A2A1A"));
+            // Keep selection green when selected, even for audio
+            if (!isSelected) holder.imageView.setBackgroundColor(Color.parseColor("#FF1A2A1A"));
             holder.imageView.setImageDrawable(null);
         }
 
@@ -283,17 +347,19 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         final ImageView imageView;
         final TextView typeBadge;
         final TextView usedBadge;
+        final TextView selectionBadge;
         final TextView durationText;
         final TextView nameLabel;
 
         AssetViewHolder(@NonNull View itemView, @NonNull View container, ImageView imageView,
-                        TextView typeBadge, TextView usedBadge,
+                        TextView typeBadge, TextView usedBadge, TextView selectionBadge,
                         TextView durationText, TextView nameLabel) {
             super(itemView);
             this.container = container;
             this.imageView = imageView;
             this.typeBadge = typeBadge;
             this.usedBadge = usedBadge;
+            this.selectionBadge = selectionBadge;
             this.durationText = durationText;
             this.nameLabel = nameLabel;
         }

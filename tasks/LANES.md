@@ -122,8 +122,8 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator / muse-spark) — taken 2026-08-29T15:24 for 5th sweep install+screenshot re-derive
-  released 2026-08-29T14:15 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator) after 4th attempt BLOCKED — device SANDBOX_SERIAL OFFLINE, BUILD FAILED 14:14:52
+DEVICE: free
+  released 2026-08-29T16:05 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator / muse-spark) after 5th sweep SUCCESS — install 14:23:02 (lastUpdate 14:36:12) → screenshot verify5_00→01→08→09 → re-derived Faditor 628,2110, rows 706/897/1088/1279/1470/1661/1852, editor play 542,1564 (verified head 00:00→00:03.030 pause) — see VERIFY_20260829_RESULTS.md §5. Lane still ACTIVE for full 41-check sweep if desired.
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -177,9 +177,9 @@ files: (none)
 since: 2026-08-29T03:20
 
 ## SPEC_20260829_IMAGE_PRESETS_V2 — RESET not stack, 5 defects + drawer + glyph (§1-§4)
-status: IDLE (2026-08-29T11:25 — joy-creator LANDED 7917bdec: full reset on apply, pan full overhang, slide flush + SLIDE_OUT*4, trim reflow helper on every site, zoom focal re-derive with no-peek bump, drawer compact 1 row Fit/Fill + animate picker with real-code previews, glyph white 1px stroke + DETAIL 14→20 + clip to silhouette (option 1+2, silhouette-only on timeline) — TYPECHECK via javac sanity, BUILD LOG STALE (watcher 09:11→no update, did NOT verify BUILD SUCCESSFUL, did NOT verify device, did NOT verify export PSNR). Adversarial harness PASS (5/5 pan/slide/invariant/zoom/trim).)
+status: IDLE (2026-08-29T15:00 — muse-spark joy-creator RE-VERIFY 0b4d9580: fixed pan refusal ordering (no mutation on refuse), full-reset param leak (zoom/rotation reset on fresh apply), rederiveCurrentPreset preserving focal/region for preview edits (no-peek), dead panCoverFrac clean — BUILD SUCCESSFUL 14:44 (watcher fresh), DEVICE present SANDBOX_SERIAL but NO device screenshots/screen-record, NO export PSNR — see report)
 files: (none)
-since: 2026-08-29T11:25
+since: 2026-08-29T15:00
 
 ## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 3rd sweep with §2b FRESH APK
 status: ACTIVE (2026-08-29T14:30 — opencode/muse-spark joy-creator 4th sweep: install+screenshot→re-derive (§2b), writes NO prod code)

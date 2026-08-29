@@ -143,7 +143,21 @@ public final class WordSyncMode {
     }
 
     public void setPinned(int index, boolean v) {
-        if (pinned != null && index >= 0 && index < pinned.length) pinned[index] = v;
+        if (index < 0) return;
+        if (pinned == null || index >= pinned.length) {
+            int n = 0;
+            if (host != null && host.transcript() != null) n = host.transcript().words.size();
+            n = Math.max(n, index + 1);
+            if (n <= 0) n = index + 1;
+            ensurePinned(n);
+            // If still too small (transcript grew after ensure), expand.
+            if (index >= pinned.length) {
+                boolean[] expanded = new boolean[index + 1];
+                System.arraycopy(pinned, 0, expanded, 0, pinned.length);
+                pinned = expanded;
+            }
+        }
+        pinned[index] = v;
     }
 
     public boolean isPinned(int index) {

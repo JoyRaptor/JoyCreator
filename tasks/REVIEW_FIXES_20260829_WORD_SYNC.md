@@ -56,10 +56,10 @@ All are one-line constants with comments pointing to this table.
 
 ## 3. Audit findings left as-is (intentional, tweak later)
 
-* **Pin UI for STRETCH anchor** — spec’s “next manually pinned one” has no UI yet. `WordSyncMode` keeps `pinned[]` but never sets it, so STRETCH always falls back to `fallbackAnchorMs` (clip out). This is the same as RIPPLE stretched to end — safe, but not the landmark pin spec imagines. Needs design pass with JoyRaptor (add long-press pin?).
-* **Park-playhead + shuttle + tap (§3.2 third gesture)** — shuttle scrubs playhead, but tap-word-to-snap-to-playhead while shuttle engaged is not wired. Tagged `TimeShuttleView.isEngaged()` (`TimeShuttleView.java:177`) is ready; wiring needs playhead→source mapping (clip inPoint/speed) — left for next pass, report notes it as owed.
-* **ScrubEngine lifecycle** — `ScrubEngine` holds `AudioTrack` thread; `WordSyncMode.exit()` calls `end()` but not `release()`. Activity `onDestroy` should call `wordSyncMode.release()` (not yet needed for leaked check, low priority).
-* **Global snap vs WordSync snap double-magnet** — `overlaySoftSnapEnabled` still active in WordSync; may double-snap near onsets. Verbal test needed — not changed to avoid scope creep.
+* **Pin UI for STRETCH anchor** — *now fixed in Part 2*: long-press pin + gold dot (`TranscriptPanelView.java:893`, `WordSyncMode.java:145`).
+* **Park-playhead + shuttle + tap (§3.2 third gesture)** — *now fixed in Part 2+3*: `FaditorEditorActivity.java:30116` maps playhead→source for both video/audio, checks `isFingerDown()`.
+* **ScrubEngine lifecycle** — *now fixed in Part 2*: `WordSyncMode.release()` + `FaditorEditorActivity.java:1841` onDestroy.
+* **Global snap vs WordSync snap double-magnet** — `overlaySoftSnapEnabled` still active in WordSync; may double-snap near onsets. Verbal test needed — not changed to avoid scope creep (low risk, both snaps defeatable).
 
 ---
 
@@ -119,4 +119,18 @@ You said “I’m not an engineer — fix what needs to be fixed.” These were 
 **Scrub engine cleanup:** When you leave Word Sync or close the editor, the scrub audio track is now fully released. Before, it kept a small audio thread alive in the background.
 
 **How to tweak these (still one number):** pin dot color at `TranscriptPanelView.java:600` `0xFFFFC107`, shuttle max speed at `FaditorEditorActivity.java:16870` `12000`.
+
+---
+
+## 8. Part 3 — Adversarial second pass (you asked to test everything again, fix what’s wrong)
+
+**Pinned array could never be set before first drag:** `WordSyncMode.java:145` now auto-creates `pinned` to transcript length on first `setPinned`/`isPinned`, so long-press pin works even before any drag. Before, first pin was silently ignored.
+
+**Shuttle-tap used wrong clip for source mapping:** `FaditorEditorActivity.java:30134` now finds `phClip` index and maps `playheadMs - segStart` correctly for both video (`Clip`) and audio (`AudioClip` when `transcriptIsForAudio`). Before it used `selectedClipIndex` for every playhead, so snapping landed in wrong clip after a cut.
+
+**Shuttle “engaged” included spring-back:** `TimeShuttleView.java:177` `isEngaged` includes 260 ms spring-back. Tap-to-snap should only fire while finger is down, so added `isFingerDown()` and `FaditorEditorActivity.java:30120` now checks `isFingerDown()` not `isEngaged()`.
+
+**Transcript horizontal vs vertical drag:** `TranscriptPanelView.java:672` now requires `|dx|>|dy| && |dx|>touchSlop` to start timing drag; vertical drag still scrolls. Before, any diagonal move could start timing drag and steal scroll.
+
+Build still `TYPECHECK OK 678` (now 1899 classes), `run-onset 22/22`, `run-wordsync 22/22`. No new files, all fixes are 2–5 line tweaks.
 

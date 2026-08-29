@@ -176,6 +176,7 @@ public final class TimeShuttleView extends View {
 
     /** Whether the shuttle is currently engaged (finger down or springing back). Consumed by Word Sync §3.2. */
     public boolean isEngaged() { return engaged || springingBack || Math.abs(normalized) > 0.001f; }
+    public boolean isFingerDown() { return engaged; }
     public float getNormalized() { return normalized; }
 
     private void beginSpringBack() {

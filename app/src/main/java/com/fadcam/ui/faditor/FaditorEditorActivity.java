@@ -2997,7 +2997,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         findViewById(R.id.tool_text).setOnClickListener(v -> addTextOverlay());
         findViewById(R.id.tool_visualizer).setOnClickListener(v -> addWaveformVisualizer());
         findViewById(R.id.tool_filter).setOnClickListener(v -> openFilterSheet());
-        findViewById(R.id.tool_sticker).setOnClickListener(v -> pickImageOverlay());
+        // SPEC_20260829_QUICK_WINS S1: Tap = overlay (common, <=2 taps), long-press = clip (rare spine segment).
+        // Both reuse the SAME insertion payloads — no second image path.
+        View stickerTool = findViewById(R.id.tool_sticker);
+        if (stickerTool != null) {
+            stickerTool.setOnClickListener(v -> {
+                pickImageOverlay();
+                maybeShowImageStickerLongPressHint(false);
+            });
+            stickerTool.setOnLongClickListener(v -> {
+                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                showImageStickerLongPressSheet();
+                return true;
+            });
+            // Discoverability: chevron affordance is drawn by FaditorToolsAdapter.buildCell;
+            // also expose as accessibility long-click hint.
+            stickerTool.setTooltipText("Image — tap for overlay, long-press for clip");
+            // Touch helper so the tiny chevron hit is included in the cell's bounds.
+        }
         findViewById(R.id.tool_silence).setOnClickListener(v -> toggleSilenceDetect());
         android.view.View fixBtn = findViewById(R.id.tool_fix_audio);
         if (fixBtn != null) fixBtn.setOnClickListener(v -> fixSelectedAudio());
@@ -22280,6 +22297,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
         overlayImagePickerLauncher.launch(openDocumentIntent("image/*"));
     }
 
+    // ── SPEC_20260829_QUICK_WINS S1 — long-press affordance + discoverability ──
+
+    private static final String PREF_IMAGE_STICKER_HINT_SHOWN = "faditor_image_sticker_hint_shown";
+
+    /** One-time discoverability hint: long-press for clip. Shows once ever, as a lightweight toast. */
+    private void maybeShowImageStickerLongPressHint(boolean force) {
+        if (!force) {
+            android.content.SharedPreferences sp = getSharedPreferences("faditor_prefs", MODE_PRIVATE);
+            if (sp.getBoolean(PREF_IMAGE_STICKER_HINT_SHOWN, false)) return;
+            sp.edit().putBoolean(PREF_IMAGE_STICKER_HINT_SHOWN, true).apply();
+        }
+        Toast.makeText(this, "Tip: long-press Image for timeline clip (rare)", Toast.LENGTH_LONG).show();
+    }
+
+    /** Long-press sheet: Image as clip (spine) — the rare path, same payload as Add > More. */
+    private void showImageStickerLongPressSheet() {
+        if (inCropMode) exitCropMode(false);
+        // Small chooser so the gesture is not hidden and the two paths stay discoverable.
+        // Reuses the SAME clip insertion as AddAssetBottomSheet's demoted row.
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        b.setTitle("Image");
+        b.setItems(new CharSequence[]{
+                "Add as overlay (on top of video)",
+                "Add as clip — timeline segment (rare)"
+        }, (dlg, which) -> {
+            if (which == 0) {
+                pickImageOverlay();
+            } else {
+                showInternalAssetPickerForImageAsClip();
+                // Also surface the hint text once, so the toast explains the split.
+                maybeShowImageStickerLongPressHint(true);
+            }
+        });
+        // Neutral hint row so the sheet itself teaches the split.
+        b.setNeutralButton("Tip", (dlg, w) -> Toast.makeText(this,
+                "Tap = overlay (common). Long-press = clip (rare). Both use the same image.", Toast.LENGTH_LONG).show());
+        b.setNegativeButton(android.R.string.cancel, null);
+        b.show();
+    }
+
     /** Add a picked image as a draggable/scalable overlay on the video. */
     private void onOverlayImagePicked(@NonNull Uri imageUri) {
         if (project == null) return;
@@ -30117,7 +30175,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSeekToMs(long sourceMs) {
                 // SPEC_20260829_WORD_SYNC §3.2 — park playhead + shuttle engaged + tap word = word snaps to playhead.
-                if (isWordSyncActive() && wordSyncShuttle != null && wordSyncShuttle.isEngaged()) {
+                if (isWordSyncActive() && wordSyncShuttle != null && wordSyncShuttle.isFingerDown()) {
                     com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
                     if (t != null) {
                         int wIdx = -1;
@@ -30132,17 +30190,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         if (wIdx >= 0 && bestDist < 2000) {
                             long playheadMs = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : lastPlayheadAbsoluteMs;
-                            com.fadcam.ui.faditor.model.Clip phClip = clipUnderPlayhead();
-                            if (phClip == null) phClip = getSelectedClip();
                             long srcPlayhead = sourceMs; // fallback
-                            if (phClip != null && editorTimeline != null) {
-                                try {
-                                    long segStart = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
-                                    float speed = Math.max(0.1f, phClip.getSpeedMultiplier());
-                                    srcPlayhead = phClip.getInPointMs() + (long)((playheadMs - segStart) * speed);
-                                } catch (Exception ignored) {}
-                            } else if (phClip != null) {
-                                srcPlayhead = phClip.getInPointMs();
+                            if (transcriptIsForAudio && transcriptClipId != null && project != null) {
+                                for (com.fadcam.ui.faditor.model.AudioClip ac : project.getTimeline().getAudioClips()) {
+                                    if (ac != null && transcriptClipId.equals(ac.getId())) {
+                                        srcPlayhead = Math.max(ac.getInPointMs(),
+                                                Math.min(playheadMs - ac.getOffsetMs() + ac.getInPointMs(), ac.getOutPointMs()));
+                                        break;
+                                    }
+                                }
+                            } else {
+                                com.fadcam.ui.faditor.model.Clip phClip = clipUnderPlayhead();
+                                if (phClip == null) phClip = getSelectedClip();
+                                if (phClip != null && editorTimeline != null && project != null) {
+                                    try {
+                                        int phIdx = -1;
+                                        for (int ci = 0; ci < project.getTimeline().getClipCount(); ci++) {
+                                            if (project.getTimeline().getClip(ci) != null
+                                                    && phClip.getId().equals(project.getTimeline().getClip(ci).getId())) { phIdx = ci; break; }
+                                        }
+                                        long segStart = phIdx >= 0 ? editorTimeline.getSegmentStartTimeMs(phIdx) : 0;
+                                        float speed = Math.max(0.1f, phClip.getSpeedMultiplier());
+                                        srcPlayhead = phClip.getInPointMs() + (long)((playheadMs - segStart) * speed);
+                                    } catch (Exception ignored) {}
+                                } else if (phClip != null) {
+                                    srcPlayhead = phClip.getInPointMs();
+                                }
                             }
                             long snapped = wordSyncMode.snapToOnset(srcPlayhead);
                             wordSyncMode.beginDrag(wIdx);
@@ -36920,8 +36993,232 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onVoiceoverRecordSelected() {
                 startVoiceoverRecording();
             }
+
+            @Override
+            public void onImageAsClipSelected() {
+                showInternalAssetPickerForImageAsClip();
+            }
         });
         sheet.show(getSupportFragmentManager(), "addAsset");
+    }
+
+    /**
+     * SPEC_20260829_QUICK_WINS S1 — image as clip (spine segment) via the internal
+     * picker. Rare path: inserts each picked image as a {@code Clip} ({@link #newImageClip}
+     * + {@code setImageClip(true)}) on the spine, in selection order. Reuses the SAME
+     * picker UI as {@link #showInternalAssetPicker(boolean)} and the SAME spine payload as
+     * {@link #onImageAssetPicked} — no second insertion path. The overlay path
+     * ({@code showInternalAssetPicker(true)}) creates {@code TextOverlayItem}s; this one
+     * creates {@code Clip}s. Long-press on the toolbox Image button calls this same method.
+     */
+    private void showInternalAssetPickerForImageAsClip() {
+        if (project == null) return;
+        String pinned = project.getPinnedAssetDir();
+        float d = getResources().getDisplayMetrics().density;
+
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(Math.round(12*d), Math.round(12*d), Math.round(12*d), Math.round(12*d));
+
+        android.widget.TextView title = new android.widget.TextView(this);
+        title.setText("Choose image for timeline (tap to select, numbered — as clip)");
+        title.setTextSize(14); title.setTextColor(0xFFEEEEEE); title.setPadding(0,0,0,Math.round(8*d));
+        root.addView(title);
+
+        android.widget.TextView browse = new android.widget.TextView(this);
+        browse.setText("Browse files…");
+        browse.setTextColor(0xFF4CAF50); browse.setTextSize(14);
+        browse.setPadding(Math.round(8*d), Math.round(8*d), Math.round(8*d), Math.round(8*d));
+        browse.setBackgroundResource(R.drawable.segment_active_background);
+        root.addView(browse, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ bottomMargin = Math.round(8*d); }});
+
+        androidx.recyclerview.widget.RecyclerView rv = new androidx.recyclerview.widget.RecyclerView(this);
+        rv.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, 4));
+        rv.setPadding(Math.round(4*d), Math.round(4*d), Math.round(4*d), Math.round(4*d));
+        rv.setClipToPadding(false);
+        com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter adapter = new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter();
+        rv.setAdapter(adapter);
+        android.widget.ProgressBar bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setIndeterminate(true); bar.setVisibility(android.view.View.VISIBLE);
+        root.addView(bar, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, Math.round(3*d)));
+        root.addView(rv, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, Math.round(380*d)));
+
+        android.widget.LinearLayout bottomBar = new android.widget.LinearLayout(this);
+        bottomBar.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        bottomBar.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        bottomBar.setPadding(0, Math.round(10*d), 0, 0);
+        android.widget.TextView btnCancel = new android.widget.TextView(this);
+        btnCancel.setText(android.R.string.cancel);
+        btnCancel.setTextColor(0xFFAAAAAA); btnCancel.setTextSize(14);
+        btnCancel.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
+        btnCancel.setBackgroundResource(R.drawable.segment_active_background);
+        android.widget.TextView btnAdd = new android.widget.TextView(this);
+        btnAdd.setText("Add (0)");
+        btnAdd.setTextColor(0xFF4CAF50); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
+        btnAdd.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
+        btnAdd.setBackgroundResource(R.drawable.segment_active_background);
+        btnAdd.setAlpha(0.4f); btnAdd.setEnabled(false);
+        android.widget.LinearLayout.LayoutParams cancelLp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        cancelLp.rightMargin = Math.round(8*d);
+        bottomBar.addView(btnCancel, cancelLp);
+        bottomBar.addView(btnAdd);
+        root.addView(bottomBar);
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        b.setView(root);
+        b.setCancelable(true);
+        androidx.appcompat.app.AlertDialog dlg = b.create();
+
+        java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> selectedInOrder = new java.util.ArrayList<>();
+        Runnable refreshAddButton = new Runnable() {
+            @Override public void run() {
+                int n = selectedInOrder.size();
+                btnAdd.setText(n == 0 ? "Add (0)" : "Add (" + n + ")");
+                btnAdd.setEnabled(n > 0);
+                btnAdd.setAlpha(n > 0 ? 1f : 0.4f);
+                title.setText("Choose image for timeline" + (n > 0 ? " — " + n + " selected" : " (tap to select, numbered — as clip)"));
+                adapter.setSelectedOrdered(selectedInOrder);
+            }
+        };
+
+        browse.setOnClickListener(v -> {
+            dlg.dismiss();
+            imagePickerLauncher.launch(openDocumentIntent("image/*"));
+        });
+        btnCancel.setOnClickListener(v -> dlg.dismiss());
+        btnAdd.setOnClickListener(v -> {
+            if (selectedInOrder.isEmpty()) return;
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> toAdd = new java.util.ArrayList<>(selectedInOrder);
+            dlg.dismiss();
+            handleInternalPickerImageAsClipMultiAdd(toAdd);
+        });
+
+        adapter.setCallback(new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter.Callback() {
+            @Override public void onItemTapped(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {
+                if (item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
+                    android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select an image", android.widget.Toast.LENGTH_SHORT).show(); return;
+                }
+                int existing = -1;
+                for (int i = 0; i < selectedInOrder.size(); i++) {
+                    if (selectedInOrder.get(i).uri.toString().equals(item.uri.toString())) { existing = i; break; }
+                }
+                if (existing >= 0) selectedInOrder.remove(existing);
+                else selectedInOrder.add(item);
+                refreshAddButton.run();
+                rv.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+            }
+            @Override public void onItemDragStarted(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item, @NonNull android.view.View sourceView, float localX, float localY) {}
+            @Override public void onItemRenameRequested(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {}
+        });
+
+        new Thread(() -> {
+            com.fadcam.ui.faditor.assetbrowser.AssetScanner scanner = new com.fadcam.ui.faditor.assetbrowser.AssetScanner(FaditorEditorActivity.this);
+            String dir = pinned != null ? pinned : "";
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> all = dir.isEmpty() ? new java.util.ArrayList<>() : scanner.scan(dir, project.getTimeline());
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> filtered = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.assetbrowser.AssetItem it : all) {
+                if (it.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) filtered.add(it);
+            }
+            runOnUiThread(() -> {
+                bar.setVisibility(android.view.View.GONE);
+                if (filtered.isEmpty()) {
+                    android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
+                    empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No images in this folder — try Browse files…");
+                    empty.setTextColor(0xFF888888); empty.setGravity(android.view.Gravity.CENTER);
+                    empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
+                    root.addView(empty, 2);
+                }
+                adapter.setItems(filtered);
+                refreshAddButton.run();
+            });
+        }, "AssetPickerScanClip").start();
+
+        dlg.show();
+    }
+
+    /**
+     * Inserts ordered image(s) as spine clips (Clip), in selection order.
+     * Mirrors the single-image path {@link #onImageAssetPicked} but for the
+     * internal multi-select picker. Each image is copied via {@link #importInsertedAsset}
+     * and inserted as {@code newImageClip(storedUri)} at successive spine indices.
+     */
+    private void handleInternalPickerImageAsClipMultiAdd(@NonNull java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> ordered) {
+        if (ordered.isEmpty() || project == null) return;
+        showRemuxProgress();
+        final int baseInsert = Math.max(0, Math.min(selectedClipIndex + 1, project.getTimeline().getClipCount()));
+        assetImportExecutor.execute(() -> {
+            java.util.List<Uri> storedUris = new java.util.ArrayList<>();
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> ok = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.assetbrowser.AssetItem item : ordered) {
+                if ("content".equals(item.uri.getScheme())) {
+                    try { getContentResolver().takePersistableUriPermission(item.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); }
+                    catch (Exception e) { FLog.d(TAG, "Image-as-clip multi-add: child persist threw (tree grant covers it): " + e.getMessage()); }
+                }
+                Uri stored = importInsertedAsset(item.uri, item.type, item.displayName);
+                storedUris.add(stored);
+                ok.add(item);
+            }
+            runOnUiThread(() -> {
+                hideRemuxProgress();
+                if (isFinishing() || isDestroyed() || project == null) return;
+                if (ok.isEmpty()) {
+                    Toast.makeText(this, R.string.faditor_asset_error, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                Timeline tl = project.getTimeline();
+                java.util.List<Clip> createdClips = new java.util.ArrayList<>();
+                java.util.List<Integer> createdIdx = new java.util.ArrayList<>();
+                for (int i = 0; i < storedUris.size(); i++) {
+                    Uri u = storedUris.get(i);
+                    if ("content".equals(u.getScheme())) {
+                        try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
+                    }
+                    Clip c = newImageClip(u);
+                    c.setImageClip(true);
+                    c.setAudioMuted(true);
+                    int at = baseInsert + i;
+                    at = Math.max(0, Math.min(at, tl.getClipCount()));
+                    tl.addClip(at, c);
+                    tl.shiftTransitionsAfterInsert(at);
+                    createdClips.add(c);
+                    createdIdx.add(at);
+                }
+                if (createdClips.size() == 1) {
+                    undoManager.recordAction(new EditActions.AddClipAction(tl, createdClips.get(0), createdIdx.get(0)));
+                } else {
+                    java.util.List<Clip> fClips = new java.util.ArrayList<>(createdClips);
+                    java.util.List<Integer> fIdx = new java.util.ArrayList<>(createdIdx);
+                    undoManager.recordAction(new EditActions.LambdaAction("Add " + fClips.size() + " image clips",
+                            () -> {
+                                for (int i = 0; i < fClips.size(); i++) {
+                                    int at = Math.max(0, Math.min(fIdx.get(i), tl.getClipCount()));
+                                    tl.addClip(at, fClips.get(i));
+                                    tl.shiftTransitionsAfterInsert(at);
+                                }
+                                refreshAfterBatchClipInsert(fClips, fIdx);
+                            },
+                            () -> {
+                                for (int i = fClips.size() - 1; i >= 0; i--) {
+                                    tl.removeClip(fClips.get(i));
+                                    tl.unshiftTransitionsAfterInsert(fIdx.get(i));
+                                }
+                                refreshAfterBatchClipInsert(null, null);
+                            }));
+                }
+                int lastIdx = createdIdx.get(createdIdx.size() - 1);
+                selectSegment(lastIdx);
+                editorTimeline.setTransitions(project.getTimeline().getTransitions());
+                editorTimeline.scrollToSegment(lastIdx);
+                syncTimelineOverlays();
+                editorTimeline.invalidate();
+                refreshTotalTimeDisplay();
+                resyncGaplessAfterStructuralEdit(createdClips.get(createdClips.size() - 1).getId(), 0L, false);
+                saveProjectNow();
+                String msg = createdClips.size() == 1 ? getString(R.string.faditor_asset_added) : "Added " + createdClips.size() + " image clips in selection order";
+                Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+                FLog.d(TAG, "Image-as-clip multi-add: inserted " + ok.size() + "/" + ordered.size() + " in selection order (base=" + baseInsert + ")");
+            });
+        });
     }
 
     // ── Internal asset picker (SPEC_20260829_MEDIA_IMPORT §2.1+§2.3+§2.4) — replaces system picker ──

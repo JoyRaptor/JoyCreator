@@ -971,7 +971,7 @@
     <string name="settings_option_theme">Choose Theme</string>
     <string name="settings_theme_changed">Theme changed. Applying changes...</string>
     <string name="note_theme">Choose your preferred app theme</string>
-    <!-- Below are the start and stop shortcut texts for the shortcuts that appears when we Íss on app icon   -->
+    <!-- Below are the start and stop shortcut texts for the shortcuts that appears when we press on app icon   -->
     <string name="start_recording">Start</string>
     <string name="shortcut_start_back">Start Back</string>
     <string name="shortcut_start_front">Start Front</string>

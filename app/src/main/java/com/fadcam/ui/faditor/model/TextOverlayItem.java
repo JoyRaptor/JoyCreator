@@ -915,7 +915,13 @@ public class TextOverlayItem {
             }
         }
         // Any additional track that may have presetOwned (e.g. future props) — sweep all tracks too
-        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : new java.util.ArrayList<>(keyframes.tracks())) {
+        // KeyframeSet.tracks() returns Iterable, not Collection, so the ArrayList(Collection)
+        // constructor does not apply — copy explicitly. The copy itself is REQUIRED: the loop
+        // calls removeProperty(), which mutates the very map being iterated.
+        java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> allTracks =
+                new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t0 : keyframes.tracks()) allTracks.add(t0);
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : allTracks) {
             java.util.Iterator<com.fadcam.ui.faditor.keyframe.Keyframe> it = tr.keyframes.iterator();
             while (it.hasNext()) if (it.next().presetOwned) it.remove();
             if (tr.isEmpty()) keyframes.removeProperty(tr.property);

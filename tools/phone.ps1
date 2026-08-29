@@ -73,11 +73,26 @@ switch ($Cmd) {
 
     "shot" {
         $out = if ($Rest.Count -ge 1) { $Rest[0] } else { "shot.png" }
-        # exec-out, not shell+pull: shell mangles the PNG on some Windows adb builds.
         $s = Get-Serial
-        & $adb -s $s exec-out screencap -p > $out
-        if ((Get-Item $out).Length -gt 0) { Write-Output "wrote $out ($((Get-Item $out).Length) bytes)" }
-        else { Write-Output "screenshot came back EMPTY - the device may be locked" }
+        if ($null -eq $s) { Write-Output "no device attached"; exit 1 }
+        # PowerShell's `>` is a TEXT redirect: it re-encodes the stream and prepends a BOM,
+        # so `exec-out screencap -p > file.png` produces a corrupt PNG whose first bytes are
+        # EF BB BF. It looks like it worked - the file is ~600KB - and every image tool then
+        # rejects it. Bounce through the device instead: screencap to /sdcard, then pull,
+        # which is byte-exact on Windows.
+        $tmp = "/sdcard/.phone_ps1_shot.png"
+        & $adb -s $s shell screencap -p $tmp | Out-Null
+        & $adb -s $s pull $tmp $out | Out-Null
+        & $adb -s $s shell rm -f $tmp | Out-Null
+        if (-not (Test-Path $out)) { Write-Output "screenshot failed - is the device locked?"; exit 1 }
+        $f = Get-Item $out
+        $sig = [System.IO.File]::ReadAllBytes($f.FullName)[0..3]
+        if ($sig[0] -eq 0x89 -and $sig[1] -eq 0x50) {
+            Write-Output "wrote $out ($($f.Length) bytes)"
+        } else {
+            Write-Output "wrote $out but it is NOT a PNG (first bytes $($sig -join ',')) - corrupt"
+            exit 1
+        }
     }
 
     "tap" { Adb shell input tap $Rest[0] $Rest[1] }

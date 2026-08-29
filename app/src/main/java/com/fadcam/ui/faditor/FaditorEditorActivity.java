@@ -4855,24 +4855,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Toast.makeText(this, "Copying files…", Toast.LENGTH_SHORT).show();
         // Off the main thread: this copies whole video files and would ANR for any real project.
         new Thread(() -> {
-            java.io.File mediaDir = new java.io.File(
-                    new com.fadcam.ui.faditor.project.ProjectStorage(getApplicationContext())
-                            .projectDir(target.getId()), "media");
+            // The third argument is a ProgressListener, not a directory — the consolidator
+            // derives its own media dir from the project id. This call site was written
+            // against a Result shape that never existed (alreadyLocal / failed / bytesCopied /
+            // changed()); the real one is ok / cancelled / copied / skippedInside / deduped /
+            // error. Reconciled to the actual API rather than growing the API to fit the call.
             com.fadcam.ui.faditor.project.ProjectConsolidator.Result r =
                     com.fadcam.ui.faditor.project.ProjectConsolidator.consolidate(
-                            getApplicationContext(), target, mediaDir);
-            FLog.i(TAG, "CONSOLIDATE copied=" + r.copied + " alreadyLocal=" + r.alreadyLocal
-                    + " failed=" + r.failed + " bytes=" + r.bytesCopied);
+                            getApplicationContext(), target, null);
+            FLog.i(TAG, "CONSOLIDATE ok=" + r.ok + " cancelled=" + r.cancelled
+                    + " copied=" + r.copied + " alreadyInside=" + r.skippedInside
+                    + " deduped=" + r.deduped + " error=" + r.error);
             runOnUiThread(() -> {
                 if (isFinishing() || isDestroyed()) return;
-                if (r.changed()) saveProjectNow();
-                String msg = r.failed > 0
-                        ? ("Copied " + r.copied + ", but " + r.failed + " could not be read. "
-                                + "Those still point at the original files.")
-                        : (r.copied == 0
-                                ? "Already self-contained — nothing to copy."
-                                : "Copied " + r.copied + " file(s). This project no longer depends "
-                                        + "on anything outside itself.");
+                if (r.copied > 0) saveProjectNow();
+                String msg = (!r.ok && r.error != null)
+                        ? ("Stopped: " + r.error + " Files already copied are kept, and anything "
+                                + "not copied still points at the original.")
+                        : r.cancelled
+                                ? ("Cancelled after " + r.copied + " file(s). The project still "
+                                        + "works; run it again to finish.")
+                                : (r.copied == 0
+                                        ? "Already self-contained — nothing to copy."
+                                        : "Copied " + r.copied + " file(s). This project no longer "
+                                                + "depends on anything outside itself.");
                 new androidx.appcompat.app.AlertDialog.Builder(FaditorEditorActivity.this)
                         .setTitle("Consolidate")
                         .setMessage(msg)

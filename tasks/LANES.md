@@ -122,7 +122,7 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: free
+DEVICE: SPEC_20260829_MEDIA_IMPORT (muse-spark-1.2 joy-creator) — 2026-08-29T19:35 — verifying multi-select order + cache cap + reboot check10
   released 2026-08-29T16:05 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator / muse-spark) after 5th sweep SUCCESS — install 14:23:02 (lastUpdate 14:36:12) → screenshot verify5_00→01→08→09 → re-derived Faditor 628,2110, rows 706/897/1088/1279/1470/1661/1852, editor play 542,1564 (verified head 00:00→00:03.030 pause) — see VERIFY_20260829_RESULTS.md §5. Lane still ACTIVE for full 41-check sweep if desired.
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
@@ -197,17 +197,17 @@ files: (none)
 since: 2026-08-29T12:30
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files (claim when you start): assetbrowser/AssetBrowserPanel.java + the toolbox/picker
-  entry points you find; FaditorEditorActivity ONLY if unavoidable and only when free.
+status: IDLE (2026-08-29T16:45 — muse-spark joy-creator LANDED S1: long-press affordance + chevron hint + demoted Add sheet row fixed to spine Clip via internal picker (81c739c2) + 4 acceptance screenshots (140b03de) — reorder landed 59bf0413, long-press 2c7d4dfa 321 insertions misattributed to WORD_SYNC via bare commit (recovered this commit), chevron landed 59bf0413, BUILD SUCCESSFUL 16:45 18s (also 16:34), DEVICE SANDBOX_SERIAL verified: Image tap ≤2 taps (quickwins_06), long-press dialog with overlay/clip choice (quickwins_09, dump lp2.xml), Add > More > image-as-clip still reachable (quickwins_05), toolbox after with chevron (quickwins_03_toolbox_crop/08/10), both reuse same payloads (newImageClip vs TextOverlayItem) — no second image path)
+files: (none)
+since: 2026-08-29T16:45
 
 ## SPEC_20260829_MEDIA_IMPORT — make the app's own browser the picker
-status: ACTIVE (2026-08-29T16:00 — opencode/muse-spark §2.3 multi-select + cache cap + §2.4 reboot — continuing joy-creator; §2.1 single-select LANDED f07f3eca, APK 04:12:25)
+status: ACTIVE (2026-08-29T19:30 — muse-spark-1.2 joy-creator verifying §2.3 multi-select order + cache cap 50MB/500 + §2.4 reboot durability (check 10); §2.1 LANDED f07f3eca/e6696537; BUILD SUCCESSFUL 15:29)
 files:
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (showInternalAssetPicker — multi-select numbered, Browse row, durable perm handling)
   app/src/main/java/com/fadcam/ui/faditor/assetbrowser/AssetBrowserAdapter.java  (numbered badge + selection state)
   app/src/main/java/com/fadcam/ui/faditor/assetbrowser/VideoThumbnailCache.java  (50MB/500 cap enforce + stats — no spec-site conflict)
-since: 2026-08-29T16:00
+since: 2026-08-29T19:30
 
 ## FABLE (Claude) — WORD_SYNC pure/uncontended pieces
 status: IDLE (2026-08-29 midday — landed 3 pieces of SPEC_20260829_WORD_SYNC that need no

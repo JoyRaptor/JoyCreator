@@ -18,8 +18,8 @@ public final class KeyframeGlyph {
     /** Five families — the whole contract with {@link Easing}. One switch, one place. */
     public enum Family { LINEAR, HOLD, RAMP, SMOOTH, EXOTIC }
 
-    /** Below this size the glyph is a few pixels wide — draw silhouette only, no squiggle. 14dp. */
-    public static final float DETAIL_MIN_DP = 14f;
+    /** Below this size the glyph is a few pixels wide — draw silhouette only, no squiggle. Raised to 20dp (§4.2) so interior mark only appears when large enough to read. */
+    public static final float DETAIL_MIN_DP = 20f;
     /**
      * System density estimate via {@code Resources.getSystem()} when available.
      * Used so {@link #pathFor} can decide detail threshold in px while its signature stays
@@ -188,24 +188,26 @@ public final class KeyframeGlyph {
     }
 
     private static void appendCurve(@NonNull Easing e, float cx, float cy, float r, @NonNull Path out) {
-        // Curve maps t=0..1 across x = cx .. cx + r (right half), value 0..1 maps to y = cy + r*0.75 .. cy - r*0.75
-        // Leave small inset so curve does not sit on silhouette stroke.
-        // For overshoot/spring, value <0 or >1 will poke outside the inset — intentionally.
+        // §4.1 — curve is clipped to silhouette inset so nothing pokes outside the shape.
+        // For overshoot/spring, the out-of-range part is clamped to the silhouette interior so it reads as a mark, not a glitch.
         final int STEPS = 16;
-        final float inset = r * 0.15f;
-        final float usableH = (r - inset) * 2f; // total vertical span for 0..1
-        final float yBase = cy + (r - inset); // value 0 at bottom
-        // Draw as separate contour (not closed) starting at cx, y for t=0
+        final float inset = r * 0.22f; // slightly larger inset so curve stays visibly inside stroke
+        final float usableH = (r - inset) * 2f;
+        final float yBase = cy + (r - inset);
+        final float top = cy - (r - inset);
+        final float bottom = cy + (r - inset);
+        final float right = cx + r - 0.8f;
         boolean first = true;
         for (int i = 0; i <= STEPS; i++) {
             float t = i / (float) STEPS;
             float v = e.apply(t);
-            // HOLD / STAIRS_4 are step functions — straight sample is fine (will be horizontal then jump)
-            float x = cx + t * (r - 0.5f); // small right inset so tip not on edge
-            // Clamp visualization for layout: y = yBase - v * usableH
-            // Allow v outside [0,1] to poke beyond silhouette (overshoot / spring)
+            float x = cx + t * (r - 0.5f);
+            if (x < cx) x = cx;
+            if (x > right) x = right;
             float y = yBase - v * usableH;
-            // Nudge y slightly for very small radius so line stays visible
+            // Clip to silhouette interior (§4.1) — a contained mark reads as intentional
+            if (y < top) y = top;
+            if (y > bottom) y = bottom;
             if (first) {
                 out.moveTo(x, y);
                 first = false;

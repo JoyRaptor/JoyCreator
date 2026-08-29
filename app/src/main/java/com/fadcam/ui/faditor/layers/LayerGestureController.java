@@ -1768,21 +1768,17 @@ public final class LayerGestureController {
             TextOverlayItem o = item.getTextOverlay();
             if (left) {
                 if (Math.abs(o.getStartMs() - dragStartTextStartMs) <= thrMs) {
-                    // Snapping the front home moves the start back, so the keys shifted during the
-                    // drag must come back with it — the same delta, in reverse.
-                    o.setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+                    o.setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs, lastTotalMs > 0 ? lastTotalMs : dragStartTextEndMs == Long.MAX_VALUE ? dragStartTextStartMs + 5000 : dragStartTextEndMs);
                     snapped = true;
                 }
             } else if (dragStartTextEndMs == Long.MAX_VALUE) {
-                // Original end was open-ended: compare against the DISPLAYED ghost end
-                // and restore the open end on snap.
                 if (dragStartDisplayDurMs > 0 && Math.abs(o.getEndMs()
                         - (dragStartTextStartMs + dragStartDisplayDurMs)) <= thrMs) {
-                    o.setTrimmedTimeRange(dragStartTextStartMs, Long.MAX_VALUE);
+                    o.setTrimmedTimeRange(dragStartTextStartMs, Long.MAX_VALUE, lastTotalMs > 0 ? lastTotalMs : dragStartTextStartMs + dragStartDisplayDurMs);
                     snapped = true;
                 }
             } else if (Math.abs(o.getEndMs() - dragStartTextEndMs) <= thrMs) {
-                o.setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+                o.setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs, lastTotalMs > 0 ? lastTotalMs : dragStartTextEndMs);
                 snapped = true;
             }
         } else if (item.getAudioClip() != null) {
@@ -1844,7 +1840,7 @@ public final class LayerGestureController {
                 // TRIM semantics: the keys hold their PROJECT time while the front moves. Applied
                 // per motion event and derived from the actual start delta each time, so the
                 // shifts telescope across a drag instead of accumulating.
-                o.setTrimmedTimeRange(newStart, dragStartTextEndMs);
+                o.setTrimmedTimeRange(newStart, dragStartTextEndMs, lastTotalMs > 0 ? lastTotalMs : newStart + 5000);
             } else {
                 long newEnd = Math.max(dragStartTextStartMs + MIN_TEXT_DURATION_MS, targetTimeMs);
                 newEnd = Math.min(newEnd, trimSiblingCeil(dragStartTextStartMs, newEnd));
@@ -1852,7 +1848,7 @@ public final class LayerGestureController {
                 // The right edge needs no rebase: the start is the key time base and it is
                 // unchanged here. Routed through the same method anyway so the two edges cannot
                 // drift apart later.
-                o.setTrimmedTimeRange(dragStartTextStartMs, newEnd);
+                o.setTrimmedTimeRange(dragStartTextStartMs, newEnd, lastTotalMs > 0 ? lastTotalMs : newEnd);
             }
         } else if (item.getSprite() != null) {
             applySequenceTrim(item.getSprite(), targetTimeMs, left);
@@ -2400,8 +2396,7 @@ public final class LayerGestureController {
             }
         } else {
             if (item.getTextOverlay() != null) {
-                // Abort of a TRIM: undo the start delta AND the key shift it caused, in one call.
-                item.getTextOverlay().setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs);
+                item.getTextOverlay().setTrimmedTimeRange(dragStartTextStartMs, dragStartTextEndMs, lastTotalMs > 0 ? lastTotalMs : dragStartTextEndMs == Long.MAX_VALUE ? dragStartTextStartMs + 5000 : dragStartTextEndMs);
             } else if (item.getAudioClip() != null) {
                 AudioClip ac = item.getAudioClip();
                 ac.setInPointMs(audioBeforeInMs);

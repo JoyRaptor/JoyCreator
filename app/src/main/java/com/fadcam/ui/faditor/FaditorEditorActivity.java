@@ -2,6 +2,9 @@ package com.fadcam.ui.faditor;
 
 import com.fadcam.Log;
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.project.AssetResolver;
+import com.fadcam.ui.faditor.project.ProjectBundle;
+import com.fadcam.ui.faditor.project.ProjectConsolidator;
 import android.animation.ValueAnimator;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -22556,8 +22559,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void moveTo(float normCx, float normCy, long timeMs) {
-                // Preview tweaks on preset-owned keys do NOT convert — special stickiness (§3.2)
                 if (o.hasActiveImagePreset() && o.hasPresetOwnedKeys()) {
+                    com.fadcam.ui.faditor.model.ImageAnimPreset p = o.getImageAnimPreset();
+                    if (p != null && (p.kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.ZOOM_IN || p.kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.ZOOM_OUT)) {
+                        // §2.4 — ZOOM focal drag must re-derive both keys from scratch with cover re-computed, never translate by delta
+                        float[] canvas = getCanvasWHForImagePreset();
+                        float[] img = getImageWHForPreset(o);
+                        long dur = o.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000);
+                        o.updatePresetFocalPoint(normCx, normCy, canvas[0], canvas[1], img[0], img[1], dur);
+                        refreshTextAfterHandleWrite();
+                        return;
+                    }
+                    // For PAN/SLIDE — preserve amber without converting, but translate as before (pan travel is full-overhang, translate keeps it valid)
                     float curX = o.animatedCenterX(timeMs);
                     float curY = o.animatedCenterY(timeMs);
                     float dx = normCx - curX;
@@ -22568,7 +22581,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (tr.property.equals(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y)) k.value += dy;
                         }
                     }
-                    com.fadcam.ui.faditor.model.ImageAnimPreset p = o.getImageAnimPreset();
                     if (p != null) { p.zoomCenterX += dx; p.zoomCenterY += dy; }
                     refreshTextAfterHandleWrite();
                     return;
@@ -22587,6 +22599,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void scaleTo(float sizeFraction, long timeMs) {
                 if (o.hasActiveImagePreset() && o.hasPresetOwnedKeys()) {
+                    com.fadcam.ui.faditor.model.ImageAnimPreset pp = o.getImageAnimPreset();
+                    if (pp != null && (pp.kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.ZOOM_IN || pp.kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.ZOOM_OUT)) {
+                        float[] canvas = getCanvasWHForImagePreset();
+                        float[] img = getImageWHForPreset(o);
+                        long dur = o.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000);
+                        float fillScale = Math.max(canvas[0]/img[0], canvas[1]/img[1]);
+                        float cover = (img[1]*fillScale)/canvas[1];
+                        cover = Math.max(0.02f, Math.min(10f, cover));
+                        float desiredZoomed = sizeFraction;
+                        float newRegion = cover / Math.max(0.02f, desiredZoomed);
+                        pp.zoomRegionScale = Math.max(0.2f, Math.min(2f, newRegion));
+                        o.applyImagePreset(pp.kind, canvas[0], canvas[1], img[0], img[1], dur);
+                        refreshTextAfterHandleWrite();
+                        return;
+                    }
                     float cur = o.animatedSizeFraction(timeMs);
                     if (cur > 0.001f) {
                         float ratio = sizeFraction / cur;
@@ -22596,7 +22623,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         com.fadcam.ui.faditor.model.ImageAnimPreset p = o.getImageAnimPreset();
                         if (p != null && p.kind != com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE) {
-                            // Keep zoomRegionScale in sync for persistence
                             float newZ = p.zoomRegionScale * ratio;
                             p.zoomRegionScale = Math.max(0.2f, Math.min(2f, newZ));
                         }
@@ -23407,11 +23433,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long beforeStart = o.getStartMs(), beforeEnd = o.getEndMs();
         final long afterStart = startEdge ? ph : beforeStart;
         final long afterEnd = startEdge ? beforeEnd : ph;
-        o.setTimeRange(afterStart, afterEnd);
+        long timelineDur = project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : (afterEnd == Long.MAX_VALUE ? afterStart + 5000 : afterEnd);
+        o.setTrimmedTimeRange(afterStart, afterEnd, timelineDur);
         undoManager.recordAction(new EditActions.LambdaAction(
-                startEdge ? "Overlay start" : "Overlay end",              // TODO(strings)
-                () -> { o.setTimeRange(afterStart, afterEnd); refreshOverlayAfterRangeEdit(); },
-                () -> { o.setTimeRange(beforeStart, beforeEnd); refreshOverlayAfterRangeEdit(); }));
+                startEdge ? "Overlay start" : "Overlay end",
+                () -> { o.setTrimmedTimeRange(afterStart, afterEnd, timelineDur); refreshOverlayAfterRangeEdit(); },
+                () -> { o.setTrimmedTimeRange(beforeStart, beforeEnd, timelineDur); refreshOverlayAfterRangeEdit(); }));
         refreshOverlayAfterRangeEdit();
         Toast.makeText(this, R.string.faditor_kf_range_set, Toast.LENGTH_SHORT).show();
     }
@@ -23435,7 +23462,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (o.getStartMs() == 0L && o.getEndMs() == total) return;
         com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
                 o.snapshotTransform();
-        o.setTimeRange(0L, total);
+        o.setTrimmedTimeRange(0L, total, total);
         recordOverlayMenuUndo(o, before, "Span whole timeline");
         refreshOverlayAfterRangeEdit();
     }
@@ -26995,19 +27022,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(Math.round(14 * d), 0, Math.round(14 * d), Math.round(10 * d));
 
-        // ── Fit / Fill (§3.5) — stand-alone, no animation ──
+        // ── Compact top row (§3): start · span · end + Fit + Fill + animation (§3.1) ──
         {
-            android.widget.LinearLayout fitRow = new android.widget.LinearLayout(this);
-            fitRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            fitRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            fitRow.setPadding(0, Math.round(6*d), 0, Math.round(6*d));
-            android.widget.TextView fitLabel = new android.widget.TextView(this);
-            fitLabel.setText("Size"); fitLabel.setTextColor(0xFFAAAAAA); fitLabel.setTextSize(12);
-            fitLabel.setShadowLayer(3f*d,0f,1f,0xCC000000);
-            fitRow.addView(fitLabel);
+            android.widget.LinearLayout topRow = new android.widget.LinearLayout(this);
+            topRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            topRow.setPadding(0, Math.round(6*d), 0, Math.round(6*d));
+            // Start / Span / End — same markerChip as timeline, now sharing the row
+            topRow.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_start,
+                    getString(R.string.faditor_trim_start_here),
+                    () -> setOverlayRangeEdgeAtPlayhead(o, true),
+                    () -> promptForTimeMs(R.string.faditor_trim_start_here, o.getStartMs(),
+                            ms -> setOverlayRangeEdgeAtMs(o, true, ms)),
+                    () -> Math.abs(o.getStartMs() - lastPlayheadAbsoluteMs) < MARKER_CHIP_EPSILON_MS));
+            topRow.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_span,
+                    getString(R.string.faditor_trim_span_whole),
+                    () -> spanOverlayOverTimeline(o), null,
+                    () -> overlaySpansWholeTimeline(o)));
+            topRow.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_end,
+                    getString(R.string.faditor_trim_end_here),
+                    () -> setOverlayRangeEdgeAtPlayhead(o, false),
+                    () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(o),
+                            ms -> setOverlayRangeEdgeAtMs(o, false, ms)),
+                    () -> o.getEndMs() != Long.MAX_VALUE
+                            && Math.abs(o.getEndMs() - lastPlayheadAbsoluteMs)
+                                    < MARKER_CHIP_EPSILON_MS));
+            // Divider
+            android.view.View vDiv = new android.view.View(this);
+            vDiv.setBackgroundColor(0xFF3A3A3A);
+            android.widget.LinearLayout.LayoutParams divLp = new android.widget.LinearLayout.LayoutParams(1, Math.round(24*d));
+            divLp.leftMargin = Math.round(8*d); divLp.rightMargin = Math.round(8*d);
+            topRow.addView(vDiv, divLp);
+            // Fit icon — small pill button
             android.widget.TextView fitBtn = new android.widget.TextView(this);
-            fitBtn.setText("Fit"); fitBtn.setTextColor(0xFFEEEEEE); fitBtn.setTextSize(12);
-            fitBtn.setPadding(Math.round(12*d), Math.round(6*d), Math.round(12*d), Math.round(6*d));
+            fitBtn.setText("Fit"); fitBtn.setTextColor(0xFFEEEEEE); fitBtn.setTextSize(11);
+            fitBtn.setPadding(Math.round(10*d), Math.round(5*d), Math.round(10*d), Math.round(5*d));
             fitBtn.setBackgroundResource(R.drawable.segment_active_background);
             fitBtn.setOnClickListener(v -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = o.snapshotTransform();
@@ -27018,10 +27067,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
                 if (ensureTextDrawer() != null && ensureTextDrawer().isShowing()) showImageOverlayDrawer(o);
             });
-            fitRow.addView(fitBtn, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ leftMargin = Math.round(12*d); }});
+            topRow.addView(fitBtn);
             android.widget.TextView fillBtn = new android.widget.TextView(this);
-            fillBtn.setText("Fill"); fillBtn.setTextColor(0xFFEEEEEE); fillBtn.setTextSize(12);
-            fillBtn.setPadding(Math.round(12*d), Math.round(6*d), Math.round(12*d), Math.round(6*d));
+            fillBtn.setText("Fill"); fillBtn.setTextColor(0xFFEEEEEE); fillBtn.setTextSize(11);
+            fillBtn.setPadding(Math.round(10*d), Math.round(5*d), Math.round(10*d), Math.round(5*d));
             fillBtn.setBackgroundResource(R.drawable.segment_active_background);
             fillBtn.setOnClickListener(v -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = o.snapshotTransform();
@@ -27032,100 +27081,75 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
                 if (ensureTextDrawer() != null && ensureTextDrawer().isShowing()) showImageOverlayDrawer(o);
             });
-            fitRow.addView(fillBtn, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ leftMargin = Math.round(8*d); }});
-            root.addView(fitRow);
-            android.view.View div = new android.view.View(this); div.setBackgroundColor(0xFF2A2A2A);
-            div.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1) {{ topMargin = Math.round(8*d); bottomMargin = Math.round(8*d); }});
-            root.addView(div);
-        }
-        // ── Preset chips (§3.4) ──
-        {
-            android.widget.TextView presetLabel = new android.widget.TextView(this);
-            presetLabel.setText("Animation presets"); presetLabel.setTextColor(0xFFAAAAAA); presetLabel.setTextSize(12);
-            presetLabel.setShadowLayer(3f*d,0f,1f,0xCC000000);
-            presetLabel.setPadding(0,0,0,Math.round(6*d));
-            root.addView(presetLabel);
-            String[] kinds = {"NONE","PAN_LEFT","PAN_RIGHT","PAN_UP","PAN_DOWN","ZOOM_IN","ZOOM_OUT","SLIDE_IN_LEFT","SLIDE_IN_RIGHT","SLIDE_IN_TOP","SLIDE_IN_BOTTOM"};
-            String[] labels = {"None","Pan ←","Pan →","Pan ↑","Pan ↓","Zoom In","Zoom Out","Slide ←","Slide →","Slide ↑","Slide ↓"};
-            android.widget.LinearLayout chipRow = new android.widget.LinearLayout(this);
-            chipRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            android.widget.HorizontalScrollView chipScroll = new android.widget.HorizontalScrollView(this);
-            chipScroll.setHorizontalScrollBarEnabled(false);
-            chipScroll.addView(chipRow);
-            root.addView(chipScroll, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ bottomMargin = Math.round(8*d); }});
-            com.fadcam.ui.faditor.model.ImageAnimPreset curPreset = o.getImageAnimPreset();
-            String curKind = curPreset != null ? curPreset.kind.name() : "NONE";
-            for (int i = 0; i < kinds.length; i++) {
-                final String kindName = kinds[i];
-                android.widget.TextView chip = new android.widget.TextView(this);
-                chip.setText(labels[i]); chip.setTextSize(12); chip.setPadding(Math.round(10*d), Math.round(6*d), Math.round(10*d), Math.round(6*d));
-                boolean isActive = kindName.equals(curKind);
-                chip.setTextColor(isActive ? 0xFF4CAF50 : 0xFFEEEEEE);
-                chip.setBackgroundResource(isActive ? R.drawable.segment_active_background : R.drawable.segmented_control_background);
-                chip.setAlpha(isActive ? 0.95f : 0.7f);
-                if (isActive && o.hasPresetOwnedKeys()) {
-                    chip.setText(labels[i] + " ●");
-                    chip.setTextColor(0xFFFFC107);
-                }
-                final int idx = i;
-                chip.setOnClickListener(v -> {
-                    com.fadcam.ui.faditor.model.ImageAnimPreset.Kind kindTmp;
-                    try { kindTmp = com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.valueOf(kindName); } catch (Exception e) { kindTmp = com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE; }
-                    final com.fadcam.ui.faditor.model.ImageAnimPreset.Kind kind = kindTmp;
-                    final com.fadcam.ui.faditor.model.TextOverlayItem fo = o;
-                    if (fo.hasCustomAnimation(fo.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000))) {
+            android.widget.LinearLayout.LayoutParams fillLp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            fillLp.leftMargin = Math.round(6*d);
+            topRow.addView(fillBtn, fillLp);
+            // Animation button — reuse animate A with motion lines icon (§3)
+            View animBtn = makeTextMotionIcon(d);
+            // Shrink to fit row height
+            android.widget.LinearLayout.LayoutParams animLp = new android.widget.LinearLayout.LayoutParams(Math.round(38*d), Math.round(30*d));
+            animLp.leftMargin = Math.round(8*d);
+            animBtn.setLayoutParams(animLp);
+            // Update tint based on whether preset is active
+            com.fadcam.ui.faditor.model.ImageAnimPreset cur = o.getImageAnimPreset();
+            boolean hasAnim = cur != null && cur.kind != com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE && o.hasPresetOwnedKeys();
+            animBtn.setAlpha(hasAnim ? 1f : 0.7f);
+            // Remove default leftMargin inside makeTextMotionIcon by resetting
+            topRow.addView(animBtn);
+            animBtn.setOnClickListener(v -> {
+                ImagePresetPicker.show(v, o.getImageAnimPreset() != null ? o.getImageAnimPreset().kind : com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE, kind -> {
+                    // §2.6 None becomes "No animation (reset)" — handled by applyImagePreset
+                    if (kind == com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE) {
+                        // Reset static: need canvas/img geometry
+                        float[] canvas = getCanvasWHForImagePreset();
+                        float[] img = getImageWHForPreset(o);
+                        com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = o.snapshotTransform();
+                        o.resetToStaticCover(canvas[0], canvas[1], img[0], img[1]);
+                        recordOverlayMenuUndo(o, before, "No animation (reset)");
+                        refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
+                        if (ensureTextDrawer() != null && ensureTextDrawer().isShowing()) showImageOverlayDrawer(o);
+                        return;
+                    }
+                    // Custom animation warning
+                    if (o.hasCustomAnimation(o.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000))) {
                         boolean allPreset = true;
-                        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : fo.getKeyframes().tracks()) {
+                        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : o.getKeyframes().tracks()) {
                             for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (!k.presetOwned) { allPreset = false; break; }
+                            if (!allPreset) break;
                         }
                         if (!allPreset) {
                             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                                 .setTitle("Replace animation?")
-                                .setMessage("You seem to have a custom animation. Replace it with " + labels[idx] + "?")
-                                .setPositiveButton("Replace", (d2,w) -> applyImagePresetWithUndo(fo, kind))
+                                .setMessage("You seem to have a custom animation. Replace it with " + kind.name() + "?")
+                                .setPositiveButton("Replace", (d2,w) -> applyImagePresetWithUndo(o, kind))
                                 .setNegativeButton("Keep", null)
                                 .show();
                             return;
                         }
                     }
-                    applyImagePresetWithUndo(fo, kind);
+                    applyImagePresetWithUndo(o, kind);
                 });
-                chipRow.addView(chip, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ leftMargin = idx==0?0:Math.round(6*d); }});
-            }
-            android.view.View div2 = new android.view.View(this); div2.setBackgroundColor(0xFF2A2A2A);
-            div2.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1) {{ bottomMargin = Math.round(8*d); }});
-            root.addView(div2);
+            });
+            root.addView(topRow);
+            // One-line hint for None (§2.6)
+            android.widget.TextView hint = new android.widget.TextView(this);
+            hint.setText("No animation (reset) — centred, cover-scaled, static");
+            hint.setTextColor(0xFF777777);
+            hint.setTextSize(10);
+            hint.setPadding(0, Math.round(2*d), 0, Math.round(6*d));
+            root.addView(hint);
+            android.view.View div = new android.view.View(this); div.setBackgroundColor(0xFF2A2A2A);
+            div.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1) {{ topMargin = Math.round(4*d); bottomMargin = Math.round(8*d); }});
+            root.addView(div);
         }
-
-        // Trim row: Start / Span / End chips on the LEFT (the pill style of the text drawer),
-        // red Clear all keyframes on the RIGHT. Scrub-and-tap while the drawer is open — the
-        // chips read the LIVE playhead (see setOverlayRangeEdgeAtPlayhead).
+        // Below the compact row, keep Clear all keyframes on its own small row (not counted in topRow height)
         android.widget.LinearLayout chips = new android.widget.LinearLayout(this);
         chips.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         chips.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        chips.setPadding(0, Math.round(8 * d), 0, Math.round(4 * d));
-        chips.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_start,
-                getString(R.string.faditor_trim_start_here),
-                () -> setOverlayRangeEdgeAtPlayhead(o, true),
-                () -> promptForTimeMs(R.string.faditor_trim_start_here, o.getStartMs(),
-                        ms -> setOverlayRangeEdgeAtMs(o, true, ms)),
-                () -> Math.abs(o.getStartMs() - lastPlayheadAbsoluteMs) < MARKER_CHIP_EPSILON_MS));
-        chips.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_span,
-                getString(R.string.faditor_trim_span_whole),
-                () -> spanOverlayOverTimeline(o), null,
-                () -> overlaySpansWholeTimeline(o)));
-        chips.addView(markerChip(d, MARKER_COLOR_OBJECT, R.drawable.ic_marker_flag_end,
-                getString(R.string.faditor_trim_end_here),
-                () -> setOverlayRangeEdgeAtPlayhead(o, false),
-                () -> promptForTimeMs(R.string.faditor_trim_end_here, overlayEndForPrompt(o),
-                        ms -> setOverlayRangeEdgeAtMs(o, false, ms)),
-                () -> o.getEndMs() != Long.MAX_VALUE
-                        && Math.abs(o.getEndMs() - lastPlayheadAbsoluteMs)
-                                < MARKER_CHIP_EPSILON_MS));
-        chips.addView(new android.widget.Space(this),
-                new android.widget.LinearLayout.LayoutParams(0, 0, 1f));
+        chips.setPadding(0, 0, 0, Math.round(4 * d));
+        chips.addView(new android.widget.Space(this), new android.widget.LinearLayout.LayoutParams(0,0,1f));
         final android.widget.TextView clearChip = new android.widget.TextView(this);
-        clearChip.setText("Clear all keyframes");                          // TODO(strings)
+        clearChip.setText("Clear all keyframes");
         clearChip.setTextColor(0xFFE57373);
         clearChip.setTextSize(12);
         int cp = Math.round(10 * d);

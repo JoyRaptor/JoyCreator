@@ -20,7 +20,8 @@ public class ImageAnimPreset {
         NONE,
         PAN_LEFT, PAN_RIGHT, PAN_UP, PAN_DOWN,
         ZOOM_IN, ZOOM_OUT,
-        SLIDE_IN_LEFT, SLIDE_IN_RIGHT, SLIDE_IN_TOP, SLIDE_IN_BOTTOM
+        SLIDE_IN_LEFT, SLIDE_IN_RIGHT, SLIDE_IN_TOP, SLIDE_IN_BOTTOM,
+        SLIDE_OUT_LEFT, SLIDE_OUT_RIGHT, SLIDE_OUT_TOP, SLIDE_OUT_BOTTOM
     }
 
     @NonNull public Kind kind = Kind.NONE;

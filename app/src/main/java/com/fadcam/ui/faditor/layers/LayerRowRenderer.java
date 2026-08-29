@@ -108,6 +108,8 @@ public final class LayerRowRenderer {
 
     /** C4 §1: consolidated property-keyframe diamonds (drawer accent green). */
     private final Paint kfDiamondPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** §4 white 1px stroke around every glyph so amber/green read on their tapes. */
+    private final Paint kfDiamondStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     /** C4 §3: opacity-only rubber-band envelope + its dark scrim. */
     private final Paint kfEnvLinePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint kfEnvDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2034,23 +2036,22 @@ public final class LayerRowRenderer {
         if (buckets.isEmpty()) return;
         float cy = Math.min(bottom - 4f * density, centerY + 5f * density);
         float r = 3.5f * density;
-        // Use single-source glyph silhouette (family via KeyframeGlyph) — §4.2 one renderer.
-        // Below DETAIL_MIN_PX we draw silhouette only (no muddy squiggle).
+        // §4 — every glyph gets a 1px white stroke so amber/green read on coloured tapes, and interior curve is hidden on timeline (DETAIL_MIN 20dp) to avoid reading as glitch.
         kfDiamondPaint.setStyle(Paint.Style.FILL);
+        kfDiamondStrokePaint.setStyle(Paint.Style.STROKE);
+        kfDiamondStrokePaint.setColor(0xFFFFFFFF);
+        kfDiamondStrokePaint.setStrokeWidth(1f * density);
+        kfDiamondStrokePaint.setStrokeJoin(Paint.Join.ROUND);
         for (ConsolidatedKey b : buckets) {
             float dx = timeToX.map(keyTimeToTimelineMs(item, b.timeMs));
             if (dx < x0 + 3f || dx > x1 - 3f) continue;
-            // Amber for preset-owned keys (spec §3.8) — colour only, shape stays via KeyframeGlyph.
             if (b.presetOwned && !ghosted) kfDiamondPaint.setColor(0xFFFFC107);
             else kfDiamondPaint.setColor(ghosted ? 0x664CAF50 : 0xE64CAF50);
-            // Clipping hazard §8 trap: a pentagon/overshoot curve poking outside must not be clipped
-            // by the item's clipRect — we draw inside the row but outside the item body if needed.
-            // The timeline's row clip is the row body; keep radius small so silhouette fits.
             spriteDiamondPath.rewind();
             KeyframeGlyph.silhouetteFor(b.easing, dx, cy, r, spriteDiamondPath);
+            // §4 white 1px stroke behind fill — independent of fill colour so amber on amber and green on green both read
+            canvas.drawPath(spriteDiamondPath, kfDiamondStrokePaint);
             canvas.drawPath(spriteDiamondPath, kfDiamondPaint);
-            // At this radius (7dp diameter <14dp) curve is intentionally hidden per §3.1,
-            // so we do not draw curveFor here — keeps tiny glyph clean.
         }
     }
 

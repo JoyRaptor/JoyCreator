@@ -36159,26 +36159,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onAssetTypeSelected(boolean isImage) {
-            if (isImage) {
-                imagePickerLauncher.launch(openDocumentIntent("image/*"));
-            } else {
-                // Offer FadCam's own recordings (file:// — durable, reliable for
-                // export) instead of forcing the OS picker (content:// — loses
-                // access on reinstall and fails the export asset loader).
-                VideoSourceBottomSheet vs = new VideoSourceBottomSheet();
-                vs.setCallback(new VideoSourceBottomSheet.Callback() {
-                    @Override
-                    public void onRecordingSelected(@NonNull Uri videoUri) {
-                        onVideoAssetPicked(videoUri);
-                    }
-
-                    @Override
-                    public void onBrowseDevice() {
-                        videoPickerLauncher.launch(openDocumentIntent("video/*"));
-                    }
-                });
-                vs.show(getSupportFragmentManager(), "videoSource");
-                }
+                showInternalAssetPicker(isImage);
             }
 
             @Override
@@ -36205,6 +36186,101 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         });
         sheet.show(getSupportFragmentManager(), "addAsset");
+    }
+
+    // ── Internal asset picker (SPEC_20260829_MEDIA_IMPORT §2.1) — replaces system picker ──
+    private void showInternalAssetPicker(boolean forImage) {
+        if (project == null) return;
+        // Use AssetScanner directly (same pattern AssetBrowserPanel uses) — 4-col grid, thumbnails via VideoThumbnailCache
+        String pinned = project.getPinnedAssetDir();
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        float d = getResources().getDisplayMetrics().density;
+        root.setPadding(Math.round(12*d), Math.round(12*d), Math.round(12*d), Math.round(12*d));
+
+        android.widget.TextView title = new android.widget.TextView(this);
+        title.setText(forImage ? "Choose image" : "Choose video");
+        title.setTextSize(16); title.setTextColor(0xFFEEEEEE); title.setPadding(0,0,0,Math.round(8*d));
+        root.addView(title);
+
+        android.widget.TextView browse = new android.widget.TextView(this);
+        browse.setText("Browse files…");
+        browse.setTextColor(0xFF4CAF50); browse.setTextSize(14);
+        browse.setPadding(Math.round(8*d), Math.round(8*d), Math.round(8*d), Math.round(8*d));
+        browse.setBackgroundResource(R.drawable.segment_active_background);
+        root.addView(browse, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ bottomMargin = Math.round(8*d); }});
+
+        androidx.recyclerview.widget.RecyclerView rv = new androidx.recyclerview.widget.RecyclerView(this);
+        rv.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(this, 4));
+        rv.setPadding(Math.round(4*d), Math.round(4*d), Math.round(4*d), Math.round(4*d));
+        rv.setClipToPadding(false);
+        com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter adapter = new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter();
+        rv.setAdapter(adapter);
+        android.widget.ProgressBar bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setIndeterminate(true); bar.setVisibility(android.view.View.VISIBLE);
+        root.addView(bar, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, Math.round(3*d)));
+        root.addView(rv, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, Math.round(380*d)));
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        b.setView(root);
+        b.setNegativeButton(android.R.string.cancel, null);
+        androidx.appcompat.app.AlertDialog dlg = b.create();
+
+        // Browse fallback → system picker (spec §2.1 escape hatch)
+        browse.setOnClickListener(v -> {
+            dlg.dismiss();
+            if (forImage) imagePickerLauncher.launch(openDocumentIntent("image/*"));
+            else videoPickerLauncher.launch(openDocumentIntent("video/*"));
+        });
+
+        // Tap → add in selection order, single for now (multi-select badge in adapter is next)
+        adapter.setCallback(new com.fadcam.ui.faditor.assetbrowser.AssetBrowserAdapter.Callback() {
+            @Override public void onItemTapped(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {
+                // Filter by requested type
+                if (forImage && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) {
+                    android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select an image", android.widget.Toast.LENGTH_SHORT).show(); return;
+                }
+                if (!forImage && item.type != com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) {
+                    android.widget.Toast.makeText(FaditorEditorActivity.this, "Please select a video", android.widget.Toast.LENGTH_SHORT).show(); return;
+                }
+                dlg.dismiss();
+                // Take persistable permission for content URIs (spec §2.4)
+                if ("content".equals(item.uri.getScheme())) {
+                    try { getContentResolver().takePersistableUriPermission(item.uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (SecurityException ignored) {}
+                }
+                if (forImage) onOverlayImagePicked(item.uri);
+                else onVideoAssetPicked(item.uri);
+            }
+            @Override public void onItemDragStarted(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item, @NonNull android.view.View sourceView, float localX, float localY) {}
+            @Override public void onItemRenameRequested(@NonNull com.fadcam.ui.faditor.assetbrowser.AssetItem item) {}
+        });
+
+        // Load on background, newest-first, 2-thread pool inside AssetScanner
+        new Thread(() -> {
+            com.fadcam.ui.faditor.assetbrowser.AssetScanner scanner = new com.fadcam.ui.faditor.assetbrowser.AssetScanner(FaditorEditorActivity.this);
+            String dir = pinned != null ? pinned : "";
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> all = dir.isEmpty() ? new java.util.ArrayList<>() : scanner.scan(dir, project.getTimeline());
+            // Filter to requested type for picker (plus keep Browse row separate)
+            java.util.List<com.fadcam.ui.faditor.assetbrowser.AssetItem> filtered = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.assetbrowser.AssetItem it : all) {
+                if (forImage && it.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.IMAGE) filtered.add(it);
+                if (!forImage && it.type == com.fadcam.ui.faditor.assetbrowser.AssetItem.Type.VIDEO) filtered.add(it);
+            }
+            runOnUiThread(() -> {
+                bar.setVisibility(android.view.View.GONE);
+                if (filtered.isEmpty()) {
+                    android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
+                    empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No videos in this folder — try Browse files…");
+                    empty.setTextColor(0xFF888888); empty.setGravity(android.view.Gravity.CENTER);
+                    empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
+                    root.addView(empty, 2);
+                }
+                adapter.setItems(filtered);
+            });
+        }, "AssetPickerScan").start();
+
+        dlg.show();
+        // Make dialog taller (panel was 0.55 screen, dialog is 380dp grid + header)
     }
 
     // ── Voiceover punch-in (B5) ───────────────────────────────────────

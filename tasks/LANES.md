@@ -1,5 +1,12 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# ★★ JoyRaptor PICKED the fade design: outboard KNOBS + dark CURTAIN (options 06+07, not the
+#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — UNCLAIMED.
+#
+# ★★ tasks/TAPMAP_NOTE9.md — verified tap coordinates. TWO sweeps failed on navigation and
+#    one reported a FALSE audio regression from stale coordinates. Read it before device work,
+#    and still screenshot the build you are testing.
+#
 # ★★ MORNING 2026-08-29 — JoyRaptor tested the image presets on device and found five defects.
 #    tasks/SPEC_20260829_IMAGE_PRESETS_V2.md supersedes IMAGE_ANIM_PRESETS §3.2-3.4.
 #    Presets must RESET, not stack. UNCLAIMED — this is the top of the queue.

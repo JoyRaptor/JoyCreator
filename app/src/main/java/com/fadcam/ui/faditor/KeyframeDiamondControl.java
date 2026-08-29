@@ -18,6 +18,7 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.R;
 import com.fadcam.ui.faditor.keyframe.Easing;
+import com.fadcam.ui.faditor.keyframe.KeyframeGlyph;
 
 /**
  * D2: the program-wide {@code ‹ ♦ ›} keyframe control — one reusable widget for
@@ -91,7 +92,10 @@ public final class KeyframeDiamondControl extends LinearLayout {
     /** Re-read the on-key state for {@code playheadMs} and repaint the diamond. */
     public void refresh(long playheadMs) {
         onKey = prop != null && prop.onKeyAt(playheadMs);
+        Easing easing = prop != null ? prop.segmentEasing(playheadMs) : null;
+        if (easing == null) easing = Easing.LINEAR;
         diamond.setOnKey(onKey);
+        diamond.setEasing(easing);
     }
 
     /** C7: a quick scale pop of the diamond — the "you're NOT keyframing" nudge. */
@@ -191,6 +195,14 @@ public final class KeyframeDiamondControl extends LinearLayout {
      * add/remove the key under the playhead, horizontal swipe = jump prev/next,
      * long-press = ease picker. The gesture never leaves the diamond, so it can't
      * be confused with a scrub or a row-scroll.
+     * <p>
+     * Added per SPEC 20260829 §4.3: long-press-and-drag-UP cycles to next family's
+     * default (LINEAR→HOLD→EASE_OUT→EASE_IN_OUT→SPRING→LINEAR). Chosen over two-finger tap
+     * because the control is 20dp and single-finger; two-finger requires lifting one hand
+     * and collides with system zoom. Horizontal swipe + tap + long-press already taken
+     * (header comment), vertical drag is the only free axis — up specifically to avoid
+     * conflicting with drawer drag-down to dismiss.
+     * </p>
      */
     @SuppressLint("ClickableViewAccessibility")
     private void wireDiamond(@NonNull View d) {
@@ -198,7 +210,8 @@ public final class KeyframeDiamondControl extends LinearLayout {
         final long lpTimeout = ViewConfiguration.getLongPressTimeout();
         d.setOnTouchListener(new OnTouchListener() {
             float downX, downY;
-            boolean moved, longPressed;
+            boolean moved, longPressed, dragUpCycled;
+            float maxUpDy;
             Runnable pendingLp;
 
             @Override
@@ -209,24 +222,53 @@ public final class KeyframeDiamondControl extends LinearLayout {
                         downY = e.getRawY();
                         moved = false;
                         longPressed = false;
+                        dragUpCycled = false;
+                        maxUpDy = 0f;
                         if (host != null) host.onFocus(); // touching focuses the prop
                         pendingLp = () -> {
                             longPressed = true;
                             v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-                            openEasePicker(v);
+                            // Don't open picker immediately — allow drag-up to intercept.
+                            // We mark longPressed and wait for UP to decide picker vs cycle.
                         };
                         v.postDelayed(pendingLp, lpTimeout);
                         return true;
-                    case MotionEvent.ACTION_MOVE:
-                        if (!moved && (Math.abs(e.getRawX() - downX) > slop
-                                || Math.abs(e.getRawY() - downY) > slop)) {
+                    case MotionEvent.ACTION_MOVE: {
+                        float dy = e.getRawY() - downY;
+                        float dx = e.getRawX() - downX;
+                        if (!moved && (Math.abs(dx) > slop || Math.abs(dy) > slop)) {
                             moved = true;
-                            if (pendingLp != null) v.removeCallbacks(pendingLp);
+                            // Don't cancel pendingLp yet if still within vertical drag-up window;
+                            // let long-press arm.
+                            if (!longPressed && Math.abs(dx) > slop * 1.5f && Math.abs(dx) > Math.abs(dy)) {
+                                if (pendingLp != null) v.removeCallbacks(pendingLp);
+                            }
+                        }
+                        if (longPressed) {
+                            float up = downY - e.getRawY(); // positive when dragging up
+                            if (up > maxUpDy) maxUpDy = up;
+                            if (!dragUpCycled && up > slop * 2.5f) {
+                                // Threshold crossed: cycle immediately, suppress picker
+                                dragUpCycled = true;
+                                v.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                                cycleFamily();
+                                if (pendingLp != null) v.removeCallbacks(pendingLp);
+                            }
                         }
                         return true;
+                    }
                     case MotionEvent.ACTION_UP: {
                         if (pendingLp != null) v.removeCallbacks(pendingLp);
-                        if (longPressed) return true;       // picker already opened
+                        if (dragUpCycled) {
+                            // Already cycled — don't open picker, don't do tap/nav
+                            if (host != null) host.onAction();
+                            return true;
+                        }
+                        if (longPressed) {
+                            // Stationary long-press → picker (original D2a)
+                            openEasePicker(v);
+                            return true;
+                        }
                         if (prop == null) return true;
                         float dx = e.getRawX() - downX;
                         if (moved && Math.abs(dx) > slop * 2
@@ -234,12 +276,6 @@ public final class KeyframeDiamondControl extends LinearLayout {
                             if (dx > 0) prop.nextKey(); else prop.prevKey();
                         } else if (!moved) {
                             long ph = host != null ? host.playheadMs() : 0L;
-                            // NOTHING TO KEY HERE. Measured 2026-08-05: a tap at ph=4973 wrote
-                            // a key into a PiP spanning [5501,13629] — 528ms before the object
-                            // exists, where the evaluator clamps flat and the value can never
-                            // be seen. Refuse, and SAY SO: a control that silently does nothing
-                            // is indistinguishable from one that is broken, which is exactly how
-                            // this was reported ("I wasn't able to do it").
                             if (!prop.keyableAt(ph)) {
                                 refuse(v);
                                 return true;
@@ -256,6 +292,27 @@ public final class KeyframeDiamondControl extends LinearLayout {
                     default:
                         return false;
                 }
+            }
+
+            private void cycleFamily() {
+                if (prop == null) return;
+                long ph = host != null ? host.playheadMs() : 0L;
+                Easing cur = prop.segmentEasing(ph);
+                if (cur == null) cur = Easing.LINEAR;
+                KeyframeGlyph.Family fam = KeyframeGlyph.familyOf(cur);
+                Easing next;
+                // LINEAR → HOLD → RAMP(EASE_OUT) → SMOOTH(EASE_IN_OUT) → EXOTIC(SPRING) → LINEAR
+                switch (fam) {
+                    case LINEAR: next = Easing.HOLD; break;
+                    case HOLD: next = Easing.EASE_OUT; break;
+                    case RAMP: next = Easing.EASE_IN_OUT; break;
+                    case SMOOTH: next = Easing.SPRING; break;
+                    case EXOTIC:
+                    default: next = Easing.LINEAR; break;
+                }
+                prop.setSegmentEasing(next, ph);
+                // Refresh happens via host.onAction() caller; also update local diamond immediately
+                diamond.setEasing(next);
             }
         });
     }
@@ -275,20 +332,28 @@ public final class KeyframeDiamondControl extends LinearLayout {
 
     private int dp(int v) { return (int) (v * density + 0.5f); }
 
-    /** The diamond glyph itself, drawn from a {@link Canvas} so on-key state can
-     *  render the carved {@code ×} the font glyphs can't. */
+    /** The glyph itself — was a raw diamond, now a family shape drawn via {@link KeyframeGlyph}.
+     *  Hollow = playhead not on key, solid = on key with carved ×. Curve detail comes from
+     *  {@link KeyframeGlyph#curveFor} so solid can show curve in contrasting colour. */
     private final class DiamondView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path path = new Path();
+        private final Path silhouettePath = new Path();
+        private final Path curvePath = new Path();
         private boolean drawOnKey;
-        /** Set for one short beat by {@link #flashRefused()} — the refusal's visible half. */
         private boolean refused;
+        @NonNull private Easing easing = Easing.LINEAR;
 
         DiamondView(@NonNull Context ctx) { super(ctx); }
 
         void setOnKey(boolean on) {
             if (on == drawOnKey) return;
             drawOnKey = on;
+            invalidate();
+        }
+
+        void setEasing(@NonNull Easing e) {
+            if (e == easing) return;
+            easing = e;
             invalidate();
         }
 
@@ -303,17 +368,27 @@ public final class KeyframeDiamondControl extends LinearLayout {
             float stroke = 1.6f * density;
             float cx = getWidth() / 2f, cy = getHeight() / 2f;
             float r = Math.min(getWidth(), getHeight()) / 2f - stroke - 0.5f * density;
-            path.reset();
-            path.moveTo(cx, cy - r);
-            path.lineTo(cx + r, cy);
-            path.lineTo(cx, cy + r);
-            path.lineTo(cx - r, cy);
-            path.close();
+            if (r < 1f) return;
+            KeyframeGlyph.silhouetteFor(easing, cx, cy, r, silhouettePath);
+            KeyframeGlyph.curveFor(easing, cx, cy, r, curvePath);
+            boolean hasCurve = !curvePath.isEmpty();
             if (drawOnKey) {
+                // Solid fill — silhouette filled accent, curve in contrasting sheet bg so it reads
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(ACCENT);
-                c.drawPath(path, paint);
-                // Carve a small × in the sheet background color (the "remove" mark).
+                c.drawPath(silhouettePath, paint);
+                if (hasCurve) {
+                    paint.setStyle(Paint.Style.STROKE);
+                    paint.setStrokeWidth(1.2f * density);
+                    paint.setColor(SHEET_BG);
+                    paint.setStrokeCap(Paint.Cap.ROUND);
+                    paint.setStrokeJoin(Paint.Join.ROUND);
+                    c.drawPath(curvePath, paint);
+                    // Restore for ×
+                    paint.setStrokeCap(Paint.Cap.BUTT);
+                    paint.setStrokeJoin(Paint.Join.MITER);
+                }
+                // Carved ×
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(1.8f * density);
                 paint.setColor(SHEET_BG);
@@ -321,10 +396,21 @@ public final class KeyframeDiamondControl extends LinearLayout {
                 c.drawLine(cx - d, cy - d, cx + d, cy + d, paint);
                 c.drawLine(cx - d, cy + d, cx + d, cy - d, paint);
             } else {
+                // Hollow — stroke silhouette + curve together in DIM/REFUSED
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(refused ? stroke * 1.6f : stroke);
                 paint.setColor(refused ? REFUSED : DIM);
-                c.drawPath(path, paint);
+                paint.setStrokeCap(Paint.Cap.ROUND);
+                paint.setStrokeJoin(Paint.Join.ROUND);
+                c.drawPath(silhouettePath, paint);
+                if (hasCurve) {
+                    // Curve slightly thinner so silhouette remains dominant at 20dp
+                    float curveStroke = Math.max(1f, stroke * 0.75f);
+                    paint.setStrokeWidth(curveStroke);
+                    c.drawPath(curvePath, paint);
+                }
+                paint.setStrokeCap(Paint.Cap.BUTT);
+                paint.setStrokeJoin(Paint.Join.MITER);
             }
         }
     }

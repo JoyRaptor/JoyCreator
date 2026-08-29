@@ -15,6 +15,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.keyframe.Easing;
+import com.fadcam.ui.faditor.keyframe.KeyframeGlyph;
 
 /**
  * D2a: the ease-curve picker — a compact popover anchored at the {@code ♦}
@@ -138,29 +139,22 @@ public final class EasePickerPopover {
         return view;
     }
 
-    /** One picker tile: rounded-square bg, a curve thumbnail (or ⊘ for LINEAR),
-     *  optional green selection ring. */
+    /** One picker tile: rounded-square bg, glyph silhouette + curve thumbnail (or ⊘ for LINEAR),
+     *  optional green selection ring. Now drawn via {@link KeyframeGlyph} so every site
+     *  shares the ONE mapping. */
     private static final class EaseTileView extends View {
         private final Easing easing;
         private final float density;
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Path path = new Path();
+        private final Path silhouettePath = new Path();
+        private final Path curvePath = new Path();
         private boolean selected;
-        private final float min, max; // curve's actual over-range, for vertical fit
 
         EaseTileView(@NonNull Context ctx, @NonNull Easing e, boolean selected) {
             super(ctx);
             this.easing = e;
             this.selected = selected;
             this.density = ctx.getResources().getDisplayMetrics().density;
-            float lo = 0f, hi = 1f;
-            for (int i = 0; i <= 64; i++) {
-                float v = e.apply(i / 64f);
-                if (v < lo) lo = v;
-                if (v > hi) hi = v;
-            }
-            this.min = lo;
-            this.max = hi;
         }
 
         void setSelectedRing(boolean s) {
@@ -174,13 +168,11 @@ public final class EasePickerPopover {
             float w = getWidth(), h = getHeight();
             float rad = 10 * density;
 
-            // Tile background.
             paint.setStyle(Paint.Style.FILL);
             paint.setColor(TILE_BG);
             c.drawRoundRect(0, 0, w, h, rad, rad, paint);
 
             if (easing == Easing.LINEAR) {
-                // ⊘ "linear / none" — a ring with a slash.
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(1.6f * density);
                 paint.setColor(CURVE);
@@ -189,7 +181,7 @@ public final class EasePickerPopover {
                 float s = rr * 0.72f;
                 c.drawLine(cx - s, cy + s, cx + s, cy - s, paint);
             } else {
-                drawCurve(c, w, h);
+                drawGlyph(c, w, h);
             }
 
             if (selected) {
@@ -204,41 +196,26 @@ public final class EasePickerPopover {
             }
         }
 
-        private void drawCurve(@NonNull Canvas c, float w, float h) {
-            float padX = w * 0.16f;
-            float padY = h * 0.18f;
-            float range = max - min;
-            if (range <= 0f) range = 1f;
-            float plotW = w - 2 * padX;
-            float plotH = h - 2 * padY;
-
-            // Faint baselines at value 0 and value 1 (the curve's endpoints).
+        private void drawGlyph(@NonNull Canvas c, float w, float h) {
+            float cx = w / 2f, cy = h / 2f;
+            float r = Math.min(w, h) * 0.28f;
+            // Single source: silhouette + curve drawn from Easing.apply()
+            KeyframeGlyph.silhouetteFor(easing, cx, cy, r, silhouettePath);
+            KeyframeGlyph.curveFor(easing, cx, cy, r, curvePath);
+            // Faint silhouette so family is legible at tile size
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(1f * density);
             paint.setColor(BASELINE);
-            float y0 = mapY(0f, padY, plotH, range);
-            float y1 = mapY(1f, padY, plotH, range);
-            c.drawLine(padX, y0, w - padX, y0, paint);
-            c.drawLine(padX, y1, w - padX, y1, paint);
-
-            // The curve itself, sampled straight from Easing.apply().
-            path.reset();
-            for (int i = 0; i <= 64; i++) {
-                float t = i / 64f;
-                float v = easing.apply(t);
-                float x = padX + t * plotW;
-                float y = mapY(v, padY, plotH, range);
-                if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+            paint.setStrokeCap(Paint.Cap.ROUND);
+            paint.setStrokeJoin(Paint.Join.ROUND);
+            c.drawPath(silhouettePath, paint);
+            if (!curvePath.isEmpty()) {
+                paint.setStrokeWidth(1.4f * density);
+                paint.setColor(CURVE);
+                c.drawPath(curvePath, paint);
             }
-            paint.setStrokeWidth(1.5f * density);
-            paint.setColor(CURVE);
-            c.drawPath(path, paint);
-        }
-
-        /** Value → y, inverted (value grows upward), fit into the padded plot. */
-        private float mapY(float v, float padY, float plotH, float range) {
-            float norm = (v - min) / range; // 0..1 across the curve's over-range
-            return padY + (1f - norm) * plotH;
+            paint.setStrokeCap(Paint.Cap.BUTT);
+            paint.setStrokeJoin(Paint.Join.MITER);
         }
     }
 }

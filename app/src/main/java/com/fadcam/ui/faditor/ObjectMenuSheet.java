@@ -2,6 +2,9 @@ package com.fadcam.ui.faditor;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
@@ -17,6 +20,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.keyframe.Easing;
+import com.fadcam.ui.faditor.keyframe.KeyframeGlyph;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -330,6 +334,9 @@ public final class ObjectMenuSheet extends LinearLayout {
         titleView.setSingleLine(true);
         titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         headerRow.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        TextView legendBtn = glyphButton("?", ACCENT);
+        legendBtn.setOnClickListener(v -> showGlyphLegend());
+        headerRow.addView(legendBtn);
         // No trash here: the timeline selection badge is the ONE delete affordance
         // (JoyRaptor 2026-07-17) — × stays on the right.
         TextView closeBtn = glyphButton("✕", TXT_DIM);
@@ -700,6 +707,88 @@ public final class ObjectMenuSheet extends LinearLayout {
             }
         });
         return grip;
+    }
+
+    /** SPEC 20260829 §4.4 legend: five shapes, each with name, live curve, one plain sentence. */
+    private void showGlyphLegend() {
+        Context ctx = getContext();
+        float d = density;
+        LinearLayout sheet = new LinearLayout(ctx);
+        sheet.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(16);
+        sheet.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(ctx);
+        title.setText("Keyframes — what the shapes mean");
+        title.setTextColor(TXT);
+        title.setTextSize(15);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setPadding(0, 0, 0, dp(12));
+        sheet.addView(title);
+
+        // Representative easings per family
+        addLegendRow(sheet, Easing.LINEAR, "Even", "same speed the whole way.");
+        addLegendRow(sheet, Easing.HOLD, "Hold", "stays put, then jumps.");
+        addLegendRow(sheet, Easing.EASE_OUT, "Ramp", "speeds up or slows down. The slope shows which.");
+        addLegendRow(sheet, Easing.EASE_IN_OUT, "Smooth", "eases away and eases in. The safe default.");
+        addLegendRow(sheet, Easing.SPRING, "Springy", "overshoots, wobbles or bounces.");
+
+        TextView hint = new TextView(ctx);
+        hint.setText("The little curve inside is the real motion — it’s drawn from the maths so it can’t lie.");
+        hint.setTextColor(TXT_DIM);
+        hint.setTextSize(11);
+        hint.setPadding(0, dp(12), 0, 0);
+        sheet.addView(hint);
+
+        new android.app.AlertDialog.Builder(ctx)
+                .setView(sheet)
+                .setPositiveButton("Got it", null)
+                .show();
+    }
+
+    private void addLegendRow(@NonNull LinearLayout parent, @NonNull Easing e,
+                              @NonNull String name, @NonNull String sentence) {
+        Context ctx = getContext();
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(0, dp(6), 0, dp(6));
+
+        // Glyph view — live draw via KeyframeGlyph
+        View glyph = new View(ctx) {
+            final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+            final Path sil = new Path();
+            final Path crv = new Path();
+            @Override protected void onDraw(Canvas c) {
+                float cx = getWidth() / 2f, cy = getHeight() / 2f;
+                float r = Math.min(getWidth(), getHeight()) / 2f - 2f * density;
+                KeyframeGlyph.silhouetteFor(e, cx, cy, r, sil);
+                KeyframeGlyph.curveFor(e, cx, cy, r, crv);
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(1.6f * density);
+                p.setColor(0xFFCCCCCC);
+                p.setStrokeCap(Paint.Cap.ROUND);
+                p.setStrokeJoin(Paint.Join.ROUND);
+                c.drawPath(sil, p);
+                if (!crv.isEmpty()) {
+                    p.setStrokeWidth(1.3f * density);
+                    p.setColor(ACCENT);
+                    c.drawPath(crv, p);
+                }
+            }
+        };
+        int sz = dp(28);
+        LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(sz, sz);
+        glp.rightMargin = dp(12);
+        row.addView(glyph, glp);
+
+        TextView tv = new TextView(ctx);
+        tv.setText(name + " — " + sentence);
+        tv.setTextColor(TXT);
+        tv.setTextSize(13);
+        tv.setSingleLine(false);
+        row.addView(tv, new LinearLayout.LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        parent.addView(row);
     }
 
     private TextView glyphButton(@NonNull String glyph, int color) {

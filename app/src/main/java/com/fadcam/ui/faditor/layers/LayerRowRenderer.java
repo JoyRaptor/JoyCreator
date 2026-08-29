@@ -11,7 +11,9 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
+import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.Keyframe;
+import com.fadcam.ui.faditor.keyframe.KeyframeGlyph;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
 
@@ -1960,6 +1962,38 @@ public final class LayerRowRenderer {
         return buckets;
     }
 
+    /** Consolidated bucket with representative easing (earliest key in bucket). */
+    static final class ConsolidatedKey {
+        final long timeMs;
+        final Easing easing;
+        ConsolidatedKey(long t, Easing e) { timeMs = t; easing = e; }
+    }
+
+    /** Buckets with easing — single-source family for timeline diamonds (§3 contract). */
+    @NonNull
+    static List<ConsolidatedKey> consolidatedKeysWithEasing(@NonNull TimedItem item) {
+        KeyframeSet set = keyframeSetOf(item);
+        if (set == null) return Collections.emptyList();
+        // Collect (time, easing) pairs
+        List<ConsolidatedKey> all = new ArrayList<>();
+        for (KeyframeTrack t : set.tracks()) {
+            for (Keyframe k : t.keyframes) all.add(new ConsolidatedKey(k.timeMs, k.easing));
+        }
+        if (all.isEmpty()) return Collections.emptyList();
+        all.sort((a, b) -> Long.compare(a.timeMs, b.timeMs));
+        List<ConsolidatedKey> buckets = new ArrayList<>();
+        ConsolidatedKey cur = all.get(0);
+        buckets.add(cur);
+        for (int i = 1; i < all.size(); i++) {
+            ConsolidatedKey ck = all.get(i);
+            if (ck.timeMs - cur.timeMs > KF_CONSOLIDATE_TOLERANCE_MS) {
+                cur = ck;
+                buckets.add(cur);
+            }
+        }
+        return buckets;
+    }
+
     /**
      * C4 §2 hit-test: item-LOCAL bucket time of the consolidated diamond within a generous
      * ~12dp zone of content-x {@code x}, or {@code null}. Drives the selected-item keyframe
@@ -1984,24 +2018,28 @@ public final class LayerRowRenderer {
      * just BELOW the row midline so a sprite showing both stays legible at 34dp.
      */
     private void drawItemKeyframeDiamonds(@NonNull Canvas canvas, @NonNull TimedItem item,
-                                          float x0, float x1, float top, float bottom,
-                                          float centerY, @NonNull TimeToX timeToX,
-                                          boolean ghosted) {
-        List<Long> buckets = consolidatedKeyTimesLocal(item);
+                                           float x0, float x1, float top, float bottom,
+                                           float centerY, @NonNull TimeToX timeToX,
+                                           boolean ghosted) {
+        List<ConsolidatedKey> buckets = consolidatedKeysWithEasing(item);
         if (buckets.isEmpty()) return;
         float cy = Math.min(bottom - 4f * density, centerY + 5f * density);
         float r = 3.5f * density;
+        // Use single-source glyph silhouette (family via KeyframeGlyph) — §4.2 one renderer.
+        // Below DETAIL_MIN_PX we draw silhouette only (no muddy squiggle).
+        kfDiamondPaint.setStyle(Paint.Style.FILL);
         kfDiamondPaint.setColor(ghosted ? 0x664CAF50 : 0xE64CAF50);
-        for (long b : buckets) {
-            float dx = timeToX.map(keyTimeToTimelineMs(item, b));
+        for (ConsolidatedKey b : buckets) {
+            float dx = timeToX.map(keyTimeToTimelineMs(item, b.timeMs));
             if (dx < x0 + 3f || dx > x1 - 3f) continue;
+            // Clipping hazard §8 trap: a pentagon/overshoot curve poking outside must not be clipped
+            // by the item's clipRect — we draw inside the row but outside the item body if needed.
+            // The timeline's row clip is the row body; keep radius small so silhouette fits.
             spriteDiamondPath.rewind();
-            spriteDiamondPath.moveTo(dx, cy - r);
-            spriteDiamondPath.lineTo(dx + r, cy);
-            spriteDiamondPath.lineTo(dx, cy + r);
-            spriteDiamondPath.lineTo(dx - r, cy);
-            spriteDiamondPath.close();
+            KeyframeGlyph.silhouetteFor(b.easing, dx, cy, r, spriteDiamondPath);
             canvas.drawPath(spriteDiamondPath, kfDiamondPaint);
+            // At this radius (7dp diameter <14dp) curve is intentionally hidden per §3.1,
+            // so we do not draw curveFor here — keeps tiny glyph clean.
         }
     }
 

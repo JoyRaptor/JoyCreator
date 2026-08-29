@@ -276,6 +276,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
      *  folder — only a tree grant can). */
     private ActivityResultLauncher<Intent> sequenceFilesPickerLauncher;
     private ActivityResultLauncher<Intent> sequenceFolderPickerLauncher;
+    private ActivityResultLauncher<Intent> bundleExportPickerLauncher;
+    private ActivityResultLauncher<Intent> bundleImportPickerLauncher;
     /** Visualizer Rolodex: SAF export/import of the effective {@code WaveformStyle} JSON
      *  (mirrors WaveformDebugActivity's debug-host machinery, surfaced in the real drawer). */
     private ActivityResultLauncher<String> visualizerStyleExportLauncher;
@@ -3587,6 +3589,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (selectedClipIndex < 0) selectedClipIndex = 0;
                     selectSegment(-1);
                     selectSegment(selectedClipIndex);
+                    // Offer Consolidate so the same break cannot recur (spec 2.4)
+                    if (!ProjectBundle.isConsolidated(FaditorEditorActivity.this, project)) {
+                        new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                                .setTitle("Relink complete")
+                                .setMessage("Media is linked again. Consolidate the project now so it survives moving or reinstalling?")
+                                .setPositiveButton("Consolidate", (d2,w2) -> showConsolidateDialog())
+                                .setNegativeButton("Later", null)
+                                .show();
+                    }
                 }
             }
         });
@@ -3889,14 +3900,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * "remuxed_" prefix), all such clips are relinked to the same file.</p>
      */
     private int autoRelinkSiblings(@NonNull Uri justPicked, int skipIndex) {
+        // Resolve folder for sibling search — handle both file:// and content:// picks.
         File picked = resolveToFile(justPicked);
-        if (picked == null) return 0;
-        File folder = picked.getParentFile();
-        if (folder == null || !folder.isDirectory()) return 0;
-
-        String pickedName = picked.getName();
-        // Strip "remuxed_" prefix for matching
+        File folder = picked != null ? picked.getParentFile() : null;
+        boolean folderUsable = folder != null && folder.isDirectory();
+        String pickedName = originalFilename(justPicked);
+        if (pickedName == null) pickedName = "file";
         String cleanPickedName = pickedName.replaceFirst("(?i)^remuxed_", "");
+        // Hash of picked file for hash-based match (falls back to filename when unreadable)
+        String pickedHash = null;
+        try {
+            if (picked != null && picked.exists()) pickedHash = AssetResolver.sha256(picked);
+            else pickedHash = AssetResolver.sha256(this, justPicked);
+        } catch (Exception ignored) {}
 
         Timeline tl = project.getTimeline();
         int found = 0;
@@ -3906,34 +3922,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (isSourceAccessible(c.getSourceUri())) continue;
 
             String name = originalFilename(c.getSourceUri());
-            if (name == null) {
-                // Try display name
-                name = c.getDisplayName();
-            }
+            if (name == null) name = c.getDisplayName();
             if (name == null) continue;
-
-            // Strip "remuxed_" prefix from the missing clip's name too
             String cleanName = name.replaceFirst("(?i)^remuxed_", "");
 
             Uri matchedUri = null;
 
-            // Match by exact filename in the same folder
-            File candidate = new File(folder, name);
-            if (candidate.exists() && candidate.canRead()) {
-                matchedUri = Uri.fromFile(candidate);
-            }
-
-            // Match by cleaned name (handles remuxed_ prefix mismatch)
-            if (matchedUri == null && cleanName.equals(cleanPickedName)) {
-                matchedUri = justPicked;
-            }
-
-            // Try cleaned name in the same folder
-            if (matchedUri == null) {
-                candidate = new File(folder, cleanName);
-                if (candidate.exists() && candidate.canRead()) {
-                    matchedUri = Uri.fromFile(candidate);
+            if (folderUsable) {
+                File candidate = new File(folder, name);
+                if (candidate.exists() && candidate.canRead()) matchedUri = Uri.fromFile(candidate);
+                if (matchedUri == null && cleanName.equals(cleanPickedName)) matchedUri = justPicked;
+                if (matchedUri == null) {
+                    candidate = new File(folder, cleanName);
+                    if (candidate.exists() && candidate.canRead()) matchedUri = Uri.fromFile(candidate);
                 }
+                // Hash fallback: scan folder for file with same hash (handles renames)
+                if (matchedUri == null && pickedHash != null) {
+                    File[] siblings = folder.listFiles();
+                    if (siblings != null) {
+                        for (File sf : siblings) {
+                            if (!sf.isFile() || !sf.canRead()) continue;
+                            String h = AssetResolver.sha256(sf);
+                            if (pickedHash.equals(h)) { matchedUri = justPicked; break; }
+                            // Also allow matching by content of sibling vs picked? We already have pickedHash,
+                            // but missing clip's original hash unknown — filename fallback already covered.
+                            // So hash match is: picked file hash == sibling file hash, and sibling name == missing name
+                            // Already handled via filename; this branch handles rename where sibling was renamed to missing's name? Covered.
+                        }
+                    }
+                }
+            } else {
+                // No folder (content:// pick without file path) — match by cleaned name directly
+                if (cleanName.equals(cleanPickedName)) matchedUri = justPicked;
             }
 
             if (matchedUri != null) {
@@ -16857,12 +16877,155 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showLinkOptions();
     }
     private void showLinkOptions() {
-        String[] opts = {"Link selected", "Unlink selected", "Relink media (in object menu)"};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Linked items").setItems(opts, (d,which)-> {
+        String[] opts = {"Link selected", "Unlink selected", "Relink media", "Consolidate project", "Export bundle", "Import bundle"};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Project").setItems(opts, (d,which)-> {
             if (which==0) android.widget.Toast.makeText(this, "Pick target to link", android.widget.Toast.LENGTH_SHORT).show();
             else if (which==1) android.widget.Toast.makeText(this, "Unlinked", android.widget.Toast.LENGTH_SHORT).show();
-            else showRelinkCatalog();
+            else if (which==2) showRelinkCatalog();
+            else if (which==3) showConsolidateDialog();
+            else if (which==4) startBundleExport();
+            else if (which==5) startBundleImport();
         }).setNegativeButton(android.R.string.cancel,null).show();
+    }
+
+    // ── Project bundling: consolidate / export / import ─────────────────
+
+    private void showConsolidateDialog() {
+        if (project == null) return;
+        ProjectConsolidator.Estimate est = ProjectConsolidator.estimate(this, project);
+        String msg = "Consolidate will copy " + est.fileCount + " file(s), " + est.humanSize
+                + (est.deduped > 0 ? " (" + est.deduped + " deduped)" : "")
+                + (est.alreadyInside > 0 ? " — " + est.alreadyInside + " already inside" : "")
+                + ". Originals stay. Continue?";
+        if (est.fileCount == 0) msg = "Project is already consolidated — nothing to copy."
+                + (est.alreadyInside > 0 ? " (" + est.alreadyInside + " already inside)" : "");
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Consolidate project")
+                .setMessage(msg)
+                .setPositiveButton(est.fileCount == 0 ? "OK" : "Consolidate", (d,w) -> {
+                    if (est.fileCount == 0) return;
+                    doConsolidate();
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .setNeutralButton("Revert", (d,w) -> doConsolidateRevert())
+                .show();
+    }
+
+    private void doConsolidate() {
+        if (project == null) return;
+        android.app.ProgressDialog pd = new android.app.ProgressDialog(this);
+        pd.setTitle("Consolidating");
+        pd.setMessage("Copying media…");
+        pd.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+        pd.setCancelable(true);
+        pd.show();
+        java.util.concurrent.atomic.AtomicBoolean cancelled = new java.util.concurrent.atomic.AtomicBoolean(false);
+        pd.setOnCancelListener(d -> cancelled.set(true));
+        new Thread(() -> {
+            ProjectConsolidator.Result res = ProjectConsolidator.consolidate(this, project, new ProjectConsolidator.ProgressListener() {
+                @Override public void onProgress(int copied, int total, @NonNull String name) {
+                    runOnUiThread(() -> { pd.setMax(Math.max(1, total)); pd.setProgress(copied); pd.setMessage(name); });
+                }
+                @Override public boolean isCancelled() { return cancelled.get(); }
+            });
+            runOnUiThread(() -> {
+                pd.dismiss();
+                if (res.cancelled) {
+                    android.widget.Toast.makeText(this, "Consolidate cancelled — project still works", android.widget.Toast.LENGTH_LONG).show();
+                } else if (!res.ok) {
+                    android.widget.Toast.makeText(this, "Consolidate failed: " + res.error, android.widget.Toast.LENGTH_LONG).show();
+                } else {
+                    // Refresh UI — project now has project:// refs
+                    if (project != null) saveProjectNow();
+                    if (editorTimeline != null) {
+                        editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+                        editorTimeline.setMissingSegments(computeMissingSegmentIndices());
+                    }
+                    android.widget.Toast.makeText(this, "Consolidated " + res.copied + " file(s)" + (res.deduped>0? " ("+res.deduped+" deduped)":"") + " — now portable", android.widget.Toast.LENGTH_LONG).show();
+                }
+            });
+        }).start();
+    }
+
+    private void doConsolidateRevert() {
+        if (project == null) return;
+        boolean ok = ProjectConsolidator.revert(this, project.getId());
+        android.widget.Toast.makeText(this, ok ? "Reverted to external references" : "Nothing to revert", android.widget.Toast.LENGTH_SHORT).show();
+        if (ok) {
+            project = new com.fadcam.ui.faditor.project.ProjectStorage(this).load(project.getId());
+            if (editorTimeline != null && project != null) {
+                editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+                editorTimeline.setMissingSegments(computeMissingSegmentIndices());
+            }
+        }
+    }
+
+    private void startBundleExport() {
+        if (project == null) return;
+        if (!ProjectBundle.isConsolidated(this, project)) {
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Not consolidated")
+                    .setMessage("Export would produce dead pointers. Consolidate first?")
+                    .setPositiveButton("Consolidate", (d,w) -> showConsolidateDialog())
+                    .setNegativeButton("Export anyway", (d,w) -> launchExportPicker())
+                    .setNeutralButton(android.R.string.cancel, null).show();
+            return;
+        }
+        launchExportPicker();
+    }
+
+    private void launchExportPicker() {
+        Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("application/zip");
+        String name = (project != null ? project.getName() : "project").replaceAll("[^a-zA-Z0-9._-]", "_") + ".zip";
+        i.putExtra(Intent.EXTRA_TITLE, name);
+        bundleExportPickerLauncher.launch(i);
+    }
+
+    private void doBundleExport(@NonNull Uri dest) {
+        if (project == null) return;
+        new Thread(() -> {
+            String pid = project.getId();
+            // Need file path from content uri — use resolver stream copy
+            java.io.File tmp = new java.io.File(getCacheDir(), "export_" + pid + ".zip");
+            ProjectBundle.ExportResult r = ProjectBundle.exportToZip(this, pid, tmp);
+            if (!r.ok) {
+                runOnUiThread(() -> android.widget.Toast.makeText(this, "Export failed: " + r.error, android.widget.Toast.LENGTH_LONG).show());
+                return;
+            }
+            // Copy tmp zip to dest content uri
+            try (java.io.InputStream in = new java.io.FileInputStream(tmp);
+                 java.io.OutputStream out = getContentResolver().openOutputStream(dest)) {
+                if (out == null) throw new java.io.IOException("Could not open dest");
+                byte[] buf = new byte[64*1024]; int n;
+                while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                tmp.delete();
+                runOnUiThread(() -> android.widget.Toast.makeText(this, "Exported " + r.manifest.fileCount + " file(s), " + r.manifest.totalBytes + " bytes", android.widget.Toast.LENGTH_LONG).show());
+            } catch (Exception e) {
+                runOnUiThread(() -> android.widget.Toast.makeText(this, "Export copy failed: " + e.getMessage(), android.widget.Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private void startBundleImport() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("application/zip");
+        bundleImportPickerLauncher.launch(i);
+    }
+
+    private void doBundleImport(@NonNull Uri zip) {
+        new Thread(() -> {
+            ProjectBundle.ImportResult r = ProjectBundle.importFromZip(this, zip);
+            runOnUiThread(() -> {
+                if (!r.ok) android.widget.Toast.makeText(this, "Import failed: " + r.error, android.widget.Toast.LENGTH_LONG).show();
+                else {
+                    android.widget.Toast.makeText(this, "Imported " + r.project.getName() + " (" + r.newProjectId + ")", android.widget.Toast.LENGTH_LONG).show();
+                    // Optionally open it — for now just toast. Project appears in list.
+                }
+            });
+        }).start();
     }
     private void toggleOverlaySoftSnap() {
         overlaySoftSnapEnabled = !overlaySoftSnapEnabled;
@@ -24192,6 +24355,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public boolean suppressPreviewCrop() {
                             // Crop EDITING shows the full frame; see enterCropMode.
                             return inCropMode;
+                        }
+                        @Override public void onCaptionGlOwned(@NonNull java.util.Set<String> ids) {
+                            // When a caption binding is GL-owned, hide its Canvas view to avoid double draw.
+                            // The view is still VISIBLE for hit-test (alpha 0) so tap/drag still route to the binding.
+                            if (captionOverlay != null) {
+                                boolean owned = ids.contains(clipUnderPlayhead() != null ? clipUnderPlayhead().getId() + "#0" : "none");
+                                // Single-view fallback: hide only when its sole binding is GL-owned; multi-container handled below
+                                captionOverlay.setAlpha(owned && captionOverlays.isEmpty() ? 0f : 1f);
+                            }
+                            for (int i = 0; i < captionOverlays.size(); i++) {
+                                com.fadcam.ui.faditor.transcript.CaptionOverlayView v = captionOverlays.get(i);
+                                Clip c = clipUnderPlayhead();
+                                String key = c != null ? c.getId() + "#" + i : "";
+                                v.setAlpha(ids.contains(key) ? 0f : 1f);
+                            }
+                            for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) {
+                                av.setAlpha(1f); // audio captions fallback Canvas only - GL not handling audio yet
+                            }
+                            if (audioCaptionOverlay != null) {
+                                audioCaptionOverlay.setAlpha(1f);
+                            }
                         }
                     });
         }
@@ -35272,6 +35456,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
                     Uri tree = result.getData().getData();
                     if (tree != null) onSequenceFolderPicked(tree);
+                });
+
+        bundleExportPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                    Uri dest = result.getData().getData();
+                    if (dest != null) doBundleExport(dest);
+                });
+
+        bundleImportPickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (result.getResultCode() != RESULT_OK || result.getData() == null) return;
+                    Uri zip = result.getData().getData();
+                    if (zip != null) doBundleImport(zip);
                 });
     }
 

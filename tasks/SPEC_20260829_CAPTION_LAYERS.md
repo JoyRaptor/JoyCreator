@@ -140,23 +140,75 @@ in a shared pure class and call it from both.
 bindings, that cache must key on the binding, not the clip — otherwise track 2 inherits
 track 1's fitted size. Check this; it is an easy miss and it will look like a font bug.
 
-### 3.5 The UI
+### 3.5 The UI — the PREVIEW is the primary selector
 
-In the caption drawer, above the existing style controls, a compact **track list**:
+**Selection happens by touching the caption on the canvas, not by picking it from a
+list.** JoyRaptor, describing what he expects:
+
+> "a different caption would appear on my preview window and I could just tap on it,
+> place it, move it around, double tap for its preferences, or tap on the first closed
+> captioning box in the preview and toggle working between them by whichever one is
+> active — and it will automatically switch which tracks are being shown in the
+> transcription drawer by which one I have actively touched last."
+
+That is the contract. Implement exactly it:
+
+| Gesture on a caption in the preview | Result |
+|---|---|
+| **Tap** | that binding becomes the ACTIVE one |
+| **Drag** | moves the active binding (`centerX`/`centerY`) |
+| **Pinch** | `sizeFraction` of the active binding |
+| **Double-tap** | opens the caption drawer targeted at that binding |
+
+**The active binding drives everything else.** The caption drawer, the Fit tab, the font
+row, the words-per-cue dial AND the transcript drawer all follow the last-touched
+caption. This is the single most important UI rule in this spec: **the drawer does not
+grow, it retargets.**
+
+Making the transcript drawer follow the active binding is the half most likely to be
+missed. It is what makes the whole thing usable: tap the lyrics on screen and the
+transcript drawer is showing lyrics; tap the references and it is showing references. The
+source-switching machinery for that already exists from `b52e2727` — you are choosing the
+source programmatically instead of from the chooser sheet.
+
+Hit-testing: the topmost enabled binding whose drawn text bounds contain the touch wins.
+Only the ACTIVE binding may be dragged — a tap on an inactive one selects it and does
+**not** also move it, or the user will nudge a caption every time they switch.
+
+A compact **track list** still belongs in the caption drawer, as the way to reach a
+binding that is currently off-screen or disabled, and as the place to add and remove:
 
 ```
  ● Lyrics          [pop]      👁
  ● References      [hidden]   👁      + Add caption track
 ```
 
-- Tapping a row **selects** it — every existing control in the drawer (style, font, Fit
-  tab, position, size, the words-per-cue dial) now edits the selected binding. This is the
-  single most important UI rule in this spec: **the drawer does not grow, it retargets.**
+- Tapping a row selects it — same effect as tapping it in the preview.
 - The eye toggles `enabled`.
-- `+ Add caption track` opens the transcript chooser that already exists from `b52e2727`,
-  then appends a binding with a sensible default position (track 2 goes ABOVE track 1, not
-  on top of it — offset `centerY` by about 0.12 of canvas height).
+- `+ Add caption track` opens the transcript chooser from `b52e2727`, then appends a
+  binding with a sensible default position (a new track goes ABOVE the existing ones, not
+  on top of them — offset `centerY` by about 0.12 of canvas height per track).
 - Long-press a row to rename or delete it.
+
+### 3.6 Two bindings MAY point at the same transcript
+
+This is legal and useful — do not add a uniqueness check. JoyRaptor's project wants three
+tracks:
+
+| Track | Content | Style |
+|---|---|---|
+| 1 | song lyrics | the timing spine, bottom |
+| 2 | the reference, e.g. "John 3:16" | its own colour and font |
+| 3 | the verse text itself | a third font, above |
+
+Tracks 2 and 3 hold **different text on the same timings**. Today that is achieved by
+importing two transcripts whose word timings match — which is free, because both are
+AI-generated from the same source and can simply be emitted with identical timings.
+
+**Known future need, explicitly NOT in this spec:** if the user later retimes a word on
+track 2, track 3 does not follow. A `timingSourceBinding` link would fix that. Do not add
+the field — an unused field is the exact "written and never read" trap that caused three
+bugs on 2026-08-28. It is recorded here so the next spec knows it is wanted.
 
 On the timeline, `Timeline#getCaptionTracks()` (line 2093) builds a single read-only
 `Track` row with the label `"CC"`. Make it build **one row per binding**, labelled with
@@ -198,9 +250,13 @@ text inside a cue, and anything in the audio graph.
    open it in the OLD build: captions still render. Screenshot all three states. **A
    project that loses its captions on load is a total failure of this spec** — check this
    before anything else.
-3. **Two tracks, one clip.** On JoyRaptor's music project: lyrics transcript on track 1
-   bottom-centre, scripture transcript on track 2 above it, different style. Screenshot
-   with both visible and non-overlapping.
+3. **Three tracks, one clip.** On JoyRaptor's music project: lyrics on track 1 bottom-centre,
+   scripture reference on track 2 above it, verse text on track 3 above that — three
+   styles, three fonts. Screenshot with all three visible and non-overlapping.
+3b. **Preview selection round trip.** Tap track 1 in the preview: the caption drawer AND
+   the transcript drawer both switch to it. Tap track 3: both switch again. Screenshot
+   both states. **This is the acceptance for §3.5 and it is the half most likely to be
+   skipped.** Double-tap opens the drawer on that binding.
 4. **Preview equals export.** Export ~15 s that contains both tracks. Compare a frame from
    the preview against the same frame from the export. Same text, same size, same
    position. Attach both frames. If they differ, §3.4 is not done.

@@ -101,10 +101,16 @@ public final class PcmSidecar {
      * {@link ShortBuffer} carries a position. One handle serves one reader — in practice the
      * one {@code ScrubEngine} feeder thread.</p>
      */
-    public static final class Handle {
+    public static final class Handle implements OnsetDetector.Samples {
         private final ShortBuffer samples;
         /** Total mono frames in the bake. */
         public final int frames;
+
+        // OnsetDetector.Samples. The dependency points THIS way on purpose: OnsetDetector is
+        // pure Java so the JVM harness can pin its heuristics against synthetic signals, and
+        // an adapter living over there would drag android.media onto its compile path.
+        @Override public int count() { return frames; }
+        @Override public float at(int index) { return frameAt(index); }
 
         private Handle(@NonNull ShortBuffer samples, int frames) {
             this.samples = samples;

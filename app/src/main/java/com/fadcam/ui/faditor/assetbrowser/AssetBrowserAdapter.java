@@ -26,8 +26,6 @@ import com.fadcam.R;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * RecyclerView adapter for the asset browser grid.
@@ -54,8 +52,6 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
     private Callback callback;
     @Nullable
     private AssetItem highlightedItem;
-
-    private final ExecutorService thumbExecutor = Executors.newFixedThreadPool(2);
 
     public interface Callback {
         void onItemTapped(@NonNull AssetItem item);
@@ -206,19 +202,26 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             holder.durationText.setVisibility(View.GONE);
         }
 
-        // Thumbnail loading
-        holder.imageView.setImageDrawable(null);
+        // Thumbnail loading — SPEC_20260829_MEDIA_IMPORT §2.2
+        // Images: Glide as before (SAF content:// is fine for images).
+        // Videos: VideoThumbnailCache (MediaMetadataRetriever.getScaledFrameAtTime at
+        // ~10% in, disk+mem cache via DurableCache "vidthumb", bounded pool 2 threads).
+        // Do NOT use Glide for video — it cannot pull a frame from SAF content:// on
+        // these devices (grid stays black = the bug JOYRAPTOR reported).
         if (item.type == AssetItem.Type.IMAGE) {
+            // Cancel any stale video thumb work if view was recycled from video.
+            VideoThumbnailCache.cancel(holder.imageView);
+            holder.imageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
             Glide.with(ctx).load(item.uri).centerCrop().into(holder.imageView);
         } else if (item.type == AssetItem.Type.VIDEO) {
-            // Use Glide's video frame extraction
-            Glide.with(ctx)
-                    .load(item.uri)
-                    .centerCrop()
-                    .placeholder(Color.parseColor("#FF222222"))
-                    .into(holder.imageView);
+            int thumbPx = (int) (80 * ctx.getResources().getDisplayMetrics().density);
+            // Fallback to 160px minimum so scaled decode is not postage-stamp.
+            if (thumbPx < 160) thumbPx = 160;
+            VideoThumbnailCache.load(ctx, item, holder.imageView, thumbPx);
         } else {
             // Audio: show music note placeholder
+            VideoThumbnailCache.cancel(holder.imageView);
+            holder.imageView.setScaleType(ImageView.ScaleType.CENTER);
             holder.imageView.setBackgroundColor(Color.parseColor("#FF1A2A1A"));
             holder.imageView.setImageDrawable(null);
         }

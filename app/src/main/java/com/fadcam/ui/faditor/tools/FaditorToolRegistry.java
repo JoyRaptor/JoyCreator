@@ -71,14 +71,18 @@ public final class FaditorToolRegistry {
         add(t, "add_asset", R.id.tool_add_asset, R.id.tool_add_asset_icon, R.id.tool_add_asset_label,
                 ctx.getString(R.string.faditor_tool_add), "add_circle",
                 FaditorTool.BindMode.CLICK, false);
+        // SPEC_20260829_QUICK_WINS §1: Image (overlay) is the common documentary action;
+        // image-as-clip (spine segment) is rare. Promote overlay to sit beside Add so it
+        // is reachable in ≤2 taps, beside the other primary Add/Transition/Captions/Visualizer
+        // entry points. The clip path is demoted to Add's secondary section / long-press.
+        add(t, "sticker", R.id.tool_sticker, R.id.tool_sticker_icon, R.id.tool_sticker_label,
+                ctx.getString(R.string.faditor_tool_sticker), "image",
+                FaditorTool.BindMode.CLICK, false);
         add(t, "text", R.id.tool_text, R.id.tool_text_icon, R.id.tool_text_label,
                 ctx.getString(R.string.faditor_tool_text), "text_fields",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "visualizer", R.id.tool_visualizer, R.id.tool_visualizer_icon, R.id.tool_visualizer_label,
                 "Visualizer", "music_note",
-                FaditorTool.BindMode.CLICK, false);
-        add(t, "sticker", R.id.tool_sticker, R.id.tool_sticker_icon, R.id.tool_sticker_label,
-                ctx.getString(R.string.faditor_tool_sticker), "image",
                 FaditorTool.BindMode.CLICK, false);
         // "closed_caption" is the CC badge, which is literally what captions ARE. It was on
         // Transcript, where it meant nothing, while Captions wore "subtitles" — a stack of

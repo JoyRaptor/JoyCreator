@@ -147,33 +147,28 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 (int) (20 * dp), (int) (16 * dp));
         root.addView(title);
 
-        // Image row
+        // Video row — primary spine addition (video is still a spine clip; image-as-clip
+        // is the rare case and is demoted to the bottom section — see bottom of sheet).
         root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_image),
-                "image", materialIcons, dp,
-                () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
+                getString(R.string.faditor_add_asset_video),
+                "videocam", materialIcons, dp,
+                () -> { if (callback != null) callback.onAssetTypeSelected(false); }));
 
-        // Image-as-new-layer row (reliable cross-layer path — closes the
-        // "can't add an image to a new layer" blocker). TODO(strings).
+        // Image-as-new-layer — overlay on a NEW floating layer track (the reliable cross-
+        // layer path). Kept near Video because it is ALSO an overlay-like addition, not a
+        // spine segment. Uses the SAME image payload as the toolbox Image overlay.
         root.addView(createOptionRow(
                 "Image as new layer",
                 "layers", materialIcons, dp,
                 () -> { if (callback != null) callback.onImageAsNewLayerSelected(); }));
 
-        // Black clip row — a spine still with no picture. Sits beside Image because that is
-        // what it IS (JoyRaptor, 2026-08-18: "having it be part of image"): the same still-clip
-        // machinery the gap spacer already uses, so it saves, previews and exports black with
-        // no new rendering path. TODO(strings)
+        // Black clip — a spine still with no picture (title card / pause). Kept here
+        // because it IS a spine segment, same machinery as image-as-clip, but it is its
+        // own concept (JoyRaptor: "having it be part of image").
         root.addView(createOptionRow(
                 "Black clip (title card / pause)",
                 "crop_din", materialIcons, dp,
                 () -> { if (callback != null) callback.onBlankClipSelected(); }));
-
-        // Video row
-        root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_video),
-                "videocam", materialIcons, dp,
-                () -> { if (callback != null) callback.onAssetTypeSelected(false); }));
 
         // Overlay video (PiP) row — feature-flagged with M-COMP-2.
         if (com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.LIVE_PIP) {
@@ -209,6 +204,31 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 "FX Adjustment Layer",
                 "auto_fix_high", materialIcons, dp,
                 () -> { if (callback != null) callback.onAdjustmentLayerSelected(); }));
+
+        // ── Demoted: Image as clip (spine segment) — SPEC_20260829_QUICK_WINS §1 ──
+        // The RARE path: inserting a picture as its own segment of the spine. Promoted
+        // Image (overlay) lives in the toolbox (≤2 taps, beside Add); this stays reachable
+        // but is deliberately last and visually de-emphasized. Long-press on the toolbox
+        // Image button will also offer this same callback (same code path, no duplicate).
+        View demoteDivider = new View(requireContext());
+        demoteDivider.setBackgroundColor(0xFF2A2A2A);
+        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        divLp.setMargins((int)(12*dp), (int)(16*dp), (int)(12*dp), (int)(8*dp));
+        demoteDivider.setLayoutParams(divLp);
+        root.addView(demoteDivider);
+
+        TextView demoteHeader = new TextView(requireContext());
+        demoteHeader.setText("More — timeline segments");
+        demoteHeader.setTextColor(0xFF666666);
+        demoteHeader.setTextSize(11);
+        demoteHeader.setPadding((int)(20*dp), 0, (int)(20*dp), (int)(6*dp));
+        root.addView(demoteHeader);
+
+        root.addView(createOptionRow(
+                getString(R.string.faditor_add_asset_image) + " as clip (timeline segment — rare)",
+                "image", materialIcons, dp,
+                () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);

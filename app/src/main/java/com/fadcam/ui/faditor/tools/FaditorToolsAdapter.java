@@ -820,6 +820,28 @@ public class FaditorToolsAdapter {
                 label, 7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
         cell.addView(label);
 
+        // SPEC_20260829_QUICK_WINS §1: Image overlay is common; image-as-clip (spine)
+        // is rare and reachable via long-press on this same button. Add a tiny chevron
+        // so the gesture is discoverable — a hidden gesture with no affordance is the
+        // same as a deleted feature.
+        if ("sticker".equals(tool.id)) {
+            TextView chevron = new TextView(context);
+            LinearLayout.LayoutParams chevronLp = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            chevronLp.topMargin = dp(1);
+            chevronLp.gravity = Gravity.CENTER_HORIZONTAL;
+            chevron.setLayoutParams(chevronLp);
+            chevron.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
+            chevron.setText("expand_more");
+            chevron.setTextColor(0xFF666666);
+            chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
+            chevron.setGravity(Gravity.CENTER);
+            chevron.setAlpha(0.85f);
+            // Content description for accessibility: hints long-press.
+            chevron.setContentDescription("Long-press for Image as clip");
+            cell.addView(chevron);
+        }
+
         return cell;
     }
 

@@ -40,6 +40,31 @@ So: **outboard knobs for the grip, a dark curtain inside the clip for the readou
 - **Identical for audio volume fades and image opacity fades.** One drawing routine, one hit
   test, shared. JoyRaptor: *"whatever we do for one, we should do for the other."*
 
+### 2.1a THE KNOB MOVES. This is the most important line in the spec.
+
+> "The knobs move right? The previous triangles didn't move and I didn't like that. The knobs
+> should be above the trim area if no fade, and inwards if you have applied a fade — inwards
+> by as much as you're fading."
+
+**The knob's POSITION IS the readout.** At rest it sits directly above the trim zone at the
+clip's edge — fade = 0. Drag it inward and it stays where you put it, and the distance from
+the edge IS the fade length, permanently, at a glance.
+
+This is precisely what the old triangles got wrong and why they had to go: they were drawn
+at a fixed 20×12dp inset whatever the fade was, so a 0.2s fade and a 4s fade were pixel-
+identical. The control showed that a fade COULD exist, never that one DID. Everything else in
+this spec is comfort; this is the part that makes the feature work.
+
+Consequences to get right:
+
+- The knob is positioned from the MODEL every layout pass — `fadeInMs` / `fadeOutMs` mapped
+  through the timeline's current scale. Never cached in view state, or it drifts on zoom.
+- **Zooming re-places it**, because the same fade is a different number of pixels at a
+  different zoom. Check this explicitly; it is the easy miss.
+- The two knobs must never cross. Clamp each to the other, and to the clip's own length.
+- On a clip too short to show both, they collide at the middle: clamp both to the midpoint
+  and let the veils meet. Do not hide one.
+
 ⚠️ **The top row has nothing above it to float into.** The study flags this and it is the
 one real weakness of option 06. Handle it explicitly: reserve a small top pad on the
 timeline, or flip the knob to hang below the top edge for the first row only. **Say which
@@ -78,6 +103,40 @@ lined up with a cut or another item's fade in a different row.
 Make it a real snap target, not just a drawn line: while dragging a knob, snap to other
 items' fade boundaries and clip edges in **other lanes**, within the same tolerance the
 timeline already uses elsewhere. A dotted line you can see but not snap to is a tease.
+
+---
+
+### 2.5 What else gets fade knobs
+
+JoyRaptor: *"This should be something we have also on the CC… what else could use these?"*
+
+He is describing a general control, not an image feature. **Build it as one component with N
+hosts, not as image code someone later copies onto captions.** The rule is simple: *any timed
+object with a 0..1 intensity has fade knobs.*
+
+| Host | Property | Note |
+|---|---|---|
+| Audio clip | volume | exists today |
+| Image / video overlay | opacity | exists today (`0be24e6f`) |
+| **Caption span** | opacity | **JoyRaptor's ask — see below** |
+| Text overlay | opacity | same model as images |
+| Sprite / sticker | opacity | same |
+| Visualizer | opacity | same |
+| **Master spine clip** | video opacity | **fade from / to black — see below** |
+
+**Captions.** Today, making captions go away means keyframing the style to `hidden`, or
+cutting the clip and setting the cut half to `hidden`. JoyRaptor named both workarounds. A
+caption span with fade knobs replaces both with a drag. Note `SPEC_20260829_CAPTION_LAYERS`
+landed up to three bindings per clip, each with its own style and position — so fades are
+**per binding**, not per clip. A references track can fade while the lyrics stay up.
+
+**Fade from and to black is the biggest one on this list and nobody asked for it**, because
+it is so standard it is invisible until missing. It is the most common edit in film, it is
+the same control, and the master spine is the one host that does not have it. If the
+component is genuinely host-agnostic you get it nearly free; if wiring it up is awkward, that
+is the component telling you it is not general enough yet. **Do the caption case in this
+spec** (it is what was asked for) and **report how much work spine fade-to-black would be**
+so it can be scheduled honestly rather than assumed cheap.
 
 ---
 
@@ -178,6 +237,13 @@ a false audio regression because it reused stale coordinates after a layout chan
 7. The dotted edge line appears in the object's colour and **snaps to an item in another
    lane**.
 8. Audio fade and image fade look and behave identically. Screenshot side by side.
+8b. **The knob MOVES.** Set a 0.3 s fade and a 3 s fade on the same clip; screenshot both.
+   The knob positions must differ visibly and the distance from the edge must match the
+   duration. Then **zoom the timeline in and out** and screenshot again: the knob stays on
+   the same MOMENT, not the same pixel. This is §2.1a and it is the point of the feature.
+8c. **Captions.** A caption binding fades out without keyframing a style to `hidden` and
+   without cutting the clip. Screenshot mid-fade. With more than one binding on the clip,
+   confirm the fade applies to the right one only.
 9. Multi-select, if built: same delta, group stops at the limiting item, one undo. If not
    built, say so plainly.
 

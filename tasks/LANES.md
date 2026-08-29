@@ -1,5 +1,10 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# ★★ NEVER report work you have not COMPILED. On 2026-08-29 two lanes reported landing
+#    features against a build.log that was hours stale, and both left the tree RED for
+#    everyone else. If the watcher is not updating build.log, say so at the TOP of your
+#    report and mark the work UNVERIFIED - do not run gradle, and do not imply it built.
+#
 # ★★ JoyRaptor PICKED the fade design: outboard KNOBS + dark CURTAIN (options 06+07, not the
 #    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — UNCLAIMED.
 #

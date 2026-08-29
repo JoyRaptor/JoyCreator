@@ -37,11 +37,22 @@ public final class AudioLayerSync {
 
     private long audioStoppedSinceMs = 0L;
     private long pendingScrubTargetMs = -1L;
+    /**
+     * Last playing state seen by {@link #tick}. Parking is a PAUSED-ONLY operation — it calls
+     * setPlayWhenReady(false), so doing it during playback silences the layer outright. The
+     * debounced scrub park fires 120ms after a playhead move, and a playhead move happens
+     * during playback constantly (seam advance, programmatic seeks), so without this guard a
+     * scrub park lands mid-playback and kills the audio. Same class of bug as the late-entry
+     * park removed below, reached by a different door.
+     */
+    private volatile boolean masterPlaying = false;
+
     private final Runnable scrubParkRunnable = new Runnable() {
         @Override public void run() {
             if (pendingScrubTargetMs < 0) return;
             long target = pendingScrubTargetMs;
             pendingScrubTargetMs = -1L;
+            if (masterPlaying) return;   // never park a sounding layer
             parkAllAt(target);
         }
     };
@@ -70,6 +81,12 @@ public final class AudioLayerSync {
 
     /** Transport arm: park every sounding layer, then start them together. */
     public void armForPlay(final long playheadMs, @NonNull final Runnable startMaster) {
+        // A scrub park queued moments ago must not fire after we start — it would park (and
+        // therefore silence) the layers we are about to arm. Cancel it and latch playing now
+        // rather than waiting for the first tick to set it, which is ~50ms too late.
+        handler.removeCallbacks(scrubParkRunnable);
+        pendingScrubTargetMs = -1L;
+        masterPlaying = true;
         if (clipsRef == null || playersRef == null) {
             startMaster.run();
             return;
@@ -160,6 +177,7 @@ public final class AudioLayerSync {
      * @param isPlaying true if master is playing (or audioTail/image active)
      */
     public void tick(long playheadMs, boolean isPlaying) {
+        masterPlaying = isPlaying;
         if (clipsRef == null || playersRef == null) return;
         if (timeline != null && !timeline.hasAudioClips()) return;
         if (!isPlaying) {
@@ -189,20 +207,39 @@ public final class AudioLayerSync {
             try {
                 if (shouldSound) {
                     if (!mp.isPlaying()) {
-                        // Late entry during playback: park then start immediately (will be corrected by drift if needed)
+                        // LATE ENTRY DURING PLAYBACK — seek and start, NEVER park.
+                        //
+                        // This branch used to call parkAt() and start only once isParkedAt()
+                        // agreed. That silenced every audio layer in the app (JoyRaptor, Note 20,
+                        // 2026-08-29: "I'm not hearing sound anymore"), for two compounding
+                        // reasons:
+                        //
+                        //  1. parkAt() calls setPlayWhenReady(FALSE). So the moment a layer is
+                        //     not playing, this branch actively holds it not-playing — and
+                        //     isPlaying() is false for a beat after EVERY start() while the
+                        //     player buffers. armForPlay would start the layer, the next 50ms
+                        //     tick would land inside that window, park it, and it never
+                        //     recovered. The log said "armForPlay: started 1 layers (all
+                        //     parked)" and the AudioTrack sat at state:idle forever.
+                        //  2. isParkedAt() compares against a target recomputed from the
+                        //     CURRENT playhead every tick, with a 15ms tolerance. The playhead
+                        //     moves ~50ms per tick, so while playing, that test can essentially
+                        //     never pass. There was no path out of the parked state.
+                        //
+                        // The pre-roll belongs to the TRANSPORT ARM (armForPlay) and to the
+                        // paused/scrub paths, where the playhead is still and parking is
+                        // exactly right. Mid-playback entry is a different problem with a
+                        // different answer: get sound out now, let the drift lock below pull it
+                        // into place — which is what that lock is FOR. A layer entering a few
+                        // tens of ms late and converging is strictly better than a silent one.
                         long seekPos = ac.getInPointMs() + (playheadMs - start);
                         long dur = mp.getDuration();
                         if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
-                        mp.parkAt(seekPos);
-                        // If already parked, start now; otherwise drift handler will catch up.
-                        // Do immediate start if parked, else wait one tick is okay.
-                        if (mp.isParkedAt(seekPos)) {
-                            float vol = timeline != null ? LayerPreviewController.effectivePreviewVolume(timeline, ac) : 1f;
-                            mp.setVolume(vol, vol);
-                            mp.start();
-                        } else {
-                            // Parked async; attempt start anyway next tick. For now park.
-                        }
+                        mp.seekTo(seekPos);
+                        float vol = timeline != null
+                                ? LayerPreviewController.effectivePreviewVolume(timeline, ac) : 1f;
+                        mp.setVolume(vol, vol);
+                        mp.start();
                     } else {
                         // Drift correction
                         long expected = ac.getInPointMs() + (playheadMs - start);

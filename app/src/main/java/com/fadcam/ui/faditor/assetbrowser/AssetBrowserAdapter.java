@@ -202,11 +202,11 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             holder.durationText.setVisibility(View.GONE);
         }
 
-        // Thumbnail loading — SPEC_20260829_MEDIA_IMPORT §2.2
+        // Thumbnail loading -- SPEC_20260829_MEDIA_IMPORT S2.2
         // Images: Glide as before (SAF content:// is fine for images).
         // Videos: VideoThumbnailCache (MediaMetadataRetriever.getScaledFrameAtTime at
         // ~10% in, disk+mem cache via DurableCache "vidthumb", bounded pool 2 threads).
-        // Do NOT use Glide for video — it cannot pull a frame from SAF content:// on
+        // Do NOT use Glide for video -- it cannot pull a frame from SAF content:// on
         // these devices (grid stays black = the bug JOYRAPTOR reported).
         if (item.type == AssetItem.Type.IMAGE) {
             // Cancel any stale video thumb work if view was recycled from video.
@@ -251,6 +251,15 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
     @Override
     public int getItemCount() {
         return items.size();
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull AssetViewHolder holder) {
+        super.onViewRecycled(holder);
+        // SPEC_20260829_MEDIA_IMPORT S2.2: cancel extractions for rows that scrolled away
+        VideoThumbnailCache.cancel(holder.imageView);
+        // Clear Glide requests for images as well to avoid stale callbacks.
+        try { com.bumptech.glide.Glide.with(holder.imageView.getContext()).clear(holder.imageView); } catch (Exception ignored) {}
     }
 
     private boolean sameAsset(@Nullable AssetItem a, @NonNull AssetItem b) {

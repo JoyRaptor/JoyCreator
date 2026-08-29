@@ -820,9 +820,9 @@ public class FaditorToolsAdapter {
                 label, 7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
         cell.addView(label);
 
-        // SPEC_20260829_QUICK_WINS §1: Image overlay is common; image-as-clip (spine)
+        // SPEC_20260829_QUICK_WINS S1: Image overlay is common; image-as-clip (spine)
         // is rare and reachable via long-press on this same button. Add a tiny chevron
-        // so the gesture is discoverable — a hidden gesture with no affordance is the
+        // so the gesture is discoverable -- a hidden gesture with no affordance is the
         // same as a deleted feature.
         if ("sticker".equals(tool.id)) {
             TextView chevron = new TextView(context);

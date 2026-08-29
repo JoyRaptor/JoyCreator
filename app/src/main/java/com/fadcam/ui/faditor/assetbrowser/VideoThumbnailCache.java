@@ -33,14 +33,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Video thumbnail loader for the asset browser picker.
  *
- * <p>Implements SPEC_20260829_MEDIA_IMPORT §2.2 (which supersedes QUICK_WINS §2):
+ * <p>Implements SPEC_20260829_MEDIA_IMPORT S2.2 (which supersedes QUICK_WINS S2):
  * extracts one frame per video at ~10% in (not 0), via {@code getScaledFrameAtTime}
  * where available, caches to disk via {@link DurableCache#dir(Context, String)}
  * {@code "vidthumb"} keyed on uri+size+thumbPx, on a bounded pool (2 threads),
  * newest-first via cancellation, placeholder while loading and distinct fallback on
  * failure. Never on main thread.
  *
- * <p>Extends — not duplicates — the duration-probe pattern in {@link AssetScanner}
+ * <p>Extends -- not duplicates -- the duration-probe pattern in {@link AssetScanner}
  * (its {@code DURATION_PROBE_POOL} + {@code DURATION_CACHE}). This class owns only
  * the bitmap path.
  */

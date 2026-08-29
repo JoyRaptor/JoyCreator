@@ -147,14 +147,14 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 (int) (20 * dp), (int) (16 * dp));
         root.addView(title);
 
-        // Video row — primary spine addition (video is still a spine clip; image-as-clip
-        // is the rare case and is demoted to the bottom section — see bottom of sheet).
+        // Video row -- primary spine addition (video is still a spine clip; image-as-clip
+        // is the rare case and is demoted to the bottom section -- see bottom of sheet).
         root.addView(createOptionRow(
                 getString(R.string.faditor_add_asset_video),
                 "videocam", materialIcons, dp,
                 () -> { if (callback != null) callback.onAssetTypeSelected(false); }));
 
-        // Image-as-new-layer — overlay on a NEW floating layer track (the reliable cross-
+        // Image-as-new-layer -- overlay on a NEW floating layer track (the reliable cross-
         // layer path). Kept near Video because it is ALSO an overlay-like addition, not a
         // spine segment. Uses the SAME image payload as the toolbox Image overlay.
         root.addView(createOptionRow(
@@ -162,7 +162,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 "layers", materialIcons, dp,
                 () -> { if (callback != null) callback.onImageAsNewLayerSelected(); }));
 
-        // Black clip — a spine still with no picture (title card / pause). Kept here
+        // Black clip -- a spine still with no picture (title card / pause). Kept here
         // because it IS a spine segment, same machinery as image-as-clip, but it is its
         // own concept (JoyRaptor: "having it be part of image").
         root.addView(createOptionRow(
@@ -205,9 +205,9 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 "auto_fix_high", materialIcons, dp,
                 () -> { if (callback != null) callback.onAdjustmentLayerSelected(); }));
 
-        // ── Demoted: Image as clip (spine segment) — SPEC_20260829_QUICK_WINS §1 ──
+        // -- Demoted: Image as clip (spine segment) -- SPEC_20260829_QUICK_WINS S1 --
         // The RARE path: inserting a picture as its own segment of the spine. Promoted
-        // Image (overlay) lives in the toolbox (≤2 taps, beside Add); this stays reachable
+        // Image (overlay) lives in the toolbox (<=2 taps, beside Add); this stays reachable
         // but is deliberately last and visually de-emphasized. Long-press on the toolbox
         // Image button will also offer this same callback (same code path, no duplicate).
         View demoteDivider = new View(requireContext());
@@ -219,14 +219,14 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         root.addView(demoteDivider);
 
         TextView demoteHeader = new TextView(requireContext());
-        demoteHeader.setText("More — timeline segments");
+        demoteHeader.setText("More - timeline segments");
         demoteHeader.setTextColor(0xFF666666);
         demoteHeader.setTextSize(11);
         demoteHeader.setPadding((int)(20*dp), 0, (int)(20*dp), (int)(6*dp));
         root.addView(demoteHeader);
 
         root.addView(createOptionRow(
-                getString(R.string.faditor_add_asset_image) + " as clip (timeline segment — rare)",
+                getString(R.string.faditor_add_asset_image) + " as clip (timeline segment - rare)",
                 "image", materialIcons, dp,
                 () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
 

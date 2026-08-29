@@ -40,13 +40,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private final Clip clip;
     private final int outW;
     private final int outH;
-    // Captions for THIS video clip. The renderer is (re)built per effective style:
-    // caption-style keyframes can change the style — or hide captions ("hidden")
-    // partway through a clip, and the export must mirror the live preview exactly.
-    @Nullable private final Transcript captionTranscript;   // windowed to clip in/out, or null
-    private final float captionCenterX, captionCenterY, captionSizeFraction;
-    @Nullable private CaptionExportRenderer captionRenderer;
-    @Nullable private String captionRendererStyleId;
+    // Captions for THIS video clip — one slot per enabled binding (SPEC_20260829_CAPTION_LAYERS).
+    // The renderer for each slot is (re)built per effective style for binding 0 (keyframe support);
+    // other bindings use their static style. Mirrors live preview exactly.
+    private final List<ClipCaptionSlot> clipCaptionSlots;
     private final List<AudioCaptionSlot> audioCaptionSlots;
     private final List<TextOverlayItem> textOverlays;
     private final List<WaveformSlot> waveformSlots;
@@ -221,6 +218,32 @@ public class CompositeExportOverlay extends BitmapOverlay {
         }
     }
 
+    private static class ClipCaptionSlot {
+        @NonNull final Transcript transcript; // windowed to clip in/out
+        @NonNull final Clip.CaptionBinding binding;
+        @Nullable CaptionExportRenderer renderer;
+        @Nullable String rendererStyleId;
+        ClipCaptionSlot(@NonNull Transcript transcript, @NonNull Clip.CaptionBinding binding) {
+            this.transcript = transcript;
+            this.binding = binding;
+        }
+    }
+
+    private static List<ClipCaptionSlot> buildClipCaptionSlots(@NonNull Clip clip, int outW, int outH) {
+        List<ClipCaptionSlot> out = new ArrayList<>();
+        for (Clip.CaptionBinding b : clip.getCaptionBindings()) {
+            if (!b.enabled) continue;
+            if ("hidden".equals(b.styleId)) continue;
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+            if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+            Transcript win = nt.transcript.windowed(clip.getInPointMs(), clip.getOutPointMs());
+            if (win.words.isEmpty()) continue;
+            out.add(new ClipCaptionSlot(win, b));
+        }
+        // Legacy fallback: if no bindings but old single caption fields would have produced one, keep legacy path via binding synthesis already done in storage.
+        return out;
+    }
+
     /**
      * Holds an audio clip's caption renderer plus the per-frame time-mapping
      * data needed to compute the source-position from the timeline position.
@@ -291,28 +314,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.waveformSlots = waveformSlots;
         this.waveRenderer = new WaveformStyleRenderer();
 
-        // Keep the windowed transcript + position; the renderer itself is built
-        // lazily per-frame from the effective caption style (see getBitmap), so a
-        // base style of "hidden" no longer means "never draw" — a keyframe may make
-        // it visible later, and vice versa, matching the preview.
-        Transcript capT = null;
-        float capCx = 0.5f, capCy = 0.82f, capSize = 0.06f;
-        if (clip.isCaptionsEnabled()) {
-            Transcript t = clip.getTranscript();
-            if (t != null && !t.words.isEmpty()) {
-                capT = t.windowed(clip.getInPointMs(), clip.getOutPointMs());
-                capCx = clip.getCaptionCenterX();
-                capCy = clip.getCaptionCenterY();
-                capSize = clip.getCaptionSizeFraction();
-            }
-        }
-        this.captionTranscript = capT;
-        this.captionCenterX = capCx;
-        this.captionCenterY = capCy;
-        this.captionSizeFraction = capSize;
-        this.captionRenderer = null;
-        this.captionRendererStyleId = null;
-
+        this.clipCaptionSlots = buildClipCaptionSlots(clip, outW, outH);
         this.audioCaptionSlots = buildAudioCaptionSlots(audioClips);
     }
 
@@ -321,21 +323,38 @@ public class CompositeExportOverlay extends BitmapOverlay {
         List<AudioCaptionSlot> slots = new ArrayList<>();
         long clipEndMs = clipTimelineStartMs + clip.getTrimmedDurationMs();
         for (AudioClip ac : audioClips) {
-            if (!ac.isCaptionsEnabled() || !ac.hasTranscript()) continue;
-            String styleId = ac.getCaptionStyleId();
-            if ("hidden".equals(styleId)) continue;
-            long audioStartMs = ac.getOffsetMs();
-            long audioEndMs = ac.getOffsetMs() + ac.getTrimmedDurationMs();
-            // Only include audio clips that overlap this video clip's timeline range
-            if (audioStartMs < clipEndMs && audioEndMs > clipTimelineStartMs) {
-                Transcript t = ac.getTranscript();
-                if (t == null || t.words.isEmpty()) continue;
-                CaptionStyle cs = CaptionStyle.byId(styleId);
-                CaptionExportRenderer r = new CaptionExportRenderer(
-                        t.windowed(ac.getInPointMs(), ac.getOutPointMs()),
-                        cs, ac.getCaptionCenterX(), ac.getCaptionCenterY(),
-                        ac.getCaptionSizeFraction(), outW, outH);
-                slots.add(new AudioCaptionSlot(r, ac.getOffsetMs(), ac.getInPointMs()));
+            java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+            if (bs.isEmpty()) {
+                if (!ac.isCaptionsEnabled() || !ac.hasTranscript()) continue;
+                String styleId = ac.getCaptionStyleId();
+                if ("hidden".equals(styleId)) continue;
+                long audioStartMs = ac.getOffsetMs();
+                long audioEndMs = ac.getOffsetMs() + ac.getTrimmedDurationMs();
+                if (audioStartMs < clipEndMs && audioEndMs > clipTimelineStartMs) {
+                    Transcript t = ac.getTranscript();
+                    if (t == null || t.words.isEmpty()) continue;
+                    CaptionStyle cs = CaptionStyle.byId(styleId);
+                    CaptionExportRenderer r = new CaptionExportRenderer(
+                            t.windowed(ac.getInPointMs(), ac.getOutPointMs()),
+                            cs, ac.getCaptionCenterX(), ac.getCaptionCenterY(),
+                            ac.getCaptionSizeFraction(), outW, outH);
+                    slots.add(new AudioCaptionSlot(r, ac.getOffsetMs(), ac.getInPointMs()));
+                }
+            } else {
+                for (AudioClip.CaptionBinding b : bs) {
+                    if (!b.enabled) continue;
+                    if ("hidden".equals(b.styleId)) continue;
+                    com.fadcam.ui.faditor.transcript.NamedTranscript nt = ac.transcriptForBinding(b);
+                    if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+                    long audioStartMs = ac.getOffsetMs();
+                    long audioEndMs = ac.getOffsetMs() + ac.getTrimmedDurationMs();
+                    if (audioStartMs >= clipEndMs || audioEndMs <= clipTimelineStartMs) continue;
+                    CaptionStyle cs = CaptionStyle.byId(b.styleId);
+                    CaptionExportRenderer r = new CaptionExportRenderer(
+                            nt.transcript.windowed(ac.getInPointMs(), ac.getOutPointMs()),
+                            cs, b.centerX, b.centerY, b.sizeFraction, outW, outH);
+                    slots.add(new AudioCaptionSlot(r, ac.getOffsetMs(), ac.getInPointMs()));
+                }
             }
         }
         return slots;
@@ -506,7 +525,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     + " clipLocalMs=" + clipLocalMs
                     + " canvas=" + bitmap.getWidth() + "x" + bitmap.getHeight()
                     + " textOverlays=" + textOverlays.size()
-                    + " hasCaptions=" + (captionTranscript != null)
+                    + " hasCaptions=" + (!clipCaptionSlots.isEmpty())
                     + " waveformSlots=" + waveformSlots.size());
         }
 
@@ -778,48 +797,35 @@ public class CompositeExportOverlay extends BitmapOverlay {
         }
         if (drawnText > 0) framesWithText++;
 
-        // Captions. Transcript.windowed() shares the same TranscriptWord references
-        // as the source transcript, so each word's startMs/endMs remain in the
-        // SOURCE time coordinate system (not window-relative). sourceMs below
-        // therefore maps directly to the windowed transcript's index lookup.
+        // Captions — one renderer per enabled binding (SPEC_20260829_CAPTION_LAYERS).
+        // Each slot shares the same windowed transcript semantics as before (source time).
         boolean drewCaption = false;
-        // Wrap the (non-essential) caption drawing so a throwing caption renderer
-        // can't abort the export. Restore the canvas save-count on failure.
         int captionSaveCount = canvas.getSaveCount();
         try {
-        if (captionTranscript != null) {
-            // Effective caption style at this clip-local position. Caption-style
-            // keyframes (and a "hidden" pseudo-style) are evaluated against the
-            // SOURCE-local position (0-based within the trimmed region), exactly as
-            // the preview does via captionStyleAtClipMs(positionInCurrentSegmentMs).
-            // + headTransitionMs: composition-local 0 is the main item's first frame, which sits
-            // headTransition INTO the trimmed region because the transition item consumed the
-            // front. Without this the burned-in captions lag the picture by exactly the transition
-            // on every clip after a seam — and after §2d fixed the text overlays, captions were
-            // the only thing still wrong, which is a worse failure than both being wrong together.
+        if (!clipCaptionSlots.isEmpty()) {
             long clipSourceLocalMs =
                     (long) ((clipLocalMs + headTransitionMs) * clip.getSpeedMultiplier());
-            String styleId = clip.hasCaptionStyleKeyframes()
-                    ? clip.captionStyleAtClipMs(clipSourceLocalMs)
-                    : clip.getCaptionStyleId();
-            // Guard against a null style id (the getter/keyframe lookup is not
-            // @NonNull): treat null as "hidden" so the per-frame draw never NPEs
-            // on styleId.equals(...) below and crashes the encoder thread.
-            if (styleId != null && !"hidden".equals(styleId)) {
-                if (captionRenderer == null || !styleId.equals(captionRendererStyleId)) {
-                    captionRenderer = new CaptionExportRenderer(captionTranscript,
-                            CaptionStyle.byId(styleId), captionCenterX, captionCenterY,
-                            captionSizeFraction, outW, outH);
-                    captionRendererStyleId = styleId;
-                    // Text animation (SPEC_TEXT_ANIMATION): the SAME four values the preview
-                    // reads off this clip in bindCaptionData. Set on construction rather than
-                    // per frame because they cannot change during an export.
-                    captionRenderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
+            long sourceMs = clip.getInPointMs() + clipSourceLocalMs;
+            boolean isFirstBinding = true;
+            for (ClipCaptionSlot slot : clipCaptionSlots) {
+                String styleId;
+                if (isFirstBinding && clip.hasCaptionStyleKeyframes()) {
+                    styleId = clip.captionStyleAtClipMs(clipSourceLocalMs);
+                } else {
+                    styleId = slot.binding.styleId;
+                }
+                isFirstBinding = false;
+                if (styleId == null || "hidden".equals(styleId)) continue;
+                if (slot.renderer == null || !styleId.equals(slot.rendererStyleId)) {
+                    slot.renderer = new CaptionExportRenderer(slot.transcript,
+                            CaptionStyle.byId(styleId), slot.binding.centerX, slot.binding.centerY,
+                            slot.binding.sizeFraction, outW, outH);
+                    slot.rendererStyleId = styleId;
+                    slot.renderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
                             clip.getCaptionAnimGranularity(),
                             clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
                 }
-                long sourceMs = clip.getInPointMs() + clipSourceLocalMs;
-                Bitmap captionBmp = captionRenderer.render(sourceMs);
+                Bitmap captionBmp = slot.renderer.render(sourceMs);
                 if (captionBmp == null || captionBmp.isRecycled()) {
                     if (!loggedNullCaptionWarning) {
                         FLog.w(TAG, "CaptionExportRenderer returned null/recycled bitmap; "
@@ -834,8 +840,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
         }
         if (drewCaption) framesWithCaption++;
 
-        // Audio clip captions: render all audio clips that overlap this video clip
-        // (mirrors the live-preview behaviour in updateCurrentTimeDisplay).
         if (!audioCaptionSlots.isEmpty()) {
             long audioCaptionTimelineMs = clipTimelineStartMs + clipLocalMs;
             for (AudioCaptionSlot slot : audioCaptionSlots) {
@@ -843,8 +847,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 Bitmap captionBmp = slot.renderer.render(audioSourceMs);
                 if (captionBmp != null && !captionBmp.isRecycled()) {
                     canvas.drawBitmap(captionBmp, 0, 0, null);
+                    drewCaption = true;
                 }
             }
+            if (drewCaption && clipCaptionSlots.isEmpty()) framesWithCaption++;
         }
         } catch (Throwable t) {
             canvas.restoreToCount(captionSaveCount);

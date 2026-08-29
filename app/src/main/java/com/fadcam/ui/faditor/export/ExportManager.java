@@ -494,7 +494,7 @@ public class ExportManager {
                     && "none".equals(project.getTimeline().getClip(0).getCropPreset())
                     && !project.getTimeline().getClip(0).hasOpacityKeyframes()
                     && !project.getTimeline().hasTextOverlays()
-                    && !project.getTimeline().getClip(0).isCaptionsEnabled()
+                    && !hasAnyVisibleCaptionBinding(project.getTimeline().getClip(0))
                     && !project.getTimeline().hasWaveformOverlays()
                     && !project.getTimeline().getClip(0).hasLoopExtension()
                     && "original".equals(project.getCanvasPreset())
@@ -3089,13 +3089,24 @@ public class ExportManager {
             long clipTlStart = timelineCursorMs;
             long clipTlEnd = timelineCursorMs + clip.getTrimmedDurationMs();
             for (AudioClip ac : project.getTimeline().getAudioClips()) {
-                if (!ac.isCaptionsEnabled() || !ac.hasTranscript()) continue;
-                if ("hidden".equals(ac.getCaptionStyleId())) continue;
-                long aStart = ac.getOffsetMs();
-                long aEnd = ac.getOffsetMs() + ac.getTrimmedDurationMs();
-                if (aStart < clipTlEnd && aEnd > clipTlStart) {
-                    audioCaptionOverlaps = true;
-                    break;
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (bs.isEmpty()) {
+                    if (!ac.isCaptionsEnabled() || !ac.hasTranscript()) continue;
+                    if ("hidden".equals(ac.getCaptionStyleId())) continue;
+                    long aStart = ac.getOffsetMs();
+                    long aEnd = ac.getOffsetMs() + ac.getTrimmedDurationMs();
+                    if (aStart < clipTlEnd && aEnd > clipTlStart) { audioCaptionOverlaps = true; break; }
+                } else {
+                    for (AudioClip.CaptionBinding b : bs) {
+                        if (!b.enabled) continue;
+                        if ("hidden".equals(b.styleId)) continue;
+                        com.fadcam.ui.faditor.transcript.NamedTranscript nt = ac.transcriptForBinding(b);
+                        if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+                        long aStart = ac.getOffsetMs();
+                        long aEnd = ac.getOffsetMs() + ac.getTrimmedDurationMs();
+                        if (aStart < clipTlEnd && aEnd > clipTlStart) { audioCaptionOverlaps = true; break; }
+                    }
+                    if (audioCaptionOverlaps) break;
                 }
             }
             // M-EXPORT-1: the text/image/sticker overlay list comes from the SAME
@@ -3339,7 +3350,7 @@ public class ExportManager {
             }
             boolean hasOverlays = !exportTextOverlays.isEmpty()
                     || !exportSpriteItems.isEmpty()
-                    || clip.isCaptionsEnabled()
+                    || hasAnyVisibleCaptionBinding(clip)
                     || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
                     || audioCaptionOverlaps;
@@ -3610,5 +3621,20 @@ public class ExportManager {
             FLog.e(TAG, "SAF copy failed", e);
             return null;
         }
+    }
+
+    private static boolean hasAnyVisibleCaptionBinding(@NonNull Clip clip) {
+        for (Clip.CaptionBinding b : clip.getCaptionBindings()) {
+            if (!b.enabled) continue;
+            if ("hidden".equals(b.styleId)) continue;
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+            if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+            return true;
+        }
+        // Legacy fallback when bindings empty but old single caption fields indicate visible captions.
+        if (clip.getCaptionBindings().isEmpty() && clip.isCaptionsEnabled() && clip.hasTranscript()) {
+            return !"hidden".equals(clip.getCaptionStyleId());
+        }
+        return false;
     }
 }

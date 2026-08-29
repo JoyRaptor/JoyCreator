@@ -403,6 +403,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final java.util.List<com.fadcam.ui.faditor.transcript.CaptionOverlayView> audioCaptionOverlays = new java.util.ArrayList<>();
     private int activeCaptionBindingIndex = 0;
     private int activeAudioCaptionBindingIndex = 0;
+    private android.view.ScaleGestureDetector captionScaleDetector;
+    private float captionPinchBaseSize = Float.NaN;
     /** Caption-style chips by style id, so we can highlight the active clip's style. */
     private final java.util.Map<String, TextView> captionStyleChips = new java.util.HashMap<>();
     /** Currently highlighted caption-style chip id (null = none). */
@@ -18215,6 +18217,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+        // ── CAPTION TRACK LIST (SPEC_20260829_CAPTION_LAYERS) ──
+        Clip trackClip = getActiveCaptionClip(); if (trackClip == null) trackClip = clipUnderPlayhead(); if (trackClip == null) trackClip = getSelectedClip();
+        AudioClip trackAudio = null;
+        if (trackClip == null || trackClip.getCaptionBindings().isEmpty()) {
+            trackAudio = getActiveAudioClip();
+            if (trackAudio != null && !trackAudio.getCaptionBindings().isEmpty()) trackClip = null;
+            else trackAudio = null;
+        }
+        if (trackClip != null && !trackClip.getCaptionBindings().isEmpty()) {
+            android.view.View tl = buildCaptionTrackListView(ctx, trackClip, d);
+            root.addView(tl);
+            root.addView(makeDivider(d));
+        } else if (trackAudio != null) {
+            android.view.View tl = buildAudioCaptionTrackListView(ctx, trackAudio, d);
+            root.addView(tl);
+            root.addView(makeDivider(d));
+        }
         // G8: size row now has position toggle LEFT of the size slider, and slider is smaller
         android.widget.LinearLayout sizeRow = new android.widget.LinearLayout(ctx);
         sizeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -18393,6 +18412,296 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scroll.setVerticalScrollBarEnabled(false);
         scroll.addView(root);
         return scroll;
+    }
+
+    // ── CAPTION TRACK LIST helpers (SPEC_20260829_CAPTION_LAYERS) ──
+    private android.view.View buildCaptionTrackListView(@NonNull android.content.Context ctx, @NonNull Clip clip, float d) {
+        android.widget.LinearLayout container = new android.widget.LinearLayout(ctx);
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        container.setPadding(0, (int)(8*d), 0, 0);
+        java.util.List<Clip.CaptionBinding> bindings = clip.getCaptionBindings();
+        for (int i = 0; i < bindings.size(); i++) {
+            final int idx = i;
+            Clip.CaptionBinding b = bindings.get(i);
+            android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
+            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding((int)(8*d), (int)(6*d), (int)(8*d), (int)(6*d));
+            boolean isActive = (idx == activeCaptionBindingIndex && !activeCaptionIsAudio && clip.getId().equals(captionClipId));
+            row.setBackgroundColor(isActive ? 0x332196F3 : 0x00000000);
+            row.setClickable(true);
+            // Bullet
+            android.widget.TextView bullet = new android.widget.TextView(ctx);
+            bullet.setText(isActive ? "●" : "○");
+            bullet.setTextColor(isActive ? 0xFF4CAF50 : 0xFFAAAAAA);
+            bullet.setTextSize(14);
+            bullet.setPadding(0, 0, (int)(8*d), 0);
+            row.addView(bullet);
+            // Label + style chip
+            android.widget.LinearLayout labelWrap = new android.widget.LinearLayout(ctx);
+            labelWrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+            labelWrap.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            android.widget.TextView labelTv = new android.widget.TextView(ctx);
+            labelTv.setText(b.label != null ? b.label : "Track " + (idx+1));
+            labelTv.setTextColor(0xFFFFFFFF);
+            labelTv.setTextSize(13);
+            labelWrap.addView(labelTv);
+            android.widget.TextView styleTv = new android.widget.TextView(ctx);
+            styleTv.setText("[" + b.styleId + "]");
+            styleTv.setTextColor(0xFFAAAAAA);
+            styleTv.setTextSize(11);
+            labelWrap.addView(styleTv);
+            row.addView(labelWrap);
+            // Eye toggle
+            android.widget.TextView eye = new android.widget.TextView(ctx);
+            eye.setText(b.enabled ? "visibility" : "visibility_off");
+            eye.setTextSize(18);
+            eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
+            try { eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons)); } catch (Exception ignored) {}
+            eye.setPadding((int)(8*d), 0, 0, 0);
+            eye.setClickable(true);
+            eye.setOnClickListener(v -> {
+                b.enabled = !b.enabled; clip.syncLegacyFromBindings();
+                eye.setText(b.enabled ? "visibility" : "visibility_off");
+                eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
+                // update overlay visibility
+                if (!captionOverlays.isEmpty() && idx < captionOverlays.size()) captionOverlays.get(idx).setVisibility(b.enabled ? android.view.View.VISIBLE : android.view.View.GONE);
+                // also need to keep container visibility logic – but simple toggle
+                editorTimeline.invalidate(); scheduleAutoSave();
+            });
+            row.addView(eye);
+            row.setOnClickListener(v -> {
+                setActiveCaptionBinding(idx);
+                activeCaptionIsAudio = false; captionClipId = clip.getId();
+                // Retarget transcript drawer
+                com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+                if (nt != null) {
+                    currentTranscript = nt.transcript; transcriptClipId = clip.getId(); transcriptIsForAudio = false;
+                    if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
+                    if (transcriptHeader != null) transcriptHeader.setText(nt.label);
+                    applyTranscriptClipWindow();
+                }
+                highlightActiveCaptionChip(b.styleId);
+                if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
+                // Rebuild drawer to reflect new active binding (size slider, font etc.)
+                if (captionDrawerOpen) showCaptionDrawer(true);
+                editorTimeline.invalidate();
+            });
+            row.setOnLongClickListener(v -> {
+                showCaptionBindingLongPressMenu(clip, idx);
+                return true;
+            });
+            container.addView(row);
+            // divider
+            android.view.View div = new android.view.View(ctx);
+            div.setBackgroundColor(0xFF2A2A2A);
+            android.widget.LinearLayout.LayoutParams dlp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1);
+            div.setLayoutParams(dlp);
+            container.addView(div);
+        }
+        // Add button
+        if (bindings.size() < Clip.MAX_CAPTION_BINDINGS) {
+            android.widget.TextView addBtn = new android.widget.TextView(ctx);
+            addBtn.setText("+ Add caption track");
+            addBtn.setTextColor(0xFF64B5F6);
+            addBtn.setTextSize(13);
+            addBtn.setPadding((int)(8*d), (int)(10*d), (int)(8*d), (int)(6*d));
+            addBtn.setOnClickListener(v -> showAddCaptionTrackDialog(clip));
+            container.addView(addBtn);
+        }
+        return container;
+    }
+
+    private android.view.View buildAudioCaptionTrackListView(@NonNull android.content.Context ctx, @NonNull AudioClip clip, float d) {
+        android.widget.LinearLayout container = new android.widget.LinearLayout(ctx);
+        container.setOrientation(android.widget.LinearLayout.VERTICAL);
+        container.setPadding(0, (int)(8*d), 0, 0);
+        java.util.List<AudioClip.CaptionBinding> bindings = clip.getCaptionBindings();
+        for (int i = 0; i < bindings.size(); i++) {
+            final int idx = i;
+            AudioClip.CaptionBinding b = bindings.get(i);
+            android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
+            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding((int)(8*d), (int)(6*d), (int)(8*d), (int)(6*d));
+            boolean isActive = (idx == activeAudioCaptionBindingIndex && activeCaptionIsAudio);
+            row.setBackgroundColor(isActive ? 0x332196F3 : 0x00000000);
+            row.setClickable(true);
+            android.widget.TextView bullet = new android.widget.TextView(ctx);
+            bullet.setText(isActive ? "●" : "○");
+            bullet.setTextColor(isActive ? 0xFF4CAF50 : 0xFFAAAAAA);
+            bullet.setTextSize(14);
+            bullet.setPadding(0, 0, (int)(8*d), 0);
+            row.addView(bullet);
+            android.widget.LinearLayout labelWrap = new android.widget.LinearLayout(ctx);
+            labelWrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+            labelWrap.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            android.widget.TextView labelTv = new android.widget.TextView(ctx);
+            labelTv.setText(b.label != null ? b.label : "Track " + (idx+1));
+            labelTv.setTextColor(0xFFFFFFFF);
+            labelTv.setTextSize(13);
+            labelWrap.addView(labelTv);
+            android.widget.TextView styleTv = new android.widget.TextView(ctx);
+            styleTv.setText("[" + b.styleId + "]");
+            styleTv.setTextColor(0xFFAAAAAA);
+            styleTv.setTextSize(11);
+            labelWrap.addView(styleTv);
+            row.addView(labelWrap);
+            android.widget.TextView eye = new android.widget.TextView(ctx);
+            eye.setText(b.enabled ? "visibility" : "visibility_off");
+            eye.setTextSize(18);
+            eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
+            try { eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons)); } catch (Exception ignored) {}
+            eye.setPadding((int)(8*d), 0, 0, 0);
+            eye.setClickable(true);
+            eye.setOnClickListener(v -> {
+                b.enabled = !b.enabled; clip.syncLegacyFromBindings();
+                eye.setText(b.enabled ? "visibility" : "visibility_off");
+                eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
+                if (!audioCaptionOverlays.isEmpty() && idx < audioCaptionOverlays.size()) audioCaptionOverlays.get(idx).setVisibility(b.enabled ? android.view.View.VISIBLE : android.view.View.GONE);
+                editorTimeline.invalidate(); scheduleAutoSave();
+            });
+            row.addView(eye);
+            row.setOnClickListener(v -> {
+                setActiveAudioCaptionBinding(idx);
+                activeCaptionIsAudio = true; audioCaptionClipId = clip.getId();
+                com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+                if (nt != null) {
+                    currentTranscript = nt.transcript; transcriptClipId = clip.getId(); transcriptIsForAudio = true;
+                    transcriptAudioIndex = project.getTimeline().getAudioClips().indexOf(clip);
+                    if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
+                    if (transcriptHeader != null) transcriptHeader.setText(nt.label);
+                    applyTranscriptClipWindow();
+                }
+                highlightActiveCaptionChip(b.styleId);
+                if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
+                if (captionDrawerOpen) showCaptionDrawer(true);
+                editorTimeline.invalidate();
+            });
+            row.setOnLongClickListener(v -> { showAudioCaptionBindingLongPressMenu(clip, idx); return true; });
+            container.addView(row);
+            android.view.View div = new android.view.View(ctx);
+            div.setBackgroundColor(0xFF2A2A2A);
+            android.widget.LinearLayout.LayoutParams dlp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1);
+            div.setLayoutParams(dlp);
+            container.addView(div);
+        }
+        if (bindings.size() < AudioClip.MAX_CAPTION_BINDINGS) {
+            android.widget.TextView addBtn = new android.widget.TextView(ctx);
+            addBtn.setText("+ Add caption track");
+            addBtn.setTextColor(0xFF64B5F6);
+            addBtn.setTextSize(13);
+            addBtn.setPadding((int)(8*d), (int)(10*d), (int)(8*d), (int)(6*d));
+            addBtn.setOnClickListener(v -> showAddAudioCaptionTrackDialog(clip));
+            container.addView(addBtn);
+        }
+        return container;
+    }
+
+    private void showCaptionBindingLongPressMenu(@NonNull Clip clip, int idx) {
+        Clip.CaptionBinding b = clip.getCaptionBindings().get(idx);
+        android.widget.EditText input = new android.widget.EditText(this);
+        input.setText(b.label);
+        input.setSelectAllOnFocus(true);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Caption track")
+                .setView(input)
+                .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave(); })
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Delete", (d,w) -> {
+                    if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, "At least one track required", android.widget.Toast.LENGTH_SHORT).show(); return; }
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Delete track?").setMessage("Delete \"" + b.label + "\"?").setPositiveButton("Delete", (dd,ww) -> {
+                        clip.removeCaptionBinding(idx);
+                        if (activeCaptionBindingIndex >= clip.getCaptionBindings().size()) activeCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
+                        rebuildCaptionOverlays(clip);
+                        // hide removed overlay view already handled via remove
+                        editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave();
+                    }).setNegativeButton("Cancel", null).show();
+                })
+                .show();
+    }
+
+    private void showAudioCaptionBindingLongPressMenu(@NonNull AudioClip clip, int idx) {
+        AudioClip.CaptionBinding b = clip.getCaptionBindings().get(idx);
+        android.widget.EditText input = new android.widget.EditText(this);
+        input.setText(b.label);
+        input.setSelectAllOnFocus(true);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Caption track")
+                .setView(input)
+                .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave(); })
+                .setNegativeButton("Cancel", null)
+                .setNeutralButton("Delete", (d,w) -> {
+                    if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, "At least one track required", android.widget.Toast.LENGTH_SHORT).show(); return; }
+                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Delete track?").setMessage("Delete \"" + b.label + "\"?").setPositiveButton("Delete", (dd,ww) -> {
+                        clip.removeCaptionBinding(idx);
+                        if (activeAudioCaptionBindingIndex >= clip.getCaptionBindings().size()) activeAudioCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
+                        rebuildAudioCaptionOverlays(clip);
+                        editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave();
+                    }).setNegativeButton("Cancel", null).show();
+                })
+                .show();
+    }
+
+    private void showAddCaptionTrackDialog(@NonNull Clip clip) {
+        if (!clip.canAddCaptionBinding()) { android.widget.Toast.makeText(this, "Max 3 tracks", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (clip.getTranscripts().isEmpty()) { android.widget.Toast.makeText(this, "Add a transcript first", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        String[] labels = new String[clip.getTranscripts().size()];
+        for (int i = 0; i < clip.getTranscripts().size(); i++) labels[i] = clip.getTranscripts().get(i).label + " (" + clip.getTranscripts().get(i).engine + ")";
+        final int[] picked = {0};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Choose transcript for new track")
+                .setSingleChoiceItems(labels, 0, (d,w) -> picked[0] = w)
+                .setPositiveButton("Add", (d,w) -> {
+                    com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.getTranscripts().get(picked[0]);
+                    float baseY = 0.82f;
+                    if (!clip.getCaptionBindings().isEmpty()) {
+                        // offset above existing ones by 0.12 per track
+                        float minY = 1f;
+                        for (Clip.CaptionBinding b : clip.getCaptionBindings()) minY = Math.min(minY, b.centerY);
+                        baseY = Math.max(0.12f, minY - 0.12f);
+                    }
+                    String label = "Track " + (clip.getCaptionBindings().size()+1);
+                    Clip.CaptionBinding nb = new Clip.CaptionBinding(nt.id, "pop", true, 0.5f, baseY, 0.06f, label);
+                    clip.addCaptionBinding(nb);
+                    setActiveCaptionBinding(clip.getCaptionBindings().size()-1);
+                    rebuildCaptionOverlays(clip);
+                    editorTimeline.invalidate();
+                    if (captionDrawerOpen) showCaptionDrawer(true);
+                    scheduleAutoSave();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void showAddAudioCaptionTrackDialog(@NonNull AudioClip clip) {
+        if (!clip.canAddCaptionBinding()) { android.widget.Toast.makeText(this, "Max 3 tracks", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        if (clip.getTranscripts().isEmpty()) { android.widget.Toast.makeText(this, "Add a transcript first", android.widget.Toast.LENGTH_SHORT).show(); return; }
+        String[] labels = new String[clip.getTranscripts().size()];
+        for (int i = 0; i < clip.getTranscripts().size(); i++) labels[i] = clip.getTranscripts().get(i).label + " (" + clip.getTranscripts().get(i).engine + ")";
+        final int[] picked = {0};
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Choose transcript for new track")
+                .setSingleChoiceItems(labels, 0, (d,w) -> picked[0] = w)
+                .setPositiveButton("Add", (d,w) -> {
+                    com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.getTranscripts().get(picked[0]);
+                    float baseY = 0.70f;
+                    if (!clip.getCaptionBindings().isEmpty()) {
+                        float minY = 1f;
+                        for (AudioClip.CaptionBinding b : clip.getCaptionBindings()) minY = Math.min(minY, b.centerY);
+                        baseY = Math.max(0.12f, minY - 0.12f);
+                    }
+                    String label = "Track " + (clip.getCaptionBindings().size()+1);
+                    AudioClip.CaptionBinding nb = new AudioClip.CaptionBinding(nt.id, "pop", true, 0.5f, baseY, 0.06f, label);
+                    clip.addCaptionBinding(nb);
+                    setActiveAudioCaptionBinding(clip.getCaptionBindings().size()-1);
+                    rebuildAudioCaptionOverlays(clip);
+                    editorTimeline.invalidate();
+                    if (captionDrawerOpen) showCaptionDrawer(true);
+                    scheduleAutoSave();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private android.view.View buildCaptionTimingTab(@NonNull android.content.Context ctx) {
@@ -19192,19 +19501,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.addView(btn);
     }
 
-    /** The style currently applied to the selection (clip or audio). */
-    @NonNull
-    private com.fadcam.ui.faditor.transcript.CaptionStyle currentCaptionStyle() {
-        String id = "pop";
+    // ── Active binding helpers (SPEC_20260829_CAPTION_LAYERS: drawer retargets) ──
+    @Nullable private Clip getActiveCaptionClip() {
+        Clip c = null;
+        if (captionClipId != null) c = findClipById(captionClipId);
+        if (c == null) c = clipUnderPlayhead();
+        if (c == null) c = getSelectedClip();
+        return c;
+    }
+    @Nullable private AudioClip getActiveAudioClip() {
+        if (audioCaptionClipId != null) {
+            try { AudioClip ac = findAudioClipById(audioCaptionClipId); if (ac != null) return ac; } catch (Exception ignored) {}
+        }
+        // fallback to selected audio index
+        int idx = editorTimeline != null ? editorTimeline.getSelectedAudioIndex() : -1;
+        if (idx >= 0 && project != null && idx < project.getTimeline().getAudioClips().size()) return project.getTimeline().getAudioClips().get(idx);
+        // fallback to audio under playhead
+        long abs = getAbsolutePlayheadMs(lastPositionInSegmentMs);
+        return findAudioClipAtTimelineMs(abs);
+    }
+    @NonNull private String getActiveCaptionStyleId() {
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null) {
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) return bs.get(activeAudioCaptionBindingIndex).styleId;
+                return ac.getCaptionStyleId();
+            }
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null) {
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) return bs.get(activeCaptionBindingIndex).styleId;
+                return c.getCaptionStyleId();
+            }
+        }
+        // legacy fallback
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
-        if (preferAudio) {
-            id = project.getTimeline().getAudioClips()
-                    .get(editorTimeline.getSelectedAudioIndex()).getCaptionStyleId();
-        } else if (getSelectedClip() != null) {
-            id = getSelectedClip().getCaptionStyleId();
-        }
-        return com.fadcam.ui.faditor.transcript.CaptionStyle.byId(id);
+        if (preferAudio) return project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex()).getCaptionStyleId();
+        Clip cc = getSelectedClip();
+        return cc != null ? cc.getCaptionStyleId() : "pop";
+    }
+
+    /** The style currently applied to the selection (clip or audio). Now retargets to active binding. */
+    @NonNull
+    private com.fadcam.ui.faditor.transcript.CaptionStyle currentCaptionStyle() {
+        return com.fadcam.ui.faditor.transcript.CaptionStyle.byId(getActiveCaptionStyleId());
     }
 
     /**
@@ -19214,6 +19557,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void tweakCaptionStyle(@NonNull java.util.function.Consumer<
             com.fadcam.ui.faditor.transcript.CaptionStyle> mutation) {
+        // Retarget to active binding's clip first
+        String activeTargetId = null;
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null && !ac.getCaptionBindings().isEmpty()) activeTargetId = ac.getId();
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null && !c.getCaptionBindings().isEmpty()) activeTargetId = c.getId();
+        }
+        if (activeTargetId != null) {
+            String draftId = "customdraft_" + activeTargetId;
+            com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+            com.fadcam.ui.faditor.transcript.CaptionStyle working = cur.id.equals(draftId) ? cur : cur.copyAs(draftId, cur.label);
+            mutation.accept(working);
+            com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(working);
+            applyCaptionStyle(draftId);
+            return;
+        }
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
         String targetId;
@@ -19335,6 +19696,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private float getCurrentCaptionSize() {
+        // Active binding retarget (SPEC_20260829_CAPTION_LAYERS): size slider follows last-touched caption.
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null) {
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) return bs.get(activeAudioCaptionBindingIndex).sizeFraction;
+            }
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null) {
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) return bs.get(activeCaptionBindingIndex).sizeFraction;
+            }
+        }
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
         if (preferAudio) {
@@ -19348,6 +19723,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void applyCaptionStyle(String styleId) {
+        // Active binding retarget first (drawer follows last-touched caption).
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null) {
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
+                    AudioClip.CaptionBinding b = bs.get(activeAudioCaptionBindingIndex);
+                    final String beforeStyle = b.styleId;
+                    final boolean beforeEnabled = b.enabled;
+                    b.styleId = styleId; b.enabled = true; ac.syncLegacyFromBindings();
+                    if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) {
+                        audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
+                    } else if (audioCaptionOverlay != null) {
+                        audioCaptionOverlay.setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
+                        audioCaptionOverlay.setVisibility(android.view.View.VISIBLE);
+                    }
+                    activeCaptionIsAudio = true; audioCaptionClipId = ac.getId();
+                    if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
+                    if (!styleId.equals(beforeStyle) || !beforeEnabled) {
+                        undoManager.recordAction(new EditActions.LambdaAction("Caption style",
+                                () -> { b.styleId = styleId; b.enabled = true; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId)); },
+                                () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeStyle)); }));
+                    }
+                    editorTimeline.invalidate(); scheduleAutoSave(); return;
+                }
+            }
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null) {
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
+                    Clip.CaptionBinding b = bs.get(activeCaptionBindingIndex);
+                    final String beforeStyle = b.styleId;
+                    final boolean beforeEnabled = b.enabled;
+                    b.styleId = styleId; b.enabled = true; c.syncLegacyFromBindings();
+                    if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) {
+                        captionOverlays.get(activeCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
+                    } else if (captionOverlay != null) {
+                        captionOverlay.setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
+                        captionOverlay.setVisibility(android.view.View.VISIBLE);
+                    }
+                    if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
+                    if (!styleId.equals(beforeStyle) || !beforeEnabled) {
+                        undoManager.recordAction(new EditActions.LambdaAction("Caption style",
+                                () -> { b.styleId = styleId; b.enabled = true; c.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId)); },
+                                () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; c.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeStyle)); }));
+                    }
+                    editorTimeline.invalidate(); scheduleAutoSave(); return;
+                }
+            }
+        }
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
         if (preferAudio) {
@@ -19439,6 +19865,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Caption size fraction of the currently-selected caption target (audio clip or clip), or NaN. */
     private float currentCaptionSizeOfSelection() {
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null) {
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) return bs.get(activeAudioCaptionBindingIndex).sizeFraction;
+            }
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null) {
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) return bs.get(activeCaptionBindingIndex).sizeFraction;
+            }
+        }
         int idx = editorTimeline.getSelectedAudioIndex();
         if (idx >= 0 && idx < project.getTimeline().getAudioClips().size())
             return project.getTimeline().getAudioClips().get(idx).getCaptionSizeFraction();
@@ -19449,6 +19888,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Record ONE undo for a completed caption-size drag (before -> current), if it changed. */
     private void recordCaptionSizeUndo(float before) {
         if (Float.isNaN(before)) return;
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null) {
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
+                    final AudioClip.CaptionBinding b = bs.get(activeAudioCaptionBindingIndex);
+                    final float after = b.sizeFraction;
+                    if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                            () -> { b.sizeFraction = after; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
+                            () -> { b.sizeFraction = before; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
+                    return;
+                }
+            }
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null) {
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
+                    final Clip.CaptionBinding b = bs.get(activeCaptionBindingIndex);
+                    final float after = b.sizeFraction;
+                    if (before != after) undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                            () -> { b.sizeFraction = after; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
+                            () -> { b.sizeFraction = before; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
+                    return;
+                }
+            }
+        }
         int idx = editorTimeline.getSelectedAudioIndex();
         if (idx >= 0 && idx < project.getTimeline().getAudioClips().size()) {
             final AudioClip ac = project.getTimeline().getAudioClips().get(idx);
@@ -19465,7 +19931,69 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    private void syncActiveCaptionOverlaySize() {
+        if (activeCaptionIsAudio) {
+            if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) {
+                AudioClip ac = getActiveAudioClip();
+                if (ac != null) {
+                    java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                    if (activeAudioCaptionBindingIndex < bs.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setSizeFraction(bs.get(activeAudioCaptionBindingIndex).sizeFraction);
+                }
+            }
+        } else {
+            if (!captionOverlays.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < captionOverlays.size()) {
+                Clip c = getActiveCaptionClip();
+                if (c != null) {
+                    java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                    if (activeCaptionBindingIndex < bs.size()) captionOverlays.get(activeCaptionBindingIndex).setSizeFraction(bs.get(activeCaptionBindingIndex).sizeFraction);
+                }
+            }
+        }
+    }
+
     private void applyCaptionSize(float size) {
+        // Active binding retarget first
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null) {
+                java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
+                    final AudioClip.CaptionBinding b = bs.get(activeAudioCaptionBindingIndex);
+                    final float before = b.sizeFraction;
+                    b.sizeFraction = Math.max(0.02f, Math.min(0.6f, size));
+                    ac.syncLegacyFromBindings();
+                    if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setSizeFraction(b.sizeFraction);
+                    if (!captionSizeSuppressUndo && before != b.sizeFraction) {
+                        undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                                () -> { b.sizeFraction = size; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
+                                () -> { b.sizeFraction = before; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
+                    }
+                    scheduleAutoSave();
+                    editorTimeline.invalidate();
+                    return;
+                }
+            }
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c != null) {
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
+                    final Clip.CaptionBinding b = bs.get(activeCaptionBindingIndex);
+                    final float before = b.sizeFraction;
+                    b.sizeFraction = Math.max(0.02f, Math.min(0.6f, size));
+                    c.syncLegacyFromBindings();
+                    if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setSizeFraction(b.sizeFraction);
+                    if (!captionSizeSuppressUndo && before != b.sizeFraction) {
+                        undoManager.recordAction(new EditActions.LambdaAction("Caption size",
+                                () -> { b.sizeFraction = size; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
+                                () -> { b.sizeFraction = before; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); }));
+                    }
+                    scheduleAutoSave();
+                    editorTimeline.invalidate();
+                    return;
+                }
+            }
+        }
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
         if (preferAudio) {
@@ -29967,11 +30495,76 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT));
         // Insert above the single caption overlays but below the style bar so chips stay tappable.
-        // Player container order: ... caption_overlays, caption_style_bar, etc. We add at index just before style bar.
         android.view.View styleBar = findViewById(R.id.caption_style_bar);
         int idx = styleBar != null ? playerContainer.indexOfChild(styleBar) : -1;
         if (idx >= 0) playerContainer.addView(captionMultiContainer, idx);
         else playerContainer.addView(captionMultiContainer);
+        // Pinch → sizeFraction of the active binding (SPEC_20260829_CAPTION_LAYERS §3.5).
+        captionScaleDetector = new android.view.ScaleGestureDetector(this, new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            @Override public boolean onScaleBegin(android.view.ScaleGestureDetector d) {
+                // Capture base size of active binding.
+                if (activeCaptionIsAudio) {
+                    AudioClip ac = getActiveAudioClip();
+                    if (ac != null) {
+                        java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                        if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
+                            captionPinchBaseSize = bs.get(activeAudioCaptionBindingIndex).sizeFraction;
+                            return true;
+                        }
+                    }
+                } else {
+                    Clip c = getActiveCaptionClip();
+                    if (c != null) {
+                        java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                        if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
+                            captionPinchBaseSize = bs.get(activeCaptionBindingIndex).sizeFraction;
+                            return true;
+                        }
+                    }
+                }
+                captionPinchBaseSize = Float.NaN;
+                return false;
+            }
+            @Override public boolean onScale(android.view.ScaleGestureDetector d) {
+                if (Float.isNaN(captionPinchBaseSize)) return false;
+                float newSize = captionPinchBaseSize * d.getScaleFactor();
+                newSize = Math.max(0.02f, Math.min(0.6f, newSize));
+                if (activeCaptionIsAudio) {
+                    AudioClip ac = getActiveAudioClip();
+                    if (ac != null) {
+                        java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                        if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
+                            bs.get(activeAudioCaptionBindingIndex).sizeFraction = newSize;
+                            ac.syncLegacyFromBindings();
+                            if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setSizeFraction(newSize);
+                        }
+                    }
+                } else {
+                    Clip c = getActiveCaptionClip();
+                    if (c != null) {
+                        java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                        if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
+                            bs.get(activeCaptionBindingIndex).sizeFraction = newSize;
+                            c.syncLegacyFromBindings();
+                            if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setSizeFraction(newSize);
+                        }
+                    }
+                }
+                return true;
+            }
+            @Override public void onScaleEnd(android.view.ScaleGestureDetector d) {
+                if (!Float.isNaN(captionPinchBaseSize)) {
+                    scheduleAutoSave();
+                    editorTimeline.invalidate();
+                }
+                captionPinchBaseSize = Float.NaN;
+            }
+        });
+        captionMultiContainer.setOnTouchListener((v, e) -> {
+            if (captionScaleDetector != null) captionScaleDetector.onTouchEvent(e);
+            // Allow child views (CaptionOverlayView) to handle drag/tap.
+            return false;
+        });
     }
 
     private void rebuildCaptionOverlays(@NonNull Clip clip) {
@@ -30004,6 +30597,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
                         @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
                         @Override public void onMoved() {
+                            if (bindingIdx != activeCaptionBindingIndex) return;
                             Clip cc = findClipById(clip.getId());
                             if (cc == null) return;
                             java.util.List<Clip.CaptionBinding> bs = cc.getCaptionBindings();
@@ -30055,10 +30649,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     });
             v.setCenter(b.centerX, b.centerY);
             v.setSizeFraction(b.sizeFraction);
-            // Only active binding is interactive; others pass taps through except for selection tap.
-            boolean isActive = (bindingIdx == activeCaptionBindingIndex);
-            v.setClickable(isActive);
-            v.setFocusable(isActive);
+            v.setClickable(true);
+            v.setFocusable(true);
+            v.setAlpha(bindingIdx == activeCaptionBindingIndex ? 1f : 0.85f);
             captionOverlays.add(v);
             captionMultiContainer.addView(v);
         }
@@ -30098,6 +30691,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
                         @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
                         @Override public void onMoved() {
+                            if (bindingIdx != activeAudioCaptionBindingIndex) return;
                             AudioClip ac = findAudioClipById(clip.getId());
                             if (ac == null) return;
                             java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
@@ -30131,7 +30725,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     });
             v.setCenter(b.centerX, b.centerY);
             v.setSizeFraction(b.sizeFraction);
-            v.setClickable(bindingIdx == activeAudioCaptionBindingIndex);
+            v.setClickable(true);
+            v.setFocusable(true);
+            v.setAlpha(bindingIdx == activeAudioCaptionBindingIndex ? 1f : 0.85f);
             audioCaptionOverlays.add(v);
             captionMultiContainer.addView(v);
         }
@@ -30142,8 +30738,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         activeCaptionBindingIndex = idx;
         for (int i = 0; i < captionOverlays.size(); i++) {
             boolean a = (i == idx);
-            captionOverlays.get(i).setClickable(a);
-            captionOverlays.get(i).setFocusable(a);
             captionOverlays.get(i).setAlpha(a ? 1f : 0.85f);
         }
         // Keep transcript drawer in sync if needed.
@@ -30154,8 +30748,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         activeAudioCaptionBindingIndex = idx;
         for (int i = 0; i < audioCaptionOverlays.size(); i++) {
             boolean a = (i == idx);
-            audioCaptionOverlays.get(i).setClickable(a);
-            audioCaptionOverlays.get(i).setFocusable(a);
+            audioCaptionOverlays.get(i).setAlpha(a ? 1f : 0.85f);
         }
     }
 

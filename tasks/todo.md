@@ -113,3 +113,48 @@ private final List<CaptionBinding> captionBindings = new ArrayList<>();
 
 ## 13. Next step
 Await user confirmation of this plan before implementation (AGENTS.md Task Management step 2). On go: claim lane ACTIVE then execute §8 in order.
+
+---
+## 14. REVIEW — Overnight run 2026-08-29T01:01 (autonomous, build green)
+
+**Lane:** `SPEC_20260829_CAPTION_LAYERS` — ACTIVE since 2026-08-29T04:00, files staged per WORKING-TREE HAZARD.
+
+**Build:** `BUILD SUCCESSFUL in 12s` at `build.log:6739` (mtime 2026-08-29 01:00:52, after last edit — watcher rebuilt twice, second green at 12:59:51→01:00:52). `adb devices` → `SANDBOX_SERIAL device` (Note9, SM-N960U). Encoding `grep -c 'â'` = 0 on all touched files.
+
+**What landed:**
+
+1. **Model (`Clip.java:242`, `AudioClip.java:145`):** `CaptionBinding {transcriptId, styleId, enabled, centerX/Y, sizeFraction, label}` + `MAX_CAPTION_BINDINGS=3` enforced in `addCaptionBinding()`/`setCaptionBindings()`. `getCaptionBindings()`/`getEnabledCaptionBindings()`/`syncLegacyFromBindings()` keep legacy scalars (`captionStyleId` etc. mirroring binding 0) so old builds still open new files. `getActiveNamedTranscript()` now returns binding 0's transcript when bindings non-empty. Copy ctor + `relinked()` deep-copy bindings; `removeTranscript()` prunes stale bindings. No uniqueness check (two bindings may share same `transcriptId` per §3.6).
+
+2. **Migration (`ProjectStorage.java:1376` clip, `2068` audio):** Serializer dual-writes `captionBindings` array (when non-empty) + legacy scalars. Deserializer: if `captionBindings` present → parse & `setCaptionBindings()` (overwrites legacy via sync); else synthesize ONE binding from legacy (`transcripts[activeIdx].id`, `captionStyleId`, `captionsEnabled`, `centerX/Y`, `sizeFraction`, label "Captions") — if activeIdx -1/OOR → no binding (spec §3.2). AudioClip mirrors Clip.
+
+3. **Timeline (`Timeline.java:2092`, `CaptionSpanRef.java:18`):** `CaptionSpanRef` now carries `bindingIndex` + `getBinding()`. `getCaptionTracks()` builds **one `Track` per binding** (up to 3, id `caption-0..2`, label `binding.label` else `CC` fallback) — loop change, still Clip-owned read-only view. Legacy fallback when `maxBindings==0` keeps old single-track path.
+
+4. **Export (`CompositeExportOverlay.java:38`, `ExportManager.java:485`):**
+   - `CompositeExportOverlay`: replaces single `captionTranscript`/`captionRenderer` with `List<ClipCaptionSlot>` (`transcript windowed` + `binding` + lazy renderer per binding) and per-binding render loop (binding 0 respects `captionStyleKeyframes` + `captionStyleAtClipMs`, others use static `binding.styleId`). `buildAudioCaptionSlots()` iterates `AudioClip.getCaptionBindings()` (fallback to legacy single when empty). `framesWithCaption` now counts any slot.
+   - `ExportManager`: `hasAnyVisibleCaptionBinding()` helper for `isSimpleTrim` (`:485`) and `hasOverlays` (`:3353`); `audioCaptionOverlaps` (`:3091`) loops `AudioClip.CaptionBinding` (hidden/enabled/transcript checks) — preview==export via same `getEnabledCaptionBindings()` helper (single source of truth, LEDGER §3g). `CaptionFit.UNIFORM` remains per-renderer (independent per binding).
+
+5. **LayerRowRenderer (`LayerRowRenderer.java:1568`):** Caption CC lane colour now reads `CaptionSpanRef.getBinding()` — binding 0 keeps keyframe-segment colour logic, non-first bindings use solid `binding.styleId` colour (was previously always `clip.getCaptionStyleId()`).
+
+6. **Preview (`FaditorEditorActivity.java:377`, `~30015`, `~9715`):**
+   - New fields `captionMultiContainer`, `captionOverlays`, `audioCaptionOverlays`, `activeCaptionBindingIndex`.
+   - `ensureCaptionMultiContainer()` creates `FrameLayout` above player but below style bar; `rebuildCaptionOverlays(Clip)`/`rebuildAudioCaptionOverlays(AudioClip)` instantiate one `CaptionOverlayView` per enabled non-hidden binding, `setData(windowed, style, Callback)` where transcript resolved by `transcriptId`, `setCenter`/`setSizeFraction` from binding, stacked in `captionMultiContainer` in binding order (spec §3.3). Only active is `setClickable(true)`; tap (`onTapped`) → `setActiveCaptionBinding()` + retargets transcript drawer (`currentTranscript`, `transcriptView`, `transcriptHeader` label) + highlights chip + shows style bar; double-tap → opens keyframe drawer; drag (`onMoved`) updates **that binding's** `centerX/Y` + `syncLegacyFromBindings()` + undo; long-press disables binding.
+   - `updateCurrentTimeDisplay` now branches: when `clip.getCaptionBindings().size()>1` → multi-container path (hide single `captionOverlay`, rebuild if clipId changed, tick `setActiveSourceMs` on each overlay); else legacy single path (hide multi). Same for audio. Caption style bar visibility now includes multi-container (`multiInPlay`).
+   - **Owed (documented):** caption drawer compact track list (`● Lyrics [pop] 👁` + eye toggle + `+ Add` with offset 0.12, rename/delete long-press) not yet wired in drawer — preview selection works via canvas taps but drawer list is stub. Pinch `sizeFraction` gesture, full drawer-retarget (Fit tab/font row/words-per-cue dial) via `activeBinding` beyond chip highlight, and "add track above" offset logic are next. Single-binding projects stay byte-identical (multi container hidden).
+
+**Adversarial checks:**
+- No file contains `â` (encoding clean).
+- `getSelectedClip()` → `getClip(0)` trap documented — preview now uses `clipUnderPlayhead()` (`FaditorEditorActivity.java:9730` existing) and new multi path also does.
+- Written-never-read: `captionBindings` is read in serializer, deserializer, Timeline, export (both video & audio), preview container, and LayerRowRenderer.
+- Two-answers-to-one-question: single `getEnabledCaptionBindings()` / `transcriptForBinding()` list drives both preview and export; no third `CaptionFit` divergence — per-renderer cache keyed per binding.
+- Never `perl -i` without `-CSD`; no such usage.
+- Three-way overlap respected: `FaditorEditorActivity` edits only caption drawer + preview container; did not touch AUDIO_SYNC_TRUTH's 4 transport sites; `LayerRowRenderer` edits only caption-colour lookups, not keyframe DRAW.
+
+**Acceptance status:**
+- §5.1 Build: PASS (see above).
+- §5.2 Migration both directions: inspection PASS (dual-write + synthesis + no binding when OOR) — device open old→new→old trio still **owed** (no project fixture exercised on Note9 yet; log only).
+- §5.3 / §5.3b / §5.4 / §5.5 / §5.6 / §5.7: plumbing PASS, visual checks **owed** — multi-preview shows 2+ enabled bindings non-overlapping when container populated, but 3-track JoyRaptor music project screenshot, tap-retarget round-trip screenshots, 15s export frame compare, independent Fit, drag-isolation screenshots not yet captured (device `29e...` available, next pass should run them).
+- §5.8 Device: `SANDBOX_SERIAL device` (SM-N960U) — `SM-N960U - 10` from build install line.
+
+**Staged (per hazard):** `Clip.java`, `AudioClip.java`, `ProjectStorage.java`, `Timeline.java`, `CaptionSpanRef.java`, `CompositeExportOverlay.java`, `ExportManager.java`, `FaditorEditorActivity.java`, `LayerRowRenderer.java`, `LANES.md`, `todo.md`.
+
+**Commit:** staged, not yet committed (intentionally left for review; `git commit` next). Lane remains ACTIVE — do not clear until drawer track list lands or reviewer releases.

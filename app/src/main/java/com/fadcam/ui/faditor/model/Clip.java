@@ -255,6 +255,49 @@ public class Clip implements AudioParams {
     /** Caption text height as a fraction of the video height. */
     private float captionSizeFraction = 0.060f;
 
+    // ── Caption bindings — up to 3 caption tracks per clip (SPEC_20260829_CAPTION_LAYERS) ──
+    public static final int MAX_CAPTION_BINDINGS = 3;
+
+    /** One rendered caption track: which transcript, styled how, placed where. */
+    public static final class CaptionBinding {
+        @NonNull public String transcriptId;
+        @NonNull public String styleId;
+        public boolean enabled;
+        public float centerX, centerY;
+        public float sizeFraction;
+        @NonNull public String label;
+
+        public CaptionBinding() {
+            this.transcriptId = "";
+            this.styleId = "pop";
+            this.enabled = true;
+            this.centerX = 0.5f;
+            this.centerY = 0.82f;
+            this.sizeFraction = 0.060f;
+            this.label = "Captions";
+        }
+
+        public CaptionBinding(@NonNull String transcriptId, @NonNull String styleId,
+                              boolean enabled, float centerX, float centerY,
+                              float sizeFraction, @NonNull String label) {
+            this.transcriptId = transcriptId;
+            this.styleId = styleId != null ? styleId : "pop";
+            this.enabled = enabled;
+            this.centerX = Math.max(0f, Math.min(1f, centerX));
+            this.centerY = Math.max(0f, Math.min(1f, centerY));
+            this.sizeFraction = Math.max(0.02f, Math.min(0.6f, sizeFraction));
+            this.label = label != null ? label : "Captions";
+        }
+
+        @NonNull
+        public CaptionBinding copy() {
+            return new CaptionBinding(transcriptId, styleId, enabled, centerX, centerY, sizeFraction, label);
+        }
+    }
+
+    @NonNull
+    private final List<CaptionBinding> captionBindings = new ArrayList<>();
+
     // ── Caption text animation (SPEC_TEXT_ANIMATION, LEDGER §3g) ─────
     // Stored as enum NAMES rather than ordinals so reordering the enums cannot silently
     // re-point every existing project at a different preset, and so an unknown value from a
@@ -600,6 +643,9 @@ public class Clip implements AudioParams {
         this.captionCenterX = other.captionCenterX;
         this.captionCenterY = other.captionCenterY;
         this.captionSizeFraction = other.captionSizeFraction;
+        for (CaptionBinding b : other.captionBindings) {
+            this.captionBindings.add(b.copy());
+        }
         this.captionAnimPreset = other.captionAnimPreset;
         this.captionAnimGranularity = other.captionAnimGranularity;
         this.captionAnimInPct = other.captionAnimInPct;
@@ -670,6 +716,9 @@ public class Clip implements AudioParams {
         c.captionCenterX = captionCenterX;
         c.captionCenterY = captionCenterY;
         c.captionSizeFraction = captionSizeFraction;
+        for (CaptionBinding b : captionBindings) {
+            c.captionBindings.add(b.copy());
+        }
         c.captionAnimPreset = captionAnimPreset;
         c.captionAnimGranularity = captionAnimGranularity;
         c.captionAnimInPct = captionAnimInPct;
@@ -1144,9 +1193,15 @@ public class Clip implements AudioParams {
         this.activeTranscriptIndex = (index >= 0 && index < transcripts.size()) ? index : -1;
     }
 
-    /** The active transcript version, or null if none. */
+    /** The active transcript version, or null if none. Prefers binding 0 when bindings exist. */
     @Nullable
     public com.fadcam.ui.faditor.transcript.NamedTranscript getActiveNamedTranscript() {
+        if (!captionBindings.isEmpty()) {
+            CaptionBinding b0 = captionBindings.get(0);
+            int idx = indexOfTranscriptId(b0.transcriptId);
+            if (idx >= 0) return transcripts.get(idx);
+            return null;
+        }
         return (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size())
                 ? transcripts.get(activeTranscriptIndex) : null;
     }
@@ -1169,15 +1224,19 @@ public class Clip implements AudioParams {
         return named;
     }
 
-    /** Remove the version at index, fixing up the active selection. */
+    /** Remove the version at index, fixing up the active selection and pruning bindings that pointed at it. */
     public void removeTranscript(int index) {
         if (index < 0 || index >= transcripts.size()) return;
+        String removedId = transcripts.get(index).id;
         transcripts.remove(index);
         if (transcripts.isEmpty()) {
             activeTranscriptIndex = -1;
         } else if (activeTranscriptIndex >= transcripts.size()) {
             activeTranscriptIndex = transcripts.size() - 1;
         }
+        // Prune bindings whose transcript no longer exists; binding wins over active index.
+        captionBindings.removeIf(b -> removedId.equals(b.transcriptId));
+        syncLegacyFromBindings();
     }
 
     public boolean hasTranscript() {
@@ -1299,36 +1358,133 @@ public class Clip implements AudioParams {
         return linkedClipId != null;
     }
 
+    // ── CaptionBindings (SPEC_20260829_CAPTION_LAYERS) ─────────────────
+
+    @NonNull
+    public List<CaptionBinding> getCaptionBindings() { return captionBindings; }
+
+    @NonNull
+    public List<CaptionBinding> getEnabledCaptionBindings() {
+        List<CaptionBinding> out = new ArrayList<>();
+        for (CaptionBinding b : captionBindings) if (b.enabled) out.add(b);
+        return out;
+    }
+
+    public boolean canAddCaptionBinding() { return captionBindings.size() < MAX_CAPTION_BINDINGS; }
+
+    public boolean addCaptionBinding(@NonNull CaptionBinding binding) {
+        if (captionBindings.size() >= MAX_CAPTION_BINDINGS) return false;
+        captionBindings.add(binding);
+        syncLegacyFromBindings();
+        return true;
+    }
+
+    public void removeCaptionBinding(int index) {
+        if (index < 0 || index >= captionBindings.size()) return;
+        captionBindings.remove(index);
+        syncLegacyFromBindings();
+    }
+
+    @Nullable
+    public CaptionBinding findCaptionBinding(@NonNull String transcriptId) {
+        for (CaptionBinding b : captionBindings) if (transcriptId.equals(b.transcriptId)) return b;
+        return null;
+    }
+
+    /** Replace bindings wholesale (used by storage migration / undo). Enforces cap of 3. */
+    public void setCaptionBindings(@NonNull List<CaptionBinding> bindings) {
+        captionBindings.clear();
+        int n = Math.min(bindings.size(), MAX_CAPTION_BINDINGS);
+        for (int i = 0; i < n; i++) captionBindings.add(bindings.get(i).copy());
+        syncLegacyFromBindings();
+    }
+
+    /** Keep legacy scalar fields mirroring binding 0 for one release (backward open). */
+    public void syncLegacyFromBindings() {
+        if (captionBindings.isEmpty()) {
+            captionsEnabled = false;
+            return;
+        }
+        CaptionBinding b0 = captionBindings.get(0);
+        captionsEnabled = b0.enabled;
+        captionStyleId = b0.styleId != null ? b0.styleId : "pop";
+        captionCenterX = b0.centerX;
+        captionCenterY = b0.centerY;
+        captionSizeFraction = b0.sizeFraction;
+        // Also keep activeTranscriptIndex pointing at b0's transcript for old readers of getTranscript().
+        int idx = indexOfTranscriptId(b0.transcriptId);
+        if (idx >= 0) activeTranscriptIndex = idx;
+    }
+
+    private int indexOfTranscriptId(@Nullable String id) {
+        if (id == null) return -1;
+        for (int i = 0; i < transcripts.size(); i++) {
+            if (id.equals(transcripts.get(i).id)) return i;
+        }
+        return -1;
+    }
+
+    /** Resolve a binding's transcript, or null if its id no longer exists. */
+    @Nullable
+    public com.fadcam.ui.faditor.transcript.NamedTranscript transcriptForBinding(@NonNull CaptionBinding b) {
+        int idx = indexOfTranscriptId(b.transcriptId);
+        return idx >= 0 ? transcripts.get(idx) : null;
+    }
+
+    // Legacy alias — when bindings exist these mirror binding 0; otherwise they read/write the scalar.
     public boolean isCaptionsEnabled() {
+        if (!captionBindings.isEmpty()) return captionBindings.get(0).enabled;
         return captionsEnabled;
     }
 
     public void setCaptionsEnabled(boolean enabled) {
+        if (!captionBindings.isEmpty()) {
+            captionBindings.get(0).enabled = enabled;
+        }
         this.captionsEnabled = enabled;
     }
 
     @NonNull
     public String getCaptionStyleId() {
+        if (!captionBindings.isEmpty()) return captionBindings.get(0).styleId;
         return captionStyleId;
     }
 
     public void setCaptionStyleId(@NonNull String id) {
+        if (!captionBindings.isEmpty()) captionBindings.get(0).styleId = id;
         this.captionStyleId = id;
     }
 
-    public float getCaptionCenterX() { return captionCenterX; }
-
-    public float getCaptionCenterY() { return captionCenterY; }
-
-    public void setCaptionCenter(float x, float y) {
-        this.captionCenterX = Math.max(0f, Math.min(1f, x));
-        this.captionCenterY = Math.max(0f, Math.min(1f, y));
+    public float getCaptionCenterX() {
+        if (!captionBindings.isEmpty()) return captionBindings.get(0).centerX;
+        return captionCenterX;
     }
 
-    public float getCaptionSizeFraction() { return captionSizeFraction; }
+    public float getCaptionCenterY() {
+        if (!captionBindings.isEmpty()) return captionBindings.get(0).centerY;
+        return captionCenterY;
+    }
+
+    public void setCaptionCenter(float x, float y) {
+        float cx = Math.max(0f, Math.min(1f, x));
+        float cy = Math.max(0f, Math.min(1f, y));
+        if (!captionBindings.isEmpty()) {
+            captionBindings.get(0).centerX = cx;
+            captionBindings.get(0).centerY = cy;
+        }
+        this.captionCenterX = cx;
+        this.captionCenterY = cy;
+    }
+
+    public float getCaptionSizeFraction() {
+        if (!captionBindings.isEmpty()) return captionBindings.get(0).sizeFraction;
+        return captionSizeFraction;
+    }
 
     public void setCaptionSizeFraction(float f) {
-        this.captionSizeFraction = Math.max(0.02f, Math.min(0.6f, f));
+        float v = Math.max(0.02f, Math.min(0.6f, f));
+        if (!captionBindings.isEmpty()) captionBindings.get(0).sizeFraction = v;
+        this.captionSizeFraction = v;
     }
 
     // ── Caption text animation (SPEC_TEXT_ANIMATION) ─────────────────

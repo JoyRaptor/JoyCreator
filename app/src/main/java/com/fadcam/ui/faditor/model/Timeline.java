@@ -2091,22 +2091,60 @@ public class Timeline {
      */
     @NonNull
     public List<Track> getCaptionTracks() {
-        List<TimedItem> items = new ArrayList<>();
         int n = clips.size();
+        // Find max bindings across clips (capped at 3).
+        int maxBindings = 0;
         for (int i = 0; i < n; i++) {
             Clip c = clips.get(i);
-            if (c != null && c.isCaptionsEnabled() && c.hasTranscript()) {
+            if (c != null) maxBindings = Math.max(maxBindings, c.getCaptionBindings().size());
+        }
+        // Legacy fallback: bindings empty but old single-track would have shown something (e.g. failed migration).
+        if (maxBindings == 0) {
+            List<TimedItem> legacy = new ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                Clip c = clips.get(i);
+                if (c != null && c.isCaptionsEnabled() && c.hasTranscript()) {
+                    long start = segmentStartMs(i);
+                    long end = (i + 1 < n) ? segmentStartMs(i + 1) : Long.MAX_VALUE;
+                    legacy.add(TimedItem.ofCaptionSpan(
+                            new com.fadcam.ui.faditor.layers.CaptionSpanRef(c, i, start, end, 0)));
+                }
+            }
+            if (legacy.isEmpty()) return Collections.emptyList();
+            Track track = new Track("caption", TrackKind.CAPTION, "CC");
+            for (TimedItem it : legacy) track.addItem(it);
+            applyTrackFlags(track);
+            return Collections.singletonList(track);
+        }
+        List<Track> out = new ArrayList<>();
+        for (int b = 0; b < maxBindings && b < Clip.MAX_CAPTION_BINDINGS; b++) {
+            List<TimedItem> items = new ArrayList<>();
+            String label = null;
+            for (int i = 0; i < n; i++) {
+                Clip c = clips.get(i);
+                if (c == null) continue;
+                java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
+                if (b >= bs.size()) continue;
+                Clip.CaptionBinding bd = bs.get(b);
+                if (!bd.enabled) continue;
+                com.fadcam.ui.faditor.transcript.NamedTranscript nt = c.transcriptForBinding(bd);
+                if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
                 long start = segmentStartMs(i);
                 long end = (i + 1 < n) ? segmentStartMs(i + 1) : Long.MAX_VALUE;
                 items.add(TimedItem.ofCaptionSpan(
-                        new com.fadcam.ui.faditor.layers.CaptionSpanRef(c, i, start, end)));
+                        new com.fadcam.ui.faditor.layers.CaptionSpanRef(c, i, start, end, b)));
+                if (label == null) label = bd.label;
             }
+            if (items.isEmpty()) continue;
+            if (label == null || label.isEmpty()) label = "CC " + (b + 1);
+            else if (maxBindings == 1 && "Captions".equals(label)) label = "CC";
+            Track track = new Track("caption-" + b, TrackKind.CAPTION, label);
+            for (TimedItem it : items) track.addItem(it);
+            applyTrackFlags(track);
+            out.add(track);
         }
-        if (items.isEmpty()) return Collections.emptyList();
-        Track track = new Track("caption", TrackKind.CAPTION, "CC");
-        for (TimedItem it : items) track.addItem(it);
-        applyTrackFlags(track);
-        return Collections.singletonList(track);
+        if (out.isEmpty()) return Collections.emptyList();
+        return out;
     }
 
     /**

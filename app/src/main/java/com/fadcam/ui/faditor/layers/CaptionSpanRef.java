@@ -32,11 +32,19 @@ public final class CaptionSpanRef {
      */
     private final long endMs;
 
+    /** Which caption binding of the clip this span represents (0..2). 0 = legacy single. */
+    private final int bindingIndex;
+
     public CaptionSpanRef(@NonNull Clip clip, int clipIndex, long startMs, long endMs) {
+        this(clip, clipIndex, startMs, endMs, 0);
+    }
+
+    public CaptionSpanRef(@NonNull Clip clip, int clipIndex, long startMs, long endMs, int bindingIndex) {
         this.clip = clip;
         this.clipIndex = clipIndex;
         this.startMs = startMs;
         this.endMs = endMs;
+        this.bindingIndex = Math.max(0, bindingIndex);
     }
 
     @NonNull
@@ -47,4 +55,13 @@ public final class CaptionSpanRef {
     public long getStartMs() { return startMs; }
 
     public long getEndMs() { return endMs; }
+
+    public int getBindingIndex() { return bindingIndex; }
+
+    /** The binding itself, or null if the index is out of range (stale view). */
+    @androidx.annotation.Nullable
+    public Clip.CaptionBinding getBinding() {
+        java.util.List<Clip.CaptionBinding> bs = clip.getCaptionBindings();
+        return (bindingIndex >= 0 && bindingIndex < bs.size()) ? bs.get(bindingIndex) : null;
+    }
 }

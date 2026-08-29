@@ -1,5 +1,8 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# ★★★ JOYRAPTOR'S FILE: tasks/RUNBOOK_SCOTT.md — the four commands, every agent prompt ready to
+#     paste, the full docket, and the recovery prompts. Start there, not here.
+#
 # ★★ NEVER RESOLVE A MERGE CONFLICT. If `git pull` reports a conflict, or `git status` shows
 #    unmerged paths: STOP, touch nothing, and say so at the top of your report. JoyRaptor is not
 #    an engineer and cannot unpick a bad merge; hand it to the Claude/Fabián session instead.

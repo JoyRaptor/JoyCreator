@@ -60,6 +60,18 @@ public final class TimeShuttleView extends View {
     private final Paint thumbShadow = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF tmpRect = new RectF();
 
+    /**
+     * Drawn width. Was 220dp, which made the control span a third of the phone purely so the
+     * GESTURE had room. Now that travel is measured against the screen (see
+     * {@link #setNormalizedFromRaw}), the grip only has to be comfortable to hold.
+     */
+    private static final float WIDTH_DP = 72f;
+
+    /** Screen X at touch-down; every deflection is relative to it. */
+    private float downRawX = 0f;
+    /** Px from touch-down to full deflection. 0 = use {@link #defaultTravelHalfPx()}. */
+    private float travelHalfPx = 0f;
+
     /** Current normalized deflection in [-1, 1]; 0 = centre. */
     private float normalized = 0f;
     private boolean engaged = false;         // finger down
@@ -90,7 +102,7 @@ public final class TimeShuttleView extends View {
 
     @Override
     protected void onMeasure(int widthSpec, int heightSpec) {
-        int w = resolveSizeAndState((int) (220 * density), widthSpec, 0);
+        int w = resolveSizeAndState((int) (WIDTH_DP * density), widthSpec, 0);
         int h = resolveSizeAndState((int) (44 * density), heightSpec, 0);
         setMeasuredDimension(w, h);
     }
@@ -98,21 +110,23 @@ public final class TimeShuttleView extends View {
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(MotionEvent e) {
-        float half = getWidth() / 2f;
-        if (half <= 0) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 getParent().requestDisallowInterceptTouchEvent(true);
                 engaged = true;
                 springingBack = false;
-                setNormalizedFromX(e.getX(), half);
+                // The gesture is measured from WHERE THE FINGER LANDED, not from the widget's
+                // centre, so touching down off-centre does not jolt the object sideways before
+                // the drag has begun.
+                downRawX = e.getRawX();
+                normalized = 0f;
                 if (listener != null) listener.onScrubStart();
                 lastFrameNanos = 0L;
                 ensureFrameLoop();
                 invalidate();
                 return true;
             case MotionEvent.ACTION_MOVE:
-                if (engaged) { setNormalizedFromX(e.getX(), half); invalidate(); }
+                if (engaged) { setNormalizedFromRaw(e.getRawX()); invalidate(); }
                 return true;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:
@@ -125,10 +139,40 @@ public final class TimeShuttleView extends View {
         }
     }
 
-    private void setNormalizedFromX(float x, float half) {
-        float n = (x - half) / half;                 // -1 .. 1 across the width
+    /**
+     * Deflection is measured against {@link #travelHalfPx} — a slice of the SCREEN — not
+     * against the widget's own width.
+     *
+     * <p>JoyRaptor, on the old behaviour: <i>"The word nudge scrubber doesn't need to be that
+     * big. Make it a third the size. Once you are dragging it, the drag can have velocity
+     * scale with distance from center using the whole screen, but we don't need the control
+     * to span the whole screen for that."</i></p>
+     *
+     * <p>Those were one number before: the control had to BE as wide as the gesture you
+     * wanted, so a precise shuttle cost 220dp of a phone screen. Splitting them means the
+     * widget can shrink to a thumb-sized grip while the gesture keeps its full travel — and
+     * the space either side is freed for the formatting row (SPEC_20260829_WORD_SYNC §3.6).</p>
+     */
+    private void setNormalizedFromRaw(float rawX) {
+        float half = travelHalfPx > 0f ? travelHalfPx : defaultTravelHalfPx();
+        float n = (rawX - downRawX) / half;
         normalized = Math.max(-1f, Math.min(1f, n));
     }
+
+    /**
+     * A third of the screen either side of the touch-down point. Chosen so a comfortable
+     * thumb arc reaches full speed without the finger leaving the display, and so the whole
+     * usable range is available whichever side of the screen the grip happens to sit on.
+     */
+    private float defaultTravelHalfPx() {
+        return getResources().getDisplayMetrics().widthPixels / 3f;
+    }
+
+    /**
+     * Override the gesture's travel distance (px from touch-down to full deflection).
+     * Independent of the widget's drawn size — that is the entire point.
+     */
+    public void setTravelHalfPx(float px) { travelHalfPx = px > 0f ? px : 0f; }
 
     private void beginSpringBack() {
         if (Math.abs(normalized) < 0.001f) { normalized = 0f; invalidate(); finishIfIdle(); return; }

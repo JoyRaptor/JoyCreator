@@ -2192,7 +2192,8 @@ public class ProjectStorage {
                 }
                 if (o.getOpacity() != 1f) oJson.addProperty("opacity", o.getOpacity());
                 if (!"default".equals(o.getFontFamily())) {
-                    oJson.addProperty("fontFamily", o.getFontFamily());
+                    String ff = AssetResolver.toStorage(projectDir, o.getFontFamily());
+                    oJson.addProperty("fontFamily", ff != null ? ff : o.getFontFamily());
                 }
                 // Entrance/exit animation (SPEC_TEXT_ANIMATION, text-box half). Sparse, like
                 // the clip's caption zones: an overlay that was never animated writes nothing
@@ -2300,6 +2301,12 @@ public class ProjectStorage {
                     for (StyleSpan s : o.getStyleSpans()) {
                         JsonObject sj = new JsonObject();
                         StyleSpan.toJson(s, sj);
+                        // Relativize fontFamily inside span if it points inside project
+                        if (sj.has("f") && !sj.get("f").isJsonNull()) {
+                            String ff = sj.get("f").getAsString();
+                            String rel = AssetResolver.toStorage(projectDir, ff);
+                            if (rel != null && !rel.equals(ff)) sj.addProperty("f", rel);
+                        }
                         spansArr.add(sj);
                     }
                     oJson.add("styleSpans", spansArr);
@@ -2963,7 +2970,13 @@ public class ProjectStorage {
                                         hasValue(oObj, "rotationDeg")
                                                 ? oObj.get("rotationDeg").getAsFloat() : 0f);
                         if (hasValue(oObj, "fontFamily")) {
-                            o.setFontFamily(oObj.get("fontFamily").getAsString());
+                            String ff = oObj.get("fontFamily").getAsString();
+                            // Resolve project://fonts/... back to file: absolute
+                            if (ff.startsWith(AssetResolver.PROJECT_URI_PREFIX)) {
+                                File f = new File(projectDir, ff.substring(AssetResolver.PROJECT_URI_PREFIX.length()));
+                                ff = "file:" + f.getAbsolutePath();
+                            }
+                            o.setFontFamily(ff);
                         }
                         if (hasValue(oObj, "fx")) {
                             try {
@@ -3093,8 +3106,14 @@ public class ProjectStorage {
                                 JsonArray spansArr = oObj.getAsJsonArray("styleSpans");
                                 java.util.List<StyleSpan> spans = new java.util.ArrayList<>();
                                 for (int s = 0; s < spansArr.size(); s++) {
-                                    spans.add(StyleSpan.fromJson(
-                                            spansArr.get(s).getAsJsonObject()));
+                                    StyleSpan span = StyleSpan.fromJson(
+                                            spansArr.get(s).getAsJsonObject());
+                                    // Resolve project:// fonts back to file:
+                                    if (span.fontFamily != null && span.fontFamily.startsWith(AssetResolver.PROJECT_URI_PREFIX)) {
+                                        File f = new File(projectDir, span.fontFamily.substring(AssetResolver.PROJECT_URI_PREFIX.length()));
+                                        span.fontFamily = "file:" + f.getAbsolutePath();
+                                    }
+                                    spans.add(span);
                                 }
                                 o.setStyleSpans(spans);
                             } catch (Exception ignored) {

@@ -1,0 +1,659 @@
+<title>Fade Handle Studies</title>
+
+<style>
+  :root{
+    --bg:#0a0a0d;
+    --panel:#131318;
+    --panel-2:#191920;
+    --line:#282833;
+    --line-soft:#1f1f28;
+    --text:#ececf2;
+    --dim:#9a9aab;
+    --dimmer:#6c6c7c;
+    --audio:#4fd1c5;
+    --image:#a78bfa;
+    --good:#6ee7a8;
+    --bad:#f87171;
+    --warn:#fbbf24;
+    --touch:#ff3d7f;
+    --radius:14px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+
+  *{box-sizing:border-box}
+
+  body,.page{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .page{max-width:1180px;margin:0 auto;padding:40px 22px 90px}
+
+  h1{
+    font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:0 0 8px;font-weight:650;
+  }
+  .sub{color:var(--dim);font-size:15px;margin:0 0 30px;max-width:70ch}
+
+  h2{
+    font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);
+    font-weight:600;margin:44px 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line-soft);
+  }
+
+  /* ---------- constraints panel ---------- */
+  .facts{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:1px;
+    background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--radius);
+    overflow:hidden;margin-bottom:26px;
+  }
+  .fact{background:var(--panel);padding:14px 16px}
+  .fact b{display:block;font-family:var(--mono);font-size:20px;font-weight:600;letter-spacing:-.02em}
+  .fact span{display:block;font-size:12px;color:var(--dim);margin-top:2px}
+  .fact.hot b{color:var(--bad)}
+  .fact.ok b{color:var(--good)}
+
+  .quote{
+    border-left:2px solid var(--warn);background:var(--panel);border-radius:0 10px 10px 0;
+    padding:14px 18px;margin:0 0 26px;color:#d8d8e4;font-size:15px;font-style:italic;
+  }
+  .quote cite{display:block;font-style:normal;font-size:12px;color:var(--dimmer);margin-top:7px}
+
+  /* ---------- touch-target toggle (CSS only) ---------- */
+  .toggle-row{display:flex;align-items:center;gap:10px;margin:0 0 22px;font-size:14px;color:var(--dim)}
+  #tt{
+    appearance:none;-webkit-appearance:none;width:42px;height:24px;border-radius:12px;
+    background:var(--panel-2);border:1px solid var(--line);position:relative;cursor:pointer;
+    transition:background .18s ease,border-color .18s ease;flex:none;margin:0;
+  }
+  #tt::after{
+    content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;
+    background:var(--dimmer);transition:transform .18s ease,background .18s ease;
+  }
+  #tt:checked{background:rgba(255,61,127,.18);border-color:var(--touch)}
+  #tt:checked::after{transform:translateX(18px);background:var(--touch)}
+  .tt{opacity:0;transition:opacity .2s ease}
+  #tt:checked ~ .body .tt{opacity:1}
+
+  /* ---------- option cards ---------- */
+  .cards{display:grid;gap:18px}
+  @media(min-width:900px){.cards{grid-template-columns:1fr 1fr}}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    padding:20px 20px 18px;display:flex;flex-direction:column;
+  }
+  .card-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+  .num{
+    font-family:var(--mono);font-size:11px;color:var(--dimmer);border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;flex:none;
+  }
+  .card h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-.01em}
+  .tag{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;
+    padding:2px 7px;border-radius:20px;margin-left:auto;flex:none;
+  }
+  .tag.base{background:rgba(154,154,171,.13);color:var(--dim)}
+  .tag.pass{background:rgba(110,231,168,.13);color:var(--good)}
+  .tag.fail{background:rgba(248,113,113,.13);color:var(--bad)}
+  .tag.mid{background:rgba(251,191,36,.13);color:var(--warn)}
+
+  .desc{color:var(--dim);font-size:14px;margin:6px 0 14px}
+
+  .mocks{display:flex;flex-direction:column;gap:10px;margin-bottom:15px}
+  .mock{background:#08080b;border:1px solid var(--line-soft);border-radius:10px;padding:4px 0 2px}
+  .mock-label{
+    font-family:var(--mono);font-size:10px;letter-spacing:.09em;color:var(--dimmer);
+    padding:5px 12px 0;text-transform:uppercase;
+  }
+  .mock svg{display:block;width:100%;height:auto}
+
+  .notes{display:grid;gap:7px;margin-top:auto;font-size:13.5px}
+  .note{display:flex;gap:9px;align-items:flex-start;color:#c9c9d6}
+  .note i{
+    font-style:normal;font-family:var(--mono);font-size:11px;font-weight:700;flex:none;
+    width:17px;height:17px;border-radius:5px;display:grid;place-items:center;margin-top:2px;
+  }
+  .note.y i{background:rgba(110,231,168,.14);color:var(--good)}
+  .note.n i{background:rgba(248,113,113,.14);color:var(--bad)}
+
+  /* ---------- shared svg styling ---------- */
+  svg.a{--acc:var(--audio);--acc-soft:rgba(79,209,197,.22);--acc-mid:rgba(79,209,197,.5)}
+  svg.i{--acc:var(--image);--acc-soft:rgba(167,139,250,.22);--acc-mid:rgba(167,139,250,.5)}
+  .clip{fill:#15151c;stroke:var(--acc);stroke-opacity:.35;stroke-width:1}
+  svg.a .clipfill{fill:rgba(79,209,197,.10)}
+  svg.i .clipfill{fill:rgba(167,139,250,.10)}
+  .ring{fill:none;stroke:var(--acc);stroke-width:2;stroke-opacity:.95}
+  .wave{fill:var(--acc);fill-opacity:.45}
+  .film{fill:none;stroke:var(--acc);stroke-opacity:.2;stroke-width:1}
+  .trimcap{fill:var(--acc);fill-opacity:.95}
+  .acc{fill:var(--acc)}
+  .accs{stroke:var(--acc);fill:none}
+  .lbl{fill:var(--dimmer);font-family:var(--mono);font-size:9px;letter-spacing:.06em}
+  .lbl-acc{fill:var(--acc);font-family:var(--mono);font-size:9.5px;font-weight:600}
+  .tt rect,.tt circle{fill:rgba(255,61,127,.12);stroke:var(--touch);stroke-width:1;stroke-dasharray:3 3}
+  .tt text{fill:var(--touch);font-family:var(--mono);font-size:9px;font-weight:700}
+  .gridline{stroke:#ffffff;stroke-opacity:.05;stroke-width:1}
+
+  /* drag demo animations */
+  @keyframes dragx{0%,100%{transform:scaleX(1)}50%{transform:scaleX(1.55)}}
+  @keyframes puff{0%,55%,100%{transform:scale(1)}70%,90%{transform:scale(2.6)}}
+  @keyframes glow{0%,100%{opacity:.35}50%{opacity:1}}
+  @keyframes slide{0%,100%{transform:translateX(0)}50%{transform:translateX(34px)}}
+  .drag{animation:dragx 3.4s ease-in-out infinite;transform-box:fill-box}
+  .drag-l{transform-origin:left center}
+  .drag-r{transform-origin:right center}
+  .puff{animation:puff 3.6s ease-in-out infinite;transform-box:fill-box;transform-origin:center}
+  .glow{animation:glow 2.4s ease-in-out infinite}
+  .slide{animation:slide 3.4s ease-in-out infinite}
+  @media(prefers-reduced-motion:reduce){
+    .drag,.puff,.glow,.slide{animation:none}
+  }
+
+  /* ---------- scorecard ---------- */
+  .tablewrap{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--radius);background:var(--panel)}
+  table{border-collapse:collapse;width:100%;min-width:640px;font-size:13.5px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+  th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+  tbody tr:last-child td{border-bottom:none}
+  td.c{text-align:center;font-size:15px}
+  .y{color:var(--good)}.n{color:var(--bad)}.m{color:var(--warn)}
+  tr.win td{background:rgba(110,231,168,.05)}
+  tr.win td:first-child{box-shadow:inset 2px 0 0 var(--good)}
+
+  /* ---------- recommendation ---------- */
+  .rec{
+    background:linear-gradient(180deg,rgba(110,231,168,.07),transparent 60%),var(--panel);
+    border:1px solid rgba(110,231,168,.25);border-radius:var(--radius);padding:24px;
+  }
+  .rec h3{margin:0 0 4px;font-size:20px;letter-spacing:-.01em}
+  .rec .why{color:var(--dim);font-size:14.5px;margin:0 0 16px}
+  .rec ul{margin:0;padding-left:19px;color:#c9c9d6;font-size:14px}
+  .rec li{margin-bottom:7px}
+  .rec li b{color:var(--text);font-weight:600}
+  .spec{
+    margin-top:18px;padding-top:16px;border-top:1px solid var(--line-soft);
+    font-family:var(--mono);font-size:12.5px;color:var(--dim);
+  }
+  .spec div{margin-bottom:4px}
+  .spec b{color:var(--text);font-weight:600}
+  footer{margin-top:40px;color:var(--dimmer);font-size:12px}
+</style>
+
+<!-- ============ shared SVG defs ============ -->
+<svg width="0" height="0" aria-hidden="true" style="position:absolute">
+  <defs>
+    <path id="waveform" d="M0,-4 L12.5,-8 L25,-18 L37.5,-26 L50,-14 L62.5,-30 L75,-22 L87.5,-11 L100,-27 L112.5,-19 L125,-29 L137.5,-13 L150,-24 L162.5,-17 L175,-28 L187.5,-9 L200,-21 L212.5,-26 L225,-15 L237.5,-23 L250,-12 L262.5,-25 L275,-18 L287.5,-10 L300,-5 L300,5 L287.5,10 L275,18 L262.5,25 L250,12 L237.5,23 L225,15 L212.5,26 L200,21 L187.5,9 L175,28 L162.5,17 L150,24 L137.5,13 L125,29 L112.5,19 L100,27 L87.5,11 L75,22 L62.5,30 L50,14 L37.5,26 L25,18 L12.5,8 L0,4 Z"/>
+
+    <g id="filmstrip">
+      <path class="film" d="M40 0 v34 M80 0 v34 M120 0 v34 M160 0 v34 M200 0 v34 M240 0 v34 M280 0 v34"/>
+    </g>
+
+    <g id="trash">
+      <circle r="9" fill="#1c1c22" stroke="#ffffff" stroke-opacity=".45" stroke-width="1"/>
+      <path d="M-5 -4 h10 M-3.4 -2 h6.8 v7 h-6.8 z" fill="none" stroke="#ffffff" stroke-opacity=".8" stroke-width="1.2" stroke-linejoin="round"/>
+    </g>
+
+    <linearGradient id="gAin" x1="0" x2="1"><stop offset="0" stop-color="#4fd1c5" stop-opacity="0"/><stop offset="1" stop-color="#4fd1c5" stop-opacity=".5"/></linearGradient>
+    <linearGradient id="gAout" x1="0" x2="1"><stop offset="0" stop-color="#4fd1c5" stop-opacity=".5"/><stop offset="1" stop-color="#4fd1c5" stop-opacity="0"/></linearGradient>
+    <linearGradient id="gIin" x1="0" x2="1"><stop offset="0" stop-color="#a78bfa" stop-opacity="0"/><stop offset="1" stop-color="#a78bfa" stop-opacity=".5"/></linearGradient>
+    <linearGradient id="gIout" x1="0" x2="1"><stop offset="0" stop-color="#a78bfa" stop-opacity=".5"/><stop offset="1" stop-color="#a78bfa" stop-opacity="0"/></linearGradient>
+
+    <linearGradient id="gAveil" x1="0" x2="1"><stop offset="0" stop-color="#05050a" stop-opacity=".85"/><stop offset="1" stop-color="#05050a" stop-opacity="0"/></linearGradient>
+    <linearGradient id="gAveilR" x1="0" x2="1"><stop offset="0" stop-color="#05050a" stop-opacity="0"/><stop offset="1" stop-color="#05050a" stop-opacity=".85"/></linearGradient>
+  </defs>
+</svg>
+
+<div class="page">
+
+  <h1>Fade Handle Studies</h1>
+  <p class="sub">Eight ways to grab a fade-in / fade-out on a timeline clip, drawn at true device scale on both row heights the editor actually uses. Every mock is 1 SVG unit = 1&nbsp;dp, so what looks small here is small on the phone.</p>
+
+  <p class="quote">
+    "The tape is much narrower for images than it is with audio, and that makes the handles almost untouchable. And it's really crowded because they're right next to the trash can too. And the handles are pretty ugly. Whatever we do for one, we should do for the other, but it has to be something that looks handsome and is easy to access, and it's clear when it's working."
+    <cite>— the brief</cite>
+  </p>
+
+  <h2>Measured constraints (from LayerRowRenderer.java)</h2>
+  <div class="facts">
+    <div class="fact"><b>76 dp</b><span>Audio row height (ROW_HEIGHT_AUDIO_EXPANDED_DP)</span></div>
+    <div class="fact hot"><b>34 dp</b><span>Image / overlay row height — 14&nbsp;dp when collapsed</span></div>
+    <div class="fact hot"><b>20 × 12 dp</b><span>Current fade hit zone (FADE_W_DP × FADE_H_DP)</span></div>
+    <div class="fact"><b>16 dp</b><span>Trim zone at each end (TRIM_WIDTH_DP) — trim wins ties</span></div>
+    <div class="fact hot"><b>r 18 dp</b><span>Trash slop circle (badge r&nbsp;9 × 2), centred at x1&minus;25&nbsp;dp</span></div>
+    <div class="fact ok"><b>44 dp</b><span>The touch target every one of these has to reach</span></div>
+  </div>
+  <p class="sub" style="margin-top:-8px">
+    The collision is real and it is arithmetic: on a 34&nbsp;dp row the fade-out zone spans x1&minus;36&nbsp;→&nbsp;x1&minus;16 in the top 12&nbsp;dp, and the trash slop circle covers x1&minus;43&nbsp;→&nbsp;x1&minus;7 across the <em>whole</em> row. They overlap almost entirely; the only reason it works today is that <code>hitTestItem</code> checks fade first — which means in that strip the trash is unreachable, and 8&nbsp;dp lower the fade is unreachable. A 12&nbsp;dp-tall target is roughly a quarter of a fingertip.
+  </p>
+
+  <div class="toggle-row">
+    <input type="checkbox" id="tt">
+    <label for="tt">Show touch targets (dashed pink = what a finger actually has to hit)</label>
+  </div>
+
+  <div class="body">
+
+  <h2>The eight options</h2>
+  <div class="cards">
+
+    <!-- ============ 1 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">01</span><h3>Corner Triangle</h3><span class="tag base">baseline</span></div>
+      <p class="desc">Today's design: a 20×12&nbsp;dp filled triangle tucked in each top corner, inset past the trim zone.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <path class="acc" fill-opacity=".7" d="M46 40 h20 l-20 12 z"/>
+            <path class="acc" fill-opacity=".7" d="M314 40 h-20 l20 12 z"/>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><rect x="46" y="40" width="20" height="12"/><rect x="294" y="40" width="20" height="12"/><text x="46" y="30">20×12</text><text x="248" y="30">20×12 · under the trash</text></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <path class="acc" fill-opacity=".7" d="M46 40 h20 l-20 12 z"/>
+            <path class="acc" fill-opacity=".7" d="M314 40 h-20 l20 12 z"/>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><rect x="46" y="40" width="20" height="12"/><rect x="294" y="40" width="20" height="12"/><circle cx="305" cy="57" r="18"/><text x="150" y="18">fade zone and trash slop overlap here</text></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>Costs zero extra space and never moves the row's layout.</span></div>
+        <div class="note n"><i>&minus;</i><span>12&nbsp;dp tall is a quarter of a fingertip — a third of the row on image, a sixth on audio.</span></div>
+        <div class="note n"><i>&minus;</i><span>Sits inside the trash's 18&nbsp;dp slop circle; one of the two always loses.</span></div>
+        <div class="note n"><i>&minus;</i><span>The triangle's size never changes, so a 0.2&nbsp;s fade and a 4&nbsp;s fade look identical. Nothing shows it worked.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 2 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">02</span><h3>Ramp Wedge + Corner Dot</h3><span class="tag mid">strong readout</span></div>
+      <p class="desc">A translucent wedge is painted under the whole fade region, with a round grab dot riding its top corner. The shape <em>is</em> the fade.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <g class="drag drag-l"><path d="M30 116 L100 40 L100 116 z" fill="url(#gAin)"/><path d="M30 116 L100 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/></g>
+            <g class="drag drag-r"><path d="M330 116 L260 40 L260 116 z" fill="url(#gAout)"/><path d="M330 116 L260 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/></g>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <g class="drag drag-l"><circle cx="100" cy="40" r="7" class="acc"/><circle cx="100" cy="40" r="7" fill="none" stroke="#0a0a0d" stroke-width="2"/></g>
+            <g class="drag drag-r"><circle cx="260" cy="40" r="7" class="acc"/><circle cx="260" cy="40" r="7" fill="none" stroke="#0a0a0d" stroke-width="2"/></g>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><circle cx="100" cy="40" r="22"/><circle cx="260" cy="40" r="22"/><text x="78" y="14">44 dp</text></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <g class="drag drag-l"><path d="M30 74 L100 40 L100 74 z" fill="url(#gIin)"/><path d="M30 74 L100 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/></g>
+            <g class="drag drag-r"><path d="M330 74 L260 40 L260 74 z" fill="url(#gIout)"/><path d="M330 74 L260 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/></g>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <g class="drag drag-l"><circle cx="100" cy="40" r="7" class="acc"/><circle cx="100" cy="40" r="7" fill="none" stroke="#0a0a0d" stroke-width="2"/></g>
+            <g class="drag drag-r"><circle cx="260" cy="40" r="7" class="acc"/><circle cx="260" cy="40" r="7" fill="none" stroke="#0a0a0d" stroke-width="2"/></g>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><circle cx="100" cy="40" r="22"/><circle cx="260" cy="40" r="22"/><text x="200" y="16">circle spills above the row — needs room</text></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>Fade length is legible without touching anything: longer fade, longer ramp.</span></div>
+        <div class="note y"><i>+</i><span>The dot is a round 44&nbsp;dp target and lives <em>inboard</em>, well clear of trim.</span></div>
+        <div class="note n"><i>&minus;</i><span>On a 34&nbsp;dp row a 44&nbsp;dp circle overflows the row by 5&nbsp;dp top and bottom, into the 3&nbsp;dp inter-row gap and the neighbour above.</span></div>
+        <div class="note n"><i>&minus;</i><span>A short fade parks the dot near the edge, back inside the trim zone's argument.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 3 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">03</span><h3>Envelope Strip</h3><span class="tag pass">size-independent</span></div>
+      <p class="desc">A fixed 28&nbsp;dp control strip appears above the <em>selected</em> item only, carrying the envelope line and two knobs. Same strip whatever the row height.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <rect x="30" y="4" width="300" height="28" rx="8" fill="#1c1c26" stroke="var(--acc)" stroke-opacity=".3"/>
+            <path d="M30 32 L96 8 L264 8 L330 32" class="accs" stroke-width="2" stroke-linejoin="round" stroke-opacity=".9"/>
+            <path d="M30 32 L96 8 L264 8 L330 32 Z" fill="var(--acc)" fill-opacity=".13"/>
+            <circle cx="96" cy="8" r="6.5" class="acc"/><circle cx="264" cy="8" r="6.5" class="acc"/>
+            <text class="lbl" x="112" y="26">0.8s</text><text class="lbl" x="228" y="26">0.8s</text>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <path d="M30 116 L96 40 L96 116 z" fill="url(#gAin)"/><path d="M330 116 L264 40 L264 116 z" fill="url(#gAout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><rect x="74" y="0" width="44" height="38"/><rect x="242" y="0" width="44" height="38"/></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row — identical strip</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <rect x="30" y="4" width="300" height="28" rx="8" fill="#221c33" stroke="var(--acc)" stroke-opacity=".3"/>
+            <path d="M30 32 L96 8 L264 8 L330 32" class="accs" stroke-width="2" stroke-linejoin="round" stroke-opacity=".9"/>
+            <path d="M30 32 L96 8 L264 8 L330 32 Z" fill="var(--acc)" fill-opacity=".13"/>
+            <circle cx="96" cy="8" r="6.5" class="acc"/><circle cx="264" cy="8" r="6.5" class="acc"/>
+            <text class="lbl" x="112" y="26">0.8s</text><text class="lbl" x="228" y="26">0.8s</text>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <path d="M30 74 L96 40 L96 74 z" fill="url(#gIin)"/><path d="M330 74 L264 40 L264 74 z" fill="url(#gIout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><rect x="74" y="0" width="44" height="38"/><rect x="242" y="0" width="44" height="38"/></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>The one option whose target does not shrink with the row — 28&nbsp;dp of strip plus slop reaches 44&nbsp;dp on a 14&nbsp;dp collapsed row too.</span></div>
+        <div class="note y"><i>+</i><span>Physically separated from trim and trash: zero contested pixels.</span></div>
+        <div class="note y"><i>+</i><span>Room for a numeric readout ("0.8s"), so "is it working" is answered in words as well as shape.</span></div>
+        <div class="note n"><i>&minus;</i><span>Costs ~32&nbsp;dp of vertical space while selected, and either overlays the row above or pushes it — both need care.</span></div>
+        <div class="note n"><i>&minus;</i><span>Two places to look: the control up top, the effect down in the clip. Needs the in-row ramp to tie them together.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 4 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">04</span><h3>Whole-Edge Drag Zone</h3><span class="tag mid">invisible</span></div>
+      <p class="desc">No handle at all. The leading and trailing ~25% of the clip is the fade target; drag anywhere in it. A faint tint marks the zone.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <rect x="46" y="40" width="59" height="76" fill="var(--acc)" fill-opacity=".07"/>
+            <rect x="255" y="40" width="59" height="76" fill="var(--acc)" fill-opacity=".07"/>
+            <path d="M105 46 v64 M255 46 v64" class="accs" stroke-opacity=".35" stroke-dasharray="3 4"/>
+            <path d="M30 116 L88 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/><path d="M30 116 L88 40 L88 116 z" fill="url(#gAin)"/>
+            <path d="M330 116 L272 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/><path d="M330 116 L272 40 L272 116 z" fill="url(#gAout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><rect x="46" y="40" width="59" height="76"/><rect x="255" y="40" width="59" height="76"/><text x="255" y="130">collides with trash</text></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <rect x="46" y="40" width="59" height="34" fill="var(--acc)" fill-opacity=".07"/>
+            <rect x="255" y="40" width="59" height="34" fill="var(--acc)" fill-opacity=".07"/>
+            <path d="M105 44 v26 M255 44 v26" class="accs" stroke-opacity=".35" stroke-dasharray="3 4"/>
+            <path d="M30 74 L88 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/><path d="M30 74 L88 40 L88 74 z" fill="url(#gIin)"/>
+            <path d="M330 74 L272 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/><path d="M330 74 L272 40 L272 74 z" fill="url(#gIout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><rect x="46" y="40" width="59" height="34"/><rect x="255" y="40" width="59" height="34"/><text x="150" y="20">59 × 34 — only 34 dp tall</text></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>Enormous horizontal target and no new artwork to make ugly.</span></div>
+        <div class="note y"><i>+</i><span>Nothing to miss — you cannot mis-aim at a region that big.</span></div>
+        <div class="note n"><i>&minus;</i><span>Vertically it is still only the row height: 34&nbsp;dp on image, 14&nbsp;dp collapsed. Fails the 44&nbsp;dp rule.</span></div>
+        <div class="note n"><i>&minus;</i><span>Steals the drag that should move the clip, and swallows the trash entirely on the trailing side.</span></div>
+        <div class="note n"><i>&minus;</i><span>Undiscoverable: nothing says "grab here", so it fails "clear when it's working" at rest.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 5 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">05</span><h3>Tap-to-Inflate</h3><span class="tag mid">two-step</span></div>
+      <p class="desc">Handles rest as small quiet dots. Tap one and it blooms to a 44&nbsp;dp puck with a halo, which stays inflated until you tap away.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row — left resting, right inflating</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <path d="M30 116 L92 40 L92 116 z" fill="url(#gAin)"/><path d="M330 116 L268 40 L268 116 z" fill="url(#gAout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <circle cx="92" cy="50" r="5" class="acc"/>
+            <circle cx="268" cy="50" r="20" fill="var(--acc)" fill-opacity=".18" class="glow"/>
+            <g class="puff"><circle cx="268" cy="50" r="5" class="acc"/></g>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><circle cx="92" cy="50" r="10"/><circle cx="268" cy="50" r="22"/><text x="60" y="24">20 dp</text><text x="248" y="24">44 dp</text></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <path d="M30 74 L92 40 L92 74 z" fill="url(#gIin)"/><path d="M330 74 L268 40 L268 74 z" fill="url(#gIout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <circle cx="92" cy="47" r="5" class="acc"/>
+            <circle cx="268" cy="47" r="20" fill="var(--acc)" fill-opacity=".18" class="glow"/>
+            <g class="puff"><circle cx="268" cy="47" r="5" class="acc"/></g>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><circle cx="92" cy="47" r="10"/><circle cx="268" cy="47" r="22"/><text x="150" y="18">inflated puck covers the trash</text></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>Quiet at rest — solves "the handles are ugly" by mostly not drawing them.</span></div>
+        <div class="note y"><i>+</i><span>Once inflated the target genuinely is 44&nbsp;dp, on any row height.</span></div>
+        <div class="note n"><i>&minus;</i><span>You still have to hit the 20&nbsp;dp resting dot to inflate it — the hard part is unchanged.</span></div>
+        <div class="note n"><i>&minus;</i><span>Adds a mode. Two taps and a drag to do one thing, and the inflated puck lands on top of the trash on the trailing side.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 6 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">06</span><h3>Outboard Knob on a Stem</h3><span class="tag pass">no collisions</span></div>
+      <p class="desc">The grip lifts clear of the row entirely — a 20&nbsp;dp knob floating ~20&nbsp;dp above, tethered by a hairline stem to the point in the clip it controls.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <path d="M96 18 v22 M264 18 v22" class="accs" stroke-width="1.5" stroke-opacity=".55"/>
+            <circle cx="96" cy="16" r="10" fill="#1c1c26" stroke="var(--acc)" stroke-width="2"/>
+            <circle cx="96" cy="16" r="3.4" class="acc"/>
+            <circle cx="264" cy="16" r="10" fill="#1c1c26" stroke="var(--acc)" stroke-width="2"/>
+            <circle cx="264" cy="16" r="3.4" class="acc"/>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <path d="M30 116 L96 40 L96 116 z" fill="url(#gAin)"/><path d="M330 116 L264 40 L264 116 z" fill="url(#gAout)"/>
+            <path d="M30 116 L96 40 M330 116 L264 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><circle cx="96" cy="16" r="22"/><circle cx="264" cy="16" r="22"/></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row — knob unchanged</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <path d="M96 18 v22 M264 18 v22" class="accs" stroke-width="1.5" stroke-opacity=".55"/>
+            <circle cx="96" cy="16" r="10" fill="#221c33" stroke="var(--acc)" stroke-width="2"/>
+            <circle cx="96" cy="16" r="3.4" class="acc"/>
+            <circle cx="264" cy="16" r="10" fill="#221c33" stroke="var(--acc)" stroke-width="2"/>
+            <circle cx="264" cy="16" r="3.4" class="acc"/>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <path d="M30 74 L96 40 L96 74 z" fill="url(#gIin)"/><path d="M330 74 L264 40 L264 74 z" fill="url(#gIout)"/>
+            <path d="M30 74 L96 40 M330 74 L264 40" class="accs" stroke-width="1.5" stroke-opacity=".8"/>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><circle cx="96" cy="16" r="22"/><circle cx="264" cy="16" r="22"/></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>Row height stops mattering — the knob is the same object on a 76&nbsp;dp and a 14&nbsp;dp row.</span></div>
+        <div class="note y"><i>+</i><span>Nothing of the row's own furniture (trim caps, trash) is within reach of it.</span></div>
+        <div class="note y"><i>+</i><span>The stem makes the link to the clip explicit without any label.</span></div>
+        <div class="note n"><i>&minus;</i><span>Floats over the row above; with two stacked rows selected in sequence it reads as belonging to the wrong one.</span></div>
+        <div class="note n"><i>&minus;</i><span>Two loose knobs in mid-air look unmoored — less "handsome" than a strip that visibly contains them.</span></div>
+        <div class="note n"><i>&minus;</i><span>The top row of the timeline has nothing above it to borrow.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 7 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">07</span><h3>Curtain</h3><span class="tag mid">unmistakable</span></div>
+      <p class="desc">A dark veil covers the fade region — literally showing the clip dimming — and the entire sloped edge of that veil is the drag surface, top to bottom.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <clipPath id="cA7"><rect x="30" y="40" width="300" height="76" rx="4"/></clipPath>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <g clip-path="url(#cA7)">
+              <path d="M30 40 L96 40 L30 116 z" fill="url(#gAveil)"/>
+              <path d="M330 40 L264 40 L330 116 z" fill="url(#gAveilR)"/>
+              <path d="M96 40 L30 116" class="accs" stroke-width="3" stroke-opacity=".95" stroke-linecap="round"/>
+              <path d="M264 40 L330 116" class="accs" stroke-width="3" stroke-opacity=".95" stroke-linecap="round"/>
+            </g>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <circle cx="63" cy="78" r="6" fill="#0a0a0d" stroke="var(--acc)" stroke-width="2"/>
+            <circle cx="297" cy="78" r="6" fill="#0a0a0d" stroke="var(--acc)" stroke-width="2"/>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><path d="M110 34 L44 110 L16 96 L82 20 z" fill="rgba(255,61,127,.12)" stroke="var(--touch)" stroke-dasharray="3 3"/><text x="120" y="30">28 dp wide band, full row height</text></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <clipPath id="cI7"><rect x="30" y="40" width="300" height="34" rx="4"/></clipPath>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <g clip-path="url(#cI7)">
+              <path d="M30 40 L96 40 L30 74 z" fill="url(#gAveil)"/>
+              <path d="M330 40 L264 40 L330 74 z" fill="url(#gAveilR)"/>
+              <path d="M96 40 L30 74" class="accs" stroke-width="3" stroke-opacity=".95" stroke-linecap="round"/>
+              <path d="M264 40 L330 74" class="accs" stroke-width="3" stroke-opacity=".95" stroke-linecap="round"/>
+            </g>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <circle cx="63" cy="57" r="6" fill="#0a0a0d" stroke="var(--acc)" stroke-width="2"/>
+            <circle cx="297" cy="57" r="6" fill="#0a0a0d" stroke="var(--acc)" stroke-width="2"/>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><path d="M110 36 L44 70 L30 56 L96 22 z" fill="rgba(255,61,127,.12)" stroke="var(--touch)" stroke-dasharray="3 3"/><text x="150" y="20">band is only as tall as the row</text></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>For an image fade this is close to literal: the clip really does go dark.</span></div>
+        <div class="note y"><i>+</i><span>Nothing to aim at precisely — the whole diagonal is live.</span></div>
+        <div class="note n"><i>&minus;</i><span>Dims the waveform and the thumbnail, the two things you were reading the row for.</span></div>
+        <div class="note n"><i>&minus;</i><span>On a 34&nbsp;dp row the diagonal is short and nearly horizontal; the band is still under 44&nbsp;dp in any direction.</span></div>
+        <div class="note n"><i>&minus;</i><span>The trailing veil sits on top of the trash roundel.</span></div>
+      </div>
+    </div>
+
+    <!-- ============ 8 ============ -->
+    <div class="card">
+      <div class="card-head"><span class="num">08</span><h3>Edge Popover Scrubber</h3><span class="tag mid">precise, modal</span></div>
+      <p class="desc">Tap near an edge and a floating HUD opens above the clip: a wide slider with a numeric readout. You set the fade in the popover, not on the row.</p>
+      <div class="mocks">
+        <div class="mock"><div class="mock-label">Audio · 76 dp row</div>
+          <svg class="a" viewBox="0 0 360 124">
+            <rect x="34" y="2" width="150" height="32" rx="10" fill="#1c1c26" stroke="var(--acc)" stroke-opacity=".4"/>
+            <path d="M96 34 l6 6 l6 -6 z" fill="#1c1c26" stroke="var(--acc)" stroke-opacity=".4"/>
+            <text class="lbl" x="44" y="15">FADE IN</text>
+            <text class="lbl-acc" x="140" y="15">0.8 s</text>
+            <rect x="44" y="22" width="130" height="4" rx="2" fill="var(--acc)" fill-opacity=".2"/>
+            <g class="slide"><rect x="44" y="22" width="52" height="4" rx="2" class="acc"/><circle cx="96" cy="24" r="7" class="acc"/></g>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="76" rx="4"/>
+            <use href="#waveform" transform="translate(30,78)" class="wave"/>
+            <path d="M30 116 L96 40 L96 116 z" fill="url(#gAin)"/><path d="M330 116 L264 40 L264 116 z" fill="url(#gAout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="74" rx="4"/>
+            <rect class="trimcap" x="27" y="51" width="6" height="54" rx="3"/><rect class="trimcap" x="327" y="51" width="6" height="54" rx="3"/>
+            <g transform="translate(305,78)"><use href="#trash"/></g>
+            <g class="tt"><rect x="40" y="18" width="138" height="14"/><text x="184" y="30">slider is 138 dp long</text></g>
+          </svg>
+        </div>
+        <div class="mock"><div class="mock-label">Image · 34 dp row — same popover</div>
+          <svg class="i" viewBox="0 0 360 84">
+            <rect x="34" y="2" width="150" height="32" rx="10" fill="#221c33" stroke="var(--acc)" stroke-opacity=".4"/>
+            <path d="M96 34 l6 6 l6 -6 z" fill="#221c33" stroke="var(--acc)" stroke-opacity=".4"/>
+            <text class="lbl" x="44" y="15">FADE IN</text>
+            <text class="lbl-acc" x="140" y="15">0.8 s</text>
+            <rect x="44" y="22" width="130" height="4" rx="2" fill="var(--acc)" fill-opacity=".2"/>
+            <g class="slide"><rect x="44" y="22" width="52" height="4" rx="2" class="acc"/><circle cx="96" cy="24" r="7" class="acc"/></g>
+            <rect class="clip clipfill" x="30" y="40" width="300" height="34" rx="4"/>
+            <g transform="translate(30,40)"><use href="#filmstrip"/></g>
+            <path d="M30 74 L96 40 L96 74 z" fill="url(#gIin)"/><path d="M330 74 L264 40 L264 74 z" fill="url(#gIout)"/>
+            <rect class="ring" x="31" y="41" width="298" height="32" rx="4"/>
+            <rect class="trimcap" x="27" y="45" width="6" height="24" rx="3"/><rect class="trimcap" x="327" y="45" width="6" height="24" rx="3"/>
+            <g transform="translate(305,57)"><use href="#trash"/></g>
+            <g class="tt"><rect x="40" y="18" width="138" height="14"/></g>
+          </svg>
+        </div>
+      </div>
+      <div class="notes">
+        <div class="note y"><i>+</i><span>Most precise of the eight, and the only one that lets you type or nudge an exact duration.</span></div>
+        <div class="note y"><i>+</i><span>Completely immune to row height and to the trash.</span></div>
+        <div class="note n"><i>&minus;</i><span>Modal: you leave the timeline to do a timeline gesture. Direct manipulation is gone.</span></div>
+        <div class="note n"><i>&minus;</i><span>Still needs an in-row target to open it — the discovery problem is only moved, not solved.</span></div>
+        <div class="note n"><i>&minus;</i><span>The popover hides the clips above while it is open.</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <h2>Scorecard</h2>
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Option</th>
+          <th>&ge;44 dp on a 34 dp row</th>
+          <th>Clear of trash &amp; trim</th>
+          <th>Fade length readable at rest</th>
+          <th>Same for audio &amp; image</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>01 Corner triangle</td><td class="c n">✕</td><td class="c n">✕</td><td class="c n">✕</td><td class="c m">~</td></tr>
+        <tr><td>02 Ramp wedge + dot</td><td class="c m">~</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr class="win"><td>03 Envelope strip</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>04 Whole-edge zone</td><td class="c n">✕</td><td class="c n">✕</td><td class="c m">~</td><td class="c y">✓</td></tr>
+        <tr><td>05 Tap-to-inflate</td><td class="c m">~</td><td class="c n">✕</td><td class="c m">~</td><td class="c y">✓</td></tr>
+        <tr><td>06 Outboard knob</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>07 Curtain</td><td class="c n">✕</td><td class="c n">✕</td><td class="c y">✓</td><td class="c y">✓</td></tr>
+        <tr><td>08 Popover scrubber</td><td class="c y">✓</td><td class="c y">✓</td><td class="c n">✕</td><td class="c y">✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Recommendation</h2>
+  <div class="rec">
+    <h3>Option 03 — the Envelope Strip, with Option 02's ramp shading left painted inside the clip</h3>
+    <p class="why">The strip is the only design whose touch target is decoupled from the thing that is broken. Every in-row option inherits the row's height, and the row is 34&nbsp;dp — you cannot build a 44&nbsp;dp target inside 34&nbsp;dp without spilling somewhere. So stop trying: give the fades their own fixed 28&nbsp;dp strip that appears above the selected item, and it is the identical control on a 76&nbsp;dp audio row, a 34&nbsp;dp image row, and a 14&nbsp;dp collapsed one.</p>
+    <ul>
+      <li><b>Touch.</b> 28&nbsp;dp of drawn strip plus 8&nbsp;dp of slop above and below is a 44&nbsp;dp band, and the knobs get a 44&nbsp;dp circular zone along it. Row height never enters the arithmetic.</li>
+      <li><b>Collisions.</b> The strip lives entirely outside the clip rectangle, so it cannot argue with the 16&nbsp;dp trim zones or the trash's 18&nbsp;dp slop circle. <code>hitTestItem</code> gets a clean early-out on the strip band before it ever reaches the item loop — no more "fade wins, so the trash is unreachable" ordering games.</li>
+      <li><b>Readability.</b> The envelope line is a picture of the fade: the ramps get visibly longer as you drag, and there is room for "0.8&nbsp;s" beside each one. Keep the translucent wedge inside the clip too, so the row still shows its own fades once the strip closes and you deselect.</li>
+      <li><b>Parity.</b> One strip, one drawing routine, one hit test, shared by audio volume and image opacity — which is what the existing spec already asks for.</li>
+      <li><b>Looks.</b> A contained, rounded, labelled control reads as a piece of the app; two bare triangles read as leftovers. This also answers "ugly" without adding chrome to the resting state, because the strip only exists while something is selected.</li>
+    </ul>
+    <p class="why" style="margin:16px 0 0">Runner-up is <b>06, the outboard knob</b> — same geometry win, less code. It loses on looks and on the top row of the timeline, which has nothing above it to float into. If the strip proves too tall in practice, 06 is the fallback and shares most of the same hit-testing work.</p>
+    <div class="spec">
+      <div><b>Strip height</b> 28 dp drawn · 44 dp hit band (8 dp slop each side)</div>
+      <div><b>Gap to clip</b> 6 dp · overlays the row above rather than reflowing the timeline</div>
+      <div><b>Knob</b> r 6.5 dp drawn · r 22 dp hit · clamped so the two can never cross</div>
+      <div><b>In-clip echo</b> translucent ramp wedge, drawn whether or not the item is selected</div>
+      <div><b>Readout</b> seconds to 1 decimal, inside the strip, beside each ramp</div>
+    </div>
+  </div>
+
+  <footer>Constraints read from <code>app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java</code> — <code>drawFadeHandles</code>, <code>hitTestItem</code>, <code>deleteBadgeCx</code>. All mocks drawn 1 SVG unit = 1 dp.</footer>
+
+  </div>
+</div>

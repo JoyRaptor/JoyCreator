@@ -101,16 +101,9 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (4 small sites only)
 
 ## SPEC_20260829_CAPTION_LAYERS — up to 3 caption tracks, each on its own transcript
-status: ACTIVE (2026-08-29T04:00 — opencode/muse-spark implementing overnight)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/model/Clip.java
-  app/src/main/java/com/fadcam/ui/faditor/model/AudioClip.java
-  app/src/main/java/com/fadcam/ui/faditor/model/Timeline.java        (getCaptionTracks only)
-  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java
-  app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java
-  app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java  (~line 3093 only)
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (drawer + preview container)
-since: 2026-08-29T04:00
+status: IDLE (2026-08-29T03:00 — opencode/muse-spark FINISHED: model+storage+timeline+export+LayerRowRenderer (plumbing committed 0be24e6f) + preview multi-container + drawer track list + pinch + full drawer retarget (phase 3) — BUILD SUCCESSFUL 02:46, 31s, device SANDBOX_SERIAL. Phase 3 unblocked for IMAGE_ANIM_PRESETS.)
+files: (none)
+since: 2026-08-29T03:00
 
 ## SPEC_20260829_KEYFRAME_SHAPES — one glyph set drawn from Easing.apply()
 status: ACTIVE (2026-08-29T03:00 — opencode/muse-spark implementing)
@@ -167,6 +160,12 @@ since: 2026-08-29T02:40
 status: UNCLAIMED — free to take (spec written 2026-08-29)
 files (claim when you start): assetbrowser/AssetBrowserPanel.java + the toolbox/picker
   entry points you find; FaditorEditorActivity ONLY if unavoidable and only when free.
+
+## SPEC_20260829_MEDIA_IMPORT — make the app's own browser the picker
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+NOTE: supersedes QUICK_WINS §2. AssetBrowserPanel is constructed by NOTHING; every
+  video/image add goes to the SYSTEM picker. §2.2 (thumbnails) is fully disjoint - land
+  that first; FaditorEditorActivity launch sites only when its holders read IDLE.
 
 ## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
 status: ACTIVE (2026-08-29T00:45)

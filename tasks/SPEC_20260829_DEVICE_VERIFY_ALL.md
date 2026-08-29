@@ -38,6 +38,51 @@ phone, get the thing the spec promised?**
 
 ---
 
+## 2b. HOW TO DRIVE THE PHONE — read this before check 1
+
+**Added 2026-08-29 after a run returned 0 PASS / 0 FAIL / 41 BLOCKED.** That agent was
+honest, and the blockage was my spec's fault: it never said how to navigate. It got three
+screenshots of the splash screen and stopped.
+
+**Read `tasks/DEVICE_CONTROL_RUNBOOK.md` first.** The essentials:
+
+- `uiautomator dump` returns a NULL ROOT on these phones. There is no accessibility tree.
+  The only loop is: **screenshot → read the pixels → tap by coordinate → screenshot to
+  confirm.** If you are waiting for an element tree you will wait forever.
+- `FaditorEditorActivity` is **not exported** — you cannot `am start` it. You must navigate
+  through the UI from the launcher.
+- Screenshots come back at full device resolution. Note the device: Note 20 `REAL_SERIAL`
+  is 1440×3088; Note 9 `SANDBOX_SERIAL` reports 1440×2960 physical but an **override
+  size of 1080×2220** — `adb shell wm size` first and compute taps against the OVERRIDE.
+
+A working path into a project, verified by hand on 2026-08-29:
+
+1. `am force-stop com.fadcam.beta`, then
+   `monkey -p com.fadcam.beta -c android.intent.category.LAUNCHER 1`; wait ~8s.
+2. Screenshot. The bottom nav has six icons; the **clapper-with-pencil ("Faditor")** is the
+   4th. On the Note 9 (1080×2220) that tap is about **(628, 2110)**; on the Note 20
+   (1440×3088) about **(833, 2928)**. Recompute from your own screenshot rather than
+   trusting these.
+3. Screenshot: the project list. Tap a project row (~y of its title). Wait ~12s — a project
+   with media takes time to open.
+4. Screenshot: the editor. Transport play is centred above the timeline; on the Note 9 it
+   was about **(539, 971)**, on the Note 20 about **(718, 2031)**.
+5. **Tap play ONCE.** Tapping twice pauses it again, which will make you report a stopped
+   AudioTrack as a failure. This happened.
+
+Useful non-visual evidence, which is often stronger than a screenshot:
+
+- `adb shell "dumpsys audio | grep <pid>"` — an AudioTrack at `state:started` proves audio
+  is flowing; `state:idle` proves it is not.
+- `adb logcat -d | grep "new player piid"` — counts AudioTrack allocations. Churn here is a
+  bug even when it sounds fine.
+- `adb logcat -d -s AudioLayerSync:V` — `drift baseline` once per layer then silence is
+  correct; any `repark` is a failure.
+
+**If you genuinely cannot reach a screen, BLOCKED is the right answer** — but say which tap
+failed and attach the screenshot you were looking at, so the next run starts further along
+than yours did.
+
 ## 3. The checks
 
 Each row: what to do, and what a PASS looks like. Record **PASS / FAIL / BLOCKED** and the

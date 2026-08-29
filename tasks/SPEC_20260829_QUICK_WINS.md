@@ -40,7 +40,23 @@ the spine is the rare one. Today the rare one is easier to reach.
 
 ---
 
-## 2. Video thumbnails in the file picker
+## 2. Video thumbnails — SUPERSEDED, see SPEC_20260829_MEDIA_IMPORT
+
+**Correction, 2026-08-29, from JoyRaptor:** *"when I go to add a video, it doesn't use the
+internal file chooser that we have kind of built out, but it uses the default Android file
+explorer."*
+
+He is right and I had the surface wrong. Every video-add path is
+`videoPickerLauncher.launch(openDocumentIntent("video/*"))` — the SYSTEM picker
+(`FaditorEditorActivity` 2502, 3649, 35964, 35987). And `AssetBrowserPanel` is constructed
+by nothing: a repo-wide grep finds references only from itself and `AssetItem`.
+
+So adding thumbnails to that adapter would improve a screen no code path can open. The
+thumbnail work is right; it belongs with making the internal browser the actual picker.
+**That is `SPEC_20260829_MEDIA_IMPORT`.** Section 1 below (the toolbox reorder) stands and
+is still worth landing on its own.
+
+## 2b. (original text, kept for reference)
 
 From `HANDOFF_20260828.md`: *"No video thumbnails in the file picker. Images preview,
 videos do not, so choosing a clip is blind."*

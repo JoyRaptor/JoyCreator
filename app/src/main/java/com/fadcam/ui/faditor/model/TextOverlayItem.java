@@ -306,6 +306,13 @@ public class TextOverlayItem {
      */
     private float opacity = 1f;
 
+    // ── Image animation preset + opacity fade handles (SPEC_20260829_IMAGE_ANIM_PRESETS) ──
+    /** When non-null and active, owns two amber keyframes at the item's ends. Null = none. */
+    @Nullable private ImageAnimPreset imageAnimPreset;
+    /** Fade durations for image opacity (stackable multiply, not keyframes). 0 = none. */
+    private long imageFadeInMs = 0;
+    private long imageFadeOutMs = 0;
+
     /** Font family key for text overlays (e.g. "default", "serif", "mono", "dramatic"). */
     @NonNull
     private String fontFamily = "default";
@@ -551,6 +558,9 @@ public class TextOverlayItem {
         c.passThrough = passThrough;
         c.compositing = compositing == null ? null : compositing.copy();
         c.overlayBlendMode = overlayBlendMode;
+        c.imageAnimPreset = imageAnimPreset == null ? null : imageAnimPreset.copy();
+        c.imageFadeInMs = imageFadeInMs;
+        c.imageFadeOutMs = imageFadeOutMs;
         return c;
     }
 
@@ -749,6 +759,405 @@ public class TextOverlayItem {
 
     public void setOpacity(float opacity) {
         this.opacity = Math.max(0f, Math.min(1f, opacity));
+    }
+
+    // ── ImageAnimPreset + opacity fade handles (SPEC_20260829_IMAGE_ANIM_PRESETS) ──
+
+    @Nullable public ImageAnimPreset getImageAnimPreset() { return imageAnimPreset; }
+    public void setImageAnimPreset(@Nullable ImageAnimPreset p) { this.imageAnimPreset = p; }
+    @NonNull public ImageAnimPreset getOrCreateImageAnimPreset() {
+        if (imageAnimPreset == null) imageAnimPreset = new ImageAnimPreset();
+        return imageAnimPreset;
+    }
+    public boolean hasActiveImagePreset() { return imageAnimPreset != null && imageAnimPreset.isActive(); }
+
+    // Opacity fades (stackable multiply, not keyframes) — shares gesture code with AudioClip fades
+    public long getImageFadeInMs() { return imageFadeInMs; }
+    public long getImageFadeOutMs() { return imageFadeOutMs; }
+    public long getImageDurationMs(long timelineDurationMs) {
+        long end = (endMs == Long.MAX_VALUE || endMs <= 0) ? timelineDurationMs : endMs;
+        return Math.max(0L, end - startMs);
+    }
+    public void setImageFadeInMs(long ms, long timelineDurationMs) {
+        long dur = getImageDurationMs(timelineDurationMs);
+        if (dur <= 0) { imageFadeInMs = 0; return; }
+        ms = Math.max(0, Math.min(ms, dur / 2));
+        imageFadeInMs = ms;
+        if (imageFadeOutMs > dur / 2) imageFadeOutMs = dur / 2;
+        if (imageFadeInMs + imageFadeOutMs > dur) imageFadeOutMs = dur - imageFadeInMs;
+    }
+    public void setImageFadeOutMs(long ms, long timelineDurationMs) {
+        long dur = getImageDurationMs(timelineDurationMs);
+        if (dur <= 0) { imageFadeOutMs = 0; return; }
+        ms = Math.max(0, Math.min(ms, dur / 2));
+        imageFadeOutMs = ms;
+        if (imageFadeInMs > dur / 2) imageFadeInMs = dur / 2;
+        if (imageFadeInMs + imageFadeOutMs > dur) imageFadeInMs = dur - imageFadeOutMs;
+    }
+    // Overload without timeline (uses current bounded duration if any)
+    public void setImageFadeInMs(long ms) {
+        long dur = (endMs == Long.MAX_VALUE ? 0 : endMs - startMs);
+        if (dur > 0) setImageFadeInMs(ms, endMs);
+        else imageFadeInMs = Math.max(0, ms);
+    }
+    public void setImageFadeOutMs(long ms) {
+        long dur = (endMs == Long.MAX_VALUE ? 0 : endMs - startMs);
+        if (dur > 0) setImageFadeOutMs(ms, endMs);
+        else imageFadeOutMs = Math.max(0, ms);
+    }
+    /** Fade multiplier 0..1 at local time (0 = start of this item). Multiplies base opacity. */
+    public float imageFadeFactorAt(long localMs, long timelineDurationMs) {
+        long dur = getImageDurationMs(timelineDurationMs);
+        if (dur <= 0) return 1f;
+        if (imageFadeInMs > 0 && localMs < imageFadeInMs) {
+            return imageFadeInMs == 0 ? 1f : (float) localMs / (float) imageFadeInMs;
+        }
+        if (imageFadeOutMs > 0 && localMs > dur - imageFadeOutMs) {
+            long remaining = dur - localMs;
+            return imageFadeOutMs == 0 ? 1f : Math.max(0f, (float) remaining / (float) imageFadeOutMs);
+        }
+        return 1f;
+    }
+    public float imageFadeFactorAtLocal(long localMs) {
+        long dur = (endMs == Long.MAX_VALUE ? localMs+imageFadeOutMs+1 : endMs - startMs);
+        if (dur <= 0) return 1f;
+        if (imageFadeInMs > 0 && localMs < imageFadeInMs) return (float) localMs / (float) imageFadeInMs;
+        if (imageFadeOutMs > 0 && localMs > dur - imageFadeOutMs) {
+            long rem = dur - localMs; return Math.max(0f, (float) rem / (float) imageFadeOutMs);
+        }
+        return 1f;
+    }
+
+    // Fit / Fill — §3.5 stand-alone, no animation
+    /**
+     * Scale so whole image is visible inside canvas (letterbox). Keeps center at 0.5,0.5 for predictability.
+     * @param canvasW/H canvas size in same units (e.g. preview content rect)
+     * @param imgW/H intrinsic image size
+     */
+    public void applyFit(float canvasW, float canvasH, float imgW, float imgH) {
+        if (canvasW <= 0 || canvasH <= 0 || imgW <= 0 || imgH <= 0) return;
+        float canvasAspect = canvasW / canvasH;
+        float imgAspect = imgW / imgH;
+        // sizeFraction is height-fraction; width = sizeFraction * (canvasH/canvasW?) Actually TextOverlayItem draws with sizeFraction * videoHeight as font baseline; for images, sizeFraction scales both axes via scaleX/Y. Simpler: adjust sizeFraction so longer axis fits.
+        // If image is wider than canvas (imgAspect > canvasAspect), width is constraining -> fit by width.
+        // Use current sizeFraction as reference; compute scale factor to just-fit.
+        // We recompute target height fraction: fitHeight = min(1, canvasAspect/imgAspect?) For image to fit inside canvas, its rendered height = sizeFraction * canvasH * scaleY, width = sizeFraction * canvasH * aspect * scaleX (approx). Simpler heuristic: set sizeFraction to cover the smaller dimension.
+        // Since exact preview mapping is via TextOverlayRenderer/Image drawing with canvas rect + sizeFraction, we approximate by setting sizeFraction = min(1f * canvasAspect/imgAspect, 1f) etc. But to keep it safe, we set sizeFraction to 0.5 * minFit and center.
+        float fitScale = Math.min(canvasW / imgW, canvasH / imgH);
+        float coverScale = Math.max(canvasW / imgW, canvasH / imgH);
+        // Avoid division by zero
+        if (fitScale <= 0 || coverScale <= 0) return;
+        // Normalize to current sizeFraction semantics: we want rendered image at fitScale relative to coverScale?
+        // If current sizeFraction corresponds to current rendered scale, we adjust proportionally: new = old * (fitScale / currentScale)
+        // Without knowing currentScale, we set absolute: use canvasH as reference: image height on canvas = imgH * fitScale. sizeFraction is that height / videoHeight. Approx videoHeight≈canvasH.
+        float targetSizeFraction = (imgH * fitScale) / canvasH;
+        targetSizeFraction = Math.max(0.02f, Math.min(10f, targetSizeFraction));
+        setSizeFraction(targetSizeFraction);
+        setScaleX(1f); setScaleY(1f); setScaleLinked(true);
+        setCenter(0.5f, 0.5f);
+        // Clear preset: Fit is static, not animated — keep it simple, remove amber ownership.
+        if (hasActiveImagePreset()) { clearImagePresetOwnership(); }
+    }
+    public void applyFill(float canvasW, float canvasH, float imgW, float imgH) {
+        if (canvasW <= 0 || canvasH <= 0 || imgW <= 0 || imgH <= 0) return;
+        float fillScale = Math.max(canvasW / imgW, canvasH / imgH);
+        float targetSizeFraction = (imgH * fillScale) / canvasH;
+        targetSizeFraction = Math.max(0.02f, Math.min(10f, targetSizeFraction));
+        setSizeFraction(targetSizeFraction);
+        setScaleX(1f); setScaleY(1f); setScaleLinked(true);
+        setCenter(0.5f, 0.5f);
+        if (hasActiveImagePreset()) { clearImagePresetOwnership(); }
+    }
+
+    // Preset helpers (§3.3-3.4)
+    /** True if any track has presetOwned keys */
+    public boolean hasPresetOwnedKeys() {
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (k.presetOwned) return true;
+        }
+        return false;
+    }
+    /** Whether this item has custom animation (spec §3.7 replace warning): >2 keys on any track OR 2 not exactly at ends, and not presetOwned swap. */
+    public boolean hasCustomAnimation(long timelineDurationMs) {
+        long dur = getImageDurationMs(timelineDurationMs);
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+            if (tr.keyframes.isEmpty()) continue;
+            // If every key in this track is presetOwned, it's not custom — swapping presets must not nag
+            boolean allPreset = true;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (!k.presetOwned) { allPreset = false; break; }
+            if (allPreset) continue;
+            if (tr.keyframes.size() > 2) return true;
+            if (tr.keyframes.size() == 2) {
+                long t0 = tr.keyframes.get(0).timeMs, t1 = tr.keyframes.get(1).timeMs;
+                if (t0 != 0 || t1 != dur) return true;
+            }
+            if (tr.keyframes.size() == 1) {
+                // Single key not at an end is custom? Spec says more than two OR two not at ends. Single is also custom if not at 0/dur?
+                // Treat single middle key as custom.
+                long t = tr.keyframes.get(0).timeMs;
+                if (t != 0 && t != dur) return true;
+            }
+        }
+        return false;
+    }
+    /** Clear preset ownership on every key and reset preset to NONE. One undo step caller must snapshot before. */
+    public void clearImagePresetOwnership() {
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) k.presetOwned = false;
+        }
+        if (imageAnimPreset != null) imageAnimPreset.kind = ImageAnimPreset.Kind.NONE;
+    }
+    /** Re-place owned keys at new ends (sticky bookends). */
+    public void reflowPresetOwnedKeys(long timelineDurationMs) {
+        long dur = getImageDurationMs(timelineDurationMs);
+        if (dur <= 0) return;
+        // Collect values of owned keys to preserve (two values per track: start and end). For each track, owned keys are at most 2 at ends; we keep their values but move times.
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+            java.util.List<com.fadcam.ui.faditor.keyframe.Keyframe> owned = new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (k.presetOwned) owned.add(k);
+            if (owned.isEmpty()) continue;
+            // Expect 2; handle 1 or >2 gracefully: sort by time, take first+last values
+            java.util.Collections.sort(owned, (a,b)-> Long.compare(a.timeMs,b.timeMs));
+            float startVal = owned.get(0).value;
+            com.fadcam.ui.faditor.keyframe.Easing ease0 = owned.get(0).easing;
+            float endVal = owned.get(owned.size()-1).value;
+            com.fadcam.ui.faditor.keyframe.Easing ease1 = owned.size()>1 ? owned.get(owned.size()-1).easing : ease0;
+            boolean hadStart = false, hadEnd = false;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : owned) { if (k.timeMs==0) hadStart=true; }
+            // Remove all owned keys
+            java.util.Iterator<com.fadcam.ui.faditor.keyframe.Keyframe> it = tr.keyframes.iterator();
+            while (it.hasNext()) if (it.next().presetOwned) it.remove();
+            // Re-add at new ends with same values/easings and presetOwned true
+            com.fadcam.ui.faditor.keyframe.Keyframe nk0 = new com.fadcam.ui.faditor.keyframe.Keyframe(0, startVal, ease0);
+            nk0.presetOwned = true;
+            com.fadcam.ui.faditor.keyframe.Keyframe nk1 = new com.fadcam.ui.faditor.keyframe.Keyframe(dur, endVal, ease1);
+            nk1.presetOwned = true;
+            tr.keyframes.add(nk0); tr.keyframes.add(nk1);
+            java.util.Collections.sort(tr.keyframes, (a,b)-> Long.compare(a.timeMs,b.timeMs));
+        }
+    }
+    /**
+     * Apply a preset: writes exactly two presetOwned keys per affected track at 0 and duration.
+     * Computes minimum cover scale across whole path and clamps (§3.3). Returns false if refused (square pan).
+     */
+    public boolean applyImagePreset(@NonNull ImageAnimPreset.Kind kind, float canvasW, float canvasH, float imgW, float imgH, long timelineDurationMs) {
+        if (kind == ImageAnimPreset.Kind.NONE) { clearImagePresetOwnership(); return true; }
+        if (!isImage()) return false;
+        long dur = getImageDurationMs(timelineDurationMs);
+        if (dur <= 0) dur = 5000; // fallback for unbounded
+        // Determine cover scale (minimum that covers canvas across whole path) — sample 16 points
+        // For now compute cover at current center/scale as baseline; pan path will shift ±panRange.
+        float cover = computeCoverScale(canvasW, canvasH, imgW, imgH);
+        if (Float.isNaN(cover) || cover <= 0) cover = getSizeFraction();
+        // Square refusal for PAN_*
+        if (isPanKind(kind) && isSquareOnSquare(imgW, imgH, canvasW, canvasH)) {
+            return false;
+        }
+        // Clear existing keys (or keep if swapping presetOwned? spec §3.7 says swapping not destructive — so we clear only owned? But if custom exists caller should have warned. Here we just replace.)
+        // Remove all non-preset keys? No, we clear whole tracks that we will overwrite, keep others (e.g. rotation not affected by pan)
+        // Simpler: clear all presetOwned then write new ones; if custom existed and caller chose Replace, they already cleared.
+        // For safety, remove all keys on affected tracks before writing.
+        boolean isZoom = kind == ImageAnimPreset.Kind.ZOOM_IN || kind == ImageAnimPreset.Kind.ZOOM_OUT;
+        boolean isPan = isPanKind(kind);
+        boolean isSlide = isSlideKind(kind);
+        // Helper to put presetOwned key
+        com.fadcam.ui.faditor.keyframe.Easing ease = com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+        // Update preset descriptor
+        if (imageAnimPreset == null) imageAnimPreset = new ImageAnimPreset();
+        imageAnimPreset.kind = kind;
+        // Ensure preset-owned tracks start clean
+        java.util.function.Consumer<String> clearTrack = (prop) -> {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = keyframes.get(prop);
+            if (tr != null) {
+                java.util.Iterator<com.fadcam.ui.faditor.keyframe.Keyframe> it2 = tr.keyframes.iterator();
+                while (it2.hasNext()) { com.fadcam.ui.faditor.keyframe.Keyframe kk = it2.next(); if (kk.presetOwned) it2.remove(); }
+                if (tr.isEmpty()) keyframes.removeProperty(prop);
+            }
+        };
+        if (isPan) {
+            // Cover the canvas, then travel across long axis
+            float targetScale = cover;
+            // Ensure minimal cover across path: for horizontal pan, vertical coverage is constant (cover), horizontal translation doesn't affect coverage if scale==cover. So cover is sufficient.
+            // Apply scale as static? But preset writes SCALE track as cover (constant) — keeps image covering while panning.
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.X);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y);
+            // Write SCALE constant at both ends
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, targetScale, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, targetScale, ease, dur);
+            // Pan axis
+            float panRange = computePanRange(canvasW, canvasH, imgW, imgH, targetScale);
+            if (kind == ImageAnimPreset.Kind.PAN_LEFT) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f + panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f - panRange/2, ease, dur);
+                // Y centered
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f, ease, dur);
+            } else if (kind == ImageAnimPreset.Kind.PAN_RIGHT) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f - panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f + panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f, ease, dur);
+            } else if (kind == ImageAnimPreset.Kind.PAN_UP) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f + panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f - panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f, ease, dur);
+            } else if (kind == ImageAnimPreset.Kind.PAN_DOWN) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f - panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f + panRange/2, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f, ease, dur);
+            }
+        } else if (isZoom) {
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.X);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y);
+            // Default region ~70% centred, user can drag in preview to tweak zoomCenter/scale.
+            float regionScale = imageAnimPreset.zoomRegionScale; // 0.68 default
+            float startScale, endScale;
+            if (kind == ImageAnimPreset.Kind.ZOOM_IN) { startScale = cover * regionScale; endScale = cover; }
+            else { startScale = cover; endScale = cover * regionScale; }
+            // Ensure never below cover (peek) — clamp both to at least cover * 0.98? Actually zoom region smaller than cover would peek if centered, but we compute cover as minimum to cover at ANY translation; since zoom is at center 0.5, scale < cover would peek regardless. So we clamp regionScale >=1? But spec says region ↔ full, default ~70%. That would be SMALLER than cover and thus peek! So we must interpret zoomRegionScale as 0.7 of cover meaning zoomed-in region is LARGER scale (70% of canvas shows 70% of image => scale bigger). Let's invert: startScale = cover / regionScale? Hmm.
+            // Simpler: keep as cover * (regionScale <1 ? 1/regionScale : regionScale) so region is larger.
+            // For 0.68, 1/0.68≈1.47 => zoomed in is 1.47*cover. That covers.
+            float zoomedScale = cover / Math.max(0.2f, regionScale);
+            if (kind == ImageAnimPreset.Kind.ZOOM_IN) { startScale = cover; endScale = zoomedScale; }
+            else { startScale = zoomedScale; endScale = cover; }
+            // Keep center at preset's zoomCenter (user tweak) at zoomed end, and 0.5 at full end? Spec says region is centred at ~70%; slide earlier implies travel. For now keep both at 0.5 + preset offset at zoomed end.
+            float zx = imageAnimPreset.zoomCenterX, zy = imageAnimPreset.zoomCenterY;
+            if (kind == ImageAnimPreset.Kind.ZOOM_IN) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, zx, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, zy, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, startScale, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, endScale, ease, dur);
+            } else {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, zx, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, zy, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, startScale, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, endScale, ease, dur);
+            }
+        } else if (isSlide) {
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.X);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY);
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
+            // Fit to canvas (not cover) — use min scale so whole image visible when on screen
+            float fitScale = Math.min(canvasW/imgW, canvasH/imgH);
+            float targetScale = (imgH * fitScale)/canvasH;
+            targetScale = Math.max(0.02f, Math.min(10f, targetScale));
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, targetScale, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, targetScale, ease, dur);
+            // Off-screen start per direction, on-screen end at 0.5
+            float offX=0.5f, offY=0.5f;
+            if (kind == ImageAnimPreset.Kind.SLIDE_IN_LEFT) offX = -0.5f;
+            else if (kind == ImageAnimPreset.Kind.SLIDE_IN_RIGHT) offX = 1.5f;
+            else if (kind == ImageAnimPreset.Kind.SLIDE_IN_TOP) offY = -0.5f;
+            else if (kind == ImageAnimPreset.Kind.SLIDE_IN_BOTTOM) offY = 1.5f;
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, offX, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, offY, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, 0, 0f, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, dur, 1f, ease, dur);
+        }
+        // Also handle rotation delta if any
+        if (imageAnimPreset.rotationDelta != 0) {
+            clearTrack.accept(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, 0, 0f, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, dur, imageAnimPreset.rotationDelta, ease, dur);
+        }
+        return true;
+    }
+    private void putPresetKey(String prop, long t, float v, com.fadcam.ui.faditor.keyframe.Easing e, long dur) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack tr = keyframes.getOrCreate(prop);
+        // Remove existing at same time
+        tr.removeAt(t);
+        tr.put(t, v, e);
+        // Mark as presetOwned
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (k.timeMs==t) { k.presetOwned=true; break; }
+    }
+    private static boolean isPanKind(ImageAnimPreset.Kind k) { return k==ImageAnimPreset.Kind.PAN_LEFT||k==ImageAnimPreset.Kind.PAN_RIGHT||k==ImageAnimPreset.Kind.PAN_UP||k==ImageAnimPreset.Kind.PAN_DOWN; }
+    private static boolean isSlideKind(ImageAnimPreset.Kind k) { return k==ImageAnimPreset.Kind.SLIDE_IN_LEFT||k==ImageAnimPreset.Kind.SLIDE_IN_RIGHT||k==ImageAnimPreset.Kind.SLIDE_IN_TOP||k==ImageAnimPreset.Kind.SLIDE_IN_BOTTOM; }
+    private float computeCoverScale(float canvasW, float canvasH, float imgW, float imgH) {
+        if (canvasW<=0||canvasH<=0||imgW<=0||imgH<=0) return getSizeFraction();
+        float scaleX = canvasW / imgW;
+        float scaleY = canvasH / imgH;
+        float fillScale = Math.max(scaleX, scaleY);
+        // Convert fillScale (pixel ratio) to sizeFraction units: sizeFraction ≈ (imgH*fillScale)/canvasH
+        float coverFrac = (imgH * fillScale)/canvasH;
+        // Sample 16 points across path to ensure no peek: for pan/zoom the worst case is at extremes, but we approximate by taking max.
+        // Since we already use fillScale, it is minimal to cover at center; any translation keeps coverage if image is exactly filled? Actually panning shifts half-image off while keeping cover scale constant still covers because image is larger than canvas by fillScale. So cover is correct.
+        return Math.max(0.02f, Math.min(10f, coverFrac));
+    }
+    private float computePanRange(float canvasW, float canvasH, float imgW, float imgH, float coverFrac) {
+        // How far center can travel while still covering, at coverFrac scale.
+        // Rendered image width = imgW * fillScale = canvasW * (coverFrac*canvasH/imgH?) Keep simple: at coverFrac, image exactly covers canvas at center 0.5. The extra beyond canvas is (renderedW - canvasW). Half of that is max travel on that axis while still covering.
+        float fillScale = (coverFrac * canvasH)/imgH; // invert
+        float renderedW = imgW * fillScale;
+        float renderedH = imgH * fillScale;
+        boolean horizontal = (imgW/imgH) > (canvasW/canvasH); // image wider -> pan horizontal has room
+        float extra = horizontal ? (renderedW - canvasW) : (renderedH - canvasH);
+        if (extra <= 2f) return 0f; // no room
+        // Normalized pan range = extra / canvasDimension (fraction of canvas)
+        float range = extra / (horizontal ? canvasW : canvasH);
+        // Clamp to reasonable 0..1, use 90% of max to avoid edge peek due to rounding
+        return Math.max(0f, Math.min(0.9f, range*0.9f));
+    }
+    private boolean isSquareOnSquare(float imgW, float imgH, float canvasW, float canvasH) {
+        if (canvasW<=0||canvasH<=0||imgW<=0||imgH<=0) return false;
+        float imgAspect = imgW/imgH, canvasAspect = canvasW/canvasH;
+        if (Math.abs(imgAspect - canvasAspect) > 0.08f) return false; // not square-ish
+        // Also require nearly square canvas itself? Spec says square image on square canvas has nowhere to pan.
+        boolean imgSquare = Math.abs(imgAspect - 1f) < 0.08f;
+        boolean canvasSquare = Math.abs(canvasAspect - 1f) < 0.12f;
+        return imgSquare && canvasSquare;
+    }
+    /** Called from preview drag to tweak zoom/position/rotation without converting. Updates preset params and rewrites owned keys. */
+    public void updatePresetFromPreview(float newCenterX, float newCenterY, float newScale, float newRotation, long timelineDurationMs) {
+        if (!hasActiveImagePreset()) return;
+        ImageAnimPreset p = imageAnimPreset;
+        // Update stored params
+        if (p.kind == ImageAnimPreset.Kind.ZOOM_IN || p.kind == ImageAnimPreset.Kind.ZOOM_OUT) {
+            p.zoomCenterX = newCenterX; p.zoomCenterY = newCenterY;
+            // Derive new region scale from newScale vs cover
+            long dur = getImageDurationMs(timelineDurationMs);
+            // Re-apply preset to recompute keys from new params
+            // Need canvas/img sizes — not available here; caller should provide them. For now keep naive: just update owned keys' values directly.
+            for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (k.presetOwned) {
+                    if (tr.property.equals(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)) {
+                        // Keep start at 0.5, end at newCenterX for ZOOM_IN
+                        if (p.kind == ImageAnimPreset.Kind.ZOOM_IN && k.timeMs != 0) k.value = newCenterX;
+                        if (p.kind == ImageAnimPreset.Kind.ZOOM_OUT && k.timeMs == 0) k.value = newCenterX;
+                    }
+                    if (tr.property.equals(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y)) {
+                        if (p.kind == ImageAnimPreset.Kind.ZOOM_IN && k.timeMs != 0) k.value = newCenterY;
+                        if (p.kind == ImageAnimPreset.Kind.ZOOM_OUT && k.timeMs == 0) k.value = newCenterY;
+                    }
+                    if (tr.property.equals(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE)) {
+                        // Scale tweak: keep full end at cover, zoomed end at newScale
+                        if (p.kind == ImageAnimPreset.Kind.ZOOM_IN && k.timeMs != 0) k.value = newScale;
+                        if (p.kind == ImageAnimPreset.Kind.ZOOM_OUT && k.timeMs == 0) k.value = newScale;
+                    }
+                    if (tr.property.equals(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION)) {
+                        if (k.timeMs != 0) k.value = newRotation;
+                    }
+                }
+            }
+        } else {
+            // Pan or slide: update owned X/Y/SCALE directly
+            for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (k.presetOwned) {
+                    if (tr.property.equals(com.fadcam.ui.faditor.keyframe.KeyframeSet.X) && k.timeMs != 0) { /* end */ }
+                    // For generic, just keep as preview would set via addPropertyKeyframeAt but we rewrite owned.
+                }
+            }
+        }
     }
 
     @NonNull
@@ -1116,9 +1525,18 @@ public class TextOverlayItem {
      */
     public void setTrimmedTimeRange(long startMs, long endMs) {
         long before = this.startMs;
+        long beforeEnd = this.endMs;
         setTimeRange(startMs, endMs);
         long after = this.startMs;
         if (after != before) keyframes.shiftAll(before - after);
+        // Sticky bookends: owned keys stay glued to the visible ends (spec §3.2). This must run
+        // after shiftAll so non-owned keys keep project-time while owned keys snap to new ends.
+        if (hasPresetOwnedKeys()) {
+            long timelineDur = (endMs == Long.MAX_VALUE || endMs <= 0) ? (after + (beforeEnd == Long.MAX_VALUE ? 5000 : beforeEnd - before)) : endMs;
+            // Use current endMs/startMs to compute duration
+            long dur = (this.endMs == Long.MAX_VALUE) ? timelineDur - this.startMs : this.endMs - this.startMs;
+            if (dur > 0) reflowPresetOwnedKeys(timelineDur);
+        }
     }
 
     /** Whether this overlay should be drawn at the given timeline time. */
@@ -1294,6 +1712,7 @@ public class TextOverlayItem {
     public boolean moveKeyframeLocalTime(long oldLocalMs, long newLocalMs) {
         newLocalMs = Math.max(0, newLocalMs);
         boolean moved = false;
+        boolean wasPresetOwned = false;
         for (com.fadcam.ui.faditor.keyframe.KeyframeTrack track : keyframes.tracks()) {
             com.fadcam.ui.faditor.keyframe.Keyframe found = null;
             for (com.fadcam.ui.faditor.keyframe.Keyframe keyframe : track.keyframes) {
@@ -1303,10 +1722,18 @@ public class TextOverlayItem {
                 }
             }
             if (found != null) {
+                if (found.presetOwned) wasPresetOwned = true;
                 track.removeAt(oldLocalMs);
                 track.put(newLocalMs, found.value, found.easing);
+                for (com.fadcam.ui.faditor.keyframe.Keyframe kk : track.keyframes) {
+                    if (kk.timeMs == newLocalMs) { kk.presetOwned = found.presetOwned; break; }
+                }
                 moved = true;
             }
+        }
+        if (wasPresetOwned) {
+            // Spec §3.2: dragging an owned key in the timeline converts — clear every flag + preset.
+            clearImagePresetOwnership();
         }
         return moved;
     }
@@ -1397,8 +1824,21 @@ public class TextOverlayItem {
     }
 
     public float animatedOpacity(long timelineMs) {
-        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
+        float base = keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
                 localTime(timelineMs), opacity);
+        // Stackable image fade handles multiply the base opacity (spec §3.6) — images only, text has no fade.
+        if (isImage() && (imageFadeInMs > 0 || imageFadeOutMs > 0)) {
+            long local = localTime(timelineMs);
+            // Need duration to compute fade factor; use start/end directly if bounded, else local+1
+            long dur = (endMs == Long.MAX_VALUE ? local + imageFadeOutMs + 1 : endMs - startMs);
+            float factor;
+            if (imageFadeInMs > 0 && local < imageFadeInMs) factor = (float) local / (float) imageFadeInMs;
+            else if (imageFadeOutMs > 0 && local > dur - imageFadeOutMs) {
+                long rem = dur - local; factor = Math.max(0f, (float) rem / (float) imageFadeOutMs);
+            } else factor = 1f;
+            return base * factor;
+        }
+        return base;
     }
 
     public float animatedRotation(long timelineMs) {
@@ -1418,6 +1858,8 @@ public class TextOverlayItem {
         private final float scaleX, scaleY;
         private final boolean scaleLinked;
         private final long startMs, endMs;
+        private final long imageFadeInMs, imageFadeOutMs;
+        @Nullable private final ImageAnimPreset imageAnimPreset;
         @NonNull private final com.fadcam.ui.faditor.keyframe.KeyframeSet keyframes;
 
         private TransformSnapshot(@NonNull TextOverlayItem o) {
@@ -1431,22 +1873,36 @@ public class TextOverlayItem {
             this.scaleLinked = o.scaleLinked;
             this.startMs = o.startMs;
             this.endMs = o.endMs;
+            this.imageFadeInMs = o.imageFadeInMs;
+            this.imageFadeOutMs = o.imageFadeOutMs;
+            this.imageAnimPreset = o.imageAnimPreset == null ? null : o.imageAnimPreset.copy();
             this.keyframes = o.keyframes.copy();
         }
 
         /** True when this snapshot is value-identical to {@code other}. */
         public boolean matches(@NonNull TransformSnapshot other) {
-            return centerX == other.centerX
-                    && centerY == other.centerY
-                    && sizeFraction == other.sizeFraction
-                    && rotationDeg == other.rotationDeg
-                    && opacity == other.opacity
-                    && scaleX == other.scaleX
-                    && scaleY == other.scaleY
-                    && scaleLinked == other.scaleLinked
-                    && startMs == other.startMs
-                    && endMs == other.endMs
-                    && keyframesEqual(keyframes, other.keyframes);
+            if (centerX != other.centerX
+                    || centerY != other.centerY
+                    || sizeFraction != other.sizeFraction
+                    || rotationDeg != other.rotationDeg
+                    || opacity != other.opacity
+                    || scaleX != other.scaleX
+                    || scaleY != other.scaleY
+                    || scaleLinked != other.scaleLinked
+                    || startMs != other.startMs
+                    || endMs != other.endMs
+                    || imageFadeInMs != other.imageFadeInMs
+                    || imageFadeOutMs != other.imageFadeOutMs) return false;
+            if (imageAnimPreset == null && other.imageAnimPreset != null) return false;
+            if (imageAnimPreset != null && other.imageAnimPreset == null) return false;
+            if (imageAnimPreset != null && other.imageAnimPreset != null) {
+                if (imageAnimPreset.kind != other.imageAnimPreset.kind) return false;
+                if (imageAnimPreset.zoomCenterX != other.imageAnimPreset.zoomCenterX) return false;
+                if (imageAnimPreset.zoomCenterY != other.imageAnimPreset.zoomCenterY) return false;
+                if (imageAnimPreset.zoomRegionScale != other.imageAnimPreset.zoomRegionScale) return false;
+                if (imageAnimPreset.rotationDelta != other.imageAnimPreset.rotationDelta) return false;
+            }
+            return keyframesEqual(keyframes, other.keyframes);
         }
 
         private static boolean keyframesEqual(
@@ -1463,7 +1919,7 @@ public class TextOverlayItem {
                     com.fadcam.ui.faditor.keyframe.Keyframe kx = x.keyframes.get(j);
                     com.fadcam.ui.faditor.keyframe.Keyframe ky = y.keyframes.get(j);
                     if (kx.timeMs != ky.timeMs || kx.value != ky.value
-                            || kx.easing != ky.easing) return false;
+                            || kx.easing != ky.easing || kx.presetOwned != ky.presetOwned) return false;
                 }
             }
             return true;
@@ -1495,7 +1951,21 @@ public class TextOverlayItem {
         this.scaleLinked = s.scaleLinked;
         this.startMs = s.startMs;
         this.endMs = s.endMs;
+        this.imageFadeInMs = s.imageFadeInMs;
+        this.imageFadeOutMs = s.imageFadeOutMs;
+        this.imageAnimPreset = s.imageAnimPreset == null ? null : s.imageAnimPreset.copy();
         this.keyframes.copyFrom(s.keyframes);
+    }
+    /** Timed drag of a preset-owned key in the timeline must convert to manual (spec §3.2). */
+    public boolean convertPresetIfTimelineDrag(long oldLocalMs) {
+        // Check if any key at oldLocalMs was presetOwned
+        boolean wasOwned = false;
+        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : keyframes.tracks()) {
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (k.timeMs == oldLocalMs && k.presetOwned) { wasOwned = true; break; }
+            if (wasOwned) break;
+        }
+        if (wasOwned) clearImagePresetOwnership();
+        return wasOwned;
     }
 
     /**

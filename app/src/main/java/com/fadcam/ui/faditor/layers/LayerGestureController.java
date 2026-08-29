@@ -334,12 +334,14 @@ public final class LayerGestureController {
         final long origTime;
         final float value;
         final com.fadcam.ui.faditor.keyframe.Easing easing;
+        final boolean presetOwned;
         final long deltaMin, deltaMax; // item-local, from the REMAINING (non-moving) neighbors
         long curTime;
         KfMovingKey(@NonNull com.fadcam.ui.faditor.keyframe.KeyframeTrack track, long origTime,
                     float value, @NonNull com.fadcam.ui.faditor.keyframe.Easing easing,
-                    long deltaMin, long deltaMax) {
+                    boolean presetOwned, long deltaMin, long deltaMax) {
             this.track = track; this.origTime = origTime; this.value = value; this.easing = easing;
+            this.presetOwned = presetOwned;
             this.deltaMin = deltaMin; this.deltaMax = deltaMax; this.curTime = origTime;
         }
     }
@@ -537,7 +539,9 @@ public final class LayerGestureController {
         }
 
         // SPEC_AUDIO_UX_V1 B1.U §4: fade handles — top-corner triangles, inset of trim, selection-only, trim wins (handled above).
-        if (!objectLocked && hit.item.getAudioClip() != null
+        // Extended for image opacity fades (SPEC_20260829_IMAGE_ANIM_PRESETS §3.6) — same geometry, same gesture code, shared.
+        boolean isImageFade = hit.item.getTextOverlay() != null && hit.item.getTextOverlay().isImage();
+        if (!objectLocked && (hit.item.getAudioClip() != null || isImageFade)
                 && (hit.zone == LayerRowRenderer.ItemZone.FADE_IN || hit.zone == LayerRowRenderer.ItemZone.FADE_OUT)) {
             boolean fadeIn = hit.zone == LayerRowRenderer.ItemZone.FADE_IN;
             armFade(hit.item, fadeIn);
@@ -774,7 +778,7 @@ public final class LayerGestureController {
         }
     }
 
-    /** SPEC_AUDIO_UX_V1 B1: arm a fade handle — snapshot the envelope for one-undo. */
+    /** SPEC_AUDIO_UX_V1 B1: arm a fade handle — snapshot the envelope for one-undo. Shared audio + image (spec §3.6). */
     private void armFade(@NonNull TimedItem item, boolean fadeIn) {
         if (item.getAudioClip() != null) {
             com.fadcam.ui.faditor.model.AudioClip ac = item.getAudioClip();
@@ -783,8 +787,21 @@ public final class LayerGestureController {
             for (com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe kf : ac.getVolumeKeyframes()) {
                 fadeBeforeKfs.add(new com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe(kf.timeMs, kf.volume));
             }
+        } else if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+            // Snapshot fade durations + keyframe state for undo (image fades are separate from opacity keys — they multiply)
+            fadeBeforeImageFadeIn = o.getImageFadeInMs();
+            fadeBeforeImageFadeOut = o.getImageFadeOutMs();
+            // Also snapshot opacity keyframes in case gesture accidentally writes them (it shouldn't)
+            fadeBeforeImageKfs = new java.util.ArrayList<>();
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack op = o.getKeyframes().get(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY);
+            if (op != null) for (com.fadcam.ui.faditor.keyframe.Keyframe k : op.keyframes) fadeBeforeImageKfs.add(k.copy());
         }
     }
+    // Image fade snapshot for undo
+    private long fadeBeforeImageFadeIn, fadeBeforeImageFadeOut;
+    @SuppressWarnings("unused")
+    private java.util.List<com.fadcam.ui.faditor.keyframe.Keyframe> fadeBeforeImageKfs;
 
     // ── Sequence resize (SPEC_IMAGE_SEQUENCE §2a / §9c) ──────────────────────
 
@@ -892,7 +909,7 @@ public final class LayerGestureController {
             long lo = (prev == Long.MIN_VALUE) ? floor : prev + 1;            // ≥floor, strictly > prev
             long dMin = lo - moving.timeMs;
             long dMax = (next == Long.MAX_VALUE) ? Long.MAX_VALUE : (next - 1) - moving.timeMs; // strictly < next
-            kfShiftKeys.add(new KfMovingKey(t, moving.timeMs, moving.value, moving.easing, dMin, dMax));
+            kfShiftKeys.add(new KfMovingKey(t, moving.timeMs, moving.value, moving.easing, moving.presetOwned, dMin, dMax));
         }
         if (kfShiftKeys.isEmpty()) return false;
         kfShiftActive = true;
@@ -926,14 +943,24 @@ public final class LayerGestureController {
         // differently-neighbored tracks) → no legal shared delta; hold still.
         long delta = dMin > dMax ? 0L : Math.max(dMin, Math.min(dMax, reqDelta));
         boolean any = false;
+        boolean anyPreset = false;
+        for (KfMovingKey mk : kfShiftKeys) if (mk.presetOwned) anyPreset = true;
         for (KfMovingKey mk : kfShiftKeys) {
             long nt = mk.origTime + delta;
             if (nt != mk.curTime) {
                 mk.track.removeAt(mk.curTime);
                 mk.track.put(nt, mk.value, mk.easing);
+                // Preserve amber flag on the new key; put creates with presetOwned=false.
+                for (com.fadcam.ui.faditor.keyframe.Keyframe kk : mk.track.keyframes) if (kk.timeMs == nt) { kk.presetOwned = mk.presetOwned; break; }
                 mk.curTime = nt;
                 any = true;
             }
+        }
+        // If any moved key was preset-owned, convert the whole item (spec §3.2 timeline drag converts)
+        if (any && anyPreset && kfShiftItem != null && kfShiftItem.getTextOverlay() != null) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = kfShiftItem.getTextOverlay();
+            // Check if still has owned keys (they were just moved, so they still are owned). Clear them.
+            if (o.hasPresetOwnedKeys()) o.clearImagePresetOwnership();
         }
         if (any) {
             kfShiftMoved = true;
@@ -949,6 +976,7 @@ public final class LayerGestureController {
                 if (mk.curTime != mk.origTime) {
                     mk.track.removeAt(mk.curTime);
                     mk.track.put(mk.origTime, mk.value, mk.easing);
+                    for (com.fadcam.ui.faditor.keyframe.Keyframe kk : mk.track.keyframes) if (kk.timeMs == mk.origTime) { kk.presetOwned = mk.presetOwned; break; }
                     mk.curTime = mk.origTime;
                 }
             }
@@ -1031,55 +1059,58 @@ public final class LayerGestureController {
         switch (activeKind) {
             case FADE_IN:
             case FADE_OUT: {
-                if (activeItem == null || activeItem.getAudioClip() == null) break;
-                com.fadcam.ui.faditor.model.AudioClip ac = activeItem.getAudioClip();
+                if (activeItem == null) break;
+                boolean isImageFade = activeItem.getTextOverlay() != null && activeItem.getTextOverlay().isImage();
+                if (activeItem.getAudioClip() == null && !isImageFade) break;
                 long startMs = activeItem.getTimelineStartMs();
                 long dur = activeItem.getDisplayDurationMs(totalMs);
                 if (dur <= 0) break;
                 long endMs = startMs + dur;
                 boolean fadeIn = activeKind == GestureKind.FADE_IN;
-                // §5.4: dragged PAST the clip's own start by more than a nudge → the user is
-                // reaching into the neighbouring lane, which is a cross-fade, not a fade.
-                if (fadeIn && t < startMs - com.fadcam.ui.faditor.model.AudioCrossfade.MIN_DURATION_MS
-                        && activeTrack != null) {
-                    // This clip is the one fading IN, so it WINS. Prefer the lane above; fall
-                    // back to below so the bottom lane can still make one.
-                    String own = activeTrack.getId();
-                    String above = rowRenderer.adjacentAudioLaneId(own, true);
-                    String partner = above != null ? above
-                            : rowRenderer.adjacentAudioLaneId(own, false);
-                    if (partner != null) {
-                        boolean partnerIsAbove = above != null;
-                        String lower = partnerIsAbove ? own : partner;
-                        com.fadcam.ui.faditor.model.AudioCrossfade req =
-                                new com.fadcam.ui.faditor.model.AudioCrossfade(
-                                        lower, Math.max(0, t), startMs);
-                        // Winner is this clip. If the partner is ABOVE us we are the lower
-                        // lane and the sound is arriving DOWNWARD, so it is not "to above".
-                        req.setToLaneAbove(!partnerIsAbove);
-                        pendingXfadeRequest = req;
+                if (!isImageFade) {
+                    // Audio: §5.4 cross-fade creation when dragging past start
+                    if (fadeIn && t < startMs - com.fadcam.ui.faditor.model.AudioCrossfade.MIN_DURATION_MS
+                            && activeTrack != null) {
+                        String own = activeTrack.getId();
+                        String above = rowRenderer.adjacentAudioLaneId(own, true);
+                        String partner = above != null ? above
+                                : rowRenderer.adjacentAudioLaneId(own, false);
+                        if (partner != null) {
+                            boolean partnerIsAbove = above != null;
+                            String lower = partnerIsAbove ? own : partner;
+                            com.fadcam.ui.faditor.model.AudioCrossfade req =
+                                    new com.fadcam.ui.faditor.model.AudioCrossfade(
+                                            lower, Math.max(0, t), startMs);
+                            req.setToLaneAbove(!partnerIsAbove);
+                            pendingXfadeRequest = req;
+                        }
                     }
                 }
                 long fadeDur = fadeIn ? Math.max(0, Math.min(dur / 2, t - startMs)) : Math.max(0, Math.min(dur / 2, endMs - t));
-                // B1.F: AudioClip.setFadeInMs/setFadeOutMs is now THE definition of a fade
-                // (same pairs this block hand-wrote — FADE_IN: 0→0, fadeDur→1 ; FADE_OUT:
-                // dur−fadeDur→1, dur→0, clip-local ms — including the same region-clear of
-                // stale keys first), so a future semantics change lands in ONE place (B1.Q).
-                // The <40ms branches below are NOT fades — they are region CLEARS that leave
-                // the envelope flat without a 0-volume spike — so they stay as-is.
-                if (fadeIn) {
+                if (isImageFade) {
+                    com.fadcam.ui.faditor.model.TextOverlayItem o = activeItem.getTextOverlay();
+                    // Image fades multiply base opacity (spec §3.6) — same geometry, stackable, not keyframes.
                     if (fadeDur > 40) {
-                        ac.setFadeInMs(fadeDur);
+                        if (fadeIn) o.setImageFadeInMs(fadeDur, endMs);
+                        else o.setImageFadeOutMs(fadeDur, endMs);
                     } else {
-                        // Short fade: just ensure start is not muted — remove fade keys
-                        // (leaving envelope flat). Don't leave a 0-volume spike.
-                        ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs <= 80);
+                        if (fadeIn) o.setImageFadeInMs(0);
+                        else o.setImageFadeOutMs(0);
                     }
                 } else {
-                    if (fadeDur > 40) {
-                        ac.setFadeOutMs(fadeDur);
+                    com.fadcam.ui.faditor.model.AudioClip ac = activeItem.getAudioClip();
+                    if (fadeIn) {
+                        if (fadeDur > 40) {
+                            ac.setFadeInMs(fadeDur);
+                        } else {
+                            ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs <= 80);
+                        }
                     } else {
-                        ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs >= ac.getTrimmedDurationMs() - 80);
+                        if (fadeDur > 40) {
+                            ac.setFadeOutMs(fadeDur);
+                        } else {
+                            ac.getVolumeKeyframes().removeIf(kf -> kf.timeMs >= ac.getTrimmedDurationMs() - 80);
+                        }
                     }
                 }
                 callback.onGestureLive(activeItem);

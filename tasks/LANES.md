@@ -144,8 +144,8 @@ If you need a site outside that list, STOP and post here rather than taking it. 
 36,000-line file cannot absorb three simultaneous freehand edits.
 
 ## SPEC_20260829_PREVIEW_PERF — stop re-rastering what has not changed
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files (claim when you start):
+status: ACTIVE (2026-08-29T05:00 — opencode/muse-spark implementing)
+files:
   app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayTextureCache.java  (NEW)
   app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
   app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
@@ -153,12 +153,17 @@ files (claim when you start):
 NOTE: does NOT need FaditorEditorActivity. Fully disjoint from every other live lane.
 
 ## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files, IN PHASES (see spec §4):
-  phase 1: keyframe/Keyframe.java, keyframe/KeyframeCodec.java,
-           model/ImageAnimPreset.java (NEW), model/TextOverlayItem.java
-  phase 2: layers/LayerRowRenderer.java
-  phase 3: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE
+status: ACTIVE (2026-08-29T05:30 — opencode/muse-spark implementing overnight, phases 1+2)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/keyframe/Keyframe.java
+  app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeCodec.java
+  app/src/main/java/com/fadcam/ui/faditor/model/ImageAnimPreset.java  (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java  (fade+convert only)
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java (keyframe p + preset)
+since: 2026-08-29T05:30
+phase 3 HELD: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE
 
 ## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
 status: ACTIVE (2026-08-29T00:45)

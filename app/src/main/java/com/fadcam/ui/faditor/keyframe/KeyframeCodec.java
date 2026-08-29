@@ -42,6 +42,7 @@ public final class KeyframeCodec {
                 kj.addProperty("t", k.timeMs);
                 kj.addProperty("v", k.value);
                 kj.addProperty("e", k.easing.name());
+                if (k.presetOwned) kj.addProperty("p", true);
                 kfArr.add(kj);
             }
             tracksJson.add(tr.property, kfArr);
@@ -62,6 +63,12 @@ public final class KeyframeCodec {
                     JsonObject kj = kfArr.get(k).getAsJsonObject();
                     tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
                             Easing.fromName(kj.get("e").getAsString()));
+                    if (kj.has("p") && kj.get("p").getAsBoolean()) {
+                        // Mark the just-inserted key as preset-owned (tolerant: absent → false)
+                        for (Keyframe kk : tr.keyframes) {
+                            if (kk.timeMs == kj.get("t").getAsLong()) { kk.presetOwned = true; break; }
+                        }
+                    }
                 }
             } catch (RuntimeException ex) {
                 // One bad track does not cost the others.

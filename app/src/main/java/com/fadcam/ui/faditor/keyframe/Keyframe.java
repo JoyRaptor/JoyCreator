@@ -16,6 +16,8 @@ public class Keyframe {
     public long timeMs;
     public float value;
     @NonNull public Easing easing;
+    /** True while this key is maintained by an image animation preset (drawn amber). Cleared permanently the first time the user drags it in the TIMELINE. */
+    public boolean presetOwned = false;
 
     public Keyframe(long timeMs, float value, @NonNull Easing easing) {
         this.timeMs = timeMs;
@@ -29,6 +31,8 @@ public class Keyframe {
 
     @NonNull
     public Keyframe copy() {
-        return new Keyframe(timeMs, value, easing);
+        Keyframe c = new Keyframe(timeMs, value, easing);
+        c.presetOwned = presetOwned;
+        return c;
     }
 }

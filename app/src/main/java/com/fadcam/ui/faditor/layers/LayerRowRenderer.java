@@ -1567,7 +1567,10 @@ public final class LayerRowRenderer {
         // branch so keyframed captions keep their colour segments in the consolidated renderer.
         if (item.getCaptionSpan() != null && !ghosted) {
             com.fadcam.ui.faditor.model.Clip clip = item.getCaptionSpan().getClip();
-            if (clip.hasCaptionStyleKeyframes()) {
+            com.fadcam.ui.faditor.model.Clip.CaptionBinding binding = item.getCaptionSpan().getBinding();
+            boolean isFirstBinding = binding == null || item.getCaptionSpan().getBindingIndex() == 0;
+            String bindingStyleId = binding != null ? binding.styleId : clip.getCaptionStyleId();
+            if (isFirstBinding && clip.hasCaptionStyleKeyframes()) {
                 long startMs = item.getTimelineStartMs();
                 long endMs = startMs + dur;
                 canvas.save();
@@ -1595,11 +1598,8 @@ public final class LayerRowRenderer {
                 }
                 canvas.restore();
             } else {
-                // UNKEYFRAMED captions (JoyRaptor 2026-07-14): the tape must still reflect the
-                // clip's single active style (Bounce→green, Zoom→blue, …), not stay on the
-                // amber base — before this, only keyframed segments got their style colour.
-                int c = com.fadcam.ui.faditor.transcript.CaptionStyle
-                        .byId(clip.getCaptionStyleId()).activeColor;
+                // UNKEYFRAMED or non-first binding: solid colour from the binding's style.
+                int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(bindingStyleId).activeColor;
                 itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
                 canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             }
@@ -1708,6 +1708,7 @@ public final class LayerRowRenderer {
                     item.getCaptionSpan() == null);
             drawSequenceResizeModeHandles(canvas, item, x0, top, x1, bottom);
             if (item.getAudioClip() != null) drawFadeHandles(canvas, x0, top, x1, bottom, baseColor);
+            else if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) drawFadeHandles(canvas, x0, top, x1, bottom, baseColor);
         }
         if (item.getAudioClip() != null && item.getAudioClip().hasRemovedSpans()) {
             drawAudioStruckTape(canvas, item, x0, top, x1, bottom, timeToX);
@@ -1962,25 +1963,28 @@ public final class LayerRowRenderer {
         return buckets;
     }
 
-    /** Consolidated bucket with representative easing (earliest key in bucket). */
+    /** Consolidated bucket with representative easing (earliest key in bucket) + preset-owned flag. */
     static final class ConsolidatedKey {
         final long timeMs;
         final Easing easing;
-        ConsolidatedKey(long t, Easing e) { timeMs = t; easing = e; }
+        final boolean presetOwned;
+        ConsolidatedKey(long t, Easing e, boolean presetOwned) { timeMs = t; easing = e; this.presetOwned = presetOwned; }
+        ConsolidatedKey(long t, Easing e) { this(t, e, false); }
     }
 
-    /** Buckets with easing — single-source family for timeline diamonds (§3 contract). */
+    /** Buckets with easing — single-source family for timeline diamonds (§3 contract). Preset-owned bucket if ANY key in bucket is owned. */
     @NonNull
     static List<ConsolidatedKey> consolidatedKeysWithEasing(@NonNull TimedItem item) {
         KeyframeSet set = keyframeSetOf(item);
         if (set == null) return Collections.emptyList();
-        // Collect (time, easing) pairs
+        // Collect (time, easing, presetOwned) triples — preset true if any track has owned at that time
         List<ConsolidatedKey> all = new ArrayList<>();
         for (KeyframeTrack t : set.tracks()) {
-            for (Keyframe k : t.keyframes) all.add(new ConsolidatedKey(k.timeMs, k.easing));
+            for (Keyframe k : t.keyframes) all.add(new ConsolidatedKey(k.timeMs, k.easing, k.presetOwned));
         }
         if (all.isEmpty()) return Collections.emptyList();
         all.sort((a, b) -> Long.compare(a.timeMs, b.timeMs));
+        // Merge buckets: presetOwned ORs within tolerance (so amber survives consolidation)
         List<ConsolidatedKey> buckets = new ArrayList<>();
         ConsolidatedKey cur = all.get(0);
         buckets.add(cur);
@@ -1989,6 +1993,11 @@ public final class LayerRowRenderer {
             if (ck.timeMs - cur.timeMs > KF_CONSOLIDATE_TOLERANCE_MS) {
                 cur = ck;
                 buckets.add(cur);
+            } else if (ck.presetOwned && !cur.presetOwned) {
+                // Upgrade bucket to amber if any member is preset-owned
+                int last = buckets.size() - 1;
+                buckets.set(last, new ConsolidatedKey(cur.timeMs, cur.easing, true));
+                cur = buckets.get(last);
             }
         }
         return buckets;
@@ -2028,10 +2037,12 @@ public final class LayerRowRenderer {
         // Use single-source glyph silhouette (family via KeyframeGlyph) — §4.2 one renderer.
         // Below DETAIL_MIN_PX we draw silhouette only (no muddy squiggle).
         kfDiamondPaint.setStyle(Paint.Style.FILL);
-        kfDiamondPaint.setColor(ghosted ? 0x664CAF50 : 0xE64CAF50);
         for (ConsolidatedKey b : buckets) {
             float dx = timeToX.map(keyTimeToTimelineMs(item, b.timeMs));
             if (dx < x0 + 3f || dx > x1 - 3f) continue;
+            // Amber for preset-owned keys (spec §3.8) — colour only, shape stays via KeyframeGlyph.
+            if (b.presetOwned && !ghosted) kfDiamondPaint.setColor(0xFFFFC107);
+            else kfDiamondPaint.setColor(ghosted ? 0x664CAF50 : 0xE64CAF50);
             // Clipping hazard §8 trap: a pentagon/overshoot curve poking outside must not be clipped
             // by the item's clipRect — we draw inside the row but outside the item body if needed.
             // The timeline's row clip is the row body; keep radius small so silhouette fits.
@@ -2067,6 +2078,16 @@ public final class LayerRowRenderer {
             kfEnvDotPaint.setStyle(Paint.Style.FILL);
             kfScrimPaint.setStyle(Paint.Style.FILL);
         }
+        // Amber if any opacity key is preset-owned (spec §3.8 colour-only, shape unchanged)
+        boolean anyPreset = false;
+        for (Keyframe kk : op.keyframes) if (kk.presetOwned) { anyPreset = true; break; }
+        if (anyPreset) {
+            kfEnvLinePaint.setColor(0xFFFFC107);
+            kfEnvDotPaint.setColor(0xFFFFC107);
+        } else {
+            kfEnvLinePaint.setColor(0xCCFFFFFF);
+            kfEnvDotPaint.setColor(0xCCFFFFFF);
+        }
         float h = bottom - top;
         canvas.save();
         canvas.clipRect(x0, top, x1, bottom);
@@ -2087,6 +2108,9 @@ public final class LayerRowRenderer {
             if (k == ks.size() - 1) {
                 canvas.drawLine(x, y, x1, y, kfEnvLinePaint); // flat hold to block end
             }
+            // Dots amber if that specific key is preset-owned
+            if (kf.presetOwned) kfEnvDotPaint.setColor(0xFFFFC107);
+            else kfEnvDotPaint.setColor(anyPreset ? 0xFFFFC107 : 0xCCFFFFFF);
             canvas.drawCircle(x, y, 2.4f * density, kfEnvDotPaint);
             prevX = x;
             prevY = y;
@@ -3277,7 +3301,9 @@ public final class LayerRowRenderer {
                     return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
                 }
                 // SPEC §4 B1.U: fade handles — top 12dp ×20dp inboard of trim, selection-only, trim wins.
-                if (selected && item.getAudioClip() != null) {
+                // Shared for audio and image opacity (spec §3.6: "exactly like the volume fade handles, ... share it — do not write a parallel implementation")
+                boolean hasFadeHandles = selected && (item.getAudioClip() != null || (item.getTextOverlay() != null && item.getTextOverlay().isImage()));
+                if (hasFadeHandles) {
                     float fadeH = FADE_H_DP * density;
                     float fadeW = FADE_W_DP * density;
                     if (localY >= top && localY <= top + fadeH) {

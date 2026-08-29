@@ -1373,12 +1373,29 @@ public class ProjectStorage {
         if (clip.getDisplayName() != null) {
             clipJson.addProperty("displayName", clip.getDisplayName());
         }
-        // Caption settings.
+        // Caption settings — legacy scalars (kept for one release so old builds still open new files).
         clipJson.addProperty("captionsEnabled", clip.isCaptionsEnabled());
         clipJson.addProperty("captionStyleId", clip.getCaptionStyleId());
         clipJson.addProperty("captionCenterX", clip.getCaptionCenterX());
         clipJson.addProperty("captionCenterY", clip.getCaptionCenterY());
         clipJson.addProperty("captionSizeFraction", clip.getCaptionSizeFraction());
+        // New: caption bindings ( SPEC_20260829_CAPTION_LAYERS ). Written when non-empty; absent for every
+        // project that predates this feature so JSON stays byte-identical.
+        if (!clip.getCaptionBindings().isEmpty()) {
+            JsonArray bindingsArr = new JsonArray();
+            for (Clip.CaptionBinding b : clip.getCaptionBindings()) {
+                JsonObject bj = new JsonObject();
+                bj.addProperty("transcriptId", b.transcriptId);
+                bj.addProperty("styleId", b.styleId);
+                bj.addProperty("enabled", b.enabled);
+                bj.addProperty("centerX", b.centerX);
+                bj.addProperty("centerY", b.centerY);
+                bj.addProperty("sizeFraction", b.sizeFraction);
+                bj.addProperty("label", b.label);
+                bindingsArr.add(bj);
+            }
+            clipJson.add("captionBindings", bindingsArr);
+        }
         // Caption text animation (SPEC_TEXT_ANIMATION). Written SPARSELY — omitted entirely at
         // the defaults — so every project made before this feature stays byte-identical and no
         // schema bump is needed. Same idiom as GeneratedSource.freezeStartMs/freezeEndMs.
@@ -1642,6 +1659,39 @@ public class ProjectStorage {
         if (hasValue(clipObj, "captionSizeFraction")) {
             clip.setCaptionSizeFraction(
                     clipObj.get("captionSizeFraction").getAsFloat());
+        }
+        // SPEC_20260829_CAPTION_LAYERS: caption bindings — if present, use them; else synthesize from legacy.
+        if (hasValue(clipObj, "captionBindings")) {
+            JsonArray arr = clipObj.getAsJsonArray("captionBindings");
+            java.util.List<Clip.CaptionBinding> bindings = new java.util.ArrayList<>();
+            for (int i = 0; i < arr.size() && bindings.size() < Clip.MAX_CAPTION_BINDINGS; i++) {
+                JsonObject bj = arr.get(i).getAsJsonObject();
+                Clip.CaptionBinding b = new Clip.CaptionBinding();
+                if (hasValue(bj, "transcriptId")) b.transcriptId = bj.get("transcriptId").getAsString();
+                if (hasValue(bj, "styleId")) b.styleId = bj.get("styleId").getAsString();
+                if (hasValue(bj, "enabled")) b.enabled = bj.get("enabled").getAsBoolean();
+                if (hasValue(bj, "centerX")) b.centerX = bj.get("centerX").getAsFloat();
+                if (hasValue(bj, "centerY")) b.centerY = bj.get("centerY").getAsFloat();
+                if (hasValue(bj, "sizeFraction")) b.sizeFraction = bj.get("sizeFraction").getAsFloat();
+                if (hasValue(bj, "label")) b.label = bj.get("label").getAsString();
+                bindings.add(b);
+            }
+            clip.setCaptionBindings(bindings);
+        } else {
+            int ai = clip.getActiveTranscriptIndex();
+            java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> tlist = clip.getTranscripts();
+            if (ai >= 0 && ai < tlist.size()) {
+                String tid = tlist.get(ai).id;
+                String sid = hasValue(clipObj, "captionStyleId") ? clipObj.get("captionStyleId").getAsString() : "pop";
+                boolean en = hasValue(clipObj, "captionsEnabled") && clipObj.get("captionsEnabled").getAsBoolean();
+                float cx = hasValue(clipObj, "captionCenterX") ? clipObj.get("captionCenterX").getAsFloat() : 0.5f;
+                float cy = hasValue(clipObj, "captionCenterY") ? clipObj.get("captionCenterY").getAsFloat() : 0.82f;
+                float sz = hasValue(clipObj, "captionSizeFraction") ? clipObj.get("captionSizeFraction").getAsFloat() : 0.06f;
+                Clip.CaptionBinding synth = new Clip.CaptionBinding(tid, sid, en, cx, cy, sz, "Captions");
+                java.util.List<Clip.CaptionBinding> one = new java.util.ArrayList<>();
+                one.add(synth);
+                clip.setCaptionBindings(one);
+            }
         }
         // Caption text animation. Guarded reads, so a project written before the feature keeps
         // the model defaults ("NONE"/"WORD"/0/0) — which are the off state, so it renders
@@ -2074,6 +2124,21 @@ public class ProjectStorage {
                 // the audio one never did, so an audio caption's size survived into the
                 // EXPORT (which reads the model) but reverted to 0.060 on the next load.
                 acJson.addProperty("captionSizeFraction", ac.getCaptionSizeFraction());
+                if (!ac.getCaptionBindings().isEmpty()) {
+                    JsonArray bindingsArr = new JsonArray();
+                    for (AudioClip.CaptionBinding b : ac.getCaptionBindings()) {
+                        JsonObject bj = new JsonObject();
+                        bj.addProperty("transcriptId", b.transcriptId);
+                        bj.addProperty("styleId", b.styleId);
+                        bj.addProperty("enabled", b.enabled);
+                        bj.addProperty("centerX", b.centerX);
+                        bj.addProperty("centerY", b.centerY);
+                        bj.addProperty("sizeFraction", b.sizeFraction);
+                        bj.addProperty("label", b.label);
+                        bindingsArr.add(bj);
+                    }
+                    acJson.add("captionBindings", bindingsArr);
+                }
                 // §4.5 per-object lock (write-if-true; audio's eye = its existing mute).
                 if (ac.isLocked()) acJson.addProperty("objLocked", true);
                 // D10: struck-word cuts — HAND-serialized, not gson. Omit-at-default.
@@ -2189,12 +2254,25 @@ public class ProjectStorage {
                             kj.addProperty("t", k.timeMs);
                             kj.addProperty("v", k.value);
                             kj.addProperty("e", k.easing.name());
+                            if (k.presetOwned) kj.addProperty("p", true);
                             kfArr.add(kj);
                         }
                         tracksJson.add(tr.property, kfArr);
                     }
                     oJson.add("keyframes", tracksJson);
                 }
+                // Image anim preset + fade handles (SPEC_20260829_IMAGE_ANIM_PRESETS) — sparse so old projects stay byte-identical
+                if (o.getImageAnimPreset() != null && o.getImageAnimPreset().kind != com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE) {
+                    JsonObject pj = new JsonObject();
+                    pj.addProperty("kind", o.getImageAnimPreset().kind.name());
+                    if (o.getImageAnimPreset().zoomCenterX != 0.5f) pj.addProperty("zx", o.getImageAnimPreset().zoomCenterX);
+                    if (o.getImageAnimPreset().zoomCenterY != 0.5f) pj.addProperty("zy", o.getImageAnimPreset().zoomCenterY);
+                    if (o.getImageAnimPreset().zoomRegionScale != 0.68f) pj.addProperty("zs", o.getImageAnimPreset().zoomRegionScale);
+                    if (o.getImageAnimPreset().rotationDelta != 0f) pj.addProperty("rot", o.getImageAnimPreset().rotationDelta);
+                    oJson.add("imageAnimPreset", pj);
+                }
+                if (o.getImageFadeInMs() != 0) oJson.addProperty("imageFadeInMs", o.getImageFadeInMs());
+                if (o.getImageFadeOutMs() != 0) oJson.addProperty("imageFadeOutMs", o.getImageFadeOutMs());
                 serializeGeneratedSource(oJson, o.getGeneratedSource());
                 // §4.5 per-object eye/lock (write-if-true — pre-§4.5 JSON unchanged).
                 if (o.isHidden()) oJson.addProperty("objHidden", true);
@@ -2379,6 +2457,7 @@ public class ProjectStorage {
                                 kj.addProperty("t", k.timeMs);
                                 kj.addProperty("v", k.value);
                                 kj.addProperty("e", k.easing.name());
+                                if (k.presetOwned) kj.addProperty("p", true);
                                 kfArr.add(kj);
                             }
                             tracksJson.add(tr.property, kfArr);
@@ -2808,6 +2887,38 @@ public class ProjectStorage {
                             ac.setCaptionSizeFraction(
                                     acObj.get("captionSizeFraction").getAsFloat());
                         }
+                        if (hasValue(acObj, "captionBindings")) {
+                            JsonArray arr = acObj.getAsJsonArray("captionBindings");
+                            java.util.List<AudioClip.CaptionBinding> bindings = new java.util.ArrayList<>();
+                            for (int ci = 0; ci < arr.size() && bindings.size() < AudioClip.MAX_CAPTION_BINDINGS; ci++) {
+                                JsonObject bj = arr.get(ci).getAsJsonObject();
+                                AudioClip.CaptionBinding b = new AudioClip.CaptionBinding();
+                                if (hasValue(bj, "transcriptId")) b.transcriptId = bj.get("transcriptId").getAsString();
+                                if (hasValue(bj, "styleId")) b.styleId = bj.get("styleId").getAsString();
+                                if (hasValue(bj, "enabled")) b.enabled = bj.get("enabled").getAsBoolean();
+                                if (hasValue(bj, "centerX")) b.centerX = bj.get("centerX").getAsFloat();
+                                if (hasValue(bj, "centerY")) b.centerY = bj.get("centerY").getAsFloat();
+                                if (hasValue(bj, "sizeFraction")) b.sizeFraction = bj.get("sizeFraction").getAsFloat();
+                                if (hasValue(bj, "label")) b.label = bj.get("label").getAsString();
+                                bindings.add(b);
+                            }
+                            ac.setCaptionBindings(bindings);
+                        } else {
+                            int ai = ac.getActiveTranscriptIndex();
+                            java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> tlist = ac.getTranscripts();
+                            if (ai >= 0 && ai < tlist.size()) {
+                                String tid = tlist.get(ai).id;
+                                String sid = hasValue(acObj, "captionStyleId") ? acObj.get("captionStyleId").getAsString() : "pop";
+                                boolean en = hasValue(acObj, "captionsEnabled") && acObj.get("captionsEnabled").getAsBoolean();
+                                float cx = hasValue(acObj, "captionCenterX") ? acObj.get("captionCenterX").getAsFloat() : 0.5f;
+                                float cy = hasValue(acObj, "captionCenterY") ? acObj.get("captionCenterY").getAsFloat() : 0.82f;
+                                float sz = hasValue(acObj, "captionSizeFraction") ? acObj.get("captionSizeFraction").getAsFloat() : 0.06f;
+                                AudioClip.CaptionBinding synth = new AudioClip.CaptionBinding(tid, sid, en, cx, cy, sz, "Captions");
+                                java.util.List<AudioClip.CaptionBinding> one = new java.util.ArrayList<>();
+                                one.add(synth);
+                                ac.setCaptionBindings(one);
+                            }
+                        }
                         // §4.5 per-object lock (tolerant: absent = false).
                         if (hasValue(acObj, "objLocked")) ac.setLocked(acObj.get("objLocked").getAsBoolean());
                         // D10: tolerant absence — every existing project predates this field.
@@ -2944,9 +3055,28 @@ public class ProjectStorage {
                                     tr.put(kj.get("t").getAsLong(), kj.get("v").getAsFloat(),
                                             com.fadcam.ui.faditor.keyframe.Easing.fromName(
                                                     kj.get("e").getAsString()));
+                                    if (kj.has("p") && kj.get("p").getAsBoolean()) {
+                                        for (com.fadcam.ui.faditor.keyframe.Keyframe kk : tr.keyframes) {
+                                            if (kk.timeMs == kj.get("t").getAsLong()) { kk.presetOwned = true; break; }
+                                        }
+                                    }
                                 }
                             }
                         }
+                        if (hasValue(oObj, "imageAnimPreset")) {
+                            try {
+                                JsonObject pj = oObj.getAsJsonObject("imageAnimPreset");
+                                com.fadcam.ui.faditor.model.ImageAnimPreset preset = new com.fadcam.ui.faditor.model.ImageAnimPreset();
+                                preset.kind = com.fadcam.ui.faditor.model.ImageAnimPreset.kindFromName(hasValue(pj,"kind") ? pj.get("kind").getAsString() : null);
+                                if (hasValue(pj,"zx")) preset.zoomCenterX = pj.get("zx").getAsFloat();
+                                if (hasValue(pj,"zy")) preset.zoomCenterY = pj.get("zy").getAsFloat();
+                                if (hasValue(pj,"zs")) preset.zoomRegionScale = pj.get("zs").getAsFloat();
+                                if (hasValue(pj,"rot")) preset.rotationDelta = pj.get("rot").getAsFloat();
+                                o.setImageAnimPreset(preset);
+                            } catch (Exception ignored) {}
+                        }
+                        if (hasValue(oObj, "imageFadeInMs")) o.setImageFadeInMs(oObj.get("imageFadeInMs").getAsLong());
+                        if (hasValue(oObj, "imageFadeOutMs")) o.setImageFadeOutMs(oObj.get("imageFadeOutMs").getAsLong());
                         if (hasValue(oObj, "generatedSource")) {
                             o.setGeneratedSource(deserializeGeneratedSource(
                                     oObj.getAsJsonObject("generatedSource")));

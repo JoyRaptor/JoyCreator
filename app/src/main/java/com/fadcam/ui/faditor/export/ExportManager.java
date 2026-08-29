@@ -497,6 +497,7 @@ public class ExportManager {
                     && !project.getTimeline().getClip(0).isCaptionsEnabled()
                     && !project.getTimeline().hasWaveformOverlays()
                     && !project.getTimeline().getClip(0).hasLoopExtension()
+                    && project.getTimeline().getSlideDecks().isEmpty()
                     && "original".equals(project.getCanvasPreset())
                     // M-EXPORT-1 (PLAN §5.3(2)): the near-lossless fast path bypasses the
                     // effects chain entirely, so it must be excluded whenever ANY layer
@@ -2861,6 +2862,8 @@ public class ExportManager {
      * layerIds, no non-default flags) — the fast-path decision is byte-identical to before.</p>
      */
     static boolean usesLayerFeaturesAffectingExport(@NonNull Timeline timeline) {
+        // SPEC_20260828_SLIDE_OBJECT: slide deck ALWAYS forces full re-encode (overlay)
+        if (!timeline.getSlideDecks().isEmpty()) return true;
         // M-EXPORT-2: a floating PiP clip ALWAYS forces the full re-encode path —
         // explicit check (cheapest first) rather than relying on the mirrored
         // TimedItem.hasTransform() below, which would miss a transform-less overlay.
@@ -3342,7 +3345,8 @@ public class ExportManager {
                     || clip.isCaptionsEnabled()
                     || !clipWaveformSlots.isEmpty()
                     || clipHasWaveformRef
-                    || audioCaptionOverlaps;
+                    || audioCaptionOverlaps
+                    || !project.getTimeline().getSlideDecks().isEmpty();
             if (hasOverlays) {
                 CompositeExportOverlay overlay = new CompositeExportOverlay(
                         context, timelineCursorMs, clip,
@@ -3358,6 +3362,7 @@ public class ExportManager {
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
                         isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
+                overlay.setSlideDecks(project.getTimeline().getSlideDecks());
                 videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
             }
         } else if (!isTransitionItem) {

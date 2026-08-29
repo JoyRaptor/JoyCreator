@@ -51,6 +51,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private final List<TextOverlayItem> textOverlays;
     private final List<WaveformSlot> waveformSlots;
     private final WaveformStyleRenderer waveRenderer;
+    // Slide decks — SPEC_20260828_SLIDE_OBJECT: one bitmap per cue, rendered here too
+    @NonNull private final List<com.fadcam.ui.faditor.slides.SlideDeck> slideDecks;
+    // Cached slide card bitmaps per deck (cue boundary raster, ping-pong style)
+    private final java.util.Map<String, Bitmap> slideDeckCachedCards = new java.util.HashMap<>();
+    private final java.util.Map<String, Integer> slideDeckCachedCue = new java.util.HashMap<>();
 
     /**
      * Absolute timeline end (ms) for this overlay instance. For clips with loop/ping-pong
@@ -314,6 +319,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.captionRendererStyleId = null;
 
         this.audioCaptionSlots = buildAudioCaptionSlots(audioClips);
+        this.slideDecks = new java.util.ArrayList<>();
+        // slideDecks will be injected via setter to avoid changing all call sites at once (additive)
+    }
+
+    public void setSlideDecks(@NonNull List<com.fadcam.ui.faditor.slides.SlideDeck> decks) {
+        slideDecks.clear(); slideDecks.addAll(decks);
     }
 
     @NonNull
@@ -920,6 +931,31 @@ public class CompositeExportOverlay extends BitmapOverlay {
             }
         }
         if (drawnWaveform > 0) framesWithWaveform++;
+
+        // Slide decks — SPEC_20260828_SLIDE_OBJECT: one bitmap per cue, rendered here too
+        try {
+            for (com.fadcam.ui.faditor.slides.SlideDeck deck : slideDecks) {
+                int cue = deck.cueAtMs(timelineMs);
+                if (cue < 0) continue;
+                String key = deck.getId();
+                Integer lastCue = slideDeckCachedCue.get(key);
+                Bitmap card = slideDeckCachedCards.get(key);
+                if (lastCue == null || lastCue != cue || card == null || card.isRecycled()) {
+                    if (card != null && !card.isRecycled()) card.recycle();
+                    Bitmap fresh = com.fadcam.ui.faditor.slides.SlideDeckRenderer.render(deck, cue, outW, outH);
+                    if (fresh != null) {
+                        slideDeckCachedCards.put(key, fresh);
+                        slideDeckCachedCue.put(key, cue);
+                        card = fresh;
+                    } else continue;
+                }
+                float cx = deck.getCenterX() * outW;
+                float cy = deck.getCenterY() * outH;
+                canvas.drawBitmap(card, cx - card.getWidth()/2f, cy - card.getHeight()/2f, null);
+            }
+        } catch (Throwable t) {
+            FLog.w(TAG, "SlideDeck draw threw", t);
+        }
 
         canvas.restore(); // end the outW/outH -> frame coordinate scale
 

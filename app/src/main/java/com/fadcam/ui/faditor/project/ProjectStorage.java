@@ -1988,6 +1988,34 @@ public class ProjectStorage {
                 timelineJson.add("adjustmentLayers", adjustArray);
             }
 
+            // Slide decks — SPEC_20260828_SLIDE_OBJECT. Additive: array omitted when empty,
+            // so every pre-existing project's JSON stays byte-identical.
+            if (!src.getTimeline().getSlideDecks().isEmpty()) {
+                JsonArray decksArr = new JsonArray();
+                for (com.fadcam.ui.faditor.slides.SlideDeck d : src.getTimeline().getSlideDecks()) {
+                    JsonObject dj = new JsonObject();
+                    dj.addProperty("id", d.getId());
+                    dj.addProperty("label", d.getLabel());
+                    dj.addProperty("timeBase", d.getTimeBase().name());
+                    dj.addProperty("centerX", d.getCenterX());
+                    dj.addProperty("centerY", d.getCenterY());
+                    dj.addProperty("widthFraction", d.getWidthFraction());
+                    dj.addProperty("heightFraction", d.getHeightFraction());
+                    dj.addProperty("backgroundColor", d.getBackgroundColor());
+                    dj.addProperty("cornerRadiusDp", d.getCornerRadiusDp());
+                    JsonArray slidesArr = new JsonArray();
+                    for (com.fadcam.ui.faditor.slides.SlideDeck.Slide s : d.getSlides()) {
+                        JsonObject sj = new JsonObject();
+                        sj.addProperty("startMs", s.startMs);
+                        sj.addProperty("html", s.html);
+                        slidesArr.add(sj);
+                    }
+                    dj.add("slides", slidesArr);
+                    decksArr.add(dj);
+                }
+                timelineJson.add("slideDecks", decksArr);
+            }
+
             // Serialize audio clips
             JsonArray audioArray = new JsonArray();
             for (AudioClip ac : src.getTimeline().getAudioClips()) {
@@ -2659,6 +2687,39 @@ public class ProjectStorage {
                         }
                     }
                 }
+                // Slide decks — SPEC_20260828_SLIDE_OBJECT. Absent on every pre-existing project.
+                if (hasValue(timelineJson, "slideDecks")) {
+                    JsonArray decksArr = timelineJson.getAsJsonArray("slideDecks");
+                    for (int i = 0; i < decksArr.size(); i++) {
+                        try {
+                            JsonObject dj = decksArr.get(i).getAsJsonObject();
+                            String id = hasValue(dj,"id")? dj.get("id").getAsString() : java.util.UUID.randomUUID().toString();
+                            String label = hasValue(dj,"label")? dj.get("label").getAsString() : "Deck";
+                            String tb = hasValue(dj,"timeBase")? dj.get("timeBase").getAsString() : "ABSOLUTE";
+                            com.fadcam.ui.faditor.slides.SlideDeck.TimeBase base;
+                            try { base = com.fadcam.ui.faditor.slides.SlideDeck.TimeBase.valueOf(tb); } catch(Exception e){ base=com.fadcam.ui.faditor.slides.SlideDeck.TimeBase.ABSOLUTE; }
+                            com.fadcam.ui.faditor.slides.SlideDeck deck = new com.fadcam.ui.faditor.slides.SlideDeck(id,label,base);
+                            if (hasValue(dj,"centerX") && hasValue(dj,"centerY")) deck.setGeometry(dj.get("centerX").getAsFloat(), dj.get("centerY").getAsFloat(), hasValue(dj,"widthFraction")? dj.get("widthFraction").getAsFloat():0.85f, hasValue(dj,"heightFraction")? dj.get("heightFraction").getAsFloat():0.28f);
+                            if (hasValue(dj,"backgroundColor")) deck.setBackgroundColor(dj.get("backgroundColor").getAsInt());
+                            if (hasValue(dj,"cornerRadiusDp")) deck.setCornerRadiusDp(dj.get("cornerRadiusDp").getAsInt());
+                            if (hasValue(dj,"slides")) {
+                                JsonArray slidesArr = dj.getAsJsonArray("slides");
+                                for (int s=0;s<slidesArr.size();s++) {
+                                    JsonObject sj = slidesArr.get(s).getAsJsonObject();
+                                    long startMs = hasValue(sj,"startMs")? sj.get("startMs").getAsLong():0;
+                                    String html = hasValue(sj,"html")? sj.get("html").getAsString():"";
+                                    deck.getSlides().add(new com.fadcam.ui.faditor.slides.SlideDeck.Slide(startMs, html));
+                                }
+                                java.util.Collections.sort(deck.getSlides(), (a,b)-> Long.compare(a.startMs,b.startMs));
+                            }
+                            project.getTimeline().addSlideDeck(deck);
+                        } catch (Exception ex) {
+                            FLog.e(TAG, "Skipping malformed slide deck #" + i, ex);
+                            project.addLoadSkip("Slide deck #" + (i + 1));
+                        }
+                    }
+                }
+
             }
 
             // Restore audio clips

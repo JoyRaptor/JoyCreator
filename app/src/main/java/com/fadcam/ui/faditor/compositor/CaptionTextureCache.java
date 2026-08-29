@@ -1,4 +1,4 @@
-﻿package com.fadcam.ui.faditor.compositor;
+package com.fadcam.ui.faditor.compositor;
 
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Texture cache for captions â€” SPEC_20260829_CAPTIONS_GL Â§3.1.
+ * Texture cache for captions - SPEC_20260829_CAPTIONS_GL S3.1.
  *
  * <p>Captions are the third client of {@link OverlayTextureCache}'s pattern:
- * raster per CUE (phrase) at authored size (1.5Ã— supersample), key on CONTENT
+ * raster per CUE (phrase) at authored size (1.5x supersample), key on CONTENT
  * never on POSE. Pose (centerX/Y/sizeFraction) is a quad transform per frame.
  *
  * <p>Cache key: clipId + binding index + phrase text + activeWordIdx + style
@@ -46,7 +46,7 @@ public final class CaptionTextureCache {
             };
     private long currentBytes = 0L;
 
-    /** One predicate, one place â€” texture vs Canvas fallback. Reuses OverlayTextureCache predicate shape. */
+    /** One predicate, one place - texture vs Canvas fallback. Reuses OverlayTextureCache predicate shape. */
     public static boolean canUseTexture(@NonNull Clip clip) {
         if (clip == null) return false;
         String preset = clip.getCaptionAnimPreset();
@@ -64,7 +64,7 @@ public final class CaptionTextureCache {
 
     public static boolean canUseTextureForGranularity(@NonNull Clip clip, @NonNull String gran) {
         if (!canUseTexture(clip)) return false;
-        // LETTER granularity animates each glyph independently â€” needs per-glyph quads, not one phrase quad
+        // LETTER granularity animates each glyph independently - needs per-glyph quads, not one phrase quad
         if ("LETTER".equals(gran)) return false;
         return true;
     }
@@ -232,7 +232,7 @@ public final class CaptionTextureCache {
                 // We'll draw pill centered: use same math as CaptionOverlayView but offset to bitmap top-left
                 float top = padV;
                 // totalHSup centered vertically? For tight bitmap, top is padV, not centered on video.
-                // That's fine for tight texture â€” quad will place center correctly.
+                // That's fine for tight texture - quad will place center correctly.
                 RectF pill = new RectF(
                         (bmpW - widest)/2f - padH, top - padV,
                         (bmpW + widest)/2f + padH, top + totalHSup + padV);

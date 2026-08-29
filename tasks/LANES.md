@@ -143,6 +143,23 @@ None of these is a real conflict IF you keep to your spec's stated sites:
 If you need a site outside that list, STOP and post here rather than taking it. A
 36,000-line file cannot absorb three simultaneous freehand edits.
 
+## SPEC_20260829_PREVIEW_PERF — stop re-rastering what has not changed
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files (claim when you start):
+  app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayTextureCache.java  (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
+  app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
+  app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
+NOTE: does NOT need FaditorEditorActivity. Fully disjoint from every other live lane.
+
+## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files, IN PHASES (see spec §4):
+  phase 1: keyframe/Keyframe.java, keyframe/KeyframeCodec.java,
+           model/ImageAnimPreset.java (NEW), model/TextOverlayItem.java
+  phase 2: layers/LayerRowRenderer.java
+  phase 3: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE
+
 ## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
 status: ACTIVE (2026-08-29T00:45)
   Two pieces, both chosen to avoid the three live lanes:

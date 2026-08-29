@@ -153,7 +153,7 @@ files:
 NOTE: does NOT need FaditorEditorActivity. Fully disjoint from every other live lane.
 
 ## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
-status: ACTIVE (2026-08-29T05:30 — opencode/muse-spark implementing overnight, phases 1+2)
+status: ACTIVE (2026-08-29T01:59 — opencode/muse-spark phases 1+2 LANDED 0be24e6f, phase 3 HELD)
 files:
   app/src/main/java/com/fadcam/ui/faditor/keyframe/Keyframe.java
   app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeCodec.java
@@ -162,8 +162,8 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
   app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java  (fade+convert only)
   app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java (keyframe p + preset)
-since: 2026-08-29T05:30
-phase 3 HELD: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE
+since: 2026-08-29T01:59
+phase 3 HELD: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE (currently ACTIVE since 2026-08-29T04:00)
 
 ## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
 status: ACTIVE (2026-08-29T00:45)

@@ -1857,6 +1857,11 @@ public class EditorTimelineView extends View {
         dpPerSecondPx = BASE_DP_PER_SECOND * zoomLevel * density;
     }
 
+    /** SPEC_20260829_WORD_SYNC §3.3 — ms per pixel for snap tolerance (consume, not reflect). */
+    public double getMsPerPixel() {
+        return 1000.0 / Math.max(1f, dpPerSecondPx);
+    }
+
     // ══════════════════════════════════════════════════════════════════
     //  PUBLIC API
     // ══════════════════════════════════════════════════════════════════

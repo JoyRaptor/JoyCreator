@@ -818,20 +818,30 @@ public final class LayerRowRenderer {
     @Nullable private com.fadcam.ui.faditor.transcript.WordSyncMode wordSyncMode;
     public void setWordSyncMode(@Nullable com.fadcam.ui.faditor.transcript.WordSyncMode m) { this.wordSyncMode = m; }
     private final Paint onsetTickPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    { onsetTickPaint.setColor(0x66FFFFFF); onsetTickPaint.setStrokeWidth(1.2f); }
+    private void ensureOnsetPaint() {
+        if (onsetTickPaint.getColor() == 0) {
+            onsetTickPaint.setColor(0x88FFFFFF);
+            onsetTickPaint.setStrokeWidth(1.4f * density);
+            onsetTickPaint.setStrokeCap(Paint.Cap.ROUND);
+        } else if (onsetTickPaint.getStrokeWidth() < 0.5f) {
+            // Density was 0 at init (field initializer before constructor set density) — fix up.
+            onsetTickPaint.setStrokeWidth(1.4f * Math.max(1f, density));
+        }
+    }
     private void drawOnsetTicks(@NonNull Canvas canvas, long totalMs, @NonNull TimeToX timeToX, float top, float bottom) {
         if (wordSyncMode == null || !wordSyncMode.isActive()) return;
-        // Fetch ticks for the whole timeline — few thousand longs, cheap; visible culling via x.
+        ensureOnsetPaint();
         long[] ticks = wordSyncMode.ticksInRange(0, totalMs);
         if (ticks.length == 0) return;
         float h = bottom - top;
         float tickH = Math.min(6f * density, h * 0.35f);
         float y0 = bottom - tickH;
-        // Clip to content width so off-screen ticks don't draw.
+        // Cull against actual viewport: lastHScrollOffsetPx .. + lastWidthPx (content space).
+        float visLeft = lastHScrollOffsetPx - 20f;
+        float visRight = lastHScrollOffsetPx + lastWidthPx + 20f;
         for (long t : ticks) {
             float x = timeToX.map(t);
-            // Skip invisible (culling).
-            if (x < -20f || x > 10000f) continue;
+            if (x < visLeft || x > visRight) continue;
             canvas.drawLine(x, y0, x, bottom, onsetTickPaint);
         }
     }

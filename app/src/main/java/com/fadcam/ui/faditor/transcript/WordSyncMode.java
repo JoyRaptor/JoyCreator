@@ -239,8 +239,20 @@ public final class WordSyncMode {
         }
     }
 
-    /** Cancel without committing (should still keep the mutated timings — same as endDrag without extra undo). */
+    /** Cancel — revert the in-flight timing mutations (e.g. ACTION_CANCEL). */
     public void cancelDrag() {
+        if (dragBeforeStarts != null && host != null) {
+            Transcript t = host.transcript();
+            if (t != null) {
+                for (int i = 0; i < dragBeforeStarts.length && i < t.words.size(); i++) {
+                    TranscriptWord w = t.words.get(i);
+                    long dur = Math.max(0, w.endMs - w.startMs);
+                    long ns = Math.max(0, dragBeforeStarts[i]);
+                    t.words.set(i, new TranscriptWord(w.text, ns, ns + dur, w.struck, w.forceLineBreakAfter));
+                }
+                host.requestRedraw();
+            }
+        }
         scrubEngine.end();
         dragIndex = -1;
         dragBeforeStarts = null;

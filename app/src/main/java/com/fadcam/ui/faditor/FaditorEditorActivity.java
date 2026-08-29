@@ -16713,12 +16713,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private double getWordSyncMsPerPixel() {
         if (editorTimeline != null) {
-            try {
-                java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("dpPerSecondPx");
-                f.setAccessible(true);
-                float dps = f.getFloat(editorTimeline); // px per second, already includes density and zoom
-                if (dps > 0) return 1000.0 / Math.max(1f, dps); // ms per pixel
-            } catch (Exception ignored) {}
+            try { return editorTimeline.getMsPerPixel(); } catch (Exception ignored) {}
         }
         return 5.0;
     }
@@ -16746,12 +16741,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private com.fadcam.ui.faditor.transcript.Transcript getWordSyncTranscript() {
         if (transcriptView != null) {
-            try {
-                java.lang.reflect.Field f = transcriptView.getClass().getDeclaredField("transcript");
-                f.setAccessible(true);
-                Object v = f.get(transcriptView);
-                if (v instanceof com.fadcam.ui.faditor.transcript.Transcript) return (com.fadcam.ui.faditor.transcript.Transcript) v;
-            } catch (Exception ignored) {}
+            com.fadcam.ui.faditor.transcript.Transcript t = transcriptView.getTranscript();
+            if (t != null) return t;
         }
         if (currentTranscript != null) return currentTranscript;
         com.fadcam.ui.faditor.model.Clip clip = clipUnderPlayhead();
@@ -16820,8 +16811,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updateWordSyncTint(boolean on) {
         if (editorTimeline == null) return;
-        if (on) editorTimeline.setBackgroundColor(0x1A4DD0E1);
-        else editorTimeline.setBackgroundColor(0x00000000);
+        if (on) {
+            // 20% cyan + subtle top border — reads in sunlight where 10% over black vanishes.
+            editorTimeline.setBackgroundColor(0x334DD0E1);
+            try { editorTimeline.setForeground(new android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                    new int[]{0xFF4DD0E1, 0x00000000})); } catch (Exception ignored) {}
+            editorTimeline.setForegroundGravity(android.view.Gravity.TOP);
+        } else {
+            editorTimeline.setBackgroundColor(0x00000000);
+            try { editorTimeline.setForeground(null); } catch (Exception ignored) {}
+        }
+        // Lock canvas object drags while Word Sync is the one tool (§3.1).
+        if (overlayLayer != null) overlayLayer.setEnabled(!on);
+        if (overlayLayerBelow != null) overlayLayerBelow.setEnabled(!on);
+        if (spriteOverlayView != null) spriteOverlayView.setEnabled(!on);
+        if (spriteOverlayViewBelow != null) spriteOverlayViewBelow.setEnabled(!on);
+        if (waveformOverlayView != null) waveformOverlayView.setEnabled(!on);
     }
 
     private void showWordSyncBanner() {
@@ -16929,7 +16935,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             tv.setOnClickListener(v -> applyWordSyncCase(c));
             wordSyncFormatRow.addView(tv);
         }
-        // B U I — greyed, per-word rich text not available (SPEC §3.6)
+        // B U I — greyed, per-word rich text not available (SPEC §3.6) — keep ENABLED so tap explains why.
         String[] styles = {"B","U","I"};
         for (String c : styles) {
             TextView tv = new TextView(ctx);
@@ -16940,12 +16946,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
             tv.setBackgroundColor(0xFF222222);
             tv.setAlpha(0.5f);
-            tv.setEnabled(false);
+            tv.setContentDescription("Bold/Underline/Italic — needs per-word styling (not yet built)");
             android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
             lp.rightMargin = (int)(6*density);
             tv.setLayoutParams(lp);
-            tv.setOnClickListener(v -> android.widget.Toast.makeText(ctx, "Bold/Underline/Italic needs per-word styling — not yet built (SPEC §3.6)", android.widget.Toast.LENGTH_SHORT).show());
+            tv.setOnClickListener(v -> android.widget.Toast.makeText(ctx, "Bold/Underline/Italic needs per-word styling — not yet built (SPEC §3.6, see fixes log)", android.widget.Toast.LENGTH_LONG).show());
             wordSyncFormatRow.addView(tv);
         }
         midRow.addView(wordSyncFormatRow);
@@ -30424,24 +30430,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // lockout is unmistakable without the banner alone.
         if (transcriptHeader != null) {
             android.view.ViewGroup headerRow = (android.view.ViewGroup) transcriptHeader.getParent();
-            if (headerRow != null) {
+            if (headerRow != null && headerRow.findViewWithTag("word_sync_chip") == null) {
                 TextView wsChip = new TextView(this);
-                wsChip.setText("WS");
+                wsChip.setTag("word_sync_chip");
+                wsChip.setText("Word Sync");
                 wsChip.setTextSize(11f);
-                wsChip.setTextColor(0xFF4DD0E1);
                 wsChip.setTypeface(null, android.graphics.Typeface.BOLD);
                 wsChip.setGravity(android.view.Gravity.CENTER);
-                int dPad = (int)(6 * getResources().getDisplayMetrics().density);
-                wsChip.setPadding(dPad, dPad/2, dPad, dPad/2);
-                wsChip.setBackgroundColor(isWordSyncActive() ? 0xFF4DD0E1 : 0xFF2A2A2A);
-                wsChip.setTextColor(isWordSyncActive() ? 0xFF000000 : 0xFF4DD0E1);
+                wsChip.setContentDescription("Word Sync — fix transcript timing");
+                float density = getResources().getDisplayMetrics().density;
+                int dPad = (int)(6 * density);
+                wsChip.setPadding((int)(10*density), dPad/2, (int)(10*density), dPad/2);
+                boolean on = isWordSyncActive();
+                wsChip.setBackgroundColor(on ? 0xFF4DD0E1 : 0xFF2A2A2A);
+                wsChip.setTextColor(on ? 0xFF000000 : 0xFF4DD0E1);
+                // Keep selectable ripple so it feels like a button, not a label.
+                android.util.TypedValue tv = new android.util.TypedValue();
+                if (getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) {
+                    wsChip.setBackgroundResource(tv.resourceId);
+                    wsChip.setBackgroundTintList(android.content.res.ColorStateList.valueOf(on ? 0xFF4DD0E1 : 0xFF2A2A2A));
+                }
                 wsChip.setOnClickListener(v -> {
                     toggleWordSyncMode();
-                    boolean on = isWordSyncActive();
-                    wsChip.setBackgroundColor(on ? 0xFF4DD0E1 : 0xFF2A2A2A);
-                    wsChip.setTextColor(on ? 0xFF000000 : 0xFF4DD0E1);
+                    boolean nowOn = isWordSyncActive();
+                    wsChip.setBackgroundTintList(android.content.res.ColorStateList.valueOf(nowOn ? 0xFF4DD0E1 : 0xFF2A2A2A));
+                    wsChip.setTextColor(nowOn ? 0xFF000000 : 0xFF4DD0E1);
+                    wsChip.setText(nowOn ? "Exit Word Sync" : "Word Sync");
                 });
-                // Insert before the close button (index = childCount-1) so WS sits between action chips and close.
+                // Insert before the close button so full label sits between action chips and close.
                 int insertAt = Math.max(0, headerRow.getChildCount() - 1);
                 headerRow.addView(wsChip, insertAt);
             }

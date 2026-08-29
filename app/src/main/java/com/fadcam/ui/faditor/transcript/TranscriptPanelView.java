@@ -175,6 +175,7 @@ public class TranscriptPanelView extends View {
     // SPEC_20260829_WORD_SYNC
     public void setWordSyncMode(@Nullable WordSyncMode m) { this.wordSyncMode = m; invalidate(); }
     @Nullable public WordSyncMode getWordSyncMode() { return wordSyncMode; }
+    @Nullable public Transcript getTranscript() { return transcript; }
 
     public void setTranscript(@Nullable Transcript t) {
         this.transcript = t;

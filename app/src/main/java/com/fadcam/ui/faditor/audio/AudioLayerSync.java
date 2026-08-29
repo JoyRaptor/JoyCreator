@@ -60,6 +60,29 @@ public final class AudioLayerSync {
     /** Per-player trimming state: true while we hold a micro-speed correction. */
     private final java.util.Map<AudioClipPreviewPlayer, Boolean> trimming = new java.util.HashMap<>();
 
+    /**
+     * Ticks of raw offset collected before a player's baseline is fixed. 12 ticks is ~600ms —
+     * long enough for a median to reject one stalled tick, short enough that correction starts
+     * almost immediately.
+     */
+    private static final int BASELINE_SAMPLES = 12;
+
+    /** The constant pipeline offset per player, once measured. See the drift block in tick(). */
+    private final java.util.Map<AudioClipPreviewPlayer, Long> baseline = new java.util.HashMap<>();
+    private final java.util.Map<AudioClipPreviewPlayer, java.util.List<Long>> baselineSamples =
+            new java.util.HashMap<>();
+
+    /**
+     * Forget a player's baseline. MUST be called every time it is (re)started: the offset is
+     * only meaningful for one continuous run, and carrying a stale one across a start would
+     * bake a real misalignment in as "zero".
+     */
+    private void resetBaseline(@Nullable AudioClipPreviewPlayer mp) {
+        if (mp == null) return;
+        baseline.remove(mp);
+        baselineSamples.remove(mp);
+    }
+
     public AudioLayerSync(@NonNull Handler playheadHandler) {
         this.handler = playheadHandler;
     }
@@ -131,6 +154,7 @@ public final class AudioLayerSync {
                     for (int idx : sounding) {
                         AudioClipPreviewPlayer mp = safePlayer(idx);
                         if (mp != null) {
+                            resetBaseline(mp);
                             try { mp.start(); } catch (Exception e) { FLog.w(TAG, "arm start failed", e); }
                         }
                     }
@@ -162,6 +186,8 @@ public final class AudioLayerSync {
             }
         }
         trimming.clear();
+        baseline.clear();
+        baselineSamples.clear();
     }
 
     /** Call when playhead moves while paused — debounced park. */
@@ -239,12 +265,59 @@ public final class AudioLayerSync {
                         float vol = timeline != null
                                 ? LayerPreviewController.effectivePreviewVolume(timeline, ac) : 1f;
                         mp.setVolume(vol, vol);
+                        resetBaseline(mp);
                         mp.start();
                     } else {
-                        // Drift correction
+                        // DRIFT CORRECTION, MEASURED AGAINST A CALIBRATED BASELINE.
+                        //
+                        // The raw difference between a layer's position and the master
+                        // playhead is NOT drift. The two numbers come from different clocks:
+                        // the master playhead is driven by the gapless engine's (video-side)
+                        // clock, while an ExoPlayer's getCurrentPosition() reports where its
+                        // AUDIO has actually reached — already behind by the output pipeline's
+                        // buffering. On the Note 9 that constant is ~125ms.
+                        //
+                        // Treating it as error was catastrophic: it exceeds TRIM_MS, so every
+                        // single tick took the "genuine desync" branch and re-parked, forever.
+                        // That is what JoyRaptor heard as "stuttering... volume fading in and out...
+                        // doesn't handle clip scenes well" (2026-08-29). The layer was being
+                        // paused and restarted ~20 times a second.
+                        //
+                        // Crucially the constant is HARMLESS: the master's own audio goes
+                        // through the same output path with the same latency, so a layer
+                        // sitting one pipeline-length behind the video clock is correctly
+                        // aligned with what you hear. "Fixing" it would have pushed the layer
+                        // 125ms AHEAD of the master's audio.
+                        //
+                        // So: measure the offset once per start — right after the coalesced
+                        // start, where every layer is parked at the same source position and
+                        // alignment is correct BY CONSTRUCTION — take the median of the first
+                        // few ticks, and call that zero. Real drift then shows up as movement
+                        // away from it, which is the only thing worth correcting. Self-
+                        // calibrating per device and per player; nothing is hardcoded.
                         long expected = ac.getInPointMs() + (playheadMs - start);
                         long actual = mp.getCurrentPosition();
-                        long error = actual - expected;
+                        long raw = actual - expected;
+
+                        Long base = baseline.get(mp);
+                        if (base == null) {
+                            java.util.List<Long> s = baselineSamples.get(mp);
+                            if (s == null) { s = new java.util.ArrayList<>(); baselineSamples.put(mp, s); }
+                            s.add(raw);
+                            if (s.size() >= BASELINE_SAMPLES) {
+                                java.util.Collections.sort(s);   // median: one stalled tick
+                                base = s.get(s.size() / 2);      // must not skew the baseline
+                                baseline.put(mp, base);
+                                baselineSamples.remove(mp);
+                                FLog.d(TAG, "drift baseline [" + i + "] = " + base
+                                        + "ms (pipeline offset, treated as zero)");
+                            } else {
+                                continue;   // still calibrating — correcting now would chase
+                                            // the very constant we are trying to measure
+                            }
+                        }
+
+                        long error = raw - base;
                         long absErr = Math.abs(error);
                         boolean isTrimming = Boolean.TRUE.equals(trimming.get(mp));
                         if (absErr <= LOCK_MS) {
@@ -267,6 +340,7 @@ public final class AudioLayerSync {
                             long seekPos = ac.getInPointMs() + (playheadMs - start);
                             long dur = mp.getDuration();
                             if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
+                            resetBaseline(mp);
                             mp.parkAt(seekPos);
                             // Will start next tick when parked
                         }

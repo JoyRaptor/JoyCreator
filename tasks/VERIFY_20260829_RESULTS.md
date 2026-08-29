@@ -164,3 +164,10 @@ adb shell screencap -p /sdcard/screen.png; adb pull ... v20_back.png  # playhead
 - Build tested is the APK at 02:18:51, not yesterdayâ€™s (ground rule 4).
 - `VERIFY_20260829_RESULTS.md` and each `v*.png` were `git add` immediately after creation (hazard).
 - This lane wrote NO production code â€” defects recorded, not fixed (spec Â§2).
+---
+## Update 04:13 — new APK 04:12:25 (f07f3eca internal picker single-select) + PREVIEW_PERF project
+- **New APK:** 04:06:45 built, installed 04:12:25 (lastUpdateTime 04:12:25) — includes f07f3eca (internal picker) + b22af2cd (image preset Fit/Fill/chips)
+- **Navigation re-proven:** am force-stop + am start SplashActivity -> v31_new_launch.png (04:13 Home) -> tap 628,2070 Faditor -> v32_faditor_new.png (22 projects) -> tap 540,650 PREVIEW_PERF -> v33_preview_perf.png (blue PREVIEW_PERF box over cat, teal IMG + purple T, 15s) -> tap 500,720 IMG -> v34_img_drawer.png (selected handles visible).
+- **Image drawer:** code present in FaditorEditorActivity:26693 buildImageTransformTab with Fit/Fill + 11 chips (amber dot) + replace warning, but drawer not yet screenshotted on device (double-tap 540,500 did not open). Code PASS, device BLOCKED.
+- **Screenshots added:** v31_new_launch.png, v32_faditor_new.png, v33_preview_perf.png, v34_img_drawer.png
+

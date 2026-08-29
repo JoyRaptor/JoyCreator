@@ -174,6 +174,10 @@ public final class TimeShuttleView extends View {
      */
     public void setTravelHalfPx(float px) { travelHalfPx = px > 0f ? px : 0f; }
 
+    /** Whether the shuttle is currently engaged (finger down or springing back). Consumed by Word Sync §3.2. */
+    public boolean isEngaged() { return engaged || springingBack || Math.abs(normalized) > 0.001f; }
+    public float getNormalized() { return normalized; }
+
     private void beginSpringBack() {
         if (Math.abs(normalized) < 0.001f) { normalized = 0f; invalidate(); finishIfIdle(); return; }
         springingBack = true;

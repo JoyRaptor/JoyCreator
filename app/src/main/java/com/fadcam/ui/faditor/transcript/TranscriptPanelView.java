@@ -135,6 +135,14 @@ public class TranscriptPanelView extends View {
     private final int touchSlop;
     private final Runnable longPressRunnable = this::onLongPress;
 
+    // SPEC_20260829_WORD_SYNC — Word Sync mode (bulk fixing). While active, horizontal
+    // drag on a word moves its start time (with snap + ripple/stretch handled in
+    // WordSyncMode), not strike-painting. Vertical drag still scrolls when not over a word.
+    @Nullable private WordSyncMode wordSyncMode;
+    private boolean wordSyncDragging = false;
+    private long wordSyncDownStartMs = 0;
+    private float wordSyncDownX = 0f;
+
     public TranscriptPanelView(Context context) { this(context, null); }
 
     public TranscriptPanelView(Context context, @Nullable AttributeSet attrs) {
@@ -163,6 +171,10 @@ public class TranscriptPanelView extends View {
     }
 
     public void setListener(@NonNull Listener l) { this.listener = l; }
+
+    // SPEC_20260829_WORD_SYNC
+    public void setWordSyncMode(@Nullable WordSyncMode m) { this.wordSyncMode = m; invalidate(); }
+    @Nullable public WordSyncMode getWordSyncMode() { return wordSyncMode; }
 
     public void setTranscript(@Nullable Transcript t) {
         this.transcript = t;
@@ -641,6 +653,18 @@ public class TranscriptPanelView extends View {
                 painting = false;
                 scrolling = false;
                 scrollStartY = scrollY;
+                // SPEC_20260829_WORD_SYNC — while active, a word touch starts a timing drag (with snap+ripple)
+                // instead of the normal strike-painting long-press. Scrub audio and onset snap are driven
+                // by WordSyncMode; horizontal drag moves timing, vertical still scrolls if not over a word.
+                if (wordSyncMode != null && wordSyncMode.isActive() && downIndex >= 0 && transcript != null) {
+                    handler.removeCallbacks(longPressRunnable);
+                    wordSyncDragging = true;
+                    wordSyncDownX = downX;
+                    wordSyncDownStartMs = transcript.words.get(downIndex).startMs;
+                    wordSyncMode.beginDrag(downIndex);
+                    // Suppress long-press painting while in Word Sync — whole screen is one tool (§3.1 lockout).
+                    return true;
+                }
                 if (downIndex >= 0) {
                     handler.postDelayed(longPressRunnable,
                             ViewConfiguration.getLongPressTimeout());
@@ -648,6 +672,16 @@ public class TranscriptPanelView extends View {
                 return true;
 
             case MotionEvent.ACTION_MOVE: {
+                // SPEC_20260829_WORD_SYNC — horizontal word-timing drag (with snap + ripple/stretch).
+                if (wordSyncDragging && wordSyncMode != null && wordSyncMode.isActive()) {
+                    float dxWord = e.getX() - wordSyncDownX;
+                    double msPerPx = wordSyncMode.getMsPerPixel();
+                    // Word Sync §3.3: snap defeatable — lingering between onsets stays put (snap returns input).
+                    long desired = wordSyncDownStartMs + (long) (dxWord * msPerPx);
+                    wordSyncMode.dragTo(desired);
+                    invalidate();
+                    return true;
+                }
                 float dx = e.getX() - downX;
                 float dy = e.getY() - downY;
                 if (gutterDown) {
@@ -710,6 +744,24 @@ public class TranscriptPanelView extends View {
 
             case MotionEvent.ACTION_UP:
                 handler.removeCallbacks(longPressRunnable);
+                // SPEC_20260829_WORD_SYNC — end the timing drag (one undo step, however many words moved).
+                if (wordSyncDragging) {
+                    float dxWord = Math.abs(e.getX() - wordSyncDownX);
+                    float dyWord = Math.abs(e.getY() - downY);
+                    boolean wasTap = dxWord < touchSlop && dyWord < touchSlop;
+                    wordSyncDragging = false;
+                    if (wasTap) {
+                        if (wordSyncMode != null) wordSyncMode.cancelDrag();
+                        // Fall through to tap handling — tap a word still opens the retype editor
+                        // in Word Sync (SPEC §3.2), and you can move between words without Done.
+                    } else {
+                        if (wordSyncMode != null) wordSyncMode.endDrag();
+                        invalidate();
+                        gutterDown = false;
+                        downGutterParagraph = -1;
+                        return true;
+                    }
+                }
                 if (gutterDown) {
                     handler.removeCallbacks(gutterLongPressRunnable);
                     if (gutterReorderDragging) {
@@ -823,6 +875,10 @@ public class TranscriptPanelView extends View {
             case MotionEvent.ACTION_CANCEL:
                 handler.removeCallbacks(longPressRunnable);
                 handler.removeCallbacks(gutterLongPressRunnable);
+                if (wordSyncDragging) {
+                    wordSyncDragging = false;
+                    if (wordSyncMode != null) wordSyncMode.cancelDrag();
+                }
                 gutterDown = false;
                 downGutterParagraph = -1;
                 gutterReorderDragging = false;

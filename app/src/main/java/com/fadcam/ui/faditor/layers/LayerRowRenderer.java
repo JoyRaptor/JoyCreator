@@ -772,6 +772,8 @@ public final class LayerRowRenderer {
         for (int i = 0; i < floatingRowCount; i++) {
             drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
         }
+        // SPEC_20260829_WORD_SYNC §3.3 — onset ticks on the tape while mode is on.
+        drawOnsetTicks(canvas, totalMs, timeToX, topPx, topPx + viewportHeightPx);
         if (dragActive && hoverGapIndex >= 0) {
             drawGapInsertionLine(canvas, hScrollOffsetPx, widthPx);
         }
@@ -800,6 +802,7 @@ public final class LayerRowRenderer {
             for (int i = floatingRowCount; i < rows.size(); i++) {
                 drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
             }
+            drawOnsetTicks(canvas, totalMs, timeToX, audioTopPx, audioTopPx + audioBandHeightPx);
             if (dragActive && crossBandInsertionArmed && !crossBandDraggedIsFloating) {
                 drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
             }
@@ -811,7 +814,29 @@ public final class LayerRowRenderer {
         }
     }
 
-    // ── Drag guides (dragux_v3 A9, widened 2026-08-14): 1px dotted vertical lines at the
+    // SPEC_20260829_WORD_SYNC §3.3 — onset ticks on the tape (faint magnet you can see).
+    @Nullable private com.fadcam.ui.faditor.transcript.WordSyncMode wordSyncMode;
+    public void setWordSyncMode(@Nullable com.fadcam.ui.faditor.transcript.WordSyncMode m) { this.wordSyncMode = m; }
+    private final Paint onsetTickPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    { onsetTickPaint.setColor(0x66FFFFFF); onsetTickPaint.setStrokeWidth(1.2f); }
+    private void drawOnsetTicks(@NonNull Canvas canvas, long totalMs, @NonNull TimeToX timeToX, float top, float bottom) {
+        if (wordSyncMode == null || !wordSyncMode.isActive()) return;
+        // Fetch ticks for the whole timeline — few thousand longs, cheap; visible culling via x.
+        long[] ticks = wordSyncMode.ticksInRange(0, totalMs);
+        if (ticks.length == 0) return;
+        float h = bottom - top;
+        float tickH = Math.min(6f * density, h * 0.35f);
+        float y0 = bottom - tickH;
+        // Clip to content width so off-screen ticks don't draw.
+        for (long t : ticks) {
+            float x = timeToX.map(t);
+            // Skip invisible (culling).
+            if (x < -20f || x > 10000f) continue;
+            canvas.drawLine(x, y0, x, bottom, onsetTickPaint);
+        }
+    }
+
+     // ── Drag guides (dragux_v3 A9, widened 2026-08-14): 1px dotted vertical lines at the
     // dragged item's previewed start/end, spanning every row, so you can see what the item
     // lines up with on the OTHER lanes. Dim by design — "they don't have to be very bright"
     // (user).

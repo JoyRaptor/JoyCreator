@@ -27069,26 +27069,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 final int idx = i;
                 chip.setOnClickListener(v -> {
-                    com.fadcam.ui.faditor.model.ImageAnimPreset.Kind kind;
-                    try { kind = com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.valueOf(kindName); } catch (Exception e) { kind = com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE; }
-                    if (o.hasCustomAnimation(o.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000))) {
+                    com.fadcam.ui.faditor.model.ImageAnimPreset.Kind kindTmp;
+                    try { kindTmp = com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.valueOf(kindName); } catch (Exception e) { kindTmp = com.fadcam.ui.faditor.model.ImageAnimPreset.Kind.NONE; }
+                    final com.fadcam.ui.faditor.model.ImageAnimPreset.Kind kind = kindTmp;
+                    final com.fadcam.ui.faditor.model.TextOverlayItem fo = o;
+                    if (fo.hasCustomAnimation(fo.getImageDurationMs(project != null && project.getTimeline() != null ? project.getTimeline().getTotalDurationMs() : 5000))) {
                         boolean allPreset = true;
-                        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : o.getKeyframes().tracks()) {
+                        for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : fo.getKeyframes().tracks()) {
                             for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) if (!k.presetOwned) { allPreset = false; break; }
                         }
                         if (!allPreset) {
                             new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                                 .setTitle("Replace animation?")
                                 .setMessage("You seem to have a custom animation. Replace it with " + labels[idx] + "?")
-                                .setPositiveButton("Replace", (d2,w) -> applyImagePresetWithUndo(o, kind))
+                                .setPositiveButton("Replace", (d2,w) -> applyImagePresetWithUndo(fo, kind))
                                 .setNegativeButton("Keep", null)
                                 .show();
                             return;
                         }
                     }
-                    applyImagePresetWithUndo(o, kind);
+                    applyImagePresetWithUndo(fo, kind);
                 });
-                chipRow.addView(chip, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ leftMargin = i==0?0:Math.round(6*d); }});
+                chipRow.addView(chip, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ leftMargin = idx==0?0:Math.round(6*d); }});
             }
             android.view.View div2 = new android.view.View(this); div2.setBackgroundColor(0xFF2A2A2A);
             div2.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1) {{ bottomMargin = Math.round(8*d); }});

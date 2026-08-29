@@ -984,46 +984,62 @@ public class TextOverlayItem {
     }
     /**
      * Apply a preset: FULL RESET (§1) then derive from geometry alone (§1 step 3).
-     * Returns false if refused (pan with no overhang).
+     * Returns false if refused (pan with no overhang). No mutation on refusal.
      */
     public boolean applyImagePreset(@NonNull ImageAnimPreset.Kind kind, float canvasW, float canvasH, float imgW, float imgH, long timelineDurationMs) {
         if (canvasW <= 0 || canvasH <= 0 || imgW <= 0 || imgH <= 0) return false;
         long dur = getImageDurationMs(timelineDurationMs);
         if (dur <= 0) dur = 5000;
-        // §1 step 1 — delete every presetOwned key on every track
-        deleteAllPresetOwnedKeys();
-        // Prepare preset descriptor early so cover helpers can read zoomRegionScale etc
-        if (imageAnimPreset == null) imageAnimPreset = new ImageAnimPreset();
-        // §2.6 None = reset with no keys
+        // Validate before any mutation (§1 invariant + §2.3 overhang check must not delete on refusal)
         if (kind == ImageAnimPreset.Kind.NONE) {
+            // §2.6 None = reset with no keys — still a full reset, deletes owned
+            deleteAllPresetOwnedKeys();
+            if (imageAnimPreset == null) imageAnimPreset = new ImageAnimPreset();
             imageAnimPreset.kind = ImageAnimPreset.Kind.NONE;
+            imageAnimPreset.zoomCenterX = 0.5f;
+            imageAnimPreset.zoomCenterY = 0.5f;
+            imageAnimPreset.zoomRegionScale = 0.68f;
+            imageAnimPreset.rotationDelta = 0f;
             float coverNone = computeCoverScale(canvasW, canvasH, imgW, imgH);
             resetStaticToCover(coverNone);
             return true;
         }
-        if (!isImage()) return false;
+        if (!isImage()) return false; // no mutation for non-image
+        boolean isPan = isPanKind(kind);
+        if (isPan) {
+            boolean horizontal = (kind == ImageAnimPreset.Kind.PAN_LEFT || kind == ImageAnimPreset.Kind.PAN_RIGHT);
+            float panFillScale = horizontal ? canvasH / imgH : canvasW / imgW;
+            float renderedPanW = imgW * panFillScale;
+            float renderedPanH = imgH * panFillScale;
+            float extra = horizontal ? (renderedPanW - canvasW) : (renderedPanH - canvasH);
+            if (extra <= 1f) return false; // no room to pan — refuse without mutation (§2.3)
+        }
+        // §1 step 1 — delete every presetOwned key on every track (only after validation)
+        deleteAllPresetOwnedKeys();
+        // Prepare preset descriptor and FULL RESET params to defaults (§1 step 2 — as if dropped in)
+        if (imageAnimPreset == null) imageAnimPreset = new ImageAnimPreset();
+        // FULL RESET of tunable params — invariant: fresh apply must be byte-identical regardless of history
+        imageAnimPreset.zoomCenterX = 0.5f;
+        imageAnimPreset.zoomCenterY = 0.5f;
+        imageAnimPreset.zoomRegionScale = 0.68f;
+        imageAnimPreset.rotationDelta = 0f;
         imageAnimPreset.kind = kind;
         com.fadcam.ui.faditor.keyframe.Easing ease = com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
         boolean isZoom = kind == ImageAnimPreset.Kind.ZOOM_IN || kind == ImageAnimPreset.Kind.ZOOM_OUT;
-        boolean isPan = isPanKind(kind);
         boolean isSlide = isSlideKind(kind);
         if (isPan) {
             // §2.3 — scale to cover the axis panning across, travel full overhang
             boolean horizontal = (kind == ImageAnimPreset.Kind.PAN_LEFT || kind == ImageAnimPreset.Kind.PAN_RIGHT);
-            float panCoverFrac = horizontal ? (canvasH / imgH * imgH / canvasH) : computeFitOrPanCover(canvasW, canvasH, imgW, imgH, horizontal);
-            // Recompute correctly: panCoverFrac = (imgH * panFillScale)/canvasH where panFillScale = canvasH/imgH (horiz) or canvasW/imgW (vert)
             float panFillScale = horizontal ? canvasH / imgH : canvasW / imgW;
-            panCoverFrac = (imgH * panFillScale) / canvasH;
+            float panCoverFrac = (imgH * panFillScale) / canvasH;
             panCoverFrac = Math.max(0.02f, Math.min(10f, panCoverFrac));
-            // General refusal when no overhang on pan axis (§2.3)
-            float renderedPanW = imgW * panFillScale;
-            float renderedPanH = imgH * panFillScale;
-            float extra = horizontal ? (renderedPanW - canvasW) : (renderedPanH - canvasH);
-            if (extra <= 1f) return false; // no room to pan
             // §1 step 2 — reset static to pan cover
             resetStaticToCover(panCoverFrac);
-            // Full overhang, not 90%
-            float panRange = extra / (horizontal ? canvasW : canvasH);
+            // Full overhang, not 90% — recompute extra after validation (same as pre-delete check)
+            float renderedPanW2 = imgW * panFillScale;
+            float renderedPanH2 = imgH * panFillScale;
+            float extra2 = horizontal ? (renderedPanW2 - canvasW) : (renderedPanH2 - canvasH);
+            float panRange = extra2 / (horizontal ? canvasW : canvasH);
             // Write keys — SCALE constant
             putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, panCoverFrac, ease, dur);
             putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, panCoverFrac, ease, dur);
@@ -1175,12 +1191,129 @@ public class TextOverlayItem {
         if (p.kind != ImageAnimPreset.Kind.ZOOM_IN && p.kind != ImageAnimPreset.Kind.ZOOM_OUT) return false;
         p.zoomCenterX = Math.max(0f, Math.min(1f, newCenterX));
         p.zoomCenterY = Math.max(0f, Math.min(1f, newCenterY));
-        // Re-derive from scratch — same code path as apply, so no-peek holds and scale is auto-increased if needed
-        ImageAnimPreset.Kind kind = p.kind;
-        float savedRot = p.rotationDelta;
-        float savedRegion = p.zoomRegionScale;
-        // applyImagePreset does full reset and re-derives; preserve focal we just set
-        return applyImagePreset(kind, canvasW, canvasH, imgW, imgH, timelineDurationMs);
+        // Re-derive from scratch preserving the just-edited focal (apply would reset to 0.5)
+        return rederiveCurrentPreset(canvasW, canvasH, imgW, imgH, timelineDurationMs);
+    }
+    /** Re-derive current preset from its stored params without resetting them — for preview edits (§2.4). */
+    public boolean rederiveCurrentPreset(float canvasW, float canvasH, float imgW, float imgH, long timelineDurationMs) {
+        if (!hasActiveImagePreset()) return false;
+        if (canvasW <= 0 || canvasH <= 0 || imgW <= 0 || imgH <= 0) return false;
+        ImageAnimPreset.Kind kind = imageAnimPreset.kind;
+        if (kind == ImageAnimPreset.Kind.NONE) return false;
+        if (!isImage()) return false;
+        long dur = getImageDurationMs(timelineDurationMs);
+        if (dur <= 0) dur = 5000;
+        // Validate pan overhang before mutation (same as apply)
+        if (isPanKind(kind)) {
+            boolean horizontal = (kind == ImageAnimPreset.Kind.PAN_LEFT || kind == ImageAnimPreset.Kind.PAN_RIGHT);
+            float panFillScale = horizontal ? canvasH / imgH : canvasW / imgW;
+            float extra = horizontal ? (imgW * panFillScale - canvasW) : (imgH * panFillScale - canvasH);
+            if (extra <= 1f) return false;
+        }
+        // §1 step 1 — delete owned keys, but keep params as the user just edited them
+        deleteAllPresetOwnedKeys();
+        com.fadcam.ui.faditor.keyframe.Easing ease = com.fadcam.ui.faditor.keyframe.Easing.EASE_IN_OUT;
+        boolean isZoom = kind == ImageAnimPreset.Kind.ZOOM_IN || kind == ImageAnimPreset.Kind.ZOOM_OUT;
+        boolean isPan = isPanKind(kind);
+        boolean isSlide = isSlideKind(kind);
+        if (isPan) {
+            boolean horizontal = (kind == ImageAnimPreset.Kind.PAN_LEFT || kind == ImageAnimPreset.Kind.PAN_RIGHT);
+            float panFillScale = horizontal ? canvasH / imgH : canvasW / imgW;
+            float panCoverFrac = (imgH * panFillScale) / canvasH;
+            panCoverFrac = Math.max(0.02f, Math.min(10f, panCoverFrac));
+            resetStaticToCover(panCoverFrac);
+            float extra = horizontal ? (imgW * panFillScale - canvasW) : (imgH * panFillScale - canvasH);
+            float panRange = extra / (horizontal ? canvasW : canvasH);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, panCoverFrac, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, panCoverFrac, ease, dur);
+            if (horizontal) {
+                if (kind == ImageAnimPreset.Kind.PAN_LEFT) {
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f + panRange/2f, ease, dur);
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f - panRange/2f, ease, dur);
+                } else {
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f - panRange/2f, ease, dur);
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f + panRange/2f, ease, dur);
+                }
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f, ease, dur);
+            } else {
+                if (kind == ImageAnimPreset.Kind.PAN_UP) {
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f + panRange/2f, ease, dur);
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f - panRange/2f, ease, dur);
+                } else {
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f - panRange/2f, ease, dur);
+                    putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f + panRange/2f, ease, dur);
+                }
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f, ease, dur);
+            }
+        } else if (isZoom) {
+            float cover = computeCoverScale(canvasW, canvasH, imgW, imgH);
+            resetStaticToCover(cover);
+            float regionScale = imageAnimPreset.zoomRegionScale;
+            float zoomedScale = cover / Math.max(0.2f, regionScale);
+            float zx = imageAnimPreset.zoomCenterX, zy = imageAnimPreset.zoomCenterY;
+            float minAtCenter = computeMinScaleToCoverAt(zx, zy, canvasW, canvasH, imgW, imgH);
+            zoomedScale = Math.max(zoomedScale, minAtCenter);
+            zoomedScale = Math.max(zoomedScale, cover);
+            float startScale, endScale;
+            if (kind == ImageAnimPreset.Kind.ZOOM_IN) { startScale = cover; endScale = zoomedScale; }
+            else { startScale = zoomedScale; endScale = cover; }
+            if (kind == ImageAnimPreset.Kind.ZOOM_IN) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, zx, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, zy, ease, dur);
+            } else {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, zx, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, 0.5f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, zy, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, 0.5f, ease, dur);
+            }
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, startScale, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, endScale, ease, dur);
+        } else if (isSlide) {
+            float fitScalePx = Math.min(canvasW / imgW, canvasH / imgH);
+            float targetScale = (imgH * fitScalePx) / canvasH;
+            targetScale = Math.max(0.02f, Math.min(10f, targetScale));
+            resetStaticToCover(targetScale);
+            float renderedW = imgW * fitScalePx;
+            float renderedH = imgH * fitScalePx;
+            float offLeft = -renderedW / (2f * canvasW);
+            float offRight = 1f + renderedW / (2f * canvasW);
+            float offTop = -renderedH / (2f * canvasH);
+            float offBottom = 1f + renderedH / (2f * canvasH);
+            float startX = 0.5f, startY = 0.5f, endX = 0.5f, endY = 0.5f;
+            switch (kind) {
+                case SLIDE_IN_LEFT: startX = offLeft; endX = 0.5f; break;
+                case SLIDE_IN_RIGHT: startX = offRight; endX = 0.5f; break;
+                case SLIDE_IN_TOP: startY = offTop; endY = 0.5f; break;
+                case SLIDE_IN_BOTTOM: startY = offBottom; endY = 0.5f; break;
+                case SLIDE_OUT_LEFT: startX = 0.5f; endX = offLeft; break;
+                case SLIDE_OUT_RIGHT: startX = 0.5f; endX = offRight; break;
+                case SLIDE_OUT_TOP: startY = 0.5f; endY = offTop; break;
+                case SLIDE_OUT_BOTTOM: startY = 0.5f; endY = offBottom; break;
+                default: break;
+            }
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, 0, startX, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, dur, endX, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, 0, startY, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, dur, endY, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, 0, targetScale, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, dur, targetScale, ease, dur);
+            if (isSlideInKind(kind)) {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, 0, 0f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, dur, 1f, ease, dur);
+            } else {
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, 0, 1f, ease, dur);
+                putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, dur, 0f, ease, dur);
+            }
+        }
+        if (imageAnimPreset.rotationDelta != 0) {
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, 0, 0f, ease, dur);
+            putPresetKey(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, dur, imageAnimPreset.rotationDelta, ease, dur);
+        }
+        return true;
     }
     /** Legacy shim — prefer updatePresetFocalPoint with canvas/img geometry for correct no-peek. */
     public void updatePresetFromPreview(float newCenterX, float newCenterY, float newScale, float newRotation, long timelineDurationMs) {

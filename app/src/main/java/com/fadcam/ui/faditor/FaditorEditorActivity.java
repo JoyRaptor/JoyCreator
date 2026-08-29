@@ -23198,7 +23198,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         float desiredZoomed = sizeFraction;
                         float newRegion = cover / Math.max(0.02f, desiredZoomed);
                         pp.zoomRegionScale = Math.max(0.2f, Math.min(2f, newRegion));
-                        o.applyImagePreset(pp.kind, canvas[0], canvas[1], img[0], img[1], dur);
+                        // Preserve the just-edited regionScale + focal — re-derive without FULL RESET (§2.4)
+                        o.rederiveCurrentPreset(canvas[0], canvas[1], img[0], img[1], dur);
                         refreshTextAfterHandleWrite();
                         return;
                     }

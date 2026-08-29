@@ -78,8 +78,8 @@ DEVICE: free
   do not trust this line for which device is present.
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files (claim these when you start):
+status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
+files:
   app/src/main/java/com/fadcam/ui/faditor/audio/AudioLayerSync.java   (NEW)
   app/src/main/java/com/fadcam/ui/faditor/audio/AudioLatency.java     (NEW)
   app/src/main/java/com/fadcam/ui/faditor/compositor/AudioClipPreviewPlayer.java

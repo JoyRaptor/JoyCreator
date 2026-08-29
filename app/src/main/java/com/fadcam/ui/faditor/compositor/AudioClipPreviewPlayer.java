@@ -43,6 +43,7 @@ import java.util.List;
 public final class AudioClipPreviewPlayer {
 
     private static final String TAG = "AudioClipPreview";
+    public static final long PARK_TOLERANCE_MS = 15L;
 
     @NonNull private final Context context;
     @NonNull private final AudioClip clip;
@@ -61,6 +62,7 @@ public final class AudioClipPreviewPlayer {
     @Nullable private ExoPlayer player;
     @Nullable private List<AudioProcessor> chain;
     private boolean prepared = false;
+    @Nullable private Long parkTargetMs = null;
 
     public AudioClipPreviewPlayer(@NonNull Context context,
                                   @NonNull AudioClip clip,
@@ -91,9 +93,11 @@ public final class AudioClipPreviewPlayer {
                         protected AudioSink buildAudioSink(android.content.Context ctx,
                                 boolean enableFloatOutput,
                                 boolean enableAudioTrackPlaybackParams) {
-                            return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(ctx)
+                            // Force Sonic (time-stretch without pitch) for micro-speed drift correction.
+                    // Hardware AudioTrack playbackParams DOES repitch; Sonic path does not.
+                    return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(ctx)
                                     .setEnableFloatOutput(enableFloatOutput)
-                                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                                    .setEnableAudioTrackPlaybackParams(false)
                                     .setAudioProcessors(chain.toArray(new AudioProcessor[0]))
                                     .build();
                         }
@@ -154,6 +158,64 @@ public final class AudioClipPreviewPlayer {
      */
     public void seekTo(long sourceMs) {
         if (player != null) player.seekTo(Math.max(0L, sourceMs));
+    }
+
+    /** Park (seek + buffer) at sourceMs WITHOUT starting. */
+    public void parkAt(long sourceMs) {
+        long target = Math.max(0L, sourceMs);
+        parkTargetMs = target;
+        if (player == null) {
+            prepareAsync();
+            // seek will happen once player exists; target kept for isParkedAt
+            return;
+        }
+        try {
+            player.setPlayWhenReady(false);
+            player.seekTo(target);
+            if (player.getPlaybackState() == Player.STATE_IDLE) {
+                player.prepare();
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "parkAt failed for " + clip.getId(), e);
+        }
+    }
+
+    /** True once buffered and within PARK_TOLERANCE_MS of requested park point. */
+    public boolean isParkedAt(long sourceMs) {
+        if (player == null) return false;
+        if (player.getPlaybackState() != Player.STATE_READY) return false;
+        long pos = player.getCurrentPosition();
+        return Math.abs(pos - sourceMs) <= PARK_TOLERANCE_MS;
+    }
+
+    /** Current source position in ms. */
+    public long getCurrentPosition() {
+        if (player == null) return 0L;
+        return Math.max(0L, player.getCurrentPosition());
+    }
+
+    public int getPlaybackState() {
+        if (player == null) return Player.STATE_IDLE;
+        return player.getPlaybackState();
+    }
+
+    public void setPlaybackSpeed(float speed) {
+        if (player == null) return;
+        try {
+            androidx.media3.common.PlaybackParameters pp = player.getPlaybackParameters();
+            // Keep pitch at 1f — Sonic time-stretch, not repitch.
+            androidx.media3.common.PlaybackParameters next =
+                    new androidx.media3.common.PlaybackParameters(speed, 1f);
+            // Avoid redundant sets (avoids re-buffer).
+            if (pp.speed != next.speed) player.setPlaybackParameters(next);
+        } catch (Exception e) {
+            FLog.w(TAG, "setPlaybackSpeed failed", e);
+        }
+    }
+
+    public float getPlaybackSpeed() {
+        if (player == null) return 1f;
+        try { return player.getPlaybackParameters().speed; } catch (Exception e) { return 1f; }
     }
 
     /** Source duration in ms, or 0 while unknown. */

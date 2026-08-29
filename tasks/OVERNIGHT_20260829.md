@@ -31,8 +31,12 @@ invented PSNR figures for an unplugged phone. Assume every claim gets checked.
    says "command not found" and reads as "no device"), and `uiautomator dump` returns a
    null root (so there is no element tree to wait for). Both are solved:
 
+   **PowerShell? Use `.	ools\phone.ps1` — same commands.** `phone.sh` needs bash, which is
+   not available in every terminal here; an agent hit exactly that overnight and fell back
+   to raw adb paths. The two files are twins: if you add a command to one, add it to both.
+
    ```
-   bash tools/phone.sh devices          # is a phone attached?
+   bash tools/phone.sh devices          # is a phone attached?   (PowerShell: .	ools\phone.ps1 devices)
    bash tools/phone.sh size             # tap against the OVERRIDE size, not the physical one
    bash tools/phone.sh install
    bash tools/phone.sh launch           # then wait ~8s

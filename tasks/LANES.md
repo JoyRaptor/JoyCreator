@@ -1,5 +1,14 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# ★★ MORNING 2026-08-29 — JoyRaptor tested the image presets on device and found five defects.
+#    tasks/SPEC_20260829_IMAGE_PRESETS_V2.md supersedes IMAGE_ANIM_PRESETS §3.2-3.4.
+#    Presets must RESET, not stack. UNCLAIMED — this is the top of the queue.
+#    files: model/TextOverlayItem.java, model/ImageAnimPreset.java, keyframe/KeyframeGlyph.java,
+#           layers/LayerRowRenderer.java, ImagePresetPicker.java (NEW), FaditorEditorActivity.java
+#
+# ★ strings.xml was corrupted to UTF-16 overnight and restored in af302055. It is UTF-8
+#   WITH A BOM. Never open it with a tool that rewrites encoding; check `file` before commit.
+#
 # ★ CURRENT PRIORITY TRACK: Layers/Timeline UX overhaul BUILD (design DONE 2026-07-06).
 #   New session? Start with tasks/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
 #   Design contract = tasks/PLAN_GESTURE_CONTRACT_FINAL_20260706.md; slices = tasks/PLAN_LAYERS_UX_EXECUTION.md.

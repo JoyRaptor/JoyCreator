@@ -801,6 +801,8 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private android.graphics.Bitmap belowBlendUploaded;
     /** Pose-animated below-blend overlays — per-item textured quads (spec §3), fed via Pip path */
     @Nullable private volatile java.util.List<Pip> belowBlendOverlays;
+    /** Captions — third client of the texture cache (SPEC_20260829_CAPTIONS_GL §3.1), composited before the PiP walk so a blend above samples them */
+    @Nullable private volatile java.util.List<Pip> captionOverlays;
     @NonNull private final java.util.Map<String, Integer> overlayTexIds = new java.util.HashMap<>();
     @NonNull private final java.util.Map<String, android.graphics.Bitmap> overlayUploaded = new java.util.HashMap<>();
     @NonNull private final java.util.Set<String> overlayKeysInFrame = new java.util.HashSet<>();
@@ -1049,6 +1051,12 @@ public class FxPreviewTextureView extends TextureView
      */
     public void setBelowBlendOverlays(@Nullable java.util.List<Pip> pips) {
         belowBlendOverlays = pips == null || pips.isEmpty() ? null : new java.util.ArrayList<>(pips);
+        requestFrame();
+    }
+
+    /** Captions — raster per cue at authored size, quad per frame (SPEC_20260829_CAPTIONS_GL §3.1). */
+    public void setCaptionOverlays(@Nullable java.util.List<Pip> pips) {
+        captionOverlays = pips == null || pips.isEmpty() ? null : new java.util.ArrayList<>(pips);
         requestFrame();
     }
 
@@ -1336,6 +1344,13 @@ public class FxPreviewTextureView extends TextureView
             java.util.List<Pip> overlays = belowBlendOverlays;
             if (!degraded && overlays != null && !overlays.isEmpty() && layerProgram != 0) {
                 for (Pip p : overlays) {
+                    cur = drawOverlayPip(p, cur, vw, vh);
+                }
+            }
+            // Captions — at real z before the PiP/adjustment walk so a blend above samples them (SPEC_20260829_CAPTIONS_GL)
+            java.util.List<Pip> caps = captionOverlays;
+            if (!degraded && caps != null && !caps.isEmpty() && layerProgram != 0) {
+                for (Pip p : caps) {
                     cur = drawOverlayPip(p, cur, vw, vh);
                 }
             }

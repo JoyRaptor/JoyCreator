@@ -98,11 +98,14 @@ public final class FxLivePreviewController {
         }
 
         /**
-         * The image overlays the composite is drawing this tick, so the host can make their own
-         * views transparent. Told EVERY tick — an item leaves the set the moment it stops being
-         * visible or the chain stops running, and a stale set would leave a picture invisible.
+         * The PiP decoder-facing surfaces, by live slot, as the GL thread publishes them. Slot 0 is
+         * the one that has always existed; the rest appear only after {@link #buildPlan} asks for
+         * them, which it does only for a project that genuinely stacks overlay videos.
          */
         default void onGlOwnedImages(@NonNull java.util.Set<String> ids) { }
+
+        /** Captions now composite in GL at real z — tell the host which bindings are GL-owned so its Canvas views can hide. */
+        default void onCaptionGlOwned(@NonNull java.util.Set<String> ids) { }
 
         /**
          * The effect stack would not compile on this GPU, so the preview is ungraded. Say so —
@@ -410,6 +413,15 @@ public final class FxLivePreviewController {
         }
         view.setBelowBlendBitmap(belowBlend);
         view.setBelowBlendOverlays(belowBlendOverlays);
+        // Captions — third client of the texture cache (SPEC_20260829_CAPTIONS_GL §3)
+        java.util.List<FxPreviewTextureView.Pip> captionPips = buildCaptionOverlays(timeline, size[0], size[1], playheadMs);
+        view.setCaptionOverlays(captionPips);
+        // Tell host which bindings are GL-owned so Canvas views can hide (avoid double draw)
+        java.util.Set<String> captionOwned = new java.util.HashSet<>();
+        if (captionPips != null) {
+            for (FxPreviewTextureView.Pip p : captionPips) captionOwned.add(p.clipId);
+        }
+        host.onCaptionGlOwned(captionOwned);
         // GL pilot: layer_image_overlay rasterised to a full-frame bitmap at video
         // resolution, composited at its real z inside the GL pass. The View stays in
         // layout as an invisible hit-test surface (alpha 0, still VISIBLE so it receives
@@ -447,6 +459,10 @@ public final class FxLivePreviewController {
     private int belowBlendRasterCount = 0;
     // Per-item texture cache for animated pose (spec §3) — raster once at authored size, quad per frame
     @NonNull private final OverlayTextureCache overlayTextureCache = new OverlayTextureCache();
+    // Captions — third client of the texture cache (SPEC_20260829_CAPTIONS_GL §3.1)
+    @NonNull private final CaptionTextureCache captionTextureCache = new CaptionTextureCache();
+    // Instrumentation for captions (§5.4)
+    private int captionRasterCount = 0;
 
     /**
      * Build the z-ordered composite plan: every live adjustment layer (resolved to its immutable
@@ -987,6 +1003,74 @@ public final class FxLivePreviewController {
         return bmp;
     }
 
+    /** Captions at real z — each enabled binding is its own GL layer (SPEC_20260829_CAPTIONS_GL §3.1). */
+    @Nullable
+    private java.util.List<FxPreviewTextureView.Pip> buildCaptionOverlays(
+            @NonNull Timeline timeline, int videoW, int videoH, long playheadMs) {
+        if (videoW <= 0 || videoH <= 0) return null;
+        Clip clip = clipAt(timeline, playheadMs);
+        if (clip == null) return null;
+        if (!CaptionTextureCache.canUseTexture(clip)) return null; // whole clip's captions fallback to Canvas
+        java.util.List<Clip.CaptionBinding> bindings = clip.getCaptionBindings();
+        if (bindings.isEmpty()) return null;
+        // Find clip start to derive sourceMs
+        long clipStart = clipStartMs(timeline, clip);
+        long localMs = Math.max(0, playheadMs - clipStart);
+        long sourceMs = clip.getInPointMs() + (long)(localMs * clip.getSpeedMultiplier());
+        java.util.List<FxPreviewTextureView.Pip> out = new java.util.ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (int i = 0; i < bindings.size() && i < Clip.MAX_CAPTION_BINDINGS; i++) {
+            Clip.CaptionBinding b = bindings.get(i);
+            if (!b.enabled) continue;
+            String key = clip.getId() + "#" + i;
+            if (seen.contains(key)) continue;
+            seen.add(key);
+            android.graphics.Bitmap tex = captionTextureCache.getOrCreate(clip, i, b, sourceMs, videoW, videoH);
+            if (tex == null || tex.isRecycled()) continue;
+            // Quad geometry: tight bitmap -> halfW/H in NDC, placed at binding center
+            float halfW = (tex.getWidth() / CaptionTextureCache.SUPERSAMPLE / videoW) / 2f;
+            float halfH = (tex.getHeight() / CaptionTextureCache.SUPERSAMPLE / videoH) / 2f;
+            float cx = b.centerX;
+            float cy = b.centerY;
+            // Alpha 1 — captions have no per-clip opacity envelope yet
+            FxPreviewTextureView.Pip pip = FxPreviewTextureView.Pip.ofImage(
+                    cx, cy, halfW, halfH, 0f, 1f,
+                    null, playheadMs, null, 0f, videoW, videoH, key, tex, 1f);
+            out.add(pip);
+        }
+        // Audio captions: stay on Canvas fallback for this pass (documented — same "cheap first" sequencing as visualizer)
+        // They would need their own cache key (AudioClip id + binding) and sourceMs mapping; visual parity already correct on Canvas.
+        if (out.isEmpty()) return null;
+        // Sort by z (binding order = track order bottom->top already, but ensure binding 0 below binding 1)
+        // out is already in binding order (0 bottom, 2 top) which matches track z ascending for default.
+        // For custom z, we would sort by trackFlags zIndex — not yet; keep binding order.
+        captionRasterCount += out.size();
+        if ((captionRasterCount % 30) == 0 || out.size() > 1) {
+            FLog.d("CaptionTex", "caption overlays " + out.size() + " at " + playheadMs + "ms rasterCount=" + captionRasterCount);
+        }
+        return out;
+    }
+
+    @Nullable
+    private static Clip clipAt(@NonNull Timeline tl, long playheadMs) {
+        long cursor = 0;
+        for (Clip c : tl.getClips()) {
+            long dur = c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+            if (playheadMs >= cursor && playheadMs < cursor + dur) return c;
+            cursor += dur;
+        }
+        return null;
+    }
+
+    private static long clipStartMs(@NonNull Timeline tl, @NonNull Clip target) {
+        long cursor = 0;
+        for (Clip c : tl.getClips()) {
+            if (c == target) return cursor;
+            cursor += c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
+        }
+        return 0;
+    }
+
         private static boolean stacksOverlayVideos(@NonNull Timeline timeline) {
         if (FxPreviewTextureView.MAX_LIVE_PIPS < 2) return false;
         List<Clip> all = timeline.getOverlayClips();
@@ -1098,12 +1182,15 @@ public final class FxLivePreviewController {
         view.setLayerOverlayBitmap(null);
         view.setBelowBlendBitmap(null);
         view.setBelowBlendOverlays(null);
+        view.setCaptionOverlays(null);
         cachedBelowBitmap = null;
         cachedBelowSignature = null;
         overlayTextureCache.clear();
+        captionTextureCache.clear();
         // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());
+        host.onCaptionGlOwned(java.util.Collections.emptySet());
         if (!routed) return;
         routed = false;
         routedPlayer = null;

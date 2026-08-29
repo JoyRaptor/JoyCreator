@@ -139,17 +139,11 @@ files: (none)
 since: 2026-08-29T02:40
 
 ## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
-status: ACTIVE (2026-08-29T01:59 — opencode/muse-spark phases 1+2 LANDED 0be24e6f, phase 3 HELD)
+status: ACTIVE (2026-08-29T03:10 — opencode/muse-spark phase 3 LANDED b22af2cd — Fit/Fill + preset chips + replace warning + preview stickiness)
 files:
-  app/src/main/java/com/fadcam/ui/faditor/keyframe/Keyframe.java
-  app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeCodec.java
-  app/src/main/java/com/fadcam/ui/faditor/model/ImageAnimPreset.java  (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java  (fade+convert only)
-  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java (keyframe p + preset)
-since: 2026-08-29T01:59
-phase 3 HELD: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE (currently ACTIVE since 2026-08-29T04:00)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java
+since: 2026-08-29T03:10
+phase 3: CAPTION_LAYERS is IDLE (03:00) so FaditorEditorActivity drawer sites were free. Phases 1+2 already landed 0be24e6f (Keyframe, Codec, ImageAnimPreset, TextOverlayItem, LayerRowRenderer/Controller, ProjectStorage)
 
 ## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks)
 status: IDLE (2026-08-29T02:40 — opencode/muse-spark sweep done: 0 PASS 0 FAIL 41 BLOCKED — see tasks/VERIFY_20260829_RESULTS.md)

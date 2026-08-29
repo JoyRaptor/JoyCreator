@@ -64,12 +64,63 @@ code. If it is taken, finish your code, wait, then update the row.
 SPEC: free
 
 ## SPEC_20260828_DEVICE_VERIFY — device verification sweep (eight checks)
-status: ACTIVE (2026-08-28T12:00 — eight checks, no production code; screenshots + uiautomator bounds)
-files: (none — reporting only; three other lanes live in these files)
-since: 2026-08-28T12:00
+status: IDLE (2026-08-29 — NEVER RAN. Claim released as stale: the tree was clean and the
+        holder stopped when the device was unplugged. Still the highest-value unclaimed
+        work in the repo; anyone may take it.)
+files: (none)
+since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: SPEC_20260828_DEVICE_VERIFY (Note 20 REAL_SERIAL + Note 9 — FABLE note UNPLUGGED is stale)
+DEVICE: free
+  Note 20 REAL_SERIAL (SM-N986U) was attached 2026-08-29T00:32 and JoyRaptor installed
+  app-default-arm64-v8a-debug.apk (built 2026-08-28 23:21, BUILD SUCCESSFUL) onto it.
+  JoyRaptor then swapped to the NOTE 9 for the agent lanes. Re-run `adb devices` yourself —
+  do not trust this line for which device is present.
+
+## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files (claim these when you start):
+  app/src/main/java/com/fadcam/ui/faditor/audio/AudioLayerSync.java   (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/audio/AudioLatency.java     (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/compositor/AudioClipPreviewPlayer.java
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (4 small sites only)
+
+## SPEC_20260829_CAPTION_LAYERS — up to 3 caption tracks, each on its own transcript
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files (claim these when you start):
+  app/src/main/java/com/fadcam/ui/faditor/model/Clip.java
+  app/src/main/java/com/fadcam/ui/faditor/model/AudioClip.java
+  app/src/main/java/com/fadcam/ui/faditor/model/Timeline.java        (getCaptionTracks only)
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java
+  app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java
+  app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java  (~line 3093 only)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (drawer + preview container)
+
+## SPEC_20260829_KEYFRAME_SHAPES — one glyph set drawn from Easing.apply()
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files (claim these when you start):
+  app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeGlyph.java (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/KeyframeDiamondControl.java
+  app/src/main/java/com/fadcam/ui/faditor/EasePickerPopover.java
+  app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
+
+## ⚠ THREE-WAY OVERLAP, 2026-08-29 — READ BEFORE YOU EDIT
+
+AUDIO_SYNC_TRUTH and CAPTION_LAYERS both touch FaditorEditorActivity.java.
+KEYFRAME_SHAPES and CAPTION_LAYERS both touch LayerRowRenderer.java.
+None of these is a real conflict IF you keep to your spec's stated sites:
+
+  - AUDIO_SYNC_TRUTH owns exactly 4 sites: syncAudioPlayerWithPlayhead's body, the play
+    call site, the pause call site, and the one playhead-DRAW site. All logic lives in
+    the new AudioLayerSync.java.
+  - CAPTION_LAYERS owns the caption drawer and the preview container. It must NOT touch
+    the playhead or transport code.
+  - KEYFRAME_SHAPES owns only the keyframe DRAW calls in LayerRowRenderer; CAPTION_LAYERS
+    owns only the caption-colour lookups (lines ~1600 and ~2498).
+
+If you need a site outside that list, STOP and post here rather than taking it. A
+36,000-line file cannot absorb three simultaneous freehand edits.
 
 ## FABLE (Claude) — dynamic lane
 status: IDLE (2026-08-28 — released the export claim: an agent is implementing
@@ -78,17 +129,11 @@ status: IDLE (2026-08-28 — released the export claim: an agent is implementing
 files: (none)
 since: 2026-08-28
 
-## SPEC_20260828_EXPORT_GL_FRAMES — UNCLAIMED LANE, WORK IN PROGRESS
-status: ACTIVE but NEVER CLAIMED (2026-08-28). Files below are being edited right now by
-        an agent that did not fill in this board. The tree does NOT compile:
-          BlendModeGlEffect.java:274 — non-static variable clip in a static context
-          GlPipFrameOverlay.java:166 — cannot find symbol GlUtil.createProgram
-        That blocks every other agent's build and JoyRaptor's installs. Whoever owns this:
-        claim the lane, get it green.
-files: app/src/main/java/com/fadcam/ui/faditor/export/BlendModeGlEffect.java,
-  app/src/main/java/com/fadcam/ui/faditor/export/GlPipFrameOverlay.java,
-  app/src/main/java/com/fadcam/ui/faditor/export/SurfaceFrameReader.java,
-  app/src/main/java/com/fadcam/ui/faditor/export/PipFrameStats.java
+## SPEC_20260828_EXPORT_GL_FRAMES — export GL frames (Surface decode)
+status: IDLE (2026-08-29 — landed 63f31202/4c405edd; the red build described below was
+        fixed and the tree is green at 8b3c1d22. §5 acceptance (before/after timing, PSNR)
+        still never ran — covered by DEVICE_VERIFY §2.7.)
+files: (none)
 
 ## MUSE (agent 1) — caption text fitting
 status: IDLE (2026-08-28 — handed to OPENCODE for implementation; prior claim above)
@@ -96,15 +141,17 @@ files: (none)
 since: 2026-08-28T10:35
 
 ## REVIEW (Claude Opus 5) — integration lane
-status: ACTIVE (2026-08-26 — canvas aspect resolved from a 16x16 black gap spacer at clip 0,
-  making whole projects render square. Also holds the PiP/layout files.)
-files: app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java,
-  app/src/main/java/com/fadcam/ui/faditor/player/PreviewPipController.java,
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java,
-  app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
+status: IDLE (2026-08-29 — claim RELEASED as stale. It was dated 2026-08-26 and the tree
+        is clean, so per rule 5 it is dead. EditorTimelineView / LayerRowRenderer /
+        FaditorEditorActivity are FREE. This claim had been silently blocking work for
+        three days.)
+files: (none)
 
 ## SPEC_20260828_SLIDE_OBJECT — timed slide object (styled cards on transcript clock)
-status: ACTIVE (2026-08-28T12:10 — agent claims lane; files below)
+status: IDLE — PARKED (2026-08-29. Code preserved in 0332ca43, reverted by 8b3c1d22.
+        DO NOT RESUME without checking with JoyRaptor: SPEC_20260829_CAPTION_LAYERS may
+        remove the need for it entirely. Claim released as stale; files below are FREE.)
+prior-status: ACTIVE (2026-08-28T12:10 — agent claims lane; files below)
 files: app/src/main/java/com/fadcam/ui/faditor/slides/SlideDeck.java,
   app/src/main/java/com/fadcam/ui/faditor/slides/SlideRenderer.java,
   app/src/main/java/com/fadcam/ui/faditor/slides/SlideOverlay.java,

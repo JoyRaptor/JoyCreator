@@ -177,10 +177,6 @@ public class Timeline {
     @NonNull
     private final List<Clip> overlayClips = new ArrayList<>();
 
-    /** Timed slide decks (SPEC_20260828_SLIDE_OBJECT). One deck holds 136 cues; pure model, see SlideDeck. */
-    @NonNull
-    private final List<com.fadcam.ui.faditor.slides.SlideDeck> slideDecks = new ArrayList<>();
-
     public Timeline() {
         this.clips = new ArrayList<>();
         this.audioClips = new ArrayList<>();
@@ -294,17 +290,6 @@ public class Timeline {
         }
         return null;
     }
-
-    // ── Slide decks (SPEC_20260828_SLIDE_OBJECT) ────────────────────────
-    @NonNull public List<com.fadcam.ui.faditor.slides.SlideDeck> getSlideDecks() { return slideDecks; }
-    @NonNull public List<com.fadcam.ui.faditor.slides.SlideDeck> getAllSlideDecks() { return Collections.unmodifiableList(slideDecks); }
-    public void addSlideDeck(@NonNull com.fadcam.ui.faditor.slides.SlideDeck d) { slideDecks.add(d); }
-    public boolean removeSlideDeck(@NonNull com.fadcam.ui.faditor.slides.SlideDeck d) { return slideDecks.remove(d); }
-    @Nullable public com.fadcam.ui.faditor.slides.SlideDeck findSlideDeck(@NonNull String id) {
-        for (com.fadcam.ui.faditor.slides.SlideDeck d : slideDecks) if (d.getId().equals(id)) return d;
-        return null;
-    }
-    public boolean usesSlideDecks() { return !slideDecks.isEmpty(); }
 
     /**
      * Returns the clip at the given index, or null if out of bounds.

@@ -83,6 +83,15 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
          * beside "Audio". Default no-op.
          */
         default void onVoiceoverRecordSelected() { }
+
+        /**
+         * SPEC_20260829_QUICK_WINS S1: Image as clip (timeline segment — rare).
+         * Promoted Image (overlay) lives in the toolbox (<=2 taps); this is the demoted
+         * spine path. Reuses the SAME {@code newImageClip} payload as {@code onAssetTypeSelected(true)}
+         * used to, but that path now routes through the internal picker in overlay mode,
+         * so this callback is the clip-specific one. Default no-op for back-compat.
+         */
+        default void onImageAsClipSelected() { }
     }
 
     @Nullable
@@ -228,7 +237,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         root.addView(createOptionRow(
                 getString(R.string.faditor_add_asset_image) + " as clip (timeline segment - rare)",
                 "image", materialIcons, dp,
-                () -> { if (callback != null) callback.onAssetTypeSelected(true); }));
+                () -> { if (callback != null) callback.onImageAsClipSelected(); }));
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);

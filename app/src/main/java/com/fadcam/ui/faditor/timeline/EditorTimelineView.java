@@ -2354,9 +2354,42 @@ public class EditorTimelineView extends View {
         return time;
     }
     
+    /**
+     * Ms to subtract from {@link #playheadPositionMs} for DISPLAY ONLY — the device's audio
+     * output latency, so the waveform sitting under the fixed centre line is the moment the
+     * speaker is actually producing (SPEC_20260829_AUDIO_SYNC_TRUTH §3.4).
+     *
+     * <p><b>This is a draw-time shift and must never reach the model.</b> It was originally
+     * implemented by writing the compensated value straight into {@code playheadPositionMs},
+     * which silently corrupted every consumer of {@link #getPlayheadPositionMs()} —
+     * segment-under-playhead lookup, snapping, and, worst, the audio drift lock, which then
+     * measured a permanent error equal to the latency and spent playback fighting it. On a
+     * device whose latency exceeded the 120ms desync threshold that became an endless
+     * park/restart loop; below it, an endless micro-speed trim. JoyRaptor heard both, as
+     * stuttering and as volume pumping (Note 20, 2026-08-29).
+     *
+     * <p>The line itself is painted at screen centre and the CONTENT scrolls beneath it, so
+     * the whole correction is one question: which moment gets centred.</p>
+     */
+    private int playheadDrawOffsetMs = 0;
+
+    /** Set the display-only latency shift. 0 when paused — nothing is being heard. */
+    public void setPlayheadDrawOffsetMs(int ms) {
+        int v = Math.max(0, ms);
+        if (v == playheadDrawOffsetMs) return;
+        playheadDrawOffsetMs = v;
+        centerPlayhead();
+        invalidate();
+    }
+
+    /** The playhead as the user should SEE and READ it. Never use this for model decisions. */
+    private long drawnPlayheadMs() {
+        return Math.max(0L, playheadPositionMs - playheadDrawOffsetMs);
+    }
+
     private void centerPlayhead() {
         float centerX = getWidth() / 2f;
-        float playheadX = timeToX(playheadPositionMs);
+        float playheadX = timeToX(drawnPlayheadMs());
         scrollOffsetPx = playheadX - centerX;
         if (VLOG) FLog.d(TAG, "centerPlayhead: centerX=" + centerX + " playheadX=" + playheadX + " scrollOffset=" + scrollOffsetPx);
         clampScroll();
@@ -5505,9 +5538,12 @@ if (sd.clip.hasVolumeKeyframes()) {
 
     /** Floating dark pill showing mm:ss.mmm at the playhead top; bigger/bolder while scrubbing. */
     private void drawPlayheadChip(@NonNull Canvas canvas, float px) {
-        if (chipCachedMs != playheadPositionMs) {
-            chipCachedMs = playheadPositionMs;
-            chipCachedText = fmtChipTime(playheadPositionMs);
+        // The readout matches what is being HEARD, for the same reason the content is
+        // scrolled to the heard moment — the two must agree or the chip contradicts the line.
+        long shown = drawnPlayheadMs();
+        if (chipCachedMs != shown) {
+            chipCachedMs = shown;
+            chipCachedText = fmtChipTime(shown);
         }
         String text = chipCachedText;
         chipTextPaint.setTextSize(playheadScrubbing ? chipTextScrubPx : chipTextPx);

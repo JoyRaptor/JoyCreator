@@ -397,6 +397,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private String audioCaptionClipId;
     /** Which overlay was most recently tapped (for style-bar routing). */
     private boolean activeCaptionIsAudio = false;
+    // SPEC_20260829_CAPTION_LAYERS: multi-binding preview — one view per enabled binding.
+    private android.widget.FrameLayout captionMultiContainer;
+    private final java.util.List<com.fadcam.ui.faditor.transcript.CaptionOverlayView> captionOverlays = new java.util.ArrayList<>();
+    private final java.util.List<com.fadcam.ui.faditor.transcript.CaptionOverlayView> audioCaptionOverlays = new java.util.ArrayList<>();
+    private int activeCaptionBindingIndex = 0;
+    private int activeAudioCaptionBindingIndex = 0;
     /** Caption-style chips by style id, so we can highlight the active clip's style. */
     private final java.util.Map<String, TextView> captionStyleChips = new java.util.HashMap<>();
     /** Currently highlighted caption-style chip id (null = none). */
@@ -645,7 +651,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** A9: audio-clip preview players - one ExoPlayer-backed player per clip, routed through
  *  the SAME processor chain export builds (volume/envelope/pan + FX), replacing the
  *  legacy MediaPlayer fleet whose preview ignored pan and approximated fades. */
-private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audioPlayers = new ArrayList<>();
+ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audioPlayers = new ArrayList<>();
+    // SPEC_20260829_AUDIO_SYNC_TRUTH: owns pre-roll, coalesced start, drift lock, debounce.
+    private final com.fadcam.ui.faditor.audio.AudioLayerSync audioLayerSync =
+            new com.fadcam.ui.faditor.audio.AudioLayerSync();
     // WAS: a parallel List<Boolean> audioPlayersReady, mirroring each player's readiness.
     // Nothing ever set an entry to true. It was written `add(false)` on create and `clear()`
     // on release, and every playback path guarded on it, so EVERY audio clip was skipped
@@ -5571,27 +5580,20 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     }
 
                     if (playheadMs >= videoEndMs && timelineEndMs > videoEndMs) {
-                        // Playhead is in audio-only region past video
-                        // Enter audio-tail mode directly
+                        // Playhead is in audio-only region past video — coalesced arm.
                         audioTailActive = true;
                         audioTailStartWall = android.os.SystemClock.elapsedRealtime();
                         audioTailStartMs = playheadMs;
                         btnPlayPause.setText("pause");
-                        syncAndPlayAudioPlayer();
-                        playheadHandler.post(playheadUpdater);
+                        final long armPhTail = playheadMs;
+                        audioLayerSync.armForPlay(armPhTail, () -> playheadHandler.post(playheadUpdater));
                         FLog.d(TAG, "Play from audio-tail region: playhead=" + playheadMs + " videoEnd=" + videoEndMs);
                     } else {
                         int playSegment = editorTimeline.getSegmentAtPlayhead();
                         if (playSegment >= 0 && playSegment != selectedClipIndex) {
                             selectSegment(playSegment);
                         }
-                        // CRITICAL: Ensure player position matches timeline playhead before play.
-                        // Convert timeline playhead position to source-relative position
-                        // accounting for clip speed (effective time → source time).
                         Clip playClip = getSelectedClip();
-                        // For an AI slide, playback uses the rendered MP4 (present once
-                        // the slide has been rendered/exported). Hide the live WebView
-                        // and load the clip so the normal ExoPlayer path plays it.
                         if (playClip != null && playClip.isGeneratedSlide()) {
                             hideSlidePreview();
                             loadClipForPlayback(playClip);
@@ -5599,25 +5601,19 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                         long segmentStartMs = editorTimeline.getSegmentStartTimeMs(selectedClipIndex);
                         long relativePlayheadMs = Math.max(0, playheadMs - segmentStartMs);
                         if (playClip != null && playClip.getSpeedMultiplier() > 0) {
-                            // relativePlayheadMs is in EFFECTIVE time (post-speed).
-                            // seekTo expects SOURCE time (pre-speed) relative to trimStart.
                             relativePlayheadMs = (long)(relativePlayheadMs * playClip.getSpeedMultiplier());
                         }
                         if (playClip != null && playClip.isImageClip() && playerManager.isGapless()) {
-                            // Scrubs over an image never seek the engine (the Glide overlay is the
-                            // scrub display), so the engine's current window may still be a prior
-                            // clip — point it at this image window before the window-local seek.
                             playerManager.loadClip(playClip);
                         }
-                        // Clip-scoped: relativePlayheadMs was computed against playClip, so it is
-                        // only meaningful to a player holding playClip (LEDGER §2a).
                         if (playClip != null) {
                             playerManager.seekInClip(playClip, relativePlayheadMs);
                         } else {
                             playerManager.seekTo(relativePlayheadMs);
                         }
-                        playerManager.play();
-                        syncAndPlayAudioPlayer();
+                        // SPEC_20260829_AUDIO_SYNC_TRUTH §3.1/3.2: park audio layers before starting master.
+                        final long armPh = playheadMs;
+                        audioLayerSync.armForPlay(armPh, () -> playerManager.play());
                     }
                 }
             }
@@ -8883,6 +8879,14 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 FLog.e(TAG, "Failed to prepare audio player[" + i + "]", e);
             }
         }
+        // Bind for drift/latency sync
+        try {
+            audioLayerSync.bind(project.getTimeline(),
+                    project.getTimeline().getAudioClips(), audioPlayers);
+            // Pre-park at current playhead while paused
+            long ph = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0L;
+            audioLayerSync.onPlayheadScrubbed(ph);
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -8934,58 +8938,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
      */
     private void syncAudioPlayerWithPlayhead() {
         if (project == null || !project.getTimeline().hasAudioClips()) return;
-
-        // Gate on ACTUAL playback (isPlaying), NOT getPlayWhenReady — the latter stays true at
-        // STATE_ENDED and when the player is stuck in a gap, which kept the music running after the
-        // video stopped (bug). A short debounce avoids dipping the music during brief clip-boundary
-        // buffering while still pausing runaway audio once playback has really stopped.
         boolean playing = (playerManager != null && playerManager.isPlaying())
                 || imagePlaybackActive || audioTailActive;
-        if (!playing) {
-            long now = android.os.SystemClock.elapsedRealtime();
-            if (audioStoppedSinceMs == 0L) audioStoppedSinceMs = now;
-            if (now - audioStoppedSinceMs > 400L) pauseAudioPlayer();
-            return;
-        }
-        audioStoppedSinceMs = 0L;
-
-        long playheadMs = editorTimeline.getPlayheadPositionMs();
-        List<AudioClip> clips = project.getTimeline().getAudioClips();
-
-        for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
-            if (readyAudioPlayer(i) == null) continue;
-            AudioClip ac = clips.get(i);
-            com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer mp = audioPlayers.get(i);
-            if (ac == null || mp == null) continue;
-
-            long audioStartMs = ac.getOffsetMs();
-            long audioEndMs = ac.getEndOnTimelineMs();
-
-            try {
-                if (playheadMs >= audioStartMs && playheadMs < audioEndMs) {
-                    if (!mp.isPlaying()) {
-                        long seekPos = ac.getInPointMs() + (playheadMs - audioStartMs);
-                        long mediaDuration = mp.getDuration();
-                        if (mediaDuration > 0 && seekPos >= mediaDuration) {
-                            FLog.w(TAG, "AudioSync[" + i + "] seekPos=" + seekPos
-                                    + " exceeds mediaDuration=" + mediaDuration + ", clamping");
-                            seekPos = Math.max(0, mediaDuration - 100);
-                        }
-                    mp.seekTo(seekPos);
-                        float vol = com.fadcam.ui.faditor.compositor.LayerPreviewController
-                                .effectivePreviewVolume(project.getTimeline(), ac);
-                        mp.setVolume(vol, vol);
-                        mp.start();
-                    }
-                } else {
-                    if (mp.isPlaying()) {
-                        mp.pause();
-                    }
-                }
-            } catch (Exception e) {
-                FLog.e(TAG, "Audio sync[" + i + "] error", e);
-            }
-        }
+        long playheadMs = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0L;
+        // Delegate all drift/park/trim logic to AudioLayerSync (single source of truth).
+        audioLayerSync.tick(playheadMs, playing);
     }
 
     /**
@@ -9025,6 +8982,11 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 if (mp != null && mp.isPlaying()) mp.pause();
             } catch (Exception ignored) {}
         }
+        // SPEC_20260829_AUDIO_SYNC_TRUTH §3.1: park on pause for instant resume.
+        try {
+            long ph = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0L;
+            audioLayerSync.parkOnPause(ph);
+        } catch (Exception ignored) {}
     }
 
     /**
@@ -9063,6 +9025,8 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 FLog.e(TAG, "Audio seek[" + i + "] error", e);
             }
         }
+        // SPEC_20260829_AUDIO_SYNC_TRUTH: debounced park so a drag does not fire 100 seeks.
+        try { audioLayerSync.onPlayheadScrubbed(playheadMs); } catch (Exception ignored) {}
     }
 
     /**
@@ -9750,36 +9714,65 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
 
         // Captions are CLIP-SPECIFIC: show the captions of the clip under the playhead, switching at
         // each cut (fixes captions sticking on a previously-selected clip's transcript across a seam).
-        if (captionsActive && captionOverlay != null) {
+        // SPEC_20260829_CAPTION_LAYERS: when a clip has >1 binding, use the multi-container (one view per binding).
+        if (captionsActive) {
             Clip phClip = clipUnderPlayhead();
-            if (phClip != null && phClip.isCaptionsEnabled() && phClip.hasTranscript()) {
-                if (!phClip.getId().equals(captionClipId)) {
-                    bindCaptionData(phClip);
+            boolean hasMulti = phClip != null && phClip.getCaptionBindings().size() > 1;
+            if (hasMulti) {
+                if (captionOverlay != null && captionOverlay.getVisibility() == View.VISIBLE) captionOverlay.setVisibility(View.GONE);
+                if (phClip != null && !phClip.getId().equals(captionClipId)) {
+                    captionClipId = phClip.getId();
+                    rebuildCaptionOverlays(phClip);
+                } else if (phClip == null) {
+                    if (captionMultiContainer != null) captionMultiContainer.setVisibility(View.GONE);
                 }
-                long capSrc = phClip.getInPointMs()
-                        + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
-                captionOverlay.setActiveSourceMs(capSrc);
-                if (captionOverlay.getVisibility() != View.VISIBLE) {
-                    captionOverlay.setVisibility(View.VISIBLE);
+                if (phClip != null) {
+                    long capSrc = phClip.getInPointMs() + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
+                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.setActiveSourceMs(capSrc);
+                    if (captionMultiContainer != null && captionMultiContainer.getVisibility() != View.VISIBLE) captionMultiContainer.setVisibility(View.VISIBLE);
                 }
-            } else if (captionOverlay.getVisibility() == View.VISIBLE) {
-                captionOverlay.setVisibility(View.GONE);
+            } else if (captionOverlay != null) {
+                if (captionMultiContainer != null && captionMultiContainer.getVisibility() == View.VISIBLE) captionMultiContainer.setVisibility(View.GONE);
+                if (phClip != null && phClip.isCaptionsEnabled() && phClip.hasTranscript()) {
+                    if (!phClip.getId().equals(captionClipId)) {
+                        bindCaptionData(phClip);
+                    }
+                    long capSrc = phClip.getInPointMs() + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
+                    captionOverlay.setActiveSourceMs(capSrc);
+                    if (captionOverlay.getVisibility() != View.VISIBLE) captionOverlay.setVisibility(View.VISIBLE);
+                } else if (captionOverlay.getVisibility() == View.VISIBLE) {
+                    captionOverlay.setVisibility(View.GONE);
+                }
             }
         }
-        // Audio caption overlay: find active audio clip at current playhead, show its captions
-        if (captionsActive && audioCaptionOverlay != null) {
+        // Audio caption overlay
+        if (captionsActive) {
             AudioClip activeAudio = findAudioClipAtTimelineMs(absoluteMs);
-            if (activeAudio != null && activeAudio.isCaptionsEnabled() && activeAudio.hasTranscript()) {
-                if (!activeAudio.getId().equals(audioCaptionClipId)) {
-                    bindAudioCaptionData(activeAudio);
+            boolean hasMultiAudio = activeAudio != null && activeAudio.getCaptionBindings().size() > 1;
+            if (hasMultiAudio) {
+                if (audioCaptionOverlay != null && audioCaptionOverlay.getVisibility() == View.VISIBLE) audioCaptionOverlay.setVisibility(View.GONE);
+                if (activeAudio != null && !activeAudio.getId().equals(audioCaptionClipId)) {
+                    audioCaptionClipId = activeAudio.getId();
+                    rebuildAudioCaptionOverlays(activeAudio);
+                } else if (activeAudio == null) {
+                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setVisibility(View.GONE);
                 }
-                long audioLocalMs = absoluteMs - activeAudio.getOffsetMs() + activeAudio.getInPointMs();
-                audioCaptionOverlay.setActiveSourceMs(audioLocalMs);
-                if (audioCaptionOverlay.getVisibility() != View.VISIBLE) {
-                    audioCaptionOverlay.setVisibility(View.VISIBLE);
+                if (activeAudio != null) {
+                    long audioLocalMs = absoluteMs - activeAudio.getOffsetMs() + activeAudio.getInPointMs();
+                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setActiveSourceMs(audioLocalMs);
                 }
-            } else if (audioCaptionOverlay.getVisibility() == View.VISIBLE) {
-                audioCaptionOverlay.setVisibility(View.GONE);
+            } else if (audioCaptionOverlay != null) {
+                for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setVisibility(View.GONE);
+                if (activeAudio != null && activeAudio.isCaptionsEnabled() && activeAudio.hasTranscript()) {
+                    if (!activeAudio.getId().equals(audioCaptionClipId)) {
+                        bindAudioCaptionData(activeAudio);
+                    }
+                    long audioLocalMs = absoluteMs - activeAudio.getOffsetMs() + activeAudio.getInPointMs();
+                    audioCaptionOverlay.setActiveSourceMs(audioLocalMs);
+                    if (audioCaptionOverlay.getVisibility() != View.VISIBLE) audioCaptionOverlay.setVisibility(View.VISIBLE);
+                } else if (audioCaptionOverlay.getVisibility() == View.VISIBLE) {
+                    audioCaptionOverlay.setVisibility(View.GONE);
+                }
             }
         }
         // FEEDBACK #4 (layers-UX): the caption STYLE chooser (Pop/Zoom/Boxed/…) is only useful
@@ -9788,10 +9781,13 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         // visibility just computed above (both were toggled from the model this same pass) so the
         // chooser auto-hides the moment no caption is in play, and reappears when one is.
         if (captionStyleBar != null) {
+            boolean multiInPlay = (captionMultiContainer != null && captionMultiContainer.getVisibility() == View.VISIBLE)
+                    || (!captionOverlays.isEmpty() || !audioCaptionOverlays.isEmpty());
             boolean captionInPlay =
                     (captionOverlay != null && captionOverlay.getVisibility() == View.VISIBLE)
                     || (audioCaptionOverlay != null
-                        && audioCaptionOverlay.getVisibility() == View.VISIBLE);
+                        && audioCaptionOverlay.getVisibility() == View.VISIBLE)
+                    || multiInPlay;
             // (b): in-play is necessary but no longer SUFFICIENT — the user must have asked.
             int wantCaptionBarVis = (captionInPlay && captionStyleBarRequested)
                     ? View.VISIBLE : View.GONE;
@@ -10716,13 +10712,10 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                     cumul += span;
                 }
                 if (segAtTimeline >= 0 && segAtTimeline != selectedClipIndex) {
-                    // Move the selection via the single authoritative helper; the full
-                    // per-clip UI (volume, grade, crop) then follows onGaplessSeam when the
-                    // engine eventually fires, or on the next tick's seam reconciliation.
-                    // For the immediate head movement we still set the timeline position below.
                     syncSelectedIndexToSegment(segAtTimeline);
                 }
-                editorTimeline.setPlayheadPositionMs(timelineMs);
+                // SPEC_20260829_AUDIO_SYNC_TRUTH §3.4: playhead DRAWN offset by output latency so spike crosses at speaker time.
+                setPlayheadPositionMsWithLatency(timelineMs);
                 // displayTimeMs for caption/overlay clocks is clip-local
                 displayTimeMs = playerManager.getCurrentPosition();
                 // Ensure the edit is honoured: if the engine reports past the window's
@@ -10750,6 +10743,35 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
             }
             updateCurrentTimeDisplay(displayTimeMs);
         }
+    }
+
+    /** SPEC_20260829_AUDIO_SYNC_TRUTH §3.4: subtract output latency so drawn head meets speaker time. Only offset while playing. */
+    private void setPlayheadPositionMsWithLatency(long decoderMs) {
+        if (editorTimeline == null) return;
+        boolean isPlaying = playerManager != null && playerManager.isPlaying();
+        // THE MODEL POSITION IS ALWAYS TRUE. The latency is handed to the view as a DISPLAY
+        // shift and nothing else.
+        //
+        // This method used to write `decoderMs - latency` into the model. That value is read
+        // by getSegmentAtPlayhead, by snapping, and — the damaging one — by
+        // syncAudioPlayerWithPlayhead, which feeds AudioLayerSync.tick(). The drift lock then
+        // compared the layer's real position against a playhead shifted back by the latency
+        // and saw a PERMANENT error equal to it: above the 120ms desync band that is an
+        // endless park/restart loop (Note 9, "drift desync err=-123 -> repark" every tick);
+        // below it, an endless micro-speed trim. JoyRaptor heard exactly that on the Note 20 —
+        // "stuttering... volume fading in and out... doesn't handle clip seams well."
+        //
+        // A display concern written into shared state lies to every reader of that state.
+        int latency = 0;
+        if (isPlaying) {
+            try {
+                latency = com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(this);
+            } catch (Exception ignored) {
+                latency = 0;
+            }
+        }
+        editorTimeline.setPlayheadDrawOffsetMs(latency);
+        editorTimeline.setPlayheadPositionMs(decoderMs);
     }
 
     @Nullable
@@ -24713,6 +24735,7 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("A/V Sync", 0, ctx -> createAvSyncView(ctx)));
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
@@ -24758,6 +24781,119 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
         ensureObjectDrawer().setAudioOnly(isAudioOnlyProject());
         ensureObjectDrawer().setOnClose(null);
         ensureObjectDrawer().show(tabs, toggles, false);
+    }
+
+    /** SPEC_20260829_AUDIO_SYNC_TRUTH §3.5 calibration row view. */
+    @NonNull
+    private android.view.View createAvSyncView(@NonNull android.content.Context ctx) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(10*d));
+
+        int base = com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx);
+        String src = com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx);
+        String route = com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx);
+        int user = com.fadcam.ui.faditor.audio.AudioLatency.userOffsetMs(ctx);
+        int total = com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx);
+
+        android.widget.TextView info = new android.widget.TextView(ctx);
+        info.setTextColor(0xFFE8E8E8);
+        info.setTextSize(11);
+        info.setText("Measured: " + base + " ms (" + src + ")  Route: " + route + "\nUser offset: " + user + " ms  Total: " + total + " ms");
+        root.addView(info);
+
+        android.widget.TextView tapHint = new android.widget.TextView(ctx);
+        tapHint.setTextColor(0xFFA0A0A0);
+        tapHint.setTextSize(10);
+        tapHint.setText("Slide until flash and click coincide.");
+        tapHint.setPadding(0, Math.round(6*d), 0, 0);
+        root.addView(tapHint);
+
+        android.widget.SeekBar bar = new android.widget.SeekBar(ctx);
+        bar.setMax(1000);
+        bar.setProgress(user + 500);
+        android.widget.TextView val = new android.widget.TextView(ctx);
+        val.setTextColor(0xFFE8E8E8);
+        val.setTextSize(11);
+        val.setGravity(android.view.Gravity.CENTER);
+        val.setText(user + " ms");
+        bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
+                int ms = p - 500;
+                val.setText(ms + " ms");
+                com.fadcam.ui.faditor.audio.AudioLatency.setUserOffsetMs(ctx, ms);
+                info.setText("Measured: " + com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx)
+                        + " ms (" + com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx) + ")  Route: "
+                        + com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx) + "\nUser offset: " + ms
+                        + " ms  Total: " + com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx) + " ms");
+            }
+            @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
+            @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
+        });
+        root.addView(bar);
+        root.addView(val);
+
+        android.widget.LinearLayout btnRow = new android.widget.LinearLayout(ctx);
+        btnRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        btnRow.setPadding(0, Math.round(8*d), 0, 0);
+        android.widget.TextView testBtn = new android.widget.TextView(ctx);
+        testBtn.setText("Test"); testBtn.setTextColor(0xFFFFFFFF); testBtn.setBackgroundColor(0xFF4CAF50);
+        testBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
+        android.view.View dot = new android.view.View(ctx);
+        android.widget.LinearLayout.LayoutParams dotLp = new android.widget.LinearLayout.LayoutParams(Math.round(16*d), Math.round(16*d));
+        dotLp.leftMargin = Math.round(12*d); dot.setLayoutParams(dotLp); dot.setBackgroundColor(0xFF333333);
+        btnRow.addView(testBtn); btnRow.addView(dot);
+        android.widget.TextView resetBtn = new android.widget.TextView(ctx);
+        resetBtn.setText("Reset to measured"); resetBtn.setTextColor(0xFFE8E8E8); resetBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
+        resetBtn.setBackgroundColor(0x22FFFFFF);
+        android.widget.LinearLayout.LayoutParams rl = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        rl.leftMargin = Math.round(12*d); resetBtn.setLayoutParams(rl);
+        btnRow.addView(resetBtn);
+        root.addView(btnRow);
+
+        final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
+        final boolean[] testing = {false};
+        final Runnable[] ticker = {null};
+        final android.media.AudioTrack[] trackHolder = {null};
+        testBtn.setOnClickListener(v -> {
+            if (testing[0]) {
+                testing[0] = false;
+                if (ticker[0] != null) h.removeCallbacks(ticker[0]);
+                if (trackHolder[0] != null) { try { trackHolder[0].stop(); trackHolder[0].release(); } catch (Exception ignored) {} trackHolder[0]=null; }
+                testBtn.setText("Test"); dot.setBackgroundColor(0xFF333333);
+                return;
+            }
+            testing[0] = true; testBtn.setText("Stop");
+            int sr = 48000;
+            int tickSamples = sr * 10 / 1000;
+            short[] tickBuf = new short[tickSamples];
+            for (int i=0;i<tickSamples;i++) tickBuf[i]=(short)(Math.sin(2*Math.PI*1000*i/sr)*12000);
+            int bufSize = sr / 2;
+            android.media.AudioTrack at = new android.media.AudioTrack(android.media.AudioManager.STREAM_MUSIC, sr, android.media.AudioFormat.CHANNEL_OUT_MONO, android.media.AudioFormat.ENCODING_PCM_16BIT, bufSize*2, android.media.AudioTrack.MODE_STREAM);
+            trackHolder[0]=at; at.play();
+            ticker[0] = new Runnable() {
+                int count=0;
+                @Override public void run() {
+                    if (!testing[0]) return;
+                    dot.setBackgroundColor(count%2==0 ? 0xFFFFFFFF : 0xFF333333);
+                    // write tick + silence to fill 500ms
+                    try { at.write(tickBuf, 0, tickBuf.length); short[] silence=new short[sr/2 - tickSamples]; at.write(silence,0,silence.length); } catch (Exception ignored) {}
+                    if (testing[0]) h.postDelayed(this, 500);
+                    count++;
+                }
+            };
+            h.post(ticker[0]);
+        });
+        resetBtn.setOnClickListener(v -> {
+            com.fadcam.ui.faditor.audio.AudioLatency.setUserOffsetMs(ctx, 0);
+            bar.setProgress(500); val.setText("0 ms");
+            info.setText("Measured: " + com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx)
+                    + " ms (" + com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx) + ")  Route: "
+                    + com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx) + "\nUser offset: 0 ms  Total: "
+                    + com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx) + " ms");
+        });
+        return root;
     }
 
     private void showClipAudioDrawer(@NonNull Clip clip) {
@@ -29818,6 +29954,209 @@ private final List<com.fadcam.ui.faditor.compositor.AudioClipPreviewPlayer> audi
                 });
         audioCaptionOverlay.setCenter(clip.getCaptionCenterX(), clip.getCaptionCenterY());
         audioCaptionOverlay.setSizeFraction(clip.getCaptionSizeFraction()); // audit 2.1
+    }
+
+    // ── SPEC_20260829_CAPTION_LAYERS: multi-binding preview helpers ─────────────
+
+    private void ensureCaptionMultiContainer() {
+        if (captionMultiContainer != null) return;
+        android.view.ViewGroup playerContainer = findViewById(R.id.player_container);
+        if (playerContainer == null) return;
+        captionMultiContainer = new android.widget.FrameLayout(this);
+        captionMultiContainer.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        // Insert above the single caption overlays but below the style bar so chips stay tappable.
+        // Player container order: ... caption_overlays, caption_style_bar, etc. We add at index just before style bar.
+        android.view.View styleBar = findViewById(R.id.caption_style_bar);
+        int idx = styleBar != null ? playerContainer.indexOfChild(styleBar) : -1;
+        if (idx >= 0) playerContainer.addView(captionMultiContainer, idx);
+        else playerContainer.addView(captionMultiContainer);
+    }
+
+    private void rebuildCaptionOverlays(@NonNull Clip clip) {
+        ensureCaptionMultiContainer();
+        if (captionMultiContainer == null) return;
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView ov : captionOverlays) captionMultiContainer.removeView(ov);
+        captionOverlays.clear();
+        java.util.List<Clip.CaptionBinding> bindings = clip.getCaptionBindings();
+        // Fallback to legacy single when bindings empty — keep old view path (no multi container).
+        if (bindings.isEmpty()) {
+            captionMultiContainer.setVisibility(View.GONE);
+            return;
+        }
+        captionMultiContainer.setVisibility(View.VISIBLE);
+        for (int i = 0; i < bindings.size(); i++) {
+            Clip.CaptionBinding b = bindings.get(i);
+            if (!b.enabled) continue;
+            if ("hidden".equals(b.styleId)) continue;
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+            if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+            com.fadcam.ui.faditor.transcript.CaptionOverlayView v = new com.fadcam.ui.faditor.transcript.CaptionOverlayView(this);
+            v.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            final int bindingIdx = i;
+            com.fadcam.ui.faditor.transcript.Transcript win = nt.transcript.windowed(clip.getInPointMs(), clip.getOutPointMs());
+            v.setCaptionAnimation(clip.getCaptionAnimPreset(), clip.getCaptionAnimGranularity(),
+                    clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
+            v.setData(win, com.fadcam.ui.faditor.transcript.CaptionStyle.byId(b.styleId),
+                    new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
+                        @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
+                        @Override public void onMoved() {
+                            Clip cc = findClipById(clip.getId());
+                            if (cc == null) return;
+                            java.util.List<Clip.CaptionBinding> bs = cc.getCaptionBindings();
+                            if (bindingIdx < 0 || bindingIdx >= bs.size()) return;
+                            Clip.CaptionBinding bb = bs.get(bindingIdx);
+                            float beforeX = bb.centerX, beforeY = bb.centerY;
+                            float afterX = v.getCenterX(), afterY = v.getCenterY();
+                            bb.centerX = afterX; bb.centerY = afterY;
+                            cc.syncLegacyFromBindings();
+                            if (beforeX != afterX || beforeY != afterY) {
+                                undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                                        () -> { bb.centerX = afterX; bb.centerY = afterY; cc.syncLegacyFromBindings(); },
+                                        () -> { bb.centerX = beforeX; bb.centerY = beforeY; cc.syncLegacyFromBindings(); }));
+                            }
+                            scheduleAutoSave();
+                        }
+                        @Override public void onTapped() {
+                            setActiveCaptionBinding(bindingIdx);
+                            // Retarget transcript drawer to this binding's transcript (spec §3.5).
+                            com.fadcam.ui.faditor.transcript.NamedTranscript selNt = clip.transcriptForBinding(b);
+                            if (selNt != null) {
+                                currentTranscript = selNt.transcript;
+                                transcriptClipId = clip.getId();
+                                activeCaptionIsAudio = false;
+                                if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
+                                if (transcriptHeader != null) transcriptHeader.setText(selNt.label);
+                            }
+                            activeCaptionIsAudio = false;
+                            if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
+                            highlightActiveCaptionChip(b.styleId);
+                        }
+                        @Override public void onDoubleTapped() {
+                            setActiveCaptionBinding(bindingIdx);
+                            activeCaptionIsAudio = false;
+                            if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
+                            openCaptionKeyframeDrawer();
+                        }
+                        @Override public void onLongPressed() {
+                            Clip cc = findClipById(clip.getId());
+                            if (cc == null) return;
+                            java.util.List<Clip.CaptionBinding> bs = cc.getCaptionBindings();
+                            if (bindingIdx < bs.size()) {
+                                bs.get(bindingIdx).enabled = false;
+                                cc.syncLegacyFromBindings();
+                                v.setVisibility(View.GONE);
+                                scheduleAutoSave();
+                            }
+                        }
+                    });
+            v.setCenter(b.centerX, b.centerY);
+            v.setSizeFraction(b.sizeFraction);
+            // Only active binding is interactive; others pass taps through except for selection tap.
+            boolean isActive = (bindingIdx == activeCaptionBindingIndex);
+            v.setClickable(isActive);
+            v.setFocusable(isActive);
+            captionOverlays.add(v);
+            captionMultiContainer.addView(v);
+        }
+        // Ensure at least one view is active even if first enabled binding is not at index 0.
+        if (!captionOverlays.isEmpty()) {
+            setActiveCaptionBinding(Math.min(activeCaptionBindingIndex, captionOverlays.size() - 1));
+        }
+    }
+
+    private void rebuildAudioCaptionOverlays(@NonNull AudioClip clip) {
+        ensureCaptionMultiContainer();
+        if (captionMultiContainer == null) return;
+        // Audio captions share the same container; we append after video captions.
+        // To keep separation, we reuse captionOverlays list for video; audio list separate.
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) {
+            captionMultiContainer.removeView(av);
+        }
+        audioCaptionOverlays.clear();
+        java.util.List<AudioClip.CaptionBinding> bindings = clip.getCaptionBindings();
+        if (bindings.isEmpty()) {
+            // legacy single path handled elsewhere
+            return;
+        }
+        for (int i = 0; i < bindings.size(); i++) {
+            AudioClip.CaptionBinding b = bindings.get(i);
+            if (!b.enabled) continue;
+            if ("hidden".equals(b.styleId)) continue;
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+            if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+            com.fadcam.ui.faditor.transcript.CaptionOverlayView v = new com.fadcam.ui.faditor.transcript.CaptionOverlayView(this);
+            v.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            final int bindingIdx = i;
+            com.fadcam.ui.faditor.transcript.Transcript win = nt.transcript.windowed(clip.getInPointMs(), clip.getOutPointMs());
+            v.setData(win, com.fadcam.ui.faditor.transcript.CaptionStyle.byId(b.styleId),
+                    new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
+                        @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
+                        @Override public void onMoved() {
+                            AudioClip ac = findAudioClipById(clip.getId());
+                            if (ac == null) return;
+                            java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                            if (bindingIdx < 0 || bindingIdx >= bs.size()) return;
+                            AudioClip.CaptionBinding bb = bs.get(bindingIdx);
+                            float beforeX = bb.centerX, beforeY = bb.centerY;
+                            float afterX = v.getCenterX(), afterY = v.getCenterY();
+                            bb.centerX = afterX; bb.centerY = afterY;
+                            ac.syncLegacyFromBindings();
+                            if (beforeX != afterX || beforeY != afterY) {
+                                undoManager.recordAction(new EditActions.LambdaAction("Caption position",
+                                        () -> { bb.centerX = afterX; bb.centerY = afterY; ac.syncLegacyFromBindings(); },
+                                        () -> { bb.centerX = beforeX; bb.centerY = beforeY; ac.syncLegacyFromBindings(); }));
+                            }
+                            scheduleAutoSave();
+                        }
+                        @Override public void onTapped() {
+                            activeAudioCaptionBindingIndex = bindingIdx;
+                            setActiveAudioCaptionBinding(bindingIdx);
+                        }
+                        @Override public void onDoubleTapped() { openCaptionKeyframeDrawer(); }
+                        @Override public void onLongPressed() {
+                            AudioClip ac = findAudioClipById(clip.getId());
+                            if (ac != null && bindingIdx < ac.getCaptionBindings().size()) {
+                                ac.getCaptionBindings().get(bindingIdx).enabled = false;
+                                ac.syncLegacyFromBindings();
+                                v.setVisibility(View.GONE);
+                                scheduleAutoSave();
+                            }
+                        }
+                    });
+            v.setCenter(b.centerX, b.centerY);
+            v.setSizeFraction(b.sizeFraction);
+            v.setClickable(bindingIdx == activeAudioCaptionBindingIndex);
+            audioCaptionOverlays.add(v);
+            captionMultiContainer.addView(v);
+        }
+    }
+
+    private void setActiveCaptionBinding(int idx) {
+        if (idx < 0 || idx >= captionOverlays.size()) return;
+        activeCaptionBindingIndex = idx;
+        for (int i = 0; i < captionOverlays.size(); i++) {
+            boolean a = (i == idx);
+            captionOverlays.get(i).setClickable(a);
+            captionOverlays.get(i).setFocusable(a);
+            captionOverlays.get(i).setAlpha(a ? 1f : 0.85f);
+        }
+        // Keep transcript drawer in sync if needed.
+    }
+
+    private void setActiveAudioCaptionBinding(int idx) {
+        if (idx < 0 || idx >= audioCaptionOverlays.size()) return;
+        activeAudioCaptionBindingIndex = idx;
+        for (int i = 0; i < audioCaptionOverlays.size(); i++) {
+            boolean a = (i == idx);
+            audioCaptionOverlays.get(i).setClickable(a);
+            audioCaptionOverlays.get(i).setFocusable(a);
+        }
     }
 
     /** After loading a saved project, re-show captions for the clip that had them. */

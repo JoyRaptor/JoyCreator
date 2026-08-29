@@ -157,4 +157,21 @@ Await user confirmation of this plan before implementation (AGENTS.md Task Manag
 
 **Staged (per hazard):** `Clip.java`, `AudioClip.java`, `ProjectStorage.java`, `Timeline.java`, `CaptionSpanRef.java`, `CompositeExportOverlay.java`, `ExportManager.java`, `FaditorEditorActivity.java`, `LayerRowRenderer.java`, `LANES.md`, `todo.md`.
 
-**Commit:** staged, not yet committed (intentionally left for review; `git commit` next). Lane remains ACTIVE — do not clear until drawer track list lands or reviewer releases.
+**Commit:** plumbing committed 0be24e6f (image presets lane bundled staged caption layers at 02:01 due to `git add -A`); phase-3 editor track list/pinch/retarget staged until 02:46.
+
+---
+## 15. REVIEW — Phase 3 finish 2026-08-29T02:46 (drawer track list + pinch + full retarget)
+
+**Commit:** `0e4618bd` — `SPEC_20260829_CAPTION_LAYERS: drawer track list, pinch, full retarget — phase 3 unblocks IMAGE_ANIM_PRESETS` (8 files, 1147+/144-). `BUILD SUCCESSFUL in 31s` at `build.log` tail (installed on `SM-N960U - 10`, device `SANDBOX_SERIAL`), `grep -c 'â'` 0.
+
+**Drawer track list (`FaditorEditorActivity.java:18412`):** `buildCaptionTrackListView` / `buildAudioCaptionTrackListView` injected at top of Style tab. Each row `●/○ label [styleId] 👁` — tap selects (`setActiveCaptionBinding` + retargets transcript drawer `currentTranscript`/`transcriptView`/`transcriptHeader` + highlights chip + `showCaptionDrawer(true)` to refresh size/font/Fit), eye toggles `binding.enabled` + `syncLegacy` + overlay visibility + `editorTimeline.invalidate`, `+ Add caption track` opens transcript chooser (dialog of `clip.getTranscripts()` labels) then appends `CaptionBinding` with `transcriptId` of picked version, `centerY` offset `0.12` above existing minY (clamped 0.12), label `Track N`, style `pop`, `rebuildCaptionOverlays` + `editorTimeline.invalidate`. Long-press row → `showCaptionBindingLongPressMenu` (rename `EditText` → `b.label`, delete with confirm, guard `size<=1`).
+
+**Pinch (`FaditorEditorActivity.java:30503`):** `ScaleGestureDetector` on `captionMultiContainer`; `onScaleBegin` captures `captionPinchBaseSize` from active binding's `sizeFraction`; `onScale` → `newSize = base * scaleFactor` clamped `0.02..0.6`, writes to active binding's `sizeFraction` + `syncLegacy` + `overlay.setSizeFraction`; `onScaleEnd` → `scheduleAutoSave` + `invalidate`. Container `setOnTouchListener` feeds detector and returns false for child drag pass-through. Only active binding is pinched (spec §3.5).
+
+**Full retarget:** Added `getActiveCaptionClip()`/`getActiveAudioClip()`/`getActiveCaptionStyleId()` helpers (`FaditorEditorActivity.java:19200`). `currentCaptionStyle()` now returns active binding's style (was selected clip). `tweakCaptionStyle` now retargets to active binding's clip id first (draft per active clip). `getCurrentCaptionSize`/`currentCaptionSizeOfSelection`/`recordCaptionSizeUndo`/`applyCaptionSize` all branch on `activeCaptionIsAudio` + active binding's `sizeFraction` before legacy fallback; `applyCaptionStyle` now writes `b.styleId` on active binding (with overlay `setStyle`, undo, `scheduleAutoSave`). `updateCaptionOverlaysSize` helper + `syncActiveCaptionOverlaySize` keep overlay and model in sync. Font row / Fit tab / words-per-cue dial now follow active binding via `currentCaptionStyle` (pinch/size/style all retarget). Transcript drawer already retargeted on `onTapped` (both video and audio) and now also via track list row tap.
+
+**Drag isolation fixed:** `rebuildCaptionOverlays`/`rebuildAudioCaptionOverlays` now set all views `setClickable(true)` with alpha hint, but `onMoved` guards `if (bindingIdx != activeIndex) return` — only active may be dragged; tap on inactive selects without moving (spec §3.3/§3.7). `setActiveCaptionBinding`/`setActiveAudioCaptionBinding` now only toggle alpha (not clickable).
+
+**Lane:** `tasks/LANES.md:103` set `IDLE` at `2026-08-29T03:00` (phase 3 complete, plumbing in `0be24e6f`, editor in `0e4618bd`). `SPEC_20260829_IMAGE_ANIM_PRESETS` phase 3 **UNBLOCKED** (was HELD until CAPTION_LAYERS IDLE).
+
+**Remaining owed (visual, not plumbing):** §5.2 migration trio screenshots, §5.3 three-track non-overlapping screenshot, §5.3b tap-retarget screenshots, §5.4 preview==export 15s frame compare, §5.5 independent Fit, §5.6 font retarget before/after, §5.7 drag isolation — all require Note9 interaction (device `29e...` attached). Build is green, so next lane (IMAGE_ANIM_PRESETS phase 3 or a dedicated device-verify pass) can now start without file conflicts.

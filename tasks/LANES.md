@@ -145,10 +145,10 @@ files:
 since: 2026-08-29T03:10
 phase 3: CAPTION_LAYERS is IDLE (03:00) so FaditorEditorActivity drawer sites were free. Phases 1+2 already landed 0be24e6f (Keyframe, Codec, ImageAnimPreset, TextOverlayItem, LayerRowRenderer/Controller, ProjectStorage)
 
-## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks)
-status: IDLE (2026-08-29T02:40 — opencode/muse-spark sweep done: 0 PASS 0 FAIL 41 BLOCKED — see tasks/VERIFY_20260829_RESULTS.md)
+## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 2nd sweep with §2b
+status: IDLE (2026-08-29T03:00 — opencode/muse-spark 2nd sweep: 3 PASS (7 play+audiotracks, 14 captions, 21 no-amber) 0 FAIL 38 BLOCKED — see tasks/VERIFY_20260829_RESULTS.md — device SANDBOX_SERIAL, navigation via screenshot→tap per runbook, phase 3 image preset code landed b22af2cd but APK 02:39 not yet 03:10)
 files: tasks/VERIFY_20260829_RESULTS.md, tasks/screenshots/v*.png
-since: 2026-08-29T02:40
+since: 2026-08-29T03:00
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
 status: UNCLAIMED — free to take (spec written 2026-08-29)

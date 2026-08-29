@@ -67,6 +67,19 @@ public final class AudioLayerSync {
      */
     private static final int BASELINE_SAMPLES = 12;
 
+    /**
+     * Minimum gap between start attempts for one player. The late-entry branch fires whenever a
+     * layer that SHOULD be sounding reports !isPlaying(), and that condition can persist —
+     * a player parked at the end of its media never becomes "playing" however often it is
+     * asked. Without this the branch retries every 50ms tick and each attempt allocates a
+     * fresh AudioTrack: ~20 in one second were observed on the Note 9 around a transport
+     * change. A start that has not taken effect in 300ms is not going to take effect because
+     * it was asked a sixth time.
+     */
+    private static final long START_RETRY_MS = 300L;
+    private final java.util.Map<AudioClipPreviewPlayer, Long> lastStartAttemptMs =
+            new java.util.HashMap<>();
+
     /** The constant pipeline offset per player, once measured. See the drift block in tick(). */
     private final java.util.Map<AudioClipPreviewPlayer, Long> baseline = new java.util.HashMap<>();
     private final java.util.Map<AudioClipPreviewPlayer, java.util.List<Long>> baselineSamples =
@@ -155,6 +168,7 @@ public final class AudioLayerSync {
                         AudioClipPreviewPlayer mp = safePlayer(idx);
                         if (mp != null) {
                             resetBaseline(mp);
+                            lastStartAttemptMs.remove(mp);
                             try { mp.start(); } catch (Exception e) { FLog.w(TAG, "arm start failed", e); }
                         }
                     }
@@ -188,6 +202,7 @@ public final class AudioLayerSync {
         trimming.clear();
         baseline.clear();
         baselineSamples.clear();
+        lastStartAttemptMs.clear();
     }
 
     /** Call when playhead moves while paused — debounced park. */
@@ -261,6 +276,16 @@ public final class AudioLayerSync {
                         long seekPos = ac.getInPointMs() + (playheadMs - start);
                         long dur = mp.getDuration();
                         if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
+                        // Rate-limit: see START_RETRY_MS. Also refuse to restart a player that
+                        // has run off the end of its media — it can never report playing, so
+                        // retrying is a guaranteed loop rather than a recoverable hiccup.
+                        long nowMs = SystemClock.elapsedRealtime();
+                        Long lastTry = lastStartAttemptMs.get(mp);
+                        if (lastTry != null && nowMs - lastTry < START_RETRY_MS) continue;
+                        long durMs = mp.getDuration();
+                        if (durMs > 0 && seekPos >= durMs - 50) continue;
+                        lastStartAttemptMs.put(mp, nowMs);
+
                         mp.seekTo(seekPos);
                         float vol = timeline != null
                                 ? LayerPreviewController.effectivePreviewVolume(timeline, ac) : 1f;

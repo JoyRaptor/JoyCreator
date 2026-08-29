@@ -1,5 +1,14 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# ★★ NEVER RESOLVE A MERGE CONFLICT. If `git pull` reports a conflict, or `git status` shows
+#    unmerged paths: STOP, touch nothing, and say so at the top of your report. JoyRaptor is not
+#    an engineer and cannot unpick a bad merge; hand it to the Claude/Fabián session instead.
+#    Every agent merge on 2026-08-29 caused SILENT data loss - one rewrote strings.xml as
+#    UTF-16 (2779 strings unreadable to every text tool, still built), another dropped commit
+#    c2bb0075 off the branch entirely so a whole spec vanished with no error. Both were found
+#    hours later, by accident. A conflict left alone costs minutes; a conflict resolved badly
+#    costs a day and you will not know it happened.
+#
 # ★★ NEVER report work you have not COMPILED. On 2026-08-29 two lanes reported landing
 #    features against a build.log that was hours stale, and both left the tree RED for
 #    everyone else. If the watcher is not updating build.log, say so at the TOP of your

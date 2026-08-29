@@ -164,6 +164,9 @@ public class AudioClip implements AudioParams {
         public float centerX, centerY;
         public float sizeFraction;
         @NonNull public String label;
+        /** FADE_KNOBS §2.5: per-binding opacity fades (0 = none). */
+        public long fadeInMs;
+        public long fadeOutMs;
         public CaptionBinding() {
             this.transcriptId = "";
             this.styleId = "pop";
@@ -172,10 +175,12 @@ public class AudioClip implements AudioParams {
             this.centerY = 0.82f;
             this.sizeFraction = 0.060f;
             this.label = "Captions";
+            this.fadeInMs = 0;
+            this.fadeOutMs = 0;
         }
         public CaptionBinding(@NonNull String transcriptId, @NonNull String styleId,
-                              boolean enabled, float centerX, float centerY,
-                              float sizeFraction, @NonNull String label) {
+                               boolean enabled, float centerX, float centerY,
+                               float sizeFraction, @NonNull String label) {
             this.transcriptId = transcriptId;
             this.styleId = styleId != null ? styleId : "pop";
             this.enabled = enabled;
@@ -183,10 +188,15 @@ public class AudioClip implements AudioParams {
             this.centerY = Math.max(0f, Math.min(1f, centerY));
             this.sizeFraction = Math.max(0.02f, Math.min(0.6f, sizeFraction));
             this.label = label != null ? label : "Captions";
+            this.fadeInMs = 0;
+            this.fadeOutMs = 0;
         }
         @NonNull
         public CaptionBinding copy() {
-            return new CaptionBinding(transcriptId, styleId, enabled, centerX, centerY, sizeFraction, label);
+            CaptionBinding c = new CaptionBinding(transcriptId, styleId, enabled, centerX, centerY, sizeFraction, label);
+            c.fadeInMs = fadeInMs;
+            c.fadeOutMs = fadeOutMs;
+            return c;
         }
     }
     @NonNull

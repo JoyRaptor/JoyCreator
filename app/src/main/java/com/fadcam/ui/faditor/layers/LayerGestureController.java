@@ -538,10 +538,8 @@ public final class LayerGestureController {
             return DownResult.ARMED_TRIM;
         }
 
-        // SPEC_AUDIO_UX_V1 B1.U §4: fade handles — top-corner triangles, inset of trim, selection-only, trim wins (handled above).
-        // Extended for image opacity fades (SPEC_20260829_IMAGE_ANIM_PRESETS §3.6) — same geometry, same gesture code, shared.
-        boolean isImageFade = hit.item.getTextOverlay() != null && hit.item.getTextOverlay().isImage();
-        if (!objectLocked && (hit.item.getAudioClip() != null || isImageFade)
+        // FADE_KNOBS §2.1: outboard knob, selected only, any timed object with 0..1 intensity — one hit-test, shared.
+        if (!objectLocked
                 && (hit.zone == LayerRowRenderer.ItemZone.FADE_IN || hit.zone == LayerRowRenderer.ItemZone.FADE_OUT)) {
             boolean fadeIn = hit.zone == LayerRowRenderer.ItemZone.FADE_IN;
             armFade(hit.item, fadeIn);
@@ -796,12 +794,16 @@ public final class LayerGestureController {
             fadeBeforeImageKfs = new java.util.ArrayList<>();
             com.fadcam.ui.faditor.keyframe.KeyframeTrack op = o.getKeyframes().get(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY);
             if (op != null) for (com.fadcam.ui.faditor.keyframe.Keyframe k : op.keyframes) fadeBeforeImageKfs.add(k.copy());
+        } else if (item.getCaptionSpan() != null) {
+            com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
+            if (b != null) { fadeBeforeCaptionIn = b.fadeInMs; fadeBeforeCaptionOut = b.fadeOutMs; }
         }
     }
     // Image fade snapshot for undo
     private long fadeBeforeImageFadeIn, fadeBeforeImageFadeOut;
     @SuppressWarnings("unused")
     private java.util.List<com.fadcam.ui.faditor.keyframe.Keyframe> fadeBeforeImageKfs;
+    private long fadeBeforeCaptionIn, fadeBeforeCaptionOut;
 
     // ── Sequence resize (SPEC_IMAGE_SEQUENCE §2a / §9c) ──────────────────────
 
@@ -1061,13 +1063,54 @@ public final class LayerGestureController {
             case FADE_OUT: {
                 if (activeItem == null) break;
                 boolean isImageFade = activeItem.getTextOverlay() != null && activeItem.getTextOverlay().isImage();
-                if (activeItem.getAudioClip() == null && !isImageFade) break;
+                boolean isCaptionFade = activeItem.getCaptionSpan() != null;
+                boolean isAudioFade = activeItem.getAudioClip() != null;
+                if (!isAudioFade && !isImageFade && !isCaptionFade) break;
                 long startMs = activeItem.getTimelineStartMs();
                 long dur = activeItem.getDisplayDurationMs(totalMs);
                 if (dur <= 0) break;
                 long endMs = startMs + dur;
                 boolean fadeIn = activeKind == GestureKind.FADE_IN;
-                if (!isImageFade) {
+                // Cross-lane snap §2.4: snap t to other items' clip edges and fade inner boundaries
+                long fadeSnapThrMs = Math.abs(xToTime.map(x + snapRadiusPx) - t);
+                if (fadeSnapThrMs > 0 && fadeSnapThrMs < 200) {
+                    long best = Long.MIN_VALUE; long bestDist = fadeSnapThrMs + 1;
+                    for (com.fadcam.ui.faditor.layers.Track row : rowRenderer.laidOutTracks()) {
+                        if (activeTrack != null && row.getId().equals(activeTrack.getId())) continue; // other lanes only (spec)
+                        for (com.fadcam.ui.faditor.layers.TimedItem other : row.getItems()) {
+                            if (other.getId().equals(activeItem.getId())) continue;
+                            long os = other.getTimelineStartMs();
+                            long od = other.getDisplayDurationMs(totalMs);
+                            long oe = os + od;
+                            long[] candidates = new long[]{os, oe};
+                            // also other fade boundaries if host
+                            if (other.getAudioClip() != null) {
+                                long ofi = other.getAudioClip().getFadeInMs();
+                                long ofo = other.getAudioClip().getFadeOutMs();
+                                if (ofi > 0) candidates = java.util.Arrays.copyOf(candidates, candidates.length+1);
+                                // Simpler: add manually
+                            }
+                            for (long c : new long[]{os, oe}) {
+                                long d = Math.abs(t - c);
+                                if (d < bestDist) { bestDist = d; best = c; }
+                            }
+                            // other fade inner edges
+                            long[] otherFades = rowRenderer.clampedFadeMs(other, totalMs);
+                            if (otherFades[0] > 0) {
+                                long c = os + otherFades[0];
+                                long d = Math.abs(t - c);
+                                if (d < bestDist) { bestDist = d; best = c; }
+                            }
+                            if (otherFades[1] > 0) {
+                                long c = oe - otherFades[1];
+                                long d = Math.abs(t - c);
+                                if (d < bestDist) { bestDist = d; best = c; }
+                            }
+                        }
+                    }
+                    if (best != Long.MIN_VALUE && bestDist <= fadeSnapThrMs) t = best;
+                }
+                if (isAudioFade && !isImageFade) {
                     // Audio: §5.4 cross-fade creation when dragging past start
                     if (fadeIn && t < startMs - com.fadcam.ui.faditor.model.AudioCrossfade.MIN_DURATION_MS
                             && activeTrack != null) {
@@ -1087,15 +1130,29 @@ public final class LayerGestureController {
                     }
                 }
                 long fadeDur = fadeIn ? Math.max(0, Math.min(dur / 2, t - startMs)) : Math.max(0, Math.min(dur / 2, endMs - t));
+                // Clamp to not cross the other fade (§2.1a)
+                long[] curClamped = rowRenderer.clampedFadeMs(activeItem, totalMs);
+                if (fadeIn && fadeDur + curClamped[1] > dur) fadeDur = Math.max(0, dur - curClamped[1]);
+                if (!fadeIn && curClamped[0] + fadeDur > dur) fadeDur = Math.max(0, dur - curClamped[0]);
+                // 44dp knob makes sub-40ms fades still reachable; keep threshold low but allow 0
                 if (isImageFade) {
                     com.fadcam.ui.faditor.model.TextOverlayItem o = activeItem.getTextOverlay();
-                    // Image fades multiply base opacity (spec §3.6) — same geometry, stackable, not keyframes.
                     if (fadeDur > 40) {
                         if (fadeIn) o.setImageFadeInMs(fadeDur, endMs);
                         else o.setImageFadeOutMs(fadeDur, endMs);
                     } else {
                         if (fadeIn) o.setImageFadeInMs(0);
                         else o.setImageFadeOutMs(0);
+                    }
+                } else if (isCaptionFade) {
+                    com.fadcam.ui.faditor.model.Clip.CaptionBinding b = activeItem.getCaptionSpan().getBinding();
+                    if (b != null) {
+                        if (fadeIn) b.fadeInMs = fadeDur <= 40 ? 0 : fadeDur;
+                        else b.fadeOutMs = fadeDur <= 40 ? 0 : fadeDur;
+                        // clamp already done, but ensure per-binding cap
+                        b.fadeInMs = Math.max(0, Math.min(b.fadeInMs, dur/2));
+                        b.fadeOutMs = Math.max(0, Math.min(b.fadeOutMs, dur/2));
+                        if (b.fadeInMs + b.fadeOutMs > dur) { b.fadeInMs = dur/2; b.fadeOutMs = dur - b.fadeInMs; }
                     }
                 } else {
                     com.fadcam.ui.faditor.model.AudioClip ac = activeItem.getAudioClip();
@@ -1113,6 +1170,7 @@ public final class LayerGestureController {
                         }
                     }
                 }
+                rowRenderer.setDraggingFade(activeItem.getId(), fadeIn, fadeDur);
                 callback.onGestureLive(activeItem);
                 break;
             }
@@ -2155,6 +2213,7 @@ public final class LayerGestureController {
         rowRenderer.setProxyItem(null);
         rowRenderer.setLiftedItemId(null);
         rowRenderer.setTrimmingItemId(null);
+        rowRenderer.clearDraggingFade();
         rowRenderer.setHomeGhost(null, 0, 0);
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
@@ -2393,6 +2452,16 @@ public final class LayerGestureController {
                 ac.setVolumeLevel(fadeBeforeLevel);
                 if (fadeBeforeKfs != null) ac.setVolumeKeyframes(fadeBeforeKfs);
                 else ac.clearVolumeKeyframes();
+            } else if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) {
+                com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+                if (activeKind == GestureKind.FADE_IN) o.setImageFadeInMs(fadeBeforeImageFadeIn, lastTotalMs > 0 ? lastTotalMs : o.getEndMs());
+                else o.setImageFadeOutMs(fadeBeforeImageFadeOut, lastTotalMs > 0 ? lastTotalMs : o.getEndMs());
+            } else if (item.getCaptionSpan() != null) {
+                com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
+                if (b != null) {
+                    if (activeKind == GestureKind.FADE_IN) b.fadeInMs = fadeBeforeCaptionIn;
+                    else b.fadeOutMs = fadeBeforeCaptionOut;
+                }
             }
         } else {
             if (item.getTextOverlay() != null) {

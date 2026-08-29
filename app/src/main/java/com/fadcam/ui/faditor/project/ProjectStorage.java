@@ -1392,6 +1392,8 @@ public class ProjectStorage {
                 bj.addProperty("centerY", b.centerY);
                 bj.addProperty("sizeFraction", b.sizeFraction);
                 bj.addProperty("label", b.label);
+                if (b.fadeInMs != 0) bj.addProperty("fadeInMs", b.fadeInMs);
+                if (b.fadeOutMs != 0) bj.addProperty("fadeOutMs", b.fadeOutMs);
                 bindingsArr.add(bj);
             }
             clipJson.add("captionBindings", bindingsArr);
@@ -1674,6 +1676,8 @@ public class ProjectStorage {
                 if (hasValue(bj, "centerY")) b.centerY = bj.get("centerY").getAsFloat();
                 if (hasValue(bj, "sizeFraction")) b.sizeFraction = bj.get("sizeFraction").getAsFloat();
                 if (hasValue(bj, "label")) b.label = bj.get("label").getAsString();
+                if (hasValue(bj, "fadeInMs")) b.fadeInMs = bj.get("fadeInMs").getAsLong();
+                if (hasValue(bj, "fadeOutMs")) b.fadeOutMs = bj.get("fadeOutMs").getAsLong();
                 bindings.add(b);
             }
             clip.setCaptionBindings(bindings);
@@ -2135,6 +2139,8 @@ public class ProjectStorage {
                         bj.addProperty("centerY", b.centerY);
                         bj.addProperty("sizeFraction", b.sizeFraction);
                         bj.addProperty("label", b.label);
+                        if (b.fadeInMs != 0) bj.addProperty("fadeInMs", b.fadeInMs);
+                        if (b.fadeOutMs != 0) bj.addProperty("fadeOutMs", b.fadeOutMs);
                         bindingsArr.add(bj);
                     }
                     acJson.add("captionBindings", bindingsArr);
@@ -2907,6 +2913,8 @@ public class ProjectStorage {
                                 if (hasValue(bj, "centerY")) b.centerY = bj.get("centerY").getAsFloat();
                                 if (hasValue(bj, "sizeFraction")) b.sizeFraction = bj.get("sizeFraction").getAsFloat();
                                 if (hasValue(bj, "label")) b.label = bj.get("label").getAsString();
+                                if (hasValue(bj, "fadeInMs")) b.fadeInMs = bj.get("fadeInMs").getAsLong();
+                                if (hasValue(bj, "fadeOutMs")) b.fadeOutMs = bj.get("fadeOutMs").getAsLong();
                                 bindings.add(b);
                             }
                             ac.setCaptionBindings(bindings);

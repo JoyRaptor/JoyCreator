@@ -65,9 +65,25 @@ public final class LayerRowRenderer {
      *  keyframe rubber-band drawn over it) have room. Floating layer rows keep 34dp. */
     private static final float ROW_HEIGHT_AUDIO_EXPANDED_DP = 76f;
     private static final float ROW_GAP_DP = 3f;
-    private static final float TOP_GAP_DP = 6f;
+    /** FADE_KNOBS §2.1 top-pad: outboard knobs float ~20dp above the clip's top edge. The study
+     *  flagged "the top row has nothing above it to float into" — fix is a reserved pad on the
+     *  timeline rather than flipping the knob below for row one (chosen because it keeps the
+     *  control identical on every row and keeps 95% of lane above clickable; flipping would put
+     *  the knob inside the clip on row one, reintroducing the trim/trash contest there).
+     *  28dp = 16dp stem + 10dp knob radius + 2dp breathing, so the first row's knob is fully
+     *  reachable without clipping. */
+    private static final float TOP_GAP_DP = 28f;
     /** Small breathing gap above the first AUDIO-band row (below master). */
     private static final float AUDIO_BAND_TOP_GAP_DP = 3f;
+    // ── Fade knobs (SPEC_20260829_FADE_KNOBS §2.1-§2.4) ───────────────────────
+    /** Drawn radius ~10dp (20dp disc) — the study's knob. */
+    private static final float FADE_KNOB_R_DP = 10f;
+    /** Hit radius ≥22dp (44dp target) — decoupled from row height, identical on 34dp and 76dp. */
+    private static final float FADE_KNOB_HIT_R_DP = 22f;
+    /** How far the knob center sits above the clip's top edge. */
+    private static final float FADE_KNOB_TOP_OFFSET_DP = 16f;
+    /** Hairline stem width. */
+    private static final float FADE_STEM_W_DP = 1.2f;
     private static final float ICON_SIZE_DP = 12f;
     private static final float ICON_GAP_DP = 4f;
     private static final float CARET_SIZE_DP = 6f;
@@ -116,10 +132,19 @@ public final class LayerRowRenderer {
     private final Paint kfScrimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private boolean kfEnvPaintsInit;
 
-    /** B1.V: cached rounded-corner effect for the fade wedges — 2dp, keyed on radius+density. */
-    @Nullable private android.graphics.CornerPathEffect fadeHandleCornerEffect;
-    private float fadeHandleCornerRadiusPx = -1f;
-    private final Path fadeHandlePath = new Path();
+    // FADE_KNOBS §2.1-2.4: knob + veil + dotted edge + duration label — one general control
+    private final Paint fadeKnobFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint fadeKnobStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint fadeStemPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint fadeVeilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint fadeEdgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint fadeDurationPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path fadeVeilPath = new Path();
+    /** Dragging fade for duration readout (§2.3). Null = not dragging. */
+    @Nullable private String draggingFadeItemId;
+    private boolean draggingFadeIsIn;
+    private long draggingFadeMs;
+    // Retired: B1.V wedge corner effect — replaced by knob+veil. Kept for reference until stable.
 
     // ── B3/B4 header chrome ─────────────────────────────────────────
     /** Solo ring around the mute glyph — amber, the colour solo reads as in every DAW. */
@@ -536,6 +561,22 @@ public final class LayerRowRenderer {
         dropTargetPaint.setStyle(Paint.Style.STROKE);
         dropTargetPaint.setStrokeWidth(2f * density);
         dropTargetPaint.setColor(COLOR_DROP_TARGET_RING);
+        // Fade knob + veil paints (SPEC_20260829_FADE_KNOBS §2.1-2.4) — one routine, shared audio+image+caption
+        fadeKnobFillPaint.setStyle(Paint.Style.FILL);
+        fadeKnobFillPaint.setColor(0xFF1C1C26);
+        fadeKnobStrokePaint.setStyle(Paint.Style.STROKE);
+        fadeKnobStrokePaint.setStrokeWidth(2f * density);
+        fadeStemPaint.setStyle(Paint.Style.STROKE);
+        fadeStemPaint.setStrokeWidth(FADE_STEM_W_DP * density);
+        fadeVeilPaint.setStyle(Paint.Style.FILL);
+        fadeEdgePaint.setStyle(Paint.Style.STROKE);
+        fadeEdgePaint.setStrokeWidth(1.2f * density);
+        fadeEdgePaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{3f * density, 3f * density}, 0f));
+        fadeDurationPaint.setTextSize(9f * density);
+        fadeDurationPaint.setTypeface(Typeface.DEFAULT_BOLD);
+        fadeDurationPaint.setColor(0xFFFFFFFF);
+        fadeDurationPaint.setTextAlign(Paint.Align.CENTER);
+        fadeDurationPaint.setShadowLayer(3f * density, 0f, 1f * density, 0xCC000000);
     }
 
     /** True when there is nothing to draw (plain single-track project — PLAN scope item 6). */
@@ -725,7 +766,8 @@ public final class LayerRowRenderer {
         viewportHeightPx = Math.min(contentHeightPx, effectiveViewportCapPx());
         scrollOffsetPx = clampScroll(scrollOffsetPx);
         canvas.save();
-        canvas.clipRect(hScrollOffsetPx, topPx, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
+        float knobOverhang = (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f) * density;
+        canvas.clipRect(hScrollOffsetPx, topPx - knobOverhang, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
         canvas.translate(0f, topPx - scrollOffsetPx);
         for (int i = 0; i < floatingRowCount; i++) {
             drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
@@ -751,7 +793,8 @@ public final class LayerRowRenderer {
         audioBandHeightPx = audioTracks.isEmpty() ? 0f : ay;
         if (audioBandHeightPx > 0f) {
             canvas.save();
-            canvas.clipRect(hScrollOffsetPx, audioTopPx,
+            float audioKnobOverhang = (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f) * density;
+            canvas.clipRect(hScrollOffsetPx, audioTopPx - audioKnobOverhang,
                     hScrollOffsetPx + widthPx, audioTopPx + audioBandHeightPx);
             canvas.translate(0f, audioTopPx);
             for (int i = floatingRowCount; i < rows.size(); i++) {
@@ -1041,6 +1084,14 @@ public final class LayerRowRenderer {
     // NOT redrawn there (no origin duplicate). It draws on no other row (no wrong-row
     // leak). The controller keeps proxyRowTrackId == the hovered cross-row target, or ==
     // the home row when the finger is over its own row / new-layer zone. ──
+    /** FADE_KNOBS §2.3: dragging state for duration readout. */
+    public void setDraggingFade(@Nullable String itemId, boolean isIn, long ms) {
+        this.draggingFadeItemId = itemId;
+        this.draggingFadeIsIn = isIn;
+        this.draggingFadeMs = ms;
+    }
+    public void clearDraggingFade() { this.draggingFadeItemId = null; }
+
     /** Row (track id) the single drag proxy body is drawn on this frame, or null (= home row). */
     @Nullable private String proxyRowTrackId;
     /** The lifted item itself (its model X is resolved live), so the proxy can be drawn on
@@ -1699,6 +1750,8 @@ public final class LayerRowRenderer {
         // mirroring the exact zones hitTestItem already hit-tests for a selected
         // item (ITEM_HANDLE_HALF_WIDTH_DP) — those zones were already live/
         // draggable; this just makes them visible instead of an invisible hot zone.
+        // FADE_KNOBS §2.2: dark veil always when fade>0 (readout at glance), knob only when selected (§2.1)
+        drawFadeVeils(canvas, item, x0, top, x1, bottom, baseColor, totalMs, timeToX);
         if (lifted) {
             // S3: while lifted, the drag-state outline is the ONLY outline — the
             // generic near-white selection stroke is suppressed (it was the WHITE
@@ -1709,8 +1762,7 @@ public final class LayerRowRenderer {
             drawItemSelection(canvas, x0, top, x1, bottom, baseColor,
                     item.getCaptionSpan() == null);
             drawSequenceResizeModeHandles(canvas, item, x0, top, x1, bottom);
-            if (item.getAudioClip() != null) drawFadeHandles(canvas, x0, top, x1, bottom, baseColor);
-            else if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) drawFadeHandles(canvas, x0, top, x1, bottom, baseColor);
+            if (hasFadeHost(item)) drawFadeKnobs(canvas, item, x0, top, x1, bottom, baseColor, totalMs, timeToX);
         }
         if (item.getAudioClip() != null && item.getAudioClip().hasRemovedSpans()) {
             drawAudioStruckTape(canvas, item, x0, top, x1, bottom, timeToX);
@@ -2649,52 +2701,220 @@ public final class LayerRowRenderer {
         }
     }
 
-    /** SPEC_AUDIO_UX_V1 §4 B1.U: small triangle fade handles in the top corners,
-     *  inset 16dp from the trim edge (TRIM_WIDTH_DP) so they never overlap.
-     *  20dp wide ×12dp tall, selection-only, audio-only, trim wins. */
-    private void drawFadeHandles(@NonNull Canvas canvas, float x0, float top, float x1, float bottom, int baseColor) {
-        float trimW = TRIM_WIDTH_DP * density;
-        float fadeW = FADE_W_DP * density;
-        float fadeH = FADE_H_DP * density;
-        if (x1 - x0 < trimW * 2 + fadeW * 2 + 8 * density) return;
-        // 2dp -> 4dp (JoyRaptor, device, 2026-08-23: "I actually can't tell even that they're
-        // rounded"). On a 12dp-tall wedge, 2dp softened about a sixth of the height, which is
-        // below the threshold of noticing; 4dp is a third and reads as deliberate. The shape
-        // itself is still the open question — see row B1.V.
-        float radiusPx = 4f * density;
-        if (fadeHandleCornerEffect == null || fadeHandleCornerRadiusPx != radiusPx) {
-            fadeHandleCornerEffect = new android.graphics.CornerPathEffect(radiusPx);
-            fadeHandleCornerRadiusPx = radiusPx;
+    // ── FADE_KNOBS §2.1-2.4: outboard knob + dark curtain — ONE drawing routine, shared
+    // across every host that has a 0..1 intensity (audio volume, image opacity, caption binding).
+    // Position IS the readout (§2.1a): knob sits above trim when fade=0, inwards by fade length.
+
+    /** Whether this item has a fade host at all (even at 0). Used to suppress veil/knob on wrong kinds. */
+    private boolean hasFadeHost(@NonNull TimedItem item) {
+        if (item.getAudioClip() != null) return true;
+        if (item.getTextOverlay() != null) return true; // text/image/sprite all use opacity; veil still meaningful
+        if (item.getSprite() != null) return true;
+        if (item.getWaveform() != null) return true;
+        if (item.getClip() != null && item.getClip().isOverlayClip()) return true;
+        if (item.getCaptionSpan() != null) return true;
+        return false;
+    }
+
+    private long getFadeInMsForItem(@NonNull TimedItem item, long totalMs) {
+        if (item.getAudioClip() != null) return item.getAudioClip().getFadeInMs();
+        if (item.getTextOverlay() != null) return item.getTextOverlay().getImageFadeInMs();
+        if (item.getSprite() != null) return 0; // TODO sprite opacity fade model
+        if (item.getWaveform() != null) return 0;
+        if (item.getClip() != null && item.getClip().isOverlayClip()) {
+            // Clip overlay opacity via keyframes not yet — treat as 0 for now, veil still works if added
+            return 0;
         }
-        Paint p = itemSelectionPaint;
-        int prevColor = p.getColor();
-        Paint.Style prevStyle = p.getStyle();
-        float prevW = p.getStrokeWidth();
-        android.graphics.PathEffect prevEffect = p.getPathEffect();
-        p.setStyle(Paint.Style.FILL);
-        p.setColor(brighten(baseColor));
-        p.setAlpha(180);
-        p.setPathEffect(fadeHandleCornerEffect);
-        Path tri = fadeHandlePath;
-        tri.rewind();
-        float fx0 = x0 + trimW;
-        tri.moveTo(fx0, top);
-        tri.lineTo(fx0 + fadeW, top);
-        tri.lineTo(fx0, top + fadeH);
-        tri.close();
-        canvas.drawPath(tri, p);
-        tri.rewind();
-        float fx1 = x1 - trimW;
-        tri.moveTo(fx1, top);
-        tri.lineTo(fx1 - fadeW, top);
-        tri.lineTo(fx1, top + fadeH);
-        tri.close();
-        canvas.drawPath(tri, p);
-        p.setColor(prevColor);
-        p.setAlpha(255);
-        p.setStyle(prevStyle);
-        p.setStrokeWidth(prevW);
-        p.setPathEffect(prevEffect);
+        if (item.getCaptionSpan() != null) {
+            com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
+            if (b != null) return b.fadeInMs;
+            // Legacy single-binding fallback via Clip's own? No per-clip fade; use 0
+            return 0;
+        }
+        return 0;
+    }
+
+    private long getFadeOutMsForItem(@NonNull TimedItem item, long totalMs) {
+        if (item.getAudioClip() != null) return item.getAudioClip().getFadeOutMs();
+        if (item.getTextOverlay() != null) return item.getTextOverlay().getImageFadeOutMs();
+        if (item.getSprite() != null) return 0;
+        if (item.getWaveform() != null) return 0;
+        if (item.getClip() != null && item.getClip().isOverlayClip()) return 0;
+        if (item.getCaptionSpan() != null) {
+            com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
+            if (b != null) return b.fadeOutMs;
+            return 0;
+        }
+        return 0;
+    }
+
+    private void setFadeInMsForItem(@NonNull TimedItem item, long ms, long totalMs) {
+        ms = Math.max(0, ms);
+        if (item.getAudioClip() != null) { item.getAudioClip().setFadeInMs(ms); return; }
+        if (item.getTextOverlay() != null) { item.getTextOverlay().setImageFadeInMs(ms, totalMs); return; }
+        if (item.getCaptionSpan() != null) {
+            com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
+            if (b != null) { b.fadeInMs = Math.max(0, Math.min(ms, item.getDisplayDurationMs(totalMs)/2)); }
+            return;
+        }
+    }
+
+    private void setFadeOutMsForItem(@NonNull TimedItem item, long ms, long totalMs) {
+        ms = Math.max(0, ms);
+        if (item.getAudioClip() != null) { item.getAudioClip().setFadeOutMs(ms); return; }
+        if (item.getTextOverlay() != null) { item.getTextOverlay().setImageFadeOutMs(ms, totalMs); return; }
+        if (item.getCaptionSpan() != null) {
+            com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
+            if (b != null) { b.fadeOutMs = Math.max(0, Math.min(ms, item.getDisplayDurationMs(totalMs)/2)); }
+            return;
+        }
+    }
+
+    /** Exposed for gesture controller: same clamping as draw. */
+    public long[] clampedFadeMs(@NonNull TimedItem item, long totalMs) {
+        long dur = Math.max(0, item.getDisplayDurationMs(totalMs));
+        long in = getFadeInMsForItem(item, totalMs);
+        long out = getFadeOutMsForItem(item, totalMs);
+        in = Math.max(0, Math.min(in, dur/2));
+        out = Math.max(0, Math.min(out, dur/2));
+        if (in + out > dur && dur > 0) { in = dur/2; out = dur - in; }
+        return new long[]{in, out};
+    }
+
+    /** Dark veil inside the clip for each fade (§2.2) — display only, always when fade>0. */
+    private void drawFadeVeils(@NonNull Canvas canvas, @NonNull TimedItem item,
+                               float x0, float top, float x1, float bottom,
+                               int baseColor, long totalMs, @NonNull TimeToX timeToX) {
+        if (!hasFadeHost(item)) return;
+        long[] clamped = clampedFadeMs(item, totalMs);
+        long fadeIn = clamped[0]; long fadeOut = clamped[1];
+        if (fadeIn <= 0 && fadeOut <= 0) return;
+        float r = 3f * density;
+        // Clip veil to item rounded rect so it doesn't spill beyond corners
+        canvas.save();
+        Path clipPath = new Path();
+        clipPath.addRoundRect(x0, top, x1, bottom, r, r, Path.Direction.CW);
+        canvas.clipPath(clipPath);
+        fadeVeilPaint.setColor(0xAA05050A);
+        if (fadeIn > 0) {
+            float fx = timeToX.map(item.getTimelineStartMs() + fadeIn);
+            fx = Math.max(x0, Math.min(fx, x1));
+            if (fx > x0 + 1f) {
+                fadeVeilPath.rewind();
+                fadeVeilPath.moveTo(x0, top);
+                fadeVeilPath.lineTo(fx, top);
+                fadeVeilPath.lineTo(x0, bottom);
+                fadeVeilPath.close();
+                canvas.drawPath(fadeVeilPath, fadeVeilPaint);
+                // sloped edge highlight
+                Paint edge = itemSelectionPaint;
+                int pc = edge.getColor(); float pw = edge.getStrokeWidth(); Paint.Style ps = edge.getStyle();
+                edge.setColor(brighten(baseColor)); edge.setStyle(Paint.Style.STROKE); edge.setStrokeWidth(1.4f*density); edge.setAlpha(140);
+                canvas.drawLine(fx, top, x0, bottom, edge);
+                edge.setColor(pc); edge.setStyle(ps); edge.setStrokeWidth(pw); edge.setAlpha(255);
+                // dotted inner boundary line in object's colour (§2.4)
+                fadeEdgePaint.setColor(baseColor);
+                canvas.drawLine(fx, top, fx, bottom, fadeEdgePaint);
+            }
+        }
+        if (fadeOut > 0) {
+            float fx = timeToX.map(item.getTimelineStartMs() + item.getDisplayDurationMs(totalMs) - fadeOut);
+            fx = Math.max(x0, Math.min(fx, x1));
+            if (fx < x1 - 1f) {
+                fadeVeilPath.rewind();
+                fadeVeilPath.moveTo(fx, top);
+                fadeVeilPath.lineTo(x1, top);
+                fadeVeilPath.lineTo(x1, bottom);
+                fadeVeilPath.close();
+                canvas.drawPath(fadeVeilPath, fadeVeilPaint);
+                Paint edge = itemSelectionPaint;
+                int pc = edge.getColor(); float pw = edge.getStrokeWidth(); Paint.Style ps = edge.getStyle();
+                edge.setColor(brighten(baseColor)); edge.setStyle(Paint.Style.STROKE); edge.setStrokeWidth(1.4f*density); edge.setAlpha(140);
+                canvas.drawLine(fx, top, x1, bottom, edge);
+                edge.setColor(pc); edge.setStyle(ps); edge.setStrokeWidth(pw); edge.setAlpha(255);
+                fadeEdgePaint.setColor(baseColor);
+                canvas.drawLine(fx, top, fx, bottom, fadeEdgePaint);
+            }
+        }
+        canvas.restore();
+        // Duration label while dragging (§2.3) — riding inside edge of veil, below knob, not over darkest area
+        if (draggingFadeItemId != null && draggingFadeItemId.equals(item.getId())) {
+            String label = String.format(java.util.Locale.US, "%.1f s", draggingFadeMs / 1000f);
+            // Place near the active knob's diagonal mid, offset inside veil for readability
+            float fx = draggingFadeIsIn
+                    ? timeToX.map(item.getTimelineStartMs() + clamped[0])
+                    : timeToX.map(item.getTimelineStartMs() + item.getDisplayDurationMs(totalMs) - clamped[1]);
+            float lx = draggingFadeIsIn ? (x0 + fx)/2f : (fx + x1)/2f;
+            float ly = top + (bottom - top) * 0.32f;
+            // keep inside item
+            lx = Math.max(x0 + 14f*density, Math.min(lx, x1 - 14f*density));
+            // backdrop for readability
+            float tw = fadeDurationPaint.measureText(label);
+            float pad = 3f*density;
+            Paint bg = itemSelectionPaint;
+            int pbc = bg.getColor(); Paint.Style pbs = bg.getStyle();
+            bg.setColor(0xCC000000); bg.setStyle(Paint.Style.FILL);
+            canvas.drawRoundRect(lx - tw/2f - pad, ly - 9f*density, lx + tw/2f + pad, ly + 4f*density, 3f*density, 3f*density, bg);
+            bg.setColor(pbc); bg.setStyle(pbs);
+            canvas.drawText(label, lx, ly, fadeDurationPaint);
+        }
+    }
+
+    /** Outboard knob + stem (§2.1) — selected only, one per fade, positioned from model every pass. */
+    private void drawFadeKnobs(@NonNull Canvas canvas, @NonNull TimedItem item,
+                               float x0, float top, float x1, float bottom,
+                               int baseColor, long totalMs, @NonNull TimeToX timeToX) {
+        if (!hasFadeHost(item)) return;
+        long[] clamped = clampedFadeMs(item, totalMs);
+        // Always draw knobs even at 0 — they sit above trim area as the readout that fade=0
+        float knobR = FADE_KNOB_R_DP * density;
+        float stemW = FADE_STEM_W_DP * density;
+        float offset = FADE_KNOB_TOP_OFFSET_DP * density;
+        fadeKnobStrokePaint.setColor(baseColor);
+        fadeStemPaint.setColor(baseColor);
+        fadeStemPaint.setAlpha(140);
+        // Fade-in knob
+        {
+            long fadeIn = clamped[0];
+            float fx = timeToX.map(item.getTimelineStartMs() + fadeIn);
+            fx = Math.max(x0, Math.min(fx, x1));
+            float cx = fx;
+            float cy = top - offset;
+            // stem
+            canvas.drawLine(cx, top, cx, cy + knobR - 1f*density, fadeStemPaint);
+            // knob disc
+            fadeKnobFillPaint.setColor(0xFF1C1C26);
+            canvas.drawCircle(cx, cy, knobR, fadeKnobFillPaint);
+            canvas.drawCircle(cx, cy, knobR, fadeKnobStrokePaint);
+            canvas.drawCircle(cx, cy, 3.4f * density, itemSelectionPaint); // inner dot in base colour
+            // inner dot colour
+            Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+            dot.setColor(baseColor);
+            canvas.drawCircle(cx, cy, 3.4f * density, dot);
+        }
+        // Fade-out knob
+        {
+            long fadeOut = clamped[1];
+            long dur = item.getDisplayDurationMs(totalMs);
+            float fx = timeToX.map(item.getTimelineStartMs() + dur - fadeOut);
+            fx = Math.max(x0, Math.min(fx, x1));
+            float cx = fx;
+            float cy = top - offset;
+            canvas.drawLine(cx, top, cx, cy + knobR - 1f*density, fadeStemPaint);
+            fadeKnobFillPaint.setColor(0xFF1C1C26);
+            canvas.drawCircle(cx, cy, knobR, fadeKnobFillPaint);
+            canvas.drawCircle(cx, cy, knobR, fadeKnobStrokePaint);
+            Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+            dot.setColor(baseColor);
+            dot.setStyle(Paint.Style.FILL);
+            dot.setAntiAlias(true);
+            canvas.drawCircle(cx, cy, 3.4f * density, dot);
+        }
+    }
+
+    /** Legacy name kept for any stray call — delegates to new veil+knob split (no-op if not selected). */
+    private void drawFadeHandles(@NonNull Canvas canvas, float x0, float top, float x1, float bottom, int baseColor) {
+        // Retired wedge path — fade handles are now outboard knobs+veils drawn via the two methods above.
     }
 
     /**
@@ -3170,14 +3390,10 @@ public final class LayerRowRenderer {
 
     /** Half-width (px) of an item's edge trim-handle hit-zone, shared with the item-hit-test. */
     private static final float ITEM_HANDLE_HALF_WIDTH_DP = 10f;
-    /** SPEC_AUDIO_UX_V1 §4: trim = outer 16dp full height, fade = top 12dp×20dp inboard
-     *  of trim, never overlapping, selection-only, trim wins. */
+    /** SPEC_AUDIO_UX_V1 §4: trim = outer 16dp full height, selection-only, trim wins. */
     private static final float TRIM_WIDTH_DP = 16f;
-    private static final float FADE_W_DP = 20f;
-    private static final float FADE_H_DP = 12f;
-    /** E2: flight recorder for fade/trim/delete precedence at the contested top corner. */
-    private static final boolean E2_DEBUG = true;
-    private static final String E2_TAG = "E2FADE";
+    // FADE_KNOBS §4: old in-row 20×12dp fade zone RETIRED — outboard knob is the only grip.
+    // E2_DEBUG retired with it (was true in production, logged every top-corner touch).
 
     /**
      * Hit-test a DOWN/tap at content coordinates against the item blocks drawn by
@@ -3272,51 +3488,55 @@ public final class LayerRowRenderer {
     public ItemHit hitTestItem(float x, float y, float topPx, long totalMs,
                                  @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
         if (!inAnyBand(y, topPx)) return null;
-        float handleHalf = ITEM_HANDLE_HALF_WIDTH_DP * density;
         float specTrimW = TRIM_WIDTH_DP * density;
+        float knobHitR = FADE_KNOB_HIT_R_DP * density;
+        float knobOffset = FADE_KNOB_TOP_OFFSET_DP * density;
         for (RowLayout row : rows) {
             float localY = bandLocalY(row, y, topPx);
-            // Positive-form checks: NaN (out-of-band row) must fail, not fall through.
-            if (!(localY >= row.bodyRect.top && localY <= row.bodyRect.bottom)) continue;
+            // For knob hits we allow y above the row (outboard), so check broad band: expand upward by knobOverhang
+            boolean inRowExpanded = !Float.isNaN(localY)
+                    && localY >= row.bodyRect.top - knobOffset - knobHitR
+                    && localY <= row.bodyRect.bottom;
+            if (!inRowExpanded) continue;
             Track t = row.track;
             if (t.isCollapsed() || t.isLocked() || t.isHidden()) return null;
             float top = row.bodyRect.top + 3f * density;
             float bottom = row.itemsBottom() - 3f * density;
-            if (!(localY >= top && localY <= bottom)) return null;
+            // Check knob hits first for selected items (outboard, decoupled from row height) — §4 collision fix
+            for (TimedItem item : t.getItems()) {
+                float x0 = timeToX.map(item.getTimelineStartMs());
+                long dur = item.getDisplayDurationMs(totalMs);
+                float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
+                boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
+                if (selected && hasFadeHost(item)) {
+                    long[] clamped = clampedFadeMs(item, totalMs);
+                    float fxIn = timeToX.map(item.getTimelineStartMs() + clamped[0]);
+                    fxIn = Math.max(x0, Math.min(fxIn, x1));
+                    float cyIn = top - knobOffset;
+                    float dx = x - fxIn, dy = localY - cyIn;
+                    if (dx*dx + dy*dy <= knobHitR*knobHitR) return new ItemHit(t, item, ItemZone.FADE_IN);
+                    long durForOut = dur;
+                    float fxOut = timeToX.map(item.getTimelineStartMs() + durForOut - clamped[1]);
+                    fxOut = Math.max(x0, Math.min(fxOut, x1));
+                    float cyOut = top - knobOffset;
+                    dx = x - fxOut; dy = localY - cyOut;
+                    if (dx*dx + dy*dy <= knobHitR*knobHitR) return new ItemHit(t, item, ItemZone.FADE_OUT);
+                }
+            }
+            // Now check inside-body zones: need y inside clip
+            if (!(localY >= top && localY <= bottom)) continue;
             for (TimedItem item : t.getItems()) {
                 float x0 = timeToX.map(item.getTimelineStartMs());
                 long dur = item.getDisplayDurationMs(totalMs);
                 float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
                 if (x < x0 - specTrimW || x > x1 + specTrimW) continue;
                 boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
-                // E2: contested top-corner — log which zone actually won.
-                boolean isTopCorner = localY >= top && localY <= top + FADE_H_DP * density;
-                // SPEC §4: trim = outer 16dp full height — spec-exact, not the legacy 10dp half.
                 float trimW = specTrimW;
                 if (selected && x <= x0 + trimW) {
-                    if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON TRIM_LEFT x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                     return new ItemHit(t, item, ItemZone.LEFT_HANDLE);
                 }
                 if (selected && x >= x1 - trimW) {
-                    if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON TRIM_RIGHT x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                     return new ItemHit(t, item, ItemZone.RIGHT_HANDLE);
-                }
-                // SPEC §4 B1.U: fade handles — top 12dp ×20dp inboard of trim, selection-only, trim wins.
-                // Shared for audio and image opacity (spec §3.6: "exactly like the volume fade handles, ... share it — do not write a parallel implementation")
-                boolean hasFadeHandles = selected && (item.getAudioClip() != null || (item.getTextOverlay() != null && item.getTextOverlay().isImage()));
-                if (hasFadeHandles) {
-                    float fadeH = FADE_H_DP * density;
-                    float fadeW = FADE_W_DP * density;
-                    if (localY >= top && localY <= top + fadeH) {
-                        if (x >= x0 + trimW && x <= x0 + trimW + fadeW) {
-                            if (E2_DEBUG) FLog.d(E2_TAG, "hitTest WON FADE_IN x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
-                            return new ItemHit(t, item, ItemZone.FADE_IN);
-                        }
-                        if (x >= x1 - trimW - fadeW && x <= x1 - trimW) {
-                            if (E2_DEBUG) FLog.d(E2_TAG, "hitTest WON FADE_OUT x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
-                            return new ItemHit(t, item, ItemZone.FADE_OUT);
-                        }
-                    }
                 }
                 if (selected) {
                     // Delete badge — checked AFTER the trim handles (review fix
@@ -3334,13 +3554,11 @@ public final class LayerRowRenderer {
                         float slopR = DELETE_BADGE_RADIUS_DP * density * 2.0f;
                         float ddx = x - cx, ddy = localY - cy;
                         if (ddx * ddx + ddy * ddy <= slopR * slopR) {
-                            if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON DELETE x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId() + " (slopR=" + slopR + " vs fade band " + FADE_H_DP + "dp)");
                             return new ItemHit(t, item, ItemZone.DELETE);
                         }
                     }
                 }
                 if (x >= x0 && x <= x1) {
-                    if (E2_DEBUG && isTopCorner) FLog.d(E2_TAG, "hitTest WON BODY x=" + x + " y=" + y + " localY=" + localY + " top=" + top + " item=" + item.getId());
                     return new ItemHit(t, item, ItemZone.BODY);
                 }
             }

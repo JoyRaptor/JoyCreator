@@ -165,6 +165,16 @@ files:
 since: 2026-08-29T01:59
 phase 3 HELD: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE (currently ACTIVE since 2026-08-29T04:00)
 
+## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks)
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files: NONE — reporting only. Writes tasks/VERIFY_20260829_RESULTS.md + screenshots.
+NOTE: needs the DEVICE token. Highest-value unclaimed work in the repo.
+
+## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
+status: UNCLAIMED — free to take (spec written 2026-08-29)
+files (claim when you start): assetbrowser/AssetBrowserPanel.java + the toolbox/picker
+  entry points you find; FaditorEditorActivity ONLY if unavoidable and only when free.
+
 ## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
 status: ACTIVE (2026-08-29T00:45)
   Two pieces, both chosen to avoid the three live lanes:

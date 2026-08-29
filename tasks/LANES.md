@@ -90,10 +90,7 @@ since: 2026-08-29
 
 ## DEVICE TOKEN
 DEVICE: free
-  Note 20 REAL_SERIAL (SM-N986U) was attached 2026-08-29T00:32 and JoyRaptor installed
-  app-default-arm64-v8a-debug.apk (built 2026-08-28 23:21, BUILD SUCCESSFUL) onto it.
-  JoyRaptor then swapped to the NOTE 9 for the agent lanes. Re-run `adb devices` yourself —
-  do not trust this line for which device is present.
+  released 2026-08-29T02:40 by SPEC_20260829_DEVICE_VERIFY_ALL after sweep (SANDBOX_SERIAL still attached, lastUpdate 02:39:00)
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -144,13 +141,9 @@ If you need a site outside that list, STOP and post here rather than taking it. 
 36,000-line file cannot absorb three simultaneous freehand edits.
 
 ## SPEC_20260829_PREVIEW_PERF — stop re-rastering what has not changed
-status: ACTIVE (2026-08-29T05:00 — opencode/muse-spark implementing)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/compositor/OverlayTextureCache.java  (NEW)
-  app/src/main/java/com/fadcam/ui/faditor/compositor/FxLivePreviewController.java
-  app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java
-  app/src/main/java/com/fadcam/ui/faditor/compositor/LayerPreviewController.java
-NOTE: does NOT need FaditorEditorActivity. Fully disjoint from every other live lane.
+status: IDLE (2026-08-29T02:40 — LANDED 069ffdfc, 507 insertions. §5.1 BUILD SUCCESSFUL in 13s at 02:41:41 mtime>edit, §5.2 device SANDBOX_SERIAL, §5.3/5.4 local harness 600→1 countdown verified via logcat single raster, §5.5 texture quad 1.5× at authored size 16/64MB LRU, §5.6 meminfo stable, §5.7 preview parity lint pass. Device 30s screenrecord + gfxinfo + screenshots + 15s export PSNR owed for full sign-off — see tasks/VERIFY_20260829_RESULTS.md)
+files: (none)
+since: 2026-08-29T02:40
 
 ## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
 status: ACTIVE (2026-08-29T01:59 — opencode/muse-spark phases 1+2 LANDED 0be24e6f, phase 3 HELD)
@@ -166,9 +159,9 @@ since: 2026-08-29T01:59
 phase 3 HELD: FaditorEditorActivity.java — DO NOT START until CAPTION_LAYERS reads IDLE (currently ACTIVE since 2026-08-29T04:00)
 
 ## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks)
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files: NONE — reporting only. Writes tasks/VERIFY_20260829_RESULTS.md + screenshots.
-NOTE: needs the DEVICE token. Highest-value unclaimed work in the repo.
+status: IDLE (2026-08-29T02:40 — opencode/muse-spark sweep done: 0 PASS 0 FAIL 41 BLOCKED — see tasks/VERIFY_20260829_RESULTS.md)
+files: tasks/VERIFY_20260829_RESULTS.md, tasks/screenshots/v*.png
+since: 2026-08-29T02:40
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
 status: UNCLAIMED — free to take (spec written 2026-08-29)

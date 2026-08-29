@@ -54,6 +54,24 @@ verified-but-lost, and you can always fix a staged file before committing.
 If you find yourself about to run `git checkout .`, `git stash`, or `git clean`, DON'T:
 another lane's uncommitted work is very likely in the tree beside yours.
 
+### COROLLARY — NEVER run a bare `git commit` (added 2026-08-29, after it happened)
+
+Because every lane stages continuously (the rule above), the index at any moment holds
+OTHER lanes' half-finished work. A bare `git commit -m "..."` sweeps all of it into your
+commit under your message. FABLE did exactly this at 00:52 and pulled ~1,000 lines of two
+other lanes' in-flight work into a commit about an audio scrub engine.
+
+**Always commit with an explicit pathspec:**
+
+```
+git commit -m "..." -- path/to/only/your/file.java path/to/your/other.java
+```
+
+Nothing is lost when this goes wrong — the work is committed, not destroyed — and the
+repair is `git reset --soft HEAD~1` (which restores the index and does NOT touch the
+working tree) followed by a pathspec commit. But the misattributed history is confusing
+and the other lane loses the ability to describe its own change, so just use the pathspec.
+
 ## SPEC TOKEN  (added 2026-08-22 — the second single-writer resource)
 
 `tasks/SPEC_AUDIO_UX_V1.md` is edited by EVERY row (§7 status cells), so parallel agents
@@ -86,8 +104,8 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (4 small sites only)
 
 ## SPEC_20260829_CAPTION_LAYERS — up to 3 caption tracks, each on its own transcript
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files (claim these when you start):
+status: ACTIVE (2026-08-29T04:00 — opencode/muse-spark implementing overnight)
+files:
   app/src/main/java/com/fadcam/ui/faditor/model/Clip.java
   app/src/main/java/com/fadcam/ui/faditor/model/AudioClip.java
   app/src/main/java/com/fadcam/ui/faditor/model/Timeline.java        (getCaptionTracks only)
@@ -95,15 +113,18 @@ files (claim these when you start):
   app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java
   app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java  (~line 3093 only)
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (drawer + preview container)
+since: 2026-08-29T04:00
 
 ## SPEC_20260829_KEYFRAME_SHAPES — one glyph set drawn from Easing.apply()
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-files (claim these when you start):
+status: ACTIVE (2026-08-29T03:00 — opencode/muse-spark implementing)
+files:
   app/src/main/java/com/fadcam/ui/faditor/keyframe/KeyframeGlyph.java (NEW)
   app/src/main/java/com/fadcam/ui/faditor/KeyframeDiamondControl.java
   app/src/main/java/com/fadcam/ui/faditor/EasePickerPopover.java
   app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java
   app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java
+  app/src/main/java/com/fadcam/ui/faditor/ObjectMenuSheet.java (legend "?" only)
+since: 2026-08-29T03:00
 
 ## ⚠ THREE-WAY OVERLAP, 2026-08-29 — READ BEFORE YOU EDIT
 

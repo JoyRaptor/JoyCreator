@@ -6,7 +6,7 @@
 #    report and mark the work UNVERIFIED - do not run gradle, and do not imply it built.
 #
 # ★★ JoyRaptor PICKED the fade design: outboard KNOBS + dark CURTAIN (options 06+07, not the
-#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — CLAIMED joy-creator 2026-08-29T15:00.
+#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — LANDED b99a20e2 joy-creator (BUILD SUCCESSFUL 14:18, DEVICE OFFLINE UNVERIFIED).
 #
 # ★★ tasks/TAPMAP_NOTE9.md — verified tap coordinates. TWO sweeps failed on navigation and
 #    one reported a FALSE audio regression from stale coordinates. Read it before device work,
@@ -110,8 +110,8 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: free
-  released 2026-08-29T14:15 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator) after 4th attempt BLOCKED — device SANDBOX_SERIAL OFFLINE (still listed, transport_id:1), BUILD FAILED 14:14:52 LayerRowRenderer E2_DEBUG/E2_TAG/FADE_H_DP (24 errors), .\tools\phone.ps1 install->no device, shot->no device — see VERIFY_20260829_RESULTS.md §4. Lane still ACTIVE for re-try when device/build recovers.
+DEVICE: SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator / muse-spark) — taken 2026-08-29T15:24 for 5th sweep install+screenshot re-derive
+  released 2026-08-29T14:15 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator) after 4th attempt BLOCKED — device SANDBOX_SERIAL OFFLINE, BUILD FAILED 14:14:52
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -312,13 +312,21 @@ files: (none)
 since: 2026-08-27
 
 ## SPEC_20260829_FADE_KNOBS — outboard knobs + dark curtain (06+07), knob MOVES (§2.1a)
-status: ACTIVE (2026-08-29T15:00 — joy-creator / muse-spark implementing 2.1a is point)
+status: IDLE (2026-08-29T14:20 — joy-creator LANDED b99a20e2: knob position IS readout (model->pixel via timeToX every layout, zoom re-places, never cross, midpoint on short clips), dark veil with sloped edge + dotted inner line in object colour + duration rides diagonal while dragging; 44dp hit (20dp drawn) decoupled from row height; selected-only knobs, veil always when fade>0; top row reserved 28dp pad (chosen over flipping, keeps identical control and 95% lane-above clickable, expanded clipRect for overdraw); cross-lane snap to other fade boundaries/clip edges within timeline tolerance; general host (audio volume, image opacity, caption per-binding fadeInMs/OutMs persisted), spine fade-to-black report owed; retire E2_DEBUG + old 20x12 in-row zone; BUILD SUCCESSFUL 14:18 compileDefaultDebugJavaWithJavac (7 tasks), DEVICE OFFLINE install failed (no device), UNVERIFIED device screenshots — see tasks/REPORT_20260829_FADE_KNOBS.md)
+files: (none)
+since: 2026-08-29T14:20
+
+## SPEC_20260829_WORD_SYNC — Word Sync mode: fix a sloppy transcript fast
+status: ACTIVE (2026-08-29T15:30 — muse-spark joy-creator implementing — consumes 3.3/3.4/3.5, owns mode + lockout + tape ticks)
 files:
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java  (draw + hit-test: retire E2, knobs+veil+dotted+snap)
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java (drag: model->pixel mapping, clamp, snap)
-  app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java  (top pad for row1 — whichever fix, state which)
-  app/src/main/java/com/fadcam/ui/faditor/model/CaptionBinding.java  (NEW or per-binding fade fields — do caption case)
-since: 2026-08-29T15:00
+  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncMode.java  (NEW — mode state, ripple glue, ScrubEngine attach, undo)
+  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncOnsets.java  (consume §3.3 — no edits)
+  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncRipple.java (consume §3.4 — no edits)
+  app/src/main/java/com/fadcam/ui/faditor/move/TimeShuttleView.java      (consume §3.5 — no edits, already 72dp)
+  app/src/main/java/com/fadcam/ui/faditor/transcript/TranscriptPanelView.java (word drag snap/ripple, TT/Tt/tt row)
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java  (onset ticks ONLY — small site, FADE_KNOBS owns knobs)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (toggle + banner + lockout ONLY — 4 small sites)
+since: 2026-08-29T15:30
 
 ## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)
 status: WIP (agent 1, 2026-08-24) � code landed, commit pending. G22: master-band

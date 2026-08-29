@@ -139,11 +139,9 @@ files: (none)
 since: 2026-08-29T02:40
 
 ## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
-status: ACTIVE (2026-08-29T03:10 — opencode/muse-spark phase 3 LANDED b22af2cd — Fit/Fill + preset chips + replace warning + preview stickiness)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java
-since: 2026-08-29T03:10
-phase 3: CAPTION_LAYERS is IDLE (03:00) so FaditorEditorActivity drawer sites were free. Phases 1+2 already landed 0be24e6f (Keyframe, Codec, ImageAnimPreset, TextOverlayItem, LayerRowRenderer/Controller, ProjectStorage)
+status: IDLE (2026-08-29T03:20 — LANDED b22af2cd phase 3 Fit/Fill + preset chips + replace warning + preview stickiness — BUILD SUCCESSFUL 03:15, 188 insertions, device not yet re-installed)
+files: (none)
+since: 2026-08-29T03:20
 
 ## SPEC_20260829_DEVICE_VERIFY_ALL — look at the 14 unlooked-at features (41 checks) — 2nd sweep with §2b
 status: IDLE (2026-08-29T03:00 — opencode/muse-spark 2nd sweep: 3 PASS (7 play+audiotracks, 14 captions, 21 no-amber) 0 FAIL 38 BLOCKED — see tasks/VERIFY_20260829_RESULTS.md — device SANDBOX_SERIAL, navigation via screenshot→tap per runbook, phase 3 image preset code landed b22af2cd but APK 02:39 not yet 03:10)
@@ -156,10 +154,11 @@ files (claim when you start): assetbrowser/AssetBrowserPanel.java + the toolbox/
   entry points you find; FaditorEditorActivity ONLY if unavoidable and only when free.
 
 ## SPEC_20260829_MEDIA_IMPORT — make the app's own browser the picker
-status: UNCLAIMED — free to take (spec written 2026-08-29)
-NOTE: supersedes QUICK_WINS §2. AssetBrowserPanel is constructed by NOTHING; every
-  video/image add goes to the SYSTEM picker. §2.2 (thumbnails) is fully disjoint - land
-  that first; FaditorEditorActivity launch sites only when its holders read IDLE.
+status: ACTIVE (2026-08-29T04:15 — opencode/muse-spark §2.1 picker single-select LANDED f07f3eca — Add→Video/Image now opens internal 4-col grid via VideoThumbnailCache 10% frame + Browse fallback, persistable permission; APK 04:12:25 installed and navigated to PREVIEW_PERF (v32-v34). §2.3 multi-select numbered badge still to do, §2.4 reboot check owed)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (showInternalAssetPicker — single-select, Browse row)
+  app/src/main/java/com/fadcam/ui/faditor/assetbrowser/AssetBrowserAdapter.java  (multi-select badge next)
+since: 2026-08-29T04:15
 
 ## FABLE (Claude) — GL render-path survey (READ-ONLY) + PCM scrub engine (NEW files)
 status: ACTIVE (2026-08-29T00:45)

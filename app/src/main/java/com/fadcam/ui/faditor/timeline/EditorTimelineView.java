@@ -9623,11 +9623,23 @@ if (sd.clip.hasVolumeKeyframes()) {
             if (tr == null || tr.words.isEmpty() || sd.trimmedMs <= 0) continue;
             RectF full = segRects.get(i);
             if (contentX < full.left || contentX > full.right) continue;
-            if (viewY < full.top - 8f * density || viewY > full.bottom + 24f * density) continue;
             // Mirror drawSegment's DISPLAY-ONLY inset (same formula, same inputs).
             float visInset = Math.min(segmentGapPx * 0.5f, full.width() * 0.2f);
             RectF rect = new RectF(full.left + visInset, full.top,
                     full.right - visInset, full.bottom);
+            // §6 (V2 refinement): the word gesture owns ONLY the word band — the bottom
+            // strip where words are drawn — NOT the whole tape. Touches anywhere else on
+            // the segment keep their timeline gestures (scrub / pinch / pan).
+            Float drawerFracObj = clipAudioDrawerFraction.get(sd.clipId);
+            float drawerFrac = drawerFracObj != null
+                    ? Math.max(0f, Math.min(1f, drawerFracObj)) : 0f;
+            transcriptTextPaint.setTextSize(9f * density);
+            float descent = transcriptTextPaint.getFontMetrics().descent;
+            float segBaseY = rect.bottom - 1f * density - descent;
+            float drawerBot = masterBotPx() + drawerFrac * CLIP_AUDIO_DRAWER_HEIGHT_DP * density;
+            float drawerBaseY = drawerBot - 1f * density - descent;
+            float textY = segBaseY + (drawerBaseY - segBaseY) * drawerFrac;
+            if (viewY < textY - 16f * density || viewY > textY + 8f * density) continue;
             int w = hitWordInTranscript(tr, sd.inPointMs, sd.outPointMs, sd.trimmedMs,
                     rect, contentX);
             if (w >= 0) return new int[]{i, w};
@@ -9641,8 +9653,12 @@ if (sd.clip.hasVolumeKeyframes()) {
                 RectF body = layerRowRenderer.itemBodyRect(
                         ac.getId(), audioBandTopPx(), totalEffectiveMs, this::timeToX);
                 if (body == null || body.width() <= 0f) continue;
-                if (viewY < body.top - 8f * density || viewY > body.bottom + 8f * density) continue;
                 if (contentX < body.left || contentX > body.right) continue;
+                // Same word-band restriction for the audio tape.
+                transcriptTextPaint.setTextSize(9f * density);
+                float aDescent = transcriptTextPaint.getFontMetrics().descent;
+                float aTextY = body.bottom - 1f * density - aDescent;
+                if (viewY < aTextY - 14f * density || viewY > aTextY + 8f * density) continue;
                 long inMs = ac.getInPointMs();
                 long outMs = ac.getOutPointMs();
                 long span = outMs - inMs;

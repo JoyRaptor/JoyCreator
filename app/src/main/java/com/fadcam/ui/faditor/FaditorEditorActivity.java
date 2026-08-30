@@ -17104,6 +17104,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (editorTimeline != null) editorTimeline.invalidate();
                     return true;
                 }
+                case MotionEvent.ACTION_POINTER_DOWN: {
+                    // A second finger is a PINCH, never a word drag — revert the word to
+                    // where the gesture started and hand the stream to the zoom handler.
+                    if (tapeWordDragActive) {
+                        tapeWordDragActive = false;
+                        if (wordSyncMode != null) wordSyncMode.cancelDrag();
+                        editorTimeline.getParent().requestDisallowInterceptTouchEvent(false);
+                    }
+                    return false;
+                }
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL: {
                     if (!tapeWordDragActive) return false;

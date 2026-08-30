@@ -129,8 +129,53 @@ video tape moves that word:
   `OnsetDetector.snap(...)` when SNAP is on. **Both are built and covered by 22 passing tests
   each** (`run-wordsync.sh`, `run-onset.sh`) — consume them.
 - Dragging on the tape but **not** on a word still scrubs the timeline normally (§5).
-- Tapping a word selects it into the drawer, so the shuttle and the TT/B/I buttons retarget.
-- One undo step per drag, however many words moved.
+- One undo step per drag, however many words moved (§6a).
+
+### 6.1 Tapping a word on the TAPE retargets the drawer
+
+JoyRaptor: *"Tapping words in the timeline tape while in wordsync mode changes which word you're
+working on."*
+
+A tap (not a drag) on a word in the tape sets `wordScrubCurrentIndex` to that word and
+refreshes the drawer — the text field shows the new word, the timestamp updates, and the
+shuttle, the case buttons and the ripple mode all now act on it. Same as tapping it in the
+transcript panel; the tape is just a second way to reach the same selection.
+
+This is what makes the mode fast: you never leave the tape. Tap a word, nudge it, tap the
+next, nudge it. Reuse `showWordScrubDrawer(index)`'s selection path rather than writing a
+parallel one — if the drawer is already open it should retarget, not reopen and re-animate.
+
+---
+
+## 6a. Word timing must become UNDOABLE — it never has been
+
+JoyRaptor: *"Undo needs to work for word nudges etc."*
+
+**This is not a Word Sync regression. Word timing has never been undoable in this app.**
+There are five `setWordStart` call sites in `FaditorEditorActivity` (~16263, 16426, 16475,
+16582, 16675) and **not one of them records an undo action**. `applyWordGroupDelta` contains
+zero `undoManager` calls. The only word-related undo that exists is "Word case" for the
+TT/Tt/tt transform (~17082).
+
+That was survivable when moving a word was a slow, deliberate, one-at-a-time act. It is not
+survivable now: RIPPLE and STRETCH move **every word after the one you dragged**, so a single
+mistaken gesture can rewrite a whole transcript's timing with no way back. **Shipping ripple
+without undo would be the most destructive feature in the editor.**
+
+Required:
+
+- A **`WordTimingAction`** in `undo/EditActions` holding the before and after start times for
+  every word it touched — the arrays `WordSyncRipple.apply` already returns, and it
+  deliberately never mutates its input precisely so the "before" survives.
+- **One undo step per gesture.** A shuttle hold is one step, not one per frame: record on
+  `onScrubEnd`, using the value snapshotted at `onScrubStart`. A tape drag is one step. A
+  prev/next tap is one step.
+- **Every one of the five call sites goes through it**, not just the new ones. A path that
+  silently skips undo is the trap this section exists to close.
+- Redo must work too, since the action carries both directions.
+
+Verify by dragging in RIPPLE mode, pressing undo **once**, and confirming *all* the moved
+words return — not just the one under your finger.
 
 This is the feature. If time runs short, cut §3's formatting buttons before cutting this.
 
@@ -165,7 +210,12 @@ screenshot.
    the tape while the playhead stays put. **This is defect 2 and the check most likely to be
    faked** — the playhead must not move.
 5. **Drag a word on the timeline tape.** It moves. Screenshot before/after. §6.
-6. RIPPLE: drag one word, the following ten move with it. Undo once, all return.
+6. RIPPLE: drag one word, the following ten move with it. **Undo once, all ten return.**
+   Then redo once and they move again. §6a.
+6b. Tap a different word **on the tape**: the drawer retargets to it without reopening, and
+   the shuttle then moves that word. Screenshot both selections. §6.1
+6c. Undo a shuttle nudge, a tape drag, and a prev/next tap — **each is exactly one press**,
+   not one per frame or one per word.
 7. `TT` on a word gives all caps. B/U/I are visibly disabled with an explanation.
 8. **Scrub the timeline with the mode OFF, then ON.** Identical feel and direction.
    Screen-record both. §5.

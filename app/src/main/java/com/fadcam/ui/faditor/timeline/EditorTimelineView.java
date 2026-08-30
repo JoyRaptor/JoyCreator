@@ -168,6 +168,11 @@ public class EditorTimelineView extends View {
     private final Paint segmentPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint borderPaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handlePaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** FADE_KNOBS §2.5 spine knob + veil paints. */
+    private final Paint spineKnobFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spineKnobStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spineKnobVeilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spineStemPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handleNotchPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playheadPaint      = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playheadCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -907,6 +912,8 @@ public class EditorTimelineView extends View {
         NONE,
         LEFT_HANDLE,
         RIGHT_HANDLE,
+        FADE_IN_HANDLE,
+        FADE_OUT_HANDLE,
         TRANSITION_LEFT_HANDLE,
         TRANSITION_RIGHT_HANDLE,
         FREEZE_LEFT_HANDLE,
@@ -1576,6 +1583,9 @@ public class EditorTimelineView extends View {
         void onTransitionDeleted(int index);
         /** Loop extension trim finished — called when drag extends past source bounds. */
         default void onLoopTrimFinished(int segmentIndex, long oldBefore, long oldAfter, long newBefore, long newAfter) {}
+        /** FADE_KNOBS §2.5: spine fade knobs committed — one undo step for the whole gesture. */
+        default void onMasterFadeFinished(int segmentIndex, long oldInMs, long oldOutMs,
+                                          long newInMs, long newOutMs) {}
         /** B7: long-press the tape inside the clip-audio shelf → same audio drawer. */
         default void onClipAudioShelfLongPressed(int segmentIndex) {}
 
@@ -1680,6 +1690,18 @@ public class EditorTimelineView extends View {
         borderPaint.setStrokeWidth(borderWidthPx);
         handlePaint.setColor(COLOR_HANDLE);
         handlePaint.setStyle(Paint.Style.FILL);
+        // FADE_KNOBS §2.5 spine knob paints (same look as the lane-row knobs)
+        spineKnobFillPaint.setColor(0xFF1C1C26);
+        spineKnobFillPaint.setStyle(Paint.Style.FILL);
+        spineKnobStrokePaint.setColor(COLOR_HANDLE);
+        spineKnobStrokePaint.setStyle(Paint.Style.STROKE);
+        spineKnobStrokePaint.setStrokeWidth(2f * density);
+        spineKnobVeilPaint.setColor(0xAA05050A);
+        spineKnobVeilPaint.setStyle(Paint.Style.FILL);
+        spineStemPaint.setColor(COLOR_HANDLE);
+        spineStemPaint.setStyle(Paint.Style.STROKE);
+        spineStemPaint.setStrokeWidth(1.2f * density);
+        spineStemPaint.setAlpha(150);
         handleNotchPaint.setColor(COLOR_HANDLE_NOTCH);
         handleNotchPaint.setStyle(Paint.Style.FILL);
         playheadPaint.setColor(COLOR_PLAYHEAD);
@@ -2750,6 +2772,9 @@ public class EditorTimelineView extends View {
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
             drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
+            // FADE_KNOBS §2.5: spine knobs above the selected segment, drawn AFTER the handles
+            // so a fade=0 knob (sitting on the trim edge) reads on top.
+            drawMasterFadeKnobs(canvas, segRects.get(selectedIndex));
         }
 
         // Audio clips ride the unified renderer rows (audio consolidation: audioLayerTracks
@@ -5960,6 +5985,55 @@ if (sd.clip.hasVolumeKeyframes()) {
         handleNotchPaint.setColor(COLOR_HANDLE_NOTCH);
     }
 
+    /**
+     * FADE_KNOBS §2.5 — the spine's own fade knobs + dark veil, drawn above the SELECTED
+     * segment. Same grammar as the lane-row knobs (position IS the readout: fade=0 sits on
+     * the trim edge, inwards by the fade length). The veil is the same near-black wedge the
+     * row renderer draws — on the spine it reads literally, since the fade IS to black.
+     */
+    private void drawMasterFadeKnobs(Canvas canvas, RectF seg) {
+        Clip clip = selectedIndex < segments.size() ? segments.get(selectedIndex).clip : null;
+        if (clip == null) return;
+        float knobR = SPINE_KNOB_R_DP * density;
+        float offset = SPINE_KNOB_TOP_OFFSET_DP * density;
+        float cy = seg.top - offset;
+        long trimmed = Math.max(1, clip.getTrimmedDurationMs());
+        // Veils (display only — the knob is the grip)
+        long inMs = clip.getMasterFadeInMs();
+        long outMs = clip.getMasterFadeOutMs();
+        if (inMs > 0 || outMs > 0) {
+            canvas.save();
+            canvas.clipRect(seg.left, seg.top, seg.right, seg.bottom);
+            if (inMs > 0) {
+                float fx = spineKnobX(true, seg, clip);
+                android.graphics.Path tri = new android.graphics.Path();
+                tri.moveTo(seg.left, seg.top);
+                tri.lineTo(fx, seg.top);
+                tri.lineTo(seg.left, seg.bottom);
+                tri.close();
+                canvas.drawPath(tri, spineKnobVeilPaint);
+            }
+            if (outMs > 0) {
+                float fx = spineKnobX(false, seg, clip);
+                android.graphics.Path tri = new android.graphics.Path();
+                tri.moveTo(fx, seg.top);
+                tri.lineTo(seg.right, seg.top);
+                tri.lineTo(seg.right, seg.bottom);
+                tri.close();
+                canvas.drawPath(tri, spineKnobVeilPaint);
+            }
+            canvas.restore();
+        }
+        // Knobs + stems (always, even at 0 — the readout that fade=0)
+        float inX = spineKnobX(true, seg, clip);
+        float outX = spineKnobX(false, seg, clip);
+        for (float cx : new float[]{inX, outX}) {
+            canvas.drawLine(cx, seg.top, cx, cy + knobR - density, spineStemPaint);
+            canvas.drawCircle(cx, cy, knobR, spineKnobFillPaint);
+            canvas.drawCircle(cx, cy, knobR, spineKnobStrokePaint);
+        }
+    }
+
     private void drawTransitionHelper(Canvas canvas, Transition t, RectF rect) {
         if (t == null || rect == null) return;
         if (t.isWipe() || t.type == Transition.Type.LINEAR_MIRROR_WIPE) {
@@ -7200,6 +7274,25 @@ if (sd.clip.hasVolumeKeyframes()) {
             return true;
         }
 
+        // FADE_KNOBS §2.5: spine fade knobs arm BEFORE the transition seam test — at fade=0
+        // the out-knob sits exactly ON the seam and must not lose to it.
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+            Drag fk = hitTestFadeKnobOnly(scrolledX, y);
+            if (fk != Drag.NONE) {
+                FLog.d(TAG, "onDown: hit spine fade knob " + fk);
+                activeDrag = fk;
+                Clip fc = segments.get(selectedIndex).clip;
+                if (fc != null) {
+                    fadeStartInMs = fc.getMasterFadeInMs();
+                    fadeStartOutMs = fc.getMasterFadeOutMs();
+                    fadeLastInMs = fadeStartInMs;
+                    fadeLastOutMs = fadeStartOutMs;
+                }
+                getParent().requestDisallowInterceptTouchEvent(true);
+                return true;
+            }
+        }
+
         int transitionHit = hitTestTransition(scrolledX, y);
         if (transitionHit >= 0) {
             selectedTransitionIndex = transitionHit;
@@ -8021,6 +8114,12 @@ if (sd.clip.hasVolumeKeyframes()) {
             return true;
         }
 
+        // FADE_KNOBS §2.5: spine fade knobs — map the finger to clip-local ms, write the model live.
+        if (activeDrag == Drag.FADE_IN_HANDLE || activeDrag == Drag.FADE_OUT_HANDLE) {
+            doMasterFadeDrag(scrolledX);
+            return true;
+        }
+
         if (activeDrag == Drag.FREEZE_LEFT_HANDLE || activeDrag == Drag.FREEZE_RIGHT_HANDLE) {
             doFreezeDrag(scrolledX);
             return true;
@@ -8261,6 +8360,14 @@ if (sd.clip.hasVolumeKeyframes()) {
             loopReadoutActive = false; // L3: hide the loop-extension readout on release
         }
 
+        // FADE_KNOBS §2.5: one undo step for the whole spine fade gesture.
+        if ((last == Drag.FADE_IN_HANDLE || last == Drag.FADE_OUT_HANDLE)
+                && listener != null
+                && (fadeStartInMs != fadeLastInMs || fadeStartOutMs != fadeLastOutMs)) {
+            listener.onMasterFadeFinished(selectedIndex,
+                    fadeStartInMs, fadeStartOutMs, fadeLastInMs, fadeLastOutMs);
+        }
+
         // (The legacy in-strip audio drag-resolve and audio tap-select/double-tap blocks
         // were deleted 2026-08-22 — SPEC_AUDIO_UX_V1 row A1. Audio selection now lives
         // entirely in LayerGestureController; getSelectedAudioIndex() derives from it.)
@@ -8399,9 +8506,19 @@ if (sd.clip.hasVolumeKeyframes()) {
 
     // ── Touch helpers ────────────────────────────────────────────────
 
+    /** FADE_KNOBS §2.1 spine knobs: same geometry as the lane-row knobs (20dp drawn, 48dp hit). */
+    private static final float SPINE_KNOB_R_DP = 10f;
+    private static final float SPINE_KNOB_HIT_R_DP = 24f;
+    private static final float SPINE_KNOB_TOP_OFFSET_DP = 16f;
+    /** Fade values snapshot for one-undo on the spine fade drag. */
+    private long fadeStartInMs, fadeStartOutMs;
+    private long fadeLastInMs, fadeLastOutMs;
+
     private Drag hitTestHandle(float x, float y) {
         if (selectedIndex < 0 || selectedIndex >= segRects.size()) return Drag.NONE;
         RectF seg = segRects.get(selectedIndex);
+        Drag fk = hitTestFadeKnobOnly(x, y);
+        if (fk != Drag.NONE) return fk;
         float hTop = seg.top - handleOverhangPx;
         float hBot = seg.bottom + handleOverhangPx;
 
@@ -8416,6 +8533,56 @@ if (sd.clip.hasVolumeKeyframes()) {
             return Drag.RIGHT_HANDLE;
         }
         return Drag.NONE;
+    }
+
+    /** The knob half of the spine hit-test, shared by hitTestHandle and the pre-transition check. */
+    private Drag hitTestFadeKnobOnly(float x, float y) {
+        if (selectedIndex < 0 || selectedIndex >= segRects.size()) return Drag.NONE;
+        RectF seg = segRects.get(selectedIndex);
+        Clip fadeClip = selectedIndex < segments.size() ? segments.get(selectedIndex).clip : null;
+        if (fadeClip == null) return Drag.NONE;
+        float knobHitR = SPINE_KNOB_HIT_R_DP * density;
+        float knobOffset = SPINE_KNOB_TOP_OFFSET_DP * density;
+        float cy = seg.top - knobOffset;
+        if (y < cy - knobHitR || y > seg.bottom) return Drag.NONE;
+        long trimmed = Math.max(1, fadeClip.getTrimmedDurationMs());
+        float inX = spineKnobX(true, seg, fadeClip);
+        float outX = spineKnobX(false, seg, fadeClip);
+        float dIn = (float) Math.sqrt((x - inX) * (x - inX) + (y - cy) * (y - cy));
+        float dOut = (float) Math.sqrt((x - outX) * (x - outX) + (y - cy) * (y - cy));
+        if (dIn <= knobHitR && dIn <= dOut) return Drag.FADE_IN_HANDLE;
+        if (dOut <= knobHitR) return Drag.FADE_OUT_HANDLE;
+        return Drag.NONE;
+    }
+
+    /** Content-x of a spine fade knob for the selected segment (draw + drag share this). */
+    private float spineKnobX(boolean fadeIn, @NonNull RectF seg, @NonNull Clip clip) {
+        long trimmed = Math.max(1, clip.getTrimmedDurationMs());
+        float w = Math.max(1f, seg.width());
+        long f = Math.max(0, Math.min(fadeIn ? clip.getMasterFadeInMs() : clip.getMasterFadeOutMs(), trimmed));
+        return fadeIn ? seg.left + w * f / (float) trimmed
+                      : seg.right - w * f / (float) trimmed;
+    }
+
+    /** FADE_KNOBS §2.5: live write for a spine knob drag — position IS the readout, like the lane rows. */
+    private void doMasterFadeDrag(float scrolledX) {
+        if (selectedIndex < 0 || selectedIndex >= segRects.size()) return;
+        Clip clip = segments.get(selectedIndex).clip;
+        if (clip == null) return;
+        RectF seg = segRects.get(selectedIndex);
+        long trimmed = Math.max(1, clip.getTrimmedDurationMs());
+        float frac = (scrolledX - seg.left) / Math.max(1f, seg.width());
+        long t = Math.round(trimmed * Math.max(0f, Math.min(1f, frac)));
+        boolean fadeIn = activeDrag == Drag.FADE_IN_HANDLE;
+        long half = trimmed / 2;
+        long v = fadeIn ? Math.max(0, Math.min(half, t)) : Math.max(0, Math.min(half, trimmed - t));
+        if (v <= 40) v = 0; // same dead-zone as the lane-row knobs
+        long other = fadeIn ? clip.getMasterFadeOutMs() : clip.getMasterFadeInMs();
+        if (v + other > trimmed) v = Math.max(0, trimmed - other);
+        if (fadeIn) clip.setMasterFadeInMs(v); else clip.setMasterFadeOutMs(v);
+        fadeLastInMs = clip.getMasterFadeInMs();
+        fadeLastOutMs = clip.getMasterFadeOutMs();
+        invalidate();
     }
 
     // ── Slide freeze-zone handles (JoyRaptor 2026-07-16) ─────────────────

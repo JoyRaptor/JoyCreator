@@ -89,7 +89,10 @@ public class OpacityExportShaderProgram extends BaseGlShaderProgram {
             // offset to recover clip-local time. Adding it (the previous wrong sign) made
             // the lookup point past the last keyframe → constant opacity = no visible fade.
             long clipMs = ExportManager.clipMsFor(presentationTimeUs, clipTimelineOffsetMs);
-            float opacity = clip.opacityAtClipMs(clipMs);
+            // FADE_KNOBS §2.5: knob fade multiplies the keyframe envelope — the spine's
+            // fade-to-black rides the SAME alpha the Opacity button drives (RGB+alpha both
+            // scaled → encoder drops alpha → fades cleanly to black).
+            float opacity = clip.opacityAtClipMs(clipMs) * clip.masterFadeFactorAt(clipMs);
             glProgram.use();
             glProgram.setSamplerTexIdUniform("uTexSampler", inputTexId, 0);
             glProgram.setFloatUniform("uOpacity", opacity);

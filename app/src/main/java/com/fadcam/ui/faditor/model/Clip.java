@@ -1814,6 +1814,29 @@ public class Clip implements AudioParams {
     public void setMasterFadeInMs(long ms) { this.masterFadeInMs = Math.max(0, ms); }
     public void setMasterFadeOutMs(long ms) { this.masterFadeOutMs = Math.max(0, ms); }
 
+    public boolean hasMasterFade() { return masterFadeInMs > 0 || masterFadeOutMs > 0; }
+
+    /**
+     * FADE_KNOBS §2.5: the fade-knob multiplier 0..1 at clip-local {@code clipMs}.
+     *
+     * <p>JoyRaptor's ruling: the spine's "opacity" is honest precisely because there is nothing
+     * under it — alpha over black IS fade-to-black, so the knobs multiply into the SAME
+     * alpha the Opacity-button envelope drives (preview playerView alpha + export
+     * OpacityExportEffect), rather than getting a second compositing path. Stacks
+     * multiplicatively with the keyframe envelope, like every other fade host.</p>
+     */
+    public float masterFadeFactorAt(long clipMs) {
+        if (masterFadeInMs <= 0 && masterFadeOutMs <= 0) return 1f;
+        long dur = getTrimmedDurationMs();
+        if (masterFadeInMs > 0 && clipMs < masterFadeInMs) {
+            return (float) Math.max(0, clipMs) / (float) masterFadeInMs;
+        }
+        if (masterFadeOutMs > 0 && clipMs > dur - masterFadeOutMs) {
+            return Math.max(0f, (float) (dur - clipMs) / (float) masterFadeOutMs);
+        }
+        return 1f;
+    }
+
     /** The opacity envelope keyframes (sorted ascending by time). */
     @NonNull
     public List<OpacityKeyframe> getOpacityKeyframes() { return opacityKeyframes; }

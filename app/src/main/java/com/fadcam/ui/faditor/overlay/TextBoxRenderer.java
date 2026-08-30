@@ -709,12 +709,15 @@ public final class TextBoxRenderer {
         }
         float glowRadiusPx = o.animatedGlowRadiusPx(mediaMs);
         if (glowRadiusPx > 0f && run.glow != Color.TRANSPARENT) {
-            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(glowRadiusPx, fontPx), 0f, 0f, run.glow);
+            // Fade the halo WITH the text (JoyRaptor: "all the elements of the font fade at the
+            // same time") — the raw glow colour used to stand at full alpha under a fading fill.
+            p.setShadowLayer(com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(glowRadiusPx, fontPx), 0f, 0f,
+                    CaptionAnimator.applyAlpha(run.glow, animAlpha));
             p.setStyle(Paint.Style.FILL);
             p.setColor(CaptionAnimator.applyAlpha(run.fill, animAlpha));
             c.drawText(runText, x, baseY, p);
         }
-        applyShadow(p, run.shadow, fontPx, mediaMs, o);
+        applyShadow(p, run.shadow, fontPx, mediaMs, o, animAlpha);
         p.setStyle(Paint.Style.FILL);
         p.setColor(CaptionAnimator.applyAlpha(run.fill, animAlpha));
         c.drawText(runText, x, baseY, p);
@@ -788,9 +791,14 @@ public final class TextBoxRenderer {
      *                at. Passed 0 (= the object's own local time 0) from pre-frame paint setup,
      *                where no frame time is known yet and every draw call overwrites the shadow
      *                layer again with the real one before anything shows.
+     * @param alpha   the SAME animated alpha the fill/stroke passes get — the shadow layer
+     *                colour used to be set at raw alpha, so during a fade the drop shadow
+     *                appeared at full strength and the glyphs faded in OVER it (JoyRaptor:
+     *                "looks like they are separate pieces"). Multiplied here so every
+     *                element of the font fades as one.
      */
     private static void applyShadow(@NonNull TextPaint p, int shadowColor, float fontPx,
-                                    long mediaMs, @NonNull TextOverlayItem o) {
+                                    long mediaMs, @NonNull TextOverlayItem o, float alpha) {
         float radiusPercent = o.animatedShadowRadiusPx(mediaMs);
         float radius = radiusPercent > 0f
                 ? com.fadcam.ui.faditor.model.TextOverlayItem.decorRadiusPx(radiusPercent, fontPx)
@@ -799,7 +807,7 @@ public final class TextBoxRenderer {
         float distance = o.animatedShadowDistancePx(mediaMs);
         float dx = com.fadcam.ui.faditor.model.TextOverlayItem.shadowDx(angle, distance, fontPx);
         float dy = com.fadcam.ui.faditor.model.TextOverlayItem.shadowDy(angle, distance, fontPx);
-        p.setShadowLayer(radius, dx, dy, shadowColor);
+        p.setShadowLayer(radius, dx, dy, CaptionAnimator.applyAlpha(shadowColor, alpha));
     }
 
     private static float clamp01(float v) {

@@ -3376,7 +3376,8 @@ public class ExportManager {
                     + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
         }
 
-        if (!isTransitionItem && clip.hasOpacityKeyframes()) {
+        // FADE_KNOBS §2.5: master fade knobs also need the post-process opacity pass.
+        if (!isTransitionItem && (clip.hasOpacityKeyframes() || clip.hasMasterFade())) {
             videoEffects.add(new OpacityExportEffect(clip, timelineCursorMs));
         }
 

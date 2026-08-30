@@ -121,9 +121,11 @@ still resolves. Check 10 is the one that matters.
 ```
 Read tasks/LANES.md, then tasks/SPEC_20260829_PROJECT_BUNDLING.md, then
 tasks/VERIFY_BUNDLING_20260829.md. Branch joy-creator. Same rules.
-The code landed but NOTHING was verified on a device. Do acceptance check 1 first (old
-projects still open), then check 7, which is the point of the whole spec: export, uninstall
-the app, reinstall, import, and confirm the imported FONT survived.
+Check 7 (uninstall/reinstall) is ALREADY DONE and PASSED - do NOT repeat it. Running it
+destroyed 23 of JoyRaptor's 24 projects on 2026-08-29. Do NOT uninstall the app for any reason.
+Owed instead: checks 2-6 and 8-9 - consolidate size estimate, project.json relative refs,
+idempotent second run, dedup, cancel-midway, relink one file resolving a whole folder, and
+timing on a ~1GB project.
 ```
 
 ### F — Fade knobs (finish it)

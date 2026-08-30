@@ -2056,6 +2056,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onMasterFadeFinished(int segmentIndex, long oldInMs, long oldOutMs,
+                                             long newInMs, long newOutMs) {
+                // FADE_KNOBS §2.5: spine knobs committed — one undo step (the values are
+                // already live on the Clip; this records the step and persists).
+                if (isWordSyncActive()) return;
+                Clip clip = project != null ? project.getTimeline().getClip(segmentIndex) : null;
+                if (clip == null) return;
+                final long fIn = oldInMs, fOut = oldOutMs;
+                final Clip fc = clip;
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                        "Fade", // TODO(strings)
+                        () -> { fc.setMasterFadeInMs(newInMs); fc.setMasterFadeOutMs(newOutMs);
+                                if (editorTimeline != null) editorTimeline.invalidate(); syncTimelineOverlays(); },
+                        () -> { fc.setMasterFadeInMs(fIn); fc.setMasterFadeOutMs(fOut);
+                                if (editorTimeline != null) editorTimeline.invalidate(); syncTimelineOverlays(); }));
+                refreshTotalTimeDisplay();
+                saveProjectNow();
+            }
+
+            @Override
             public void onSlideDoubleTapped(int segmentIndex) {
                 Timeline tl = project.getTimeline();
                 if (segmentIndex >= 0 && segmentIndex < tl.getClipCount()) {
@@ -9969,8 +9989,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         {
             Clip clip = clipUnderPlayhead();
             float opacity = 1f;
-            if (clip != null && clip.hasOpacityKeyframes()) {
-                opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(timelineLocalMs)));
+            if (clip != null) {
+                if (clip.hasOpacityKeyframes()) {
+                    opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(timelineLocalMs)));
+                }
+                // FADE_KNOBS §2.5: the spine fade knobs multiply in (JoyRaptor's cheap route —
+                // alpha over black IS fade-to-black; nothing lives under the spine).
+                opacity *= clip.masterFadeFactorAt(timelineLocalMs);
+                opacity = Math.max(0f, Math.min(1f, opacity));
             }
             if (playerView != null) playerView.setAlpha(opacity);
             // Skipped while the GL chain owns the picture: this view is held at alpha 0 there and
@@ -16819,18 +16845,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     wordSyncShuttleDragIndex = wordScrubCurrentIndex;
                     wordSyncShuttleTotalDeltaMs = 0;
                     ensureWordSyncMode();
-                    // Also tell WordSyncMode so its onSourceChanged/scrub audio can follow
-                    if (wordSyncMode != null) {
-                        wordSyncMode.setHost(new com.fadcam.ui.faditor.transcript.WordSyncMode.Host() {
-                            @Override public @NonNull android.content.Context context() { return FaditorEditorActivity.this; }
-                            @Override public @Nullable android.net.Uri sourceUri() { return getWordSyncSourceUri(); }
-                            @Override public @Nullable com.fadcam.ui.faditor.transcript.Transcript transcript() { return getWordSyncTranscript(); }
-                            @Override public double msPerPixel() { return getWordSyncMsPerPixel(); }
-                            @Override public long fallbackAnchorMs() { return getWordSyncFallbackAnchorMs(); }
-                            @Override public void onTimingsChanged(@NonNull long[] before, @NonNull long[] after, int draggedIndex) {}
-                            @Override public void requestRedraw() { if (editorTimeline != null) editorTimeline.invalidate(); if (transcriptView != null) transcriptView.invalidate(); }
-                        });
-                    }
+                    // NOTE: deliberately NO setHost here. An earlier version of this block
+                    // replaced WordSyncMode's host with a stub whose onTimingsChanged was
+                    // EMPTY — every shuttle touch silently downgraded the mode, and tape
+                    // drags afterwards stopped recording their WordTimingAction (§6a
+                    // violated, undo lost, no error anywhere). ensureWordSyncMode() above
+                    // already installs the full host, exactly once.
                 }
                 @Override public void onScrubTick(long deltaMs) {
                     // Shuttle's per-frame delta → accumulate and apply via ripple (keeps undo coalesced)

@@ -1016,7 +1016,8 @@ public final class FxLivePreviewController {
         // Find clip start to derive sourceMs
         long clipStart = clipStartMs(timeline, clip);
         long localMs = Math.max(0, playheadMs - clipStart);
-        long sourceMs = clip.getInPointMs() + (long)(localMs * clip.getSpeedMultiplier());
+        long clipLocalMs = (long)(localMs * clip.getSpeedMultiplier());
+        long sourceMs = clip.getInPointMs() + clipLocalMs;
         java.util.List<FxPreviewTextureView.Pip> out = new java.util.ArrayList<>();
         java.util.Set<String> seen = new java.util.HashSet<>();
         for (int i = 0; i < bindings.size() && i < Clip.MAX_CAPTION_BINDINGS; i++) {
@@ -1025,13 +1026,22 @@ public final class FxLivePreviewController {
             String key = clip.getId() + "#" + i;
             if (seen.contains(key)) continue;
             seen.add(key);
-            android.graphics.Bitmap tex = captionTextureCache.getOrCreate(clip, i, b, sourceMs, videoW, videoH);
+            // Style keyframes: first binding's style animates via Clip.captionStyleKeyframes (export parity)
+            Clip.CaptionBinding effective = b;
+            if (i == 0 && clip.hasCaptionStyleKeyframes()) {
+                String kfStyle = clip.captionStyleAtClipMs(clipLocalMs);
+                if (kfStyle != null && !kfStyle.equals(b.styleId)) {
+                    effective = b.copy();
+                    effective.styleId = kfStyle;
+                }
+            }
+            android.graphics.Bitmap tex = captionTextureCache.getOrCreate(clip, i, effective, sourceMs, videoW, videoH);
             if (tex == null || tex.isRecycled()) continue;
             // Quad geometry: tight bitmap -> halfW/H in NDC, placed at binding center
             float halfW = (tex.getWidth() / CaptionTextureCache.SUPERSAMPLE / videoW) / 2f;
             float halfH = (tex.getHeight() / CaptionTextureCache.SUPERSAMPLE / videoH) / 2f;
-            float cx = b.centerX;
-            float cy = b.centerY;
+            float cx = effective.centerX;
+            float cy = effective.centerY;
             // Alpha 1 — captions have no per-clip opacity envelope yet
             FxPreviewTextureView.Pip pip = FxPreviewTextureView.Pip.ofImage(
                     cx, cy, halfW, halfH, 0f, 1f,

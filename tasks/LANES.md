@@ -1,5 +1,10 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
+#    supersedes the mode UI from b3648455/139b5dbf/94b4cb9c/2c7d4dfa. The ENGINE stays; the
+#    new banner comes out and the EXISTING word drawer (showWordScrubDrawer:16439) becomes
+#    the mode. UNCLAIMED - top of the queue.
+#
 # 🛑🛑 NEVER `adb uninstall` THE APP. Projects live in app-private storage and Android wipes
 #      it on uninstall - silently, with no prompt and no recovery. On 2026-08-29 a lane ran
 #      an uninstall/reinstall acceptance check on JoyRaptor's own phone and destroyed 23 of his

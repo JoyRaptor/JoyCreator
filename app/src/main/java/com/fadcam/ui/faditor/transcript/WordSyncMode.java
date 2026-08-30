@@ -83,6 +83,17 @@ public final class WordSyncMode {
     /** B/U/I are not live — per-word rich text does not exist yet (SPEC §3.6). */
     public static boolean isRichTextAvailable() { return false; }
 
+    /**
+     * Snap FEEL knob (JoyRaptor, 2026-08-30: "a little less aggressively sticky — you can feel
+     * it slide into a groove but push past it easier"). Scales the ms-per-pixel handed to
+     * {@link WordSyncOnsets} {@code snap}, which shrinks {@link OnsetDetector}
+     * {@code snapToleranceMs} proportionally (12px-equivalent → ~5px-equivalent, still
+     * bounded by the engine's 40–120ms clamp). The engine itself is untouched; every snap
+     * call site passes this factor so tape drags, the shuttle and the magnet indicator all
+     * agree on where the grooves are.
+     */
+    public static final double SNAP_STICKINESS = 0.45;
+
     /** Enter the mode. Idempotent. Starts onset computation and prepares scrub audio. */
     public void enter() {
         if (active) return;
@@ -205,7 +216,8 @@ public final class WordSyncMode {
         long snapped = desiredMs;
         if (snapEnabled && uri != null) {
             // WordSyncOnsets.snap needs a Context; it returns input unchanged when onsets not ready.
-            snapped = WordSyncOnsets.snap(host.context(), uri, desiredMs, msPerPixel, true);
+            // SNAP_STICKINESS scales the tolerance down (see field doc) — feel, not logic.
+            snapped = WordSyncOnsets.snap(host.context(), uri, desiredMs, msPerPixel * SNAP_STICKINESS, true);
         }
         long anchor = WordSyncRipple.anchorFor(dragBeforeStarts, pinned != null ? pinned : new boolean[dragBeforeStarts.length], dragIndex, dragFallbackAnchor);
         long[] after = WordSyncRipple.apply(dragBeforeStarts, dragIndex, snapped, rippleMode, anchor);

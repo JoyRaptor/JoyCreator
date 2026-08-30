@@ -565,6 +565,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView wordSyncDrawerRippleLabel;
     private TextView wordSyncDrawerSnapLabel;
     private android.widget.Toast wordSyncToast;
+    // SNAP discovery (JoyRaptor 2026-08-30): horseshoe magnet right of the shuttle, white while
+    // the word's desired position sits inside a snapping zone.
+    private com.fadcam.ui.faditor.transcript.SnapMagnetIndicator wordSyncMagnet;
     // Shuttle drag state for one-undo per gesture (§6a): snapshot at onScrubStart
     private long[] wordSyncShuttleBeforeStarts;
     private long wordSyncShuttleTotalDeltaMs;
@@ -2919,6 +2922,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         opacityDrawerKeyframe = findViewById(R.id.opacity_drawer_keyframe);
         wordScrubDrawer = findViewById(R.id.word_scrub_drawer);
         wordScrubStrip = findViewById(R.id.word_scrub_strip);
+        wordSyncMagnet = findViewById(R.id.word_sync_magnet);
         wordScrubWordText = findViewById(R.id.word_scrub_word_text);
         wordScrubTimestamp = findViewById(R.id.word_scrub_timestamp);
         wordScrubPrev = findViewById(R.id.word_scrub_prev);
@@ -16582,10 +16586,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (isWordSyncActive() && wordSyncMode != null && t.words.size() > wordScrubCurrentIndex && wordScrubCurrentIndex >= 0) {
             // Use ripple engine for the delta — one-shot via WordSyncRipple.apply (§6)
             long desired = before[wordScrubCurrentIndex] + (long) (deltaMs * speed);
-            // Snap when SNAP on (§6)
-            if (wordSyncMode.isSnapEnabled()) {
+            updateWordSyncMagnet(desired);
+            // Snap when SNAP on (§6) — stickiness-scaled tolerance (feel knob)
+            if (isWordSyncActive() && wordSyncMode != null && wordSyncMode.isSnapEnabled()) {
                 android.net.Uri uri = getWordSyncSourceUri();
-                double msPerPixel = getWordSyncMsPerPixel();
+                double msPerPixel = getWordSyncMsPerPixel() * com.fadcam.ui.faditor.transcript.WordSyncMode.SNAP_STICKINESS;
                 if (uri != null) desired = com.fadcam.ui.faditor.transcript.WordSyncOnsets.snap(this, uri, desired, msPerPixel, true);
             }
             // Ripple
@@ -16654,6 +16659,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordSyncShuttleBeforeStarts = null;
         wordSyncShuttleDragIndex = -1;
         wordSyncShuttleTotalDeltaMs = 0;
+        if (wordSyncMagnet != null) wordSyncMagnet.setSnapping(false);
     }
 
     private void refreshWordScrubChrome() {
@@ -16878,9 +16884,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     Clip clip = getSelectedClip();
                     float speed = Math.max(0.01f, clip != null ? clip.getSpeedMultiplier() : 1f);
                     long desired = wordSyncShuttleBeforeStarts[wordSyncShuttleDragIndex] + (long)(wordSyncShuttleTotalDeltaMs * speed);
+                    updateWordSyncMagnet(desired);
                     if (wordSyncMode.isSnapEnabled()) {
                         android.net.Uri uri = getWordSyncSourceUri();
-                        double msPerPixel = getWordSyncMsPerPixel();
+                        double msPerPixel = getWordSyncMsPerPixel() * com.fadcam.ui.faditor.transcript.WordSyncMode.SNAP_STICKINESS;
                         if (uri != null) desired = com.fadcam.ui.faditor.transcript.WordSyncOnsets.snap(FaditorEditorActivity.this, uri, desired, msPerPixel, true);
                     }
                     boolean[] pinned = new boolean[wordSyncShuttleBeforeStarts.length];
@@ -17143,6 +17150,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     float dx = event.getX() - tapeWordDownX;
                     long desired = tapeWordDownStartMs
                             + (long) (dx * getWordSyncMsPerPixel() * wordSyncOwnerSpeed());
+                    updateWordSyncMagnet(desired);
                     // Snap (§SNAP) + ripple/stretch (§3.4) + live write to the SHARED transcript
                     wordSyncMode.dragTo(desired);
                     refreshWordScrubChrome();
@@ -17232,6 +17240,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordSyncToast.show();
     }
 
+    /**
+     * SNAP discovery: light the horseshoe magnet while {@code desiredRawMs} (pre-snap) sits
+     * inside a snapping zone. Uses the SAME stickiness-scaled tolerance the snap call sites
+     * honor, so the lit state is exactly "the next snap would grab this word".
+     */
+    private void updateWordSyncMagnet(long desiredRawMs) {
+        if (wordSyncMagnet == null) return;
+        boolean on = false;
+        if (isWordSyncActive() && wordSyncMode != null && wordSyncMode.isSnapEnabled()
+                && desiredRawMs >= 0) {
+            double msp = getWordSyncMsPerPixel() * com.fadcam.ui.faditor.transcript.WordSyncMode.SNAP_STICKINESS;
+            long tolMs = com.fadcam.ui.faditor.waveform.OnsetDetector.snapToleranceMs(msp);
+            android.net.Uri uri = getWordSyncSourceUri();
+            if (uri != null && tolMs > 0) {
+                long[] onsets = com.fadcam.ui.faditor.transcript.WordSyncOnsets.get(this, uri, null);
+                if (onsets != null && onsets.length > 0) {
+                    int lo = 0, hi = onsets.length - 1;
+                    while (lo <= hi) {
+                        int mid = (lo + hi) >>> 1;
+                        long v = onsets[mid];
+                        if (v < desiredRawMs - tolMs) lo = mid + 1;
+                        else if (v > desiredRawMs + tolMs) hi = mid - 1;
+                        else { on = true; break; }
+                    }
+                }
+            }
+        }
+        wordSyncMagnet.setSnapping(on);
+    }
+
     private void updateWordScrubDrawerChrome() {
         if (wordSyncDrawerRippleLabel != null && wordSyncMode != null) {
             wordSyncDrawerRippleLabel.setText(wordSyncMode.getRippleMode().name());
@@ -17272,6 +17310,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean next = !wordSyncMode.isSnapEnabled();
         wordSyncMode.setSnapEnabled(next);
         updateWordScrubDrawerChrome();
+        if (!next && wordSyncMagnet != null) wordSyncMagnet.setSnapping(false);
         showWordSyncToast(next ? "Snapping on — words jump to the nearest sound." : "Snapping off — words land exactly where you drop them.");
         if (editorTimeline != null) editorTimeline.invalidate();
     }

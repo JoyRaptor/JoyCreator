@@ -16467,6 +16467,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ensureWordSyncMode();
             wordSyncMode.enter();
             wordSyncMode.onSourceChanged();
+            showWordSyncToast("WORD SYNC ON — you can now rearrange words on the timeline tape. Close the drawer to exit this mode.");
             if (transcriptView != null) { transcriptView.setWordSyncMode(wordSyncMode); transcriptView.invalidate(); }
             if (editorTimeline != null) {
                 try {
@@ -16590,6 +16591,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .withEndAction(() -> wordScrubDrawer.setVisibility(View.GONE)).start();
         // §2: exiting Word Sync
         if (wordSyncMode != null) wordSyncMode.exit();
+        showWordSyncToast("Word Sync mode OFF — words locked to tape.");
         if (transcriptView != null) { transcriptView.setWordSyncMode(null); transcriptView.invalidate(); }
         if (editorTimeline != null) {
             try {

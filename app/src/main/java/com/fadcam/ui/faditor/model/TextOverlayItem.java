@@ -2001,8 +2001,10 @@ public class TextOverlayItem {
     public float animatedOpacity(long timelineMs) {
         float base = keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
                 localTime(timelineMs), opacity);
-        // Stackable image fade handles multiply the base opacity (spec §3.6) — images only, text has no fade.
-        if (isImage() && (imageFadeInMs > 0 || imageFadeOutMs > 0)) {
+        // Stackable fade handles multiply the base opacity (spec §3.6) — images AND text
+        // (FADE_KNOBS §2.5: text shares the same 0..1 intensity host; knob drag writes
+        // imageFadeInMs/OutMs for both, preview + export both read animatedOpacity).
+        if (imageFadeInMs > 0 || imageFadeOutMs > 0) {
             long local = localTime(timelineMs);
             // Need duration to compute fade factor; use start/end directly if bounded, else local+1
             long dur = (endMs == Long.MAX_VALUE ? local + imageFadeOutMs + 1 : endMs - startMs);

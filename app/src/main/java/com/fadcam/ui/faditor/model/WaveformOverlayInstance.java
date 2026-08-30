@@ -121,6 +121,19 @@ public class WaveformOverlayInstance {
     public void setFadeInMs(long ms) { this.fadeInMs = Math.max(0, ms); }
     public void setFadeOutMs(long ms) { this.fadeOutMs = Math.max(0, ms); }
 
+    /** FADE_KNOBS §2.5: opacity multiplier 0..1 at an absolute timeline time. No keyframes on
+     *  this host, so this IS the whole opacity chain — preview + export multiply by it. */
+    public float fadeFactorAt(long timelineMs) {
+        if (fadeInMs <= 0 && fadeOutMs <= 0) return 1f;
+        long local = Math.max(0, timelineMs - startMs);
+        long dur = (endMs == Long.MAX_VALUE ? local + fadeOutMs + 1 : endMs - startMs);
+        if (fadeInMs > 0 && local < fadeInMs) return (float) local / (float) fadeInMs;
+        if (fadeOutMs > 0 && local > dur - fadeOutMs) {
+            return Math.max(0f, (float) (dur - local) / (float) fadeOutMs);
+        }
+        return 1f;
+    }
+
     /**
      * Runtime-only mapping from output (edited) timeline time to the driving clip's SOURCE audio
      * time, so the visualizer reads the right part of the waveform when the clip is trimmed or

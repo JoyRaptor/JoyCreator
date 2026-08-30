@@ -58,6 +58,8 @@ public class WaveformOverlayView extends View {
 
     private final Paint selectionPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Fade-knob alpha paint (FADE_KNOBS §2.5) — lazily created, only when a fade is active. */
+    @androidx.annotation.Nullable private Paint fadePaint;
     private final Handler handler = new Handler(Looper.getMainLooper());
     @Nullable private OnChangeListener changeListener;
     @Nullable private WaveformOverlayInstance selected;
@@ -161,7 +163,16 @@ public class WaveformOverlayView extends View {
             float cy = o.getCenterY() * h;
             canvas.save();
             if (o.getRotationDeg() != 0f) canvas.rotate(o.getRotationDeg(), cx, cy);
-            canvas.drawBitmap(bmp, cx - rw / 2f, cy - rh / 2f, null);
+            // FADE_KNOBS §2.5: the knob fade multiplies the visualizer's alpha (§2.2 "same idea
+            // for audio" — display fades even though no audio is muted by it).
+            float fadeAlpha = o.fadeFactorAt(playheadMs);
+            if (fadeAlpha >= 0.999f) {
+                canvas.drawBitmap(bmp, cx - rw / 2f, cy - rh / 2f, null);
+            } else {
+                if (fadePaint == null) fadePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                fadePaint.setAlpha(Math.round(Math.max(0f, Math.min(1f, fadeAlpha)) * 255f));
+                canvas.drawBitmap(bmp, cx - rw / 2f, cy - rh / 2f, fadePaint);
+            }
             if (o == selected) {
                 float left = cx - rw / 2f, top = cy - rh / 2f;
                 float right = cx + rw / 2f, bottom = cy + rh / 2f;

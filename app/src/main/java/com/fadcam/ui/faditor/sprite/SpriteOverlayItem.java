@@ -316,7 +316,20 @@ public class SpriteOverlayItem {
     }
 
     public float animatedOpacity(long timelineMs) {
-        return keyframes.valueAt(KeyframeSet.OPACITY, localTime(timelineMs), opacity);
+        float base = keyframes.valueAt(KeyframeSet.OPACITY, localTime(timelineMs), opacity);
+        // FADE_KNOBS §2.5: fade handles multiply the base opacity (stackable — mirrors
+        // TextOverlayItem.animatedOpacity; every preview + export site reads this).
+        if (fadeInMs > 0 || fadeOutMs > 0) {
+            long local = localTime(timelineMs);
+            long dur = (endMs == Long.MAX_VALUE ? local + fadeOutMs + 1 : endMs - startMs);
+            float factor;
+            if (fadeInMs > 0 && local < fadeInMs) factor = (float) local / (float) fadeInMs;
+            else if (fadeOutMs > 0 && local > dur - fadeOutMs) {
+                long rem = dur - local; factor = Math.max(0f, (float) rem / (float) fadeOutMs);
+            } else factor = 1f;
+            return base * factor;
+        }
+        return base;
     }
 
     /** Record the current static transform as a keyframe at the given timeline

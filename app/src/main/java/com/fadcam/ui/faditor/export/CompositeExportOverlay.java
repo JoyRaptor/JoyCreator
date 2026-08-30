@@ -897,9 +897,16 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // opacity envelope (clip-local time, same convention as
             // OpacityExportShaderProgram). Detached / hostless slots draw at full.
             Paint wfPaint = null;
+            // FADE_KNOBS §2.5: the visualizer's own fade knobs multiply in too — the
+            // piggyback envelope and the instance's fades COMPOSE (both are multipliers).
+            float ownFade = ws.instance.fadeFactorAt(timelineMs);
+            if (ownFade <= 0.004f) {
+                wfBmp.recycle();
+                continue; // fully faded by its own knobs — nothing to draw
+            }
             if (ws.hostClip != null) {
                 float hostOpacity = Math.max(0f, Math.min(1f,
-                        ws.hostClip.opacityAtClipMs(timelineMs - ws.hostStartMs)));
+                        ws.hostClip.opacityAtClipMs(timelineMs - ws.hostStartMs))) * ownFade;
                 if (hostOpacity <= 0.004f) {
                     wfBmp.recycle();
                     continue; // host fully faded — rider vanishes with it
@@ -908,6 +915,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     hostOpacityPaint.setAlpha(Math.round(hostOpacity * 255f));
                     wfPaint = hostOpacityPaint;
                 }
+            } else if (ownFade < 0.999f) {
+                hostOpacityPaint.setAlpha(Math.round(ownFade * 255f));
+                wfPaint = hostOpacityPaint;
             }
             drawnWaveform++;
             canvas.save();

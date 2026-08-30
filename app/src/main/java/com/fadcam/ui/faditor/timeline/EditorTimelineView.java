@@ -822,7 +822,7 @@ public class EditorTimelineView extends View {
      * and scrubbing — string-building + regex there was a measurable slice of the main-thread
      * budget on long projects. Constant-false so javac strips the calls; flip locally to debug.
      */
-    private static final boolean VLOG = false;
+    private static final boolean VLOG = true;
 
     // ── §2 item preview images (LANE_BADGES spec) — decode/extract state owned HERE so the
     //    renderer stays pure-draw. All served from these caches; misses kick an async load
@@ -9589,6 +9589,15 @@ if (sd.clip.hasVolumeKeyframes()) {
         dragGhostPaint.setStrokeWidth(4f * density);
     }
     
+    // ── Word Sync V2 — tape word hit-test helpers (public for Activity) ───────
+    public float getScrollOffsetPx() { return scrollOffsetPx; }
+    public long getTimelineMsForX(float viewX) { return xToTime(viewX + scrollOffsetPx); }
+    public float getViewXForTimelineMs(long ms) { return timeToX(ms) - scrollOffsetPx; }
+    public float getMsPerPixelPublic() { return 1000f / Math.max(1f, dpPerSecondPx); }
+    /** Expose xToTime/timeToX for Word Sync hit-testing (was private). */
+    public long publicXToTime(float x) { return xToTime(x); }
+    public float publicTimeToX(long ms) { return timeToX(ms); }
+
     // ── Gesture listeners ────────────────────────────────────────────
     
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {

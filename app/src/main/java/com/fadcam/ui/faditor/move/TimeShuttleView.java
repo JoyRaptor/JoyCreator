@@ -95,6 +95,29 @@ public final class TimeShuttleView extends View {
         thumbShadow.setColor(0x66000000);
     }
 
+    // XML inflation requires Context+AttributeSet constructor — was programmatic-only before V2
+    public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs) {
+        super(ctx, attrs);
+        density = ctx.getResources().getDisplayMetrics().density;
+        trackPaint.setColor(0xFF2A2A2E);
+        tickPaint.setColor(0xFF55555A);
+        tickPaint.setStrokeWidth(1f * density);
+        fillPaint.setColor(0xFF4CAF50);
+        thumbPaint.setColor(0xFFEDEDED);
+        thumbShadow.setColor(0x66000000);
+    }
+
+    public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs, int defStyleAttr) {
+        super(ctx, attrs, defStyleAttr);
+        density = ctx.getResources().getDisplayMetrics().density;
+        trackPaint.setColor(0xFF2A2A2E);
+        tickPaint.setColor(0xFF55555A);
+        tickPaint.setStrokeWidth(1f * density);
+        fillPaint.setColor(0xFF4CAF50);
+        thumbPaint.setColor(0xFFEDEDED);
+        thumbShadow.setColor(0x66000000);
+    }
+
     public void setListener(@Nullable Listener l) { this.listener = l; }
 
     /** Retune the top scrub speed (ms of timeline per second at full deflection). */

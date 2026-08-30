@@ -16496,6 +16496,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (wordScrubCurrentIndex < 0 || transcriptView == null) return;
         com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
         if (t == null) return;
+        // Ensure t is the model transcript (same instance the tape draws) — otherwise tape won't move.
+        // The drawer and the tape must share the same Transcript object; if they diverged (copy vs reference), coerce them.
+        com.fadcam.ui.faditor.transcript.Transcript modelT = null;
+        if (transcriptClipId != null && project != null) {
+            Clip owner = findClipById(transcriptClipId);
+            if (owner != null && owner.hasTranscript() && owner.getActiveNamedTranscript() != null) modelT = owner.getActiveNamedTranscript().transcript;
+            if (modelT == null) {
+                for (AudioClip ac2 : project.getTimeline().getAudioClips()) {
+                    if (ac2 != null && transcriptClipId.equals(ac2.getId()) && ac2.hasTranscript() && ac2.getActiveNamedTranscript() != null) { modelT = ac2.getActiveNamedTranscript().transcript; break; }
+                }
+            }
+        }
+        if (modelT != null && modelT != t) {
+            // Re-home the view onto the model instance so both see the same mutation
+            transcriptView.setTranscript(modelT);
+            t = modelT;
+            // Keep currentTranscript in sync as well
+            currentTranscript = modelT;
+        }
         Clip clip = getSelectedClip();
         if (clip == null) {
             // Fallback for audio transcripts
@@ -16798,6 +16817,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
                     if (t == null || wordSyncMode == null) { applyWordGroupDelta(deltaMs); return; }
+                    // Coerce to model instance so tape moves
+                    com.fadcam.ui.faditor.transcript.Transcript modelT2 = null;
+                    if (transcriptClipId != null && project != null) {
+                        Clip owner2 = findClipById(transcriptClipId);
+                        if (owner2 != null && owner2.hasTranscript() && owner2.getActiveNamedTranscript() != null) modelT2 = owner2.getActiveNamedTranscript().transcript;
+                        if (modelT2 == null) {
+                            for (AudioClip ac2 : project.getTimeline().getAudioClips()) {
+                                if (ac2 != null && transcriptClipId.equals(ac2.getId()) && ac2.hasTranscript() && ac2.getActiveNamedTranscript() != null) { modelT2 = ac2.getActiveNamedTranscript().transcript; break; }
+                            }
+                        }
+                    }
+                    if (modelT2 != null && modelT2 != t) { transcriptView.setTranscript(modelT2); t = modelT2; currentTranscript = modelT2; }
                     Clip clip = getSelectedClip();
                     float speed = Math.max(0.01f, clip != null ? clip.getSpeedMultiplier() : 1f);
                     long desired = wordSyncShuttleBeforeStarts[wordSyncShuttleDragIndex] + (long)(wordSyncShuttleTotalDeltaMs * speed);

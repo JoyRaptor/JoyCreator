@@ -138,6 +138,24 @@ its **date**.
 7. Export to a zip. **Uninstall the app. Reinstall. Import the zip. The project opens with
    its media AND its imported font intact.** This is the check the whole spec exists for —
    fonts currently die on uninstall.
+
+   🛑 **STOP. UNINSTALLING DESTROYS EVERY PROJECT ON THAT DEVICE.** Projects live in
+   app-private storage (`getFilesDir()`), which Android wipes on uninstall. There is no
+   recovery and no prompt.
+
+   On 2026-08-29 this check was run on JoyRaptor's own phone and took **23 of his 24 projects
+   with it.** That is my fault, not the agent's — this spec said "uninstall the app" and
+   did not say what that would cost. It says it now.
+
+   **Before running this check you MUST:**
+   1. `adb shell run-as com.fadcam.beta ls files/faditor/projects` and count them.
+   2. If there is more than the one test project, **do not proceed.** Ask JoyRaptor. Either use
+      a device with nothing on it, or back every project up first:
+      `adb exec-out run-as com.fadcam.beta tar c files/faditor > projects_backup.tar`
+      and confirm the tar is non-empty before you touch anything.
+   3. Say in your report how many projects were on the device and what you did about them.
+
+   A verification step that destroys the user's work has failed, however green it comes back.
 8. Relink: break a project by moving its media folder, open the catalog, and relink. Report
    what was broken and what you changed. Confirm one relink resolves the whole folder.
 9. Report total time and size for a ~1 GB project. If consolidate takes minutes, say so.

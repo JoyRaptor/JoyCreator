@@ -54,6 +54,7 @@ here because breaking it cost real work in the last 48 hours.
 | **Never resolve a merge conflict — stop and hand it to Claude** | one rewrote `strings.xml` as UTF-16, one dropped a whole commit. Both silent |
 | **Never report work you have not compiled** | two lanes reported features landed against a build hours stale, both left the tree red |
 | **Re-derive tap coordinates from a fresh screenshot** | a sweep reported a false audio regression from stale coordinates |
+| 🛑 **Never `adb uninstall` the app** | **destroyed 23 of JoyRaptor's 24 projects on 2026-08-29.** Projects live in app-private storage; uninstall wipes it with no prompt and no recovery |
 
 ---
 

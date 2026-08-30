@@ -1,5 +1,11 @@
 # LANES.md — live file-lock board for parallel agents
 #
+# 🛑🛑 NEVER `adb uninstall` THE APP. Projects live in app-private storage and Android wipes
+#      it on uninstall - silently, with no prompt and no recovery. On 2026-08-29 a lane ran
+#      an uninstall/reinstall acceptance check on JoyRaptor's own phone and destroyed 23 of his
+#      24 projects. If a spec asks you to uninstall, STOP and ask JoyRaptor for a device that
+#      has nothing on it. No verification is worth the user's work.
+#
 # ★★★ JOYRAPTOR'S FILE: tasks/RUNBOOK_SCOTT.md — the four commands, every agent prompt ready to
 #     paste, the full docket, and the recovery prompts. Start there, not here.
 #

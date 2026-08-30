@@ -17076,6 +17076,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         tapeWordDragActive = false;
                         return false;
                     }
+                    // Claim the gesture from the parent timeline_scroll NOW. Every other
+                    // armed gesture in this view does this on DOWN; without it the parent
+                    // HorizontalScrollView intercepts after a few px, the drag dies and the
+                    // timeline does its overscroll "end of scroll" stretch (reported:
+                    // "the entire timeline spot does a little bit of a stretch").
+                    editorTimeline.getParent().requestDisallowInterceptTouchEvent(true);
                     tapeWordDragActive = true;
                     tapeWordDownX = event.getX();
                     com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
@@ -17103,6 +17109,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (!tapeWordDragActive) return false;
                     tapeWordDragActive = false;
                     if (wordSyncMode != null) wordSyncMode.endDrag(); // ONE WordTimingAction via host (§6a)
+                    editorTimeline.getParent().requestDisallowInterceptTouchEvent(false);
                     Clip c = transcriptIsForAudio ? null
                             : (transcriptClipId != null ? findClipById(transcriptClipId) : null);
                     if (c != null && captionsActive && c.hasTranscript()) bindCaptionData(c);

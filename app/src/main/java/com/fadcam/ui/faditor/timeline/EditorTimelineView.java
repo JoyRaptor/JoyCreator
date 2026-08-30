@@ -9422,8 +9422,19 @@ if (sd.clip.hasVolumeKeyframes()) {
             // The FaditorEditorActivity will only seek within current clip, then load new one on drag end
             listener.onPlayheadSeeked(targetSegment, sourceFrac, true);
         }
-        
-        centerPlayhead();
+
+        // SCROLL DIRECTLY TO THE X THE FINGER CHOSE — do NOT re-derive it via
+        // centerPlayhead()'s timeToX(xToTime(x)) round trip. The two maps are not exact
+        // inverses around segment boundaries/extrapolation, and the ~10px per-event
+        // residue was INTEGRATED into a constant one-directional crawl (the "smooth
+        // ratchet" rewind bias: drift continued while the finger slowed, always the
+        // same way, regardless of stroke direction). With the direct assignment the
+        // next event starts from exactly the scroll offset this event produced, so
+        // finger deltas accumulate with zero error. (Diagnosed from a VLOG trace
+        // 2026-08-30: playheadX fell ~10px/event while the finger was stationary.)
+        float scrubCenterX = getWidth() / 2f;
+        scrollOffsetPx = playheadX - scrubCenterX;
+        clampScroll();
         invalidate();
     }
 

@@ -2869,12 +2869,145 @@
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
 
-        <com.fadcam.ui.faditor.WordScrubView
-            android:id="@+id/word_scrub_strip"
+        <!-- Word Sync one-row: TT/Tt/tt B U I | shuttle 72dp | ONE/SNAP (spec §3) -->
+        <LinearLayout
+            android:id="@+id/word_sync_row"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:layout_marginHorizontal="12dp"
-            android:layout_marginTop="4dp" />
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp"
+            android:layout_marginTop="4dp">
+
+            <LinearLayout
+                android:id="@+id/word_sync_format_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/word_sync_tt"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TT"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:background="#FF333333"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/word_sync_tT"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tt"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:background="#FF333333"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/word_sync_tt_low"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="tt"
+                    android:textColor="#FFFFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:background="#FF333333"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/word_sync_b"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="B"
+                    android:textColor="#66FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:background="#FF222222"
+                    android:alpha="0.5"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/word_sync_u"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="U"
+                    android:textColor="#66FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:background="#FF222222"
+                    android:alpha="0.5"
+                    android:layout_marginEnd="6dp" />
+
+                <TextView
+                    android:id="@+id/word_sync_i"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="I"
+                    android:textColor="#66FFFFFF"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="6dp"
+                    android:background="#FF222222"
+                    android:alpha="0.5" />
+            </LinearLayout>
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="0.5" />
+
+            <com.fadcam.ui.faditor.move.TimeShuttleView
+                android:id="@+id/word_scrub_strip"
+                android:layout_width="72dp"
+                android:layout_height="44dp"
+                android:layout_marginHorizontal="8dp" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="0.5" />
+
+            <TextView
+                android:id="@+id/word_sync_ripple"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ONE"
+                android:textColor="#FF4DD0E1"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="6dp"
+                android:background="#FF2A2A2A" />
+
+            <TextView
+                android:id="@+id/word_sync_snap"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SNAP"
+                android:textColor="#FFAAFFAA"
+                android:textSize="11sp"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="6dp"
+                android:background="#FF2A2A2A"
+                android:layout_marginStart="8dp" />
+        </LinearLayout>
     </LinearLayout>
 
 </FrameLayout> <!-- end root -->

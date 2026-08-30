@@ -3,7 +3,7 @@
 # ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
 #    supersedes the mode UI from b3648455/139b5dbf/94b4cb9c/2c7d4dfa. The ENGINE stays; the
 #    new banner comes out and the EXISTING word drawer (showWordScrubDrawer:16439) becomes
-#    the mode. UNCLAIMED - top of the queue.
+#    the mode. CLAIMED 2026-08-30T09:30 SPEC_20260830_WORD_SYNC_V2 (muse-spark-1.2 joy-creator) — see lane below.
 #
 # 🛑🛑 NEVER `adb uninstall` THE APP. Projects live in app-private storage and Android wipes
 #      it on uninstall - silently, with no prompt and no recovery. On 2026-08-29 a lane ran
@@ -340,16 +340,21 @@ files: (none)
 since: 2026-08-29T14:20
 
 ## SPEC_20260829_WORD_SYNC — Word Sync mode: fix a sloppy transcript fast
-status: ACTIVE (2026-08-29T15:30 — muse-spark joy-creator implementing — consumes 3.3/3.4/3.5, owns mode + lockout + tape ticks)
-files:
-  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncMode.java  (NEW — mode state, ripple glue, ScrubEngine attach, undo)
-  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncOnsets.java  (consume §3.3 — no edits)
-  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncRipple.java (consume §3.4 — no edits)
-  app/src/main/java/com/fadcam/ui/faditor/move/TimeShuttleView.java      (consume §3.5 — no edits, already 72dp)
-  app/src/main/java/com/fadcam/ui/faditor/transcript/TranscriptPanelView.java (word drag snap/ripple, TT/Tt/tt row)
-  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java  (onset ticks ONLY — small site, FADE_KNOBS owns knobs)
-  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (toggle + banner + lockout ONLY — 4 small sites)
+status: SUPERSEDED by SPEC_20260830_WORD_SYNC_V2 (2026-08-30) — banner to be deleted, drawer becomes mode
+files: (none — superseded, see V2 lane)
 since: 2026-08-29T15:30
+
+## SPEC_20260830_WORD_SYNC_V2 — Word Sync v2: use the drawer that already works
+status: ACTIVE (2026-08-30T09:30 — muse-spark-1.2 joy-creator implementing — engine DONE, wiring the drawer)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (delete banner, drawer=mode, shuttle->applyWordGroupDelta, lockout fix, undo)
+  app/src/main/res/layout/activity_faditor_editor.xml                 (~2873 drawer row -> TimeShuttleView)
+  app/src/main/java/com/fadcam/ui/faditor/transcript/TranscriptPanelView.java (keep drag, fix)
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java  (tape drag/tap -> word move/retarget)
+  app/src/main/java/com/fadcam/ui/faditor/transcript/WordSyncMode.java        (drop banner-only state, keep ripple/snap)
+  app/src/main/java/com/fadcam/ui/faditor/undo/EditActions.java               (WordTimingAction)
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java        (onset ticks only)
+since: 2026-08-30T09:30
 
 ## LANE F � dynamic lane (three doors onto built engines: G22 master-solo door � per-clip voice chain (C1.U follow-up) � D8 link door)
 status: WIP (agent 1, 2026-08-24) � code landed, commit pending. G22: master-band

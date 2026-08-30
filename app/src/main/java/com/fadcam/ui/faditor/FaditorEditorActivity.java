@@ -539,9 +539,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView opacityDrawerIcon, opacityDrawerValue, opacityDrawerKeyframe;
     private boolean opacityDrawerOpen = false;
     private boolean opacityDrawerWired = false;
-    // Word scrub drawer (non-modal top drawer for scrub-to-retime)
+    // Word scrub drawer (non-modal top drawer for scrub-to-retime) — SPEC_20260830_WORD_SYNC_V2: this drawer IS Word Sync mode
     private View wordScrubDrawer;
-    private com.fadcam.ui.faditor.WordScrubView wordScrubStrip;
+    private com.fadcam.ui.faditor.move.TimeShuttleView wordScrubStrip;
     private android.widget.EditText wordScrubWordText;
     private TextView wordScrubTimestamp, wordScrubPrev, wordScrubNext, wordScrubCenter;
     private boolean wordScrubDrawerOpen = false;
@@ -558,15 +558,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private int wordScrubGroupLength = 1;
     private long wordScrubAnchorMs;
     private long[] wordScrubOriginalStarts;
-    // SPEC_20260829_WORD_SYNC — Word Sync mode (bulk transcript fixing). The existing
-    // WordScrubDrawer above is the surgical tool; this is the bulk instrument.
+    // SPEC_20260830_WORD_SYNC_V2 — Word Sync mode: the drawer IS the mode (§2)
     private com.fadcam.ui.faditor.transcript.WordSyncMode wordSyncMode;
-    private android.view.View wordSyncBanner;
-    private boolean wordSyncBannerWired = false;
-    private com.fadcam.ui.faditor.move.TimeShuttleView wordSyncShuttle;
-    private android.widget.LinearLayout wordSyncFormatRow;
-    private TextView wordSyncRippleLabel;
-    private TextView wordSyncSnapLabel;
+    // Drawer one-row extras: TT/Tt/tt/BUI left, shuttle middle, ONE/SNAP right (spec §3)
+    private android.widget.LinearLayout wordSyncDrawerRow;
+    private TextView wordSyncDrawerRippleLabel;
+    private TextView wordSyncDrawerSnapLabel;
+    private android.widget.Toast wordSyncToast;
+    // Shuttle drag state for one-undo per gesture (§6a): snapshot at onScrubStart
+    private long[] wordSyncShuttleBeforeStarts;
+    private long wordSyncShuttleTotalDeltaMs;
+    private int wordSyncShuttleDragIndex = -1;
     private TextView toolSpeedLabel;
     private View toolRotate;
     private TextView toolRotateIcon;
@@ -16435,9 +16437,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Show the non-modal word scrub drawer (replaces the old AlertDialog).
      * The drawer sits at the top so the bottom timeline stays visible while
      * the user scrubs the word's timing with the acceleration strip.
+     * SPEC_20260830_WORD_SYNC_V2 §2: this drawer IS Word Sync mode — opening it enters,
+     * closing it exits. No separate toggle, no banner.
      */
     private void showWordScrubDrawer(int index) {
         if (wordScrubDrawer == null || transcriptView == null) return;
+        boolean wasOpen = wordScrubDrawerOpen;
+        // Retarget: if already open, just update selection and chrome, don't re-animate (§6.1)
+        if (wasOpen && wordScrubCurrentIndex == index) return;
         wordScrubCurrentIndex = index;
         wordScrubGroupLength = 1;
         wireWordScrubDrawer();
@@ -16453,31 +16460,101 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         refreshWordScrubChrome();
 
-        wordScrubDrawerOpen = true;
-        wordScrubDrawer.setVisibility(View.VISIBLE);
-        wordScrubDrawer.post(() -> {
-            wordScrubDrawer.setTranslationY(-wordScrubDrawer.getHeight());
-            wordScrubDrawer.animate().translationY(0f).setDuration(180).start();
-        });
+        if (!wasOpen) {
+            wordScrubDrawerOpen = true;
+            // §2: entering Word Sync
+            ensureWordSyncMode();
+            wordSyncMode.enter();
+            wordSyncMode.onSourceChanged();
+            if (transcriptView != null) { transcriptView.setWordSyncMode(wordSyncMode); transcriptView.invalidate(); }
+            if (editorTimeline != null) {
+                try {
+                    java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("layerRowRenderer");
+                    f.setAccessible(true);
+                    Object r = f.get(editorTimeline);
+                    if (r != null) r.getClass().getMethod("setWordSyncMode", com.fadcam.ui.faditor.transcript.WordSyncMode.class).invoke(r, wordSyncMode);
+                } catch (Exception ignored) {}
+                editorTimeline.invalidate();
+            }
+            // Keep canvas enabled — Word Sync tint no longer locks it (§5: scrub must not change)
+            wordScrubDrawer.setVisibility(View.VISIBLE);
+            wordScrubDrawer.post(() -> {
+                wordScrubDrawer.setTranslationY(-wordScrubDrawer.getHeight());
+                wordScrubDrawer.animate().translationY(0f).setDuration(180).start();
+            });
+        } else {
+            // Retarget without re-animating panel
+            refreshWordScrubChrome();
+            if (wordScrubWordText != null && w != null) wordScrubWordText.setText(w.text);
+            // Update shuttle snapshot? No — shuttle drag will snapshot on its own start
+        }
+        updateWordScrubDrawerChrome();
     }
 
-    /** Apply a delta (ms) to every word in the current scrub group. */
+    /** Apply a delta (ms) to every word in the current scrub group — one-undo per call via WordTimingAction (§6a). */
     private void applyWordGroupDelta(long deltaMs) {
-        if (wordScrubCurrentIndex < 0) return;
+        if (wordScrubCurrentIndex < 0 || transcriptView == null) return;
+        com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
+        if (t == null) return;
         Clip clip = getSelectedClip();
-        if (clip == null) return;
-        float speed = Math.max(0.01f, clip.getSpeedMultiplier());
-        for (int i = 0; i < wordScrubGroupLength; i++) {
-            int idx = wordScrubCurrentIndex + i;
-            com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(idx);
-            if (w == null) continue;
-            long srcStart = w.startMs + (long) (deltaMs * speed);
-            transcriptView.setWordStart(idx, Math.max(0, srcStart));
+        if (clip == null) {
+            // Fallback for audio transcripts
+            AudioClip ac = null;
+            if (project != null && transcriptIsForAudio && transcriptAudioIndex >= 0 && transcriptAudioIndex < project.getTimeline().getAudioClips().size()) {
+                ac = project.getTimeline().getAudioClips().get(transcriptAudioIndex);
+            }
+            if (ac == null) return;
+        }
+        float speed = Math.max(0.01f, clip != null ? clip.getSpeedMultiplier() : 1f);
+        // Snapshot before for single-undo (§6a)
+        long[] before = new long[t.words.size()];
+        for (int i = 0; i < t.words.size(); i++) before[i] = t.words.get(i).startMs;
+        if (isWordSyncActive() && wordSyncMode != null && t.words.size() > wordScrubCurrentIndex && wordScrubCurrentIndex >= 0) {
+            // Use ripple engine for the delta — one-shot via WordSyncRipple.apply (§6)
+            long desired = before[wordScrubCurrentIndex] + (long) (deltaMs * speed);
+            // Snap when SNAP on (§6)
+            if (wordSyncMode.isSnapEnabled()) {
+                android.net.Uri uri = getWordSyncSourceUri();
+                double msPerPixel = getWordSyncMsPerPixel();
+                if (uri != null) desired = com.fadcam.ui.faditor.transcript.WordSyncOnsets.snap(this, uri, desired, msPerPixel, true);
+            }
+            // Ripple
+            boolean[] pinned = new boolean[before.length]; // no pinned words yet (future)
+            long anchor = com.fadcam.ui.faditor.transcript.WordSyncRipple.anchorFor(before, pinned, wordScrubCurrentIndex, getWordSyncFallbackAnchorMs());
+            long[] after = com.fadcam.ui.faditor.transcript.WordSyncRipple.apply(before, wordScrubCurrentIndex, desired, wordSyncMode.getRippleMode(), anchor);
+            // Write back preserving duration
+            for (int i = 0; i < after.length && i < t.words.size(); i++) {
+                com.fadcam.ui.faditor.transcript.TranscriptWord w = t.words.get(i);
+                long dur = Math.max(0, w.endMs - w.startMs);
+                long ns = Math.max(0, after[i]);
+                t.words.set(i, new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, ns, ns + dur, w.struck, w.forceLineBreakAfter));
+            }
+            long[] afterSnapshot = new long[t.words.size()];
+            for (int i = 0; i < t.words.size(); i++) afterSnapshot[i] = t.words.get(i).startMs;
+            // One undo step for this nudge (§6a: prev/next tap is one press)
+            if (!java.util.Arrays.equals(before, afterSnapshot)) {
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.WordTimingAction(t, before, afterSnapshot));
+            }
+        } else {
+            // Simple (non-ripple) fallback — shouldn't happen when drawer is mode, but keep for safety
+            for (int i = 0; i < wordScrubGroupLength; i++) {
+                int idx = wordScrubCurrentIndex + i;
+                if (idx < 0 || idx >= t.words.size()) continue;
+                com.fadcam.ui.faditor.transcript.TranscriptWord w = t.words.get(idx);
+                long srcStart = w.startMs + (long) (deltaMs * speed);
+                t.words.set(idx, new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, Math.max(0, srcStart), Math.max(0, srcStart) + Math.max(0, w.endMs - w.startMs), w.struck, w.forceLineBreakAfter));
+            }
+            long[] after = new long[t.words.size()];
+            for (int i = 0; i < t.words.size(); i++) after[i] = t.words.get(i).startMs;
+            if (!java.util.Arrays.equals(before, after)) {
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.WordTimingAction(t, before, after));
+            }
         }
         refreshWordScrubChrome();
         syncTimelineTranscript();
-        editorTimeline.invalidate();
-        if (captionsActive && clip.hasTranscript()) bindCaptionData(clip);
+        if (editorTimeline != null) editorTimeline.invalidate();
+        if (transcriptView != null) transcriptView.invalidate();
+        if (clip != null && captionsActive && clip.hasTranscript()) bindCaptionData(clip);
         scheduleAutoSave();
     }
 
@@ -16486,9 +16563,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordScrubDrawerOpen = false;
         wordScrubCurrentIndex = -1;
         wordScrubGroupLength = 1;
-        if (wordScrubStrip != null) wordScrubStrip.reset();
+        if (wordScrubStrip != null) {
+            try { wordScrubStrip.setListener(null); } catch (Exception ignored) {}
+        }
         wordScrubDrawer.animate().translationY(-wordScrubDrawer.getHeight()).setDuration(160)
                 .withEndAction(() -> wordScrubDrawer.setVisibility(View.GONE)).start();
+        // §2: exiting Word Sync
+        if (wordSyncMode != null) wordSyncMode.exit();
+        if (transcriptView != null) { transcriptView.setWordSyncMode(null); transcriptView.invalidate(); }
+        if (editorTimeline != null) {
+            try {
+                java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("layerRowRenderer");
+                f.setAccessible(true);
+                Object r = f.get(editorTimeline);
+                if (r != null) r.getClass().getMethod("setWordSyncMode", com.fadcam.ui.faditor.transcript.WordSyncMode.class).invoke(r, (Object) null);
+            } catch (Exception ignored) {}
+            editorTimeline.invalidate();
+        }
+        wordSyncShuttleBeforeStarts = null;
+        wordSyncShuttleDragIndex = -1;
+        wordSyncShuttleTotalDeltaMs = 0;
     }
 
     private void refreshWordScrubChrome() {
@@ -16523,7 +16617,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
         }
 
-        // Prev/Next nudge the whole word group together.
+        // Prev/Next nudge the whole word group together — each is one undo (§6a)
         if (wordScrubPrev != null) {
             wordScrubPrev.setOnClickListener(v -> {
                 if (wordScrubCurrentIndex < 0) return;
@@ -16553,45 +16647,200 @@ public class FaditorEditorActivity extends AppCompatActivity {
             wordScrubCenter.setOnClickListener(v -> centerSelectedWord());
         }
 
-        // WordScrubView listener — scrub applies to every word in the group.
+        // Build drawer one-row: [TT Tt tt B U I] [shuttle 72dp] [ONE/RIPPLE/STRETCH] [SNAP] (spec §3)
+        // The row is inserted below the top word row if not already present (for xml without it).
+        View existingRow = wordScrubDrawer.findViewById(R.id.word_sync_row);
+        // If xml already contains the row (new layout), wire its buttons; else build programmatically.
+        if (existingRow == null) {
+            // Programmatic fallback for old xml — build the row and insert it before the shuttle
+            float density = getResources().getDisplayMetrics().density;
+            android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+            row.setId(R.id.word_sync_row);
+            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding((int)(12*density), (int)(6*density), (int)(8*density), (int)(4*density));
+            // Left: TT Tt tt B U I
+            android.widget.LinearLayout left = new android.widget.LinearLayout(this);
+            left.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            left.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            String[] cases = {"TT","Tt","tt"};
+            for (String c : cases) {
+                TextView tv = new TextView(this);
+                tv.setText(c);
+                tv.setTextColor(0xFFFFFFFF);
+                tv.setTextSize(13f);
+                tv.setTypeface(null, android.graphics.Typeface.BOLD);
+                tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
+                tv.setBackgroundColor(0xFF333333);
+                android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.rightMargin = (int)(6*density);
+                tv.setLayoutParams(lp);
+                tv.setOnClickListener(v -> applyWordSyncCase(c));
+                left.addView(tv);
+            }
+            String[] styles = {"B","U","I"};
+            for (String c : styles) {
+                TextView tv = new TextView(this);
+                tv.setText(c);
+                tv.setTextColor(0x66FFFFFF);
+                tv.setTextSize(13f);
+                tv.setTypeface(null, android.graphics.Typeface.BOLD);
+                tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
+                tv.setBackgroundColor(0xFF222222);
+                tv.setAlpha(0.5f);
+                android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.rightMargin = (int)(6*density);
+                tv.setLayoutParams(lp);
+                tv.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
+                left.addView(tv);
+            }
+            row.addView(left);
+            // Spacer
+            android.widget.Space spacer1 = new android.widget.Space(this);
+            row.addView(spacer1, new android.widget.LinearLayout.LayoutParams(0, 1, 0.5f));
+            // Shuttle (reuse existing wordScrubStrip view — move it into row)
+            if (wordScrubStrip != null) {
+                android.view.ViewGroup parent = (android.view.ViewGroup) wordScrubStrip.getParent();
+                if (parent != null) parent.removeView(wordScrubStrip);
+                android.widget.LinearLayout.LayoutParams shuttleLp = new android.widget.LinearLayout.LayoutParams((int)(72*density), (int)(44*density));
+                shuttleLp.leftMargin = (int)(8*density);
+                shuttleLp.rightMargin = (int)(8*density);
+                row.addView(wordScrubStrip, shuttleLp);
+            }
+            android.widget.Space spacer2 = new android.widget.Space(this);
+            row.addView(spacer2, new android.widget.LinearLayout.LayoutParams(0, 1, 0.5f));
+            // Right: ONE/RIPPLE/STRETCH and SNAP
+            wordSyncDrawerRippleLabel = new TextView(this);
+            wordSyncDrawerRippleLabel.setId(R.id.word_sync_ripple);
+            wordSyncDrawerRippleLabel.setText("ONE");
+            wordSyncDrawerRippleLabel.setTextColor(0xFF4DD0E1);
+            wordSyncDrawerRippleLabel.setTextSize(12f);
+            wordSyncDrawerRippleLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+            wordSyncDrawerRippleLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
+            wordSyncDrawerRippleLabel.setBackgroundColor(0xFF2A2A2A);
+            wordSyncDrawerRippleLabel.setOnClickListener(v -> cycleWordSyncRipple());
+            row.addView(wordSyncDrawerRippleLabel);
+            wordSyncDrawerSnapLabel = new TextView(this);
+            wordSyncDrawerSnapLabel.setId(R.id.word_sync_snap);
+            wordSyncDrawerSnapLabel.setText("SNAP");
+            wordSyncDrawerSnapLabel.setTextColor(0xFFAAFFAA);
+            wordSyncDrawerSnapLabel.setTextSize(11f);
+            wordSyncDrawerSnapLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
+            wordSyncDrawerSnapLabel.setBackgroundColor(0xFF2A2A2A);
+            android.widget.LinearLayout.LayoutParams snapLp = new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            snapLp.leftMargin = (int)(8*density);
+            wordSyncDrawerSnapLabel.setLayoutParams(snapLp);
+            wordSyncDrawerSnapLabel.setOnClickListener(v -> toggleWordSyncSnap());
+            row.addView(wordSyncDrawerSnapLabel);
+            // Insert row into drawer (after top word row, before any remaining)
+            wordSyncDrawerRow = row;
+            // Remove old shuttle placeholder already, add row as second child
+            // Drawer currently has: handle (0), top row (1), shuttle (was 2) — we moved shuttle, so add row at 2
+            int insertAt = 2;
+            if (wordScrubDrawer instanceof android.widget.LinearLayout) {
+                ((android.widget.LinearLayout) wordScrubDrawer).addView(row, Math.min(insertAt, ((android.widget.LinearLayout) wordScrubDrawer).getChildCount()));
+            }
+        } else {
+            wordSyncDrawerRow = (android.widget.LinearLayout) existingRow;
+            wordSyncDrawerRippleLabel = wordScrubDrawer.findViewById(R.id.word_sync_ripple);
+            wordSyncDrawerSnapLabel = wordScrubDrawer.findViewById(R.id.word_sync_snap);
+            View tt = wordScrubDrawer.findViewById(R.id.word_sync_tt);
+            if (tt != null) tt.setOnClickListener(v -> applyWordSyncCase("TT"));
+            View tT = wordScrubDrawer.findViewById(R.id.word_sync_tT);
+            if (tT != null) tT.setOnClickListener(v -> applyWordSyncCase("Tt"));
+            View ttLow = wordScrubDrawer.findViewById(R.id.word_sync_tt_low);
+            if (ttLow != null) ttLow.setOnClickListener(v -> applyWordSyncCase("tt"));
+            View b = wordScrubDrawer.findViewById(R.id.word_sync_b);
+            if (b != null) b.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
+            View u = wordScrubDrawer.findViewById(R.id.word_sync_u);
+            if (u != null) u.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
+            View i = wordScrubDrawer.findViewById(R.id.word_sync_i);
+            if (i != null) i.setOnClickListener(v -> showWordSyncToast("Bold, underline and italic need per-word styling, which isn't built yet."));
+            if (wordSyncDrawerRippleLabel != null) wordSyncDrawerRippleLabel.setOnClickListener(v -> cycleWordSyncRipple());
+            if (wordSyncDrawerSnapLabel != null) wordSyncDrawerSnapLabel.setOnClickListener(v -> toggleWordSyncSnap());
+        }
+        updateWordScrubDrawerChrome();
+
+        // TimeShuttleView listener — correct target is applyWordGroupDelta, NOT playhead (§4)
         if (wordScrubStrip != null) {
-            wordScrubStrip.setListener(new com.fadcam.ui.faditor.WordScrubView.Listener() {
-                @Override
-                public void onScrubStarted() {
+            wordScrubStrip.setMaxMsPerSec(12000);
+            wordScrubStrip.setListener(new com.fadcam.ui.faditor.move.TimeShuttleView.Listener() {
+                @Override public void onScrubStart() {
                     if (wordScrubCurrentIndex < 0) return;
-                    wordScrubOriginalStarts = new long[wordScrubGroupLength];
-                    for (int i = 0; i < wordScrubGroupLength; i++) {
-                        com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(wordScrubCurrentIndex + i);
-                        wordScrubOriginalStarts[i] = (w != null) ? w.startMs : 0L;
+                    com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
+                    if (t == null) return;
+                    wordSyncShuttleBeforeStarts = new long[t.words.size()];
+                    for (int i = 0; i < t.words.size(); i++) wordSyncShuttleBeforeStarts[i] = t.words.get(i).startMs;
+                    wordSyncShuttleDragIndex = wordScrubCurrentIndex;
+                    wordSyncShuttleTotalDeltaMs = 0;
+                    ensureWordSyncMode();
+                    // Also tell WordSyncMode so its onSourceChanged/scrub audio can follow
+                    if (wordSyncMode != null) {
+                        wordSyncMode.setHost(new com.fadcam.ui.faditor.transcript.WordSyncMode.Host() {
+                            @Override public @NonNull android.content.Context context() { return FaditorEditorActivity.this; }
+                            @Override public @Nullable android.net.Uri sourceUri() { return getWordSyncSourceUri(); }
+                            @Override public @Nullable com.fadcam.ui.faditor.transcript.Transcript transcript() { return getWordSyncTranscript(); }
+                            @Override public double msPerPixel() { return getWordSyncMsPerPixel(); }
+                            @Override public long fallbackAnchorMs() { return getWordSyncFallbackAnchorMs(); }
+                            @Override public void onTimingsChanged(@NonNull long[] before, @NonNull long[] after, int draggedIndex) {}
+                            @Override public void requestRedraw() { if (editorTimeline != null) editorTimeline.invalidate(); if (transcriptView != null) transcriptView.invalidate(); }
+                        });
                     }
                 }
-
-                @Override
-                public void onWordDeltaMs(long deltaMs) {
-                    if (wordScrubCurrentIndex < 0 || wordScrubOriginalStarts == null) return;
+                @Override public void onScrubTick(long deltaMs) {
+                    // Shuttle's per-frame delta → accumulate and apply via ripple (keeps undo coalesced)
+                    wordSyncShuttleTotalDeltaMs += deltaMs;
+                    // Apply incrementally via applyWordGroupDelta but without per-frame undo — we manage undo at end
+                    // So temporarily suppress per-tick undo by mutating directly via WordSyncMode without recording
+                    if (wordSyncShuttleBeforeStarts == null || wordSyncShuttleDragIndex < 0) {
+                        applyWordGroupDelta(deltaMs);
+                        return;
+                    }
+                    com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
+                    if (t == null || wordSyncMode == null) { applyWordGroupDelta(deltaMs); return; }
                     Clip clip = getSelectedClip();
-                    if (clip == null) return;
-                    float speed = Math.max(0.01f, clip.getSpeedMultiplier());
-                    
-                    for (int i = 0; i < wordScrubGroupLength; i++) {
-                        if (i >= wordScrubOriginalStarts.length) break;
-                        int idx = wordScrubCurrentIndex + i;
-                        com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(idx);
-                        if (w == null) continue;
-                        long srcStart = wordScrubOriginalStarts[i] + (long) (deltaMs * speed);
-                        transcriptView.setWordStart(idx, Math.max(0, srcStart));
+                    float speed = Math.max(0.01f, clip != null ? clip.getSpeedMultiplier() : 1f);
+                    long desired = wordSyncShuttleBeforeStarts[wordSyncShuttleDragIndex] + (long)(wordSyncShuttleTotalDeltaMs * speed);
+                    if (wordSyncMode.isSnapEnabled()) {
+                        android.net.Uri uri = getWordSyncSourceUri();
+                        double msPerPixel = getWordSyncMsPerPixel();
+                        if (uri != null) desired = com.fadcam.ui.faditor.transcript.WordSyncOnsets.snap(FaditorEditorActivity.this, uri, desired, msPerPixel, true);
+                    }
+                    boolean[] pinned = new boolean[wordSyncShuttleBeforeStarts.length];
+                    long anchor = com.fadcam.ui.faditor.transcript.WordSyncRipple.anchorFor(wordSyncShuttleBeforeStarts, pinned, wordSyncShuttleDragIndex, getWordSyncFallbackAnchorMs());
+                    long[] after = com.fadcam.ui.faditor.transcript.WordSyncRipple.apply(wordSyncShuttleBeforeStarts, wordSyncShuttleDragIndex, desired, wordSyncMode.getRippleMode(), anchor);
+                    for (int i = 0; i < after.length && i < t.words.size(); i++) {
+                        com.fadcam.ui.faditor.transcript.TranscriptWord w = t.words.get(i);
+                        long dur = Math.max(0, w.endMs - w.startMs);
+                        long ns = Math.max(0, after[i]);
+                        t.words.set(i, new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, ns, ns + dur, w.struck, w.forceLineBreakAfter));
                     }
                     refreshWordScrubChrome();
                     syncTimelineTranscript();
-                    editorTimeline.invalidate();
-                    if (captionsActive && clip.hasTranscript()) bindCaptionData(clip);
-                    scheduleAutoSave();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                    if (transcriptView != null) transcriptView.invalidate();
+                    if (clip != null && captionsActive && clip.hasTranscript()) bindCaptionData(clip);
+                    // Do NOT scheduleAutoSave per frame — only at end, but keep preview live
                 }
-
-                @Override
-                public void onScrubFinished() {
-                    wordScrubOriginalStarts = null;
-                    if (wordScrubStrip != null) wordScrubStrip.reset();
+                @Override public void onScrubEnd() {
+                    // One undo step for whole shuttle hold (§6a)
+                    if (wordSyncShuttleBeforeStarts != null && wordSyncShuttleDragIndex >= 0) {
+                        com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
+                        if (t != null) {
+                            long[] after = new long[t.words.size()];
+                            for (int i = 0; i < t.words.size(); i++) after[i] = t.words.get(i).startMs;
+                            if (!java.util.Arrays.equals(wordSyncShuttleBeforeStarts, after)) {
+                                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.WordTimingAction(t, wordSyncShuttleBeforeStarts, after));
+                                syncTimelineTranscript();
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                if (transcriptView != null) transcriptView.invalidate();
+                                scheduleAutoSave();
+                            }
+                        }
+                    }
+                    wordSyncShuttleBeforeStarts = null;
+                    wordSyncShuttleDragIndex = -1;
+                    wordSyncShuttleTotalDeltaMs = 0;
                 }
             });
         }
@@ -16698,24 +16947,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public double msPerPixel() { return getWordSyncMsPerPixel(); }
             @Override public long fallbackAnchorMs() { return getWordSyncFallbackAnchorMs(); }
             @Override public void onTimingsChanged(@NonNull long[] before, @NonNull long[] after, int draggedIndex) {
-                // One undo step for the whole ripple / stretch gesture (SPEC §3.4).
+                // One undo step for the whole ripple / stretch gesture — WordTimingAction (§6a, non-negotiable)
                 com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
                 if (t == null) return;
                 long[] b = before.clone();
                 long[] a = after.clone();
-                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
-                        draggedIndex >= 0 ? "Word Sync move" : "Word Sync",
-                        () -> { for (int i = 0; i < a.length && i < t.words.size(); i++) {
-                            com.fadcam.ui.faditor.transcript.TranscriptWord w = t.words.get(i);
-                            long dur = Math.max(0, w.endMs - w.startMs);
-                            t.words.set(i, new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, a[i], a[i]+dur, w.struck, w.forceLineBreakAfter));
-                        } syncTimelineTranscript(); if (editorTimeline != null) editorTimeline.invalidate(); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); },
-                        () -> { for (int i = 0; i < b.length && i < t.words.size(); i++) {
-                            com.fadcam.ui.faditor.transcript.TranscriptWord w = t.words.get(i);
-                            long dur = Math.max(0, w.endMs - w.startMs);
-                            t.words.set(i, new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, b[i], b[i]+dur, w.struck, w.forceLineBreakAfter));
-                        } syncTimelineTranscript(); if (editorTimeline != null) editorTimeline.invalidate(); if (transcriptView != null) transcriptView.invalidate(); scheduleAutoSave(); }
-                ));
+                undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.WordTimingAction(t, b, a));
                 syncTimelineTranscript();
                 if (editorTimeline != null) editorTimeline.invalidate();
                 if (transcriptView != null) transcriptView.invalidate();
@@ -16775,281 +17012,55 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return null;
     }
 
-    private void toggleWordSyncMode() {
-        ensureWordSyncMode();
-        if (isWordSyncActive()) exitWordSyncMode();
-        else enterWordSyncMode();
+    // Word Sync drawer helpers — spec §3.1 exact toast copy, §3 chrome update
+    private void showWordSyncToast(@NonNull String text) {
+        if (wordSyncToast != null) wordSyncToast.cancel();
+        wordSyncToast = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT);
+        wordSyncToast.show();
     }
 
-    private void enterWordSyncMode() {
-        ensureWordSyncMode();
-        if (isWordSyncActive()) return;
-        // Close competing drawers so the mode's banner is not stacked under another.
-        if (wordScrubDrawerOpen) hideWordScrubDrawer();
-        if (volumeDrawerOpen) hideVolumeDrawer();
-        if (transitionPanelOpen) showTransitionPanel(false);
-        wordSyncMode.enter();
-        // Prime onset + scrub for current source.
-        wordSyncMode.onSourceChanged();
-        showWordSyncBanner();
-        updateWordSyncTint(true);
-        if (transcriptView != null) {
-            transcriptView.setWordSyncMode(wordSyncMode);
-            transcriptView.invalidate();
+    private void updateWordScrubDrawerChrome() {
+        if (wordSyncDrawerRippleLabel != null && wordSyncMode != null) {
+            wordSyncDrawerRippleLabel.setText(wordSyncMode.getRippleMode().name());
         }
-        if (editorTimeline != null) {
-            try {
-                java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("layerRowRenderer");
-                f.setAccessible(true);
-                Object r = f.get(editorTimeline);
-                if (r != null) r.getClass().getMethod("setWordSyncMode", com.fadcam.ui.faditor.transcript.WordSyncMode.class).invoke(r, wordSyncMode);
-            } catch (Exception ignored) {}
-            editorTimeline.invalidate();
-        }
-        android.widget.Toast.makeText(this, "Word Sync ON — drag words, snap to onsets", android.widget.Toast.LENGTH_SHORT).show();
-    }
-
-    private void exitWordSyncMode() {
-        if (!isWordSyncActive()) return;
-        wordSyncMode.exit();
-        hideWordSyncBanner();
-        updateWordSyncTint(false);
-        if (transcriptView != null) {
-            transcriptView.setWordSyncMode(null);
-            transcriptView.invalidate();
-        }
-        if (editorTimeline != null) {
-            try {
-                java.lang.reflect.Field f = editorTimeline.getClass().getDeclaredField("layerRowRenderer");
-                f.setAccessible(true);
-                Object r = f.get(editorTimeline);
-                if (r != null) r.getClass().getMethod("setWordSyncMode", com.fadcam.ui.faditor.transcript.WordSyncMode.class).invoke(r, (Object) null);
-            } catch (Exception ignored) {}
-            editorTimeline.invalidate();
-        }
-        android.widget.Toast.makeText(this, "Word Sync OFF", android.widget.Toast.LENGTH_SHORT).show();
-    }
-
-    private void updateWordSyncTint(boolean on) {
-        if (editorTimeline == null) return;
-        if (on) {
-            // 20% cyan + subtle top border — reads in sunlight where 10% over black vanishes.
-            editorTimeline.setBackgroundColor(0x334DD0E1);
-            try { editorTimeline.setForeground(new android.graphics.drawable.GradientDrawable(
-                    android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
-                    new int[]{0xFF4DD0E1, 0x00000000})); } catch (Exception ignored) {}
-            editorTimeline.setForegroundGravity(android.view.Gravity.TOP);
-        } else {
-            editorTimeline.setBackgroundColor(0x00000000);
-            try { editorTimeline.setForeground(null); } catch (Exception ignored) {}
-        }
-        // Lock canvas object drags while Word Sync is the one tool (§3.1).
-        if (overlayLayer != null) overlayLayer.setEnabled(!on);
-        if (overlayLayerBelow != null) overlayLayerBelow.setEnabled(!on);
-        if (spriteOverlayView != null) spriteOverlayView.setEnabled(!on);
-        if (spriteOverlayViewBelow != null) spriteOverlayViewBelow.setEnabled(!on);
-        if (waveformOverlayView != null) waveformOverlayView.setEnabled(!on);
-    }
-
-    private void showWordSyncBanner() {
-        if (wordSyncBanner != null && wordSyncBanner.getVisibility() == android.view.View.VISIBLE) return;
-        if (wordSyncBanner == null) {
-            wireWordSyncBanner();
-        }
-        if (wordSyncBanner != null) {
-            wordSyncBanner.setVisibility(android.view.View.VISIBLE);
-            wordSyncBanner.setAlpha(0f);
-            wordSyncBanner.animate().alpha(1f).setDuration(180).start();
-        }
-        updateWordSyncBannerChrome();
-    }
-
-    private void hideWordSyncBanner() {
-        if (wordSyncBanner == null || wordSyncBanner.getVisibility() != android.view.View.VISIBLE) return;
-        wordSyncBanner.animate().alpha(0f).setDuration(150).withEndAction(() -> wordSyncBanner.setVisibility(android.view.View.GONE)).start();
-    }
-
-    private void wireWordSyncBanner() {
-        android.view.ViewGroup root = findViewById(R.id.editor_root);
-        if (root == null) return;
-        android.content.Context ctx = this;
-        float density = getResources().getDisplayMetrics().density;
-
-        android.widget.LinearLayout banner = new android.widget.LinearLayout(ctx);
-        banner.setOrientation(android.widget.LinearLayout.VERTICAL);
-        banner.setBackgroundColor(0xCC1A1A1A);
-        banner.setElevation(10f * density);
-        banner.setVisibility(android.view.View.GONE);
-        int pad = (int)(8 * density);
-        banner.setPadding(pad, pad, pad, pad);
-
-        // Top row: exit · ripple mode · snap toggle
-        android.widget.LinearLayout topRow = new android.widget.LinearLayout(ctx);
-        topRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        topRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-
-        TextView exit = new TextView(ctx);
-        exit.setText("✕  Exit Word Sync");
-        exit.setTextColor(0xFFFFFFFF);
-        exit.setTextSize(13f);
-        exit.setTypeface(null, android.graphics.Typeface.BOLD);
-        exit.setPadding((int)(10*density),(int)(6*density),(int)(10*density),(int)(6*density));
-        exit.setBackgroundResource(android.R.drawable.btn_default);
-        exit.setOnClickListener(v -> exitWordSyncMode());
-        topRow.addView(exit);
-
-        android.widget.Space spacer = new android.widget.Space(ctx);
-        android.widget.LinearLayout.LayoutParams spacerLp = new android.widget.LinearLayout.LayoutParams(0, 1, 1f);
-        topRow.addView(spacer, spacerLp);
-
-        wordSyncRippleLabel = new TextView(ctx);
-        wordSyncRippleLabel.setText("ONE");
-        wordSyncRippleLabel.setTextColor(0xFF4DD0E1);
-        wordSyncRippleLabel.setTextSize(12f);
-        wordSyncRippleLabel.setTypeface(null, android.graphics.Typeface.BOLD);
-        wordSyncRippleLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-        wordSyncRippleLabel.setBackgroundColor(0xFF2A2A2A);
-        wordSyncRippleLabel.setOnClickListener(v -> cycleWordSyncRipple());
-        topRow.addView(wordSyncRippleLabel);
-
-        wordSyncSnapLabel = new TextView(ctx);
-        wordSyncSnapLabel.setText("Snap ON");
-        wordSyncSnapLabel.setTextColor(0xFFAAFFAA);
-        wordSyncSnapLabel.setTextSize(11f);
-        wordSyncSnapLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-        wordSyncSnapLabel.setBackgroundColor(0xFF2A2A2A);
-        wordSyncSnapLabel.setOnClickListener(v -> toggleWordSyncSnap());
-        android.widget.LinearLayout.LayoutParams snapLp = new android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-        snapLp.leftMargin = (int)(8*density);
-        topRow.addView(wordSyncSnapLabel, snapLp);
-
-        banner.addView(topRow, new android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        // Middle row: shuttle (72dp) + format row (TT Tt tt  B U I)
-        android.widget.LinearLayout midRow = new android.widget.LinearLayout(ctx);
-        midRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        midRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        android.widget.LinearLayout.LayoutParams midLp = new android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-        midLp.topMargin = (int)(10*density);
-        midRow.setLayoutParams(midLp);
-
-        // Formatting row left of shuttle — TT Tt tt
-        wordSyncFormatRow = new android.widget.LinearLayout(ctx);
-        wordSyncFormatRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        wordSyncFormatRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        String[] cases = {"TT","Tt","tt"};
-        for (String c : cases) {
-            TextView tv = new TextView(ctx);
-            tv.setText(c);
-            tv.setTextColor(0xFFFFFFFF);
-            tv.setTextSize(13f);
-            tv.setTypeface(null, android.graphics.Typeface.BOLD);
-            tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-            tv.setBackgroundColor(0xFF333333);
-            android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.rightMargin = (int)(6*density);
-            tv.setLayoutParams(lp);
-            tv.setOnClickListener(v -> applyWordSyncCase(c));
-            wordSyncFormatRow.addView(tv);
-        }
-        // B U I — greyed, per-word rich text not available (SPEC §3.6) — keep ENABLED so tap explains why.
-        String[] styles = {"B","U","I"};
-        for (String c : styles) {
-            TextView tv = new TextView(ctx);
-            tv.setText(c);
-            tv.setTextColor(0x66FFFFFF);
-            tv.setTextSize(13f);
-            tv.setTypeface(null, android.graphics.Typeface.BOLD);
-            tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-            tv.setBackgroundColor(0xFF222222);
-            tv.setAlpha(0.5f);
-            tv.setContentDescription("Bold/Underline/Italic — needs per-word styling (not yet built)");
-            android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.rightMargin = (int)(6*density);
-            tv.setLayoutParams(lp);
-            tv.setOnClickListener(v -> android.widget.Toast.makeText(ctx, "Bold/Underline/Italic needs per-word styling — not yet built (SPEC §3.6, see fixes log)", android.widget.Toast.LENGTH_LONG).show());
-            wordSyncFormatRow.addView(tv);
-        }
-        midRow.addView(wordSyncFormatRow);
-
-        // Shuttle — the §3.5 control, now 72dp and measuring against 1/3 screen (see TimeShuttleView).
-        // Freed space either side is exactly this formatting row (§3.6).
-        wordSyncShuttle = new com.fadcam.ui.faditor.move.TimeShuttleView(ctx);
-        wordSyncShuttle.setMaxMsPerSec(12000);
-        android.widget.LinearLayout.LayoutParams shuttleLp = new android.widget.LinearLayout.LayoutParams(
-                (int)(72*density), (int)(44*density));
-        shuttleLp.leftMargin = (int)(8*density);
-        shuttleLp.rightMargin = (int)(8*density);
-        midRow.addView(wordSyncShuttle, shuttleLp);
-        // Right side spacer to balance — keeps shuttle centred when formatting row is present.
-        android.widget.Space rightSpacer = new android.widget.Space(ctx);
-        midRow.addView(rightSpacer, new android.widget.LinearLayout.LayoutParams(0,1,1f));
-
-        banner.addView(midRow);
-
-        // Shuttle listener: drives scrub audio + optional playhead nudge while finger held.
-        // The actual word-move is via direct word drag (TranscriptPanelView → WordSyncMode.dragTo);
-        // the shuttle here scrubs the PLAYHEAD so a parked playhead + shuttle + tap(word) can snap to playhead (SPEC §3.2).
-        wordSyncShuttle.setListener(new com.fadcam.ui.faditor.move.TimeShuttleView.Listener() {
-            @Override public void onScrubStart() {}
-            @Override public void onScrubTick(long deltaMs) {
-                if (editorTimeline == null) return;
-                long cur = editorTimeline.getPlayheadPositionMs();
-                long next = Math.max(0, cur + deltaMs);
-                // Seek via the shared playhead update path (same as timeline scrub) — keeps preview + audio in sync.
-                // Use editor timeline's playhead seek; lockout does not apply to scrub.
-                try { editorTimeline.setPlayheadPositionMs(next); } catch (Exception ignored) {}
-                // Keep scrub audio following the playhead while shuttle held.
-                if (wordSyncMode != null && wordSyncMode.isActive()) {
-                    // Drive scrub engine directly if WordSyncMode has one — reuse its handle.
-                }
-            }
-            @Override public void onScrubEnd() {}
-        });
-
-        // Insert banner as second child of editor_root, just below top bar (index 1).
-        int idx = 1;
-        if (root.getChildCount() < idx) idx = root.getChildCount();
-        root.addView(banner, idx, new android.widget.LinearLayout.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
-        wordSyncBanner = banner;
-        wordSyncBannerWired = true;
-        updateWordSyncBannerChrome();
-    }
-
-    private void updateWordSyncBannerChrome() {
-        if (wordSyncRippleLabel != null && wordSyncMode != null) {
-            wordSyncRippleLabel.setText(wordSyncMode.getRippleMode().name());
-        }
-        if (wordSyncSnapLabel != null && wordSyncMode != null) {
+        if (wordSyncDrawerSnapLabel != null && wordSyncMode != null) {
             boolean on = wordSyncMode.isSnapEnabled();
-            wordSyncSnapLabel.setText(on ? "Snap ON" : "Snap OFF");
-            wordSyncSnapLabel.setTextColor(on ? 0xFFAAFFAA : 0xFF888888);
+            wordSyncDrawerSnapLabel.setText(on ? "SNAP ON" : "SNAP OFF");
+            wordSyncDrawerSnapLabel.setTextColor(on ? 0xFFAAFFAA : 0xFF888888);
         }
     }
 
     private void cycleWordSyncRipple() {
+        if (wordSyncMode == null) ensureWordSyncMode();
         if (wordSyncMode == null) return;
         com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode cur = wordSyncMode.getRippleMode();
         com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode next;
-        if (cur == com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.ONE) next = com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.RIPPLE;
-        else if (cur == com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.RIPPLE) next = com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.STRETCH;
-        else next = com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.ONE;
+        String toast;
+        if (cur == com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.ONE) {
+            next = com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.RIPPLE;
+            toast = "This word and every word after it move together.";
+        } else if (cur == com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.RIPPLE) {
+            next = com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.STRETCH;
+            toast = "Words after this one spread out or squeeze to fit.";
+        } else {
+            next = com.fadcam.ui.faditor.transcript.WordSyncRipple.Mode.ONE;
+            toast = "Only this word moves.";
+        }
         wordSyncMode.setRippleMode(next);
-        updateWordSyncBannerChrome();
-        android.widget.Toast.makeText(this, "Word Sync: " + next.name(), android.widget.Toast.LENGTH_SHORT).show();
+        updateWordScrubDrawerChrome();
+        showWordSyncToast(toast);
         if (editorTimeline != null) editorTimeline.invalidate();
+        if (transcriptView != null) transcriptView.invalidate();
     }
 
     private void toggleWordSyncSnap() {
+        if (wordSyncMode == null) ensureWordSyncMode();
         if (wordSyncMode == null) return;
-        wordSyncMode.setSnapEnabled(!wordSyncMode.isSnapEnabled());
-        updateWordSyncBannerChrome();
+        boolean next = !wordSyncMode.isSnapEnabled();
+        wordSyncMode.setSnapEnabled(next);
+        updateWordScrubDrawerChrome();
+        showWordSyncToast(next ? "Snapping on — words jump to the nearest sound." : "Snapping off — words land exactly where you drop them.");
+        if (editorTimeline != null) editorTimeline.invalidate();
     }
 
     private void applyWordSyncCase(String mode) {
@@ -30174,8 +30185,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transcriptView.setListener(new com.fadcam.ui.faditor.transcript.TranscriptPanelView.Listener() {
             @Override
             public void onSeekToMs(long sourceMs) {
-                // SPEC_20260829_WORD_SYNC §3.2 — park playhead + shuttle engaged + tap word = word snaps to playhead.
-                if (isWordSyncActive() && wordSyncShuttle != null && wordSyncShuttle.isFingerDown()) {
+                // SPEC_20260830_WORD_SYNC_V2 §3.2 — shuttle engaged + tap word = word snaps to playhead (drawer is mode)
+                if (isWordSyncActive() && wordScrubStrip != null && wordScrubStrip.isFingerDown()) {
                     com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
                     if (t != null) {
                         int wIdx = -1;
@@ -30536,45 +30547,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
         }
 
-        // SPEC_20260829_WORD_SYNC — Word Sync toggle chip in the transcript header (entry point).
-        // Toolbar button requirement: the transcript header is the word-sync toolbar while the
-        // panel is open; a second entry is also wired to the bottom tool row via the transcript
-        // tool long-press fallback (see initToolbar). Chip tints when the mode is active so the
-        // lockout is unmistakable without the banner alone.
-        if (transcriptHeader != null) {
-            android.view.ViewGroup headerRow = (android.view.ViewGroup) transcriptHeader.getParent();
-            if (headerRow != null && headerRow.findViewWithTag("word_sync_chip") == null) {
-                TextView wsChip = new TextView(this);
-                wsChip.setTag("word_sync_chip");
-                wsChip.setText("Word Sync");
-                wsChip.setTextSize(11f);
-                wsChip.setTypeface(null, android.graphics.Typeface.BOLD);
-                wsChip.setGravity(android.view.Gravity.CENTER);
-                wsChip.setContentDescription("Word Sync — fix transcript timing");
-                float density = getResources().getDisplayMetrics().density;
-                int dPad = (int)(6 * density);
-                wsChip.setPadding((int)(10*density), dPad/2, (int)(10*density), dPad/2);
-                boolean on = isWordSyncActive();
-                wsChip.setBackgroundColor(on ? 0xFF4DD0E1 : 0xFF2A2A2A);
-                wsChip.setTextColor(on ? 0xFF000000 : 0xFF4DD0E1);
-                // Keep selectable ripple so it feels like a button, not a label.
-                android.util.TypedValue tv = new android.util.TypedValue();
-                if (getTheme().resolveAttribute(android.R.attr.selectableItemBackground, tv, true)) {
-                    wsChip.setBackgroundResource(tv.resourceId);
-                    wsChip.setBackgroundTintList(android.content.res.ColorStateList.valueOf(on ? 0xFF4DD0E1 : 0xFF2A2A2A));
-                }
-                wsChip.setOnClickListener(v -> {
-                    toggleWordSyncMode();
-                    boolean nowOn = isWordSyncActive();
-                    wsChip.setBackgroundTintList(android.content.res.ColorStateList.valueOf(nowOn ? 0xFF4DD0E1 : 0xFF2A2A2A));
-                    wsChip.setTextColor(nowOn ? 0xFF000000 : 0xFF4DD0E1);
-                    wsChip.setText(nowOn ? "Exit Word Sync" : "Word Sync");
-                });
-                // Insert before the close button so full label sits between action chips and close.
-                int insertAt = Math.max(0, headerRow.getChildCount() - 1);
-                headerRow.addView(wsChip, insertAt);
-            }
-        }
+        // SPEC_20260830_WORD_SYNC_V2 §2: No separate Word Sync toggle — the word drawer IS the mode.
+        // The previous WS chip (Word Sync toggle in header) is deleted; entry is long-press a word.
 
         // Drag the left handle to resize the panel width.
         View handle = findViewById(R.id.transcript_resize_handle);

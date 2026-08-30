@@ -980,6 +980,39 @@ public final class EditActions {
         }
     }
 
+    /** Word timing — one gesture = one undo step, however many words RIPPLE/STRETCH moved. SPEC_20260830_WORD_SYNC_V2 §6a */
+    public static final class WordTimingAction implements EditAction {
+        @NonNull private final com.fadcam.ui.faditor.transcript.Transcript transcript;
+        @NonNull private final long[] beforeStarts;
+        @NonNull private final long[] afterStarts;
+
+        public WordTimingAction(@NonNull com.fadcam.ui.faditor.transcript.Transcript transcript,
+                                @NonNull long[] beforeStarts, @NonNull long[] afterStarts) {
+            this.transcript = transcript;
+            this.beforeStarts = beforeStarts.clone();
+            this.afterStarts = afterStarts.clone();
+        }
+
+        private void apply(@NonNull long[] starts) {
+            int n = Math.min(starts.length, transcript.words.size());
+            for (int i = 0; i < n; i++) {
+                com.fadcam.ui.faditor.transcript.TranscriptWord w = transcript.words.get(i);
+                long dur = Math.max(0, w.endMs - w.startMs);
+                long ns = Math.max(0, starts[i]);
+                transcript.words.set(i, new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, ns, ns + dur, w.struck, w.forceLineBreakAfter));
+            }
+        }
+
+        @Override public void execute() { apply(afterStarts); }
+        @Override public void undo() { apply(beforeStarts); }
+        @NonNull @Override public String getDescription() {
+            int changed = 0;
+            int m = Math.min(beforeStarts.length, afterStarts.length);
+            for (int i = 0; i < m; i++) if (beforeStarts[i] != afterStarts[i]) changed++;
+            return "Word timing (" + changed + " word" + (changed == 1 ? "" : "s") + ")";
+        }
+    }
+
     /** Transcript word-strikes (S6) — one button press = one undo step, however many words. */
     public static final class TranscriptStrikesAction implements EditAction {
         @NonNull private final com.fadcam.ui.faditor.transcript.Transcript transcript;

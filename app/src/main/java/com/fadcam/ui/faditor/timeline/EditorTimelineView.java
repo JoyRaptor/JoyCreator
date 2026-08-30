@@ -173,6 +173,8 @@ public class EditorTimelineView extends View {
     private final Paint spineKnobStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint spineKnobVeilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint spineStemPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spineDiagPaintImpl = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint spineDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handleNotchPaint   = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playheadPaint      = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playheadCirclePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -1702,6 +1704,11 @@ public class EditorTimelineView extends View {
         spineStemPaint.setStyle(Paint.Style.STROKE);
         spineStemPaint.setStrokeWidth(1.2f * density);
         spineStemPaint.setAlpha(150);
+        spineDiagPaintImpl.setColor(COLOR_HANDLE);
+        spineDiagPaintImpl.setStyle(Paint.Style.STROKE);
+        spineDiagPaintImpl.setAlpha(220);
+        spineDotPaint.setColor(COLOR_HANDLE);
+        spineDotPaint.setStyle(Paint.Style.FILL);
         handleNotchPaint.setColor(COLOR_HANDLE_NOTCH);
         handleNotchPaint.setStyle(Paint.Style.FILL);
         playheadPaint.setColor(COLOR_PLAYHEAD);
@@ -2769,12 +2776,15 @@ public class EditorTimelineView extends View {
         // and BEFORE the trim handles so the green handles paint on top of the film, not behind it.
         drawMasterFilmstrip(canvas, tTop, tBot, w);
 
+        // FADE_KNOBS §2.5: the dark fade veil goes UNDER the green trim bars (JoyRaptor: "the dark
+        // shadowy triangle needs to be under the green trim handle") — same layer as the film.
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+            drawMasterFadeVeils(canvas, segRects.get(selectedIndex));
+        }
+
         if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
             drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
-            // FADE_KNOBS §2.5: spine knobs above the selected segment, drawn AFTER the handles
-            // so a fade=0 knob (sitting on the trim edge) reads on top.
-            drawMasterFadeKnobs(canvas, segRects.get(selectedIndex));
         }
 
         // Audio clips ride the unified renderer rows (audio consolidation: audioLayerTracks
@@ -2786,6 +2796,13 @@ public class EditorTimelineView extends View {
 
         // Transitions (fade/wipe/push bands between clips)
         drawTransitions(canvas);
+
+        // FADE_KNOBS §2.5: spine knobs draw AFTER the transition bands so a knob near a seam
+        // is never painted under one (JoyRaptor: they "visually go behind some things" — keep the
+        // grip in the forefront, matching the hit-test which already arms knobs first).
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+            drawMasterFadeKnobs(canvas, segRects.get(selectedIndex));
+        }
 
         // M6 hook: multi-row Track UI (pinned master above; extra layer/audio rows
         // below, with their own capped-height vertical scroll). No-op for a plain
@@ -5986,10 +6003,55 @@ if (sd.clip.hasVolumeKeyframes()) {
     }
 
     /**
-     * FADE_KNOBS §2.5 — the spine's own fade knobs + dark veil, drawn above the SELECTED
-     * segment. Same grammar as the lane-row knobs (position IS the readout: fade=0 sits on
-     * the trim edge, inwards by the fade length). The veil is the same near-black wedge the
-     * row renderer draws — on the spine it reads literally, since the fade IS to black.
+     * FADE_KNOBS §2.5 — the spine's dark fade veil, drawn UNDER the trim bars. Same grammar
+     * as the lane-row veil: near-black wedge + a razor-thin high-contrast line on the sloped
+     * edge (JoyRaptor: "razor thin green line", same as the other elements' diagonals). On the
+     * spine the wedge reads literally — the fade IS to black.
+     */
+    private void drawMasterFadeVeils(Canvas canvas, RectF seg) {
+        Clip clip = selectedIndex < segments.size() ? segments.get(selectedIndex).clip : null;
+        if (clip == null) return;
+        long inMs = clip.getMasterFadeInMs();
+        long outMs = clip.getMasterFadeOutMs();
+        if (inMs <= 0 && outMs <= 0) return;
+        canvas.save();
+        canvas.clipRect(seg.left, seg.top, seg.right, seg.bottom);
+        float edgeW = 1.4f * density;
+        if (inMs > 0) {
+            float fx = spineKnobX(true, seg, clip);
+            android.graphics.Path tri = new android.graphics.Path();
+            tri.moveTo(seg.left, seg.top);
+            tri.lineTo(fx, seg.top);
+            tri.lineTo(seg.left, seg.bottom);
+            tri.close();
+            canvas.drawPath(tri, spineKnobVeilPaint);
+            // razor-thin high-contrast diagonal on the wedge's sloped edge
+            canvas.drawLine(fx, seg.top, seg.left, seg.bottom, spineDiagPaint(edgeW));
+        }
+        if (outMs > 0) {
+            float fx = spineKnobX(false, seg, clip);
+            android.graphics.Path tri = new android.graphics.Path();
+            tri.moveTo(fx, seg.top);
+            tri.lineTo(seg.right, seg.top);
+            tri.lineTo(seg.right, seg.bottom);
+            tri.close();
+            canvas.drawPath(tri, spineKnobVeilPaint);
+            canvas.drawLine(fx, seg.top, seg.right, seg.bottom, spineDiagPaint(edgeW));
+        }
+        canvas.restore();
+    }
+
+    /** The veil's diagonal line paint — handle-green, hairline, drawn under the trim bars. */
+    private Paint spineDiagPaint(float widthPx) {
+        spineDiagPaintImpl.setStrokeWidth(widthPx);
+        return spineDiagPaintImpl;
+    }
+
+    /**
+     * FADE_KNOBS §2.5 — the spine's fade knobs, drawn ABOVE the selected segment, AFTER the
+     * transition bands (never painted under one) and styled like the lane-row knobs: dark
+     * disc, 2dp handle-green stroke, inner dot in the same colour, hairline stem. Position IS
+     * the readout: fade=0 sits on the trim edge, inwards by the fade length.
      */
     private void drawMasterFadeKnobs(Canvas canvas, RectF seg) {
         Clip clip = selectedIndex < segments.size() ? segments.get(selectedIndex).clip : null;
@@ -5997,33 +6059,6 @@ if (sd.clip.hasVolumeKeyframes()) {
         float knobR = SPINE_KNOB_R_DP * density;
         float offset = SPINE_KNOB_TOP_OFFSET_DP * density;
         float cy = seg.top - offset;
-        long trimmed = Math.max(1, clip.getTrimmedDurationMs());
-        // Veils (display only — the knob is the grip)
-        long inMs = clip.getMasterFadeInMs();
-        long outMs = clip.getMasterFadeOutMs();
-        if (inMs > 0 || outMs > 0) {
-            canvas.save();
-            canvas.clipRect(seg.left, seg.top, seg.right, seg.bottom);
-            if (inMs > 0) {
-                float fx = spineKnobX(true, seg, clip);
-                android.graphics.Path tri = new android.graphics.Path();
-                tri.moveTo(seg.left, seg.top);
-                tri.lineTo(fx, seg.top);
-                tri.lineTo(seg.left, seg.bottom);
-                tri.close();
-                canvas.drawPath(tri, spineKnobVeilPaint);
-            }
-            if (outMs > 0) {
-                float fx = spineKnobX(false, seg, clip);
-                android.graphics.Path tri = new android.graphics.Path();
-                tri.moveTo(fx, seg.top);
-                tri.lineTo(seg.right, seg.top);
-                tri.lineTo(seg.right, seg.bottom);
-                tri.close();
-                canvas.drawPath(tri, spineKnobVeilPaint);
-            }
-            canvas.restore();
-        }
         // Knobs + stems (always, even at 0 — the readout that fade=0)
         float inX = spineKnobX(true, seg, clip);
         float outX = spineKnobX(false, seg, clip);
@@ -6031,6 +6066,7 @@ if (sd.clip.hasVolumeKeyframes()) {
             canvas.drawLine(cx, seg.top, cx, cy + knobR - density, spineStemPaint);
             canvas.drawCircle(cx, cy, knobR, spineKnobFillPaint);
             canvas.drawCircle(cx, cy, knobR, spineKnobStrokePaint);
+            canvas.drawCircle(cx, cy, 3.4f * density, spineDotPaint);
         }
     }
 
@@ -8506,10 +8542,11 @@ if (sd.clip.hasVolumeKeyframes()) {
 
     // ── Touch helpers ────────────────────────────────────────────────
 
-    /** FADE_KNOBS §2.1 spine knobs: same geometry as the lane-row knobs (20dp drawn, 48dp hit). */
+    /** FADE_KNOBS §2.1 spine knobs: same geometry as the lane-row knobs (20dp drawn, 48dp hit).
+     *  Offset 22dp — JoyRaptor: the spine knobs sat a touch low, lift them a little further up. */
     private static final float SPINE_KNOB_R_DP = 10f;
     private static final float SPINE_KNOB_HIT_R_DP = 24f;
-    private static final float SPINE_KNOB_TOP_OFFSET_DP = 16f;
+    private static final float SPINE_KNOB_TOP_OFFSET_DP = 22f;
     /** Fade values snapshot for one-undo on the spine fade drag. */
     private long fadeStartInMs, fadeStartOutMs;
     private long fadeLastInMs, fadeLastOutMs;

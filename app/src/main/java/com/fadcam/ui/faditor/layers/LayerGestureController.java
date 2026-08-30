@@ -794,6 +794,20 @@ public final class LayerGestureController {
             fadeBeforeImageKfs = new java.util.ArrayList<>();
             com.fadcam.ui.faditor.keyframe.KeyframeTrack op = o.getKeyframes().get(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY);
             if (op != null) for (com.fadcam.ui.faditor.keyframe.Keyframe k : op.keyframes) fadeBeforeImageKfs.add(k.copy());
+        } else if (item.getTextOverlay() != null) {
+            // Plain text reuses the imageFade fields for opacity fades (FADE_KNOBS §2.5).
+            com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+            fadeBeforeImageFadeIn = o.getImageFadeInMs();
+            fadeBeforeImageFadeOut = o.getImageFadeOutMs();
+        } else if (item.getSprite() != null) {
+            fadeBeforeSpriteIn = item.getSprite().getFadeInMs();
+            fadeBeforeSpriteOut = item.getSprite().getFadeOutMs();
+        } else if (item.getWaveform() != null) {
+            fadeBeforeWaveformIn = item.getWaveform().getFadeInMs();
+            fadeBeforeWaveformOut = item.getWaveform().getFadeOutMs();
+        } else if (item.getClip() != null) {
+            fadeBeforeClipMasterIn = item.getClip().getMasterFadeInMs();
+            fadeBeforeClipMasterOut = item.getClip().getMasterFadeOutMs();
         } else if (item.getCaptionSpan() != null) {
             com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
             if (b != null) { fadeBeforeCaptionIn = b.fadeInMs; fadeBeforeCaptionOut = b.fadeOutMs; }
@@ -804,6 +818,10 @@ public final class LayerGestureController {
     @SuppressWarnings("unused")
     private java.util.List<com.fadcam.ui.faditor.keyframe.Keyframe> fadeBeforeImageKfs;
     private long fadeBeforeCaptionIn, fadeBeforeCaptionOut;
+    // §2.5 generic-host fade snapshots (sprite / waveform / clip master)
+    private long fadeBeforeSpriteIn, fadeBeforeSpriteOut;
+    private long fadeBeforeWaveformIn, fadeBeforeWaveformOut;
+    private long fadeBeforeClipMasterIn, fadeBeforeClipMasterOut;
 
     // ── Sequence resize (SPEC_IMAGE_SEQUENCE §2a / §9c) ──────────────────────
 
@@ -1062,10 +1080,15 @@ public final class LayerGestureController {
             case FADE_IN:
             case FADE_OUT: {
                 if (activeItem == null) break;
-                boolean isImageFade = activeItem.getTextOverlay() != null && activeItem.getTextOverlay().isImage();
+                boolean isImageFade = activeItem.getTextOverlay() != null;
                 boolean isCaptionFade = activeItem.getCaptionSpan() != null;
                 boolean isAudioFade = activeItem.getAudioClip() != null;
-                if (!isAudioFade && !isImageFade && !isCaptionFade) break;
+                // §2.5: any timed object with a 0..1 intensity — sprite/waveform/clip hosts
+                // route through the renderer's generic fade setters below.
+                boolean isGenericFade = !isAudioFade && !isImageFade && !isCaptionFade
+                        && (activeItem.getSprite() != null || activeItem.getWaveform() != null
+                            || activeItem.getClip() != null);
+                if (!isAudioFade && !isImageFade && !isCaptionFade && !isGenericFade) break;
                 long startMs = activeItem.getTimelineStartMs();
                 long dur = activeItem.getDisplayDurationMs(totalMs);
                 if (dur <= 0) break;
@@ -1083,6 +1106,12 @@ public final class LayerGestureController {
                             long od = other.getDisplayDurationMs(totalMs);
                             long oe = os + od;
                             for (long c : new long[]{os, oe}) {
+                                // A snap target at/beyond our own edge would ZERO this fade —
+                                // the knob at fade=0 already sits on the item's edge, so an
+                                // aligned lane edge glued the knob there forever and the drag
+                                // looked dead (JoyRaptor's fade-out bug). Only snap where the
+                                // fade can still exist.
+                                if (fadeIn ? c <= startMs : c >= endMs) continue;
                                 long d = Math.abs(t - c);
                                 if (d < bestDist) { bestDist = d; best = c; }
                             }
@@ -1090,11 +1119,13 @@ public final class LayerGestureController {
                             long[] otherFades = rowRenderer.clampedFadeMs(other, totalMs);
                             if (otherFades[0] > 0) {
                                 long c = os + otherFades[0];
+                                if (fadeIn ? c <= startMs : c >= endMs) continue;
                                 long d = Math.abs(t - c);
                                 if (d < bestDist) { bestDist = d; best = c; }
                             }
                             if (otherFades[1] > 0) {
                                 long c = oe - otherFades[1];
+                                if (fadeIn ? c <= startMs : c >= endMs) continue;
                                 long d = Math.abs(t - c);
                                 if (d < bestDist) { bestDist = d; best = c; }
                             }
@@ -1146,6 +1177,10 @@ public final class LayerGestureController {
                         b.fadeOutMs = Math.max(0, Math.min(b.fadeOutMs, dur/2));
                         if (b.fadeInMs + b.fadeOutMs > dur) { b.fadeInMs = dur/2; b.fadeOutMs = dur - b.fadeInMs; }
                     }
+                } else if (isGenericFade) {
+                    // Sprite / waveform / overlay-clip: plain durations, renderer clamps + persists.
+                    if (fadeIn) rowRenderer.setFadeInMsForItem(activeItem, fadeDur <= 40 ? 0 : fadeDur, totalMs);
+                    else rowRenderer.setFadeOutMsForItem(activeItem, fadeDur <= 40 ? 0 : fadeDur, totalMs);
                 } else {
                     com.fadcam.ui.faditor.model.AudioClip ac = activeItem.getAudioClip();
                     if (fadeIn) {
@@ -1163,6 +1198,11 @@ public final class LayerGestureController {
                     }
                 }
                 rowRenderer.setDraggingFade(activeItem.getId(), fadeIn, fadeDur);
+                // FADEDBG (diagnostic build): what the drag actually computed + wrote.
+                com.fadcam.FLog.d("FADEDBG", "fadeMove " + (fadeIn ? "IN" : "OUT")
+                        + " item=" + activeItem.getId()
+                        + " t=" + t + " start=" + startMs + " end=" + endMs
+                        + " fadeDur=" + fadeDur + (fadeDur > 40 ? " WROTE" : " ->0(<40ms)"));
                 callback.onGestureLive(activeItem);
                 break;
             }
@@ -2444,10 +2484,19 @@ public final class LayerGestureController {
                 ac.setVolumeLevel(fadeBeforeLevel);
                 if (fadeBeforeKfs != null) ac.setVolumeKeyframes(fadeBeforeKfs);
                 else ac.clearVolumeKeyframes();
-            } else if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) {
+            } else if (item.getTextOverlay() != null) {
                 com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
                 if (activeKind == GestureKind.FADE_IN) o.setImageFadeInMs(fadeBeforeImageFadeIn, lastTotalMs > 0 ? lastTotalMs : o.getEndMs());
                 else o.setImageFadeOutMs(fadeBeforeImageFadeOut, lastTotalMs > 0 ? lastTotalMs : o.getEndMs());
+            } else if (item.getSprite() != null) {
+                if (activeKind == GestureKind.FADE_IN) item.getSprite().setFadeInMs(fadeBeforeSpriteIn);
+                else item.getSprite().setFadeOutMs(fadeBeforeSpriteOut);
+            } else if (item.getWaveform() != null) {
+                if (activeKind == GestureKind.FADE_IN) item.getWaveform().setFadeInMs(fadeBeforeWaveformIn);
+                else item.getWaveform().setFadeOutMs(fadeBeforeWaveformOut);
+            } else if (item.getClip() != null) {
+                if (activeKind == GestureKind.FADE_IN) item.getClip().setMasterFadeInMs(fadeBeforeClipMasterIn);
+                else item.getClip().setMasterFadeOutMs(fadeBeforeClipMasterOut);
             } else if (item.getCaptionSpan() != null) {
                 com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
                 if (b != null) {
@@ -2498,6 +2547,8 @@ public final class LayerGestureController {
 
     public java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> getFadeBeforeKfs() { return fadeBeforeKfs; }
     public float getFadeBeforeLevel() { return fadeBeforeLevel; }
+    public long getFadeBeforeImageFadeIn() { return fadeBeforeImageFadeIn; }
+    public long getFadeBeforeImageFadeOut() { return fadeBeforeImageFadeOut; }
 
     // ── M10: drag-state queries for the caller's LayerRowRenderer#layout call ──
 

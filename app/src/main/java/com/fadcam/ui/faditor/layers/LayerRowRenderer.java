@@ -78,8 +78,9 @@ public final class LayerRowRenderer {
     // ── Fade knobs (SPEC_20260829_FADE_KNOBS §2.1-§2.4) ───────────────────────
     /** Drawn radius ~10dp (20dp disc) — the study's knob. */
     private static final float FADE_KNOB_R_DP = 10f;
-    /** Hit radius ≥22dp (44dp target) — decoupled from row height, identical on 34dp and 76dp. */
-    private static final float FADE_KNOB_HIT_R_DP = 22f;
+    /** Hit radius 24dp (48dp target) — decoupled from row height, identical on 34dp and 76dp.
+     *  Bumped from 22dp: JoyRaptor could not grab a lower-lane knob sitting behind the lane above. */
+    private static final float FADE_KNOB_HIT_R_DP = 24f;
     /** How far the knob center sits above the clip's top edge. */
     private static final float FADE_KNOB_TOP_OFFSET_DP = 16f;
     /** Hairline stem width. */
@@ -2743,8 +2744,11 @@ public final class LayerRowRenderer {
     /** Whether this item has a fade host at all (even at 0). Used to suppress veil/knob on wrong kinds. */
     private boolean hasFadeHost(@NonNull TimedItem item) {
         if (item.getAudioClip() != null) return true;
-        if (item.getTextOverlay() != null && item.getTextOverlay().isImage()) return true; // image opacity via imageFade; plain text uses keyframe opacity (separate)
-        // Sprite/Waveform/Clip overlay stubs return 0 today — hide knob until model exists to avoid non-functional grip
+        // §2.5: text AND image overlays share the imageFade fields (text opacity, same model).
+        if (item.getTextOverlay() != null) return true;
+        if (item.getSprite() != null) return true;
+        if (item.getWaveform() != null) return true;
+        if (item.getClip() != null) return true; // overlay clips now; master fades ride the same fields
         if (item.getCaptionSpan() != null) return true;
         return false;
     }
@@ -2752,12 +2756,9 @@ public final class LayerRowRenderer {
     private long getFadeInMsForItem(@NonNull TimedItem item, long totalMs) {
         if (item.getAudioClip() != null) return item.getAudioClip().getFadeInMs();
         if (item.getTextOverlay() != null) return item.getTextOverlay().getImageFadeInMs();
-        if (item.getSprite() != null) return 0; // TODO sprite opacity fade model
-        if (item.getWaveform() != null) return 0;
-        if (item.getClip() != null && item.getClip().isOverlayClip()) {
-            // Clip overlay opacity via keyframes not yet — treat as 0 for now, veil still works if added
-            return 0;
-        }
+        if (item.getSprite() != null) return item.getSprite().getFadeInMs();
+        if (item.getWaveform() != null) return item.getWaveform().getFadeInMs();
+        if (item.getClip() != null) return item.getClip().getMasterFadeInMs();
         if (item.getCaptionSpan() != null) {
             com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
             if (b != null) return b.fadeInMs;
@@ -2770,9 +2771,9 @@ public final class LayerRowRenderer {
     private long getFadeOutMsForItem(@NonNull TimedItem item, long totalMs) {
         if (item.getAudioClip() != null) return item.getAudioClip().getFadeOutMs();
         if (item.getTextOverlay() != null) return item.getTextOverlay().getImageFadeOutMs();
-        if (item.getSprite() != null) return 0;
-        if (item.getWaveform() != null) return 0;
-        if (item.getClip() != null && item.getClip().isOverlayClip()) return 0;
+        if (item.getSprite() != null) return item.getSprite().getFadeOutMs();
+        if (item.getWaveform() != null) return item.getWaveform().getFadeOutMs();
+        if (item.getClip() != null) return item.getClip().getMasterFadeOutMs();
         if (item.getCaptionSpan() != null) {
             com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
             if (b != null) return b.fadeOutMs;
@@ -2781,10 +2782,14 @@ public final class LayerRowRenderer {
         return 0;
     }
 
-    private void setFadeInMsForItem(@NonNull TimedItem item, long ms, long totalMs) {
+    /** Exposed for the gesture controller (sprite/waveform/clip hosts route here). */
+    public void setFadeInMsForItem(@NonNull TimedItem item, long ms, long totalMs) {
         ms = Math.max(0, ms);
         if (item.getAudioClip() != null) { item.getAudioClip().setFadeInMs(ms); return; }
         if (item.getTextOverlay() != null) { item.getTextOverlay().setImageFadeInMs(ms, totalMs); return; }
+        if (item.getSprite() != null) { item.getSprite().setFadeInMs(ms); return; }
+        if (item.getWaveform() != null) { item.getWaveform().setFadeInMs(ms); return; }
+        if (item.getClip() != null) { item.getClip().setMasterFadeInMs(ms); return; }
         if (item.getCaptionSpan() != null) {
             com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
             if (b != null) { b.fadeInMs = Math.max(0, Math.min(ms, item.getDisplayDurationMs(totalMs)/2)); }
@@ -2792,10 +2797,14 @@ public final class LayerRowRenderer {
         }
     }
 
-    private void setFadeOutMsForItem(@NonNull TimedItem item, long ms, long totalMs) {
+    /** Exposed for the gesture controller (sprite/waveform/clip hosts route here). */
+    public void setFadeOutMsForItem(@NonNull TimedItem item, long ms, long totalMs) {
         ms = Math.max(0, ms);
         if (item.getAudioClip() != null) { item.getAudioClip().setFadeOutMs(ms); return; }
         if (item.getTextOverlay() != null) { item.getTextOverlay().setImageFadeOutMs(ms, totalMs); return; }
+        if (item.getSprite() != null) { item.getSprite().setFadeOutMs(ms); return; }
+        if (item.getWaveform() != null) { item.getWaveform().setFadeOutMs(ms); return; }
+        if (item.getClip() != null) { item.getClip().setMasterFadeOutMs(ms); return; }
         if (item.getCaptionSpan() != null) {
             com.fadcam.ui.faditor.model.Clip.CaptionBinding b = item.getCaptionSpan().getBinding();
             if (b != null) { b.fadeOutMs = Math.max(0, Math.min(ms, item.getDisplayDurationMs(totalMs)/2)); }
@@ -3524,40 +3533,63 @@ public final class LayerRowRenderer {
         float specTrimW = TRIM_WIDTH_DP * density;
         float knobHitR = FADE_KNOB_HIT_R_DP * density;
         float knobOffset = FADE_KNOB_TOP_OFFSET_DP * density;
-        for (RowLayout row : rows) {
-            float localY = bandLocalY(row, y, topPx);
-            // For knob hits we allow y above the row (outboard), so check broad band: expand upward by knobOverhang
-            boolean inRowExpanded = !Float.isNaN(localY)
-                    && localY >= row.bodyRect.top - knobOffset - knobHitR
-                    && localY <= row.bodyRect.bottom;
-            if (!inRowExpanded) continue;
+
+        // ── PASS 1: fade knobs, GLOBALLY, bottom row first ──────────────────
+        // A knob floats ABOVE its own row, i.e. INSIDE the lane above's body. The old
+        // per-row loop checked knobs only when it reached the knob's own row, but the
+        // body pass RETURNS on the first row containing the touch — so a knob on row N
+        // was unreachable whenever row N-1's body covered it (JoyRaptor: "renders correctly,
+        // but I can't hit it"). Rows draw top→bottom, so lower rows paint ON TOP; the
+        // hit order must match that z-order: iterate bottom-up and let a lower knob win.
+        for (int r = rows.size() - 1; r >= 0; r--) {
+            RowLayout row = rows.get(r);
             Track t = row.track;
-            if (t.isCollapsed() || t.isLocked() || t.isHidden()) return null;
+            if (t.isCollapsed() || t.isLocked() || t.isHidden()) continue;
+            float localY = bandLocalY(row, y, topPx);
+            if (Float.isNaN(localY)) continue;
             float top = row.bodyRect.top + 3f * density;
-            float bottom = row.itemsBottom() - 3f * density;
-            // Check knob hits first for selected items (outboard, decoupled from row height) — §4 collision fix
             for (TimedItem item : t.getItems()) {
-                float x0 = timeToX.map(item.getTimelineStartMs());
-                long dur = item.getDisplayDurationMs(totalMs);
-                float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
                 boolean selected = selectedItemId != null && selectedItemId.equals(item.getId());
-                if (selected && hasFadeHost(item)) {
-                    long[] clamped = clampedFadeMs(item, totalMs);
-                    float fxIn = timeToX.map(item.getTimelineStartMs() + clamped[0]);
-                    fxIn = Math.max(x0, Math.min(fxIn, x1));
-                    float cyIn = top - knobOffset;
-                    float dx = x - fxIn, dy = localY - cyIn;
-                    if (dx*dx + dy*dy <= knobHitR*knobHitR) return new ItemHit(t, item, ItemZone.FADE_IN);
-                    long durForOut = dur;
-                    float fxOut = timeToX.map(item.getTimelineStartMs() + durForOut - clamped[1]);
-                    fxOut = Math.max(x0, Math.min(fxOut, x1));
-                    float cyOut = top - knobOffset;
-                    dx = x - fxOut; dy = localY - cyOut;
-                    if (dx*dx + dy*dy <= knobHitR*knobHitR) return new ItemHit(t, item, ItemZone.FADE_OUT);
+                if (!selected || !hasFadeHost(item)) continue;
+                long[] clamped = clampedFadeMs(item, totalMs);
+                long dur = item.getDisplayDurationMs(totalMs);
+                float x0 = timeToX.map(item.getTimelineStartMs());
+                float x1 = Math.max(x0 + 6f * density, timeToX.map(item.getTimelineStartMs() + dur));
+                float cy = top - knobOffset;
+                float fxIn = timeToX.map(item.getTimelineStartMs() + clamped[0]);
+                fxIn = Math.max(x0, Math.min(fxIn, x1));
+                float dxIn = x - fxIn, dyIn = localY - cy;
+                float dIn = (float) Math.sqrt(dxIn * dxIn + dyIn * dyIn);
+                float fxOut = timeToX.map(item.getTimelineStartMs() + dur - clamped[1]);
+                fxOut = Math.max(x0, Math.min(fxOut, x1));
+                float dxOut = x - fxOut, dyOut = localY - cy;
+                float dOut = (float) Math.sqrt(dxOut * dxOut + dyOut * dyOut);
+                // FADEDBG (diagnostic build): knob geometry vs the actual touch.
+                if (dIn <= knobHitR * 2f || dOut <= knobHitR * 2f) {
+                    com.fadcam.FLog.d("FADEDBG", "knob@DOWN item=" + item.getId()
+                            + " x=" + (int) x + " y=" + (int) y
+                            + " knobIn=(" + (int) fxIn + "," + (int) cy + ") d=" + (int) dIn
+                            + " knobOut=(" + (int) fxOut + "," + (int) cy + ") d=" + (int) dOut
+                            + " r=" + (int) knobHitR);
+                }
+                if (dIn <= knobHitR && dIn <= dOut) {
+                    return new ItemHit(t, item, ItemZone.FADE_IN);
+                }
+                if (dOut <= knobHitR) {
+                    return new ItemHit(t, item, ItemZone.FADE_OUT);
                 }
             }
-            // Now check inside-body zones: need y inside clip
+        }
+
+        // ── PASS 2: per-row bodies (trim, badge, body) — unchanged semantics ──
+        for (RowLayout row : rows) {
+            float localY = bandLocalY(row, y, topPx);
+            if (Float.isNaN(localY)) continue;
+            Track t = row.track;
+            float top = row.bodyRect.top + 3f * density;
+            float bottom = row.itemsBottom() - 3f * density;
             if (!(localY >= top && localY <= bottom)) continue;
+            if (t.isCollapsed() || t.isLocked() || t.isHidden()) return null;
             for (TimedItem item : t.getItems()) {
                 float x0 = timeToX.map(item.getTimelineStartMs());
                 long dur = item.getDisplayDurationMs(totalMs);

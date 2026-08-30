@@ -690,6 +690,8 @@ public class Clip implements AudioParams {
                 ? other.overlayTransform.copy() : null;
         this.overlayBlendMode = other.overlayBlendMode;
         this.compositing = other.compositing != null ? other.compositing.copy() : null;
+        this.masterFadeInMs = other.masterFadeInMs;
+        this.masterFadeOutMs = other.masterFadeOutMs;
     }
 
     /**
@@ -1799,6 +1801,18 @@ public class Clip implements AudioParams {
     }
 
     // ── Opacity keyframes (visual fade envelope) ─────────────────────
+
+    /** FADE_KNOBS §2.5: master/overlay fade-from/to-black durations (0 = none). Twin of
+     *  TextOverlayItem.imageFadeInMs/OutMs. Persisted tolerantly (absent = 0); the knob UI
+     *  on the master strip and the preview/export opacity plumbing are scheduled follow-ups
+     *  (spec §2.5 report: model+storage now, spine knob UI + compositing next). */
+    private long masterFadeInMs = 0;
+    private long masterFadeOutMs = 0;
+
+    public long getMasterFadeInMs() { return masterFadeInMs; }
+    public long getMasterFadeOutMs() { return masterFadeOutMs; }
+    public void setMasterFadeInMs(long ms) { this.masterFadeInMs = Math.max(0, ms); }
+    public void setMasterFadeOutMs(long ms) { this.masterFadeOutMs = Math.max(0, ms); }
 
     /** The opacity envelope keyframes (sorted ascending by time). */
     @NonNull

@@ -111,6 +111,16 @@ public class WaveformOverlayInstance {
     private float heightFraction = 0.25f;
     private float rotationDeg = 0f;
 
+    // FADE_KNOBS §2.5: opacity fade durations (0 = none). Timeline affordance + persistence;
+    // preview/export alpha application is the scheduled follow-up (same gap as image fades).
+    private long fadeInMs = 0;
+    private long fadeOutMs = 0;
+
+    public long getFadeInMs() { return fadeInMs; }
+    public long getFadeOutMs() { return fadeOutMs; }
+    public void setFadeInMs(long ms) { this.fadeInMs = Math.max(0, ms); }
+    public void setFadeOutMs(long ms) { this.fadeOutMs = Math.max(0, ms); }
+
     /**
      * Runtime-only mapping from output (edited) timeline time to the driving clip's SOURCE audio
      * time, so the visualizer reads the right part of the waveform when the clip is trimmed or

@@ -1339,6 +1339,9 @@ public class ProjectStorage {
         // and the flag evaporated on save — the object went back to catching taps with no badge
         // and no explanation. Omit-at-default, so an untouched project is byte-identical.
         if (clip.isPassThrough()) clipJson.addProperty("objPassThrough", true);
+        // FADE_KNOBS §2.5 master/overlay fade-to-black (tolerant, absent = 0).
+        if (clip.getMasterFadeInMs() != 0) clipJson.addProperty("masterFadeInMs", clip.getMasterFadeInMs());
+        if (clip.getMasterFadeOutMs() != 0) clipJson.addProperty("masterFadeOutMs", clip.getMasterFadeOutMs());
         if (!clip.getRemovedSpans().isEmpty()) {
             JsonArray spans = new JsonArray();
             for (long[] s : clip.getRemovedSpans()) {
@@ -1590,6 +1593,9 @@ public class ProjectStorage {
         if (hasValue(clipObj, "imageClip")) {
             clip.setImageClip(clipObj.get("imageClip").getAsBoolean());
         }
+        // FADE_KNOBS §2.5 (tolerant, absent = 0)
+        if (hasValue(clipObj, "masterFadeInMs")) clip.setMasterFadeInMs(clipObj.get("masterFadeInMs").getAsLong());
+        if (hasValue(clipObj, "masterFadeOutMs")) clip.setMasterFadeOutMs(clipObj.get("masterFadeOutMs").getAsLong());
         if (hasValue(clipObj, "removedSpans")) {
             JsonArray spans = clipObj.getAsJsonArray("removedSpans");
             java.util.List<long[]> list = new java.util.ArrayList<>();
@@ -2352,6 +2358,9 @@ public class ProjectStorage {
                     if (wo.getBarGapOverrideDp() > 0f) wj.addProperty("barGapDp", wo.getBarGapOverrideDp());
                     if (wo.getColorOverride() != null) wj.addProperty("colorOverride", wo.getColorOverride());
                     if (wo.getSensitivityOverride() > 0f) wj.addProperty("sensitivity", wo.getSensitivityOverride());
+                    // FADE_KNOBS §2.5 (tolerant, absent = 0)
+                    if (wo.getFadeInMs() != 0) wj.addProperty("fadeInMs", wo.getFadeInMs());
+                    if (wo.getFadeOutMs() != 0) wj.addProperty("fadeOutMs", wo.getFadeOutMs());
                     if (wo.getGradientStartOverride() != null && wo.getGradientEndOverride() != null) {
                         wj.addProperty("gradStart", wo.getGradientStartOverride());
                         wj.addProperty("gradEnd", wo.getGradientEndOverride());
@@ -2424,6 +2433,9 @@ public class ProjectStorage {
                     sj.addProperty("sizeFraction", so.getSizeFraction());
                     if (so.getRotationDeg() != 0f) sj.addProperty("rotationDeg", so.getRotationDeg());
                     if (so.getOpacity() != 1f) sj.addProperty("opacity", so.getOpacity());
+                    // FADE_KNOBS §2.5 (tolerant, absent = 0)
+                    if (so.getFadeInMs() != 0) sj.addProperty("fadeInMs", so.getFadeInMs());
+                    if (so.getFadeOutMs() != 0) sj.addProperty("fadeOutMs", so.getFadeOutMs());
                     if (so.isFlipH()) sj.addProperty("flipH", true);
                     if (so.isFlipV()) sj.addProperty("flipV", true);
                     if (so.getStartMs() != 0) sj.addProperty("startMs", so.getStartMs());
@@ -3180,6 +3192,9 @@ public class ProjectStorage {
                         if (hasValue(wj, "barGapDp")) wo.setBarGapOverrideDp(wj.get("barGapDp").getAsFloat());
                         if (hasValue(wj, "colorOverride")) wo.setColorOverride(wj.get("colorOverride").getAsString());
                         if (hasValue(wj, "sensitivity")) wo.setSensitivityOverride(wj.get("sensitivity").getAsFloat());
+                        // FADE_KNOBS §2.5 (tolerant, absent = 0)
+                        if (hasValue(wj, "fadeInMs")) wo.setFadeInMs(wj.get("fadeInMs").getAsLong());
+                        if (hasValue(wj, "fadeOutMs")) wo.setFadeOutMs(wj.get("fadeOutMs").getAsLong());
                         if (hasValue(wj, "gradStart") && hasValue(wj, "gradEnd")) {
                             wo.setGradientOverride(wj.get("gradStart").getAsString(),
                                     wj.get("gradEnd").getAsString());
@@ -3321,6 +3336,9 @@ public class ProjectStorage {
                             if (hasValue(sj, "sizeFraction")) so.setSizeFraction(sj.get("sizeFraction").getAsFloat());
                             if (hasValue(sj, "rotationDeg")) so.setRotationDeg(sj.get("rotationDeg").getAsFloat());
                             if (hasValue(sj, "opacity")) so.setOpacity(sj.get("opacity").getAsFloat());
+                            // FADE_KNOBS §2.5 (tolerant, absent = 0)
+                            if (hasValue(sj, "fadeInMs")) so.setFadeInMs(sj.get("fadeInMs").getAsLong());
+                            if (hasValue(sj, "fadeOutMs")) so.setFadeOutMs(sj.get("fadeOutMs").getAsLong());
                             if (hasValue(sj, "flipH")) so.setFlipH(sj.get("flipH").getAsBoolean());
                             if (hasValue(sj, "flipV")) so.setFlipV(sj.get("flipV").getAsBoolean());
                             long sStart = hasValue(sj, "startMs") ? sj.get("startMs").getAsLong() : 0;

@@ -15191,19 +15191,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 if (item.getTextOverlay() != null) {
                     com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
-                    com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = ctrl.getTextBeforeSnapshot();
-                    if (before == null) { maybeRecordTrackOnlyChange(trackChange); return; }
-                    com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after = o.snapshotTransform();
-                    boolean positionChanged = !before.matches(after);
-                    if (positionChanged || trackChange != null) {
-                        String desc = trackChange != null
-                                ? trackChange.description
-                                : (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE
-                                        ? "Move overlay" : "Overlay time range");
-                        undoManager.recordAction(mergedAction(desc,
-                                positionChanged ? () -> o.restoreTransform(after) : null,
-                                positionChanged ? () -> o.restoreTransform(before) : null,
-                                trackChange));
+                    if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN
+                            || kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_OUT) {
+                        // FADE_KNOBS: a fade drag records a FADE undo from the armFade
+                        // snapshot — NOT the transform snapshot, which armFade never captures
+                        // and a previous gesture left stale (its restore would have reverted
+                        // an unrelated earlier move + both fades in one step).
+                        long bIn = ctrl.getFadeBeforeImageFadeIn();
+                        long bOut = ctrl.getFadeBeforeImageFadeOut();
+                        long aIn = o.getImageFadeInMs();
+                        long aOut = o.getImageFadeOutMs();
+                        if (bIn != aIn || bOut != aOut) {
+                            boolean fadeIn = kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN;
+                            undoManager.recordAction(new EditActions.LambdaAction(
+                                    fadeIn ? "Fade in" : "Fade out", // TODO(strings)
+                                    () -> { o.setImageFadeInMs(aIn); o.setImageFadeOutMs(aOut); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); },
+                                    () -> { o.setImageFadeInMs(bIn); o.setImageFadeOutMs(bOut); syncTimelineOverlays(); if (editorTimeline != null) editorTimeline.invalidate(); }));
+                        } else {
+                            maybeRecordTrackOnlyChange(trackChange);
+                        }
+                    } else {
+                        com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = ctrl.getTextBeforeSnapshot();
+                        if (before == null) { maybeRecordTrackOnlyChange(trackChange); }
+                        else {
+                            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot after = o.snapshotTransform();
+                            boolean positionChanged = !before.matches(after);
+                            if (positionChanged || trackChange != null) {
+                                String desc = trackChange != null
+                                        ? trackChange.description
+                                        : (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.MOVE
+                                                ? "Move overlay" : "Overlay time range");
+                                undoManager.recordAction(mergedAction(desc,
+                                        positionChanged ? () -> o.restoreTransform(after) : null,
+                                        positionChanged ? () -> o.restoreTransform(before) : null,
+                                        trackChange));
+                            }
+                        }
                     }
                     // ⚠ THE ANCHOR ATTACH. Without a call here the whole M11 feature is inert:
                     // hostClipId stays null forever, applyAnchorShift `continue`s on its first

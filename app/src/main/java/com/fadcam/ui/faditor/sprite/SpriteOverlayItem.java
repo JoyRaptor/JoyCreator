@@ -43,6 +43,9 @@ public class SpriteOverlayItem {
     private float sizeFraction = 0.25f;
     private float rotationDeg = 0f;
     private float opacity = 1f;
+    /** FADE_KNOBS §2.5: opacity fade durations (0 = none), stackable multiply over keyframes. */
+    private long fadeInMs = 0;
+    private long fadeOutMs = 0;
     private boolean flipH = false;
     private boolean flipV = false;
 
@@ -151,6 +154,8 @@ public class SpriteOverlayItem {
         c.sizeFraction = sizeFraction;
         c.rotationDeg = rotationDeg;
         c.opacity = opacity;
+        c.fadeInMs = fadeInMs;
+        c.fadeOutMs = fadeOutMs;
         c.flipH = flipH;
         c.flipV = flipV;
         c.startMs = startMs;
@@ -198,6 +203,10 @@ public class SpriteOverlayItem {
     public void setRotationDeg(float deg) { this.rotationDeg = deg; }
     public float getOpacity() { return opacity; }
     public void setOpacity(float o) { this.opacity = Math.max(0f, Math.min(1f, o)); }
+    public long getFadeInMs() { return fadeInMs; }
+    public long getFadeOutMs() { return fadeOutMs; }
+    public void setFadeInMs(long ms) { this.fadeInMs = Math.max(0, ms); }
+    public void setFadeOutMs(long ms) { this.fadeOutMs = Math.max(0, ms); }
     public boolean isFlipH() { return flipH; }
     public void setFlipH(boolean flipH) { this.flipH = flipH; }
     public boolean isFlipV() { return flipV; }
@@ -356,6 +365,7 @@ public class SpriteOverlayItem {
     public static class TransformSnapshot {
         public final float centerX, centerY, sizeFraction, rotationDeg, opacity;
         public final boolean flipH, flipV;
+        public final long fadeInMs, fadeOutMs;
         @NonNull public final KeyframeSet keyframes;
 
         TransformSnapshot(@NonNull SpriteOverlayItem o) {
@@ -366,6 +376,8 @@ public class SpriteOverlayItem {
             this.opacity = o.opacity;
             this.flipH = o.flipH;
             this.flipV = o.flipV;
+            this.fadeInMs = o.fadeInMs;
+            this.fadeOutMs = o.fadeOutMs;
             this.keyframes = o.keyframes.copy();
         }
 
@@ -374,6 +386,7 @@ public class SpriteOverlayItem {
                     && sizeFraction == other.sizeFraction
                     && rotationDeg == other.rotationDeg && opacity == other.opacity
                     && flipH == other.flipH && flipV == other.flipV
+                    && fadeInMs == other.fadeInMs && fadeOutMs == other.fadeOutMs
                     && keyframesEqual(keyframes, other.keyframes);
         }
 
@@ -418,6 +431,8 @@ public class SpriteOverlayItem {
         this.opacity = s.opacity;
         this.flipH = s.flipH;
         this.flipV = s.flipV;
+        this.fadeInMs = s.fadeInMs;
+        this.fadeOutMs = s.fadeOutMs;
         this.keyframes.copyFrom(s.keyframes);
     }
 }

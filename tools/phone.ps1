@@ -122,6 +122,56 @@ switch ($Cmd) {
         Adb shell "dumpsys audio | grep -c 'new player piid'"
     }
 
+    "backup" {
+        # Projects live in app-private storage, which Android WIPES on uninstall with no
+        # prompt and no recovery. On 2026-08-29 an acceptance check did exactly that and
+        # took 23 of JoyRaptor's 24 projects. Run this before anything that touches the app.
+        $out = if ($Rest.Count -ge 1) { $Rest[0] } else {
+            "projects_backup_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".tar" }
+        $s = Get-Serial
+        if ($null -eq $s) { Write-Output "no device attached"; exit 1 }
+
+        Write-Output "--- projects on device ---"
+        & $adb -s $s shell "run-as $pkg ls files/faditor/projects"
+
+        # cmd /c for the redirect, NOT PowerShell's `>`. PowerShell re-encodes the stream and
+        # prepends a BOM, which produced a 31MB 'backup' that tar read as ZERO entries -
+        # a file that looks like a backup and restores nothing. Verified failure, not theory.
+        $cmdLine = '"' + $adb + '" -s ' + $s + ' exec-out "run-as ' + $pkg + ' tar c files/faditor 2>/dev/null" > "' + $out + '"'
+        cmd /c $cmdLine
+
+        if (-not (Test-Path $out)) { Write-Output "BACKUP FAILED - no file written"; exit 1 }
+        $f = Get-Item $out
+        # A backup nobody checked is not a backup. Prove it parses and count what is inside.
+        $sig = [System.IO.File]::ReadAllBytes($f.FullName)[0..2]
+        if ($sig[0] -eq 0xEF -and $sig[1] -eq 0xBB -and $sig[2] -eq 0xBF) {
+            Write-Output "BACKUP CORRUPT - BOM at the start, the redirect re-encoded it. DO NOT TRUST."
+            exit 1
+        }
+        $entries = & tar tf $out 2>$null
+        $count = ($entries | Select-String "project.json").Count
+        Write-Output ("wrote {0} ({1:N0} bytes)" -f $out, $f.Length)
+        if ($count -lt 1) {
+            Write-Output "BACKUP CORRUPT - tar found no project.json. DO NOT TRUST."
+            exit 1
+        }
+        Write-Output "VERIFIED: $count project file(s) inside, archive parses cleanly."
+    }
+
+    "restore" {
+        # Push a verified backup back onto a device. Deliberately NOT automatic - read the
+        # tar listing first and be sure it is the one you want.
+        $in = $Rest[0]
+        if (-not (Test-Path $in)) { Write-Output "no such file: $in"; exit 1 }
+        $s = Get-Serial
+        if ($null -eq $s) { Write-Output "no device attached"; exit 1 }
+        & $adb -s $s push $in /data/local/tmp/restore.tar | Out-Null
+        & $adb -s $s shell "run-as $pkg tar x -f /data/local/tmp/restore.tar"
+        & $adb -s $s shell "rm -f /data/local/tmp/restore.tar"
+        Write-Output "--- projects after restore ---"
+        & $adb -s $s shell "run-as $pkg ls files/faditor/projects"
+    }
+
     "build" {
         if (-not (Test-Path "build.log")) { Write-Output "no build.log"; exit 1 }
         $f = Get-Item "build.log"

@@ -73,6 +73,40 @@ the one/ripple/stretch toggle and snap toggle, all on a single row."*
 One row. If it does not fit on a 1080px-wide phone, shrink the labels — do not wrap to two
 rows, and do not grow the drawer's height.
 
+### 3.1 Every toggle explains itself with a toast
+
+JoyRaptor: *"When you toggle those options, we need to show a toast saying what they do."*
+
+`ONE` / `RIPPLE` / `STRETCH` and `SNAP` are three-letter labels for behaviours nobody can
+guess, and getting one wrong moves a hundred words. So on **every** tap that changes one,
+show a short toast saying **what will now happen**, not what the mode is called.
+
+Use this copy exactly. It is written for someone who has never used an editor, and it names
+the effect rather than the jargon:
+
+| Toggle | Toast |
+|---|---|
+| `ONE` | **Only this word moves.** |
+| `RIPPLE` | **This word and every word after it move together.** |
+| `STRETCH` | **Words after this one spread out or squeeze to fit.** |
+| `SNAP` on | **Snapping on — words jump to the nearest sound.** |
+| `SNAP` off | **Snapping off — words land exactly where you drop them.** |
+
+Rules:
+
+- Fire on **every** tap, including tapping back to a mode you were already in. This is a
+  reminder, not a notification of change — the whole point is that you can check what mode
+  you are in without having to remember what the label meant.
+- `Toast.LENGTH_SHORT`. These are read at a glance mid-edit.
+- Do not stack: cancel the previous toast before showing the next, or fast cycling through
+  three modes queues three toasts that outlive the gesture.
+- The button label still shows the current mode, so the toast is confirmation, not the only
+  indicator.
+
+The same principle already applies to `B/U/I`, which are disabled: their toast must say why
+in plain words — **"Bold, underline and italic need per-word styling, which isn't built
+yet."** Not "unsupported".
+
 ---
 
 ## 4. The shuttle: right control, wrong target
@@ -216,7 +250,11 @@ screenshot.
    the shuttle then moves that word. Screenshot both selections. §6.1
 6c. Undo a shuttle nudge, a tape drag, and a prev/next tap — **each is exactly one press**,
    not one per frame or one per word.
-7. `TT` on a word gives all caps. B/U/I are visibly disabled with an explanation.
+7. `TT` on a word gives all caps. B/U/I are visibly disabled, and tapping one explains why
+   in plain words.
+7b. Tap each of ONE / RIPPLE / STRETCH / SNAP and screenshot the toast. The wording must
+   match §3.1 exactly. Tap the same mode twice — **it toasts both times.** Cycle fast through
+   all three and confirm the toasts do not stack up behind you.
 8. **Scrub the timeline with the mode OFF, then ON.** Identical feel and direction.
    Screen-record both. §5.
 9. Say plainly what you did NOT verify.

@@ -9598,6 +9598,85 @@ if (sd.clip.hasVolumeKeyframes()) {
     public long publicXToTime(float x) { return xToTime(x); }
     public float publicTimeToX(long ms) { return timeToX(ms); }
 
+    /**
+     * Word Sync V2 §6/§6.1 — hit-test a transcript word ON THE TAPE.
+     *
+     * <p>Mirrors {@link #drawSegmentTranscript} / {@link #drawAudioTranscripts} geometry
+     * EXACTLY — same rects, same pxPerMs, same visInset — so a tap lands on the word the
+     * user SEES. A previous attempt re-derived positions from segment start times and was
+     * off by ~a dozen words whenever the tapped segment was not the transcript panel's own
+     * clip; deriving from the same rect the draw pass uses makes that class of drift
+     * impossible.</p>
+     *
+     * @return {@code {ownerIndex, wordIndex}} where {@code ownerIndex >= 0} is the master
+     *         segment index and {@code ownerIndex < 0} encodes {@code -(audioIndex+1)};
+     *         null when the touch is not on any word.
+     */
+    @Nullable
+    public int[] hitTestTapeWord(float viewX, float viewY) {
+        if (segments.isEmpty() || segRects.isEmpty()) return null;
+        float contentX = viewX + scrollOffsetPx;
+        // Master tape: words drawn along the bottom of each segment (or in its open drawer band).
+        for (int i = 0; i < segments.size() && i < segRects.size(); i++) {
+            SegmentData sd = segments.get(i);
+            com.fadcam.ui.faditor.transcript.Transcript tr = segmentTranscripts.get(sd.clipId);
+            if (tr == null || tr.words.isEmpty() || sd.trimmedMs <= 0) continue;
+            RectF full = segRects.get(i);
+            if (contentX < full.left || contentX > full.right) continue;
+            if (viewY < full.top - 8f * density || viewY > full.bottom + 24f * density) continue;
+            // Mirror drawSegment's DISPLAY-ONLY inset (same formula, same inputs).
+            float visInset = Math.min(segmentGapPx * 0.5f, full.width() * 0.2f);
+            RectF rect = new RectF(full.left + visInset, full.top,
+                    full.right - visInset, full.bottom);
+            int w = hitWordInTranscript(tr, sd.inPointMs, sd.outPointMs, sd.trimmedMs,
+                    rect, contentX);
+            if (w >= 0) return new int[]{i, w};
+        }
+        // Audio band: words drawn along each audio clip's row body.
+        if (layerRowRenderer != null) {
+            for (int i = 0; i < audioClips.size(); i++) {
+                AudioClip ac = audioClips.get(i);
+                com.fadcam.ui.faditor.transcript.Transcript tr = audioTranscripts.get(i);
+                if (ac == null || tr == null || tr.words.isEmpty()) continue;
+                RectF body = layerRowRenderer.itemBodyRect(
+                        ac.getId(), audioBandTopPx(), totalEffectiveMs, this::timeToX);
+                if (body == null || body.width() <= 0f) continue;
+                if (viewY < body.top - 8f * density || viewY > body.bottom + 8f * density) continue;
+                if (contentX < body.left || contentX > body.right) continue;
+                long inMs = ac.getInPointMs();
+                long outMs = ac.getOutPointMs();
+                long span = outMs - inMs;
+                if (span <= 0) continue;
+                int w = hitWordInTranscript(tr, inMs, outMs, (int) span, body, contentX);
+                if (w >= 0) return new int[]{-(i + 1), w};
+            }
+        }
+        return null;
+    }
+
+    /** Shared word-loop for {@link #hitTestTapeWord}: X-span hit with a small slop, nearest wins. */
+    private int hitWordInTranscript(@NonNull com.fadcam.ui.faditor.transcript.Transcript tr,
+                                    long inMs, long outMs, long trimmedMs,
+                                    @NonNull RectF rect, float contentX) {
+        if (trimmedMs <= 0) return -1;
+        float pxPerMs = rect.width() / (float) trimmedMs;
+        float slop = 8f * density;
+        float bestDist = Float.MAX_VALUE;
+        int best = -1;
+        for (int w = 0; w < tr.words.size(); w++) {
+            com.fadcam.ui.faditor.transcript.TranscriptWord word = tr.words.get(w);
+            if (word.startMs < inMs || word.endMs > outMs) continue;
+            float x0 = rect.left + (word.startMs - inMs) * pxPerMs;
+            float x1 = rect.left + (word.endMs - inMs) * pxPerMs;
+            if (x1 <= x0) x1 = x0 + 1f;
+            if (contentX >= x0 - slop && contentX <= x1 + slop) {
+                float d = contentX < x0 ? x0 - contentX : (contentX > x1 ? contentX - x1 : 0f);
+                if (d < bestDist) { bestDist = d; best = w; }
+            }
+        }
+        return best;
+    }
+
     // ── Gesture listeners ────────────────────────────────────────────
     
     private class ScaleListener extends ScaleGestureDetector.SimpleOnScaleGestureListener {

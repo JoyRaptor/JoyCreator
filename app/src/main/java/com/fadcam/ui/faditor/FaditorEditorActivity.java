@@ -1941,6 +1941,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
         editorTimeline.setSpriteFpsProvider(spriteFpsProvider());
         setupTimelineResizeGrabBar();
+        setupTapeWordSyncTouch();
         editorTimeline.setOnSegmentActionListener(new EditorTimelineView.OnSegmentActionListener() {
             @Override
             public void onSegmentSelected(int index) {
@@ -17041,6 +17042,106 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (nt != null) return nt.transcript;
         }
         return null;
+    }
+
+    // Tape word hit-test — when drawer (Word Sync) is open, tap on a word on the tape retargets drawer (§6.1)
+    private int findTapeWordAt(float viewX, float viewY) {
+        if (editorTimeline == null || project == null) return -1;
+        com.fadcam.ui.faditor.transcript.Transcript t = getWordSyncTranscript();
+        if (t == null || t.words.isEmpty()) return -1;
+        // Only consider taps in the lower tape area (where words are drawn) — upper area is preview/minimap
+        float h = editorTimeline.getHeight();
+        if (h > 0 && viewY < h * 0.35f) return -1; // above tape, not a word
+        Clip clip = null;
+        if (transcriptClipId != null) clip = findClipById(transcriptClipId);
+        if (clip == null) clip = getSelectedClip();
+        if (clip == null) clip = clipUnderPlayhead();
+        if (clip == null) return -1;
+        long segStart = editorTimeline.getSegmentStartTimeMs(project.getTimeline().indexOfClip(clip));
+        float speed = Math.max(0.01f, clip.getSpeedMultiplier());
+        long clipIn = clip.getInPointMs();
+        float bestDist = Float.MAX_VALUE;
+        int bestIdx = -1;
+        float density = getResources().getDisplayMetrics().density;
+        float slop = 28f * density; // ~28dp hit slop
+        for (int i = 0; i < t.words.size(); i++) {
+            com.fadcam.ui.faditor.transcript.TranscriptWord w = t.words.get(i);
+            if (w.startMs < clipIn || w.startMs > clip.getOutPointMs()) continue;
+            long wordTimelineMs = segStart + (long)((w.startMs - clipIn) / speed);
+            float wordViewX = editorTimeline.getViewXForTimelineMs(wordTimelineMs);
+            float dx = Math.abs(viewX - wordViewX);
+            // Approximate word width via paint (fallback 60dp)
+            float wordW = 60f * density;
+            try { wordW = editorTimeline.getViewXForTimelineMs(wordTimelineMs + Math.max(200, w.endMs - w.startMs)) - wordViewX; } catch (Exception ignored) {}
+            if (viewX >= wordViewX - slop && viewX <= wordViewX + wordW + slop && dx < bestDist) {
+                bestDist = dx;
+                bestIdx = i;
+            } else if (dx < slop && dx < bestDist) {
+                // Fallback: closest X even if not within width (for small words)
+                bestDist = dx;
+                bestIdx = i;
+            }
+        }
+        // Also check audio transcripts if video miss and we have audio clip with transcript
+        if (bestIdx < 0) {
+            for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                if (ac == null || !ac.hasTranscript() || ac.getActiveNamedTranscript() == null) continue;
+                com.fadcam.ui.faditor.transcript.Transcript at = ac.getActiveNamedTranscript().transcript;
+                if (at != t) continue; // only current transcript
+                long wordTimelineMs = ac.getOffsetMs() + (t.words.get(0).startMs - ac.getInPointMs()); // not precise, fallback
+                // For audio, use same loop but with offset
+                for (int i = 0; i < at.words.size(); i++) {
+                    com.fadcam.ui.faditor.transcript.TranscriptWord w = at.words.get(i);
+                    long wTimelineMs = ac.getOffsetMs() + (w.startMs - ac.getInPointMs());
+                    float wViewX = editorTimeline.getViewXForTimelineMs(wTimelineMs);
+                    float dx = Math.abs(viewX - wViewX);
+                    if (dx < slop && dx < bestDist) { bestDist = dx; bestIdx = i; }
+                }
+            }
+        }
+        return bestIdx;
+    }
+
+    private void setupTapeWordSyncTouch() {
+        if (editorTimeline == null) return;
+        // Use OnTouchListener to intercept tap on word while Word Sync is open; otherwise let normal scrub handle it
+        final float[] down = new float[2];
+        final int[] downIndex = new int[1];
+        downIndex[0] = -1;
+        editorTimeline.setOnTouchListener((v, event) -> {
+            if (!isWordSyncActive() || !wordScrubDrawerOpen) return false;
+            int action = event.getActionMasked();
+            if (action == MotionEvent.ACTION_DOWN) {
+                int hit = findTapeWordAt(event.getX(), event.getY());
+                downIndex[0] = hit;
+                down[0] = event.getX();
+                down[1] = event.getY();
+                // Don't consume yet — let view's onDown do its thing, but record hit for up
+                return false;
+            } else if (action == MotionEvent.ACTION_UP) {
+                int hit = downIndex[0];
+                downIndex[0] = -1;
+                if (hit < 0) return false;
+                float dx = Math.abs(event.getX() - down[0]);
+                float dy = Math.abs(event.getY() - down[1]);
+                float slop = 12f * getResources().getDisplayMetrics().density;
+                if (dx < slop && dy < slop) {
+                    // Tap on word → retarget drawer to that word (§6.1)
+                    showWordScrubDrawer(hit);
+                    return true; // consume, don't also seek
+                }
+                // If it was a drag starting on a word, let WordSyncMode handle via transcript panel? For now, just retarget and let shuttle/drag handle via drawer
+                // Horizontal drag on tape word itself will be handled by the same showWordScrubDrawer + shuttle; direct tape drag moving word is still via WordSyncMode dragTo on next move
+                // For now, if drag exceeded slop, still retarget so subsequent shuttle moves correct word
+                if (dx > slop || dy > slop) {
+                    showWordScrubDrawer(hit);
+                    return true;
+                }
+            } else if (action == MotionEvent.ACTION_CANCEL) {
+                downIndex[0] = -1;
+            }
+            return false;
+        });
     }
 
     // Word Sync drawer helpers — spec §3.1 exact toast copy, §3 chrome update

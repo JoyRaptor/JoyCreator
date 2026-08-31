@@ -133,8 +133,8 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: SPEC_20260829_MEDIA_IMPORT (muse-spark-1.2 joy-creator) — 2026-08-29T19:35 — verifying multi-select order + cache cap + reboot check10
-  released 2026-08-29T16:05 by SPEC_20260829_DEVICE_VERIFY_ALL (joy-creator / muse-spark) after 5th sweep SUCCESS — install 14:23:02 (lastUpdate 14:36:12) → screenshot verify5_00→01→08→09 → re-derived Faditor 628,2110, rows 706/897/1088/1279/1470/1661/1852, editor play 542,1564 (verified head 00:00→00:03.030 pause) — see VERIFY_20260829_RESULTS.md §5. Lane still ACTIVE for full 41-check sweep if desired.
+DEVICE: free — released 2026-08-30T21:12 by SPEC_20260830_WORD_SYNC_V2 (muse-spark-1.2 joy-creator), per JOYRAPTOR direct instruction: installed build lastUpdate 2026-08-30T21:11 (head e8d95987 — magnet draw fix, snap stickiness, toasts, host-stub fix) on Note 20 REAL_SERIAL; Note 9 SANDBOX_SERIAL got the 18:08 build earlier the same evening.
+  NOTE for FADE_KNOBS lane: my 18:08:36 install -r on the Note 9 replaced your 16:45 instrumented FADEDBG build - re-install if you still need that capture.
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)
@@ -335,9 +335,24 @@ files: (none)
 since: 2026-08-27
 
 ## SPEC_20260829_FADE_KNOBS — outboard knobs + dark curtain (06+07), knob MOVES (§2.1a)
-status: IDLE (2026-08-29T14:20 — joy-creator LANDED b99a20e2: knob position IS readout (model->pixel via timeToX every layout, zoom re-places, never cross, midpoint on short clips), dark veil with sloped edge + dotted inner line in object colour + duration rides diagonal while dragging; 44dp hit (20dp drawn) decoupled from row height; selected-only knobs, veil always when fade>0; top row reserved 28dp pad (chosen over flipping, keeps identical control and 95% lane-above clickable, expanded clipRect for overdraw); cross-lane snap to other fade boundaries/clip edges within timeline tolerance; general host (audio volume, image opacity, caption per-binding fadeInMs/OutMs persisted), spine fade-to-black report owed; retire E2_DEBUG + old 20x12 in-row zone; BUILD SUCCESSFUL 14:18 compileDefaultDebugJavaWithJavac (7 tasks), DEVICE OFFLINE install failed (no device), UNVERIFIED device screenshots — see tasks/REPORT_20260829_FADE_KNOBS.md)
-files: (none)
-since: 2026-08-29T14:20
+status: ACTIVE (2026-08-30T17:35 — muse-spark-1.2 joy-creator. LANDED: c51acdf4 (timeline
+        fixes, device-verified by JoyRaptor) + 35ea0d9d (fades actually fade: text/sprite/waveform
+        preview+export) + 2f5385c7 (SPINE fade knobs: UI on selected master segment, writes
+        Clip.masterFadeIn/OutMs, rides the Opacity-button alpha — preview + export; text
+        shadow+glow fade with glyphs). NOTE: the 17:29 WORD_SYNC_V2 commit bbe1b97b swept my
+        staged FaditorEditorActivity edits (spine fade undo + preview multiply) into ITS
+        commit — content intact, history misattributed; left as-is (no mid-flight history
+        rewrite), noted per the bare-commit corollary. AWAITING JoyRaptor's visual test of spine
+        knobs + text-shadow fade. REMAINING OWED: caption per-binding fade alpha.)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java      (hit-test pass 1, hosts, 24dp)
+  app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java (snap guard, logs, armFade, revert)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java        (text fade undo branch ONLY)
+  app/src/main/java/com/fadcam/ui/faditor/model/Clip.java                    (masterFadeIn/OutMs)
+  app/src/main/java/com/fadcam/ui/faditor/model/WaveformOverlayInstance.java (fadeInMs/OutMs)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteOverlayItem.java      (fadeInMs/OutMs)
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java        (round-trip, tolerant)
+since: 2026-08-30T16:45
 
 ## SPEC_20260829_WORD_SYNC — Word Sync mode: fix a sloppy transcript fast
 status: SUPERSEDED by SPEC_20260830_WORD_SYNC_V2 (2026-08-30) — banner to be deleted, drawer becomes mode

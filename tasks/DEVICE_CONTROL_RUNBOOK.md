@@ -13,6 +13,67 @@ coordinate → screenshot again to confirm.**
 
 ---
 
+## FASTEST PATH — the six commands that always work (added 2026-09-06)
+
+Agents keep getting stuck at step one. These are copy-paste ready and verified on this machine.
+
+**1. adb is NOT on PATH.** Every session starts with this line, or nothing else works:
+```bash
+export PATH="/c/Users/JoyRaptor/AppData/Local/Android/Sdk/platform-tools:$PATH"
+adb devices -l
+```
+
+**2. Two phones exist. Name the one you mean** — a bare `adb` command fails with 'more than one device':
+```bash
+adb -s REAL_SERIAL shell ...      # Note 20, SM-N986U, 1440x3088 -- JoyRaptor's WORKING projects
+adb -s SANDBOX_SERIAL shell ... # Note 9,  SM-N960U, 1440x2960 -- test device
+```
+
+**3. Prove an install actually landed.** `Success` is NOT proof — the file can install without the app
+restarting, and claiming a fix is on the phone when it isn't wastes JoyRaptor's testing time:
+```bash
+adb -s <serial> shell dumpsys package com.fadcam.beta | grep lastUpdateTime   # before
+adb -s <serial> install -r app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk
+adb -s <serial> shell dumpsys package com.fadcam.beta | grep lastUpdateTime   # must have CHANGED
+```
+
+**4. READ JOYRAPTOR'S ACTUAL PROJECT DATA. This is the single most useful thing in this file.**
+You do not need to see the screen to diagnose a geometry bug — the model is on disk, and it is
+the ground truth for what a gesture actually stored:
+```bash
+adb -s <serial> shell run-as com.fadcam.beta ls -t files/faditor/projects   # newest first
+adb -s <serial> exec-out run-as com.fadcam.beta \
+  cat files/faditor/projects/<uuid>/project.json > /tmp/live.json
+```
+`exec-out`, never `shell cat` — `shell` mangles bytes. Then parse it with python and print the
+fields you care about (`pinTLdx`.., `rotationDeg`, `sizeFraction`, `flipH`, `pivotX`). On
+2026-09-06 this is what identified a corner-pin bug in ten seconds: three corners at ~0.02 and
+one at 1.37. **A user's description plus their real numbers beats any amount of code reading.**
+
+**5. NEVER `adb uninstall`.** JoyRaptor's real projects live in app-private storage. Uninstalling
+destroys them. `install -r` keeps data. Back up first if you are doing anything unusual:
+```bash
+adb -s <serial> exec-out run-as com.fadcam.beta tar cf - files/faditor/projects > backup.tar
+```
+
+**6. If Gradle will not build at all**, it is almost never your code. Two known causes:
+- `Unable to establish loopback connection` → the AF_UNIX bug. The fix is already in
+  `gradle.properties` AND both `gradlew` wrappers (`-Djdk.net.unixdomain.tmpdir=C:/Temp`); a
+  wrapper upgrade silently removes it. Do not chase it in the app code.
+- `A new daemon was started but could not be connected to`, or
+  `IOException: Unable to delete directory ...effect/buildout/...` → a `gradlew -t` watcher is
+  holding the build. **Only ONE watcher may run.** Three of them racing the same directories
+  produced ~200 phantom media3 errors on 2026-09-06 that three separate agents each blamed on
+  another lane's code. Check with:
+```bash
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { \$_.CommandLine -match 'gradlew' } | Select-Object ProcessId,CommandLine"
+```
+
+**Honesty rule:** if you did not run it on a phone, say "compile-verified, NOT device-verified".
+JoyRaptor checks, and a wrong claim costs him a test cycle.
+
+---
+
 ## 0. Facts you need (this project)
 - **Debug package (what you install/test):** `com.fadcam.beta`  (release is `com.fadcam`; you almost always
   want `.beta`).

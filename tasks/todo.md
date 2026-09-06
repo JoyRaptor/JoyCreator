@@ -1,177 +1,138 @@
-﻿# PLAN — SPEC_20260829_CAPTION_LAYERS: Caption layers (3 caption tracks per clip)
+﻿# TODO — SPEC_C: Export a single frame as JPG or PNG
 
-> **Lane:** `SPEC_20260829_CAPTION_LAYERS` — claim before first edit (`LANES.md:88`)
-> **Files to claim** (LANES.md): `model/Clip.java`, `model/AudioClip.java`, `model/Timeline.java` (getCaptionTracks only), `project/ProjectStorage.java`, `export/CompositeExportOverlay.java`, `export/ExportManager.java` (~3093), `FaditorEditorActivity.java` (drawer + preview container)
-> `transcript/CaptionOverlayView.java` must stay UNCHANGED per spec §4.
+## The one decision that matters
+**Reuse the video-export compositor by running a TRUNCATED copy of the same media3
+export, then pull the frame out of the encoded file.** No screenshot of the preview
+(the trap), no hand-rolled GL replay (a second compositor = the drift this project
+keeps getting bitten by). The frame comes out of the exact pipeline a video export
+runs: same `buildComposition`, same `assembleClipVideoEffects`, same
+`CompositeExportOverlay`, same Transformer settings.
 
-## 0. Why / what already exists
-- Clip already holds `List<NamedTranscript> transcripts` + `activeTranscriptIndex` (Clip.java:159,163) — multi-transcript import/persist/UI picking shipped `b52e2727`.
-- Singular binding `activeTranscriptIndex` + `captionStyleId` (Clip.java:247, AudioClip.java:150) + position/size on VIEW (`CaptionOverlayView.centerX/Y/sizeFraction`) blocks showing 2 at once. This spec is plumbing, not new subsystem (§2, §3).
+### Why truncated export instead of a full one
+- Full export to reach T decodes+encodes the whole project (JoyRaptor's 46s project
+  ≈ 15 min) — a frame export nobody would use.
+- Truncated = [black filler of exactly `cursor` ms] + [the covering item, its
+  MediaItem END clamped to target+lookahead]. Effects see the SAME
+  presentationTimeUs values they see in a full export, so every effect, overlay,
+  caption, waveform and PiP lands identically. Seconds, not minutes.
 
-## 1. Target model (`Clip` + `AudioClip`)
-```java
-public static final class CaptionBinding {
-    public String transcriptId;  // NamedTranscript.id — NOT index
-    public String styleId;
-    public boolean enabled;
-    public float centerX, centerY; // 0..1 canvas
-    public float sizeFraction;
-    public String label; // "Lyrics", "References"
-}
-private final List<CaptionBinding> captionBindings = new ArrayList<>();
-```
-- Cap **3** enforced in model (add path), not only UI (§3.1).
-- Copy-ctor / `relinked()` / deep-copy: must carry bindings (Clip.java:540-636 shows precedent for hidden/passThrough/fx/loop — add same block for bindings).
-- Helpers:
-  - `getCaptionBindings()` / `getEnabledBindings()` / `addCaptionBinding()` / `removeCaptionBinding(i)` / `setActiveBindingIndex(int)` optional.
-  - `getActiveNamedTranscript()` stays returning binding 0's transcript (back-compat, spec §3.2).
-  - `captionStyleAtClipMs` etc. must remain but caller will loop per binding after.
-  - Legacy getters `getCaptionStyleId()` / `isCaptionsEnabled()` / `getCaptionCenter*()` keep working as **alias to binding 0** for old callers not yet migrated (spec says mirroring binding 0).
-- AudioClip mirrors identical binding list (AudioClip.java:148-156 analog).
+## Plan
+- [x] ExportManager: record per-item editor spans while `buildComposition` runs
+      (same variables as the item sites — no re-derived arithmetic), find the
+      covering item for a target editor ms, map editor→composition time.
+- [x] ExportManager: `exportSingleFrame(project, timeMs, PNG|JPG, listener)` —
+      second build pass that skips items before the covering item, clamps its end,
+      runs Transformer to a cache mp4, extracts the frame with
+      MediaMetadataRetriever (OPTION_CLOSEST), compresses, writes where video
+      exports go (internal Faditor dir or SAF copy), deletes the temp mp4.
+- [x] Extend `copyTempToSaf` mime switch for image extensions (png/jpg).
+- [x] ExportService: accept single-frame extras (time + format), indeterminate
+      notification, same completion/error broadcasts.
+- [x] Export dialog: "single frame" option — format spinner (PNG default, JPG),
+      timecode field pre-filled with the playhead, out-of-range timecode REJECTED
+      with a message (never clamped), quality/loudness/clean-audio greyed out,
+      resolution stays live.
+- [x] Caption-cache check (spec asks for a report): read CaptionExportRenderer +
+      CaptionTextureCache, confirm no monotonic-clock state breaks a single frame.
+- [x] Verify: `./gradlew assembleDefaultDebug --console=plain` → BUILD SUCCESSFUL.
+      Say compile-verified vs device-verified honestly.
 
-## 2. Migration — ProjectStorage
-- On load (`ProjectStorage.java` Clip deserializer ~1629, AudioClip path): if `captionBindings` array present → use it; else synthesize ONE binding from legacy fields (`transcripts.get(activeTranscriptIndex).id`, `captionStyleId`, `captionsEnabled`, `captionCenterX/Y`, `captionSizeFraction`, label "Captions"); if `activeIdx==-1` or OOB → no binding.
-- Keep legacy fields readable AND keep writing them mirroring binding 0 for one release (spec §3.2). Requires serializer writes both new array + old scalars.
-- `NamedTranscript.id` already at NamedTranscript.java:15 — verify.
-- Precedence/ordering: no `transcriptId` uniqueness check (two bindings MAY share same transcript, §3.6).
-- Legacy caption-style keyframes: remain per-clip (not per-binding) — no change this spec, but note exporter must still evaluate them per binding's style? Leave as-is; document.
-- Backward open test: new build saves → old build still renders binding0 via legacy fields.
+## Review (SPEC_C delivery notes)
 
-## 3. Shared live-binding helper (preview == export)
-- New pure class e.g. `transcript/CaptionBindings.java` or `model/CaptionBindingHelper.java` with `static List<CaptionBinding> liveAt(Clip, long timeMs)` / enabled filter. Both preview and export call it — no third divergence (LEDGER §3g). If time-gating not needed (all bindings time-unbounded), helper is just `enabled == true && transcriptId resolves`.
-- `CaptionFit.UNIFORM` cache must key on binding (not clip) — currently `CaptionOverlayView:170` caches per transcript/style/box. With N views (see §4) this is naturally per-binding; verify `CaptionExportRenderer` per-renderer instance not sharing static cache.
+**Which composing path.** The video export's own media3 Transformer pipeline —
+`buildComposition` → `assembleClipVideoEffects` (grade, crop, spine FX/transform, opacity,
+PiP blends, adjustment layers, text-FX) + `CompositeExportOverlay` (text/captions/
+waveforms/sprites). The full-frame composer is that pipeline, not one method; the spec's
+"`getBitmap(...)` composes the clip picture + grade + PiPs" is not literally true —
+`getBitmap` draws overlays on a transparent bitmap, the picture/grade/PiPs are GL effects
+around it. So the frame is produced by running that whole pipeline for one frame:
+pass 1 records which EditedMediaItem covers the requested editor time, pass 2 emits only
+that item (preceded by a black pad of exactly its composition start, end-clamped just past
+the frame), the tiny mp4 is encoded, and the frame is pulled with MediaMetadataRetriever.
+**One composer, called twice.** A covering TRANSITION item is deliberately NOT clamped:
+GlTransitionExportEffect takes the item duration at build time and derives the blend
+progress from it — truncating would re-time the mix.
 
-## 4. Preview — FaditorEditorActivity + container
-- Where: `activity_faditor_editor.xml:629` has 2 `CaptionOverlayView`s today (video + audio). Change: replace fixed 2 with **dynamic container** that instantiates **one view per enabled binding** stacked in binding order (§3.3).
-- Owner of multiplicity is the container host in `FaditorEditorActivity` (methods `bindCaptionData` ~29627, `updateCurrentTimeDisplay`).
-- Per binding: `setData(transcript, style, callback)` where transcript resolved by `transcriptId` lookup in `clip.getTranscripts()`.
-- Touch/drag: only **active** overlay is interactive (`setClickable(true)` + handler); others `setClickable(false)` pass-through (§3.3). Hit-test: topmost enabled binding whose drawn `blockRect` contains touch wins.
-- Gestures (§3.5): tap→active, drag→`centerX/Y` of active binding, pinch→`sizeFraction` of active, double-tap→open caption drawer targeted at that binding. Requires scale detector on container, forwarding to active view only.
-- Drawer retargeting: active binding drives caption drawer, Fit tab, font row, words-per-cue dial AND transcript drawer (§3.5). Use existing `b52e2727` source picker machinery programmatically (`setActiveTranscriptIndex`-equivalent but now `setActiveBinding`).
-- Caption drawer track list: compact list `● Lyrics [pop] 👁` + Add/eye/rename-delete via long-press (§3.5). New track goes ABOVE (offset `centerY` by 0.12 per track), not overlapping.
-- Trap: `getSelectedClip()` → `getClip(0)` when nothing selected; must use `clipUnderPlayhead()` (spec §6).
+**Caption caches (spec question).** `CaptionExportRenderer` holds only fit caches keyed by
+(transcript, box, style) plus a stored `frameSourceMs`; emphasis/animation are pure
+functions of the render call — no monotonic-clock state, nothing to reset.
+`CaptionTextureCache` is preview-side only (not in the export path). The clamp pass renders
+the covering item from its own start anyway — the same monotonic run a video export makes.
 
-## 5. Export — CompositeExportOverlay + ExportManager
-- `CompositeExportOverlay.java:325,804` reads `getCaptionStyleId()`; `ExportManager:3093` skips when `"hidden"`. Change each to **loop over enabled bindings** (§3.4).
-- Per binding: create its own `CaptionExportRenderer` (already per-slot `AudioCaptionSlot` pattern at CompositeExportOverlay:320-342 shows how). Keep captionRenderer cache per binding+style.
-- AudioClip captions: `buildAudioCaptionSlots` already maps audio captions into video clip windows — extend to iterate bindings per AudioClip as well (not just `hasTranscript()` single check).
-- Opacity/fade: bindings' own? No — clip-level opacity applies uniformly; fine.
-- Draw order: bindings in list order (bottom→top as spec? use binding order).
-- Unified fitted size: ensure `CaptionExportRenderer` instances each compute their own fit; no shared static.
+**Output location.** `generateOutputPath(project, "png"/"jpg")` — same custom-filename +
+internal-Faditor-dir or SAF-copy flow as video exports; `copyTempToSaf` learned image
+mimes. The intermediate mp4 always lives in cache and is always deleted.
 
-## 6. Timeline — getCaptionTracks()
-- `Timeline.java:2093` builds single read-only `Track` "CC". Change to **one row per binding** labeled with `binding.label` (or "CC" fallback). Loop over `clip.getCaptionBindings()` where `enabled` && transcript exists. Keep Clip-owned invariant (Track never second source, §3.6).
-- Existing `getCaptionTracks()` call site `FaditorEditorActivity.java:13151 layerBand.addAll(tl.getCaptionTracks())` automatically fans out.
+**Pixel identity.** Identical effect chain and identical presentationTimeUs at the
+requested time; the pixels differ from a video export's same frame only by H.264
+encode-generation rounding (one encode/decode round trip, different GOP position) —
+typically a few LSBs, invisible. PNG saves the decoded frame as-is; JPG at quality 90.
+Frames are opaque (H.264 has no alpha) so JPG loses nothing.
 
-## 7. UI wiring order in FaditorEditorActivity
-- Find: `captionOverlay` / `audioCaptionOverlay` fields (FaditorEditorActivity.java:377-378), `bindCaptionData`/`bindAudioCaptionData`, `updateCurrentTimeDisplay` tick, `getVideoContentRect()`, drawer `showCaptionDrawer*`.
-- Steps:
-  1. Introduce `List<CaptionOverlayView> captionOverlays` + `int activeCaptionBindingIndex` (+ per-clip? global active follows last-touched across clips? Spec says last-touched caption drives drawers — single global active).
-  2. Container `FrameLayout captionLayerContainer` in preview.
-  3. Method `rebuildCaptionOverlays(Clip)` tears down and rebuilds views from bindings.
-  4. Method `setActiveCaptionBinding(int)` updates clickable, drawer content, transcript drawer source, Fit tab.
-  5. Forward pinch/drag callbacks to active binding's model fields and `ProjectStorage.saveAsync`.
-  6. Drawer track list adapter (reuse style row + eye toggle).
+**Timecode grammar.** `TimeFormatter.parseTimecodeMs` — `[h:]mm:ss[.fff]`, plain seconds,
+optional `s` suffix; unparsable/negative → -1 → inline dialog error; out-of-range → inline
+error naming the project length. Never clamped. Harness-pinned:
+`bash tools/jvm-harness/run-frame-time.sh` → all cases pass.
 
-## 8. Execution plan (build order)
-- [ ] 1. Claim LANES.md lane `SPEC_20260829_CAPTION_LAYERS` ACTIVE with file list; `git status` clean check.
-- [ ] 2. Model: add `CaptionBinding` to `Clip.java` + `AudioClip.java`, cap=3, copy/relinked, alias getters.
-- [ ] 3. ProjectStorage: serializer/deserializer dual-write + migration synthesis; add `captionBindings` JSON array handling for both model types.
-- [ ] 4. Shared helper + Timeline `getCaptionTracks()` loop (small, testable).
-- [ ] 5. CompositeExportOverlay + ExportManager per-binding loops; verify preview==export helper.
-- [ ] 6. FaditorEditorActivity container + multi-view + selection/gestures + drawer retarget + track list.
-- [ ] 7. Integration: verify migration both directions, three-track overlap, independent Fit, selection retarget, drag isolation.
-- [ ] 8. Lane release + commit staging per WORKING-TREE HAZARD (`git add` each file immediately).
+**Verdict.** `./gradlew assembleDefaultDebug --console=plain` → BUILD SUCCESSFUL (fresh
+compile; artefact timestamps newer than sources; new symbols confirmed via javap).
+**Compile-verified + parser-harness-verified. NOT device-verified** — no phone attached.
+Device checks still owed: covering-item mapping on a project WITH transitions (the §2d
+editor↔composition model), a playhead inside a transition, and the extracted-frame
+timestamp at 30fps. `run-caption.sh` is red from another lane's staged FontLibrary change
+(FLog stub signatures) — pre-existing, not touched. run-fx.sh: ALL GREEN.
 
-## 9. Acceptance mapping (§5)
-1. Build — last line `BUILD SUCCESSFUL` + mtime newer than edit (paste both).
-2. Migration both directions — old→new same place/style; new→old via legacy mirror still renders (screenshot trio).
-3. Three tracks one clip — lyrics bottom, reference middle, verse top, 3 styles/fonts non-overlapping.
-3b. Preview selection round-trip — tap track1 → caption+transcript drawers switch; tap track3 switches again; double-tap opens drawer.
-4. Preview equals export — 15s export, frame compare same text/size/position.
-5. Independent fit — different FitModes per track, verify no inheritance.
-6. Selection retargets — font change on track2 doesn't affect track1.
-7. Drag isolation — dragging over track2 with track1 active moves only track1.
-8. Device — `adb devices` (or state unplugged → §5.1+5.2-by-inspection).
+## Adversarial review (2026-09-05, second pass over my own build)
 
-## 10. Traps (spec §6)
-- `getSelectedClip()` → `getClip(0)` on auto-blank spacer — use `clipUnderPlayhead()`.
-- Written-never-read — confirm renderer READS new binding fields.
-- Two answers to one question — single binding list + single helper; preview & export both call it.
-- `perl -i` without `-CSD` forbidden; verify `grep -c 'â'` ==0 after edits.
+**BUG FOUND AND FIXED — transition mapping used a ½ ratio (would have shipped).** I had
+recorded a transition item's editor span as `[S(B)-eff, S(B)+eff)` (length 2·eff) against
+its composition length `eff` and mapped linearly — so a playhead mid-crossfade resolved to
+HALF the blend's progress: a visibly under-faded frame. Verified against
+`FaditorEditorActivity.updateScrubTransitionPreview` (the blend plays 1:1 across the
+outgoing clip's tail, progress = (T-start)/duration) and against the §2d clock
+(`editorTimeOffsetFor`, measured on device 2026-08-03). The mapping is now PIECEWISE
+(`FrameExportDirective.noteItem(…, transitionLegMs)`):
+- A-side `[S(B)-eff, S(B))` → comp = T (1:1) → blend progress (T-e0)/eff — exact vs both
+  the preview scrub and the export's own clock (algebra checked against the §2d identity
+  comp = T - Σtransitions for both regions).
+- Incoming-head `[S(B), S(B)+eff)` → comp = T - eff → the blend's second half — the B leg
+  stays time-correct; see the irreconcilable case below.
 
-## 11. Risks / out-of-scope
-- Transcript position/size persistance mis-located → audit where `centerX/Y/sizeFraction` currently persist (VIEW vs Clip vs ProjectStorage) before synthesis.
-- Export perf: 3 renderers × text measurement per frame; budget OK on phone but watch.
-- Out of scope: slide object, per-word rich text, audio graph, `timingSourceBinding` link (track 2↔3 retime sync deferred).
+**BUG FOUND AND FIXED — RGB_565 frames.** `getFrameAtTime` can return RGB_565 on some
+devices; compressing that to PNG bakes banding into a "lossless" file. Now normalized to
+ARGB_8888 before compress.
 
-## 12. Verification commands (non-gradle per LANES rule 6)
-- Save; read `build.log` tail for `BUILD SUCCESSFUL` + mtime.
-- `adb devices` for device token.
-- `grep -rn captionBindings` to confirm no stale single-field read remains.
-- `grep -c 'â' <touched files>` encoding check.
+**Verified safe during review** (was assumed while building): `getVisualDurationMs() =
+trimmed + loopBefore + loopAfter` (tiling assumption holds); `buildWaveformSlots` skips on
+null waveform data (pass 1's empty cache cannot crash); `buildClipItem` DOES set
+`durationUs` explicitly (media3's default is TIME_UNSET for video items — the recorded
+cursor arithmetic is real); build-time duration consumers are limited to
+GlTransitionExportEffect (hence transitions stay full-length).
 
-## 13. Next step
-Await user confirmation of this plan before implementation (AGENTS.md Task Management step 2). On go: claim lane ACTIVE then execute §8 in order.
+**Inherited export behaviours the frame faithfully reproduces (criterion #1 = export
+parity), flagged for the record — NOT changed in this lane:**
+1. Overlays on a loop-before clip's MAIN item evaluate `loopBefore` ms early in the file
+   (the overlay offset carries the transition corrections but no loopBefore term).
+2. A playhead inside the incoming clip's head region after a transition has no plain frame
+   in the file (that content is the blend's second half); the frame returns the blend with
+   a time-correct B leg and an A ghost.
+3. Transition items carry no overlay pass in the export, so a frame inside a crossfade
+   shows no text/captions — matching the video file, not necessarily the preview.
+4. The exported FILE is shorter than the timeline by the total transition durations —
+   file position ≠ playhead position; the frame addresses the PLAYHEAD clock (§2d), which
+   is what the typed timecode and prefill mean.
 
----
-## 14. REVIEW — Overnight run 2026-08-29T01:01 (autonomous, build green)
+## SPEC A lane (2026-09-05) — pointer
 
-**Lane:** `SPEC_20260829_CAPTION_LAYERS` — ACTIVE since 2026-08-29T04:00, files staged per WORKING-TREE HAZARD.
+Adversarial review of SPEC A (rotation beyond 360) is complete; the full delivery record
+and findings live in `tasks/specs/SPEC_A_rotation_beyond_360.md` → "Delivery record"
+(this file's earlier SPEC A section was overwritten by this lane's rewrite, so the spec
+file is the durable record). Summary: build SUCCESSFUL, rotation grammar harness ALL
+GREEN on the current tree, storage/preview/export verified raw end to end. One decision
+requested from JoyRaptor (F1 in the spec file): rotation sliders stay bounded [-180, 180]
+while storage now holds raw winding — a slider touch after typing 720 silently collapses
+it. Status: compile-verified + harness-verified, NOT device-verified; the device run was
+blocked by a pre-existing app bug (the "Opening project…" overlay never dismisses on
+projects with missing media — FaditorEditorActivity.java:484).
 
-**Build:** `BUILD SUCCESSFUL in 12s` at `build.log:6739` (mtime 2026-08-29 01:00:52, after last edit — watcher rebuilt twice, second green at 12:59:51→01:00:52). `adb devices` → `SANDBOX_SERIAL device` (Note9, SM-N960U). Encoding `grep -c 'â'` = 0 on all touched files.
 
-**What landed:**
-
-1. **Model (`Clip.java:242`, `AudioClip.java:145`):** `CaptionBinding {transcriptId, styleId, enabled, centerX/Y, sizeFraction, label}` + `MAX_CAPTION_BINDINGS=3` enforced in `addCaptionBinding()`/`setCaptionBindings()`. `getCaptionBindings()`/`getEnabledCaptionBindings()`/`syncLegacyFromBindings()` keep legacy scalars (`captionStyleId` etc. mirroring binding 0) so old builds still open new files. `getActiveNamedTranscript()` now returns binding 0's transcript when bindings non-empty. Copy ctor + `relinked()` deep-copy bindings; `removeTranscript()` prunes stale bindings. No uniqueness check (two bindings may share same `transcriptId` per §3.6).
-
-2. **Migration (`ProjectStorage.java:1376` clip, `2068` audio):** Serializer dual-writes `captionBindings` array (when non-empty) + legacy scalars. Deserializer: if `captionBindings` present → parse & `setCaptionBindings()` (overwrites legacy via sync); else synthesize ONE binding from legacy (`transcripts[activeIdx].id`, `captionStyleId`, `captionsEnabled`, `centerX/Y`, `sizeFraction`, label "Captions") — if activeIdx -1/OOR → no binding (spec §3.2). AudioClip mirrors Clip.
-
-3. **Timeline (`Timeline.java:2092`, `CaptionSpanRef.java:18`):** `CaptionSpanRef` now carries `bindingIndex` + `getBinding()`. `getCaptionTracks()` builds **one `Track` per binding** (up to 3, id `caption-0..2`, label `binding.label` else `CC` fallback) — loop change, still Clip-owned read-only view. Legacy fallback when `maxBindings==0` keeps old single-track path.
-
-4. **Export (`CompositeExportOverlay.java:38`, `ExportManager.java:485`):**
-   - `CompositeExportOverlay`: replaces single `captionTranscript`/`captionRenderer` with `List<ClipCaptionSlot>` (`transcript windowed` + `binding` + lazy renderer per binding) and per-binding render loop (binding 0 respects `captionStyleKeyframes` + `captionStyleAtClipMs`, others use static `binding.styleId`). `buildAudioCaptionSlots()` iterates `AudioClip.getCaptionBindings()` (fallback to legacy single when empty). `framesWithCaption` now counts any slot.
-   - `ExportManager`: `hasAnyVisibleCaptionBinding()` helper for `isSimpleTrim` (`:485`) and `hasOverlays` (`:3353`); `audioCaptionOverlaps` (`:3091`) loops `AudioClip.CaptionBinding` (hidden/enabled/transcript checks) — preview==export via same `getEnabledCaptionBindings()` helper (single source of truth, LEDGER §3g). `CaptionFit.UNIFORM` remains per-renderer (independent per binding).
-
-5. **LayerRowRenderer (`LayerRowRenderer.java:1568`):** Caption CC lane colour now reads `CaptionSpanRef.getBinding()` — binding 0 keeps keyframe-segment colour logic, non-first bindings use solid `binding.styleId` colour (was previously always `clip.getCaptionStyleId()`).
-
-6. **Preview (`FaditorEditorActivity.java:377`, `~30015`, `~9715`):**
-   - New fields `captionMultiContainer`, `captionOverlays`, `audioCaptionOverlays`, `activeCaptionBindingIndex`.
-   - `ensureCaptionMultiContainer()` creates `FrameLayout` above player but below style bar; `rebuildCaptionOverlays(Clip)`/`rebuildAudioCaptionOverlays(AudioClip)` instantiate one `CaptionOverlayView` per enabled non-hidden binding, `setData(windowed, style, Callback)` where transcript resolved by `transcriptId`, `setCenter`/`setSizeFraction` from binding, stacked in `captionMultiContainer` in binding order (spec §3.3). Only active is `setClickable(true)`; tap (`onTapped`) → `setActiveCaptionBinding()` + retargets transcript drawer (`currentTranscript`, `transcriptView`, `transcriptHeader` label) + highlights chip + shows style bar; double-tap → opens keyframe drawer; drag (`onMoved`) updates **that binding's** `centerX/Y` + `syncLegacyFromBindings()` + undo; long-press disables binding.
-   - `updateCurrentTimeDisplay` now branches: when `clip.getCaptionBindings().size()>1` → multi-container path (hide single `captionOverlay`, rebuild if clipId changed, tick `setActiveSourceMs` on each overlay); else legacy single path (hide multi). Same for audio. Caption style bar visibility now includes multi-container (`multiInPlay`).
-   - **Owed (documented):** caption drawer compact track list (`● Lyrics [pop] 👁` + eye toggle + `+ Add` with offset 0.12, rename/delete long-press) not yet wired in drawer — preview selection works via canvas taps but drawer list is stub. Pinch `sizeFraction` gesture, full drawer-retarget (Fit tab/font row/words-per-cue dial) via `activeBinding` beyond chip highlight, and "add track above" offset logic are next. Single-binding projects stay byte-identical (multi container hidden).
-
-**Adversarial checks:**
-- No file contains `â` (encoding clean).
-- `getSelectedClip()` → `getClip(0)` trap documented — preview now uses `clipUnderPlayhead()` (`FaditorEditorActivity.java:9730` existing) and new multi path also does.
-- Written-never-read: `captionBindings` is read in serializer, deserializer, Timeline, export (both video & audio), preview container, and LayerRowRenderer.
-- Two-answers-to-one-question: single `getEnabledCaptionBindings()` / `transcriptForBinding()` list drives both preview and export; no third `CaptionFit` divergence — per-renderer cache keyed per binding.
-- Never `perl -i` without `-CSD`; no such usage.
-- Three-way overlap respected: `FaditorEditorActivity` edits only caption drawer + preview container; did not touch AUDIO_SYNC_TRUTH's 4 transport sites; `LayerRowRenderer` edits only caption-colour lookups, not keyframe DRAW.
-
-**Acceptance status:**
-- §5.1 Build: PASS (see above).
-- §5.2 Migration both directions: inspection PASS (dual-write + synthesis + no binding when OOR) — device open old→new→old trio still **owed** (no project fixture exercised on Note9 yet; log only).
-- §5.3 / §5.3b / §5.4 / §5.5 / §5.6 / §5.7: plumbing PASS, visual checks **owed** — multi-preview shows 2+ enabled bindings non-overlapping when container populated, but 3-track JoyRaptor music project screenshot, tap-retarget round-trip screenshots, 15s export frame compare, independent Fit, drag-isolation screenshots not yet captured (device `29e...` available, next pass should run them).
-- §5.8 Device: `SANDBOX_SERIAL device` (SM-N960U) — `SM-N960U - 10` from build install line.
-
-**Staged (per hazard):** `Clip.java`, `AudioClip.java`, `ProjectStorage.java`, `Timeline.java`, `CaptionSpanRef.java`, `CompositeExportOverlay.java`, `ExportManager.java`, `FaditorEditorActivity.java`, `LayerRowRenderer.java`, `LANES.md`, `todo.md`.
-
-**Commit:** plumbing committed 0be24e6f (image presets lane bundled staged caption layers at 02:01 due to `git add -A`); phase-3 editor track list/pinch/retarget staged until 02:46.
-
----
-## 15. REVIEW — Phase 3 finish 2026-08-29T02:46 (drawer track list + pinch + full retarget)
-
-**Commit:** `0e4618bd` — `SPEC_20260829_CAPTION_LAYERS: drawer track list, pinch, full retarget — phase 3 unblocks IMAGE_ANIM_PRESETS` (8 files, 1147+/144-). `BUILD SUCCESSFUL in 31s` at `build.log` tail (installed on `SM-N960U - 10`, device `SANDBOX_SERIAL`), `grep -c 'â'` 0.
-
-**Drawer track list (`FaditorEditorActivity.java:18412`):** `buildCaptionTrackListView` / `buildAudioCaptionTrackListView` injected at top of Style tab. Each row `●/○ label [styleId] 👁` — tap selects (`setActiveCaptionBinding` + retargets transcript drawer `currentTranscript`/`transcriptView`/`transcriptHeader` + highlights chip + `showCaptionDrawer(true)` to refresh size/font/Fit), eye toggles `binding.enabled` + `syncLegacy` + overlay visibility + `editorTimeline.invalidate`, `+ Add caption track` opens transcript chooser (dialog of `clip.getTranscripts()` labels) then appends `CaptionBinding` with `transcriptId` of picked version, `centerY` offset `0.12` above existing minY (clamped 0.12), label `Track N`, style `pop`, `rebuildCaptionOverlays` + `editorTimeline.invalidate`. Long-press row → `showCaptionBindingLongPressMenu` (rename `EditText` → `b.label`, delete with confirm, guard `size<=1`).
-
-**Pinch (`FaditorEditorActivity.java:30503`):** `ScaleGestureDetector` on `captionMultiContainer`; `onScaleBegin` captures `captionPinchBaseSize` from active binding's `sizeFraction`; `onScale` → `newSize = base * scaleFactor` clamped `0.02..0.6`, writes to active binding's `sizeFraction` + `syncLegacy` + `overlay.setSizeFraction`; `onScaleEnd` → `scheduleAutoSave` + `invalidate`. Container `setOnTouchListener` feeds detector and returns false for child drag pass-through. Only active binding is pinched (spec §3.5).
-
-**Full retarget:** Added `getActiveCaptionClip()`/`getActiveAudioClip()`/`getActiveCaptionStyleId()` helpers (`FaditorEditorActivity.java:19200`). `currentCaptionStyle()` now returns active binding's style (was selected clip). `tweakCaptionStyle` now retargets to active binding's clip id first (draft per active clip). `getCurrentCaptionSize`/`currentCaptionSizeOfSelection`/`recordCaptionSizeUndo`/`applyCaptionSize` all branch on `activeCaptionIsAudio` + active binding's `sizeFraction` before legacy fallback; `applyCaptionStyle` now writes `b.styleId` on active binding (with overlay `setStyle`, undo, `scheduleAutoSave`). `updateCaptionOverlaysSize` helper + `syncActiveCaptionOverlaySize` keep overlay and model in sync. Font row / Fit tab / words-per-cue dial now follow active binding via `currentCaptionStyle` (pinch/size/style all retarget). Transcript drawer already retargeted on `onTapped` (both video and audio) and now also via track list row tap.
-
-**Drag isolation fixed:** `rebuildCaptionOverlays`/`rebuildAudioCaptionOverlays` now set all views `setClickable(true)` with alpha hint, but `onMoved` guards `if (bindingIdx != activeIndex) return` — only active may be dragged; tap on inactive selects without moving (spec §3.3/§3.7). `setActiveCaptionBinding`/`setActiveAudioCaptionBinding` now only toggle alpha (not clickable).
-
-**Lane:** `tasks/LANES.md:103` set `IDLE` at `2026-08-29T03:00` (phase 3 complete, plumbing in `0be24e6f`, editor in `0e4618bd`). `SPEC_20260829_IMAGE_ANIM_PRESETS` phase 3 **UNBLOCKED** (was HELD until CAPTION_LAYERS IDLE).
-
-**Remaining owed (visual, not plumbing):** §5.2 migration trio screenshots, §5.3 three-track non-overlapping screenshot, §5.3b tap-retarget screenshots, §5.4 preview==export 15s frame compare, §5.5 independent Fit, §5.6 font retarget before/after, §5.7 drag isolation — all require Note9 interaction (device `29e...` attached). Build is green, so next lane (IMAGE_ANIM_PRESETS phase 3 or a dedicated device-verify pass) can now start without file conflicts.

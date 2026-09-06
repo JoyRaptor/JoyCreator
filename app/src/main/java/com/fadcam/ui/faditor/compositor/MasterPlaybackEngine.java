@@ -826,6 +826,12 @@ public class MasterPlaybackEngine {
      * playhead advances smoothly through an extension instead of resetting to 0 at every rep seam.
      * For a non-looped clip this is exactly the window-local (ClippingConfiguration-local)
      * position, unchanged from pre-L1 behavior.
+     *
+     * <p>⚠ UNIT: MEDIA (source) ms — it advances at the window's playback SPEED. It round-trips
+     * against {@link #seekInClip}, which takes the same unit, and against the activity's
+     * {@code localMs * speed} seek arithmetic. For the TIMELINE clock use
+     * {@link #getCurrentTimelineMs}, which converts to visual ms — mixing the two is what snapped
+     * the playhead 2091ms at the first seam (see {@link #currentVisualInClip()}).</p>
      */
     public long getCurrentPositionInWindow() {
         if (player == null) return 0L;
@@ -835,12 +841,53 @@ public class MasterPlaybackEngine {
     }
 
     /**
+     * Window-local position expressed in TIMELINE (visual/wall-clock) ms rather than SOURCE ms.
+     *
+     * <p>⚠ THE UNIT SPLIT THAT CAUSED THE SEAM SNAP. {@code player.getCurrentPosition()} is MEDIA
+     * time: it advances at the window's playback SPEED, so a clip at 0.75× reports 4889ms of media
+     * over 6518ms of wall clock. Every LENGTH the engine and the timeline deal in, by contrast, is
+     * already speed-divided VISUAL ms — {@link Clip#getTrimmedDurationMs()} returns
+     * {@code (out-in)/speed}, and {@link WindowInfo#visualLenMs} is built from it. Adding a media
+     * position to a visual prefix sum (which {@link #getCurrentTimelineMs} did) therefore made the
+     * whole timeline clock LIMP at the clip's speed and then SNAP forward by
+     * {@code (visual - media)} the instant the seam fired.</p>
+     *
+     * <p>Device-measured on the Note 20 (2026-09-02, JoyRaptor's 4-clip project, clip 0 = 4889ms of
+     * source at 0.75× = 6518ms visual): PHDIAG showed {@code playerPos} and {@code head} both
+     * advancing at 0.746× through clip 0, {@code head=4631} at the moment the seam fired, then
+     * {@code head=6722} on the very next tick — a <b>+2091ms forward snap in one frame</b>. The
+     * same 0.25×/s deficit made {@code AudioLayerSync}'s {@code expected} lag the music by
+     * ~250ms/s, tripping its {@code TRIM_MS=120} desync branch every ~750ms
+     * ({@code drift desync [0] err=127 -> repark} five times inside a 6.5s clip) — which pauses,
+     * re-seeks and restarts the music player. That is the "stammering / dropping out" report.</p>
+     */
+    private long currentVisualInClip() {
+        if (player == null) return 0L;
+        long local = Math.max(0L, player.getCurrentPosition());
+        if (currentWindow < 0 || currentWindow >= windows.size()) return local;
+        WindowInfo w = windows.get(currentWindow);
+        return w.visualStartMs + mediaToVisual(w.speed, local);
+    }
+
+    /** MEDIA (source) ms → VISUAL (timeline/wall-clock) ms for a window playing at {@code speed}. */
+    private static long mediaToVisual(float speed, long mediaMs) {
+        if (speed <= 0f || speed == 1f) return mediaMs;
+        return Math.round(mediaMs / (double) speed);
+    }
+
+    /**
      * Absolute TIMELINE position (ms, 0-based) of the current playback point — the single
      * authoritative mapping from engine window+local to timeline. For a non-looped timeline it
      * is the sum of prior clips' visual spans plus the window-local position within the current
      * clip. This is what the activity must use to derive the playhead segment during gapless
      * playback, not a per-clip fraction clamped into the wrong clip's in/out range (the bug that
      * pinned the head at 11811 while the engine ran to 9863+).
+     *
+     * <p>Uses {@link #currentVisualInClip()}, NOT {@link #getCurrentPositionInWindow()}: the
+     * prefix sum is in visual ms, so the local term must be too. See that method for the measured
+     * seam snap this closes. The media-ms contract of {@code getCurrentPositionInWindow} /
+     * {@code seekInClip} is deliberately left alone — those two round-trip against each other and
+     * against the activity's own {@code localMs * speed} seek arithmetic.</p>
      */
     public long getCurrentTimelineMs(@NonNull Timeline timeline) {
         if (player == null || currentWindow < 0 || currentWindow >= windows.size()) return 0L;
@@ -850,7 +897,7 @@ public class MasterPlaybackEngine {
             Clip c = timeline.getClip(i);
             timelineMs += c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs();
         }
-        timelineMs += getCurrentPositionInWindow();
+        timelineMs += currentVisualInClip();
         return timelineMs;
     }
 

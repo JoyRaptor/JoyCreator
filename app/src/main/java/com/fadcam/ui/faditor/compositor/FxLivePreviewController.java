@@ -56,6 +56,33 @@ public final class FxLivePreviewController {
         @Nullable com.fadcam.ui.faditor.model.Clip clipAtPlayhead();
 
         /**
+         * The BASE-PICTURE ALPHA at {@code absoluteMs}: the playhead clip's opacity keyframe
+         * envelope times its master fade-knob factor, clamped, exactly as
+         * {@code OpacityExportShaderProgram} multiplies them.
+         *
+         * <p>Asked of the HOST rather than computed here so there is ONE authority for the
+         * number: the host hands the identical value to {@code playerView} on the Canvas path
+         * and to {@link FxPreviewTextureView#setPictureAlpha} through this. Two copies of the
+         * arithmetic is how preview and export drifted apart the first time.</p>
+         *
+         * <p>Defaults to 1 - fully opaque, a no-op - for a host that has no fade concept.</p>
+         */
+        default float clipPictureAlphaAt(long absoluteMs) { return 1f; }
+
+        /**
+         * The playhead clip's SPINE CANVAS TRANSFORM at {@code absoluteMs}, resolved into
+         * {@code out} (length {@code SpineTransform.POSE}). Return false for "fit-centred", which
+         * is what every project without one is.
+         *
+         * <p>Asked of the HOST for the same reason {@link #clipPictureAlphaAt} is: the host owns
+         * the absolute-to-clip-local time conversion (segment position divided by the clip's
+         * speed), and a second copy of it here would be a second clock for the same keyframes.
+         * The host resolves the pose through {@code Clip.spinePoseAt} — the one method the
+         * exporter also calls — so all this controller does is carry the six numbers.</p>
+         */
+        default boolean spinePoseAt(long absoluteMs, @NonNull float[] out) { return false; }
+
+        /**
          * The PiP layer, so its decoder can be composited INTO this chain rather than drawn over
          * the graded result. Null on a host that has no PiP support.
          */
@@ -154,7 +181,15 @@ public final class FxLivePreviewController {
             @Nullable com.fadcam.ui.faditor.model.Clip clip) {
         if (clip == null) return null;
         com.fadcam.ui.faditor.effects.EffectStack s = clip.getEffectStack();
-        if (s == null || !s.isActive()) return null;
+        // MIGRATED STACKS PAINT NOTHING HERE. Once FxGradeMigration has folded the ten grading
+        // floats into the clip's FxStack, the grade is rendered by the SPINE FX rung that
+        // buildPlan emits — the preview mirror of ExportManager's spineFxLayer. isActive() alone
+        // is not enough of a gate: it stays TRUE for a migrated stack that also carries a LUT
+        // (EffectStack.isActive = hasLut() || (!fxMigrated && hasGrade())), and this method reads
+        // the ten floats unconditionally, so such a clip would be graded twice — once here, once
+        // by the spine rung. Nothing is lost by leaving early: this Grade record has no LUT field
+        // at all (see FxPreviewTextureView.Grade), so the LUT was never previewed on this path.
+        if (s == null || s.isFxMigrated() || !s.isActive()) return null;
 
         // Exposure then contrast, composed into one matrix — media3 runs them as two chained
         // effects, and chaining two matrix stages IS multiplying them.
@@ -216,6 +251,12 @@ public final class FxLivePreviewController {
 
     @NonNull private final FxPreviewTextureView view;
     @NonNull private final Host host;
+    /**
+     * Main-thread scratch for one resolved spine pose. {@code setSpinePose} clones what it keeps,
+     * so this array is never published to the GL thread — see its own note.
+     */
+    private final float[] spinePoseScratch =
+            new float[com.fadcam.ui.faditor.model.SpineTransform.POSE];
 
     /** The decoder-facing surface, once the GL thread has published one. */
     @Nullable private Surface inputSurface;
@@ -297,6 +338,19 @@ public final class FxLivePreviewController {
         for (Clip c : timeline.getOverlayClips()) {
             if (c.getFx() != null && !c.getFx().active().isEmpty()) { objectFx = true; break; }
         }
+        // A MASTER (spine) clip's OWN FxStack routes too. This loop walked getOverlayClips()
+        // only, so a spine clip's stack reached no renderer at all in the editor while
+        // ExportManager (:3150) has been emitting it as an AdjustmentLayerGlEffect — the exact
+        // gap that made a migrated colour grade vanish from the preview and survive the render.
+        // Asked of the PLAYHEAD clip, matching the legacy grade above, so routing behaves for a
+        // migrated project exactly as it did for the same project before migration.
+        // hasActiveFx() is `fx != null && !fx.active().isEmpty()`, the export's own gate: an
+        // empty or absent stack — every clip in every project written before the Effects tab —
+        // does not flip this and costs nothing.
+        if (!objectFx) {
+            Clip spine = host.clipAtPlayhead();
+            if (spine != null && spine.hasActiveFx()) objectFx = true;
+        }
         // A project that STACKS overlay videos routes too, even with no grade and no effect
         // anywhere. This chain is the only tier that can show more than one live PiP — the
         // sibling View path has one TextureView, so it plays the top clip and reduces the rest
@@ -327,7 +381,7 @@ public final class FxLivePreviewController {
         // Text and sprites need the same but have no preview rasterizer (see buildPlan's
         // gap note); this general solution is image-only, the gap is named explicitly.
         List<com.fadcam.ui.faditor.model.TextOverlayItem> belowBlendImages =
-                plainImagesBelowBlend(timeline, glImages);
+                LayerPreviewController.plainImagesBelowBlend(timeline, glImages);
         // TEXT/SPRITE below a blending/masked GL IMAGE — static only, see plainTextsBelowBlend.
         // Those layers are stranded on Canvas while the blend above lives
         // in GL, so the blend samples video. Promoting static text/sprite to a GL texture at their real z closes
@@ -361,8 +415,21 @@ public final class FxLivePreviewController {
                 break;
             }
         }
+        // A project that PLACES any master clip on the canvas routes too, and stays routed —
+        // exactly the rule crop follows, and for exactly the same reason. The transform is a
+        // per-CLIP property, so deciding per tick would tear the decoder off its surface at
+        // every placed/unplaced seam and cost a black flash; an unplaced clip just passes
+        // through untouched. Without this the GL chain would never be asked for at all on an
+        // otherwise-plain project and the transform would render in the file but nowhere in the
+        // editor — the precise gap that made a spine FxStack invisible in the preview while the
+        // exporter had been honouring it for weeks.
+        boolean anySpineTransform = false;
+        for (Clip c : timeline.getClips()) {
+            if (c.hasSpineTransform()) { anySpineTransform = true; break; }
+        }
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty()
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
+                && !anySpineTransform
                 && !anyLayerImage && !anyMatte) {
             stop();
             return;
@@ -384,6 +451,26 @@ public final class FxLivePreviewController {
                         : null;
         view.setClipCrop(cropFractions);
 
+        // THE CLIP FADE. Once an adjustment layer (or any other reason above) routes the
+        // picture through this chain, playerView is held hidden underneath and the alpha the
+        // editor writes on it lands on nothing - "it's going over nothing. It's not darkening
+        // the clip." The GL chain has to carry it, and it carries it on the BASE PICTURE ONLY
+        // (setPictureAlpha): after that clip's own crop, grade and spine FxStack, and before
+        // the PiPs, the adjustment layers, the image overlays and the captions - the owner's
+        // ruling, and the exact slot ExportManager gives OpacityExportEffect.
+        view.setPictureAlpha(host.clipPictureAlphaAt(playheadMs));
+
+        // THE SPINE CANVAS TRANSFORM, from the PLAYHEAD clip — never the selection, same trap
+        // the crop above names. The host resolves it through Clip.spinePoseAt, which is the ONE
+        // method SpineTransformExportEffect also reads, so scrubbing across clips with different
+        // placements re-places this chain exactly as the export cuts between them. Null (the
+        // identity) is the no-op the renderer skips whole.
+        if (host.spinePoseAt(playheadMs, spinePoseScratch)) {
+            view.setSpinePose(spinePoseScratch);
+        } else {
+            view.setSpinePose(null);
+        }
+
         // An IMAGE master clip's pixels come from a bitmap, not the decoder. The chain then runs
         // at the PICTURE's size and with no rotation — matching export, whose rotate/flip stage is
         // gated on isVideo — and the host hides the ImageView that would otherwise cover the
@@ -395,10 +482,16 @@ public final class FxLivePreviewController {
 
         // Resolve on THIS thread — the GL thread must never walk the live model. See
         // FxPreviewTextureView.Layer for why a snapshot rather than the layer itself.
-        int[] size = still != null
+        int[] src = still != null
                 ? new int[]{still.getWidth(), still.getHeight()}
                 : videoSize();
-        view.setVideoSize(size[0], size[1]);
+        // THE COMPOSITE FRAME IS THE CANVAS. Everything below normalises against it — mask
+        // geometry, image-overlay quads, caption quads, the below-blend raster — and every one
+        // of those was authored against computeCanvasRect(). See compositeFrame().
+        int[] size = compositeFrame(src[0], src[1]);
+        view.setCompositeFrame(size[0], size[1], src[0], src[1]);
+        OverlayVideoPreviewView ovFrame = host.overlayVideoLayer();
+        if (ovFrame != null) ovFrame.setCompositeFrameSize(size[0], size[1]);
         view.setVideoRotation(still != null ? 0 : rotationDegrees());
         // Text/sprite below-blend raster — two paths:
         // 1) full-frame bitmap for static (and pixel-changing fallback) content, cached by CONTENT signature (spec §2)
@@ -485,6 +578,42 @@ public final class FxLivePreviewController {
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
         java.util.IdentityHashMap<AdjustmentLayer, Integer> layerIndex =
                 new java.util.IdentityHashMap<>();
+        // ── THE SPINE CLIP'S OWN FX ──────────────────────────────────────────────────────────
+        // The preview half of ExportManager:3150. That call wraps the clip's FxStack in a
+        // throwaway AdjustmentLayer (spineFxLayer) and hands it to AdjustmentLayerGlEffect,
+        // relying on the layer's DEFAULTS collapsing the layer machinery to "just run this
+        // stack": no masks and no chroma key make MaskSdf coverage 1, a null transform makes
+        // opacityAt() 1, and NORMAL blend makes the final line `out = graded`. The same
+        // defaults do the same thing in FxPreviewTextureView.drawOneLayer, which is why this
+        // reuses Layer.of rather than growing a second shader host for the spine.
+        //
+        // SAME FIELDS AS spineFxLayer: name + fx, everything else left at construction default.
+        // SAME TIME BASE: the export passes editorTimeOffsetFor(...), whose whole job is to put
+        // AdjustmentLayerGlEffect on EDITOR timeline ms; playheadMs already IS editor timeline
+        // ms here (it is what visibleAdjustmentLayers and every other Layer.of call below are
+        // resolved against), so keyframes and card time resolve identically in both.
+        //
+        // NO-OP PROOF: gated on hasActiveFx() — `fx != null && !fx.active().isEmpty()`, the
+        // export's own gate. A clip with an empty or absent stack adds nothing to `snapshot`,
+        // leaves spineLayerIndex at -1, and the plan it produces is element-for-element the
+        // plan it produced before this block existed. Layer.of would refuse it anyway
+        // (rendersAnything() is `!hidden && !fx.active().isEmpty()`), so the gate is belt and
+        // braces, not the only guard.
+        int spineLayerIndex = -1;
+        Clip spineClip = host.clipAtPlayhead();
+        if (spineClip != null && spineClip.hasActiveFx()) {
+            AdjustmentLayer synthetic = new AdjustmentLayer();
+            synthetic.setName("clip:" + spineClip.getId());
+            synthetic.setFx(spineClip.getOrCreateFx());
+            FxPreviewTextureView.Layer sl =
+                    FxPreviewTextureView.Layer.of(synthetic, playheadMs, size[0], size[1]);
+            if (sl != null) {
+                // Index 0 — claimed BEFORE the live-layer walk, so the walk's own
+                // snapshot.size() indices shift up by one without any arithmetic here.
+                spineLayerIndex = snapshot.size();
+                snapshot.add(sl);
+            }
+        }
         for (AdjustmentLayer l : live) {
             FxPreviewTextureView.Layer s =
                     FxPreviewTextureView.Layer.of(l, playheadMs, size[0], size[1]);
@@ -506,29 +635,22 @@ public final class FxLivePreviewController {
         }
         List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
         int pipRungs = 0;
-        // The BELOW-bucket plain images must enter the chain BEFORE the PiPs: the export
-        // inserts its below-bucket overlay pass ahead of the PiP blend block
-        // (ExportManager.assembleClipVideoEffects), so a Screen-blend PiP composites AGAINST
-        // them. Left as sibling views — which sit underneath this GL surface — the blend had
-        // nothing under it and JoyRaptor saw "Screen" work over the spine but not over the images
-        // below (SPEC_20260825 §2.3). Above-bucket plain images stay appended after the walk,
-        // where the export's final canvas pass paints them.
-        java.util.Set<String> belowPlainImageIds = new java.util.HashSet<>();
-        for (LayerPreviewController.VisualItem v
-                : LayerPreviewController.partitionAroundVideo(timeline).get(0)) {
-            com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
-            if (o != null && o.isImage() && !o.wantsGlExport()) belowPlainImageIds.add(o.getId());
-        }
         // Plain images that must composite in GL because a blending image above needs a GL
-        // background — see plainImagesBelowBlend. This is the general fix for §3A.2: the
-        // question is not "do I want GL for myself?" but "does something above me need me
-        // in GL to composite against?". Images are handled here; STATIC text/sprites below
-        // a blend are now rasterised to the belowBlend bitmap and composited BEFORE the
-        // blend so the blend has something to sample — animated text/sprite would need
-        // per-frame raster (~17ms on Note 9, over the 16.6ms budget) and remain on Canvas
+        // background — see LayerPreviewController.plainImagesBelowBlend. This is the general
+        // fix for §3A.2: the question is not "do I want GL for myself?" but "does something
+        // ABOVE me need me in GL to composite against?". Images are handled here; STATIC
+        // text/sprites below a blend are rasterised to the belowBlend bitmap and composited
+        // BEFORE the blend so the blend has something to sample — animated text/sprite would
+        // need per-frame raster (~17ms on Note 9, over the 16.6ms budget) and remain on Canvas
         // as a documented gap (see buildBelowBlendBitmap).
+        //
+        // THIS IS THE ONLY REASON A PLAIN IMAGE JOINS THE CHAIN. glImages empty — every
+        // project that has never picked a blend, an effect, a key or a mask on an image —
+        // makes plainImagesBelowBlend return the empty list on its first line, so the walk
+        // below emits exactly the rungs it emitted before and the composite is unchanged.
         java.util.Set<String> belowBlendIds = new java.util.HashSet<>();
-        for (com.fadcam.ui.faditor.model.TextOverlayItem b : plainImagesBelowBlend(timeline, glImages)) {
+        for (com.fadcam.ui.faditor.model.TextOverlayItem b
+                : LayerPreviewController.plainImagesBelowBlend(timeline, glImages)) {
             belowBlendIds.add(b.getId());
         }
         // Track matte: peers are hidden from normal rendering while they serve as mattes
@@ -540,11 +662,23 @@ public final class FxLivePreviewController {
         java.util.Map<String, Clip> visibleById = new java.util.HashMap<>();
         for (Clip c : LayerPreviewController.visibleOverlayVideoClips(timeline)) visibleById.put(c.getId(), c);
         java.util.Set<String> owned = new java.util.HashSet<>();
-        // Plain/masked image overlays whose lane sits ABOVE the PiP plane: appended after the
-        // walk, where the export's final canvas pass paints them.
-        List<com.fadcam.ui.faditor.model.TextOverlayItem> deferredImages = new ArrayList<>();
+        // orderedVisualItems, NOT orderedCompositedItems — the bug JoyRaptor hit.
+        //
+        // orderedCompositedItems keeps ONLY PiP clips and adjustment layers
+        // (LayerPreviewController:130-138: `if (isPip || isAdjustment) out.add(v)`). An image
+        // overlay is neither, so the image branch below — the one written to promote a plain
+        // image into the chain — was NEVER REACHED: the walk it lived in could not contain an
+        // image overlay by construction. That is why a NORMAL image under a blended one was
+        // "omitted from the GL state" even though the promotion rule was already written.
+        //
+        // This list is a SUPERSET in the SAME order (orderedCompositedItems is a filter of it),
+        // so every PiP and every adjustment rung lands in exactly the position it landed in
+        // before. Non-image items fall through the branches below untouched: a master clip has
+        // no adjustment and no text overlay, a text overlay fails isImage(), a sprite has no
+        // text overlay at all. Nothing is added that was not added before EXCEPT a member of
+        // belowBlendIds, which is empty unless an image is already GL-routed.
         for (LayerPreviewController.VisualItem v
-                : LayerPreviewController.orderedCompositedItems(timeline)) {
+                : LayerPreviewController.orderedVisualItems(timeline)) {
             Clip vc = v.item.getClip();
             if (vc != null && vc.isOverlayClip()) {
                 if (servingMatteIds.contains(vc.getId())) {
@@ -581,22 +715,25 @@ public final class FxLivePreviewController {
             }
             AdjustmentLayer al = v.item.getAdjustment();
             if (al == null) {
-                // A PLAIN image overlay (masked ones included) resolved to where its LANE
-                // puts it. Below the PiP plane it rides HERE — beneath every PiP rung still
-                // to come, exactly as the export's below-pass is; above it, after the walk.
-                // Its view is hidden through onGlOwnedImages once it actually rides the chain.
+                // A PLAIN image overlay that something ABOVE it needs to blend against,
+                // resolved to where its LANE puts it — beneath every rung still to come,
+                // which is where the blended image will be appended after this walk. Its
+                // ImageView is hidden through onGlOwnedImages once it rides the chain, so
+                // the raw picture does not sit on top of the composited one.
+                //
+                // ONE condition, deliberately: belowBlendIds. A plain image that nothing
+                // above it needs stays on Canvas exactly as it always has — promoting it
+                // would move it from "painted over the GL surface" to "painted inside it",
+                // a z change nobody asked for. Time is NOT filtered here: fxPipFor already
+                // returns null for an item that is not visible at the playhead, so an image
+                // whose range does not reach this frame contributes no rung.
                 com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
-                if (o != null && o.isImage() && !o.wantsGlExport()) {
-                    if (belowPlainImageIds.contains(o.getId())
-                            || belowBlendIds.contains(o.getId())
-                            || hasActiveMask(o)) {
-                        FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
-                        if (p != null) {
-                            rungs.add(FxPreviewTextureView.Rung.pip(p));
-                            owned.add(o.getId());
-                        }
-                    } else {
-                        deferredImages.add(o);
+                if (o != null && o.isImage() && !o.wantsGlExport()
+                        && belowBlendIds.contains(o.getId())) {
+                    FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
+                    if (p != null) {
+                        rungs.add(FxPreviewTextureView.Rung.pip(p));
+                        owned.add(o.getId());
                     }
                 }
                 continue;
@@ -623,26 +760,22 @@ public final class FxLivePreviewController {
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             glOwned.add(o.getId());
         }
-        // Then the above-bucket plain/masked images, after the effected ones — the order the
-        // export paints them in (ImageBlendGlEffects first, the canvas overlay pass last).
-        for (com.fadcam.ui.faditor.model.TextOverlayItem o : deferredImages) {
-            FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
-            if (p == null) continue;
-            rungs.add(FxPreviewTextureView.Rung.pip(p));
-            glOwned.add(o.getId());
-        }
+        // NO "deferred" pass for the remaining plain images. They stay on Canvas, drawn by
+        // their own ImageView over this surface — which is where the export paints them too
+        // (its final CompositeExportOverlay pass runs after every ImageBlendGlEffect).
         owned.addAll(glOwned);
         // Told every tick, INCLUDING when the set is empty — see Host#onGlOwnedImages.
         host.onGlOwnedImages(owned);
 
-        int shape = (rungs.size() * 31 + pipRungs) * 31 + snapshot.size();
+        int shape = ((rungs.size() * 31 + pipRungs) * 31 + snapshot.size()) * 31
+                + spineLayerIndex;
         if (offer) shape = ~shape;
         if (shape != lastPlanShape) {
             lastPlanShape = shape;
             FLog.d("FxMultiPip", "plan: rungs=" + rungs.size() + " pips=" + pipRungs
                     + " layers=" + snapshot.size() + " offer=" + offer);
         }
-        return new FxPreviewTextureView.CompositePlan(snapshot, rungs);
+        return new FxPreviewTextureView.CompositePlan(snapshot, rungs, spineLayerIndex);
     }
 
     /**
@@ -672,12 +805,6 @@ public final class FxLivePreviewController {
         return out;
     }
 
-    /** True when the item's CompositingSpec carries at least one mask shape. */
-    private static boolean hasActiveMask(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
-        com.fadcam.ui.faditor.model.CompositingSpec cs = o.getCompositing();
-        return cs != null && !cs.masks.isEmpty();
-    }
-
     /**
      * Every IMAGE overlay whose CompositingSpec carries masks but whose export path stays
      * Canvas ({@code wantsGlExport()} false — see {@link #glImageOverlays} for why THAT gate
@@ -693,62 +820,6 @@ public final class FxLivePreviewController {
             if (o == null || !o.isImage() || o.wantsGlExport()) continue;
             com.fadcam.ui.faditor.model.CompositingSpec cs = o.getCompositing();
             if (cs != null && !cs.masks.isEmpty()) out.add(o);
-        }
-        return out;
-    }
-
-    /**
-     * Every plain (NORMAL, unmasked, no-FX, no-key) IMAGE that sits below a blending
-     * GL image in z. Those plain images are stranded on Canvas while the blend above
-     * lives in GL, so the blend composites against video instead of the image below
-     * (§3A.2). The fix is to promote them to GL at their lane z, exactly where export's
-     * below-pass composites them. Text/sprites need the same promotion but have no
-     * preview rasterizer — that gap is named explicitly in buildPlan and in the report,
-     * not hidden by special-casing images only.
-     */
-    @NonNull
-    private static List<com.fadcam.ui.faditor.model.TextOverlayItem> plainImagesBelowBlend(
-            @NonNull Timeline timeline,
-            @NonNull List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages) {
-        if (glImages.isEmpty()) return java.util.Collections.emptyList();
-        // Highest z among blending images — any plain below this is below at least one blend.
-        List<LayerPreviewController.VisualItem> ordered =
-                LayerPreviewController.orderedVisualItems(timeline);
-        java.util.Map<String, Integer> idxById = new java.util.HashMap<>();
-        for (int i = 0; i < ordered.size(); i++) {
-            com.fadcam.ui.faditor.model.TextOverlayItem o =
-                    ordered.get(i).item.getTextOverlay();
-            if (o != null && o.isImage()) idxById.put(o.getId(), i);
-        }
-        // THE TRIGGER IS "WENT TO GL", NOT "BLENDS". Anything that leaves the Canvas path is
-        // composited in a different pass, so a plain image left behind on Canvas lands at the
-        // wrong depth relative to it — the reason for promoting is the SPLIT between passes,
-        // and blending is only one of four ways to cause that split (see wantsGlExport).
-        //
-        // Filtering on wantsExportBlend() here is what broke z the moment masks started
-        // routing to GL: a masked image on NORMAL blend went to GL, counted for nothing, and
-        // the plain image beneath it stayed on Canvas. JoyRaptor, 2026-08-25, testing exactly that
-        // pair on the Note 9: "the mask WORKED on normal, HOWEVER it moved its z-depth so that
-        // even though it was on top the top img rendered AS IF it was under the second IMG …
-        // when i added a mask to the second img it then properly ordered (because they both
-        // were rendering the same)." Two masked images agreed because both were in GL; one of
-        // each did not, because they were in different passes.
-        //
-        // glImages is already the GL-routed set, so every member is a reason to promote what
-        // sits below it. This is what §3A.2 asked for — the general question, not the blend
-        // special case.
-        int maxBlendIdx = -1;
-        for (com.fadcam.ui.faditor.model.TextOverlayItem g : glImages) {
-            Integer idx = idxById.get(g.getId());
-            if (idx != null && idx > maxBlendIdx) maxBlendIdx = idx;
-        }
-        if (maxBlendIdx <= 0) return java.util.Collections.emptyList();
-        List<com.fadcam.ui.faditor.model.TextOverlayItem> out = new ArrayList<>();
-        for (int i = 0; i < maxBlendIdx; i++) {
-            com.fadcam.ui.faditor.model.TextOverlayItem o =
-                    ordered.get(i).item.getTextOverlay();
-            if (o == null || !o.isImage() || o.wantsGlExport()) continue;
-            out.add(o);
         }
         return out;
     }
@@ -1150,6 +1221,111 @@ public final class FxLivePreviewController {
         int[] upright = swap ? new int[]{vs.height, vs.width} : new int[]{vs.width, vs.height};
         lastReportedVideoSize = upright;
         return upright;
+    }
+
+    /**
+     * The composite frame: the decoded picture's pixels, boxed out to the CANVAS's aspect.
+     *
+     * <p><b>Why the canvas and not the video.</b> Every piece of geometry this controller hands
+     * the renderer is a fraction of {@code computeCanvasRect()} — an image overlay's centre and
+     * half-extents ({@code TextOverlayLayer.fxPipFor}), a PiP's ({@code
+     * OverlayVideoPreviewView.pipFor}), a caption binding's centre, a mask shape's cx/cy/w/h.
+     * Running the chain at the DECODED size made the renderer read those canvas fractions as
+     * fractions of a letterboxed sub-rectangle of the canvas, so on any clip whose aspect is
+     * not the canvas's, an object silently changed size on one axis and drifted toward the
+     * frame's centre the moment it moved from its own View into this composite. Adding a mask
+     * is exactly such a move ({@code TextOverlayItem.hasExportMask()} is part of {@code
+     * wantsGlExport()}), which is why a mask "changed the apparent zoom" of an image.</p>
+     *
+     * <p><b>Native pixels, then capped.</b> The box CONTAINS the picture at 1:1 so nothing is
+     * resampled in the common case, but a 16:9 clip on a 9:16 canvas would otherwise want a
+     * 1920x3413 pair of FBOs (~52MB). The cap holds the frame's long side to the picture's own,
+     * which costs a downscale on exactly the clips that were already being letterboxed on
+     * screen anyway and keeps the allocation where it has always been.</p>
+     *
+     * <p><b>Identity when the aspects match</b> — which is every clip in an "original"-preset
+     * project, i.e. most of them. Same frame, same FBOs, same uniforms, same viewport, so the
+     * case where this bug is invisible today cannot regress.</p>
+     */
+    @NonNull
+    private int[] compositeFrame(int vw, int vh) {
+        if (vw <= 0 || vh <= 0) return new int[]{vw, vh};
+        float a = canvasAspect();
+        if (a <= 0f) return new int[]{vw, vh};
+        float v = (float) vw / (float) vh;
+        // A hair of tolerance: the canvas rect is measured in whole view pixels, so an exact
+        // 9:16 canvas reports 0.5625 only to within a pixel. Below this the box would differ
+        // from the picture by less than one pixel and re-staging it would cost a resample for
+        // nothing.
+        if (Math.abs(v - a) <= 0.002f * Math.max(1f, a)) return new int[]{vw, vh};
+        int cw, ch;
+        if (v > a) {
+            cw = vw;
+            ch = Math.max(2, Math.round(vw / a));
+        } else {
+            ch = vh;
+            cw = Math.max(2, Math.round(vh * a));
+        }
+        // THE FRAME MUST NEVER BE SIZED BY A TINY SOURCE.
+        //
+        // For an IMAGE master clip the caller passes the STILL's pixel size, and the gap spacer
+        // this app generates for empty timeline regions is a 16x16 PNG
+        // (FaditorEditorActivity.ensureBlackSpacerUri / ExportManager ~1770). Capping the boxed
+        // frame at the source's long side therefore collapsed the ENTIRE composite to 9x16 px
+        // over any gap clip, and that 9x16 buffer was then blown up ~120x onto a 1080-wide
+        // preview. Everything drawn in the composite — adjustment layers, masks, image overlays,
+        // captions — turned to mush. JoyRaptor, 2026-09-02: "I made an adjustment layer to put a
+        // solid colour on it, then masked it into a shape, and it's COMPLETELY blurry... on an
+        // adjustment layer there's no zoom, it's just a solid shape." His mask is 0.18 x 0.04 of
+        // the frame, i.e. 1.6 x 0.6 pixels at 9x16.
+        //
+        // The composite is what the user SEES, so its resolution floor is the canvas's own
+        // on-screen size, not whatever the base picture happens to be. Real footage still governs
+        // when it is larger (never upscale a source past its own detail), and a ceiling keeps a
+        // 4K source from allocating an absurd FBO for a phone preview.
+        int canvasLong = canvasLongSidePx();
+        int targetLong = Math.max(Math.max(vw, vh), canvasLong);
+        if (targetLong > MAX_COMPOSITE_EDGE) targetLong = MAX_COMPOSITE_EDGE;
+        int longSide = Math.max(cw, ch);
+        if (longSide != targetLong && longSide > 0) {
+            // Derive from the aspect at the target size rather than scaling the boxed pair, so
+            // rounding at tiny sizes cannot drift the aspect (16x28 scaled up lands off-canvas).
+            if (a >= 1f) { cw = targetLong; ch = Math.max(2, Math.round(targetLong / a)); }
+            else { ch = targetLong; cw = Math.max(2, Math.round(targetLong * a)); }
+        }
+        return new int[]{cw, ch};
+    }
+
+    /**
+     * The OUTPUT CANVAS's aspect, or -1 when the host has none.
+     *
+     * <p>Read off the overlay-video layer's callback rather than plumbed through a new {@link
+     * Host} method, because that callback IS {@code computeCanvasRect()} and it already carries
+     * the fallback this needs: when the project's canvas aspect cannot be resolved the activity
+     * hands back the VIDEO CONTENT rect instead, whose aspect is the video's — so this returns
+     * the video's aspect, {@link #compositeFrame} returns identity, and the renderer behaves
+     * exactly as it did before. One authority for "where is the canvas", not two.</p>
+     */
+    /** Ceiling on the composite's long edge — a phone preview never needs more. */
+    private static final int MAX_COMPOSITE_EDGE = 2160;
+
+    /**
+     * The canvas's longer edge in DEVICE PIXELS, or 0 when the host has none. This is the
+     * resolution the composite is actually displayed at, and therefore the floor its own
+     * resolution must not fall below. See {@link #compositeFrame}.
+     */
+    private int canvasLongSidePx() {
+        OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        android.graphics.RectF r = ov == null ? null : ov.canvasRect();
+        if (r == null || r.width() <= 0f || r.height() <= 0f) return 0;
+        return Math.round(Math.max(r.width(), r.height()));
+    }
+
+    private float canvasAspect() {
+        OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        android.graphics.RectF r = ov == null ? null : ov.canvasRect();
+        if (r == null || r.width() <= 0f || r.height() <= 0f) return -1f;
+        return r.width() / r.height();
     }
 
     /** @see FxPreviewTextureView#setVideoRotation */

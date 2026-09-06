@@ -172,6 +172,7 @@ public class EditorTimelineView extends View {
     private final Paint spineKnobFillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint spineKnobStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint spineKnobVeilPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Path spineFadeVeilPath = new android.graphics.Path();
     private final Paint spineStemPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint spineDiagPaintImpl = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint spineDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -339,6 +340,14 @@ public class EditorTimelineView extends View {
 
     // ── M6 multi-row Track UI (extract-on-touch: all logic in LayerRowRenderer) ──
     private com.fadcam.ui.faditor.layers.LayerRowRenderer layerRowRenderer;
+
+    /**
+     * The row renderer, for the host's undo-recording. It owns the ONE generic fade
+     * accessor/mutator pair that every fade host routes through, and the activity had no
+     * way to reach it except reflection.
+     */
+    @Nullable
+    public com.fadcam.ui.faditor.layers.LayerRowRenderer getLayerRowRenderer() { return layerRowRenderer; }
     /** W2: zoom-tiered HD waveform data source for the audio rows (see TimelineWaveformCache). */
     private com.fadcam.ui.faditor.waveform.TimelineWaveformCache timelineWaveformCache;
     /** AV2: quad-band tape waveform — shared style + shaped-data cache for the audio rows. */
@@ -1588,6 +1597,14 @@ public class EditorTimelineView extends View {
         /** FADE_KNOBS §2.5: spine fade knobs committed — one undo step for the whole gesture. */
         default void onMasterFadeFinished(int segmentIndex, long oldInMs, long oldOutMs,
                                           long newInMs, long newOutMs) {}
+        /**
+         * ADVERSARIAL FIX 2: whether the host is in a mode that forbids timeline edits
+         * (Word Sync §3.1 lockout). The master-fade knob used to gate only the COMMIT, so a
+         * drag under lockout still wrote {@code masterFadeInMs/OutMs} live on every MOVE and
+         * the change stuck with no undo entry and no save. The arm is now gated instead —
+         * the drag never starts.
+         */
+        default boolean isTimelineEditLockedOut() { return false; }
         /** B7: long-press the tape inside the clip-audio shelf → same audio drawer. */
         default void onClipAudioShelfLongPressed(int segmentIndex) {}
 
@@ -6019,23 +6036,24 @@ if (sd.clip.hasVolumeKeyframes()) {
         float edgeW = 1.4f * density;
         if (inMs > 0) {
             float fx = spineKnobX(true, seg, clip);
-            android.graphics.Path tri = new android.graphics.Path();
-            tri.moveTo(seg.left, seg.top);
-            tri.lineTo(fx, seg.top);
-            tri.lineTo(seg.left, seg.bottom);
-            tri.close();
-            canvas.drawPath(tri, spineKnobVeilPaint);
+            // Hoisted + rewind() — this was a `new Path()` per frame.
+            spineFadeVeilPath.rewind();
+            spineFadeVeilPath.moveTo(seg.left, seg.top);
+            spineFadeVeilPath.lineTo(fx, seg.top);
+            spineFadeVeilPath.lineTo(seg.left, seg.bottom);
+            spineFadeVeilPath.close();
+            canvas.drawPath(spineFadeVeilPath, spineKnobVeilPaint);
             // razor-thin high-contrast diagonal on the wedge's sloped edge
             canvas.drawLine(fx, seg.top, seg.left, seg.bottom, spineDiagPaint(edgeW));
         }
         if (outMs > 0) {
             float fx = spineKnobX(false, seg, clip);
-            android.graphics.Path tri = new android.graphics.Path();
-            tri.moveTo(fx, seg.top);
-            tri.lineTo(seg.right, seg.top);
-            tri.lineTo(seg.right, seg.bottom);
-            tri.close();
-            canvas.drawPath(tri, spineKnobVeilPaint);
+            spineFadeVeilPath.rewind();
+            spineFadeVeilPath.moveTo(fx, seg.top);
+            spineFadeVeilPath.lineTo(seg.right, seg.top);
+            spineFadeVeilPath.lineTo(seg.right, seg.bottom);
+            spineFadeVeilPath.close();
+            canvas.drawPath(spineFadeVeilPath, spineKnobVeilPaint);
             canvas.drawLine(fx, seg.top, seg.right, seg.bottom, spineDiagPaint(edgeW));
         }
         canvas.restore();
@@ -6062,7 +6080,9 @@ if (sd.clip.hasVolumeKeyframes()) {
         // Knobs + stems (always, even at 0 — the readout that fade=0)
         float inX = spineKnobX(true, seg, clip);
         float outX = spineKnobX(false, seg, clip);
-        for (float cx : new float[]{inX, outX}) {
+        // Was `new float[]{inX, outX}` per frame just to run a two-element loop.
+        for (int i = 0; i < 2; i++) {
+            float cx = i == 0 ? inX : outX;
             canvas.drawLine(cx, seg.top, cx, cy + knobR - density, spineStemPaint);
             canvas.drawCircle(cx, cy, knobR, spineKnobFillPaint);
             canvas.drawCircle(cx, cy, knobR, spineKnobStrokePaint);
@@ -7312,7 +7332,8 @@ if (sd.clip.hasVolumeKeyframes()) {
 
         // FADE_KNOBS §2.5: spine fade knobs arm BEFORE the transition seam test — at fade=0
         // the out-knob sits exactly ON the seam and must not lose to it.
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+        if (selectedIndex >= 0 && selectedIndex < segRects.size()
+                && !(listener != null && listener.isTimelineEditLockedOut())) {
             Drag fk = hitTestFadeKnobOnly(scrolledX, y);
             if (fk != Drag.NONE) {
                 FLog.d(TAG, "onDown: hit spine fade knob " + fk);

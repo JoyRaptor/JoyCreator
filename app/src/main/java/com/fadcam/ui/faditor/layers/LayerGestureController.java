@@ -467,9 +467,6 @@ public final class LayerGestureController {
         lastTotalMs = totalMs;
         LayerRowRenderer.ItemHit hit = rowRenderer.hitTestItem(x, y, topPx, totalMs, timeToX, selectedItemId);
         // E2: flight recorder — which zone WON at the contested top corner on every real gesture.
-        if (hit != null) {
-            com.fadcam.FLog.d("E2FADE", "onRowBodyDown WON " + hit.zone + " item=" + hit.item.getId() + " x=" + x + " y=" + y);
-        }
         // §5.2 PRECEDENCE, enforced here rather than inside either hit-test: the pill is only
         // considered once the item test has DECLINED or resolved to bare BODY, so trim handles,
         // fade handles and the delete badge all keep winning. The pill beats body because it is
@@ -484,8 +481,6 @@ public final class LayerGestureController {
                 xfadeDownStartMs = xh.xfade.getStartMs();
                 xfadeDownEndMs = xh.xfade.getEndMs();
                 rowRenderer.setSelectedCrossfadeId(xh.xfade.getId());
-                com.fadcam.FLog.d("E2FADE", "onRowBodyDown WON XFADE " + xh.zone
-                        + " id=" + xh.xfade.getId() + " x=" + x + " y=" + y);
                 return DownResult.ARMED_XFADE;
             }
         }
@@ -1198,11 +1193,6 @@ public final class LayerGestureController {
                     }
                 }
                 rowRenderer.setDraggingFade(activeItem.getId(), fadeIn, fadeDur);
-                // FADEDBG (diagnostic build): what the drag actually computed + wrote.
-                com.fadcam.FLog.d("FADEDBG", "fadeMove " + (fadeIn ? "IN" : "OUT")
-                        + " item=" + activeItem.getId()
-                        + " t=" + t + " start=" + startMs + " end=" + endMs
-                        + " fadeDur=" + fadeDur + (fadeDur > 40 ? " WROTE" : " ->0(<40ms)"));
                 callback.onGestureLive(activeItem);
                 break;
             }
@@ -2549,6 +2539,17 @@ public final class LayerGestureController {
     public float getFadeBeforeLevel() { return fadeBeforeLevel; }
     public long getFadeBeforeImageFadeIn() { return fadeBeforeImageFadeIn; }
     public long getFadeBeforeImageFadeOut() { return fadeBeforeImageFadeOut; }
+    // ADVERSARIAL FIX 1: armFade snapshotted these four hosts and NOTHING ever read them, so a
+    // fade drag on a sprite / visualizer / clip (PiP or master spine) / caption span recorded no
+    // undo step at all and Undo reverted an unrelated earlier edit instead. The caller needs them.
+    public long getFadeBeforeSpriteIn() { return fadeBeforeSpriteIn; }
+    public long getFadeBeforeSpriteOut() { return fadeBeforeSpriteOut; }
+    public long getFadeBeforeWaveformIn() { return fadeBeforeWaveformIn; }
+    public long getFadeBeforeWaveformOut() { return fadeBeforeWaveformOut; }
+    public long getFadeBeforeClipMasterIn() { return fadeBeforeClipMasterIn; }
+    public long getFadeBeforeClipMasterOut() { return fadeBeforeClipMasterOut; }
+    public long getFadeBeforeCaptionIn() { return fadeBeforeCaptionIn; }
+    public long getFadeBeforeCaptionOut() { return fadeBeforeCaptionOut; }
 
     // ── M10: drag-state queries for the caller's LayerRowRenderer#layout call ──
 

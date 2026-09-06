@@ -141,6 +141,9 @@ public final class LayerRowRenderer {
     private final Paint fadeEdgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fadeDurationPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path fadeVeilPath = new Path();
+    private final Path fadeVeilClipPath = new Path();
+    private final Paint fadeKnobDotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    { fadeKnobDotPaint.setStyle(Paint.Style.FILL); }
     /** Dragging fade for duration readout (§2.3). Null = not dragging. */
     @Nullable private String draggingFadeItemId;
     private boolean draggingFadeIsIn;
@@ -832,14 +835,26 @@ public final class LayerRowRenderer {
     private void drawOnsetTicks(@NonNull Canvas canvas, long totalMs, @NonNull TimeToX timeToX, float top, float bottom) {
         if (wordSyncMode == null || !wordSyncMode.isActive()) return;
         ensureOnsetPaint();
-        long[] ticks = wordSyncMode.ticksInRange(0, totalMs);
-        if (ticks.length == 0) return;
         float h = bottom - top;
         float tickH = Math.min(6f * density, h * 0.35f);
         float y0 = bottom - tickH;
         // Cull against actual viewport: lastHScrollOffsetPx .. + lastWidthPx (content space).
         float visLeft = lastHScrollOffsetPx - 20f;
         float visRight = lastHScrollOffsetPx + lastWidthPx + 20f;
+        // Ask for the VISIBLE window only. This used to request (0, totalMs), which copies the
+        // whole onset array (thousands of longs) every frame and then throws ~99% of it away in
+        // the cull three lines down. The mapping is linear, so invert it to get the ms range.
+        long fromMs = 0, toMs = totalMs;
+        float mapAt0 = timeToX.map(0);
+        float mapAtEnd = timeToX.map(Math.max(1, totalMs));
+        if (mapAtEnd - mapAt0 > 1f) {
+            float pxPerMs = (mapAtEnd - mapAt0) / (float) Math.max(1, totalMs);
+            fromMs = (long) Math.max(0f, (visLeft - mapAt0) / pxPerMs);
+            toMs = (long) Math.min((float) totalMs, (visRight - mapAt0) / pxPerMs);
+            if (toMs < fromMs) return;
+        }
+        long[] ticks = wordSyncMode.ticksInRange(fromMs, toMs);
+        if (ticks.length == 0) return;
         for (long t : ticks) {
             float x = timeToX.map(t);
             if (x < visLeft || x > visRight) continue;
@@ -2753,7 +2768,7 @@ public final class LayerRowRenderer {
         return false;
     }
 
-    private long getFadeInMsForItem(@NonNull TimedItem item, long totalMs) {
+    public long getFadeInMsForItem(@NonNull TimedItem item, long totalMs) {
         if (item.getAudioClip() != null) return item.getAudioClip().getFadeInMs();
         if (item.getTextOverlay() != null) return item.getTextOverlay().getImageFadeInMs();
         if (item.getSprite() != null) return item.getSprite().getFadeInMs();
@@ -2768,7 +2783,7 @@ public final class LayerRowRenderer {
         return 0;
     }
 
-    private long getFadeOutMsForItem(@NonNull TimedItem item, long totalMs) {
+    public long getFadeOutMsForItem(@NonNull TimedItem item, long totalMs) {
         if (item.getAudioClip() != null) return item.getAudioClip().getFadeOutMs();
         if (item.getTextOverlay() != null) return item.getTextOverlay().getImageFadeOutMs();
         if (item.getSprite() != null) return item.getSprite().getFadeOutMs();
@@ -2834,9 +2849,11 @@ public final class LayerRowRenderer {
         float r = 3f * density;
         // Clip veil to item rounded rect so it doesn't spill beyond corners
         canvas.save();
-        Path clipPath = new Path();
-        clipPath.addRoundRect(x0, top, x1, bottom, r, r, Path.Direction.CW);
-        canvas.clipPath(clipPath);
+        // Hoisted (was `new Path()` per faded item PER FRAME — drawFadeVeils runs for every
+        // item, not just the selected one). Same treatment as fadeVeilPath/spriteDiamondPath.
+        fadeVeilClipPath.rewind();
+        fadeVeilClipPath.addRoundRect(x0, top, x1, bottom, r, r, Path.Direction.CW);
+        canvas.clipPath(fadeVeilClipPath);
         fadeVeilPaint.setColor(0xAA05050A);
         if (fadeIn > 0) {
             float fx = timeToX.map(item.getTimelineStartMs() + fadeIn);
@@ -2928,11 +2945,10 @@ public final class LayerRowRenderer {
             fadeKnobFillPaint.setColor(0xFF1C1C26);
             canvas.drawCircle(cx, cy, knobR, fadeKnobFillPaint);
             canvas.drawCircle(cx, cy, knobR, fadeKnobStrokePaint);
-            canvas.drawCircle(cx, cy, 3.4f * density, itemSelectionPaint); // inner dot in base colour
-            // inner dot colour
-            Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-            dot.setColor(baseColor);
-            canvas.drawCircle(cx, cy, 3.4f * density, dot);
+            // Inner dot in base colour. Hoisted: this was `new Paint()` per selected item per
+            // frame for a 3.4dp circle, two lines below a paint that is already recoloured in place.
+            fadeKnobDotPaint.setColor(baseColor);
+            canvas.drawCircle(cx, cy, 3.4f * density, fadeKnobDotPaint);
         }
         // Fade-out knob
         {
@@ -2946,11 +2962,8 @@ public final class LayerRowRenderer {
             fadeKnobFillPaint.setColor(0xFF1C1C26);
             canvas.drawCircle(cx, cy, knobR, fadeKnobFillPaint);
             canvas.drawCircle(cx, cy, knobR, fadeKnobStrokePaint);
-            Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
-            dot.setColor(baseColor);
-            dot.setStyle(Paint.Style.FILL);
-            dot.setAntiAlias(true);
-            canvas.drawCircle(cx, cy, 3.4f * density, dot);
+            fadeKnobDotPaint.setColor(baseColor);
+            canvas.drawCircle(cx, cy, 3.4f * density, fadeKnobDotPaint);
         }
     }
 
@@ -3564,14 +3577,6 @@ public final class LayerRowRenderer {
                 fxOut = Math.max(x0, Math.min(fxOut, x1));
                 float dxOut = x - fxOut, dyOut = localY - cy;
                 float dOut = (float) Math.sqrt(dxOut * dxOut + dyOut * dyOut);
-                // FADEDBG (diagnostic build): knob geometry vs the actual touch.
-                if (dIn <= knobHitR * 2f || dOut <= knobHitR * 2f) {
-                    com.fadcam.FLog.d("FADEDBG", "knob@DOWN item=" + item.getId()
-                            + " x=" + (int) x + " y=" + (int) y
-                            + " knobIn=(" + (int) fxIn + "," + (int) cy + ") d=" + (int) dIn
-                            + " knobOut=(" + (int) fxOut + "," + (int) cy + ") d=" + (int) dOut
-                            + " r=" + (int) knobHitR);
-                }
                 if (dIn <= knobHitR && dIn <= dOut) {
                     return new ItemHit(t, item, ItemZone.FADE_IN);
                 }

@@ -100,7 +100,13 @@ public final class ObjectDrawer extends LinearLayout {
     private final float density;
     private final TextView titleView;
     private final LinearLayout iconRow;
+    private final LinearLayout header;
     private final FrameLayout contentHost;
+    // SPEC_20260831_CAPTION_SLIDES_UX §7.2.1: optional header extras — a view immediately
+    // BEFORE the title (the CC glyph) and one immediately AFTER it (the track pills row).
+    // Null = none; every show() removes the previous show's extras first, so nulls CLEAR.
+    @Nullable private View leadingView;
+    @Nullable private View middleView;
     private final List<Tab> tabs = new ArrayList<>();
     private final List<ImageView> tabIcons = new ArrayList<>();
     private final List<Toggle> toggles = new ArrayList<>();
@@ -126,7 +132,7 @@ public final class ObjectDrawer extends LinearLayout {
         // starts dragging the very PiP being edited.
         setClickable(true);
 
-        LinearLayout header = new LinearLayout(ctx);
+        header = new LinearLayout(ctx);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.setPadding(dp(14), dp(8), dp(6), dp(6));
@@ -313,6 +319,22 @@ public final class ObjectDrawer extends LinearLayout {
      *                    adjustment layers light it; audio and others do not)
      */
     public void show(@NonNull List<Tab> tabList, @NonNull List<Toggle> toggleList, boolean lightAdjust) {
+        // SPEC_20260831_CAPTION_SLIDES_UX §7.2.1: every other drawer enters here — delegate with
+        // null extras so they can never inherit the caption drawer's pills, and so the caption
+        // drawer retargeted at a non-caption object drops them.
+        show(tabList, toggleList, lightAdjust, null, null);
+    }
+
+    /**
+     * Full show with optional header extras (SPEC_20260831_CAPTION_SLIDES_UX §7.2.1):
+     * {@code leadingView} is inserted immediately BEFORE the title (the CC glyph) and
+     * {@code middleView} immediately AFTER it, before the icon row (the track pills row).
+     * Both WRAP_CONTENT; titleView keeps its weight-1 width so it compresses when the pills
+     * row is wide. Nulls CLEAR: the previous show's extras are always removed first, so
+     * drawers shown without extras are unaffected.
+     */
+    public void show(@NonNull List<Tab> tabList, @NonNull List<Toggle> toggleList, boolean lightAdjust,
+                     @Nullable View leadingView, @Nullable View middleView) {
         // A pending close belongs to the object being replaced. show() used to rebind without
         // it, so opening a second object's drawer dropped the first one's FX undo step entirely
         // -- or, worse, left it registered and fired it later against an object not on screen.
@@ -333,6 +355,25 @@ public final class ObjectDrawer extends LinearLayout {
         tabs.addAll(tabList);
         toggles.clear();
         toggles.addAll(toggleList);
+        // Header extras (§7.2.1): remove the previous show's views first — a null extra must
+        // always CLEAR (so other drawers never inherit the caption pills), and a re-shown
+        // drawer must not stack a second copy of its own.
+        if (this.leadingView != null) header.removeView(this.leadingView);
+        if (this.middleView != null) header.removeView(this.middleView);
+        this.leadingView = leadingView;
+        this.middleView = middleView;
+        if (leadingView != null) {
+            header.addView(leadingView, header.indexOfChild(titleView),
+                    new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        }
+        if (middleView != null) {
+            LayoutParams mlp = new LayoutParams(
+                    LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+            mlp.rightMargin = dp(6);
+            // Immediately after the title — indexOfChild again, since a leadingView (added
+            // above) has shifted it; this keeps middleView before iconRow either way.
+            header.addView(middleView, header.indexOfChild(titleView) + 1, mlp);
+        }
         buildIconRow();
         activeTab = 0;
         contentHost.removeAllViews();
@@ -352,6 +393,28 @@ public final class ObjectDrawer extends LinearLayout {
         // needs the real number to decide how far to move the picture.
         post(this::reportHeight);
     }
+
+    /**
+     * Rebuild the CURRENT tab's content in place — no slide animation, no activeTab reset, no
+     * title change (SPEC_20260831_CAPTION_SLIDES_UX §7.1.5). Exists so a caption TRACK SWITCH
+     * can refresh the drawer's values without a full {@link #show}, which would snap the drawer
+     * back to tab 0 while the user is mid-edit in Fit ("if you're in fit, fit doesn't change,
+     * just the track changes"). Safe while animating: a slide owns contentHost, so a refresh
+     * mid-flight is a no-op rather than two panels fighting over one host.
+     */
+    public void refreshCurrentTab() {
+        if (animating || tabs.isEmpty()) return;
+        contentHost.removeAllViews();
+        contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext())));
+        post(this::reportHeight);
+    }
+
+    /**
+     * True while a tab slide owns {@code contentHost}, i.e. while {@link #refreshCurrentTab()}
+     * is a no-op. Callers that MUST land (a caption track switch: the drawer would otherwise
+     * keep showing the previously selected track's settings) poll this and re-post.
+     */
+    public boolean isAnimatingTabs() { return animating; }
 
     public boolean isShowing() { return getVisibility() == VISIBLE; }
 

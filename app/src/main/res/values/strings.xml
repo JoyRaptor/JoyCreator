@@ -3320,6 +3320,35 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="faditor_blend_screen">Screen</string>
     <string name="faditor_blend_overlay">Overlay</string>
     <string name="faditor_blend_add">Add</string>
+    <string name="faditor_blend_difference">Difference</string>
+    <string name="faditor_blend_color">Color</string>
+    <!-- The rest of the Photoshop/W3C blend set (2026-09-04). -->
+    <string name="faditor_blend_darken">Darken</string>
+    <string name="faditor_blend_lighten">Lighten</string>
+    <string name="faditor_blend_color_dodge">Color Dodge</string>
+    <string name="faditor_blend_color_burn">Color Burn</string>
+    <string name="faditor_blend_linear_burn">Linear Burn</string>
+    <string name="faditor_blend_hard_light">Hard Light</string>
+    <string name="faditor_blend_soft_light">Soft Light</string>
+    <string name="faditor_blend_vivid_light">Vivid Light</string>
+    <string name="faditor_blend_linear_light">Linear Light</string>
+    <string name="faditor_blend_pin_light">Pin Light</string>
+    <string name="faditor_blend_hard_mix">Hard Mix</string>
+    <string name="faditor_blend_exclusion">Exclusion</string>
+    <string name="faditor_blend_subtract">Subtract</string>
+    <string name="faditor_blend_divide">Divide</string>
+    <string name="faditor_blend_darker_color">Darker Color</string>
+    <string name="faditor_blend_lighter_color">Lighter Color</string>
+    <string name="faditor_blend_hue">Hue</string>
+    <string name="faditor_blend_saturation">Saturation</string>
+    <string name="faditor_blend_luminosity">Luminosity</string>
+    <!-- Category headings in the blend-mode popup. Small grey text above each column group. -->
+    <string name="faditor_blend_group_normal">Normal</string>
+    <string name="faditor_blend_group_darken">Darken</string>
+    <string name="faditor_blend_group_lighten">Lighten</string>
+    <string name="faditor_blend_group_contrast">Contrast</string>
+    <string name="faditor_blend_group_comparative">Comparative</string>
+    <string name="faditor_blend_group_color">Color</string>
     <!-- 4A: orphaned layer anchors when a clip is deleted -->
     <string name="faditor_orphan_title">Objects on this clip</string>
     <string name="faditor_orphan_body">%1$d layer object(s) start on the clip you deleted. Keep them and attach them to the next clip, or delete them too?</string>

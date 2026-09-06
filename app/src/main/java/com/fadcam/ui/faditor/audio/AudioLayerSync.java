@@ -80,6 +80,25 @@ public final class AudioLayerSync {
     private final java.util.Map<AudioClipPreviewPlayer, Long> lastStartAttemptMs =
             new java.util.HashMap<>();
 
+    /**
+     * Consecutive out-of-band ticks required before the desync branch is allowed to REPARK.
+     *
+     * <p>A repark is the most violent thing this class can do: it pauses the layer, re-seeks it and
+     * restarts it, and the late-entry branch is rate-limited to {@link #START_RETRY_MS}, so the
+     * music is SILENT for a few hundred ms every time. Firing that on a SINGLE tick means any
+     * one-off excursion — a decoder stall at a clip seam, a GC pause, one late playhead sample —
+     * costs the user an audible drop-out and fade back in. That is exactly the "stammering /
+     * staggering of the music, it drops out and fades in" report.
+     *
+     * <p>Genuine desync persists; a transient does not. At ~56ms per tick (measured on the Note 20)
+     * five ticks is ~280ms of SUSTAINED error before the layer is touched — still far below what a
+     * listener would call "out of sync", and it makes single-tick noise free.</p>
+     */
+    private static final int DESYNC_STREAK_TICKS = 5;
+
+    /** Consecutive ticks each player has been outside TRIM_MS. Reset the moment it is back in band. */
+    private final java.util.Map<AudioClipPreviewPlayer, Integer> desyncStreak = new java.util.HashMap<>();
+
     /** The constant pipeline offset per player, once measured. See the drift block in tick(). */
     private final java.util.Map<AudioClipPreviewPlayer, Long> baseline = new java.util.HashMap<>();
     private final java.util.Map<AudioClipPreviewPlayer, java.util.List<Long>> baselineSamples =
@@ -94,6 +113,7 @@ public final class AudioLayerSync {
         if (mp == null) return;
         baseline.remove(mp);
         baselineSamples.remove(mp);
+        desyncStreak.remove(mp);
     }
 
     public AudioLayerSync(@NonNull Handler playheadHandler) {
@@ -202,6 +222,7 @@ public final class AudioLayerSync {
         trimming.clear();
         baseline.clear();
         baselineSamples.clear();
+        desyncStreak.clear();
         lastStartAttemptMs.clear();
     }
 
@@ -346,19 +367,30 @@ public final class AudioLayerSync {
                         long absErr = Math.abs(error);
                         boolean isTrimming = Boolean.TRUE.equals(trimming.get(mp));
                         if (absErr <= LOCK_MS) {
+                            desyncStreak.remove(mp);
                             if (isTrimming) {
                                 mp.setPlaybackSpeed(1f);
                                 trimming.put(mp, false);
                                 FLog.d(TAG, "drift lock [" + i + "] err=" + error + " -> 1.0");
                             }
                         } else if (absErr <= TRIM_MS) {
+                            desyncStreak.remove(mp);
                             float speed = 1f - clamp(error / 1000f, -0.002f, 0.002f);
                             mp.setPlaybackSpeed(speed);
                             trimming.put(mp, true);
                             // Throttle log: only every 20 ticks effectively (caller logs anyway)
                         } else {
+                            // Out of band. NOT yet a repark — see DESYNC_STREAK_TICKS: a repark
+                            // silences the layer for a few hundred ms, so it has to be earned by a
+                            // SUSTAINED error, not by one late tick at a clip seam.
+                            Integer prior = desyncStreak.get(mp);
+                            int streak = (prior == null ? 0 : prior) + 1;
+                            desyncStreak.put(mp, streak);
+                            if (streak < DESYNC_STREAK_TICKS) continue;
+                            desyncStreak.remove(mp);
                             // Genuine desync: re-park and restart
-                            FLog.w(TAG, "drift desync [" + i + "] err=" + error + " -> repark");
+                            FLog.w(TAG, "drift desync [" + i + "] err=" + error
+                                    + " (sustained " + streak + " ticks) -> repark");
                             mp.pause();
                             mp.setPlaybackSpeed(1f);
                             trimming.put(mp, false);

@@ -362,6 +362,12 @@ public class TextOverlayLayer extends FrameLayout {
     private long currentTimeMs = 0;
     /** Overlay being actively dragged/scaled — shown at its static transform. */
     @Nullable private TextOverlayItem manipulating;
+    /**
+     * Scratch for the corner-pin offsets read in {@link #position}. One reused array rather than
+     * an allocation: position() runs for every overlay on every playhead tick.
+     */
+    private final float[] pinScratch =
+            new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
     /** Double-tap pairing state (type-editor express lane, layer-level). */
     @Nullable private TextOverlayItem lastTapOverlay;
     private long lastTapUpMs;
@@ -557,30 +563,101 @@ public class TextOverlayLayer extends FrameLayout {
     private static final int PREVIEW_DECODE_CEILING_EDGE = 4096;
 
     /**
-     * The largest this image is ever drawn, as a multiple of its un-zoomed size.
+     * The largest this image is ever drawn, as a multiple of a frame-filling picture.
      *
-     * <p>Reads the SCALE keyframe track directly rather than sampling the animation: the track
-     * IS the set of extremes, since interpolation between two keys never exceeds both. Falls
-     * back to the static transform when the item is not animated.
+     * <p><b>THIS USED TO READ THE WRONG CHANNEL, AND THAT WAS THE BLUR.</b> It took
+     * {@code max(1, scaleX, scaleY, SCALE keys)} — but pinch-zoom writes NONE of those on their
+     * own: it multiplies {@code sizeFraction} (see the pinch handler below), and the drawn height
+     * is {@code sizeFraction * contentHeight * scaleY}. An image zoomed to six times its size
+     * therefore still reported a factor of 1, decoded at a 1920px edge, and was then magnified 6x
+     * on screen — "I have a heavily zoomed-in image and its quality is abysmal" (JoyRaptor), against
+     * a comment right here quoting his own request for crisp zooms.</p>
+     *
+     * <p>{@code TextOverlayItem.maxDrawnHeightFactor} is now the single answer, folding
+     * {@code sizeFraction} (static AND its keyframe track, whose values ARE absolute fractions
+     * rather than multipliers) together with the per-axis multipliers and any corner-pin
+     * excursion. It is on the MODEL because the export decoder needs the identical number, and
+     * two copies of this reasoning is how the two decoders came to disagree in the first place.
+     * The floor of 1 is kept deliberately: a small image still decodes at the old bound, so this
+     * change can only ever add resolution, never take it away.</p>
      */
     private static float maxScaleFactor(@NonNull TextOverlayItem o) {
-        float max = Math.max(1f, o.getScaleX());
-        max = Math.max(max, o.getScaleY());
+        float max;
         try {
-            com.fadcam.ui.faditor.keyframe.KeyframeTrack t =
-                    o.getKeyframes().get(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
-            if (t != null) {
-                for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
-                    if (k.value > max) max = k.value;
-                }
-            }
+            max = o.maxDrawnHeightFactor();
         } catch (Exception ignored) {
-            // A missing or oddly-shaped track just means "no extra zoom" — never a reason to
-            // fail a decode.
+            max = 1f;
         }
         // Beyond 6x the source is usually the limit, not the decode, and the ceiling caps it
         // anyway; clamping here keeps a wild keyframe from demanding an absurd first guess.
         return Math.max(1f, Math.min(max, 6f));
+    }
+
+    /**
+     * The decode bound each cached bitmap was actually REQUESTED at, keyed like the cache.
+     *
+     * <p><b>Without this the bound freezes at the first decode.</b> {@link #imageCache} is keyed
+     * by URI alone, so the very first {@code get} that hits returns whatever resolution the image
+     * happened to be decoded at when it first appeared — typically un-zoomed. Every later zoom
+     * then read a cache hit and magnified a small bitmap, which meant the zoom-aware bound above
+     * could be perfectly correct and still never take effect. Remembering the REQUEST (not the
+     * resulting bitmap's edge) is what makes the comparison monotone: a source smaller than the
+     * request cannot make this ask again forever.</p>
+     */
+    private final java.util.Map<String, Integer> imageDecodedEdge = new java.util.HashMap<>();
+
+    /** Lazily computed once — {@link #imageCacheBudgetBytes} asks the ActivityManager. */
+    private int cachedCeilingEdge;
+
+    /**
+     * Per-image decode ceiling, derived from the SAME budget the cache is sized by.
+     *
+     * <p>A flat 4096 is one 4096x3072 ARGB bitmap at ~50 MB. On the Note 20 (160 MB budget) that
+     * is a third of the cache and fine. On a 4 GB phone the budget is smaller, and one photo
+     * evicting every other image on the timeline would turn scrubbing into a re-decode storm —
+     * trading the blur bug for a stall. So one image may claim at most A THIRD of the budget, and
+     * the ceiling never drops below {@link #PREVIEW_DECODE_BASE_EDGE}: this can add resolution on
+     * a big phone and can never take away what shipped on a small one.</p>
+     */
+    private int decodeCeilingEdge() {
+        if (cachedCeilingEdge > 0) return cachedCeilingEdge;
+        double pixels = (imageCacheBudgetBytes() / 3.0) / 4.0;   // 4 bytes per ARGB_8888 pixel
+        int edge = (int) Math.sqrt(Math.max(1.0, pixels));
+        cachedCeilingEdge = Math.max(PREVIEW_DECODE_BASE_EDGE,
+                Math.min(edge, PREVIEW_DECODE_CEILING_EDGE));
+        return cachedCeilingEdge;
+    }
+
+    /** The longest edge {@code o} needs decoded at to stay sharp at its largest drawn size. */
+    private int requiredDecodeEdge(@NonNull TextOverlayItem o) {
+        android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
+        int screenEdge = Math.max(dm.widthPixels, dm.heightPixels);
+        int baseEdge = Math.min(screenEdge, PREVIEW_DECODE_BASE_EDGE);
+        float zoom = maxScaleFactor(o);
+        return Math.max(640, Math.min(Math.round(baseEdge * zoom), decodeCeilingEdge()));
+    }
+
+    /**
+     * A HIGHER-resolution copy of {@code o}'s picture, or null when what the view already holds
+     * is good enough.
+     *
+     * <p>Gated three ways so a re-decode is rare and always earned: the view must already have
+     * pixels (an empty view goes down the ordinary attach path); the entry must still be in the
+     * cache (a decode bound remembered for an evicted bitmap says nothing about the one this
+     * view is drawing); and the requirement must have grown by at least half again — a nudge
+     * from 1.0x to 1.1x zoom is not worth a main-thread decode, a pinch to 3x is.</p>
+     */
+    @Nullable
+    private android.graphics.Bitmap upgradedImageBitmap(@NonNull TextOverlayItem o,
+                                                        @NonNull ImageView iv) {
+        String uri = o.getImageUri();
+        if (uri == null || imageFailed.contains(uri)) return null;
+        if (iv.getDrawable() == null) return null;
+        Integer had = imageDecodedEdge.get(uri);
+        if (had == null) return null;
+        int need = requiredDecodeEdge(o);
+        if (need <= had || need * 2 < had * 3) return null;
+        return imageBitmap(o);
     }
 
     @Nullable
@@ -591,8 +668,17 @@ public class TextOverlayLayer extends FrameLayout {
         // the cost this cache exists to avoid, and it cannot live in the LruCache because that
         // cannot hold a null value.
         if (imageFailed.contains(uri)) return null;
+        final int maxEdge = requiredDecodeEdge(o);
         android.graphics.Bitmap cached = imageCache.get(uri);
-        if (cached != null && !cached.isRecycled()) return cached;
+        Integer cachedEdge = imageDecodedEdge.get(uri);
+        // A hit ONLY if what is cached was decoded for at least the resolution now needed.
+        // Zooming in past that re-decodes once and replaces the entry (same key, so the small
+        // copy is dropped rather than held alongside); zooming back OUT re-uses the big one, so
+        // a pinch in and out does not thrash.
+        if (cached != null && !cached.isRecycled()
+                && cachedEdge != null && cachedEdge >= maxEdge) {
+            return cached;
+        }
         android.graphics.Bitmap out = null;
         try {
             // Bound by what the preview can SHOW — including how far this image is ever zoomed.
@@ -608,14 +694,12 @@ public class TextOverlayLayer extends FrameLayout {
             // decodes at 4x, up to a ceiling. Cheap to compute (a walk of one keyframe track)
             // and it is the difference between "efficient" and "efficient but blurry".
             //
-            // The export is unaffected either way: it decodes its own copy bounded by the OUTPUT
-            // frame (ImageOverlayDraw.decode), so a 4K export is never limited by anything here.
-            android.util.DisplayMetrics dm = getResources().getDisplayMetrics();
-            int screenEdge = Math.max(dm.widthPixels, dm.heightPixels);
-            int baseEdge = Math.min(screenEdge, PREVIEW_DECODE_BASE_EDGE);
-            float zoom = maxScaleFactor(o);
-            int maxEdge = Math.max(640, Math.min(
-                    Math.round(baseEdge * zoom), PREVIEW_DECODE_CEILING_EDGE));
+            // The export is bounded by its own OUTPUT frame plus the same drawn-size factor
+            // (ImageOverlayDraw.decode), so a 4K export is never limited by anything here.
+            //
+            // The bound itself is computed in requiredDecodeEdge() above, BEFORE the cache
+            // lookup — it has to be, because it is now part of deciding whether the cached copy
+            // is good enough.
             android.graphics.BitmapFactory.Options bounds =
                     new android.graphics.BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
@@ -654,8 +738,14 @@ public class TextOverlayLayer extends FrameLayout {
         } catch (Throwable ignored) {
             // Unreadable source: cache the failure so the next rebuild does not try again.
         }
-        if (out == null) imageFailed.add(uri);
-        else imageCache.put(uri, out);
+        if (out == null) {
+            imageFailed.add(uri);
+        } else {
+            imageCache.put(uri, out);
+            // The REQUEST, not the bitmap's own edge — see imageDecodedEdge. A source smaller
+            // than the request would otherwise fail this test forever and re-decode every tick.
+            imageDecodedEdge.put(uri, maxEdge);
+        }
         return out;
     }
 
@@ -691,6 +781,9 @@ public class TextOverlayLayer extends FrameLayout {
     public void clearImageCache() {
         imageCache.evictAll();
         imageFailed.clear();
+        // Must go with them: a remembered decode bound for a bitmap that is no longer held would
+        // report a cache miss as "already big enough" on the next decode.
+        imageDecodedEdge.clear();
     }
 
     public void setData(@NonNull List<TextOverlayItem> overlays, @NonNull Callback cb) {
@@ -941,7 +1034,12 @@ public class TextOverlayLayer extends FrameLayout {
             return view;
         }
         if (o.isImage()) {
-            ImageView iv = new ImageView(getContext());
+            // A CornerPinImageView, not a bare ImageView: it IS an ImageView (so every
+            // instanceof branch, the hit-testing, the z-order and the drawable attach/detach
+            // below are untouched) and it falls through to ImageView's own onDraw whenever the
+            // item has no corner pin — which is every image in every existing project. The
+            // matrix path exists only for the pinned case; see its class doc.
+            ImageView iv = new CornerPinImageView(getContext());
             iv.setScaleType(ImageView.ScaleType.FIT_XY);
             // Pixels only for an image that is ON SCREEN NOW. This used to decode every image in
             // the project on every rebuild and hand each one to its view, so all of them stayed
@@ -1069,6 +1167,10 @@ public class TextOverlayLayer extends FrameLayout {
         // box's VIEW is deliberately larger than its box (see TextBoxView.EXCURSION_EM), so the
         // two are not the same rectangle and the layout below must place the BOX's centre.
         float boxInset = 0f;
+        // SPEC B — this item's evaluated pin offsets (static or animated per the live gate), or
+        // null when unpinned. The pivot arithmetic reads them so the pivot anchors to the picture
+        // the user sees — the pinned quad — rather than to the untouched box underneath.
+        float[] activePins = null;
         if (view instanceof TextBoxView) {
             TextBoxView tb = (TextBoxView) view;
             float fontPx = Math.max(1f, sizeFraction * r.height());
@@ -1084,13 +1186,50 @@ public class TextOverlayLayer extends FrameLayout {
             h = Math.max(1, Math.round(size[1]));
             boxInset = tb.boxInsetPx();
         } else if (o.isImage() && view instanceof ImageView) {
+            // THE ZOOM ARRIVED AFTER THE DECODE. Pinch-zoom multiplies sizeFraction, and the
+            // pixels this view is holding were decoded for whatever zoom the item had when it
+            // first appeared — so without this the corrected bound above could never take effect
+            // on an image already on screen. Re-decoding is deliberately NOT done while the
+            // finger is down (a full decode per gesture frame is the stall this cache exists to
+            // avoid); the upgrade lands on the first tick after the pinch settles.
+            android.graphics.Bitmap upgraded = live ? null
+                    : upgradedImageBitmap(o, (ImageView) view);
+            if (upgraded != null) ((ImageView) view).setImageBitmap(upgraded);
             float aspect = 1f;
             android.graphics.drawable.Drawable d = ((ImageView) view).getDrawable();
             if (d != null && d.getIntrinsicHeight() > 0) {
                 aspect = d.getIntrinsicWidth() / (float) d.getIntrinsicHeight();
             }
-            h = Math.round(imageHeightPx(o, sizeFraction, r.height(), live));
-            w = Math.round(imageWidthPx(o, sizeFraction, r.height(), aspect, live));
+            float ihPx = imageHeightPx(o, sizeFraction, r.height(), live);
+            float iwPx = imageWidthPx(o, sizeFraction, r.height(), aspect, live);
+            // CORNER PIN. A pulled corner is drawn outside the picture's own rectangle, and a
+            // child View's drawing is clipped by its parent — so the view is inflated by the
+            // largest excursion on every side and the picture is drawn into the inset. This
+            // reuses boxInset, which the layout below already subtracts so it is the BOX (here:
+            // the picture) that ends up centred on cx/cy, not the view plus its margin.
+            //
+            // padPx is 0 and setCornerPin is a no-op for an unpinned item, so w/h/boxInset and
+            // therefore the entire layout stay bit-for-bit what they were.
+            float padPx = 0f;
+            if (view instanceof CornerPinImageView) {
+                CornerPinImageView cp = (CornerPinImageView) view;
+                if (o.hasCornerPin()) {
+                    // Live = the finger is down, so read the static pose, exactly as the size,
+                    // centre and rotation above do.
+                    if (live) o.copyCornerPinInto(pinScratch);
+                    else o.animatedCornerPin(currentTimeMs, pinScratch);
+                    activePins = pinScratch;
+                    float[] ex = com.fadcam.ui.faditor.model.CornerPin
+                            .excursionFraction(pinScratch);
+                    padPx = Math.max(ex[0] * iwPx, ex[1] * ihPx);
+                    cp.setCornerPin(pinScratch, padPx);
+                } else {
+                    cp.setCornerPin(null, 0f);
+                }
+            }
+            h = Math.round(ihPx + padPx * 2f);
+            w = Math.round(iwPx + padPx * 2f);
+            boxInset = padPx;
         } else {
             // Neither a text box nor an image with a drawable — keep whatever it measured to
             // rather than collapsing it to nothing.
@@ -1103,8 +1242,24 @@ public class TextOverlayLayer extends FrameLayout {
         // be pushed until it is just fully off-frame (user, 2026-08-09). Clamped
         // at half a frame inside setCenterTravelLimit so a tiny object can still
         // be moved completely off-canvas too.
-        o.setCenterTravelLimit((w / 2f) / Math.max(1f, r.width()),
-                (h / 2f) / Math.max(1f, r.height()));
+        //
+        // SPEC B — the pivot RE-LOCATES the pose centre away from the picture (a pick's
+        // compensation parks it off-canvas for a corner pivot), so the clamp — which guards
+        // the VISUAL box — must grow by the pivot displacement per axis. Without this every
+        // centre write under a non-centre pivot (pinch, drag, the compensation itself) ran
+        // into the clamp and truncated: JoyRaptor's "snapping or locking", 2026-09-05.
+        float dispX = 0f, dispY = 0f;
+        if (o.isImage() && !o.isRotationPivotNeutral(activePins)) {
+            float rot = live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs);
+            double rad = Math.toRadians(rot);
+            float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+            float dX = o.pivotOffsetFromCentreX(w - boxInset * 2f, h - boxInset * 2f, activePins);
+            float dY = o.pivotOffsetFromCentreY(w - boxInset * 2f, h - boxInset * 2f, activePins);
+            dispX = dX - (c * dX - s * dY);
+            dispY = dY - (s * dX + c * dY);
+        }
+        o.setCenterTravelLimit((w / 2f + Math.abs(dispX)) / Math.max(1f, r.width()),
+                (h / 2f + Math.abs(dispY)) / Math.max(1f, r.height()));
 
         float cx = r.left + (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs)) * r.width();
         float cy = r.top + (live ? o.getCenterY() : o.animatedCenterY(currentTimeMs)) * r.height();
@@ -1133,6 +1288,37 @@ public class TextOverlayLayer extends FrameLayout {
             view.setLayoutParams(lp);
         }
         view.setRotation(live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs));
+        // SPEC B — the rotation pivot. For images the View pivot sits at the picture's centre
+        // plus the model's ONE shared offset (pivotOffsetFromCentreX/Y), the same numbers
+        // ImageOverlayDraw anchors the export's rotate/scale with, so a corner pivot spins
+        // about the corner in the editor AND in the file. The offset is measured on the
+        // PICTURE box (w/h minus the symmetric corner-pin excursion inset), because the pivot
+        // fractions are fractions of the picture — the same rect the export uses. While the
+        // finger is down the default stays: the twist gesture bakes a centre-rotation into the
+        // pose, and a stored pivot under the finger would rotate the pose a second time.
+        //
+        // At the centre pivot NOTHING is written: the View's own default pivot (its actual
+        // laid-out centre) is what every pre-SPEC-B frame used, and writing a w/2 computed from
+        // this tick's target size could disagree with the drawn size for the one frame where
+        // the size changes. The tag remembers a custom pivot so the recycled view can be
+        // restored to the true default when the pivot goes back to centre or a gesture starts.
+        if (o.isImage() && !live && !o.isRotationPivotNeutral(activePins)) {
+            view.setPivotX(w / 2f + o.pivotOffsetFromCentreX(w - boxInset * 2f,
+                    h - boxInset * 2f, activePins));
+            view.setPivotY(h / 2f + o.pivotOffsetFromCentreY(w - boxInset * 2f,
+                    h - boxInset * 2f, activePins));
+            view.setTag(com.fadcam.R.id.faditor_tag_pivot_custom, Boolean.TRUE);
+        } else if (o.isImage()
+                && view.getTag(com.fadcam.R.id.faditor_tag_pivot_custom) != null) {
+            view.setTag(com.fadcam.R.id.faditor_tag_pivot_custom, null);
+            // A zero-sized view (never laid out) has no meaningful centre to write — and after
+            // its first layout the View default pivot IS the actual centre, so writing nothing
+            // is the exact restore. Writing (0,0) would pin the rotation to the top-left.
+            if (view.getWidth() > 0 && view.getHeight() > 0) {
+                view.setPivotX(view.getWidth() / 2f);
+                view.setPivotY(view.getHeight() / 2f);
+            }
+        }
         // Always written, never skipped when the animation is off: these are VIEW properties on
         // a recycled view, so leaving them alone would strand the last frame's scale/offset on
         // an overlay whose preset was just set back to NONE. Identity is 1/1/0/0.
@@ -1142,7 +1328,48 @@ public class TextOverlayLayer extends FrameLayout {
         view.setTranslationY(anim.dy);
         // Text boxes clip per unit inside TextBoxRenderer, so a view-level clip would be a second,
         // coarser mask over the top — identical at BLOCK and simply wrong at LETTER.
-        if (!isTextBox) applyReveal(view, anim.revealFrac, w, h);
+        if (!isTextBox) applyReveal(view, anim.revealFrac, w, h, boxInset);
+    }
+
+    /**
+     * SPEC B — fold the item's rotation pivot into a rect expressed in THIS layer's pixel
+     * space, moving the rect's centre the same way the render moves the picture: rotated about
+     * the pivot instead of about the centre. The selection frame and its drag handles read this
+     * (via the drawer targets), which is what keeps the handles hugging a corner-pivoted,
+     * spinning object instead of standing where the object WOULD be under a centre rotation —
+     * JoyRaptor 2026-09-05: the object moved correctly, the handles did not.
+     *
+     * <p>Gated EXACTLY like the render: images only, not at the centre pivot, not while the
+     * finger is down (the twist gesture bakes a centre-rotation into the pose, and the render
+     * keeps its default pivot live — the box must match THAT during a gesture). The rotation is
+     * read at this layer's own clock, the same read the view's render used.
+     *
+     * @return true when the rect was moved, so callers can tell a fold from a no-op.
+     */
+    public boolean foldRotationPivotIntoBox(@NonNull TextOverlayItem o, @NonNull RectF io) {
+        if (!o.isImage()) return false;
+        if (o == manipulating || isLiveEditing(o)) return false;
+        float rot = o.animatedRotation(currentTimeMs);
+        if (rot == 0f) return false;
+        // SPEC B, pinned pictures — the fold reads the SAME pin-aware pivot offset the render's
+        // View pivot uses, so the frame tracks a pinned, corner-pivoted picture too. The pins are
+        // read BEFORE the neutral test on purpose: a centre pivot on a PINNED picture still has a
+        // real offset, and testing the pivot value alone let the frame skip the fold the render
+        // and the export both performed.
+        float[] pins = null;
+        if (o.hasCornerPin()) {
+            o.animatedCornerPin(currentTimeMs, pinScratch);
+            pins = pinScratch;
+        }
+        if (o.isRotationPivotNeutral(pins)) return false;
+        float cx = io.centerX(), cy = io.centerY();
+        float pvx = cx + o.pivotOffsetFromCentreX(io.width(), io.height(), pins);
+        float pvy = cy + o.pivotOffsetFromCentreY(io.width(), io.height(), pins);
+        double rad = Math.toRadians(rot);
+        float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+        float vx = cx - pvx, vy = cy - pvy;
+        io.offset((pvx + vx * c - vy * s) - cx, (pvy + vx * s + vy * c) - cy);
+        return true;
     }
 
     // ── The three expressions the GL composite has to agree with, extracted ────────────────────
@@ -1278,21 +1505,60 @@ public class TextOverlayLayer extends FrameLayout {
         float hPx = imageHeightPx(o, sizeFraction, r.height(), live);
         float wPx = imageWidthPx(o, sizeFraction, r.height(), aspect, live);
 
-        float cx = (live ? o.getCenterX() : o.animatedCenterX(currentTimeMs))
-                + anim.dx / r.width();
-        float cy = (live ? o.getCenterY() : o.animatedCenterY(currentTimeMs))
-                + anim.dy / r.height();
+        float cx = live ? o.getCenterX() : o.animatedCenterX(currentTimeMs);
+        float cy = live ? o.getCenterY() : o.animatedCenterY(currentTimeMs);
         float halfW = (wPx * anim.scaleX) / r.width() * 0.5f;
         float halfH = (hPx * anim.scaleY) / r.height() * 0.5f;
         float alpha = live ? 1f
                 : Math.max(0f, Math.min(1f, o.animatedOpacity(currentTimeMs) * anim.alpha));
         float rot = live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs);
 
+        // SPEC B — the rotation pivot, folded into the Pip centre. The Pip quad rotates about
+        // its OWN centre, so "rotate about the pivot" is expressed as the pivot-fixed
+        // composition the export's canvas spells translate → rotate(P) → scale(P): fold the
+        // preset scale about the pivot, then the rotation about the pivot, then the preset
+        // translation (anchor-independent). P comes from the model's ONE shared definition —
+        // the same pivotOffsetFromCentreX/Y ImageOverlayDraw and the View path read — so the
+        // three surfaces cannot disagree. The Pip format is untouched. At the centre pivot the
+        // whole block is skipped and the expressions below are byte-for-byte the ones that
+        // shipped; while the finger is down it is skipped too, for the same reason the View
+        // path keeps its default pivot (the twist gesture bakes a centre-rotation).
+        //
+        // SPEC B, pinned pictures — the pins are evaluated BEFORE this fold (below, where the
+        // Pip carries them) so the pivot anchors to the pinned quad the GL chain actually draws.
+        float[] pin = null;
+        if (o.hasCornerPin()) {
+            pin = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+            if (live) o.copyCornerPinInto(pin);
+            else o.animatedCornerPin(currentTimeMs, pin);
+        }
+        if (!live && !o.isRotationPivotNeutral(pin)) {
+            float pvx = cx + o.pivotOffsetFromCentreX(wPx / r.width(), hPx / r.height(), pin);
+            float pvy = cy + o.pivotOffsetFromCentreY(wPx / r.width(), hPx / r.height(), pin);
+            float scx = pvx + anim.scaleX * (cx - pvx);
+            float scy = pvy + anim.scaleY * (cy - pvy);
+            double rad = Math.toRadians(rot);
+            float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+            float vx = scx - pvx, vy = scy - pvy;
+            cx = pvx + vx * c - vy * s;
+            cy = pvy + vx * s + vy * c;
+        }
+        cx += anim.dx / r.width();
+        cy += anim.dy / r.height();
+
+        // CORNER PIN. The GL chain is drawing this picture INSTEAD of its CornerPinImageView, so
+        // without this the one image class of item that can carry a pin previewed FLAT while the
+        // export (ImageOverlayDraw) drew it PINNED — a preview/export mismatch on exactly the
+        // items the GL path exists to make honest. Read with the same live/animated split every
+        // other channel above uses, so a corner drag tracks the finger and playback tracks the
+        // keyframes. An unpinned item hands null and takes the identical shader and uniform set
+        // it always did. (Evaluated above, before the pivot fold that consumes it.)
+
         return com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip.ofImage(
                 cx, 1f - cy, halfW, halfH, -rot, alpha,
                 o.getFx(), currentTimeMs, o.getCompositing(),
                 com.fadcam.ui.faditor.model.BlendModes.modeCode(o.getOverlayBlendMode()),
-                frameW, frameH, o.getId(), bmp, anim.revealFrac);
+                frameW, frameH, o.getId(), bmp, anim.revealFrac, pin);
     }
 
     /**
@@ -1338,12 +1604,23 @@ public class TextOverlayLayer extends FrameLayout {
      * half-drawn. {@code null} is the identity.</p>
      */
     private void applyReveal(@NonNull View view, float revealFrac, int w, int h) {
+        applyReveal(view, revealFrac, w, h, 0f);
+    }
+
+    /**
+     * @param insetPx the corner-pin excursion margin this view was inflated by, so the wipe's
+     *                leading edge advances across the PICTURE at the same fraction the export
+     *                sweeps its drawn rect — without it a pinned image would wipe over the margin
+     *                too and reach any given point slightly early.
+     */
+    private void applyReveal(@NonNull View view, float revealFrac, int w, int h, float insetPx) {
         if (revealFrac >= 1f) {
             view.setClipBounds(null);
             return;
         }
         float f = Math.max(0f, revealFrac);
-        clipTmp.set(0, 0, Math.round(Math.max(1, w) * f), Math.max(1, h));
+        float content = Math.max(1, w) - insetPx * 2f;
+        clipTmp.set(0, 0, Math.round(insetPx + Math.max(1f, content) * f), Math.max(1, h));
         view.setClipBounds(clipTmp);
     }
 
@@ -1394,6 +1671,16 @@ public class TextOverlayLayer extends FrameLayout {
                 // or dragging the margin would yank the box out from under the caret. The item
                 // becomes inert until the drawer closes: move/scale/rotate return on exit.
                 if (editingItemId != null && editingItemId.equals(o.getId())) return false;
+                // SPEC B — images are the transform surface's to move, scale and turn, and the
+                // handles overlay's selection is their only door. This view's bounds are the box
+                // plus the corner-pin excursion margin (and the unrotated bounding square of a
+                // rotated picture), so a finger NEAR the picture — or on the clipped-away part of
+                // a pinned one — landed here whenever the handles overlay declined the gesture,
+                // and this legacy drag moved the pose with none of the pivot/pin grammar the
+                // transform surface owns: JoyRaptor's "zooming by some other legacy means, then it
+                // completely disjoints, and eventually it snaps back" (2026-09-05). Decline: a
+                // miss above stays a miss, and no second, competing mover exists.
+                if (o.isImage()) return false;
                 scaleDetector.onTouchEvent(e);
                 switch (e.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:

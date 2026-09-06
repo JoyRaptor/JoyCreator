@@ -97,6 +97,15 @@ public final class PreviewHandlesOverlay extends View {
 
         /** The touch hit nothing. */
         void selectNone();
+
+        /**
+         * SPEC B — the tap that just selected an object whose handles live on ANOTHER surface
+         * (an image's are the transform overlay). The still-running gesture stream is
+         * forwarded here — first the DOWN that made the selection, then every MOVE and the
+         * final UP — so one continuous finger motion is one continuous drag on the new
+         * surface instead of a dead drag. Returns true when the handoff was accepted.
+         */
+        default boolean handoffGesture(@NonNull MotionEvent e) { return false; }
     }
 
     /**
@@ -164,6 +173,9 @@ public final class PreviewHandlesOverlay extends View {
     private int draggingPoint = -1;
 
     @Nullable private SelectionSource selectionSource;
+
+    /** SPEC B — true while a selected-mid-gesture stream is being forwarded to its new surface. */
+    private boolean gestureHandoff;
 
     public void setSelectionSource(@Nullable SelectionSource s) { selectionSource = s; }
 
@@ -499,7 +511,27 @@ public final class PreviewHandlesOverlay extends View {
                 // selectAt has already retargeted us. Start the drag on the NEW object in the
                 // SAME gesture: "I should be able to tap and move, and they all just select."
                 Target picked = target;
-                return picked != null && onDown(picked, e.getX(), e.getY());
+                if (picked == null) {
+                    // SELECTED, BUT ONTO ANOTHER SURFACE. An image overlay's handles are now the
+                    // transform surface, so selecting one leaves THIS overlay targetless on
+                    // purpose — it stays up only as the thing that answers "what is under this
+                    // finger". Returning false here would let the same DOWN fall through to the
+                    // text/sprite layers underneath, which run their own hit-tests and would start
+                    // a second, competing drag on it: exactly the bug this class exists to end. So
+                    // the tap is spent on the selection, and the transform handles take the next
+                    // gesture.
+                    //
+                    // SPEC B — unless the gesture itself is handed over. The first tap-drag on an
+                    // unselected image used to be a DEAD drag: the stream was consumed here while
+                    // the transform surface (which now owns the object) never saw it, so the
+                    // picture followed only from the second touch on — JoyRaptor's "stuttery and it
+                    // doesn't quite go with my finger" before selection, 2026-09-05. Forward this
+                    // DOWN and every following MOVE/UP through the same hook.
+                    gestureHandoff = selectionSource.handoffGesture(e);
+                    invalidate();
+                    return true;
+                }
+                return onDown(picked, e.getX(), e.getY());
             }
             case MotionEvent.ACTION_POINTER_DOWN:
                 return onSecondFinger(e);
@@ -512,6 +544,8 @@ public final class PreviewHandlesOverlay extends View {
                 }
                 return mode != Mode.NONE;
             case MotionEvent.ACTION_MOVE: {
+                // SPEC B — the handed-off stream belongs to the other surface until it ends.
+                if (gestureHandoff) { selectionSource.handoffGesture(e); return true; }
                 if (draggingPoint >= 0) { onPointMove(e.getX(), e.getY()); return true; }
                 Target t = target;
                 // Holding for a possible second finger: keep the stream, move nothing. Dragging
@@ -529,6 +563,13 @@ public final class PreviewHandlesOverlay extends View {
             }
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL: {
+                // SPEC B — close the handoff: the owning surface sees the UP/CANCEL and commits
+                // (or rolls back) on its own.
+                if (gestureHandoff) {
+                    selectionSource.handoffGesture(e);
+                    gestureHandoff = false;
+                    return true;
+                }
                 if (draggingPoint >= 0) {
                     PointHandles p = pointHandles;
                     boolean clean = e.getActionMasked() == MotionEvent.ACTION_UP;

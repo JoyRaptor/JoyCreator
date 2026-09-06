@@ -33,7 +33,13 @@ set APP_HOME=%DIRNAME%
 for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 
 @rem Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m"
+@rem FADCAM LOCAL PATCH (2026-09-05): -Djdk.net.unixdomain.tmpdir=C:/Temp.
+@rem This machine cannot create a usable AF_UNIX socket file under %LOCALAPPDATA%, and
+@rem Java's Selector.open() needs one, so the wrapper CLIENT died with "Unable to
+@rem establish loopback connection" before it could even talk to the daemon.
+@rem gradle.properties covers the daemon; only this line covers the client.
+@rem Re-apply after a wrapper upgrade.
+set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m" "-Djdk.net.unixdomain.tmpdir=C:/Temp"
 
 @rem Find java.exe
 if defined JAVA_HOME goto findJavaFromJavaHome

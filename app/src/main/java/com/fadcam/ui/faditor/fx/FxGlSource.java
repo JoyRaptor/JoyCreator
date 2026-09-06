@@ -73,10 +73,21 @@ public final class FxGlSource {
             "uniform sampler2D uBaseSampler;\n"
             + "uniform float uLayerOpacity;\n"
             + "uniform float uMaskCount;\n"
-            + "uniform vec4 uMaskGeo;\n"
-            + "uniform vec2 uMaskRot;\n"
-            + "uniform float uMaskCorner;\n"
-            + "uniform float uMaskFeather;\n"
+            // ONE SLOT PER PACKED SHAPE. __MASKN__ is substituted with this layer's shape
+            // count by fragment(), exactly as FxPreviewTextureView.withMaskShapes sizes a
+            // PiP's. A single-shape layer compiles an array of one and a loop of one
+            // iteration — the identical arithmetic the scalar uniforms performed — while an
+            // 8-shape mask finally grades through all eight instead of through shape ZERO.
+            // That was wrong in the preview AND in the export, and wrong TOGETHER; this is
+            // the one place that fixes both, which is why the source lives here rather than
+            // in either renderer.
+            + "uniform vec4 uMaskGeo[__MASKN__];\n"
+            + "uniform vec2 uMaskRot[__MASKN__];\n"
+            + "uniform float uMaskCorner[__MASKN__];\n"
+            + "uniform float uMaskFeather[__MASKN__];\n"
+            // MaskFold ordinals as floats (0 union, 1 difference, 2 intersect) — the shader
+            // has no integer uniforms here. Slot 0's op is never read: it seeds the fold.
+            + "uniform float uMaskOp[__MASKN__];\n"
             + "uniform float uMaskInvert;\n"
             // Chroma key GATES the mix factor exactly like a mask does — an adjustment layer has
             // no footage of its own to key, so "key" here means "key OUT a colour from what's
@@ -103,6 +114,24 @@ public final class FxGlSource {
     @NonNull
     public static String fragment(@NonNull FxCompiler.Pass pass, int kernelHalf,
                                   boolean composite) {
+        return fragment(pass, kernelHalf, composite, 1);
+    }
+
+    /**
+     * The same, sized to a layer's ACTUAL mask shape count.
+     *
+     * @param maskShapes how many shapes {@code MaskSdf.packShapes} packed for this layer. The
+     *                   arrays and the fold loop are declared this long, so the source is part of
+     *                   the program cache key and a layer that gains a shape recompiles. Clamped
+     *                   into 1..{@link MaskSdf#MAX_SHAPES}: the packer drops shapes past the
+     *                   ceiling (declaring more slots than it can fill would upload garbage), and
+     *                   a GLSL array of length 0 does not exist — every pass declares the mask
+     *                   block whether the layer has a mask or not, the {@code uMaskCount} branch
+     *                   being what turns it off.
+     */
+    @NonNull
+    public static String fragment(@NonNull FxCompiler.Pass pass, int kernelHalf,
+                                  boolean composite, int maskShapes) {
         String body = FxCompiler.emitGlsl(pass, kernelHalf);
         int mainAt = body.indexOf("void main()");
         if (mainAt < 0) {
@@ -118,7 +147,20 @@ public final class FxGlSource {
                 + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN
                 + com.fadcam.ui.faditor.model.BlendModes.GLSL_BLEND_FN
                 + body.substring(mainAt);
-        return composite ? withComposite(fragment) : fragment;
+        return withMaskShapes(composite ? withComposite(fragment) : fragment, maskShapes);
+    }
+
+    /**
+     * Size the mask uniform arrays and the fold loop to the layer's shape count.
+     *
+     * <p>Applied to EVERY pass, not just the composite: the arrays are declared in
+     * {@link #COMPOSITE_UNIFORMS}, which is spliced into all of them. An intermediate pass reads
+     * none of them and the driver strips the lot, exactly as it stripped the scalar uniforms.</p>
+     */
+    @NonNull
+    private static String withMaskShapes(@NonNull String fragment, int maskShapes) {
+        int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES, maskShapes));
+        return fragment.replace("__MASKN__", Integer.toString(n));
     }
 
     /**
@@ -145,8 +187,22 @@ public final class FxGlSource {
                 + "  float cover = 1.0;\n"
                 + "  if (uMaskCount > 0.5) {\n"
                 + "    vec2 frame = vec2(1.0) / uTexel;\n"
-                + "    float sd = fxShapeSd(vFxUv, frame, uMaskGeo, uMaskRot, uMaskCorner);\n"
-                + "    float inside = fxCoverageOf(sd, uMaskFeather);\n"
+                // The fold is MaskSdf.coverage's, shape for shape: seed with the first,
+                // then union/difference/intersect as MaskFold ordered them. Constant loop
+                // bound (no break, no dynamic index) so GLSL ES 1.00 accepts it on every
+                // driver. The coverage local is cvg, NOT c: c is the GRADED COLOUR the
+                // compiler's main() left in scope, and shadowing it would mix the frame
+                // with a float.
+                + "    float inside = 0.0;\n"
+                + "    for (int i = 0; i < __MASKN__; i++) {\n"
+                + "      float sd = fxShapeSd(vFxUv, frame, uMaskGeo[i], uMaskRot[i],\n"
+                + "                           uMaskCorner[i]);\n"
+                + "      float cvg = fxCoverageOf(sd, uMaskFeather[i]);\n"
+                + "      if (i == 0) inside = cvg;\n"
+                + "      else if (uMaskOp[i] > 1.5) inside = min(inside, cvg);\n"
+                + "      else if (uMaskOp[i] > 0.5) inside = min(inside, 1.0 - cvg);\n"
+                + "      else inside = max(inside, cvg);\n"
+                + "    }\n"
                 // invert flips WHICH SIDE the effect lands on. Default: a mask cuts a hole, so
                 // the effect applies outside it.
                 + "    cover = uMaskInvert > 0.5 ? inside : 1.0 - inside;\n"

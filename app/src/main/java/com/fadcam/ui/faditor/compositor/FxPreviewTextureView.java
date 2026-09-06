@@ -172,10 +172,15 @@ public class FxPreviewTextureView extends TextureView
             + "uniform float uPipRotation;\n"
             + "uniform float uPipBlend;\n"
             + "uniform float uPipMaskOn;\n"
-            + "uniform vec4 uPipMaskGeo;\n"
-            + "uniform vec2 uPipMaskRot;\n"
-            + "uniform float uPipMaskCorner;\n"
-            + "uniform float uPipMaskFeather;\n"
+            // ONE SLOT PER PACKED SHAPE. __MASKN__ is substituted with this object's shape
+            // count by pipFragment, so a single-mask object compiles the identical shader it
+            // always did (arrays of one, no loop cost) while an 8-shape mask finally previews
+            // as all eight — the export's Path.op fold has always applied every one of them.
+            + "uniform vec4 uPipMaskGeo[__MASKN__];\n"
+            + "uniform vec2 uPipMaskRot[__MASKN__];\n"
+            + "uniform float uPipMaskCorner[__MASKN__];\n"
+            + "uniform float uPipMaskFeather[__MASKN__];\n"
+            + "uniform float uPipMaskOp[__MASKN__];\n"
             + "uniform float uPipMaskInvert;\n"
             + "uniform vec2 uPipTexel;\n"
             + "uniform float uMatteOn;\n"
@@ -207,9 +212,19 @@ public class FxPreviewTextureView extends TextureView
             + "    float cover = 1.0;\n"
             + "    if (uPipMaskOn > 0.5) {\n"
             + "      vec2 frame = vec2(1.0) / uPipTexel;\n"
-            + "      float sd = fxShapeSd(vFxUv, frame, uPipMaskGeo, uPipMaskRot,\n"
-            + "                           uPipMaskCorner);\n"
-            + "      float inside = fxCoverageOf(sd, uPipMaskFeather);\n"
+            // The fold is MaskSdf.coverage's, shape for shape: seed with the first, then
+            // union/difference/intersect as MaskFold ordered them. Constant loop bound (no
+            // break, no dynamic index) so GLSL ES 1.00 accepts it on every driver.
+            + "      float inside = 0.0;\n"
+            + "      for (int i = 0; i < __MASKN__; i++) {\n"
+            + "        float sd = fxShapeSd(vFxUv, frame, uPipMaskGeo[i],\n"
+            + "                             uPipMaskRot[i], uPipMaskCorner[i]);\n"
+            + "        float c = fxCoverageOf(sd, uPipMaskFeather[i]);\n"
+            + "        if (i == 0) inside = c;\n"
+            + "        else if (uPipMaskOp[i] > 1.5) inside = min(inside, c);\n"
+            + "        else if (uPipMaskOp[i] > 0.5) inside = min(inside, 1.0 - c);\n"
+            + "        else inside = max(inside, c);\n"
+            + "      }\n"
             + "      cover = uPipMaskInvert > 0.5 ? 1.0 - inside : inside;\n"
             + "    }\n"
             + "    if (uMatteOn > 0.5) {\n"
@@ -284,6 +299,31 @@ public class FxPreviewTextureView extends TextureView
             + "}\n";
 
     /**
+     * THE CLIP FADE: scale the base picture's RGB by the clip's opacity envelope times its
+     * master fade-knob factor. One full-frame pass, run ONLY when that product is below 1.
+     *
+     * <p>RGB ONLY, alpha untouched - the picture fades to BLACK, not to transparent. That is
+     * what the exported file shows: {@code OpacityExportShaderProgram} scales RGB and alpha
+     * together, the H.264 encoder then discards alpha, and the RGB that lands in the frame is
+     * exactly {@code c.rgb * o} - these same numbers. Scaling alpha here instead would make the
+     * darkening depend on what sits UNDER the picture in the composite and on how every later
+     * pass treats the alpha channel, and the owner wants the clip to darken toward the black
+     * backdrop rather than reveal the layers beneath it. It also leaves the letterbox bars
+     * {@link #stageViewport} and {@link #drawCrop} clear to transparent exactly as transparent
+     * as they were (rgb 0 x o is still 0, alpha 0 is untouched).</p>
+     */
+    private static final String PICTURE_ALPHA_FRAGMENT =
+            "#version 100\n"
+            + "precision mediump float;\n"
+            + "varying vec2 vFxUv;\n"
+            + "uniform sampler2D uTexSampler;\n"
+            + "uniform float uPictureAlpha;\n"
+            + "void main() {\n"
+            + "  vec4 c = texture2D(uTexSampler, vFxUv);\n"
+            + "  gl_FragColor = vec4(c.rgb * uPictureAlpha, c.a);\n"
+            + "}\n";
+
+    /**
      * GL pilot: composite a full-frame rasterised Canvas layer (layer_image_overlay) over
      * the frame so far. Top-row-first upload flips v, so sample with 1.0 - y like the
      * still variant. Simple alpha-over; no blend/mask in this pilot — the Canvas already
@@ -351,6 +391,23 @@ public class FxPreviewTextureView extends TextureView
         final float blendMode;
         final boolean maskOn, maskInvert;
         @NonNull final float[] maskGeo;
+        /**
+         * The packed mask, split into the per-shape uniform arrays {@link #drawPip} uploads.
+         *
+         * <p><b>Every shape, not just the first.</b> {@code MaskSdf.packShapes} has always
+         * packed up to {@link MaskSdf#MAX_SHAPES}, and the export's Canvas fold applies all of
+         * them; the composite uploaded {@code maskGeo[0..7]} — shape ZERO — so a two-rectangle
+         * mask previewed as one rectangle and rendered as two. Split here, on the main thread,
+         * because doing it per frame on the GL thread would allocate five arrays per PiP per
+         * frame for a value that cannot change between syncs.</p>
+         */
+        final int maskShapes;
+        @NonNull final float[] maskGeo4;      // cx, cy, w, h
+        @NonNull final float[] maskRot2;      // cos, sin
+        @NonNull final float[] maskCorner;
+        @NonNull final float[] maskFeather;
+        /** {@code MaskFold} ordinals as floats — the shader has no integer uniforms here. */
+        @NonNull final float[] maskOpCodes;
         /** The clip this PiP draws — keys the GL-side still-texture cache. */
         @NonNull final String clipId;
         /**
@@ -404,6 +461,45 @@ public class FxPreviewTextureView extends TextureView
          * change (narrowing the box would STRETCH the picture instead of uncovering it).
          */
         final float revealFrac;
+        /**
+         * CORNER PIN, as the INVERSE homography the fragment stage needs — null when this object
+         * is not pinned, which is every PiP and every unpinned image.
+         *
+         * <p><b>Why an inverse map and not a warped quad.</b> This shader finds the picture by
+         * inverse-mapping the fragment: subtract the centre, unrotate, divide by the half-extents.
+         * The honest-looking alternative is real geometry — a two-triangle quad at the four pinned
+         * corners with straight UVs — and it was rejected for three specific costs, not for taste.
+         * (1) It needs PERSPECTIVE-CORRECT interpolation: a homography is not affine, so linearly
+         * interpolated UVs across two triangles produce the classic diagonal seam, and fixing it
+         * means solving the diagonal-intersection weights and smuggling them through
+         * {@code gl_Position.w}. (2) The composite ping-pongs into a target that nothing else
+         * writes, so a quad covering only the picture would leave every other pixel of the frame
+         * holding the PREVIOUS frame's garbage — it would need a full-frame copy pass first, i.e.
+         * a second draw per pinned image anyway. (3) It needs a per-object vertex buffer and a
+         * second vertex shader, in the one place five other lanes are editing.</p>
+         *
+         * <p><b>And the inverse is not expensive.</b> The inverse of a 3x3 homography is another
+         * 3x3 homography — {@code Matrix.invert} solves it ONCE on the main thread — so the
+         * per-fragment cost is one mat3 multiply and one divide, against the existing two
+         * multiplies. Nothing is iterated and nothing is solved per pixel.</p>
+         *
+         * <p>Nine floats, COLUMN-major, because {@code glUniformMatrix3fv} must be called with
+         * {@code transpose = false} on GL ES 2.0 (ES 2.0 rejects a true transpose flag outright),
+         * while {@code Matrix.getValues} hands back row-major. The transposition is done in
+         * {@link #pinUniforms} rather than in the shader.</p>
+         */
+        @Nullable final float[] pinInv;
+        /**
+         * The remap from this object's PADDED box into its own unit rect: {@code d = uv * zw +
+         * xy}, i.e. {@code {-exX, -exY, 1 + 2exX, 1 + 2exY}}.
+         *
+         * <p>A pulled corner lands OUTSIDE the picture's rectangle, so the quad the shader tests
+         * against is grown by the largest excursion on every side — the same inflation
+         * {@code TextOverlayLayer} performs on the {@code CornerPinImageView}'s bounds, and for
+         * the identical reason: without it the pinned corner is simply clipped off. Growing it
+         * symmetrically about the centre is what keeps the rotation pivot where it was.</p>
+         */
+        @Nullable final float[] pinPad;
         /** Track matte: luma of matte peer becomes this clip's alpha (B3). Reuses same math as export. */
         final boolean matteOn;
         @Nullable final String matteClipId;
@@ -433,6 +529,55 @@ public class FxPreviewTextureView extends TextureView
                    float revealFrac,
                    boolean matteOn, @Nullable String matteClipId, @Nullable android.graphics.Bitmap matteStill,
                    float matteCx, float matteCy, float matteHalfW, float matteHalfH, float matteRotationDeg) {
+            this(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec,
+                    blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras,
+                    keyColor, keyParams, revealFrac, matteOn, matteClipId, matteStill,
+                    matteCx, matteCy, matteHalfW, matteHalfH, matteRotationDeg,
+                    new float[Math.max(1, maskGeo.length / MaskSdf.FLOATS_PER_SHAPE)],
+                    null, null);
+        }
+
+        /**
+         * The full constructor, with the per-shape boolean OPS the fold needs. The overload
+         * above defaults them to UNION so the pre-existing signature keeps working; every path
+         * that actually has a {@code CompositingSpec} comes through {@link #build}, which asks
+         * {@code MaskSdf.packOps} for the real ones.
+         */
+        private Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
+                   @Nullable FxCompiler.Pass fused,
+                   @NonNull List<FxUniforms.Value> fxUniforms, @NonNull String fxKey,
+                   float timeSec, float blendMode, boolean maskOn, boolean maskInvert,
+                   @NonNull float[] maskGeo,
+                   @NonNull String clipId, @Nullable android.graphics.Bitmap still,
+                   int liveSlot,
+                   boolean extras, @NonNull float[] keyColor, @NonNull float[] keyParams,
+                   float revealFrac,
+                   boolean matteOn, @Nullable String matteClipId, @Nullable android.graphics.Bitmap matteStill,
+                   float matteCx, float matteCy, float matteHalfW, float matteHalfH, float matteRotationDeg,
+                   @NonNull float[] maskOpCodes,
+                   @Nullable float[] pinInv, @Nullable float[] pinPad) {
+            this.pinInv = pinInv;
+            this.pinPad = pinPad;
+            int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES,
+                    maskGeo.length / MaskSdf.FLOATS_PER_SHAPE));
+            this.maskShapes = n;
+            this.maskGeo4 = new float[n * 4];
+            this.maskRot2 = new float[n * 2];
+            this.maskCorner = new float[n];
+            this.maskFeather = new float[n];
+            this.maskOpCodes = new float[n];
+            for (int i = 0; i < n; i++) {
+                int o = i * MaskSdf.FLOATS_PER_SHAPE;
+                maskGeo4[i * 4] = maskGeo[o];
+                maskGeo4[i * 4 + 1] = maskGeo[o + 1];
+                maskGeo4[i * 4 + 2] = maskGeo[o + 2];
+                maskGeo4[i * 4 + 3] = maskGeo[o + 3];
+                maskRot2[i * 2] = maskGeo[o + 4];
+                maskRot2[i * 2 + 1] = maskGeo[o + 5];
+                maskCorner[i] = maskGeo[o + 6];
+                maskFeather[i] = maskGeo[o + 7];
+                this.maskOpCodes[i] = i < maskOpCodes.length ? maskOpCodes[i] : 0f;
+            }
             this.extras = extras;
             this.keyColor = keyColor;
             this.keyParams = keyParams;
@@ -475,7 +620,8 @@ public class FxPreviewTextureView extends TextureView
                 on = false;
             }
             return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac,
-                    on, mattePeer.clipId, mattePeer.still, mattePeer.cx, mattePeer.cy, mattePeer.halfW, mattePeer.halfH, mattePeer.rotationDeg);
+                    on, mattePeer.clipId, mattePeer.still, mattePeer.cx, mattePeer.cy, mattePeer.halfW, mattePeer.halfH, mattePeer.rotationDeg,
+                    maskOpCodes, pinInv, pinPad);
         }
 
         /** Copy with matte disabled (dangling peer). */
@@ -483,8 +629,12 @@ public class FxPreviewTextureView extends TextureView
         public Pip withoutMatte() {
             if (!matteOn) return this;
             return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac,
-                    false, null, null, 0f, 0f, 0f, 0f, 0f);
+                    false, null, null, 0f, 0f, 0f, 0f, 0f,
+                    maskOpCodes, pinInv, pinPad);
         }
+
+        /** True when this object must run the corner-pinned variant of the composite shader. */
+        boolean pinned() { return pinInv != null && pinPad != null; }
 
         boolean rendersAnything() {
             return alpha > 0.004f && halfW > 0f && halfH > 0f;
@@ -527,9 +677,91 @@ public class FxPreviewTextureView extends TextureView
                                   @Nullable CompositingSpec spec, float blendMode,
                                   int frameW, int frameH, @NonNull String itemId,
                                   @Nullable android.graphics.Bitmap still, float revealFrac) {
-            return build(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
-                    frameW, frameH, itemId, still, /* liveSlot= */ 0,
-                    /* extras= */ true, revealFrac);
+            return ofImage(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
+                    frameW, frameH, itemId, still, revealFrac, null);
+        }
+
+        /**
+         * The same, CORNER-PINNED.
+         *
+         * <p>An image that carries FX, a chroma key or a blend mode leaves its
+         * {@code CornerPinImageView} and is drawn here instead — and this chain had no pin
+         * channel, so exactly those images previewed FLAT while {@code ImageOverlayDraw} exported
+         * them PINNED. {@code cornerPin8} closes that: the offsets are
+         * {@code TextOverlayItem.animatedCornerPin}'s, untouched, and everything the shader needs
+         * is derived from them here so there is no second reading of what a pin means.</p>
+         *
+         * @param cornerPin8 packed corner offsets, or null / flat for an unpinned image — which
+         *                   takes the byte-identical program and uniform set it always did.
+         */
+        @NonNull
+        public static Pip ofImage(float cx, float cy, float halfW, float halfH, float rot,
+                                  float alpha, @Nullable FxStack stack, long editorMs,
+                                  @Nullable CompositingSpec spec, float blendMode,
+                                  int frameW, int frameH, @NonNull String itemId,
+                                  @Nullable android.graphics.Bitmap still, float revealFrac,
+                                  @Nullable float[] cornerPin8) {
+            float[][] pin = pinUniforms(cornerPin8);
+            if (pin == null) {
+                return build(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
+                        frameW, frameH, itemId, still, /* liveSlot= */ 0,
+                        /* extras= */ true, revealFrac, null, null);
+            }
+            // The BOX grows by the excursion; the CENTRE does not move, so the rotation pivot and
+            // the mask (which is in frame space) are untouched. pin[1] is {-ex, +1+2ex}, so the
+            // padded half-extent is the unpadded one times the same 1 + 2ex.
+            return build(cx, cy, halfW * pin[1][2], halfH * pin[1][3], rot, alpha, stack, editorMs,
+                    spec, blendMode, frameW, frameH, itemId, still, /* liveSlot= */ 0,
+                    /* extras= */ true, revealFrac, pin[0], pin[1]);
+        }
+
+        /**
+         * Resolve packed corner offsets into the two uniforms the pinned shader reads, or null
+         * when there is no usable distortion.
+         *
+         * <p><b>The whole y-flip, in one place.</b> {@code CornerPin}'s offsets are +y DOWN, in
+         * the item's own top-left-origin space — the space the Canvas preview and
+         * {@code ImageOverlayDraw} both draw in. This shader works in a bottom-up uv (which is
+         * also why the caller hands it {@code -rotation}). So the map the fragment needs is the
+         * inverse homography CONJUGATED by the flip, {@code F . H^-1 . F} where
+         * {@code F(x, y) = (x, 1 - y)} — flip into the item's space, undo the pin, flip back.
+         * Doing the flip inside the matrix rather than around it in GLSL is what keeps the shader
+         * to one multiply, and keeps the sign convention stated once instead of in two shaders.</p>
+         *
+         * <p>Built on the UNIT SQUARE, which is why no frame size, scale or rotation appears here:
+         * an offset is a fraction of the item's own drawn size, so in the item's own 0..1 box it
+         * IS the corner displacement. The same authored pin therefore means the same shape at any
+         * resolution — the property {@code CornerPin}'s class note exists to protect.</p>
+         *
+         * @return {@code {inverse (9, column-major), pad remap (4)}}, or null when the offsets are
+         *         flat, the destination quad is degenerate ({@code setPolyToPoly} refuses), or the
+         *         solved matrix will not invert. Every one of those falls back to drawing the
+         *         image UNPINNED, which is what {@code CornerPin.buildMatrix} already chooses for
+         *         the Canvas paths — an item drawn flat for a frame is recoverable, an item drawn
+         *         through garbage is not.
+         */
+        @Nullable
+        private static float[][] pinUniforms(@Nullable float[] cornerPin8) {
+            if (com.fadcam.ui.faditor.model.CornerPin.isFlat(cornerPin8)) return null;
+            android.graphics.Matrix h = new android.graphics.Matrix();
+            if (!com.fadcam.ui.faditor.model.CornerPin.buildMatrix(
+                    h, 0f, 0f, 1f, 1f, cornerPin8)) {
+                return null;
+            }
+            android.graphics.Matrix inv = new android.graphics.Matrix();
+            if (!h.invert(inv)) return null;
+            android.graphics.Matrix flip = new android.graphics.Matrix();
+            flip.setValues(new float[]{1f, 0f, 0f, 0f, -1f, 1f, 0f, 0f, 1f});
+            android.graphics.Matrix m = new android.graphics.Matrix(flip);
+            // preConcat applies the argument FIRST, so this builds flip . inv . flip.
+            m.preConcat(inv);
+            m.preConcat(flip);
+            float[] v = new float[9];
+            m.getValues(v);
+            float[] column = {v[0], v[3], v[6], v[1], v[4], v[7], v[2], v[5], v[8]};
+            float[] ex = com.fadcam.ui.faditor.model.CornerPin.excursionFraction(cornerPin8);
+            float[] pad = {-ex[0], -ex[1], 1f + 2f * ex[0], 1f + 2f * ex[1]};
+            return new float[][]{column, pad};
         }
 
         @NonNull
@@ -540,6 +772,19 @@ public class FxPreviewTextureView extends TextureView
                              int frameW, int frameH,
                              @NonNull String clipId, @Nullable android.graphics.Bitmap still,
                              int liveSlot, boolean extras, float revealFrac) {
+            return build(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
+                    frameW, frameH, clipId, still, liveSlot, extras, revealFrac, null, null);
+        }
+
+        @NonNull
+        private static Pip build(float cx, float cy, float halfW, float halfH, float rot,
+                             float alpha,
+                             @Nullable FxStack stack, long editorMs,
+                             @Nullable CompositingSpec spec, float blendMode,
+                             int frameW, int frameH,
+                             @NonNull String clipId, @Nullable android.graphics.Bitmap still,
+                             int liveSlot, boolean extras, float revealFrac,
+                             @Nullable float[] pinInv, @Nullable float[] pinPad) {
             FxCompiler.Pass fused = null;
             List<FxUniforms.Value> vals = java.util.Collections.emptyList();
             String key = "";
@@ -554,6 +799,9 @@ public class FxPreviewTextureView extends TextureView
                 }
             }
             boolean maskOn = spec != null && !spec.masks.isEmpty();
+            int[] ops = MaskSdf.packOps(spec);
+            float[] opCodes = new float[ops.length];
+            for (int i = 0; i < ops.length; i++) opCodes[i] = ops[i];
             return new Pip(cx, cy, halfW, halfH, rot, alpha, fused, vals, key,
                     editorMs / 1000f, blendMode, maskOn,
                     spec != null && spec.invertMasks,
@@ -564,7 +812,9 @@ public class FxPreviewTextureView extends TextureView
                     // shader has no key uniforms at all and these are simply never uploaded.
                     com.fadcam.ui.faditor.model.ChromaKey.packColor(extras ? spec : null),
                     com.fadcam.ui.faditor.model.ChromaKey.packParams(extras ? spec : null),
-                    revealFrac);
+                    revealFrac,
+                    /* matteOn= */ false, null, null, 0f, 0f, 0f, 0f, 0f,
+                    opCodes, pinInv, pinPad);
         }
     }
 
@@ -587,6 +837,25 @@ public class FxPreviewTextureView extends TextureView
         /** Parallel to {@code plan.passes}: the card uniforms for each, resolved at this time. */
         @NonNull final List<List<FxUniforms.Value>> uniforms;
         @NonNull final float[] geo;
+        /**
+         * The packed mask, split into the per-shape uniform arrays {@link #drawOneLayer}
+         * uploads.
+         *
+         * <p><b>Every shape, not just the first.</b> This used to upload {@code geo[0..7]} —
+         * shape ZERO — into a single-shape uniform block, so a two-rectangle mask on an
+         * adjustment layer graded through one rectangle. The EXPORT reads the same shader
+         * string from {@code FxGlSource} and was wrong in exactly the same way, which is why
+         * both were fixed as one change. Split here, on the main thread, for the reason
+         * {@link Pip#maskShapes} is: five arrays per layer per frame on the GL thread would be
+         * churn for a value that cannot change between syncs.</p>
+         */
+        final int maskShapes;
+        @NonNull final float[] maskGeo4;      // cx, cy, w, h
+        @NonNull final float[] maskRot2;      // cos, sin
+        @NonNull final float[] maskCorner;
+        @NonNull final float[] maskFeather;
+        /** {@code MaskFold} ordinals as floats — the shader has no integer uniforms here. */
+        @NonNull final float[] maskOpCodes;
         final float opacity;
         final boolean hasMask;
         final boolean invertMask;
@@ -600,11 +869,32 @@ public class FxPreviewTextureView extends TextureView
         private Layer(@NonNull FxCompiler.Plan plan, @NonNull String sourceKey,
                       @NonNull List<List<FxUniforms.Value>> uniforms, @NonNull float[] geo,
                       float opacity, boolean hasMask, boolean invertMask, float timeSec,
-                      @NonNull float[] keyColor, @NonNull float[] keyParams, float blendMode) {
+                      @NonNull float[] keyColor, @NonNull float[] keyParams, float blendMode,
+                      @NonNull float[] maskOpCodes) {
             this.plan = plan;
             this.sourceKey = sourceKey;
             this.uniforms = uniforms;
             this.geo = geo;
+            int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES,
+                    geo.length / MaskSdf.FLOATS_PER_SHAPE));
+            this.maskShapes = n;
+            this.maskGeo4 = new float[n * 4];
+            this.maskRot2 = new float[n * 2];
+            this.maskCorner = new float[n];
+            this.maskFeather = new float[n];
+            this.maskOpCodes = new float[n];
+            for (int i = 0; i < n; i++) {
+                int o = i * MaskSdf.FLOATS_PER_SHAPE;
+                maskGeo4[i * 4] = geo[o];
+                maskGeo4[i * 4 + 1] = geo[o + 1];
+                maskGeo4[i * 4 + 2] = geo[o + 2];
+                maskGeo4[i * 4 + 3] = geo[o + 3];
+                maskRot2[i * 2] = geo[o + 4];
+                maskRot2[i * 2 + 1] = geo[o + 5];
+                maskCorner[i] = geo[o + 6];
+                maskFeather[i] = geo[o + 7];
+                this.maskOpCodes[i] = i < maskOpCodes.length ? maskOpCodes[i] : 0f;
+            }
             this.opacity = opacity;
             this.hasMask = hasMask;
             this.invertMask = invertMask;
@@ -636,6 +926,9 @@ public class FxPreviewTextureView extends TextureView
                 uniforms.add(FxUniforms.forPass(pa));
             }
             CompositingSpec cs = layer.getCompositing();
+            int[] ops = MaskSdf.packOps(cs);
+            float[] opCodes = new float[ops.length];
+            for (int i = 0; i < ops.length; i++) opCodes[i] = ops[i];
             return new Layer(plan, key.toString(), uniforms,
                     MaskSdf.packShapes(cs, videoW, videoH),
                     layer.opacityAt(editorMs),
@@ -644,7 +937,8 @@ public class FxPreviewTextureView extends TextureView
                     editorMs / 1000f,
                     com.fadcam.ui.faditor.model.ChromaKey.packColor(cs),
                     com.fadcam.ui.faditor.model.ChromaKey.packParams(cs),
-                    com.fadcam.ui.faditor.model.BlendModes.modeCode(layer.getBlendMode()));
+                    com.fadcam.ui.faditor.model.BlendModes.modeCode(layer.getBlendMode()),
+                    opCodes);
         }
     }
 
@@ -715,10 +1009,30 @@ public class FxPreviewTextureView extends TextureView
     public static final class CompositePlan {
         @NonNull final List<Layer> layers;
         @NonNull final List<Rung> rungs;
+        /**
+         * Index into {@link #layers} of the MASTER (spine) clip's own FxStack, or -1 when the
+         * clip under the playhead has no active stack.
+         *
+         * <p><b>Not a {@link Rung}, deliberately.</b> The rung walk runs after the below-blend
+         * raster and the caption quads, so a spine grade emitted as rung 0 would grade the
+         * captions and the below-blend text as well. The export puts the spine stack
+         * immediately after the clip's own crop/grade and BEFORE all of that
+         * ({@code ExportManager}:3150 — "before the below-blend pass, the PiP loop, the
+         * adjustment-layer inserts and the caption/text OverlayEffect"), so it gets its own slot
+         * at the same point in {@link #drawFrame}. It still shares {@code layers}, so it is
+         * compiled by the same {@code ensurePrograms} call as every other layer.</p>
+         */
+        final int spineLayerIndex;
 
         public CompositePlan(@NonNull List<Layer> layers, @NonNull List<Rung> rungs) {
+            this(layers, rungs, -1);
+        }
+
+        public CompositePlan(@NonNull List<Layer> layers, @NonNull List<Rung> rungs,
+                             int spineLayerIndex) {
             this.layers = layers;
             this.rungs = rungs;
+            this.spineLayerIndex = spineLayerIndex;
         }
     }
 
@@ -745,6 +1059,19 @@ public class FxPreviewTextureView extends TextureView
      * crop editor). Applied between staging and grading, which is the export chain's order.
      */
     @Nullable private volatile float[] clipCrop;
+
+    /** @see #setPictureAlpha - 1f is "no fade", what every project without one carries. */
+    private volatile float pictureAlpha = 1f;
+    /**
+     * The playhead clip's SPINE CANVAS TRANSFORM, resolved on the main thread, or null for the
+     * plain fit-centre every project has today.
+     *
+     * <p>A resolved pose rather than the Clip, for the same reason every other snapshot in this
+     * file is a snapshot: the GL thread must never walk the live model. Null is the no-op, and
+     * {@code drawFrame} skips the whole pass on it - no shader, no framebuffer, no ping-pong
+     * flip - so an unplaced project runs the identical pass list it ran before this existed.</p>
+     */
+    @Nullable private volatile float[] spinePose;
     /**
      * The BASE frame as a bitmap — an image master clip — or null to stage the decoder instead.
      *
@@ -754,6 +1081,16 @@ public class FxPreviewTextureView extends TextureView
      */
     @Nullable private volatile android.graphics.Bitmap baseStill;
     private volatile int videoW = 0, videoH = 0;
+    /**
+     * The DECODED picture's size, when it differs from the composite frame.
+     *
+     * <p>{@link #videoW}/{@link #videoH} are the frame the whole chain runs in — the CANVAS,
+     * as of the frame-space fix — and the decoder's picture is fit-centred into it by
+     * {@link #drawStage}, exactly as the export's trailing {@code Presentation
+     * (LAYOUT_SCALE_TO_FIT)} fits it onto the canvas. Zero means "same as the frame", which is
+     * what every clip whose aspect equals the canvas reports.</p>
+     */
+    private volatile int sourceW = 0, sourceH = 0;
     /** @see #setVideoRotation */
     private volatile int rotation = 0;
 
@@ -786,8 +1123,20 @@ public class FxPreviewTextureView extends TextureView
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
     private int stageProgram, presentProgram, gradeProgram, cropProgram, layerProgram;
+    /** @see #PICTURE_ALPHA_FRAGMENT - compiled with the rest, used only while fading. */
+    private int pictureAlphaProgram;
+    /**
+     * The spine canvas-transform pass. Its source is
+     * {@code SpineTransform.fragmentShader("vFxUv")} - the SAME string the exporter compiles,
+     * with only the varying name substituted - so this pass and
+     * {@code SpineTransformExportEffect} cannot disagree about the geometry.
+     */
+    private int spineTransformProgram;
     /** @see #STAGE_STILL_FRAGMENT — the bitmap-base variant of {@link #stageProgram}. */
     private int stageStillProgram;
+    /** GL-thread scratch for {@link #drawSpineTransform}'s eight uniform floats. */
+    private final float[] spineUniforms =
+            new float[com.fadcam.ui.faditor.model.SpineTransform.UNIFORMS];
     /** The 2D texture holding {@link #baseStill}, and which bitmap it currently holds. */
     private int baseStillTexId;
     @Nullable private android.graphics.Bitmap baseStillUploaded;
@@ -867,6 +1216,12 @@ public class FxPreviewTextureView extends TextureView
     /** The compiled steps for one adjustment layer, in order. */
     private static final class LayerSteps {
         @NonNull final List<Step> steps = new ArrayList<>();
+        /**
+         * How many mask shapes these programs' uniform arrays actually hold — the layer's own
+         * count, or 1 when the many-shape source blew the device's uniform budget and the
+         * single-shape retry is what compiled. {@link #drawOneLayer} uploads this many.
+         */
+        int shapes = 1;
     }
 
     public FxPreviewTextureView(Context context) {
@@ -900,6 +1255,35 @@ public class FxPreviewTextureView extends TextureView
         videoW = w;
         videoH = h;
         requestFrame();
+    }
+
+    /**
+     * The composite FRAME and the decoded PICTURE inside it.
+     *
+     * <p><b>THE FRAME IS THE CANVAS, and that is the whole fix.</b> The chain used to run at the
+     * decoded video's size and {@link #drawPresent} letterboxed the result onto the canvas-sized
+     * surface. But every overlay this composite draws — image overlays, captions, PiPs, mask
+     * geometry — arrives normalised against the CANVAS ({@code computeCanvasRect}). On a clip
+     * whose aspect differs from the canvas those canvas fractions were being read as fractions
+     * of the smaller letterboxed sub-rect, which rescaled the object on ONE axis and pulled it
+     * toward the frame centre: add a mask to an image (which moves it from its {@code ImageView}
+     * into this composite) and it changed size, with nothing about the image having changed.
+     * JoyRaptor, 2026-09-01: "when I added the mask, it changed the apparent zoom".</p>
+     *
+     * <p>Making the frame the canvas removes the second definition of "the frame" rather than
+     * compensating for it at each of the four call sites. The picture itself does not move: a
+     * fit-centre into a canvas-aspect frame followed by a 1:1 present is exactly the fit-centre
+     * into the surface that {@code drawPresent} was doing alone. When the clip's aspect already
+     * equals the canvas the controller passes {@code frame == source} and every viewport, FBO
+     * and uniform here is what it was.</p>
+     */
+    public void setCompositeFrame(int frameW, int frameH, int srcW, int srcH) {
+        if (srcW > 0 && srcH > 0 && (srcW != sourceW || srcH != sourceH)) {
+            sourceW = srcW;
+            sourceH = srcH;
+            requestFrame();
+        }
+        setVideoSize(frameW, frameH);
     }
 
     /**
@@ -990,6 +1374,52 @@ public class FxPreviewTextureView extends TextureView
                     && java.util.Arrays.equals(ltrb, clipCrop));
         if (same) return;
         clipCrop = ltrb == null ? null : java.util.Arrays.copyOf(ltrb, ltrb.length);
+        requestFrame();
+    }
+
+    /**
+     * The BASE-PICTURE ALPHA for the clip under the playhead: its opacity keyframe envelope
+     * multiplied by its master fade-knob factor - the same product
+     * {@code OpacityExportShaderProgram} writes, and the same one the Canvas path puts on
+     * {@code playerView}/{@code imagePreview}.
+     *
+     * <p>APPLIED TO THE BASE PICTURE ONLY, by {@link #drawPictureAlpha}, which runs after the
+     * clip's own crop, colour grade and spine FxStack and BEFORE everything that composites on
+     * top of it - the below-blend raster, the PiPs, the adjustment layers, the image overlays
+     * and the captions. Those are drawn over the already-darkened picture at their own full
+     * brightness. That is the owner's ruling ("the opacity should fade the CLIP, not everything
+     * above it") and it is the export's own slot for the same multiply: step 6 of
+     * {@code ExportManager.assembleClipVideoEffects}' canonical order, after the grade and
+     * before the PiP / adjustment / OverlayEffect block.</p>
+     *
+     * <p>FADE TO BLACK, NOT TO TRANSPARENT - see {@link #PICTURE_ALPHA_FRAGMENT}.</p>
+     *
+     * <p>NO-OP AT 1: {@code drawFrame} skips the pass entirely unless this is below 1, so an
+     * unfaded clip runs the identical pass list, ping-pong slots and all, that it ran before
+     * this existed - byte-identical output for one float compare per frame.</p>
+     */
+    public void setPictureAlpha(float alpha) {
+        float a = alpha < 0f ? 0f : (alpha > 1f ? 1f : alpha);
+        if (a == pictureAlpha) return;
+        pictureAlpha = a;
+        requestFrame();
+    }
+
+    /**
+     * The playhead clip's spine canvas transform, already resolved to a pose by
+     * {@code Clip.spinePoseAt} - or null / an identity pose for the plain fit-centre.
+     *
+     * <p>Pass the array by value; it is published to the GL thread and must not be mutated
+     * afterwards. An identity pose is stored as null so the draw loop's skip is one null test.</p>
+     */
+    public void setSpinePose(@Nullable float[] pose) {
+        float[] next = pose != null
+                && !com.fadcam.ui.faditor.model.SpineTransform.isIdentity(pose)
+                ? pose.clone() : null;
+        float[] cur = spinePose;
+        if (next == null && cur == null) return;
+        if (next != null && cur != null && java.util.Arrays.equals(next, cur)) return;
+        spinePose = next;
         requestFrame();
     }
 
@@ -1193,11 +1623,16 @@ public class FxPreviewTextureView extends TextureView
             gradeProgram = buildProgram(FxGlSource.VERTEX_SHADER,
                     com.fadcam.ui.faditor.effects.ColorGradeGlSource.PREVIEW_FRAGMENT);
             cropProgram = buildProgram(FxGlSource.VERTEX_SHADER, CROP_FRAGMENT);
+            pictureAlphaProgram =
+                    buildProgram(FxGlSource.VERTEX_SHADER, PICTURE_ALPHA_FRAGMENT);
+            spineTransformProgram = buildProgram(FxGlSource.VERTEX_SHADER,
+                    com.fadcam.ui.faditor.model.SpineTransform.fragmentShader("vFxUv"));
             layerProgram = buildProgram(FxGlSource.VERTEX_SHADER, LAYER_FRAGMENT);
             // The PiP programs are compiled lazily by pipProgramFor, because their source
             // depends on each object's effect stack. Any ids cached from a previous surface
             // belong to a destroyed context — clearing the maps is not optional.
             pipPrograms.clear();
+            shapesCompiled.clear();
             stillTexIds.clear();
             stillUploaded.clear();
             // Same for the PiP inputs: whatever sits in these slots names objects in a context
@@ -1331,6 +1766,52 @@ public class FxPreviewTextureView extends TextureView
                 cur = 1;
             }
 
+            // 2a — the MASTER (spine) clip's OWN FxStack, over the whole frame, after the crop
+            //      and the legacy grade and before anything is composited on top. That is the
+            //      export's position for it (ExportManager:3150, after the canvas Presentation,
+            //      before the below-blend pass / PiP loop / adjustment inserts / caption
+            //      overlay), and the reason it is not simply rung 0 of the walk below.
+            //
+            //      COSTS NOTHING WHEN THERE IS NOTHING: spineLayerIndex is -1 unless
+            //      FxLivePreviewController found an active stack on the playhead clip, and
+            //      -1 skips the whole block — no pass, no ping-pong flip, no FBO.
+            CompositePlan cp = plan;
+            boolean layersReady = false;
+            if (!degraded && cp != null) {
+                layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
+                if (layersReady && cp.spineLayerIndex >= 0
+                        && cp.spineLayerIndex < cp.layers.size()
+                        && cp.spineLayerIndex < compiled.size()) {
+                    cur = drawOneLayer(cp.layers.get(cp.spineLayerIndex),
+                            compiled.get(cp.spineLayerIndex), vw, vh, cur);
+                }
+            }
+
+            // 2b0 — THE SPINE CANVAS TRANSFORM: where this clip's picture SITS on the canvas.
+            //       After the crop, the grade and the spine FxStack (so an effect belongs to the
+            //       clip and travels with it); before the opacity multiply and before ANYTHING
+            //       that composites on top — the below-blend raster, the PiPs, the adjustment
+            //       layers, the image overlays, the captions. Those keep their own canvas
+            //       coordinates and deliberately do NOT move with the clip.
+            //
+            //       That is the export's own slot for SpineTransformExportEffect (after the
+            //       canvas Presentation and the FxStack, before OpacityExportEffect), and the
+            //       pass itself compiles the same shader and uploads the same uniforms from the
+            //       same SpineTransform methods the exporter calls.
+            //
+            //       COSTS NOTHING WHEN THERE IS NOTHING: setSpinePose stores null for an
+            //       identity pose, and null skips the whole block — no pass, no ping-pong flip,
+            //       no clear.
+            float[] sp = spinePose;
+            if (!degraded && sp != null) cur = drawSpineTransform(sp, cur, vw, vh);
+
+            // 2c — THE CLIP FADE / OPACITY, on the base picture and nothing else. After the
+            //      crop, the grade and the spine FxStack; before the below-blend raster, the
+            //      PiPs, the adjustment layers, the image overlays and the captions — the
+            //      export's own slot for OpacityExportEffect. Skipped whole at alpha 1.
+            float pa = pictureAlpha;
+            if (!degraded && pa < 1f) cur = drawPictureAlpha(cur, vw, vh);
+
             // 2b — text/sprite below a blending image — two paths (one predicate, one place):
             // 2b1: full-frame raster for static/fallback content, composited BEFORE the blend
             // 2b2: per-item textured quads for pose-animated content (spec §3) — raster once at
@@ -1365,9 +1846,9 @@ public class FxPreviewTextureView extends TextureView
             //     the sibling-View stills that used to paint UNGRADED over this chain.
             stillKeysInFrame.clear();
             matteKeysInFrame.clear();
-            CompositePlan cp = plan;
+            // `cp` and `layersReady` were resolved at 2a above — ONE ensurePrograms call per
+            // frame, over the one layer list that now also carries the spine stack.
             if (!degraded && cp != null) {
-                boolean layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
                 for (int ri = 0; ri < cp.rungs.size(); ri++) {
                     Rung r = cp.rungs.get(ri);
                     if (r.pip != null) {
@@ -1423,11 +1904,46 @@ public class FxPreviewTextureView extends TextureView
      * targets[0]} would show the previous clip's frame under this clip's grade, which reads as a
      * far stranger bug than an ungraded photo.</p>
      */
+    /**
+     * Point the stage at the sub-rectangle of the frame the decoded picture actually occupies,
+     * clearing the letterbox to TRANSPARENT first.
+     *
+     * <p>Transparent, not black: the view is non-opaque and the canvas backdrop must show
+     * through the bars, exactly as {@link #drawCrop}'s bars do and exactly as the exported
+     * file's letterbox sits on the player's surface. With {@code sourceW/H} unset — or equal to
+     * the frame, which is every clip at the canvas's own aspect — this is
+     * {@code glViewport(0, 0, vw, vh)} with no clear, i.e. what the stage always did.</p>
+     */
+    private void stageViewport(int vw, int vh) {
+        int sw = sourceW > 0 ? sourceW : vw;
+        int sh = sourceH > 0 ? sourceH : vh;
+        float s = Math.min((float) vw / sw, (float) vh / sh);
+        int w = Math.max(1, Math.round(sw * s));
+        int h = Math.max(1, Math.round(sh * s));
+        if (w < vw || h < vh) {
+            GLES20.glViewport(0, 0, vw, vh);
+            GLES20.glClearColor(0f, 0f, 0f, 0f);
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        }
+        GLES20.glViewport((vw - w) / 2, (vh - h) / 2, w, h);
+    }
+
+    /** The staged picture's rect inside the frame, normalised and bottom-up: {x0, y0, w, h}. */
+    @NonNull
+    private float[] pictureRect(int vw, int vh) {
+        int sw = sourceW > 0 ? sourceW : vw;
+        int sh = sourceH > 0 ? sourceH : vh;
+        float s = Math.min((float) vw / sw, (float) vh / sh);
+        float w = Math.min(1f, sw * s / vw);
+        float h = Math.min(1f, sh * s / vh);
+        return new float[]{(1f - w) / 2f, (1f - h) / 2f, w, h};
+    }
+
     private void drawStage(int vw, int vh) {
         android.graphics.Bitmap b = baseStill;
         if (b != null && !b.isRecycled() && drawStageStill(b, vw, vh)) return;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
-        GLES20.glViewport(0, 0, vw, vh);
+        stageViewport(vw, vh);
         GLES20.glUseProgram(stageProgram);
         bindQuad(stageProgram);
         GLES20.glUniformMatrix4fv(
@@ -1465,7 +1981,7 @@ public class FxPreviewTextureView extends TextureView
             }
         }
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
-        GLES20.glViewport(0, 0, vw, vh);
+        stageViewport(vw, vh);
         GLES20.glUseProgram(stageStillProgram);
         bindQuad(stageStillProgram);
         setF(stageStillProgram, "uRotation", rotation);
@@ -1489,7 +2005,14 @@ public class FxPreviewTextureView extends TextureView
         // Fit-centre the crop region into this target: media3's Crop emits frames AT THE
         // CROP'S OWN ASPECT (configure scales the Size by the crop fractions), and the
         // export's trailing SCALE_TO_FIT Presentation letterboxes that onto the canvas.
-        float contentAspect = (cw * vw) / (ch * vh);
+        // AGAINST THE PICTURE, not the frame. The crop fractions describe the DECODED picture,
+        // which since the frame-space fix occupies only a sub-rectangle of the (canvas-shaped)
+        // frame — see stageViewport. Reading them as frame fractions would crop the letterbox
+        // bars along with the footage. With source == frame these two lines are the old ones.
+        int sw = sourceW > 0 ? sourceW : vw;
+        int sh = sourceH > 0 ? sourceH : vh;
+        float[] pr = pictureRect(vw, vh);
+        float contentAspect = (cw * sw) / (ch * sh);
         float frameAspect = (float) vw / (float) vh;
         float dw, dh;
         if (contentAspect >= frameAspect) {
@@ -1512,7 +2035,8 @@ public class FxPreviewTextureView extends TextureView
         setSampler(cropProgram, "uTexSampler", targets[src][0], 0, true);
         // uv is bottom-up; the fractions are top-down, so the source window flips y.
         setFn(cropProgram, "uCropSrc",
-                new float[]{c[0], 1f - c[3], cw, ch}, 4);
+                new float[]{pr[0] + c[0] * pr[2], pr[1] + (1f - c[3]) * pr[3],
+                        cw * pr[2], ch * pr[3]}, 4);
         setFn(cropProgram, "uCropDst",
                 new float[]{(1f - dw) / 2f, (1f - dh) / 2f, dw, dh}, 4);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
@@ -1540,6 +2064,83 @@ public class FxPreviewTextureView extends TextureView
         setF(gradeProgram, "uVignette", g.vignette);
         setF(gradeProgram, "uGrain", g.grain);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    }
+
+    /**
+     * THE CLIP FADE pass: {@code src} -> the other slot, RGB scaled by {@link #pictureAlpha}.
+     * Returns the slot holding the result, or {@code src} untouched when there is nothing to do.
+     *
+     * <p>POSITION IS THE POINT. It runs after the clip's own crop, colour grade and spine
+     * FxStack and BEFORE anything that composites on top - the below-blend raster, the PiPs,
+     * the adjustment layers, the image overlays, the captions. That is exactly where the export
+     * puts {@code OpacityExportEffect} (ExportManager.assembleClipVideoEffects, canonical order
+     * step 6: after the grade, before the PiP/adjustment/OverlayEffect block), so a faded clip
+     * with a caption on it renders here what it renders in the file: the picture scaled, the
+     * caption over it at full strength. Staging the multiply earlier would have put it before
+     * the grade, where a brightness lift would have partly undone it.</p>
+     *
+     * <p>NO-OP AT 1: the caller skips this entirely when the alpha is 1, so an unfaded clip
+     * runs the identical pass list it ran before this existed - no extra draw, no extra FBO,
+     * no ping-pong flip, and therefore byte-identical output. Its cost is one float compare.</p>
+     */
+    /**
+     * THE SPINE CANVAS TRANSFORM pass: {@code src} -> the other slot, with the finished clip
+     * picture MOVED, SCALED and ROTATED on the canvas. Returns the slot holding the result, or
+     * {@code src} untouched when there is nothing to do or the pose cannot be drawn.
+     *
+     * <p>POSITION IS THE POINT, exactly as it is for {@link #drawPictureAlpha}. It runs after
+     * the clip's own crop, colour grade and spine FxStack -- so an effect belongs to the clip and
+     * travels with it -- and BEFORE the below-blend raster, the PiPs, the adjustment layers, the
+     * image overlays and the captions, which draw over the canvas at their own coordinates and
+     * therefore do NOT move with the clip. That is the export's own slot for
+     * {@code SpineTransformExportEffect}: after the canvas Presentation and the FxStack, before
+     * {@code OpacityExportEffect} and the composite block.</p>
+     *
+     * <p>NO MATHS LIVES HERE. The uniforms come from {@code SpineTransform.uniforms} and the
+     * program was compiled from {@code SpineTransform.fragmentShader}; the exporter calls the
+     * same two. If this pass and the file ever disagree it is because that one class is wrong for
+     * both, which is the only kind of preview/export divergence this design can produce.</p>
+     *
+     * <p>A pose that cannot be drawn -- collapsed, non-finite, singular -- returns {@code src}
+     * rather than a blank slot, so a bad keyframe stops the picture moving instead of erasing it.
+     * Same rule {@link #drawCrop} follows for a degenerate rect.</p>
+     */
+    private int drawSpineTransform(@NonNull float[] pose, int src, int vw, int vh) {
+        if (spineTransformProgram == 0) return src;
+        // Reused, not allocated: this is a per-frame path and eight floats a frame is eight
+        // floats a frame more garbage than the rest of this loop makes.
+        float[] u = spineUniforms;
+        if (!com.fadcam.ui.faditor.model.SpineTransform.uniforms(pose, vw, vh, u)) return src;
+        int dst = src == 0 ? 1 : 0;
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        // Everything the transform vacates must be TRANSPARENT, not whatever last used this FBO:
+        // the view is non-opaque and the editor's backdrop shows through, exactly as it does
+        // through stageViewport's and drawCrop's letterbox bars -- and exactly as the exported
+        // file's un-composited region reaches the encoder as black.
+        GLES20.glClearColor(0f, 0f, 0f, 0f);
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(spineTransformProgram);
+        bindQuad(spineTransformProgram);
+        setSampler(spineTransformProgram, "uTexSampler", targets[src][0], 0, true);
+        setF4(spineTransformProgram, "uSpineInvA", u[0], u[1], u[2], u[3]);
+        setF2(spineTransformProgram, "uSpineInvB", u[4], u[5]);
+        setF2(spineTransformProgram, "uSpineEdge", u[6], u[7]);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return dst;
+    }
+
+    private int drawPictureAlpha(int src, int vw, int vh) {
+        if (pictureAlphaProgram == 0) return src;
+        int dst = src == 0 ? 1 : 0;
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(pictureAlphaProgram);
+        bindQuad(pictureAlphaProgram);
+        setSampler(pictureAlphaProgram, "uTexSampler", targets[src][0], 0, true);
+        setF(pictureAlphaProgram, "uPictureAlpha", pictureAlpha);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        return dst;
     }
 
     /**
@@ -1641,13 +2242,21 @@ public class FxPreviewTextureView extends TextureView
      * on every frame.</p>
      */
     private int pipProgramFor(@NonNull Pip p) {
-        String key = (p.still == null ? "o" : "s") + (p.extras ? "x" : "-") + p.fxKey;
+        // The SHAPE COUNT is part of the key: it sizes the mask uniform arrays, so it is part
+        // of the shader text. One mask compiles the same program it always did.
+        // The PIN is part of the key too, for the same reason: it rewrites the shader text.
+        // An unpinned object's key is unchanged from "-", so its program is the one it has
+        // always compiled.
+        String key = (p.still == null ? "o" : "s") + (p.extras ? "x" : "-")
+                + (p.pinned() ? "p" : "-")
+                + "m" + p.maskShapes + p.fxKey;
         Integer have = pipPrograms.get(key);
         if (have != null) return have;
         int prog;
         try {
             prog = buildProgram(FxGlSource.VERTEX_SHADER,
-                    pipFragment(p.fused, p.still != null, p.extras));
+                    pipFragment(p.fused, p.still != null, p.extras, p.maskShapes,
+                            p.pinned()));
             FLog.d("FxMultiPip", "pip program compiled key=" + key + " -> " + prog);
         } catch (Exception e) {
             // Fall back to the PLAIN composite, which is what the log claims happens. A 0 latch
@@ -1657,15 +2266,52 @@ public class FxPreviewTextureView extends TextureView
             int fallback = 0;
             try {
                 fallback = buildProgram(FxGlSource.VERTEX_SHADER,
-                        pipFragment(null, p.still != null, p.extras));
+                        pipFragment(null, p.still != null, p.extras, p.maskShapes,
+                                p.pinned()));
             } catch (Exception fatal) {
                 FLog.e(TAG, "plain PiP composite failed too", fatal);
+                // A many-shape mask is the one thing here that can outgrow a GPU's fragment
+                // uniform budget, and losing the object entirely would be WORSE than the
+                // shape-0-only preview this replaced. Retry at one shape; drawPip uploads
+                // whatever count actually compiled, so the arrays and the shader agree.
+                if (p.maskShapes > 1) {
+                    try {
+                        fallback = buildProgram(FxGlSource.VERTEX_SHADER,
+                                pipFragment(null, p.still != null, p.extras, 1,
+                                        p.pinned()));
+                        if (fallback != 0) shapesCompiled.put(fallback, 1);
+                    } catch (Exception ignored) {
+                        FLog.e(TAG, "single-shape PiP composite failed too", ignored);
+                    }
+                }
+                // LAST RESORT: drop the corner pin. A 0 latch removes the object from the
+                // preview entirely, and an image drawn FLAT for a session is recoverable where a
+                // vanished image is not — the same ranking CornerPin.buildMatrix already applies
+                // when the solve refuses. Only reached if a driver rejects the pinned variant
+                // outright, since every earlier attempt kept it.
+                if (fallback == 0 && p.pinned()) {
+                    try {
+                        fallback = buildProgram(FxGlSource.VERTEX_SHADER,
+                                pipFragment(null, p.still != null, p.extras, 1, false));
+                        if (fallback != 0) shapesCompiled.put(fallback, 1);
+                        FLog.e(TAG, "corner-pinned PiP composite refused; drawing unpinned");
+                    } catch (Exception ignored) {
+                        FLog.e(TAG, "unpinned PiP composite failed too", ignored);
+                    }
+                }
             }
             prog = fallback;
         }
         pipPrograms.put(key, prog);
         return prog;
     }
+
+    /**
+     * How many mask shapes a compiled program's uniform arrays actually hold, when that is not
+     * simply the {@link Pip}'s own count — see the single-shape retry in {@link #pipProgramFor}.
+     */
+    @NonNull private final java.util.Map<Integer, Integer> shapesCompiled =
+            new java.util.HashMap<>();
 
     /**
      * Splice the object's fused FX pass into the composite shader.
@@ -1682,9 +2328,11 @@ public class FxPreviewTextureView extends TextureView
      */
     @NonNull
     private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still,
-                                      boolean extras) {
+                                      boolean extras, int maskShapes, boolean pinned) {
         String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT;
-        if (fused == null && !extras) return base;
+        if (fused == null && !extras) {
+            return withMaskShapes(pinned ? withCornerPin(base) : base, maskShapes);
+        }
         // The extras (key + wipe) go in FIRST, so that once the FX fold is spliced onto the same
         // anchor line the key ends up ABOVE it — the key must measure distance from a colour in
         // the SOURCE image, exactly as ImageBlendGlEffect orders them. Grading first would stop a
@@ -1744,10 +2392,73 @@ public class FxPreviewTextureView extends TextureView
         // before its use — placing them higher put the caller above the callee and traded
         // "function already has a body" for "no matching overloaded function". Everything
         // spliced here is global scope, so uniforms are equally happy this far down.
-        return base
+        String out = base
                 .replace("void main() {\n", extrasDecls + decls + "void main() {\n")
                 .replace("    vec4 src = texture2D(uPipTexture, s);\n",
                         "    vec4 src = texture2D(uPipTexture, s);\n" + extrasBody + apply);
+        return withMaskShapes(pinned ? withCornerPin(out) : out, maskShapes);
+    }
+
+    /**
+     * Size the mask uniform arrays and the fold loop to the object's ACTUAL shape count.
+     *
+     * <p>Clamped to {@link MaskSdf#MAX_SHAPES} — the packer drops shapes past it, so declaring
+     * more slots than it can fill would upload garbage — and floored at 1, because a GLSL array
+     * of length 0 does not exist and every object compiles the mask block whether it has a mask
+     * or not (the {@code uPipMaskOn} branch is what turns it off).</p>
+     */
+    /**
+     * Derive the CORNER-PINNED variant of an assembled composite shader.
+     *
+     * <p>Textual, exactly as {@link #PIP_STILL_FRAGMENT} is derived, and applied LAST so the
+     * anchors it rewrites are the finished ones — in particular the wipe line, which only exists
+     * once the extras have been spliced in. An unpinned object never calls this, so its source
+     * string is character-for-character what it has always been.</p>
+     *
+     * <p><b>What the four rewrites do.</b> {@code q} is the fragment's position in the object's
+     * own box, {@code -1..1}; the box has already been grown by the excursion (see
+     * {@link Pip#pinPad}), so {@code pd} maps it back onto the item's UNPINNED unit rect — the
+     * space {@code ImageOverlayDraw} draws in, and the space its reveal clip is expressed in.
+     * {@code pq} is then the SOURCE texel: {@code uPinInv} carries the pinned quad back to the
+     * straight rect. A {@code pq} outside {@code 0..1} is a fragment inside the padded box but
+     * outside the pinned quad — the four regions a pin leaves empty — and returns with the frame
+     * already written, which is the same "leave the base alone" the box test performs.</p>
+     *
+     * <p>The reveal's extra clauses are {@code ImageOverlayDraw}'s {@code clipRect}, which is
+     * applied BEFORE the pin and therefore bounds the DESTINATION rect, not the source. They are
+     * gated on {@code uPipReveal < 1.0} because with no wipe running there is nothing to clip and
+     * the pinned excursions must survive.</p>
+     */
+    @NonNull
+    private static String withCornerPin(@NonNull String fragment) {
+        return fragment
+                .replace("void main() {\n",
+                        "uniform mat3 uPinInv;\n"
+                        + "uniform vec4 uPipPad;\n"
+                        + "void main() {\n")
+                .replace("  vec2 q = r / uPipHalf;\n",
+                        "  vec2 q = r / uPipHalf;\n"
+                        + "  vec2 pd = (q * 0.5 + 0.5) * uPipPad.zw + uPipPad.xy;\n"
+                        + "  vec3 ph = uPinInv * vec3(pd, 1.0);\n"
+                        // Guarded at 1e-4, not 1e-6: this shader is mediump, whose smallest
+                        // normal value is about 6e-5, so a 1e-6 guard would itself flush to zero
+                        // and divide by it. A degenerate w only happens on the horizon line of a
+                        // hard tilt, where the huge pq that results fails the 0..1 test anyway.
+                        + "  float pz = ph.z;\n"
+                        + "  if (abs(pz) < 0.0001) pz = 0.0001;\n"
+                        + "  vec2 pq = ph.xy / pz;\n")
+                .replace("    vec2 uv = q * 0.5 + 0.5;\n",
+                        "    if (pq.x < 0.0 || pq.x > 1.0 || pq.y < 0.0 || pq.y > 1.0) return;\n"
+                        + "    vec2 uv = pq;\n")
+                .replace("    if (uv.x > uPipReveal) src.a = 0.0;\n",
+                        "    if (uPipReveal < 1.0 && (pd.x < 0.0 || pd.x > uPipReveal\n"
+                        + "        || pd.y < 0.0 || pd.y > 1.0)) src.a = 0.0;\n");
+    }
+
+    @NonNull
+    private static String withMaskShapes(@NonNull String fragment, int maskShapes) {
+        int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES, maskShapes));
+        return fragment.replace("__MASKN__", Integer.toString(n));
     }
 
     /**
@@ -1768,12 +2479,23 @@ public class FxPreviewTextureView extends TextureView
         setF(program, "uTime", p.timeSec);
         setF(program, "uPipBlend", p.blendMode);
         setF(program, "uPipMaskOn", p.maskOn ? 1f : 0f);
+        if (p.pinned()) {
+            // Only on the variant that declared them — the unpinned shader has neither uniform,
+            // and asking for a location it never had would be a lie about what this draws.
+            int pinLoc = GLES20.glGetUniformLocation(program, "uPinInv");
+            // transpose MUST be false on GL ES 2.0; pinInv is already column-major. See Pip.
+            if (pinLoc >= 0) GLES20.glUniformMatrix3fv(pinLoc, 1, false, p.pinInv, 0);
+            setFn(program, "uPipPad", p.pinPad, 4);
+        }
         setF(program, "uPipMaskInvert", p.maskInvert ? 1f : 0f);
-        setFn(program, "uPipMaskGeo", new float[]{p.maskGeo[0], p.maskGeo[1],
-                p.maskGeo[2], p.maskGeo[3]}, 4);
-        setF2(program, "uPipMaskRot", p.maskGeo[4], p.maskGeo[5]);
-        setF(program, "uPipMaskCorner", p.maskGeo[6]);
-        setF(program, "uPipMaskFeather", p.maskGeo[7]);
+        // EVERY packed shape, not shape 0. See Pip.maskShapes.
+        Integer compiled = shapesCompiled.get(program);
+        int shapes = compiled == null ? p.maskShapes : Math.min(p.maskShapes, compiled);
+        setF4v(program, "uPipMaskGeo", p.maskGeo4, shapes);
+        setF2v(program, "uPipMaskRot", p.maskRot2, shapes);
+        setF1v(program, "uPipMaskCorner", p.maskCorner, shapes);
+        setF1v(program, "uPipMaskFeather", p.maskFeather, shapes);
+        setF1v(program, "uPipMaskOp", p.maskOpCodes, shapes);
         setF2(program, "uPipTexel", 1f / vw, 1f / vh);
         setF2(program, "uDir", 1f, 0f);
         if (p.extras) {
@@ -1994,11 +2716,14 @@ public class FxPreviewTextureView extends TextureView
             }
             setF(step.program, "uLayerOpacity", layer.opacity);
             setF(step.program, "uMaskCount", layer.hasMask ? 1f : 0f);
-            float[] g = layer.geo;
-            setFn(step.program, "uMaskGeo", new float[]{g[0], g[1], g[2], g[3]}, 4);
-            setF2(step.program, "uMaskRot", g[4], g[5]);
-            setF(step.program, "uMaskCorner", g[6]);
-            setF(step.program, "uMaskFeather", g[7]);
+            // EVERY packed shape, not shape 0. See Layer.maskShapes. ls.shapes is what actually
+            // compiled — the single-shape retry can be below the layer's own count.
+            int shapes = Math.min(layer.maskShapes, Math.max(1, ls.shapes));
+            setF4v(step.program, "uMaskGeo", layer.maskGeo4, shapes);
+            setF2v(step.program, "uMaskRot", layer.maskRot2, shapes);
+            setF1v(step.program, "uMaskCorner", layer.maskCorner, shapes);
+            setF1v(step.program, "uMaskFeather", layer.maskFeather, shapes);
+            setF1v(step.program, "uMaskOp", layer.maskOpCodes, shapes);
             setF(step.program, "uMaskInvert", layer.invertMask ? 1f : 0f);
             setFn(step.program, "uKeyColor", layer.keyColor, 3);
             setFn(step.program, "uKeyParams", layer.keyParams, 4);
@@ -2054,7 +2779,10 @@ public class FxPreviewTextureView extends TextureView
      */
     private boolean ensurePrograms(@NonNull List<Layer> live) {
         StringBuilder key = new StringBuilder();
-        for (Layer l : live) key.append(l.sourceKey).append('#');
+        // The shape count SIZES THE SOURCE (FxGlSource.fragment), so it belongs in the key:
+        // without it, adding a second mask shape would keep the one-slot program and the extra
+        // shape would never be uploaded.
+        for (Layer l : live) key.append(l.sourceKey).append('m').append(l.maskShapes).append('#');
         String want = key.toString();
         if (want.equals(compiledKey) && !compiled.isEmpty()) return true;
         // A stack that already failed to compile is not retried every frame — but a DIFFERENT
@@ -2062,24 +2790,22 @@ public class FxPreviewTextureView extends TextureView
         // the offending card and get their preview back, instead of having to reopen the editor.
         if (want.equals(failedKey)) return false;
 
-        releasePrograms();
         try {
-            for (Layer l : live) {
-                LayerSteps ls = new LayerSteps();
-                for (int i = 0; i < l.plan.passes.size(); i++) {
-                    FxCompiler.Pass pa = l.plan.passes.get(i);
-                    boolean lastPass = i == l.plan.passes.size() - 1;
-                    int renders = Math.max(1, pa.repeats);
-                    for (int r = 0; r < renders; r++) {
-                        boolean lastRender = lastPass && r == renders - 1;
-                        int prog = buildProgram(FxGlSource.VERTEX_SHADER,
-                                FxGlSource.fragment(pa, FxGlSource.KERNEL_HALF, lastRender));
-                        float dx = (renders > 1 && r == 1) ? 0f : 1f;
-                        float dy = (renders > 1 && r == 1) ? 1f : 0f;
-                        ls.steps.add(new Step(prog, i, dx, dy, lastRender));
-                    }
-                }
-                compiled.add(ls);
+            try {
+                buildLayerPrograms(live, /* singleShape= */ false);
+            } catch (RuntimeException first) {
+                // A many-shape mask is the one thing here that can outgrow a GPU's fragment
+                // uniform budget, and previewing UNGRADED would be worse than the shape-0-only
+                // preview this replaced. Retry at one shape before giving up; drawOneLayer
+                // uploads whatever count actually compiled, so arrays and shader agree. A stack
+                // with no multi-shape mask cannot be over budget FOR THIS REASON, so it rethrows
+                // rather than compiling the same source twice.
+                boolean multi = false;
+                for (Layer l : live) if (l.maskShapes > 1) multi = true;
+                if (!multi) throw first;
+                FLog.w(TAG, "FX shader compile failed at the full mask shape count;"
+                        + " previewing the first shape only", first);
+                buildLayerPrograms(live, /* singleShape= */ true);
             }
         } catch (Exception e) {
             FLog.w(TAG, "FX shader compile failed; previewing ungraded"
@@ -2106,6 +2832,42 @@ public class FxPreviewTextureView extends TextureView
         }
         compiledKey = want;
         return true;
+    }
+
+    /**
+     * Compile one program per RENDER for every layer in {@code live}, replacing whatever is
+     * compiled now. {@code singleShape} clamps every layer's mask arrays to one slot — the
+     * uniform-budget retry {@link #ensurePrograms} falls back to.
+     *
+     * <p>Throws on the first failure, having released what it had already built: a half-compiled
+     * set would draw some layers and silently drop others.</p>
+     */
+    private void buildLayerPrograms(@NonNull List<Layer> live, boolean singleShape) {
+        releasePrograms();
+        try {
+            for (Layer l : live) {
+                LayerSteps ls = new LayerSteps();
+                ls.shapes = singleShape ? 1 : l.maskShapes;
+                for (int i = 0; i < l.plan.passes.size(); i++) {
+                    FxCompiler.Pass pa = l.plan.passes.get(i);
+                    boolean lastPass = i == l.plan.passes.size() - 1;
+                    int renders = Math.max(1, pa.repeats);
+                    for (int r = 0; r < renders; r++) {
+                        boolean lastRender = lastPass && r == renders - 1;
+                        int prog = buildProgram(FxGlSource.VERTEX_SHADER,
+                                FxGlSource.fragment(pa, FxGlSource.KERNEL_HALF, lastRender,
+                                        ls.shapes));
+                        float dx = (renders > 1 && r == 1) ? 0f : 1f;
+                        float dy = (renders > 1 && r == 1) ? 1f : 0f;
+                        ls.steps.add(new Step(prog, i, dx, dy, lastRender));
+                    }
+                }
+                compiled.add(ls);
+            }
+        } catch (RuntimeException e) {
+            releasePrograms();
+            throw e;
+        }
     }
 
     private void releasePrograms() {
@@ -2239,6 +3001,11 @@ public class FxPreviewTextureView extends TextureView
         if (loc >= 0) GLES20.glUniform2f(loc, a, b);
     }
 
+    private void setF4(int program, @NonNull String name, float a, float b, float c, float d) {
+        int loc = GLES20.glGetUniformLocation(program, name);
+        if (loc >= 0) GLES20.glUniform4f(loc, a, b, c, d);
+    }
+
     private void setFn(int program, @NonNull String name, @NonNull float[] v, int components) {
         int loc = GLES20.glGetUniformLocation(program, name);
         if (loc < 0) return;
@@ -2248,6 +3015,22 @@ public class FxPreviewTextureView extends TextureView
             case 4: GLES20.glUniform4f(loc, v[0], v[1], v[2], v[3]); break;
             default: GLES20.glUniform1f(loc, v[0]);
         }
+    }
+
+    /** Array uniform setters — {@link #setFn} only ever handled a single element. */
+    private void setF1v(int program, @NonNull String name, @NonNull float[] v, int count) {
+        int loc = GLES20.glGetUniformLocation(program, name);
+        if (loc >= 0) GLES20.glUniform1fv(loc, Math.max(1, count), v, 0);
+    }
+
+    private void setF2v(int program, @NonNull String name, @NonNull float[] v, int count) {
+        int loc = GLES20.glGetUniformLocation(program, name);
+        if (loc >= 0) GLES20.glUniform2fv(loc, Math.max(1, count), v, 0);
+    }
+
+    private void setF4v(int program, @NonNull String name, @NonNull float[] v, int count) {
+        int loc = GLES20.glGetUniformLocation(program, name);
+        if (loc >= 0) GLES20.glUniform4fv(loc, Math.max(1, count), v, 0);
     }
 
     private static final java.util.Set<String> MISSING =
@@ -2319,6 +3102,7 @@ public class FxPreviewTextureView extends TextureView
                     try { GLES20.glDeleteProgram(prog); } catch (Exception ignored) { }
                 }
                 pipPrograms.clear();
+                shapesCompiled.clear();
                 for (Integer id : stillTexIds.values()) {
                     try { GLES20.glDeleteTextures(1, new int[]{id}, 0); }
                     catch (Exception ignored) { }

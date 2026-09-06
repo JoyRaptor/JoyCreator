@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.text;
 
 import android.content.Context;
+import android.graphics.Typeface;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -11,6 +12,9 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Where imported fonts live, and how everything finds them.
@@ -64,6 +68,82 @@ public final class FontLibrary {
         }
         dir = d;
         migrateFromPublicFolder(d);
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // TYPEFACE CACHE
+    //
+    // Typeface.createFromFile() PARSES THE FONT FILE. It does no caching of its own, and it
+    // returns a fresh Typeface identity every call - which also defeats the framework's own
+    // styled-variant cache in Typeface.create(base, style), because that cache is keyed on the
+    // base identity.
+    //
+    // Before this cache, CaptionStyle.typeface() called createFromFile() on EVERY measurement.
+    // The caption fitter measures every word at up to 18 candidate sizes, so one uncached fit of
+    // a 3,400-word transcript issued on the order of 10^5 font parses ON THE MAIN THREAD, inside
+    // onDraw. On JoyRaptor's Note 20 that produced 19 "Waited 10001ms for MotionEvent" ANRs in a
+    // single day, a 2.1 GB native heap (every parse allocates a native font buffer that only a
+    // GC returns), and constant SkStrikeCache purges - the ANR traces bottom out in
+    // SkStrikeCache::internalPurge destroying SkTypeface_Stream, which is precisely the
+    // stream-backed typeface createFromFile builds.
+    //
+    // Fonts are immutable once imported: FontLibrary owns the only directory they are written
+    // to, so the cache is invalidated explicitly by the importer rather than stat-ed per lookup
+    // (a stat per lookup would still be ~10^5 syscalls inside that same loop).
+    // ---------------------------------------------------------------------------------------
+
+    private static final Map<String, Typeface> TYPEFACES = new ConcurrentHashMap<>();
+    /** Paths that failed to load, remembered so a stale key does not re-parse on every draw. */
+    private static final Set<String> UNLOADABLE = ConcurrentHashMap.newKeySet();
+
+    /**
+     * The {@link Typeface} for an absolute font path, parsed at most once per process.
+     *
+     * <p>Returns {@code null} if the file is missing or unreadable - a font deleted since it was
+     * chosen - so callers fall back to a built-in rather than crashing a render. That failure is
+     * remembered too, for the same reason the successes are.</p>
+     *
+     * <p>Safe from any thread: preview draws on the UI thread while export rasterises on its
+     * own, and both resolve the same fonts.</p>
+     */
+    @Nullable
+    public static Typeface typefaceForFile(@NonNull String absPath) {
+        Typeface hit = TYPEFACES.get(absPath);
+        if (hit != null) return hit;
+        if (UNLOADABLE.contains(absPath)) return null;
+        Typeface loaded = null;
+        try {
+            loaded = Typeface.createFromFile(absPath);
+        } catch (Exception e) {
+            FLog.w(TAG, "Could not load font " + absPath, e);
+        }
+        if (loaded == null) {
+            UNLOADABLE.add(absPath);
+            return null;
+        }
+        // putIfAbsent, not put: two threads may race here, and the winner's identity must be the
+        // one everyone shares or the framework's styled-variant cache misses again.
+        Typeface won = TYPEFACES.putIfAbsent(absPath, loaded);
+        return won != null ? won : loaded;
+    }
+
+    /**
+     * Convenience for the stored {@code "file:<abs path>"} key form. Returns {@code null} for a
+     * key that is not a file font, so callers keep their own built-in switch.
+     */
+    @Nullable
+    public static Typeface typefaceForKey(@Nullable String fontKey) {
+        if (fontKey == null || !fontKey.startsWith("file:")) return null;
+        return typefaceForFile(fontKey.substring(5));
+    }
+
+    /**
+     * Forget every cached font. Call after importing or deleting a font file so a re-imported
+     * name picks up the new bytes instead of the old parse.
+     */
+    public static void invalidateTypefaces() {
+        TYPEFACES.clear();
+        UNLOADABLE.clear();
     }
 
     /** The font directory, or null before {@link #init}. */

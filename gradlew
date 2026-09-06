@@ -44,7 +44,12 @@ APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
 
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+# FADCAM LOCAL PATCH (2026-09-05): -Djdk.net.unixdomain.tmpdir=C:/Temp.
+# This machine cannot create a usable AF_UNIX socket file under %LOCALAPPDATA%, and
+# Java's Selector.open() needs one, so the wrapper CLIENT died with "Unable to establish
+# loopback connection" before it could even talk to the daemon. gradle.properties covers
+# the daemon; only this line covers the client. Re-apply after a wrapper upgrade.
+DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m" "-Djdk.net.unixdomain.tmpdir=C:/Temp"'
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD="maximum"

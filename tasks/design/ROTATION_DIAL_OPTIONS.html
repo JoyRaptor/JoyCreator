@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Rotation dial — 4 candidates (SPEC F)</title>
+<style>
+  :root { --bg:#141414; --card:#1d1d1d; --line:#333; --txt:#ddd; --dim:#8a8a8a; --accent:#7cc97c; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--txt);
+    font:14px/1.45 "Segoe UI",system-ui,sans-serif; }
+  header { padding:18px 20px 6px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .hint { color:var(--dim); font-size:12.5px; margin:0; }
+  .hint b { color:#bbb; font-weight:600; }
+  #pose { display:flex; align-items:center; gap:16px; padding:10px 20px 2px; }
+  #poseCanvas { background:#101010; border:1px solid var(--line); border-radius:10px; }
+  #poseInfo { color:var(--dim); font-size:12px; }
+  #poseInfo b { color:var(--accent); font-size:13px; display:block; margin-bottom:2px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:14px; padding:14px 20px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .card h2 { font-size:14.5px; margin:0 0 2px; }
+  .card .sub { color:var(--dim); font-size:11.5px; margin:0 0 10px; }
+  .row { display:flex; gap:12px; align-items:center; }
+  .dialWrap { flex:0 0 auto; }
+  canvas.dial { touch-action:none; display:block; border-radius:50%; cursor:grab; }
+  canvas.dial:active { cursor:grabbing; }
+  .side { flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:8px; }
+  .readout { font:600 20px/1.2 "Segoe UI",system-ui,sans-serif; color:var(--txt);
+    background:#262626; border:1px solid var(--line); border-radius:10px;
+    padding:8px 12px; text-align:left; cursor:pointer; width:100%; }
+  .readout small { display:block; font-weight:400; font-size:11px; color:var(--dim); margin-top:2px; }
+  .readout:active { background:#2e2e2e; }
+  .readout.shake { animation:sh .25s; border-color:#c96c6c; }
+  @keyframes sh { 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { font-size:11.5px; color:#bbb; background:#262626; border:1px solid var(--line);
+    border-radius:999px; padding:4px 10px; cursor:pointer; user-select:none; }
+  .chip:active { background:#2e2e2e; }
+  .note { color:var(--dim); font-size:11.5px; }
+  /* typing modal */
+  #modal { position:fixed; inset:0; background:rgba(0,0,0,.55); display:none;
+    align-items:center; justify-content:center; z-index:50; }
+  #modal.open { display:flex; }
+  .sheet { background:#222; border:1px solid var(--line); border-radius:14px; padding:18px; width:min(320px,86vw); }
+  .sheet h3 { margin:0 0 10px; font-size:14px; }
+  .sheet input { width:100%; font:600 22px/1.3 ui-monospace,Consolas,monospace; color:var(--txt);
+    background:#191919; border:1px solid var(--line); border-radius:10px; padding:10px 12px; }
+  .sheet .btns { display:flex; gap:8px; margin-top:12px; justify-content:flex-end; }
+  .sheet button { font-size:13px; padding:8px 16px; border-radius:9px; border:1px solid var(--line);
+    background:#2a2a2a; color:var(--txt); cursor:pointer; }
+  .sheet button.ok { background:var(--accent); color:#10240f; border-color:var(--accent); font-weight:600; }
+  .sheet .gram { color:var(--dim); font-size:11px; margin-top:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Rotation dial — 4 candidates</h1>
+  <p class="hint"><b>Drag</b> a dial to rotate (it keeps winding — keep going past one turn).
+  <b>Tap the number</b> to type: <i>720</i>, <i>-45</i>, <i>16x</i> all work, same grammar as the app.
+  <b>Double-tap</b> a dial to reset to 0. Positive wraps stack white; negative wraps stack amber.</p>
+</header>
+
+<div id="pose">
+  <canvas id="poseCanvas" width="150" height="112"></canvas>
+  <div id="poseInfo"><b>Pose preview</b>touch any dial — this card shows what its value does to a real object.</div>
+</div>
+
+<div class="grid">
+  <section class="card">
+    <h2>1 · AE angulator</h2>
+    <p class="sub">Needle + wrap tape at one radius — overlaps brighten. JoyRaptor's After Effects reference.</p>
+    <div class="row">
+      <div class="dialWrap"><canvas class="dial" id="d1" width="240" height="240"></canvas></div>
+      <div class="side">
+        <button class="readout" data-for="d1"></button>
+        <div class="chips">
+          <span class="chip" data-set="d1" data-v="0">0</span>
+          <span class="chip" data-set="d1" data-v="720">720°</span>
+          <span class="chip" data-set="d1" data-v="5760">16x</span>
+          <span class="chip" data-set="d1" data-v="-45">-45°</span>
+        </div>
+        <p class="note">Tape = one arc per full turn, same radius, ~14% alpha each. 1.5 turns = one gray band; 10 turns ≈ white.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2 · Turn rings</h2>
+    <p class="sub">Each completed turn is its own ring stacking inward; big turn count in the middle.</p>
+    <div class="row">
+      <div class="dialWrap"><canvas class="dial" id="d2" width="240" height="240"></canvas></div>
+      <div class="side">
+        <button class="readout" data-for="d2"></button>
+        <div class="chips">
+          <span class="chip" data-set="d2" data-v="0">0</span>
+          <span class="chip" data-set="d2" data-v="720">720°</span>
+          <span class="chip" data-set="d2" data-v="5760">16x</span>
+          <span class="chip" data-set="d2" data-v="-45">-45°</span>
+        </div>
+        <p class="note">You can COUNT turns like tree rings — no alpha pile-up needed to read 10 turns.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3 · Jog wheel</h2>
+    <p class="sub">The whole wheel rotates under your finger, like a jog/shuttle dial. Notch stays fixed.</p>
+    <div class="row">
+      <div class="dialWrap"><canvas class="dial" id="d3" width="240" height="240"></canvas></div>
+      <div class="side">
+        <button class="readout" data-for="d3"></button>
+        <div class="chips">
+          <span class="chip" data-set="d3" data-v="0">0</span>
+          <span class="chip" data-set="d3" data-v="720">720°</span>
+          <span class="chip" data-set="d3" data-v="5760">16x</span>
+          <span class="chip" data-set="d3" data-v="-45">-45°</span>
+        </div>
+        <p class="note">Ticks make small nudges readable; wrap tape rings the outside.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>4 · Spiral reel</h2>
+    <p class="sub">The tape itself unrolls: one loop per turn, spiral growing outward, head dot = needle.</p>
+    <div class="row">
+      <div class="dialWrap"><canvas class="dial" id="d4" width="240" height="240"></canvas></div>
+      <div class="side">
+        <button class="readout" data-for="d4"></button>
+        <div class="chips">
+          <span class="chip" data-set="d4" data-v="0">0</span>
+          <span class="chip" data-set="d4" data-v="720">720°</span>
+          <span class="chip" data-set="d4" data-v="5760">16x</span>
+          <span class="chip" data-set="d4" data-v="-45">-45°</span>
+        </div>
+        <p class="note">Where loops overlap in angle they brighten — winding readable as ribbon thickness.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="modal">
+  <div class="sheet">
+    <h3 id="mTitle">Rotate</h3>
+    <input id="mInput" inputmode="text" autocomplete="off" spellcheck="false">
+    <div class="gram">720 · -45 · 16x (= 16 turns) · 2.5x · garbage keeps the old value</div>
+    <div class="btns">
+      <button id="mCancel">Cancel</button>
+      <button id="mOk" class="ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+window.addEventListener('error',function(e){
+  var d=document.getElementById('poseInfo');
+  if(d) d.innerHTML='<b style="color:#ff6666">JS ERROR: '+e.message+' @ line '+e.lineno+':'+e.colno+'</b>';
+});
+// ── grammar: a faithful port of KeyframeSet.parseRotationInput (SPEC A) ──────────
+function parseRotationInput(s){
+  if(s==null) return null;
+  let t=s.trim(); if(!t) return null;
+  let turns=1;
+  const last=t.charAt(t.length-1);
+  if(last==='x'||last==='X'){ t=t.slice(0,-1).trim(); if(!t) return null; turns=360; }
+  let i=0,n=t.length;
+  if(i<n&&(t[i]==='+'||t[i]==='-')) i++;
+  let digits=false,dot=false;
+  while(i<n){ const c=t[i];
+    if(c>='0'&&c<='9'){digits=true;i++;}
+    else if(c==='.'&&!dot){dot=true;i++;}
+    else return null;
+  }
+  if(!digits) return null;
+  const v=parseFloat(t);
+  if(!isFinite(v)) return null;         // digit overflow refuses Infinity
+  const deg=v*turns;
+  return isFinite(deg)?deg:null;        // multiplied value guarded too
+}
+function trimNumber(v){
+  const r=Math.round(v);
+  return Math.abs(v-r)<0.005 ? String(r) : v.toFixed(2);
+}
+
+// ── shared plumbing ───────────────────────────────────────────────────────────────
+const TAU=Math.PI*2, D2R=Math.PI/180;
+const dials={};
+let activeDial=null;
+const poseCanvas=document.getElementById('poseCanvas'), poseCtx=poseCanvas.getContext('2d');
+
+function setupCanvas(cv){                       // DPR-aware square canvas
+  const dpr=window.devicePixelRatio||1, css=cv.clientWidth||+cv.getAttribute('width');
+  cv.width=css*dpr; cv.height=css*dpr;
+  cv.style.width=css+'px'; cv.style.height=css+'px';
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx, size:css};
+}
+function labelOf(v){
+  const turns=v/360;
+  const tStr=(Math.round(turns*100)/100)+'×';
+  return {raw:trimNumber(v)+'°', turns:tStr};
+}
+function refreshReadout(d){
+  const l=labelOf(d.value);
+  const el=document.querySelector('.readout[data-for="'+d.id+'"]');
+  el.innerHTML=l.raw+'<small>'+l.turns+' turns — tap to type</small>';
+}
+function pose(){
+  poseCtx.clearRect(0,0,poseCanvas.width,poseCanvas.height);
+  const w=poseCanvas.width/ (window.devicePixelRatio||1), h=poseCanvas.height/(window.devicePixelRatio||1);
+  poseCtx.save();
+  poseCtx.translate(w/2,h/2+4);
+  if(activeDial) poseCtx.rotate(activeDial.value*D2R);
+  poseCtx.fillStyle='#2c2c2c'; poseCtx.strokeStyle='#555';
+  const cw=64,ch=40;
+  poseCtx.beginPath(); poseCtx.rect(-cw/2,-ch/2,cw,ch); poseCtx.fill(); poseCtx.stroke();
+  poseCtx.fillStyle='#eee'; poseCtx.font='700 22px "Segoe UI"';
+  poseCtx.textAlign='center'; poseCtx.textBaseline='middle';
+  poseCtx.fillText('F',0,1);
+  poseCtx.restore();
+  const info=document.getElementById('poseInfo');
+  if(activeDial){
+    const l=labelOf(activeDial.value);
+    info.innerHTML='<b>'+activeDial.name+' — '+l.raw+' ('+l.turns+' turns)</b>this card shows what the value does to a real object.';
+  }
+}
+function setDial(d,v){ d.value=v; refreshReadout(d); d.render(); if(activeDial===d) pose(); }
+
+// ── drawing helpers ───────────────────────────────────────────────────────────────
+function drawTape(ctx,cx,cy,R,value,alpha){
+  // one arc per full turn at the SAME radius: overlaps stack toward white.
+  const turns=Math.floor(Math.abs(value)/360);
+  const sign=value<0?-1:1;
+  const col=sign<0?'255,160,90':'255,255,255';
+  ctx.lineWidth=5; ctx.lineCap='butt';
+  for(let k=0;k<turns;k++){
+    ctx.strokeStyle='rgba('+col+','+alpha+')';
+    ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.stroke();
+  }
+  // partial current turn, a bit brighter
+  const rem=Math.abs(value)%360;
+  if(rem>0.05){
+    const a0=-Math.PI/2;
+    ctx.strokeStyle='rgba('+col+',0.35)';
+    ctx.beginPath();
+    if(sign>0) ctx.arc(cx,cy,R,a0,a0+rem*D2R);
+    else ctx.arc(cx,cy,R,a0-rem*D2R,a0,true);
+    ctx.stroke();
+  }
+}
+function drawNotch(ctx,cx,cy,R){
+  ctx.fillStyle='#9a9a9a';
+  ctx.beginPath();
+  ctx.moveTo(cx,cy-R-7); ctx.lineTo(cx-4,cy-R-14); ctx.lineTo(cx+4,cy-R-14);
+  ctx.closePath(); ctx.fill();
+}
+function zeroBase(ctx,cx,cy,R){
+  ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,R,0,TAU); ctx.stroke();
+  ctx.strokeStyle='#555';
+  ctx.beginPath(); ctx.moveTo(cx,cy-R-2); ctx.lineTo(cx,cy-R+2); ctx.stroke();
+}
+
+// ── design 1: AE angulator ───────────────────────────────────────────────────────
+function renderAE(d){
+  const {ctx,size}=d; const c=size/2;
+  ctx.clearRect(0,0,size,size);
+  zeroBase(ctx,c,c,size*0.40);
+  drawTape(ctx,c,c,size*0.40,d.value,0.14);
+  drawNotch(ctx,c,c,size*0.40);
+  // needle
+  const a=(d.value-90)*D2R;
+  ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=2.5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(c,c); ctx.lineTo(c+Math.cos(a)*size*0.36,c+Math.sin(a)*size*0.36); ctx.stroke();
+  ctx.fillStyle='#7cc97c'; ctx.beginPath(); ctx.arc(c,c,4,0,TAU); ctx.fill();
+  // center label
+  const l=labelOf(d.value);
+  ctx.fillStyle='#8a8a8a'; ctx.font='11px "Segoe UI"'; ctx.textAlign='center';
+  ctx.fillText(l.turns,c,c+22);
+}
+
+// ── design 2: turn rings ─────────────────────────────────────────────────────────
+function renderRings(d){
+  const {ctx,size}=d; const c=size/2;
+  ctx.clearRect(0,0,size,size);
+  const turns=Math.floor(Math.abs(d.value)/360), sign=d.value<0?-1:1;
+  const rem=Math.abs(d.value)%360;
+  const col=sign<0?'255,160,90':'255,255,255';
+  const R0=size*0.42, step=7;
+  zeroBase(ctx,c,c,R0);
+  for(let k=0;k<turns;k++){
+    const r=R0-k*step;
+    ctx.strokeStyle='rgba('+col+','+(0.42-k*0.02)+')'; ctx.lineWidth=4;
+    ctx.beginPath(); ctx.arc(c,c,Math.max(r,14),0,TAU); ctx.stroke();
+  }
+  if(rem>0.05){                                   // current partial turn, outside
+    const a=-Math.PI/2;
+    ctx.strokeStyle='rgba('+col+',0.85)'; ctx.lineWidth=4; ctx.lineCap='round';
+    ctx.beginPath();
+    if(sign>0) ctx.arc(c,c,R0,a,a+rem*D2R); else ctx.arc(c,c,R0,a-rem*D2R,a,true);
+    ctx.stroke();
+  }
+  drawNotch(ctx,c,c,R0);
+  const l=labelOf(d.value);
+  ctx.textAlign='center';
+  ctx.fillStyle='#eee'; ctx.font='700 20px "Segoe UI"'; ctx.fillText(l.turns,c,c-2);
+  ctx.fillStyle='#8a8a8a'; ctx.font='11px "Segoe UI"'; ctx.fillText(l.raw,c,c+15);
+}
+
+// ── design 3: jog wheel ──────────────────────────────────────────────────────────
+function renderJog(d){
+  const {ctx,size}=d; const c=size/2;
+  ctx.clearRect(0,0,size,size);
+  const R=size*0.36;
+  drawTape(ctx,c,c,size*0.44,d.value,0.13);
+  drawNotch(ctx,c,c,size*0.44);
+  // wheel body rotates with the value
+  ctx.save(); ctx.translate(c,c); ctx.rotate(d.value*D2R);
+  ctx.fillStyle='#242424'; ctx.beginPath(); ctx.arc(0,0,R,0,TAU); ctx.fill();
+  ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(0,0,R,0,TAU); ctx.stroke();
+  for(let k=0;k<24;k++){                          // ticks every 15°
+    const a=k*15*D2R, r0=R-6, r1=R-(k%6===0?16:11);
+    ctx.strokeStyle=k%6===0?'#777':'#4a4a4a'; ctx.lineWidth=k%6===0?2:1;
+    ctx.beginPath(); ctx.moveTo(Math.cos(a)*r0,Math.sin(a)*r0); ctx.lineTo(Math.cos(a)*r1,Math.sin(a)*r1); ctx.stroke();
+  }
+  ctx.fillStyle='#7cc97c'; ctx.beginPath(); ctx.arc(0,-R+10,4,0,TAU); ctx.fill(); // wheel pointer
+  ctx.restore();
+  const l=labelOf(d.value);
+  ctx.textAlign='center'; ctx.fillStyle='#eee'; ctx.font='700 16px "Segoe UI"';
+  ctx.fillText(l.raw,c,c+1);
+  ctx.fillStyle='#8a8a8a'; ctx.font='11px "Segoe UI"'; ctx.fillText(l.turns,c,c+17);
+}
+
+// ── design 4: spiral reel ────────────────────────────────────────────────────────
+function renderSpiral(d){
+  const {ctx,size}=d; const c=size/2;
+  ctx.clearRect(0,0,size,size);
+  const Rmax=size*0.44, turnsTotal=Math.abs(d.value)/360, sign=d.value<0?-1:1;
+  const col=sign<0?'255,160,90':'255,255,255';
+  const b=(Rmax-18)/Math.max(turnsTotal,1);       // spiral growth per turn
+  ctx.lineWidth=4; ctx.lineCap='round';
+  const STEPS=Math.max(48,Math.min(400,Math.round(turnsTotal*24)));
+  let px=null,py=null;
+  for(let i=0;i<=STEPS;i++){
+    const deg=Math.abs(d.value)*i/STEPS;
+    const th=(sign*deg-90)*D2R;
+    const r=12+b*deg/360;
+    const x=c+Math.cos(th)*r, y=c+Math.sin(th)*r;
+    if(px!==null){
+      ctx.strokeStyle='rgba('+col+',0.20)';       // each segment ~20%; overlaps brighten
+      ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(x,y); ctx.stroke();
+    }
+    px=x; py=y;
+  }
+  // head dot = needle, ring ghost for scale
+  ctx.strokeStyle='#3a3a3a'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(c,c,Rmax,0,TAU); ctx.stroke();
+  drawNotch(ctx,c,c,Rmax);
+  if(px){ ctx.fillStyle='#7cc97c'; ctx.beginPath(); ctx.arc(px,py,4.5,0,TAU); ctx.fill(); }
+  const l=labelOf(d.value);
+  ctx.textAlign='center'; ctx.fillStyle='#eee'; ctx.font='700 15px "Segoe UI"';
+  ctx.fillText(l.raw,c,c+1);
+  ctx.fillStyle='#8a8a8a'; ctx.font='11px "Segoe UI"'; ctx.fillText(l.turns,c,c+17);
+}
+
+// ── wire the four designs ────────────────────────────────────────────────────────
+const DESIGNS=[
+  {id:'d1',name:'AE angulator',render:renderAE},
+  {id:'d2',name:'Turn rings',  render:renderRings},
+  {id:'d3',name:'Jog wheel',   render:renderJog},
+  {id:'d4',name:'Spiral reel', render:renderSpiral},
+];
+DESIGNS.forEach(cfg=>{
+  const cv=document.getElementById(cfg.id);
+  const s=setupCanvas(cv);
+  const d={...cfg,canvas:cv,ctx:s.ctx,size:s.size,value:0};
+  d.render=function(){ cfg.render(d); };   // method-style callers (d.render()) pass no args
+  dials[cfg.id]=d;
+  refreshReadout(d); d.render();
+  let lastA=null,moved=false,downT=0;
+  const angleAt=e=>{
+    const r=cv.getBoundingClientRect();
+    return Math.atan2(e.clientY-(r.top+r.height/2), e.clientX-(r.left+r.width/2))/D2R;
+  };
+  cv.addEventListener('pointerdown',e=>{
+    e.preventDefault(); cv.setPointerCapture(e.pointerId);
+    lastA=angleAt(e); moved=false; downT=performance.now();
+    activeDial=d; pose();
+  });
+  cv.addEventListener('pointermove',e=>{
+    if(lastA===null) return;
+    e.preventDefault();
+    const a=angleAt(e); let delta=a-lastA;
+    if(delta>180) delta-=360; if(delta<-180) delta+=360;   // unwrap the POINTER, keep winding
+    if(Math.abs(delta)>0.05){ d.value+=delta; moved=true; refreshReadout(d); d.render(); pose(); }
+    lastA=a;
+  });
+  const up=e=>{
+    if(lastA===null) return;
+    lastA=null;
+    if(!moved && performance.now()-downT<350){              // tap = double-tap detect
+      const now=performance.now();
+      if(d._lastTap && now-d._lastTap<350){ setDial(d,0); d._lastTap=0; }
+      else d._lastTap=now;
+    }
+  };
+  cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+});
+
+// chips
+document.querySelectorAll('.chip[data-set]').forEach(ch=>{
+  ch.addEventListener('click',()=>{ const d=dials[ch.dataset.set]; activeDial=d; setDial(d,parseFloat(ch.dataset.v)); pose(); });
+});
+
+// typing modal (the app's promptForValue, in browser form)
+const modal=document.getElementById('modal'), mInput=document.getElementById('mInput');
+let modalDial=null, modalOld=0;
+function openModal(d){
+  modalDial=d; modalOld=d.value; activeDial=d; pose();
+  document.getElementById('mTitle').textContent='Rotate — '+d.name;
+  mInput.value=trimNumber(d.value);
+  modal.classList.add('open');
+  setTimeout(()=>{ mInput.focus(); mInput.select(); },30);
+}
+function closeModal(){ modal.classList.remove('open'); modalDial=null; }
+document.querySelectorAll('.readout').forEach(b=>b.addEventListener('click',()=>openModal(dials[b.dataset.for])));
+document.getElementById('mCancel').addEventListener('click',closeModal);
+document.getElementById('mOk').addEventListener('click',()=>{
+  const v=parseRotationInput(mInput.value);
+  if(v===null){                                   // garbage keeps the old value (house rule)
+    const b=document.querySelector('.readout[data-for="'+modalDial.id+'"]');
+    b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake');
+    return;
+  }
+  setDial(modalDial,v); closeModal();
+});
+mInput.addEventListener('keydown',e=>{
+  if(e.key==='Enter') document.getElementById('mOk').click();
+  if(e.key==='Escape') closeModal();
+});
+modal.addEventListener('pointerdown',e=>{ if(e.target===modal) closeModal(); });
+
+// init pose preview
+(function(){ const dpr=window.devicePixelRatio||1;
+  poseCanvas.width=150*dpr; poseCanvas.height=112*dpr;
+  poseCanvas.style.width='150px'; poseCanvas.style.height='112px';
+  poseCtx.setTransform(dpr,0,0,dpr,0,0); pose();
+})();
+window.addEventListener('resize',()=>{ DESIGNS.forEach(c=>{ const d=dials[c.id]; const s=setupCanvas(d.canvas); d.ctx=s.ctx; d.size=s.size; d.render(); }); pose(); });
+</script>
+</body>
+</html>

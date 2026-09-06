@@ -269,6 +269,20 @@ public class Clip implements AudioParams {
         /** FADE_KNOBS §2.5: per-binding opacity fades (0 = none). Clamped to clipDur/2 by setter. */
         public long fadeInMs;
         public long fadeOutMs;
+        /**
+         * Caption BOX width as a fraction of the canvas width (0.3–1.0, default 0.9 = the
+         * historical hard-coded look) — SPEC_20260831_CAPTION_SLIDES resizable bounding box.
+         * Position-family like centerX/Y, so it lives on the binding, not the style.
+         */
+        public float boxWidthFraction = 0.9f;
+        /**
+         * Vertical growth anchor (SPEC_20260831_CAPTION_SLIDES): which part of the box sits at
+         * centerY when the text height changes. 0=center grows both ways, 1=top pinned (grows
+         * down), 2=bottom pinned (grows up).
+         */
+        public int anchor = 0;
+        /** Text justification within the box: 0=center, 1=left, 2=right. */
+        public int justify = 0;
 
         public CaptionBinding() {
             this.transcriptId = "";
@@ -301,6 +315,9 @@ public class Clip implements AudioParams {
             CaptionBinding c = new CaptionBinding(transcriptId, styleId, enabled, centerX, centerY, sizeFraction, label);
             c.fadeInMs = fadeInMs;
             c.fadeOutMs = fadeOutMs;
+            c.boxWidthFraction = boxWidthFraction;
+            c.anchor = anchor;
+            c.justify = justify;
             return c;
         }
     }
@@ -692,6 +709,18 @@ public class Clip implements AudioParams {
         this.compositing = other.compositing != null ? other.compositing.copy() : null;
         this.masterFadeInMs = other.masterFadeInMs;
         this.masterFadeOutMs = other.masterFadeOutMs;
+        // SPINE_TRANSFORM: a split/duplicate of a placed clip must stay placed — the two halves
+        // of a split are the same shot and jumping back to fit-centre at the cut would read as
+        // the split having destroyed the framing. Keyframes are DEEP-copied; aliasing the set
+        // would make dragging the copy drag the original.
+        this.spineCenterX = other.spineCenterX;
+        this.spineCenterY = other.spineCenterY;
+        this.spineScale = other.spineScale;
+        this.spineScaleX = other.spineScaleX;
+        this.spineScaleY = other.spineScaleY;
+        this.spineRotationDeg = other.spineRotationDeg;
+        this.spineTransform = other.spineTransform != null
+                ? other.spineTransform.copy() : null;
     }
 
     /**
@@ -765,6 +794,16 @@ public class Clip implements AudioParams {
         c.compositing = compositing != null ? compositing.copy() : null;
         // Relink preserves the clip id, so its dual-stream partner link stays valid.
         c.linkedClipId = linkedClipId;
+        // SPINE_TRANSFORM: relinked()'s own javadoc promises to keep "every edit", and the
+        // placement of a clip on the canvas is one — losing it while the user is already
+        // recovering from moved media is exactly the wrong moment.
+        c.spineCenterX = spineCenterX;
+        c.spineCenterY = spineCenterY;
+        c.spineScale = spineScale;
+        c.spineScaleX = spineScaleX;
+        c.spineScaleY = spineScaleY;
+        c.spineRotationDeg = spineRotationDeg;
+        c.spineTransform = spineTransform != null ? spineTransform.copy() : null;
         return c;
     }
 
@@ -1205,17 +1244,23 @@ public class Clip implements AudioParams {
         this.activeTranscriptIndex = (index >= 0 && index < transcripts.size()) ? index : -1;
     }
 
-    /** The active transcript version, or null if none. Prefers binding 0 when bindings exist. */
+    /**
+     * The active transcript version, or null if none. Honors {@link #activeTranscriptIndex}
+     * (the version chips / transcript panel set it) when valid; falls back to binding 0's
+     * transcript so legacy single-caption readers keep working for freshly-bound clips.
+     */
     @Nullable
     public com.fadcam.ui.faditor.transcript.NamedTranscript getActiveNamedTranscript() {
+        if (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size()) {
+            return transcripts.get(activeTranscriptIndex);
+        }
         if (!captionBindings.isEmpty()) {
             CaptionBinding b0 = captionBindings.get(0);
             int idx = indexOfTranscriptId(b0.transcriptId);
             if (idx >= 0) return transcripts.get(idx);
             return null;
         }
-        return (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size())
-                ? transcripts.get(activeTranscriptIndex) : null;
+        return null;
     }
 
     /** The active transcript's words, or null if none — back-compat accessor. */
@@ -1425,7 +1470,11 @@ public class Clip implements AudioParams {
         captionSizeFraction = b0.sizeFraction;
         // Also keep activeTranscriptIndex pointing at b0's transcript for old readers of getTranscript().
         int idx = indexOfTranscriptId(b0.transcriptId);
-        if (idx >= 0) activeTranscriptIndex = idx;
+        // Keep the legacy index pointing at b0 only while it is unset/stale — never override
+        // a valid selection, or the transcript panel snaps back to b0 on every binding edit.
+        if (idx >= 0 && (activeTranscriptIndex < 0 || activeTranscriptIndex >= transcripts.size())) {
+            activeTranscriptIndex = idx;
+        }
     }
 
     private int indexOfTranscriptId(@Nullable String id) {
@@ -1798,6 +1847,192 @@ public class Clip implements AudioParams {
     @Override
     public void setPan(float pan) {
         // No-op for Clip.
+    }
+
+    // ── Spine canvas transform (SPINE_TRANSFORM) ─────────────────────
+    //
+    // WHERE THIS CLIP'S PICTURE SITS ON THE CANVAS, when it is a MASTER (spine) clip. Until this
+    // existed a spine clip had exactly one placement — fit-centred — and the only way to reframe
+    // it was the crop tool. JoyRaptor asked for left/right justification, free movement and rotation
+    // "AS IF THEY WERE A LANE — but have them still take up the spine as a clip".
+    //
+    // THE DEFAULTS ARE TODAY'S BEHAVIOUR TO THE FLOAT: centre 0.5/0.5, every scale 1, zero
+    // rotation is exactly the fit-centre step both renderers already do, and both of them gate
+    // their new pass on SpineTransform.isIdentity(). A project that has never touched this
+    // renders through the identical pass list it always did.
+    //
+    // The semantics of each number, the aspect handling, how it composes with crop and why it is
+    // affine-only all live in SpineTransform — this is just the storage.
+
+    private float spineCenterX = 0.5f;
+    private float spineCenterY = 0.5f;
+    private float spineScale = 1f;
+    private float spineScaleX = 1f;
+    private float spineScaleY = 1f;
+    private float spineRotationDeg = 0f;
+
+    /**
+     * Optional animation of the six numbers above, in CLIP-LOCAL milliseconds — the same time
+     * base {@link #opacityAtClipMs} uses, so the exporter's {@code presentationTimeUs} minus the
+     * item's timeline offset resolves it without a second convention.
+     *
+     * <p>Null (and empty) = "not armed": the statics are the pose. That is
+     * {@code TextOverlayItem.isArmed}'s rule, restated for a clip.</p>
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.keyframe.KeyframeSet spineTransform;
+
+    public float getSpineCenterX() { return spineCenterX; }
+    public float getSpineCenterY() { return spineCenterY; }
+    public float getSpineScale() { return spineScale; }
+    public float getSpineScaleX() { return spineScaleX; }
+    public float getSpineScaleY() { return spineScaleY; }
+    public float getSpineRotationDeg() { return spineRotationDeg; }
+
+    public void setSpineCenter(float cx, float cy) {
+        this.spineCenterX = com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(cx, 4f);
+        this.spineCenterY = com.fadcam.ui.faditor.keyframe.KeyframeSet.clampPos(cy, 4f);
+    }
+
+    public void setSpineScale(float s) {
+        this.spineScale = clampSpineScale(s);
+    }
+
+    public void setSpineScaleXY(float sx, float sy) {
+        this.spineScaleX = clampSpineScale(sx);
+        this.spineScaleY = clampSpineScale(sy);
+    }
+
+    public void setSpineRotationDeg(float deg) {
+        this.spineRotationDeg = Float.isNaN(deg) || Float.isInfinite(deg) ? 0f : deg;
+    }
+
+    /**
+     * Rail a scale into the drawable range, KEEPING ITS SIGN.
+     *
+     * <p>A negative scale is a mirror, and it is how the transform surface's flip is expressed —
+     * one number, already carried by the shader's matrix, instead of a second boolean and a second
+     * branch in two renderers. Taking the absolute value here would silently turn every flip into
+     * a no-op.</p>
+     */
+    private static float clampSpineScale(float v) {
+        if (Float.isNaN(v) || Float.isInfinite(v)) return 1f;
+        float sign = v < 0f ? -1f : 1f;
+        float a = Math.abs(v);
+        if (a < SpineTransform.MIN_SCALE) a = SpineTransform.MIN_SCALE;
+        if (a > SpineTransform.MAX_SCALE) a = SpineTransform.MAX_SCALE;
+        return sign * a;
+    }
+
+    @Nullable
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet getSpineTransform() {
+        return spineTransform;
+    }
+
+    public void setSpineTransform(
+            @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet ks) {
+        this.spineTransform = ks;
+    }
+
+    @NonNull
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet getOrCreateSpineTransform() {
+        if (spineTransform == null) {
+            spineTransform = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+        }
+        return spineTransform;
+    }
+
+    /** "Armed" = at least one spine-transform keyframe exists. Same rule as every other object. */
+    public boolean isSpineTransformArmed() {
+        return spineTransform != null && !spineTransform.isEmpty();
+    }
+
+    /**
+     * Resolve the pose at clip-local {@code clipMs} into {@code out} (length
+     * {@link SpineTransform#POSE}).
+     *
+     * <p>THE ONE READER. The preview controller and {@code SpineTransformExportEffect} both call
+     * this and nothing else, so an animated spine transform cannot be interpolated one way on
+     * screen and another in the file.</p>
+     */
+    public void spinePoseAt(long clipMs, @NonNull float[] out) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet ks = spineTransform;
+        long t = Math.max(0, clipMs);
+        out[SpineTransform.CX] = ks == null ? spineCenterX
+                : ks.valueAt(SpineTransform.X, t, spineCenterX);
+        out[SpineTransform.CY] = ks == null ? spineCenterY
+                : ks.valueAt(SpineTransform.Y, t, spineCenterY);
+        out[SpineTransform.SC] = ks == null ? spineScale
+                : ks.valueAt(SpineTransform.SCALE, t, spineScale);
+        out[SpineTransform.SX] = ks == null ? spineScaleX
+                : ks.valueAt(SpineTransform.SCALE_X, t, spineScaleX);
+        out[SpineTransform.SY] = ks == null ? spineScaleY
+                : ks.valueAt(SpineTransform.SCALE_Y, t, spineScaleY);
+        out[SpineTransform.ROT] = ks == null ? spineRotationDeg
+                : ks.valueAt(SpineTransform.ROTATION, t, spineRotationDeg);
+    }
+
+    /**
+     * Does this clip carry a spine transform at all — statically or on any keyframe?
+     *
+     * <p>THE ROUTING / SERIALISATION GATE, and it must answer for the WHOLE clip rather than for
+     * one instant: the live preview decides once per project whether to route the picture through
+     * the GL chain, and the exporter decides once per clip whether to append the effect. Asking
+     * "is it identity right now" instead would tear the decoder off its surface at every keyframe
+     * that happened to pass through the identity pose.</p>
+     */
+    public boolean hasSpineTransform() {
+        float[] p = new float[SpineTransform.POSE];
+        p[SpineTransform.CX] = spineCenterX;
+        p[SpineTransform.CY] = spineCenterY;
+        p[SpineTransform.SC] = spineScale;
+        p[SpineTransform.SX] = spineScaleX;
+        p[SpineTransform.SY] = spineScaleY;
+        p[SpineTransform.ROT] = spineRotationDeg;
+        if (!SpineTransform.isIdentity(p)) return true;
+        com.fadcam.ui.faditor.keyframe.KeyframeSet ks = spineTransform;
+        return ks != null && !ks.isEmpty();
+    }
+
+    /** Back to plain fit-centre — statics AND every track, or the next tick puts it back. */
+    public void clearSpineTransform() {
+        spineCenterX = 0.5f;
+        spineCenterY = 0.5f;
+        spineScale = 1f;
+        spineScaleX = 1f;
+        spineScaleY = 1f;
+        spineRotationDeg = 0f;
+        spineTransform = null;
+    }
+
+    /** Everything {@link #hasSpineTransform} looks at, for a one-gesture-one-undo snapshot. */
+    public static final class SpineSnapshot {
+        final float cx, cy, sc, sx, sy, rot;
+        @Nullable final com.fadcam.ui.faditor.keyframe.KeyframeSet keys;
+
+        SpineSnapshot(float cx, float cy, float sc, float sx, float sy, float rot,
+                      @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet keys) {
+            this.cx = cx; this.cy = cy; this.sc = sc;
+            this.sx = sx; this.sy = sy; this.rot = rot;
+            this.keys = keys;
+        }
+    }
+
+    @NonNull
+    public SpineSnapshot snapshotSpineTransform() {
+        return new SpineSnapshot(spineCenterX, spineCenterY, spineScale,
+                spineScaleX, spineScaleY, spineRotationDeg,
+                spineTransform == null ? null : spineTransform.copy());
+    }
+
+    public void restoreSpineTransform(@NonNull SpineSnapshot s) {
+        spineCenterX = s.cx;
+        spineCenterY = s.cy;
+        spineScale = s.sc;
+        spineScaleX = s.sx;
+        spineScaleY = s.sy;
+        spineRotationDeg = s.rot;
+        spineTransform = s.keys == null ? null : s.keys.copy();
     }
 
     // ── Opacity keyframes (visual fade envelope) ─────────────────────

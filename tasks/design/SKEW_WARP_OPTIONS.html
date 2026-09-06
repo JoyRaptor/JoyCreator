@@ -1,0 +1,702 @@
+<title>Skew &amp; Warp Options</title>
+
+<style>
+  :root{
+    --bg:#0a0a0d;
+    --panel:#131318;
+    --panel-2:#191920;
+    --line:#282833;
+    --line-soft:#1f1f28;
+    --text:#ececf2;
+    --dim:#9a9aab;
+    --dimmer:#6c6c7c;
+    --accent:#a78bfa;
+    --accent-2:#4fd1c5;
+    --good:#6ee7a8;
+    --bad:#f87171;
+    --warn:#fbbf24;
+    --touch:#ff3d7f;
+    --radius:14px;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body,.page{
+    background:var(--bg);color:var(--text);font-family:var(--sans);
+    line-height:1.55;-webkit-font-smoothing:antialiased;
+  }
+  .page{max-width:1240px;margin:0 auto;padding:40px 22px 100px}
+
+  h1{font-size:31px;line-height:1.14;letter-spacing:-.02em;margin:0 0 8px;font-weight:650}
+  .sub{color:var(--dim);font-size:15px;margin:0 0 26px;max-width:74ch}
+  h2{
+    font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--dimmer);
+    font-weight:600;margin:52px 0 16px;padding-bottom:9px;border-bottom:1px solid var(--line-soft);
+  }
+  h3{font-size:17px;margin:26px 0 8px;font-weight:600;letter-spacing:-.01em}
+  p{margin:0 0 12px}
+  .quote{
+    border-left:2px solid var(--warn);background:var(--panel);border-radius:0 10px 10px 0;
+    padding:14px 18px;margin:0 0 28px;color:#d8d8e4;font-size:15px;font-style:italic;
+  }
+  code{font-family:var(--mono);font-size:12.5px;color:#c9b6ff;background:#1b1726;
+       padding:1px 5px;border-radius:5px}
+
+  /* ---- three-words glossary ---- */
+  .gloss{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1px;
+    background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--radius);
+    overflow:hidden;margin:0 0 30px}
+  .gloss > div{background:var(--panel);padding:16px 18px}
+  .gloss b{display:block;font-size:15px;margin-bottom:4px}
+  .gloss span{font-size:13.5px;color:var(--dim)}
+  .gloss svg{display:block;margin:12px 0 2px}
+
+  /* ---- reality check table ---- */
+  .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1px;
+    background:var(--line-soft);border:1px solid var(--line-soft);border-radius:var(--radius);
+    overflow:hidden;margin:0 0 20px}
+  .fact{background:var(--panel);padding:15px 17px}
+  .fact b{display:block;font-size:13px;letter-spacing:.09em;text-transform:uppercase;
+    font-weight:650;margin-bottom:6px}
+  .fact.ok b{color:var(--good)} .fact.mid b{color:var(--warn)} .fact.hot b{color:var(--bad)}
+  .fact span{display:block;font-size:13.5px;color:var(--dim)}
+
+  table{width:100%;border-collapse:collapse;font-size:14px;margin:0 0 8px}
+  th,td{text-align:left;padding:11px 14px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  th{font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);font-weight:600}
+  td:first-child{white-space:nowrap;font-weight:550}
+  .tag{display:inline-block;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    font-weight:650;padding:3px 8px;border-radius:20px;white-space:nowrap}
+  .t-ok{background:#12301f;color:var(--good)}
+  .t-mid{background:#33270c;color:var(--warn)}
+  .t-hot{background:#33161a;color:var(--bad)}
+  .scroller{overflow-x:auto;border:1px solid var(--line-soft);border-radius:var(--radius);
+    background:var(--panel);padding:4px 4px 0;margin-bottom:28px}
+
+  /* ---- option cards ---- */
+  .opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(285px,1fr));gap:18px;align-items:start}
+  .opt{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--radius);
+    overflow:hidden;display:flex;flex-direction:column}
+  .opt.pick{border-color:#4c3f7a;box-shadow:0 0 0 1px #2a2242 inset}
+  .opt-hd{padding:16px 18px 12px;border-bottom:1px solid var(--line-soft)}
+  .opt-hd .letter{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.14em}
+  .opt-hd h3{margin:3px 0 5px;font-size:18px}
+  .opt-hd p{font-size:13.5px;color:var(--dim);margin:0}
+  .opt-art{background:#08080b;padding:14px 10px;display:flex;justify-content:center}
+  .opt-body{padding:14px 18px 18px;font-size:13.6px}
+  .opt-body h4{font-size:11.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer);
+    margin:16px 0 6px;font-weight:600}
+  .opt-body h4:first-child{margin-top:0}
+  .opt-body ul{margin:0;padding-left:17px}
+  .opt-body li{margin-bottom:5px}
+  .pc{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
+  .pc div{border-radius:10px;padding:10px 12px;font-size:13px}
+  .pc .pro{background:#101f17;border:1px solid #1d3a2a}
+  .pc .con{background:#1f1214;border:1px solid #3a1d22}
+  .pc b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+  .pc .pro b{color:var(--good)} .pc .con b{color:var(--bad)}
+  .cost{margin-top:12px;padding:11px 13px;border-radius:10px;background:var(--panel-2);
+    border:1px solid var(--line-soft);font-size:13px}
+  .cost b{display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dimmer);margin-bottom:4px}
+  .badge{display:inline-block;margin-top:9px;font-size:11px;letter-spacing:.08em;
+    text-transform:uppercase;font-weight:650;padding:4px 10px;border-radius:20px;
+    background:#241d3d;color:#c4b5fd}
+
+  .rec{background:linear-gradient(180deg,#161228,#121218);border:1px solid #3a2f5e;
+    border-radius:var(--radius);padding:24px 26px;margin-top:16px}
+  .rec h3{margin-top:0}
+  .note{font-size:13.5px;color:var(--dim);margin-top:10px}
+  .foot{margin-top:44px;font-size:12.5px;color:var(--dimmer);border-top:1px solid var(--line-soft);
+    padding-top:16px}
+</style>
+
+<div class="page">
+
+<h1>Image Skew &amp; Warp — four ways we could build it</h1>
+<p class="sub">A look at what the app can already do today, how the best touch apps handle
+this, and four honestly-different designs to pick from before we write the spec.</p>
+
+<div class="quote">"Two new features we need: an image SKEW and an image WARP… Give me some OPTIONS to
+choose from… I want to be as clever as possible about consolidating these in a way that's
+really easy and intuitive to access."</div>
+
+<!-- ============================================================ -->
+<h2>First — the three words, in pictures</h2>
+<p class="sub" style="margin-bottom:18px">These get used interchangeably and they are not the same
+thing. Each one is a different amount of work for us, so it is worth being precise.</p>
+
+<div class="gloss">
+  <div>
+    <b>Skew — "lean it"</b>
+    <span>Opposite edges stay parallel. Like italic text, or a shadow falling sideways.
+    Cheap and exact.</span>
+    <svg viewBox="0 0 200 96" width="100%" height="96" role="img" aria-label="A rectangle leaning to the right, edges still parallel">
+      <rect x="18" y="18" width="100" height="60" fill="none" stroke="#33333f" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <polygon points="46,18 146,18 118,78 18,78" fill="#a78bfa22" stroke="#a78bfa" stroke-width="2"/>
+      <path d="M150 30 L178 30" stroke="#6c6c7c" stroke-width="1.5" marker-end="url(#ar1)"/>
+      <defs><marker id="ar1" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+        <path d="M0 0 L7 3.5 L0 7 z" fill="#6c6c7c"/></marker></defs>
+    </svg>
+  </div>
+  <div>
+    <b>Perspective — "lay it down"</b>
+    <span>Far edge gets smaller, near edge gets bigger. Like a poster on a wall you're standing
+    beside, or a phone screen tilting away.</span>
+    <svg viewBox="0 0 200 96" width="100%" height="96" role="img" aria-label="A rectangle in perspective, top edge shorter than bottom edge">
+      <rect x="30" y="18" width="100" height="60" fill="none" stroke="#33333f" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <polygon points="52,22 122,22 148,78 18,78" fill="#4fd1c522" stroke="#4fd1c5" stroke-width="2"/>
+      <line x1="52" y1="22" x2="18" y2="78" stroke="#4fd1c5" stroke-width="2"/>
+    </svg>
+  </div>
+  <div>
+    <b>Warp — "bend it"</b>
+    <span>Straight lines become curves. Like cloth, a flag, or a label wrapped round a bottle.
+    This is the expensive one.</span>
+    <svg viewBox="0 0 200 96" width="100%" height="96" role="img" aria-label="A rectangle bent into a curved wavy shape">
+      <rect x="30" y="18" width="120" height="60" fill="none" stroke="#33333f" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <path d="M30 30 C 70 6, 110 50, 150 26 L150 70 C 110 94, 70 50, 30 74 Z"
+            fill="#fbbf2422" stroke="#fbbf24" stroke-width="2"/>
+      <path d="M90 20 C 100 40, 80 56, 90 80" stroke="#fbbf2466" stroke-width="1.5" fill="none"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>What the app can honestly do today</h2>
+<p class="sub" style="margin-bottom:18px">Your instinct that "the plumbing is all there" is
+half right, and the half that isn't is worth knowing before we choose a design.</p>
+
+<div class="facts">
+  <div class="fact ok">
+    <b>Corner-pin: already possible</b>
+    <span>Android's own drawing maths (<code>Matrix</code>) does full four-corner perspective for
+    free. Nothing new to invent. The final exported video path just calls it.</span>
+  </div>
+  <div class="fact ok">
+    <b>Bendy mesh: the drawing exists</b>
+    <span>The Avatar puppet already bends artwork with a real mesh (<code>drawBitmapMesh</code>) and
+    it runs on the phone's graphics chip. The picture-bending primitive is proven in this app.</span>
+  </div>
+  <div class="fact ok">
+    <b>On-screen dot handles: exist</b>
+    <span>The preview already has a shared system for draggable dots with tether lines, one-tap
+    undo, and no fighting between layers (used by the gradient curve editor).</span>
+  </div>
+  <div class="fact mid">
+    <b>The live preview is the catch</b>
+    <span>On screen, an image overlay is drawn by a plain Android image widget. Those can rotate
+    and scale but <em>physically cannot</em> skew or corner-pin. This needs replacing with a custom
+    drawing surface — that is the real work item.</span>
+  </div>
+  <div class="fact mid">
+    <b>Avatar warp is a ribbon, not a grid</b>
+    <span>The existing warp bends a strip along a bone chain — two columns wide. A photo needs a
+    proper grid. Same drawing call, new maths.</span>
+  </div>
+  <div class="fact hot">
+    <b>Keyframing a mesh is the real cost</b>
+    <span>Every animated value in the app is a single number on its own track. Four corners = 8
+    numbers, totally fine. A 5×5 bendy grid = 50 numbers per image. That needs a new way to store
+    and scrub animation, not just a new handle.</span>
+  </div>
+</div>
+
+<div class="scroller">
+<table>
+  <tr><th>Feature</th><th>Where it stands</th><th>What it needs</th></tr>
+  <tr><td>Flip / mirror</td><td><span class="tag t-ok">Already there</span></td>
+      <td>Negative scale. Nothing.</td></tr>
+  <tr><td>Skew (lean)</td><td><span class="tag t-ok">Small addition</span></td>
+      <td>Two extra numbers on the existing transform. Export path is a one-line change; preview
+      needs the custom drawing surface.</td></tr>
+  <tr><td>Perspective / corner pin</td><td><span class="tag t-ok">Small addition</span></td>
+      <td>Eight numbers (four corners). Export is free — the maths is built into Android. Same
+      preview surface as skew, so they cost the same to build once.</td></tr>
+  <tr><td>Bendy mesh warp</td><td><span class="tag t-mid">Real new pipeline</span></td>
+      <td>New grid maths, a new way to store dozens of animated points, new handle rules, and a
+      decision about what happens when a warped image also has effects or a mask on it.</td></tr>
+  <tr><td>Warp as a video "effect" instead</td><td><span class="tag t-hot">Dead end</span></td>
+      <td>The effects system has a slot that could bend pixels — but effects can only move pixels
+      <em>inside</em> the image's existing rectangle. A corner pulled outward would simply be cut
+      off. Warp has to be part of the object's shape, not an effect on it.</td></tr>
+</table>
+</div>
+
+<p class="note" style="margin-bottom:0"><strong>The single most important consequence:</strong>
+skew and perspective are essentially the same feature and cost one build. Bendy warp is a second,
+much larger project. Every option below is really a question of <em>how gracefully we can ship
+the cheap half first and leave a door open for the expensive half.</em></p>
+
+<!-- ============================================================ -->
+<h2>What the best touch apps actually do</h2>
+<div class="facts" style="margin-top:0">
+  <div class="fact">
+    <b style="color:var(--accent)">Photoshop on iPad</b>
+    <span>One bounding box, always the same four corner handles. A little row of mode icons —
+    Scale / Skew / Perspective / Distort — changes what dragging a corner <em>means</em>. Nothing
+    on the image itself changes appearance.</span>
+  </div>
+  <div class="fact">
+    <b style="color:var(--accent)">Procreate</b>
+    <span>Modes live in a bottom bar (Freeform, Uniform, Distort, Warp). Warp puts a net over the
+    image; a separate <em>Advanced Mesh</em> button subdivides that net when you want finer
+    control. Subdivision is opt-in, never the default.</span>
+  </div>
+  <div class="fact">
+    <b style="color:var(--accent)">After Effects</b>
+    <span>Keeps them deliberately separate: Corner Pin for hard-surface perspective (clean, four
+    points), Puppet Pin for organic bending (messy, many points). Professionals do not want one
+    tool that does both — the results look wrong in each other's territory.</span>
+  </div>
+  <div class="fact">
+    <b style="color:var(--accent)">Alight Motion</b>
+    <span>The closest phone analogue. Corner handles on canvas for fast placement, plus typed
+    number fields for precision, plus long-press nudging for fine work. Three ways in to the same
+    value.</span>
+  </div>
+  <div class="fact">
+    <b style="color:var(--accent-2)">Touch rule #1</b>
+    <span>Handles need roughly a fingertip of space — 44–48dp. On a phone-sized image, four corners
+    plus four edges plus a rotate stalk is already crowded. A 5×5 mesh is 25 dots and they
+    <em>will</em> overlap.</span>
+  </div>
+  <div class="fact">
+    <b style="color:var(--accent-2)">Touch rule #2</b>
+    <span>Your finger covers the thing you're dragging. Every serious app either offsets the
+    grabbed point above the finger, or shows a magnified loupe elsewhere on screen. We already
+    have the pattern for this in the mask editor.</span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>The four options</h2>
+<p class="sub" style="margin-bottom:20px">All four assume the same underlying data. They differ
+entirely in how you get at it with a thumb.</p>
+
+<div class="opts">
+
+<!-- ---------------- OPTION A ---------------- -->
+<div class="opt">
+  <div class="opt-hd">
+    <div class="letter">OPTION A</div>
+    <h3>Explicit Modes</h3>
+    <p>A row of mode buttons under the preview. Same four corners; the mode decides what a drag
+    does. The Photoshop-on-iPad approach.</p>
+  </div>
+  <div class="opt-art">
+    <svg viewBox="0 0 250 430" width="230" height="396" role="img" aria-label="Phone showing an image with corner and edge handles and a four button mode strip below, Skew selected">
+      <rect x="1" y="1" width="248" height="428" rx="22" fill="#101015" stroke="#2b2b36" stroke-width="2"/>
+      <rect x="12" y="20" width="226" height="250" rx="8" fill="#0c0c10" stroke="#22222c"/>
+      <!-- skewed image -->
+      <polygon points="82,62 208,62 168,212 42,212" fill="#2a2340" stroke="#a78bfa" stroke-width="2"/>
+      <polygon points="82,62 208,62 168,212 42,212" fill="url(#ph)" opacity=".5"/>
+      <defs>
+        <pattern id="ph" width="18" height="18" patternUnits="userSpaceOnUse">
+          <path d="M0 18 L18 0" stroke="#a78bfa" stroke-width=".6" opacity=".35"/>
+        </pattern>
+      </defs>
+      <!-- edge handles (active in skew) -->
+      <g fill="#ff3d7f">
+        <rect x="139" y="55" width="14" height="14" rx="3"/>
+        <rect x="98" y="205" width="14" height="14" rx="3"/>
+        <rect x="55" y="130" width="14" height="14" rx="3"/>
+        <rect x="181" y="130" width="14" height="14" rx="3"/>
+      </g>
+      <!-- corner handles (dimmed) -->
+      <g fill="none" stroke="#5a5a6a" stroke-width="2">
+        <rect x="76" y="56" width="12" height="12" rx="2"/>
+        <rect x="202" y="56" width="12" height="12" rx="2"/>
+        <rect x="36" y="206" width="12" height="12" rx="2"/>
+        <rect x="162" y="206" width="12" height="12" rx="2"/>
+      </g>
+      <text x="125" y="243" fill="#6c6c7c" font-size="10" font-family="system-ui" text-anchor="middle">drag a pink edge to lean it</text>
+      <!-- mode strip -->
+      <rect x="12" y="286" width="226" height="46" rx="12" fill="#17171e" stroke="#26262f"/>
+      <rect x="70" y="291" width="53" height="36" rx="9" fill="#3a2f6b" stroke="#a78bfa"/>
+      <g font-family="system-ui" font-size="10.5" text-anchor="middle">
+        <text x="42"  y="313" fill="#8d8d9d">Move</text>
+        <text x="96"  y="313" fill="#d9cffb">Skew</text>
+        <text x="153" y="313" fill="#8d8d9d">Persp</text>
+        <text x="209" y="313" fill="#8d8d9d">Warp</text>
+      </g>
+      <!-- keyframe row -->
+      <rect x="12" y="342" width="226" height="40" rx="10" fill="#15151b" stroke="#24242d"/>
+      <path d="M32 362 l8 -8 l8 8 l-8 8 z" fill="#fbbf24"/>
+      <text x="54" y="366" fill="#9a9aab" font-size="10.5" font-family="system-ui">Shape · keyframed</text>
+      <rect x="176" y="352" width="52" height="20" rx="10" fill="#221d33"/>
+      <text x="202" y="366" fill="#c4b5fd" font-size="10" font-family="system-ui" text-anchor="middle">Reset</text>
+    </svg>
+  </div>
+  <div class="opt-body">
+    <h4>Handles</h4>
+    <ul>
+      <li><b>Corners</b> — meaning changes per mode: resize / free-drag / perspective pull.</li>
+      <li><b>Edges</b> — only appear in Skew. Sliding one leans the image that way.</li>
+      <li><b>Rotate stalk</b> — stays as it is today, in every mode.</li>
+    </ul>
+    <h4>Getting in and out</h4>
+    <ul>
+      <li>Tap the image, tap the mode. Tap the same mode again to drop back to Move.</li>
+      <li>The mode strip lives in the object drawer, so nothing new floats over the video.</li>
+    </ul>
+    <h4>Keyframing</h4>
+    <ul>
+      <li>One diamond for the whole shape — press it and the current lean/perspective is pinned to
+      that moment. Exactly how Position and Scale already work.</li>
+    </ul>
+    <div class="pc">
+      <div class="pro"><b>Pros</b> Impossible to trigger by accident. Every mode is discoverable by
+      reading four words. Matches what people already know from Photoshop and Procreate.</div>
+      <div class="con"><b>Cons</b> Four taps to get anywhere. You cannot skew and perspective in
+      one gesture. The strip is real estate on an already busy drawer, and Warp sits in it as a
+      promise we may not keep for a while.</div>
+    </div>
+    <div class="cost"><b>Build cost</b> Low for Move/Skew/Perspective — one new drawing surface for
+    the preview, plus eight numbers on the object. The Warp button is the expensive one and would
+    ship greyed out or later.</div>
+  </div>
+</div>
+
+<!-- ---------------- OPTION B ---------------- -->
+<div class="opt">
+  <div class="opt-hd">
+    <div class="letter">OPTION B</div>
+    <h3>One Smart Widget</h3>
+    <p>No modes at all. Every handle already means something different, and a long-press on a
+    corner pops a little ring to change its behaviour.</p>
+  </div>
+  <div class="opt-art">
+    <svg viewBox="0 0 250 430" width="230" height="396" role="img" aria-label="Phone showing an image where a long press on the top right corner opens a small radial menu of four handle behaviours">
+      <rect x="1" y="1" width="248" height="428" rx="22" fill="#101015" stroke="#2b2b36" stroke-width="2"/>
+      <rect x="12" y="20" width="226" height="290" rx="8" fill="#0c0c10" stroke="#22222c"/>
+      <polygon points="58,72 196,66 186,230 52,222" fill="#2a2340" stroke="#a78bfa" stroke-width="2"/>
+      <polygon points="58,72 196,66 186,230 52,222" fill="url(#ph)" opacity=".5"/>
+      <!-- corner handles: round = free -->
+      <g fill="#0c0c10" stroke="#a78bfa" stroke-width="2.5">
+        <circle cx="58" cy="72" r="7"/>
+        <circle cx="52" cy="222" r="7"/>
+        <circle cx="186" cy="230" r="7"/>
+      </g>
+      <!-- edge pips: small bars -->
+      <g fill="#4fd1c5" opacity=".85">
+        <rect x="120" y="65" width="16" height="5" rx="2.5"/>
+        <rect x="115" y="223" width="16" height="5" rx="2.5"/>
+        <rect x="52" y="140" width="5" height="16" rx="2.5"/>
+        <rect x="188" y="140" width="5" height="16" rx="2.5"/>
+      </g>
+      <!-- radial ring on the top-right corner -->
+      <circle cx="196" cy="66" r="42" fill="#15121f" fill-opacity=".96" stroke="#a78bfa" stroke-width="1.5"/>
+      <circle cx="196" cy="66" r="8" fill="#ff3d7f"/>
+      <g font-family="system-ui" font-size="8.5" text-anchor="middle" fill="#d9cffb">
+        <circle cx="196" cy="34" r="12" fill="#2b2447" stroke="#4c3f7a"/><text x="196" y="37">size</text>
+        <circle cx="228" cy="66" r="12" fill="#3a2f6b" stroke="#a78bfa"/><text x="228" y="69">free</text>
+        <circle cx="196" cy="98" r="12" fill="#2b2447" stroke="#4c3f7a"/><text x="196" y="101">persp</text>
+        <circle cx="164" cy="66" r="12" fill="#2b2447" stroke="#4c3f7a"/><text x="164" y="69">bend</text>
+      </g>
+      <text x="125" y="332" fill="#6c6c7c" font-size="10" font-family="system-ui" text-anchor="middle">hold a corner → pick what it does</text>
+      <rect x="12" y="348" width="226" height="40" rx="10" fill="#15151b" stroke="#24242d"/>
+      <path d="M32 368 l8 -8 l8 8 l-8 8 z" fill="#fbbf24"/>
+      <text x="54" y="372" fill="#9a9aab" font-size="10.5" font-family="system-ui">Shape · keyframed</text>
+      <rect x="176" y="358" width="52" height="20" rx="10" fill="#221d33"/>
+      <text x="202" y="372" fill="#c4b5fd" font-size="10" font-family="system-ui" text-anchor="middle">Reset</text>
+    </svg>
+  </div>
+  <div class="opt-body">
+    <h4>Handles</h4>
+    <ul>
+      <li><b>Round corners</b> — drag one and only that corner moves. Free distort by default.</li>
+      <li><b>Little teal bars on the edges</b> — slide one and the image leans (skew). They read as
+      a different <em>shape</em>, so you never confuse them with corners.</li>
+      <li><b>Long-press any corner</b> — a small ring appears with four choices: size, free,
+      perspective, bend. Whatever you pick becomes that corner's job.</li>
+    </ul>
+    <h4>Getting in and out</h4>
+    <ul>
+      <li>There is no "in". It is simply what the selection box looks like once the feature exists.
+      Double-tap the box to reset the shape.</li>
+    </ul>
+    <h4>Keyframing</h4>
+    <ul>
+      <li>Same single diamond. Because you never left a mode, one diamond covers the whole shape
+      regardless of which handles you used.</li>
+    </ul>
+    <div class="pc">
+      <div class="pro"><b>Pros</b> Fastest possible workflow — no mode hunting, everything is one
+      gesture away. Nothing added to the drawer. Feels genuinely clever and modern.</div>
+      <div class="con"><b>Cons</b> Nothing on screen tells you the ring exists. Users will drag a
+      corner meaning "resize" and get a distorted picture instead, which reads as a bug. Eight
+      handles on a phone-sized image is tight, and it collides with the existing pinch-to-scale
+      gesture.</div>
+    </div>
+    <div class="cost"><b>Build cost</b> Medium. The transform maths is the same as A, but the touch
+    layer gets meaningfully harder: hidden gestures, a new popup widget, per-corner state, and a
+    lot of care so the old pinch and rotate behaviours don't break.</div>
+  </div>
+</div>
+
+<!-- ---------------- OPTION C ---------------- -->
+<div class="opt pick">
+  <div class="opt-hd">
+    <div class="letter">OPTION C · RECOMMENDED</div>
+    <h3>Corners First, Grid Later</h3>
+    <p>One new button: <b>Shape</b>. It puts four pins on the image. Pull them anywhere. If you
+    need bending, a <b>+ Finer</b> button splits the pins into a net — and that stays optional
+    forever.</p>
+  </div>
+  <div class="opt-art">
+    <svg viewBox="0 0 250 430" width="230" height="396" role="img" aria-label="Phone showing an image with four round corner pins, a subdivide control, and a small inset preview of a finer grid">
+      <rect x="1" y="1" width="248" height="428" rx="22" fill="#101015" stroke="#2b2b36" stroke-width="2"/>
+      <rect x="12" y="20" width="226" height="252" rx="8" fill="#0c0c10" stroke="#22222c"/>
+      <!-- corner-pinned quad -->
+      <polygon points="70,58 200,78 176,226 40,206" fill="#2a2340" stroke="#a78bfa" stroke-width="2"/>
+      <polygon points="70,58 200,78 176,226 40,206" fill="url(#ph)" opacity=".5"/>
+      <!-- guide lines to original rect -->
+      <rect x="46" y="62" width="150" height="152" fill="none" stroke="#33333f" stroke-width="1" stroke-dasharray="3 4"/>
+      <!-- four pins, big and round -->
+      <g>
+        <circle cx="70" cy="58" r="10" fill="#ff3d7f" fill-opacity=".18" stroke="#ff3d7f" stroke-width="2.5"/>
+        <circle cx="200" cy="78" r="10" fill="#ff3d7f" fill-opacity=".18" stroke="#ff3d7f" stroke-width="2.5"/>
+        <circle cx="176" cy="226" r="10" fill="#ff3d7f" fill-opacity=".18" stroke="#ff3d7f" stroke-width="2.5"/>
+        <circle cx="40" cy="206" r="10" fill="#ff3d7f" fill-opacity=".18" stroke="#ff3d7f" stroke-width="2.5"/>
+        <circle cx="70" cy="58" r="2.5" fill="#ff3d7f"/><circle cx="200" cy="78" r="2.5" fill="#ff3d7f"/>
+        <circle cx="176" cy="226" r="2.5" fill="#ff3d7f"/><circle cx="40" cy="206" r="2.5" fill="#ff3d7f"/>
+      </g>
+      <!-- loupe: finger offset callout -->
+      <circle cx="212" cy="140" r="20" fill="#0c0c10" stroke="#4fd1c5" stroke-width="1.5"/>
+      <circle cx="212" cy="140" r="4" fill="#ff3d7f"/>
+      <text x="212" y="172" fill="#4fd1c5" font-size="8" font-family="system-ui" text-anchor="middle">loupe</text>
+      <!-- shape bar -->
+      <rect x="12" y="288" width="226" height="44" rx="12" fill="#17171e" stroke="#26262f"/>
+      <rect x="18" y="293" width="60" height="34" rx="9" fill="#3a2f6b" stroke="#a78bfa"/>
+      <text x="48" y="314" fill="#d9cffb" font-size="10.5" font-family="system-ui" text-anchor="middle">Shape</text>
+      <rect x="84" y="293" width="66" height="34" rx="9" fill="#1e1e26" stroke="#2e2e3a"/>
+      <text x="117" y="314" fill="#9a9aab" font-size="10.5" font-family="system-ui" text-anchor="middle">+ Finer</text>
+      <rect x="156" y="293" width="76" height="34" rx="9" fill="#1e1e26" stroke="#2e2e3a"/>
+      <text x="194" y="310" fill="#9a9aab" font-size="9.5" font-family="system-ui" text-anchor="middle">Keep square</text>
+      <text x="194" y="321" fill="#5f5f70" font-size="8" font-family="system-ui" text-anchor="middle">(lean only)</text>
+      <!-- inset: subdivided -->
+      <rect x="12" y="342" width="104" height="70" rx="9" fill="#0c0c10" stroke="#24242d"/>
+      <text x="64" y="356" fill="#6c6c7c" font-size="8.5" font-family="system-ui" text-anchor="middle">after "+ Finer"</text>
+      <g stroke="#a78bfa" stroke-width=".9" opacity=".65" fill="none">
+        <path d="M26 366 C 50 358, 74 376, 100 366"/>
+        <path d="M26 386 C 50 378, 74 396, 100 386"/>
+        <path d="M26 402 C 50 394, 74 412, 100 402"/>
+        <path d="M26 366 L26 402"/><path d="M63 362 L63 398"/><path d="M100 366 L100 402"/>
+      </g>
+      <g fill="#ff3d7f">
+        <circle cx="26" cy="366" r="3"/><circle cx="63" cy="362" r="3"/><circle cx="100" cy="366" r="3"/>
+        <circle cx="26" cy="386" r="3"/><circle cx="63" cy="382" r="3"/><circle cx="100" cy="386" r="3"/>
+        <circle cx="26" cy="402" r="3"/><circle cx="63" cy="398" r="3"/><circle cx="100" cy="402" r="3"/>
+      </g>
+      <rect x="124" y="342" width="114" height="70" rx="9" fill="#15151b" stroke="#24242d"/>
+      <path d="M138 366 l7 -7 l7 7 l-7 7 z" fill="#fbbf24"/>
+      <text x="158" y="370" fill="#9a9aab" font-size="9.5" font-family="system-ui">Shape key</text>
+      <text x="138" y="392" fill="#5f5f70" font-size="8.5" font-family="system-ui">one diamond =</text>
+      <text x="138" y="403" fill="#5f5f70" font-size="8.5" font-family="system-ui">all four pins</text>
+    </svg>
+  </div>
+  <div class="opt-body">
+    <h4>Handles</h4>
+    <ul>
+      <li><b>Four big round pins</b>, one per corner, and that is the whole idea. Drag one wherever
+      you like. Lean, tilt and perspective all fall out of moving corners — there is nothing else
+      to learn.</li>
+      <li><b>Keep square</b> toggle — locks the pins so the shape can only lean, never taper. That
+      <em>is</em> skew, without the word.</li>
+      <li><b>+ Finer</b> — splits four pins into nine, then twenty-five. Only then do you get real
+      bending. Press it only if you need it.</li>
+      <li>A small loupe follows the dragged pin, so your thumb never hides the corner you're
+      placing.</li>
+    </ul>
+    <h4>Getting in and out</h4>
+    <ul>
+      <li>One tile in the object drawer: <b>Shape</b>. Tap it on, pins appear over the video. Tap
+      it off, the box goes back to normal. Long-press it to reset.</li>
+    </ul>
+    <h4>Keyframing</h4>
+    <ul>
+      <li>One diamond covers all four pins at once, so a "corner pin animates in" is a single
+      press at each end. Same diamond, same easing menu as everything else in the app.</li>
+      <li>At the finer grid levels the diamond still covers the whole net — you never key one dot
+      at a time, which is what makes it survivable.</li>
+    </ul>
+    <div class="pc">
+      <div class="pro"><b>Pros</b> One concept — "pull the corners" — covers three features people
+      normally have to learn separately. Nothing is hidden, and nothing new floats over the video
+      until you ask. The cheap half ships as a complete, satisfying feature on its own, and the
+      expensive half slots in behind one button without redesigning anything.</div>
+      <div class="con"><b>Cons</b> Doesn't offer a numeric "skew 12°" field for someone who wants
+      exactness (we can add typed values later). "+ Finer" only becomes real when we build the mesh,
+      so at launch it either isn't there or is clearly marked coming.</div>
+    </div>
+    <div class="cost"><b>Build cost</b> Lowest of the four for what it delivers. The pins reuse the
+    existing draggable-dot system in the preview almost as-is. The four-corner maths is built into
+    Android and the export path needs a few lines. The one real job is the custom drawing surface
+    for the live preview — which every option on this page needs anyway.</div>
+    <span class="badge">Ships useful in one pass</span>
+  </div>
+</div>
+
+<!-- ---------------- OPTION D ---------------- -->
+<div class="opt">
+  <div class="opt-hd">
+    <div class="letter">OPTION D</div>
+    <h3>The Shape Rail</h3>
+    <p>A slim vertical rail floats beside the image while it's selected. Icons for lean, tilt and
+    bend, plus a grid density stepper and the keyframe diamond — all in one strip.</p>
+  </div>
+  <div class="opt-art">
+    <svg viewBox="0 0 250 430" width="230" height="396" role="img" aria-label="Phone with a slim vertical icon rail on the right of the preview and a warped image with a mesh grid">
+      <rect x="1" y="1" width="248" height="428" rx="22" fill="#101015" stroke="#2b2b36" stroke-width="2"/>
+      <rect x="12" y="20" width="226" height="310" rx="8" fill="#0c0c10" stroke="#22222c"/>
+      <!-- warped mesh image -->
+      <path d="M40 70 C 84 44, 128 92, 172 62 L182 210 C 138 240, 92 192, 46 218 Z"
+            fill="#2a2340" stroke="#a78bfa" stroke-width="2"/>
+      <g stroke="#a78bfa" stroke-width=".9" opacity=".55" fill="none">
+        <path d="M43 107 C 87 82, 130 129, 174 100"/>
+        <path d="M44 145 C 88 119, 131 167, 176 137"/>
+        <path d="M45 182 C 89 156, 133 204, 178 174"/>
+        <path d="M40 70 C 42 120, 44 170, 46 218"/>
+        <path d="M84 56 C 86 108, 88 160, 90 212"/>
+        <path d="M128 74 C 130 124, 132 176, 134 226"/>
+        <path d="M172 62 C 175 111, 178 161, 182 210"/>
+      </g>
+      <g fill="#ff3d7f">
+        <circle cx="40" cy="70" r="5"/><circle cx="84" cy="56" r="4"/><circle cx="128" cy="74" r="4"/><circle cx="172" cy="62" r="5"/>
+        <circle cx="43" cy="107" r="3"/><circle cx="87" cy="93" r="3"/><circle cx="130" cy="111" r="3"/><circle cx="174" cy="100" r="3"/>
+        <circle cx="45" cy="182" r="3"/><circle cx="89" cy="168" r="3"/><circle cx="133" cy="186" r="3"/><circle cx="178" cy="174" r="3"/>
+        <circle cx="46" cy="218" r="5"/><circle cx="90" cy="212" r="4"/><circle cx="134" cy="226" r="4"/><circle cx="182" cy="210" r="5"/>
+      </g>
+      <!-- the rail -->
+      <rect x="198" y="42" width="34" height="230" rx="17" fill="#17171e" fill-opacity=".95" stroke="#2e2e3a"/>
+      <g>
+        <circle cx="215" cy="64" r="13" fill="#1e1e26"/>
+        <path d="M209 71 L214 57 L222 57 L217 71 Z" fill="none" stroke="#9a9aab" stroke-width="1.6"/>
+        <circle cx="215" cy="100" r="13" fill="#1e1e26"/>
+        <polygon points="209,95 221,95 224,107 206,107" fill="none" stroke="#9a9aab" stroke-width="1.6"/>
+        <circle cx="215" cy="136" r="13" fill="#3a2f6b" stroke="#a78bfa"/>
+        <path d="M207 140 C 212 130, 218 146, 223 134" fill="none" stroke="#d9cffb" stroke-width="1.8"/>
+        <circle cx="215" cy="176" r="13" fill="#1e1e26"/>
+        <text x="215" y="180" fill="#9a9aab" font-size="10" font-family="system-ui" text-anchor="middle">4×4</text>
+        <circle cx="215" cy="212" r="13" fill="#1e1e26"/>
+        <text x="215" y="217" fill="#9a9aab" font-size="14" font-family="system-ui" text-anchor="middle">＋</text>
+        <circle cx="215" cy="248" r="13" fill="#1e1e26"/>
+        <path d="M215 241 l7 7 l-7 7 l-7 -7 z" fill="#fbbf24"/>
+      </g>
+      <text x="110" y="352" fill="#6c6c7c" font-size="10" font-family="system-ui" text-anchor="middle">lean · tilt · bend · density · key</text>
+      <rect x="12" y="368" width="226" height="42" rx="10" fill="#15151b" stroke="#24242d"/>
+      <text x="26" y="386" fill="#9a9aab" font-size="10" font-family="system-ui">Bend · 16 points</text>
+      <text x="26" y="399" fill="#5f5f70" font-size="9" font-family="system-ui">every point animates independently</text>
+    </svg>
+  </div>
+  <div class="opt-body">
+    <h4>Handles</h4>
+    <ul>
+      <li><b>Big dots</b> = corners, <b>small dots</b> = mesh points. Size alone tells you which is
+      which, so you can't grab the wrong one by accident.</li>
+      <li>The rail's top three icons pick lean / tilt / bend; the <b>4×4</b> and <b>+</b> buttons
+      change how fine the net is, live.</li>
+      <li>The diamond at the bottom of the rail is right where your thumb already is.</li>
+    </ul>
+    <h4>Getting in and out</h4>
+    <ul>
+      <li>The rail simply appears when an image is selected and slides away when it isn't. No mode
+      to remember entering.</li>
+    </ul>
+    <h4>Keyframing</h4>
+    <ul>
+      <li>The most powerful and the most dangerous: each mesh point can hold its own keyframes,
+      which is how you'd animate a flag rippling — and also how a project file gets enormous and a
+      timeline becomes unreadable.</li>
+    </ul>
+    <div class="pc">
+      <div class="pro"><b>Pros</b> The most capable of the four by a distance, and everything is
+      one thumb-reach away without covering the picture. Genuinely competitive with desktop tools.</div>
+      <div class="con"><b>Cons</b> This is the full feature on day one — there is no cheap half to
+      ship first. A floating rail over the video is new furniture that has to work in portrait,
+      landscape and fullscreen. And a 16-point animated mesh is a real risk to file size, undo, and
+      export speed.</div>
+    </div>
+    <div class="cost"><b>Build cost</b> Highest. Needs the new preview surface, the grid maths, a
+    new multi-point animation store, a floating overlay that behaves in every orientation, and
+    answers for how a bent image interacts with effects, masks and blend modes. Realistically two
+    to three times Option C.</div>
+  </div>
+</div>
+
+</div>
+
+<!-- ============================================================ -->
+<h2>Side by side</h2>
+<div class="scroller">
+<table>
+  <tr>
+    <th>&nbsp;</th><th>A · Modes</th><th>B · Smart widget</th><th>C · Corners first</th><th>D · Rail</th>
+  </tr>
+  <tr><td>Taps to lean an image</td><td>3</td><td>1</td><td>2</td><td>2</td></tr>
+  <tr><td>Discoverable without help</td>
+      <td><span class="tag t-ok">Yes</span></td>
+      <td><span class="tag t-hot">No</span></td>
+      <td><span class="tag t-ok">Yes</span></td>
+      <td><span class="tag t-mid">Mostly</span></td></tr>
+  <tr><td>Risk of accidental distortion</td>
+      <td><span class="tag t-ok">Low</span></td>
+      <td><span class="tag t-hot">High</span></td>
+      <td><span class="tag t-ok">Low</span></td>
+      <td><span class="tag t-mid">Medium</span></td></tr>
+  <tr><td>Covers up the picture</td>
+      <td><span class="tag t-ok">No</span></td>
+      <td><span class="tag t-mid">Ring does</span></td>
+      <td><span class="tag t-ok">No</span></td>
+      <td><span class="tag t-mid">Rail does</span></td></tr>
+  <tr><td>Can ship half of it first</td>
+      <td><span class="tag t-mid">Yes, with a dead button</span></td>
+      <td><span class="tag t-hot">Awkward</span></td>
+      <td><span class="tag t-ok">Yes, cleanly</span></td>
+      <td><span class="tag t-hot">No</span></td></tr>
+  <tr><td>Keyframes stay simple</td>
+      <td><span class="tag t-ok">Yes</span></td>
+      <td><span class="tag t-ok">Yes</span></td>
+      <td><span class="tag t-ok">Yes</span></td>
+      <td><span class="tag t-hot">No</span></td></tr>
+  <tr><td>Reuses what we already have</td>
+      <td>Some</td><td>Some</td><td><span class="tag t-ok">Most</span></td><td>Least</td></tr>
+  <tr><td>Rough build cost</td>
+      <td>1×</td><td>1.4×</td><td><span class="tag t-ok">1×</span></td><td>2.5–3×</td></tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2>Recommendation</h2>
+<div class="rec">
+  <h3>Option C — Corners first, grid later.</h3>
+  <p>Four draggable pins is the smallest idea that delivers the largest share of what you asked
+  for. Leaning, tilting and full perspective are not really three features — they are three
+  results of moving corners, and giving people one honest control instead of three named modes is
+  the clever consolidation you were after. It also happens to be the one the app is already built
+  for: Android's own drawing maths does four-corner perspective natively, the export path is a
+  handful of lines, and the preview already has a shared system for draggable dots with proper
+  undo. The <b>Keep square</b> toggle gives you exact skew without ever using the word, and
+  <b>+ Finer</b> is a door we can leave in the wall and walk through when a real bendy mesh is
+  worth the money.</p>
+  <p class="note"><strong>One thing to be clear-eyed about:</strong> bendy mesh warp is genuinely a
+  separate project, not a finishing touch. The bending itself is proven — the Avatar puppet already
+  does it — but animating dozens of points needs a new way to store and scrub keyframes, and it
+  changes how a warped image has to interact with effects, masks and blend modes. Corner pins are
+  weeks; a keyframable mesh is a lane of its own. Shipping C's pins first means you get the feature
+  people actually reach for most, and we decide about the mesh with real usage behind us.</p>
+  <p class="note"><strong>If you want more than C:</strong> take C and borrow one thing from B —
+  small teal bars on the edges for a pure lean. It's a modest addition on top of the pins and it
+  makes skew a single gesture. I would not take B whole: a corner that resizes on Tuesday and
+  distorts on Wednesday will be reported as a bug.</p>
+</div>
+
+<div class="foot">
+  Grounded in: the preview handle system, the image export drawing path, the keyframe tracks, the
+  Avatar puppet's mesh bending, and the effects system's coordinate-remap slot.
+  Interaction references: Photoshop on iPad, Procreate, After Effects Corner Pin / Puppet Pin,
+  Alight Motion.
+</div>
+
+</div>

@@ -344,7 +344,7 @@ both). The user's watcher can die silently while `build.log` keeps showing an ol
 | Symptom | Fix |
 |---|---|
 | `adb` not found | It's not on PATH — use the full path in §1. |
-| Device `offline` / not listed | `adb kill-server && adb start-server`, then replug USB and re-run `adb devices`. |
+| Device `offline` / not listed | **Try wireless first** — see `tasks/WIRELESS_ADB_CONNECT.md` (phone is already paired). Then `adb kill-server && adb start-server`, re-run `adb devices`. |
 | Device `unauthorized` | Unlock phone, tap **Allow USB debugging** (check "always") on its screen. |
 | `uiautomator dump` returns null root / "could not get hierarchy" | Expected on these devices. **Don't rely on it.** Navigate by screenshot coordinates instead (§4a). |
 | Screenshot file is corrupt / 0 bytes | You used `shell screencap` + `cat`. Use `adb exec-out screencap -p > file.png` (§4a). |

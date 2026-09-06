@@ -81,6 +81,127 @@ public final class FxRegistry {
             "vec2 cell = FX_STEP * max(FX_P(size), 1.0);\n"
             + "return (floor(uv / cell) + vec2(0.5)) * cell;\n";
 
+    // Brightness / Exposure. The registry had NO brightness, exposure, gamma-only or luminosity
+    // effect at all — those live only in the legacy per-clip EffectStack, which an adjustment
+    // layer cannot reach. So "make an adjustment layer flash the image brighter at 2:37" was not
+    // a wiring bug, it was a missing effect (JoyRaptor, 2026-09-01).
+    //
+    // exposure is in STOPS and multiplicative (exp2), which is how a real exposure control
+    // behaves and what makes a keyframed flash ramp look natural rather than washing out early.
+    // lift is additive and is what actually reaches pure white, so a flash keyframes exposure
+    // for the punch and lift to blow out the top end.
+    private static final String BODY_BRIGHTNESS =
+            "vec3 c = src.rgb * exp2(FX_P(exposure)) + vec3(FX_P(lift));\n"
+            + "c = clamp(c, 0.0, 1.0);\n"
+            + "return vec4(mix(src.rgb, c, FX_P(amount)), src.a);\n";
+
+    /**
+     * The legacy per-clip colour grade's MATRIX/HSL half, ported byte-for-byte from the maths the
+     * old system actually ran — {@code EffectStack.toEffects} on export and
+     * {@code ColorGradeGlSource.PREVIEW_FRAGMENT} in the editor.
+     *
+     * <p><b>Nothing here is re-derived.</b> Each stage reproduces a media3 {@code RgbMatrix}
+     * whose construction was read out of {@code media3-effect-1.8.0}'s own bytecode:
+     * {@code Brightness} is an identity matrix translated by {@code (e,e,e)} (so {@code c + e});
+     * {@code Contrast} is {@code diag(f)} with translation {@code (1-f)*0.5} where
+     * {@code f = (1 + contrast) / (1.0001 - contrast)} — the {@code 1.0001} is media3's, and
+     * dropping it would divide by zero at contrast 1; {@code RgbAdjustment.Builder().build()} is
+     * {@code Matrix.scaleM(identity, red, green, blue)}, i.e. a per-channel multiply. The
+     * saturation stage is media3's {@code fragment_shader_hsl_es2.glsl} (Hocevar's branchless
+     * conversion), inlined from {@code ColorGradeGlSource.HSL_FN} — a "tidier" saturation is a
+     * DIFFERENT curve and would quietly re-grade nineteen real projects.</p>
+     *
+     * <p><b>The 0.001 gates are not tidiness either.</b> {@code toEffects} SKIPS an inactive
+     * stage, and an HSL round trip at neutral saturation is not a perfect identity, so a stage
+     * that runs where export skipped it drifts the picture. Contrast is gated for a second
+     * reason: {@code f} at contrast 0 is {@code 1/1.0001}, not 1.</p>
+     *
+     * <p><b>The clamps between stages are load-bearing.</b> media3 writes each matrix stage into
+     * an 8-bit target, which clamps; {@code PREVIEW_FRAGMENT} reproduces that, and so does this.
+     * Without them a bright exposure would come back down under a later negative stage instead of
+     * having been crushed.</p>
+     *
+     * <p>Highlights/shadows/fade/vignette/grain are deliberately NOT here — see {@code film}.</p>
+     */
+    private static final String BODY_COLOR_GRADE =
+            "vec3 g = src.rgb;\n"
+            + "float gex = FX_P(exposure);\n"
+            + "float gct = FX_P(contrast);\n"
+            // media3 Contrast: f = (1 + c) / (1.0001 - c), applied as c*f + (1-f)*0.5.
+            + "float gcf = abs(gct) > 0.001 ? (1.0 + gct) / (1.0001 - gct) : 1.0;\n"
+            + "if (abs(gex) > 0.001) g = g + vec3(gex);\n"
+            + "g = clamp(g * gcf + vec3((1.0 - gcf) * 0.5), 0.0, 1.0);\n"
+            + "float gsat = FX_P(saturation);\n"
+            + "if (abs(gsat - 1.0) > 0.001) {\n"
+            // Hocevar RGB->HCV, kept in `float` locals rather than a vec4 on purpose: the AGSL
+            // emit rewrites vec4 to half4, and these intermediates want more than half.
+            // Ternaries rather than if/else with bare declarations: AGSL/SkSL is stricter about
+            // reading a variable whose initialisation it cannot prove, and this is also the
+            // branchless shape Hocevar's original has.
+            + "  bool gswap = g.g < g.b;\n"
+            + "  float px = gswap ? g.b : g.g;\n"
+            + "  float py = gswap ? g.g : g.b;\n"
+            + "  float pz = gswap ? -1.0 : 0.0;\n"
+            + "  float pw = gswap ? 2.0 / 3.0 : -1.0 / 3.0;\n"
+            + "  bool gpick = g.r < px;\n"
+            + "  float qx = gpick ? px : g.r;\n"
+            + "  float qy = py;\n"
+            + "  float qz = gpick ? pw : pz;\n"
+            + "  float qw = gpick ? g.r : px;\n"
+            + "  float gchroma = qx - min(qw, qy);\n"
+            + "  float ghue = abs((qw - qy) / (6.0 * gchroma + 1e-10) + qz);\n"
+            + "  float glum = qx - gchroma * 0.5;\n"
+            + "  float gs = gchroma / (1.0 - abs(glum * 2.0 - 1.0) + 1e-10);\n"
+            // HslAdjustment takes a PERCENTAGE and HslShaderProgram divides by 100, so what the
+            // shader sees is the plain fractional delta. Getting this wrong once made export
+            // ~100x less saturated than the preview.
+            + "  gs = clamp(gs + (gsat - 1.0), 0.0, 1.0);\n"
+            + "  vec3 ghb = clamp(vec3(abs(ghue * 6.0 - 3.0) - 1.0,\n"
+            + "                        2.0 - abs(ghue * 6.0 - 2.0),\n"
+            + "                        2.0 - abs(ghue * 6.0 - 4.0)), 0.0, 1.0);\n"
+            + "  float gcc = (1.0 - abs(2.0 * glum - 1.0)) * gs;\n"
+            + "  g = clamp((ghb - vec3(0.5)) * gcc + vec3(glum), 0.0, 1.0);\n"
+            + "}\n"
+            + "float gtp = FX_P(temperature);\n"
+            + "float gtn = FX_P(tint);\n"
+            + "if (abs(gtp) > 0.001 || abs(gtn) > 0.001) {\n"
+            + "  g = clamp(g * vec3(1.0 + gtp * 0.18, 1.0 + gtn * 0.08, 1.0 - gtp * 0.18),\n"
+            + "            0.0, 1.0);\n"
+            + "}\n"
+            + "return vec4(g, src.a);\n";
+
+    /**
+     * The legacy grade's SHADER half — {@code ColorGradeGlSource.GRADE_FN}, inlined verbatim.
+     *
+     * <p><b>Why highlights and shadows live here and not on {@code color_grade}.</b> These five
+     * ran as ONE unclamped block in the old system: {@code ColorGradeShaderProgram.drawFrame}
+     * sets exactly five uniforms (highlights, shadows, fade, vignette, grain) and
+     * {@code GRADE_FN} clamps ONCE, at the very end. Highlights and shadows mix toward luma with
+     * a NEGATIVE factor for positive shadows / negative highlights, which legitimately pushes a
+     * channel outside 0..1 — and fade, vignette and grain then act on that out-of-range value.
+     * Splitting the block would insert the per-card clamp between them and change the picture on
+     * any project combining shadows with a vignette. Same five, same order, one card.</p>
+     */
+    private static final String BODY_FILM =
+            "vec3 f = src.rgb;\n"
+            // The luma the masks key off is measured on the ALREADY-EXPOSED colour: brightening a
+            // shot should move which pixels count as highlights.
+            + "float fluma = dot(f, vec3(0.299, 0.587, 0.114));\n"
+            + "float fhi = step(0.5, fluma) * clamp((fluma - 0.5) * 2.0, 0.0, 1.0);\n"
+            + "float flo = step(fluma, 0.5) * clamp((0.5 - fluma) * 2.0, 0.0, 1.0);\n"
+            + "f = mix(f, vec3(fluma), FX_P(highlights) * fhi);\n"
+            + "f = mix(f, vec3(fluma), -FX_P(shadows) * flo);\n"
+            + "float ffade = FX_P(fade);\n"
+            + "f = mix(f, vec3(0.0), max(0.0, ffade));\n"
+            + "f = mix(f, vec3(1.0), max(0.0, -ffade));\n"
+            + "float fd = distance(uv, vec2(0.5));\n"
+            + "f = f * (1.0 - smoothstep(0.72, 0.28, fd) * FX_P(vignette));\n"
+            + "float fgr = FX_P(grain);\n"
+            + "vec2 fnp = uv + vec2(fract(fgr * 1000.0));\n"
+            + "float fnoise = fract(sin(dot(fnp, vec2(12.9898, 78.233))) * 43758.5453) - 0.5;\n"
+            + "f = f + fnoise * fgr * 0.08;\n"
+            + "return vec4(clamp(f, 0.0, 1.0), src.a);\n";
+
     private static final String BODY_INVERT =
             "return vec4(mix(src.rgb, vec3(1.0) - src.rgb, FX_P(amount)), src.a);\n";
 
@@ -283,6 +404,34 @@ public final class FxRegistry {
                 FxEffectDef.Family.BLUR, FxEffectDef.Capability.UV_REMAP, 1, 0f,
                 BODY_PIXELATE,
                 FxParam.flt("size", "Cell size", 1f, 256f, 16f)));
+
+        defs.add(new FxEffectDef("brightness", "Brightness / Exposure",
+                FxEffectDef.Family.COLOR, FxEffectDef.Capability.POINTWISE, 1, 0.2f,
+                BODY_BRIGHTNESS,
+                FxParam.flt("exposure", "Exposure", -3f, 3f, 0f),
+                FxParam.flt("lift", "Lift", -1f, 1f, 0f),
+                FxParam.flt("amount", "Amount", 0f, 1f, 1f)));
+
+        // The legacy per-clip EffectStack, folded into the universal system as TWO cards. Ranges
+        // and defaults are EffectStack's own clamps, field for field, so a migrated project's
+        // values survive FxParam.clamp() untouched — see FxGradeMigration.
+        defs.add(new FxEffectDef("color_grade", "Color Grade",
+                FxEffectDef.Family.COLOR, FxEffectDef.Capability.POINTWISE, 1, 0.8f,
+                BODY_COLOR_GRADE,
+                FxParam.flt("exposure", "Exposure", -1f, 1f, 0f),
+                FxParam.flt("contrast", "Contrast", -1f, 1f, 0f),
+                FxParam.flt("saturation", "Saturation", 0f, 2f, 1f),
+                FxParam.flt("temperature", "Temperature", -1f, 1f, 0f),
+                FxParam.flt("tint", "Tint", -1f, 1f, 0f)));
+
+        defs.add(new FxEffectDef("film", "Film Look",
+                FxEffectDef.Family.COLOR, FxEffectDef.Capability.POINTWISE, 1, 0.6f,
+                BODY_FILM,
+                FxParam.flt("highlights", "Highlights", -1f, 1f, 0f),
+                FxParam.flt("shadows", "Shadows", -1f, 1f, 0f),
+                FxParam.flt("fade", "Fade", -1f, 1f, 0f),
+                FxParam.flt("vignette", "Vignette", 0f, 1f, 0f),
+                FxParam.flt("grain", "Grain", 0f, 1f, 0f)));
 
         defs.add(new FxEffectDef("invert", "Invert",
                 FxEffectDef.Family.COLOR, FxEffectDef.Capability.POINTWISE, 1, 0.2f,

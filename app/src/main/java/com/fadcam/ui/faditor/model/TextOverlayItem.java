@@ -279,6 +279,35 @@ public class TextOverlayItem {
     private boolean scaleLinked = true;
 
     /**
+     * SPEC B — the object's rotation pivot, as fractions of its own PICTURE box in 0..1
+     * (0.5/0.5 = centre, the default and every overlay in every project written before this).
+     * Deliberately NOT keyframable: interpolating a moving pivot produces swooping arcs nobody
+     * authored, so the pivot is a static property of the object — the picker snaps taps to the
+     * nine anchors and {@link #setRotationPivot} re-snaps on load, which is also what keeps the
+     * sparse serialization stable (a centre pivot writes nothing; see ProjectStorage).
+     *
+     * <p>Renderers never transcribe the pivot arithmetic — they read it from
+     * {@link #pivotOffsetFromCentreX(float)} / {@link #pivotOffsetFromCentreY(float)}, the one
+     * definition the preview (View and GL) and the export share.</p>
+     */
+    private float rotationPivotX = 0.5f;
+    private float rotationPivotY = 0.5f;
+
+    /**
+     * CORNER PIN — four (dx, dy) offsets as fractions of this item's own untransformed size,
+     * packed TL, TR, BR, BL. All zero = undistorted, which is the default and is every overlay in
+     * every project written before this existed.
+     *
+     * <p>Deliberately one array rather than eight fields: the eight components are always read
+     * together (the matrix needs all four corners or none), the packed order is the exact order
+     * {@code Matrix.setPolyToPoly} wants, and one array is one thing to copy in
+     * {@link #copyWithNewId} and one thing to snapshot for undo. See {@link CornerPin} for the
+     * unit, the clamp, the track names and the matrix itself.</p>
+     */
+    @NonNull
+    private final float[] cornerPin = new float[CornerPin.SIZE];
+
+    /**
      * Touch pass-through — the image-overlay twin of a PiP's. true = the preview ignores taps
      * on this overlay so the thing beneath it is reachable (export is unaffected; this is a
      * preview interaction, exactly like a PiP's pass-through).
@@ -555,6 +584,11 @@ public class TextOverlayItem {
         c.scaleX = scaleX;
         c.scaleY = scaleY;
         c.scaleLinked = scaleLinked;
+        // SPEC B: a duplicate is the object's twin — its pivot rides along like the rest of
+        // the static pose it belongs with.
+        c.rotationPivotX = rotationPivotX;
+        c.rotationPivotY = rotationPivotY;
+        System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
         c.passThrough = passThrough;
         c.compositing = compositing == null ? null : compositing.copy();
         c.overlayBlendMode = overlayBlendMode;
@@ -630,8 +664,16 @@ public class TextOverlayItem {
 
     public float getRotationDeg() { return rotationDeg; }
 
+    /**
+     * <b>No modulo on purpose.</b> Rotation is keyframed (SPEC A): 370° and 10° are the same
+     * POSE but a different ANIMATION, so the stored value keeps its winding — 720 stays 720,
+     * -45 stays -45. Display layers may fold degrees into a familiar window; this setter,
+     * on the storage path, may not. Non-finite input falls back to 0 exactly as
+     * {@code Clip.setSpineRotationDeg} does.
+     */
     public void setRotationDeg(float rotationDeg) {
-        this.rotationDeg = rotationDeg % 360f;
+        this.rotationDeg = Float.isNaN(rotationDeg) || Float.isInfinite(rotationDeg)
+                ? 0f : rotationDeg;
     }
 
     // ── Per-axis scale + chain (image-overlay drawer) ─────────────────
@@ -653,6 +695,249 @@ public class TextOverlayItem {
     public boolean isScaleLinked() { return scaleLinked; }
 
     public void setScaleLinked(boolean scaleLinked) { this.scaleLinked = scaleLinked; }
+
+    // ── Rotation pivot (SPEC B) — static, not keyframable ─────────────
+
+    public float rotationPivotXNorm() { return rotationPivotX; }
+
+    public float rotationPivotYNorm() { return rotationPivotY; }
+
+    /**
+     * TRUE ONLY WHEN THE PIVOT OFFSET IS EXACTLY ZERO — a centre pivot AND an undistorted
+     * picture. Every render fast path must ask THIS, not {@link #isRotationPivotCentre()}.
+     *
+     * <p>A centre pivot is not a zero offset once a picture is corner-pinned: the visible quad
+     * sits wherever the pins put it, and "centre" means the centre of THAT, which can be a
+     * picture-width away from the box. Guarding on the pivot value alone made the PREVIEW spin a
+     * pinned picture about its box centre while the EXPORT (ImageOverlayDraw, which never had
+     * the guard) spun it about the quad centre — a preview/export split, and on screen the
+     * picture ORBITED instead of turning in place. JoyRaptor, 2026-09-05: "as I rotate, the image
+     * raises up... the frame and the image rotate out of sync", with the pivot on centre.</p>
+     *
+     * @param pins8 the caller's already-evaluated pin offsets; null or flat means undistorted
+     */
+    public boolean isRotationPivotNeutral(@Nullable float[] pins8) {
+        return isRotationPivotCentre() && CornerPin.isFlat(pins8);
+    }
+
+    public boolean isRotationPivotCentre() {
+        return rotationPivotX == 0.5f && rotationPivotY == 0.5f;
+    }
+
+    /**
+     * Set the pivot from normalized fractions. EACH AXIS SNAPS to the nearest of {0, 0.5, 1} —
+     * the picker only offers the nine anchors, and snapping here too means a value that has been
+     * through storage round-trips to exactly what was saved, so the sparse write's
+     * byte-identity test stays a simple equality. Non-finite input falls back to centre, the
+     * same defensive shape as {@link #setRotationDeg}.
+     */
+    public void setRotationPivot(float normX, float normY) {
+        this.rotationPivotX = snapPivotAxis(normX);
+        this.rotationPivotY = snapPivotAxis(normY);
+    }
+
+    private static float snapPivotAxis(float v) {
+        if (Float.isNaN(v) || Float.isInfinite(v)) return 0.5f;
+        return v < 0.25f ? 0f : (v > 0.75f ? 1f : 0.5f);
+    }
+
+    /**
+     * THE SHARED PIVOT ARITHMETIC. The pivot's signed offset from the picture box's CENTRE, in
+     * whatever unit {@code pictureSizePx} is measured in (view px, canvas px or normalized
+     * frame fractions — every renderer hands in its own box width). The export reads this in
+     * {@code ImageOverlayDraw}, the preview in {@code TextOverlayLayer} (View path and
+     * {@code fxPipFor}); none of them restates (pivot − 0.5) · size, which is how the two
+     * surfaces cannot drift. At the centre pivot this is exactly 0, so every renderer's
+     * expression collapses to the anchor it used before this existed.
+     */
+    public float pivotOffsetFromCentreX(float pictureWidthPx) {
+        return (rotationPivotX - 0.5f) * pictureWidthPx;
+    }
+
+    /** @see #pivotOffsetFromCentreX(float) — the same definition on the vertical axis. */
+    public float pivotOffsetFromCentreY(float pictureHeightPx) {
+        return (rotationPivotY - 0.5f) * pictureHeightPx;
+    }
+
+    /**
+     * SPEC B, pinned pictures — the pivot's offset from the box centre when the picture is
+     * CORNER-PINNED. The pins displace and reshape the picture the user actually sees: its
+     * visual quad can sit more than a full picture-width away from the box this arithmetic
+     * anchored to, so a "top left" pivot computed on the box floated in empty space above the
+     * drawn picture (JoyRaptor 2026-09-05: every selector dot pivoted from somewhere else — centre
+     * read as top-right, bottom-right as top-right, top-left "way higher up"). The pivot is
+     * defined on the PICTURE THE USER SEES: the pinned quad's pose-frame bounding box, which
+     * for flat pins IS the box, so every renderer hands in its already-evaluated offsets and
+     * unpinned projects take the byte-identical path above.
+     *
+     * <p>{@code pins8} is the caller's eight evaluated offsets — static or animated, whoever
+     * owns the clock evaluates; null or flat collapses to the box arithmetic. The offsets are
+     * CornerPin's unit (fractions of the item's own size), the same numbers the preview's pin
+     * matrix and the export's {@code cornerPinMatrix} apply, so this cannot disagree with what
+     * is on screen.</p>
+     */
+    public float pivotOffsetFromCentreX(float pictureW, float pictureH, @Nullable float[] pins8) {
+        if (CornerPin.isFlat(pins8)) return (rotationPivotX - 0.5f) * pictureW;
+        return quadPointX(pictureW, pins8, rotationPivotX, rotationPivotY);
+    }
+
+    /** @see #pivotOffsetFromCentreX(float, float, float[]) — the same definition on the vertical axis. */
+    public float pivotOffsetFromCentreY(float pictureW, float pictureH, @Nullable float[] pins8) {
+        if (CornerPin.isFlat(pins8)) return (rotationPivotY - 0.5f) * pictureH;
+        return quadPointY(pictureH, pins8, rotationPivotX, rotationPivotY);
+    }
+
+    /**
+     * The nine anchors ON THE PINNED QUAD, by bilinear interpolation of its four corners.
+     *
+     * <p>This replaces a bounding-box formulation (2026-09-05) that mixed two different anchors:
+     * it added the quad's VERTEX CENTROID to a fraction of the quad's BOUNDING-BOX SPAN. Those
+     * agree only on a symmetric pull. On JoyRaptor's test picture — corners dragged unevenly to near
+     * the ±2 wall — they disagreed by a quarter of a picture width, which is precisely the
+     * residual he kept reporting after the box-vs-quad fix ("centre still is not 100% aligned").</p>
+     *
+     * <p>Bilinear is also the RIGHT definition, not merely a corrected one: on a trapezoid a
+     * bounding box's "bottom right" is a point in empty space beside the picture, while
+     * {@code (u,v) = (1,1)} is the picture's own bottom-right corner. At flat pins it reduces
+     * ALGEBRAICALLY to {@code (pivot - 0.5) · size} — the branch above is a fast path, not a
+     * different answer — so unpinned projects are byte-identical.</p>
+     *
+     * <p>Coordinates are the POSE frame, which is the frame the pin matrix outputs into and the
+     * frame rotation and scale are applied in (see ImageOverlayDraw: pins are concatenated
+     * INSIDE rotate/scale), so this is the same space every caller's cx/cy already lives in.</p>
+     */
+    private static float quadPointX(float w, @NonNull float[] pins8, float u, float v) {
+        float xTL = -w / 2f + pins8[CornerPin.TL * 2] * w;
+        float xTR = w / 2f + pins8[CornerPin.TR * 2] * w;
+        float xBR = w / 2f + pins8[CornerPin.BR * 2] * w;
+        float xBL = -w / 2f + pins8[CornerPin.BL * 2] * w;
+        return (1f - u) * (1f - v) * xTL + u * (1f - v) * xTR
+                + u * v * xBR + (1f - u) * v * xBL;
+    }
+
+    /** @see #quadPointX — the same bilinear point on the vertical axis. */
+    private static float quadPointY(float h, @NonNull float[] pins8, float u, float v) {
+        float yTL = -h / 2f + pins8[CornerPin.TL * 2 + 1] * h;
+        float yTR = -h / 2f + pins8[CornerPin.TR * 2 + 1] * h;
+        float yBR = h / 2f + pins8[CornerPin.BR * 2 + 1] * h;
+        float yBL = h / 2f + pins8[CornerPin.BL * 2 + 1] * h;
+        return (1f - u) * (1f - v) * yTL + u * (1f - v) * yTR
+                + u * v * yBR + (1f - u) * v * yBL;
+    }
+
+    // ── Corner pin / skew ─────────────────────────────────────────────
+    //
+    // The distortion the View API cannot express. Read CornerPin's class doc first: it owns the
+    // unit (fractions of the item's own untransformed size), the clamp, the eight track names and
+    // the setPolyToPoly matrix. Everything here is the item's copy of the state plus the two
+    // evaluators — static and animated — that the preview and the export both go through.
+
+    /** One corner component's STATIC value. See {@link CornerPin#TL}/{@link CornerPin#DX}. */
+    public float getCornerPin(int corner, int axis) {
+        int i = pinIndex(corner, axis);
+        return i < 0 ? 0f : cornerPin[i];
+    }
+
+    /** Set one corner component, clamped to {@link CornerPin#MAX_OFFSET}. */
+    public void setCornerPin(int corner, int axis, float value) {
+        int i = pinIndex(corner, axis);
+        if (i >= 0) cornerPin[i] = CornerPin.clamp(value);
+    }
+
+    /** Set all four corners at once from a packed array; shorter/null input is ignored. */
+    public void setCornerPin(@Nullable float[] off8) {
+        if (off8 == null || off8.length < CornerPin.SIZE) return;
+        for (int i = 0; i < CornerPin.SIZE; i++) cornerPin[i] = CornerPin.clamp(off8[i]);
+    }
+
+    /** Copy the STATIC offsets into {@code out8} (length {@link CornerPin#SIZE}). */
+    public void copyCornerPinInto(@NonNull float[] out8) {
+        if (out8.length < CornerPin.SIZE) return;
+        System.arraycopy(cornerPin, 0, out8, 0, CornerPin.SIZE);
+    }
+
+    /** Back to undistorted — the state every item starts in. */
+    public void clearCornerPin() {
+        java.util.Arrays.fill(cornerPin, 0f);
+    }
+
+    /**
+     * Is this item distorted AT ALL — statically or by any keyframe?
+     *
+     * <p><b>This is the skip gate every render path checks first.</b> False means the item can
+     * take the exact affine path it always did: no matrix solve, no custom draw, no inflated view
+     * bounds. It reads the TRACKS rather than sampling a time on purpose — the answer must not
+     * flicker between frames of one animation, or the preview would swap the image's View class
+     * mid-playback.</p>
+     */
+    public boolean hasCornerPin() {
+        if (!CornerPin.isFlat(cornerPin)) return true;
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack t =
+                        keyframes.get(CornerPin.trackFor(c, a));
+                if (t == null || t.isEmpty()) continue;
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                    if (Math.abs(k.value) > CornerPin.EPSILON) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The offsets at {@code timelineMs} — each of the eight tracks evaluated on this item's own
+     * local time base, falling back to the static value exactly like every other animated
+     * property here.
+     */
+    public void animatedCornerPin(long timelineMs, @NonNull float[] out8) {
+        if (out8.length < CornerPin.SIZE) return;
+        long t = localTime(timelineMs);
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                int i = c * 2 + a;
+                out8[i] = CornerPin.clamp(
+                        keyframes.valueAt(CornerPin.trackFor(c, a), t, cornerPin[i]));
+            }
+        }
+    }
+
+    /**
+     * The corner-pin matrix for this item at {@code timelineMs}, over the untransformed drawn
+     * rect {@code (left, top, w, h)} in the CALLER's pixel space.
+     *
+     * <p>The one method the preview and the export both call, so there is no second transcription
+     * of the arithmetic to drift — the same discipline {@code ImageOverlayDraw} already records
+     * about mirroring {@code TextOverlayLayer.position}. Concat it INNERMOST, immediately around
+     * the bitmap draw and inside the existing translate/rotate/scale; {@link CornerPin#buildMatrix}
+     * documents why that order and no other.</p>
+     *
+     * @return true when {@code out} must be concat-ed; false when the item is undistorted at this
+     *         time and the caller should draw exactly as it always did
+     */
+    public boolean cornerPinMatrix(@NonNull android.graphics.Matrix out, long timelineMs,
+                                   float left, float top, float w, float h) {
+        if (!hasCornerPin()) { out.reset(); return false; }
+        float[] off = new float[CornerPin.SIZE];
+        animatedCornerPin(timelineMs, off);
+        return CornerPin.buildMatrix(out, left, top, w, h, off);
+    }
+
+    /** Index into {@link #cornerPin}, or -1 for a bad corner/axis. */
+    private static int pinIndex(int corner, int axis) {
+        if (corner < 0 || corner > CornerPin.BL) return -1;
+        if (axis != CornerPin.DX && axis != CornerPin.DY) return -1;
+        return corner * 2 + axis;
+    }
+
+    /**
+     * Keyframe one corner component at {@code timelineMs} — the animated write a UI lane makes,
+     * routed through {@link #addPropertyKeyframeAt} so easing, the canonical X-track diamond and
+     * the shared undo step all behave exactly as they do for position and scale.
+     */
+    public void addCornerPinKeyframeAt(int corner, int axis, long timelineMs, float value) {
+        addPropertyKeyframeAt(CornerPin.trackFor(corner, axis), timelineMs, value);
+    }
 
     // ── Pass-through, blend, compositing ──────────────────────────────
 
@@ -1365,11 +1650,10 @@ public class TextOverlayItem {
         android.graphics.Typeface base;
         // Custom font file (loaded from storage)
         if (family.startsWith("file:")) {
-            try {
-                base = android.graphics.Typeface.createFromFile(family.substring(5));
-            } catch (Exception e) {
-                base = android.graphics.Typeface.DEFAULT_BOLD;
-            }
+            // Cached: this is a per-run lookup on every text draw, and Typeface.createFromFile
+            // re-parses the font file on each call (see FontLibrary's typeface-cache note).
+            base = com.fadcam.ui.faditor.text.FontLibrary.typefaceForFile(family.substring(5));
+            if (base == null) base = android.graphics.Typeface.DEFAULT_BOLD;
         } else {
             switch (family) {
                 case "serif": base = android.graphics.Typeface.SERIF; break;
@@ -1772,6 +2056,80 @@ public class TextOverlayItem {
                 localTime(timelineMs), scaleY);
     }
 
+    // ── How large is this image EVER drawn? (the decode bound) ────────────────────────────────
+    //
+    // THE CHANNEL THE DECODERS WERE READING WAS THE WRONG ONE. Both the preview cache and the
+    // export decoder bounded their sample size by scaleX/scaleY and the SCALE track "zoom", and
+    // pinch-zoom writes NEITHER: it multiplies sizeFraction (TextOverlayLayer's pinch handler),
+    // and the drawn height is `sizeFraction * frameHeight * scaleY`. So a 6x zoomed image was
+    // decoded at a 1920px edge and then magnified 6x — "I have a heavily zoomed-in image and its
+    // quality is abysmal" (JoyRaptor). These two methods are the honest answer, on the model, so the
+    // preview and the export cannot read different channels again.
+
+    /**
+     * The largest multiple of the FRAME HEIGHT this item's picture is ever drawn at.
+     *
+     * <p>Reads the extremes rather than sampling a time: interpolation between two keys never
+     * exceeds both, so the track IS the set of extremes and one walk of it is exact. The static
+     * field is folded in too, because an un-keyframed item animates nothing and its static
+     * {@code sizeFraction} is the whole answer — which is precisely the case the old bound
+     * missed.</p>
+     */
+    public float maxDrawnHeightFactor() {
+        float size = Math.max(0f, trackMax(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                sizeFraction));
+        float mul = Math.max(
+                trackMax(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X, scaleX),
+                trackMax(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y, scaleY));
+        return Math.max(0f, size * Math.max(0.02f, mul) * pinExcursionFactor());
+    }
+
+    /**
+     * The same, per unit of the item's own WIDTH — identical except that width takes Scale X
+     * alone. Callers multiply by the source aspect ratio.
+     */
+    public float maxDrawnWidthFactor() {
+        float size = Math.max(0f, trackMax(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
+                sizeFraction));
+        float mul = trackMax(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X, scaleX);
+        return Math.max(0f, size * Math.max(0.02f, mul) * pinExcursionFactor());
+    }
+
+    /**
+     * How much a corner pin can stretch the picture past its own rectangle. A homography
+     * magnifies locally, so the far edge of a hard tilt needs pixels the un-pinned rect never
+     * asked for; one plus the largest corner excursion is a cheap, monotone over-estimate and it
+     * is exactly 1 (i.e. free, and byte-identical) for an unpinned item.
+     */
+    private float pinExcursionFactor() {
+        if (!hasCornerPin()) return 1f;
+        float worst = 0f;
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                worst = Math.max(worst, Math.abs(
+                        trackMax(CornerPin.trackFor(c, a), Math.abs(cornerPin[c * 2 + a]))));
+            }
+        }
+        return 1f + Math.min(worst, CornerPin.MAX_OFFSET);
+    }
+
+    /** {@code staticValue}, or the largest key on {@code property} if that is larger. */
+    private float trackMax(@NonNull String property, float staticValue) {
+        float max = staticValue;
+        try {
+            com.fadcam.ui.faditor.keyframe.KeyframeTrack t = keyframes.get(property);
+            if (t != null) {
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                    if (k.value > max) max = k.value;
+                }
+            }
+        } catch (Exception ignored) {
+            // A missing or oddly-shaped track just means "no extra zoom" — never a reason to
+            // fail a decode.
+        }
+        return max;
+    }
+
     /**
      * Record the overlay's current static transform as a keyframe at the given
      * timeline time (position, size, rotation, and opacity). Repeating this at
@@ -1831,6 +2189,12 @@ public class TextOverlayItem {
         seedTransformTrack(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
                 animatedSizeFraction(timelineMs), t, ease);
         float v = value;
+        // Corner-pin components share one clamp and there are eight of them, so they are matched
+        // by name ahead of the switch rather than as eight near-identical cases.
+        if (CornerPin.isPinTrack(property)) {
+            keyframes.getOrCreate(property).put(t, CornerPin.clamp(value), ease);
+            return;
+        }
         switch (property) {
             // centerLimit is the object's own half-extent, refreshed when it is drawn; the rails
             // fall back to the fixed ones for anything small. Written as max() of the two so a
@@ -2034,6 +2398,12 @@ public class TextOverlayItem {
         private final float centerX, centerY, sizeFraction, rotationDeg, opacity;
         private final float scaleX, scaleY;
         private final boolean scaleLinked;
+        // SPEC B — the rotation pivot rides the snapshot, so a pose undo/redo restores it
+        // together with the centre it was compensating (a pivot pick shifts the centre to keep
+        // the picture still; the pair must move as one).
+        private final float rotationPivotX, rotationPivotY;
+        /** Corner-pin offsets, copied not shared — the item's array is mutated in place. */
+        @NonNull private final float[] cornerPin;
         private final long startMs, endMs;
         private final long imageFadeInMs, imageFadeOutMs;
         @Nullable private final ImageAnimPreset imageAnimPreset;
@@ -2048,6 +2418,9 @@ public class TextOverlayItem {
             this.scaleX = o.scaleX;
             this.scaleY = o.scaleY;
             this.scaleLinked = o.scaleLinked;
+            this.rotationPivotX = o.rotationPivotX;
+            this.rotationPivotY = o.rotationPivotY;
+            this.cornerPin = o.cornerPin.clone();
             this.startMs = o.startMs;
             this.endMs = o.endMs;
             this.imageFadeInMs = o.imageFadeInMs;
@@ -2066,10 +2439,13 @@ public class TextOverlayItem {
                     || scaleX != other.scaleX
                     || scaleY != other.scaleY
                     || scaleLinked != other.scaleLinked
+                    || rotationPivotX != other.rotationPivotX
+                    || rotationPivotY != other.rotationPivotY
                     || startMs != other.startMs
                     || endMs != other.endMs
                     || imageFadeInMs != other.imageFadeInMs
                     || imageFadeOutMs != other.imageFadeOutMs) return false;
+            if (!java.util.Arrays.equals(cornerPin, other.cornerPin)) return false;
             if (imageAnimPreset == null && other.imageAnimPreset != null) return false;
             if (imageAnimPreset != null && other.imageAnimPreset == null) return false;
             if (imageAnimPreset != null && other.imageAnimPreset != null) {
@@ -2126,6 +2502,9 @@ public class TextOverlayItem {
         this.scaleX = s.scaleX;
         this.scaleY = s.scaleY;
         this.scaleLinked = s.scaleLinked;
+        this.rotationPivotX = s.rotationPivotX;
+        this.rotationPivotY = s.rotationPivotY;
+        System.arraycopy(s.cornerPin, 0, this.cornerPin, 0, CornerPin.SIZE);
         this.startMs = s.startMs;
         this.endMs = s.endMs;
         this.imageFadeInMs = s.imageFadeInMs;

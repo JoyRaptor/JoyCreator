@@ -15,7 +15,35 @@ public enum BlendMode {
     MULTIPLY,
     SCREEN,
     OVERLAY,
-    ADD;
+    ADD,
+    // Kept in the SAME ORDER as BlendModes.ALL. The two vocabularies are separate types but one
+    // wire format -- this enum's name() is what is persisted and what BlendModes.modeCode() reads
+    // -- so a mode present in one and missing from the other is a mode the picker cannot offer or
+    // the shader cannot draw.
+    DIFFERENCE,
+    COLOR,
+    // The rest of the Photoshop/W3C set (2026-09-04). Still the SAME ORDER as BlendModes.ALL.
+    // There is no LINEAR_DODGE: it is the same equation as ADD, and a second wire value for one
+    // equation is a project that round-trips into the "other" one.
+    DARKEN,
+    LIGHTEN,
+    COLOR_DODGE,
+    COLOR_BURN,
+    LINEAR_BURN,
+    HARD_LIGHT,
+    SOFT_LIGHT,
+    VIVID_LIGHT,
+    LINEAR_LIGHT,
+    PIN_LIGHT,
+    HARD_MIX,
+    EXCLUSION,
+    SUBTRACT,
+    DIVIDE,
+    DARKER_COLOR,
+    LIGHTER_COLOR,
+    HUE,
+    SATURATION,
+    LUMINOSITY;
 
     /** Parse a persisted name, defaulting to {@link #NORMAL} for an unknown value. */
     @NonNull

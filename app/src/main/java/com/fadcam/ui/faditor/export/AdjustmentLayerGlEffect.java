@@ -127,13 +127,39 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     passthrough(inputTexId);
                     return;
                 }
+                CompositingSpec cs = layer.getCompositing();
+                float[] geo = MaskSdf.packShapes(cs, width, height);
+                // EVERY packed shape, not shape 0. The arrays and the fold loop are sized to
+                // this in the emitted source, so it is part of the program cache key — a layer
+                // that gains a shape recompiles rather than silently dropping it.
+                int shapes = Math.max(1, geo.length / MaskSdf.FLOATS_PER_SHAPE);
                 FxStack resolved = layer.getFx().resolveAt(editorMs);
-                if (!ensurePrograms(resolved)) {
+                if (!ensurePrograms(resolved, shapes)) {
                     passthrough(inputTexId);
                     return;
                 }
-                CompositingSpec cs = layer.getCompositing();
-                float[] geo = MaskSdf.packShapes(cs, width, height);
+                // Whatever count actually COMPILED — see the single-shape retry in
+                // ensurePrograms. Uploading more than the program declared would be an out-of-
+                // range write the driver is free to ignore or to fault on.
+                shapes = Math.min(shapes, compiledShapes);
+                float[] maskGeo4 = new float[shapes * 4];
+                float[] maskRot2 = new float[shapes * 2];
+                float[] maskCorner = new float[shapes];
+                float[] maskFeather = new float[shapes];
+                float[] maskOps = new float[shapes];
+                int[] ops = MaskSdf.packOps(cs);
+                for (int i = 0; i < shapes; i++) {
+                    int o = i * MaskSdf.FLOATS_PER_SHAPE;
+                    maskGeo4[i * 4] = geo[o];
+                    maskGeo4[i * 4 + 1] = geo[o + 1];
+                    maskGeo4[i * 4 + 2] = geo[o + 2];
+                    maskGeo4[i * 4 + 3] = geo[o + 3];
+                    maskRot2[i * 2] = geo[o + 4];
+                    maskRot2[i * 2 + 1] = geo[o + 5];
+                    maskCorner[i] = geo[o + 6];
+                    maskFeather[i] = geo[o + 7];
+                    maskOps[i] = i < ops.length ? ops[i] : 0f;
+                }
                 float opacity = layer.opacityAt(editorMs);
                 // Packed by the shared authority every frame, exactly like the mask geometry
                 // above — cheap, and it is what keeps this in step with a tab that can change
@@ -179,15 +205,13 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     }
                     setF(p, "uLayerOpacity", opacity);
                     setF(p, "uMaskCount", cs == null || cs.masks.isEmpty() ? 0f : 1f);
-                    setFn(p, "uMaskGeo", new float[]{geo[0], geo[1], geo[2], geo[3]});
-                    setF2(p, "uMaskRot", geo[4], geo[5]);
-                    setF(p, "uMaskCorner", geo[6]);
-                    setF(p, "uMaskFeather", geo[7]);
                     setF(p, "uMaskInvert", cs != null && cs.invertMasks ? 1f : 0f);
                     setFn(p, "uKeyColor", keyColor);
                     setFn(p, "uKeyParams", keyParams);
                     setF(p, "uBlendMode", blendMode);
                     p.bindAttributesAndUniforms();
+                    uploadMaskArrays(p, shapes, maskGeo4, maskRot2, maskCorner, maskFeather,
+                            maskOps);
                     GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                     GlUtil.checkGlError();
                     if (!last) src = texFor(i);
@@ -206,6 +230,41 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     throw new VideoFrameProcessingException(e);
                 }
             }
+        }
+
+        /**
+         * Upload the per-shape mask arrays — RAW, and deliberately AFTER
+         * {@code bindAttributesAndUniforms}.
+         *
+         * <p><b>media3's {@code GlProgram} cannot express an array uniform, and would silently
+         * lose the mask if asked to.</b> Its {@code Uniform} holds one {@code float[16]} and
+         * always binds with {@code count = 1}, and it is keyed by the name
+         * {@code glGetActiveUniform} reports — which for an array is {@code uMaskGeo[0]}, not
+         * {@code uMaskGeo}. {@code setFloatsUniform("uMaskGeo", ...)} would therefore throw,
+         * {@link #setFn} would swallow it as "not in program", and the export would render an
+         * UNMASKED grade with nothing but a debug line to say so. So the locations are asked for
+         * by name and uploaded with {@code glUniform*fv} directly.</p>
+         *
+         * <p><b>After the bind, not before.</b> {@code bindAttributesAndUniforms} walks every
+         * ACTIVE uniform, {@code uMaskGeo[0]} included, and writes whatever its own buffer holds
+         * — zeros, since nothing ever sets it. Uploading first would have that overwrite shape
+         * 0 with a degenerate rect. Uploading after leaves the driver's copy of element 0 as the
+         * value written here.</p>
+         *
+         * <p>A location of -1 (the driver stripped the block: no mask, or an intermediate pass)
+         * makes every call below a defined no-op, so no branch is needed for the unmasked
+         * case.</p>
+         */
+        private static void uploadMaskArrays(@NonNull GlProgram p, int shapes,
+                                             @NonNull float[] geo4, @NonNull float[] rot2,
+                                             @NonNull float[] corner, @NonNull float[] feather,
+                                             @NonNull float[] ops) {
+            int n = Math.max(1, shapes);
+            GLES20.glUniform4fv(p.getUniformLocation("uMaskGeo"), n, geo4, 0);
+            GLES20.glUniform2fv(p.getUniformLocation("uMaskRot"), n, rot2, 0);
+            GLES20.glUniform1fv(p.getUniformLocation("uMaskCorner"), n, corner, 0);
+            GLES20.glUniform1fv(p.getUniformLocation("uMaskFeather"), n, feather, 0);
+            GLES20.glUniform1fv(p.getUniformLocation("uMaskOp"), n, ops, 0);
         }
 
         /**
@@ -304,7 +363,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          *
          * @return false when the stack plans nothing to draw.
          */
-        private boolean ensurePrograms(@NonNull FxStack stack)
+        private boolean ensurePrograms(@NonNull FxStack stack, int maskShapes)
                 throws VideoFrameProcessingException {
             FxCompiler.Plan plan = FxCompiler.plan(stack);
             if (plan.passes.isEmpty()) return false;
@@ -313,8 +372,34 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             for (FxCompiler.Pass pa : plan.passes) {
                 key.append(FxUniforms.sourceKey(pa, KERNEL_HALF)).append('/');
             }
+            // The shape count SIZES THE SOURCE, so it belongs in the key: without it, adding a
+            // second mask shape mid-export would keep the one-slot program and the extra shape
+            // would never be uploaded.
+            key.append('m').append(maskShapes);
             if (!steps.isEmpty() && key.toString().equals(sourceKey)) return true;
 
+            if (!buildSteps(plan, maskShapes)) {
+                // A many-shape mask is the one thing here that can outgrow a GPU's fragment
+                // uniform budget, and losing the grade entirely would be worse than the
+                // shape-0-only render this replaced. Retry at one shape, and remember what
+                // compiled so drawFrame uploads exactly that many.
+                if (maskShapes <= 1 || !buildSteps(plan, 1)) {
+                    degraded = true;
+                    return false;
+                }
+                compiledShapes = 1;
+            } else {
+                compiledShapes = maskShapes;
+            }
+            sourceKey = key.toString();
+            return true;
+        }
+
+        /** How many shapes the compiled programs' arrays hold. @see #ensurePrograms */
+        private int compiledShapes = 1;
+
+        /** Compile every render of {@code plan} at {@code maskShapes}; false if any failed. */
+        private boolean buildSteps(@NonNull FxCompiler.Plan plan, int maskShapes) {
             releaseSteps();
             try {
                 for (int i = 0; i < plan.passes.size(); i++) {
@@ -323,7 +408,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     int renders = Math.max(1, pa.repeats);
                     for (int r = 0; r < renders; r++) {
                         boolean lastRender = lastPass && r == renders - 1;
-                        GlProgram prog = compile(pa, lastRender);
+                        GlProgram prog = compile(pa, lastRender, maskShapes);
                         // Horizontal first, then vertical — the order the kernel weights assume.
                         float dx = (renders > 1 && r == 1) ? 0f : 1f;
                         float dy = (renders > 1 && r == 1) ? 1f : 0f;
@@ -331,12 +416,11 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     }
                 }
             } catch (Exception e) {
-                FLog.w("AdjustmentLayer", "shader compile failed, passing through: " + e);
+                FLog.w("AdjustmentLayer", "shader compile failed at " + maskShapes
+                        + " mask shape(s): " + e);
                 releaseSteps();
-                degraded = true;
                 return false;
             }
-            sourceKey = key.toString();
             return true;
         }
 
@@ -349,10 +433,10 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          * declaration before use — is what the first export A/B caught.</p>
          */
         @NonNull
-        private GlProgram compile(@NonNull FxCompiler.Pass pa, boolean composite)
-                throws GlUtil.GlException {
+        private GlProgram compile(@NonNull FxCompiler.Pass pa, boolean composite,
+                                  int maskShapes) throws GlUtil.GlException {
             GlProgram prog = new GlProgram(VERTEX_SHADER,
-                    FxGlSource.fragment(pa, KERNEL_HALF, composite));
+                    FxGlSource.fragment(pa, KERNEL_HALF, composite, maskShapes));
             // The quad. Without it GlProgram throws "call setBuffer before bind" on first draw.
             prog.setBufferAttribute("aFramePosition",
                     GlUtil.getNormalizedCoordinateBounds(), 4);

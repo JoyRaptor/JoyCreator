@@ -34,12 +34,26 @@ public final class CaptionPhrases {
     /** Each phrase as {@code {firstWordIdx, lastWordIdxInclusive}}. */
     @NonNull public final List<int[]> phrases;
 
+    /**
+     * SLIDE mode (SPEC_20260831_CAPTION_SLIDES): true when built with {@link #ofSlides} —
+     * one TIMING ENTRY is one phrase, for its full span. For imports where a whole paragraph
+     * shares one timestamp (a scripture shown while the song references it), this is the
+     * difference between one readable wrapped slide and a 6-paragraph ticker.
+     */
+    public final boolean slideMode;
+
     private final Transcript transcript;
 
     private CaptionPhrases(Transcript t, @NonNull int[] wordPhrase, @NonNull List<int[]> phrases) {
+        this(t, wordPhrase, phrases, false);
+    }
+
+    private CaptionPhrases(Transcript t, @NonNull int[] wordPhrase, @NonNull List<int[]> phrases,
+                           boolean slideMode) {
         this.transcript = t;
         this.wordPhrase = wordPhrase;
         this.phrases = phrases;
+        this.slideMode = slideMode;
     }
 
     /**
@@ -60,6 +74,54 @@ public final class CaptionPhrases {
     @NonNull
     public static CaptionPhrases of(Transcript t) {
         return build(t, MAX_WORDS);
+    }
+
+    /**
+     * SLIDE grouping: every timing entry becomes its own phrase spanning the entry's whole
+     * time. Pair with {@link #layoutWords}, which splits an entry holding a whole paragraph
+     * into per-word layout units so the slide wraps inside the box.
+     */
+    @NonNull
+    public static CaptionPhrases ofSlides(Transcript t) {
+        List<int[]> out = new ArrayList<>();
+        if (t == null || t.words.isEmpty()) {
+            return new CaptionPhrases(t, new int[0], out, true);
+        }
+        int n = t.words.size();
+        int[] wp = new int[n];
+        for (int i = 0; i < n; i++) {
+            wp[i] = i;
+            out.add(new int[]{i, i});
+        }
+        return new CaptionPhrases(t, wp, out, true);
+    }
+
+    /**
+     * The LAYOUT words of a phrase — the strings the renderers measure, wrap and draw.
+     *
+     * <p>Normal mode: each entry is already a word, so this is the entry texts unchanged.
+     * Slide mode: an entry may hold a WHOLE PARAGRAPH (transcript imports store one entry
+     * per timestamped line), and a paragraph must wrap by word inside the box, so its text
+     * is split on whitespace here — at layout time only; the transcript itself is untouched.
+     * Renderers calling this for both modes get wrapping for free without knowing the mode.</p>
+     */
+    @NonNull
+    public List<String> layoutWords(int phraseIdx) {
+        List<String> out = new ArrayList<>();
+        List<Integer> vis = visibleWords(phraseIdx);
+        if (transcript == null) return out;
+        for (int wi : vis) {
+            String text = transcript.words.get(wi).text;
+            if (slideMode) {
+                for (String piece : text.trim().split("\\s+")) {
+                    if (!piece.isEmpty()) out.add(piece);
+                }
+                if (text.trim().isEmpty()) out.add(text);
+            } else {
+                out.add(text);
+            }
+        }
+        return out;
     }
 
     @NonNull

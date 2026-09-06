@@ -1,0 +1,15 @@
+<!-- SPEC_20260831_CAPTION_SLIDES_UX §7.2.4: Fit tab header icon — a rounded caption-box frame
+     with two arrowheads pointing INWARD (top-left and bottom-right), the shrink-to-fit glyph.
+     White so the drawer header's color filter tints it like the other tab icons. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <!-- Rounded-rect frame: outer minus inner (even-odd), 2-unit ring all round. -->
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M4,4 L20,4 A2,2 0 0 1 22,6 L22,18 A2,2 0 0 1 20,20 L4,20 A2,2 0 0 1 2,18 L2,6 A2,2 0 0 1 4,4 Z M4,6 L20,6 L20,18 L4,18 Z"/>
+    <!-- Inward arrowheads: top-left points down-right, bottom-right points up-left. -->
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M10.5,10.5 L8.9,6.4 L6.4,8.9 Z"/>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M13.5,13.5 L17.6,15.1 L15.1,17.6 Z"/>
+</vector>

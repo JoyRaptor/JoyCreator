@@ -44,6 +44,18 @@ EXEMPT = {
     "Clip": {
         "waveform": "as AudioClip.waveform",
         "transcripts": "as AudioClip.transcripts",
+        # SPINE_TRANSFORM: these six persist NESTED, not flat -- ProjectStorage writes a
+        # "spineTransform" object (write ~1536-1549, read ~1895-1912) whose inner keys are
+        # spineX/spineY/spineScale/spineScaleX/spineScaleY/spineRotation (SpineTransform.java).
+        # This lint only sees flat literal keys named after the field, so it cannot follow the
+        # nesting. Round-trip verified by hand 2026-09-05; keeping run-persist-lint GREEN is the
+        # point -- a permanently red lint is one a real unpersisted field can hide in.
+        "spineCenterX": "nested in the spineTransform object as spineX",
+        "spineCenterY": "nested in the spineTransform object as spineY",
+        "spineScale": "nested in the spineTransform object as spineScale",
+        "spineScaleX": "nested in the spineTransform object as spineScaleX",
+        "spineScaleY": "nested in the spineTransform object as spineScaleY",
+        "spineRotationDeg": "nested in the spineTransform object as spineRotation",
     },
 }
 

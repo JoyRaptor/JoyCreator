@@ -1,0 +1,162 @@
+{
+  "id": "perf-15s-cd38e6bc",
+  "name": "PREVIEW_PERF 15s animated under blend",
+  "createdAt": 1787989385094,
+  "lastModified": 1787989385094,
+  "schemaVersion": 13,
+  "canvasPreset": "original",
+  "timeline": {
+    "clips": [
+      {
+        "id": "69b0e6c9-d28c-45cd-a93a-e1886c430d3b",
+        "sourceUri": "file:///storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Camera/Back/FadCam_20260621_145235.mp4",
+        "imageClip": false,
+        "inPointMs": 0,
+        "outPointMs": 15000,
+        "sourceDurationMs": 17078,
+        "speedMultiplier": 1.0,
+        "layerId": "master",
+        "overlayStartMs": 0
+      }
+    ],
+    "overlayClips": [],
+    "audioClips": [],
+    "textOverlays": [
+      {
+        "id": "6593ad1f-4681-462d-9764-985e1d5945ea",
+        "text": "PREVIEW_PERF",
+        "colorInt": -1,
+        "centerX": 0.5,
+        "centerY": 0.6,
+        "sizeFraction": 0.09,
+        "rotationDeg": 0.0,
+        "startMs": 0,
+        "endMs": 15000,
+        "layerId": "text-below",
+        "keyframes": {
+          "x": [
+            {
+              "t": 0,
+              "v": 0.35,
+              "e": "LINEAR"
+            },
+            {
+              "t": 5000,
+              "v": 0.65,
+              "e": "LINEAR"
+            }
+          ],
+          "y": [
+            {
+              "t": 0,
+              "v": 0.6,
+              "e": "LINEAR"
+            }
+          ],
+          "scale": [
+            {
+              "t": 0,
+              "v": 0.09,
+              "e": "LINEAR"
+            },
+            {
+              "t": 5000,
+              "v": 0.09,
+              "e": "LINEAR"
+            }
+          ],
+          "rotation": [
+            {
+              "t": 0,
+              "v": 0.0,
+              "e": "LINEAR"
+            },
+            {
+              "t": 5000,
+              "v": 12.0,
+              "e": "LINEAR"
+            }
+          ],
+          "opacity": [
+            {
+              "t": 0,
+              "v": 1.0,
+              "e": "LINEAR"
+            }
+          ]
+        }
+      },
+      {
+        "id": "e68805b9-33ff-4bf3-be65-00844382182b",
+        "text": "",
+        "colorInt": -1,
+        "centerX": 0.55,
+        "centerY": 0.45,
+        "sizeFraction": 0.4,
+        "rotationDeg": 0.0,
+        "imageUri": "project://assets/0e2fd4c7-9943-43c5-a40a-ff1db3410edc.png",
+        "layerId": "image-top",
+        "startMs": 0,
+        "endMs": 15000,
+        "overlayBlendMode": "SCREEN"
+      }
+    ],
+    "adjustmentLayers": [],
+    "waveformOverlays": [],
+    "layers": {
+      "masterTrack": {
+        "id": "master",
+        "kind": "MASTER",
+        "name": "Master",
+        "zIndex": 0,
+        "items": [
+          {
+            "id": "3c3da282-3a70-49da-b0ea-d7794cbd0c4c",
+            "timelineStartMs": 0,
+            "zHint": 0,
+            "blendMode": "NORMAL",
+            "payloadKind": "clip",
+            "payloadId": "69b0e6c9-d28c-45cd-a93a-e1886c430d3b"
+          }
+        ]
+      },
+      "layers": [
+        {
+          "id": "text-below",
+          "kind": "TEXT",
+          "name": "Text Below",
+          "zIndex": 0,
+          "items": [
+            {
+              "id": "6593ad1f-4681-462d-9764-985e1d5945ea",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "6593ad1f-4681-462d-9764-985e1d5945ea"
+            }
+          ]
+        },
+        {
+          "id": "image-top",
+          "kind": "TEXT",
+          "name": "Image Top",
+          "zIndex": 1,
+          "items": [
+            {
+              "id": "e68805b9-33ff-4bf3-be65-00844382182b",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "e68805b9-33ff-4bf3-be65-00844382182b"
+            }
+          ]
+        }
+      ],
+      "audioTracks": [],
+      "trackDefs": []
+    }
+  },
+  "exportSettings": {}
+}

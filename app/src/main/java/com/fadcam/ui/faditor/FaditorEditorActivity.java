@@ -317,7 +317,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayViewBelow;
     /** IMAGE-track layer preview surface (M-COMP-1; PLAN §3.2 scope item 4). */
     private com.fadcam.ui.faditor.compositor.LayerImageOverlayView layerImageOverlay;
-    private boolean pilotDummyInjected = false;
     /** Sprite preview surface (S4): resolver-driven, above video, below text/captions. */
     private com.fadcam.ui.faditor.sprite.SpriteOverlayView spriteOverlayView;
     /** Live overlay-video (PiP) preview surface (M-COMP-2; plan §3.3). */
@@ -485,6 +484,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** True while the open-time "Opening project…" overlay waits for the first STATE_READY. */
     private boolean openingOverlayPending = false;
     private com.fadcam.ui.faditor.crop.CropOverlayView cropOverlay;
+    /**
+     * Installed on the PlayerView for as long as the crop tool is open, so the overlay's idea of
+     * where the picture is can never outlive a relayout. See {@link #enterCropMode()}.
+     */
+    @Nullable
+    private View.OnLayoutChangeListener cropRelayoutListener;
     private android.widget.ImageView imagePreview;
 
     // ── Crop mode state ──────────────────────────────────────────────
@@ -1419,6 +1424,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── True fullscreen: hide status bar and nav bar ────────────
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -1715,6 +1723,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Reapply immersive fullscreen (in case it was cleared by edge swipes)
         getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -1846,6 +1857,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // SPEC_20260829_WORD_SYNC — release scrub audio engine (AudioTrack thread) if Word Sync was used.
         if (wordSyncMode != null) {
             try { wordSyncMode.release(); } catch (Exception ignored) {}
+            // The onset cache is static and process-wide, so without this it accumulates one
+            // long[] per source URI across every project opened for the life of the process.
+            // Its clear() was written for exactly this and had no caller.
+            try { com.fadcam.ui.faditor.transcript.WordSyncOnsets.clear(); } catch (Exception ignored) {}
         }
         saveProjectNow(true);
         // Stop listening for export status but do NOT cancel — the :export process
@@ -1866,6 +1881,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (hasFocus) {
             // Reapply immersive fullscreen when window regains focus
             getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
                     View.SYSTEM_UI_FLAG_FULLSCREEN |
                     View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -1911,6 +1929,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void initViews() {
         playerView = findViewById(R.id.player_view);
         playerContainer = findViewById(R.id.player_container);
+        // THE TAP-TO-SELECT SURFACE MUST EXIST BEFORE ANYTHING IS SELECTED.
+        // ensurePreviewHandlesOverlay() was reached only from updatePreviewHandlesForSelection
+        // and the text-editor path -- both of which run AFTER something is already selected. So
+        // on a freshly opened project the view that answers "what is under this finger" did not
+        // exist at all, and a tap on the preview reached nothing: the object had to be selected
+        // from the TIMELINE once to bring the surface into being, after which taps worked for
+        // the rest of the session. JoyRaptor, 2026-09-05: "from opening the file, I can't actually
+        // select the image... I had to click the image in the timeline to get selection
+        // started." Creating it here costs one empty view; with a null target it draws nothing
+        // and grabs nothing, it only routes selection -- which is exactly its documented job.
+        ensurePreviewHandlesOverlay();
         transitionPreviewOverlay = findViewById(R.id.transition_preview_overlay);
         glTransitionPreviewView = findViewById(R.id.gl_transition_preview_view);
         overlayLayer = findViewById(R.id.overlay_layer);
@@ -2056,6 +2085,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 updateCurrentTimeDisplay(trimSrcOffMs);
                 refreshTotalTimeDisplay();
                 saveProjectNow();
+            }
+
+            @Override
+            public boolean isTimelineEditLockedOut() {
+                // ADVERSARIAL FIX 2: the Word Sync §3.1 lockout has to stop the master-fade
+                // knob from ARMING. Gating only onMasterFadeFinished let the live per-MOVE
+                // write land on the Clip and stay there, unrecorded and unsaved.
+                return isWordSyncActive();
             }
 
             @Override
@@ -2237,8 +2274,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // The preview/media swap keeps its ORIGINAL trigger — "the playhead moved to a
                 // clip other than the one that was selected on entry, and this is not a drag" —
                 // hence previousSelection rather than the (now already updated) field.
-                if (segmentIndex != previousSelection && !isDragging) {
-                    pendingClipSwapAfterDrag = false;
+                // DISPLAY swap runs during a drag; the MEDIA load still does not.
+                //
+                // This used to be gated on `!isDragging` as a whole, so dragging the playhead from
+                // a video clip into an image clip swapped NOTHING until the finger came up — the
+                // PlayerView kept showing the video's last frame over the new clip. JoyRaptor:
+                // "when I drag from the first clip to the second, the second clip still holds the
+                // last image from the end of the first clip until I let go."
+                //
+                // Showing/hiding the image, slide and missing overlays is a View visibility change
+                // and costs nothing, so it is safe per-crossing and naturally coalesced (it fires
+                // when the segment INDEX changes, not per pixel). The expensive half —
+                // loadClipForPlayback + volume/speed + updatePreviewTransforms — stays behind
+                // `!isDragging`, and onPlayheadDragFinished still does the authoritative load and
+                // exact seek, so the gesture always ends on the correct frame.
+                if (segmentIndex != previousSelection) {
+                    // Must stay true through the drag, or drag-finished skips the real load.
+                    if (!isDragging) pendingClipSwapAfterDrag = false;
                     // MISSING source: show MISSING overlay instead of loading preview
                     if (!clip.isGeneratedSlide() && !isSourceResolvable(clip.getSourceUri())) {
                         hideImagePreview();
@@ -2260,14 +2312,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         hideMissingOverlay();
                         hideImagePreview();
                     } else {
-                        // Video clip: load into ExoPlayer as usual
+                        // Video clip: hiding the overlays is free and must happen during a drag
+                        // too, so the video surface is actually revealed as the playhead enters.
                         hideMissingOverlay();
                         hideImagePreview();
                         hideSlidePreview();
-                        loadClipForPlayback(clip);
-                        playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
-                        playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
-                        updatePreviewTransforms();
+                        if (!isDragging) {
+                            // The costly half: a decoder load per dragged pixel would be far
+                            // worse than the stale frame this fixes.
+                            loadClipForPlayback(clip);
+                            playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+                            playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
+                            updatePreviewTransforms();
+                        }
                     }
                 }
 
@@ -6309,11 +6366,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (captionDrawerOpen) showCaptionDrawer(false);
         if (moveDrawerOpen) hideMoveDrawer();
         if (transitionPanelOpen) showTransitionPanel(false);
-        if (wordScrubDrawerOpen) {
-            wordScrubDrawerOpen = false;
-            View d = findViewById(R.id.word_scrub_drawer);
-            if (d != null) d.setVisibility(View.GONE);
-        }
+        // MUST route through hideWordScrubDrawer(), not hide the view by hand: only that path
+        // calls wordSyncMode.exit(). Clearing the flag and GONE-ing the view left
+        // isWordSyncActive() true with no drawer left to close, and every Word Sync lockout
+        // stayed armed for the rest of the session — spine taps stopped selecting, trim drags
+        // were silently discarded, fade-knob releases recorded no undo and never saved. Reached
+        // from the volume, opacity, loop, move and object drawers, i.e. ordinary editing.
+        // It also leaks the ScrubEngine's AudioTrack thread, which exit() is what ends.
+        if (wordScrubDrawerOpen) hideWordScrubDrawer();
     }
 
     private void openVolumeDrawer() {
@@ -7618,6 +7678,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void enterCropMode() {
         if (inCropMode) return;
         inCropMode = true;
+        // THE CROP TOOL CROPS THE CLIP YOU CAN SEE.
+        //
+        // Every method below asks getSelectedClip(), which is the clip the user last TAPPED and
+        // falls back to index 0 when nothing has been tapped — the exact hazard
+        // FxLivePreviewController names in its own crop block ("never the selection … silently
+        // crops by the wrong clip"). The PREVIEW, meanwhile, shows clipUnderPlayhead(). Scrub to
+        // clip 5 without tapping it, open Crop, and the tool read CLIP 0's bounds: a clip with
+        // cropPreset "none" opens the box at FULL FRAME, which is what "my crops have gone
+        // missing" looks like from the outside — and pressing Done then wrote the box onto clip
+        // 0, a clip that is not on screen. Nothing was ever lost from the file; the tool was
+        // simply pointed at the wrong row.
+        //
+        // Reconciled through syncSelectedIndexToSegment so the timeline row highlights too —
+        // the single authority for this index, rather than a second assignment to the field.
+        if (editorTimeline != null) {
+            int segAtPlayhead = editorTimeline.getSegmentAtPlayhead();
+            if (segAtPlayhead >= 0) syncSelectedIndexToSegment(segAtPlayhead);
+        }
         // The GL chain must show the FULL frame while the crop overlay is up — the user is
         // dragging a rectangle over it. syncAdjustmentPreview reads suppressPreviewCrop().
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
@@ -7695,6 +7773,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         activateFreeCrop();
                     }
                 });
+        // AND KEEP RE-MEASURING FOR AS LONG AS THE TOOL IS OPEN.
+        //
+        // The one-shot listener above fires on the FIRST layout after the controls section went
+        // GONE — but that pass is not the last one. The container's own layout listener runs
+        // reflowPreview() in the same pass, and reflowPreview calls applyCanvasFrame(), which
+        // sets NEW LayoutParams on the PlayerView; that schedules a SECOND traversal. Anything
+        // that measured the PlayerView before it froze a stale box.
+        //
+        // How much staleness costs depends entirely on the CANVAS ASPECT, which is why this is
+        // a portrait-only complaint. On a 1080-wide phone with a ~900px player area that grows
+        // to ~1400px when the controls hide:
+        //   9:16 canvas — height-limited: 506x900  ->  787x1400. The box changes by x1.55 in
+        //                 BOTH axes, so a stale rect is a badly wrong rectangle.
+        //   16:9 canvas — width-limited: 1080x608 -> 1080x608. IDENTICAL. Nothing to get wrong,
+        //                 which is exactly why the same tool "behaves correctly in 16:9".
+        //
+        // Re-deriving on every layout change makes the overlay self-correcting instead of
+        // depending on which callback wins the race. It costs one rect computation per layout
+        // pass, and only while the crop toolbar is up.
+        if (playerView != null) {
+            if (cropRelayoutListener == null) {
+                cropRelayoutListener = (v, l, t, r, b, ol, ot, or, ob) -> {
+                    if (!inCropMode) return;
+                    if (l == ol && t == ot && r == or && b == ob) return;
+                    v.post(this::refreshCropOverlayRect);
+                };
+            }
+            playerView.removeOnLayoutChangeListener(cropRelayoutListener);
+            playerView.addOnLayoutChangeListener(cropRelayoutListener);
+        }
 
         FLog.d(TAG, "Entered crop mode (saved: preset=" + preCropPreset
                 + ", bounds=[" + preCropLeft + "," + preCropTop
@@ -7761,6 +7869,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         // Deactivate the overlay
+        if (playerView != null && cropRelayoutListener != null) {
+            playerView.removeOnLayoutChangeListener(cropRelayoutListener);
+        }
         if (cropOverlay != null && cropOverlay.isActive()) {
             cropOverlay.deactivate();
         }
@@ -7946,7 +8057,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // PlayerView with resize_mode="fit" centres the video
         playerView.post(() -> {
             android.graphics.RectF videoRect = computeVideoContentRect();
+            // EVERY NUMBER THE BOX IS DERIVED FROM, in one line. The overlay's rect is only as
+            // right as the PlayerView's laid-out box and the decoded size; when a report says
+            // "the crop tool framed the wrong part of the picture", this line settles which of
+            // the two was wrong without another round trip to the device.
+            int[] dbgSrc = effectiveVideoSize();
             FLog.d(TAG, "activateFreeCrop: videoRect=" + videoRect
+                    + ", playerView=" + playerView.getWidth() + "x" + playerView.getHeight()
+                    + "@" + playerView.getLeft() + "," + playerView.getTop()
+                    + ", canvasSized=" + playerViewIsCanvasSized
+                    + ", canvasRect=" + computeCanvasRect()
+                    + ", decoded=" + (dbgSrc == null ? "null" : dbgSrc[0] + "x" + dbgSrc[1])
+                    + ", clipIdx=" + selectedClipIndex
                     + ", cropOverlay size=" + cropOverlay.getWidth() + "x" + cropOverlay.getHeight());
             cropOverlay.setVideoContentRect(videoRect);
             cropOverlay.setSnapToCenter(cropSnapToCenter);
@@ -7973,6 +8095,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 scheduleAutoSave();
             });
         });
+    }
+
+    /**
+     * Re-derive the crop overlay's picture rect after a preview relayout, KEEPING the rectangle
+     * the user has drawn.
+     *
+     * <p>The box is re-laid from the CLIP's fractions, not from the overlay's own pixels. The
+     * overlay writes every drag straight back to the clip through its change listener, so the
+     * clip is the live value; re-reading the overlay would mean trusting a rect that was measured
+     * against the box we are here to replace, and would return {@code 0,0,1,1} — silently
+     * un-cropping the clip — if that box had ever been degenerate.</p>
+     *
+     * <p>Re-activating does NOT notify the listener, so this never writes to the model: a
+     * relayout can move the rectangle on screen but can never change the crop.</p>
+     */
+    private void refreshCropOverlayRect() {
+        if (!inCropMode || cropOverlay == null || !cropOverlay.isActive()) return;
+        Clip clip = getSelectedClip();
+        if (clip == null) return;
+        android.graphics.RectF videoRect = computeVideoContentRect();
+        if (videoRect.width() <= 0f || videoRect.height() <= 0f) return;
+        cropOverlay.setVideoContentRect(videoRect);
+        float l = clip.getCropLeft(), t = clip.getCropTop();
+        float r = clip.getCropRight(), b = clip.getCropBottom();
+        if (r - l > 0.001f && b - t > 0.001f) {
+            cropOverlay.activate(l, t, r, b);
+        } else {
+            cropOverlay.activate();
+        }
+        cropOverlay.setSnapToCenter(cropSnapToCenter);
     }
 
     /**
@@ -8379,6 +8531,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (safeZoneOverlay != null) {
             safeZoneOverlay.setCanvasAspect(canvasAspect > 0 ? canvasAspect
                     : (targetH > 0 ? (float) targetW / targetH : -1f));
+        }
+
+        // THE GL COMPOSITE HAS TO BE TOLD THE CANVAS CHANGED.
+        //
+        // FxLivePreviewController sizes its composite frame from canvasAspect(), which reads the
+        // PlayerView's laid-out bounds — the box this method has just rewritten. But the frame is
+        // only re-derived inside sync(), and sync() runs on a playhead tick or an edit. Change the
+        // canvas preset while paused and nothing ticks: the chain keeps compositing into the OLD
+        // canvas's frame while the surface underneath it is the NEW canvas's shape, and
+        // drawPresent fits one into the other — the picture goes small, squashed and off-centre
+        // and STAYS there until something else forces a sync. Nudging the playhead fixed it
+        // because the nudge was the sync. JoyRaptor, 2026-09-02: 9:16 -> 16:9 left it "squashed,
+        // about two thirds height, aligned bottom right".
+        //
+        // Posted, not called inline: canvasRect() must read the sizes set above AFTER they have
+        // been laid out, and this method itself can run from inside a layout pass. Not a hot
+        // path — applyCanvasFrame runs on load, on a canvas change and on a container resize.
+        if (playerView != null) {
+            playerView.post(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+            });
         }
     }
 
@@ -9692,6 +9866,62 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * THE CLIP'S BASE-PICTURE ALPHA at a given in-segment position: its opacity keyframe
+     * envelope multiplied by its master fade-knob factor, both clamped to 0..1.
+     *
+     * <p>The single authority for that number. It is written to {@code playerView} /
+     * {@code imagePreview} on the Canvas path, and handed to
+     * {@code FxPreviewTextureView.setPictureAlpha} through
+     * {@code FxLivePreviewController.Host#clipPictureAlphaAt} when the GL chain owns the
+     * picture. The export computes the same product in one shader
+     * ({@code OpacityExportShaderProgram}: {@code opacityAtClipMs * masterFadeFactorAt}) and
+     * applies it to the clip picture BEFORE the overlay composite, so all three agree.</p>
+     *
+     * <p>Keyframes are stored in CLIP-LOCAL time, so the in-segment position is divided by the
+     * clip's speed first — the same conversion {@code getAbsolutePlayheadMs} makes.</p>
+     */
+    private float clipPictureAlphaFor(long positionInCurrentSegmentMs) {
+        Clip clip = clipUnderPlayhead();
+        if (clip == null) return 1f;
+        float speed = clip.getSpeedMultiplier();
+        long localMs = (speed > 0)
+                ? (long) (positionInCurrentSegmentMs / speed)
+                : positionInCurrentSegmentMs;
+        float opacity = 1f;
+        if (clip.hasOpacityKeyframes()) {
+            opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(localMs)));
+        }
+        float masterFade = Math.max(0f, Math.min(1f, clip.masterFadeFactorAt(localMs)));
+        return Math.max(0f, Math.min(1f, opacity * masterFade));
+    }
+
+    /**
+     * The playhead clip's SPINE CANVAS TRANSFORM at an in-segment position, into {@code out}.
+     * False = fit-centred, which is every clip in every project that has never been placed.
+     *
+     * <p>THE ONE CLIP-LOCAL CONVERSION for this feature on the editor side, and it is deliberately
+     * the same two lines {@link #clipPictureAlphaFor} uses: spine-transform keyframes are stored
+     * in clip-local time, so the in-segment position is divided by the clip's speed first. The
+     * exporter reaches the same clip-local number the other way round (presentation time minus
+     * the item's timeline offset, {@code ExportManager.clipMsFor}) and then calls the SAME
+     * {@code Clip.spinePoseAt}. Neither side interpolates anything of its own.</p>
+     */
+    private boolean clipSpinePoseFor(long positionInCurrentSegmentMs, @NonNull float[] out) {
+        Clip clip = clipUnderPlayhead();
+        if (clip == null || !clip.hasSpineTransform()) return false;
+        float speed = clip.getSpeedMultiplier();
+        long localMs = (speed > 0)
+                ? (long) (positionInCurrentSegmentMs / speed)
+                : positionInCurrentSegmentMs;
+        clip.spinePoseAt(localMs, out);
+        return true;
+    }
+
+    /** Scratch for {@link #clipSpinePoseFor}; main thread only, cloned by every consumer. */
+    private final float[] spinePoseScratch =
+            new float[com.fadcam.ui.faditor.model.SpineTransform.POSE];
+
+    /**
      * Update the current time display with the absolute playhead position.
      *
      * @param positionInCurrentSegmentMs 0-based position within the current clip's trimmed region
@@ -9767,8 +9997,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (ribbonProp != null) refreshKeyframeRibbon();
         // G4: the manipulation-handles box follows keyframed transforms and
         // hides outside the selected object's time range.
-        if (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget()) {
-            previewHandlesOverlay.setPlayheadMs(absoluteMs);
+        // NOT guarded on hasTarget() any more. While an image is selected this overlay carries no
+        // target on purpose, but it is still the surface that hit-tests taps -- and it hit-tests
+        // them AT ITS OWN CLOCK. Letting that clock go stale would make objects grabbable where
+        // they were three seconds ago. setPlayheadMs only repaints when there IS a target, so
+        // calling it unconditionally costs nothing. (Fed below, AFTER the overlay-clock
+        // correction: the box draws from the same clock the overlay surfaces render at —
+        // SPEC B device session 2026-09-05, a spinning object could read a few degrees stale
+        // against the picture past the last clip.)
+        // The transform surface tracks the playhead the same way: its quad is read from the
+        // object's ANIMATED pose, so a keyframed distortion has to move the handles with it.
+        // transformSpineClipId is checked too: a SPINE clip's pose is read from the same kind of
+        // animated lookup (Clip.spinePoseAt at the clip-local playhead), so leaving it out would
+        // freeze the handles on a keyframed spine transform while the picture moved under them.
+        if (transformOverlay != null
+                && (transformItemId != null || transformSpineClipId != null)) {
+            transformOverlay.refresh();
         }
 
         // Overlay time-ranges + keyframe animation were driven from the playhead HERE until the
@@ -9777,6 +10021,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Every surface below is time-range driven, so each one had the same past-the-last-clip
         // blindness — see overlayClockMs. Corrected once here rather than four times.
         long overlayMs = overlayClockMs(absoluteMs);
+        // G4 (moved here, 2026-09-05): the handles box is fed the CORRECTED overlay clock —
+        // the same value every overlay surface renders at — so the dashed box and the picture
+        // cannot read different rotations past the last clip. The call stays unconditional (see
+        // the note above): the overlay is the tap hit-tester even with no target.
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPlayheadMs(overlayMs);
+        }
         // M-COMP-1: same playhead tick drives the IMAGE-track preview surface (scrub +
         // live playback both flow through this one method — PLAN §3.2 scope item 5).
         if (layerImageOverlay != null) {
@@ -9806,6 +10057,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Captions are CLIP-SPECIFIC: show the captions of the clip under the playhead, switching at
         // each cut (fixes captions sticking on a previously-selected clip's transcript across a seam).
         // SPEC_20260829_CAPTION_LAYERS: when a clip has >1 binding, use the multi-container (one view per binding).
+        // Audio state is computed FIRST because video and audio multi-captions SHARE
+        // captionMultiContainer — the video branch must not hide it while audio multi overlays
+        // live inside it (bug: 3-track music captions vanished whenever the video clip under the
+        // playhead had ≤1 binding).
+        AudioClip tickActiveAudio = captionsActive ? findAudioClipAtTimelineMs(absoluteMs) : null;
+        boolean hasMultiAudio = tickActiveAudio != null && tickActiveAudio.getCaptionBindings().size() > 1;
         if (captionsActive) {
             Clip phClip = clipUnderPlayhead();
             boolean hasMulti = phClip != null && phClip.getCaptionBindings().size() > 1;
@@ -9815,21 +10072,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     captionClipId = phClip.getId();
                     rebuildCaptionOverlays(phClip);
                 } else if (phClip == null) {
-                    if (captionMultiContainer != null) captionMultiContainer.setVisibility(View.GONE);
+                    if (!hasMultiAudio && captionMultiContainer != null) captionMultiContainer.setVisibility(View.GONE);
                 }
                 if (phClip != null) {
                     long capSrc = phClip.getInPointMs() + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
-                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.setActiveSourceMs(capSrc);
+                    // Second arg = the CLIP-LOCAL playhead, the clock the binding's opacity
+                    // fade is measured against — the same one CompositeExportOverlay uses.
+                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.setActiveSourceMs(capSrc, positionInCurrentSegmentMs);
                     if (captionMultiContainer != null && captionMultiContainer.getVisibility() != View.VISIBLE) captionMultiContainer.setVisibility(View.VISIBLE);
                 }
             } else if (captionOverlay != null) {
-                if (captionMultiContainer != null && captionMultiContainer.getVisibility() == View.VISIBLE) captionMultiContainer.setVisibility(View.GONE);
+                if (!hasMultiAudio && captionMultiContainer != null && captionMultiContainer.getVisibility() == View.VISIBLE) captionMultiContainer.setVisibility(View.GONE);
                 if (phClip != null && phClip.isCaptionsEnabled() && phClip.hasTranscript()) {
                     if (!phClip.getId().equals(captionClipId)) {
                         bindCaptionData(phClip);
                     }
                     long capSrc = phClip.getInPointMs() + (long) (positionInCurrentSegmentMs * phClip.getSpeedMultiplier());
-                    captionOverlay.setActiveSourceMs(capSrc);
+                    captionOverlay.setActiveSourceMs(capSrc, positionInCurrentSegmentMs);
                     if (captionOverlay.getVisibility() != View.VISIBLE) captionOverlay.setVisibility(View.VISIBLE);
                 } else if (captionOverlay.getVisibility() == View.VISIBLE) {
                     captionOverlay.setVisibility(View.GONE);
@@ -9838,28 +10097,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         // Audio caption overlay
         if (captionsActive) {
-            AudioClip activeAudio = findAudioClipAtTimelineMs(absoluteMs);
-            boolean hasMultiAudio = activeAudio != null && activeAudio.getCaptionBindings().size() > 1;
+            AudioClip activeAudio = tickActiveAudio;
             if (hasMultiAudio) {
+                com.fadcam.FLog.d("CAPMULTI", "tick audioMulti absMs=" + absoluteMs
+                        + " containerVis=" + (captionMultiContainer == null ? "null" : captionMultiContainer.getVisibility())
+                        + " overlays=" + audioCaptionOverlays.size());
                 if (audioCaptionOverlay != null && audioCaptionOverlay.getVisibility() == View.VISIBLE) audioCaptionOverlay.setVisibility(View.GONE);
+                // Audio multi overlays render inside the SHARED container — make sure it is shown
+                // (the video branch above may legitimately not have done so; fixing the invisible
+                // 3-track music captions bug).
+                if (captionMultiContainer != null && captionMultiContainer.getVisibility() != View.VISIBLE) captionMultiContainer.setVisibility(View.VISIBLE);
                 if (activeAudio != null && !activeAudio.getId().equals(audioCaptionClipId)) {
                     audioCaptionClipId = activeAudio.getId();
                     rebuildAudioCaptionOverlays(activeAudio);
                 } else if (activeAudio == null) {
-                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setVisibility(View.GONE);
+                    hideAudioCaptionOverlaysForTick();
                 }
                 if (activeAudio != null) {
                     long audioLocalMs = absoluteMs - activeAudio.getOffsetMs() + activeAudio.getInPointMs();
-                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setActiveSourceMs(audioLocalMs);
+                    // ⚠ THE DEAL-KILLER, fixed here. This branch used to drive the words and
+                    // nothing else, while TWO other branches could set every audio caption view
+                    // GONE (playhead outside the audio clip — which includes t=0 whenever the
+                    // clip has any offset — and any tick where the clip has ≤1 binding). Nothing
+                    // in the whole activity ever set them VISIBLE again: the views were already
+                    // built and the id already claimed, so the rebuild above was skipped forever.
+                    // The captions stayed invisible until an UNRELATED action (a style tap, a
+                    // transcript edit, opening the drawer) happened to call a rebuild — exactly
+                    // "they won't render and then all of a sudden they just come back".
+                    showAudioCaptionOverlaysForTick();
+                    // Fade clock = time within the AUDIO clip's own span, which starts at its
+                    // offset and does NOT include the in-point (CompositeExportOverlay uses
+                    // timelineMs - offsetMs); audioLocalMs above is a SOURCE time.
+                    long audioSpanLocalMs = absoluteMs - activeAudio.getOffsetMs();
+                    for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setActiveSourceMs(audioLocalMs, audioSpanLocalMs);
                 }
             } else if (audioCaptionOverlay != null) {
-                for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) av.setVisibility(View.GONE);
+                hideAudioCaptionOverlaysForTick();
                 if (activeAudio != null && activeAudio.isCaptionsEnabled() && activeAudio.hasTranscript()) {
                     if (!activeAudio.getId().equals(audioCaptionClipId)) {
                         bindAudioCaptionData(activeAudio);
                     }
                     long audioLocalMs = absoluteMs - activeAudio.getOffsetMs() + activeAudio.getInPointMs();
-                    audioCaptionOverlay.setActiveSourceMs(audioLocalMs);
+                    audioCaptionOverlay.setActiveSourceMs(audioLocalMs,
+                            absoluteMs - activeAudio.getOffsetMs());
                     if (audioCaptionOverlay.getVisibility() != View.VISIBLE) audioCaptionOverlay.setVisibility(View.VISIBLE);
                 } else if (audioCaptionOverlay.getVisibility() == View.VISIBLE) {
                     audioCaptionOverlay.setVisibility(View.GONE);
@@ -9991,23 +10271,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Apply clip opacity (keyframe envelope or default 1.0) to the video preview.
         {
-            Clip clip = clipUnderPlayhead();
-            float opacity = 1f;
-            if (clip != null) {
-                if (clip.hasOpacityKeyframes()) {
-                    opacity = Math.max(0f, Math.min(1f, clip.opacityAtClipMs(timelineLocalMs)));
-                }
-                // FADE_KNOBS §2.5: the spine fade knobs multiply in (JoyRaptor's cheap route —
-                // alpha over black IS fade-to-black; nothing lives under the spine).
-                opacity *= clip.masterFadeFactorAt(timelineLocalMs);
-                opacity = Math.max(0f, Math.min(1f, opacity));
-            }
-            if (playerView != null) playerView.setAlpha(opacity);
+            // OWNER RULING 2026-09-02 — "THE OPACITY SHOULD FADE THE CLIP, NOT EVERYTHING
+            // ABOVE IT." The previous revision put the master fade on player_container, the
+            // shared parent of the video surface AND every overlay view (text, captions,
+            // stickers, visualiser — plus the keyframe ribbon and preview handles, which are
+            // editing chrome and were dimming too). So a spine clip fading out dragged the
+            // image layer and the caption track the owner had placed ABOVE it to black with
+            // it, and at the seam they snapped back to full: the "everything POPS BACK".
+            // The pop was not a separate discontinuity — it was this over-broad fade ending.
+            //
+            // The fade now lands on the clip's OWN picture only (the video surface, or the
+            // still-image surface for an image clip), which is where the clip's keyframe
+            // opacity has always lived. Overlays keep their own opacity and their own
+            // fade-in/out envelopes, untouched.
+            //
+            // COMPOSED, not replaced: keyframe opacity and the knob fade are two envelopes on
+            // the same clip, so the surface alpha is their PRODUCT. Export does the identical
+            // multiply in one shader (OpacityExportShaderProgram: opacityAtClipMs *
+            // masterFadeFactorAt), applied to the clip picture BEFORE the overlay composite —
+            // so preview and export agree pixel-for-pixel in scope.
+            //
+            // player_container is force-reset to 1 rather than simply left alone: a project
+            // saved/opened while the old code had dimmed it would otherwise stay dim forever,
+            // since nothing else writes that alpha back.
+            if (playerContainer != null && playerContainer.getAlpha() != 1f) playerContainer.setAlpha(1f);
+            // ONE AUTHORITY for the number — clipPictureAlphaFor. The GL composite needs the
+            // identical value (see the Host override clipPictureAlphaAt), because once an
+            // adjustment layer routes the picture through FxPreviewTextureView, playerView is
+            // held hidden underneath and the alpha written on it lands on nothing.
+            float clipPictureAlpha = clipPictureAlphaFor(positionInCurrentSegmentMs);
+            if (playerView != null) playerView.setAlpha(clipPictureAlpha);
             // Skipped while the GL chain owns the picture: this view is held at alpha 0 there and
             // writing the opacity back would un-hide the raw photo over the graded one.
             if (imagePreview != null && !glOwnsImagePreview
                     && imagePreview.getVisibility() == View.VISIBLE) {
-                imagePreview.setAlpha(opacity);
+                imagePreview.setAlpha(clipPictureAlpha);
             }
         }
 
@@ -11941,6 +12239,89 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 qualSpinner.setAlpha(checked ? 0.4f : 1f);
             });
 
+            // ── SPEC_C: single-frame image export (PNG/JPG) ── // TODO(strings)
+            // Either where the playhead is (pre-filled) or a typed timecode. The frame is
+            // rendered by the SAME pipeline as a video export at the export resolution,
+            // so Resolution stays live while the video/audio-only choices grey out.
+            final android.widget.CheckBox frameBox = new android.widget.CheckBox(this);
+            frameBox.setText("Export single frame (image)");
+            frameBox.setTextColor(0xFFFFFFFF);
+            android.widget.LinearLayout.LayoutParams frameBoxLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            frameBoxLp.topMargin = pad / 2;
+            frameBox.setLayoutParams(frameBoxLp);
+            root.addView(frameBox);
+
+            TextView frameDesc = new TextView(this);
+            frameDesc.setText("Saves one composed frame — overlays included — at the export "
+                    + "resolution. The frame comes off the same video encoder as an export, so "
+                    + "Quality shapes it: PNG keeps that frame exactly, JPG is smaller "
+                    + "(no transparency, frames are opaque)");
+            frameDesc.setTextColor(0xFF888888);
+            frameDesc.setTextSize(11);
+            root.addView(frameDesc);
+
+            final android.widget.LinearLayout frameExtras = new android.widget.LinearLayout(this);
+            frameExtras.setOrientation(android.widget.LinearLayout.VERTICAL);
+            frameExtras.setVisibility(View.GONE);
+            root.addView(frameExtras);
+
+            final android.widget.Spinner frameFormatSpinner = buildExportSettingSpinner(
+                    frameExtras, "Format",
+                    new String[]{"PNG (no extra loss)", "JPG (smaller)"}, 0, pad);
+
+            TextView frameTimeLabel = new TextView(this);
+            frameTimeLabel.setText("Frame time (pre-filled from the playhead — type to override)");
+            frameTimeLabel.setTextColor(0xFF888888);
+            frameTimeLabel.setTextSize(11);
+            android.widget.LinearLayout.LayoutParams ftLabelLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            ftLabelLp.topMargin = pad / 2;
+            frameTimeLabel.setLayoutParams(ftLabelLp);
+            frameExtras.addView(frameTimeLabel);
+
+            final android.widget.EditText frameTimeInput = new android.widget.EditText(this);
+            frameTimeInput.setText(TimeFormatter.formatMmSsTenths(
+                    Math.max(0L, lastPlayheadAbsoluteMs)));
+            frameTimeInput.setHint("m:ss.t or seconds");
+            frameTimeInput.setSelectAllOnFocus(true);
+            frameTimeInput.setSingleLine(true);
+            frameTimeInput.setTextColor(0xFFFFFFFF);
+            frameTimeInput.setTextSize(14);
+            frameTimeInput.setInputType(android.text.InputType.TYPE_CLASS_DATETIME);
+            frameExtras.addView(frameTimeInput);
+
+            final TextView frameError = new TextView(this);
+            frameError.setTextColor(0xFFFF6B6B);
+            frameError.setTextSize(11);
+            frameError.setVisibility(View.GONE);
+            frameExtras.addView(frameError);
+
+            frameBox.setOnCheckedChangeListener((b, checked) -> {
+                frameExtras.setVisibility(checked ? View.VISIBLE : View.GONE);
+                if (checked && audioOnlyBox.isEnabled()) audioOnlyBox.setChecked(false);
+                audioOnlyBox.setEnabled(!checked);
+                // Resolution shapes the image size and Quality shapes its fidelity —
+                // BOTH stay live. The frame is pulled out of a real H.264 encode of the
+                // composition (ExportManager.exportSingleFrame), so the quality/bitrate
+                // setting is the only control over how good the image is; greying it out
+                // would leave a project parked on LOW silently emitting a degraded PNG.
+                // Loudness / clean-audio are audio-only concerns and do grey out.
+                qualSpinner.setEnabled(!audioOnlyBox.isChecked());
+                qualSpinner.setAlpha(audioOnlyBox.isChecked() ? 0.4f : 1f);
+                resSpinner.setEnabled(!audioOnlyBox.isChecked());
+                resSpinner.setAlpha(audioOnlyBox.isChecked() ? 0.4f : 1f);
+                loudSpinner.setEnabled(!checked);
+                loudSpinner.setAlpha(checked ? 0.4f : 1f);
+                cleanAudio.setEnabled(!checked);
+                cleanAudio.setAlpha(checked ? 0.4f : 1f);
+                frameError.setVisibility(View.GONE);
+            });
+
             // B9: an AUDIO-ONLY project (no spine clip) has no picture to encode, so the
             // choice is not offered — it IS an audio export. The video-only controls come
             // off the dialog entirely rather than sitting disabled: a control that cannot
@@ -11953,32 +12334,66 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 resSpinner.setVisibility(View.GONE);
                 qualSpinner.setVisibility(View.GONE);
                 lowBandwidthChip.setVisibility(View.GONE);
+                // No picture to take a frame from either — the choice comes off the dialog
+                // entirely rather than sitting disabled (§0 rule 6 / G18 family).
+                frameBox.setVisibility(View.GONE);
+                frameExtras.setVisibility(View.GONE);
             }
 
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            // SPEC_C: the positive button is INTERCEPTED rather than set as a listener, so
+            // an invalid frame time keeps the dialog open with an inline error instead of
+            // clamping the typed time silently (spec acceptance #4).
+            androidx.appcompat.app.AlertDialog exportDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle(R.string.faditor_export_confirm_title)
                     .setView(root)
-                    .setPositiveButton(R.string.faditor_export_confirm_action, (d, w) -> {
-                        project.getExportSettings().setCleanAudio(cleanAudio.isChecked());
-                        project.getExportSettings().setResolution(
-                                resValues[Math.max(0, resSpinner.getSelectedItemPosition())]);
-                        project.getExportSettings().setQuality(
-                                qualValues[Math.max(0, qualSpinner.getSelectedItemPosition())]);
-                        project.getExportSettings().setOutputFileName(
-                                sanitizeExportFileName(
-                                        fileNameInput.getText().toString(),
-                                        defaultExportBaseName));
-                        // C4: loudness target — store in ExportManager for this export (lane forbids touching model/ExportSettings)
-                        // and also as an intent extra for the :export process (see doStartOutOfProcessExport).
-                        com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget chosen = loudValues[Math.max(0, loudSpinner.getSelectedItemPosition())];
-                        if (exportManager != null) exportManager.setPendingLoudnessTarget(chosen);
-                        // Stash for ExportService via SharedPreferences (cross-process, survives snapshot)
-                        getSharedPreferences("faditor_export", MODE_PRIVATE).edit().putString("pending_loudness_target", chosen.name()).apply();
-                        scheduleAutoSave();
-                        startExportViaService(audioOnlyBox.isChecked());
-                    })
+                    .setPositiveButton(R.string.faditor_export_confirm_action, null)
                     .setNegativeButton(android.R.string.cancel, null)
-                    .show();
+                    .create();
+            exportDialog.show();
+            exportDialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                long frameAtMs = -1L;
+                boolean frameJpeg = false;
+                if (frameBox.isChecked()) {
+                    // TODO(strings)
+                    frameAtMs = TimeFormatter.parseTimecodeMs(frameTimeInput.getText().toString());
+                    if (frameAtMs < 0) {
+                        frameError.setText("Enter a time like 01:23.4 (or 4.5 for 4.5 seconds)");
+                        frameError.setVisibility(View.VISIBLE);
+                        return;
+                    }
+                    long totalMs = tl.getTotalDurationMs();
+                    if (frameAtMs >= totalMs) {
+                        frameError.setText("That time is past the end of the project ("
+                                + TimeFormatter.formatAuto(totalMs)
+                                + "). Pick an earlier time.");
+                        frameError.setVisibility(View.VISIBLE);
+                        return;
+                    }
+                    frameJpeg = frameFormatSpinner.getSelectedItemPosition() == 1;
+                }
+                project.getExportSettings().setCleanAudio(cleanAudio.isChecked());
+                project.getExportSettings().setResolution(
+                        resValues[Math.max(0, resSpinner.getSelectedItemPosition())]);
+                project.getExportSettings().setQuality(
+                        qualValues[Math.max(0, qualSpinner.getSelectedItemPosition())]);
+                project.getExportSettings().setOutputFileName(
+                        sanitizeExportFileName(
+                                fileNameInput.getText().toString(),
+                                defaultExportBaseName));
+                // C4: loudness target — store in ExportManager for this export (lane forbids touching model/ExportSettings)
+                // and also as an intent extra for the :export process (see doStartOutOfProcessExport).
+                com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget chosen = loudValues[Math.max(0, loudSpinner.getSelectedItemPosition())];
+                if (exportManager != null) exportManager.setPendingLoudnessTarget(chosen);
+                // Stash for ExportService via SharedPreferences (cross-process, survives snapshot)
+                getSharedPreferences("faditor_export", MODE_PRIVATE).edit().putString("pending_loudness_target", chosen.name()).apply();
+                scheduleAutoSave();
+                exportDialog.dismiss();
+                if (frameAtMs >= 0) {
+                    startFrameExportViaService(frameAtMs, frameJpeg);
+                } else {
+                    startExportViaService(audioOnlyBox.isChecked());
+                }
+            });
         } catch (Exception e) {
             FLog.e(TAG, "Failed to show export confirmation, starting directly", e);
             startExportViaService();
@@ -12042,6 +12457,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (rawInput == null) return fallback;
         String cleaned = rawInput.trim().replaceAll("[/\\\\:*?\"<>|]", "").trim();
         return cleaned.isEmpty() ? fallback : cleaned;
+    }
+
+    /**
+     * SPEC_C: start the single-frame image export through the same out-of-process flow a
+     * video export uses (slide pre-pass, snapshot, foreground service). The timecode
+     * grammar itself lives in {@link TimeFormatter#parseTimecodeMs} (one authority,
+     * harness-tested).
+     */
+    private void startFrameExportViaService(long frameTimeMs, boolean frameJpeg) {
+        if (isExportRunning()) {
+            Toast.makeText(this, R.string.faditor_export_in_progress, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (project != null && project.getTimeline().getClipCount() == 0
+                && !project.getTimeline().hasAudioClips()) {
+            Toast.makeText(this,
+                    "Nothing to export yet — add audio or video first", // TODO(strings)
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (countMissingMedia() > 0) {
+            Toast.makeText(this,
+                    "Cannot export: " + countMissingMedia() + " media file(s) are missing. Please relink first.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        startOutOfProcessExport(false, Long.valueOf(frameTimeMs), frameJpeg);
     }
 
     /**
@@ -12185,6 +12627,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * snapshot the project to a file, and start the foreground service with its path.
      */
     private void startOutOfProcessExport(boolean audioOnly) {
+        startOutOfProcessExport(audioOnly, null, false);
+    }
+
+    /** SPEC_C: frame exports ride the same slide pre-pass + snapshot + service flow. */
+    private void startOutOfProcessExport(boolean audioOnly,
+                                         @Nullable Long frameTimeMs, boolean frameJpeg) {
         // ensureGeneratedSlidesRendered pre-pass: slides render HERE, in the editor
         // process — the :export process can't host the WebView capture. The rendered
         // MP4 lands at the content-addressed cache path the slide clip's sourceUri
@@ -12205,7 +12653,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             slideProjectDir = null;
         }
         if (pendingSlides.isEmpty() && pendingOverlaySlides.isEmpty()) {
-            doStartOutOfProcessExport(audioOnly);
+            doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg);
             return;
         }
 
@@ -12235,7 +12683,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     return;
                 }
                 resolvableCache.clear();
-                doStartOutOfProcessExport(audioOnly);
+                doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg);
             });
         });
     }
@@ -12289,6 +12737,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void doStartOutOfProcessExport(boolean audioOnly) {
+        doStartOutOfProcessExport(audioOnly, null, false);
+    }
+
+    /** SPEC_C: the frame variant carries the frame time + format to the :export process. */
+    private void doStartOutOfProcessExport(boolean audioOnly,
+                                           @Nullable Long frameTimeMs, boolean frameJpeg) {
         prepareMemoryForExport();
 
         String snapshotPath = writeExportSnapshotFile();
@@ -12304,6 +12758,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
         serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
         serviceIntent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
+        if (frameTimeMs != null) {
+            serviceIntent.putExtra(ExportService.EXTRA_SINGLE_FRAME, true);
+            serviceIntent.putExtra(ExportService.EXTRA_FRAME_TIME_MS, frameTimeMs.longValue());
+            serviceIntent.putExtra(ExportService.EXTRA_FRAME_JPEG, frameJpeg);
+        }
         // C4: pass loudness target to the :export process (ExportManager reads it there)
         String loudName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
         serviceIntent.putExtra("extra_loudness_target", loudName);
@@ -13066,21 +13525,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Override
                     public void onWaveformLongPressed(
                             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance overlay) {
-                        // Gesture contract §4.5: hold opens the object menu; delete
-                        // lives inside it (was an instant, confirm-less delete).
-                        // TODO(strings)
-                        String[] items = {"Customize style…", "Delete visualizer"};
-                        new com.google.android.material.dialog.MaterialAlertDialogBuilder(
-                                FaditorEditorActivity.this)
-                                .setTitle("Visualizer")
-                                .setItems(items, (d, which) -> {
-                                    if (which == 0) {
-                                        showVisualizerStylePicker(overlay);
-                                    } else {
-                                        onWaveformDeleted(overlay);
-                                    }
-                                })
-                                .show();
+                        // Gesture contract §4.5: hold opens the visualizer's SETTINGS DRAWER.
+                        // It used to raise a two-item menu whose second item deleted the
+                        // visualizer — one stray hold plus one stray tap and the object was
+                        // gone. Deletion now lives only on the timeline row's trash-can badge,
+                        // which is a deliberate, aimed target; hold is purely "let me edit it".
+                        showVisualizerStylePicker(overlay);
                     }
                 });
         if (!overlays.isEmpty()) {
@@ -13313,21 +13763,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (layerImageOverlay != null) {
                 java.util.List<com.fadcam.ui.faditor.layers.TimedItem> imageItems =
                         com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleImageItems(tl);
-                // GL pilot: inject a synthetic visible image when IMAGE track is empty so the
-                // raster+GL path can be exercised on any project for measurement on Note 9.
-                // In-memory only, not persisted; remove after pilot decision. This is the
-                // "at least one image overlay" project the spec's §5 measurement requires.
-                if (imageItems.isEmpty() && tl.getClipCount() > 0 && !pilotDummyInjected) {
-                    try {
-                        com.fadcam.ui.faditor.model.Clip dummyClip = new com.fadcam.ui.faditor.model.Clip(
-                                android.net.Uri.parse("file:///pilot_dummy"), 60000);
-                        com.fadcam.ui.faditor.layers.TimedItem dummy = com.fadcam.ui.faditor.layers.TimedItem.ofClip(dummyClip, 0);
-                        imageItems = new java.util.ArrayList<>();
-                        imageItems.add(dummy);
-                        pilotDummyInjected = true;
-                        FLog.d("GLPilot", "injected pilot dummy image (1 visible) for measurement");
-                    } catch (Exception e) { FLog.w("GLPilot", "pilot inject failed", e); }
-                }
+                // GL pilot dummy REMOVED 2026-09-01. It injected a synthetic 60s image item on
+                // every project whose IMAGE track was empty, purely to exercise the raster+GL
+                // path for a Note 9 measurement. LayerImageOverlayView rasterises items it has
+                // no bitmap for as a hardcoded blue placeholder rectangle, so this painted a blue
+                // square over the centre of the preview for the first 60 seconds of any
+                // GL-routed project — with no timeline row, so JoyRaptor could not select or delete
+                // it. Its own comment said "remove after pilot decision"; the decision is made.
                 layerImageOverlay.setItems(imageItems);
                 layerImageOverlay.setPlayheadMs(lastPlayheadAbsoluteMs);
             }
@@ -15219,6 +15661,59 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 PendingLayerTrackUndo trackChange = pendingLayerTrackUndo;
                 pendingLayerTrackUndo = null;
 
+                // ADVERSARIAL FIX 1: ONE gesture = ONE undo step, for EVERY fade host.
+                // The per-host chain below only ever grew a FADE branch for text and audio.
+                // A fade drag on a sprite, a visualizer, a PiP or master-spine clip, or a
+                // caption span fell through it and recorded NOTHING — the model changed and
+                // Undo silently reverted an unrelated earlier edit. Those four hosts all
+                // mutate through LayerRowRenderer's generic setters (see the isGenericFade /
+                // isCaptionFade arms of LayerGestureController#onFadeMove), so one branch
+                // routed back through the same setters restores every one of them.
+                if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN
+                        || kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_OUT) {
+                    long fbIn = -1L, fbOut = -1L;
+                    if (item.getTextOverlay() != null || item.getAudioClip() != null) {
+                        // Text (imageFade fields) and audio (volume keyframes) keep their own
+                        // richer branches below — do not double-record them here.
+                    } else if (item.getSprite() != null) {
+                        fbIn = ctrl.getFadeBeforeSpriteIn(); fbOut = ctrl.getFadeBeforeSpriteOut();
+                    } else if (item.getWaveform() != null) {
+                        fbIn = ctrl.getFadeBeforeWaveformIn(); fbOut = ctrl.getFadeBeforeWaveformOut();
+                    } else if (item.getClip() != null) {
+                        fbIn = ctrl.getFadeBeforeClipMasterIn(); fbOut = ctrl.getFadeBeforeClipMasterOut();
+                    } else if (item.getCaptionSpan() != null) {
+                        fbIn = ctrl.getFadeBeforeCaptionIn(); fbOut = ctrl.getFadeBeforeCaptionOut();
+                    }
+                    com.fadcam.ui.faditor.layers.LayerRowRenderer fadeRr =
+                            editorTimeline.getLayerRowRenderer();
+                    if (fbIn >= 0 && fadeRr != null) {
+                        final com.fadcam.ui.faditor.layers.LayerRowRenderer rr = fadeRr;
+                        final long fTotal = project.getTimeline().getTotalDurationMs();
+                        final long bIn = fbIn, bOut = fbOut;
+                        final long aIn = rr.getFadeInMsForItem(item, fTotal);
+                        final long aOut = rr.getFadeOutMsForItem(item, fTotal);
+                        if (aIn != bIn || aOut != bOut) {
+                            undoManager.recordAction(new EditActions.LambdaAction(
+                                    kind == com.fadcam.ui.faditor.layers.LayerGestureController
+                                            .GestureKind.FADE_IN ? "Fade in" : "Fade out", // TODO(strings)
+                                    () -> { rr.setFadeInMsForItem(item, aIn, fTotal);
+                                            rr.setFadeOutMsForItem(item, aOut, fTotal);
+                                            syncTimelineOverlays();
+                                            if (editorTimeline != null) editorTimeline.invalidate(); },
+                                    () -> { rr.setFadeInMsForItem(item, bIn, fTotal);
+                                            rr.setFadeOutMsForItem(item, bOut, fTotal);
+                                            syncTimelineOverlays();
+                                            if (editorTimeline != null) editorTimeline.invalidate(); }));
+                        } else {
+                            maybeRecordTrackOnlyChange(trackChange);
+                        }
+                        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                        syncTimelineOverlays();
+                        scheduleAutoSave();
+                        return;
+                    }
+                }
+
                 if (item.getTextOverlay() != null) {
                     com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
                     if (kind == com.fadcam.ui.faditor.layers.LayerGestureController.GestureKind.FADE_IN
@@ -16494,6 +16989,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * SPEC_20260830_WORD_SYNC_V2 §2: this drawer IS Word Sync mode — opening it enters,
      * closing it exits. No separate toggle, no banner.
      */
+    /**
+     * Re-bind every caption surface after the TRANSCRIPT changed (text, timing, strikes, breaks).
+     *
+     * <p>The edit call sites all did the same partial thing: {@code getSelectedClip()} plus
+     * {@code bindCaptionData}. That covers a captioned VIDEO clip and nothing else, so a project
+     * whose captions live on an AUDIO clip — the normal case for music/voice-over tracks, and the
+     * one in the reported bug — got no refresh at all from a word edit or a strike. The preview
+     * only caught up when some later action rebuilt the overlays.</p>
+     */
+    private void refreshCaptionsAfterTranscriptEdit() {
+        refreshCaptionsAfterTranscriptEdit(true);
+    }
+
+    /**
+     * @param rewindow true when the edit REPLACED word objects (text or timing), which the
+     *                 already-bound windowed transcripts cannot see because they hold the old
+     *                 references. A strike or a line break mutates the SHARED word object, so
+     *                 the overlays pick it up from their own content check and only need a
+     *                 repaint — re-windowing three 900-word transcripts on every frame of a
+     *                 strike drag would be an ANR, not a fix.
+     */
+    private void refreshCaptionsAfterTranscriptEdit(boolean rewindow) {
+        if (!captionsActive) return;
+        if (!rewindow) {
+            for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.invalidate();
+            for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : audioCaptionOverlays) v.invalidate();
+            if (captionOverlay != null) captionOverlay.invalidate();
+            if (audioCaptionOverlay != null) audioCaptionOverlay.invalidate();
+            return;
+        }
+        Clip vc = getSelectedClip();
+        if (vc != null && vc.hasTranscript()) bindCaptionData(vc);
+        AudioClip ac = audioCaptionClipId != null ? findAudioClipById(audioCaptionClipId) : null;
+        if (ac == null) ac = findAudioClipAtTimelineMs(Math.max(0L, lastPlayheadAbsoluteMs));
+        if (ac != null && ac.hasTranscript()) bindAudioCaptionData(ac);
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) v.invalidate();
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : audioCaptionOverlays) v.invalidate();
+        if (captionOverlay != null) captionOverlay.invalidate();
+        if (audioCaptionOverlay != null) audioCaptionOverlay.invalidate();
+    }
+
     private void showWordScrubDrawer(int index) {
         if (wordScrubDrawer == null || transcriptView == null) return;
         boolean wasOpen = wordScrubDrawerOpen;
@@ -16512,6 +17048,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (w != null && wordScrubWordText != null) {
             wordScrubWordText.setText(w.text);
         }
+        // Auto-arm BLOCK from the entry being opened: a slide/phrase entry can no longer be
+        // silently shattered by a routine text fix (SPEC_20260831 §2).
+        armWordEditBlockMode(index);
         refreshWordScrubChrome();
 
         if (!wasOpen) {
@@ -16520,7 +17059,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ensureWordSyncMode();
             wordSyncMode.enter();
             wordSyncMode.onSourceChanged();
-            showWordSyncToast("WORD SYNC ON — you can now rearrange words on the timeline tape. Close the drawer to exit this mode.");
+            showWordSyncModeToast("WORD SYNC ON — you can now rearrange words on the timeline tape. Close the drawer to exit this mode.");
             if (transcriptView != null) { transcriptView.setWordSyncMode(wordSyncMode); transcriptView.invalidate(); }
             if (editorTimeline != null) {
                 try {
@@ -16541,6 +17080,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Retarget without re-animating panel
             refreshWordScrubChrome();
             if (wordScrubWordText != null && w != null) wordScrubWordText.setText(w.text);
+            armWordEditBlockMode(index);
             // Update shuttle snapshot? No — shuttle drag will snapshot on its own start
         }
         updateWordScrubDrawerChrome();
@@ -16629,7 +17169,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncTimelineTranscript();
         if (editorTimeline != null) editorTimeline.invalidate();
         if (transcriptView != null) transcriptView.invalidate();
-        if (clip != null && captionsActive && clip.hasTranscript()) bindCaptionData(clip);
+        refreshCaptionsAfterTranscriptEdit();
         scheduleAutoSave();
     }
 
@@ -16638,14 +17178,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordScrubDrawerOpen = false;
         wordScrubCurrentIndex = -1;
         wordScrubGroupLength = 1;
-        if (wordScrubStrip != null) {
-            try { wordScrubStrip.setListener(null); } catch (Exception ignored) {}
-        }
+        // Deliberately NOT nulling wordScrubStrip's listener here. wireWordScrubDrawer() attaches
+        // it inside a one-shot `wordScrubDrawerWired` guard that is never reset, so dropping the
+        // listener on close made the shuttle — the headline control of this mode — permanently
+        // inert from the second time the drawer was opened onward. The listener's own
+        // `wordScrubCurrentIndex < 0` guard already makes it a no-op while the drawer is closed,
+        // so keeping it attached costs nothing.
+        
         wordScrubDrawer.animate().translationY(-wordScrubDrawer.getHeight()).setDuration(160)
                 .withEndAction(() -> wordScrubDrawer.setVisibility(View.GONE)).start();
         // §2: exiting Word Sync
         if (wordSyncMode != null) wordSyncMode.exit();
-        showWordSyncToast("Word Sync mode OFF — words locked to tape.");
+        showWordSyncModeToast("Word Sync mode OFF — words locked to tape.");
         if (transcriptView != null) { transcriptView.setWordSyncMode(null); transcriptView.invalidate(); }
         if (editorTimeline != null) {
             try {
@@ -16836,6 +17380,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (wordSyncDrawerRippleLabel != null) wordSyncDrawerRippleLabel.setOnClickListener(v -> cycleWordSyncRipple());
             if (wordSyncDrawerSnapLabel != null) wordSyncDrawerSnapLabel.setOnClickListener(v -> toggleWordSyncSnap());
         }
+        // BLOCK / KARAOKE commit toggle. Present only in the xml row; the programmatic fallback
+        // row above is for old layouts and simply doesn't offer it.
+        wordSyncBlockToggle = wordScrubDrawer.findViewById(R.id.word_sync_block);
+        if (wordSyncBlockToggle != null) {
+            wordSyncBlockToggle.setOnClickListener(v -> {
+                wordEditBlockMode = !wordEditBlockMode;
+                updateWordBlockToggleChrome();
+                showWordSyncToast(wordEditBlockMode
+                        ? "One block — the whole box stays a single caption, spaces won't split it."
+                        : "Split into words — the box splits on spaces into timed words.");
+            });
+        }
+        updateWordBlockToggleChrome();
         updateWordScrubDrawerChrome();
 
         // TimeShuttleView listener — correct target is applyWordGroupDelta, NOT playhead (§4)
@@ -16947,23 +17504,154 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wordScrubDrawer.setOnTouchListener(swipeUp);
     }
 
-    /** Commit the word text edit: replace current word(s) via transcriptView.editWord. */
+    // ── SPEC_20260831 CAPTION SLIDES UX — BLOCK / KARAOKE commit toggle ──────
+    // JoyRaptor's bug: one of his three caption tracks is in SLIDE format — each entry's text is a
+    // whole Bible verse occupying one time slot. Fixing a wrong scripture reference in the
+    // word-edit drawer ran the new text through editWord, which splits on spaces, and "IT BROKE
+    // IT FROM A SLIDE INTO A WHOLE BUNCH OF WORDS". The toggle governs the COMMIT only; it is
+    // re-armed from the entry every time the drawer targets a word, so it can never stick.
+    private boolean wordEditBlockMode = false;
+    private TextView wordSyncBlockToggle;
+
+    /**
+     * Is this entry already a block? The honest signal is the committed text itself: an entry
+     * whose text carries whitespace occupies one slot but reads as a phrase or a whole verse,
+     * which is exactly what a slide is ("John 13:34", a full sentence). A single bare token is
+     * a karaoke word.
+     *
+     * @return null when the entry cannot answer (missing or blank) — caller falls back to the track.
+     */
+    @Nullable
+    private Boolean entryLooksLikeBlock(int index) {
+        if (transcriptView == null) return null;
+        com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(index);
+        if (w == null || w.text == null) return null;
+        String t = w.text.trim();
+        if (t.isEmpty()) return null;
+        for (int i = 0; i < t.length(); i++) if (Character.isWhitespace(t.charAt(i))) return true;
+        return false;
+    }
+
+    /** Auto-arm the toggle for the entry the drawer is now targeting (§2 of the spec). */
+    private void armWordEditBlockMode(int index) {
+        Boolean fromEntry = entryLooksLikeBlock(index);
+        if (fromEntry != null) {
+            wordEditBlockMode = fromEntry;
+        } else {
+            // Ambiguous — follow whatever the active caption track is set to.
+            boolean slide = false;
+            try { slide = currentCaptionStyle().slideGroup; } catch (Exception ignored) {}
+            wordEditBlockMode = slide;
+        }
+        updateWordBlockToggleChrome();
+    }
+
+    /**
+     * Font AND colour move together so the mode is unmistakable while typing: BLOCK is
+     * monospace + accent green, KARAOKE is the normal proportional face + default colour.
+     */
+    private void updateWordBlockToggleChrome() {
+        final int ACCENT_GREEN = 0xFF4CAF50;
+        if (wordScrubWordText != null) {
+            if (wordEditBlockMode) {
+                wordScrubWordText.setTypeface(android.graphics.Typeface.MONOSPACE);
+                wordScrubWordText.setTextColor(ACCENT_GREEN);
+            } else {
+                wordScrubWordText.setTypeface(android.graphics.Typeface.DEFAULT);
+                wordScrubWordText.setTextColor(0xFFFFFFFF);
+            }
+        }
+        if (wordSyncBlockToggle != null) {
+            try {
+                wordSyncBlockToggle.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
+            } catch (Exception ignored) {}
+            wordSyncBlockToggle.setText(wordEditBlockMode ? "link" : "call_split");
+            wordSyncBlockToggle.setTextColor(wordEditBlockMode ? ACCENT_GREEN : 0xFFEEEEEE);
+            String label = wordEditBlockMode ? "One block" : "Split into words";
+            wordSyncBlockToggle.setContentDescription(label);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(wordSyncBlockToggle, label);
+        }
+    }
+
+    /**
+     * Commit the word text edit. BLOCK on → the whole field becomes ONE entry keeping the
+     * slot's start and end; BLOCK off → split on whitespace across the slot (old behaviour).
+     * Either way the mutation is recorded as a SINGLE undo entry (repo rule: one batch op =
+     * one undo press), by snapshotting the whole word list before and after.
+     */
     private void commitWordTextEdit() {
         if (wordScrubCurrentIndex < 0 || transcriptView == null) return;
         String raw = wordScrubWordText.getText().toString();
         String[] toks = raw.trim().isEmpty() ? new String[0] : raw.trim().split("\\s+");
-        // Skip if unchanged single word
-        if (toks.length == 1 && transcriptView.getWord(wordScrubCurrentIndex) != null
-                && toks[0].equals(transcriptView.getWord(wordScrubCurrentIndex).text)) {
-            return;
+        int span = Math.max(1, wordScrubGroupLength);
+        // Skip a genuine no-op: the span is one entry and its text is unchanged.
+        if (span == 1 && transcriptView.getWord(wordScrubCurrentIndex) != null) {
+            String cur = transcriptView.getWord(wordScrubCurrentIndex).text;
+            String wanted = wordEditBlockMode ? raw.trim().replaceAll("\\s+", " ")
+                    : (toks.length == 1 ? toks[0] : null);
+            if (wanted != null && wanted.equals(cur)) return;
         }
-        transcriptView.editWord(wordScrubCurrentIndex, raw);
-        wordScrubGroupLength = toks.length;
+
+        final com.fadcam.ui.faditor.transcript.Transcript t = transcriptView.getTranscript();
+        final java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> before =
+                t != null ? snapshotWords(t) : null;
+
+        if (wordEditBlockMode) {
+            transcriptView.editWordSpanAsBlock(wordScrubCurrentIndex, span, raw);
+            wordScrubGroupLength = raw.trim().isEmpty() ? 0 : 1;
+        } else {
+            transcriptView.editWordSpan(wordScrubCurrentIndex, span, raw);
+            wordScrubGroupLength = toks.length;
+        }
+
+        if (t != null && before != null) {
+            final java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> after = snapshotWords(t);
+            String desc = wordEditBlockMode
+                    ? "Caption text (one block)"
+                    : "Caption text (" + toks.length + " word" + (toks.length == 1 ? "" : "s") + ")";
+            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                    desc,
+                    () -> restoreWords(t, after),
+                    () -> restoreWords(t, before)));
+        }
+
         refreshWordScrubChrome();
         syncTimelineTranscript();
         editorTimeline.invalidate();
-        Clip clip = getSelectedClip();
-        if (clip != null && captionsActive && clip.hasTranscript()) bindCaptionData(clip);
+        refreshCaptionsAfterTranscriptEdit();
+        scheduleAutoSave();
+    }
+
+    private java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> snapshotWords(
+            @NonNull com.fadcam.ui.faditor.transcript.Transcript t) {
+        java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> out = new java.util.ArrayList<>(t.words.size());
+        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : t.words) {
+            out.add(new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, w.startMs, w.endMs,
+                    w.struck, w.forceLineBreakAfter));
+        }
+        return out;
+    }
+
+    /**
+     * Restore a whole word list in place. Splitting one verse into 29 words, or merging 29 back
+     * into one, is a structural change to the list — nothing narrower than the list itself can
+     * undo it — and because it is ONE recorded action it costs ONE undo press in both directions.
+     * Replacing the word objects also changes {@link com.fadcam.ui.faditor.transcript.Transcript#contentSignature()},
+     * so the caption texture caches re-key and the preview updates immediately.
+     */
+    private void restoreWords(@NonNull com.fadcam.ui.faditor.transcript.Transcript t,
+                              @NonNull java.util.List<com.fadcam.ui.faditor.transcript.TranscriptWord> words) {
+        t.words.clear();
+        for (com.fadcam.ui.faditor.transcript.TranscriptWord w : words) {
+            t.words.add(new com.fadcam.ui.faditor.transcript.TranscriptWord(w.text, w.startMs, w.endMs,
+                    w.struck, w.forceLineBreakAfter));
+        }
+        if (transcriptView != null) transcriptView.refreshWordLayout();
+        wordScrubGroupLength = 1;
+        if (wordScrubCurrentIndex >= t.words.size()) wordScrubCurrentIndex = Math.max(0, t.words.size() - 1);
+        syncTimelineTranscript();
+        if (editorTimeline != null) editorTimeline.invalidate();
+        refreshCaptionsAfterTranscriptEdit();
         scheduleAutoSave();
     }
 
@@ -17192,6 +17880,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * The owner of the transcript the PANEL is currently showing, encoded the way
+     * {@link #retargetDrawerToTapeWord(int, int)} expects its {@code ownerIndex}: a spine
+     * clip's timeline index, or {@code -audioIndex-1} for an audio clip. Returns
+     * {@link Integer#MIN_VALUE} when there is no resolvable owner (no project, or the panel
+     * is showing a transcript whose clip has since gone) — callers then do nothing rather
+     * than retarget the drawer at a word index that means nothing.
+     *
+     * <p>This is what lets a panel tap reuse the TAPE's retarget path unchanged: the tape
+     * knows which segment was hit, the panel already knows which clip it is displaying.</p>
+     */
+    private int currentTranscriptOwnerIndex() {
+        if (project == null || transcriptClipId == null) return Integer.MIN_VALUE;
+        Timeline tl = project.getTimeline();
+        if (transcriptIsForAudio) {
+            java.util.List<AudioClip> acs = tl.getAudioClips();
+            for (int i = 0; i < acs.size(); i++) {
+                AudioClip ac = acs.get(i);
+                if (ac != null && transcriptClipId.equals(ac.getId())) return -i - 1;
+            }
+            return Integer.MIN_VALUE;
+        }
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c != null && transcriptClipId.equals(c.getId())) return i;
+        }
+        return Integer.MIN_VALUE;
+    }
+
+    /**
      * §6.1 — point the drawer (and the panel) at the word tapped on the tape. If the tapped
      * segment/audio clip carries a DIFFERENT transcript than the panel is showing, the panel
      * switches to it first, so {@code wordIndex} is an index into the transcript that is now
@@ -17234,6 +17951,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     // Word Sync drawer helpers — spec §3.1 exact toast copy, §3 chrome update
+    /**
+     * How many times the Word Sync ON/OFF mode toasts are shown before they go quiet, and how
+     * long before one reminder comes back.
+     *
+     * <p>JoyRaptor, 2026-09-02: "The toast happens to be exactly covering up the text on the music
+     * [tape], which is frustrating. Once is fine, but having it come up every time I open up a
+     * word starts to get irritating." These two are the only ones that fire as a side effect of
+     * entering/leaving a mode rather than as the answer to a deliberate tap, so they are the only
+     * ones capped — the B/U/I explanation, the snap toggle and the block/karaoke toggle all still
+     * speak every time, because the user just pressed something and is owed a reply.</p>
+     */
+    private static final int WORD_SYNC_MODE_TOAST_TIMES = 2;
+    private static final long WORD_SYNC_MODE_TOAST_REMIND_MS = 30L * 24 * 60 * 60 * 1000L;
+
+    /** A mode toast that goes quiet once it has been learned. See the constants above. */
+    private void showWordSyncModeToast(@NonNull String text) {
+        android.content.SharedPreferences p =
+                getSharedPreferences("faditor_ui", android.content.Context.MODE_PRIVATE);
+        int shown = p.getInt("word_sync_mode_toast_count", 0);
+        long last = p.getLong("word_sync_mode_toast_last", 0L);
+        long now = System.currentTimeMillis();
+        // Still learning it, or it has been long enough that a one-off reminder is welcome.
+        boolean due = shown < WORD_SYNC_MODE_TOAST_TIMES
+                || (last > 0L && now - last >= WORD_SYNC_MODE_TOAST_REMIND_MS);
+        if (!due) return;
+        p.edit().putInt("word_sync_mode_toast_count", shown + 1)
+                .putLong("word_sync_mode_toast_last", now).apply();
+        showWordSyncToast(text);
+    }
+
     private void showWordSyncToast(@NonNull String text) {
         if (wordSyncToast != null) wordSyncToast.cancel();
         wordSyncToast = android.widget.Toast.makeText(this, text, android.widget.Toast.LENGTH_SHORT);
@@ -17319,6 +18066,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (transcriptView == null) return;
         int idx = -1;
         if (wordSyncMode != null) idx = wordSyncMode.getDragIndex();
+        // The DRAWER's word, before the playback highlight: tapping a word on the tape retargets
+        // the drawer (wordScrubCurrentIndex) but never touches activeIndex, so TT/Tt/tt were
+        // case-changing whatever word playback happened to be sitting on instead of the word
+        // shown in the drawer's own text field.
+        if (idx < 0) idx = wordScrubCurrentIndex;
         if (idx < 0) idx = transcriptView.getActiveIndex();
         if (idx < 0) {
             // Fallback to first word.
@@ -19041,6 +19793,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (drawer == null) return;
         float off = -getResources().getDisplayMetrics().heightPixels;
         if (show) {
+            // Wire the header ✕ / swipe-dismiss HERE, not only in showVisualizerStylePicker:
+            // two other paths open this drawer directly, and on those the close button was
+            // an unwired TextView. Guarded internally, so calling it every open is free.
+            setupVisualizerDrawerChrome();
             closeAllTopPanels();
             drawer.setVisibility(View.VISIBLE);
             drawer.setTranslationY(off);
@@ -19070,25 +19826,134 @@ public class FaditorEditorActivity extends AppCompatActivity {
         closeAllTopPanels();
         com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
-        // ── Style tab ── size, font, highlight, colours, box/outline/shadow, save/delete/copy/import
+        // ── Style tab ── size, font, highlight, colours, box/outline/shadow, save/delete/copy/import,
+        // motion (the Timing tab's content moved here — SPEC_20260831_CAPTION_SLIDES_UX §7.2.5)
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Style", 0,
                 ctx -> buildCaptionStyleTab(ctx)));
-        // ── Fit tab ── mode, words per caption, floor, max lines (SPEC §3.3)
+        // ── Fit tab ── mode, truncate, words per caption, floor, max lines (SPEC §3.3)
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Fit", 0,
+                "Fit", R.drawable.ic_caption_fit_24,
                 ctx -> buildCaptionFitTab(ctx)));
-        // ── Timing tab ── motion + range
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Timing", 0,
-                ctx -> buildCaptionTimingTab(ctx)));
-        // ── Position tab ── position toggle
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Position", 0,
-                ctx -> buildCaptionPositionTab(ctx)));
-        drawer.show(tabs, new java.util.ArrayList<>(), false);
+        // ── Header consolidation (SPEC_20260831_CAPTION_SLIDES_UX §7.2): [CC] Style | pills | icons.
+        // The pills row is kept in captionHeaderPills so selection changes can refill it in place
+        // instead of re-running show() (§7.1.5 — show() resets the drawer to tab 0).
+        TextView ccIcon = new TextView(this);
+        ccIcon.setText("closed_caption"); // same ligature the bottom tools carousel uses for Captions
+        ccIcon.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
+        ccIcon.setTextColor(0xFF4CAF50);
+        ccIcon.setTextSize(18);
+        ccIcon.setGravity(android.view.Gravity.CENTER);
+        captionHeaderPills = buildTrackPillsRow(this);
+        drawer.show(tabs, new java.util.ArrayList<>(), false, ccIcon, captionHeaderPills);
         captionDrawerOpen = true;
         drawer.setOnClose(() -> captionDrawerOpen = false);
+    }
+
+    /**
+     * Refresh the open caption drawer IN PLACE (SPEC_20260831_CAPTION_SLIDES_UX §7.1.5): rebuild
+     * the current tab's content and the header pills row without show()'s reset to tab 0 —
+     * JoyRaptor: "if you're in fit, fit doesn't change, just the track changes." No-op when the
+     * drawer is closed; refreshCurrentTab() itself guards against running mid-animation.
+     */
+    /** Guards the re-post below so a burst of taps coalesces into one late refresh. */
+    private boolean captionDrawerRefreshQueued = false;
+
+    private void refreshCaptionDrawerIfOpen() {
+        if (objectDrawer == null || !objectDrawer.isShowing()) return;
+        // ObjectDrawer.refreshCurrentTab() is contractually a NO-OP while a tab slide owns
+        // contentHost. A caption track switch that lands mid-animation would therefore leave
+        // the drawer showing the PREVIOUS track's settings, so re-post until it lands.
+        if (objectDrawer.isAnimatingTabs()) {
+            if (!captionDrawerRefreshQueued) {
+                captionDrawerRefreshQueued = true;
+                objectDrawer.postDelayed(() -> {
+                    captionDrawerRefreshQueued = false;
+                    refreshCaptionDrawerIfOpen();
+                }, 60L);
+            }
+            return;
+        }
+        objectDrawer.refreshCurrentTab();
+        if (captionHeaderPills != null) fillTrackPillsRow(captionHeaderPills);
+    }
+
+    /**
+     * THE single "make caption binding N of object X active" entry point. Both selection
+     * routes — a header pill and a tap on the caption in the preview — call this, so they
+     * cannot drift: same index, same audio/video mode, same clip id, same chrome and alpha,
+     * same drawer refresh. Exactly one of {@code clip} / {@code ac} may be non-null.
+     *
+     * <p>Cross-object safety: captions can live on a video clip AND on an audio clip at the
+     * same time, each with its own overlay list. Selecting one DESELECTS every view in the
+     * other list, so the object the user left behind stops drawing its chrome.</p>
+     *
+     * <p>No rebuild: existing views are retargeted (alpha + chrome only), so selection stays
+     * O(number of visible overlays) however many transcripts the project carries.</p>
+     */
+    private void selectCaptionBinding(@Nullable Clip clip, @Nullable AudioClip ac, int bindingIdx) {
+        if (bindingIdx < 0) return;
+        if (ac != null) {
+            if (bindingIdx >= ac.getCaptionBindings().size()) { refreshCaptionDrawerIfOpen(); return; }
+            AudioClip.CaptionBinding b = ac.getCaptionBindings().get(bindingIdx);
+            audioCaptionClipId = ac.getId();
+            activeCaptionIsAudio = true;
+            activeAudioCaptionBindingIndex = bindingIdx;
+            applyCaptionSelectionChrome();
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = ac.transcriptForBinding(b);
+            if (nt != null) {
+                currentTranscript = nt.transcript;
+                transcriptClipId = ac.getId();
+                if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
+                if (transcriptHeader != null) transcriptHeader.setText(nt.label);
+            }
+            if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
+            highlightActiveCaptionChip(b.styleId);
+        } else if (clip != null) {
+            if (bindingIdx >= clip.getCaptionBindings().size()) { refreshCaptionDrawerIfOpen(); return; }
+            Clip.CaptionBinding b = clip.getCaptionBindings().get(bindingIdx);
+            captionClipId = clip.getId();
+            activeCaptionIsAudio = false;
+            activeCaptionBindingIndex = bindingIdx;
+            applyCaptionSelectionChrome();
+            com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
+            if (nt != null) {
+                currentTranscript = nt.transcript;
+                transcriptClipId = clip.getId();
+                if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
+                if (transcriptHeader != null) transcriptHeader.setText(nt.label);
+            }
+            if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
+            highlightActiveCaptionChip(b.styleId);
+        } else {
+            return;
+        }
+        if (editorTimeline != null) editorTimeline.invalidate();
+        refreshCaptionDrawerIfOpen();
+    }
+
+    /**
+     * Paint chrome + alpha across BOTH overlay lists from the current active state. Matching is
+     * BY TAG (the binding index) in both lists — list position diverges from binding index
+     * because disabled / "hidden" / transcript-less bindings never get a view.
+     */
+    private void applyCaptionSelectionChrome() {
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView ov : captionOverlays) {
+            if (ov == null) continue;
+            Object tag = ov.getTag();
+            boolean a = !activeCaptionIsAudio && tag instanceof Integer
+                    && (Integer) tag == activeCaptionBindingIndex;
+            ov.setAlpha(a ? 1f : 0.85f);
+            ov.setBoxChromeActive(a);
+        }
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView ov : audioCaptionOverlays) {
+            if (ov == null) continue;
+            Object tag = ov.getTag();
+            boolean a = activeCaptionIsAudio && tag instanceof Integer
+                    && (Integer) tag == activeAudioCaptionBindingIndex;
+            ov.setAlpha(a ? 1f : 0.85f);
+            ov.setBoxChromeActive(a);
+        }
     }
 
     private android.view.View buildCaptionStyleTab(@NonNull android.content.Context ctx) {
@@ -19098,23 +19963,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
-        // ── CAPTION TRACK LIST (SPEC_20260829_CAPTION_LAYERS) ──
-        Clip trackClip = getActiveCaptionClip(); if (trackClip == null) trackClip = clipUnderPlayhead(); if (trackClip == null) trackClip = getSelectedClip();
-        AudioClip trackAudio = null;
-        if (trackClip == null || trackClip.getCaptionBindings().isEmpty()) {
-            trackAudio = getActiveAudioClip();
-            if (trackAudio != null && !trackAudio.getCaptionBindings().isEmpty()) trackClip = null;
-            else trackAudio = null;
-        }
-        if (trackClip != null && !trackClip.getCaptionBindings().isEmpty()) {
-            android.view.View tl = buildCaptionTrackListView(ctx, trackClip, d);
-            root.addView(tl);
-            root.addView(makeDivider(d));
-        } else if (trackAudio != null) {
-            android.view.View tl = buildAudioCaptionTrackListView(ctx, trackAudio, d);
-            root.addView(tl);
-            root.addView(makeDivider(d));
-        }
+        // Track pills moved to the drawer HEADER (SPEC_20260831_CAPTION_SLIDES_UX §7.2.3) —
+        // no longer repeated at the top of each tab.
         // G8: size row now has position toggle LEFT of the size slider, and slider is smaller
         android.widget.LinearLayout sizeRow = new android.widget.LinearLayout(ctx);
         sizeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -19289,6 +20139,61 @@ public class FaditorEditorActivity extends AppCompatActivity {
         addToggleColorControl(colorRow2, d, "Box", () -> currentCaptionStyle().pill, on -> tweakCaptionStyle(s -> { s.pill = on; if (on && s.pillColor == 0) s.pillColor = 0xCC000000; }), () -> currentCaptionStyle().pillColor, c -> tweakCaptionStyle(s -> { s.pillColor = c; s.pill = true; }));
         addToggleColorControl(colorRow2, d, "Outline", () -> currentCaptionStyle().outline, on -> tweakCaptionStyle(s -> s.outline = on), () -> currentCaptionStyle().outlineColor, c -> tweakCaptionStyle(s -> { s.outlineColor = c; s.outline = true; }));
         addToggleControl(colorRow2, d, "Shadow", () -> currentCaptionStyle().shadow, on -> tweakCaptionStyle(s -> s.shadow = on));
+        // The same sheet a long-press on the caption box opens — a long-press is not
+        // discoverable on its own, so the drawer carries a visible way in too.
+        TextView boxOptsChip = new TextView(ctx);
+        styleDrawerChip(boxOptsChip, d);
+        boxOptsChip.setText("Box\u2026");
+        boxOptsChip.setOnClickListener(v -> showCaptionBoxOptions());
+        colorRow2.addView(boxOptsChip);
+        root.addView(makeDivider(d));
+        // ── Motion (moved from the deleted Timing tab — SPEC_20260831_CAPTION_SLIDES_UX §7.2.5):
+        // preset/granularity picker + the per-clip animation range control.
+        final CapAnim motionTarget = captionAnimTarget();
+        if (motionTarget != null) {
+            android.widget.LinearLayout motionRow = new android.widget.LinearLayout(ctx);
+            motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            root.addView(motionRow);
+            android.widget.TextView motionLabel = new android.widget.TextView(ctx);
+            motionLabel.setText("Motion");
+            motionLabel.setTextColor(0xFFAAAAAA);
+            motionLabel.setTextSize(12);
+            motionLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            motionRow.addView(motionLabel);
+            final android.widget.TextView motionChip = new android.widget.TextView(ctx);
+            styleDrawerChip(motionChip, d);
+            motionChip.setText(captionAnimPresetLabel(motionTarget));
+            motionRow.addView(motionChip);
+            android.view.View motionBtn = makeTextMotionIcon(d);
+            motionRow.addView(motionBtn);
+            android.view.View.OnClickListener open = v -> {
+                CapAnim t = captionAnimTarget();
+                if (t == null) return;
+                TextAnimPickerPopover.show(v, com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(t.getCaptionAnimPreset()), com.fadcam.ui.faditor.transcript.CaptionAnimator.parseGranularity(t.getCaptionAnimGranularity()), new TextAnimPickerPopover.OnPick() {
+                    @Override public void onPreset(@NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p) {
+                        applyCaptionAnimPreset(p);
+                        CapAnim now = captionAnimTarget();
+                        if (now != null) motionChip.setText(captionAnimPresetLabel(now));
+                    }
+                    @Override public void onGranularity(@NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
+                        applyCaptionAnimGranularity(g);
+                        CapAnim now = captionAnimTarget();
+                        if (now != null) motionChip.setText(captionAnimPresetLabel(now));
+                    }
+                });
+            };
+            motionBtn.setOnClickListener(open);
+            motionChip.setOnClickListener(open);
+            addCaptionAnimRangeControl(root, d);
+        } else {
+            android.widget.TextView empty = new android.widget.TextView(ctx);
+            empty.setText("No captioned clip selected");
+            empty.setTextColor(0xFFAAAAAA);
+            empty.setTextSize(12);
+            empty.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            root.addView(empty);
+        }
         android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.addView(root);
@@ -19296,187 +20201,292 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     // ── CAPTION TRACK LIST helpers (SPEC_20260829_CAPTION_LAYERS) ──
-    private android.view.View buildCaptionTrackListView(@NonNull android.content.Context ctx, @NonNull Clip clip, float d) {
-        android.widget.LinearLayout container = new android.widget.LinearLayout(ctx);
-        container.setOrientation(android.widget.LinearLayout.VERTICAL);
-        container.setPadding(0, (int)(8*d), 0, 0);
-        java.util.List<Clip.CaptionBinding> bindings = clip.getCaptionBindings();
-        for (int i = 0; i < bindings.size(); i++) {
-            final int idx = i;
-            Clip.CaptionBinding b = bindings.get(i);
-            android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
-            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setPadding((int)(8*d), (int)(6*d), (int)(8*d), (int)(6*d));
-            boolean isActive = (idx == activeCaptionBindingIndex && !activeCaptionIsAudio && clip.getId().equals(captionClipId));
-            row.setBackgroundColor(isActive ? 0x332196F3 : 0x00000000);
-            row.setClickable(true);
-            // Bullet
-            android.widget.TextView bullet = new android.widget.TextView(ctx);
-            bullet.setText(isActive ? "●" : "○");
-            bullet.setTextColor(isActive ? 0xFF4CAF50 : 0xFFAAAAAA);
-            bullet.setTextSize(14);
-            bullet.setPadding(0, 0, (int)(8*d), 0);
-            row.addView(bullet);
-            // Label + style chip
-            android.widget.LinearLayout labelWrap = new android.widget.LinearLayout(ctx);
-            labelWrap.setOrientation(android.widget.LinearLayout.VERTICAL);
-            labelWrap.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            android.widget.TextView labelTv = new android.widget.TextView(ctx);
-            labelTv.setText(b.label != null ? b.label : "Track " + (idx+1));
-            labelTv.setTextColor(0xFFFFFFFF);
-            labelTv.setTextSize(13);
-            labelWrap.addView(labelTv);
-            android.widget.TextView styleTv = new android.widget.TextView(ctx);
-            styleTv.setText("[" + b.styleId + "]");
-            styleTv.setTextColor(0xFFAAAAAA);
-            styleTv.setTextSize(11);
-            labelWrap.addView(styleTv);
-            row.addView(labelWrap);
-            // Eye toggle
-            android.widget.TextView eye = new android.widget.TextView(ctx);
-            eye.setText(b.enabled ? "visibility" : "visibility_off");
-            eye.setTextSize(18);
-            eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
-            try { eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons)); } catch (Exception ignored) {}
-            eye.setPadding((int)(8*d), 0, 0, 0);
-            eye.setClickable(true);
-            eye.setOnClickListener(v -> {
-                b.enabled = !b.enabled; clip.syncLegacyFromBindings();
-                eye.setText(b.enabled ? "visibility" : "visibility_off");
-                eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
-                // update overlay visibility
-                if (!captionOverlays.isEmpty() && idx < captionOverlays.size()) captionOverlays.get(idx).setVisibility(b.enabled ? android.view.View.VISIBLE : android.view.View.GONE);
-                // also need to keep container visibility logic – but simple toggle
-                editorTimeline.invalidate(); scheduleAutoSave();
-            });
-            row.addView(eye);
-            row.setOnClickListener(v -> {
-                setActiveCaptionBinding(idx);
-                activeCaptionIsAudio = false; captionClipId = clip.getId();
-                // Retarget transcript drawer
-                com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
-                if (nt != null) {
-                    currentTranscript = nt.transcript; transcriptClipId = clip.getId(); transcriptIsForAudio = false;
-                    if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
-                    if (transcriptHeader != null) transcriptHeader.setText(nt.label);
-                    applyTranscriptClipWindow();
-                }
-                highlightActiveCaptionChip(b.styleId);
-                if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
-                // Rebuild drawer to reflect new active binding (size slider, font etc.)
-                if (captionDrawerOpen) showCaptionDrawer(true);
-                editorTimeline.invalidate();
-            });
-            row.setOnLongClickListener(v -> {
-                showCaptionBindingLongPressMenu(clip, idx);
-                return true;
-            });
-            container.addView(row);
-            // divider
-            android.view.View div = new android.view.View(ctx);
-            div.setBackgroundColor(0xFF2A2A2A);
-            android.widget.LinearLayout.LayoutParams dlp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1);
-            div.setLayoutParams(dlp);
-            container.addView(div);
-        }
-        // Add button
-        if (bindings.size() < Clip.MAX_CAPTION_BINDINGS) {
-            android.widget.TextView addBtn = new android.widget.TextView(ctx);
-            addBtn.setText("+ Add caption track");
-            addBtn.setTextColor(0xFF64B5F6);
-            addBtn.setTextSize(13);
-            addBtn.setPadding((int)(8*d), (int)(10*d), (int)(8*d), (int)(6*d));
-            addBtn.setOnClickListener(v -> showAddCaptionTrackDialog(clip));
-            container.addView(addBtn);
-        }
-        return container;
+
+    /**
+     * Compact caption-track pill row for the drawer tabs (SPEC_20260831_CAPTION_SLIDES UX):
+     * one pill per binding — green dot when active, ≤8-char label, eye visibility toggle —
+     * plus a "+" pill that wires an existing transcript or imports timestamped text directly.
+     * Selection here and selection in the preview are the same state, so the two communicate.
+     */
+    private android.widget.LinearLayout buildTrackPillsRow(@NonNull android.content.Context ctx) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        // Top padding stripped (was 8dp): the row lives in the drawer HEADER now
+        // (SPEC_20260831_CAPTION_SLIDES_UX §7.2.3), not the tab body.
+        row.setPadding(0, 0, 0, 0);
+        fillTrackPillsRow(row);
+        return row;
     }
 
-    private android.view.View buildAudioCaptionTrackListView(@NonNull android.content.Context ctx, @NonNull AudioClip clip, float d) {
-        android.widget.LinearLayout container = new android.widget.LinearLayout(ctx);
-        container.setOrientation(android.widget.LinearLayout.VERTICAL);
-        container.setPadding(0, (int)(8*d), 0, 0);
-        java.util.List<AudioClip.CaptionBinding> bindings = clip.getCaptionBindings();
-        for (int i = 0; i < bindings.size(); i++) {
+    /** Clear and refill an existing pills row — header reuse for in-place refresh (§7.1.5). */
+    private void fillTrackPillsRow(@NonNull android.widget.LinearLayout row) {
+        android.content.Context ctx = row.getContext();
+        float d = ctx.getResources().getDisplayMetrics().density;
+        row.removeAllViews();
+
+        // Which OBJECT the pills describe follows the active selection, not a blanket
+        // audio-first preference: with captions on both a video clip and an audio clip, the
+        // old rule showed the audio track's pills even right after the user tapped a caption
+        // on the video clip in the preview (cross-object selection requirement).
+        final AudioClip audioCandidate = getActiveAudioClip();
+        final Clip videoCandidate = getActiveCaptionClip();
+        final boolean audioHas = audioCandidate != null && !audioCandidate.getCaptionBindings().isEmpty();
+        final boolean videoHas = videoCandidate != null && !videoCandidate.getCaptionBindings().isEmpty();
+        final boolean useAudio = activeCaptionIsAudio ? audioHas : (audioHas && !videoHas);
+        final AudioClip audio = audioCandidate;
+        final Clip vClip = useAudio ? null : videoCandidate;
+        int count = 0;
+        if (useAudio) count = audio.getCaptionBindings().size();
+        else if (vClip != null) count = vClip.getCaptionBindings().size();
+
+        for (int i = 0; i < count; i++) {
             final int idx = i;
-            AudioClip.CaptionBinding b = bindings.get(i);
-            android.widget.LinearLayout row = new android.widget.LinearLayout(ctx);
-            row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            row.setPadding((int)(8*d), (int)(6*d), (int)(8*d), (int)(6*d));
-            boolean isActive = (idx == activeAudioCaptionBindingIndex && activeCaptionIsAudio);
-            row.setBackgroundColor(isActive ? 0x332196F3 : 0x00000000);
-            row.setClickable(true);
-            android.widget.TextView bullet = new android.widget.TextView(ctx);
-            bullet.setText(isActive ? "●" : "○");
-            bullet.setTextColor(isActive ? 0xFF4CAF50 : 0xFFAAAAAA);
-            bullet.setTextSize(14);
-            bullet.setPadding(0, 0, (int)(8*d), 0);
-            row.addView(bullet);
-            android.widget.LinearLayout labelWrap = new android.widget.LinearLayout(ctx);
-            labelWrap.setOrientation(android.widget.LinearLayout.VERTICAL);
-            labelWrap.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            android.widget.TextView labelTv = new android.widget.TextView(ctx);
-            labelTv.setText(b.label != null ? b.label : "Track " + (idx+1));
-            labelTv.setTextColor(0xFFFFFFFF);
-            labelTv.setTextSize(13);
-            labelWrap.addView(labelTv);
-            android.widget.TextView styleTv = new android.widget.TextView(ctx);
-            styleTv.setText("[" + b.styleId + "]");
-            styleTv.setTextColor(0xFFAAAAAA);
-            styleTv.setTextSize(11);
-            labelWrap.addView(styleTv);
-            row.addView(labelWrap);
-            android.widget.TextView eye = new android.widget.TextView(ctx);
-            eye.setText(b.enabled ? "visibility" : "visibility_off");
-            eye.setTextSize(18);
-            eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
-            try { eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons)); } catch (Exception ignored) {}
-            eye.setPadding((int)(8*d), 0, 0, 0);
+            String label;
+            boolean isEnabled;
+            if (useAudio) {
+                AudioClip.CaptionBinding b = audio.getCaptionBindings().get(i);
+                label = b.label; isEnabled = b.enabled;
+            } else {
+                Clip.CaptionBinding b = vClip.getCaptionBindings().get(i);
+                label = b.label; isEnabled = b.enabled;
+            }
+            boolean isActive = (useAudio && activeCaptionIsAudio
+                    && idx == activeAudioCaptionBindingIndex)
+                    || (!useAudio && !activeCaptionIsAudio
+                    && idx == activeCaptionBindingIndex);
+            android.widget.LinearLayout pill = new android.widget.LinearLayout(ctx);
+            pill.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            pill.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            pill.setBackgroundResource(R.drawable.floating_button_item_bg);
+            if (isActive) {
+                // §7.2.6: GradientDrawable, not setBackgroundColor — the latter squares off the
+                // rounded floating_button_item_bg. Full-corner pill + thin accent stroke.
+                android.graphics.drawable.GradientDrawable selBg = new android.graphics.drawable.GradientDrawable();
+                selBg.setColor(0x264CAF50);
+                selBg.setCornerRadius(999f);
+                selBg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF4CAF50);
+                pill.setBackground(selBg);
+            }
+            int pp = (int)(6*d);
+            pill.setPadding(pp, pp/2, pp, pp/2);
+            android.widget.LinearLayout.LayoutParams plp = new android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            plp.rightMargin = (int)(6*d);
+            pill.setLayoutParams(plp);
+            TextView dot = new TextView(ctx);
+            dot.setText(isActive ? "●" : "○");
+            dot.setTextColor(isActive ? 0xFF4CAF50 : 0xFF888888);
+            dot.setTextSize(11);
+            pill.addView(dot);
+            TextView tv = new TextView(ctx);
+            tv.setText(label.length() > 8 ? label.substring(0, 8) : label);
+            tv.setTextColor(isActive ? 0xFF4CAF50 : 0xFFEEEEEE);
+            tv.setTextSize(12);
+            int tp = (int)(3*d);
+            tv.setPadding(tp, 0, tp, 0);
+            pill.addView(tv);
+            TextView eye = new TextView(ctx);
+            eye.setText(isEnabled ? "visibility" : "visibility_off");
+            eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
+            eye.setTextColor(isEnabled ? 0xFFEEEEEE : 0xFF666666);
+            eye.setTextSize(13);
             eye.setClickable(true);
             eye.setOnClickListener(v -> {
-                b.enabled = !b.enabled; clip.syncLegacyFromBindings();
-                eye.setText(b.enabled ? "visibility" : "visibility_off");
-                eye.setTextColor(b.enabled ? 0xFFEEEEEE : 0xFF777777);
-                if (!audioCaptionOverlays.isEmpty() && idx < audioCaptionOverlays.size()) audioCaptionOverlays.get(idx).setVisibility(b.enabled ? android.view.View.VISIBLE : android.view.View.GONE);
-                editorTimeline.invalidate(); scheduleAutoSave();
-            });
-            row.addView(eye);
-            row.setOnClickListener(v -> {
-                setActiveAudioCaptionBinding(idx);
-                activeCaptionIsAudio = true; audioCaptionClipId = clip.getId();
-                com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
-                if (nt != null) {
-                    currentTranscript = nt.transcript; transcriptClipId = clip.getId(); transcriptIsForAudio = true;
-                    transcriptAudioIndex = project.getTimeline().getAudioClips().indexOf(clip);
-                    if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
-                    if (transcriptHeader != null) transcriptHeader.setText(nt.label);
-                    applyTranscriptClipWindow();
+                // Belt and braces: a version delete can shrink the binding list while this
+                // stale listener is still attached (the row is rebuilt after, not before).
+                if (useAudio) {
+                    if (idx >= audio.getCaptionBindings().size()) { refreshCaptionDrawerIfOpen(); return; }
+                    AudioClip.CaptionBinding b = audio.getCaptionBindings().get(idx);
+                    b.enabled = !b.enabled;
+                    audio.syncLegacyFromBindings();
+                    rebuildAudioCaptionOverlays(audio);
+                } else if (vClip != null) {
+                    if (idx >= vClip.getCaptionBindings().size()) { refreshCaptionDrawerIfOpen(); return; }
+                    Clip.CaptionBinding b = vClip.getCaptionBindings().get(idx);
+                    b.enabled = !b.enabled;
+                    vClip.syncLegacyFromBindings();
+                    rebuildCaptionOverlays(vClip);
                 }
-                highlightActiveCaptionChip(b.styleId);
-                if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
-                if (captionDrawerOpen) showCaptionDrawer(true);
                 editorTimeline.invalidate();
+                scheduleAutoSave();
+                // §7.1.5: refresh in place — a full show() would reset the drawer to tab 0.
+                refreshCaptionDrawerIfOpen();
             });
-            row.setOnLongClickListener(v -> { showAudioCaptionBindingLongPressMenu(clip, idx); return true; });
-            container.addView(row);
-            android.view.View div = new android.view.View(ctx);
-            div.setBackgroundColor(0xFF2A2A2A);
-            android.widget.LinearLayout.LayoutParams dlp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1);
-            div.setLayoutParams(dlp);
-            container.addView(div);
+            pill.addView(eye);
+            pill.setOnClickListener(v -> {
+                // ONE selection path, shared with the preview tap (see selectCaptionBinding):
+                // the two routes must leave identical state.
+                if (useAudio) selectCaptionBinding(null, audio, idx);
+                else if (vClip != null) selectCaptionBinding(vClip, null, idx);
+                scheduleAutoSave();
+            });
+            // Long-press keeps the rename/delete menu the old track list offered
+            // (SPEC_20260831_CAPTION_SLIDES_UX: pills replace the list, not the affordances).
+            pill.setOnLongClickListener(v -> {
+                if (useAudio) {
+                    if (idx < audio.getCaptionBindings().size()) showAudioCaptionBindingLongPressMenu(audio, idx);
+                } else if (vClip != null) {
+                    if (idx < vClip.getCaptionBindings().size()) showCaptionBindingLongPressMenu(vClip, idx);
+                }
+                return true;
+            });
+            row.addView(pill);
         }
-        if (bindings.size() < AudioClip.MAX_CAPTION_BINDINGS) {
-            android.widget.TextView addBtn = new android.widget.TextView(ctx);
-            addBtn.setText("+ Add caption track");
-            addBtn.setTextColor(0xFF64B5F6);
-            addBtn.setTextSize(13);
-            addBtn.setPadding((int)(8*d), (int)(10*d), (int)(8*d), (int)(6*d));
-            addBtn.setOnClickListener(v -> showAddAudioCaptionTrackDialog(clip));
-            container.addView(addBtn);
+
+        // "+" wire/import pill
+        TextView add = new TextView(ctx);
+        add.setText("+");
+        add.setTextColor(0xFF4CAF50);
+        add.setTextSize(16);
+        add.setTypeface(null, android.graphics.Typeface.BOLD);
+        int ap = (int)(10*d);
+        add.setPadding(ap, ap/2, ap, ap/2);
+        add.setBackgroundResource(R.drawable.floating_button_item_bg);
+        add.setOnClickListener(v -> showWireCaptionTrackDialog());
+        row.addView(add);
+    }
+
+    /**
+     * Wire a caption track: pick from the target's existing transcripts, or import timestamped
+     * text directly (one less step — importing from Captions implies wanting it wired up).
+     * The "?" chip shows copyable format examples for both grouping modes.
+     */
+    private void showWireCaptionTrackDialog() {
+        final AudioClip audio = getActiveAudioClip();
+        final boolean useAudio = audio != null && !audio.getCaptionBindings().isEmpty()
+                || (editorTimeline.getSelectedAudioIndex() >= 0
+                    && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
+        java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> versions =
+                new java.util.ArrayList<>();
+        if (useAudio) {
+            AudioClip target = audio != null && !audio.getCaptionBindings().isEmpty() ? audio
+                    : project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
+            versions.addAll(target.getTranscripts());
+        } else if (getSelectedClip() != null) {
+            versions.addAll(getSelectedClip().getTranscripts());
         }
-        return container;
+        java.util.List<String> items = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : versions) {
+            items.add(nt.label + " (" + nt.engine + ")");
+        }
+        items.add("Import timestamped text…");
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Wire caption track")
+                .setItems(items.toArray(new String[0]), (d, which) -> {
+                    if (which < versions.size()) {
+                        wireNewCaptionTrack(versions.get(which).id);
+                    } else {
+                        wireAfterImport = true;
+                        promptImportTimestampedText();
+                    }
+                })
+                .setNeutralButton("?", (d, w) -> showImportFormatHelp())
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** True when the next import (promptImportTimestampedText) should auto-wire a track. */
+    private boolean wireAfterImport = false;
+
+    /** Create a caption binding for the newest imported transcript on the import target. */
+    private void wireNewCaptionTrack(@NonNull String transcriptId) {
+        float baseY = 0.38f;
+        if (editorTimeline.getSelectedAudioIndex() >= 0
+                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size()) {
+            AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
+            if (ac == null || !ac.canAddCaptionBinding()) {
+                Toast.makeText(this, "Max 3 tracks", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            for (AudioClip.CaptionBinding b : ac.getCaptionBindings()) baseY = Math.min(baseY, b.centerY);
+            baseY = Math.max(0.12f, baseY - 0.12f);
+            AudioClip.CaptionBinding nb = new AudioClip.CaptionBinding(
+                    transcriptId, "pop", true, 0.5f, baseY, 0.06f, "Track " + (ac.getCaptionBindings().size() + 1));
+            ac.addCaptionBinding(nb);
+            activeCaptionIsAudio = true;
+            audioCaptionClipId = ac.getId();
+            setActiveAudioCaptionBinding(ac.getCaptionBindings().size() - 1);
+            rebuildAudioCaptionOverlays(ac);
+        } else if (getSelectedClip() != null) {
+            Clip c = getSelectedClip();
+            if (!c.canAddCaptionBinding()) {
+                Toast.makeText(this, "Max 3 tracks", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            for (Clip.CaptionBinding b : c.getCaptionBindings()) baseY = Math.min(baseY, b.centerY);
+            baseY = Math.max(0.12f, baseY - 0.12f);
+            Clip.CaptionBinding nb = new Clip.CaptionBinding(
+                    transcriptId, "pop", true, 0.5f, baseY, 0.06f, "Track " + (c.getCaptionBindings().size() + 1));
+            c.addCaptionBinding(nb);
+            activeCaptionIsAudio = false;
+            captionClipId = c.getId();
+            setActiveCaptionBinding(c.getCaptionBindings().size() - 1);
+            rebuildCaptionOverlays(c);
+        } else {
+            return;
+        }
+        editorTimeline.invalidate();
+        scheduleAutoSave();
+        // §7.1.5: refresh in place — the drawer keeps its current tab.
+        refreshCaptionDrawerIfOpen();
+    }
+
+    /** Copyable format examples for timestamped imports — karaoke and slide. */
+    private void showImportFormatHelp() {
+        float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout col = new android.widget.LinearLayout(this);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = (int) (20 * d);
+        col.setPadding(pad, pad / 2, pad, 0);
+
+        TextView kLabel = new TextView(this);
+        kLabel.setText("Karaoke — one word per line (per-word timing):");
+        kLabel.setTextColor(0xFFAAAAAA);
+        kLabel.setTextSize(12);
+        col.addView(kLabel);
+        TextView kEx = new TextView(this);
+        kEx.setText("00:00.000 -> 00:00.320 Ten\n00:00.320 -> 00:00.610 rows,\n00:00.610 -> 00:00.910 ten toes,");
+        kEx.setTextColor(0xFFCCCCCC);
+        kEx.setTextSize(12);
+        kEx.setTypeface(android.graphics.Typeface.MONOSPACE);
+        col.addView(kEx);
+        TextView kCopy = new TextView(this);
+        kCopy.setText("Copy example");
+        kCopy.setTextColor(0xFF64B5F6);
+        kCopy.setTextSize(13);
+        int cp = (int) (8 * d);
+        kCopy.setPadding(0, cp / 2, 0, cp);
+        kCopy.setOnClickListener(v -> copyToClipboard(
+                "00:00.000 -> 00:00.320 Ten\n00:00.320 -> 00:00.610 rows,\n00:00.610 -> 00:00.910 ten toes,"));
+        col.addView(kCopy);
+
+        TextView sLabel = new TextView(this);
+        sLabel.setText("Slide — one block per timestamp (whole verse shows at once):");
+        sLabel.setTextColor(0xFFAAAAAA);
+        sLabel.setTextSize(12);
+        col.addView(sLabel);
+        TextView sEx = new TextView(this);
+        sEx.setText("[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant");
+        sEx.setTextColor(0xFFCCCCCC);
+        sEx.setTextSize(12);
+        sEx.setTypeface(android.graphics.Typeface.MONOSPACE);
+        col.addView(sEx);
+        TextView sCopy = new TextView(this);
+        sCopy.setText("Copy example");
+        sCopy.setTextColor(0xFF64B5F6);
+        sCopy.setTextSize(13);
+        sCopy.setPadding(0, cp / 2, 0, 0);
+        sCopy.setOnClickListener(v -> copyToClipboard(
+                "[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant"));
+        col.addView(sCopy);
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Import format")
+                .setView(col)
+                .setPositiveButton(android.R.string.ok, null)
+                .show();
     }
 
     private void showCaptionBindingLongPressMenu(@NonNull Clip clip, int idx) {
@@ -19487,7 +20497,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Caption track")
                 .setView(input)
-                .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave(); })
+                .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
                 .setNegativeButton("Cancel", null)
                 .setNeutralButton("Delete", (d,w) -> {
                     if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, "At least one track required", android.widget.Toast.LENGTH_SHORT).show(); return; }
@@ -19496,7 +20506,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (activeCaptionBindingIndex >= clip.getCaptionBindings().size()) activeCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
                         rebuildCaptionOverlays(clip);
                         // hide removed overlay view already handled via remove
-                        editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave();
+                        editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave();
                     }).setNegativeButton("Cancel", null).show();
                 })
                 .show();
@@ -19510,7 +20520,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Caption track")
                 .setView(input)
-                .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave(); })
+                .setPositiveButton("Rename", (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
                 .setNegativeButton("Cancel", null)
                 .setNeutralButton("Delete", (d,w) -> {
                     if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, "At least one track required", android.widget.Toast.LENGTH_SHORT).show(); return; }
@@ -19518,7 +20528,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         clip.removeCaptionBinding(idx);
                         if (activeAudioCaptionBindingIndex >= clip.getCaptionBindings().size()) activeAudioCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
                         rebuildAudioCaptionOverlays(clip);
-                        editorTimeline.invalidate(); if (captionDrawerOpen) showCaptionDrawer(true); scheduleAutoSave();
+                        editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave();
                     }).setNegativeButton("Cancel", null).show();
                 })
                 .show();
@@ -19548,7 +20558,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     setActiveCaptionBinding(clip.getCaptionBindings().size()-1);
                     rebuildCaptionOverlays(clip);
                     editorTimeline.invalidate();
-                    if (captionDrawerOpen) showCaptionDrawer(true);
+                    refreshCaptionDrawerIfOpen();
                     scheduleAutoSave();
                 })
                 .setNegativeButton("Cancel", null)
@@ -19578,86 +20588,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     setActiveAudioCaptionBinding(clip.getCaptionBindings().size()-1);
                     rebuildAudioCaptionOverlays(clip);
                     editorTimeline.invalidate();
-                    if (captionDrawerOpen) showCaptionDrawer(true);
+                    refreshCaptionDrawerIfOpen();
                     scheduleAutoSave();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
-    private android.view.View buildCaptionTimingTab(@NonNull android.content.Context ctx) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        int pad = (int)(12 * d);
-        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
-        root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        root.setPadding(pad, 0, pad, pad);
-        final Clip motionTarget = captionAnimTarget();
-        if (motionTarget != null) {
-            android.widget.LinearLayout motionRow = new android.widget.LinearLayout(ctx);
-            motionRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-            motionRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-            root.addView(motionRow);
-            android.widget.TextView motionLabel = new android.widget.TextView(ctx);
-            motionLabel.setText("Motion");
-            motionLabel.setTextColor(0xFFAAAAAA);
-            motionLabel.setTextSize(12);
-            motionLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-            motionRow.addView(motionLabel);
-            final android.widget.TextView motionChip = new android.widget.TextView(ctx);
-            styleDrawerChip(motionChip, d);
-            motionChip.setText(captionAnimPresetLabel(motionTarget));
-            motionRow.addView(motionChip);
-            android.view.View motionBtn = makeTextMotionIcon(d);
-            motionRow.addView(motionBtn);
-            android.view.View.OnClickListener open = v -> {
-                Clip t = captionAnimTarget();
-                if (t == null) return;
-                TextAnimPickerPopover.show(v, com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(t.getCaptionAnimPreset()), com.fadcam.ui.faditor.transcript.CaptionAnimator.parseGranularity(t.getCaptionAnimGranularity()), new TextAnimPickerPopover.OnPick() {
-                    @Override public void onPreset(@NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p) {
-                        applyCaptionAnimPreset(p);
-                        Clip now = captionAnimTarget();
-                        if (now != null) motionChip.setText(captionAnimPresetLabel(now));
-                    }
-                    @Override public void onGranularity(@NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
-                        applyCaptionAnimGranularity(g);
-                        Clip now = captionAnimTarget();
-                        if (now != null) motionChip.setText(captionAnimPresetLabel(now));
-                    }
-                });
-            };
-            motionBtn.setOnClickListener(open);
-            motionChip.setOnClickListener(open);
-            addCaptionAnimRangeControl(root, d);
-        } else {
-            android.widget.TextView empty = new android.widget.TextView(ctx);
-            empty.setText("No captioned clip selected");
-            empty.setTextColor(0xFFAAAAAA);
-            empty.setTextSize(12);
-            empty.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-            root.addView(empty);
-        }
-        android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
-        scroll.setVerticalScrollBarEnabled(false);
-        scroll.addView(root);
-        return scroll;
-    }
-
-    private android.view.View buildCaptionPositionTab(@NonNull android.content.Context ctx) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        int pad = (int)(12 * d);
-        android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
-        root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        root.setPadding(pad, pad, pad, pad);
-        root.addView(makeCaptionPositionToggle(d));
-        android.widget.TextView hint = new android.widget.TextView(ctx);
-        hint.setText("Tap to cycle Top → Middle → Bottom");
-        hint.setTextColor(0xFFAAAAAA);
-        hint.setTextSize(11);
-        hint.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        hint.setPadding(0, (int)(8*d), 0, 0);
-        root.addView(hint);
-        return root;
-    }
+    // buildCaptionTimingTab / buildCaptionPositionTab deleted — SPEC_20260831_CAPTION_SLIDES_UX
+    // §7.2.5: Timing's Motion content moved to the bottom of the Style tab; position cycling
+    // lives in the size row's toggle. Function preserved, tabs gone.
 
     private android.view.View buildCaptionFitTab(@NonNull android.content.Context ctx) {
         float d = ctx.getResources().getDisplayMetrics().density;
@@ -19665,6 +20605,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, 0, pad, pad);
+        // Track pills moved to the drawer HEADER (SPEC_20260831_CAPTION_SLIDES_UX §7.2.3) —
+        // tracks stay selectable from either tab via the header row.
         // ── Fit mode ── Off / Uniform / Per cue (SPEC §3.2)
         android.widget.LinearLayout modeRow = new android.widget.LinearLayout(ctx);
         modeRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -19688,12 +20630,40 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final android.widget.LinearLayout rowRef = modeRow;
             chip.setOnClickListener(v -> {
                 tweakCaptionStyle(s -> s.fitMode = mode);
-                for (int i = 1; i < rowRef.getChildCount(); i++) {
+                // Only the mode chips dim (children 1..modes.length) — the truncate checkbox
+                // and its label live past them and must keep their own colours (§7.2.7).
+                for (int i = 1; i <= modes.length; i++) {
                     rowRef.getChildAt(i).setAlpha(rowRef.getChildAt(i) == v ? 0.88f : 0.45f);
                 }
             });
             modeRow.addView(chip);
         }
+        // ── Truncate checkbox (SPEC_20260831_CAPTION_SLIDES_UX §7.2.7): a small materialicons
+        // checkbox, not a chip — it qualifies the Fit modes (on = clip the overflowing block
+        // with an ellipsis; off = width-only fit so the column may run tall). Semantics live
+        // in CaptionStyle.fitTruncate, applied by preview + export.
+        TextView truncateBox = new TextView(ctx);
+        truncateBox.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
+        truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
+        truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? 0xFF4CAF50 : 0xFF888888);
+        truncateBox.setTextSize(14);
+        truncateBox.setClickable(true);
+        TextView truncateLbl = new TextView(ctx);
+        truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
+        truncateLbl.setTextColor(0xFF9A9A9A);
+        truncateLbl.setTextSize(11);
+        truncateBox.setOnClickListener(v -> {
+            tweakCaptionStyle(s -> s.fitTruncate = !s.fitTruncate);
+            truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
+            truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? 0xFF4CAF50 : 0xFF888888);
+            truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
+        });
+        android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        cbLp.leftMargin = (int)(6*d);
+        modeRow.addView(truncateBox, cbLp);
+        modeRow.addView(truncateLbl);
         root.addView(makeDivider(d));
         // ── Words per caption (moved from Style row — SPEC §3.3)
         android.widget.LinearLayout wordsRow = new android.widget.LinearLayout(ctx);
@@ -19717,18 +20687,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         maxLinesLabel.setPadding((int)(16*d), 0, 0, 0);
         wordsRow.addView(maxLinesLabel);
         wordsRow.addView(makeCaptionMaxLinesDial(ctx, d));
-        // ── Minimum size floor (percentage, default 45%)
-        android.widget.LinearLayout floorRow = new android.widget.LinearLayout(ctx);
-        floorRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        floorRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        floorRow.setPadding(0, pad, 0, 0);
-        root.addView(floorRow);
+        // ── Floor shares the Words/Max-lines line (was a full-width row of its own)
         android.widget.TextView floorLabel = new android.widget.TextView(ctx);
         floorLabel.setText("Floor");
         floorLabel.setTextColor(0xFFAAAAAA);
         floorLabel.setTextSize(12);
         floorLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-        floorRow.addView(floorLabel);
+        wordsRow.addView(floorLabel);
         com.google.android.material.slider.Slider floorSlider = new com.google.android.material.slider.Slider(new androidx.appcompat.view.ContextThemeWrapper(ctx, R.style.Widget_FadCam_BottomSheetSlider));
         floorSlider.setValueFrom(0.15f);
         floorSlider.setValueTo(1.0f);
@@ -19740,19 +20705,178 @@ public class FaditorEditorActivity extends AppCompatActivity {
         floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
         floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
         floorSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF333333));
-        floorRow.addView(floorSlider);
+        wordsRow.addView(floorSlider);
         android.widget.TextView floorVal = new android.widget.TextView(ctx);
         floorVal.setTextSize(12);
         floorVal.setTextColor(0xFF4CAF50);
         floorVal.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         floorVal.setPadding((int)(6*d), 0, 0, 0);
         floorVal.setText(Math.round(currentCaptionStyle().fitMinScale * 100) + "%");
-        floorRow.addView(floorVal);
+        wordsRow.addView(floorVal);
         floorSlider.addOnChangeListener((sl, value, fromUser) -> {
             if (!fromUser) return;
             floorVal.setText(Math.round(value * 100) + "%");
             tweakCaptionStyle(s -> s.fitMinScale = value);
         });
+        root.addView(makeDivider(d));
+        // Slide grouping + growth cycles consolidated on ONE row (Grouping / Grow / Align /
+        // Copy to all); the Fit modes sit above. Truncate moved up beside them as a checkbox
+        // (§7.2.7), and the track pills row moved to the drawer header (§7.2.3).
+        android.widget.LinearLayout growRow = new android.widget.LinearLayout(ctx);
+        growRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        growRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        growRow.setPadding(0, pad, 0, 0);
+        root.addView(growRow);
+        TextView slideChip = new TextView(ctx);
+        styleDrawerChip(slideChip, d);
+        slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
+        slideChip.setTextColor(currentCaptionStyle().slideGroup ? 0xFF4CAF50 : 0xFFEEEEEE);
+        slideChip.setOnClickListener(v -> {
+            tweakCaptionStyle(s -> s.slideGroup = !s.slideGroup);
+            slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
+            slideChip.setTextColor(currentCaptionStyle().slideGroup ? 0xFF4CAF50 : 0xFFEEEEEE);
+        });
+        final int[] bindRef = {-1, -1}; // [bindingIdx, isAudio]
+        Runnable resolveBinding = () -> {
+            if (activeCaptionIsAudio) {
+                AudioClip ac = getActiveAudioClip();
+                java.util.List<AudioClip.CaptionBinding> bs = ac != null ? ac.getCaptionBindings() : new java.util.ArrayList<>();
+                bindRef[0] = (activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) ? activeAudioCaptionBindingIndex : (bs.isEmpty() ? -1 : 0);
+                bindRef[1] = 1;
+            } else {
+                Clip c = getActiveCaptionClip();
+                java.util.List<Clip.CaptionBinding> bs = c != null ? c.getCaptionBindings() : new java.util.ArrayList<>();
+                bindRef[0] = (activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) ? activeCaptionBindingIndex : (bs.isEmpty() ? -1 : 0);
+                bindRef[1] = 0;
+            }
+        };
+        resolveBinding.run();
+        final boolean[] isAudioRef = {bindRef[1] == 1};
+        final String[] anchorNames = {"Grow: center", "Grow: down", "Grow: up"};
+        final String[] justifyNames = {"Align: center", "Align: left", "Align: right"};
+        TextView growChip = new TextView(ctx);
+        styleDrawerChip(growChip, d);
+        TextView alignChip = new TextView(ctx);
+        styleDrawerChip(alignChip, d);
+        TextView allChip = new TextView(ctx);
+        styleDrawerChip(allChip, d);
+        allChip.setText("Copy to all");
+        allChip.setTextColor(0xFF64B5F6);
+        Runnable refreshGrowRow = () -> {
+            int anchor = 0, justify = 0;
+            if (isAudioRef[0]) {
+                AudioClip ac = getActiveAudioClip();
+                java.util.List<AudioClip.CaptionBinding> bs = ac != null ? ac.getCaptionBindings() : new java.util.ArrayList<>();
+                int i = bindRef[0];
+                if (i >= 0 && i < bs.size()) { anchor = bs.get(i).anchor; justify = bs.get(i).justify; }
+            } else {
+                Clip c = getActiveCaptionClip();
+                java.util.List<Clip.CaptionBinding> bs = c != null ? c.getCaptionBindings() : new java.util.ArrayList<>();
+                int i = bindRef[0];
+                if (i >= 0 && i < bs.size()) { anchor = bs.get(i).anchor; justify = bs.get(i).justify; }
+            }
+            growChip.setText(anchorNames[anchor]);
+            alignChip.setText(justifyNames[justify]);
+        };
+        refreshGrowRow.run();
+        growChip.setOnClickListener(v -> {
+            resolveBinding.run();
+            if (bindRef[0] < 0) return;
+            if (isAudioRef[0]) {
+                AudioClip ac = getActiveAudioClip();
+                if (ac == null) return;
+                if (bindRef[0] >= ac.getCaptionBindings().size()) return;
+                AudioClip.CaptionBinding b = ac.getCaptionBindings().get(bindRef[0]);
+                b.anchor = (b.anchor + 1) % 3;
+                com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = audioCaptionOverlayForBinding(bindRef[0]);
+                if (ov != null) {
+                    ov.setAnchor(b.anchor);
+                    // FADE_KNOBS §2.5: this RETARGET path pushes onto a view rebuildAudioCaptionOverlays
+                    // already built, so it must push every field that rebuild sets — the fade included.
+                    // Without it a fade edited since the last rebuild only appeared on the next one.
+                    ov.setCaptionFade(b.fadeInMs, b.fadeOutMs,
+                            Math.max(1L, ac.getTrimmedDurationMs()));
+                }
+            } else {
+                Clip c = getActiveCaptionClip();
+                if (c == null) return;
+                if (bindRef[0] >= c.getCaptionBindings().size()) return;
+                Clip.CaptionBinding b = c.getCaptionBindings().get(bindRef[0]);
+                b.anchor = (b.anchor + 1) % 3;
+                com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = captionOverlayForBinding(bindRef[0]);
+                if (ov != null) {
+                    ov.setAnchor(b.anchor);
+                    // FADE_KNOBS §2.5 — see the audio branch: retarget must set what rebuild sets.
+                    ov.setCaptionFade(b.fadeInMs, b.fadeOutMs,
+                            Math.max(1L, c.getVisualDurationMs()));
+                }
+            }
+            refreshGrowRow.run();
+            scheduleAutoSave();
+        });
+        alignChip.setOnClickListener(v -> {
+            resolveBinding.run();
+            if (bindRef[0] < 0) return;
+            if (isAudioRef[0]) {
+                AudioClip ac = getActiveAudioClip();
+                if (ac == null) return;
+                if (bindRef[0] >= ac.getCaptionBindings().size()) return;
+                AudioClip.CaptionBinding b = ac.getCaptionBindings().get(bindRef[0]);
+                b.justify = (b.justify + 1) % 3;
+                com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = audioCaptionOverlayForBinding(bindRef[0]);
+                if (ov != null) {
+                    ov.setJustify(b.justify);
+                    // FADE_KNOBS §2.5 — see the grow chip above.
+                    ov.setCaptionFade(b.fadeInMs, b.fadeOutMs,
+                            Math.max(1L, ac.getTrimmedDurationMs()));
+                }
+            } else {
+                Clip c = getActiveCaptionClip();
+                if (c == null) return;
+                if (bindRef[0] >= c.getCaptionBindings().size()) return;
+                Clip.CaptionBinding b = c.getCaptionBindings().get(bindRef[0]);
+                b.justify = (b.justify + 1) % 3;
+                com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = captionOverlayForBinding(bindRef[0]);
+                if (ov != null) {
+                    ov.setJustify(b.justify);
+                    // FADE_KNOBS §2.5 — see the grow chip above.
+                    ov.setCaptionFade(b.fadeInMs, b.fadeOutMs,
+                            Math.max(1L, c.getVisualDurationMs()));
+                }
+            }
+            refreshGrowRow.run();
+            scheduleAutoSave();
+        });
+        allChip.setOnClickListener(v -> {
+            resolveBinding.run();
+            if (bindRef[0] < 0) return;
+            int anchor, justify;
+            if (isAudioRef[0]) {
+                AudioClip ac = getActiveAudioClip();
+                if (ac == null) return;
+                if (bindRef[0] >= ac.getCaptionBindings().size()) return;
+                AudioClip.CaptionBinding b = ac.getCaptionBindings().get(bindRef[0]);
+                anchor = b.anchor; justify = b.justify;
+                for (AudioClip.CaptionBinding bb : ac.getCaptionBindings()) { bb.anchor = anchor; bb.justify = justify; }
+                rebuildAudioCaptionOverlays(ac);
+            } else {
+                Clip c = getActiveCaptionClip();
+                if (c == null) return;
+                if (bindRef[0] >= c.getCaptionBindings().size()) return;
+                Clip.CaptionBinding b = c.getCaptionBindings().get(bindRef[0]);
+                anchor = b.anchor; justify = b.justify;
+                for (Clip.CaptionBinding bb : c.getCaptionBindings()) { bb.anchor = anchor; bb.justify = justify; }
+                rebuildCaptionOverlays(c);
+            }
+            editorTimeline.invalidate();
+            scheduleAutoSave();
+            Toast.makeText(this, "Anchor + align applied to all tracks", Toast.LENGTH_SHORT).show();
+        });
+        growRow.addView(slideChip);
+        growRow.addView(growChip);
+        growRow.addView(alignChip);
+        growRow.addView(allChip);
+
         android.widget.ScrollView scroll = new android.widget.ScrollView(ctx);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.addView(root);
@@ -20009,7 +21133,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** The drawer chip's text for a clip's current motion preset. TODO(strings) */
     @NonNull
-    private String captionAnimPresetLabel(@NonNull Clip clip) {
+    private String captionAnimPresetLabel(@NonNull CapAnim clip) {
         com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset p =
                 com.fadcam.ui.faditor.transcript.CaptionAnimator
                         .parsePreset(clip.getCaptionAnimPreset());
@@ -20432,23 +21556,153 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
-     * Apply one granular edit: materialise a per-clip working style (so tweaking
-     * this clip never restyles another), mutate it, persist it in the store, and
-     * re-apply it to the selection through the normal style path.
+     * Apply one granular edit: materialise a per-BINDING working style (so tweaking
+     * this track never restyles its siblings), mutate it, persist it in the store, and
+     * re-apply it to the selection through the normal style path. The draft key used to be
+     * per CLIP — every binding on the clip shared one style object, so a colour change on
+     * track 1 restyled all three (user-reported conflation).
      */
+    /**
+     * Long-press options for the caption's BACKING PLATE — the owner's request: "it would be
+     * nice if long-pressing on the box in the captions [...] had some options for how ROUND the
+     * corners are, as well as OPACITY."
+     *
+     * <p>Opacity is NOT duplicated here. {@code CaptionStyle.pillColor} is an ARGB int that
+     * already carries alpha, and the shared colour picker now has an Opacity slider — so this
+     * sheet routes to that one control rather than growing a second one that could disagree
+     * with it.</p>
+     *
+     * <p>Long-press used to hide the track outright. That affordance is kept as a row here, so
+     * nothing the user could do before is gone.</p>
+     */
+    private void showCaptionBoxOptions() {
+        float d = getResources().getDisplayMetrics().density;
+        int pad = Math.round(16 * d);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(pad, pad, pad, 0);
+
+        com.fadcam.ui.faditor.transcript.CaptionStyle cur0 = currentCaptionStyle();
+
+        // ── Box on/off ──
+        final TextView boxToggle = new TextView(this);
+        styleDrawerChip(boxToggle, d);
+        boxToggle.setText("Backing box");
+        boxToggle.setAlpha(cur0.pill ? 1f : 0.45f);
+        boxToggle.setOnClickListener(v -> {
+            boolean now = !currentCaptionStyle().pill;
+            tweakCaptionStyle(st -> {
+                st.pill = now;
+                if (now && st.pillColor == 0) st.pillColor = 0xCC000000;
+            });
+            boxToggle.setAlpha(now ? 1f : 0.45f);
+        });
+        root.addView(boxToggle);
+
+        // ── Corner roundness ──
+        final TextView cornerLab = new TextView(this);
+        cornerLab.setTextColor(0xFFCCCCCC);
+        cornerLab.setTextSize(12);
+        cornerLab.setPadding(0, Math.round(12 * d), 0, 0);
+        root.addView(cornerLab);
+
+        final SeekBar cornerBar = new SeekBar(this);
+        cornerBar.setMax(50); // 0..0.5 of the text size, in whole percent
+        final int startPct = Math.round(
+                com.fadcam.ui.faditor.transcript.CaptionStyle.clampPillCorner(cur0.pillCornerScale) * 100f);
+        cornerBar.setProgress(startPct);
+        cornerLab.setText("Corners  " + startPct + "%" + (startPct == 0 ? "  \u00b7  square" : ""));
+        cornerBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int prog, boolean fromUser) {
+                cornerLab.setText("Corners  " + prog + "%" + (prog == 0 ? "  \u00b7  square" : ""));
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) { }
+            @Override public void onStopTrackingTouch(SeekBar sb) {
+                // Commit on RELEASE, not per pixel: tweakCaptionStyle records an undo step, and
+                // one per pixel would bury the user's real history (same rule as the anim zones).
+                final float v = com.fadcam.ui.faditor.transcript.CaptionStyle
+                        .clampPillCorner(sb.getProgress() / 100f);
+                tweakCaptionStyle(st -> { st.pillCornerScale = v; st.pill = true; });
+            }
+        });
+        root.addView(cornerBar);
+
+        // ── Colour + opacity: the ONE existing control, not a copy of it ──
+        final TextView colorRow = new TextView(this);
+        styleDrawerChip(colorRow, d);
+        colorRow.setText("Box colour & opacity\u2026");
+        colorRow.setOnClickListener(v -> com.fadcam.ui.faditor.tools.ColorPickerDialog.show(
+                this, "Box", currentCaptionStyle().pillColor, false,
+                c -> { if (c != null) tweakCaptionStyle(st -> { st.pillColor = c; st.pill = true; }); },
+                c -> { if (c != null) tweakCaptionStyle(st -> { st.pillColor = c; st.pill = true; }); }));
+        root.addView(colorRow);
+
+        // ── The old long-press behaviour, kept ──
+        final TextView hideRow = new TextView(this);
+        styleDrawerChip(hideRow, d);
+        hideRow.setText("Hide this track");
+        hideRow.setTextColor(0xFFEF9A9A);
+        root.addView(hideRow);
+
+        androidx.appcompat.app.AlertDialog dlg =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Caption box")
+                        .setView(root)
+                        .setPositiveButton("Done", null)
+                        .create();
+        hideRow.setOnClickListener(v -> {
+            setActiveCaptionBindingEnabled(false);
+            dlg.dismiss();
+        });
+        dlg.show();
+    }
+
+    /** Enable/disable the binding the user currently has selected, on either object. */
+    private void setActiveCaptionBindingEnabled(boolean enabled) {
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            if (ac == null || activeAudioCaptionBindingIndex < 0
+                    || activeAudioCaptionBindingIndex >= ac.getCaptionBindings().size()) return;
+            ac.getCaptionBindings().get(activeAudioCaptionBindingIndex).enabled = enabled;
+            ac.syncLegacyFromBindings();
+            rebuildAudioCaptionOverlays(ac);
+        } else {
+            Clip c = getActiveCaptionClip();
+            if (c == null || activeCaptionBindingIndex < 0
+                    || activeCaptionBindingIndex >= c.getCaptionBindings().size()) return;
+            c.getCaptionBindings().get(activeCaptionBindingIndex).enabled = enabled;
+            c.syncLegacyFromBindings();
+            rebuildCaptionOverlays(c);
+        }
+        if (editorTimeline != null) editorTimeline.invalidate();
+        refreshCaptionDrawerIfOpen();
+        scheduleAutoSave();
+    }
+
     private void tweakCaptionStyle(@NonNull java.util.function.Consumer<
             com.fadcam.ui.faditor.transcript.CaptionStyle> mutation) {
         // Retarget to active binding's clip first
         String activeTargetId = null;
+        int activeBindingIdx = -1;
         if (activeCaptionIsAudio) {
             AudioClip ac = getActiveAudioClip();
-            if (ac != null && !ac.getCaptionBindings().isEmpty()) activeTargetId = ac.getId();
+            if (ac != null && !ac.getCaptionBindings().isEmpty()) {
+                activeTargetId = ac.getId();
+                activeBindingIdx = (activeAudioCaptionBindingIndex >= 0
+                        && activeAudioCaptionBindingIndex < ac.getCaptionBindings().size())
+                        ? activeAudioCaptionBindingIndex : 0;
+            }
         } else {
             Clip c = getActiveCaptionClip();
-            if (c != null && !c.getCaptionBindings().isEmpty()) activeTargetId = c.getId();
+            if (c != null && !c.getCaptionBindings().isEmpty()) {
+                activeTargetId = c.getId();
+                activeBindingIdx = (activeCaptionBindingIndex >= 0
+                        && activeCaptionBindingIndex < c.getCaptionBindings().size())
+                        ? activeCaptionBindingIndex : 0;
+            }
         }
         if (activeTargetId != null) {
-            String draftId = "customdraft_" + activeTargetId;
+            String draftId = "customdraft_" + activeTargetId + "_b" + activeBindingIdx;
             com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
             com.fadcam.ui.faditor.transcript.CaptionStyle working = cur.id.equals(draftId) ? cur : cur.copyAs(draftId, cur.label);
             mutation.accept(working);
@@ -20515,7 +21769,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.transcript.CaptionStyleStore.delete(id);
                     applyCaptionStyle("pop");
                     rebuildCaptionStyleChips();
-                    if (captionDrawerOpen) showCaptionDrawer(true);
+                    // §7.1.5: refresh in place — deleting a style must not reset the tab.
+                    refreshCaptionDrawerIfOpen();
                 })
                 .show();
     }
@@ -20603,6 +21858,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return cc != null ? cc.getCaptionSizeFraction() : 0.06f;
     }
 
+    /**
+     * SPEC_20260831_CAPTION_SLIDES_UX: setStyle ONLY on the overlay view whose tagged binding
+     * index matches the active binding. The overlay lists are compacted (enabled + resolvable
+     * views only) while the index is a BINDING index, so raw list indexing could restyle the
+     * wrong track. Returns true when a multi-container view matched.
+     */
+    private boolean applyStyleToActiveOverlayViews(@NonNull String styleId) {
+        com.fadcam.ui.faditor.transcript.CaptionStyle s =
+                com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId);
+        boolean matched = false;
+        if (activeCaptionIsAudio) {
+            for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : audioCaptionOverlays) {
+                if (v != null && Integer.valueOf(activeAudioCaptionBindingIndex).equals(v.getTag())) {
+                    v.setStyle(s);
+                    matched = true;
+                }
+            }
+        } else {
+            for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
+                if (v != null && Integer.valueOf(activeCaptionBindingIndex).equals(v.getTag())) {
+                    v.setStyle(s);
+                    matched = true;
+                }
+            }
+        }
+        return matched;
+    }
+
     private void applyCaptionStyle(String styleId) {
         // Active binding retarget first (drawer follows last-touched caption).
         if (activeCaptionIsAudio) {
@@ -20614,9 +21897,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     final String beforeStyle = b.styleId;
                     final boolean beforeEnabled = b.enabled;
                     b.styleId = styleId; b.enabled = true; ac.syncLegacyFromBindings();
-                    if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) {
-                        audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
-                    } else if (audioCaptionOverlay != null) {
+                    if (!applyStyleToActiveOverlayViews(styleId) && audioCaptionOverlay != null) {
                         audioCaptionOverlay.setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
                         audioCaptionOverlay.setVisibility(android.view.View.VISIBLE);
                     }
@@ -20624,8 +21905,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
                     if (!styleId.equals(beforeStyle) || !beforeEnabled) {
                         undoManager.recordAction(new EditActions.LambdaAction("Caption style",
-                                () -> { b.styleId = styleId; b.enabled = true; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId)); },
-                                () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeStyle)); }));
+                        () -> { b.styleId = styleId; b.enabled = true; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(styleId); },
+                        () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; ac.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(beforeStyle); }));
                     }
                     editorTimeline.invalidate(); scheduleAutoSave(); return;
                 }
@@ -20639,17 +21920,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     final String beforeStyle = b.styleId;
                     final boolean beforeEnabled = b.enabled;
                     b.styleId = styleId; b.enabled = true; c.syncLegacyFromBindings();
-                    if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) {
-                        captionOverlays.get(activeCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
-                    } else if (captionOverlay != null) {
+                    if (!applyStyleToActiveOverlayViews(styleId) && captionOverlay != null) {
                         captionOverlay.setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId));
                         captionOverlay.setVisibility(android.view.View.VISIBLE);
                     }
                     if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(android.view.View.VISIBLE); }
                     if (!styleId.equals(beforeStyle) || !beforeEnabled) {
                         undoManager.recordAction(new EditActions.LambdaAction("Caption style",
-                                () -> { b.styleId = styleId; b.enabled = true; c.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId)); },
-                                () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; c.syncLegacyFromBindings(); editorTimeline.invalidate(); if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setStyle(com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeStyle)); }));
+                        () -> { b.styleId = styleId; b.enabled = true; c.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(styleId); },
+                        () -> { b.styleId = beforeStyle; b.enabled = beforeEnabled; c.syncLegacyFromBindings(); editorTimeline.invalidate(); applyStyleToActiveOverlayViews(beforeStyle); }));
                     }
                     editorTimeline.invalidate(); scheduleAutoSave(); return;
                 }
@@ -20813,21 +22092,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void syncActiveCaptionOverlaySize() {
+        // Look the view up BY TAG (binding index) — the overlay list skips hidden/disabled
+        // bindings, so positional indexing resized the wrong caption.
         if (activeCaptionIsAudio) {
-            if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) {
-                AudioClip ac = getActiveAudioClip();
-                if (ac != null) {
-                    java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
-                    if (activeAudioCaptionBindingIndex < bs.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setSizeFraction(bs.get(activeAudioCaptionBindingIndex).sizeFraction);
-                }
+            AudioClip ac = getActiveAudioClip();
+            if (ac != null && activeAudioCaptionBindingIndex >= 0
+                    && activeAudioCaptionBindingIndex < ac.getCaptionBindings().size()) {
+                com.fadcam.ui.faditor.transcript.CaptionOverlayView ov =
+                        audioCaptionOverlayForBinding(activeAudioCaptionBindingIndex);
+                if (ov != null) ov.setSizeFraction(ac.getCaptionBindings().get(activeAudioCaptionBindingIndex).sizeFraction);
             }
         } else {
-            if (!captionOverlays.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < captionOverlays.size()) {
-                Clip c = getActiveCaptionClip();
-                if (c != null) {
-                    java.util.List<Clip.CaptionBinding> bs = c.getCaptionBindings();
-                    if (activeCaptionBindingIndex < bs.size()) captionOverlays.get(activeCaptionBindingIndex).setSizeFraction(bs.get(activeCaptionBindingIndex).sizeFraction);
-                }
+            Clip c = getActiveCaptionClip();
+            if (c != null && activeCaptionBindingIndex >= 0
+                    && activeCaptionBindingIndex < c.getCaptionBindings().size()) {
+                com.fadcam.ui.faditor.transcript.CaptionOverlayView ov =
+                        captionOverlayForBinding(activeCaptionBindingIndex);
+                if (ov != null) ov.setSizeFraction(c.getCaptionBindings().get(activeCaptionBindingIndex).sizeFraction);
             }
         }
     }
@@ -20843,7 +22124,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     final float before = b.sizeFraction;
                     b.sizeFraction = Math.max(0.02f, Math.min(0.6f, size));
                     ac.syncLegacyFromBindings();
-                    if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setSizeFraction(b.sizeFraction);
+                    { com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = audioCaptionOverlayForBinding(activeAudioCaptionBindingIndex); if (ov != null) ov.setSizeFraction(b.sizeFraction); }
                     if (!captionSizeSuppressUndo && before != b.sizeFraction) {
                         undoManager.recordAction(new EditActions.LambdaAction("Caption size",
                                 () -> { b.sizeFraction = size; ac.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
@@ -20863,7 +22144,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     final float before = b.sizeFraction;
                     b.sizeFraction = Math.max(0.02f, Math.min(0.6f, size));
                     c.syncLegacyFromBindings();
-                    if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setSizeFraction(b.sizeFraction);
+                    { com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = captionOverlayForBinding(activeCaptionBindingIndex); if (ov != null) ov.setSizeFraction(b.sizeFraction); }
                     if (!captionSizeSuppressUndo && before != b.sizeFraction) {
                         undoManager.recordAction(new EditActions.LambdaAction("Caption size",
                                 () -> { b.sizeFraction = size; c.syncLegacyFromBindings(); syncActiveCaptionOverlaySize(); },
@@ -20907,28 +22188,95 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
-    // ── Text animation (SPEC_TEXT_ANIMATION step 2) ────────────────────
+    // ── Text animation (SPEC_TEXT_ANIMATION step 2) ──────────────────
     //
-    // The four captionAnim* fields live on Clip only. Audio-clip captions have no animation
-    // fields, so the drawer's motion control is hidden rather than shown-and-inert when an audio
-    // caption is the selection — a control that silently does nothing is the failure mode this
-    // whole area is being cleaned up from.
+    // The four captionAnim* fields now live on Clip AND on AudioClip. They used to live on
+    // Clip only, so the Motion control wrote the user's preset onto whatever video clip was
+    // selected while they were editing an AUDIO-bound caption track.
 
     /**
-     * The clip these controls act on: the selected clip, if it is captioned.
-     *
-     * <p>Returns null when an AUDIO clip's captions are the current target — the same
-     * {@code getSelectedAudioIndex()} test {@code tweakCaptionStyle} uses. Without it the drawer
-     * would show a motion control while an audio caption is selected and then apply it to
-     * whatever video clip happened to be selected underneath, which is a silent edit to the wrong
-     * object.</p>
+     * The four caption-animation values, wherever they live. Captions bind to VIDEO clips and to
+     * AUDIO clips alike, and the whole Motion UI used to be typed to {@link Clip} — so on an
+     * audio-bound caption track the picker either found nothing or, worse, wrote the user's
+     * preset onto whatever video clip happened to be selected. One tiny adapter lets the same
+     * controls drive either object, and {@link #rebind()} re-pushes the values into whichever
+     * preview path owns that object.
+     */
+    private interface CapAnim {
+        @NonNull String getCaptionAnimPreset();
+        void setCaptionAnimPreset(@NonNull String name);
+        @NonNull String getCaptionAnimGranularity();
+        void setCaptionAnimGranularity(@NonNull String name);
+        float getCaptionAnimInPct();
+        float getCaptionAnimOutPct();
+        void setCaptionAnimZones(float inPct, float outPct);
+        /** Re-push the values into the live preview overlays for this object. */
+        void rebind();
+    }
+
+    private CapAnim capAnimOf(@NonNull Clip c) {
+        return new CapAnim() {
+            @NonNull @Override public String getCaptionAnimPreset() { return c.getCaptionAnimPreset(); }
+            @Override public void setCaptionAnimPreset(@NonNull String n) { c.setCaptionAnimPreset(n); }
+            @NonNull @Override public String getCaptionAnimGranularity() { return c.getCaptionAnimGranularity(); }
+            @Override public void setCaptionAnimGranularity(@NonNull String n) { c.setCaptionAnimGranularity(n); }
+            @Override public float getCaptionAnimInPct() { return c.getCaptionAnimInPct(); }
+            @Override public float getCaptionAnimOutPct() { return c.getCaptionAnimOutPct(); }
+            @Override public void setCaptionAnimZones(float i, float o) { c.setCaptionAnimZones(i, o); }
+            @Override public void rebind() { bindCaptionData(c); }
+        };
+    }
+
+    private CapAnim capAnimOf(@NonNull AudioClip a) {
+        return new CapAnim() {
+            @NonNull @Override public String getCaptionAnimPreset() { return a.getCaptionAnimPreset(); }
+            @Override public void setCaptionAnimPreset(@NonNull String n) { a.setCaptionAnimPreset(n); }
+            @NonNull @Override public String getCaptionAnimGranularity() { return a.getCaptionAnimGranularity(); }
+            @Override public void setCaptionAnimGranularity(@NonNull String n) { a.setCaptionAnimGranularity(n); }
+            @Override public float getCaptionAnimInPct() { return a.getCaptionAnimInPct(); }
+            @Override public float getCaptionAnimOutPct() { return a.getCaptionAnimOutPct(); }
+            @Override public void setCaptionAnimZones(float i, float o) { a.setCaptionAnimZones(i, o); }
+            @Override public void rebind() { pushCaptionAnimationToAudioOverlays(a); }
+        };
+    }
+
+    /**
+     * Push the audio clip's animation values into its live caption overlays. The audio rebuild
+     * never called setCaptionAnimation at all, which is why "Rise" saved, recorded undo, and
+     * rendered nothing. Cheap enough to call on every slider pixel — no view is recreated.
+     */
+    private void pushCaptionAnimationToAudioOverlays(@NonNull AudioClip a) {
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : audioCaptionOverlays) {
+            if (v == null) continue;
+            v.setCaptionAnimation(a.getCaptionAnimPreset(), a.getCaptionAnimGranularity(),
+                    a.getCaptionAnimInPct(), a.getCaptionAnimOutPct());
+        }
+        if (audioCaptionOverlay != null) {
+            audioCaptionOverlay.setCaptionAnimation(a.getCaptionAnimPreset(),
+                    a.getCaptionAnimGranularity(),
+                    a.getCaptionAnimInPct(), a.getCaptionAnimOutPct());
+        }
+    }
+
+    /**
+     * Whichever object the Motion controls should write to. Follows the ACTIVE CAPTION selection
+     * first — the user can select an audio caption track by tapping it in the preview without
+     * the audio clip being selected on the timeline, and the old "is an audio row selected?"
+     * test then silently handed back a video clip.
      */
     @Nullable
-    private Clip captionAnimTarget() {
+    private CapAnim captionAnimTarget() {
+        if (activeCaptionIsAudio) {
+            AudioClip ac = getActiveAudioClip();
+            return (ac != null && ac.hasTranscript()) ? capAnimOf(ac) : null;
+        }
         int audioIdx = editorTimeline.getSelectedAudioIndex();
-        if (audioIdx >= 0 && audioIdx < project.getTimeline().getAudioClips().size()) return null;
+        if (audioIdx >= 0 && audioIdx < project.getTimeline().getAudioClips().size()) {
+            AudioClip ac = project.getTimeline().getAudioClips().get(audioIdx);
+            return ac.hasTranscript() ? capAnimOf(ac) : null;
+        }
         Clip c = getSelectedClip();
-        return (c != null && c.hasTranscript()) ? c : null;
+        return (c != null && c.hasTranscript()) ? capAnimOf(c) : null;
     }
 
     /**
@@ -20953,7 +22301,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * against the value the gesture started from. See {@link #previewCaptionAnimZones}.</p>
      */
     private void addCaptionAnimRangeControl(@NonNull LinearLayout root, float d) {
-        final Clip target = captionAnimTarget();
+        final CapAnim target = captionAnimTarget();
         if (target == null) return;
 
         // The slider's travel is 0..MAX_ZONE_PCT, expressed in whole percent so the readout is a
@@ -20982,7 +22330,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // One updater for both sliders so the two readouts can never disagree with the model.
         final Runnable refresh = () -> {
-            Clip now = captionAnimTarget();
+            CapAnim now = captionAnimTarget();
             if (now == null) return;
             int in = Math.round(now.getCaptionAnimInPct() * 100f);
             int out = Math.round(now.getCaptionAnimOutPct() * 100f);
@@ -21045,7 +22393,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
                 if (!fromUser) return;
-                Clip now = captionAnimTarget();
+                CapAnim now = captionAnimTarget();
                 if (now == null) return;
                 float pct = p / 100f;
                 previewCaptionAnimZones(
@@ -21054,13 +22402,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 refresh.run();
             }
             @Override public void onStartTrackingTouch(SeekBar sb) {
-                Clip now = captionAnimTarget();
+                CapAnim now = captionAnimTarget();
                 if (now == null) return;
                 gestureStart[0] = now.getCaptionAnimInPct();
                 gestureStart[1] = now.getCaptionAnimOutPct();
             }
             @Override public void onStopTrackingTouch(SeekBar sb) {
-                Clip now = captionAnimTarget();
+                CapAnim now = captionAnimTarget();
                 if (now == null) return;
                 // Hand the model back to where the gesture started, then commit forward through
                 // the one recording path — so the undo step spans the WHOLE drag as one entry
@@ -21085,7 +22433,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * clip's current value is its own preview, not the undo target.</p>
      */
     private void applyCaptionAnimZones(float inPct, float outPct) {
-        final Clip cc = captionAnimTarget();
+        final CapAnim cc = captionAnimTarget();
         if (cc == null) return;
         applyCaptionAnimZones(cc.getCaptionAnimInPct(), cc.getCaptionAnimOutPct(), inPct, outPct);
     }
@@ -21096,16 +22444,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * bury the user's real history under a hundred of its own.
      */
     private void previewCaptionAnimZones(float inPct, float outPct) {
-        final Clip cc = captionAnimTarget();
+        final CapAnim cc = captionAnimTarget();
         if (cc == null) return;
         cc.setCaptionAnimZones(inPct, outPct);
-        bindCaptionData(cc);
+        cc.rebind();
     }
 
     /** @see #applyCaptionAnimZones(float, float) */
     private void applyCaptionAnimZones(float beforeIn, float beforeOut,
                                        float inPct, float outPct) {
-        final Clip cc = captionAnimTarget();
+        final CapAnim cc = captionAnimTarget();
         if (cc == null) return;
         cc.setCaptionAnimZones(inPct, outPct);
         final float afterIn = cc.getCaptionAnimInPct();
@@ -21117,9 +22465,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (beforeIn == afterIn && beforeOut == afterOut) return;
         // TODO(strings)
         undoManager.recordAction(new EditActions.LambdaAction("Text animation timing",
-                () -> { cc.setCaptionAnimZones(afterIn, afterOut); bindCaptionData(cc); },
-                () -> { cc.setCaptionAnimZones(beforeIn, beforeOut); bindCaptionData(cc); }));
-        bindCaptionData(cc);
+                () -> { cc.setCaptionAnimZones(afterIn, afterOut); cc.rebind(); },
+                () -> { cc.setCaptionAnimZones(beforeIn, beforeOut); cc.rebind(); }));
+        cc.rebind();
         editorTimeline.invalidate();
         scheduleAutoSave();
     }
@@ -21137,7 +22485,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void applyCaptionAnimPreset(
             @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset preset) {
-        final Clip cc = captionAnimTarget();
+        final CapAnim cc = captionAnimTarget();
         if (cc == null) return;
         final String before = cc.getCaptionAnimPreset();
         final float beforeIn = cc.getCaptionAnimInPct();
@@ -21161,14 +22509,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> {
                     cc.setCaptionAnimPreset(after);
                     cc.setCaptionAnimZones(clampedIn, clampedOut);
-                    bindCaptionData(cc);
+                    cc.rebind();
                 },
                 () -> {
                     cc.setCaptionAnimPreset(before);
                     cc.setCaptionAnimZones(beforeIn, beforeOut);
-                    bindCaptionData(cc);
+                    cc.rebind();
                 }));
-        bindCaptionData(cc);
+        cc.rebind();
         editorTimeline.invalidate();
         scheduleAutoSave();
     }
@@ -21176,7 +22524,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Choose what animates as one unit. Orthogonal to the preset — see SPEC_TEXT_ANIMATION. */
     private void applyCaptionAnimGranularity(
             @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Granularity g) {
-        final Clip cc = captionAnimTarget();
+        final CapAnim cc = captionAnimTarget();
         if (cc == null) return;
         final String before = cc.getCaptionAnimGranularity();
         final String after = g.name();
@@ -21184,9 +22532,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         cc.setCaptionAnimGranularity(after);
         // TODO(strings)
         undoManager.recordAction(new EditActions.LambdaAction("Text animation unit",
-                () -> { cc.setCaptionAnimGranularity(after); bindCaptionData(cc); },
-                () -> { cc.setCaptionAnimGranularity(before); bindCaptionData(cc); }));
-        bindCaptionData(cc);
+                () -> { cc.setCaptionAnimGranularity(after); cc.rebind(); },
+                () -> { cc.setCaptionAnimGranularity(before); cc.rebind(); }));
+        cc.rebind();
         scheduleAutoSave();
     }
 
@@ -22905,6 +24253,310 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return previewHandlesOverlay;
     }
 
+    // -- TRANSFORM MODE: the smart-handle surface (TRANSFORM_UI_FEEL) ---------------------
+    //
+    // A second, richer manipulation surface for one image overlay: eight handles that each say
+    // what they do by their shape and colour, a long-press ring to change what one of them does, a
+    // pure-rotation arc, and two-finger scale-and-rotate about the point between the fingers. It
+    // writes position / size / rotation to the ordinary transform tracks and EVERY distortion to
+    // the eight corner-pin tracks, so preview and export inherit their existing agreement rather
+    // than needing a new one.
+    //
+    // MUTUALLY EXCLUSIVE with the ordinary handles overlay, deliberately. Two sibling views both
+    // reading MotionEvents over the preview is the exact bug PreviewHandlesOverlay's class doc was
+    // written about -- the topmost claims every touch and things underneath become ungrabbable. So
+    // exactly one of the two is ever visible.
+
+    @Nullable private com.fadcam.ui.faditor.transform.TransformOverlayView transformOverlay;
+    /** The item transform mode is open on, or null when it is closed. */
+    @Nullable private String transformItemId;
+    /**
+     * Handle roles, remembered per item for the life of the editor session.
+     *
+     * <p>Not persisted to the project file, and that is a deliberate phase-1 boundary rather than
+     * an oversight: a role is a statement about how the user wants to EDIT, not about how the
+     * frame renders, so nothing in an export reads it and a project written by an older build has
+     * no field for it. Keeping it in memory means the schema does not move for a feature whose
+     * shape is still settling. Coming back to an object later finds its handles back on plain
+     * scale, which is also the safe default.</p>
+     */
+    private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
+            transformRoles = new java.util.HashMap<>();
+
+    @NonNull
+    private com.fadcam.ui.faditor.transform.TransformOverlayView ensureTransformOverlay() {
+        if (transformOverlay == null) {
+            float d = getResources().getDisplayMetrics().density;
+            transformOverlay = new com.fadcam.ui.faditor.transform.TransformOverlayView(this);
+            // The same 8dp plane the ordinary handles sit on: above the text/sprite/caption
+            // layers, below the keyframe ribbon. They are never both visible, so they never
+            // contend for it.
+            transformOverlay.setElevation(8 * d);
+            android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+            playerContainer.addView(transformOverlay,
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            // NO "Done" PILL. It made sense while transform was a mode reached from a menu; it
+            // is wrong now that these ARE the handles of a selected image -- pressing it would
+            // leave the image selected with no handles at all, which reads as the tool breaking.
+            // Deselecting, or selecting something else, is how you put it away.
+            transformOverlay.setOnExit(null);
+            // THE LOUPE SHOWS THE REAL PICTURE. Same container it was just added to, so the
+            // magnifier draws the video plane and every overlay plane beneath the object at
+            // their true on-screen scale, magnified about the handle being dragged. The view
+            // skips itself when it walks these children, so it cannot recurse.
+            transformOverlay.setLoupeContentSource(playerContainer);
+        }
+        return transformOverlay;
+    }
+
+    /** Is the transform surface open on this item? */
+    @SuppressWarnings("unused")
+    private boolean isTransformMode(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        return transformItemId != null && transformItemId.equals(o.getId());
+    }
+
+    private void enterTransformMode(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        // Already open on this object: do nothing. Selection is refreshed on plenty of events that
+        // are not a change of object (a drawer opening, a lane rebuild), and rebuilding the host
+        // each time would cancel a gesture in flight and re-read the quad for no reason.
+        if (transformItemId != null && transformItemId.equals(o.getId())
+                && transformOverlay != null && transformOverlay.host() != null) {
+            transformOverlay.refresh();
+            return;
+        }
+        com.fadcam.ui.faditor.transform.HandleModel roles = transformRoles.get(o.getId());
+        if (roles == null) {
+            roles = new com.fadcam.ui.faditor.transform.HandleModel();
+            transformRoles.put(o.getId(), roles);
+        }
+        transformItemId = o.getId();
+        transformSpineClipId = null;
+        // THE ORDINARY HANDLES SURRENDER THE PICTURE, NOT THE PREVIEW.
+        //
+        // Their TARGET goes null, which is what makes them draw nothing and grab nothing -- the
+        // two surfaces are still strictly exclusive, exactly one of them has an object. But the
+        // view itself stays VISIBLE, because it is also the ONE place in the preview that answers
+        // "what is under this finger" (see PreviewHandlesOverlay.SelectionSource). Taking it away
+        // entirely was survivable when transform was a mode you opted into from a menu; now that
+        // it is simply what a selected image looks like, hiding it would mean no other object
+        // could be tapped to select while an image was selected -- and the taps would fall through
+        // to the five sibling layers underneath, which is the bug that class was written to end.
+        ensurePreviewHandlesOverlay().setTarget(null);
+        previewHandlesOverlay.setPointHandles(null);
+        previewHandlesOverlay.setVisibility(View.VISIBLE);
+        com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
+        v.setHost(new com.fadcam.ui.faditor.transform.CornerPinTransformHost(
+                o, textHandlesTarget(o),
+                () -> lastPlayheadAbsoluteMs,
+                this::refreshTextAfterHandleWrite), roles);
+        // An IMAGE keeps the full vocabulary: it has a corner-pin renderer in BOTH surfaces, so
+        // Tilt, Free and the fold all draw. Cleared explicitly because the view is reused across
+        // selections and a spine clip may have set it.
+        v.setAffineOnly(false);
+        // Double-tap keeps meaning what it has always meant on a selected object: open its
+        // editor. For an image that is the image drawer (showTextOverlayEditor routes it).
+        v.setOnDoubleTap(() -> showTextOverlayEditor(o));
+        v.bringToFront();
+        v.refresh();
+    }
+
+    // ── SPINE TRANSFORM: the same surface, on a MASTER clip ─────────────────────────────
+    //
+    // JoyRaptor, 2026-09-04: "Can we now use it for positioning, cropping etc. a clip on the SPINE on
+    // the canvas (excluding blending modes of course)?" — so selecting a spine clip puts the
+    // eight smart handles on its picture, with the identical grammar an image overlay has. What
+    // it writes is Clip's spine canvas transform (see SpineTransform), applied by
+    // FxPreviewTextureView.drawSpineTransform in the preview and SpineTransformExportEffect in
+    // the file, from one shared method.
+    //
+    // AFFINE ONLY, and the surface is told so: setAffineOnly greys Tilt, Free and the fold, and
+    // every handle behaves as plain Scale. There is no homography for the base picture in either
+    // renderer, and authoring a distortion that would look right in the handles and vanish in the
+    // export is exactly the failure this project's preview/export rule exists to prevent.
+    //
+    // BLEND MODES are out of scope by the owner's own instruction — the spine is the bottom
+    // layer, there is nothing under it to blend with — and nothing here touches them.
+
+    /** The spine clip the transform surface is open on, or null. */
+    @Nullable private String transformSpineClipId;
+
+    /** Handle roles for spine clips, same session-only map and same reasoning as the image one. */
+    private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
+            spineTransformRoles = new java.util.HashMap<>();
+
+    /**
+     * Half-width and half-height of {@code clip}'s fit-centred picture as a fraction of the
+     * canvas — the rectangle the handles hug.
+     *
+     * <p>This is {@code FxPreviewTextureView.drawCrop}'s own fit arithmetic, reading the SAME
+     * inputs: the decoded source size the preview stages from, narrowed by
+     * {@code Clip.effectiveCropFractions()} — the one crop authority the exporter's media3
+     * {@code Crop} is also built from. So the box on screen tracks a crop change without this
+     * method knowing anything about crop beyond "it selects a source region".</p>
+     *
+     * <p>{1, 1} — the whole canvas — whenever the source size is not known yet. The handles are
+     * then simply the canvas bounds for a frame or two, which is what they would be for a clip
+     * that fills the canvas anyway.</p>
+     */
+    private void spineBasePictureHalfExtent(@Nullable Clip clip, @NonNull float[] out) {
+        out[0] = 1f;
+        out[1] = 1f;
+        android.graphics.RectF r = computeCanvasRect();
+        if (clip == null || r.width() <= 1f || r.height() <= 1f) return;
+        float srcW = 0f, srcH = 0f;
+        if (clip.isImageClip()) {
+            android.graphics.Bitmap b =
+                    imageBaseStills == null ? null : imageBaseStills.bitmapFor(clip);
+            if (b != null && !b.isRecycled()) {
+                srcW = b.getWidth();
+                srcH = b.getHeight();
+            }
+        } else {
+            int[] vs = effectiveVideoSize();
+            if (vs != null) {
+                srcW = vs[0];
+                srcH = vs[1];
+            }
+        }
+        if (srcW <= 0f || srcH <= 0f) return;
+        float[] crop = clip.isImageClip() ? null : clip.effectiveCropFractions();
+        if (crop != null && crop.length == 4) {
+            float cw = crop[2] - crop[0], ch = crop[3] - crop[1];
+            if (cw > 0.001f && ch > 0.001f) {
+                srcW *= cw;
+                srcH *= ch;
+            }
+        }
+        float contentAspect = srcW / srcH;
+        float canvasAspect = r.width() / r.height();
+        if (!(contentAspect > 0f) || !(canvasAspect > 0f)) return;
+        if (contentAspect >= canvasAspect) {
+            out[0] = 1f;
+            out[1] = canvasAspect / contentAspect;
+        } else {
+            out[0] = contentAspect / canvasAspect;
+            out[1] = 1f;
+        }
+    }
+
+    /** Clip-local ms at the playhead for the clip under it — the spine keyframes' time base. */
+    private long spineClipLocalMs(@NonNull Clip clip) {
+        long inSegment = segmentRelativeForAbsolute(Math.max(0L, lastPlayheadAbsoluteMs));
+        float speed = clip.getSpeedMultiplier();
+        return speed > 0 ? (long) (inSegment / speed) : inSegment;
+    }
+
+    private void enterSpineTransformMode(@NonNull Clip clip) {
+        if (transformSpineClipId != null && transformSpineClipId.equals(clip.getId())
+                && transformOverlay != null && transformOverlay.host() != null) {
+            transformOverlay.refresh();
+            return;
+        }
+        com.fadcam.ui.faditor.transform.HandleModel roles =
+                spineTransformRoles.get(clip.getId());
+        if (roles == null) {
+            roles = new com.fadcam.ui.faditor.transform.HandleModel();
+            spineTransformRoles.put(clip.getId(), roles);
+        }
+        transformItemId = null;
+        transformSpineClipId = clip.getId();
+        // Same surrender the image path makes, for the same reason: the ordinary handles overlay
+        // keeps its VISIBILITY (it is the preview's one hit-test surface) and loses its TARGET,
+        // so exactly one view is reading MotionEvents over the picture.
+        ensurePreviewHandlesOverlay().setTarget(null);
+        previewHandlesOverlay.setPointHandles(null);
+        previewHandlesOverlay.setVisibility(View.VISIBLE);
+        final Clip fixed = clip;
+        com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
+        v.setHost(new com.fadcam.ui.faditor.transform.SpineTransformHost(
+                new com.fadcam.ui.faditor.transform.SpineTransformHost.Bridge() {
+                    @NonNull @Override public Clip clip() { return fixed; }
+
+                    @NonNull @Override public android.graphics.RectF canvasRect() {
+                        return computeCanvasRect();
+                    }
+
+                    @Override public void basePictureHalfExtent(@NonNull float[] outWH) {
+                        spineBasePictureHalfExtent(fixed, outWH);
+                    }
+
+                    @Override public long clipLocalMs() { return spineClipLocalMs(fixed); }
+
+                    @Override public void onSpineTransformChanged() {
+                        // The picture is drawn by the GL chain, so the ONLY thing that moves it
+                        // is a re-sync — the same coalesced one an image overlay's gesture asks
+                        // for, and for the same reason (a drag delivers touches faster than the
+                        // display refreshes).
+                        requestGlPreviewResync();
+                        if (transformOverlay != null) transformOverlay.refresh();
+                    }
+
+                    @Override public void commitSpineTransform(
+                            @NonNull Clip.SpineSnapshot beforeSnap, @NonNull String what) {
+                        // ONE GESTURE, ONE UNDO STEP. The snapshot was taken once at
+                        // beginGesture, however many MotionEvents the drag delivered.
+                        final Clip.SpineSnapshot afterSnap = fixed.snapshotSpineTransform();
+                        undoManager.recordAction(
+                                new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                                        what,
+                                        () -> {
+                                            fixed.restoreSpineTransform(afterSnap);
+                                            requestGlPreviewResync();
+                                            if (transformOverlay != null) {
+                                                transformOverlay.refresh();
+                                            }
+                                        },
+                                        () -> {
+                                            fixed.restoreSpineTransform(beforeSnap);
+                                            requestGlPreviewResync();
+                                            if (transformOverlay != null) {
+                                                transformOverlay.refresh();
+                                            }
+                                        }));
+                        saveProjectNow();
+                    }
+                }), roles);
+        // AFFINE ONLY — see the block comment above this method.
+        v.setAffineOnly(true);
+        // Double-tap keeps its meaning: open the selected object's editor.
+        v.setOnDoubleTap(this::showClipMenuForSelection);
+        v.bringToFront();
+        v.refresh();
+    }
+
+    /**
+     * Double-tap target for a spine clip. Kept as its own method so the transform surface never
+     * has to know which sheet a clip opens; if that changes, it changes here.
+     */
+    private void showClipMenuForSelection() {
+        // Deliberately nothing yet: a spine clip's drawer is opened from the timeline, and
+        // double-tapping the CANVAS to open it is a new gesture nobody has asked for. The hook
+        // exists so the surface's grammar is complete and the behaviour is one line away.
+    }
+
+    /** Close the transform surface. The caller decides what the preview shows next. */
+    private void exitTransformMode() {
+        if (transformItemId == null && transformSpineClipId == null
+                && transformOverlay == null) {
+            return;
+        }
+        transformItemId = null;
+        transformSpineClipId = null;
+        if (transformOverlay != null) {
+            // setHost(null) also sets the view GONE, so nothing of it remains -- no orphaned
+            // handles, and nothing left in the preview reading a MotionEvent but the ordinary
+            // overlay again.
+            transformOverlay.setHost(null, new com.fadcam.ui.faditor.transform.HandleModel());
+            transformOverlay.setOnDoubleTap(null);
+        }
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setVisibility(View.VISIBLE);
+            previewHandlesOverlay.bringToFront();
+        }
+    }
+
     // ── Gradient CURVE: direct manipulation in the preview ───────────────────────────────
     //
     // A gradient's Curve path is up to five positions and five handle vectors. There is no
@@ -23207,7 +24859,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // eye says was touched.
                 com.fadcam.ui.faditor.layers.TimedItem pick = hits.get(hits.size() - 1);
                 selectLayerItemById(pick.getId());
-                return previewHandlesOverlay != null && previewHandlesOverlay.hasTarget();
+                // Either surface having taken the object counts as a hit. An image now lands on
+                // the transform overlay and leaves this one targetless by design, so asking only
+                // about hasTarget() would report "nothing here" for the commonest object there is.
+                return transformItemId != null
+                        || (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget());
             }
 
             @Override
@@ -23215,6 +24871,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // Deliberately NOT clearing the selection. A miss in the preview is usually a
                 // miss, not a decision to deselect — and dropping the selection would close the
                 // drawer the user is working in. The timeline's own empty-space tap still does.
+            }
+
+            /**
+             * SPEC B — the gesture stream that selected an image mid-drag. The transform
+             * surface now owns the object, so every event of the still-running gesture is
+             * dispatched straight to it: its DOWN handler starts a BODY drag at the finger,
+             * the MOVEs move with the finger through the host's write channel, and its UP
+             * commits — the same grammar as a drag that started on an already-selected image.
+             */
+            @Override
+            public boolean handoffGesture(@NonNull MotionEvent e) {
+                com.fadcam.ui.faditor.transform.TransformOverlayView v = transformOverlay;
+                if (v == null || transformItemId == null) return false;
+                v.dispatchTouchEvent(e);
+                return true;
             }
         };
     }
@@ -23257,7 +24928,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
             x = cx + dx * cos - dy * sin;
             y = cy + dx * sin + dy * cos;
         }
+        // SPEC B, pinned pictures — grab the picture the user SEES. The frame is the untouched
+        // box; the pinned quad can sit more than a picture-width away from it, so a tap squarely
+        // on the drawn picture missed and — with the layer's legacy drag now declined — did
+        // nothing at all (JoyRaptor 2026-09-05: "it didn't select it"). Inverse-rotating above put
+        // the point in the box's own frame, where the quad is exactly box-corner + pin offset;
+        // a point-in-quad test there grabs the drawn shape.
+        com.fadcam.ui.faditor.model.TextOverlayItem hitO = item.getTextOverlay();
+        if (hitO != null && hitO.hasCornerPin()) {
+            float[] pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+            hitO.animatedCornerPin(timeMs, pins);
+            if (!com.fadcam.ui.faditor.model.CornerPin.isFlat(pins)) {
+                // The point is now in the box's own un-rotated frame, so the quad is the
+                // AXIS box around the same centre plus the raw pin offsets — not the presented
+                // rect's corners, which still carry the rotation the point just lost.
+                float w = r.width(), h = r.height();
+                float bx = r.centerX(), by = r.centerY();
+                float hw = w / 2f, hh = h / 2f;
+                float[] qx = {bx - hw + pins[0] * w, bx + hw + pins[2] * w,
+                        bx + hw + pins[4] * w, bx - hw + pins[6] * w};
+                float[] qy = {by - hh + pins[1] * h, by - hh + pins[3] * h,
+                        by + hh + pins[5] * h, by + hh + pins[7] * h};
+                return pointInQuad(x, y, qx, qy);
+            }
+        }
         return r.contains(x, y);
+    }
+
+    /**
+     * Same-side (cross-product sign) test of a point against a quadrilateral. Exact for the
+     * convex quads a sane pin produces; a pathologically bowed one just grabs on its convex
+     * hull, which is still the picture's neighbourhood rather than an empty box a picture-width
+     * away.
+     */
+    private static boolean pointInQuad(float px, float py, float[] qx, float[] qy) {
+        boolean sign = false;
+        for (int i = 0; i < 4; i++) {
+            int j = (i + 1) & 3;
+            float ex = qx[j] - qx[i], ey = qy[j] - qy[i];
+            float cross = ex * (py - qy[i]) - ey * (px - qx[i]);
+            if (i == 0) sign = cross > 0f;
+            else if ((cross > 0f) != sign) return false;
+        }
+        return true;
     }
 
     /**
@@ -23267,7 +24980,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void updatePreviewHandlesForSelection(
             @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
-        if (item != null && item.getTextOverlay() != null) {
+        // Selecting anything other than the item transform mode is open on closes that mode. It is
+        // a surface over ONE object, and leaving it up while a different object is selected would
+        // put handles on one thing and the timeline's highlight on another.
+        if (transformItemId != null
+                && (item == null || item.getTextOverlay() == null
+                    || !transformItemId.equals(item.getTextOverlay().getId()))) {
+            exitTransformMode();
+        }
+        // Same rule for a SPINE clip: the surface is over ONE object, whichever kind it is.
+        if (transformSpineClipId != null
+                && (item == null || item.getClip() == null
+                    || item.getClip().isOverlayClip()
+                    || !transformSpineClipId.equals(item.getClip().getId()))) {
+            exitTransformMode();
+        }
+        if (item != null && item.getTextOverlay() != null
+                && item.getTextOverlay().isImage()) {
+            // AN IMAGE OVERLAY'S HANDLES *ARE* THE TRANSFORM SURFACE. JoyRaptor, 2026-09-04: "when I
+            // tap on an image, WHILE IT'S SELECTED IT HAS A TRANSFORM TOOL. That is what we are
+            // REPLACING/UPGRADING. That's where it should show up." So selecting one puts the
+            // eight smart handles straight on the picture; there is no menu item and no second tap.
+            //
+            // IMAGES ONLY, and for the same reason the old menu entry was images-only: every
+            // gesture this surface can author beyond move/scale/rotate lands in the corner pin,
+            // and the corner pin is drawn by CornerPinImageView in the preview and ImageOverlayDraw
+            // in the export -- both image paths. A text box has no pinned render path in either, so
+            // giving it these handles would author a distortion neither surface could draw.
+            enterTransformMode(item.getTextOverlay());
+        } else if (item != null && item.getTextOverlay() != null) {
             ensurePreviewHandlesOverlay().setTarget(textHandlesTarget(item.getTextOverlay()));
         } else if (item != null && item.getSprite() != null) {
             ensurePreviewHandlesOverlay().setTarget(spriteHandlesTarget(item.getSprite()));
@@ -23278,6 +25019,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // setTarget(null), so selecting one showed nothing on the canvas and there was no
             // way to resize or rotate it there at all.
             ensurePreviewHandlesOverlay().setTarget(pipHandlesTarget(item.getClip()));
+        } else if (item != null && item.getClip() != null && project != null
+                && project.getTimeline().getClips().contains(item.getClip())) {
+            // A SPINE (master) clip. Selecting one now puts the transform surface on its picture,
+            // so it can be positioned, scaled and rotated on the canvas instead of only ever
+            // being fit-centred with a separate crop tool. Same handles, same grammar, same
+            // vocabulary as the image overlay above — the ONLY difference is that it is
+            // affine-only, because neither renderer can draw a pinned base picture.
+            enterSpineTransformMode(item.getClip());
         } else if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setTarget(null);
         }
@@ -23422,15 +25171,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // report: tapping picked the foreground images and the text box but never the
                 // background image. Same neglected surface as the per-tick rebuild in setData.
                 View found = null;
+                com.fadcam.ui.faditor.overlay.TextOverlayLayer foundLayer = null;
                 for (int i = 0; found == null && i < overlayLayer.getChildCount(); i++) {
                     if (overlayLayer.getChildAt(i).getTag() == o) {
                         found = overlayLayer.getChildAt(i);
+                        foundLayer = overlayLayer;
                     }
                 }
                 for (int i = 0; found == null && overlayLayerBelow != null
                         && i < overlayLayerBelow.getChildCount(); i++) {
                     if (overlayLayerBelow.getChildAt(i).getTag() == o) {
                         found = overlayLayerBelow.getChildAt(i);
+                        foundLayer = overlayLayerBelow;
                     }
                 }
                 {
@@ -23450,6 +25202,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (v instanceof com.fadcam.ui.faditor.overlay.TextBoxView) {
                             float in = ((com.fadcam.ui.faditor.overlay.TextBoxView) v).boxInsetPx();
                             outRect.inset(in, in);
+                        }
+                        // SAME REASON, THE IMAGE CASE. A corner-pinned picture's view is inflated
+                        // by the largest corner excursion on every side so the pulled corner has
+                        // somewhere to land (TextOverlayLayer.position), and the frame reported
+                        // here is what draws the selection box, answers the preview hit-test and
+                        // — now — anchors the transform handles. Without this subtraction all
+                        // three sit an excursion clear of the picture the user is aiming at, and
+                        // the transform overlay's quad ⇄ corner-pin conversion would be measuring
+                        // against a rectangle the picture does not occupy. insetPx is 0 for every
+                        // unpinned image, so nothing that exists today changes by one pixel.
+                        if (v instanceof com.fadcam.ui.faditor.overlay.CornerPinImageView) {
+                            float in = ((com.fadcam.ui.faditor.overlay.CornerPinImageView) v)
+                                    .boxInsetPx();
+                            if (in > 0f) outRect.inset(in, in);
+                        }
+                        // SPEC B — the frame follows the PIVOT. The picture renders rotated
+                        // about the object's stored pivot; without this fold the dashed box and
+                        // its handles kept rotating about the object CENTRE, so a left-edge
+                        // pivot left the picture riding ~8% above the box, a right-edge one
+                        // ~8% below, and a corner pivot both at once (JoyRaptor, 2026-09-05: the
+                        // object moved correctly, the handles did not). Same fold the render
+                        // makes, same gating (nothing at centre, nothing under the finger).
+                        if (foundLayer != null) {
+                            foundLayer.foldRotationPivotIntoBox(o, outRect);
                         }
                         return true;
                     }
@@ -23601,6 +25377,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshTextAfterHandleWrite() {
         setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         refreshOpenDrawerRows();
+        // AND THE GL COMPOSITE. This method is the ONLY thing a hand gesture calls, and it
+        // repositioned the sibling VIEWS and nothing else. An image overlay that has left the
+        // Canvas path — because it carries a blend, an effect, a key or a mask
+        // (TextOverlayItem.wantsGlExport) — is not drawn by its view at all: its view is held
+        // at alpha 0 and the picture comes from the composite plan, whose quad is baked when
+        // FxLivePreviewController.buildPlan runs. Nothing here asked for that to run again, so
+        // the handles moved, the model moved, the hidden view moved, and the PICTURE stayed
+        // where the last plan put it until some unrelated edit (changing the blend mode, a
+        // playhead tick) happened to trigger a sync. That is exactly JoyRaptor's "it does not move,
+        // it is stale even though the widget moves — but when I change the blending mode it
+        // refreshes to where the widget is".
+        requestGlPreviewResync();
+    }
+
+    /** Set while a coalesced GL resync is already queued for the next frame. */
+    private boolean glResyncPending;
+
+    /**
+     * Re-run the live GL composite ONCE for the coming frame.
+     *
+     * <p><b>Coalesced on purpose.</b> A drag delivers MotionEvents at the touch panel's rate,
+     * which on the Note 20 runs ahead of the display — calling {@code syncAdjustmentPreview}
+     * straight from every event would rebuild the plan two or three times for one frame that
+     * is drawn once. Posting on the animation callback collapses every write that lands inside
+     * a frame into a single rebuild, so the added cost of a drag is exactly ONE plan rebuild
+     * per displayed frame: the same work the playhead tick already does on every frame of
+     * playback, and no more. There is no cheaper targeted path — a Pip's quad, alpha, rotation
+     * and corner pin are baked into the immutable {@code Pip} record the plan holds, so
+     * "move this one item" and "rebuild the plan" are the same operation.</p>
+     */
+    private void requestGlPreviewResync() {
+        if (glResyncPending) return;
+        glResyncPending = true;
+        View root = findViewById(R.id.player_container);
+        Runnable r = () -> {
+            glResyncPending = false;
+            if (isFinishing() || isDestroyed()) return;
+            syncAdjustmentPreview(Math.max(0L, lastPlayheadAbsoluteMs));
+        };
+        if (root != null) root.postOnAnimation(r);
+        else new android.os.Handler(android.os.Looper.getMainLooper()).post(r);
     }
 
     /**
@@ -23645,6 +25462,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (overlayLayerBelow != null && overlayLayerBelow.getVisibility() == View.VISIBLE) {
             overlayLayerBelow.setPlayheadMs(ms);
+        }
+        // SPEC B device session 3 (2026-09-05): the drawer's slider writes land HERE
+        // (overlayMenuProp's setter), not in refreshOverlayPreview — so this is where the two
+        // handle surfaces learn that the pose moved. Without it a drawer Rotate/Pos/Scale
+        // write moved the picture and left the handles frozen at the last sync ("complete
+        // disconnect" until the drawer closed). Same unconditional shape as the tick above;
+        // both calls are idempotent re-syncs.
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPlayheadMs(ms);
+        }
+        if (transformOverlay != null
+                && (transformItemId != null || transformSpineClipId != null)) {
+            transformOverlay.refresh();
         }
     }
 
@@ -24121,7 +25951,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String K_OP = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
 
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        // SPEC A: raw degrees. normDeg here used to fold a typed 720° into a displayed 0° —
+        // and, worse, its value fed the diamond drop, re-keying the fold. Show what is stored.
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°";
 
         // Contract §2 general order: Transform (position · scale · rotation),
         // then Opacity. Peek still defaults to Opacity (the everyday row).
@@ -24140,12 +25972,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         props.add(overlayMenuProp(o, K_SCALE, "Scale", 0.02f, 10f, pct, // TODO(strings)
                 ms -> o.animatedSizeFraction(ms)));
         props.add(overlayMenuProp(o, K_ROT, "Rotate", -180f, 180f, deg, // TODO(strings)
-                ms -> normDeg(o.animatedRotation(ms))));
+                ms -> o.animatedRotation(ms)));
         props.add(overlayMenuProp(o, K_OP, "Opacity", 0f, 1f, pct,      // TODO(strings)
                 ms -> o.animatedOpacity(ms)));
 
         java.util.List<ObjectMenuSheet.Action> actions = new java.util.ArrayList<>();
         addTimerActions(actions, o);
+        // TRANSFORM_UI_FEEL used to hang a "Transform handles..." entry here. It is gone on
+        // purpose: the smart handles are now simply what a SELECTED image shows in the preview
+        // (updatePreviewHandlesForSelection), so there is no drawer to open and -- deliberately --
+        // no second way in that could disagree with the first.
         actions.add(new ObjectMenuSheet.Action("New lane above", false, // TODO(strings)
                 () -> moveOverlayItemToNewLayer(o, true)));
         actions.add(new ObjectMenuSheet.Action("New lane below", false, // TODO(strings)
@@ -24387,10 +26223,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshOverlayAfterRangeEdit();
     }
 
-    /** Normalize degrees into the slider's [-180, 180) window. */
-    private static float normDeg(float v) {
-        return ((v % 360f) + 540f) % 360f - 180f;
-    }
+    // normDeg is GONE (SPEC A). It folded every rotation into [-180, 180) — fine as a
+    // display idea, fatal as this codebase used it: it also fed diamond-drop writes and the
+    // typed field, so a stored 16-turn spin keyed back as a fraction of one turn. Storage
+    // keeps the winding now; a readout that wants a familiar window may fold at draw time.
 
     /**
      * G2: the same general advanced menu for a SPRITE instance (SpriteOverlayItem
@@ -24404,7 +26240,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String K_OP = com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY;
 
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
 
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
@@ -24414,7 +26250,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         props.add(spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
                 "Scale", 0.01f, 1f, pct, ms -> s.animatedSizeFraction(ms))); // TODO(strings)
         props.add(spriteMenuProp(s, K_ROT, "Rotate", -180f, 180f, deg,    // TODO(strings)
-                ms -> normDeg(s.animatedRotation(ms))));
+                ms -> s.animatedRotation(ms)));
         props.add(spriteMenuProp(s, K_OP, "Opacity", 0f, 1f, pct,         // TODO(strings)
                 ms -> s.animatedOpacity(ms)));
 
@@ -24902,41 +26738,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * left wondering why the preview does not change.</p>
      */
     private void showBlendModeDialog(@NonNull Clip c) {
-        final com.fadcam.ui.faditor.layers.BlendMode[] modes =
-                com.fadcam.ui.faditor.layers.BlendMode.values();
-        String[] labels = new String[modes.length];
-        int current = 0;
-        String cur = c.getOverlayBlendMode();
-        for (int i = 0; i < modes.length; i++) {
-            labels[i] = getString(blendLabelRes(modes[i]));
-            if (modes[i].name().equals(cur)) current = i;
-        }
-        final String before = cur;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(R.string.faditor_blend_title)
-                .setMessage(R.string.faditor_blend_export_note)
-                .setSingleChoiceItems(labels, current, (d, which) -> {
-                    final String after = modes[which].name();
+        final String before = c.getOverlayBlendMode();
+        // The SAME popover the PiP drawer and the FX cards open -- not a second, dialog-shaped
+        // picker with its own copy of the mode list and its own idea of the labels. A
+        // setSingleChoiceItems dialog of twenty-six one-word rows is exactly the slow vertical
+        // scroll the grouped columns exist to avoid.
+        com.fadcam.ui.faditor.tools.BlendPickerPopover.showCentered(
+                getWindow().getDecorView(), before, after -> {
                     c.setOverlayBlendMode(after);
                     undoManager.recordAction(new EditActions.LambdaAction(
                             getString(R.string.faditor_blend_title),
                             () -> c.setOverlayBlendMode(after),
                             () -> c.setOverlayBlendMode(before)));
                     scheduleAutoSave();
-                    d.dismiss();
-                })
-                .setNegativeButton(android.R.string.cancel, null)
-                .show();
-    }
-
-    private int blendLabelRes(@NonNull com.fadcam.ui.faditor.layers.BlendMode m) {
-        switch (m) {
-            case MULTIPLY: return R.string.faditor_blend_multiply;
-            case SCREEN:   return R.string.faditor_blend_screen;
-            case OVERLAY:  return R.string.faditor_blend_overlay;
-            case ADD:      return R.string.faditor_blend_add;
-            default:       return R.string.faditor_blend_normal;
-        }
+                    android.widget.Toast.makeText(this,
+                            getString(R.string.faditor_blend_title) + ": "
+                                    + getString(com.fadcam.ui.faditor.tools.BlendPickerPopover
+                                            .labelRes(after)),
+                            android.widget.Toast.LENGTH_SHORT).show();
+                });
     }
 
     /**
@@ -25056,6 +26876,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public com.fadcam.ui.faditor.model.Clip clipAtPlayhead() {
                             return clipUnderPlayhead();
                         }
+                        @Override public float clipPictureAlphaAt(long absoluteMs) {
+                            // segmentRelativeForAbsolute is the documented inverse of
+                            // getAbsolutePlayheadMs, so this reproduces the SAME
+                            // positionInCurrentSegmentMs the playhead tick passes to the
+                            // Canvas path below, and clipPictureAlphaFor turns it into the
+                            // SAME product. One authority, no second copy of the maths.
+                            return clipPictureAlphaFor(
+                                    segmentRelativeForAbsolute(Math.max(0L, absoluteMs)));
+                        }
+                        @Override public boolean spinePoseAt(long absoluteMs,
+                                                             @NonNull float[] out) {
+                            // Same inverse, same authority, same reason as the line above: one
+                            // absolute-to-clip-local conversion for the whole editor.
+                            return clipSpinePoseFor(
+                                    segmentRelativeForAbsolute(Math.max(0L, absoluteMs)), out);
+                        }
                         @Override public com.fadcam.ui.faditor.compositor
                                 .OverlayVideoPreviewView overlayVideoLayer() {
                             return overlayVideoLayer;
@@ -25121,14 +26957,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 // Single-view fallback: hide only when its sole binding is GL-owned; multi-container handled below
                                 captionOverlay.setAlpha(owned && captionOverlays.isEmpty() ? 0f : 1f);
                             }
-                            for (int i = 0; i < captionOverlays.size(); i++) {
-                                com.fadcam.ui.faditor.transcript.CaptionOverlayView v = captionOverlays.get(i);
-                                Clip c = clipUnderPlayhead();
-                                String key = c != null ? c.getId() + "#" + i : "";
-                                v.setAlpha(ids.contains(key) ? 0f : 1f);
+                            // The GL key is clipId#BINDING_INDEX, and the view's TAG is that
+                            // index — list position is not, because hidden/disabled bindings
+                            // never get a view. Using i here blanked the wrong caption.
+                            Clip glClip = clipUnderPlayhead();
+                            boolean anyOwned = false;
+                            for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
+                                if (v == null) continue;
+                                Object tag = v.getTag();
+                                String key = (glClip != null && tag instanceof Integer)
+                                        ? glClip.getId() + "#" + tag : "";
+                                if (ids.contains(key)) { v.setAlpha(0f); anyOwned = true; }
+                            }
+                            // Restore the SELECTION alpha (1f active / 0.85f not) on every view
+                            // GL is not drawing, rather than flattening them all to 1f.
+                            if (!anyOwned) applyCaptionSelectionChrome();
+                            else {
+                                for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
+                                    if (v == null || v.getAlpha() == 0f) continue;
+                                    Object tag = v.getTag();
+                                    boolean a = !activeCaptionIsAudio && tag instanceof Integer
+                                            && (Integer) tag == activeCaptionBindingIndex;
+                                    v.setAlpha(a ? 1f : 0.85f);
+                                }
                             }
                             for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) {
-                                av.setAlpha(1f); // audio captions fallback Canvas only - GL not handling audio yet
+                                if (av == null) continue;
+                                // audio captions fallback Canvas only - GL not handling audio yet
+                                Object tag = av.getTag();
+                                boolean a = activeCaptionIsAudio && tag instanceof Integer
+                                        && (Integer) tag == activeAudioCaptionBindingIndex;
+                                av.setAlpha(a ? 1f : 0.85f);
                             }
                             if (audioCaptionOverlay != null) {
                                 audioCaptionOverlay.setAlpha(1f);
@@ -25196,10 +27055,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
-        // Nothing selected, or something without its own FX surface yet: fall back to the clip
-        // under the playhead, which is what "adjust" means with no other context.
+        // Nothing selected: fall back to the clip under the playhead — but ONLY if it is an
+        // OVERLAY clip.
+        //
+        // A MASTER (spine) clip's FxStack USED TO BE written by the Effects tab and read by
+        // NOBODY: FxLivePreviewController's routing check walked getOverlayClips() only, so
+        // adding "Solid Color" drew a card, lit the timeline FX badge, and saved to the project
+        // while changing no pixel in preview (JoyRaptor, 2026-09-01: "the white solid didn't apply
+        // either"). Both readers exist now — ExportManager:3150 emits the spine stack as an
+        // AdjustmentLayerGlEffect, and FxLivePreviewController.buildPlan emits the same
+        // synthetic layer into the preview's own chain at the same position — so a master clip
+        // reaches a panel that changes the picture, and the branch is open again.
+        //
+        // NOT showPipDrawerForObject, though. That drawer's other four tabs (Video overlay,
+        // Mask, Key, Blend) and its toggles (mute, hide, pass-through) all write PiP fields that
+        // no spine reader consults — the spine effect runs through a SYNTHETIC layer with its
+        // own default CompositingSpec, so a mask drawn there would be as inert as the FX card
+        // used to be. A master clip gets the one tab that is real for it.
         Clip current = getSelectedClip();
-        if (current != null) { showPipDrawerForObject(current); return; }
+        if (current != null && current.isOverlayClip()) {
+            showPipDrawerForObject(current);
+            return;
+        }
+        if (current != null) {
+            showMasterFxDrawer(current);
+            return;
+        }
 
         java.util.List<com.fadcam.ui.faditor.model.AdjustmentLayer> layers =
                 timeline.getAdjustmentLayers();
@@ -25210,6 +27091,76 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.Toast.makeText(this,
                 "Select a clip or object to adjust, or add an FX Adjustment Layer",
                 android.widget.Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * The Effects panel for a MASTER (spine) clip — one tab, and only the one that is real.
+     *
+     * <p><b>Why not {@link #showPipDrawerForObject}.</b> That drawer offers Video overlay, Mask,
+     * Key and Blend plus mute/hide/pass-through toggles, every one of which writes a field only
+     * the PiP compositor reads. The spine effect runs through a synthetic {@code AdjustmentLayer}
+     * carrying nothing but the clip's {@code FxStack} — {@code ExportManager.spineFxLayer} on
+     * export, the same shape in {@code FxLivePreviewController.buildPlan} for the preview — so
+     * its own CompositingSpec is never consulted. Offering those controls would recreate exactly
+     * the bug this drawer was closed for: a control that draws, saves, and changes nothing.</p>
+     *
+     * <p><b>Subject is LAYER, not OBJECT.</b> A PiP's stack is spliced into
+     * {@code BlendModeGlEffect}'s single compositing pass, which is why a SAMPLER card (blur) is
+     * badged there. A spine stack goes through {@code AdjustmentLayerGlEffect} on export and
+     * {@code FxPreviewTextureView.drawOneLayer} in preview, both of which ping-pong their own
+     * FBOs — so a blur genuinely works here and must not be badged as if it did not.</p>
+     */
+    private void showMasterFxDrawer(@NonNull Clip c) {
+        // Any previous object's compositing session ends here — same reason showPipDrawer and
+        // showAdjustmentDrawer both open with it: the drawer is one reused instance that show()
+        // retargets without closing, so skipping this drops the prior object's undo step.
+        commitPendingCompUndo();
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
+                new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Effects", R.drawable.ic_fx_24,                               // TODO(strings)
+                ctx -> {
+                    // Hoisted for the same reason the PiP tab hoists it: setFx(getFx())
+                    // detaches an emptied stack, and the panel would go on holding the orphan.
+                    final com.fadcam.ui.faditor.fx.FxStack clipFx = c.getOrCreateFx();
+                    return com.fadcam.ui.faditor.tools.FxPanel.build(
+                        ctx, clipFx,
+                        new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+                            @Override public void editGradientInPreview(
+                                    @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
+                                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                                setGradientPreviewEdit(this, curveStack, curveCard, curveParam);
+                            }
+                            @Override public boolean isEditingGradientInPreview(
+                                    @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
+                                    @Nullable com.fadcam.ui.faditor.fx.FxParam curveParam) {
+                                return isGradientPreviewEdit(curveCard, curveParam);
+                            }
+                            @Override public void onFxChanged() {
+                                // Re-attach when refilled, normalise to null when emptied.
+                                c.setFx(clipFx);
+                                // PUSH IT NOW: the plan only reaches the renderer on a playhead
+                                // tick, and nobody dials in an effect while playing.
+                                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+                                if (editorTimeline != null) editorTimeline.invalidate();
+                                scheduleAutoSave();
+                            }
+                            @Override public void recordUndo(@NonNull String label,
+                                    @NonNull Runnable redo, @NonNull Runnable undo) {
+                                undoManager.recordAction(
+                                        new EditActions.LambdaAction(label, redo, undo));
+                            }
+                            @Override public long playheadMs() {
+                                return Math.max(0, lastPlayheadAbsoluteMs);
+                            }
+                            @Override public void seekTo(long ms) {
+                                if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
+                            }
+                        },
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER);
+                }));
+        ensureObjectDrawer().show(tabs, new java.util.ArrayList<>(), true);
     }
 
     /** Open the object drawer on its Effects tab, for a clip or PiP. */
@@ -25839,7 +27790,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showObjectMenuSheetForPipClip(@NonNull Clip c) {
         if (project == null) return;
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         // -100%..200%, not 0..100%. These address the object's CENTRE, so a 0..1 range could
         // only ever slide an object until it was half off — panning on from off-stage left and
@@ -25877,6 +27828,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     @Nullable private com.fadcam.ui.faditor.tools.ObjectDrawer objectDrawer;
+    // SPEC_20260831_CAPTION_SLIDES_UX §7.2.1: the pills row living in the caption drawer's
+    // header (middleView) — kept so refreshCaptionDrawerIfOpen can refill it in place (§7.1.5).
+    @Nullable private android.widget.LinearLayout captionHeaderPills;
     // G3: remember which audio clip the drawer is showing so double-tap can toggle
     @Nullable private String lastAudioDrawerId;
     @Nullable private String lastClipAudioDrawerId;
@@ -26858,12 +28812,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return kf == null ? null : kf.get(key);
     }
 
-    /** Animated value of a PiP prop at an absolute ms, with the preview's per-key defaults. */
+    /** Animated value of a PiP prop at an absolute ms, with the preview's per-key defaults.
+     *  SPEC A: NO rotation folding here. This result is written back verbatim by the diamond
+     *  drop and armed-key paths, so a fold in this one line re-keyed a 720° spin as 0°. */
     private float pipValueAt(@NonNull Clip c, @NonNull String key, long absMs) {
         com.fadcam.ui.faditor.keyframe.KeyframeSet kf = c.getOverlayTransform();
         float def = pipDefaultFor(key);
-        float v = kf == null ? def : kf.valueAt(key, absMs, def);
-        return com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(key) ? normDeg(v) : v;
+        return kf == null ? def : kf.valueAt(key, absMs, def);
     }
 
     private static float pipDefaultFor(@NonNull String key) {
@@ -27016,7 +28971,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
         if (project == null) return;
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
         java.util.List<ObjectMenuSheet.Prop> props = new java.util.ArrayList<>();
         props.add(ObjectMenuSheet.Prop.staticProp("viz_x", "Pos X", 0f, 1f, pct, // TODO(strings)
                 ms -> wf.getCenterX(),
@@ -27030,8 +28985,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         props.add(ObjectMenuSheet.Prop.staticProp("viz_h", "Height", 0.05f, 1f, pct, // TODO(strings)
                 ms -> wf.getHeightFraction(),
                 (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }));
-        props.add(ObjectMenuSheet.Prop.staticProp("viz_rot", "Rotate", -180f, 180f, deg, // TODO(strings)
-                ms -> normDeg(wf.getRotationDeg()),
+        // SPEC A: the key MUST be KeyframeSet.ROTATION so promptForValue's rotation branch
+        // applies — the old "viz_rot" key fell into the numeric branch and CLAMPED a typed
+        // 720 to the slider's 180 max. The value itself was already raw; only the door lied.
+        props.add(ObjectMenuSheet.Prop.staticProp( // TODO(strings)
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, "Rotate", -180f, 180f, deg,
+                ms -> wf.getRotationDeg(),
                 (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }));
 
         java.util.List<ObjectMenuSheet.Action> rangeChips = new java.util.ArrayList<>();
@@ -28071,6 +30030,44 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     applyImagePresetWithUndo(o, kind);
                 });
             });
+            // SPEC B — the Pivot button, right after the animation button (user 2026-09-05:
+            // "they need to be up on the previous line right after the animation button"; the
+            // 2026-08-11 own-row arrangement is gone). The icon IS the state: the same 3×3 the
+            // picker offers, selected dot bright, so the current pivot reads at a glance
+            // without opening anything. 44dp touch target; popover styled after
+            // BlendPickerPopover. One pick = one undo step.
+            final com.fadcam.ui.faditor.tools.PivotNineView pivotBtn =
+                    new com.fadcam.ui.faditor.tools.PivotNineView(this);
+            pivotBtn.setSelection(o.rotationPivotXNorm(), o.rotationPivotYNorm());
+            android.widget.LinearLayout.LayoutParams pivotLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            Math.round(44 * d), Math.round(44 * d));
+            pivotLp.leftMargin = Math.round(2 * d);
+            topRow.addView(pivotBtn, pivotLp);
+            pivotBtn.setOnClickListener(v ->
+                    com.fadcam.ui.faditor.tools.PivotPickerPopover.show(pivotBtn,
+                            o.rotationPivotXNorm(), o.rotationPivotYNorm(), (nx, ny) ->
+                                    setOverlayRotationPivot(o, nx, ny, pivotBtn)));
+            // "Clear all ◇" — the same chip the row's other pills use, red. Shortened from
+            // "Clear all keyframes" (user 2026-09-05) so the whole row fits one line.
+            android.widget.TextView clearChip = new android.widget.TextView(this);
+            clearChip.setText("Clear all ◇");                                  // TODO(strings)
+            clearChip.setTextColor(0xFFFF8A80);
+            clearChip.setTextSize(11);
+            android.graphics.drawable.GradientDrawable clearBg =
+                    new android.graphics.drawable.GradientDrawable();
+            clearBg.setCornerRadius(14 * d);
+            clearBg.setColor(0x33E57373);
+            clearChip.setBackground(clearBg);
+            clearChip.setPadding(Math.round(9 * d), Math.round(6 * d),
+                    Math.round(9 * d), Math.round(6 * d));
+            clearChip.setOnClickListener(v -> clearAllOverlayKeyframes(o));
+            android.widget.LinearLayout.LayoutParams clearLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            clearLp.leftMargin = Math.round(2 * d);
+            topRow.addView(clearChip, clearLp);
             root.addView(topRow);
             // One-line hint for None (§2.6)
             android.widget.TextView hint = new android.widget.TextView(this);
@@ -28083,21 +30080,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             div.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1) {{ topMargin = Math.round(4*d); bottomMargin = Math.round(8*d); }});
             root.addView(div);
         }
-        // Below the compact row, keep Clear all keyframes on its own small row (not counted in topRow height)
-        android.widget.LinearLayout chips = new android.widget.LinearLayout(this);
-        chips.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        chips.setGravity(android.view.Gravity.CENTER_VERTICAL);
-        chips.setPadding(0, 0, 0, Math.round(4 * d));
-        chips.addView(new android.widget.Space(this), new android.widget.LinearLayout.LayoutParams(0,0,1f));
-        final android.widget.TextView clearChip = new android.widget.TextView(this);
-        clearChip.setText("Clear all keyframes");
-        clearChip.setTextColor(0xFFE57373);
-        clearChip.setTextSize(12);
-        int cp = Math.round(10 * d);
-        clearChip.setPadding(cp, Math.round(6 * d), cp, Math.round(6 * d));
-        clearChip.setOnClickListener(v -> clearAllOverlayKeyframes(o));
-        chips.addView(clearChip);
-        root.addView(chips);
+        // (The old "Clear all keyframes" own-row was folded into the top row above — user
+        // 2026-09-05 — so the drawer is one line shorter.)
 
         final android.widget.LinearLayout rows = new android.widget.LinearLayout(this);
         rows.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -28106,7 +30090,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Runnable[] rebuild = new Runnable[1];
 
         ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
-        ObjectMenuSheet.ValueFormat deg = v -> Math.round(normDeg(v)) + "°";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
         final String K_X = com.fadcam.ui.faditor.keyframe.KeyframeSet.X;
         final String K_Y = com.fadcam.ui.faditor.keyframe.KeyframeSet.Y;
         final String K_SCALE = com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE;
@@ -28137,7 +30121,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     imageScaleChainToggle(o, rebuild[0], d)));
             refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(
                     this, rows, overlayMenuProp(o, K_ROT, "Rotate",         // TODO(strings)
-                            -180f, 180f, deg, ms -> normDeg(o.animatedRotation(ms))),
+                            -180f, 180f, deg, ms -> o.animatedRotation(ms)),
                     host));
             refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(
                     this, rows, overlayMenuProp(o, K_OP, "Opacity",         // TODO(strings)
@@ -29186,12 +31170,136 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Push text-overlay model changes into the live preview. */
+    /**
+     * SPEC B — set the rotation pivot WITHOUT MOVING THE PICTURE (JoyRaptor, 2026-09-05: "what if
+     * I wanted the image right there? But I just want the rotation to pivot from that area").
+     * The pivot is where rotation HAPPENS, not where the object is anchored: changing it
+     * re-anchors the presented pose, so the stored centre is compensated by the exact
+     * displacement the change would otherwise swing the picture by —
+     * ΔC = (I − R(θ))·(δold − δnew), δ = (pivot−0.5)·(w,h), at the current playhead's rotation
+     * and picture size. Undo is ONE step: the snapshot carries the pivot beside the centre it
+     * was compensating, so undo and redo restore the pair together.
+     */
+    private void setOverlayRotationPivot(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            float normX, float normY,
+            @Nullable com.fadcam.ui.faditor.tools.PivotNineView iconToUpdate) {
+        long ms = lastPlayheadAbsoluteMs;
+        com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                o.snapshotTransform();
+        // Picture box SIZE at the playhead — the presented rect has the pose box's exact
+        // dimensions (a rotation fold preserves them), so the handles target's frame() is a
+        // safe measure even while a pivot is already set.
+        android.graphics.RectF r = new android.graphics.RectF();
+        float w = 0f, h = 0f;
+        if (textHandlesTarget(o).frame(ms, r)) {
+            w = r.width();
+            h = r.height();
+        }
+        float th = o.animatedRotation(ms);
+        double rad = Math.toRadians(th);
+        float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+        // SPEC B, pinned pictures — both the old and the new pivot read through the ONE shared
+        // (pin-aware) arithmetic, so on a pinned picture the compensation anchors to the quad
+        // the user sees, not to the untouched box underneath it. The pins are unchanged by a
+        // pivot pick, so one evaluation serves both deltas.
+        float[] pins = null;
+        if (o.hasCornerPin()) {
+            pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+            o.animatedCornerPin(ms, pins);
+        }
+        float dXo = o.pivotOffsetFromCentreX(w, h, pins);
+        float dYo = o.pivotOffsetFromCentreY(w, h, pins);
+        o.setRotationPivot(normX, normY);
+        float dXn = o.pivotOffsetFromCentreX(w, h, pins);
+        float dYn = o.pivotOffsetFromCentreY(w, h, pins);
+        float exX = (dXo - dXn) - (c * (dXo - dXn) - s * (dYo - dYn));
+        float exY = (dYo - dYn) - (s * (dXo - dXn) + c * (dYo - dYn));
+        // The travel clamp must already allow the NEW pivot's displacement, or the centre
+        // shift below truncates at the old limit and the picture jumps after all — the clamp
+        // is refreshed by position() only on the next tick, which may never come while paused.
+        android.graphics.RectF canvasLim = computeCanvasRect();
+        if (canvasLim.width() > 1f && canvasLim.height() > 1f && w > 0f) {
+            double radN = Math.toRadians(th);
+            float cn = (float) Math.cos(radN), sn = (float) Math.sin(radN);
+            float dnX = dXn - (cn * dXn - sn * dYn);
+            float dnY = dYn - (sn * dXn + cn * dYn);
+            o.setCenterTravelLimit(
+                    (w / 2f + Math.abs(dnX)) / canvasLim.width(),
+                    (h / 2f + Math.abs(dnY)) / canvasLim.height());
+        }
+        android.graphics.RectF canvas = computeCanvasRect();
+        if (canvas.width() > 1f && canvas.height() > 1f && (exX != 0f || exY != 0f)) {
+            shiftOverlayCentreForPivot(o, exX / canvas.width(), exY / canvas.height(), ms);
+        }
+        recordOverlayMenuUndo(o, before, "Pivot");                         // TODO(strings)
+        if (iconToUpdate != null) {
+            iconToUpdate.setSelection(o.rotationPivotXNorm(), o.rotationPivotYNorm());
+        }
+        refreshOverlayPreview();
+    }
+
+    /**
+     * SPEC B — shift an overlay's centre channels by the pivot compensation, through the SAME
+     * branch order the drawer's Pos X/Y sliders use: preset-owned keys SHIFT (a preset is a
+     * moving pose — its keys ride along, exactly like the gesture pan), armed drops shifted
+     * keys at the playhead, otherwise the static pose moves.
+     */
+    private void shiftOverlayCentreForPivot(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            float dxNorm, float dyNorm, long ms) {
+        final String kx = com.fadcam.ui.faditor.keyframe.KeyframeSet.X;
+        final String ky = com.fadcam.ui.faditor.keyframe.KeyframeSet.Y;
+        if (o.hasActiveImagePreset() && o.hasPresetOwnedKeys()) {
+            for (com.fadcam.ui.faditor.keyframe.KeyframeTrack tr : o.getKeyframes().tracks()) {
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : tr.keyframes) {
+                    if (!k.presetOwned) continue;
+                    if (tr.property.equals(kx)) k.value += dxNorm;
+                    if (tr.property.equals(ky)) k.value += dyNorm;
+                }
+            }
+            com.fadcam.ui.faditor.model.ImageAnimPreset p = o.getImageAnimPreset();
+            if (p != null) {
+                p.zoomCenterX += dxNorm;
+                p.zoomCenterY += dyNorm;
+            }
+        } else if (o.isArmed()) {
+            o.addPropertyKeyframeAt(kx, ms, o.animatedCenterX(ms) + dxNorm);
+            o.addPropertyKeyframeAt(ky, ms, o.animatedCenterY(ms) + dyNorm);
+        } else {
+            o.setCenter(o.animatedCenterX(ms) + dxNorm, o.animatedCenterY(ms) + dyNorm);
+        }
+    }
+
     private void refreshOverlayPreview() {
         if (project == null || overlayLayer == null) return;
         overlayLayer.setData(
                 com.fadcam.ui.faditor.compositor.LayerPreviewController
                         .visibleTextOverlaysAboveVideo(project.getTimeline()),
                 overlayLayerCallback());
+        // SPEC B device session 4: setData REBUILDS the overlay views and positions them from
+        // a POSTED callback — so the handle-surface re-syncs below measured the OLD layout
+        // box, the helper froze one pose behind the picture, and with playback paused nothing
+        // ever healed it (JoyRaptor: helper "several pixels" off, slightly small, up-right of the
+        // picture). Re-running position() on the EXISTING views synchronously — the same call
+        // the slider writes already make — closes the race before the re-sync.
+        setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
+        // The handles box lives on ITS OWN surface and only repaints on a playhead tick or a
+        // touch — neither of which a drawer slider write is. Without this the object's view
+        // moves under a slider and the dashed box stayed put, the two reportings splitting
+        // until the next touch or playhead move (JoyRaptor, 2026-09-05: "adjusting values in the
+        // drawer the handles go stale"). Same unconditional logic as the tick: invalidate
+        // whenever a target is set; onDraw itself decides what to show.
+        if (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget()) {
+            previewHandlesOverlay.invalidate();
+        }
+        // And the TRANSFORM surface — for an image it is the one showing handles (the ordinary
+        // handles surrender images to it), so this is the refresh that actually matters for
+        // JoyRaptor's report: a drawer Rotate/Pos/Scale/pivot write must re-sync its quad the same
+        // way a playhead tick does, or the quad sat at the last-synced pose.
+        if (transformOverlay != null && transformItemId != null) {
+            transformOverlay.refresh();
+        }
     }
 
     // ── SPEC_TEXT_DRAWER STYLE section: text / outline / glow / background rows + shadow ────
@@ -30583,6 +32691,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     lastTranscriptStrikesSnapshot = new java.util.ArrayList<>(after);
                 }
+                // A strike changes what the caption draws (and therefore its uniform fit), so the
+                // preview owes an update on this frame, not on whatever rebuild comes next.
+                refreshCaptionsAfterTranscriptEdit(false);
             }
 
             @Override
@@ -30594,12 +32705,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onLineBreaksChanged() {
                 // Caption-only edit; no timeline recomputation needed, just persist.
                 updateTranscriptBreakButton();
+                // ...but it IS a caption edit, and the caption is what it changes, so refresh.
+                refreshCaptionsAfterTranscriptEdit(false);
                 scheduleAutoSave();
             }
 
             @Override
             public void onActiveWordChanged(int index) {
                 updateTranscriptBreakButton();
+            }
+
+            @Override
+            public void onWordTapped(int index) {
+                // Tap a word in the TRANSCRIPT PANEL and the word-edit drawer follows it —
+                // the same retarget tapping a word on the TAPE performs, via the SAME method
+                // (retargetDrawerToTapeWord), so the two can never drift apart. JoyRaptor: he
+                // could tap a word, tap ALL CAPS, tap the next word, tap ALL CAPS, and the
+                // tape route costs a zoom-in first.
+                //
+                // ONLY WHEN THE DRAWER IS ALREADY OPEN. A tap in the panel has always meant
+                // "highlight this word and seek there", and that is the whole interaction for
+                // someone just reading through a transcript; opening the Word Sync drawer
+                // (which also fires its toast and puts the tape into Word Sync mode) on every
+                // stray tap would hijack it. Open the drawer once, then every panel tap
+                // retargets it. Closed drawer = today's behaviour, byte for byte.
+                if (!wordScrubDrawerOpen) return;
+                int owner = currentTranscriptOwnerIndex();
+                if (owner == Integer.MIN_VALUE) return;
+                retargetDrawerToTapeWord(owner, index);
             }
 
             @Override
@@ -31514,8 +33647,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static String captionWindowKeyFor(
             @NonNull String ownerId, long inMs, long outMs,
             @NonNull com.fadcam.ui.faditor.transcript.Transcript full) {
+        // contentSignature(), not just words.size(): a word RETIMED or RETYPED keeps the count
+        // and the identity, and windowed() copies the word REFERENCES — so the cached window
+        // held the pre-edit TranscriptWord objects and the preview drew the old text/timing
+        // until the count happened to change. That is the "edits take a while to proliferate"
+        // half of the staleness report.
         return ownerId + '|' + inMs + '|' + outMs + '|' + full.words.size()
-                + '|' + System.identityHashCode(full);
+                + '|' + System.identityHashCode(full)
+                + '|' + full.contentSignature();
     }
 
     @Nullable
@@ -31547,6 +33686,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void bindCaptionData(@NonNull Clip clip) {
         if (captionOverlay == null) return;
+        // Multi-binding clip: the single overlay can't represent it, and claiming the clip id
+        // here would make the playhead tick's "clip changed?" check skip the multi rebuild
+        // forever (observed: captionMultiContainer stayed null, overlays=0 — music captions
+        // invisible). Delegate to the multi path instead.
+        if (clip.getCaptionBindings().size() > 1) {
+            captionClipId = clip.getId();
+            rebuildCaptionOverlays(clip);
+            return;
+        }
         captionClipId = clip.getId();
         highlightActiveCaptionChip(clip.getCaptionStyleId());
         // Text animation (SPEC_TEXT_ANIMATION): the SAME four values the export path reads off
@@ -31621,15 +33769,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     "Captions hidden for this clip", Toast.LENGTH_SHORT).show();
                         }
                     }
+
+                    @Override
+                    public void onBoxResized(float w) {
+                        // SPEC_20260831_CAPTION_SLIDES: persisted on binding 0 when the clip
+                        // has one; a binding-less legacy clip has nowhere to store it.
+                        final Clip cc = findClipById(captionClipId);
+                        if (cc == null || cc.getCaptionBindings().isEmpty()) return;
+                        cc.getCaptionBindings().get(0).boxWidthFraction =
+                                Math.max(0.3f, Math.min(1f, w));
+                        scheduleAutoSave();
+                    }
                 });
+        // §7.1.3: the legacy single overlay is always the active one — it draws its chrome.
+        captionOverlay.setBoxChromeActive(true);
         captionOverlay.setCenter(clip.getCaptionCenterX(), clip.getCaptionCenterY());
         // Audit 2.1: position was bound here and size was not, so the slider moved the
         // model and the export while the preview stayed at the view's 0.060f default.
         captionOverlay.setSizeFraction(clip.getCaptionSizeFraction());
+        if (!clip.getCaptionBindings().isEmpty()) {
+            Clip.CaptionBinding b0 = clip.getCaptionBindings().get(0);
+            captionOverlay.setBoxWidthFraction(b0.boxWidthFraction);
+            // FADE_KNOBS §2.5 — legacy single-overlay path gets the same fade as the multi one.
+            captionOverlay.setCaptionFade(b0.fadeInMs, b0.fadeOutMs,
+                    Math.max(1L, clip.getVisualDurationMs()));
+        }
     }
 
     private void bindAudioCaptionData(@NonNull AudioClip clip) {
         if (audioCaptionOverlay == null) return;
+        // Multi-binding clip: delegate to the multi rebuild (see bindCaptionData — claiming the
+        // id here starved the tick's rebuild check and left the music captions never built).
+        if (clip.getCaptionBindings().size() > 1) {
+            audioCaptionClipId = clip.getId();
+            rebuildAudioCaptionOverlays(clip);
+            return;
+        }
         audioCaptionClipId = clip.getId();
         highlightActiveCaptionChip(clip.getCaptionStyleId());
         audioCaptionOverlay.setData(windowedCaptionsFor(clip),   // audit 2.4 — match export
@@ -31688,9 +33863,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     "Captions hidden — tap a style chip to show again", Toast.LENGTH_SHORT).show();
                         }
                     }
+
+                    @Override
+                    public void onBoxResized(float w) {
+                        // SPEC_20260831_CAPTION_SLIDES: persisted on binding 0 when present.
+                        final AudioClip ac = findAudioClipById(audioCaptionClipId);
+                        if (ac == null || ac.getCaptionBindings().isEmpty()) return;
+                        ac.getCaptionBindings().get(0).boxWidthFraction =
+                                Math.max(0.3f, Math.min(1f, w));
+                        scheduleAutoSave();
+                    }
                 });
+        // §7.1.3: the legacy single overlay is always the active one — it draws its chrome.
+        audioCaptionOverlay.setBoxChromeActive(true);
         audioCaptionOverlay.setCenter(clip.getCaptionCenterX(), clip.getCaptionCenterY());
         audioCaptionOverlay.setSizeFraction(clip.getCaptionSizeFraction()); // audit 2.1
+        if (!clip.getCaptionBindings().isEmpty()) {
+            AudioClip.CaptionBinding b0 = clip.getCaptionBindings().get(0);
+            audioCaptionOverlay.setBoxWidthFraction(b0.boxWidthFraction);
+            // FADE_KNOBS §2.5 — legacy single-overlay audio path.
+            audioCaptionOverlay.setCaptionFade(b0.fadeInMs, b0.fadeOutMs,
+                    Math.max(1L, clip.getTrimmedDurationMs()));
+        }
     }
 
     // ── SPEC_20260829_CAPTION_LAYERS: multi-binding preview helpers ─────────────
@@ -31745,7 +33939,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (!bs.isEmpty() && activeAudioCaptionBindingIndex >= 0 && activeAudioCaptionBindingIndex < bs.size()) {
                             bs.get(activeAudioCaptionBindingIndex).sizeFraction = newSize;
                             ac.syncLegacyFromBindings();
-                            if (!audioCaptionOverlays.isEmpty() && activeAudioCaptionBindingIndex < audioCaptionOverlays.size()) audioCaptionOverlays.get(activeAudioCaptionBindingIndex).setSizeFraction(newSize);
+                            { com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = audioCaptionOverlayForBinding(activeAudioCaptionBindingIndex); if (ov != null) ov.setSizeFraction(newSize); }
                         }
                     }
                 } else {
@@ -31755,7 +33949,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (!bs.isEmpty() && activeCaptionBindingIndex >= 0 && activeCaptionBindingIndex < bs.size()) {
                             bs.get(activeCaptionBindingIndex).sizeFraction = newSize;
                             c.syncLegacyFromBindings();
-                            if (!captionOverlays.isEmpty() && activeCaptionBindingIndex < captionOverlays.size()) captionOverlays.get(activeCaptionBindingIndex).setSizeFraction(newSize);
+                            { com.fadcam.ui.faditor.transcript.CaptionOverlayView ov = captionOverlayForBinding(activeCaptionBindingIndex); if (ov != null) ov.setSizeFraction(newSize); }
                         }
                     }
                 }
@@ -31784,7 +33978,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<Clip.CaptionBinding> bindings = clip.getCaptionBindings();
         // Fallback to legacy single when bindings empty — keep old view path (no multi container).
         if (bindings.isEmpty()) {
-            captionMultiContainer.setVisibility(View.GONE);
+            // Shared container: leave it visible if audio multi-captions are using it.
+            boolean audioMulti = false;
+            for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                if (ac.getCaptionBindings().size() > 1) { audioMulti = true; break; }
+            }
+            if (!audioMulti) captionMultiContainer.setVisibility(View.GONE);
             return;
         }
         captionMultiContainer.setVisibility(View.VISIBLE);
@@ -31824,50 +34023,59 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             scheduleAutoSave();
                         }
                         @Override public void onTapped() {
-                            setActiveCaptionBinding(bindingIdx);
-                            // Retarget transcript drawer to this binding's transcript (spec §3.5).
-                            com.fadcam.ui.faditor.transcript.NamedTranscript selNt = clip.transcriptForBinding(b);
-                            if (selNt != null) {
-                                currentTranscript = selNt.transcript;
-                                transcriptClipId = clip.getId();
-                                activeCaptionIsAudio = false;
-                                if (transcriptView != null) transcriptView.setTranscript(currentTranscript);
-                                if (transcriptHeader != null) transcriptHeader.setText(selNt.label);
-                            }
-                            activeCaptionIsAudio = false;
-                            if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
-                            highlightActiveCaptionChip(b.styleId);
+                            // Same entry point the header pill uses — see selectCaptionBinding.
+                            Clip cc = findClipById(clip.getId());
+                            selectCaptionBinding(cc != null ? cc : clip, null, bindingIdx);
                         }
                         @Override public void onDoubleTapped() {
-                            setActiveCaptionBinding(bindingIdx);
-                            activeCaptionIsAudio = false;
-                            if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
+                            Clip cc = findClipById(clip.getId());
+                            selectCaptionBinding(cc != null ? cc : clip, null, bindingIdx);
                             openCaptionKeyframeDrawer();
                         }
                         @Override public void onLongPressed() {
+                            // Select first so the sheet edits THIS track, then offer the box
+                            // options (corners / colour+opacity / hide) rather than silently
+                            // hiding the track, which is now one row inside the sheet.
+                            Clip cc = findClipById(clip.getId());
+                            selectCaptionBinding(cc != null ? cc : clip, null, bindingIdx);
+                            showCaptionBoxOptions();
+                        }
+                        @Override public void onBoxResized(float w) {
+                            // SPEC_20260831_CAPTION_SLIDES: edge-drag resized the bounding box.
                             Clip cc = findClipById(clip.getId());
                             if (cc == null) return;
                             java.util.List<Clip.CaptionBinding> bs = cc.getCaptionBindings();
-                            if (bindingIdx < bs.size()) {
-                                bs.get(bindingIdx).enabled = false;
-                                cc.syncLegacyFromBindings();
-                                v.setVisibility(View.GONE);
-                                scheduleAutoSave();
-                            }
+                            if (bindingIdx < 0 || bindingIdx >= bs.size()) return;
+                            bs.get(bindingIdx).boxWidthFraction = Math.max(0.3f, Math.min(1f, w));
+                            scheduleAutoSave();
                         }
                     });
             v.setCenter(b.centerX, b.centerY);
             v.setSizeFraction(b.sizeFraction);
+            v.setBoxWidthFraction(b.boxWidthFraction);
+            v.setAnchor(b.anchor);
+            v.setJustify(b.justify);
+            // FADE_KNOBS §2.5: the caption fade the export already honours — the preview
+            // ignored it, so the knobs looked dead until the user rendered.
+            v.setCaptionFade(b.fadeInMs, b.fadeOutMs, Math.max(1L, clip.getVisualDurationMs()));
+            // §7.1.3: chrome (outline + grips) only on the ACTIVE view; the tag carries the
+            // BINDING index — list position can diverge since disabled/hidden bindings are
+            // skipped above — so setActiveCaptionBinding can refresh the flag per view.
+            v.setBoxChromeActive(bindingIdx == activeCaptionBindingIndex);
+            v.setTag(bindingIdx);
             v.setClickable(true);
             v.setFocusable(true);
             v.setAlpha(bindingIdx == activeCaptionBindingIndex ? 1f : 0.85f);
             captionOverlays.add(v);
             captionMultiContainer.addView(v);
         }
-        // Ensure at least one view is active even if first enabled binding is not at index 0.
-        if (!captionOverlays.isEmpty()) {
-            setActiveCaptionBinding(Math.min(activeCaptionBindingIndex, captionOverlays.size() - 1));
+        // Keep the active selection valid across a rebuild. Clamp against the BINDING count —
+        // clamping against captionOverlays.size() re-selected a different track every time a
+        // binding was hidden or disabled.
+        if (!bindings.isEmpty()) {
+            setActiveCaptionBinding(Math.max(0, Math.min(activeCaptionBindingIndex, bindings.size() - 1)));
         }
+        seedCaptionOverlayTimes();
     }
 
     private void rebuildAudioCaptionOverlays(@NonNull AudioClip clip) {
@@ -31884,18 +34092,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // legacy single path handled elsewhere
             return;
         }
+        // Mirror the video rebuild: overlays were just re-created in the shared container.
+        captionMultiContainer.setVisibility(View.VISIBLE);
+        com.fadcam.FLog.d("CAPMULTI", "rebuildAudio: bindings=" + bindings.size());
         for (int i = 0; i < bindings.size(); i++) {
             AudioClip.CaptionBinding b = bindings.get(i);
-            if (!b.enabled) continue;
-            if ("hidden".equals(b.styleId)) continue;
+            if (!b.enabled) { com.fadcam.FLog.d("CAPMULTI", "  skip " + i + " disabled"); continue; }
+            if ("hidden".equals(b.styleId)) { com.fadcam.FLog.d("CAPMULTI", "  skip " + i + " hidden style"); continue; }
             com.fadcam.ui.faditor.transcript.NamedTranscript nt = clip.transcriptForBinding(b);
-            if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
+            if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) { com.fadcam.FLog.d("CAPMULTI", "  skip " + i + " transcript missing/empty id=" + b.transcriptId); continue; }
             com.fadcam.ui.faditor.transcript.CaptionOverlayView v = new com.fadcam.ui.faditor.transcript.CaptionOverlayView(this);
             v.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                     android.view.ViewGroup.LayoutParams.MATCH_PARENT));
             final int bindingIdx = i;
             com.fadcam.ui.faditor.transcript.Transcript win = nt.transcript.windowed(clip.getInPointMs(), clip.getOutPointMs());
+            // Motion presets on an AUDIO-bound caption track: the video rebuild has always done
+            // this and the audio one never did, so a picked preset saved and rendered nothing.
+            // Set BEFORE setData so the first frame drawn already carries it.
+            v.setCaptionAnimation(clip.getCaptionAnimPreset(), clip.getCaptionAnimGranularity(),
+                    clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
             v.setData(win, com.fadcam.ui.faditor.transcript.CaptionStyle.byId(b.styleId),
                     new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
                         @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
@@ -31918,47 +34134,176 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             scheduleAutoSave();
                         }
                         @Override public void onTapped() {
-                            activeAudioCaptionBindingIndex = bindingIdx;
-                            setActiveAudioCaptionBinding(bindingIdx);
+                            // Same entry point the header pill uses — see selectCaptionBinding.
+                            AudioClip ac2 = findAudioClipById(clip.getId());
+                            selectCaptionBinding(null, ac2 != null ? ac2 : clip, bindingIdx);
                         }
-                        @Override public void onDoubleTapped() { openCaptionKeyframeDrawer(); }
+                        @Override public void onDoubleTapped() {
+                            AudioClip ac2 = findAudioClipById(clip.getId());
+                            selectCaptionBinding(null, ac2 != null ? ac2 : clip, bindingIdx);
+                            openCaptionKeyframeDrawer();
+                        }
                         @Override public void onLongPressed() {
+                            AudioClip ac2 = findAudioClipById(clip.getId());
+                            selectCaptionBinding(null, ac2 != null ? ac2 : clip, bindingIdx);
+                            showCaptionBoxOptions();
+                        }
+                        @Override public void onBoxResized(float w) {
+                            // SPEC_20260831_CAPTION_SLIDES: edge-drag resized the bounding box.
                             AudioClip ac = findAudioClipById(clip.getId());
-                            if (ac != null && bindingIdx < ac.getCaptionBindings().size()) {
-                                ac.getCaptionBindings().get(bindingIdx).enabled = false;
-                                ac.syncLegacyFromBindings();
-                                v.setVisibility(View.GONE);
-                                scheduleAutoSave();
-                            }
+                            if (ac == null) return;
+                            java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
+                            if (bindingIdx < 0 || bindingIdx >= bs.size()) return;
+                            bs.get(bindingIdx).boxWidthFraction = Math.max(0.3f, Math.min(1f, w));
+                            scheduleAutoSave();
                         }
                     });
             v.setCenter(b.centerX, b.centerY);
             v.setSizeFraction(b.sizeFraction);
+            v.setBoxWidthFraction(b.boxWidthFraction);
+            v.setAnchor(b.anchor);
+            v.setJustify(b.justify);
+            // FADE_KNOBS §2.5 — same fade the audio export path applies.
+            v.setCaptionFade(b.fadeInMs, b.fadeOutMs, Math.max(1L, clip.getTrimmedDurationMs()));
+            // §7.1.3: chrome only on the ACTIVE audio view; tag = binding index (see video path).
+            v.setBoxChromeActive(bindingIdx == activeAudioCaptionBindingIndex);
+            v.setTag(bindingIdx);
             v.setClickable(true);
             v.setFocusable(true);
             v.setAlpha(bindingIdx == activeAudioCaptionBindingIndex ? 1f : 0.85f);
             audioCaptionOverlays.add(v);
             captionMultiContainer.addView(v);
         }
+        // The old views are gone, so nothing the tick hid can still need restoring.
+        audioCaptionOverlaysHiddenByTick.clear();
+        // Keep the active selection valid across a rebuild — clamped against the BINDING count,
+        // never audioCaptionOverlays.size() (hidden/disabled bindings have no view).
+        if (!bindings.isEmpty() && activeCaptionIsAudio) {
+            setActiveAudioCaptionBinding(Math.max(0,
+                    Math.min(activeAudioCaptionBindingIndex, bindings.size() - 1)));
+        }
+        applyCaptionSelectionChrome();
+        seedCaptionOverlayTimes();
+    }
+
+    /**
+     * Views the PLAYHEAD TICK hid because no audio clip was under the playhead — and only those.
+     * A long-press disables a binding and hides its view too; that one must stay hidden, so the
+     * restore is a set difference rather than a blanket setVisibility(VISIBLE).
+     */
+    private final java.util.List<com.fadcam.ui.faditor.transcript.CaptionOverlayView>
+            audioCaptionOverlaysHiddenByTick = new java.util.ArrayList<>();
+
+    private void hideAudioCaptionOverlaysForTick() {
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) {
+            if (av.getVisibility() == View.VISIBLE) {
+                av.setVisibility(View.GONE);
+                if (!audioCaptionOverlaysHiddenByTick.contains(av)) {
+                    audioCaptionOverlaysHiddenByTick.add(av);
+                }
+            }
+        }
+    }
+
+    private void showAudioCaptionOverlaysForTick() {
+        if (audioCaptionOverlaysHiddenByTick.isEmpty()) return;
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlaysHiddenByTick) {
+            if (audioCaptionOverlays.contains(av) && av.getVisibility() != View.VISIBLE) {
+                av.setVisibility(View.VISIBLE);
+            }
+        }
+        audioCaptionOverlaysHiddenByTick.clear();
+    }
+
+    /**
+     * Push the current playhead into freshly built caption overlays.
+     *
+     * <p>A new {@link com.fadcam.ui.faditor.transcript.CaptionOverlayView} starts with no active
+     * word, and its onDraw draws nothing until one is set. When a rebuild is triggered from the
+     * TICK that is invisible (the tick sets the time two statements later), but every rebuild
+     * driven by an edit — a style chip, a transcript change, the caption drawer — left the new
+     * views blank until the next tick, which with the player paused never comes. Same class of
+     * bug as the visibility one above, and the reason a caption could "not start".</p>
+     */
+    private void seedCaptionOverlayTimes() {
+        long absoluteMs = Math.max(0L, lastPlayheadAbsoluteMs);
+        if (!audioCaptionOverlays.isEmpty()) {
+            AudioClip ac = audioCaptionClipId != null ? findAudioClipById(audioCaptionClipId) : null;
+            if (ac == null) ac = findAudioClipAtTimelineMs(absoluteMs);
+            if (ac != null) {
+                long audioLocalMs = absoluteMs - ac.getOffsetMs() + ac.getInPointMs();
+                long audioSpanLocalMs = absoluteMs - ac.getOffsetMs();
+                for (com.fadcam.ui.faditor.transcript.CaptionOverlayView av : audioCaptionOverlays) {
+                    av.setActiveSourceMs(audioLocalMs, audioSpanLocalMs);
+                }
+            }
+        }
+        if (!captionOverlays.isEmpty()) {
+            Clip ph = clipUnderPlayhead();
+            if (ph != null) {
+                long capSrc = ph.getInPointMs()
+                        + (long) (lastSourcePositionInSegmentMs * ph.getSpeedMultiplier());
+                for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
+                    v.setActiveSourceMs(capSrc, lastSourcePositionInSegmentMs);
+                }
+            }
+        }
+    }
+
+    /**
+     * How many caption BINDINGS the active video clip carries, or -1 when no clip can be
+     * resolved. Deliberately NOT {@code captionOverlays.size()}: the overlay list skips
+     * bindings that are disabled, styled "hidden", or missing a transcript, so the two counts
+     * diverge and clamping a binding index against the overlay count selects the wrong track.
+     */
+    private int videoCaptionBindingCount() {
+        Clip c = getActiveCaptionClip();
+        return c == null ? -1 : c.getCaptionBindings().size();
+    }
+
+    /** Audio twin of {@link #videoCaptionBindingCount()}. */
+    private int audioCaptionBindingCount() {
+        AudioClip ac = getActiveAudioClip();
+        return ac == null ? -1 : ac.getCaptionBindings().size();
     }
 
     private void setActiveCaptionBinding(int idx) {
-        if (idx < 0 || idx >= captionOverlays.size()) return;
+        // Guard against the BINDING count, never the overlay count — a disabled or hidden
+        // track removes a view but not a binding, and the old overlay-count guard silently
+        // dropped selections of the tracks past it (leaving edits landing on the old track).
+        if (idx < 0) return;
+        int count = videoCaptionBindingCount();
+        if (count >= 0 && idx >= count) return;
         activeCaptionBindingIndex = idx;
-        for (int i = 0; i < captionOverlays.size(); i++) {
-            boolean a = (i == idx);
-            captionOverlays.get(i).setAlpha(a ? 1f : 0.85f);
-        }
-        // Keep transcript drawer in sync if needed.
+        // §7.1.3: alpha AND chrome are both driven off the view's TAG (its binding index) —
+        // driving alpha off list position highlighted a different track than the chrome did.
+        applyCaptionSelectionChrome();
     }
 
     private void setActiveAudioCaptionBinding(int idx) {
-        if (idx < 0 || idx >= audioCaptionOverlays.size()) return;
+        if (idx < 0) return;
+        int count = audioCaptionBindingCount();
+        if (count >= 0 && idx >= count) return;
         activeAudioCaptionBindingIndex = idx;
-        for (int i = 0; i < audioCaptionOverlays.size(); i++) {
-            boolean a = (i == idx);
-            audioCaptionOverlays.get(i).setAlpha(a ? 1f : 0.85f);
+        applyCaptionSelectionChrome();
+    }
+
+    /** The preview view carrying binding index {@code bindingIdx}, or null if it is not shown. */
+    @Nullable
+    private com.fadcam.ui.faditor.transcript.CaptionOverlayView captionOverlayForBinding(int bindingIdx) {
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
+            if (v != null && Integer.valueOf(bindingIdx).equals(v.getTag())) return v;
         }
+        return null;
+    }
+
+    /** Audio twin of {@link #captionOverlayForBinding(int)}. */
+    @Nullable
+    private com.fadcam.ui.faditor.transcript.CaptionOverlayView audioCaptionOverlayForBinding(int bindingIdx) {
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : audioCaptionOverlays) {
+            if (v != null && Integer.valueOf(bindingIdx).equals(v.getTag())) return v;
+        }
+        return null;
     }
 
     /** After loading a saved project, re-show captions for the clip that had them. */
@@ -31986,7 +34331,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     audioCaptionClipId = ac.getId();
                     captionsActive = true;
                     bindAudioCaptionData(ac);
-                    audioCaptionOverlay.setVisibility(View.VISIBLE);
+                    // Multi-binding clips: bindAudioCaptionData built the multi container;
+                    // only the legacy single overlay needs forcing visible here.
+                    if (ac.getCaptionBindings().size() <= 1) {
+                        audioCaptionOverlay.setVisibility(View.VISIBLE);
+                    }
                     return;
                 }
             }
@@ -34333,11 +36682,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             int vi = indexOfVersion(fAudioClip, versionId);
                             if (vi >= 0 && fAudioClip.getTranscripts().get(vi).transcript.isEmpty()) {
                                 fAudioClip.removeTranscript(vi);
+                                afterCaptionBindingsShrank(fAudioClip, null);
                             }
                         } else if (fClip != null) {
                             int vi = indexOfVersion(fClip, versionId);
                             if (vi >= 0 && fClip.getTranscripts().get(vi).transcript.isEmpty()) {
                                 fClip.removeTranscript(vi);
+                                afterCaptionBindingsShrank(null, fClip);
                             }
                         }
                         if (currentTranscript == null || currentTranscript.isEmpty()) {
@@ -34522,20 +36873,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * The audio clip whose transcript versions the chips should show — resolved with the SAME
+     * precedence the transcript panel uses ({@link #resolveTranscriptTarget}): selected audio
+     * lane item, else the panel's resolved audio target, else the audio under the playhead.
+     * The chips used to read only the SELECTED audio index, so opening the panel on a music
+     * track without tapping its lane showed the transcript but NO version chips at all.
+     */
+    @Nullable
+    private AudioClip versionBarAudioOwner() {
+        if (project == null || editorTimeline == null) return null;
+        int sel = editorTimeline.getSelectedAudioIndex();
+        if (sel >= 0 && sel < project.getTimeline().getAudioClips().size()) {
+            return project.getTimeline().getAudioClips().get(sel);
+        }
+        if (transcriptIsForAudio && transcriptAudioIndex >= 0
+                && transcriptAudioIndex < project.getTimeline().getAudioClips().size()) {
+            return project.getTimeline().getAudioClips().get(transcriptAudioIndex);
+        }
+        long ph = editorTimeline.getPlayheadPositionMs();
+        for (AudioClip ac : project.getTimeline().getAudioClips()) {
+            if (ac != null && ph >= ac.getOffsetMs() && ph < ac.getEndOnTimelineMs()) return ac;
+        }
+        return null;
+    }
+
+    /**
      * Rebuild the row of transcript-version chips above the transcript view.
      * Each chip switches the active version; a "+" chip adds another pass.
      */
     private void refreshTranscriptVersionBar() {
         if (transcriptVersionBar == null) return;
         transcriptVersionBar.removeAllViews();
-        boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
-                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
         java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> versions;
         int active;
-        if (preferAudio) {
-            AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
-            versions = ac == null ? java.util.Collections.emptyList() : ac.getTranscripts();
-            active = ac == null ? -1 : ac.getActiveTranscriptIndex();
+        AudioClip ac = versionBarAudioOwner();
+        if (ac != null) {
+            versions = ac.getTranscripts();
+            active = ac.getActiveTranscriptIndex();
         } else {
             Clip clip = getSelectedClip();
             versions = clip == null ? java.util.Collections.emptyList() : clip.getTranscripts();
@@ -34653,12 +37027,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Switch which transcript version is active (panel + captions follow). */
     private void switchTranscriptVersion(int index) {
-        boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
-                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size());
-        if (preferAudio) {
-            AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
-            if (ac == null) return;
+        AudioClip ac = versionBarAudioOwner();
+        if (ac != null) {
+            transcriptIsForAudio = true;
+            transcriptAudioIndex = project.getTimeline().getAudioClips().indexOf(ac);
             ac.setActiveTranscriptIndex(index);
+            // Single-binding (legacy) clips: the one caption shows getTranscript() in preview but
+            // transcriptForBinding(b0) in export — retarget the binding so they stay in sync.
+            // Multi-binding clips are per-track; the chip switch only moves the panel.
+            if (index >= 0 && index < ac.getTranscripts().size() && ac.getCaptionBindings().size() == 1) {
+                ac.getCaptionBindings().get(0).transcriptId = ac.getTranscripts().get(index).id;
+            }
             currentTranscript = ac.getTranscript();
             transcriptClipId = ac.getId();
             if (currentTranscript != null) {
@@ -34674,6 +37053,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Clip clip = getSelectedClip();
             if (clip == null) return;
             clip.setActiveTranscriptIndex(index);
+            // Single-binding (legacy) clips: keep the caption binding on the selected version so
+            // preview (getTranscript()) and export (transcriptForBinding) stay in sync.
+            // Multi-binding clips are per-track; the chip switch only moves the panel.
+            if (index >= 0 && index < clip.getTranscripts().size() && clip.getCaptionBindings().size() == 1) {
+                clip.getCaptionBindings().get(0).transcriptId = clip.getTranscripts().get(index).id;
+            }
             currentTranscript = clip.getTranscript();
             transcriptClipId = clip.getId();
             if (currentTranscript != null) {
@@ -34722,7 +37107,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Delete version…"
         };
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle(versions.get(index).label)
+                .setCustomTitle(buildTranscriptRenameTitle(versions.get(index)))
                 .setItems(items, (d, which) -> {
                     switch (which) {
                         case 0: copyToClipboard(
@@ -34738,6 +37123,81 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 })
                 .show();
+    }
+
+    /**
+     * Inline-renamable menu title for a transcript version: the label plus a flat pencil icon;
+     * tapping the pencil swaps the label for an editor IN PLACE (no dialog, no new line) and
+     * commits on IME-done or focus loss. Renaming updates the version chips, the transcript
+     * header and the add-caption-track chooser, since they all read {@code NamedTranscript.label}.
+     */
+    @NonNull
+    private View buildTranscriptRenameTitle(@NonNull com.fadcam.ui.faditor.transcript.NamedTranscript nt) {
+        float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        int pad = (int) (20 * d);
+        row.setPadding(pad, pad / 2, pad, 0);
+
+        final TextView label = new TextView(this);
+        label.setText(nt.label);
+        label.setTextColor(0xFFEEEEEE);
+        label.setTextSize(18);
+        label.setTypeface(null, android.graphics.Typeface.BOLD);
+        label.setSingleLine(true);
+        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        android.widget.LinearLayout.LayoutParams labelLp = new android.widget.LinearLayout.LayoutParams(
+                0, android.view.ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        label.setLayoutParams(labelLp);
+        row.addView(label);
+
+        TextView pencil = new TextView(this);
+        pencil.setText("edit"); // materialicons flat diagonal pencil
+        try { pencil.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons)); } catch (Exception ignored) {}
+        pencil.setTextColor(0xFF9E9E9E);
+        pencil.setTextSize(18);
+        int ip = (int) (8 * d);
+        pencil.setPadding(ip, ip, ip, ip);
+        pencil.setContentDescription("Rename transcript"); // TODO(strings)
+        row.addView(pencil);
+
+        pencil.setOnClickListener(v -> {
+            final android.widget.EditText input = new android.widget.EditText(this);
+            input.setText(nt.label);
+            input.setSingleLine(true);
+            input.setTextColor(0xFF4DD0E1);
+            input.setTextSize(16);
+            input.setSelectAllOnFocus(true);
+            input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
+            row.removeView(label);
+            row.addView(input, labelLp);
+            input.requestFocus();
+            input.post(() -> showSoftKeyboard(input));
+
+            final Runnable commit = () -> {
+                String name = input.getText().toString().trim();
+                if (!name.isEmpty() && !name.equals(nt.label)) {
+                    nt.label = name;
+                    refreshTranscriptVersionBar();      // chips + header
+                    refreshCaptionDrawerIfOpen(); // add-track chooser labels (§7.1.5: in place)
+                    scheduleAutoSave();
+                }
+                label.setText(nt.label);
+                row.removeView(input);
+                row.addView(label, labelLp);
+                hideSoftKeyboard(input);
+            };
+            input.setOnEditorActionListener((v2, actionId, event) -> {
+                if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE) {
+                    commit.run();
+                    return true;
+                }
+                return false;
+            });
+            input.setOnFocusChangeListener((v2, hasFocus) -> { if (!hasFocus) commit.run(); });
+        });
+        return row;
     }
 
     /**
@@ -34785,6 +37245,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             new com.fadcam.ui.faditor.transcript.NamedTranscript(
                                     java.util.UUID.randomUUID().toString(),
                                     "Imported", "import", parsed);
+                    // Unique label per import (Imported 2, 3, …) so the version chips are
+                    // distinguishable at a glance.
+                    boolean preferAudioHere = editorTimeline.getSelectedAudioIndex() >= 0
+                            && editorTimeline.getSelectedAudioIndex()
+                                    < project.getTimeline().getAudioClips().size();
+                    java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> existingList =
+                            new java.util.ArrayList<>();
+                    if (preferAudioHere) {
+                        existingList.addAll(project.getTimeline().getAudioClips()
+                                .get(editorTimeline.getSelectedAudioIndex()).getTranscripts());
+                    } else if (getSelectedClip() != null) {
+                        existingList.addAll(getSelectedClip().getTranscripts());
+                    }
+                    for (com.fadcam.ui.faditor.transcript.NamedTranscript existing : existingList) {
+                        if (("import".equals(existing.engine))
+                                && existing.label.startsWith("Imported")) {
+                            named.label = "Imported " + (2 + countImportSuffix(existing.label));
+                        }
+                    }
                     boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                             && editorTimeline.getSelectedAudioIndex()
                                     < project.getTimeline().getAudioClips().size());
@@ -34803,10 +37282,60 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     refreshTranscriptVersionBar();
                     saveProjectNow();
+                    if (wireAfterImport) {
+                        wireAfterImport = false;
+                        // Wire the newest import-engine transcript on the target.
+                        com.fadcam.ui.faditor.transcript.NamedTranscript newest = null;
+                        java.util.List<com.fadcam.ui.faditor.transcript.NamedTranscript> pool =
+                                preferAudio
+                                        ? project.getTimeline().getAudioClips()
+                                                .get(editorTimeline.getSelectedAudioIndex()).getTranscripts()
+                                        : (getSelectedClip() != null
+                                                ? getSelectedClip().getTranscripts() : null);
+                        if (pool != null) {
+                            for (com.fadcam.ui.faditor.transcript.NamedTranscript nt : pool) {
+                                if ("import".equals(nt.engine)) newest = nt; // last wins = newest
+                            }
+                        }
+                        if (newest != null) wireNewCaptionTrack(newest.id);
+                    }
                     Toast.makeText(this, "Imported " + parsed.words.size() + " words",
                             Toast.LENGTH_SHORT).show();
                 })
                 .show();
+    }
+
+    /** "Imported 3" → 2 (the highest existing suffix), so the next import gets 4. */
+    private static int countImportSuffix(@NonNull String label) {
+        try {
+            return Math.max(0, Integer.parseInt(label.substring("Imported ".length()).trim()) - 1);
+        } catch (Exception e) {
+            return 1;
+        }
+    }
+
+    /**
+     * Called after a transcript version is deleted from an AUDIO clip. Clip.removeTranscript /
+     * AudioClip.removeTranscript drop every caption binding that pointed at the removed
+     * transcript, so the header pills row, the preview overlays and the two active-binding
+     * indices are all stale the instant it returns — a stale pill tap used to index past the
+     * end of the shrunken binding list and throw IndexOutOfBoundsException.
+     */
+    private void afterCaptionBindingsShrank(@Nullable AudioClip ac, @Nullable Clip clip) {
+        if (ac != null) {
+            int n = ac.getCaptionBindings().size();
+            activeAudioCaptionBindingIndex = n == 0 ? -1
+                    : Math.max(0, Math.min(activeAudioCaptionBindingIndex, n - 1));
+            rebuildAudioCaptionOverlays(ac);
+        }
+        if (clip != null) {
+            int n = clip.getCaptionBindings().size();
+            activeCaptionBindingIndex = n == 0 ? -1
+                    : Math.max(0, Math.min(activeCaptionBindingIndex, n - 1));
+            rebuildCaptionOverlays(clip);
+        }
+        if (editorTimeline != null) editorTimeline.invalidate();
+        refreshCaptionDrawerIfOpen();
     }
 
     private void confirmDeleteVersion(int index) {
@@ -34820,6 +37349,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             versions = ac.getTranscripts();
             delete = () -> {
                 ac.removeTranscript(index);
+                afterCaptionBindingsShrank(ac, null);
                 currentTranscript = ac.getTranscript();
                 if (currentTranscript != null) {
                     transcriptView.setTranscript(currentTranscript);
@@ -34837,6 +37367,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             versions = clip.getTranscripts();
             delete = () -> {
                 clip.removeTranscript(index);
+                afterCaptionBindingsShrank(null, clip);
                 currentTranscript = clip.getTranscript();
                 if (currentTranscript != null) {
                     transcriptView.setTranscript(currentTranscript);

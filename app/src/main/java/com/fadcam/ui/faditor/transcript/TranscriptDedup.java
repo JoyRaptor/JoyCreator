@@ -119,9 +119,16 @@ public final class TranscriptDedup {
                 (activeIndex >= 0 && activeIndex < list.size()) ? list.get(activeIndex) : null;
 
         // Group by engine + label ("whisper\nHigh accuracy" etc.).
+        // IMPORTED versions are user data, not engine re-runs: every paste import shares
+        // engine="import" + label="Imported" but carries DIFFERENT content the user chose to
+        // keep (JoyRaptor's lyrics + verses + addresses were three distinct imports). The dedup
+        // rule below assumed same-engine+label implies same content re-run — true for vosk/
+        // whisper runs, false for imports — and it ran on EVERY project load, eating one
+        // imported version per open (the 3→2→1 report). Imports are never grouped.
         Map<String, List<Integer>> groups = new LinkedHashMap<>();
         for (int i = 0; i < list.size(); i++) {
             NamedTranscript nt = list.get(i);
+            if ("import".equals(nt.engine)) continue;
             String key = nt.engine + "\n" + nt.label;
             List<Integer> g = groups.get(key);
             if (g == null) { g = new ArrayList<>(); groups.put(key, g); }

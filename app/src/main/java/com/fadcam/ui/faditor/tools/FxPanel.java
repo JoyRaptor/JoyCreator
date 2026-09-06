@@ -21,7 +21,6 @@ import com.fadcam.ui.faditor.fx.FxRegistry;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.GradientCurve;
 import com.fadcam.ui.faditor.fx.GradientRamp;
-import com.fadcam.ui.faditor.model.BlendModes;
 
 import java.util.List;
 
@@ -413,16 +412,18 @@ public final class FxPanel {
                 v -> { fx.opacity = v / 100f; host.onFxChanged(); }, d,
                 stack, host, rebuild, def.displayName + " opacity"));
 
+        // ONE chip that opens the grouped picker, not a chip per mode. This row used to lay out
+        // every mode side by side; at twenty-six that is a card wider than the phone. The chip
+        // reads out the card's current fold mode, which is the thing you actually want to see.
         LinearLayout blendRow = new LinearLayout(ctx);
         blendRow.setOrientation(LinearLayout.HORIZONTAL);
+        blendRow.setGravity(Gravity.CENTER_VERTICAL);
         blendRow.setPadding(0, Math.round(4 * d), 0, 0);
-        for (String mode : BlendModes.ALL) {
-            TextView c = chip(ctx, pretty(mode), d);
-            c.setBackground(pill(mode.equals(fx.blendMode) ? CHIP_ON : CHIP_BG, d));
-            c.setOnClickListener(v -> structural(stack, host, rebuild,
-                    def.displayName + " blend", () -> fx.blendMode = mode));
-            blendRow.addView(c);
-        }
+        blendRow.addView(label(ctx, "Blend", d));
+        blendRow.addView(BlendPickerPopover.chip(ctx, () -> fx.blendMode,
+                mode -> structural(stack, host, rebuild, def.displayName + " blend",
+                        () -> fx.blendMode = mode),
+                () -> {}));
         card.addView(blendRow);
         return card;
     }

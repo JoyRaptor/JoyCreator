@@ -78,6 +78,12 @@ public class ExportService extends Service {
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
     /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
     public static final String EXTRA_AUDIO_ONLY = "audio_only";
+    /** SPEC_C: boolean — export a single frame as an image instead of a video. */
+    public static final String EXTRA_SINGLE_FRAME = "single_frame";
+    /** SPEC_C: long — the frame's editor-timeline time in ms (with EXTRA_SINGLE_FRAME). */
+    public static final String EXTRA_FRAME_TIME_MS = "frame_time_ms";
+    /** SPEC_C: boolean — the frame format, true=JPG false=PNG (default). */
+    public static final String EXTRA_FRAME_JPEG = "frame_jpeg";
 
     /**
      * Cross-process "is an export running?" truth: the ongoing foreground-progress
@@ -147,8 +153,11 @@ public class ExportService extends Service {
             if (loudName == null) {
                 loudName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
             }
+            boolean singleFrame = intent.getBooleanExtra(EXTRA_SINGLE_FRAME, false);
             startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH),
-                    intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName);
+                    intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName,
+                    singleFrame ? intent.getLongExtra(EXTRA_FRAME_TIME_MS, -1L) : null,
+                    intent.getBooleanExtra(EXTRA_FRAME_JPEG, false));
         }
 
         return START_NOT_STICKY;
@@ -178,10 +187,16 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
-        startExportInternal(snapshotPath, audioOnly, null);
+        startExportInternal(snapshotPath, audioOnly, null, null, false);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
+        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false);
+    }
+
+    private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly,
+                                     @Nullable String loudnessTargetName,
+                                     @Nullable Long frameTimeMs, boolean frameJpeg) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -310,11 +325,7 @@ public class ExportService extends Service {
         final List<Clip> needsReverse = collectClipsNeedingReverse(exportProject);
         if (needsRemux.isEmpty() && needsReverse.isEmpty()) {
             // Common case: nothing to warm — behave exactly as before.
-            if (audioOnly) {
-                exportManager.exportAudioOnly(exportProject);
-            } else {
-                exportManager.export(exportProject);
-            }
+            dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg);
             return;
         }
 
@@ -356,14 +367,26 @@ public class ExportService extends Service {
             // runs its Transformer on the main thread, as today).
             new Handler(Looper.getMainLooper()).post(() -> {
                 if (exportManager != null) {
-                    if (audioOnly) {
-                        exportManager.exportAudioOnly(exportProject);
-                    } else {
-                        exportManager.export(exportProject);
-                    }
+                    dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg);
                 }
             });
         });
+    }
+
+    /**
+     * SPEC_C: the ONE dispatch point for all three export kinds. A frame job carries a
+     * time; a null time keeps the audio-only / video branches exactly as before.
+     */
+    private void dispatchExport(@NonNull FaditorProject project, boolean audioOnly,
+                                @Nullable Long frameTimeMs, boolean frameJpeg) {
+        if (frameTimeMs != null) {
+            exportManager.exportSingleFrame(project, frameTimeMs, frameJpeg,
+                    exportManager.getExportListener());
+        } else if (audioOnly) {
+            exportManager.exportAudioOnly(project);
+        } else {
+            exportManager.export(project);
+        }
     }
 
     /**

@@ -1397,6 +1397,9 @@ public class ProjectStorage {
                 bj.addProperty("label", b.label);
                 if (b.fadeInMs != 0) bj.addProperty("fadeInMs", b.fadeInMs);
                 if (b.fadeOutMs != 0) bj.addProperty("fadeOutMs", b.fadeOutMs);
+                if (b.boxWidthFraction != 0.9f) bj.addProperty("boxW", b.boxWidthFraction);
+                if (b.anchor != 0) bj.addProperty("anchor", b.anchor);
+                if (b.justify != 0) bj.addProperty("justify", b.justify);
                 bindingsArr.add(bj);
             }
             clipJson.add("captionBindings", bindingsArr);
@@ -1522,6 +1525,28 @@ public class ProjectStorage {
         // outside the overlay block. Omitted when null so unlinked clips stay byte-identical.
         if (clip.getLinkedClipId() != null) {
             clipJson.addProperty("linkedClipId", clip.getLinkedClipId());
+        }
+        // ── SPINE_TRANSFORM: where this clip's picture sits on the canvas ─────────────────
+        //
+        // OMIT-AT-DEFAULT, and the gate is hasSpineTransform() — "identity statics AND no
+        // keyframes". Every one of the owner's existing projects is in exactly that state, so
+        // this block writes NOTHING for them and their project.json is byte-identical to what
+        // the previous build produced. It is also a single nested object rather than six loose
+        // keys, so an older build reading a newer file skips one unknown member.
+        if (clip.hasSpineTransform()) {
+            JsonObject st = new JsonObject();
+            st.addProperty("cx", clip.getSpineCenterX());
+            st.addProperty("cy", clip.getSpineCenterY());
+            st.addProperty("scale", clip.getSpineScale());
+            st.addProperty("scaleX", clip.getSpineScaleX());
+            st.addProperty("scaleY", clip.getSpineScaleY());
+            st.addProperty("rotation", clip.getSpineRotationDeg());
+            // Same { property: [ {t,v,e}, ... ] } shape as every other keyframe set in this
+            // file, through the same codec — so easing and interpolation cannot drift.
+            JsonObject keys = com.fadcam.ui.faditor.keyframe.KeyframeCodec
+                    .toJson(clip.getSpineTransform());
+            if (keys != null) st.add("keys", keys);
+            clipJson.add("spineTransform", st);
         }
         return clipJson;
     }
@@ -1684,6 +1709,9 @@ public class ProjectStorage {
                 if (hasValue(bj, "label")) b.label = bj.get("label").getAsString();
                 if (hasValue(bj, "fadeInMs")) b.fadeInMs = bj.get("fadeInMs").getAsLong();
                 if (hasValue(bj, "fadeOutMs")) b.fadeOutMs = bj.get("fadeOutMs").getAsLong();
+                if (hasValue(bj, "boxW")) b.boxWidthFraction = bj.get("boxW").getAsFloat();
+                if (hasValue(bj, "anchor")) b.anchor = bj.get("anchor").getAsInt();
+                if (hasValue(bj, "justify")) b.justify = bj.get("justify").getAsInt();
                 bindings.add(b);
             }
             clip.setCaptionBindings(bindings);
@@ -1857,18 +1885,72 @@ public class ProjectStorage {
         if (hasValue(clipObj, "linkedClipId")) {
             clip.setLinkedClipId(clipObj.get("linkedClipId").getAsString());
         }
+        // ── SPINE_TRANSFORM (tolerant: ABSENT = today's exact fit-centre) ─────────────────
+        //
+        // Every member is optional and every default is the identity the Clip is constructed
+        // with, so a file written by any previous build — all of the owner's ~19 projects —
+        // loads to a clip whose pose is byte-for-byte the fit-centre it has always had, and
+        // both renderers then skip their pass on isIdentity(). A half-written or hand-edited
+        // object degrades one field at a time rather than failing the load.
+        if (hasValue(clipObj, "spineTransform")
+                && clipObj.get("spineTransform").isJsonObject()) {
+            JsonObject st = clipObj.getAsJsonObject("spineTransform");
+            float cx = hasValue(st, "cx") ? st.get("cx").getAsFloat() : 0.5f;
+            float cy = hasValue(st, "cy") ? st.get("cy").getAsFloat() : 0.5f;
+            clip.setSpineCenter(cx, cy);
+            if (hasValue(st, "scale")) clip.setSpineScale(st.get("scale").getAsFloat());
+            float sx = hasValue(st, "scaleX") ? st.get("scaleX").getAsFloat() : 1f;
+            float sy = hasValue(st, "scaleY") ? st.get("scaleY").getAsFloat() : 1f;
+            clip.setSpineScaleXY(sx, sy);
+            if (hasValue(st, "rotation")) {
+                clip.setSpineRotationDeg(st.get("rotation").getAsFloat());
+            }
+            if (hasValue(st, "keys") && st.get("keys").isJsonObject()) {
+                com.fadcam.ui.faditor.keyframe.KeyframeSet ks =
+                        com.fadcam.ui.faditor.keyframe.KeyframeCodec.fromJson(
+                                st.getAsJsonObject("keys"));
+                if (ks != null) clip.setSpineTransform(ks);
+            }
+        }
         // §4.5 per-object eye/lock (tolerant: absent = false).
         if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
         if (hasValue(clipObj, "objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
         if (hasValue(clipObj, "objPassThrough")) {
             clip.setPassThrough(clipObj.get("objPassThrough").getAsBoolean());
         }
+        // ── Legacy grade → FX cards (one-way, one-time). ──────────────────────────────────────
+        //
+        // LAST in this method, and that placement is load-bearing twice over: it must run AFTER
+        // "effectStack" (the values), AFTER "fx" (the stack the cards are inserted into), and
+        // AFTER "layerId" (the gate below).
+        //
+        // SPINE CLIPS ONLY. The legacy stack is only ever rendered for a spine clip —
+        // ExportManager.assembleClipVideoEffects and FxLivePreviewController.gradeOf are its two
+        // readers, and both run per spine segment. An FxStack on an OVERLAY clip, by contrast,
+        // renders in both preview and export today. So migrating an overlay clip that carries a
+        // stale EffectStack (one promoted off the spine, say) would make a grade that has been
+        // invisible for months suddenly appear — a look change, which is the one thing this
+        // migration must never cause. Promote it back to the spine and it migrates then.
+        //
+        // The hasGrade() pre-check is what keeps getOrCreateFx() from minting an empty FxStack on
+        // every clip in every project ever written. It would still serialize away to nothing —
+        // the "fx" gate is isEmpty() — but an object that exists is an object the FX panel can
+        // bind to, and there is no reason to create thousands of them to migrate nothing.
+        if (clip.getLayerId() == null && clip.getEffectStack().hasGrade()) {
+            com.fadcam.ui.faditor.fx.FxGradeMigration.migrate(
+                    clip.getEffectStack(), clip.getOrCreateFx());
+        }
         return clip;
     }
 
     private static void serializeEffectStack(JsonObject clipJson,
                                              com.fadcam.ui.faditor.effects.EffectStack stack) {
-        if (stack == null || !stack.isActive()) return;
+        // isActive() alone is no longer the whole question: a MIGRATED stack reports inactive (its
+        // grade is painted by FX cards now) but its ten floats are still the only record of what
+        // the user dialled, and dropping them here would delete that record on the next autosave.
+        // An untouched stack is still skipped, so every project that never used the Filters sheet
+        // re-saves byte for byte.
+        if (stack == null || (!stack.isActive() && !stack.isFxMigrated())) return;
         JsonObject fx = new JsonObject();
         fx.addProperty("exposure", stack.getExposure());
         fx.addProperty("contrast", stack.getContrast());
@@ -1885,6 +1967,10 @@ public class ProjectStorage {
         if (stack.getLutIntensity() < 0.999f) {
             fx.addProperty("lutIntensity", stack.getLutIntensity());
         }
+        // THE IDEMPOTENCY LATCH. Written only for a stack that has actually been converted, so a
+        // pre-migration file is unchanged; read back below, which is what makes load → save →
+        // load stop at FxGradeMigration's early return instead of stacking a second copy.
+        if (stack.isFxMigrated()) fx.addProperty("fxMigrated", true);
         clipJson.add("effectStack", fx);
     }
 
@@ -1903,6 +1989,8 @@ public class ProjectStorage {
         if (hasValue(fx, "lutEnabled")) stack.setLutEnabled(fx.get("lutEnabled").getAsBoolean());
         if (hasValue(fx, "lutId")) stack.setLutId(fx.get("lutId").getAsString());
         if (hasValue(fx, "lutIntensity")) stack.setLutIntensity(fx.get("lutIntensity").getAsFloat());
+        // Absent = never migrated, which is exactly right for every file written before this.
+        if (hasValue(fx, "fxMigrated")) stack.setFxMigrated(fx.get("fxMigrated").getAsBoolean());
     }
 
     /**
@@ -2134,6 +2222,13 @@ public class ProjectStorage {
                 // the audio one never did, so an audio caption's size survived into the
                 // EXPORT (which reads the model) but reverted to 0.060 on the next load.
                 acJson.addProperty("captionSizeFraction", ac.getCaptionSizeFraction());
+                // Caption text animation on an AUDIO clip (SPEC_TEXT_ANIMATION). Same four
+                // keys the clip serializer writes; absent in older projects, which read back
+                // as the "NONE" default and render exactly as they did.
+                acJson.addProperty("captionAnimPreset", ac.getCaptionAnimPreset());
+                acJson.addProperty("captionAnimGranularity", ac.getCaptionAnimGranularity());
+                acJson.addProperty("captionAnimInPct", ac.getCaptionAnimInPct());
+                acJson.addProperty("captionAnimOutPct", ac.getCaptionAnimOutPct());
                 if (!ac.getCaptionBindings().isEmpty()) {
                     JsonArray bindingsArr = new JsonArray();
                     for (AudioClip.CaptionBinding b : ac.getCaptionBindings()) {
@@ -2147,6 +2242,9 @@ public class ProjectStorage {
                         bj.addProperty("label", b.label);
                         if (b.fadeInMs != 0) bj.addProperty("fadeInMs", b.fadeInMs);
                         if (b.fadeOutMs != 0) bj.addProperty("fadeOutMs", b.fadeOutMs);
+                        if (b.boxWidthFraction != 0.9f) bj.addProperty("boxW", b.boxWidthFraction);
+                if (b.anchor != 0) bj.addProperty("anchor", b.anchor);
+                if (b.justify != 0) bj.addProperty("justify", b.justify);
                         bindingsArr.add(bj);
                     }
                     acJson.add("captionBindings", bindingsArr);
@@ -2295,8 +2393,30 @@ public class ProjectStorage {
                 // so every pre-existing project stays byte-identical.
                 if (o.isPassThrough()) oJson.addProperty("passThrough", true);
                 if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
+                // SPEC B rotation pivot — sparse like the rest: a centre pivot (every overlay
+                // in every project written before this) writes nothing and stays
+                // byte-identical. The setter snaps to the nine anchors, so a saved value
+                // round-trips exactly.
+                if (!o.isRotationPivotCentre()) {
+                    oJson.addProperty("pivotX", o.rotationPivotXNorm());
+                    oJson.addProperty("pivotY", o.rotationPivotYNorm());
+                }
                 if (o.getScaleX() != 1f) oJson.addProperty("scaleX", o.getScaleX());
                 if (o.getScaleY() != 1f) oJson.addProperty("scaleY", o.getScaleY());
+                // Corner pin / skew. Eight sparse keys, written ONLY when a corner has been
+                // dragged off zero — an undistorted overlay (i.e. every overlay in every project
+                // written before corner pin existed) adds nothing to the file and round-trips
+                // byte-identically. The eight KEYFRAME tracks need no code here at all: the
+                // generic track loop below writes any track name the model created.
+                for (int pc = 0; pc < 4; pc++) {
+                    for (int pa = 0; pa < 2; pa++) {
+                        float pv = o.getCornerPin(pc, pa);
+                        if (pv != 0f) {
+                            oJson.addProperty(
+                                    com.fadcam.ui.faditor.model.CornerPin.jsonKeyFor(pc, pa), pv);
+                        }
+                    }
+                }
                 if (!"NORMAL".equals(o.getOverlayBlendMode())) {
                     oJson.addProperty("overlayBlendMode", o.getOverlayBlendMode());
                 }
@@ -2908,6 +3028,19 @@ public class ProjectStorage {
                         // Audit 2.2. Tolerant like every other read: absent (every project
                         // written before this) keeps AudioClip's 0.060f default, which is
                         // exactly the value those projects were being reset to anyway.
+                        if (hasValue(acObj, "captionAnimPreset")) {
+                            ac.setCaptionAnimPreset(acObj.get("captionAnimPreset").getAsString());
+                        }
+                        if (hasValue(acObj, "captionAnimGranularity")) {
+                            ac.setCaptionAnimGranularity(acObj.get("captionAnimGranularity").getAsString());
+                        }
+                        if (hasValue(acObj, "captionAnimInPct") || hasValue(acObj, "captionAnimOutPct")) {
+                            ac.setCaptionAnimZones(
+                                    hasValue(acObj, "captionAnimInPct")
+                                            ? acObj.get("captionAnimInPct").getAsFloat() : 0f,
+                                    hasValue(acObj, "captionAnimOutPct")
+                                            ? acObj.get("captionAnimOutPct").getAsFloat() : 0f);
+                        }
                         if (hasValue(acObj, "captionSizeFraction")) {
                             ac.setCaptionSizeFraction(
                                     acObj.get("captionSizeFraction").getAsFloat());
@@ -2927,6 +3060,9 @@ public class ProjectStorage {
                                 if (hasValue(bj, "label")) b.label = bj.get("label").getAsString();
                                 if (hasValue(bj, "fadeInMs")) b.fadeInMs = bj.get("fadeInMs").getAsLong();
                                 if (hasValue(bj, "fadeOutMs")) b.fadeOutMs = bj.get("fadeOutMs").getAsLong();
+                                if (hasValue(bj, "boxW")) b.boxWidthFraction = bj.get("boxW").getAsFloat();
+                                if (hasValue(bj, "anchor")) b.anchor = bj.get("anchor").getAsInt();
+                                if (hasValue(bj, "justify")) b.justify = bj.get("justify").getAsInt();
                                 bindings.add(b);
                             }
                             ac.setCaptionBindings(bindings);
@@ -3065,8 +3201,29 @@ public class ProjectStorage {
                         // always did.
                         if (hasValue(oObj, "passThrough")) o.setPassThrough(oObj.get("passThrough").getAsBoolean());
                         if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
+                        // SPEC B rotation pivot — TOLERANT: absent keys are the centre pivot,
+                        // so a project written before this loads and renders exactly as it
+                        // always did. Both keys must be present; a lone one would leave the
+                        // pivot half-set, the same contract motionStartMs/motionEndMs use.
+                        if (hasValue(oObj, "pivotX") && hasValue(oObj, "pivotY")) {
+                            o.setRotationPivot(oObj.get("pivotX").getAsFloat(),
+                                    oObj.get("pivotY").getAsFloat());
+                        }
                         if (hasValue(oObj, "scaleX")) o.setScaleX(oObj.get("scaleX").getAsFloat());
                         if (hasValue(oObj, "scaleY")) o.setScaleY(oObj.get("scaleY").getAsFloat());
+                        // Corner pin — TOLERANT, and that is the whole contract: an absent key is
+                        // zero, zero is undistorted, so a project written before corner pin
+                        // existed loads and renders exactly as it always did. Nothing here can
+                        // fail on old JSON because nothing here is required.
+                        for (int pc = 0; pc < 4; pc++) {
+                            for (int pa = 0; pa < 2; pa++) {
+                                String pk = com.fadcam.ui.faditor.model.CornerPin
+                                        .jsonKeyFor(pc, pa);
+                                if (hasValue(oObj, pk)) {
+                                    o.setCornerPin(pc, pa, oObj.get(pk).getAsFloat());
+                                }
+                            }
+                        }
                         if (hasValue(oObj, "overlayBlendMode")) o.setOverlayBlendMode(oObj.get("overlayBlendMode").getAsString());
                         if (hasValue(oObj, "compositing")) {
                             try {

@@ -553,3 +553,44 @@ if that later writer also names both axes.
 
 **Trigger:** Two features animating different properties of one view; symptom is
 a transform stuck at a partial value after opening two drawers quickly.
+
+## A dead session's last edit can leave DUPLICATE declarations - grep the diff before assuming it compiled
+
+**Pattern (2026-08-31, SPEC_20260831_CAPTION_SLIDES_UX):** the previous session died mid-edit and
+left `android.widget.LinearLayout.LayoutParams flp` declared TWICE in one scope in
+buildCaptionFitTab (FaditorEditorActivity). The tree could not compile; nothing downstream could
+have verified. Its todo.md checkboxes also claimed work that was only half-landed.
+
+**Rule:** When resuming after a crashed/killed session: (1) run the mojibake gate first
+(`rg -c "â|Ã|Â"` on every dirty file - that session double-encoded two whole files), (2) scan the
+diff for duplicate declarations / orphaned half-edits BEFORE building on top, (3) never trust the
+previous session's checkboxes - grep the symbols.
+
+## Tool encoding: only dedicated file Edit tools may touch source; shell writers double-encode
+
+**Pattern:** PowerShell-based writes (Set-Content/Out-File/[IO.File]::WriteAllText with default
+encoding) turned every em-dash into `â€"`, box-chars into `â”€` across two 1MB+ files (6,549
+corrupted chars). Strict-UTF-8 read + CP1252 re-encode + strict-UTF-8 validate reverses it;
+single intentional chars (like the literal â in encoding-check docs) must be left alone, so use a
+run-based repair (convert only char runs whose CP1252 bytes form valid UTF-8), never a whole-file
+recode on a mixed file.
+
+**Rule:** Source edits go through Read/Edit tools only. After any bulk or scripted edit:
+`rg -c "â|Ã|Â"` must be 0 (expected exceptions documented), and `git add` immediately (hazard rule).
+
+## Handles bugs: identify the widget that ACTUALLY draws for the object type first
+
+**Pattern (SPEC B pivot, 2026-09-05):** the pivot fold was implemented in
+PreviewHandlesOverlay/textHandlesTarget — but a SELECTED IMAGE is surrendered to
+TransformOverlayView + CornerPinTransformHost ("now that [transform] is simply what a selected
+image looks like"), so the fix landed on a surface that never draws for images, and three
+device rounds were spent on symptoms (8%/30% offsets, under-shoot, flip displacement) before
+the routing was checked. The presentation fold must also round-trip: read-side fold in
+readQuad comes free via frame(), but writeQuad/writeSimilarity must UN-FOLD (pin offsets and
+the pose centre live in the stored pose frame) or every gesture writes polluted offsets.
+
+**Rule:** Before fixing a handles/overlay bug, grep the routing (setTarget(null) +
+ensureTransformOverlay) to learn which surface owns the object type. Any presentation-only
+transform applied on read must have its exact inverse applied on write. Verify on device by
+screenshot (adb shell screencap + pull; NEVER PowerShell > redirection of adb binary
+output — it corrupts the PNG).

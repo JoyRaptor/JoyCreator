@@ -36,6 +36,33 @@ public class Transcript {
         return words.isEmpty();
     }
 
+    /**
+     * A cheap fingerprint of the WORD CONTENT — text, timing, strike state and forced line
+     * breaks. It changes whenever anything a caption draws changes.
+     *
+     * <p><b>Why this exists.</b> A Transcript is edited IN PLACE: {@code struck} and
+     * {@code forceLineBreakAfter} are mutable fields on the shared {@link TranscriptWord}
+     * objects, and a text/timing edit replaces entries in {@link #words}. Every cache that
+     * keyed on the Transcript's <i>identity</i> (or on {@code words.size()}) therefore
+     * survived a content change, and the preview kept drawing the pre-edit captions until
+     * something unrelated rebuilt the views — the "it takes a while to proliferate"
+     * staleness. Identity is not a version; this is.</p>
+     *
+     * <p>A {@link #windowed} view shares the same word objects, so the fingerprint of a
+     * window tracks in-place edits made through the source, which is exactly what the
+     * preview overlays need.</p>
+     */
+    public int contentSignature() {
+        int h = 1 + words.size();
+        for (TranscriptWord w : words) {
+            h = 31 * h + w.text.hashCode();
+            h = 31 * h + (int) (w.startMs ^ (w.startMs >>> 32));
+            h = 31 * h + (int) (w.endMs ^ (w.endMs >>> 32));
+            h = 31 * h + (w.struck ? 1 : 0) + (w.forceLineBreakAfter ? 2 : 0);
+        }
+        return h;
+    }
+
     /** Deep copy, preserving each word's edit state. */
     @NonNull
     public Transcript copy() {

@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 8,
+  "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0001",
+  "name": "FADE_8B_VERIFY",
+  "createdAt": 1784400501225,
+  "lastModified": 1788028370999,
+  "timeline": {
+    "clips": [
+      {
+        "id": "abf454de-5a61-45d3-927a-e896c81e9d48",
+        "sourceUri": "content://com.android.providers.media.documents/document/video%3A123774",
+        "imageClip": false,
+        "inPointMs": 1528,
+        "outPointMs": 3528,
+        "sourceDurationMs": 5526,
+        "speedMultiplier": 1.0,
+        "audioMuted": false,
+        "volumeLevel": 1.0,
+        "rotationDegrees": 0,
+        "flipHorizontal": false,
+        "flipVertical": false,
+        "cropPreset": "custom",
+        "cropLeft": 0.0,
+        "cropTop": 0.0,
+        "cropRight": 1.0,
+        "cropBottom": 1.0,
+        "captionsEnabled": false,
+        "captionStyleId": "pop",
+        "captionCenterX": 0.5,
+        "captionCenterY": 0.82,
+        "captionSizeFraction": 0.06
+      }
+    ],
+    "audioClips": [],
+    "textOverlays": [
+      {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "text": "",
+        "colorInt": -1,
+        "centerX": 0.5,
+        "centerY": 0.4,
+        "sizeFraction": 0.12,
+        "rotationDeg": 0.0,
+        "imageUri": "content://com.android.providers.media.documents/document/image%3A127378",
+        "layerId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002",
+        "startMs": 0,
+        "endMs": 4000,
+        "scaleX": 1.5,
+        "scaleY": 1.5,
+        "imageFadeInMs": 300,
+        "imageFadeOutMs": 0
+      },
+      {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "text": "",
+        "colorInt": -1,
+        "centerX": 0.5,
+        "centerY": 0.6,
+        "sizeFraction": 0.12,
+        "rotationDeg": 0.0,
+        "imageUri": "content://com.android.providers.media.documents/document/image%3A127378",
+        "layerId": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003",
+        "startMs": 0,
+        "endMs": 4000,
+        "scaleX": 1.5,
+        "scaleY": 1.5,
+        "imageFadeInMs": 3000,
+        "imageFadeOutMs": 0
+      }
+    ],
+    "rippleMode": "ripple",
+    "layers": {
+      "masterTrack": {
+        "id": "master",
+        "kind": "MASTER",
+        "name": "Master",
+        "zIndex": 0,
+        "collapsed": false,
+        "hidden": false,
+        "locked": false,
+        "muted": false,
+        "items": [
+          {
+            "id": "abf454de-5a61-45d3-927a-e896c81e9d48",
+            "timelineStartMs": 0,
+            "zHint": 0,
+            "blendMode": "NORMAL",
+            "payloadKind": "clip",
+            "payloadId": "abf454de-5a61-45d3-927a-e896c81e9d48"
+          }
+        ]
+      },
+      "layers": [
+        {
+          "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002",
+          "kind": "TEXT",
+          "name": "IMG 0.3s",
+          "zIndex": 0,
+          "collapsed": false,
+          "hidden": false,
+          "locked": false,
+          "muted": false,
+          "items": [
+            {
+              "id": "11111111-1111-1111-1111-111111111111",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "11111111-1111-1111-1111-111111111111"
+            }
+          ]
+        },
+        {
+          "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003",
+          "kind": "TEXT",
+          "name": "IMG 3.0s",
+          "zIndex": 1,
+          "collapsed": false,
+          "hidden": false,
+          "locked": false,
+          "muted": false,
+          "items": [
+            {
+              "id": "22222222-2222-2222-2222-222222222222",
+              "timelineStartMs": 0,
+              "zHint": 0,
+              "blendMode": "NORMAL",
+              "payloadKind": "textOverlay",
+              "payloadId": "22222222-2222-2222-2222-222222222222"
+            }
+          ]
+        }
+      ],
+      "audioTracks": [],
+      "trackDefs": [
+        {
+          "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0002",
+          "kind": "TEXT",
+          "name": "IMG 0.3s"
+        },
+        {
+          "id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeee0003",
+          "kind": "TEXT",
+          "name": "IMG 3.0s"
+        }
+      ]
+    }
+  },
+  "canvasPreset": "original",
+  "exportSettings": {
+    "resolution": "HD_720P",
+    "quality": "LOW",
+    "format": "MP4",
+    "cleanAudio": false
+  }
+}

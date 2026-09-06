@@ -64,6 +64,38 @@ public class CaptionStyle {
 
     /** Max lines, 0 = unlimited. When set, a cue must also fit within this many lines. */
     public int fitMaxLines = 0;
+
+    /** SPEC_20260831_CAPTION_SLIDES_UX: true = fit shrinks to the box and may ellipsize at the floor;
+        false = width-only fit, the column may run off screen. Applies when fitMode != OFF. */
+    public boolean fitTruncate = true;
+
+    /**
+     * SLIDE grouping (SPEC_20260831_CAPTION_SLIDES): one TIMING ENTRY = one caption box shown
+     * for the entry's full span, wrapped by word inside the box. For imports where a whole
+     * scripture paragraph shares one timestamp this is the readable form; the default 6-word
+     * karaoke grouping chops such a paragraph into a ticker. Off by default — speech captions
+     * keep the normal grouping.
+     */
+    public boolean slideGroup = false;
+
+    /**
+     * Corner radius of the caption's backing plate (the "box"/pill), as a FRACTION OF THE FONT
+     * SIZE — not px. Captions are authored once and then ride every line length and every
+     * export resolution, so a px radius would read as a hard square on a 4K export and a
+     * lozenge on a preview. 0 = square corners, 0.5 = fully rounded ends.
+     *
+     * <p>The default 0.35 is exactly the constant the renderers hard-coded before this field
+     * existed, so every project written before it looks identical after it.</p>
+     */
+    public static final float PILL_CORNER_DEFAULT = 0.35f;
+    public float pillCornerScale = PILL_CORNER_DEFAULT;
+
+    /** Clamp for {@link #pillCornerScale} — the one place the legal range lives. */
+    public static float clampPillCorner(float v) {
+        if (Float.isNaN(v) || v < 0f) return 0f;
+        return Math.min(0.5f, v);
+    }
+
     /** Stroke outline around every word. */
     public boolean outline = false;
     public int outlineColor = 0xFF000000;
@@ -90,12 +122,15 @@ public class CaptionStyle {
                 pill, pillColor, bold, anim);
         c.fontKey = fontKey;
         c.maxWords = maxWords;
+        c.slideGroup = slideGroup;
         c.fitMode = fitMode;
         c.fitMinScale = fitMinScale;
         c.fitMaxLines = fitMaxLines;
+        c.fitTruncate = fitTruncate;
         c.outline = outline;
         c.outlineColor = outlineColor;
         c.shadow = shadow;
+        c.pillCornerScale = pillCornerScale;
         return c;
     }
 
@@ -116,13 +151,14 @@ public class CaptionStyle {
         // downloaded font worked on text and was silently swallowed here, falling through the
         // switch to plain sans. JoyRaptor asked for both: "CC and text of course."
         if (fontKey != null && fontKey.startsWith("file:")) {
-            try {
-                Typeface f = Typeface.createFromFile(fontKey.substring(5));
-                if (f != null) return bold ? Typeface.create(f, Typeface.BOLD) : f;
-            } catch (Exception ignored) {
-                // Font deleted or unreadable since it was chosen — fall through to the
-                // built-ins rather than crashing a render.
-            }
+            // Via FontLibrary's cache, NEVER Typeface.createFromFile directly: this method is
+            // called once per word per candidate size by the caption fitter, and a raw
+            // createFromFile there re-parses the font file every time. That was the cause of
+            // the editor's 10-second input-dispatch ANRs and its 2.1 GB native heap.
+            Typeface f = com.fadcam.ui.faditor.text.FontLibrary.typefaceForFile(fontKey.substring(5));
+            // Null means the font was deleted or is unreadable since it was chosen - fall
+            // through to the built-ins rather than crashing a render.
+            if (f != null) return bold ? Typeface.create(f, Typeface.BOLD) : f;
         }
         switch (fontKey) {
             case "serif":   base = Typeface.SERIF; break;
@@ -182,8 +218,11 @@ public class CaptionStyle {
             o.put("fitMode", fitMode.name());
             o.put("fitMinScale", (double) fitMinScale);
             o.put("fitMaxLines", fitMaxLines);
+            o.put("fitTruncate", fitTruncate);
+            o.put("slideGroup", slideGroup);
             // Keep old key for readers that still look for it (migrated on read).
             o.put("autoFit", fitMode != FitMode.OFF);
+            o.put("pillCornerScale", (double) pillCornerScale);
             o.put("outline", outline);
             o.put("outlineColor", outlineColor);
             o.put("shadow", shadow);
@@ -223,6 +262,12 @@ public class CaptionStyle {
             s.fitMaxLines = o.optInt("fitMaxLines", 0);
             if (s.fitMaxLines < 0) s.fitMaxLines = 0;
             if (s.fitMaxLines > 20) s.fitMaxLines = 20;
+            s.fitTruncate = o.optBoolean("fitTruncate", true);
+            s.slideGroup = o.optBoolean("slideGroup", false);
+            // Tolerant read: absent (every project written before this field) falls back to the
+            // constant the renderers used to hard-code, so nothing shifts on load.
+            s.pillCornerScale = clampPillCorner(
+                    (float) o.optDouble("pillCornerScale", PILL_CORNER_DEFAULT));
             s.outline = o.optBoolean("outline", false);
             s.outlineColor = o.optInt("outlineColor", 0xFF000000);
             s.shadow = o.optBoolean("shadow", true);

@@ -47,6 +47,17 @@ public class TranscriptPanelView extends View {
         default void onLineBreaksChanged() {}
         /** The currently-highlighted word changed (playback advanced). */
         default void onActiveWordChanged(int index) {}
+        /**
+         * User TAPPED a word in the panel (a real tap — not a drag, not a long-press, not a
+         * double-tap line-break, and not a navigation tap on a word owned by another clip).
+         *
+         * <p>Fired IN ADDITION to {@link #onSeekToMs(long)}, never instead of it, so the tap
+         * keeps its existing meaning. The host uses it to point the word-edit drawer at this
+         * word — the panel's equivalent of tapping a word on the timeline tape — so the
+         * owner can tap a word, tap ALL CAPS, tap the next word, tap ALL CAPS, without
+         * zooming the tape to find the word he can already read here.</p>
+         */
+        default void onWordTapped(int index) {}
         /** Paragraph reordered by dragging the gutter rail. */
         default void onParagraphReordered(int fromIndex, int toIndex) {}
         /** User tapped a collapsed paragraph's label — rename it to become a chapter. */
@@ -899,6 +910,12 @@ public class TranscriptPanelView extends View {
                             lastTapTime = now;
                             activeIndex = idx;
                             invalidate();
+                            // Retarget BEFORE the seek: the drawer must follow the word the
+                            // user can see under his finger, and the seek can re-home the
+                            // panel onto a neighbouring clip, which would make this index
+                            // mean a different word. The host ignores this entirely while
+                            // the drawer is closed, so a plain tap is unchanged.
+                            listener.onWordTapped(idx);
                             listener.onSeekToMs(seekTargetMsFor(idx));
                         }
                     }
@@ -1012,6 +1029,61 @@ public class TranscriptPanelView extends View {
         long ns = Math.max(0, newStartMs);
         transcript.words.set(index, new TranscriptWord(old.text, ns, ns + dur,
                 old.struck, old.forceLineBreakAfter));
+        paragraphData = TranscriptParagraphs.of(transcript);
+        collapsedParagraphs.clear();
+        laidOutForWidth = -1;
+        requestLayout();
+        invalidate();
+    }
+
+    /**
+     * Replace the {@code count} entries starting at {@code index} with ONE entry carrying the
+     * whole text — spaces do NOT split. The merged entry keeps the span's existing start
+     * (first entry's start) and end (last entry's end), so a slide keeps its slot exactly.
+     *
+     * <p>This is the "one block" half of the BLOCK/KARAOKE commit. Editing a slide-format
+     * entry — a whole Bible verse sitting in one time slot — used to run through
+     * {@link #editWord} and shatter into one timed word per space, destroying the slide.
+     * Blank text deletes the span, matching editWord.</p>
+     */
+    public void editWordSpanAsBlock(int index, int count, @NonNull String newText) {
+        if (transcript == null || index < 0 || index >= transcript.words.size()) return;
+        int n = Math.max(1, Math.min(count, transcript.words.size() - index));
+        TranscriptWord first = transcript.words.get(index);
+        TranscriptWord last = transcript.words.get(index + n - 1);
+        long spanStart = first.startMs;
+        long spanEnd = Math.max(spanStart, last.endMs);
+        // Collapse the whole run of internal whitespace so a pasted verse with newlines or
+        // double spaces becomes one clean line, but never split on it.
+        String block = newText.trim().replaceAll("\\s+", " ");
+        java.util.List<TranscriptWord> replacement = new java.util.ArrayList<>();
+        if (!block.isEmpty()) {
+            replacement.add(new TranscriptWord(block, spanStart, spanEnd,
+                    first.struck, last.forceLineBreakAfter));
+        }
+        for (int i = 0; i < n; i++) transcript.words.remove(index);
+        transcript.words.addAll(index, replacement);
+        refreshWordLayout();
+    }
+
+    /**
+     * Replace the {@code count} entries starting at {@code index} by splitting {@code newText}
+     * on whitespace, distributing the span's time across the resulting words (karaoke commit).
+     */
+    public void editWordSpan(int index, int count, @NonNull String newText) {
+        if (transcript == null || index < 0 || index >= transcript.words.size()) return;
+        int n = Math.max(1, Math.min(count, transcript.words.size() - index));
+        if (n > 1) {
+            // Collapse the run into one entry spanning the same time, then let editWord split it.
+            editWordSpanAsBlock(index, n, "placeholder");
+            if (index >= transcript.words.size()) return;
+        }
+        editWord(index, newText);
+    }
+
+    /** Rebuild paragraph data + layout after words were replaced (also used by undo/redo). */
+    public void refreshWordLayout() {
+        if (transcript == null) return;
         paragraphData = TranscriptParagraphs.of(transcript);
         collapsedParagraphs.clear();
         laidOutForWidth = -1;

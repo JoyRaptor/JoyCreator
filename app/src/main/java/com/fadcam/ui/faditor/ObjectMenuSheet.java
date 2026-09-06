@@ -815,7 +815,8 @@ public final class ObjectMenuSheet extends LinearLayout {
     private final class Row implements KeyframeDiamondControl.Host {
         final Prop prop;
         final LinearLayout view;      // vertical: controls row + hint line
-        final SeekBar bar;
+        @Nullable final SeekBar bar;  // null on the Rotate row — SPEC F's dial replaces it
+        @Nullable final com.fadcam.ui.faditor.tools.RotationDialView dialView;
         final TextView value;
         final TextView hint;
         // §2: null for STATIC props (visualizer / audio placement) — no keyframes,
@@ -842,9 +843,22 @@ public final class ObjectMenuSheet extends LinearLayout {
             label.setWidth(dp(64));
             controls.addView(label);
 
-            bar = new SeekBar(getContext());
-            bar.setMax(SLIDER_STEPS);
-            controls.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+            if (com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(p.key)) {
+                // SPEC F: Rotate is a dial, not a bounded slider — the winding is visible
+                // (countable rings, centre core) and drag reports raw degrees. The value
+                // text, keyframe diamond and arming hint are untouched.
+                bar = null;
+                final com.fadcam.ui.faditor.tools.RotationDialView dial =
+                        new com.fadcam.ui.faditor.tools.RotationDialView(getContext());
+                dial.setDegrees(p.get.at(playheadMs));
+                controls.addView(dial, new LayoutParams(dp(40), dp(40)));
+                dialView = dial;
+            } else {
+                bar = new SeekBar(getContext());
+                bar.setMax(SLIDER_STEPS);
+                controls.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+                dialView = null;
+            }
 
             value = new TextView(getContext());
             value.setTextColor(TXT);
@@ -864,6 +878,48 @@ public final class ObjectMenuSheet extends LinearLayout {
                 controls.addView(diamond, dlp);
             } else {
                 diamond = null;
+            }
+
+            // SPEC F: the dial's gestures mirror the slider's — the same undo brackets
+            // (hooks), the same arming hint, and a tap opens the SAME typing prompt the
+            // PipDrawerTabs rows use (these rows had no value-tap before the dial).
+            if (dialView != null) {
+                dialView.setListener(new com.fadcam.ui.faditor.tools.RotationDialView.Listener() {
+                    @Override public void onDragStart() {
+                        touching = true;
+                        setActiveKey(prop.key);
+                        maybeFlashArmingHint();
+                        if (hooks != null) hooks.onSliderStart();
+                    }
+                    @Override public void onDragDelta() {
+                        // Raw degrees — the dial never maps into the slider's window.
+                        prop.set.write(dialView.getDegrees(), playheadMs);
+                        value.setText(prop.format.format(dialView.getDegrees()));
+                        if (diamond != null) diamond.refresh(playheadMs);
+                    }
+                    @Override public void onDragEnd() {
+                        touching = false;
+                        if (hooks != null) hooks.onSliderCommit(prop.label);
+                        refresh();
+                    }
+                    @Override public void onTap() {
+                        com.fadcam.ui.faditor.tools.PipDrawerTabs.promptForValue(getContext(),
+                                prop, new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
+                                    @Override public long playheadMs() { return playheadMs; }
+                                    @Override public void onChanged() { refreshRows(); }
+                                    // promptForValue never picks colours; nothing to arm here.
+                                    @Override public void pickColorFromPreview(
+                                            @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
+                                        cb.onPicked(null);
+                                    }
+                                    // promptForValue never records undo through the Host — the
+                                    // sheet's undo brackets live in GestureHooks. Interface parity only.
+                                    @Override public void recordUndo(@NonNull String label,
+                                            @NonNull Runnable redo, @NonNull Runnable undo) { }
+                                },
+                                prop.min, prop.max, () -> refreshRows());
+                    }
+                });
             }
 
             // C7: appears under the row on the first un-armed drag, then fades.
@@ -924,8 +980,12 @@ public final class ObjectMenuSheet extends LinearLayout {
         void refresh() {
             if (!touching) {
                 float v = prop.get.at(playheadMs);
-                int progress = Math.round((v - prop.min) / (prop.max - prop.min) * SLIDER_STEPS);
-                bar.setProgress(Math.max(0, Math.min(SLIDER_STEPS, progress)));
+                if (dialView != null) {
+                    dialView.setDegrees(v);          // raw winding — no window mapping
+                } else {
+                    int progress = Math.round((v - prop.min) / (prop.max - prop.min) * SLIDER_STEPS);
+                    bar.setProgress(Math.max(0, Math.min(SLIDER_STEPS, progress)));
+                }
                 value.setText(prop.format.format(v));
             }
             if (diamond != null) diamond.refresh(playheadMs);

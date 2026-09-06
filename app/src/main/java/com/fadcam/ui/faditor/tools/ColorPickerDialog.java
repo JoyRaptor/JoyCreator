@@ -130,15 +130,75 @@ public final class ColorPickerDialog {
         root.setPadding(pad, pad, pad, Math.round(6 * d));
         root.setClipChildren(false);
 
+        // Declared up here because the opacity control on the title row below pushes through it,
+        // and it is assigned further down once every control exists.
+        final Runnable[] syncFromHsb = new Runnable[1];
+
         // The caller's label ("Glow", "Stop color", …) — the only way the drawer says what it is
-        // picking for.
+        // picking for — and, on the SAME LINE, opacity.
+        //
+        // Opacity rides the title row on purpose (JoyRaptor, 2026-09-01): the picker is a bottom
+        // drawer over the preview, so height is the scarce dimension, and a fourth slider under
+        // H/S/B would push the wheel up. The title row was a single short label with the whole
+        // right half empty, so the control costs NO height at all. Alpha itself was already
+        // plumbed end-to-end (Color.HSVToColor(alpha[0], hsb)) — only the UI was missing.
+        LinearLayout titleRow = new LinearLayout(ctx);
+        titleRow.setOrientation(LinearLayout.HORIZONTAL);
+        titleRow.setGravity(Gravity.CENTER_VERTICAL);
+        titleRow.setPadding(0, 0, 0, Math.round(6 * d));
+
         TextView titleView = new TextView(ctx);
         titleView.setText(title);
         titleView.setTextColor(0xFFE8E8E8);
         titleView.setTextSize(14f);
         titleView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
-        titleView.setPadding(0, 0, 0, Math.round(6 * d));
-        root.addView(titleView);
+        titleView.setSingleLine(true);
+        titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        // Weight 1: a long caller label gives way to the opacity control rather than pushing it
+        // off the row.
+        titleRow.addView(titleView, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView alphaLab = new TextView(ctx);
+        alphaLab.setText("Opacity");
+        alphaLab.setTextColor(0xFFBBBBBB);
+        alphaLab.setTextSize(12f);
+        alphaLab.setPadding(Math.round(6 * d), 0, Math.round(4 * d), 0);
+        titleRow.addView(alphaLab);
+
+        final SeekBar alphaBar = new SeekBar(ctx);
+        alphaBar.setMax(100);
+        titleRow.addView(alphaBar, new LinearLayout.LayoutParams(
+                Math.round(96 * d), LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        final TextView alphaNum = new TextView(ctx);
+        alphaNum.setTextColor(0xFFE8E8E8);
+        alphaNum.setTextSize(12.5f);
+        alphaNum.setWidth(Math.round(34 * d));
+        alphaNum.setGravity(Gravity.END);
+        titleRow.addView(alphaNum);
+
+        root.addView(titleRow);
+
+        alphaBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar sb, int p, boolean fromUser) {
+                if (!fromUser) return;
+                alpha[0] = Math.round(p * 255f / 100f);
+                // Dragging opacity on a "none" selection means the user wants a colour, the same
+                // way touching H/S/B does.
+                isNone[0] = false;
+                syncFromHsb[0].run();
+            }
+            @Override public void onStartTrackingTouch(SeekBar sb) { }
+            @Override public void onStopTrackingTouch(SeekBar sb) { }
+        });
+        // Same "looks like text, is a control" affordance as the H/S/B numbers.
+        alphaNum.setOnClickListener(v -> promptForNumber(ctx, "Opacity", 100,
+                Math.round(alpha[0] * 100f / 255f), val -> {
+                    alpha[0] = Math.round(val * 255f / 100f);
+                    isNone[0] = false;
+                    syncFromHsb[0].run();
+                }));
 
         // ── top: wheel (hex under it) on the left, H/S/B sliders on the right ───────────
         // The sliders' column is SHORTER than the wheel+hex column, so the swatch rows and the
@@ -179,8 +239,7 @@ public final class ColorPickerDialog {
         final SeekBar[] bars = new SeekBar[3];
         final TextView[] nums = new TextView[3];
 
-        // Declared before the rows so each row's listener can push the whole state at once.
-        final Runnable[] syncFromHsb = new Runnable[1];
+        // (syncFromHsb is declared above, with the title row's opacity control.)
 
         String[] labels = {"H", "S", "B"};
         int[] maxes = {360, 100, 100};
@@ -339,6 +398,9 @@ public final class ColorPickerDialog {
             nums[0].setText(String.valueOf(Math.round(hsb[0])));
             nums[1].setText(String.valueOf(Math.round(hsb[1] * 100f)));
             nums[2].setText(String.valueOf(Math.round(hsb[2] * 100f)));
+            int alphaPct = Math.round(alpha[0] * 100f / 255f);
+            alphaBar.setProgress(alphaPct);
+            alphaNum.setText(alphaPct + "%");
             wheel.setHsb(hsb[0], hsb[1], hsb[2]);
             hex.setText(isNone[0] ? "none" : String.format("#%06X", rgb & 0xFFFFFF));
             GradientDrawable bg = new GradientDrawable();

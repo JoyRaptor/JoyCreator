@@ -1,0 +1,1255 @@
+<title>Transform UI — feel test</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+:root{
+  --bg:#0a0a0d; --panel:#131318; --panel-2:#191920; --line:#282833; --line-soft:#1f1f28;
+  --text:#ececf2; --dim:#9a9aab; --dimmer:#6c6c7c;
+  --accent:#a78bfa; --accent-2:#4fd1c5; --good:#6ee7a8; --warn:#fbbf24; --bad:#f87171;
+  --touch:#ff3d7f; --bend:#5aa9ff;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overscroll-behavior-y:contain}
+.page{max-width:820px;margin:0 auto;padding:16px 12px 40px}
+
+header h1{font-size:21px;margin:0 0 4px;font-weight:650;letter-spacing:-.02em}
+header .kicker{font-family:var(--mono);font-size:10.5px;letter-spacing:.16em;color:var(--accent);
+  margin-bottom:5px}
+header .kicker .badge{background:#241d3d;color:#c4b5fd;border-radius:20px;padding:2px 7px;margin-left:6px;
+  font-size:9.5px;letter-spacing:.1em}
+header p{margin:0 0 12px;color:var(--dim);font-size:13px;line-height:1.5}
+header p b{color:var(--text);font-weight:600}
+
+.q{background:var(--panel);border:1px solid #4c3f7a;border-radius:14px;overflow:hidden;
+   display:flex;flex-direction:column}
+
+.stage{position:relative;background:#08080b;touch-action:none;user-select:none;-webkit-user-select:none;
+  height:min(62vh,480px);min-height:360px;overflow:hidden;cursor:default}
+
+.cell{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;will-change:transform;
+  backface-visibility:hidden}
+.cell .photo{position:absolute;pointer-events:none;transform-origin:50% 50%}
+.overlay{position:absolute;inset:0;pointer-events:none}
+/* ONLY the guide svg fills the stage. Scoped to a direct child on purpose: the old unscoped
+   rule also caught every handle glyph and blew a 19px drawing up to the full 48px touch pad,
+   which is what made the ink look so heavy. */
+.overlay>svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+
+/* every handle is a 48px target; the drawn glyph is small and thin-lined */
+.h{position:absolute;left:0;top:0;width:48px;height:48px;margin:-24px 0 0 -24px;
+   display:flex;align-items:center;justify-content:center;pointer-events:none;will-change:transform}
+.h svg{display:block;transition:transform .07s}
+.h.grab svg{transform:scale(1.28)}
+
+.ctl{padding:10px 10px 11px;border-top:1px solid var(--line-soft);background:var(--panel-2)}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.row+.row{margin-top:7px}
+button.b{appearance:none;border:1px solid #2e2e3a;background:#1e1e26;color:#b9b9c8;
+  font:600 12px/1 var(--sans);letter-spacing:.01em;border-radius:9px;padding:0 11px;height:44px;
+  min-width:44px;touch-action:manipulation;cursor:pointer;transition:background .09s,border-color .09s}
+button.b:active{background:#2a2a36}
+button.b.ghost{background:transparent;border-color:#2a2a34;color:var(--dimmer)}
+/* the Bend button IS a state light:
+   grey  = no warp at all        outline blue = net armed, nothing bent yet
+   solid blue = the shape is genuinely bent (even if the net is parked) */
+button.b.bendbtn{border-color:#2e2e3a;background:#1e1e26;color:#70707f}
+button.b.bendbtn.armed{background:transparent;border-color:#3f7ab5;color:#8fc2f5}
+button.b.bendbtn.on{background:#14304d;border-color:var(--bend);color:#dcedff}
+.sep{flex:1 1 auto}
+
+/* legend */
+.legend{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:9px}
+.lg{background:#141420;border:1px solid #24242f;border-radius:9px;padding:6px 4px 5px;text-align:center}
+.lg .pair{display:flex;align-items:center;justify-content:center;gap:7px;height:26px}
+.lg .nm{font:600 10.5px/1.2 var(--sans);color:#b9b9c8;margin-top:3px}
+.lg .sub{font:500 8.5px/1.2 var(--mono);color:var(--dimmer);letter-spacing:.06em;margin-top:1px}
+.legend-hd{font:600 9.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dimmer);margin:0 0 6px}
+.legend-hd span{color:#7d7d90;text-transform:none;letter-spacing:0;font-weight:500}
+
+.readout{margin-top:8px;font-family:var(--mono);font-size:11.5px;color:#cdbdff;background:#120f1d;
+  border:1px solid #241d3d;border-radius:8px;padding:8px 9px;line-height:1.65;
+  white-space:pre-wrap;word-break:break-word}
+.readout b{font-weight:700}
+.cost{margin-top:7px;font-size:11.5px;color:var(--dimmer);line-height:1.5}
+.cost b{color:var(--dim);font-weight:600}
+.approx{margin-top:6px;font-size:10.5px;color:var(--warn);opacity:.85;line-height:1.4}
+
+/* radial ring — each option's own outline IS the mode shape */
+.ring{position:absolute;width:224px;height:224px;margin:-112px 0 0 -112px;pointer-events:auto;
+  border-radius:50%;background:rgba(19,17,28,.965);border:1px solid #4c3f7a;
+  box-shadow:0 10px 40px rgba(0,0,0,.55);display:none;z-index:6}
+.ring.open{display:block}
+.ring button{position:absolute;padding:0;background:none;border:none;cursor:pointer;
+  touch-action:manipulation;display:flex;align-items:center;justify-content:center}
+.ring button.mode{width:58px;height:58px;margin:-29px 0 0 -29px}
+.ring button.mode .shp{position:absolute;left:0;top:0;pointer-events:none}
+.ring button.mode .tx{position:relative;font:700 10px/1 var(--sans);letter-spacing:.02em}
+.ring button.mode:active .shp{filter:brightness(1.5)}
+.ring button.diag{width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:50%;
+  border:1px solid #33333f;background:#171720;color:#9a9aab;font:400 14px/1 var(--sans);
+  flex-direction:column;gap:2px}
+.ring button.diag small{font-size:7.5px;letter-spacing:.03em;font-weight:600}
+.ring button.diag:active{filter:brightness(1.5)}
+.ring .lbl{position:absolute;left:56px;right:56px;top:50%;margin-top:-12px;text-align:center;
+  font:600 8.5px/1.35 var(--sans);color:var(--dimmer);letter-spacing:.09em;text-transform:uppercase}
+.ring .lbl b{display:block;color:#8d8da0;letter-spacing:.02em;text-transform:none;font-size:9px}
+
+/* ---- live gesture HUD: a chip that only exists mid-gesture ---- */
+.hud{position:absolute;left:0;top:0;transform:translate(-50%,0);pointer-events:none;z-index:5;
+  font:600 11px/1 var(--mono);letter-spacing:.02em;color:#cfd6e6;
+  background:rgba(10,10,14,.82);border:1px solid rgba(140,140,170,.28);border-radius:7px;
+  padding:5px 7px;white-space:nowrap;opacity:0;transition:opacity .18s ease}
+.hud.on{opacity:.92}
+
+/* ---- loupe: a vector re-draw of the same scene at 2.2x, never under the finger ---- */
+.loupe{position:absolute;width:118px;height:118px;border-radius:50%;overflow:hidden;
+  background:#08080b;border:1px solid #4c3f7a;box-shadow:0 6px 22px rgba(0,0,0,.6);
+  pointer-events:none;z-index:5;display:none;opacity:0;transition:opacity .12s ease}
+.loupe.on{opacity:1}
+.loupe .lw{position:absolute;inset:0;transform-origin:0 0}
+.loupe .lsvg{position:absolute;inset:0;width:100%;height:100%;overflow:hidden}
+.loupe .ltag{position:absolute;left:0;right:0;bottom:3px;text-align:center;
+  font:600 8px/1 var(--mono);letter-spacing:.12em;color:#6c6c7c}
+
+footer{margin-top:16px;background:var(--panel);border:1px solid var(--line-soft);border-radius:14px;
+  padding:13px 15px}
+footer h3{margin:0 0 6px;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer);
+  font-weight:600}
+footer ul{margin:0;padding-left:18px;font-size:12.5px;color:var(--dim);line-height:1.65}
+footer ul b{color:var(--text);font-weight:600}
+</style>
+
+<div class="page">
+<header>
+  <div class="kicker">OPTION B — V6<span class="badge">YOUR NOTES</span></div>
+  <h1>Smart handles, no modes</h1>
+  <p>Every handle starts as <b>Scale</b> — an ordinary right-angle box. The shape and colour of a
+  handle tells you what it will do before you touch it. <b>Press and hold any corner or any edge</b>
+  for half a second to change that one handle's job, or to flip. <b>Bend is no longer a handle job</b>
+  — it is a net you switch on over the top, and the ordinary handles keep working underneath it.
+  One finger inside pans. Two fingers scale and rotate <b>about the point between your fingers</b>.</p>
+</header>
+
+<div class="q">
+  <div class="stage" id="stage"></div>
+  <div class="ctl">
+    <div class="legend-hd">Handle vocabulary <span>— corner · edge</span></div>
+    <div class="legend" id="legend"></div>
+    <div class="row">
+      <button class="b bendbtn" id="bendBtn">Bend net: off</button>
+      <button class="b" id="loupeBtn">Loupe: on</button>
+      <span class="sep"></span>
+      <button class="b" id="resetHelpers">Reset all helpers</button>
+      <button class="b" id="resetObject">Reset the object</button>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="cost"><b>Try this:</b> turn the bend net on, pull a blue dot, then drag an amber edge
+    triangle to resize — <b>the bend stays</b>. · Hold an edge → <b>fold</b> flips the whole shape over
+    that edge like a page. · Two fingers on a corner of the picture: the crosshair is what it pivots
+    on, and it stays under your fingers. · The amber <b>spin arc</b> floating above the top edge is
+    <b>pure rotation</b> — it cannot move or resize the picture, only turn it about its own centre. ·
+    Shove a blue dot right into the middle and let go: it <b>hops to the outside</b> of the point it
+    drives, still on its hairline, so you can always grab it back. · While you drag, a faint chip near your
+    finger reports the live number (scale %, degrees, pixels) and fades away on release — the panel
+    line above stays as the persistent state. · <b>Loupe</b> parks a 2.2× window in whichever corner
+    is furthest from your finger, so a fat thumb never hides the point it is placing.</div>
+    <div class="approx">Bend drops a 3×3 net over the picture and each square is drawn as its own flat
+    four-point patch — a hard bend shows faint creases the real GPU mesh would smooth out. The
+    trapezoids are real 4-point perspective, not faked.</div>
+  </div>
+</div>
+
+<footer>
+  <h3>What is being tested</h3>
+  <ul>
+    <li><b>Does bend now stack instead of fight?</b> Bend is a separate layer. Scaling an edge no
+        longer wipes it — the bend is stored in the picture's own space and rides along.</li>
+    <li><b>Can you tell what a handle does without touching it?</b> Amber square = keeps your angles,
+        green = semi-fluid lean, red circle = goes anywhere, blue = fluid net.</li>
+    <li><b>Is the ink light enough?</b> Thin lines, small glyphs — but the invisible touch pad around
+        each one is still 48px.</li>
+  </ul>
+</footer>
+</div>
+
+<script>
+"use strict";
+/* ============================ small matrix maths ============================ */
+function adj(m){return [
+  m[4]*m[8]-m[5]*m[7], m[2]*m[7]-m[1]*m[8], m[1]*m[5]-m[2]*m[4],
+  m[5]*m[6]-m[3]*m[8], m[0]*m[8]-m[2]*m[6], m[2]*m[3]-m[0]*m[5],
+  m[3]*m[7]-m[4]*m[6], m[1]*m[6]-m[0]*m[7], m[0]*m[4]-m[1]*m[3]];}
+function mm(a,b){var c=new Array(9);for(var i=0;i<3;i++)for(var j=0;j<3;j++){var s=0;
+  for(var k=0;k<3;k++)s+=a[3*i+k]*b[3*k+j];c[3*i+j]=s;}return c;}
+function mv(m,v){return [m[0]*v[0]+m[1]*v[1]+m[2]*v[2],m[3]*v[0]+m[4]*v[1]+m[5]*v[2],
+  m[6]*v[0]+m[7]*v[1]+m[8]*v[2]];}
+function basis(x1,y1,x2,y2,x3,y3,x4,y4){
+  var m=[x1,x2,x3,y1,y2,y3,1,1,1], v=mv(adj(m),[x4,y4,1]);
+  return mm(m,[v[0],0,0,0,v[1],0,0,0,v[2]]);}
+function projFromTo(s,d){
+  return mm(basis(d[0],d[1],d[2],d[3],d[4],d[5],d[6],d[7]),
+            adj(basis(s[0],s[1],s[2],s[3],s[4],s[5],s[6],s[7])));}
+/* quad order everywhere: 0=TL 1=TR 2=BR 3=BL */
+function matrixFor(w,h,q){
+  var t=projFromTo([0,0,w,0,w,h,0,h],[q[0].x,q[0].y,q[1].x,q[1].y,q[2].x,q[2].y,q[3].x,q[3].y]);
+  if(!isFinite(t[8])||Math.abs(t[8])<1e-9) return 'matrix3d(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1)';
+  for(var i=0;i<9;i++)t[i]/=t[8];
+  return 'matrix3d('+t[0].toFixed(6)+','+t[3].toFixed(6)+',0,'+t[6].toFixed(9)+','+
+                     t[1].toFixed(6)+','+t[4].toFixed(6)+',0,'+t[7].toFixed(9)+','+
+                     '0,0,1,0,'+t[2].toFixed(4)+','+t[5].toFixed(4)+',0,1)';}
+function homoUnit(q){return projFromTo([0,0,1,0,1,1,0,1],
+  [q[0].x,q[0].y,q[1].x,q[1].y,q[2].x,q[2].y,q[3].x,q[3].y]);}
+function applyH(t,u,v){var r=mv(t,[u,v,1]);var w=r[2]||1e-9;return {x:r[0]/w,y:r[1]/w};}
+function len(a,b){return Math.hypot(b.x-a.x,b.y-a.y);}
+function deg(r){return r*180/Math.PI;}
+function clamp(v,a,b){return v<a?a:v>b?b:v;}
+/* a quad the maths can actually draw: strictly convex, no fold-through */
+function convex(q){
+  var s=0;
+  for(var i=0;i<4;i++){
+    var a=q[i],b=q[(i+1)%4],c=q[(i+2)%4];
+    var cr=(b.x-a.x)*(c.y-b.y)-(b.y-a.y)*(c.x-b.x);
+    if(!isFinite(cr)||Math.abs(cr)<12)return false;
+    var sg=cr>0?1:-1;
+    if(s===0)s=sg; else if(sg!==s)return false;
+  }
+  return true;
+}
+function inPoly(p,q){var c=false;for(var i=0,j=3;i<4;j=i++){
+  if(((q[i].y>p.y)!==(q[j].y>p.y))&&(p.x<(q[j].x-q[i].x)*(p.y-q[i].y)/(q[j].y-q[i].y)+q[i].x))c=!c;}
+  return c;}
+
+/* ============================ the placeholder photo ============================ */
+function photoSVG(w,h){
+  return '<svg width="'+w+'" height="'+h+'" viewBox="0 0 200 140" preserveAspectRatio="none">'+
+  '<defs><linearGradient id="pg" x1="0" y1="0" x2="1" y2="1">'+
+  '<stop offset="0" stop-color="#232037"/><stop offset="1" stop-color="#14202b"/></linearGradient>'+
+  '<pattern id="pgrid" width="20" height="20" patternUnits="userSpaceOnUse">'+
+  '<path d="M20 0 L0 0 0 20" fill="none" stroke="#6b6b8a" stroke-width="0.8" opacity=".5"/></pattern>'+
+  '</defs>'+
+  '<rect width="200" height="140" fill="url(#pg)"/>'+
+  '<rect width="200" height="140" fill="url(#pgrid)"/>'+
+  '<circle cx="100" cy="70" r="44" fill="none" stroke="#ff3d7f" stroke-width="3" opacity=".9"/>'+
+  '<circle cx="100" cy="70" r="18" fill="#ff3d7f" opacity=".22"/>'+
+  '<path d="M100 6 L100 134 M6 70 L194 70" stroke="#4fd1c5" stroke-width="1.4" opacity=".55"/>'+
+  /* an unmistakably asymmetric mark so a flip is obvious */
+  '<path d="M150 30 L150 96 M150 30 L178 30 M150 60 L172 60" stroke="#ffffff" stroke-width="7" '+
+    'stroke-linecap="square" opacity=".92"/>'+
+  '<rect x="16" y="16" width="52" height="11" rx="3" fill="#fbbf24" opacity=".9"/>'+
+  '<rect x="16" y="33" width="34" height="8" rx="3" fill="#a78bfa" opacity=".85"/>'+
+  '<rect x="16" y="113" width="52" height="11" rx="3" fill="#6ee7a8" opacity=".85"/>'+
+  '<rect x="1" y="1" width="198" height="138" fill="none" stroke="#c9b6ff" stroke-width="2"/>'+
+  '</svg>';
+}
+
+/* ============================ mode vocabulary ============================ */
+/* colour language: BLUE fluid · AMBER structure · GREEN semi-fluid · RED chaotic */
+var COL={scale:'#fbbf24', tilt:'#6ee7a8', free:'#ff3d7f', bend:'#5aa9ff', rot:'#fbbf24'};
+/* AMBER for rotate on purpose: amber already means "structure is preserved". Rotation is the most
+   structure-preserving move there is — every angle, every length survives — so it belongs to the
+   amber family. Its ARC outline (not a square) says it is the one that spins. */
+/* SQUARE = keeps your right angles.  TRIANGLE = the direction it will move (flat back sits
+   PARALLEL to the edge it is mounted on).  CIRCLE = any direction. */
+var SHAPE={
+  corner:{scale:'sq',  tilt:'di', free:'ci'},
+  edge:  {scale:'tri', tilt:'sq', free:'ci'}
+};
+var RINGSHAPE={scale:'sq', tilt:'di', free:'ci', bend:'net'};
+var NAME={scale:'Scale', tilt:'Tilt', free:'Free', bend:'Bend'};
+var SUB ={scale:'right angles', tilt:'shear', free:'anywhere', bend:'net · on top'};
+var MODES=['scale','tilt','free'];
+var RG={corner:{scale:'▢',tilt:'◇',free:'○'},
+        edge:  {scale:'▲',tilt:'▪',free:'○'}};
+
+/* ONE drawing routine for handles, ring options and legend, so they can never disagree.
+   `rad` is the drawn radius, `sw` the ink weight — target size is separate (.h is 48px). */
+function shapeSVG(shape,color,size,rot,rad,sw,fill){
+  var c=size/2, r=rad, o='';
+  var op='<svg class="shp" width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">';
+  if(shape==='ci')
+    o='<circle cx="'+c+'" cy="'+c+'" r="'+r+'" fill="'+fill+'" stroke="'+color+'" stroke-width="'+sw+'"/>';
+  else if(shape==='sq')
+    o='<rect x="'+(c-r)+'" y="'+(c-r)+'" width="'+(r*2)+'" height="'+(r*2)+'" rx="'+(r*0.12).toFixed(2)+'" '+
+      'fill="'+fill+'" stroke="'+color+'" stroke-width="'+sw+'" transform="rotate('+(rot||0)+' '+c+' '+c+')"/>';
+  else if(shape==='di')
+    o='<rect x="'+(c-r*0.9)+'" y="'+(c-r*0.9)+'" width="'+(r*1.8)+'" height="'+(r*1.8)+'" rx="'+(r*0.1).toFixed(2)+'" '+
+      'fill="'+fill+'" stroke="'+color+'" stroke-width="'+sw+'" transform="rotate('+(45+(rot||0))+' '+c+' '+c+')"/>';
+  else if(shape==='tri'){
+    /* apex up, flat back at the bottom; rot spins the apex toward the inward normal, which
+       leaves the flat back exactly PARALLEL to the edge it sits on */
+    var pts=[c+','+(c-r*1.15), (c-r*1.08)+','+(c+r*0.8), (c+r*1.08)+','+(c+r*0.8)].join(' ');
+    o='<polygon points="'+pts+'" fill="'+fill+'" stroke="'+color+'" stroke-width="'+sw+'" '+
+      'stroke-linejoin="round" transform="rotate('+(rot||0)+' '+c+' '+c+')"/>';
+  }
+  else if(shape==='rot'){
+    /* an almost-closed arc with one arrowhead: reads as "spin", cannot be mistaken for a
+       square (right angles), a triangle (a direction) or a circle (anywhere). */
+    var rr=r*0.92;
+    var pol=function(ad){var a=ad*Math.PI/180;return {x:c+rr*Math.cos(a),y:c+rr*Math.sin(a)};};
+    /* start at the RIGHT of the gap and sweep the long way round, so large-arc + sweep agree
+       and the arc really is centred on the glyph (the other flag pairing draws an off-centre
+       stub — that was the first attempt) */
+    var p1=pol(288), p2=pol(252);
+    var ta=252*Math.PI/180, tx=-Math.sin(ta), ty=Math.cos(ta);
+    var nx2=-ty, ny2=tx, hl=r*0.55, hw2=r*0.42;
+    var tip={x:p2.x+tx*hl,y:p2.y+ty*hl};
+    var b1={x:p2.x-tx*hl*0.35+nx2*hw2,y:p2.y-ty*hl*0.35+ny2*hw2};
+    var b2={x:p2.x-tx*hl*0.35-nx2*hw2,y:p2.y-ty*hl*0.35-ny2*hw2};
+    o='<path d="M'+p1.x.toFixed(2)+' '+p1.y.toFixed(2)+' A'+rr.toFixed(2)+' '+rr.toFixed(2)+
+      ' 0 1 1 '+p2.x.toFixed(2)+' '+p2.y.toFixed(2)+'" fill="none" stroke="'+color+
+      '" stroke-width="'+sw+'" stroke-linecap="round"/>'+
+      '<polygon points="'+tip.x.toFixed(2)+','+tip.y.toFixed(2)+' '+b1.x.toFixed(2)+','+b1.y.toFixed(2)+
+      ' '+b2.x.toFixed(2)+','+b2.y.toFixed(2)+'" fill="'+color+'" stroke="'+color+
+      '" stroke-width="'+(sw*0.5).toFixed(2)+'" stroke-linejoin="round"/>';
+  }
+  else if(shape==='net'){
+    var a=c-r, b2=r*2, t=r*2/3;
+    o='<rect x="'+a+'" y="'+a+'" width="'+b2+'" height="'+b2+'" rx="'+(r*0.12).toFixed(2)+'" '+
+      'fill="'+fill+'" stroke="'+color+'" stroke-width="'+sw+'"/>'+
+      '<path d="M'+(a+t)+' '+a+' V'+(a+b2)+' M'+(a+2*t)+' '+a+' V'+(a+b2)+
+          ' M'+a+' '+(a+t)+' H'+(a+b2)+' M'+a+' '+(a+2*t)+' H'+(a+b2)+'" '+
+        'stroke="'+color+'" stroke-width="'+(sw*0.6).toFixed(2)+'" opacity=".55" fill="none"/>';
+  }
+  return op+o+'</svg>';
+}
+/* handle / legend ink: still small glyphs, touch target untouched — but the LINE is now the same
+   weight as the lavender guide box (v3 was 1.4 and read thinner than the outline next to it). */
+var INK=1.75;
+function glyph(shape,color,size,rot){
+  return shapeSVG(shape,color,size,rot||0,size*0.335,INK,'#0c0c10');
+}
+
+/* ============================ the sandbox ============================ */
+var HIT=32;
+var N=3;                                  /* always a 3x3 net: corners, edge mids, centre */
+function idx(r,c){return r*N+c;}
+var CMESH=[idx(0,0),idx(0,2),idx(2,2),idx(2,0)];   /* quad corner -> mesh index */
+var EMESH=[idx(0,1),idx(1,2),idx(2,1),idx(1,0)];   /* edge 0=top 1=right 2=bottom 3=left */
+var CENTRE=idx(1,1);
+var EPAIR=[[0,1],[1,2],[3,2],[0,3]];               /* the two quad corners on each edge */
+var EOPP =[[3,2],[0,3],[0,1],[1,2]];               /* and their opposites */
+var ZERO={u:0,v:0};
+
+var S={
+  stage:document.getElementById('stage'),
+  cells:[], handles:[], pts:{},
+  cRole:['scale','scale','scale','scale'],
+  eRole:['scale','scale','scale','scale'],
+  bendOn:false,
+  flipH:false, flipV:false
+};
+
+function baseSize(W,H){
+  var bw=Math.round(Math.min(W*0.56,H*0.62/0.7,300));
+  return {w:bw,h:Math.round(bw*0.70)};
+}
+function layoutBase(){
+  var r=S.stage.getBoundingClientRect();
+  S.W=Math.max(1,r.width); S.H=Math.max(1,r.height);
+  var b=baseSize(S.W,S.H);
+  S.bw=b.w; S.bh=b.h;
+  var cx=S.W/2, cy=S.H/2, hw=S.bw/2, hh=S.bh/2;
+  S.quad=[{x:cx-hw,y:cy-hh},{x:cx+hw,y:cy-hh},{x:cx+hw,y:cy+hh},{x:cx-hw,y:cy+hh}];
+}
+/* -------- BEND LIVES IN THE PICTURE'S OWN UNIT SPACE, NOT IN STAGE PIXELS --------
+   Every net point is stored as a (u,v) nudge inside the 0..1 square of the picture, and is
+   pushed through the CURRENT homography every frame. Change the quad however you like —
+   scale an edge, tilt a corner, pinch, fold — and the bend is re-projected with it instead of
+   being wiped. This is the whole fix for "scaling the edge undid my bend". */
+function zeroOff(){S.uoff=[];S.bendFlip=[];
+  for(var i=0;i<N*N;i++){S.uoff.push({u:0,v:0});S.bendFlip.push(false);}}
+function offOf(i){return S.bendOn?S.uoff[i]:ZERO;}
+function baseUV(r,c){return {u:c/(N-1), v:r/(N-1)};}
+function syncH(){S._H=homoUnit(S.quad);}
+function meshPt(r,c){
+  var b=baseUV(r,c), o=offOf(idx(r,c));
+  return applyH(S._H,b.u+o.u,b.v+o.v);
+}
+function meshAt(mi){return meshPt(Math.floor(mi/N),mi%N);}
+function stageToUnit(p){var r=applyH(adj(S._H),p.x,p.y);return {u:r.x,v:r.y};}
+function centroid(){var q=S.quad,x=0,y=0;for(var i=0;i<4;i++){x+=q[i].x;y+=q[i].y;}return{x:x/4,y:y/4};}
+function bentAmount(){var m=0;for(var i=0;i<S.uoff.length;i++)m=Math.max(m,Math.hypot(S.uoff[i].u,S.uoff[i].v));return m;}
+
+function reset(){
+  layoutBase(); zeroOff();
+  S.cRole=['scale','scale','scale','scale'];
+  S.eRole=['scale','scale','scale','scale'];
+  S.bendOn=false; S.flipH=false; S.flipV=false;
+  buildCells(); paintBendBtn(); render();
+}
+
+/* --- fold guard --- */
+function valid(){
+  var q=S.quad,i;
+  for(i=0;i<4;i++)if(!isFinite(q[i].x)||!isFinite(q[i].y))return false;
+  if(!convex(q))return false;
+  syncH();
+  for(var r=0;r<N-1;r++)for(var c=0;c<N-1;c++){
+    if(!convex([meshPt(r,c),meshPt(r,c+1),meshPt(r+1,c+1),meshPt(r+1,c)]))return false;
+  }
+  return true;
+}
+function snap(){
+  var s={q:[],o:[]},i;
+  for(i=0;i<4;i++)s.q.push({x:S.quad[i].x,y:S.quad[i].y});
+  for(i=0;i<S.uoff.length;i++)s.o.push({u:S.uoff[i].u,v:S.uoff[i].v});
+  return s;
+}
+function restore(s){
+  var i;
+  for(i=0;i<4;i++){S.quad[i].x=s.q[i].x;S.quad[i].y=s.q[i].y;}
+  for(i=0;i<S.uoff.length;i++){S.uoff[i].u=s.o[i].u;S.uoff[i].v=s.o[i].v;}
+}
+
+/* --- DOM --- */
+var layer=document.createElement('div'); layer.className='overlay';
+var guide=document.createElementNS('http://www.w3.org/2000/svg','svg'); layer.appendChild(guide);
+S.stage.appendChild(layer);
+var handleHost=document.createElement('div'); handleHost.className='overlay';
+S.stage.appendChild(handleHost);
+
+function buildCells(){
+  var k=N-1,i;
+  for(i=0;i<S.cells.length;i++)S.cells[i].el.remove();
+  S.cells=[];
+  S._cbw=S.bw;S._cbh=S.bh;
+  var cw=S.bw/k, ch=S.bh/k, over=0.6;
+  for(var r=0;r<k;r++)for(var c=0;c<k;c++){
+    var el=document.createElement('div'); el.className='cell';
+    el.style.width=(cw+over)+'px'; el.style.height=(ch+over)+'px';
+    var ph=document.createElement('div'); ph.className='photo';
+    ph.style.width=S.bw+'px'; ph.style.height=S.bh+'px';
+    ph.style.left=(-c*cw)+'px'; ph.style.top=(-r*ch)+'px';
+    ph.innerHTML=photoSVG(S.bw,S.bh);
+    el.appendChild(ph);
+    S.stage.insertBefore(el,layer);
+    S.cells.push({el:el,ph:ph,r:r,c:c,w:cw+over,h:ch+over});
+  }
+  applyFlip();
+}
+/* CORNER flip = mirror the picture inside its own box (axis is internal — his ruling) */
+function applyFlip(){
+  var t='scale('+(S.flipH?-1:1)+','+(S.flipV?-1:1)+')';
+  for(var i=0;i<S.cells.length;i++)S.cells[i].ph.style.transform=t;
+}
+/* EDGE flip = fold the WHOLE shape over that edge's line. Real geometric reflection of the quad
+   about the line through the edge's two corners. The bend rides along for free, because the net
+   is stored in unit space and simply gets re-projected through the reflected homography. */
+function foldOverEdge(e){
+  var pair=EPAIR[e];
+  var a={x:S.quad[pair[0]].x,y:S.quad[pair[0]].y};
+  var b={x:S.quad[pair[1]].x,y:S.quad[pair[1]].y};
+  var dx=b.x-a.x, dy=b.y-a.y, L2=dx*dx+dy*dy;
+  if(L2<1e-6)return;
+  var before=snap();
+  for(var i=0;i<4;i++){
+    var p=S.quad[i];
+    var t=((p.x-a.x)*dx+(p.y-a.y)*dy)/L2;
+    var fx=a.x+dx*t, fy=a.y+dy*t;
+    p.x=2*fx-p.x; p.y=2*fy-p.y;
+  }
+  if(!valid())restore(before);
+  syncH();
+}
+
+/* --- inward directions, so shapes obey his language --- */
+function edgeDirs(e){
+  var pair=EPAIR[e], a=S.quad[pair[0]], b=S.quad[pair[1]];
+  var dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1; dx/=L; dy/=L;
+  var nx=-dy, ny=dx;                        /* one of the two normals */
+  var mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2}, ctr=centroid();
+  if((ctr.x-mid.x)*nx+(ctr.y-mid.y)*ny<0){nx=-nx;ny=-ny;}   /* point it INWARD */
+  return {ang:deg(Math.atan2(dy,dx)), nAng:deg(Math.atan2(ny,nx))};
+}
+function cornerAng(i){
+  var a=S.quad[i], b=S.quad[(i+1)%4];
+  return deg(Math.atan2(b.y-a.y,b.x-a.x));   /* squares/diamonds are 90°-symmetric, so this
+                                                is enough to keep them square to the shape */
+}
+function minEdge(){
+  var q=S.quad;
+  return Math.min(len(q[0],q[1]),len(q[1],q[2]),len(q[2],q[3]),len(q[3],q[0]));
+}
+function inboard(){
+  return clamp(minEdge()*0.20,8,21);   /* how far the blue net dots sit inboard of the real handles */
+}
+/* ---- BEND DOT RESCUE ----
+   The blue grab dot is only ever a DRAWING of a net point; the bend value itself is the (u,v)
+   offset and is never touched here. When a point is dragged so far in that its inboard dot lands
+   on top of another dot (or another net point), we flip THAT DOT's drawn offset to point outward
+   instead, far enough to clear the structural handle's own grab radius. The hairline tether stays,
+   so it is still obvious which point the dot drives. Re-evaluated on finger release only, so the
+   dot never jumps around while you are dragging it. */
+function outboard(){return Math.max(30,inboard()*1.7);}   /* > the bend hit radius (26) */
+function rescueRadius(){return clamp(minEdge()*0.22,12,26);}
+function bendDotPos(mi,flipped){
+  var t=meshAt(mi), ref=(mi===CENTRE)?centroid():meshAt(CENTRE);
+  var dx=ref.x-t.x, dy=ref.y-t.y, l=Math.hypot(dx,dy);
+  if(flipped){
+    var ux=l>1?-dx/l:0, uy=l>1?-dy/l:-1, o=outboard();
+    return {x:t.x+ux*o, y:t.y+uy*o, tx:t.x, ty:t.y};
+  }
+  if(mi===CENTRE||l<1)return {x:t.x,y:t.y,tx:t.x,ty:t.y};
+  var push=Math.min(inboard(),l*0.42);
+  return {x:t.x+dx/l*push, y:t.y+dy/l*push, tx:t.x, ty:t.y};
+}
+function rescueBendDots(){
+  if(!S.bendOn)return;
+  var lim=rescueRadius(), net=[], inb=[], i, j;
+  for(i=0;i<N*N;i++){ net.push(meshAt(i)); inb.push(bendDotPos(i,false)); }
+  for(i=0;i<N*N;i++){
+    var bad=false;
+    for(j=0;j<N*N&&!bad;j++){
+      if(j===i)continue;
+      if(Math.hypot(inb[i].x-inb[j].x,inb[i].y-inb[j].y)<lim)bad=true;
+      else if(Math.hypot(inb[i].x-net[j].x,inb[i].y-net[j].y)<lim)bad=true;
+    }
+    S.bendFlip[i]=bad;      /* flip-independent test, so it is stable and self-clearing */
+  }
+}
+
+function handleList(){
+  var L=[],i;
+  for(i=0;i<4;i++){
+    var role=S.cRole[i], p=meshAt(CMESH[i]), sh=SHAPE.corner[role];
+    L.push({type:'corner',i:i,x:p.x,y:p.y,pri:8,shape:sh,col:COL[role],
+            rot:(sh==='ci'?0:cornerAng(i))});
+  }
+  for(i=0;i<4;i++){
+    var er=S.eRole[i], ep=meshAt(EMESH[i]), d=edgeDirs(i), sh2=SHAPE.edge[er];
+    /* triangle: apex toward the inward normal ⇒ its flat BACK is parallel to the edge.
+       square: rotates with the edge, so it stays perpendicular to it. */
+    var rot = sh2==='tri' ? d.nAng+90 : (sh2==='sq' ? d.ang : 0);
+    L.push({type:'edge',i:i,x:ep.x,y:ep.y,pri:5,shape:sh2,col:COL[er],rot:rot});
+  }
+  var rp=rotHandlePt();
+  L.push({type:'rot',i:0,x:rp.x,y:rp.y,pri:9,shape:'rot',col:COL.rot,rot:rp.rot});
+  if(S.bendOn){
+    for(var mi=0;mi<N*N;mi++){
+      var d2=bendDotPos(mi,S.bendFlip[mi]);
+      L.push({type:'bend',i:mi,x:d2.x,y:d2.y,tx:d2.tx,ty:d2.ty,pri:1,shape:'ci',col:COL.bend,
+              rot:0,small:true,flip:S.bendFlip[mi]});
+    }
+  }
+  return L;
+}
+/* the rotate handle floats OUTSIDE the top edge, on that edge's outward normal, so it never
+   crowds the corners (it is at least half an edge away from either of them) */
+function rotHandlePt(){
+  var q=S.quad, a=q[0], b=q[1];
+  var mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2}, d=edgeDirs(0);
+  var na=d.nAng*Math.PI/180;              /* INWARD normal — so we step the other way */
+  var off=46;
+  return {x:mid.x-Math.cos(na)*off, y:mid.y-Math.sin(na)*off, rot:d.ang};
+}
+function syncHandles(L){
+  var i;
+  for(i=0;i<L.length;i++){
+    var h=S.handles[i];
+    if(!h){h=document.createElement('div');handleHost.appendChild(h);S.handles[i]=h;}
+    var size=L[i].small?13:(L[i].type==='rot'?21:(L[i].type==='corner'?19:17));
+    var key=L[i].shape+L[i].col+size+Math.round(L[i].rot);
+    if(h._k!==key){h.innerHTML=glyph(L[i].shape,L[i].col,size,L[i].rot);h._k=key;}
+    h.className='h'+(L[i].grab?' grab':'');
+    h.style.transform='translate3d('+L[i].x.toFixed(1)+'px,'+L[i].y.toFixed(1)+'px,0)';
+    h.style.display='';
+  }
+  for(;i<S.handles.length;i++)S.handles[i].style.display='none';
+}
+function drawGuide(){
+  var q=S.quad,parts=[],r,c,i;
+  parts.push('<polygon points="'+q.map(function(p){return p.x.toFixed(1)+','+p.y.toFixed(1);}).join(' ')+
+    '" fill="none" stroke="#a78bfa" stroke-width="1.1" opacity=".9"/>');
+  if(S.bendOn){
+    for(r=0;r<N;r++){var pts=[];for(c=0;c<N;c++){var p=meshPt(r,c);pts.push(p.x.toFixed(1)+','+p.y.toFixed(1));}
+      parts.push('<polyline points="'+pts.join(' ')+'" fill="none" stroke="#5aa9ff" stroke-width="0.8" opacity=".42"/>');}
+    for(c=0;c<N;c++){var pv=[];for(r=0;r<N;r++){var p2=meshPt(r,c);pv.push(p2.x.toFixed(1)+','+p2.y.toFixed(1));}
+      parts.push('<polyline points="'+pv.join(' ')+'" fill="none" stroke="#5aa9ff" stroke-width="0.8" opacity=".42"/>');}
+    /* tie each inboard blue dot back to the net point it actually drives */
+    var L=S._hit||[];
+    for(i=0;i<L.length;i++)if(L[i].type==='bend'&&Math.hypot(L[i].tx-L[i].x,L[i].ty-L[i].y)>2)
+      parts.push('<line x1="'+L[i].x.toFixed(1)+'" y1="'+L[i].y.toFixed(1)+'" x2="'+L[i].tx.toFixed(1)+
+        '" y2="'+L[i].ty.toFixed(1)+'" stroke="#5aa9ff" stroke-width="0.9" opacity="'+
+        (L[i].flip?'.8" stroke-dasharray="3 2':'.55')+'"/>');
+  }
+  /* a hairline stalk so the floating spin arc obviously belongs to this shape */
+  var rq=rotHandlePt(), rm={x:(S.quad[0].x+S.quad[1].x)/2,y:(S.quad[0].y+S.quad[1].y)/2};
+  parts.push('<line x1="'+rm.x.toFixed(1)+'" y1="'+rm.y.toFixed(1)+'" x2="'+rq.x.toFixed(1)+
+    '" y2="'+rq.y.toFixed(1)+'" stroke="#fbbf24" stroke-width="0.9" opacity=".38"/>');
+  /* the pinch pivot, made visible: this is the point it scales and spins about */
+  if(S.pinch){
+    var a=S.pts[S.pinch.ids[0]], b=S.pts[S.pinch.ids[1]];
+    if(a&&b){
+      var m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+      parts.push('<line x1="'+a.x.toFixed(1)+'" y1="'+a.y.toFixed(1)+'" x2="'+b.x.toFixed(1)+'" y2="'+
+        b.y.toFixed(1)+'" stroke="#4fd1c5" stroke-width="0.8" opacity=".35" stroke-dasharray="4 4"/>');
+      parts.push('<g opacity=".95"><circle cx="'+m.x.toFixed(1)+'" cy="'+m.y.toFixed(1)+
+        '" r="9" fill="none" stroke="#4fd1c5" stroke-width="1.2"/>'+
+        '<path d="M'+(m.x-15).toFixed(1)+' '+m.y.toFixed(1)+' H'+(m.x+15).toFixed(1)+
+        ' M'+m.x.toFixed(1)+' '+(m.y-15).toFixed(1)+' V'+(m.y+15).toFixed(1)+
+        '" stroke="#4fd1c5" stroke-width="1.2"/></g>');
+    }
+  }
+  /* ROTATION ARC (v6): the visual twin of the HUD's "123 deg (+47 deg)". A dashed faint ray marks
+     where the turn STARTED (frozen at grab), a solid bright ray marks where it is NOW, and the
+     sector between them is the distance travelled - so it grows as he turns. The sector is drawn
+     as sampled segments off the ACCUMULATED sweep, so more than a half turn keeps going the way
+     he actually went instead of snapping to the short way round. On release it fades with the
+     rest of the gesture chrome and is gone when S.g clears. */
+  if(S.g&&S.g.kind==='rot'&&S.g.c0){
+    var gc=S.g.c0, swp=S.g.sw||0, ra0=S.g.a0, ra1=ra0+swp, maxR=0, s;
+    for(i=0;i<4;i++)maxR=Math.max(maxR,Math.hypot(S.quad[i].x-gc.x,S.quad[i].y-gc.y));
+    var rayR=maxR+26, arcR=Math.max(30,maxR*0.55);
+    var rayPt=function(ang,len){return {x:gc.x+Math.cos(ang)*len,y:gc.y+Math.sin(ang)*len};};
+    var steps=Math.max(1,Math.ceil(Math.abs(swp)/(4*Math.PI/180))), stepA=swp/steps;
+    var sp=['M'+gc.x.toFixed(1)+' '+gc.y.toFixed(1)];
+    for(s=0;s<=steps;s++){var ap=rayPt(ra0+stepA*s,arcR);sp.push('L'+ap.x.toFixed(1)+' '+ap.y.toFixed(1));}
+    sp.push('Z');
+    var e0=rayPt(ra0,rayR), e1=rayPt(ra1,rayR);
+    parts.push('<g>'+(S.g.live?'':'<animate attributeName="opacity" from="1" to="0" dur="0.38s" fill="freeze"/>')+
+      '<path d="'+sp.join(' ')+'" fill="#fbbf24" fill-opacity=".15" stroke="#fbbf24" stroke-width="1" opacity=".6"/>'+
+      '<line x1="'+gc.x.toFixed(1)+'" y1="'+gc.y.toFixed(1)+'" x2="'+e0.x.toFixed(1)+'" y2="'+e0.y.toFixed(1)+
+        '" stroke="#fbbf24" stroke-width="1" opacity=".34" stroke-dasharray="5 4"/>'+
+      '<line x1="'+gc.x.toFixed(1)+'" y1="'+gc.y.toFixed(1)+'" x2="'+e1.x.toFixed(1)+'" y2="'+e1.y.toFixed(1)+
+        '" stroke="#fbbf24" stroke-width="1.5" opacity=".92"/>'+
+      '<circle cx="'+gc.x.toFixed(1)+'" cy="'+gc.y.toFixed(1)+'" r="2.6" fill="#fbbf24" opacity=".85"/></g>');
+  }
+  guide.innerHTML=parts.join('');
+}
+function render(){
+  if(!S.bw)layoutBase();
+  syncH();
+  var i;
+  if(S.cells.length!==(N-1)*(N-1)||S._cbw!==S.bw||S._cbh!==S.bh)buildCells();
+  for(i=0;i<S.cells.length;i++){
+    var cl=S.cells[i];
+    var a=meshPt(cl.r,cl.c), b=meshPt(cl.r,cl.c+1),
+        cpt=meshPt(cl.r+1,cl.c+1), d=meshPt(cl.r+1,cl.c);
+    cl.el.style.transform=matrixFor(cl.w,cl.h,[a,b,cpt,d]);
+  }
+  var L=handleList();
+  if(S.drag)for(i=0;i<L.length;i++)
+    if(L[i].type===S.drag.type&&L[i].i===S.drag.i)L[i].grab=true;
+  S._hit=L;
+  syncHandles(L);
+  drawGuide();
+  readout();
+  paintBendBtn();
+  hudTick();          /* the transient gesture chip */
+  loupeTick();        /* and the magnifier, if a handle is being dragged */
+}
+
+/* ============================ drag behaviours ============================ */
+/* ---- local (u,v) coordinates: express a stage point in the affine frame (o; u, v) ---- */
+function uvCoords(p,o,u,v){
+  var det=u.x*v.y-u.y*v.x; if(!isFinite(det)||Math.abs(det)<1e-9)return null;
+  var dx=p.x-o.x, dy=p.y-o.y;
+  return {a:(dx*v.y-dy*v.x)/det, b:(u.x*dy-u.y*dx)/det};
+}
+/* SCALE on a corner — SCALES THE SHAPE AS IT CURRENTLY IS.
+   The old version rebuilt the quad as  o + u*a + v*b  from two basis vectors, which FORCES a
+   parallelogram and silently threw away any free / tilt distortion the other corners were holding
+   (a trapezoid snapped flat the moment you touched a scale corner). Now: the frame is frozen at
+   grab time on the OPPOSITE corner, EVERY corner is read into that frame as its own (a,b) pair,
+   the two basis lengths are multiplied by the drag's two factors, and every corner is rebuilt from
+   ITS OWN coordinates. The opposite corner sits at (0,0) so it never moves; every other corner
+   keeps its relative position, so a trapezoid stays a trapezoid — only bigger or smaller. */
+function scaleCorner(i,t,d){
+  var q=S.quad, q0=d&&d.q0; if(!q0)return;
+  var o=q0[(i+2)%4];
+  var u={x:q0[(i+3)%4].x-o.x, y:q0[(i+3)%4].y-o.y};
+  var v={x:q0[(i+1)%4].x-o.x, y:q0[(i+1)%4].y-o.y};
+  var c=[],k,cc;
+  for(k=0;k<4;k++){cc=uvCoords(q0[k],o,u,v); if(!cc)return; c.push(cc);}
+  var tc=uvCoords(t,o,u,v); if(!tc)return;
+  if(Math.abs(c[i].a)<1e-3||Math.abs(c[i].b)<1e-3)return;
+  var fa=clamp(tc.a/c[i].a,0.12,3.4), fb=clamp(tc.b/c[i].b,0.12,3.4);
+  for(k=0;k<4;k++){
+    q[k].x=o.x+u.x*c[k].a*fa+v.x*c[k].b*fb;
+    q[k].y=o.y+u.y*c[k].a*fa+v.y*c[k].b*fb;
+  }
+  S._sf={a:fa,b:fb};
+}
+/* TILT on a corner: move it and mirror its horizontal neighbour = symmetric taper (perspective) */
+function tiltCorner(i,t){
+  var q=S.quad, dx=t.x-q[i].x, dy=t.y-q[i].y, nb=[1,0,3,2][i];
+  q[i].x+=dx;q[i].y+=dy;
+  q[nb].x-=dx;q[nb].y+=dy;
+}
+/* SCALE on an edge — SAME DEFECT, SAME CURE.
+   The old version forced BOTH side lengths to one common distance `pr` from their opposite corners,
+   so any shape whose two sides were unequal (a free-moved corner, an asymmetric trapezoid) was
+   snapped symmetric the instant you touched a scale edge. Now the frame is frozen at grab time,
+   anchored on the OPPOSITE edge: u runs along that opposite edge, v runs across to this one. Only
+   the v coordinate is scaled, and it is scaled for all four corners from their own values — so the
+   opposite edge (v = 0) is pinned, the taper ratio survives, and the shape simply gets longer or
+   shorter in that one direction. */
+function scaleEdge(e,t,d){
+  var q=S.quad, q0=d&&d.q0; if(!q0)return;
+  var pair=EPAIR[e], opp=EOPP[e];
+  var o=q0[opp[0]];
+  var u={x:q0[opp[1]].x-o.x, y:q0[opp[1]].y-o.y};      /* along the opposite (pinned) edge */
+  var v={x:q0[pair[0]].x-o.x, y:q0[pair[0]].y-o.y};    /* across, out to the dragged edge */
+  var c=[],k,cc;
+  for(k=0;k<4;k++){cc=uvCoords(q0[k],o,u,v); if(!cc)return; c.push(cc);}
+  var tc=uvCoords(t,o,u,v); if(!tc)return;
+  var m=(c[pair[0]].b+c[pair[1]].b)/2;                 /* where the edge's midpoint sits across */
+  if(Math.abs(m)<1e-3)return;
+  var f=clamp(tc.b/m,0.12,3.4);
+  for(k=0;k<4;k++){
+    q[k].x=o.x+u.x*c[k].a+v.x*c[k].b*f;
+    q[k].y=o.y+u.y*c[k].a+v.y*c[k].b*f;
+  }
+  S._sf={a:f,b:null};
+}
+/* TILT on an edge: pure lean — the edge slides ALONG itself, length untouched */
+function tiltEdge(e,t){
+  var q=S.quad, pair=EPAIR[e];
+  var a=q[pair[0]], b=q[pair[1]];
+  var mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  var dx=b.x-a.x, dy=b.y-a.y, L=Math.hypot(dx,dy)||1;
+  dx/=L;dy/=L;
+  var pr=(t.x-mid.x)*dx+(t.y-mid.y)*dy;
+  a.x+=dx*pr;a.y+=dy*pr;b.x+=dx*pr;b.y+=dy*pr;
+}
+/* FREE on an edge: the whole edge follows the finger, any direction */
+function freeEdge(e,t){
+  var q=S.quad, pair=EPAIR[e];
+  var mid={x:(q[pair[0]].x+q[pair[1]].x)/2,y:(q[pair[0]].y+q[pair[1]].y)/2};
+  var dx=t.x-mid.x, dy=t.y-mid.y;
+  q[pair[0]].x+=dx;q[pair[0]].y+=dy;q[pair[1]].x+=dx;q[pair[1]].y+=dy;
+}
+/* BEND: nothing structural moves — only that net point's own UNIT-SPACE offset */
+function bendPoint(mi,t){
+  var uv=stageToUnit(t), b=baseUV(Math.floor(mi/N),mi%N);
+  if(!isFinite(uv.u)||!isFinite(uv.v))return;
+  S.uoff[mi].u=clamp(uv.u-b.u,-0.85,0.85);
+  S.uoff[mi].v=clamp(uv.v-b.v,-0.85,0.85);
+}
+function panAll(d,t){
+  if(d.last){var dx=t.x-d.last.x,dy=t.y-d.last.y;
+    for(var i=0;i<4;i++){S.quad[i].x+=dx;S.quad[i].y+=dy;}}
+  d.last={x:t.x,y:t.y};
+}
+/* ROTATE HANDLE: a PURE rotation about the shape's own centre. Nothing else is allowed to change —
+   the centre is frozen at grab time and every corner is rebuilt from its grab-time position, so
+   there is no drift in position and no change in size. This is the point of having a handle at all:
+   two fingers can nudge position and scale without meaning to, this cannot. */
+function rotateAll(d,t){
+  var c=d.c0, raw=Math.atan2(t.y-c.y,t.x-c.x), a=raw-d.a0;
+  /* v6: ACCUMULATE the sweep, frame by frame, taking each frame's step the short way (a frame is
+     never more than a few degrees) and adding it up. Recomputing a shortest arc from the start
+     angle would flip a 190deg turn into -170deg; this way 270deg stays 270deg. */
+  if(S.g&&S.g.kind==='rot'&&S.g.lastRaw!=null){
+    var st=raw-S.g.lastRaw; while(st>Math.PI)st-=2*Math.PI; while(st<-Math.PI)st+=2*Math.PI;
+    S.g.sw=(S.g.sw||0)+st; S.g.lastRaw=raw;
+  }
+  var cs=Math.cos(a), sn=Math.sin(a);
+  for(var i=0;i<4;i++){
+    var dx=d.q0[i].x-c.x, dy=d.q0[i].y-c.y;
+    S.quad[i].x=c.x+cs*dx-sn*dy;
+    S.quad[i].y=c.y+sn*dx+cs*dy;
+  }
+}
+function applyDrag(d,t){
+  if(d.type==='body'){panAll(d,t);return;}
+  if(d.type==='rot'){rotateAll(d,t);return;}
+  if(d.type==='bend'){bendPoint(d.i,{x:t.x+(d.bx||0),y:t.y+(d.by||0)});return;}
+  if(d.type==='corner'){
+    var role=S.cRole[d.i];
+    if(role==='scale')scaleCorner(d.i,t,d);
+    else if(role==='tilt')tiltCorner(d.i,t);
+    else {S.quad[d.i].x=t.x;S.quad[d.i].y=t.y;}
+    return;
+  }
+  if(d.type==='edge'){
+    var er=S.eRole[d.i];
+    if(er==='scale')scaleEdge(d.i,t,d);
+    else if(er==='tilt')tiltEdge(d.i,t);
+    else freeEdge(d.i,t);
+  }
+}
+/* TWO FINGERS: scale + rotate about the MIDPOINT BETWEEN THE FINGERS.
+   Every corner is rebuilt as  m1 + R(theta)*f*(q0 - m0), i.e. the similarity that sends the
+   old finger midpoint m0 to the new one m1. The picture point sitting under the midpoint at
+   the start therefore stays under the midpoint for the whole gesture. The bend needs no
+   handling at all now: it lives in unit space and is carried by the homography. */
+function applyPinch(){
+  var P=S.pinch, a=S.pts[P.ids[0]], b=S.pts[P.ids[1]];
+  if(!a||!b)return;
+  var m0={x:(P.a.x+P.b.x)/2,y:(P.a.y+P.b.y)/2}, m1={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  var d0=Math.hypot(P.b.x-P.a.x,P.b.y-P.a.y)||1, d1=Math.hypot(b.x-a.x,b.y-a.y);
+  var f=clamp(d1/d0,0.08,12);
+  var th=Math.atan2(b.y-a.y,b.x-a.x)-Math.atan2(P.b.y-P.a.y,P.b.x-P.a.x);
+  var cs=Math.cos(th),sn=Math.sin(th),i;
+  S._pf={f:f,th:th};
+  for(i=0;i<4;i++){
+    var dx=P.q[i].x-m0.x, dy=P.q[i].y-m0.y;
+    S.quad[i].x=m1.x+(cs*dx-sn*dy)*f;
+    S.quad[i].y=m1.y+(sn*dx+cs*dy)*f;
+  }
+}
+
+/* ============================ input ============================ */
+function localPt(e){var r=S.stage.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+/* HIT PRIORITY: structural handles outrank the net. The blue net dots are pushed inboard of the
+   corner/edge handles they share a spot with (and tethered to them with a hairline), so both are
+   reachable — the outer ink is always structure, the inner blue dot is always bend. */
+function hitTest(p){
+  var L=S._hit||[],best=null,bs=1e9;
+  for(var i=0;i<L.length;i++){
+    var lim = L[i].type==='bend' ? 26 : HIT+L[i].pri*1.5;
+    var d=Math.hypot(L[i].x-p.x,L[i].y-p.y);
+    if(d>lim)continue;
+    var s=d-L[i].pri*2.4;            /* corners beat edges beat net when they overlap */
+    if(s<bs){bs=s;best=L[i];}
+  }
+  return best;
+}
+function startPinch(){
+  clearTimeout(S._lp); closeRing();
+  S.drag=null;
+  var ids=Object.keys(S.pts).slice(0,2);
+  var sn=snap();
+  S.pinch={ids:ids,a:{x:S.pts[ids[0]].x,y:S.pts[ids[0]].y},b:{x:S.pts[ids[1]].x,y:S.pts[ids[1]].y},
+           q:sn.q,o:sn.o};
+  S._pf={f:1,th:0};
+  gestureBegin('pinch',null,{x:(S.pinch.a.x+S.pinch.b.x)/2,y:(S.pinch.a.y+S.pinch.b.y)/2});
+}
+function step(){
+  S._raf=0;
+  var before=snap();
+  if(S.pinch)applyPinch();
+  else if(S.drag){
+    var p=S.pts[S.drag.pid]; if(!p)return;
+    applyDrag(S.drag,{x:p.x+S.drag.ox,y:p.y+S.drag.oy});
+  } else return;
+  if(!valid())restore(before);
+  render();
+}
+function schedule(){ if(!S._raf)S._raf=requestAnimationFrame(step); }
+
+S.stage.addEventListener('pointerdown',function(e){
+  if(e.target.closest('.ring'))return;
+  e.preventDefault();
+  var p=localPt(e); S.pts[e.pointerId]=p;
+  try{S.stage.setPointerCapture(e.pointerId);}catch(_){}
+  if(Object.keys(S.pts).length>=2){startPinch();render();return;}
+  if(S._lock)return;
+  closeRing();
+  var h=hitTest(p);
+  if(h){
+    S.drag={type:h.type,i:h.i,ox:h.x-p.x,oy:h.y-p.y,start:p,moved:false,pid:e.pointerId};
+    /* the quad as it stood the instant you grabbed — every scale is computed from THIS, so the
+       scale never compounds against itself and never re-derives a basis from a moving shape */
+    var q0=[],k;
+    for(k=0;k<4;k++)q0.push({x:S.quad[k].x,y:S.quad[k].y});
+    S.drag.q0=q0;
+    if(h.type==='bend'){S.drag.bx=h.tx-h.x;S.drag.by=h.ty-h.y;}
+    if(h.type==='rot'){
+      var c0=centroid();
+      S.drag.c0=c0; S.drag.a0=Math.atan2(h.y-c0.y,h.x-c0.x);
+    }
+    if(h.type==='corner'||h.type==='edge'){
+      S._lp=setTimeout(function(){ if(S.drag&&!S.drag.moved&&!S.pinch)openRing(h.type,h.i); },450);
+    }
+    gestureBegin(h.type,S.drag,p);
+  } else if(inPoly(p,S.quad)){
+    S.drag={type:'body',i:0,ox:0,oy:0,start:p,last:{x:p.x,y:p.y},moved:false,pid:e.pointerId};
+    gestureBegin('body',S.drag,p);
+  } else S.drag=null;
+  render();
+},{passive:false});
+
+S.stage.addEventListener('pointermove',function(e){
+  if(!(e.pointerId in S.pts))return;
+  e.preventDefault();
+  var p=localPt(e); S.pts[e.pointerId]=p;
+  if(S.drag&&e.pointerId===S.drag.pid&&!S.drag.moved&&
+     Math.hypot(p.x-S.drag.start.x,p.y-S.drag.start.y)>7){
+    S.drag.moved=true; clearTimeout(S._lp);
+  }
+  schedule();
+},{passive:false});
+
+function endPointer(e){
+  if(!(e.pointerId in S.pts))return;
+  delete S.pts[e.pointerId];
+  var n=Object.keys(S.pts).length;
+  if(S.pinch && n<2){ S.pinch=null; S._lock=n>0; gestureEnd(); }
+  if(S.drag && e.pointerId===S.drag.pid){
+    var wasBend=(S.drag.type==='bend');
+    clearTimeout(S._lp); S.drag=null;
+    /* ON RELEASE only: any dot that has been driven somewhere unreachable hops to the outside */
+    if(wasBend){ syncH(); rescueBendDots(); }
+    gestureEnd();
+  }
+  if(n===0)S._lock=false;
+  render();
+}
+S.stage.addEventListener('pointerup',endPointer);
+S.stage.addEventListener('pointercancel',endPointer);
+
+/* ============================ the ring ============================ */
+/* Each option's own outline IS the mode: amber square = Scale, green diamond = Tilt,
+   red circle = Free, blue net = the Bend layer. The word sits inside the shape. */
+var ring=document.createElement('div'); ring.className='ring';
+ring.innerHTML='<div class="lbl">this handle<b id="ringWhich"></b></div>';
+var ringWhich, modeBtns=[], diagBtns=[];
+var R0=70, R1=78/Math.SQRT2;
+var CARD=[[0,-R0],[R0,0],[0,R0],[-R0,0]];            /* N=Scale  E=Free  S=Tilt  W=Bend */
+var CARDMODE=['scale','free','tilt','bend'];
+var DIAG=[[R1,-R1],[R1,R1],[-R1,R1],[-R1,-R1]];      /* NE, SE, SW, NW */
+(function(){
+  var i;
+  for(i=0;i<4;i++){
+    var b=document.createElement('button'); b.className='mode'; b.dataset.role=CARDMODE[i];
+    b.style.left=(112+CARD[i][0])+'px'; b.style.top=(112+CARD[i][1])+'px';
+    (function(role){
+      b.addEventListener('click',function(ev){ev.stopPropagation();
+        if(role==='bend')toggleBend(); else setRole(role);});
+    })(CARDMODE[i]);
+    ring.appendChild(b); modeBtns.push(b);
+  }
+  for(i=0;i<4;i++){
+    var d=document.createElement('button'); d.className='diag'; d.dataset.slot=i;
+    d.style.left=(112+DIAG[i][0])+'px'; d.style.top=(112+DIAG[i][1])+'px';
+    (function(slot){
+      d.addEventListener('click',function(ev){ev.stopPropagation();diagAction(slot);});
+    })(i);
+    ring.appendChild(d); diagBtns.push(d);
+  }
+  ringWhich=ring.querySelector('#ringWhich');
+})();
+S.stage.appendChild(ring);
+
+function setRole(role){
+  var k=ring._kind, i=ring._i;
+  if(k==='corner')S.cRole[i]=role; else S.eRole[i]=role;
+  closeRing(); render();
+}
+function toggleBend(){
+  S.bendOn=!S.bendOn;      /* non-destructive: turning it off parks your net, it comes back intact */
+  paintBendBtn(); closeRing(); render();
+}
+/* 0 = grey: no warp anywhere.  1 = outline blue: net armed but nothing bent yet.
+   2 = solid blue: the shape is genuinely bent — that is what the colour is reporting. */
+function bendState(){ return bentAmount()>0.004 ? 2 : (S.bendOn?1:0); }
+function paintBendBtn(){
+  var b=document.getElementById('bendBtn'), st=bendState();
+  var txt='Bend net: '+(S.bendOn?'on':'off')+(st===2&&!S.bendOn?' · bent':'');
+  if(b.textContent!==txt)b.textContent=txt;
+  b.classList.toggle('armed',st===1);
+  b.classList.toggle('on',st===2);
+}
+function doFlip(h,v){
+  if(h)S.flipH=!S.flipH;
+  if(v)S.flipV=!S.flipV;
+  applyFlip(); closeRing(); render();
+}
+function diagAction(slot){
+  var k=ring._kind, i=ring._i;
+  if(slot===0){
+    if(k==='corner') doFlip(true,false);          /* corner: mirror inside its own box */
+    else { foldOverEdge(i); closeRing(); render(); }  /* edge: fold the shape over this edge */
+    return;
+  }
+  if(slot===1){
+    if(k==='corner') doFlip(false,true);
+    else {                                        /* edge: mirror the picture along that edge */
+      var acrossIsV=(i===0||i===2);
+      doFlip(acrossIsV,!acrossIsV);
+    }
+    return;
+  }
+  if(slot===2){ resetObject(); closeRing(); return; }
+  if(slot===3){ resetHelpers(); closeRing(); }
+}
+function ringGlyph(role,on,grey){
+  var col = grey ? '#5a5a68' : COL[role];
+  var fill = on ? (role==='scale'?'#3a2c0d':role==='tilt'?'#0f2e1e':role==='free'?'#3a0f22':'#0f2740')
+                : '#15151d';
+  var sh=RINGSHAPE[role];
+  var rad = sh==='di'?19.5 : sh==='ci'?26 : 23;   /* same optical size whatever the outline */
+  return shapeSVG(sh,col,58,0,rad,on?2.3:INK,fill);
+}
+function paintRing(){
+  var k=ring._kind, i=ring._i;
+  var cur=k==='corner'?S.cRole[i]:S.eRole[i];
+  for(var m=0;m<4;m++){
+    var role=CARDMODE[m];
+    var st = role==='bend' ? bendState() : -1;
+    var on = role==='bend' ? st===2 : role===cur;      /* solid only when there IS a warp */
+    var grey = role==='bend' && st===0;                /* grey when there is no warp at all */
+    modeBtns[m].innerHTML=ringGlyph(role,on,grey)+
+      '<span class="tx" style="color:'+(on?'#fff':(grey?'#6a6a78':COL[role]))+'">'+NAME[role]+'</span>';
+  }
+  if(k==='corner'){
+    diagBtns[0].innerHTML='⇄<small>flip</small>';
+    diagBtns[1].innerHTML='⇅<small>flip</small>';
+  } else {
+    diagBtns[0].innerHTML='⤺<small>fold</small>';
+    diagBtns[1].innerHTML=((i===0||i===2)?'⇄':'⇅')+'<small>mirror</small>';
+  }
+  diagBtns[2].innerHTML='▣<small>object</small>';    /* reset the OBJECT — geometry only */
+  diagBtns[3].innerHTML='↺<small>helpers</small>';   /* reset all HELPERS — handle roles ONLY */
+  ringWhich.textContent=(k==='corner'?'corner ':'edge ')+
+    (k==='corner'?['top-left','top-right','bottom-right','bottom-left'][i]
+                 :['top','right','bottom','left'][i]);
+}
+function openRing(kind,i){
+  loupeClose();                 /* the ring owns the screen while it is open */
+  ring._kind=kind; ring._i=i;
+  var p=kind==='corner'?meshAt(CMESH[i]):meshAt(EMESH[i]);
+  ring.style.left=clamp(p.x,114,S.W-114)+'px';
+  ring.style.top =clamp(p.y,114,S.H-114)+'px';
+  paintRing();
+  ring.classList.add('open');
+}
+function closeRing(){ring.classList.remove('open');}
+
+/* ============================ chrome ============================ */
+/* TWO DIFFERENT RESETS — STRICTLY DISJOINT TERRITORY. Neither may touch the other's.
+   RESET THE OBJECT  owns GEOMETRY : S.quad (back to the plain rect at the picture's aspect,
+                     centred — so rotation, scale, lean and taper all go), S.uoff (the bend
+                     DISPLACEMENT), S.bendFlip, S.flipH/S.flipV.
+                     It does NOT touch S.cRole / S.eRole, and it does NOT touch S.bendOn — if the
+                     net was switched on it stays on, just flat.
+   RESET ALL HELPERS owns HELPERS  : S.cRole and S.eRole, set to 'scale'. Nothing else. It does
+                     NOT touch S.bendOn, does NOT zero S.uoff, does NOT touch the flips or any
+                     geometry — after pressing it, not one pixel of the picture has moved. */
+function resetObject(){
+  layoutBase();                      /* GEOMETRY: default rect, image aspect ratio, centred */
+  zeroOff();                         /* GEOMETRY: bend displacement + any rescued dots */
+  S.flipH=false; S.flipV=false; applyFlip();
+  render();                          /* roles and S.bendOn deliberately untouched */
+}
+function resetHelpers(){
+  S.cRole=['scale','scale','scale','scale'];
+  S.eRole=['scale','scale','scale','scale'];
+  render();                          /* geometry, warp and flips deliberately untouched */
+}
+document.getElementById('resetHelpers').addEventListener('click',function(){closeRing();resetHelpers();});
+document.getElementById('resetObject').addEventListener('click',function(){closeRing();resetObject();});
+document.getElementById('bendBtn').addEventListener('click',function(){closeRing();toggleBend();});
+
+/* legend — same drawing routine as the handles, so it can never drift */
+(function(){
+  var host=document.getElementById('legend');
+  MODES.forEach(function(m){
+    var d=document.createElement('div'); d.className='lg';
+    d.innerHTML='<div class="pair">'+glyph(SHAPE.corner[m],COL[m],20,0)+
+      glyph(SHAPE.edge[m],COL[m],18,0)+'</div>'+
+      '<div class="nm" style="color:'+COL[m]+'">'+NAME[m]+'</div>'+
+      '<div class="sub">'+SUB[m]+'</div>';
+    host.appendChild(d);
+  });
+  var d2=document.createElement('div'); d2.className='lg';
+  d2.innerHTML='<div class="pair">'+glyph('net',COL.bend,20,0)+glyph('ci',COL.bend,13,0)+'</div>'+
+    '<div class="nm" style="color:'+COL.bend+'">'+NAME.bend+'</div>'+
+    '<div class="sub">'+SUB.bend+'</div>';
+  host.appendChild(d2);
+})();
+
+/* ============================ live gesture HUD ============================ */
+/* A chip that exists ONLY while a gesture is running and fades 400ms after release. It reports the
+   gesture (what you are doing right now, in the units of that gesture); the panel readout below the
+   stage keeps reporting the STATE. They are deliberately different jobs — the HUD never duplicates
+   the panel's persistent line. */
+var hudEl=document.createElement('div'); hudEl.className='hud'; S.stage.appendChild(hudEl);
+function norm180(d){while(d>180)d-=360;while(d<-180)d+=360;return d;}
+function fpct(f){return Math.round(f*100)+'%';}
+function fpx(v){v=Math.round(v);return (v>=0?'+':'')+v;}
+function fsd(d){d=Math.round(d);return (d>=0?'+':'')+d+'°';}
+function handlePtOf(type,i){
+  var L=S._hit||[];
+  for(var k=0;k<L.length;k++)if(L[k].type===type&&L[k].i===i)return {x:L[k].x,y:L[k].y};
+  return null;
+}
+function gestureBegin(kind,d,p){
+  clearTimeout(S._hudT);
+  var v=derive();
+  S._sf=null;
+  S.g={kind:kind,d:d,live:true,rot0:v.rot,p0:{x:p.x,y:p.y}};
+  if(kind==='rot'&&d&&d.a0!=null){S.g.c0=d.c0;S.g.a0=d.a0;S.g.lastRaw=d.a0;S.g.sw=0;}
+  if(kind==='bend'&&d){var b=meshAt(d.i);S.g.b0={x:b.x,y:b.y};}
+  if(d&&(d.type==='corner'||d.type==='edge'))S.g.h0=handlePtOf(d.type,d.i)||{x:p.x,y:p.y};
+  if(kind==='corner'||kind==='edge'||kind==='bend')loupeOpen();
+}
+function gestureEnd(){
+  if(!S.g)return;
+  S.g.live=false;
+  loupeClose();
+  S._hudT=setTimeout(function(){ S.g=null; hudEl.classList.remove('on'); render(); },400);
+}
+function hudText(){
+  var g=S.g; if(!g)return '';
+  if(g.kind==='pinch'){var pf=S._pf||{f:1,th:0};return fpct(pf.f)+'  '+fsd(deg(pf.th));}
+  if(g.kind==='rot'){var v=derive();return Math.round(v.rot)+'° ('+fsd(norm180(v.rot-g.rot0))+')';}
+  if(g.kind==='body'){var p=(g.d&&S.pts[g.d.pid])||g.p0;return fpx(p.x-g.p0.x)+', '+fpx(p.y-g.p0.y);}
+  if(g.kind==='bend'){var b=meshAt(g.d.i);return fpx(b.x-g.b0.x)+', '+fpx(b.y-g.b0.y);}
+  var role=g.kind==='corner'?S.cRole[g.d.i]:S.eRole[g.d.i];
+  if(role==='scale'&&S._sf){
+    if(S._sf.b==null||Math.abs(S._sf.a-S._sf.b)<0.005)return fpct(S._sf.a);
+    return fpct(S._sf.a)+' × '+fpct(S._sf.b);
+  }
+  var h=handlePtOf(g.kind,g.d.i)||g.h0;         /* tilt / free: it is a move, so report pixels */
+  return fpx(h.x-g.h0.x)+', '+fpx(h.y-g.h0.y);
+}
+function hudAnchor(){
+  var g=S.g;
+  if(g.kind==='pinch'){
+    var a=S.pts[S.pinch?S.pinch.ids[0]:-1], b=S.pts[S.pinch?S.pinch.ids[1]:-1];
+    if(a&&b)return {x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+    return g.p0;
+  }
+  if(g.kind==='body')return (g.d&&S.pts[g.d.pid])||g.p0;
+  if(g.kind==='bend'){var m=meshAt(g.d.i);return m;}
+  if(g.kind==='rot'){var r=rotHandlePt();return {x:r.x,y:r.y};}
+  return handlePtOf(g.kind,g.d.i)||g.p0;
+}
+function hudTick(){
+  if(!S.g){hudEl.classList.remove('on');return;}
+  var txt=hudText();
+  if(hudEl.textContent!==txt)hudEl.textContent=txt;
+  if(S.g.live){
+    var a=hudAnchor();
+    /* v6: a fat thumb sat on the old 44px chip. It now rides 70px clear of the anchor, and the
+       near-the-top fallback drops the same extra distance below (56px) so the thumb misses it
+       there too. The 'above' switch moves with the offset so the clamp can never park the chip
+       back on the handle it describes. */
+    var above=a.y>78;                       /* never sit on top of the handle it describes */
+    hudEl.style.left=clamp(a.x,52,S.W-52).toFixed(0)+'px';
+    hudEl.style.top =clamp(above?a.y-70:a.y+56,4,S.H-28).toFixed(0)+'px';
+    hudEl.classList.add('on');
+  }
+}
+
+/* ============================ the loupe ============================ */
+/* WHAT IT ACTUALLY RENDERS: a real second copy of the scene, not a pixel grab (a page cannot
+   screenshot itself). Inside a clipped circle sit (a) live clones of the picture's mesh cells,
+   carrying the SAME matrix3d as the originals, and (b) the SAME guide SVG markup the stage draws,
+   plus a marker for every handle. Both are wrapped in one transform —
+       translate(R,R) · scale(2.2) · translate(-handle)
+   — so the circle is the area around the handle, magnified 2.2x, and the finger is never on it:
+   the loupe parks in whichever corner of the stage is furthest from the touch. */
+var LOUPE_K=2.2, LOUPE_D=118;
+var loupe=document.createElement('div'); loupe.className='loupe';
+loupe.innerHTML='<div class="lw"></div><svg class="lsvg"></svg><div class="ltag">2.2×</div>';
+S.stage.appendChild(loupe);
+var lWrap=loupe.querySelector('.lw'), lSvg=loupe.querySelector('.lsvg');
+S.loupeOn=true;
+function loupeOpen(){
+  if(!S.loupeOn)return;
+  lWrap.innerHTML='';
+  S._lc=[];
+  for(var i=0;i<S.cells.length;i++){
+    var c=S.cells[i].el.cloneNode(true);
+    lWrap.appendChild(c); S._lc.push(c);
+  }
+  loupe.style.display='block';
+  loupe.classList.add('on');
+}
+function loupeClose(){
+  loupe.classList.remove('on');
+  loupe.style.display='none';
+  lWrap.innerHTML=''; S._lc=null;
+}
+function loupeCorner(p){
+  var m=10, best=null, bd=-1;
+  var cand=[[m,m],[S.W-LOUPE_D-m,m],[m,S.H-LOUPE_D-m],[S.W-LOUPE_D-m,S.H-LOUPE_D-m]];
+  for(var i=0;i<cand.length;i++){
+    var cx=cand[i][0]+LOUPE_D/2, cy=cand[i][1]+LOUPE_D/2;
+    var d=Math.hypot(cx-p.x,cy-p.y);
+    if(d>bd){bd=d;best=cand[i];}
+  }
+  return best;
+}
+function loupeTick(){
+  if(!S._lc||!S.g||!S.g.live)return;
+  var g=S.g;
+  var p = g.kind==='bend' ? meshAt(g.d.i) : (handlePtOf(g.kind,g.d.i)||g.p0);
+  var c=loupeCorner(p);
+  loupe.style.left=c[0].toFixed(0)+'px'; loupe.style.top=c[1].toFixed(0)+'px';
+  var R=LOUPE_D/2;
+  var tf='translate('+R+'px,'+R+'px) scale('+LOUPE_K+') translate('+(-p.x).toFixed(1)+'px,'+
+         (-p.y).toFixed(1)+'px)';
+  lWrap.style.transform=tf;
+  for(var i=0;i<S._lc.length&&i<S.cells.length;i++)
+    S._lc[i].style.transform=S.cells[i].el.style.transform;
+  /* the guide, redrawn at 2.2x, plus a dot for every handle and a ring on the one you hold */
+  var L=S._hit||[], marks='';
+  for(i=0;i<L.length;i++){
+    var on=(L[i].type===g.kind&&L[i].i===g.d.i);
+    marks+='<circle cx="'+L[i].x.toFixed(1)+'" cy="'+L[i].y.toFixed(1)+'" r="'+(on?4.2:2.6)+
+      '" fill="'+(on?L[i].col:'none')+'" stroke="'+L[i].col+'" stroke-width="'+(on?1.6:1.1)+
+      '" opacity="'+(on?1:.75)+'"/>';
+  }
+  var gt='translate('+R+','+R+') scale('+LOUPE_K+') translate('+(-p.x).toFixed(1)+','+(-p.y).toFixed(1)+')';
+  lSvg.innerHTML='<g transform="'+gt+'">'+guide.innerHTML+marks+'</g>'+
+    '<circle cx="'+R+'" cy="'+R+'" r="'+(R-1)+'" fill="none" stroke="rgba(167,139,250,.28)" stroke-width="1"/>'+
+    '<path d="M'+R+' '+(R-13)+' V'+(R-5)+' M'+R+' '+(R+5)+' V'+(R+13)+
+      ' M'+(R-13)+' '+R+' H'+(R-5)+' M'+(R+5)+' '+R+' H'+(R+13)+
+      '" stroke="rgba(79,209,197,.85)" stroke-width="1"/>';
+}
+var loupeBtn=document.getElementById('loupeBtn');
+loupeBtn.addEventListener('click',function(){
+  S.loupeOn=!S.loupeOn;
+  loupeBtn.textContent='Loupe: '+(S.loupeOn?'on':'off');
+  loupeBtn.classList.toggle('ghost',!S.loupeOn);
+  if(!S.loupeOn)loupeClose();
+});
+
+/* readout */
+function derive(){
+  var q=S.quad;
+  var sx=len(q[0],q[1])/S.bw, sy=len(q[0],q[3])/S.bh;
+  var rot=deg(Math.atan2(q[1].y-q[0].y,q[1].x-q[0].x));
+  var eL=Math.atan2(q[3].y-q[0].y,q[3].x-q[0].x);
+  var eT=Math.atan2(q[1].y-q[0].y,q[1].x-q[0].x);
+  var sk=deg(eL-eT)-90;
+  while(sk>90)sk-=180; while(sk<-90)sk+=180;
+  var top=len(q[0],q[1]), bot=len(q[3],q[2]);
+  return {sx:sx,sy:sy,rot:rot,skew:sk,taper:bot>0.01?(top/bot):1};
+}
+function f2(v){return (v<0?'':' ')+v.toFixed(2);}
+function fd(v){return (v<0?'':'+')+v.toFixed(1)+'°';}
+var out=document.getElementById('readout');
+function readout(){
+  var v=derive(), i, cs='', es='';
+  for(i=0;i<4;i++)cs+='<b style="color:'+COL[S.cRole[i]]+'">'+RG.corner[S.cRole[i]]+'</b>';
+  for(i=0;i<4;i++)es+='<b style="color:'+COL[S.eRole[i]]+'">'+RG.edge[S.eRole[i]]+'</b>';
+  var bm=bentAmount();
+  var bs=S.bendOn?(bm>0.004?('on '+(bm*100).toFixed(0)+'%'):'on'):(bm>0.004?'off (kept)':'off');
+  var fl=(S.flipH?'H':'')+(S.flipV?'V':'');
+  out.innerHTML=
+    'scale '+f2(v.sx)+' ×'+f2(v.sy)+'    rot '+fd(v.rot)+'\n'+
+    'lean  '+fd(v.skew)+'    taper '+v.taper.toFixed(2)+
+      '    flip '+(fl||'—')+'    bend '+bs+'\n'+
+    'corners '+cs+'   edges '+es;
+}
+
+/* ============================ boot ============================ */
+reset();
+new ResizeObserver(function(){
+  var r=S.stage.getBoundingClientRect();
+  if(!r.width)return;
+  if(Math.abs(r.width-S.W)<0.5&&Math.abs(r.height-S.H)<0.5)return;
+  var nb=baseSize(r.width,r.height), f=nb.w/S.bw;
+  var ocx=S.W/2, ocy=S.H/2, ncx=r.width/2, ncy=r.height/2, i;
+  for(i=0;i<4;i++){
+    S.quad[i].x=ncx+(S.quad[i].x-ocx)*f;
+    S.quad[i].y=ncy+(S.quad[i].y-ocy)*f;
+  }
+  /* the bend needs no rescaling at all any more — it is stored in unit space */
+  S.W=r.width;S.H=r.height;S.bw=nb.w;S.bh=nb.h;
+  buildCells(); render();
+}).observe(S.stage);
+
+/* ---- test hooks (harmless in use, used by the synthetic pointer harness) ---- */
+window.__T={S:S,stageToUnit:stageToUnit,meshAt:meshAt,syncH:syncH,applyH:applyH,adj:adj,
+            homoUnit:homoUnit,handleList:handleList,hitTest:hitTest,foldOverEdge:foldOverEdge};
+</script>

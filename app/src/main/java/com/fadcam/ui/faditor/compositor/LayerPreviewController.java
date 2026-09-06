@@ -379,6 +379,67 @@ public final class LayerPreviewController {
     // ── TEXT/SPRITE below a blending/masked GL IMAGE → promote to GL (gap close) ───
 
     /**
+     * Plain IMAGE overlays whose lane sits BELOW a GL-routed image overlay, and which must
+     * therefore join the GL composite so the routed one has something to blend against.
+     *
+     * <p><b>THE RULE, stated once for both surfaces.</b> Blending is RELATIONAL but
+     * {@code TextOverlayItem.wantsGlExport()} is PER-ITEM, so it can only ever answer "do I
+     * need a shader for my own sake?". An image on NORMAL answers no, stays on the Canvas
+     * path, and is simply absent from the frame a SCREEN image above it samples — which is
+     * JoyRaptor's "it is not affecting the image directly below it … as soon as I set the one
+     * below to a blending mode too, they both work". Setting the lower one's blend fixed it
+     * because that made the per-item gate say yes for the lower one as well.</p>
+     *
+     * <p>So: <b>an image overlay is routed into the GL chain when it lies below the TOPMOST
+     * GL-routed image overlay in the one bottom→top visual order.</b> Not "below a blend" —
+     * below anything that LEFT THE CANVAS PATH, because the reason to promote is the SPLIT
+     * between passes and a blend is only one of the four ways
+     * ({@code wantsGlExport()} = blend | fx | key | mask) to cause it.</p>
+     *
+     * <p><b>Time is not filtered here, on purpose.</b> Routing is a per-project decision in
+     * both surfaces (swapping it per frame would make the chain shape flicker as the playhead
+     * crossed an item's edge); the per-frame gate is {@code TextOverlayLayer.fxPipFor}'s
+     * {@code isVisibleAt} in the preview and {@code ImageOverlayDraw}'s own range check in
+     * the export, so a promoted image that is not live at a given frame contributes nothing
+     * to that frame.</p>
+     *
+     * <p><b>Provably inert without blends.</b> {@code glImages} empty returns on line one, and
+     * {@code glImages} is empty for every project in which no image carries a blend, an
+     * effect, a key or a mask. Such a project therefore builds the identical preview plan and
+     * the identical export chain it built before this method existed.</p>
+     */
+    @NonNull
+    public static List<TextOverlayItem> plainImagesBelowBlend(
+            @NonNull Timeline timeline,
+            @NonNull List<TextOverlayItem> glImages) {
+        if (glImages.isEmpty()) return java.util.Collections.emptyList();
+        List<VisualItem> ordered = orderedVisualItems(timeline);
+        java.util.Map<String, Integer> idxById = new java.util.HashMap<>();
+        for (int i = 0; i < ordered.size(); i++) {
+            TextOverlayItem o = ordered.get(i).item.getTextOverlay();
+            if (o != null && o.isImage()) idxById.put(o.getId(), i);
+        }
+        int maxBlendIdx = -1;
+        for (TextOverlayItem g : glImages) {
+            Integer idx = idxById.get(g.getId());
+            if (idx != null && idx > maxBlendIdx) maxBlendIdx = idx;
+        }
+        if (maxBlendIdx <= 0) return java.util.Collections.emptyList();
+        List<TextOverlayItem> out = new ArrayList<>();
+        for (int i = 0; i < maxBlendIdx; i++) {
+            TextOverlayItem o = ordered.get(i).item.getTextOverlay();
+            // Already-GL images are excluded: they are in glImages and are emitted by that
+            // path. TEXT is excluded because it has no pinned/GL image path at all — a text
+            // overlay handed to the image emitter would export blank (the reason
+            // wantsExportBlend() is images-only); static text below a blend is instead
+            // handled by plainTextsBelowBlend, which rasterises it.
+            if (o == null || !o.isImage() || o.wantsGlExport() || o.isHidden()) continue;
+            out.add(o);
+        }
+        return out;
+    }
+
+    /**
      * Plain TEXT overlays (non-image, not hidden) whose lane sits below a GL-routed
      * IMAGE overlay. Those texts are stranded on Canvas while the blend above lives
      * in GL, so the blend composites against video instead of the text below — the

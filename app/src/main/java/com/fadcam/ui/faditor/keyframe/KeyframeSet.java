@@ -88,6 +88,64 @@ public class KeyframeSet {
         return v < lo ? lo : (v > hi ? hi : v);
     }
 
+    /**
+     * Parse a typed ROTATION field: plain degrees ("720", "-45", "1080") or whole turns
+     * ("16x" = sixteen turns = 5760°; "16X", "16 x", "-2x", "2.5x" all accepted).
+     *
+     * <p><b>Nothing here folds the result into 0..360.</b> Rotation is keyframed, and 370°
+     * and 10° are the same POSE but a different ANIMATION — a value that kept its winding on
+     * the way in must never be clamped to a slider window on the way into storage. Displays
+     * may fold; storage may not (SPEC A, rotation beyond one full turn).</p>
+     *
+     * <p>Null for anything that is not one of those two forms — the empty string, bare "x",
+     * "abc", "--5", "1.2.3", and the exponent form ("1e9" is a typo, not a number someone
+     * meant; {@link Float#parseFloat} would silently read it as 1). The caller keeps the old
+     * value on null, the house rule {@code promptForNumber} in ColorPickerDialog set.</p>
+     *
+     * @return degrees, possibly far outside 0..360, or null when the text is rejected
+     */
+    @Nullable
+    public static Float parseRotationInput(@Nullable String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        if (t.isEmpty()) return null;
+        float turns = 1f;
+        char last = t.charAt(t.length() - 1);
+        if (last == 'x' || last == 'X') {
+            t = t.substring(0, t.length() - 1).trim();
+            if (t.isEmpty()) return null;          // bare "x" names no number of turns
+            turns = 360f;
+        }
+        Float v = plainSignedDecimal(t);
+        if (v == null || Float.isNaN(v) || Float.isInfinite(v)) return null;
+        float deg = v * turns;
+        return (Float.isNaN(deg) || Float.isInfinite(deg)) ? null : deg;
+    }
+
+    /**
+     * One optional sign, digits, at most one dot — and nothing else. Stricter than
+     * {@link Float#parseFloat} on purpose: it refuses exponent notation and a second sign,
+     * the two ways a fat-fingered field can silently mean something else.
+     */
+    @Nullable
+    private static Float plainSignedDecimal(@NonNull String t) {
+        int i = 0, n = t.length();
+        if (i < n && (t.charAt(i) == '+' || t.charAt(i) == '-')) i++;
+        boolean digits = false, dot = false;
+        while (i < n) {
+            char c = t.charAt(i);
+            if (c >= '0' && c <= '9') { digits = true; i++; }
+            else if (c == '.' && !dot) { dot = true; i++; }
+            else return null;
+        }
+        if (!digits) return null;                  // "+", ".", "-"
+        try {
+            return Float.parseFloat(t);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     @NonNull
     private final Map<String, KeyframeTrack> tracks = new LinkedHashMap<>();
 

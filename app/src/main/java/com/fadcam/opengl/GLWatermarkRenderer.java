@@ -1499,12 +1499,19 @@ public class GLWatermarkRenderer {
         Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         labelPaint.setColor(Color.WHITE);
         labelPaint.setTextSize(Math.max(14f, overlayWidth * 0.020f));
-        try {
-            labelPaint.setTypeface(android.graphics.Typeface.createFromAsset(context.getAssets(), "ubuntu_regular.ttf"));
-        } catch (Exception ignored) {
-            labelPaint.setTypeface(android.graphics.Typeface.create(android.graphics.Typeface.SANS_SERIF,
-                    android.graphics.Typeface.BOLD));
+        // Reuse the cached face rather than re-reading the asset: this runs per detection label
+        // per frame, and createFromAsset parses the font file every call. The cache is the same
+        // one the watermark paint above uses.
+        if (cachedUbuntuTypeface == null) {
+            try {
+                cachedUbuntuTypeface = android.graphics.Typeface.createFromAsset(
+                        context.getAssets(), "ubuntu_regular.ttf");
+            } catch (Exception ignored) {
+                cachedUbuntuTypeface = android.graphics.Typeface.create(
+                        android.graphics.Typeface.SANS_SERIF, android.graphics.Typeface.BOLD);
+            }
         }
+        labelPaint.setTypeface(cachedUbuntuTypeface);
         labelPaint.setFakeBoldText(true);
         labelPaint.setLetterSpacing(0.02f);
         String prettyLabel = classLabel == null || classLabel.trim().isEmpty() ? "object" : classLabel.trim().toLowerCase();

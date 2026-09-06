@@ -448,8 +448,8 @@ public class OverlayVideoPreviewView extends FrameLayout {
                                             @Nullable android.graphics.Bitmap still,
                                             int liveSlot) {
         if (callback == null || srcW <= 0 || srcH <= 0) return null;
-        RectF r = callback.getVideoContentRect();
-        if (r.width() <= 0 || r.height() <= 0) return null;
+        RectF r = canvasRect();
+        if (r == null) return null;
         float fit = Math.min(r.width() / srcW, r.height() / srcH);
         float baseW = srcW * fit, baseH = srcH * fit;
         float x = readValue(clip, KeyframeSet.X, DEFAULT_X);
@@ -472,9 +472,44 @@ public class OverlayVideoPreviewView extends FrameLayout {
                 clip.getFx(), currentTimeMs,
                 clip.getCompositing(),
                 com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()),
-                Math.max(1, srcW), Math.max(1, srcH),
+                // THE MASTER FRAME, not this PiP's own source size. A mask's cx/cy/w/h are
+                // CANVAS fractions and the composite shader evaluates them against the master
+                // frame ({@code 1.0 / uPipTexel}); packing the feather in this clip's pixels
+                // made a soft edge scale with whatever resolution the overlay clip happened to
+                // be. Falls back to the source size before the controller has published a
+                // frame, which is what it always used.
+                compositeFrameW > 0 ? compositeFrameW : Math.max(1, srcW),
+                compositeFrameH > 0 ? compositeFrameH : Math.max(1, srcH),
                 clip.getId(), still, liveSlot);
     }
+
+    /**
+     * The OUTPUT CANVAS rect in this view's pixel space, or null before it is measured.
+     *
+     * <p>The callback's {@code getVideoContentRect} is the host's {@code computeCanvasRect()} —
+     * the PlayerView's bounds when a canvas aspect is resolvable, the video content rect when it
+     * is not. Exposed so {@link FxLivePreviewController} can size the GL composite to the same
+     * box every overlay is normalised against, rather than the host growing a second accessor
+     * that could answer differently.</p>
+     */
+    @Nullable
+    public RectF canvasRect() {
+        if (callback == null) return null;
+        RectF r = callback.getVideoContentRect();
+        return (r.width() > 0 && r.height() > 0) ? r : null;
+    }
+
+    /**
+     * The size the GL composite is running at, published each sync by
+     * {@link FxLivePreviewController}. Used only to pack mask geometry into the space the
+     * composite shader evaluates it in.
+     */
+    public void setCompositeFrameSize(int w, int h) {
+        compositeFrameW = w;
+        compositeFrameH = h;
+    }
+
+    private int compositeFrameW, compositeFrameH;
 
     /**
      * The PiP's drawn box in THIS view's pixel space, for the preview manipulation handles.

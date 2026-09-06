@@ -10,6 +10,10 @@
          A tag rather than a returned handle so the drawer, which rebuilds tab content on every
          switch, always refreshes whatever is actually on screen. -->
     <item name="faditor_tag_row_refresh" type="id"/>
+    <!-- SPEC B: marks an overlay view whose pivot was set off the View default, so position()
+         knows to restore the real default (actual laid-out centre) when the pivot returns to
+         centre — a computed w/2 could disagree with the drawn size for one frame. -->
+    <item name="faditor_tag_pivot_custom" type="id"/>
 
     <!-- Faditor editor bottom tools carousel (data-driven).
          The carousel cells are built programmatically by FaditorToolsAdapter,

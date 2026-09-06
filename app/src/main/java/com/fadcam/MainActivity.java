@@ -24,6 +24,7 @@ import android.widget.ImageView;
 import com.fadcam.ui.OverlayNavUtil;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
@@ -91,6 +92,14 @@ public class MainActivity extends AppCompatActivity {
     private int swipeTouchSlop = 0;
     private static final float SWIPE_HORIZONTAL_RATIO = 1.35f;
     private boolean previewGestureInProgress = false;
+    // Touch-dispatch view lookups, resolved once. dispatchTouchEvent runs for EVERY motion
+    // event - on this display that is ~120 ACTION_MOVEs a second during any drag - and
+    // findViewById walks the view tree on each call. A method-sampling trace of a timeline
+    // scrub had findViewById + ViewGroup.findViewTraversal at 9% of ALL samples, sitting right
+    // next to dispatchTouchEvent. Both containers are inflated once with the layout and never
+    // replaced, so a field is the whole fix. Re-resolved lazily if the layout is ever swapped.
+    @Nullable private View cachedOverlayContainer;
+    @Nullable private View cachedNavContainer;
     private float previewGestureZoomRatio = 1.0f;
 
     /**
@@ -728,7 +737,11 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         // Disable tab swipe when overlay fragment is visible.
-        View overlayContainer = findViewById(R.id.overlay_fragment_container);
+        View overlayContainer = cachedOverlayContainer;
+        if (overlayContainer == null) {
+            overlayContainer = findViewById(R.id.overlay_fragment_container);
+            cachedOverlayContainer = overlayContainer;
+        }
         boolean overlayVisible = overlayContainer != null && overlayContainer.getVisibility() == View.VISIBLE;
         if (overlayVisible) {
             return super.dispatchTouchEvent(ev);
@@ -817,7 +830,11 @@ public class MainActivity extends AppCompatActivity {
     private boolean isSwipeExcludedTarget(View touchedView) {
         if (touchedView == null) return false;
 
-        View navContainer = findViewById(R.id.nav_container);
+        View navContainer = cachedNavContainer;
+        if (navContainer == null) {
+            navContainer = findViewById(R.id.nav_container);
+            cachedNavContainer = navContainer;
+        }
         if (navContainer != null && isDescendantOf(touchedView, navContainer)) {
             return true;
         }

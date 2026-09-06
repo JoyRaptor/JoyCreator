@@ -1,4 +1,4 @@
-# LANES.md — live file-lock board for parallel agents
+﻿# LANES.md — live file-lock board for parallel agents
 #
 # ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
 #    supersedes the mode UI from b3648455/139b5dbf/94b4cb9c/2c7d4dfa. The ENGINE stays; the
@@ -133,8 +133,136 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: free — released 2026-08-30T21:12 by SPEC_20260830_WORD_SYNC_V2 (muse-spark-1.2 joy-creator), per JOYRAPTOR direct instruction: installed build lastUpdate 2026-08-30T21:11 (head e8d95987 — magnet draw fix, snap stickiness, toasts, host-stub fix) on Note 20 REAL_SERIAL; Note 9 SANDBOX_SERIAL got the 18:08 build earlier the same evening.
-  NOTE for FADE_KNOBS lane: my 18:08:36 install -r on the Note 9 replaced your 16:45 instrumented FADEDBG build - re-install if you still need that capture.
+DEVICE: free  (claude released 2026-09-01 - JoyRaptor is hands-on testing the phone himself)
+
+## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST
+JoyRaptor: "export failed twice in a row on my most recent project."
+ROOT CAUSE: OUR OWN REGRESSION from tonight. CompositeExportOverlay.release() recycled the cached
+overlay bitmaps and THEN called imageOverlayBitmaps.evictAll(). evictAll() re-calls sizeOf() on every
+entry to decrement the cache total, and a RECYCLED bitmap reports a different getAllocationByteCount()
+than it did at put() time, so LruCache threw
+   IllegalStateException: CompositeExportOverlay$1.sizeOf() is reporting inconsistent results!
+surfacing to the user as "Video frame processing error". Deterministic for ANY project containing an
+image overlay. Introduced when the unbounded HashMap was converted to an LruCache earlier tonight.
+FIX: snapshot -> evictAll -> recycle (evict while the pixels are still there, so the totals agree).
+CompositeExportOverlay.java release(). Bytecode-verified: snapshot@393, evictAll@401, recycle@447.
+BUILD SUCCESSFUL, installed on the Note 20 at 02:26:12.
+NOT YET RUN END-TO-END - no export was executed to confirm. JoyRaptor should run one export first thing.
+
+LESSON (add to tasks/lessons.md): an android.util.LruCache whose sizeOf() reads live Bitmap state is
+only consistent while the bitmap is alive. Never mutate/recycle a value before removing it from the
+cache. Either evict first, or record the byte size at insertion and return the recorded value.
+
+## OVERNIGHT 2026-09-01/02 (claude, JoyRaptor-directed autonomous) - READ THIS FIRST
+status: ACTIVE overnight. Multiple agents, strict file ownership, NOTHING COMMITTED - all staged.
+        JoyRaptor's Note 20 (REAL_SERIAL) is UNPLUGGED; only the Note 9 (SANDBOX_SERIAL) is attached,
+        so every build since ~21:00 installed to the NOTE 9. JoyRaptor's phone last got a build at 19:38.
+        Everything after that is on disk + compiled but NOT on his device.
+
+  ** CORRECTION TO AN EARLIER CLAIM - tell JoyRaptor in the morning. **
+  I told JoyRaptor "your EXPORT is fine, only the preview lies" about the mask/zoom bug. That is only
+  true when the master clip under the image is an IMAGE clip, or when clip aspect == canvas aspect.
+  ExportManager:3059-3062 gates the canvas-normalising Presentation on clip.isImageClip(), so for a
+  VIDEO master clip of a different aspect the overlays run at SOURCE size and the export shows the
+  SAME non-uniform distortion the preview did. Exact fix: drop `clip.isImageClip() &&` from the
+  condition at :3059. NOT YET DONE - ExportManager was owned by another agent tonight. QUEUE IT.
+
+  LANDED TONIGHT (all compile-verified BUILD SUCCESSFUL, none device-verified - phone unplugged):
+   - GL preview frame space is now the CANVAS, not the decoded video. This was the root cause of
+     "adding a mask changes the apparent zoom": canvas-fraction geometry was being read as fractions
+     of a letterboxed sub-rect. Fixes images, captions AND PiPs at once. Multi-shape masks now upload
+     all shapes (was shape 0 only).
+   - Corner-pin / skew ENGINE complete on TextOverlayItem (model, 8 keyframe tracks, preview via
+     CornerPinImageView, export via ImageOverlayDraw, tolerant JSON). No UI by design.
+   - Zoom-blind decode fixed in preview AND export (decode bound read scaleX/scaleY; pinch writes
+     sizeFraction). Cache-key freeze fixed too.
+   - ImageOverlayDraw mask bracket now opens BEFORE the item transform, matching PipFrameOverlay.
+   - Caption staleness: audio caption views were set GONE by the tick and NOTHING ever set them
+     VISIBLE again. Plus Transcript.contentSignature() replacing identity-based cache keys.
+   - Caption selection: binding-index vs overlay-index confusion (JoyRaptor's original "wrong track"
+     complaint), one shared selectCaptionBinding entry point for chips AND preview taps.
+   - Caption fades, anchor/justify in all four renderers, pillCornerScale, GL raster bleed.
+   - BLOCK/KARAOKE toggle in the word drawer with auto-arm (link / call_split glyphs).
+   - Word Sync: closeAllTopPanels left the mode permanently ON; shuttle died after one close.
+   - Visualizer: long-press opened delete (and one path deleted with NO confirm); drawer had no
+     close X (header was visibility=gone in XML) and no height clamp.
+   - GL pilot dummy REMOVED (blue placeholder square over the first 60s of any GL-routed project).
+
+  STILL QUEUED (not started): spine/master-clip FX + adjustments render (UI writes, nothing reads);
+  EffectStack -> FxStack fold (3 chips + migration); mesh warp build (spec written:
+  tasks/SPEC_20260902_MESH_WARP.md); skew/warp UI (JoyRaptor choosing from tasks/design/SKEW_WARP_OPTIONS.html);
+  ExportManager:3059 fix above.
+
+  DO NOT COMMIT CaptionStyle.java / CaptionOverlayView.java without asking JoyRaptor - they also carry
+  CAPTION_SLIDES_UX's uncommitted work.
+
+## SPEC_20260901_ANR_PERF - caption fit thrash: Typeface.createFromFile in the measure loop
+status: IDLE (2026-09-01 - claude. LANDED, BUILD SUCCESSFUL 09:24:38 install on Note 20
+        REAL_SERIAL, verified on device: no new ANR, native heap 2.1 GB -> 156 MB at rest.
+        *** UNCOMMITTED, ALL STAGED. DO NOT COMMIT CaptionStyle.java / CaptionOverlayView.java
+        WITHOUT READING THIS: those two files ALSO hold CAPTION_SLIDES_UX's uncommitted work
+        (360 + 35 lines). Any commit of them carries that lane's work too - that is unavoidable
+        at file granularity, not a bare-commit slip. Ask JoyRaptor before committing them. ***
+
+  ROOT CAUSE (from 19 dropbox ANR reports, 12 of them today): every ANR is "Input dispatching
+  timed out ... FaditorEditorActivity ... Waited 10001ms for MotionEvent", and 4 of 5 main-thread
+  stacks are identical:
+      CaptionOverlayView.onDraw -> getUniformFittedSize -> CaptionFit.uniformSizeForTranscript
+      -> fitSizeForWords -> fits/countLines -> Measurer.widthOf
+      -> CaptionStyle.typeface() -> Typeface.createFromFile()   <-- re-parses the font file
+  createFromFile does NO caching and returns a fresh identity each call, which also defeats the
+  framework's own styled-variant cache in Typeface.create(base, style). The fitter calls widthOf
+  once per word per candidate size: a 3,437-word transcript at ~6 words/phrase x 18 size probes
+  is on the order of 10^5 font parses per fit, on the main thread, inside onDraw. Hence the
+  2.1 GB native heap (each parse allocates a native font buffer) and the SkStrikeCache::internalPurge
+  frames destroying SkTypeface_Stream at the bottom of every trace.
+  22 of JoyRaptor's 42 saved caption styles use file: Montserrat/JosefinSans fonts and 20 of those
+  are fitMode UNIFORM or PER_CUE - the exact detonating combination.
+
+  FIXES (all five compiled + installed):
+   1. FontLibrary.typefaceForFile/typefaceForKey - process-wide ConcurrentHashMap cache, with a
+      remembered-failure set so a deleted font does not re-parse every draw. invalidateTypefaces()
+      for the importer. THIS IS THE 10x; everything else is small by comparison.
+   2. CaptionStyle.typeface() - goes through that cache instead of createFromFile.
+   3. CaptionOverlayView.createMeasurer() - resolves the typeface ONCE per fit instead of once
+      per measured word (same face for every measurement, so no result changes).
+   4. TextOverlayItem.typefaceFor() - same cache; it had the identical uncached createFromFile.
+   5. GLWatermarkRenderer:1503 - was calling createFromAsset per detection label per frame while
+      a cachedUbuntuTypeface field sat right there unused; now uses it.
+
+  SECOND FIND, unrelated to captions (ART method sample of a timeline scrub, 57,671 records):
+  findViewById + ViewGroup.findViewTraversal were 9% of ALL samples, next to dispatchTouchEvent.
+  MainActivity.dispatchTouchEvent called findViewById(R.id.overlay_fragment_container) on EVERY
+  motion event (~120 ACTION_MOVEs/sec during any drag), and isSwipeExcludedTarget did the same
+  for R.id.nav_container. Both containers are inflated once and never replaced -> cached in
+  fields. The two one-off lookups (onCreate, line 1709) were deliberately left alone.
+
+  STILL OPEN - handed on, not done:
+   - onDraw RECORD time is still ~26 ms/frame under a hard scrub (budget 16.6; GPU is idle at
+     10 ms, so it is all main-thread record). EditorTimelineView.onDraw is a clean dispatcher
+     over ~14 draw helpers - the cost is inside those, not yet attributed to one. Needs a
+     method trace taken while the EDITOR is genuinely frontmost (my first trace caught
+     MainActivity/HomeFragment and is misleading).
+   - ViewGroup.onDescendantInvalidated was the single hottest frame at 7.5% = an invalidation
+     storm; someone is calling invalidate() far more than once per frame. Worth chasing.
+   - CaptionOverlayView PER_CUE branch (the fitMode != UNIFORM/OFF else-branch in onDraw) runs
+     fitSizeForWords UNCACHED every frame. Cheap now that the typeface is cached (~100 short
+     measureText calls) but it is still per-frame work that a cache would remove.
+   - HomeFragment.updateClock still ticks while the editor is frontmost (showed up in the trace).
+   - FaditorEditorActivity.getTypefaceForKey:21760 has the SAME uncached createFromFile. It is a
+     picker helper, not a per-frame path, so it was left for whoever is in that file next.
+files: (none)
+since: 2026-09-01
+
+## SPEC_20260831_CAPTION_SLIDES_UX — caption pills both tabs, wire/import, truncate, fit consolidation
+status: IDLE (2026-08-31T11:05 — opencode COMPLETE: mojibake repaired+staged (6,549 chars, 2
+        files), prior session evaluated, duplicate-flp compile blocker fixed, pills on BOTH tabs,
+        Truncate chip + CaptionStyle.fitTruncate (3 renderers + GL cache key), pills long-press
+        rename/delete restored, dead list builders removed — compile VERIFIED (BUILD SUCCESSFUL
+        12s at 10:55:36 log write + incremental javac class outputs 11:00:30). UNCOMMITTED, all
+        STAGED (13 files). Owed: device visual pass (JoyRaptor). Do NOT commit without pathspec.)
+files: (none)
+since: 2026-08-31T11:05
 
 ## SPEC_20260829_AUDIO_SYNC_TRUTH — audio layer sync, drift lock, latency calibration
 status: ACTIVE (2026-08-29T02:00 — opencode/muse-spark implementing)

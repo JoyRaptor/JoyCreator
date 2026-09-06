@@ -103,13 +103,71 @@ public class CompositeExportOverlay extends BitmapOverlay {
      */
     @Nullable
     /**
-     * Decoded image-overlay bitmaps, keyed by overlay id, decoded once and reused for every frame.
+     * Decoded image-overlay bitmaps, keyed by overlay id — BYTE-BOUNDED, not unbounded.
      *
-     * <p>A null VALUE is a cached failure: an overlay whose URI cannot be decoded must not be
-     * re-attempted 900 times, and must not log 900 times either. Presence of the key is the
-     * "already tried" flag, so {@code containsKey} — not {@code get() != null} — is the test.</p>
+     * <p>This was a plain HashMap held for the clip's whole export, so every image overlay the
+     * clip ever showed stayed decoded until release. JoyRaptor's project has 78 image overlays; at
+     * export resolution that is hundreds of MB of native heap that no 4 GB phone survives. Only
+     * the overlays VISIBLE at the current frame are ever asked for (the draw loop skips
+     * {@code !o.isVisibleAt}), so the working set is "how many images overlap at one moment",
+     * not "how many the project contains" — a byte budget costs at most a re-decode when a
+     * long-gone overlay comes back.</p>
+     *
+     * <p><b>Evicted entries are NOT recycled, deliberately.</b> An evicted bitmap may still be
+     * referenced by an in-flight frame on the encoder side, and freeing its pixels underneath
+     * that is a native crash no try/catch reaches. Dropping the reference is enough: the
+     * collector frees the pixels once nothing holds them. Eviction means "stop holding it",
+     * never "destroy it".</p>
      */
-    private final java.util.Map<String, Bitmap> imageOverlayBitmaps = new java.util.HashMap<>();
+    // Assigned in the constructor, NOT here: the budget asks the ActivityManager through
+    // `context`, and field initialisers run before the constructor body has assigned it.
+    private final android.util.LruCache<String, Bitmap> imageOverlayBitmaps;
+
+    /**
+     * Overlay ids that could not be decoded. Separate from the cache because LruCache cannot
+     * store a null VALUE, and the cached failure is the thing that stops a broken URI being
+     * re-decoded (and re-logged) on all 900 frames — the reason the old map tested
+     * {@code containsKey} rather than {@code get() != null}. Bounded by the overlay count and
+     * holds no pixels, so a plain set is right here.
+     */
+    private final java.util.Set<String> imageOverlayFailed = new java.util.HashSet<>();
+
+    /**
+     * Image-overlay bitmap budget for ONE exporting clip, sized to the DEVICE.
+     *
+     * <p>Deliberately tighter than the editor's preview cache (TextOverlayLayer uses 2% clamped
+     * to 160 MB): during an export the media codec holds its own input/output buffers, the
+     * frame compositor holds several full-frame ARGB_8888 bitmaps, and the editor process may
+     * still be holding its preview cache — so the export is the wrong place to be greedy.
+     * Bitmap pixels live in the native heap, so {@code Runtime.maxMemory} and the ActivityManager
+     * memory class (both Java-heap bounds) do not describe what is available; total physical RAM
+     * is the honest proxy.</p>
+     *
+     * <p>1.5% of physical RAM, clamped to [24 MB, 96 MB]. On a 4 GB phone that is ~61 MB, which
+     * still holds seven full-frame 1080p images at once — far more than realistically overlap on
+     * a single frame — while leaving the codec its room. The floor keeps an unknown device from
+     * thrashing the decoder; the ceiling keeps a 12 GB phone from parking 200 MB in an export
+     * that runs in the background.</p>
+     */
+    private int imageOverlayCacheBudgetBytes() {
+        long total = 0L;
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager)
+                    context.getSystemService(android.content.Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                android.app.ActivityManager.MemoryInfo mi =
+                        new android.app.ActivityManager.MemoryInfo();
+                am.getMemoryInfo(mi);
+                total = mi.totalMem;
+            }
+        } catch (Exception ignored) {
+            // Fall through to the floor: too small costs a re-decode, guessing high on an
+            // unknown device costs the export.
+        }
+        long budget = total > 0 ? (total * 3L) / 200L : 0L;        // 1.5%
+        long clamped = Math.max(24L * 1024 * 1024, Math.min(budget, 96L * 1024 * 1024));
+        return (int) clamped;
+    }
 
     /**
      * The bitmap for an image overlay, decoded on first use and cached for the clip's lifetime.
@@ -124,9 +182,13 @@ public class CompositeExportOverlay extends BitmapOverlay {
     @Nullable
     private Bitmap imageOverlayBitmap(@NonNull TextOverlayItem o) {
         String key = o.getId();
-        if (imageOverlayBitmaps.containsKey(key)) {
-            Bitmap cached = imageOverlayBitmaps.get(key);
-            return (cached != null && !cached.isRecycled()) ? cached : null;
+        if (imageOverlayFailed.contains(key)) return null;
+        Bitmap cached = imageOverlayBitmaps.get(key);
+        if (cached != null) {
+            // A recycled entry can only come from release(); drop it rather than hand back
+            // pixels that are gone.
+            if (!cached.isRecycled()) return cached;
+            imageOverlayBitmaps.remove(key);
         }
         // Decode + downsampling live in ImageOverlayDraw, shared with the blend path, so a
         // blended image is never decoded at a different sharpness than an unblended one.
@@ -134,6 +196,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
         if (out == null) {
             FLog.w(TAG, "image overlay " + key + " decoded to null from " + o.getImageUri()
                     + " — it will be absent from the exported file");
+            imageOverlayFailed.add(key);
+            return null;
         }
         imageOverlayBitmaps.put(key, out);
         return out;
@@ -299,6 +363,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.headTransitionMs = headTransitionMs;
         this.projectDurationMs = projectDurationMs;
         this.context = context.getApplicationContext();
+        this.imageOverlayBitmaps =
+                new android.util.LruCache<String, Bitmap>(imageOverlayCacheBudgetBytes()) {
+                    @Override protected int sizeOf(@NonNull String key, @NonNull Bitmap value) {
+                        return value.getAllocationByteCount();
+                    }
+                };
         // Custom caption styles resolve through the store; the :export process is
         // fresh per export, so init here before any CaptionStyle.byId call.
         com.fadcam.ui.faditor.transcript.CaptionStyleStore.ensureInit(this.context);
@@ -338,6 +408,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
                             t.windowed(ac.getInPointMs(), ac.getOutPointMs()),
                             cs, ac.getCaptionCenterX(), ac.getCaptionCenterY(),
                             ac.getCaptionSizeFraction(), outW, outH);
+                    // Motion preset — the audio path previewed it and exported without it
+                    // (the video path has always applied this; see the clip-caption slots).
+                    r.setCaptionAnimation(ac.getCaptionAnimPreset(), ac.getCaptionAnimGranularity(),
+                            ac.getCaptionAnimInPct(), ac.getCaptionAnimOutPct());
                     slots.add(new AudioCaptionSlot(r, ac.getOffsetMs(), ac.getInPointMs()));
                 }
             } else {
@@ -352,7 +426,17 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     CaptionStyle cs = CaptionStyle.byId(b.styleId);
                     CaptionExportRenderer r = new CaptionExportRenderer(
                             nt.transcript.windowed(ac.getInPointMs(), ac.getOutPointMs()),
-                            cs, b.centerX, b.centerY, b.sizeFraction, outW, outH);
+                            cs, b.centerX, b.centerY, b.sizeFraction, b.boxWidthFraction, outW, outH);
+                    // Box alignment + opacity fade travel with the binding, exactly as the preview
+                    // overlay reads them — without these the export re-centred a pinned block and
+                    // ignored the fade the user watched the veil grow for.
+                    r.setBoxAlign(b.anchor, b.justify);
+                    r.setCaptionFade(b.fadeInMs, b.fadeOutMs, ac.getTrimmedDurationMs());
+                    // Motion preset lives on the audio CLIP (there is no per-binding animation
+                    // model on the audio side), so every binding of a clip animates alike —
+                    // exactly what the preview does.
+                    r.setCaptionAnimation(ac.getCaptionAnimPreset(), ac.getCaptionAnimGranularity(),
+                            ac.getCaptionAnimInPct(), ac.getCaptionAnimOutPct());
                     slots.add(new AudioCaptionSlot(r, ac.getOffsetMs(), ac.getInPointMs()));
                 }
             }
@@ -816,16 +900,34 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 }
                 isFirstBinding = false;
                 if (styleId == null || "hidden".equals(styleId)) continue;
-                if (slot.renderer == null || !styleId.equals(slot.rendererStyleId)) {
+                if (slot.renderer != null && !styleId.equals(slot.rendererStyleId)) {
+                    // Caption style KEYFRAME transition. Swap the style in place rather than
+                    // rebuilding: the constructor allocates a full-frame ARGB_8888 bitmap (8.3 MB
+                    // at 1080p) and drops the old one for the GC, and it also discards the fit
+                    // caches, so a clip alternating between two styles re-fit its whole
+                    // transcript at every switch. setStyle resets every piece of style-derived
+                    // state and keeps the bitmap; the settings below are binding/clip properties,
+                    // not style properties, so they survive the swap unchanged.
+                    slot.renderer.setStyle(CaptionStyle.byId(styleId));
+                    slot.rendererStyleId = styleId;
+                }
+                if (slot.renderer == null) {
                     slot.renderer = new CaptionExportRenderer(slot.transcript,
                             CaptionStyle.byId(styleId), slot.binding.centerX, slot.binding.centerY,
-                            slot.binding.sizeFraction, outW, outH);
+                            slot.binding.sizeFraction, slot.binding.boxWidthFraction, outW, outH);
                     slot.rendererStyleId = styleId;
                     slot.renderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
                             clip.getCaptionAnimGranularity(),
                             clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
+                    // The binding's box alignment and opacity fade — the two properties the
+                    // export used to drop on the floor. The fade's span is the caption's own
+                    // placement on the timeline, which for a clip caption IS the clip's span
+                    // (CaptionSpanRef), so the local clock below is clipLocalMs.
+                    slot.renderer.setBoxAlign(slot.binding.anchor, slot.binding.justify);
+                    slot.renderer.setCaptionFade(slot.binding.fadeInMs, slot.binding.fadeOutMs,
+                            Math.max(1L, clip.getVisualDurationMs()));
                 }
-                Bitmap captionBmp = slot.renderer.render(sourceMs);
+                Bitmap captionBmp = slot.renderer.render(sourceMs, clipLocalMs);
                 if (captionBmp == null || captionBmp.isRecycled()) {
                     if (!loggedNullCaptionWarning) {
                         FLog.w(TAG, "CaptionExportRenderer returned null/recycled bitmap; "
@@ -844,7 +946,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
             long audioCaptionTimelineMs = clipTimelineStartMs + clipLocalMs;
             for (AudioCaptionSlot slot : audioCaptionSlots) {
                 long audioSourceMs = audioCaptionTimelineMs - slot.offsetMs + slot.inPointMs;
-                Bitmap captionBmp = slot.renderer.render(audioSourceMs);
+                // Local time within the AUDIO clip's own span — the clock the binding's fade is
+                // measured against (its span on the timeline starts at the clip's offset).
+                long audioSpanLocalMs = audioCaptionTimelineMs - slot.offsetMs;
+                Bitmap captionBmp = slot.renderer.render(audioSourceMs, audioSpanLocalMs);
                 if (captionBmp != null && !captionBmp.isRecycled()) {
                     canvas.drawBitmap(captionBmp, 0, 0, null);
                     drewCaption = true;
@@ -1046,10 +1151,26 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (r != null) r.recycle();
         }
         spriteRenderers.clear();
-        for (Bitmap b : imageOverlayBitmaps.values()) {
+        // ORDER IS LOAD-BEARING: snapshot, then evictAll, THEN recycle.
+        //
+        // evictAll() calls sizeOf() again on every entry to decrement the cache's running total,
+        // and LruCache throws IllegalStateException("sizeOf() is reporting inconsistent results!")
+        // if that answer differs from the one given at put() time. A RECYCLED bitmap reports a
+        // different getAllocationByteCount() than a live one, so recycling before evicting made
+        // every export of a project containing an image overlay die here with
+        // "Video frame processing error" (JoyRaptor, 2026-09-02, two failed exports in a row).
+        //
+        // Evicting first asks sizeOf() while the pixels are still there, so the totals agree and
+        // the cache empties cleanly. Recycling afterwards is still safe for the reason the old
+        // comment gave: this is the one point where the export is finished with every frame, so
+        // freeing the pixels here cannot pull them out from under an in-flight encoder frame the
+        // way eviction mid-export could.
+        java.util.Map<String, Bitmap> overlayBitmapsToFree = imageOverlayBitmaps.snapshot();
+        imageOverlayBitmaps.evictAll();
+        for (Bitmap b : overlayBitmapsToFree.values()) {
             if (b != null && !b.isRecycled()) b.recycle();
         }
-        imageOverlayBitmaps.clear();
+        imageOverlayFailed.clear();
         if (bitmapB != null && !bitmapB.isRecycled()) {
             bitmapB.recycle();
         }
@@ -1070,3 +1191,4 @@ public class CompositeExportOverlay extends BitmapOverlay {
         canvas = null;
     }
 }
+

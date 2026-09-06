@@ -2476,7 +2476,6 @@
             android:gravity="center_vertical"
             android:paddingStart="14dp"
             android:paddingEnd="8dp"
-            android:visibility="gone"
             android:background="#FF1A1A1A">
 
             <TextView
@@ -2488,23 +2487,38 @@
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
+            <!-- Close ✕ — same glyph/colour/size/padding as ObjectDrawer's header close, so
+                 every drawer in the editor is dismissed the same way. It used to be
+                 visibility="gone" (as was the whole header), which left the drawer with no
+                 close affordance except a grab handle that a tall panel pushed off-screen. -->
             <TextView
                 android:id="@+id/visualizer_drawer_close"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:gravity="center"
-                android:fontFamily="@font/materialicons"
-                android:text="close"
-                android:textColor="#FFFFFF"
-                android:textSize="22sp"
-                android:visibility="gone"
+                android:text="✕"
+                android:textColor="#FF9A9A9A"
+                android:textSize="17sp"
+                android:paddingStart="12dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="4dp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
 
-        <FrameLayout
-            android:id="@+id/visualizer_drawer_content"
+        <!-- Body is height-CLAMPED (55% of the screen, ObjectDrawer's own cap) and scrolls
+             inside it, so the drawer can never grow tall enough to bury its bottom grab
+             handle under the timeline lanes. -->
+        <com.fadcam.ui.faditor.tools.MaxHeightScrollView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:scrollbars="none">
+
+            <FrameLayout
+                android:id="@+id/visualizer_drawer_content"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </com.fadcam.ui.faditor.tools.MaxHeightScrollView>
 
         <!-- Bottom grab handle (swipe up to dismiss) -->
         <View
@@ -2965,7 +2979,23 @@
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
                     android:background="#FF222222"
-                    android:alpha="0.5" />
+                    android:alpha="0.5"
+                    android:layout_marginEnd="6dp" />
+
+                <!-- BLOCK / KARAOKE commit toggle (SPEC caption slides UX). Icon glyph is set
+                     from R.font.materialicons in code: "link" = one block, "call_split" = split
+                     into words (deliberately the Split tool's own glyph). -->
+                <TextView
+                    android:id="@+id/word_sync_block"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="call_split"
+                    android:textColor="#FFEEEEEE"
+                    android:textSize="16sp"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="5dp"
+                    android:background="#FF2A2A2A"
+                    android:contentDescription="Split into words" />
             </LinearLayout>
 
             <Space

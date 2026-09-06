@@ -47,12 +47,14 @@ public class WaveformOverlayView extends View {
         /** Re-tapping an already-selected visualizer — open the style chooser. */
         default void onWaveformTapped(@NonNull WaveformOverlayInstance overlay) {}
         /**
-         * Hold on a visualizer — open its object menu (gesture contract §4.5;
-         * delete lives inside it). Default falls back to the legacy instant
-         * delete so other hosts keep working unchanged.
+         * Hold on a visualizer — open its settings drawer (gesture contract §4.5).
+         * Deletion is NOT on this gesture: it lives on the timeline row's trash-can
+         * badge. The default used to fall through to an instant, confirm-less delete,
+         * which meant a hold anywhere near a visualizer could destroy it; it now
+         * routes to the same place a re-tap goes.
          */
         default void onWaveformLongPressed(@NonNull WaveformOverlayInstance overlay) {
-            onWaveformDeleted(overlay);
+            onWaveformTapped(overlay);
         }
     }
 

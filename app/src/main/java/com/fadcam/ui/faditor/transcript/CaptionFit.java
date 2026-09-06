@@ -29,12 +29,15 @@ public final class CaptionFit {
     /**
      * Fit one cue's words into the box. Returns the largest size that fits,
      * never below {@code authoredSize * minScale}. If it still does not fit at
-     * the floor, returns the floor — clipping is the caller's to handle.
+     * the floor, returns the floor — truncation at the floor is the caller's to
+     * handle (SPEC_20260831_CAPTION_SLIDES_UX: {@code CaptionStyle.fitTruncate}).
      *
      * @param words        visible words of the phrase (in order)
      * @param authoredSize size the style asked for (px)
      * @param boxW         available width (px), already accounting for horizontal padding (e.g. *0.9)
-     * @param boxH         available height (px)
+     * @param boxH         available height (px). SPEC_20260831_CAPTION_SLIDES_UX: callers pass an
+     *                     effectively infinite height (frame height * 8) when
+     *                     {@code CaptionStyle.fitTruncate} is false, so only width constrains.
      * @param minScale     floor as fraction of authoredSize (e.g. 0.45)
      * @param maxLines     0 = unlimited, else 1..N
      * @param m            measurer
@@ -99,21 +102,30 @@ public final class CaptionFit {
     /**
      * UNIFORM mode: measure every phrase and use the smallest size any of them needs.
      * Caller should cache the result per transcript+box+style (see SPEC §3.2).
+     *
+     * <p>Words come from {@link CaptionPhrases#layoutWords}, so a SLIDE grouping (one entry
+     * holding a whole paragraph) measures the paragraph's real wrapped words rather than the
+     * paragraph as a single unbreakable token — which could only ever fail every size and
+     * return the floor.</p>
+     *
+     * <p>SPEC_20260831_CAPTION_SLIDES_UX: as in {@link #fitSizeForWords}, pass an effectively
+     * infinite {@code boxH} (frame height * 8) when {@code style.fitTruncate} is false for a
+     * width-only fit; truncation at the floor stays the caller's job.</p>
      */
     public static float uniformSizeForTranscript(@NonNull Transcript transcript,
                                                  @NonNull CaptionStyle style,
                                                  float authoredSize,
                                                  float boxW, float boxH,
                                                  @NonNull Measurer m) {
-        CaptionPhrases grouping = CaptionPhrases.of(transcript, style.maxWords);
+        CaptionPhrases grouping = style.slideGroup
+                ? CaptionPhrases.ofSlides(transcript)
+                : CaptionPhrases.of(transcript, style.maxWords);
         if (grouping.phrases.isEmpty()) return authoredSize;
         float fittedMin = authoredSize;
         boolean first = true;
         for (int i = 0; i < grouping.phrases.size(); i++) {
-            List<Integer> visIdx = grouping.visibleWords(i);
-            if (visIdx.isEmpty()) continue;
-            List<String> words = new ArrayList<>(visIdx.size());
-            for (int wi : visIdx) words.add(transcript.words.get(wi).text);
+            List<String> words = grouping.layoutWords(i);
+            if (words.isEmpty()) continue;
             float fitted = fitSizeForWords(words, authoredSize, boxW, boxH,
                     style.fitMinScale, style.fitMaxLines, m, style.pill);
             if (first) { fittedMin = fitted; first = false; }

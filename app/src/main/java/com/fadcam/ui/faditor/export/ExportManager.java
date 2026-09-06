@@ -371,6 +371,12 @@ public class ExportManager {
         this.listener = listener;
     }
 
+    /** The listener set by {@link #setExportListener}, or null (used by ExportService's dispatch). */
+    @Nullable
+    public ExportListener getExportListener() {
+        return listener;
+    }
+
     public boolean isExporting() {
         return isExporting;
     }
@@ -411,77 +417,20 @@ public class ExportManager {
         FLog.d(TAG, "C1.E voice chain applied=" + cleanAudioSnapshot + " (Clean Audio)");
 
         try {
-            // Build the Transformer
-            Transformer.Builder builder = new Transformer.Builder(context)
-                    .setAssetLoaderFactory(hardwareFirstAssetLoaderFactory())
-                    // TEN SECONDS IS NOT ENOUGH ON AN OLD PHONE. media3 kills an export when
-                    // the muxer goes DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS (10_000 on a
-                    // real device) without receiving a sample, and reports it as the bare
-                    // "Muxer error" that JoyRaptor hit on 2026-08-26 after a long wait — the
-                    // structured record caught the watchdog frames in the stack:
-                    // Transformer.maybeInitializeExportWatchdogTimer -> WatchdogTimer.onTimeout.
-                    //
-                    // His project is 11 clips drawn from six distinct sources, with PiP
-                    // compositing, text overlays and an 18-second still at the end, on a Note 9
-                    // (API 29, ~2 hardware decoders). A single hard segment there can easily
-                    // out-wait ten seconds without emitting one sample, and the export dies
-                    // having done all the work up to that point.
-                    //
-                    // This raises the ceiling; it does NOT make export faster, and the slowness
-                    // is worth attacking separately. A watchdog exists to catch a genuine hang,
-                    // and a hang still trips this one — it just no longer mistakes a slow device
-                    // for a broken one.
-                    .setMaxDelayBetweenMuxerSamplesMs(120_000L)
-                    .setVideoMimeType(MimeTypes.VIDEO_H264)
-                    .setAudioMimeType(MimeTypes.AUDIO_AAC)
-                    // Encode portrait output NATIVELY (coded WxH portrait, rotation=0)
-                    // instead of Media3's default "landscape + rotation flag"
-                    // optimization. That optimization made 9:16 exports come out as
-                    // 1546x870 with a rotate(-90) flag — correct on players that honor
-                    // the flag, but sideways / wrongly-sized on those that ignore it
-                    // (some social/web players). Forcing portrait encoding bakes the
-                    // pixels upright so the file is correct everywhere.
-                    .setPortraitEncodingEnabled(true);
-
-            // ── User export settings (resolution cap + quality/bitrate) ──
-            // Defaults (ORIGINAL + HIGH) leave this entire path byte-identical to
-            // before: no encoder factory is set and no resolution cap applies.
-            ExportSettings exportSettings = project.getExportSettings();
-            boolean qualityIsDefault = exportSettings == null
-                    || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
-            boolean resolutionIsDefault = exportSettings == null
-                    || exportSettings.getResolution() == ExportSettings.Resolution.ORIGINAL;
-            if (!qualityIsDefault) {
-                int bitrate = suggestedExportBitrate(project);
-                if (bitrate > 0) {
-                    VideoEncoderSettings.Builder encoderSettings =
-                            new VideoEncoderSettings.Builder().setBitrate(bitrate);
-                    // Optional H.264 Baseline-profile request for max-compatibility / low-bandwidth
-                    // exports. Default OFF → the requested profile stays NO_VALUE and this whole
-                    // path is byte-identical to before. When enabled we pass Baseline with a
-                    // NO_VALUE level on purpose: the patched DefaultEncoderFactory reads the
-                    // original requested profile and auto-derives a supported level itself (see the
-                    // "FadCam patch" comments in adjustMediaFormatForH264EncoderSettings), so we
-                    // never have to pick a level here.
-                    if (REQUEST_BASELINE_PROFILE) {
-                        encoderSettings.setEncodingProfileLevel(
-                                MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline,
-                                VideoEncoderSettings.NO_VALUE);
-                    }
-                    builder.setEncoderFactory(new DefaultEncoderFactory.Builder(context)
-                            .setRequestedVideoEncoderSettings(encoderSettings.build())
-                            .build());
-                    FLog.d(TAG, "Export quality " + exportSettings.getQuality()
-                            + " → requested video bitrate " + bitrate
-                            + (REQUEST_BASELINE_PROFILE ? " (H.264 Baseline)" : ""));
-                }
-            }
+            // Build the Transformer (base settings shared with the single-frame path —
+            // ONE configuration authority so the frame export encodes identically).
+            Transformer.Builder builder = baseVideoTransformerBuilder(project);
 
             // For simple trim (single clip, no effects, normal speed, audio intact,
             // and no audio clips on the audio track) use near-lossless
             // optimization. The fast-trim path bypasses the effects chain, so we
             // must exclude any project that has overlays — otherwise text /
             // captions / waveforms would be silently dropped.
+            ExportSettings exportSettings = project.getExportSettings();
+            boolean qualityIsDefault = exportSettings == null
+                    || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
+            boolean resolutionIsDefault = exportSettings == null
+                    || exportSettings.getResolution() == ExportSettings.Resolution.ORIGINAL;
             boolean isSimpleTrim = project.getTimeline().getClipCount() == 1
                     && !project.getTimeline().hasAudioClips()
                     && !project.getTimeline().getClip(0).isImageClip()
@@ -493,6 +442,20 @@ public class ExportManager {
                     && !project.getTimeline().getClip(0).isFlipVertical()
                     && "none".equals(project.getTimeline().getClip(0).getCropPreset())
                     && !project.getTimeline().getClip(0).hasOpacityKeyframes()
+                    // ADVERSARIAL FIX 4: a master spine fade is applied by OpacityExportEffect,
+                    // which the near-lossless trim path skips entirely. Listed here beside its
+                    // sibling clip-level opacity test rather than inside
+                    // usesLayerFeaturesAffectingExport, which is about LAYER features — a master
+                    // fade is a property of the spine clip itself. (Media3 may re-encode anyway
+                    // in practice; that is library behaviour, not a guard.)
+                    && !project.getTimeline().getClip(0).hasMasterFade()
+                    // SPINE_TRANSFORM: same reasoning, same shelf. The canvas placement is a
+                    // GlEffect and the near-lossless path bypasses the effects chain, so a
+                    // single-clip project that had merely been nudged left would have exported
+                    // untouched and silently centred. Costs nothing for the projects the fast
+                    // path is actually for: hasSpineTransform() is false unless a pose was
+                    // authored.
+                    && !project.getTimeline().getClip(0).hasSpineTransform()
                     && !project.getTimeline().hasTextOverlays()
                     && !hasAnyVisibleCaptionBinding(project.getTimeline().getClip(0))
                     && !project.getTimeline().hasWaveformOverlays()
@@ -577,6 +540,320 @@ public class ExportManager {
             if (listener != null) {
                 listener.onExportError(e);
             }
+        }
+    }
+
+    /**
+     * The base Transformer configuration shared by the video export and the single-frame
+     * export — ONE configuration authority so a frame export encodes through the same
+     * codecs, encoder settings and portrait rule a video export uses.
+     *
+     * <p>Extracted verbatim from {@link #export(FaditorProject)} (2026-09-05, SPEC_C):
+     * the settings, their values and their order are unchanged.</p>
+     */
+    @NonNull
+    private Transformer.Builder baseVideoTransformerBuilder(@NonNull FaditorProject project) {
+        // SPEC A lane, 2026-09-05: this method arrived mid-refactor with `builder` referenced
+        // but never declared (the old `return new Transformer.Builder(...)` chain and the
+        // encoder-factory tail could not both hold). Completed MECHANICALLY — same builder,
+        // same settings, same order; no behaviour changed.
+        Transformer.Builder builder = new Transformer.Builder(context)
+                .setAssetLoaderFactory(hardwareFirstAssetLoaderFactory())
+                // TEN SECONDS IS NOT ENOUGH ON AN OLD PHONE. media3 kills an export when
+                // the muxer goes DEFAULT_MAX_DELAY_BETWEEN_MUXER_SAMPLES_MS (10_000 on a
+                // real device) without receiving a sample, and reports it as the bare
+                // "Muxer error" that JoyRaptor hit on 2026-08-26 after a long wait — the
+                // structured record caught the watchdog frames in the stack:
+                // Transformer.maybeInitializeExportWatchdogTimer -> WatchdogTimer.onTimeout.
+                //
+                // His project is 11 clips drawn from six distinct sources, with PiP
+                // compositing, text overlays and an 18-second still at the end, on a Note 9
+                // (API 29, ~2 hardware decoders). A single hard segment there can easily
+                // out-wait ten seconds without emitting one sample, and the export dies
+                // having done all the work up to that point.
+                //
+                // This raises the ceiling; it does NOT make export faster, and the slowness
+                // is worth attacking separately. A watchdog exists to catch a genuine hang,
+                // and a hang still trips this one — it just no longer mistakes a slow device
+                // for a broken one.
+                .setMaxDelayBetweenMuxerSamplesMs(120_000L)
+                .setVideoMimeType(MimeTypes.VIDEO_H264)
+                .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                // Encode portrait output NATIVELY (coded WxH portrait, rotation=0)
+                // instead of Media3's default "landscape + rotation flag"
+                // optimization. That optimization made 9:16 exports come out as
+                // 1546x870 with a rotate(-90) flag — correct on players that honor
+                // the flag, but sideways / wrongly-sized on those that ignore it
+                // (some social/web players). Forcing portrait encoding bakes the
+                // pixels upright so the file is correct everywhere.
+                .setPortraitEncodingEnabled(true);
+        // ── User export settings (resolution cap + quality/bitrate) ──
+        // Defaults (ORIGINAL + HIGH) leave this entire path byte-identical to
+        // before: no encoder factory is set and no resolution cap applies.
+        DefaultEncoderFactory encoderFactory = qualityEncoderFactoryOrNull(project);
+        if (encoderFactory != null) {
+            builder.setEncoderFactory(encoderFactory);
+        }
+        return builder;
+    }
+
+    /**
+     * The encoder factory honouring the project's export quality (bitrate request), or
+     * null to leave media3 at its default — exactly the behaviour export() had inline.
+     */
+    @Nullable
+    private DefaultEncoderFactory qualityEncoderFactoryOrNull(@NonNull FaditorProject project) {
+        ExportSettings exportSettings = project.getExportSettings();
+        boolean qualityIsDefault = exportSettings == null
+                || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
+        if (qualityIsDefault) return null;
+        int bitrate = suggestedExportBitrate(project);
+        if (bitrate <= 0) return null;
+        VideoEncoderSettings.Builder encoderSettings =
+                new VideoEncoderSettings.Builder().setBitrate(bitrate);
+        // Optional H.264 Baseline-profile request for max-compatibility / low-bandwidth
+        // exports. Default OFF → the requested profile stays NO_VALUE and this whole
+        // path is byte-identical to before. When enabled we pass Baseline with a
+        // NO_VALUE level on purpose: the patched DefaultEncoderFactory reads the
+        // original requested profile and auto-derives a supported level itself (see the
+        // "FadCam patch" comments in adjustMediaFormatForH264EncoderSettings), so we
+        // never have to pick a level here.
+        if (REQUEST_BASELINE_PROFILE) {
+            encoderSettings.setEncodingProfileLevel(
+                    MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline,
+                    VideoEncoderSettings.NO_VALUE);
+        }
+        FLog.d(TAG, "Export quality " + exportSettings.getQuality()
+                + " → requested video bitrate " + bitrate
+                + (REQUEST_BASELINE_PROFILE ? " (H.264 Baseline)" : ""));
+        return new DefaultEncoderFactory.Builder(context)
+                .setRequestedVideoEncoderSettings(encoderSettings.build())
+                .build();
+    }
+
+    // ── Single-frame image export (SPEC_C) ─────────────────────────────
+
+    /**
+     * Export ONE composed frame of the project as a PNG (lossless) or JPG image, at the
+     * project's export resolution, with every overlay the video export would draw.
+     *
+     * <p>HOW IT COMPOSES: through the video export's own pipeline — no second compositor.
+     * {@link #buildComposition} runs twice (see {@link FrameExportDirective}): pass 1
+     * records which EditedMediaItem covers the requested editor time; pass 2 emits only
+     * that item, padded to its full-export composition start and end-clamped just past
+     * the frame. The frame is then pulled from the encoded temp video with
+     * MediaMetadataRetriever. The image therefore differs from the same frame of a video
+     * export by nothing except H.264 encode-generation rounding (the frame has passed
+     * through one H.264 encode/decode round trip, as every exported video frame does).</p>
+     *
+     * <p>Called from {@link ExportService} on the service thread; Transformer callbacks
+     * arrive there and the finalization runs on its own thread (retriever + compress are
+     * not free).</p>
+     *
+     * @param project     the project to render
+     * @param frameTimeMs the requested frame on the EDITOR timeline (the playhead's clock)
+     * @param jpeg        true → JPG (quality 90); false → PNG (lossless)
+     * @param listener    progress/completion callbacks
+     */
+    public void exportSingleFrame(@NonNull FaditorProject project,
+                                  long frameTimeMs,
+                                  boolean jpeg,
+                                  @NonNull ExportListener listener) {
+        if (isExporting) {
+            FLog.w(TAG, "Export already in progress");
+            return;
+        }
+        if (project.getTimeline().isEmpty()) {
+            listener.onExportError(new IllegalStateException("Timeline is empty"));
+            return;
+        }
+        long totalMs = project.getTimeline().getTotalDurationMs();
+        if (frameTimeMs < 0 || frameTimeMs >= totalMs) {
+            // Backstop for the dialog's own validation: rejected, never clamped.
+            listener.onExportError(new IllegalArgumentException(
+                    "Frame time " + frameTimeMs + "ms is outside the project (0.."
+                            + totalMs + "ms)"));
+            return;
+        }
+
+        // Same pre-flight the video export does: attached visualizers and rider times are
+        // derived from the current spans, and the C7 screen-state snapshots are read once.
+        project.getTimeline().resyncAttachedVisualizers();
+        project.getTimeline().resyncLinkGroups();
+        fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+        cleanAudioSnapshot = project.getExportSettings() != null
+                && project.getExportSettings().isCleanAudio();
+
+        isExporting = true;
+        lastLoggedProgressPct = -1;
+        progressEpochMs = 0L;
+        try {
+            // Pass 1 — record where every item sits on both clocks (no waveform/audio
+            // work; items are built but nothing is rendered).
+            FrameExportDirective plan = FrameExportDirective.framePlan(frameTimeMs);
+            buildComposition(project, plan);
+            int covering = plan.coveringOrdinal();
+            long natural = plan.coveringNaturalCompMs();
+            long leadFillerMs = plan.coveringLeadFillerMs();
+            long localTargetMs = plan.coveringLocalTargetMs();
+            long compTargetMs = leadFillerMs + localTargetMs;
+            long clampLocalMs = Math.min(natural, localTargetMs + FRAME_CLAMP_LOOKAHEAD_MS);
+            FLog.i(TAG, "single-frame: T=" + frameTimeMs + "ms → item#" + covering
+                    + " compTarget=" + compTargetMs + "ms lead=" + leadFillerMs
+                    + "ms natural=" + natural + "ms clamp=" + clampLocalMs + "ms");
+
+            // Pass 2 — the truncated composition: [lead filler] + [clamped covering item].
+            FrameExportDirective clamp = FrameExportDirective.frameClamp(
+                    covering, leadFillerMs, clampLocalMs, natural);
+            Composition composition;
+            try {
+                composition = buildComposition(project, clamp);
+            } finally {
+                releasePerThreadRetriever();
+            }
+            if (!clamp.wasCoveringEmitted()) {
+                throw new IllegalStateException(
+                        "single-frame export: covering item #" + covering
+                                + " was not emitted by the clamp pass");
+            }
+
+            File tempDir = new File(context.getCacheDir(), "faditor_export");
+            if (!tempDir.exists()) {
+                tempDir.mkdirs();
+            }
+            final File tempVideo = new File(tempDir,
+                    "frame_" + System.currentTimeMillis() + ".mp4");
+
+            Transformer.Builder builder = baseVideoTransformerBuilder(project);
+            builder.addListener(new Transformer.Listener() {
+                @Override
+                public void onCompleted(@NonNull Composition c, @NonNull ExportResult result) {
+                    stopProgressPolling();
+                    new Thread(() -> finishSingleFrame(project, tempVideo, compTargetMs,
+                            jpeg, result, listener), "faditor-frame-finalize").start();
+                }
+
+                @Override
+                public void onError(@NonNull Composition c, @NonNull ExportResult result,
+                                    @NonNull ExportException exception) {
+                    stopProgressPolling();
+                    isExporting = false;
+                    deleteQuietly(tempVideo);
+                    FLog.e(TAG, "Single-frame export failed", exception);
+                    writeExportErrorLog(project, exception, tempVideo.getPath());
+                    listener.onExportError(exception);
+                }
+            });
+            transformer = builder.build();
+            transformer.start(composition, tempVideo.getPath());
+            startProgressPolling();
+            FLog.d(TAG, "Single-frame export started → " + tempVideo.getPath());
+            listener.onExportStarted(tempVideo.getPath());
+        } catch (Exception e) {
+            isExporting = false;
+            FLog.e(TAG, "Failed to start single-frame export", e);
+            writeExportErrorLog(project, e, tempVideoPathForLog());
+            listener.onExportError(e);
+        }
+    }
+
+    @NonNull
+    private String tempVideoPathForLog() {
+        return new File(new File(context.getCacheDir(), "faditor_export"),
+                "frame_failed.mp4").getPath();
+    }
+
+    /**
+     * Pull the requested frame out of the encoded temp video and write the image where
+     * video exports go (internal Faditor dir, or the SAF copy flow in custom-storage
+     * mode). The temp video is ALWAYS deleted — it is an intermediate, not a product.
+     */
+    private void finishSingleFrame(@NonNull FaditorProject project,
+                                   @NonNull File tempVideo,
+                                   long targetCompMs,
+                                   boolean jpeg,
+                                   @NonNull ExportResult result,
+                                   @NonNull ExportListener listener) {
+        Bitmap frame = null;
+        try {
+            android.media.MediaMetadataRetriever mmr = new android.media.MediaMetadataRetriever();
+            try {
+                mmr.setDataSource(tempVideo.getPath());
+                String durStr = mmr.extractMetadata(
+                        android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
+                long durMs = -1L;
+                if (durStr != null) {
+                    try { durMs = Long.parseLong(durStr); } catch (NumberFormatException ignored) {}
+                }
+                long atMs = targetCompMs;
+                if (durMs > 0) atMs = Math.min(atMs, Math.max(0L, durMs - 5L));
+                frame = mmr.getFrameAtTime(atMs * 1000L,
+                        android.media.MediaMetadataRetriever.OPTION_CLOSEST);
+                if (frame == null) {
+                    // Sync fallback: better a neighbouring keyframe than nothing.
+                    frame = mmr.getFrameAtTime(atMs * 1000L,
+                            android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                }
+            } finally {
+                try { mmr.release(); } catch (Exception ignored) {}
+            }
+            if (frame == null || frame.isRecycled()) {
+                throw new IllegalStateException("frame extraction returned no bitmap at "
+                        + targetCompMs + "ms of " + tempVideo.getName());
+            }
+            // Some devices decode video frames as RGB_565 — compressing THAT to PNG bakes
+            // 16-bit colour banding into a "lossless" file. Normalize once, here.
+            if (frame.getConfig() != Bitmap.Config.ARGB_8888) {
+                Bitmap argb = frame.copy(Bitmap.Config.ARGB_8888, false);
+                frame.recycle();
+                frame = argb;
+            }
+
+            // Same destination rule as a video export: generateOutputPath honours the
+            // custom file name and the custom-storage (SAF) mode; copyTempToSaf below
+            // performs the copy for that mode. No new location, no new permission flow.
+            String finalPath = generateOutputPath(project, jpeg ? "jpg" : "png");
+            File outFile = new File(finalPath);
+            boolean compressed;
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream(outFile)) {
+                compressed = frame.compress(jpeg
+                        ? Bitmap.CompressFormat.JPEG : Bitmap.CompressFormat.PNG,
+                        jpeg ? 90 : 100, out);
+                out.flush();
+            }
+            frame.recycle();
+            frame = null;
+            if (!compressed) {
+                throw new java.io.IOException("Bitmap.compress returned false for " + finalPath);
+            }
+            if (pendingSafCopy) {
+                String safName = copyTempToSaf(finalPath);
+                if (safName != null) {
+                    finalPath = safName;
+                    FLog.d(TAG, "Single-frame export (copied to SAF): " + safName);
+                } else {
+                    FLog.e(TAG, "SAF copy failed, image remains at: " + finalPath);
+                }
+                pendingSafCopy = false;
+                safExportFileName = null;
+            }
+            isExporting = false;
+            FLog.i(TAG, "Single-frame export completed: " + finalPath);
+            listener.onExportCompleted(finalPath, result);
+        } catch (Exception e) {
+            isExporting = false;
+            if (frame != null && !frame.isRecycled()) frame.recycle();
+            FLog.e(TAG, "Single-frame finalize failed", e);
+            writeExportErrorLog(project, e, tempVideo.getPath());
+            listener.onExportError(e);
+        } finally {
+            deleteQuietly(tempVideo);
+        }
+    }
+
+    private static void deleteQuietly(@Nullable File f) {
+        if (f != null && f.exists() && !f.delete()) {
+            FLog.w(TAG, "Could not delete temp file " + f.getPath());
         }
     }
 
@@ -1152,8 +1429,177 @@ public class ExportManager {
 
     // ── Internal ─────────────────────────────────────────────────────
 
+    /**
+     * SPEC_C_SINGLE_FRAME: the bookkeeping that lets {@link #exportSingleFrame} reuse
+     * {@link #buildComposition} — THE one composer — for a single frame instead of
+     * growing a second compositor.
+     *
+     * <p>Two passes over the same deterministic builder:</p>
+     * <ol>
+     *   <li><b>Record</b> ({@link #framePlan}): every emitted video item reports its
+     *       composition start ({@code c0}), its media3-computed duration, and its EDITOR
+     *       span ({@code e0}, {@code editorLenMs}). The item whose editor span contains
+     *       the requested time is the covering item; the requested time maps into
+     *       composition time by {@code c0 + (T - e0) * compLen / editorLen}. The ratio
+     *       is 1 for every item except a transition item, whose composition length is
+     *       the outgoing-leg only while its editor span also covers the incoming leg —
+     *       exactly the compression LEDGER §2d documents.</li>
+     *   <li><b>Clamp</b> ({@link #frameClamp}): the builder runs again, emitting ONLY the
+     *       covering item, preceded by one black filler of exactly its composition start
+     *       so every effect sees the same presentationTimeUs it would see in a full
+     *       export, and with the covering item's source window END clamped to just past
+     *       the requested frame. The clip's local-clock semantics (clipMsFor,
+     *       editorTimeOffsetFor, caption fades) never see the truncation.</li>
+     * </ol>
+     */
+    static final class FrameExportDirective {
+        /** Pass-1 target: editor-timeline ms of the requested frame. */
+        final long targetEditorMs;
+        /** Pass-2: ordinal (emission order) of the covering item, as recorded in pass 1. */
+        final int coveringIndex;
+        /** Pass-2: composition start of the covering item == the lead filler's duration. */
+        final long leadFillerMs;
+        /** Pass-2: covering item's clamped composition length (target + lookahead). */
+        final long clampLocalMs;
+        /** Pass-2: the covering item's natural composition length (never clamp past it). */
+        final long coveringNaturalCompMs;
+        /** Number of items this directive has counted so far (both passes). */
+        int itemOrdinal = 0;
+        /** Clamp pass: true once the covering ordinal has actually been emitted. */
+        boolean coveringEmitted = false;
+        /** Clamp pass: true once the lead filler has been emitted. */
+        boolean leadFillerEmitted = false;
+        // Pass-1 recording state.
+        private int bestIndex = -1;
+        private long bestC0, bestE0, bestCompLen, bestEditorLen;
+        private long bestTransitionLegMs = 0;
+        private long lastEndCompMs = 0;
+        private int lastOrdinal = -1;
+        private boolean tailFillerLast = false;
+
+        private FrameExportDirective(long targetEditorMs, int coveringIndex, long leadFillerMs,
+                                     long clampLocalMs, long coveringNaturalCompMs) {
+            this.targetEditorMs = targetEditorMs;
+            this.coveringIndex = coveringIndex;
+            this.leadFillerMs = leadFillerMs;
+            this.clampLocalMs = clampLocalMs;
+            this.coveringNaturalCompMs = coveringNaturalCompMs;
+        }
+
+        static FrameExportDirective framePlan(long targetEditorMs) {
+            return new FrameExportDirective(targetEditorMs, -1, 0, 0, 0);
+        }
+
+        static FrameExportDirective frameClamp(int coveringIndex, long leadFillerMs,
+                                               long clampLocalMs, long coveringNaturalCompMs) {
+            return new FrameExportDirective(-1, coveringIndex, leadFillerMs, clampLocalMs,
+                    coveringNaturalCompMs);
+        }
+
+        boolean isRecordPass() { return coveringIndex < 0; }
+        boolean isClampPass() { return coveringIndex >= 0; }
+
+        /** True when the item about to be built at the current site is the covering one. */
+        boolean isCoveringItem() { return isClampPass() && itemOrdinal == coveringIndex; }
+
+        /** Count a site that emits nothing in this pass (degenerate / skipped). */
+        void skipSite() {
+            if (isRecordPass()) {
+                throw new IllegalStateException("skipSite outside clamp pass");
+            }
+            itemOrdinal++;
+        }
+
+        /**
+         * Note one emitted video item. In the record pass this runs the covering-item
+         * match; in the clamp pass it only keeps the ordinal in step with pass 1.
+         *
+         * @param c0          composition start of the item (the cursor before it)
+         * @param compDurMs   the item's media3-computed duration
+         * @param e0          the item's start in EDITOR-timeline ms
+         * @param editorLenMs the item's span in EDITOR-timeline ms
+         */
+        void noteItem(long c0, long compDurMs, long e0, long editorLenMs) {
+            noteItem(c0, compDurMs, e0, editorLenMs, 0L);
+        }
+
+        /**
+         * Transition-item variant. {@code transitionLegMs} is the transition's effective
+         * length, and it changes the TIME MAPPING, not just the span — see
+         * {@link #coveringLocalTargetMs}.
+         */
+        void noteItem(long c0, long compDurMs, long e0, long editorLenMs, long transitionLegMs) {
+            int ordinal = itemOrdinal++;
+            if (isClampPass() && ordinal == coveringIndex) {
+                coveringEmitted = true;
+            }
+            if (isRecordPass()) {
+                long e1 = e0 + Math.max(1L, editorLenMs);
+                if (e0 <= targetEditorMs && targetEditorMs < e1) {
+                    // LAST match wins: at a seam the transition item is recorded after the
+                    // main body it overlaps, and the transition is what the preview shows.
+                    bestIndex = ordinal;
+                    bestC0 = c0;
+                    bestE0 = e0;
+                    bestCompLen = Math.max(1L, compDurMs);
+                    bestEditorLen = Math.max(1L, editorLenMs);
+                    bestTransitionLegMs = Math.max(0L, transitionLegMs);
+                }
+                lastEndCompMs = c0 + Math.max(0L, compDurMs);
+                lastOrdinal = ordinal;
+            }
+        }
+
+        boolean foundCovering() { return bestIndex >= 0; }
+        int coveringOrdinal() { return foundCovering() ? bestIndex : lastOrdinal; }
+        long coveringNaturalCompMs() { return foundCovering() ? bestCompLen : Math.max(1L, lastEndCompMs); }
+        long coveringLeadFillerMs() { return foundCovering() ? Math.max(0L, bestC0) : 0L; }
+        /** Pass-1 record: the LAST emitted item was the tail filler. */
+        void markTailFiller() { tailFillerLast = true; }
+        boolean lastItemWasTailFiller() { return tailFillerLast; }
+        boolean wasCoveringEmitted() { return coveringEmitted; }
+        long coveringLocalTargetMs() {
+            if (!foundCovering()) {
+                // Requested time beyond every recorded span (e.g. the tail filler could not
+                // be created): fall back to the last emitted frame rather than failing.
+                return Math.max(0L, lastEndCompMs - 1L);
+            }
+            if (bestTransitionLegMs > 0L) {
+                // ⚠ A TRANSITION ITEM'S CLOCK IS PIECEWISE, NOT A RATIO. The blend's
+                // composition span is 1:1 with the editor's A-side region
+                // [e0, e0+leg): at editor time T there, the file shows the blend at
+                // progress (T - e0)/leg — the same blend the preview scrubs across the
+                // outgoing clip's tail (FaditorEditorActivity.updateScrubTransitionPreview).
+                // The incoming leg's head [e0+leg, e0+2·leg) does not exist as plain
+                // timeline in the file — its content is the blend's own second half, so
+                // editor time there maps to comp = T - leg (blend progress (T-e0-leg)/leg),
+                // which is also exactly what the §2d clock (editorTimeOffsetMs) assigns.
+                // A linear compLen/editorLen ratio would put a mid-blend playhead at HALF
+                // the blend — a visibly half-faded frame where the playhead shows half.
+                long leg = bestTransitionLegMs;
+                long fromEditor = targetEditorMs - bestE0;
+                if (fromEditor >= leg) fromEditor -= leg; // incoming-leg head → blend's second half
+                long local = Math.round((double) fromEditor * bestCompLen
+                        / (double) Math.max(1L, leg));
+                return Math.max(0L, Math.min(bestCompLen - 1L, local));
+            }
+            long local = Math.round((targetEditorMs - bestE0) * (double) bestCompLen
+                    / (double) bestEditorLen);
+            return Math.max(0L, Math.min(bestCompLen - 1L, local));
+        }
+    }
+
+    /** Composition ms of trailing coverage past the requested frame in a clamp pass. */
+    private static final long FRAME_CLAMP_LOOKAHEAD_MS = 120L;
+
     @NonNull
     private Composition buildComposition(@NonNull FaditorProject project) {
+        return buildComposition(project, null);
+    }
+
+    @NonNull
+    private Composition buildComposition(@NonNull FaditorProject project,
+                                         @Nullable FrameExportDirective frameDirective) {
         Timeline timeline = project.getTimeline();
         String canvasPreset = project.getCanvasPreset();
         int[] canvasDims = resolveCanvasDims(timeline, canvasPreset);
@@ -1186,8 +1632,12 @@ public class ExportManager {
             }
         }
 
-        // Pre-load waveform data for all waveform overlays
-        Map<String, WaveformData> waveformCache = preloadWaveformData(timeline);
+        // Pre-load waveform data for all waveform overlays. The record pass only counts
+        // items and editor spans — it never renders — so skip the audio-decode entirely.
+        Map<String, WaveformData> waveformCache = new HashMap<>();
+        if (frameDirective == null || !frameDirective.isRecordPass()) {
+            waveformCache = preloadWaveformData(timeline);
+        }
 
         // Pre-load waveform style presets
         List<WaveformStyle> builtinStyles = WaveformStyleIO.loadBuiltins(context);
@@ -1202,9 +1652,23 @@ public class ExportManager {
 
         List<EditedMediaItem> items = new ArrayList<>();
         long timelineCursorMs = 0;
+        // SPEC_C_SINGLE_FRAME: the EDITOR-timeline cursor — where the preview says clip ci
+        // begins (sum of visual durations, transitions overlay the seam rather than removing
+        // time). Recorded beside the composition cursor so a requested editor time can be
+        // mapped onto the item that covers it (see FrameExportDirective).
+        long editorCursorMs = 0;
+        // Lead filler for a clamp pass: emitted once, immediately before the covering item,
+        // so the covering item starts at the same composition time it has in a full export.
+        boolean leadFillerEmitted = false;
 
         for (int ci = 0; ci < timeline.getClipCount(); ci++) {
             Clip clip = timeline.getClip(ci);
+            // SPEC_C_SINGLE_FRAME: editor-span inputs for this clip (record/clamp passes).
+            long clipLoopBeforeMs = clip.hasLoopExtension() && !clip.isImageClip()
+                    ? clip.getLoopBeforeMs() : 0L;
+            long clipLoopAfterMs = clip.hasLoopExtension() && !clip.isImageClip()
+                    ? clip.getLoopAfterMs() : 0L;
+            boolean clipStillLoop = clip.getLoopMode() == Clip.LOOP_MODE_STILL;
 
             // Check for a transition at the seam AFTER this clip
             Transition trans = findTransitionAtSeam(timeline, ci);
@@ -1248,6 +1712,12 @@ public class ExportManager {
             long mainBodyTimelineMs = (long) ((mainOutMs - clipInMs) / clipSpeed);
             boolean mainBodyDegenerate = touchesTransition
                     && mainBodyTimelineMs < MIN_EXPORT_SEGMENT_MS;
+            // SPEC_C_SINGLE_FRAME: the seam transitions' TIMELINE lengths, used only for the
+            // item editor spans below (same clamp the trims above derive from).
+            long effHeadTimelineMs = hasHeadTransition
+                    ? effectiveTransitionMs(timeline, prevTrans, ci - 1) : 0L;
+            long effTailTimelineMs = hasTailTransition
+                    ? effectiveTransitionMs(timeline, trans, ci) : 0L;
 
             // ── Loop/ping-pong extensions BEFORE the main clip ──
             if (clip.hasLoopExtension() && !clip.isImageClip()) {
@@ -1257,27 +1727,84 @@ public class ExportManager {
                 if (loopBeforeMs > 0 && trimmedPlayMs > 0) {
                     int reps = (int) Math.ceil(loopBeforeMs / (double) trimmedPlayMs);
                     for (int r = 0; r < reps; r++) {
+                        // SPEC_C_SINGLE_FRAME: this site emits an item in every pass iff
+                        // buildLoopExtensionItem will (STILL mode emits only rep 0); the
+                        // ordinal parity between passes depends on this exact condition.
+                        boolean siteEmits = !(clipStillLoop && r > 0);
+                        // Editor span of this rep (reps tile the extension head-first).
+                        long extEditorStartMs = editorCursorMs
+                                + (clipStillLoop ? 0L
+                                        : Math.min((long) r * trimmedPlayMs, loopBeforeMs));
+                        long extEditorLenMs = Math.max(1L,
+                                loopBeforeMs - (extEditorStartMs - editorCursorMs));
+                        long extMs = loopBeforeMs;
+                        if (frameDirective != null && frameDirective.isClampPass()) {
+                            if (!siteEmits) continue;
+                            if (!frameDirective.isCoveringItem()) {
+                                frameDirective.skipSite();
+                                continue;
+                            }
+                            extMs = Math.min(loopBeforeMs, (long) r * trimmedPlayMs
+                                    + Math.min(frameDirective.coveringNaturalCompMs,
+                                            frameDirective.clampLocalMs));
+                        }
                         EditedMediaItem extItem = buildLoopExtensionItem(project, clip,
-                                loopBeforeMs, trimmedPlayMs, reps, r,
+                                extMs, trimmedPlayMs, reps, r,
                                 timelineCursorMs, outW, outH, canvasDims,
                                 waveformSlots, true);
                         if (extItem != null) {
+                            if (frameDirective != null) {
+                                frameDirective.noteItem(timelineCursorMs,
+                                        extItem.durationUs / 1000,
+                                        extEditorStartMs, extEditorLenMs);
+                                emitLeadFillerIfNeeded(frameDirective, items);
+                            }
                             items.add(extItem);
                             timelineCursorMs += extItem.durationUs / 1000;
+                        } else if (frameDirective != null && frameDirective.isClampPass()
+                                && siteEmits && frameDirective.isCoveringItem()) {
+                            throw new IllegalStateException(
+                                    "single-frame export: covering loop-extension item "
+                                            + frameDirective.itemOrdinal
+                                            + " could not be rebuilt");
                         }
                     }
                 }
             }
 
             // ── Build the main clip item (the part NOT in the transition) ──
-            if (mainOutMs > clipInMs && !mainBodyDegenerate) {
-                long mainDurationMs = clipInMs >= clipOutMs ? 0 : (mainOutMs - clipInMs);
+            // SPEC_C_SINGLE_FRAME: this site emits iff the condition below holds (same in
+            // every pass — the degenerate decision depends only on clip data). In a clamp
+            // pass the covering item's source window END is clamped to just past the frame
+            // and the degenerate guard is bypassed (a deliberately short item is the point).
+            boolean mainSiteEmits = mainOutMs > clipInMs && !mainBodyDegenerate;
+            long mainEditorStartMs = editorCursorMs + clipLoopBeforeMs + effHeadTimelineMs;
+            long mainEditorLenMs = Math.max(1L, (long) ((mainOutMs - clipInMs) / clipSpeed));
+            if (frameDirective != null && frameDirective.isClampPass()) {
+                if (!mainSiteEmits) {
+                    // Pass 1 emitted nothing here either — keep the ordinal untouched.
+                } else if (!frameDirective.isCoveringItem()) {
+                    frameDirective.skipSite();
+                    mainSiteEmits = false;
+                } else {
+                    long clampedWinMs = Math.min(frameDirective.coveringNaturalCompMs,
+                            frameDirective.clampLocalMs);
+                    mainOutMs = Math.min(mainOutMs,
+                            clipInMs + Math.max(1L, Math.round(clampedWinMs * clipSpeed)));
+                }
+            }
+            if (mainSiteEmits) {
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
                         waveformSlots, projectSampleRate);
+                if (frameDirective != null) {
+                    frameDirective.noteItem(timelineCursorMs, mainItem.durationUs / 1000,
+                            mainEditorStartMs, mainEditorLenMs);
+                    emitLeadFillerIfNeeded(frameDirective, items);
+                }
                 items.add(mainItem);
                 timelineCursorMs += mainItem.durationUs / 1000;
-            } else if (mainOutMs > clipInMs) {
+            } else if (mainOutMs > clipInMs && (frameDirective == null || !frameDirective.isClampPass())) {
                 // Degenerate body consumed by its transition overlap — skip it (do NOT
                 // advance the cursor: it contributes ~0 to the timeline) so we never feed
                 // the muxer a zero-sample item. The straddling transition item(s) already
@@ -1293,15 +1820,55 @@ public class ExportManager {
                 long transInMs = mainOutMs;
                 long transOutMs = clipOutMs;
                 long transTimelineMs = (long) ((transOutMs - transInMs) / clipSpeed);
-                if (transOutMs > transInMs && transTimelineMs >= MIN_EXPORT_SEGMENT_MS) {
+                // SPEC_C_SINGLE_FRAME: emits iff the guard below holds (same every pass).
+                boolean transSiteEmits = transOutMs > transInMs
+                        && transTimelineMs >= MIN_EXPORT_SEGMENT_MS;
+                // Editor span: the recorded span covers the outgoing clip's tail (the blend's
+                // A-side, 1:1 with composition) AND the incoming clip's head (whose content
+                // lives in the blend's second half). coveringLocalTargetMs maps the two
+                // regions piecewise; see FrameExportDirective.noteItem(…, transitionLegMs).
+                long transEditorStartMs = editorCursorMs + clipLoopBeforeMs
+                        + clip.getTrimmedDurationMs() - effTailTimelineMs;
+                long transEditorLenMs = Math.max(1L, 2L * effTailTimelineMs);
+                if (frameDirective != null && frameDirective.isClampPass()) {
+                    if (!transSiteEmits) {
+                        // Pass 1 emitted nothing here either.
+                    } else if (!frameDirective.isCoveringItem()) {
+                        frameDirective.skipSite();
+                        transSiteEmits = false;
+                    } else {
+                        // COVERING TRANSITION IS NOT WINDOW-CLAMPED. GlTransitionExportEffect
+                        // takes the item's duration at BUILD time and drives the blend's
+                        // progress from it (GlTransitionShaderProgram: progress = local /
+                        // durationMs) — truncating the window would re-time the blend and
+                        // hand back a different mix than the full export at the same moment.
+                        // Transitions are seam-length by construction (≤ either clip), so
+                        // emitting the full item costs nothing and keeps progress honest.
+                        transSiteEmits = transOutMs > transInMs;
+                    }
+                }
+                if (transSiteEmits) {
                     // Transition item uses the first clip's source (clipped to overlap) with GL effect
                     EditedMediaItem transItem = buildTransitionItem(project, clip, transInMs, transOutMs,
                             nextClip, trans, timelineCursorMs, outW, outH, canvasDims, waveformSlots);
                     if (transItem != null) {
+                        if (frameDirective != null) {
+                            frameDirective.noteItem(timelineCursorMs,
+                                    transItem.durationUs / 1000,
+                                    transEditorStartMs, transEditorLenMs,
+                                    effTailTimelineMs);
+                            emitLeadFillerIfNeeded(frameDirective, items);
+                        }
                         items.add(transItem);
                         timelineCursorMs += transItem.durationUs / 1000;
+                    } else if (frameDirective != null && frameDirective.isClampPass()
+                            && frameDirective.isCoveringItem()) {
+                        throw new IllegalStateException(
+                                "single-frame export: covering transition item "
+                                        + frameDirective.itemOrdinal + " could not be rebuilt");
                     }
-                } else if (transOutMs > transInMs) {
+                } else if (transOutMs > transInMs
+                        && (frameDirective == null || !frameDirective.isClampPass())) {
                     // Sub-frame transition overlap (the outgoing clip was almost entirely
                     // consumed by its own head transition) — skip it rather than hand the
                     // muxer a zero-sample item. Cursor is not advanced.
@@ -1319,17 +1886,53 @@ public class ExportManager {
                 if (loopAfterMs > 0 && trimmedPlayMs > 0) {
                     int reps = (int) Math.ceil(loopAfterMs / (double) trimmedPlayMs);
                     for (int r = 0; r < reps; r++) {
+                        boolean siteEmits = !(clipStillLoop && r > 0);
+                        long extEditorStartMs = editorCursorMs + clipLoopBeforeMs
+                                + clip.getTrimmedDurationMs()
+                                + (clipStillLoop ? 0L
+                                        : Math.min((long) r * trimmedPlayMs, loopAfterMs));
+                        long extEditorLenMs = Math.max(1L, loopAfterMs
+                                - (extEditorStartMs - editorCursorMs - clipLoopBeforeMs
+                                        - clip.getTrimmedDurationMs()));
+                        long extMs = loopAfterMs;
+                        if (frameDirective != null && frameDirective.isClampPass()) {
+                            if (!siteEmits) continue;
+                            if (!frameDirective.isCoveringItem()) {
+                                frameDirective.skipSite();
+                                continue;
+                            }
+                            extMs = Math.min(loopAfterMs, (long) r * trimmedPlayMs
+                                    + Math.min(frameDirective.coveringNaturalCompMs,
+                                            frameDirective.clampLocalMs));
+                        }
                         EditedMediaItem extItem = buildLoopExtensionItem(project, clip,
-                                loopAfterMs, trimmedPlayMs, reps, r,
+                                extMs, trimmedPlayMs, reps, r,
                                 timelineCursorMs, outW, outH, canvasDims,
                                 waveformSlots, false);
                         if (extItem != null) {
+                            if (frameDirective != null) {
+                                frameDirective.noteItem(timelineCursorMs,
+                                        extItem.durationUs / 1000,
+                                        extEditorStartMs, extEditorLenMs);
+                                emitLeadFillerIfNeeded(frameDirective, items);
+                            }
                             items.add(extItem);
                             timelineCursorMs += extItem.durationUs / 1000;
+                        } else if (frameDirective != null && frameDirective.isClampPass()
+                                && siteEmits && frameDirective.isCoveringItem()) {
+                            throw new IllegalStateException(
+                                    "single-frame export: covering loop-after item "
+                                            + frameDirective.itemOrdinal
+                                            + " could not be rebuilt");
                         }
                     }
                 }
             }
+
+            // SPEC_C_SINGLE_FRAME: the editor cursor advances by the clip's full visual
+            // span — the editor model (EditorTimelineView) plays clips back-to-back and
+            // overlays the transition on the seam instead of removing time.
+            editorCursorMs += clip.getVisualDurationMs();
         }
 
         // ── TAIL FILLER: a project can be LONGER than its master track ────────────────────────
@@ -1348,8 +1951,25 @@ public class ExportManager {
         // the "Gap" feature already relies on — that feature is the existing proof that overlays
         // render correctly over a synthetic image clip.
         long projectTotalMs = timeline.getTotalDurationMs();
+        // SPEC_C_SINGLE_FRAME: in a clamp pass the skipped items never advanced the cursor,
+        // so the filler's length comes from the recorded pass-1 figure instead — and the
+        // site's emit parity comes from the recorded flag, not from a recomputed tailMs.
+        boolean clampPass = frameDirective != null && frameDirective.isClampPass();
+        boolean fillerEmitHere = true;
         long tailMs = projectTotalMs - timelineCursorMs;
-        if (tailMs >= MIN_EXPORT_SEGMENT_MS) {
+        if (clampPass) {
+            if (!frameDirective.lastItemWasTailFiller()) {
+                fillerEmitHere = false;   // pass 1 emitted no filler — this site must not either
+            } else if (!frameDirective.isCoveringItem()) {
+                frameDirective.skipSite();
+                fillerEmitHere = false;
+            } else {
+                // Covering: clamp the natural (recorded) filler length to the frame.
+                tailMs = Math.max(1L, Math.min(frameDirective.coveringNaturalCompMs,
+                        frameDirective.clampLocalMs));
+            }
+        }
+        if (fillerEmitHere && tailMs >= MIN_EXPORT_SEGMENT_MS) {
             Uri blackUri = ensureBlackFillerUri();
             if (blackUri != null) {
                 Clip filler = new Clip(blackUri, tailMs);
@@ -1358,6 +1978,12 @@ public class ExportManager {
                 filler.setDisplayName("Tail filler"); // TODO(strings)
                 EditedMediaItem fillItem = buildClipItem(project, filler, 0L, tailMs,
                         timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate);
+                if (frameDirective != null) {
+                    frameDirective.noteItem(timelineCursorMs, fillItem.durationUs / 1000,
+                            editorCursorMs, Math.max(1L, tailMs));
+                    frameDirective.markTailFiller();
+                    emitLeadFillerIfNeeded(frameDirective, items);
+                }
                 items.add(fillItem);
                 FLog.i(TAG, "buildComposition: project runs to " + projectTotalMs
                         + "ms but the master track ends at " + timelineCursorMs
@@ -1427,6 +2053,8 @@ public class ExportManager {
         List<EditedMediaItemSequence> sequences = new ArrayList<>();
         sequences.add(videoSequence);
 
+        // SPEC_C_SINGLE_FRAME: a clamp pass is video-only — audio lanes are irrelevant to
+        // the frame and skipping them avoids decoding whole music sources for one picture.
         // M-EXPORT-2: overlay-VIDEO (PiP) clips are composited by CompositeExportOverlay
         // (the BitmapOverlay pass in assembleClipVideoEffects), NOT by a second video
         // sequence. Probe #3 (PLAN Part 10, verified against DefaultVideoCompositor
@@ -1435,19 +2063,59 @@ public class ExportManager {
         // master — invisible. The overlay pass also keeps the PiP below text/captions,
         // matching the preview stack, which a second sequence never could.
 
-        // Build audio sequences from AudioClips on the audio lanes (if any)
-        if (timeline.hasAudioClips()) {
+        // Build audio sequences from AudioClips on the audio lanes (if any).
+        // SPEC_C_SINGLE_FRAME: neither single-frame pass needs them — the frame's pixels
+        // come from the video sequence, and skipping the lanes avoids decoding whole
+        // music sources for one picture.
+        if (frameDirective == null && timeline.hasAudioClips()) {
             // A8: one sequence PER AUDIO LANE, mixed in parallel by the Composition.
             sequences.addAll(buildAudioSequences(timeline));
         }
         // SPEC_PIP_AUDIO: PiP audio rides its own audio-only sequence (the pixels come from
         // the overlay pass above). Null unless a PiP opted in → composition unchanged.
-        EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline, projectSampleRate);
-        if (overlayAudio != null) {
-            sequences.add(overlayAudio);
+        if (frameDirective == null) {
+            EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline, projectSampleRate);
+            if (overlayAudio != null) {
+                sequences.add(overlayAudio);
+            }
         }
 
         return new Composition.Builder(sequences).build();
+    }
+
+    /**
+     * SPEC_C_SINGLE_FRAME: emits the one black filler that precedes the covering item in
+     * a clamp pass, so presentationTimeUs inside the covering item is exactly what a full
+     * export produces (the §2d effect-clock contract). Idempotent per pass.
+     *
+     * <p>The filler deliberately carries NO effects: its frames are pure padding and must
+     * not spend the overlay pipeline (unlike the tail filler, whose frames ARE the
+     * product). Throws rather than continuing without it — a missing pad would silently
+     * shift the covering item's clock and return the wrong frame.</p>
+     */
+    private void emitLeadFillerIfNeeded(@NonNull FrameExportDirective frameDirective,
+                                        @NonNull List<EditedMediaItem> items) {
+        if (!frameDirective.isClampPass() || frameDirective.leadFillerEmitted
+                || frameDirective.leadFillerMs <= 0L) {
+            return;
+        }
+        Uri blackUri = ensureBlackFillerUri();
+        if (blackUri == null) {
+            throw new IllegalStateException(
+                    "single-frame export: could not create the lead filler black spacer");
+        }
+        MediaItem mediaItem = new MediaItem.Builder()
+                .setUri(blackUri)
+                .setMimeType(com.fadcam.ui.faditor.util.ImageMime.of(context, blackUri))
+                .setImageDurationMs(frameDirective.leadFillerMs)
+                .build();
+        EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem);
+        eb.setFrameRate(30);
+        eb.setRemoveAudio(true);
+        items.add(eb.build());
+        frameDirective.leadFillerEmitted = true;
+        FLog.i(TAG, "single-frame: lead filler " + frameDirective.leadFillerMs
+                + "ms emitted so the covering item keeps its full-export clock");
     }
 
     @Nullable
@@ -2910,8 +3578,11 @@ public class ExportManager {
      *   <li>{@link Crop} (preset or custom, video-only)</li>
      *   <li>Color-grade {@code EffectStack.toEffects(...)}</li>
      *   <li>Optional pre-overlay extra transform (e.g. ping-pong reverse mirror)</li>
-     *   <li>{@link OverlayEffect} for text + captions + waveform</li>
-     *   <li>{@link OpacityExportEffect} — post-process, affects the composited result</li>
+     *   <li>{@link OpacityExportEffect} — the CLIP's own opacity/master fade, applied to
+     *       the clip picture BEFORE anything composites on top of it (owner ruling
+     *       2026-09-02: a clip's fade fades that clip, not the overlays above it)</li>
+     *   <li>PiP composite, adjustment layers, and the {@link OverlayEffect} for
+     *       text + captions + waveform — all unaffected by the clip's fade</li>
      *   <li>{@link Presentation} canvas resize</li>
      * </ol>
      *
@@ -3026,6 +3697,13 @@ public class ExportManager {
             videoEffects.add(preOverlayExtra);
         }
 
+        // overlayW/H is the AUTHORING CANVAS (outW/outH = canvasDims, or the first video
+        // clip's dims for the "original" preset — see buildComposition). Every overlay
+        // coordinate in the project is a fraction of THIS, never of a clip's own frame.
+        // The fallback below is a last resort for a timeline whose canvas cannot be
+        // resolved at all (inferSourceDims returned null); the 1080x1920 literal is the
+        // same portrait default inferSourceDims itself uses, deliberately kept identical
+        // so there is one "we have no idea" answer rather than two.
         int overlayW = outW;
         int overlayH = outH;
         if (!isTransitionItem && (overlayW <= 0 || overlayH <= 0)) {
@@ -3051,14 +3729,167 @@ public class ExportManager {
         // canvasDims is null, so that Presentation is skipped and nothing rescued the
         // 16x16 image. This is why the bug is preset-specific and pre-existing.)
         //
-        // Inserting a Presentation here (image clips only) scales the decoded image
-        // to the authoring canvas up front, so configure() sees overlayW x overlayH,
-        // the overlay scale is 1:1, and overlays composite correctly. Video clips are
-        // NOT touched — their branch of this method is byte-identical to before, so
-        // the M-EXPORT-1 no-overlay/healthy-clip regression gate is preserved.
-        if (!isTransitionItem && clip.isImageClip() && overlayW > 0 && overlayH > 0) {
+        // Inserting a Presentation here scales the decoded frame to the authoring
+        // canvas up front, so configure() sees overlayW x overlayH, the overlay scale
+        // is 1:1, and overlays composite correctly.
+        //
+        // ── 2026-09-01: THE GATE IS NO LONGER isImageClip(). ──────────────────────
+        // c8eae1eb added this for image clips and deliberately left the video branch
+        // untouched ("video path byte-identical") as a blast-radius choice, not because
+        // the video path was correct. It is not. CompositeExportOverlay.getBitmap does
+        //     canvas.scale(frameW / outW, frameH / outH)
+        // which is ANISOTROPIC whenever the frame's aspect differs from the canvas's,
+        // while the trailing Presentation (end of this method) scales frame+overlay
+        // together by a single UNIFORM factor. The two only cancel when the aspects
+        // match. Worked example — canvas 1080x1920, clip 1920x1080:
+        //     overlay pre-scale (1920/1080, 1080/1920) = (1.7778, 0.5625)
+        //     trailing SCALE_TO_FIT 1920x1080 -> 1080x1920 = uniform 0.5625
+        //     net (1.0000, 0.3164)  ← x survives by coincidence, y collapses to 31.6%
+        // i.e. every caption/text/sticker/waveform was squashed to a third of its
+        // height and pulled toward the frame's vertical centre on any clip whose
+        // aspect is not the canvas's. Normalising to the canvas BEFORE the overlay
+        // makes frameW==outW and frameH==outH, so that scale() is skipped entirely
+        // and the geometry is the identity the overlays were authored against.
+        //
+        // This also covers the CROPPED clip: a crop changes the frame's aspect even
+        // when the source matched the canvas, and it is applied above — which is why
+        // this must be a real Presentation here rather than a getSourceWidth() test.
+        //
+        // NO-OP PROOF (aspect already equal, i.e. essentially every project): let the
+        // frame be F = k*(outW,outH). LAYOUT_SCALE_TO_FIT to (outW,outH) is a uniform
+        // 1/k with zero letterbox, the overlay then draws at 1:1 instead of scale(k,k)
+        // followed by the trailing uniform 1/k, and the trailing Presentation becomes
+        // a same-size identity. Composed mapping before = (k)(1/k) = 1; after =
+        // (1)(1) = 1. The picture likewise takes exactly one resample by 1/k either
+        // way — only its position in the chain moves, and the overlay is now rastered
+        // at output resolution instead of being downscaled after the fact (strictly
+        // better, never different in geometry).
+        //
+        // TRANSITIONS are still excluded by !isTransitionItem: the GL transition
+        // program's configure() reports its INPUT size, and the incoming leg is
+        // cropped/blended inside GlTransitionFrameOverlay against that size.
+        if (!isTransitionItem && overlayW > 0 && overlayH > 0) {
             videoEffects.add(Presentation.createForWidthAndHeight(
                     overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT));
+        }
+
+        // ── M7: a MASTER (spine) clip's OWN FxStack ───────────────────────────────────
+        // Clip.getOrCreateFx() was written by the object drawer's Effects tab, badged by
+        // the timeline lane and persisted by ProjectStorage — and read by NOTHING on the
+        // spine. Every consumer was overlay-only: BlendModeGlEffect is emitted per entry
+        // of exportOverlayVideoClips, ImageBlendGlEffect/TextFxGlEffect per overlay item,
+        // AdjustmentLayerGlEffect per adjustment layer. So adding "Solid Color" to a spine
+        // clip drew a card, lit the badge, saved to the project and changed no pixel
+        // (JoyRaptor, 2026-09-01: "the white solid didn't apply").
+        //
+        // REUSED, not reimplemented. AdjustmentLayerGlEffect already is "run this FxStack
+        // over the frame I am handed" — multi-pass planner, separable kernels, sampler
+        // passes, per-frame keyframe resolution, degrade-to-passthrough on a driver
+        // failure. Its extra machinery is exactly the part that vanishes at its own
+        // defaults: with no masks and no chroma key MaskSdf coverage is 1, with no
+        // transform opacityAt() is 1, and NORMAL blend makes the final line
+        //     out = mix(base, blendNormal(base, graded), 1 * 1) = graded
+        // i.e. plain "apply the stack to the whole frame", which is the spine semantic.
+        // Writing a second shader host for that would be a second place for the FX
+        // vocabulary to drift.
+        //
+        // WHERE IN THE ORDER. After the canvas Presentation above, so the stack runs at
+        // canvas geometry — every spatial card (blur/RGB-shift radii, vignette, mask-less
+        // gradients) is quoted against the frame it is given, and the GL preview now
+        // stages the same clip on a canvas-aspect composite frame
+        // (FxLivePreviewController.compositeFrame), so this is what makes the two agree.
+        // Before the below-blend pass, the PiP loop, the adjustment-layer inserts and the
+        // caption/text OverlayEffect, all of which composite ON TOP of the spine picture —
+        // so an adjustment layer still grades "everything beneath it", this grade included.
+        //
+        // NO-OP PROOF: gated at BUILD time on active().isEmpty(). A spine clip with an
+        // empty (or null) stack — every clip in every project written before the Effects
+        // tab existed — appends nothing at all, so its List<Effect> is element-for-element
+        // the list it was before this block, and the export is byte-identical. The gate is
+        // active(), not isEmpty(), so a stack holding only DISABLED cards is equally free.
+        //
+        // TRANSITION items are excluded, matching the clip's legacy getEffectStack() above
+        // and the Presentation this rides behind; the seam segment is un-graded exactly as
+        // it is un-filtered today.
+        if (!isTransitionItem && clip.getFx() != null && !clip.getFx().active().isEmpty()) {
+            videoEffects.add(new AdjustmentLayerGlEffect(
+                    context, spineFxLayer(clip),
+                    editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                            - (isLoopBeforeItem
+                                    ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
+        }
+
+        // ── SPINE CANVAS TRANSFORM — where this clip's picture SITS on the canvas ─────
+        //
+        // JoyRaptor, 2026-09-04: a 9:16 clip on a 16:9 canvas is fit-CENTRED and there was no way to
+        // left-justify it, let alone move or rotate it, short of the crop tool. This places it.
+        //
+        // POSITION IN THE CHAIN IS THE WHOLE DESIGN. It rides immediately behind the canvas
+        // Presentation above (and behind the spine FxStack, so a vignette or a blur belongs to
+        // the CLIP and travels with it) and immediately AHEAD of OpacityExportEffect and
+        // everything that composites on top -- the below-blend pass, the PiP loop, the
+        // adjustment-layer inserts, the caption/text OverlayEffect. Chain order is paint order,
+        // so the clip's picture moves and every overlay above it stays exactly where the user put
+        // it on the canvas. That is the same ruling the opacity pass was moved for
+        // ("the opacity should fade the CLIP, not everything above it"), applied to geometry.
+        //
+        // CROP STILL WORKS, UNTOUCHED. Crop is applied far upstream (media3's Crop, on the
+        // decoded source) and the canvas Presentation turns whatever it produced into a
+        // canvas-shaped frame; this then places that frame. The two never share arithmetic, so
+        // the crop fixes landed today are not in this path at all.
+        //
+        // PREVIEW PARITY: SpineTransformExportEffect builds no maths of its own. It compiles
+        // SpineTransform.fragmentShader(...) and uploads SpineTransform.uniforms(...), which are
+        // the same two calls FxPreviewTextureView.drawSpineTransform makes. One method, two
+        // hosts -- not two transcriptions.
+        //
+        // NO-OP PROOF: gated at BUILD time on Clip.hasSpineTransform(), which is false unless a
+        // static differs from the fit-centre identity or a keyframe track exists. Every clip in
+        // every project written before this feature answers false, so nothing at all is appended
+        // and the List<Effect> is element-for-element the list it was -- byte-identical export.
+        // TRANSITION items are excluded, matching the Presentation and the FxStack this rides
+        // behind: the seam segment is un-placed exactly as it is un-graded and un-filtered.
+        //
+        // THE OFFSET IS timelineCursorMs, NOT editorTimeOffsetFor(...). The two are different
+        // clocks and the choice follows the KEYFRAME TIME BASE: spine-transform keys are
+        // CLIP-LOCAL (Clip.spinePoseAt, same base as Clip.opacityAtClipMs), so the offset must be
+        // this EditedMediaItem's own start on the export timeline -- which is exactly what
+        // OpacityExportEffect is handed on the very next line. editorTimeOffsetFor maps to
+        // EDITOR-absolute time and is right for an adjustment layer, whose keys are authored
+        // against the whole timeline; using it here would shift a spine key by the clip's
+        // position in the project.
+        if (!isTransitionItem && clip.hasSpineTransform()) {
+            videoEffects.add(new SpineTransformExportEffect(clip, timelineCursorMs));
+        }
+
+        // ── Clip opacity / master fade — the CLIP's picture only ──────────────────────
+        // OWNER RULING 2026-09-02 — "THE OPACITY SHOULD FADE THE CLIP, NOT EVERYTHING ABOVE
+        // IT." This pass used to sit at the very END of the chain, after the PiP composite,
+        // the adjustment layers and the caption/text OverlayEffect, so it multiplied the
+        // ALREADY-COMPOSITED frame: a spine clip fading out dragged every overlay the owner
+        // had placed above it — image layers, captions, stickers, visualiser — to black with
+        // it, and they snapped back at the seam.
+        //
+        // It now runs HERE: after the clip's own geometry, colour grade and spine FxStack,
+        // and BEFORE anything that composites on top. Chain order is paint order, so the
+        // clip's picture is scaled by (keyframe opacity x master fade) and every later pass
+        // draws over that at its own full strength. Arithmetic for a clip at fade factor f
+        // with a caption and a text overlay on top:
+        //     picture  = clipRGBA * f          (this pass)
+        //     result   = overlay OVER picture  (OverlayEffect, unscaled)
+        // which is exactly what the preview now does — FaditorEditorActivity puts
+        // opacity * masterFade on the video/image surface and leaves player_container (the
+        // shared parent of every overlay view) at alpha 1.
+        //
+        // SAME MOVE IS CORRECT FOR KEYFRAME OPACITY, the effect's other user: the live
+        // preview has ALWAYS applied clip opacity keyframes to the video surface alone, so
+        // moving the export pass pre-composite makes export match the preview it never did.
+        //
+        // NO-OP PROOF: the gate is unchanged. A clip with no opacity keyframes and no master
+        // fade appends nothing at all, so its List<Effect> is element-for-element what it was
+        // and its export is byte-identical.
+        if (!isTransitionItem && (clip.hasOpacityKeyframes() || clip.hasMasterFade())) {
+            videoEffects.add(new OpacityExportEffect(clip, timelineCursorMs));
         }
 
         if (!isTransitionItem && overlayW > 0 && overlayH > 0) {
@@ -3235,7 +4066,40 @@ public class ExportManager {
                     TextOverlayItem oo = vv.item.getTextOverlay();
                     if (oo != null && oo.wantsGlExport()) allGlImages.add(oo);
                 }
-                java.util.List<TextOverlayItem> belowBlendTextsAll = LayerPreviewController.plainTextsBelowBlend(project.getTimeline(), allGlImages);
+                java.util.List<TextOverlayItem> belowBlendTextsAll =
+                        new java.util.ArrayList<>(LayerPreviewController.plainTextsBelowBlend(
+                                project.getTimeline(), allGlImages));
+                // PLAIN IMAGES below a GL-routed image belong in this same pass, and were
+                // missing from it — the export half of the bug JoyRaptor reported in the preview.
+                // A NORMAL image left in exportTextOverlays is painted by the FINAL
+                // CompositeExportOverlay, which runs AFTER every ImageBlendGlEffect below, so
+                // the blend sampled the video and then the plain picture was painted back over
+                // the top of it: wrong composite AND inverted z, in the file, silently.
+                // Promoting it here puts it in the overlay pass emitted BEFORE the blend block,
+                // which is the export's mirror of the preview rung this promotion adds.
+                // Same single authority as the preview (plainImagesBelowBlend), so the two
+                // cannot answer this differently. Images already in the below-video bucket are
+                // dropped by the alreadyBelowIds filter just below — that pass is emitted
+                // ahead of the blends already, so they need nothing.
+                belowBlendTextsAll.addAll(LayerPreviewController.plainImagesBelowBlend(
+                        project.getTimeline(), allGlImages));
+                // Back into ONE bottom→top order. The two helpers each return their own kind
+                // in z order; concatenating them would paint every promoted image over every
+                // promoted text no matter which lane was on top. A CompositeExportOverlay
+                // paints its list in order, so the list has to BE the order.
+                if (belowBlendTextsAll.size() > 1) {
+                    final java.util.Map<String, Integer> zById = new java.util.HashMap<>();
+                    java.util.List<LayerPreviewController.VisualItem> zOrder =
+                            LayerPreviewController.orderedVisualItems(project.getTimeline());
+                    for (int i = 0; i < zOrder.size(); i++) {
+                        TextOverlayItem zo = zOrder.get(i).item.getTextOverlay();
+                        if (zo != null) zById.put(zo.getId(), i);
+                    }
+                    java.util.Collections.sort(belowBlendTextsAll, (a, b) -> {
+                        Integer ia = zById.get(a.getId()), ib = zById.get(b.getId());
+                        return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
+                    });
+                }
                 java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> belowBlendSpritesAll = LayerPreviewController.plainSpritesBelowBlend(project.getTimeline(), allGlImages);
                 java.util.Set<String> alreadyBelowIds = new java.util.HashSet<>();
                 for (TextOverlayItem b : belowTexts) alreadyBelowIds.add(b.getId());
@@ -3376,11 +4240,6 @@ public class ExportManager {
                     + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
         }
 
-        // FADE_KNOBS §2.5: master fade knobs also need the post-process opacity pass.
-        if (!isTransitionItem && (clip.hasOpacityKeyframes() || clip.hasMasterFade())) {
-            videoEffects.add(new OpacityExportEffect(clip, timelineCursorMs));
-        }
-
         // Canvas resize applies to transition items TOO. The GL transition program
         // outputs frames at the outgoing clip's SOURCE size (its configure() returns
         // the input size), so without this the ~600ms transition segment was a
@@ -3393,6 +4252,34 @@ public class ExportManager {
         }
 
         return videoEffects;
+    }
+
+    /**
+     * A spine clip's own {@link com.fadcam.ui.faditor.fx.FxStack}, dressed as the
+     * full-frame, always-on, unmasked adjustment layer it semantically is, so
+     * {@link AdjustmentLayerGlEffect} can host it.
+     *
+     * <p>Every field is left at its constructor default deliberately, and each default is
+     * load-bearing: {@code startMs=0} with {@code durationMs=0} means OPEN-ENDED, so
+     * {@code activeAt()} is true for every frame of the clip (the clip's own span already
+     * bounds the chain — a time gate here would be a second, redundant authority that could
+     * disagree with the trim); no masks and {@code keyEnabled=false} give mask coverage 1;
+     * a null {@code transform} gives {@code opacityAt()==1}; {@code blendMode="NORMAL"}
+     * makes the composite line the identity mix. The result is "apply the stack, keep
+     * nothing of the original", which is what a clip-level effect means.</p>
+     *
+     * <p>The stack is ATTACHED, not copied — the same object the drawer edits — so an
+     * export started while a slider is mid-drag reads the same values the preview does,
+     * and {@code resolveAt()} keyframe animation works identically to an adjustment
+     * layer's.</p>
+     */
+    @NonNull
+    private static com.fadcam.ui.faditor.model.AdjustmentLayer spineFxLayer(@NonNull Clip clip) {
+        com.fadcam.ui.faditor.model.AdjustmentLayer l =
+                new com.fadcam.ui.faditor.model.AdjustmentLayer();
+        l.setName("clip:" + clip.getId());
+        l.setFx(clip.getOrCreateFx());
+        return l;
     }
 
     /**
@@ -3585,9 +4472,19 @@ public class ExportManager {
             // Audio-only exports (.m4a) must be created under an audio mime — a video/*
             // mime makes some SAF providers append ".mp4" to the display name and lists
             // the file as a video. Video exports keep the exact mime used before.
-            String mime = name.toLowerCase(Locale.US).endsWith(".m4a")
-                    ? "audio/mp4"
-                    : "video/" + Constants.RECORDING_FILE_EXTENSION;
+            // SPEC_C_SINGLE_FRAME: image exports likewise need an image mime, or some
+            // SAF providers mislabel/append to the display name.
+            String lowerName = name.toLowerCase(Locale.US);
+            String mime;
+            if (lowerName.endsWith(".m4a")) {
+                mime = "audio/mp4";
+            } else if (lowerName.endsWith(".png")) {
+                mime = "image/png";
+            } else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) {
+                mime = "image/jpeg";
+            } else {
+                mime = "video/" + Constants.RECORDING_FILE_EXTENSION;
+            }
             DocumentFile docFile = pickedDir.createFile(mime, name);
             if (docFile == null) {
                 FLog.e(TAG, "SAF copy: failed to create DocumentFile: " + name);

@@ -60,8 +60,9 @@ public class FxCompilerTest {
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();
         check("the registry self-check passes: " + problems, problems.isEmpty());
-        check("all 14 effects are present (12 v1 + Solid Color + Gradient)",
-                FxRegistry.all().size() == 14);
+        check("all 17 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
+                        + "grade's two halves, color_grade and film)",
+                FxRegistry.all().size() == 17);
     }
 
     static void everyEffectCompilesToBothBackends() {

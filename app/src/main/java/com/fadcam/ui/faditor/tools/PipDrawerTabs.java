@@ -279,11 +279,26 @@ public final class PipDrawerTabs {
         label.setText(prop.label());
         row.addView(label);
 
-        FineSeekBar bar = new FineSeekBar(ctx);
-        bar.setMax(SLIDER_STEPS);
+        // SPEC F: the Rotate row is a DIAL, not a slider. A slider tops out and folds a
+        // typed 720 back into its window on the next touch; the dial shows the winding
+        // and reports raw degrees. The value text, the typing prompt and the keyframe
+        // diamond are untouched.
+        final boolean isRotation =
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(prop.key());
         final float min = propMin(prop), max = propMax(prop);
-        float cur = prop.valueAt(host.playheadMs());
-        bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+        final float cur = prop.valueAt(host.playheadMs());
+        final RotationDialView dial;
+        final FineSeekBar bar;
+        if (isRotation) {
+            dial = new RotationDialView(ctx);
+            dial.setDegrees(cur);
+            bar = null;
+        } else {
+            dial = null;
+            bar = new FineSeekBar(ctx);
+            bar.setMax(SLIDER_STEPS);
+            bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+        }
 
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
@@ -293,24 +308,30 @@ public final class PipDrawerTabs {
         value.setGravity(Gravity.END);
         value.setText(prop.format(cur));
 
-        bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-            @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
-                // isFineDriving: a fine drag writes through setProgress, which reports
-                // fromUser == false exactly as the playhead-tick refresh does. Without this test
-                // the fine mode would move the thumb and change nothing.
-                if (!fromUser && !bar.isFineDriving()) return;
-                float v = min + (max - min) * (p / (float) SLIDER_STEPS);
-                v = snap(prop, v);
-                prop.write(v, host.playheadMs());
-                value.setText(prop.format(v));
-                host.onChanged();
-            }
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
-        });
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        row.addView(bar, blp);
+        if (bar != null) {
+            bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
+                    // isFineDriving: a fine drag writes through setProgress, which reports
+                    // fromUser == false exactly as the playhead-tick refresh does. Without this test
+                    // the fine mode would move the thumb and change nothing.
+                    if (!fromUser && !bar.isFineDriving()) return;
+                    float v = min + (max - min) * (p / (float) SLIDER_STEPS);
+                    v = snap(prop, v);
+                    prop.write(v, host.playheadMs());
+                    value.setText(prop.format(v));
+                    host.onChanged();
+                }
+                @Override public void onStartTrackingTouch(SeekBar s) {}
+                @Override public void onStopTrackingTouch(SeekBar s) {}
+            });
+            LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+            row.addView(bar, blp);
+        } else {
+            // Layout only; the gesture wiring is set after selfRefresh exists (below).
+            row.addView(dial, new LinearLayout.LayoutParams(
+                    Math.round(40 * d), Math.round(40 * d)));
+        }
         row.addView(value);
         // TAP THE NUMBER TO TYPE IT. A 1000-step slider on a 46dp readout cannot land an exact
         // value with a fingertip, and JoyRaptor's report is precisely that (2026-08-12): "I was having
@@ -350,11 +371,30 @@ public final class PipDrawerTabs {
             long ph = host.playheadMs();
             float v = prop.valueAt(ph);
             value.setText(prop.format(v));
-            // setProgress(..., false) — never animate here. This runs on every playhead tick,
-            // and an animated thumb chasing a scrub lags behind the frame it is describing.
-            bar.setProgress(Math.round((v - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+            if (dial != null) {
+                dial.setDegrees(v);            // raw winding — no window mapping
+            } else {
+                // setProgress(..., false) — never animate here. This runs on every playhead tick,
+                // and an animated thumb chasing a scrub lags behind the frame it is describing.
+                bar.setProgress(Math.round((v - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
+            }
             if (diamond != null) diamond.refresh(ph);
         };
+        if (dial != null) {
+            dial.setListener(new RotationDialView.Listener() {
+                @Override public void onDragStart() { }
+                @Override public void onDragDelta() {
+                    // Raw degrees: no min/max window, no snap — the winding IS the value.
+                    prop.write(dial.getDegrees(), host.playheadMs());
+                    value.setText(prop.format(dial.getDegrees()));
+                    host.onChanged();
+                }
+                @Override public void onDragEnd() { }
+                @Override public void onTap() {
+                    promptForValue(ctx, prop, host, min, max, selfRefresh[0]);
+                }
+            });
+        }
         value.setOnClickListener(v -> promptForValue(ctx, prop, host, min, max, selfRefresh[0]));
         return selfRefresh[0];
     }
@@ -374,13 +414,21 @@ public final class PipDrawerTabs {
      * someone a box labelled "%" that silently applies a different number is worse than showing
      * them the underlying figure.</p>
      */
-    private static void promptForValue(@NonNull Context ctx,
+    /** Type an exact value for {@code prop}. Public so ObjectMenuSheet's Rotate row can
+     *  open the same prompt — the sheet's rows had no value-tap before the dial (SPEC F). */
+    public static void promptForValue(@NonNull Context ctx,
                                        @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
                                        float min, float max, @Nullable Runnable refresh) {
         float d = ctx.getResources().getDisplayMetrics().density;
+        // SPEC A: the ROTATION row takes whole turns ("16x") and raw winding (720, -45), so it
+        // skips the unit probe (its readout IS degrees), skips the clamp below, and parses with
+        // KeyframeSet.parseRotationInput. Clamping a typed 720 into the slider's [-180, 180]
+        // was exactly the bug: the winding IS the animation.
+        final boolean isRotation =
+                com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(prop.key());
         // print(v) = scale*v + offset, verified at a third point.
-        Float p1 = leadingNumber(prop.format(1f));
-        Float p2 = leadingNumber(prop.format(2f));
+        Float p1 = isRotation ? null : leadingNumber(prop.format(1f));
+        Float p2 = isRotation ? null : leadingNumber(prop.format(2f));
         float scale = 1f, offset = 0f;
         boolean inUnits = false;
         if (p1 != null && p2 != null) {
@@ -400,15 +448,27 @@ public final class PipDrawerTabs {
         float cur = prop.valueAt(ph);
 
         final android.widget.EditText input = new android.widget.EditText(ctx);
-        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
-                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-                | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
-        input.setText(trimNumber(inUnits ? cur * sc + off : cur));
+        if (isRotation) {
+            // TYPE_CLASS_NUMBER has no letters, and the multiplier form NEEDS one: JoyRaptor asked
+            // to type "16x" for sixteen turns. A plain text keyboard types digits and x alike;
+            // no suggestions so a keyboard cannot "correct" a number.
+            input.setInputType(android.text.InputType.TYPE_CLASS_TEXT
+                    | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        } else {
+            input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                    | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                    | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+        }
+        input.setText(isRotation ? trimNumber(cur) : trimNumber(inUnits ? cur * sc + off : cur));
         input.setSelectAllOnFocus(true);
-        float lo = inUnits ? min * sc + off : min;
-        float hi = inUnits ? max * sc + off : max;
-        if (hi < lo) { float t = lo; lo = hi; hi = t; }
-        input.setHint(trimNumber(lo) + " … " + trimNumber(hi));                // TODO(strings)
+        if (isRotation) {
+            input.setHint("720, -45, 16x");                        // TODO(strings)
+        } else {
+            float lo = inUnits ? min * sc + off : min;
+            float hi = inUnits ? max * sc + off : max;
+            if (hi < lo) { float t = lo; lo = hi; hi = t; }
+            input.setHint(trimNumber(lo) + " … " + trimNumber(hi));                // TODO(strings)
+        }
         LinearLayout wrap = column(ctx);
         int pad = Math.round(20 * d);
         wrap.setPadding(pad, Math.round(8 * d), pad, 0);
@@ -419,12 +479,20 @@ public final class PipDrawerTabs {
                 .setView(wrap)
                 .setNegativeButton(android.R.string.cancel, null)
                 .setPositiveButton(android.R.string.ok, (dlg, w) -> {
-                    Float typed = leadingNumber(input.getText().toString());
+                    String typedText = input.getText().toString();
+                    // Rotation parses the turns grammar; everything else keeps the numeric
+                    // head of its formatted readout. Null = nonsense: keep the old value
+                    // (the promptForNumber house rule), never snap to zero.
+                    Float typed = isRotation
+                            ? com.fadcam.ui.faditor.keyframe.KeyframeSet.parseRotationInput(typedText)
+                            : leadingNumber(typedText);
                     if (typed == null) return;
-                    float v = units ? (typed - off) / sc : typed;
-                    // Clamped, not rejected. Someone typing 900% on a slider that stops at 1000%
-                    // means "as big as it goes", and an error dialog for it would be pedantry.
-                    v = Math.max(Math.min(min, max), Math.min(Math.max(min, max), v));
+                    float v = units && !isRotation ? (typed - off) / sc : typed;
+                    if (!isRotation) {
+                        // Clamped, not rejected. Someone typing 900% on a slider that stops at 1000%
+                        // means "as big as it goes", and an error dialog for it would be pedantry.
+                        v = Math.max(Math.min(min, max), Math.min(Math.max(min, max), v));
+                    }
                     prop.write(v, ph);
                     host.onChanged();
                     if (refresh != null) refresh.run();
@@ -953,11 +1021,10 @@ public final class PipDrawerTabs {
 
     // ── Tab 3: BLEND MODE ────────────────────────────────────────────────────────────────
 
-    private static final String[] BLEND_KEYS = {"NORMAL", "MULTIPLY", "SCREEN", "OVERLAY", "ADD"};
-    private static final int[] BLEND_LABELS = {
-            R.string.faditor_blend_normal, R.string.faditor_blend_multiply,
-            R.string.faditor_blend_screen, R.string.faditor_blend_overlay,
-            R.string.faditor_blend_add};
+    // No key/label arrays here any more. They were a THIRD hand-maintained copy of the mode list
+    // (after BlendModes.ALL and the BlendMode enum), and with twenty-six modes a copy that has to
+    // stay index-aligned with two others is a mode the picker silently mislabels. The single chip
+    // below asks BlendPickerPopover, which is asserted against BlendModes.ALL by the harness.
 
     @NonNull
     public static View blendTab(@NonNull Context ctx, @NonNull Clip clip,
@@ -984,48 +1051,10 @@ public final class PipDrawerTabs {
                                 @NonNull Runnable apply, boolean previewsLive) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
-        // HORIZONTAL chips, not a vertical list. Five one-word options stacked vertically made
-        // this the tallest tab while carrying the least information, and the drawer's height is
-        // preview the user cannot see (user, 2026-08-05). Wrapped in a HorizontalScrollView so
-        // a narrow screen or a longer translation scrolls instead of clipping.
-        android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(ctx);
-        hs.setHorizontalScrollBarEnabled(false);
-        LinearLayout strip = new LinearLayout(ctx);
-        strip.setOrientation(LinearLayout.HORIZONTAL);
-        final List<TextView> rows = new ArrayList<>();
-        for (int i = 0; i < BLEND_KEYS.length; i++) {
-            final int idx = i;
-            TextView tv = new TextView(ctx);
-            tv.setText(BLEND_LABELS[i]);
-            tv.setTextSize(12);
-            tv.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
-            tv.setPadding(Math.round(12 * d), Math.round(7 * d),
-                    Math.round(12 * d), Math.round(7 * d));
-            GradientDrawable chip = new GradientDrawable();
-            chip.setCornerRadius(14f * d);
-            chip.setColor(0x22FFFFFF);
-            tv.setBackground(chip);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.rightMargin = Math.round(7 * d);
-            tv.setLayoutParams(lp);
-            tv.setOnClickListener(v -> {
-                setMode.accept(BLEND_KEYS[idx]);
-                for (int j = 0; j < rows.size(); j++) {
-                    rows.get(j).setTextColor(j == idx ? ACCENT : TXT);
-                }
-                apply.run();
-            });
-            rows.add(tv);
-            strip.addView(tv);
-        }
-        hs.addView(strip);
-        root.addView(hs);
-        String cur = getMode.get();
-        for (int i = 0; i < BLEND_KEYS.length; i++) {
-            rows.get(i).setTextColor(BLEND_KEYS[i].equals(cur) ? ACCENT : TXT);
-        }
+        // ONE CHIP, not a strip. Seven modes fitted in a scrolling chip row; twenty-six do not --
+        // that row became a horizontal hunt past modes you are not looking for (JoyRaptor, 2026-09-04).
+        // The chip states the CURRENT mode and opens the grouped, columned popover.
+        root.addView(BlendPickerPopover.chip(ctx, getMode, setMode, apply));
         if (!previewsLive) {
             TextView note = new TextView(ctx);
             note.setText(R.string.faditor_blend_export_note);

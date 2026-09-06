@@ -27,6 +27,40 @@ final class ImageOverlayDraw {
     private ImageOverlayDraw() {}
 
     /**
+     * Absolute ceiling on the decoded long edge for one image overlay — a 4K-class edge, the same
+     * number the preview cache uses. The effective ceiling is usually tighter: see
+     * {@link #EXPORT_DECODE_EDGE_MULTIPLE}.
+     */
+    private static final int EXPORT_DECODE_CEILING_EDGE = 4096;
+
+    /**
+     * How far past the OUTPUT frame one overlay may be decoded.
+     *
+     * <p><b>Deliberately modest, because the export's bitmap cache is unbounded.</b>
+     * {@code CompositeExportOverlay} holds one decoded bitmap per image overlay for the whole
+     * clip in a plain HashMap, and JoyRaptor's project has 78 of them. Doubling the linear resolution
+     * quadruples the memory, so an unlimited zoom term here would be a blur bug traded for an
+     * OOM. Two is the honest compromise: it is a visible sharpness gain on anything blown up past
+     * the frame, and it is bounded.</p>
+     *
+     * <p><b>An un-zoomed image is completely unaffected.</b> The bound's FLOOR is the frame's own
+     * long edge — exactly what shipped — so an overlay that is not scaled past the frame decodes
+     * the same bitmap it always did and the 78-image project's memory does not move at all. Only
+     * the images that were actually blurry cost anything more.</p>
+     */
+    private static final int EXPORT_DECODE_EDGE_MULTIPLE = 2;
+
+    /**
+     * Hard ceiling on ONE overlay's decoded bitmap, in bytes.
+     *
+     * <p>An edge bound says nothing about memory until it meets an aspect ratio — a panorama can
+     * satisfy any edge and still be enormous — so the byte cap is the backstop. 32 MB is roughly
+     * three 1080p frame buffers: generous for one picture, and small enough that several of them
+     * in the cache above do not sink the render.</p>
+     */
+    private static final long EXPORT_DECODE_MAX_BYTES = 32L * 1024 * 1024;
+
+    /**
      * Decode an image overlay's source, downsampled so the decode is bounded by the OUTPUT frame
      * rather than by the source file: a 12-megapixel photo dropped on a 480p export would
      * otherwise be held at full size for every frame of the clip. The bound is the frame's larger
@@ -49,10 +83,37 @@ final class ImageOverlayDraw {
             try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
                 android.graphics.BitmapFactory.decodeStream(in, null, bounds);
             }
-            int maxEdge = Math.max(outW, outH);
+            // HOW LARGE IS IT ACTUALLY DRAWN? The old bound was max(outW, outH) with NO zoom
+            // term at all — so a chart the user scaled to six times the frame decoded at one
+            // frame's worth of pixels and was then magnified six times into the file. The
+            // preview had a zoom term (reading, as it happens, the wrong channel); the export
+            // had none, which made the export the blurrier of the two.
+            //
+            // PipFrameOverlay already does this correctly for a PiP (`frameW * scale`); this is
+            // the same idea through the item's own drawn-size factor, which folds sizeFraction,
+            // its keyframe track, the per-axis multipliers and any corner-pin excursion into one
+            // number that the preview cache reads too (TextOverlayItem.maxDrawnHeightFactor).
+            float aspect = bounds.outHeight > 0
+                    ? bounds.outWidth / (float) bounds.outHeight : 1f;
+            float needH = outH * Math.max(0f, o.maxDrawnHeightFactor());
+            float needW = outH * aspect * Math.max(0f, o.maxDrawnWidthFactor());
+            int floorEdge = Math.max(outW, outH);   // never smaller than what shipped
+            int ceilEdge = Math.min(floorEdge * EXPORT_DECODE_EDGE_MULTIPLE,
+                    EXPORT_DECODE_CEILING_EDGE);
+            int maxEdge = Math.max(floorEdge,
+                    Math.min((int) Math.ceil(Math.max(needW, needH)), ceilEdge));
             int sample = 1;
             while (bounds.outHeight / (sample * 2) >= maxEdge
                     && bounds.outWidth / (sample * 2) >= 1) {
+                sample *= 2;
+            }
+            // BYTE GUARD. The bound above is a resolution, and a resolution says nothing about
+            // memory until it meets the source's aspect ratio — a very wide panorama can satisfy
+            // a 4096 edge and still be enormous. An export holds one of these per image overlay
+            // for the whole render, so the cap is per image and hard.
+            while (sample < 64
+                    && (long) (bounds.outWidth / sample) * (bounds.outHeight / sample) * 4L
+                            > EXPORT_DECODE_MAX_BYTES) {
                 sample *= 2;
             }
             android.graphics.BitmapFactory.Options opts =
@@ -155,20 +216,17 @@ final class ImageOverlayDraw {
         int ia = Math.round(opacity * ianim.alpha * 255f);
         ip.setAlpha(Math.max(0, Math.min(255, ia)));
         canvas.save();
-        // Same order as the text path and as the preview's View properties.
-        canvas.translate(ianim.dx, ianim.dy);
-        canvas.rotate(rot, cx, cy);
-        canvas.scale(ianim.scaleX, ianim.scaleY, cx, cy);
-        // MASK_WIPE's reveal. No ink-pad inset here, unlike the text path: that pad is a
-        // TextOverlayRenderer artefact (transparent margin round the glyphs), and an image's
-        // drawn rect IS its bounds — which is also what the preview clips.
-        if (ianim.revealFrac < 1f) {
-            canvas.clipRect(cx - iw / 2f, cy - ih / 2f,
-                    cx - iw / 2f + iw * Math.max(0f, ianim.revealFrac), cy + ih / 2f);
-        }
-        // Compositing masks (§C family) — the same canvas-normalized shapes a PiP masks with,
-        // through the same builder, so an image and a PiP cannot mask differently. Opened here,
-        // INSIDE the item's own save/restore but around the draw itself.
+        // ── THE MASK IS OPENED FIRST, BEFORE ANY OF THE ITEM'S OWN TRANSFORMS ────────────────
+        //
+        // It used to be opened AFTER the rotate and the scale, and that was a real bug: a mask
+        // is authored in FRAME space and must stay put over the frame while the item moves under
+        // it — the invariant both PiP paths state in as many words. Opened under the rotation,
+        // the hole rotated WITH the picture, so rotating a masked image spun its own mask.
+        // PipFrameOverlay (~157) has always done it in this order, and MaskPathBuilder.MaskScope
+        // is built for it: its `content` save exists precisely to hold "the caller's transforms"
+        // so endMask can drop them and erase the feather in mask space. Passing a transformed
+        // canvas into beginMask defeated that too, which is why a feathered mask on a rotated
+        // image softened the wrong edge.
         //
         // objectKf is deliberately NULL. Mask keys and mask LINK bases are captured in absolute
         // timeline ms, while an image's transform keys are LOCAL to its start — handing the local
@@ -177,6 +235,49 @@ final class ImageOverlayDraw {
         com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope maskSave =
                 com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
                         canvas, o.getCompositing(), null, timelineMs, outW, outH, 0f, 0f);
+        // Same order as the text path and as the preview's View properties.
+        //
+        // SPEC B — the rotation pivot. The anchors come from the model's ONE shared definition
+        // (TextOverlayItem.pivotOffsetFromCentreX/Y), the same numbers the preview's View pivot
+        // and GL fold read, so a corner pivot spins about the corner here exactly as it does in
+        // the editor. At the centre pivot the offsets are 0 and both anchors are (cx, cy) — the
+        // identical matrix every project before this exported. The entrance scale moves to the
+        // same anchor on purpose: the preview's View has ONE pivot shared by rotation and its
+        // preset scale properties, so anchoring the scale here too is what keeps the two
+        // surfaces composing identically when a pivot is set.
+        //
+        // SPEC B, pinned pictures — the pivot anchors to the PINNED quad (the picture the user
+        // sees), evaluated at this frame's clock, exactly as the preview's fold does.
+        float[] pins = null;
+        if (o.hasCornerPin()) {
+            pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+            o.animatedCornerPin(timelineMs, pins);
+        }
+        float pvx = cx + o.pivotOffsetFromCentreX(iw, ih, pins);
+        float pvy = cy + o.pivotOffsetFromCentreY(iw, ih, pins);
+        canvas.translate(ianim.dx, ianim.dy);
+        canvas.rotate(rot, pvx, pvy);
+        canvas.scale(ianim.scaleX, ianim.scaleY, pvx, pvy);
+        // MASK_WIPE's reveal. No ink-pad inset here, unlike the text path: that pad is a
+        // TextOverlayRenderer artefact (transparent margin round the glyphs), and an image's
+        // drawn rect IS its bounds — which is also what the preview clips.
+        if (ianim.revealFrac < 1f) {
+            canvas.clipRect(cx - iw / 2f, cy - ih / 2f,
+                    cx - iw / 2f + iw * Math.max(0f, ianim.revealFrac), cy + ih / 2f);
+        }
+        // CORNER PIN — innermost, immediately around the draw, INSIDE rotate/scale and INSIDE
+        // the mask bracket. Both of those placements are load-bearing:
+        //  * inside rotate/scale, because the corners are pulled on the PICTURE and the pinned
+        //    picture is then turned as a rigid whole — otherwise one corner drag would mean a
+        //    different distortion at every rotation angle;
+        //  * inside the mask bracket, for the same reason the rotation is: warping the item must
+        //    not warp the hole it is seen through.
+        // The matrix itself comes from the model, so the preview's copy of this cannot drift —
+        // see TextOverlayItem.cornerPinMatrix.
+        android.graphics.Matrix pin = new android.graphics.Matrix();
+        if (o.cornerPinMatrix(pin, timelineMs, cx - iw / 2f, cy - ih / 2f, iw, ih)) {
+            canvas.concat(pin);
+        }
         canvas.drawBitmap(img,
                 new android.graphics.Rect(0, 0, img.getWidth(), img.getHeight()),
                 new android.graphics.RectF(cx - iw / 2f, cy - ih / 2f,

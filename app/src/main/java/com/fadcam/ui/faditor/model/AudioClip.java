@@ -155,6 +155,19 @@ public class AudioClip implements AudioParams {
     // so this default IS the effective size unless changed in-session.
     private float captionSizeFraction = 0.060f;
 
+    // ── Caption text animation (SPEC_TEXT_ANIMATION) ──────────────────
+    // The exact four fields Clip carries, mirrored here so a caption bound to an AUDIO clip can
+    // animate at all. Before this, the Motion picker wrote its preset to whatever VIDEO clip
+    // happened to be selected, so the user's pick either vanished or landed on the wrong object.
+    // Stored as NAMES for the same reason as on Clip: an unknown value from a newer build
+    // degrades to the default instead of throwing.
+    @NonNull
+    private String captionAnimPreset = "NONE";
+    @NonNull
+    private String captionAnimGranularity = "WORD";
+    private float captionAnimInPct = 0f;
+    private float captionAnimOutPct = 0f;
+
     // ── Caption bindings — up to 3 per audio clip (SPEC_20260829_CAPTION_LAYERS) ──
     public static final int MAX_CAPTION_BINDINGS = 3;
     public static final class CaptionBinding {
@@ -167,6 +180,15 @@ public class AudioClip implements AudioParams {
         /** FADE_KNOBS §2.5: per-binding opacity fades (0 = none). */
         public long fadeInMs;
         public long fadeOutMs;
+        /**
+         * Caption BOX width as a fraction of the canvas width (0.3–1.0, default 0.9) —
+         * SPEC_20260831_CAPTION_SLIDES resizable bounding box. Per-binding like centerX/Y.
+         */
+        public float boxWidthFraction = 0.9f;
+        /** Vertical growth anchor: 0=center, 1=top pinned (grows down), 2=bottom pinned. */
+        public int anchor = 0;
+        /** Text justification within the box: 0=center, 1=left, 2=right. */
+        public int justify = 0;
         public CaptionBinding() {
             this.transcriptId = "";
             this.styleId = "pop";
@@ -196,6 +218,9 @@ public class AudioClip implements AudioParams {
             CaptionBinding c = new CaptionBinding(transcriptId, styleId, enabled, centerX, centerY, sizeFraction, label);
             c.fadeInMs = fadeInMs;
             c.fadeOutMs = fadeOutMs;
+            c.boxWidthFraction = boxWidthFraction;
+            c.anchor = anchor;
+            c.justify = justify;
             return c;
         }
     }
@@ -276,6 +301,10 @@ public class AudioClip implements AudioParams {
         this.captionCenterX = other.captionCenterX;
         this.captionCenterY = other.captionCenterY;
         this.captionSizeFraction = other.captionSizeFraction;
+        this.captionAnimPreset = other.captionAnimPreset;
+        this.captionAnimGranularity = other.captionAnimGranularity;
+        this.captionAnimInPct = other.captionAnimInPct;
+        this.captionAnimOutPct = other.captionAnimOutPct;
         for (CaptionBinding b : other.captionBindings) this.captionBindings.add(b.copy());
         for (long[] s : other.removedSpans) this.removedSpans.add(new long[]{s[0], s[1]});
         this.bakedFromUri = other.bakedFromUri;
@@ -572,16 +601,23 @@ public class AudioClip implements AudioParams {
         this.activeTranscriptIndex = (index >= 0 && index < transcripts.size()) ? index : -1;
     }
 
+    /**
+     * The active transcript version, or null if none. Honors {@link #activeTranscriptIndex}
+     * (the version chips / transcript panel set it) when valid; falls back to binding 0's
+     * transcript so legacy single-caption readers keep working for freshly-bound clips.
+     */
     @Nullable
     public NamedTranscript getActiveNamedTranscript() {
+        if (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size()) {
+            return transcripts.get(activeTranscriptIndex);
+        }
         if (!captionBindings.isEmpty()) {
             CaptionBinding b0 = captionBindings.get(0);
             int idx = indexOfTranscriptId(b0.transcriptId);
             if (idx >= 0) return transcripts.get(idx);
             return null;
         }
-        return (activeTranscriptIndex >= 0 && activeTranscriptIndex < transcripts.size())
-                ? transcripts.get(activeTranscriptIndex) : null;
+        return null;
     }
 
     @Nullable
@@ -613,6 +649,35 @@ public class AudioClip implements AudioParams {
     public boolean hasTranscript() {
         Transcript t = getTranscript();
         return t != null && !t.isEmpty();
+    }
+
+    // ── Caption text animation (SPEC_TEXT_ANIMATION) ──────────────────
+    // Twins of Clip's, with the same clamp on the zones — see Clip.setCaptionAnimZones for why
+    // the zones are fractions of a line rather than durations.
+
+    @NonNull
+    public String getCaptionAnimPreset() { return captionAnimPreset; }
+
+    public void setCaptionAnimPreset(@NonNull String presetName) {
+        this.captionAnimPreset = presetName;
+    }
+
+    @NonNull
+    public String getCaptionAnimGranularity() { return captionAnimGranularity; }
+
+    public void setCaptionAnimGranularity(@NonNull String granularityName) {
+        this.captionAnimGranularity = granularityName;
+    }
+
+    public float getCaptionAnimInPct() { return captionAnimInPct; }
+
+    public float getCaptionAnimOutPct() { return captionAnimOutPct; }
+
+    public void setCaptionAnimZones(float inPct, float outPct) {
+        this.captionAnimInPct =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(inPct);
+        this.captionAnimOutPct =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.clampZonePct(outPct);
     }
 
     // ── CaptionBindings (SPEC_20260829_CAPTION_LAYERS) ─────────────────
@@ -656,7 +721,11 @@ public class AudioClip implements AudioParams {
         captionCenterY = b0.centerY;
         captionSizeFraction = b0.sizeFraction;
         int idx = indexOfTranscriptId(b0.transcriptId);
-        if (idx >= 0) activeTranscriptIndex = idx;
+        // Keep the legacy index pointing at b0 only while it is unset/stale — never override
+        // a valid selection, or the transcript panel snaps back to b0 on every binding edit.
+        if (idx >= 0 && (activeTranscriptIndex < 0 || activeTranscriptIndex >= transcripts.size())) {
+            activeTranscriptIndex = idx;
+        }
     }
     private int indexOfTranscriptId(@Nullable String id) {
         if (id == null) return -1;

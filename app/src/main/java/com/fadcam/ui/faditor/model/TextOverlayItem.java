@@ -279,6 +279,34 @@ public class TextOverlayItem {
     private boolean scaleLinked = true;
 
     /**
+     * SPEC G mirror (flipH/flipV) — the picture mirrored inside its own box, about its own
+     * centre lines. False/false is the default and is every overlay in every project written
+     * before this.
+     *
+     * <p>Why booleans and not a negative scaleX/scaleY: the scale rails clamp to [0.02, 10]
+     * in the setters, the keyframe writer and the decode bound, and every renderer's size
+     * math assumes a positive extent (the GL path even refuses to draw a non-positive
+     * half-extent). A negative scale would have to re-teach all three renderers what a size
+     * means; a mirror is a sign applied at draw time and nothing else. Same choice the two
+     * older overlay families already made ({@code SpriteOverlayItem.isFlipH/V},
+     * {@code Clip.isFlipHorizontal/Vertical}), with the same sparse storage (absent = false)
+     * and the same snapshot cover, so the three families finally agree on what a flip is.
+     *
+     * <p>Deliberately NOT keyframable, like the rotation pivot: a flip is a discrete mirror
+     * edit (the transform ring's flip actions), and interpolating a boolean would be a pop
+     * dressed as an animation. An armed flip stays a pin permutation (animated); an unarmed
+     * one toggles these and spends no corner-pin budget at all.
+     *
+     * <p>Composition order (SPEC G, stated here because all three renderers implement it):
+     * bitmap → MIRROR → pin → rotate/scale → translate, the mirror about the UNPINNED box
+     * centre. The pin offsets therefore live in the unmirrored box frame however these
+     * stand. Renderers read the sign from {@link #mirrorSignX}/{@link #mirrorSignY}, the one
+     * shared definition — never a second transcription of the flag.
+     */
+    private boolean flipH;
+    private boolean flipV;
+
+    /**
      * SPEC B — the object's rotation pivot, as fractions of its own PICTURE box in 0..1
      * (0.5/0.5 = centre, the default and every overlay in every project written before this).
      * Deliberately NOT keyframable: interpolating a moving pivot produces swooping arcs nobody
@@ -325,6 +353,27 @@ public class TextOverlayItem {
     /** Blend-mode NAME ({@code layers.BlendMode}) — the Blend tab of the image drawer. */
     @NonNull
     private String overlayBlendMode = "NORMAL";
+
+    /**
+     * SPEC E — mesh warp (bend) for IMAGE overlays. Null = no bend, which is every overlay
+     * written before this existed. Self-serialising via {@code MeshWarpSpec.toJson/fromJson};
+     * {@code toJson} returns null for an identity pose so opening the tool and changing nothing
+     * saves byte-identically. v1 images only (see {@link #hasMesh} / storage tolerance).
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
+
+    /** Single easing authority for mesh tracks: the app's Easing, not a second copy. */
+    static final com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Curve MESH_CURVE =
+            new com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Curve() {
+                @Override public float apply(String name, float t) {
+                    try {
+                        return com.fadcam.ui.faditor.keyframe.Easing.fromName(name).apply(t);
+                    } catch (Exception ignored) {
+                        return t;
+                    }
+                }
+            };
 
     /** Clockwise rotation in degrees. */
     private float rotationDeg;
@@ -584,6 +633,9 @@ public class TextOverlayItem {
         c.scaleX = scaleX;
         c.scaleY = scaleY;
         c.scaleLinked = scaleLinked;
+        // SPEC G: a duplicate is the object's twin — its mirror rides along.
+        c.flipH = flipH;
+        c.flipV = flipV;
         // SPEC B: a duplicate is the object's twin — its pivot rides along like the rest of
         // the static pose it belongs with.
         c.rotationPivotX = rotationPivotX;
@@ -591,6 +643,11 @@ public class TextOverlayItem {
         System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
         c.passThrough = passThrough;
         c.compositing = compositing == null ? null : compositing.copy();
+        // SPEC E: a duplicate is the object's twin — its bend rides along (deep copy, never
+        // shared; two items fed by one spec would bend together). Null stays null: every
+        // pre-mesh duplicate is byte-identical.
+        c.mesh = mesh == null ? null : mesh.copy();
+        if (c.mesh != null) c.installMeshCurve();
         c.overlayBlendMode = overlayBlendMode;
         c.imageAnimPreset = imageAnimPreset == null ? null : imageAnimPreset.copy();
         c.imageFadeInMs = imageFadeInMs;
@@ -695,6 +752,29 @@ public class TextOverlayItem {
     public boolean isScaleLinked() { return scaleLinked; }
 
     public void setScaleLinked(boolean scaleLinked) { this.scaleLinked = scaleLinked; }
+
+    /** True when the picture is mirrored horizontally (SPEC G). */
+    public boolean isFlipH() { return flipH; }
+
+    public void setFlipH(boolean flipH) { this.flipH = flipH; }
+
+    /** True when the picture is mirrored vertically (SPEC G). */
+    public boolean isFlipV() { return flipV; }
+
+    public void setFlipV(boolean flipV) { this.flipV = flipV; }
+
+    /** True when either mirror flag stands — the picture draws mirrored. */
+    public boolean hasMirror() { return flipH || flipV; }
+
+    /**
+     * THE shared mirror definition. -1 when mirrored on that axis, +1 otherwise — the sign
+     * every renderer multiplies its draw-time extent (or scale) by. One method so the
+     * preview View path, the GL Pip path and the export cannot disagree on what a flip is.
+     */
+    public float mirrorSignX() { return flipH ? -1f : 1f; }
+
+    /** @see #mirrorSignX — the same definition on the vertical axis. */
+    public float mirrorSignY() { return flipV ? -1f : 1f; }
 
     // ── Rotation pivot (SPEC B) — static, not keyframable ─────────────
 
@@ -1034,9 +1114,46 @@ public class TextOverlayItem {
      * <p>Single authority on purpose (the reasoning in {@code 3152cc4}): the emitter and the canvas
      * skip must agree exactly, or an image is drawn twice or not at all. Every caller asks this,
      * never the two halves separately.</p>
+     *
+     * <p>SPEC E: a bent image ({@link #hasMesh}) rides GL too — the Canvas cannot bend. Gated on
+     * {@code isImage()} (v1 images only; a stale mesh on text must never route) and false for
+     * every overlay without a warp, so pre-mesh projects are byte-identical.</p>
      */
     public boolean wantsGlExport() {
-        return wantsExportBlend() || hasExportFx() || hasExportKey() || hasExportMask();
+        return wantsExportBlend() || hasExportFx() || hasExportKey() || hasExportMask()
+                || (isImage() && hasMesh());
+    }
+
+    /**
+     * SPEC E gate: true when a bend is authored. False for null spec, unknown topology, or an
+     * identity pose — checked BEFORE any GL object exists, so a project with no bend creates no
+     * framebuffer, compiles no program and costs exactly zero (same gate the storage writer and
+     * both renderers read).
+     */
+    public boolean hasMesh() {
+        return mesh != null && mesh.hasWarp();
+    }
+
+    /** The bend spec, or null for none. Renderers copy it per-frame; never hand the live one out. */
+    @Nullable
+    public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec getMesh() { return mesh; }
+
+    /** Set/replace the bend (null clears). Installs the shared easing curve on its track. */
+    public void setMesh(@Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
+        this.mesh = m;
+        installMeshCurve();
+    }
+
+    /** Ensure the pose track eases via the app's single Easing implementation (no second copy). */
+    public void installMeshCurve() {
+        if (mesh != null && mesh.track() != null) {
+            try { mesh.track().setCurve(MESH_CURVE); } catch (Exception ignored) { }
+        }
+    }
+
+    /** Mesh time base is LOCAL like every other animated property (see {@code localTime}). */
+    public long meshLocalTime(long timelineMs) {
+        return Math.max(0, timelineMs - startMs);
     }
 
     /** Static opacity [0,1] used when there are no OPACITY keyframes. */
@@ -1995,6 +2112,12 @@ public class TextOverlayItem {
         setTimeRange(startMs, endMs);
         long after = this.startMs;
         if (after != before) keyframes.shiftAll(before - after);
+        // SPEC E: mesh poses ride the same rebase (same reversible contract as KeyframeSet.shiftAll
+        // — negative times kept, so trimming out and back restores exactly). Null-safe: every
+        // pre-mesh trim is byte-identical.
+        if (after != before && mesh != null && mesh.track() != null) {
+            try { mesh.track().shiftAll(before - after); } catch (Exception ignored) { }
+        }
         if (hasPresetOwnedKeys()) reflowPresetOwnedKeys(timelineDurationMs);
     }
 
@@ -2398,12 +2521,15 @@ public class TextOverlayItem {
         private final float centerX, centerY, sizeFraction, rotationDeg, opacity;
         private final float scaleX, scaleY;
         private final boolean scaleLinked;
+        private final boolean flipH, flipV;
         // SPEC B — the rotation pivot rides the snapshot, so a pose undo/redo restores it
         // together with the centre it was compensating (a pivot pick shifts the centre to keep
         // the picture still; the pair must move as one).
         private final float rotationPivotX, rotationPivotY;
         /** Corner-pin offsets, copied not shared — the item's array is mutated in place. */
         @NonNull private final float[] cornerPin;
+        /** SPEC E bend, deep-copied (a pose undo/redo restores the bend with the centre it rode). */
+        @Nullable private final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
         private final long startMs, endMs;
         private final long imageFadeInMs, imageFadeOutMs;
         @Nullable private final ImageAnimPreset imageAnimPreset;
@@ -2418,9 +2544,13 @@ public class TextOverlayItem {
             this.scaleX = o.scaleX;
             this.scaleY = o.scaleY;
             this.scaleLinked = o.scaleLinked;
+            // SPEC G: the mirror is pose (a flip and its budget bake must undo as one).
+            this.flipH = o.flipH;
+            this.flipV = o.flipV;
             this.rotationPivotX = o.rotationPivotX;
             this.rotationPivotY = o.rotationPivotY;
             this.cornerPin = o.cornerPin.clone();
+            this.mesh = o.mesh == null ? null : o.mesh.copy();
             this.startMs = o.startMs;
             this.endMs = o.endMs;
             this.imageFadeInMs = o.imageFadeInMs;
@@ -2439,6 +2569,8 @@ public class TextOverlayItem {
                     || scaleX != other.scaleX
                     || scaleY != other.scaleY
                     || scaleLinked != other.scaleLinked
+                    || flipH != other.flipH
+                    || flipV != other.flipV
                     || rotationPivotX != other.rotationPivotX
                     || rotationPivotY != other.rotationPivotY
                     || startMs != other.startMs
@@ -2446,6 +2578,7 @@ public class TextOverlayItem {
                     || imageFadeInMs != other.imageFadeInMs
                     || imageFadeOutMs != other.imageFadeOutMs) return false;
             if (!java.util.Arrays.equals(cornerPin, other.cornerPin)) return false;
+            if (!meshEqual(mesh, other.mesh)) return false;
             if (imageAnimPreset == null && other.imageAnimPreset != null) return false;
             if (imageAnimPreset != null && other.imageAnimPreset == null) return false;
             if (imageAnimPreset != null && other.imageAnimPreset != null) {
@@ -2484,6 +2617,41 @@ public class TextOverlayItem {
             for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : s.tracks()) out.add(t);
             return out;
         }
+
+        /**
+         * SPEC E bend equality. Null and an identity spec (no warp) count as EQUAL — both mean
+         * "no bend" for persistence (toJson writes nothing for identity) and for rendering (the
+         * gate is hasWarp), so a snapshot round-trip through an untouched tool must match.
+         */
+        private static boolean meshEqual(
+                @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec a,
+                @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec b) {
+            if (a == b) return true;
+            boolean aw = a != null && a.hasWarp();
+            boolean bw = b != null && b.hasWarp();
+            if (!aw && !bw) return true;
+            if (!aw || !bw) return false;
+            if (a.topology() == null || b.topology() == null) return false;
+            if (!a.topology().kind().equals(b.topology().kind())) return false;
+            if (!java.util.Arrays.equals(a.topology().params(), b.topology().params())) return false;
+            if (!java.util.Arrays.equals(a.handles(), b.handles())) return false;
+            com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack ta = a.track();
+            com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack tb = b.track();
+            if (ta == tb) return true;
+            if (ta == null || tb == null) return ta == null ? tb.isEmpty() : ta.isEmpty();
+            if (ta.arity() != tb.arity() || ta.size() != tb.size()) return false;
+            java.util.List<com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Pose> pa = ta.poses();
+            java.util.List<com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Pose> pb = tb.poses();
+            for (int i = 0; i < pa.size(); i++) {
+                com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Pose x = pa.get(i);
+                com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Pose y = pb.get(i);
+                if (x.timeMs != y.timeMs) return false;
+                if (x.presetOwned != y.presetOwned) return false;
+                if (x.easing == null ? y.easing != null : !x.easing.equals(y.easing)) return false;
+                if (!java.util.Arrays.equals(x.values, y.values)) return false;
+            }
+            return true;
+        }
     }
 
     /** Capture a deep snapshot of this overlay's transform/time/keyframe state. */
@@ -2502,9 +2670,14 @@ public class TextOverlayItem {
         this.scaleX = s.scaleX;
         this.scaleY = s.scaleY;
         this.scaleLinked = s.scaleLinked;
+        this.flipH = s.flipH;
+        this.flipV = s.flipV;
         this.rotationPivotX = s.rotationPivotX;
         this.rotationPivotY = s.rotationPivotY;
         System.arraycopy(s.cornerPin, 0, this.cornerPin, 0, CornerPin.SIZE);
+        // SPEC E: bend restores with the pose (deep copy; curve reinstalled for easing parity).
+        this.mesh = s.mesh == null ? null : s.mesh.copy();
+        if (this.mesh != null) installMeshCurve();
         this.startMs = s.startMs;
         this.endMs = s.endMs;
         this.imageFadeInMs = s.imageFadeInMs;

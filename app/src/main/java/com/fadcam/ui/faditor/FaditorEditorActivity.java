@@ -10011,7 +10011,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // animated lookup (Clip.spinePoseAt at the clip-local playhead), so leaving it out would
         // freeze the handles on a keyframed spine transform while the picture moved under them.
         if (transformOverlay != null
-                && (transformItemId != null || transformSpineClipId != null)) {
+                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
             transformOverlay.refresh();
         }
 
@@ -24283,6 +24283,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
             transformRoles = new java.util.HashMap<>();
 
+    /** PiP transform surface — separate from image/text and spine (SPEC D). */
+    @Nullable private String transformPipClipId;
+    private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
+            pipTransformRoles = new java.util.HashMap<>();
+
     @NonNull
     private com.fadcam.ui.faditor.transform.TransformOverlayView ensureTransformOverlay() {
         if (transformOverlay == null) {
@@ -24333,6 +24338,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         transformItemId = o.getId();
         transformSpineClipId = null;
+        transformPipClipId = null;
         // THE ORDINARY HANDLES SURRENDER THE PICTURE, NOT THE PREVIEW.
         //
         // Their TARGET goes null, which is what makes them draw nothing and grab nothing -- the
@@ -24358,6 +24364,68 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Double-tap keeps meaning what it has always meant on a selected object: open its
         // editor. For an image that is the image drawer (showTextOverlayEditor routes it).
         v.setOnDoubleTap(() -> showTextOverlayEditor(o));
+        v.bringToFront();
+        v.refresh();
+    }
+
+    // ── SPEC D: TEXT (non-image) TRANSFORM — affine-only (no pin path in either surface)
+    private void enterTextTransformMode(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (transformItemId != null && transformItemId.equals(o.getId())
+                && transformOverlay != null && transformOverlay.host() != null
+                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.TextAffineTransformHost) {
+            transformOverlay.refresh();
+            return;
+        }
+        com.fadcam.ui.faditor.transform.HandleModel roles = transformRoles.get(o.getId());
+        if (roles == null) {
+            roles = new com.fadcam.ui.faditor.transform.HandleModel();
+            transformRoles.put(o.getId(), roles);
+        }
+        transformItemId = o.getId();
+        transformSpineClipId = null;
+        transformPipClipId = null;
+        ensurePreviewHandlesOverlay().setTarget(null);
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPointHandles(null);
+            previewHandlesOverlay.setVisibility(View.VISIBLE);
+        }
+        com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
+        com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = textHandlesTarget(o);
+        v.setHost(new com.fadcam.ui.faditor.transform.TextAffineTransformHost(
+                o, t, () -> lastPlayheadAbsoluteMs, this::refreshTextAfterHandleWrite), roles);
+        v.setAffineOnly(true);
+        v.setOnDoubleTap(() -> showTextOverlayEditor(o));
+        v.bringToFront();
+        v.refresh();
+    }
+
+    // ── SPEC D: PIP TRANSFORM — affine-only (no pin channel in preview or export)
+    private void enterPipTransformMode(@NonNull Clip clip) {
+        if (transformPipClipId != null && transformPipClipId.equals(clip.getId())
+                && transformOverlay != null && transformOverlay.host() != null
+                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.PipAffineTransformHost) {
+            transformOverlay.refresh();
+            return;
+        }
+        com.fadcam.ui.faditor.transform.HandleModel roles = pipTransformRoles.get(clip.getId());
+        if (roles == null) {
+            roles = new com.fadcam.ui.faditor.transform.HandleModel();
+            pipTransformRoles.put(clip.getId(), roles);
+        }
+        transformPipClipId = clip.getId();
+        transformItemId = null;
+        transformSpineClipId = null;
+        ensurePreviewHandlesOverlay().setTarget(null);
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPointHandles(null);
+            previewHandlesOverlay.setVisibility(View.VISIBLE);
+        }
+        com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
+        com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = pipHandlesTarget(clip);
+        v.setHost(new com.fadcam.ui.faditor.transform.PipAffineTransformHost(
+                clip, t, () -> lastPlayheadAbsoluteMs, this::refreshPipAfterHandleWrite), roles);
+        v.setAffineOnly(true);
+        v.setOnDoubleTap(() -> showPipDrawerForObject(clip));
         v.bringToFront();
         v.refresh();
     }
@@ -24462,6 +24530,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         transformItemId = null;
         transformSpineClipId = clip.getId();
+        transformPipClipId = null;
         // Same surrender the image path makes, for the same reason: the ordinary handles overlay
         // keeps its VISIBILITY (it is the preview's one hit-test surface) and loses its TARGET,
         // so exactly one view is reading MotionEvents over the picture.
@@ -24538,12 +24607,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Close the transform surface. The caller decides what the preview shows next. */
     private void exitTransformMode() {
-        if (transformItemId == null && transformSpineClipId == null
+        if (transformItemId == null && transformSpineClipId == null && transformPipClipId == null
                 && transformOverlay == null) {
             return;
         }
         transformItemId = null;
         transformSpineClipId = null;
+        transformPipClipId = null;
         if (transformOverlay != null) {
             // setHost(null) also sets the view GONE, so nothing of it remains -- no orphaned
             // handles, and nothing left in the preview reading a MotionEvent but the ordinary
@@ -24995,6 +25065,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     || !transformSpineClipId.equals(item.getClip().getId()))) {
             exitTransformMode();
         }
+        if (transformPipClipId != null
+                && (item == null || item.getClip() == null
+                    || !item.getClip().isOverlayClip()
+                    || !transformPipClipId.equals(item.getClip().getId()))) {
+            exitTransformMode();
+        }
         if (item != null && item.getTextOverlay() != null
                 && item.getTextOverlay().isImage()) {
             // AN IMAGE OVERLAY'S HANDLES *ARE* THE TRANSFORM SURFACE. JoyRaptor, 2026-09-04: "when I
@@ -25009,16 +25085,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // giving it these handles would author a distortion neither surface could draw.
             enterTransformMode(item.getTextOverlay());
         } else if (item != null && item.getTextOverlay() != null) {
-            ensurePreviewHandlesOverlay().setTarget(textHandlesTarget(item.getTextOverlay()));
+            // SPEC D: text (non-image) now gets the same transform surface, affine-only because
+            // neither preview (TextOverlayLayer) nor export (TextOverlayRenderer) has a corner-pin
+            // channel for text — a distortion would be authored with nowhere to draw it.
+            enterTextTransformMode(item.getTextOverlay());
         } else if (item != null && item.getSprite() != null) {
             ensurePreviewHandlesOverlay().setTarget(spriteHandlesTarget(item.getSprite()));
         } else if (item != null && item.getClip() != null && item.getClip().isOverlayClip()) {
-            // PiPs at last. Handles on selection have been asked for since 2026-07-06
-            // (FEEDBACK_20260706_layers_ux §6), re-specified in PLAN_LAYERS_UX_ADDENDUM §6 and
-            // again in FEEDBACK_20260717 D1. Text and sprites got them; a PiP fell through to
-            // setTarget(null), so selecting one showed nothing on the canvas and there was no
-            // way to resize or rotate it there at all.
-            ensurePreviewHandlesOverlay().setTarget(pipHandlesTarget(item.getClip()));
+            // SPEC D: PiP now gets the transform surface, affine-only — neither PipFrameOverlay
+            // (export) nor FxPreviewTextureView.Pip (preview) can draw a corner-pinned PiP today.
+            // Prefer restricting Tilt/Free/fold to shipping a gesture nothing can render.
+            enterPipTransformMode(item.getClip());
         } else if (item != null && item.getClip() != null && project != null
                 && project.getTimeline().getClips().contains(item.getClip())) {
             // A SPINE (master) clip. Selecting one now puts the transform surface on its picture,
@@ -25473,7 +25550,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             previewHandlesOverlay.setPlayheadMs(ms);
         }
         if (transformOverlay != null
-                && (transformItemId != null || transformSpineClipId != null)) {
+                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
             transformOverlay.refresh();
         }
     }
@@ -31297,7 +31374,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // handles surrender images to it), so this is the refresh that actually matters for
         // JoyRaptor's report: a drawer Rotate/Pos/Scale/pivot write must re-sync its quad the same
         // way a playhead tick does, or the quad sat at the last-synced pose.
-        if (transformOverlay != null && transformItemId != null) {
+        if (transformOverlay != null
+                && (transformItemId != null || transformPipClipId != null)) {
             transformOverlay.refresh();
         }
     }

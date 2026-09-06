@@ -1478,6 +1478,10 @@ public class ProjectStorage {
         if (comp != null && !comp.isEmpty()) {
             clipJson.add("compositing", comp.toJson());
         }
+        // SPEC E mesh ("mesh"): v1 is image overlays only (TextOverlayItem), so a Clip carries
+        // no mesh field and writes nothing here — every pre-mesh clip stays byte-identical. Read
+        // path below drops a stale "mesh" member if one ever arrives, so a newer file can never
+        // break this load.
         // Per-object FX (M7). Additive: written only when the clip actually has effects, so
         // every clip authored before them stays byte-identical.
         if (clip.hasActiveFx() || (clip.getFx() != null && !clip.getFx().isEmpty())) {
@@ -1844,6 +1848,16 @@ public class ProjectStorage {
         if (hasValue(clipObj, "compositing")) {
             clip.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec
                     .fromJson(clipObj.getAsJsonObject("compositing")));
+        }
+        // SPEC E mesh on a Clip: dropped, clip kept. v1 mesh lives on image overlays only; a
+        // "mesh" member here (hand-edited or newer build) costs the bend, never the clip.
+        if (hasValue(clipObj, "mesh")) {
+            try {
+                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.fromJson(
+                        clipObj.getAsJsonObject("mesh"));
+            } catch (Exception ignored) {
+                // Tolerant: lose a bend we would never render, keep the clip.
+            }
         }
         // ── Floating overlay-video fields (M-COMP-2) — absent on master clips. ──
         if (hasValue(clipObj, "overlayAudioEnabled")) {
@@ -2403,6 +2417,11 @@ public class ProjectStorage {
                 }
                 if (o.getScaleX() != 1f) oJson.addProperty("scaleX", o.getScaleX());
                 if (o.getScaleY() != 1f) oJson.addProperty("scaleY", o.getScaleY());
+                // SPEC G mirror — sparse like the sprite family's flipH/flipV: an unmirrored
+                // overlay (every overlay in every project written before this) writes nothing
+                // and round-trips byte-identically. Absent on read = false (the field default).
+                if (o.isFlipH()) oJson.addProperty("flipH", true);
+                if (o.isFlipV()) oJson.addProperty("flipV", true);
                 // Corner pin / skew. Eight sparse keys, written ONLY when a corner has been
                 // dragged off zero — an undistorted overlay (i.e. every overlay in every project
                 // written before corner pin existed) adds nothing to the file and round-trips
@@ -2423,6 +2442,20 @@ public class ProjectStorage {
                 com.fadcam.ui.faditor.model.CompositingSpec oComp = o.getCompositing();
                 if (oComp != null && !oComp.isEmpty()) {
                     oJson.add("compositing", oComp.toJson());
+                }
+                // SPEC E mesh ("mesh"): omitted when absent/identity so untouched use saves
+                // byte-identically (MeshWarpSpec.toJson returns null then — same omit-empty
+                // discipline as KeyframeCodec). Dropped on write for non-images (v1 images only).
+                if (o.isImage()) {
+                    com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec oMesh = o.getMesh();
+                    if (oMesh != null) {
+                        try {
+                            com.google.gson.JsonObject mj = oMesh.toJson();
+                            if (mj != null) oJson.add("mesh", mj);
+                        } catch (Exception ignored) {
+                            // A bend that cannot serialize costs the bend, never the overlay.
+                        }
+                    }
                 }
                 serializeTimerSpec(oJson, o.getTimerSpec());
                 // W5-2 rich text spans (§3.8). Sparse: an overlay with no per-selection
@@ -3211,6 +3244,10 @@ public class ProjectStorage {
                         }
                         if (hasValue(oObj, "scaleX")) o.setScaleX(oObj.get("scaleX").getAsFloat());
                         if (hasValue(oObj, "scaleY")) o.setScaleY(oObj.get("scaleY").getAsFloat());
+                        // SPEC G mirror — tolerant: absent keys are unmirrored, so a project
+                        // written before this loads and renders exactly as it always did.
+                        if (hasValue(oObj, "flipH")) o.setFlipH(oObj.get("flipH").getAsBoolean());
+                        if (hasValue(oObj, "flipV")) o.setFlipV(oObj.get("flipV").getAsBoolean());
                         // Corner pin — TOLERANT, and that is the whole contract: an absent key is
                         // zero, zero is undistorted, so a project written before corner pin
                         // existed loads and renders exactly as it always did. Nothing here can
@@ -3231,6 +3268,23 @@ public class ProjectStorage {
                                         oObj.getAsJsonObject("compositing")));
                             } catch (Exception ignored) {
                                 // Tolerant: lose the masks, keep the overlay.
+                            }
+                        }
+                        // SPEC E mesh: tolerant like everything else here. Absent = no bend (every
+                        // pre-mesh overlay). Wrong arity / unknown topology / malformed = drop the
+                        // bend, keep the overlay (MeshWarpSpec.fromJson already enforces per-pose
+                        // tolerance; null = drop). Non-image mesh ignored on read and dropped on
+                        // write (v1 images only).
+                        if (hasValue(oObj, "mesh")) {
+                            try {
+                                if (o.isImage() && oObj.get("mesh").isJsonObject()) {
+                                    com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec ms =
+                                            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.fromJson(
+                                                    oObj.getAsJsonObject("mesh"));
+                                    if (ms != null) o.setMesh(ms);
+                                }
+                            } catch (Exception ignored) {
+                                // Tolerant: lose the bend, keep the overlay.
                             }
                         }
                         if (hasValue(oObj, "keyframes")) {

@@ -757,6 +757,13 @@ public final class FxLivePreviewController {
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) {
             FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
             if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
+            // SPEC E mesh: enrich the flat Pip with a stamp snapshot (deep spec copy + unfolded
+            // animated placement). wantsGlExport already routes bent images here via hasMesh; the
+            // GL thread then stamps via the shared MeshStampGl and composites as identity, so
+            // blend/mask/key/FX/adjustment ride unchanged. Null keeps the flat path (identity,
+            // undecoded, or non-image) — byte-identical for every project without a bend.
+            FxPreviewTextureView.Pip mp = withMeshInputs(o, p, playheadMs, size, timeline);
+            if (mp != null) p = mp;
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             glOwned.add(o.getId());
         }
@@ -803,6 +810,81 @@ public final class FxLivePreviewController {
             if (o != null && o.wantsGlExport()) out.add(o);
         }
         return out;
+    }
+
+    /**
+     * SPEC E mesh enrichment: snapshot a bent image's warp + unfolded animated placement for the
+     * shared stamp. Returns null to keep the flat path (no bend, non-image, undecoded, degenerate
+     * placement) — every pre-mesh frame takes that branch.
+     *
+     * <p>Numbers mirror the flat host ({@code TextOverlayLayer.fxPipFor}) and {@code ImageOverlayDraw}
+     * via the SAME model authorities (animatedCentre/Size/Scale/Rotation/Opacity, preset via
+     * {@code CaptionAnimator}, pivot via {@code pivotOffsetFromCentre}, pins via
+     * {@code animatedCornerPin}); matrices themselves are built once inside {@code MeshStampGl} via
+     * {@code MeshPlacement}, so preview and export cannot transcribe them differently. Aspect comes
+     * from the Pip's own still bitmap — the exact pixels the stamp will sample — so the flat and
+     * meshed paths can never disagree about the photo's shape. Animated (never live): unarmed items
+     * track the finger anyway (animated==static with no keyframes); armed live-move shows the
+     * keyframed pose until release — documented, test-only until the Bend tool lands.
+     */
+    @Nullable
+    private static FxPreviewTextureView.Pip withMeshInputs(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull FxPreviewTextureView.Pip p,
+            long playheadMs, @NonNull int[] size, @NonNull Timeline timeline) {
+        try {
+            if (!o.isImage() || !o.hasMesh()) return null;
+            android.graphics.Bitmap still = p.still;
+            if (still == null || still.isRecycled() || still.getHeight() <= 0) return null;
+            if (size[0] <= 0 || size[1] <= 0) return null;
+            o.installMeshCurve();
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec src = o.getMesh();
+            if (src == null || !src.hasWarp()) return null;
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec copy = src.copy();
+            long localMs = o.meshLocalTime(playheadMs);
+            float cx = o.animatedCenterX(playheadMs);
+            float cy = o.animatedCenterY(playheadMs);
+            float sizeFrac = o.animatedSizeFraction(playheadMs);
+            float sx = o.animatedScaleX(playheadMs);
+            float sy = o.animatedScaleY(playheadMs);
+            float rot = o.animatedRotation(playheadMs);
+            float opacity = o.animatedOpacity(playheadMs);
+            if (sizeFrac <= 0f || sx <= 0f || sy <= 0f) return null;
+            float imageAspect = still.getWidth() / (float) still.getHeight();
+            float frameAspect = size[0] / (float) size[1];
+            if (!(imageAspect > 0f) || !(frameAspect > 0f)) return null;
+            float wNorm = sizeFrac * imageAspect * sx / frameAspect;
+            float hNorm = sizeFrac * sy;
+            if (!(wNorm > 0f) || !(hNorm > 0f)) return null;
+            float[] pins = null;
+            if (o.hasCornerPin()) {
+                pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+                o.animatedCornerPin(playheadMs, pins);
+            }
+            float pivOffX = o.pivotOffsetFromCentreX(wNorm, hNorm, pins);
+            float pivOffY = o.pivotOffsetFromCentreY(wNorm, hNorm, pins);
+            boolean applyPivot = !o.isRotationPivotNeutral(pins);
+            com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform preset =
+                    com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+                            com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(
+                                    o.getTextAnimPreset()),
+                            playheadMs, o.motionRangeStartMs(),
+                            o.motionSpanMs(timeline.getTotalDurationMs()),
+                            o.getTextAnimInPct(), o.getTextAnimOutPct(),
+                            sizeFrac * size[1]);
+            float dxNorm = preset.dx / (float) size[0];
+            float dyNorm = preset.dy / (float) size[1];
+            float alpha = Math.max(0f, Math.min(1f, opacity * preset.alpha));
+            float reveal = Math.max(0f, Math.min(1f, preset.revealFrac));
+            FxPreviewTextureView.MeshInputs mi = new FxPreviewTextureView.MeshInputs(
+                    copy, localMs, cx, cy, wNorm, hNorm,
+                    pivOffX, pivOffY, applyPivot, rot,
+                    preset.scaleX, preset.scaleY, dxNorm, dyNorm,
+                    alpha, reveal, pins);
+            return p.withMesh(mi);
+        } catch (Exception ignored) {
+            return null; // never let a bend cost the picture — flat path below
+        }
     }
 
     /**

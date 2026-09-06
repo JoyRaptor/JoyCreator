@@ -1226,6 +1226,9 @@ public class TextOverlayLayer extends FrameLayout {
                 } else {
                     cp.setCornerPin(null, 0f);
                 }
+                // SPEC G mirror: static flags (no live split — a mirror is not keyframable),
+                // drawn inside the view from the same order the export implements.
+                cp.setMirror(o.isFlipH(), o.isFlipV());
             }
             h = Math.round(ihPx + padPx * 2f);
             w = Math.round(iwPx + padPx * 2f);
@@ -1507,8 +1510,13 @@ public class TextOverlayLayer extends FrameLayout {
 
         float cx = live ? o.getCenterX() : o.animatedCenterX(currentTimeMs);
         float cy = live ? o.getCenterY() : o.animatedCenterY(currentTimeMs);
-        float halfW = (wPx * anim.scaleX) / r.width() * 0.5f;
-        float halfH = (hPx * anim.scaleY) / r.height() * 0.5f;
+        // SPEC G mirror: the sign rides the half-extent, so the shader samples the picture
+        // mirrored about its own centre with NO shader change (its q/half arithmetic is
+        // sign-agnostic) and the pin uniforms apply outside the mirror exactly as the Canvas
+        // paths do. Static flags — no live split. Unmirrored the signs are +1 and every
+        // number below is bit-for-bit what shipped.
+        float halfW = (wPx * anim.scaleX * o.mirrorSignX()) / r.width() * 0.5f;
+        float halfH = (hPx * anim.scaleY * o.mirrorSignY()) / r.height() * 0.5f;
         float alpha = live ? 1f
                 : Math.max(0f, Math.min(1f, o.animatedOpacity(currentTimeMs) * anim.alpha));
         float rot = live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs);

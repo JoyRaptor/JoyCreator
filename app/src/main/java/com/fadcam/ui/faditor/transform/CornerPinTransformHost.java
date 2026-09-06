@@ -25,9 +25,13 @@ import com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay;
  * <ul>
  *   <li>pan → {@code X}/{@code Y}; pinch → {@code SCALE} + {@code ROTATION} + {@code X}/{@code Y};
  *       the spin arc → {@code ROTATION}. All five are ordinary transform tracks.</li>
- *   <li>every distortion — scale, tilt, free, fold, flip — → the EIGHT {@link CornerPin} tracks,
+ *   <li>every distortion — scale, tilt, free, fold — → the EIGHT {@link CornerPin} tracks,
  *       drawn in the preview by {@code CornerPinImageView} / the GL chain's pin uniforms and in the
  *       export by {@code ImageOverlayDraw} through the SAME {@link CornerPin#buildMatrix}.</li>
+ *   <li>flip → the mirror flags (plus a pin-axis negation when distorted), drawn by all three
+ *       renderers from {@code TextOverlayItem.mirrorSignX/Y} — and at commit the
+ *       {@link TransformQuad#normalizePin} bake folds the affine part out of the pin, so a
+ *       flip, fold, rotate or scale leaves the pin cleared instead of spending its budget.</li>
  * </ul>
  * <p>There is no fifth thing this view can author. So the two surfaces cannot disagree about a
  * transform gesture unless they already disagreed about a slider — which is the property the corner
@@ -66,6 +70,13 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
 
     // Captured at beginGesture: the pose every relative write is measured from.
     private float startCx, startCy, startSize, startRot;
+    /**
+     * SPEC G — whether any of the eight pin tracks carried keyframes when the gesture began.
+     * A keyframed pin is an animated pose: baking a single static affine over it would destroy
+     * the animation, so commit-time normalisation walks away and the gesture stands as authored.
+     * Keys the gesture itself writes do NOT count — only what was already there.
+     */
+    private boolean hadPinKeys;
 
     public CornerPinTransformHost(@NonNull TextOverlayItem item,
                                   @NonNull PreviewHandlesOverlay.Target target,
@@ -100,10 +111,13 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         float cs = (float) Math.cos(rad), sn = (float) Math.sin(rad);
         float[] baseX = {box.left, box.right, box.right, box.left};
         float[] baseY = {box.top, box.top, box.bottom, box.bottom};
+        // SPEC G — the presented quad wears the mirror (about the box centre, before the
+        // rotation, exactly as every renderer draws it). Unmirrored this is the same line.
+        float smx = item.mirrorSignX(), smy = item.mirrorSignY();
         for (int i = 0; i < 4; i++) {
             float px = baseX[i] + off[i * 2] * w;
             float py = baseY[i] + off[i * 2 + 1] * h;
-            float dx = px - cx, dy = py - cy;
+            float dx = smx * (px - cx), dy = smy * (py - cy);
             outQuad8[i * 2] = cx + cs * dx - sn * dy;
             outQuad8[i * 2 + 1] = cy + sn * dx + cs * dy;
         }
@@ -151,6 +165,13 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         startCy = target.centerY(t);
         startSize = target.sizeFraction(t);
         startRot = target.rotationDeg(t);
+        hadPinKeys = false;
+        KeyframeSet ks = item.getKeyframes();
+        if (ks != null) {
+            for (String tr : CornerPin.tracks()) {
+                if (ks.hasProperty(tr)) { hadPinKeys = true; break; }
+            }
+        }
         target.beginGesture();
     }
 
@@ -193,14 +214,19 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
             bcy = pvy + us * dx + pc * dy;
         }
         float[] baseX = {bcx - w / 2f, bcx + w / 2f, bcx + w / 2f, bcx - w / 2f};
-        float[] baseY = {bcy - h / 2f, bcy - h / 2f, bcy + h / 2f, bcy + h / 2f};
+        float[] baseY = {bcy - h / 2f, bcy - h / 2f, bcy + h / 2f, bcy - h / 2f};
         float[] next = new float[CornerPin.SIZE];
+        // SPEC G — the pin lives in the UNMIRRORED box frame however the flags stand, so the
+        // dragged (mirrored) quad is un-mirrored about the pose centre on the way in. The
+        // pivot fold above is untouched: mirroring about the centre commutes with it (the
+        // pivot offset cancels exactly). Unmirrored this is the same two lines.
+        float smx = item.mirrorSignX(), smy = item.mirrorSignY();
         for (int i = 0; i < 4; i++) {
             float dx = quad8[i * 2] - pvx, dy = quad8[i * 2 + 1] - pvy;
             float ux = pvx + uc * dx - us * dy;
             float uy = pvy + us * dx + uc * dy;
-            next[i * 2] = (ux - baseX[i]) / w;
-            next[i * 2 + 1] = (uy - baseY[i]) / h;
+            next[i * 2] = (smx * (ux - bcx) - (baseX[i] - bcx)) / w;
+            next[i * 2 + 1] = (smy * (uy - bcy) - (baseY[i] - bcy)) / h;
         }
         if (!withinRange(next)) return false;
         // REFUSE, DO NOT CLAMP, when the homography will not solve. Clamping would let the finger
@@ -212,11 +238,14 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         return true;
     }
 
-    /** Every offset inside {@link CornerPin#MAX_OFFSET} — the reach the tracks can serialise. */
+    /** Every offset inside {@link CornerPin#MAX_OFFSET} — the reach the tracks can serialise.
+     * A 1e-4 dust allowance: a fold from flat lands at exactly ±MAX_OFFSET through float
+     * reflection math, which can read 2.0000002. The writers clamp to the cap, so admitting
+     * dust changes nothing stored — refusing it would fail the fold (SPEC G). */
     private static boolean withinRange(float[] pin) {
         for (float v : pin) {
             if (Float.isNaN(v) || Float.isInfinite(v)) return false;
-            if (Math.abs(v) > CornerPin.MAX_OFFSET) return false;
+            if (Math.abs(v) > CornerPin.MAX_OFFSET + 1e-4f) return false;
         }
         return true;
     }
@@ -279,7 +308,183 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     public void writeRotation(float deg) { target.rotateTo(deg, now()); }
 
     @Override
-    public void commitGesture(@NonNull String what) { target.commit(what); }
+    public void commitGesture(@NonNull String what) { tryNormalizeOnCommit(); target.commit(what); }
+
+    /**
+     * SPEC G — the budget bake. After every committed gesture the quad is decomposed
+     * ({@link TransformQuad#normalizePin}) and only what is genuinely a distortion stays in
+     * the pin; the affine part is written back to the object's own centre/size/rotation (and
+     * mirror flags) through the SAME keyframe-aware target every hand gesture uses.
+     *
+     * <p>Safe to run here and nowhere earlier: the finger is up, so the offsets may be
+     * rewritten without anything crawling under it. The picture must not move by one pixel
+     * across this — {@link #verifyBake} recomputes both poses through the render equation
+     * (pivot fold included) and rolls the bake back, keeping the gesture, on any drift.
+     * Untouched pictures (flat pin, no mirror, no shift) exit before writing anything, so a
+     * move/rotate/pinch commit never sprays keys it did not mean.
+     */
+    private void tryNormalizeOnCommit() {
+        long t = now();
+        if (!item.isImage()) return;
+        if (!readBox(t)) return;
+        float w = box.width(), h = box.height();
+        if (!(w > 0.5f) || !(h > 0.5f)) return;
+        // An animated pin is a pose that moves: baking one static affine over it would
+        // destroy the animation, so the gesture stands exactly as authored.
+        if (hadPinKeys) return;
+        item.animatedCornerPin(t, off);
+        float[] pins0 = off.clone();
+        TransformQuad.PinNormalize fit =
+                TransformQuad.normalizePin(w, h, pins0, item.isFlipH(), item.isFlipV());
+        if (fit == null || !fit.valid || !fit.baked) return;
+        boolean mirChange = (fit.mirrorX != item.isFlipH() || fit.mirrorY != item.isFlipV());
+        // A static flag cannot keyframe this moment: baking it would flip every frame of an
+        // animation, not the one the finger is on. The gesture (pin form) is already correct.
+        if (mirChange && item.isArmed()) return;
+        // A bend rides the pin's homography and the stamp path cannot draw a mirror flag
+        // (SPEC E, unlanded tool): baking one under it would split preview from export.
+        if (mirChange && item.hasMesh()) return;
+        RectF v = target.videoRect();
+        if (v.width() <= 0f || v.height() <= 0f) return;
+        float rot0 = target.rotationDeg(t);
+        float bcx0 = box.centerX(), bcy0 = box.centerY();
+        float size0 = target.sizeFraction(t);
+        float sx0 = item.animatedScaleX(t), sy0 = item.animatedScaleY(t);
+        float a = fit.newW / w, b = fit.newH / h;
+        float newSize = size0;
+        boolean split = false;
+        float newSx = sx0, newSy = sy0;
+        if (a != 1f || b != 1f) {
+            float rel = Math.abs(a - b) / Math.max(1f, Math.max(a, b));
+            if (rel <= TransformQuad.PIN_BAKE_UNIFORM_REL) {
+                newSize = size0 * (a + b) * 0.5f;
+            } else {
+                float g = (float) Math.sqrt(a * b);
+                float rr = (float) Math.sqrt(a / b);
+                newSize = size0 * g;
+                newSx = sx0 * rr;
+                newSy = sy0 / rr;
+                split = true;
+            }
+        }
+        // Rotation ADDS (SPEC A raw storage: 720 stays 720) — never folded into a window.
+        float newRot = rot0 + fit.rotDeltaDeg;
+        // New pose centre: the fit's translation, plus the pivot-anchor compensation. The
+        // render turns about the stored pivot, whose pin-aware offset is redefined by the new
+        // pin; absorbing the anchor difference into the centre keeps the screen pixel-exact.
+        // At a neutral pivot both offsets are 0 and this is just the translation.
+        double rad0 = Math.toRadians(rot0);
+        float c0 = (float) Math.cos(rad0), s0 = (float) Math.sin(rad0);
+        float ncx = bcx0 + c0 * fit.tx - s0 * fit.ty;
+        float ncy = bcy0 + s0 * fit.tx + c0 * fit.ty;
+        float o0x = item.pivotOffsetFromCentreX(w, h, pins0);
+        float o0y = item.pivotOffsetFromCentreY(w, h, pins0);
+        float o1x = item.pivotOffsetFromCentreX(fit.newW, fit.newH, fit.residual);
+        float o1y = item.pivotOffsetFromCentreY(fit.newW, fit.newH, fit.residual);
+        double rad1 = Math.toRadians(newRot);
+        float c1 = (float) Math.cos(rad1), s1 = (float) Math.sin(rad1);
+        ncx += (o0x - (c0 * o0x - s0 * o0y)) - (o1x - (c1 * o1x - s1 * o1y));
+        ncy += (o0y - (s0 * o0x + c0 * o0y)) - (o1y - (s1 * o1x + c1 * o1y));
+        // The post-gesture pose, so the verify can roll back exactly the bake below while
+        // keeping the gesture itself.
+        TextOverlayItem.TransformSnapshot preBake = item.snapshotTransform();
+        float mb0x = item.mirrorSignX(), mb0y = item.mirrorSignY();
+        // Every write gated on a real change: an armed no-op write would still drop a key.
+        if (Math.hypot(ncx - bcx0, ncy - bcy0) > 1e-3f) {
+            target.moveTo((ncx - v.left) / v.width(), (ncy - v.top) / v.height(), t);
+        }
+        if (fit.rotDeltaDeg != 0f) target.rotateTo(newRot, t);
+        if (newSize != size0) target.scaleTo(newSize, t);
+        if (split) {
+            if (item.isArmed()) {
+                // After the size write above, so the seeded siblings read the baked pose.
+                item.addPropertyKeyframeAt(KeyframeSet.SCALE_X, t, newSx);
+                item.addPropertyKeyframeAt(KeyframeSet.SCALE_Y, t, newSy);
+            } else {
+                item.setScaleX(newSx);
+                item.setScaleY(newSy);
+            }
+            item.setScaleLinked(false);
+        }
+        if (mirChange) { item.setFlipH(fit.mirrorX); item.setFlipV(fit.mirrorY); }
+        if (item.isArmed()) {
+            // The gesture's own pin keys at this moment are replaced by the residual keys —
+            // all eight, even when flat, so no stale static distortion shows through at t
+            // while other moments keep theirs. (No pin keys pre-existed: hadPinKeys.)
+            long localT = Math.max(0L, t - item.getStartMs());
+            KeyframeSet ks = item.getKeyframes();
+            for (String tr : CornerPin.tracks()) ks.removeKey(tr, localT);
+            for (int c = 0; c < 4; c++) {
+                for (int ax = 0; ax < 2; ax++) {
+                    item.addCornerPinKeyframeAt(c, ax, t, fit.residual[c * 2 + ax]);
+                }
+            }
+        } else if (CornerPin.isFlat(fit.residual)) {
+            if (!CornerPin.isFlat(pins0)) item.clearCornerPin();
+        } else {
+            item.setCornerPin(fit.residual);
+        }
+        onChanged.run();
+        if (!verifyBake(t, v, bcx0, bcy0, w, h, pins0, rot0,
+                size0, sx0, sy0, mb0x, mb0y)) {
+            item.restoreTransform(preBake);
+            onChanged.run();
+        }
+    }
+
+    /**
+     * Did the bake keep the picture? Both poses through the render equation —
+     * screen = R(rot) . X + C + (I - R(rot)) . o, with the pin-aware pivot offset o — the
+     * after-side re-read from the model so clamps and preset branches are accounted, not
+     * assumed. Over one pixel of drift anywhere and the bake is rolled back.
+     */
+    private boolean verifyBake(long t, @NonNull RectF v,
+                               float bcx0, float bcy0, float w0, float h0,
+                               @NonNull float[] pins0, float rot0,
+                               float size0, float sx0, float sy0,
+                               float mb0x, float mb0y) {
+        float o0x = item.pivotOffsetFromCentreX(w0, h0, pins0);
+        float o0y = item.pivotOffsetFromCentreY(w0, h0, pins0);
+        float rotA = target.rotationDeg(t);
+        float sizeA = target.sizeFraction(t);
+        float sxA = item.animatedScaleX(t), syA = item.animatedScaleY(t);
+        float denomW = size0 * sx0, denomH = size0 * sy0;
+        if (!(denomW > 0f) || !(denomH > 0f)) return false;
+        float wA = w0 * (sizeA * sxA) / denomW;
+        float hA = h0 * (sizeA * syA) / denomH;
+        if (!(wA > 0.5f) || !(hA > 0.5f)) return false;
+        float cAx = v.left + target.centerX(t) * v.width();
+        float cAy = v.top + target.centerY(t) * v.height();
+        float[] pinsA = new float[CornerPin.SIZE];
+        item.animatedCornerPin(t, pinsA);
+        float oAx = item.pivotOffsetFromCentreX(wA, hA, pinsA);
+        float oAy = item.pivotOffsetFromCentreY(wA, hA, pinsA);
+        double r0 = Math.toRadians(rot0), rA = Math.toRadians(rotA);
+        float c0 = (float) Math.cos(r0), s0 = (float) Math.sin(r0);
+        float cA = (float) Math.cos(rA), sA = (float) Math.sin(rA);
+        // The mirror rides the local corners on both sides (order of SPEC G: mirror, then
+        // pin, then rotate). Before-side wears the pre-bake flags, after-side whatever the
+        // bake left on the item — equal when the bake wrote nothing.
+        float mAx = item.mirrorSignX(), mAy = item.mirrorSignY();
+        float worst = 0f;
+        for (int i = 0; i < 4; i++) {
+            float qx0 = (i == 0 || i == 3) ? -w0 / 2f : w0 / 2f;
+            float qy0 = (i < 2) ? -h0 / 2f : h0 / 2f;
+            float lx0 = mb0x * (qx0 + pins0[i * 2] * w0);
+            float ly0 = mb0y * (qy0 + pins0[i * 2 + 1] * h0);
+            float px0 = bcx0 + c0 * lx0 - s0 * ly0 + (o0x - (c0 * o0x - s0 * o0y));
+            float py0 = bcy0 + s0 * lx0 + c0 * ly0 + (o0y - (s0 * o0x + c0 * o0y));
+            float qxA = (i == 0 || i == 3) ? -wA / 2f : wA / 2f;
+            float qyA = (i < 2) ? -hA / 2f : hA / 2f;
+            float lxA = mAx * (qxA + pinsA[i * 2] * wA);
+            float lyA = mAy * (qyA + pinsA[i * 2 + 1] * hA);
+            float pxA = cAx + cA * lxA - sA * lyA + (oAx - (cA * oAx - sA * oAy));
+            float pyA = cAy + sA * lxA + cA * lyA + (oAy - (sA * oAx + cA * oAy));
+            worst = Math.max(worst, (float) Math.hypot(pxA - px0, pyA - py0));
+            if (worst > 1f) return false;
+        }
+        return true;
+    }
 
     // ── The two disjoint resets ──────────────────────────────────────────
 
@@ -300,6 +505,10 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     @Override
     public void resetObjectGeometry() {
         item.clearCornerPin();
+        // SPEC G: the mirror is geometry too — a reset that left the picture mirrored would
+        // read as the reset not working. No tracks to remove: the flags are static.
+        item.setFlipH(false);
+        item.setFlipV(false);
         KeyframeSet ks = item.getKeyframes();
         for (String track : CornerPin.tracks()) ks.removeProperty(track);
         ks.removeProperty(KeyframeSet.ROTATION);
@@ -313,21 +522,41 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     /**
      * MIRROR THE PICTURE INSIDE ITS OWN BOX.
      *
-     * <p>Expressed purely as a corner-pin permutation, which is why there is no new model field, no
-     * new preview branch and no new export branch for it: a mirror is the homography that sends the
-     * picture's top-left to the box's top-right, and the pin is exactly a homography on four
-     * corners. Reflecting the CURRENT destination quad rather than swapping corner slots is what
-     * makes it correct on an already-distorted picture and exactly involutive on any picture — two
-     * flips return the original offsets to the float.</p>
+     * <p>SPEC G: unarmed, this toggles the mirror flag and negates the pin on that axis —
+     * reflecting the CURRENT destination quad, distortion included, exactly as the old pin
+     * permutation did, but spending no budget and never refusing. The commit-time bake then
+     * folds the affine part into the pose and the picture never moves.
      *
-     * <p>Horizontal: {@code dx' = s - dx} with {@code s = +1} on the left-hand corners and
-     * {@code -1} on the right-hand ones. Vertical is the same statement about {@code dy} and the
-     * top/bottom corners. Both leave the other axis alone.</p>
+     * <p>Armed — or carrying a mesh bend — it keeps the old pin permutation, keyframed at the
+     * playhead in the armed case: a static flag cannot be keyframed, so toggling it here would
+     * flip every frame of an animation, not the one the finger is on, and the mesh stamp path
+     * cannot draw a flag at all. (The bake still runs at commit, but walks away from a
+     * mirror change on an armed or meshed item for the same reasons.)
      */
     @Override
     public void flip(boolean horizontal) {
         long t = now();
+        if (!item.isImage()) return;
         item.animatedCornerPin(t, off);
+        // A bend rides the pin's homography and the stamp path cannot draw a mirror flag:
+        // a flagged flip would split the stamp from every other surface, while the pin
+        // permutation below mirrors the stamp with everything else. Same reason the bake
+        // walks away from a mirror change on a meshed item.
+        if (!item.isArmed() && !item.hasMesh()) {
+            if (horizontal) {
+                item.setFlipH(!item.isFlipH());
+                for (int c = 0; c < 4; c++) off[c * 2] = -off[c * 2];
+            } else {
+                item.setFlipV(!item.isFlipV());
+                for (int c = 0; c < 4; c++) off[c * 2 + 1] = -off[c * 2 + 1];
+            }
+            // Negation preserves magnitude, so the reach check cannot newly fail, and a
+            // mirror of a solvable homography is solvable. Never refuses, spends nothing.
+            if (!readBox(t)) return;
+            if (!CornerPin.buildMatrix(probe, 0f, 0f, box.width(), box.height(), off)) return;
+            applyPin(off, t);
+            return;
+        }
         float[] next = new float[CornerPin.SIZE];
         System.arraycopy(off, 0, next, 0, CornerPin.SIZE);
         if (horizontal) {
@@ -348,5 +577,5 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     }
 
     /** Does this item carry any distortion right now? Drives the entry point's on/off look. */
-    public boolean isDistorted() { return item.hasCornerPin(); }
+    public boolean isDistorted() { return item.hasCornerPin() || item.hasMirror(); }
 }

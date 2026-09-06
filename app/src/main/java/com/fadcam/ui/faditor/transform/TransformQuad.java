@@ -499,4 +499,217 @@ public final class TransformQuad {
     public static float clamp(float v, float lo, float hi) {
         return v < lo ? lo : (v > hi ? hi : v);
     }
+
+    /** Fold degrees into (-180, 180]. Deterministic at the seam: +180 stays +180. */
+    public static float norm180(float deg) {
+        float d = deg % 360f;
+        if (d > 180f) d -= 360f;
+        else if (d <= -180f) d += 360f;
+        return d;
+    }
+
+    // ── SPEC G: the corner-pin budget bake ──────────────────────────────────
+    //
+    // Every distortion is stored as four corner offsets in units of the picture's own size,
+    // capped at CornerPin.MAX_OFFSET = 2. A flip writes offsets of magnitude 1 (50% of the
+    // budget) and a fold writes 2.0 (100%) — while the distortion the user actually authored,
+    // a 5% corner nudge, costs 0.05. Operations that carry no distortion still consume
+    // distortion budget, so the second fold is refused and reads as broken.
+    //
+    // The insight: a flip, fold, rotation or scale of a rectangle is a PARALLELOGRAM, fully
+    // describable by centre, size, rotation and a mirror — no corner pin at all. Only a
+    // genuine perspective distortion (a non-parallelogram) needs the pin. So at COMMIT time
+    // (never mid-drag, or the picture crawls under the finger) the committed quad is
+    // decomposed here: the affine part is baked into the object's existing transform fields
+    // and ONLY the deviation from a parallelogram stays in the pin. For a flip, fold, rotate
+    // or scale the residual is exactly zero and the pin is cleared.
+    //
+    // COMPOSITION ORDER, stated once because three renderers must agree on it: bitmap →
+    // MIRROR → pin → rotate/scale → translate. The mirror sits OUTSIDE the pin, about the
+    // UNPINNED box centre: local = R(d) . M . (B + off.s) + t. The pin offsets therefore
+    // live in the unmirrored box frame however the mirror flags stand, which is what makes
+    // flip-then-distort and distort-then-flip compose instead of fighting. The preview
+    // (CornerPinImageView), the GL Pip (negative half-extent) and the export
+    // (ImageOverlayDraw) each implement this order from TextOverlayItem.mirrorSignX/Y, the
+    // one shared definition — never a second transcription.
+    //
+    // HYSTERESIS SNAPS, all absorbed into the residual so the recompose stays exact: a
+    // genuine 5% nudge must not unlink the drawer's scale chain or spray size/rotation keys
+    // over a 1% affine side-effect of the fit. Snapped-away parts live in the residual pin
+    // (fractions, so 0.5% of a 2000px picture is 0.005 of budget) and the round-trip stays
+    // within a pixel by construction.
+
+    /** Below this relative scale change, there is no scale change: the box keeps its size. */
+    public static final float PIN_BAKE_SCALE_SNAP = 0.02f;
+    /** Below this rotation delta, there is no rotation change. */
+    public static final float PIN_BAKE_ROT_SNAP_DEG = 0.02f;
+    /** Below this centroid shift, there is no translation. */
+    public static final float PIN_BAKE_CENTRE_SNAP_PX = 0.05f;
+    /** Below this residual fraction, the pin is cleared to exact zero. */
+    public static final float PIN_BAKE_CLEAR_FRAC = 1e-4f;
+    /** Below this relative |a-b|, a scale stays uniform (the chain stays linked). */
+    public static final float PIN_BAKE_UNIFORM_REL = 1e-4f;
+    /**
+     * Above this opposite-edge mismatch (fraction of picture size), the quad is a genuine
+     * distortion, not a parallelogram wearing float dust: the bake keeps the pin EXACTLY as
+     * authored and touches nothing else, so a 5% nudge stores 0.05 with the box, the rotation
+     * and the scale chain all untouched. Exact parallelograms (flip, fold, rotate, scale)
+     * mismatch at ~1e-7 and always bake.
+     */
+    public static final float PIN_BAKE_PARALLELOGRAM_TOL = 0.005f;
+
+    /**
+     * The baked reading of one committed quad. All in overlay pixels and the pin's own
+     * fraction unit; the caller maps them onto model fields (and verifies the picture did
+     * not move before keeping them).
+     */
+    public static final class PinNormalize {
+        /** False = degenerate input (collapsed box or quad); leave the pin exactly alone. */
+        public boolean valid;
+        /**
+         * True when an affine part was actually extracted. False means "keep the pin as
+         * authored" — a genuine distortion (or an already-clean parallelogram): newW/newH
+         * are (w, h), the shifts are zero, the mirror echoes the input and the residual
+         * echoes the input offsets.
+         */
+        public boolean baked;
+        /** Pose-frame translation, px: add R(oldRotation) . (tx, ty) to the pose centre. */
+        public float tx, ty;
+        /** Baked box size, px. Exactly (w, h) when the fit found no scale change. */
+        public float newW, newH;
+        /** ADD to the stored rotation (-180, 180]. Never folded into a window (SPEC A). */
+        public float rotDeltaDeg;
+        /** ABSOLUTE new mirror state (not a toggle): the total mirror the quad carries. */
+        public boolean mirrorX, mirrorY;
+        /** Pin offsets on the NEW box in the order above; exact zeros when cleared. */
+        public final float[] residual = new float[8];
+    }
+
+    /**
+     * Decompose the committed pose-frame quad into affine part + residual pin.
+     *
+     * @param w       untransformed drawn width, px
+     * @param h       untransformed drawn height, px
+     * @param off8    packed pin offsets (fractions of w/h), TL,TR,BR,BL — in the UNMIRRORED
+     *                box frame, exactly as stored
+     * @param mirrorX current mirror flag: the presented quad is mirrored, the pin is not
+     * @param mirrorY current mirror flag
+     * @return the bake; {@link PinNormalize#valid} false when the input is degenerate
+     */
+    public static PinNormalize normalizePin(float w, float h, float[] off8,
+                                            boolean mirrorX, boolean mirrorY) {
+        PinNormalize out = new PinNormalize();
+        if (!(w > 0.5f) || !(h > 0.5f) || off8 == null || off8.length < 8) return out;
+        for (int i = 0; i < 8; i++) {
+            if (!isFinite(off8[i])) return out;
+        }
+        float smx0 = mirrorX ? -1f : 1f, smy0 = mirrorY ? -1f : 1f;
+        float hw = w / 2f, hh = h / 2f;
+        // The quad the user sees, relative to the box centre: the stored (unmirrored) pin
+        // re-mirrored into the presented frame. Everything below reads THIS.
+        float x0 = smx0 * (-hw + off8[0] * w), y0 = smy0 * (-hh + off8[1] * h);
+        float x1 = smx0 * (hw + off8[2] * w), y1 = smy0 * (-hh + off8[3] * h);
+        float x2 = smx0 * (hw + off8[4] * w), y2 = smy0 * (hh + off8[5] * h);
+        float x3 = smx0 * (-hw + off8[6] * w), y3 = smy0 * (hh + off8[7] * h);
+        // Parallelogram test: opposite edges must match. Mirror-invariant (a mirror only
+        // flips signs of differences), so this reads the authored shape however it is worn.
+        float m1x = (x1 - x0) - (x2 - x3), m1y = (y1 - y0) - (y2 - y3);
+        float m2x = (x3 - x0) - (x2 - x1), m2y = (y3 - y0) - (y2 - y1);
+        float mis = Math.max((float) Math.hypot(m1x / w, m1y / h),
+                (float) Math.hypot(m2x / w, m2y / h));
+        if (!(mis <= PIN_BAKE_PARALLELOGRAM_TOL)) {
+            // A genuine distortion (or garbage): keep the authored pin bit-for-bit and bake
+            // nothing. valid + !baked is the host's cue to walk away.
+            out.valid = true;
+            out.baked = false;
+            out.newW = w;
+            out.newH = h;
+            out.mirrorX = mirrorX;
+            out.mirrorY = mirrorY;
+            System.arraycopy(off8, 0, out.residual, 0, 8);
+            return out;
+        }
+        // Centroid = the translation. Opposite-edge averaging = the least-squares affine fit
+        // (exact for parallelograms, the even-handed average for trapezoids).
+        float tx = (x0 + x1 + x2 + x3) / 4f;
+        float ty = (y0 + y1 + y2 + y3) / 4f;
+        float exx = ((x1 - x0) + (x2 - x3)) * 0.5f;
+        float exy = ((y1 - y0) + (y2 - y3)) * 0.5f;
+        float eyx = ((x3 - x0) + (x2 - x1)) * 0.5f;
+        float eyy = ((y3 - y0) + (y2 - y1)) * 0.5f;
+        float ew = (float) Math.hypot(exx, exy);
+        float eh = (float) Math.hypot(eyx, eyy);
+        if (!(ew > 0.5f) || !(eh > 0.5f)) return out;
+        float cross = exx * eyy - exy * eyx;
+        if (!(Math.abs(cross) / (ew * eh) > 1e-3f)) return out;   // folded flat, not a picture
+        float thx = (float) Math.toDegrees(Math.atan2(exy, exx));
+        if (cross > 0f) {
+            if (mirrorX && mirrorY) {
+                // A doubly-mirrored presentation IS a half turn (det +1 both ways), so two
+                // readings are exact: clear the flags and turn 180, or keep them and turn
+                // nothing. Keeping them is strictly less churn — same picture, no rotation
+                // readout jump, no flag write — so the current state breaks the tie.
+                out.mirrorX = true;
+                out.mirrorY = true;
+                out.rotDeltaDeg = norm180(thx + 180f);
+            } else {
+                // Unmirrored: the whole affine content is a rotation by the x-axis angle.
+                out.mirrorX = false;
+                out.mirrorY = false;
+                out.rotDeltaDeg = norm180(thx);
+            }
+        } else {
+            // A reflection. Two readings reproduce the same picture (mirror-X plus a half
+            // turn, or mirror-Y at the x-axis angle); take the one that turns less, so a
+            // horizontal flip toggles its flag with no rotation change and a diagonal fold
+            // takes the shorter way round. Tie goes to Y, deterministically.
+            float dy = norm180(thx);
+            float dx = norm180(thx + 180f);
+            if (Math.abs(dx) < Math.abs(dy)) {
+                out.mirrorX = true;
+                out.mirrorY = false;
+                out.rotDeltaDeg = dx;
+            } else {
+                out.mirrorX = false;
+                out.mirrorY = true;
+                out.rotDeltaDeg = dy;
+            }
+        }
+        if (Math.abs(out.rotDeltaDeg) < PIN_BAKE_ROT_SNAP_DEG) out.rotDeltaDeg = 0f;
+        float a = ew / w, b = eh / h;
+        if (Math.abs(a - 1f) < PIN_BAKE_SCALE_SNAP) a = 1f;
+        if (Math.abs(b - 1f) < PIN_BAKE_SCALE_SNAP) b = 1f;
+        out.newW = w * a;
+        out.newH = h * b;
+        if (Math.hypot(tx, ty) < PIN_BAKE_CENTRE_SNAP_PX) { tx = 0f; ty = 0f; }
+        out.tx = tx;
+        out.ty = ty;
+        // Residual in composition order: X = R(d) . M . (B + off.s) + t, so
+        // off = (M . R(-d) . (X - t) - B) / s. Written against the SNAPPED values, so the
+        // recompose with what the caller actually stores is exact, not approximate.
+        double rad = Math.toRadians(-out.rotDeltaDeg);
+        float cs = (float) Math.cos(rad), sn = (float) Math.sin(rad);
+        float smx = out.mirrorX ? -1f : 1f, smy = out.mirrorY ? -1f : 1f;
+        float nHw = out.newW / 2f, nHh = out.newH / 2f;
+        float[] bx = {-nHw, nHw, nHw, -nHw};
+        float[] by = {-nHh, -nHh, nHh, nHh};
+        float[] xs = {x0, x1, x2, x3}, ys = {y0, y1, y2, y3};
+        float worst = 0f;
+        for (int i = 0; i < 4; i++) {
+            float rx = xs[i] - tx, ry = ys[i] - ty;
+            float ux = cs * rx - sn * ry, uy = sn * rx + cs * ry;
+            float ox = (smx * ux - bx[i]) / out.newW;
+            float oy = (smy * uy - by[i]) / out.newH;
+            out.residual[i * 2] = ox;
+            out.residual[i * 2 + 1] = oy;
+            float m = Math.max(Math.abs(ox), Math.abs(oy));
+            if (m > worst) worst = m;
+        }
+        if (worst < PIN_BAKE_CLEAR_FRAC) {
+            for (int i = 0; i < 8; i++) out.residual[i] = 0f;
+        }
+        out.valid = true;
+        out.baked = true;
+        return out;
+    }
 }

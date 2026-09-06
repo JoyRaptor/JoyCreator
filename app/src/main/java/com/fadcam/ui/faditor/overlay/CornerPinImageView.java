@@ -44,10 +44,17 @@ public class CornerPinImageView extends ImageView {
     private final float[] pin = new float[CornerPin.SIZE];
     /** Margin on every side, in px, holding the corner excursion. 0 = unpinned fast path. */
     private float insetPx;
+    /**
+     * SPEC G mirror flags. Applied OUTSIDE the pin, about the unpinned picture centre —
+     * the order {@code TextOverlayItem.mirrorSignX/Y} defines and the export shares — so the
+     * pin offsets keep meaning the same thing however these stand.
+     */
+    private boolean mirrorX, mirrorY;
 
     // Reused, never allocated in onDraw: this view is redrawn on every playhead tick.
     private final Matrix pinMatrix = new Matrix();
     private final Matrix drawMatrix = new Matrix();
+    private final Matrix mirrorMatrix = new Matrix();
     private final RectF srcRect = new RectF();
     private final RectF dstRect = new RectF();
     /** FILTER_BITMAP only — the exact paint {@code ImageOverlayDraw} draws the export with. */
@@ -77,6 +84,18 @@ public class CornerPinImageView extends ImageView {
     }
 
     /**
+     * SPEC G: set the mirror flags for the frame about to be drawn. Like the pin, a no-op
+     * when nothing changed; unmirrored is the fast path every existing project takes.
+     */
+    public void setMirror(boolean mx, boolean my) {
+        if (mirrorX != mx || mirrorY != my) {
+            mirrorX = mx;
+            mirrorY = my;
+            invalidate();
+        }
+    }
+
+    /**
      * The excursion margin this view was inflated by, in px — 0 for an unpinned picture.
      *
      * <p>Exposed so callers that need THE PICTURE'S rect rather than the view's can subtract it.
@@ -89,7 +108,7 @@ public class CornerPinImageView extends ImageView {
 
     /** True when this frame needs the matrix path rather than plain {@code ImageView} drawing. */
     private boolean usesMatrix() {
-        return insetPx > 0.5f || !CornerPin.isFlat(pin);
+        return insetPx > 0.5f || !CornerPin.isFlat(pin) || mirrorX || mirrorY;
     }
 
     @Override
@@ -117,6 +136,15 @@ public class CornerPinImageView extends ImageView {
         srcRect.set(0f, 0f, bmp.getWidth(), bmp.getHeight());
         dstRect.set(insetPx, insetPx, insetPx + w, insetPx + h);
         drawMatrix.setRectToRect(srcRect, dstRect, Matrix.ScaleToFit.FILL);
+
+        // SPEC G mirror, OUTSIDE the pin and about the unpinned picture centre: view =
+        // mirror . pin . base, the order the export draws. Skipped whole when unmirrored,
+        // so the matrix the pin path concatenates below is bit-for-bit what it was.
+        if (mirrorX || mirrorY) {
+            mirrorMatrix.setScale(mirrorX ? -1f : 1f, mirrorY ? -1f : 1f,
+                    insetPx + w / 2f, insetPx + h / 2f);
+            drawMatrix.preConcat(mirrorMatrix);
+        }
 
         // ...then the homography, INNERMOST relative to everything the parent applies. The View's
         // rotation, scale and translation are applied by the parent ABOVE this canvas, so a

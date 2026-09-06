@@ -274,6 +274,18 @@ final class ImageOverlayDraw {
         //    not warp the hole it is seen through.
         // The matrix itself comes from the model, so the preview's copy of this cannot drift —
         // see TextOverlayItem.cornerPinMatrix.
+        //
+        // SPEC G MIRROR — between the wipe clip above and the pin below: bitmap → mirror →
+        // pin → rotate/scale → translate, the mirror about the unpinned rect centre (cx, cy
+        // in exactly this space). Clipping first keeps the wipe in destination space, which is
+        // what the preview's view-level clip and the GL shader's unmirrored reveal compare
+        // against. concat (not scale-about) because the anchor is already the right point in
+        // the current user space. Unmirrored items skip the concat entirely.
+        if (o.hasMirror()) {
+            android.graphics.Matrix mirror = new android.graphics.Matrix();
+            mirror.setScale(o.mirrorSignX(), o.mirrorSignY(), cx, cy);
+            canvas.concat(mirror);
+        }
         android.graphics.Matrix pin = new android.graphics.Matrix();
         if (o.cornerPinMatrix(pin, timelineMs, cx - iw / 2f, cy - ih / 2f, iw, ih)) {
             canvas.concat(pin);

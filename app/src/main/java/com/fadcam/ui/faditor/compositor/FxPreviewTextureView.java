@@ -263,6 +263,17 @@ public class FxPreviewTextureView extends TextureView
                      "vec2 s = vec2(uv.x, 1.0 - uv.y);");
 
     /**
+     * SPEC E mesh-stamp composite: {@link #PIP_STILL_FRAGMENT} sampling a frame-sized stamp FBO
+     * instead of a {@code GLUtils} bitmap. Derived textually so blend/mask/key/FX maths can never
+     * drift; only the sampling differs: an FBO texture is bottom-up (like the OES picture and the
+     * ping-pong targets, all sampled without a flip), while a bitmap upload is top-row-first
+     * (sampled with {@code 1-y}). An unmeshed object never compiles this string.
+     */
+    private static final String PIP_MESH_FRAGMENT = PIP_STILL_FRAGMENT
+            .replace("vec2 s = vec2(uv.x, 1.0 - uv.y);",
+                     "vec2 s = uv;");
+
+    /**
      * The CLIP CROP pass: keep only {@code uCropSrc}'s sub-rectangle of the staged frame and
      * fit-centre it into this target, transparent outside.
      *
@@ -374,6 +385,40 @@ public class FxPreviewTextureView extends TextureView
          * between "this app is broken" and "this effect is too big for this phone".</p>
          */
         default void onFxShaderUnavailable(@NonNull String reason) { }
+    }
+
+    /**
+     * SPEC E mesh stamp inputs — one immutable snapshot per frame per bent image, built on the
+     * MAIN thread (see {@code FxLivePreviewController}) and read on the GL thread. All placement
+     * normalized top-left 0..1 (model space); matrices are built inside {@link MeshStampGl} via
+     * {@code MeshPlacement} — the single authority both renderers share. The spec copy is deep
+     * (never the live model) so a drag racing the draw cannot tear a pose.
+     */
+    public static final class MeshInputs {
+        @NonNull final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec;
+        final long localMs;
+        final float cx, cy, wNorm, hNorm;
+        final float pivOffX, pivOffY;
+        final boolean applyPivot;
+        final float rotDeg;
+        final float presetScaleX, presetScaleY, presetDx, presetDy;
+        final float alpha, reveal;
+        @Nullable final float[] cornerPin8;
+        MeshInputs(@NonNull com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec, long localMs,
+                   float cx, float cy, float wNorm, float hNorm,
+                   float pivOffX, float pivOffY, boolean applyPivot, float rotDeg,
+                   float presetScaleX, float presetScaleY, float presetDx, float presetDy,
+                   float alpha, float reveal, @Nullable float[] cornerPin8) {
+            this.spec = spec;
+            this.localMs = localMs;
+            this.cx = cx; this.cy = cy; this.wNorm = wNorm; this.hNorm = hNorm;
+            this.pivOffX = pivOffX; this.pivOffY = pivOffY; this.applyPivot = applyPivot;
+            this.rotDeg = rotDeg;
+            this.presetScaleX = presetScaleX; this.presetScaleY = presetScaleY;
+            this.presetDx = presetDx; this.presetDy = presetDy;
+            this.alpha = alpha; this.reveal = reveal;
+            this.cornerPin8 = cornerPin8 == null ? null : cornerPin8.clone();
+        }
     }
 
     /**
@@ -505,6 +550,17 @@ public class FxPreviewTextureView extends TextureView
         @Nullable final String matteClipId;
         @Nullable final android.graphics.Bitmap matteStill;
         final float matteCx, matteCy, matteHalfW, matteHalfH, matteRotationDeg;
+        /**
+         * SPEC E mesh: stamp inputs snapshot (null = ordinary flat path). Built on the main thread
+         * by {@code FxLivePreviewController}; read on the GL thread. The spec inside is a deep copy.
+         */
+        @Nullable final MeshInputs mesh;
+        /**
+         * SPEC E mesh composite flag: true for the synthetic identity Pip that composites a stamp
+         * (frame-sized FBO, no flip). Picks {@link #PIP_MESH_FRAGMENT}; an unmeshed object never
+         * sets it so its program string is character-for-character what shipped.
+         */
+        final boolean meshComposite;
 
         public Pip(float cx, float cy, float halfW, float halfH, float rotationDeg, float alpha,
                    @Nullable FxCompiler.Pass fused,
@@ -534,7 +590,7 @@ public class FxPreviewTextureView extends TextureView
                     keyColor, keyParams, revealFrac, matteOn, matteClipId, matteStill,
                     matteCx, matteCy, matteHalfW, matteHalfH, matteRotationDeg,
                     new float[Math.max(1, maskGeo.length / MaskSdf.FLOATS_PER_SHAPE)],
-                    null, null);
+                    null, null, null, false);
         }
 
         /**
@@ -555,7 +611,8 @@ public class FxPreviewTextureView extends TextureView
                    boolean matteOn, @Nullable String matteClipId, @Nullable android.graphics.Bitmap matteStill,
                    float matteCx, float matteCy, float matteHalfW, float matteHalfH, float matteRotationDeg,
                    @NonNull float[] maskOpCodes,
-                   @Nullable float[] pinInv, @Nullable float[] pinPad) {
+                   @Nullable float[] pinInv, @Nullable float[] pinPad,
+                   @Nullable MeshInputs mesh, boolean meshComposite) {
             this.pinInv = pinInv;
             this.pinPad = pinPad;
             int n = Math.max(1, Math.min(MaskSdf.MAX_SHAPES,
@@ -607,6 +664,35 @@ public class FxPreviewTextureView extends TextureView
             this.matteHalfW = matteHalfW;
             this.matteHalfH = matteHalfH;
             this.matteRotationDeg = matteRotationDeg;
+            this.mesh = mesh;
+            this.meshComposite = meshComposite;
+        }
+
+        /**
+         * SPEC E: copy carrying a mesh stamp snapshot. The spec inside {@code mi} is already a
+         * deep copy owned by this Pip; the GL thread never touches the live model.
+         */
+        @NonNull
+        public Pip withMesh(@NonNull MeshInputs mi) {
+            return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec,
+                    blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras,
+                    keyColor, keyParams, revealFrac, matteOn, matteClipId, matteStill,
+                    matteCx, matteCy, matteHalfW, matteHalfH, matteRotationDeg,
+                    maskOpCodes, pinInv, pinPad, mi, false);
+        }
+
+        /**
+         * SPEC E: synthetic identity Pip compositing a frame-sized stamp. Same mask/blend/key/FX
+         * as the source item, but centred full-frame with alpha/reveal baked already in the stamp
+         * (1,1 here avoids doubling). Picks {@link #PIP_MESH_FRAGMENT} (FBO sampling, no flip).
+         */
+        @NonNull
+        public Pip meshCompositePip() {
+            return new Pip(0.5f, 0.5f, 0.5f, 0.5f, 0f, 1f, fused, fxUniforms, fxKey, timeSec,
+                    blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras,
+                    keyColor, keyParams, 1f, false, null, null,
+                    0f, 0f, 0f, 0f, 0f,
+                    maskOpCodes, null, null, null, true);
         }
 
         /** Copy this Pip with a still-frame matte peer (budget-safe fallback). */
@@ -621,7 +707,7 @@ public class FxPreviewTextureView extends TextureView
             }
             return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac,
                     on, mattePeer.clipId, mattePeer.still, mattePeer.cx, mattePeer.cy, mattePeer.halfW, mattePeer.halfH, mattePeer.rotationDeg,
-                    maskOpCodes, pinInv, pinPad);
+                    maskOpCodes, pinInv, pinPad, mesh, meshComposite);
         }
 
         /** Copy with matte disabled (dangling peer). */
@@ -630,14 +716,15 @@ public class FxPreviewTextureView extends TextureView
             if (!matteOn) return this;
             return new Pip(cx, cy, halfW, halfH, rotationDeg, alpha, fused, fxUniforms, fxKey, timeSec, blendMode, maskOn, maskInvert, maskGeo, clipId, still, liveSlot, extras, keyColor, keyParams, revealFrac,
                     false, null, null, 0f, 0f, 0f, 0f, 0f,
-                    maskOpCodes, pinInv, pinPad);
+                    maskOpCodes, pinInv, pinPad, mesh, meshComposite);
         }
 
         /** True when this object must run the corner-pinned variant of the composite shader. */
         boolean pinned() { return pinInv != null && pinPad != null; }
 
         boolean rendersAnything() {
-            return alpha > 0.004f && halfW > 0f && halfH > 0f;
+            // SPEC G: abs — a mirrored half-extent arrives negative and draws mirrored.
+            return alpha > 0.004f && Math.abs(halfW) > 0f && Math.abs(halfH) > 0f;
         }
 
         /**
@@ -814,7 +901,7 @@ public class FxPreviewTextureView extends TextureView
                     com.fadcam.ui.faditor.model.ChromaKey.packParams(extras ? spec : null),
                     revealFrac,
                     /* matteOn= */ false, null, null, 0f, 0f, 0f, 0f, 0f,
-                    opCodes, pinInv, pinPad);
+                    opCodes, pinInv, pinPad, null, false);
         }
     }
 
@@ -1196,6 +1283,12 @@ public class FxPreviewTextureView extends TextureView
     private int targetW, targetH;
     /** Latched after a compile failure so a broken stack is attempted once, not every frame. */
     private boolean degraded;
+    /**
+     * SPEC E shared mesh stamp (ONE frame-sized FBO reused across bent items — the §7 guard that
+     * keeps VRAM at 8.29 MB total, not per object). One instance lives on THIS GL thread; the
+     * export effect thread owns its own instances. Released with the context.
+     */
+    @NonNull private final MeshStampGl meshStamp = new MeshStampGl();
 
     /** One RENDER: a program, which pass it came from, and its separable-kernel axis. */
     private static final class Step {
@@ -1635,6 +1728,10 @@ public class FxPreviewTextureView extends TextureView
             shapesCompiled.clear();
             stillTexIds.clear();
             stillUploaded.clear();
+            // SPEC E mesh stamp belongs to the dead context too — drop its ids (deleting unknown
+            // names is a defined no-op) so the next meshed frame rebuilds them lazily. No bend
+            // still costs nothing: renderToStamp returns before creating anything when idle.
+            try { meshStamp.release(); } catch (Exception ignored) { }
             // Same for the PiP inputs: whatever sits in these slots names objects in a context
             // that no longer exists, and ensurePipInputs decides "already built" from the count.
             java.util.Arrays.fill(pipTextures, null);
@@ -2247,7 +2344,9 @@ public class FxPreviewTextureView extends TextureView
         // The PIN is part of the key too, for the same reason: it rewrites the shader text.
         // An unpinned object's key is unchanged from "-", so its program is the one it has
         // always compiled.
-        String key = (p.still == null ? "o" : "s") + (p.extras ? "x" : "-")
+        // SPEC E mesh composite ("m" first char) picks the stamp-sampling variant (FBO, no flip);
+        // an unmeshed object's key is unchanged so its program is byte-for-byte what shipped.
+        String key = (p.meshComposite ? "m" : (p.still == null ? "o" : "s")) + (p.extras ? "x" : "-")
                 + (p.pinned() ? "p" : "-")
                 + "m" + p.maskShapes + p.fxKey;
         Integer have = pipPrograms.get(key);
@@ -2256,7 +2355,7 @@ public class FxPreviewTextureView extends TextureView
         try {
             prog = buildProgram(FxGlSource.VERTEX_SHADER,
                     pipFragment(p.fused, p.still != null, p.extras, p.maskShapes,
-                            p.pinned()));
+                            p.pinned(), p.meshComposite));
             FLog.d("FxMultiPip", "pip program compiled key=" + key + " -> " + prog);
         } catch (Exception e) {
             // Fall back to the PLAIN composite, which is what the log claims happens. A 0 latch
@@ -2267,7 +2366,7 @@ public class FxPreviewTextureView extends TextureView
             try {
                 fallback = buildProgram(FxGlSource.VERTEX_SHADER,
                         pipFragment(null, p.still != null, p.extras, p.maskShapes,
-                                p.pinned()));
+                                p.pinned(), p.meshComposite));
             } catch (Exception fatal) {
                 FLog.e(TAG, "plain PiP composite failed too", fatal);
                 // A many-shape mask is the one thing here that can outgrow a GPU's fragment
@@ -2278,7 +2377,7 @@ public class FxPreviewTextureView extends TextureView
                     try {
                         fallback = buildProgram(FxGlSource.VERTEX_SHADER,
                                 pipFragment(null, p.still != null, p.extras, 1,
-                                        p.pinned()));
+                                        p.pinned(), p.meshComposite));
                         if (fallback != 0) shapesCompiled.put(fallback, 1);
                     } catch (Exception ignored) {
                         FLog.e(TAG, "single-shape PiP composite failed too", ignored);
@@ -2289,14 +2388,27 @@ public class FxPreviewTextureView extends TextureView
                 // vanished image is not — the same ranking CornerPin.buildMatrix already applies
                 // when the solve refuses. Only reached if a driver rejects the pinned variant
                 // outright, since every earlier attempt kept it.
+                // SPEC E: a mesh composite never pins (stamp already pinned via H); still, if a
+                // mesh program somehow refused, fall back to the flat still variant rather than
+                // vanishing — same recoverable ranking (flat for a session beats gone).
                 if (fallback == 0 && p.pinned()) {
                     try {
                         fallback = buildProgram(FxGlSource.VERTEX_SHADER,
-                                pipFragment(null, p.still != null, p.extras, 1, false));
+                                pipFragment(null, p.still != null, p.extras, 1, false, false));
                         if (fallback != 0) shapesCompiled.put(fallback, 1);
                         FLog.e(TAG, "corner-pinned PiP composite refused; drawing unpinned");
                     } catch (Exception ignored) {
                         FLog.e(TAG, "unpinned PiP composite failed too", ignored);
+                    }
+                }
+                if (fallback == 0 && p.meshComposite) {
+                    try {
+                        fallback = buildProgram(FxGlSource.VERTEX_SHADER,
+                                pipFragment(null, p.still != null, p.extras, 1, false, false));
+                        if (fallback != 0) shapesCompiled.put(fallback, 1);
+                        FLog.e(TAG, "mesh-stamp composite refused; drawing flat still");
+                    } catch (Exception ignored) {
+                        FLog.e(TAG, "flat still composite failed too", ignored);
                     }
                 }
             }
@@ -2328,8 +2440,14 @@ public class FxPreviewTextureView extends TextureView
      */
     @NonNull
     private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still,
-                                      boolean extras, int maskShapes, boolean pinned) {
-        String base = still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT;
+                                      boolean extras, int maskShapes, boolean pinned,
+                                      boolean meshComposite) {
+        // SPEC E: a stamp composite samples its frame-sized FBO without a flip; every other still
+        // samples its bitmap upload with one. Textual derivation (see PIP_MESH_FRAGMENT) so the
+        // blend/mask/key/FX below cannot drift between the two; an unmeshed object never takes
+        // this branch so its source is character-for-character what shipped.
+        String base = meshComposite ? PIP_MESH_FRAGMENT
+                : (still ? PIP_STILL_FRAGMENT : PIP_FRAGMENT);
         if (fused == null && !extras) {
             return withMaskShapes(pinned ? withCornerPin(base) : base, maskShapes);
         }
@@ -2344,12 +2462,17 @@ public class FxPreviewTextureView extends TextureView
                     + "uniform vec4 uPipKeyParams;\n"
                     + "uniform float uPipReveal;\n"
                     + com.fadcam.ui.faditor.model.ChromaKey.GLSL_KEY_FN;
-            extrasBody =
-                    // MASK_WIPE's reveal, in the object's own local space — the same rect the
-                    // Canvas renderers clip to, expressed as the one comparison that space makes
-                    // free. Its uniform is 1.0 whenever no preset is wiping, so this costs a
-                    // compare and nothing else.
-                    "    if (uv.x > uPipReveal) src.a = 0.0;\n"
+                extrasBody =
+                        // MASK_WIPE's reveal, in the object's own local space — the same rect the
+                        // Canvas renderers clip to, expressed as the one comparison that space makes
+                        // free. Its uniform is 1.0 whenever no preset is wiping, so this costs a
+                        // compare and nothing else.
+                        //
+                        // SPEC G: unmirrored first. A mirrored half-extent flips uv, so uv.x is the
+                        // SOURCE edge, not the destination one the Canvas clip and the export keep.
+                        // Reading it straight would wipe the mirror image of the wipe.
+                        "    float rux = uPipHalf.x < 0.0 ? 1.0 - uv.x : uv.x;\n"
+                        + "    if (rux > uPipReveal) src.a = 0.0;\n"
                     // Un-premultiplied, because that is what the key is defined on (ChromaKey's
                     // class note: a premultiplied semi-transparent green is darker than the green
                     // it is, so it survives a key that should have eaten it).
@@ -2439,6 +2562,10 @@ public class FxPreviewTextureView extends TextureView
                 .replace("  vec2 q = r / uPipHalf;\n",
                         "  vec2 q = r / uPipHalf;\n"
                         + "  vec2 pd = (q * 0.5 + 0.5) * uPipPad.zw + uPipPad.xy;\n"
+                        // SPEC G: the wipe reads the DESTINATION edge, unmirrored — pd is mirrored
+                        // exactly when the half-extent is, and the pad remap is symmetric about
+                        // 0.5, so 1.0 - pd.x is the unmirrored coordinate, no new uniform.
+                        + "  float rpx = uPipHalf.x < 0.0 ? 1.0 - pd.x : pd.x;\n"
                         + "  vec3 ph = uPinInv * vec3(pd, 1.0);\n"
                         // Guarded at 1e-4, not 1e-6: this shader is mediump, whose smallest
                         // normal value is about 6e-5, so a 1e-6 guard would itself flush to zero
@@ -2450,8 +2577,8 @@ public class FxPreviewTextureView extends TextureView
                 .replace("    vec2 uv = q * 0.5 + 0.5;\n",
                         "    if (pq.x < 0.0 || pq.x > 1.0 || pq.y < 0.0 || pq.y > 1.0) return;\n"
                         + "    vec2 uv = pq;\n")
-                .replace("    if (uv.x > uPipReveal) src.a = 0.0;\n",
-                        "    if (uPipReveal < 1.0 && (pd.x < 0.0 || pd.x > uPipReveal\n"
+                .replace("    if (rux > uPipReveal) src.a = 0.0;\n",
+                        "    if (uPipReveal < 1.0 && (rpx < 0.0 || rpx > uPipReveal\n"
                         + "        || pd.y < 0.0 || pd.y > 1.0)) src.a = 0.0;\n");
     }
 
@@ -2565,6 +2692,12 @@ public class FxPreviewTextureView extends TextureView
      */
     private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
         if (!p.rendersAnything()) return src;
+        // SPEC E mesh: bent images render via the shared stamp (frame-sized FBO) then composite
+        // as identity; identity/false/degraded fall back to the flat path below (recoverable, never
+        // vanishing — same ranking as the corner-pin fallback).
+        if (p.mesh != null && p.mesh.spec != null) {
+            return drawMeshRung(p, src, vw, vh);
+        }
         int dst = src == 0 ? 1 : 0;
         if (p.still == null) {
             // This PiP's own live decoder, on its own OES surface. A slot that has not been
@@ -2580,6 +2713,39 @@ public class FxPreviewTextureView extends TextureView
         int tex = stillTextureFor(p);
         if (tex == 0) return src;
         return drawPip(p, src, dst, vw, vh, tex) ? dst : src;
+    }
+
+    /**
+     * SPEC E mesh rung: stamp the bend into the shared frame-sized FBO, then composite as
+     * identity (alpha/reveal already baked in the stamp, so 1,1 here avoids doubling; mask,
+     * key, FX and blend ride the composite exactly as the flat path does, in frame space).
+     * Identity/false/degraded stamp (0) falls back to the flat still path — a bent image drawn
+     * flat for a frame is recoverable, a vanished image is not.
+     */
+    private int drawMeshRung(@NonNull Pip p, int src, int vw, int vh) {
+        MeshInputs mi = p.mesh;
+        android.graphics.Bitmap bmp = p.still;
+        if (mi == null || mi.spec == null || bmp == null || bmp.isRecycled()) return src;
+        meshStamp.configure(vw, vh);
+        int stampTex = 0;
+        try {
+            stampTex = meshStamp.renderToStamp(bmp, mi.spec, mi.localMs,
+                    mi.cx, mi.cy, mi.wNorm, mi.hNorm,
+                    mi.pivOffX, mi.pivOffY, mi.applyPivot, mi.rotDeg,
+                    mi.presetScaleX, mi.presetScaleY, mi.presetDx, mi.presetDy,
+                    mi.alpha, mi.reveal, mi.cornerPin8);
+        } catch (Exception e) {
+            FLog.w(TAG, "mesh stamp failed; drawing flat", e);
+            stampTex = 0;
+        }
+        int dst = src == 0 ? 1 : 0;
+        if (stampTex == 0) {
+            int tex = stillTextureFor(p);
+            if (tex == 0) return src;
+            return drawPip(p, src, dst, vw, vh, tex) ? dst : src;
+        }
+        Pip comp = p.meshCompositePip();
+        return drawPip(comp, src, dst, vw, vh, stampTex) ? dst : src;
     }
 
     /**
@@ -3134,6 +3300,8 @@ public class FxPreviewTextureView extends TextureView
                 overlayTexIds.clear();
                 overlayUploaded.clear();
                 overlayKeysInFrame.clear();
+                // SPEC E mesh stamp owns GL objects in this context — free them while current.
+                try { meshStamp.release(); } catch (Exception ignored) { }
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

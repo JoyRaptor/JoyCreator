@@ -64,3 +64,17 @@ tasks/a6/lufs/
 # Python bytecode from the probe library
 tasks/__pycache__/
 tools/jvm-harness/out-frameparity/
+
+# Agent/debug debris at the repo root (screenshots, traces, probe captures, backups).
+# 2026-09-06: 321 untracked files here, incl. 312MB under tasks/screenshots -- one careless
+# `git add .` puts all of it in a commit. Ignored, NOT deleted: some are device backups.
+/shot*.png
+/bias*.mp4
+/bias_trace.txt
+/a202_raw.json
+/caption_gl_verify*.json
+/make_verify.py
+/projects_backup_*.tar
+/perf/
+tasks/screenshots/
+tools/jvm-harness/__pycache__/

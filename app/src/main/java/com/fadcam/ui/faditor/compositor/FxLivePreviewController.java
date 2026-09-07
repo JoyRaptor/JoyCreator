@@ -876,11 +876,17 @@ public final class FxLivePreviewController {
             float dyNorm = preset.dy / (float) size[1];
             float alpha = Math.max(0f, Math.min(1f, opacity * preset.alpha));
             float reveal = Math.max(0f, Math.min(1f, preset.revealFrac));
+            // SPEC H mirror — the model's ONE shared definition (TextOverlayItem.mirrorSignX/Y),
+            // read here on the main thread; the stamp shader applies it. Same values the export
+            // passes, so the two surfaces cannot disagree.
+            float mirrorX = o.mirrorSignX();
+            float mirrorY = o.mirrorSignY();
             FxPreviewTextureView.MeshInputs mi = new FxPreviewTextureView.MeshInputs(
                     copy, localMs, cx, cy, wNorm, hNorm,
                     pivOffX, pivOffY, applyPivot, rot,
                     preset.scaleX, preset.scaleY, dxNorm, dyNorm,
-                    alpha, reveal, pins);
+                    alpha, reveal, pins,
+                    mirrorX, mirrorY);
             return p.withMesh(mi);
         } catch (Exception ignored) {
             return null; // never let a bend cost the picture — flat path below

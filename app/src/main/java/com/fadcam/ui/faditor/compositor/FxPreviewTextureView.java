@@ -404,11 +404,18 @@ public class FxPreviewTextureView extends TextureView
         final float presetScaleX, presetScaleY, presetDx, presetDy;
         final float alpha, reveal;
         @Nullable final float[] cornerPin8;
+        /**
+         * SPEC H mirror signs from {@code TextOverlayItem.mirrorSignX/Y} (+1/-1) — the model's
+         * ONE shared definition, read once on the main thread. The stamp shader applies them;
+         * (1,1) draws exactly what shipped.
+         */
+        final float mirrorX, mirrorY;
         MeshInputs(@NonNull com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec, long localMs,
                    float cx, float cy, float wNorm, float hNorm,
                    float pivOffX, float pivOffY, boolean applyPivot, float rotDeg,
                    float presetScaleX, float presetScaleY, float presetDx, float presetDy,
-                   float alpha, float reveal, @Nullable float[] cornerPin8) {
+                   float alpha, float reveal, @Nullable float[] cornerPin8,
+                   float mirrorX, float mirrorY) {
             this.spec = spec;
             this.localMs = localMs;
             this.cx = cx; this.cy = cy; this.wNorm = wNorm; this.hNorm = hNorm;
@@ -418,6 +425,8 @@ public class FxPreviewTextureView extends TextureView
             this.presetDx = presetDx; this.presetDy = presetDy;
             this.alpha = alpha; this.reveal = reveal;
             this.cornerPin8 = cornerPin8 == null ? null : cornerPin8.clone();
+            this.mirrorX = mirrorX < 0f ? -1f : 1f;
+            this.mirrorY = mirrorY < 0f ? -1f : 1f;
         }
     }
 
@@ -2733,7 +2742,8 @@ public class FxPreviewTextureView extends TextureView
                     mi.cx, mi.cy, mi.wNorm, mi.hNorm,
                     mi.pivOffX, mi.pivOffY, mi.applyPivot, mi.rotDeg,
                     mi.presetScaleX, mi.presetScaleY, mi.presetDx, mi.presetDy,
-                    mi.alpha, mi.reveal, mi.cornerPin8);
+                    mi.alpha, mi.reveal, mi.cornerPin8,
+                    mi.mirrorX, mi.mirrorY);
         } catch (Exception e) {
             FLog.w(TAG, "mesh stamp failed; drawing flat", e);
             stampTex = 0;

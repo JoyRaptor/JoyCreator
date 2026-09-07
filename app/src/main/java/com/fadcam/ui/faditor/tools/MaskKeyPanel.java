@@ -135,8 +135,63 @@ public final class MaskKeyPanel {
                 v -> { shape.h = Math.max(0.02f, v / 100f); apply.run(); });
         slider(root, R.string.faditor_mask_round, 100, Math.round(shape.corner * 100),
                 v -> { shape.corner = v / 100f; apply.run(); });
-        slider(root, R.string.faditor_mask_rotate, 360, Math.round(shape.rotationDeg),
-                v -> { shape.rotationDeg = v; apply.run(); });
+        // SPEC F / SPEC J — the mask angle is a ROTATION control, and a rotation SLIDER is the
+        // SPEC A winding-collapse bug: this was the last one anywhere (the five object rows all
+        // render the RotationDialView since SPEC F). A 0..360 SeekBar could not show winding,
+        // could not author a turn past 360, and clamped a stored angle outside its window
+        // before the finger even moved — and mask animation ("Move with the object" rotation
+        // deltas, MaskAnimator) can absolutely put one there. The dial is the same control the
+        // object rows use: raw degrees, countable rings, tap to type.
+        LinearLayout rotRow = new LinearLayout(activity);
+        rotRow.setOrientation(LinearLayout.HORIZONTAL);
+        rotRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView rotLabel = new TextView(activity);
+        rotLabel.setTextColor(0xFFAAAAAA);
+        rotLabel.setTextSize(12);
+        rotLabel.setText(activity.getString(R.string.faditor_mask_rotate)
+                + "  ·  " + Math.round(shape.rotationDeg));
+        rotRow.addView(rotLabel, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        final RotationDialView rotDial = new RotationDialView(activity);
+        rotDial.setDegrees(shape.rotationDeg);
+        rotRow.addView(rotDial, new LinearLayout.LayoutParams(
+                (int) (40 * density), (int) (40 * density)));
+        rotDial.setListener(new RotationDialView.Listener() {
+            @Override public void onDragStart() { }
+            @Override public void onDragDelta() {
+                shape.rotationDeg = rotDial.getDegrees();
+                rotLabel.setText(activity.getString(R.string.faditor_mask_rotate)
+                        + "  ·  " + Math.round(shape.rotationDeg));
+                apply.run();
+            }
+            @Override public void onDragEnd() { }
+            @Override public void onTap() {
+                android.widget.EditText input = new android.widget.EditText(activity);
+                input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                        | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                        | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+                input.setText(String.valueOf(Math.round(shape.rotationDeg)));
+                new MaterialAlertDialogBuilder(activity)
+                        .setTitle(activity.getString(R.string.faditor_mask_rotate))
+                        .setView(input)
+                        .setPositiveButton(android.R.string.ok, (d, w) -> {
+                            try {
+                                float v = Float.parseFloat(input.getText().toString().trim());
+                                dialSet(v);
+                            } catch (NumberFormatException ignored) { }
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .show();
+            }
+            private void dialSet(float v) {
+                rotDial.setDegrees(v);
+                shape.rotationDeg = v;
+                rotLabel.setText(activity.getString(R.string.faditor_mask_rotate)
+                        + "  ·  " + Math.round(v));
+                apply.run();
+            }
+        });
+        root.addView(rotRow);
         slider(root, R.string.faditor_mask_soften, 100, Math.round(spec.maskFeather * 100),
                 v -> { spec.maskFeather = v / 100f; apply.run(); });
 

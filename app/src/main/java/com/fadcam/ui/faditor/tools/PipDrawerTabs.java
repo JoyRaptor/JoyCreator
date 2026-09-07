@@ -743,8 +743,13 @@ public final class PipDrawerTabs {
                     v -> { cur.h = Math.max(0.02f, v / 100f); apply.run(); });
             slider(ctx, sliderHost, R.string.faditor_mask_round, 100, Math.round(cur.corner * 100),
                     v -> { cur.corner = v / 100f; apply.run(); });
-            slider(ctx, sliderHost, R.string.faditor_mask_rotate, 360,
-                    Math.round(cur.rotationDeg),
+            // SPEC F / SPEC J — the mask angle is a ROTATION control, and a rotation SLIDER is
+            // the SPEC A winding-collapse bug. This is the drawer's LIVE mask tab: the same
+            // defect the MaskKeyPanel copy had (converted first). MaskAnimator deltas can store
+            // any winding, and a 0..360 bar clamps the stored angle before the finger even
+            // moves — and can neither show nor author a turn past 360. Same control the object
+            // rows use: raw degrees, countable rings, tap to type.
+            maskRotateRow(ctx, sliderHost, Math.round(cur.rotationDeg),
                     v -> { cur.rotationDeg = v; apply.run(); });
 
             // Soften moved IN here, because it is per-shape now: one hard edge and one soft
@@ -1184,6 +1189,111 @@ public final class PipDrawerTabs {
         row.addView(key);
         row.addView(inc);
         parent.addView(row);
+    }
+
+    /**
+     * The mask-angle row: a {@link RotationDialView}, not a slider (SPEC F / SPEC J).
+     *
+     * <p>Same one-line shape as {@link #slider} — label · control · value · ‹ ◇ › — so the
+     * per-shape column keeps one rhythm. Raw degrees in every direction: MaskAnimator deltas
+     * can store any winding, so the value text and the typed prompt accept it all, and the
+     * dial shows the rings instead of folding them. A 0..360 bar could neither show nor
+     * author a turn past 360, and clamped a stored angle outside its window on the way in.</p>
+     */
+    private static void maskRotateRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                      int initial,
+                                      @NonNull java.util.function.Consumer<Float> onChange) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView label = new TextView(ctx);
+        label.setTextColor(TXT_DIM);
+        label.setTextSize(11);
+        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setWidth(Math.round(94 * d));
+        label.setMaxLines(1);
+        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        label.setText(ctx.getString(R.string.faditor_mask_rotate));
+        row.addView(label);
+
+        RotationDialView dial = new RotationDialView(ctx);
+        dial.setDegrees(initial);
+
+        TextView value = new TextView(ctx);
+        value.setTextColor(TXT);
+        value.setTextSize(11);
+        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        // Wide enough for "-45" and "720" — windings a mask can genuinely hold.
+        value.setWidth(Math.round(40 * d));
+        value.setGravity(Gravity.END);
+        value.setText(String.valueOf(initial));
+
+        // ‹ ◇ › — same nudge trio the other mask rows carry. The diamond stays the
+        // disabled-looking placeholder: per-parameter mask keying is not wired per-row yet,
+        // and keeping it reserves the row's final width (see the slider helper).
+        TextView dec = stepper(ctx, "‹", d);
+        TextView key = stepper(ctx, "◇", d);
+        TextView inc = stepper(ctx, "›", d);
+        dec.setOnClickListener(v -> {
+            dial.setDegrees(dial.getDegrees() - 1f);
+            value.setText(String.valueOf(Math.round(dial.getDegrees())));
+            onChange.accept(dial.getDegrees());
+        });
+        inc.setOnClickListener(v -> {
+            dial.setDegrees(dial.getDegrees() + 1f);
+            value.setText(String.valueOf(Math.round(dial.getDegrees())));
+            onChange.accept(dial.getDegrees());
+        });
+        key.setAlpha(0.35f);
+
+        dial.setListener(new RotationDialView.Listener() {
+            @Override public void onDragStart() { }
+            @Override public void onDragDelta() {
+                value.setText(String.valueOf(Math.round(dial.getDegrees())));
+                onChange.accept(dial.getDegrees());
+            }
+            @Override public void onDragEnd() { }
+            @Override public void onTap() { promptMaskAngle(ctx, dial, value, onChange); }
+        });
+        value.setOnClickListener(v -> promptMaskAngle(ctx, dial, value, onChange));
+
+        row.addView(dial, new LinearLayout.LayoutParams(
+                Math.round(40 * d), Math.round(40 * d)));
+        row.addView(value);
+        row.addView(dec);
+        row.addView(key);
+        row.addView(inc);
+        parent.addView(row);
+    }
+
+    /**
+     * Type an exact mask angle. Raw winding accepted (−45, 720) — the whole point of the dial
+     * is that the winding IS the value, so the keyboard must not be a narrower mind than the
+     * control it serves. Same idiom as the MaskKeyPanel copy of this row.
+     */
+    private static void promptMaskAngle(@NonNull Context ctx, @NonNull RotationDialView dial,
+                                        @NonNull TextView value,
+                                        @NonNull java.util.function.Consumer<Float> onChange) {
+        android.widget.EditText input = new android.widget.EditText(ctx);
+        input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+                | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setText(String.valueOf(Math.round(dial.getDegrees())));
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                .setTitle(R.string.faditor_mask_rotate)
+                .setView(input)
+                .setPositiveButton(android.R.string.ok, (dlg, w) -> {
+                    try {
+                        float v = Float.parseFloat(input.getText().toString().trim());
+                        dial.setDegrees(v);
+                        value.setText(String.valueOf(Math.round(v)));
+                        onChange.accept(v);
+                    } catch (NumberFormatException ignored) { }
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
     }
 
     /**

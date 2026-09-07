@@ -23793,7 +23793,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         kf.copyFrom(snapshot);
         if (overlayVideoLayer != null) {
-            overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
+            // SPEC J — the CORRECTED overlay clock (same reason as the transform hosts'
+            // playhead): past the last clip the segment-derived value is a clamp, and an undo
+            // restore would repaint the PiP at the wrong moment (or hide it entirely — the
+            // layer gates on the clip's own window).
+            overlayVideoLayer.setPlayheadMs(overlayClockMs(lastPlayheadAbsoluteMs),
                     playerManager != null && playerManager.isPlaying());
         }
     }
@@ -24312,6 +24316,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // their true on-screen scale, magnified about the handle being dragged. The view
             // skips itself when it walks these children, so it cannot recurse.
             transformOverlay.setLoupeContentSource(playerContainer);
+            // SPEC K — a drawer resize changes the preview rect: every overlay box is laid
+            // out in these pixels, so the picture AND the handles must both be re-read from
+            // the new rect. Without this the picture draws at the new rect while the quad
+            // still snapshots the old one; dragging preserves the stale offset under the
+            // finger until release snaps it back. refreshTextAfterHandleWrite repositions
+            // the overlay views at the current playhead, re-syncs the transform quad when
+            // no gesture is in flight, refreshes the drawer rows and coalesces one GL
+            // rebuild — exactly the per-write path a gesture already takes, so no new
+            // plumbing. Size-gated (position-only layouts are no-ops) and layout cannot
+            // recurse: none of those writes change this container's own size.
+            playerContainer.addOnLayoutChangeListener(
+                    (v, l, t, r, b, ol, ot, orr, ob) -> {
+                        if ((r - l) != (orr - ol) || (b - t) != (ob - ot)) {
+                            refreshTextAfterHandleWrite();
+                        }
+                    });
         }
         return transformOverlay;
     }
@@ -24326,8 +24346,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Already open on this object: do nothing. Selection is refreshed on plenty of events that
         // are not a change of object (a drawer opening, a lane rebuild), and rebuilding the host
         // each time would cancel a gesture in flight and re-read the quad for no reason.
+        // SPEC J: the host-type guard mirrors enterTextTransformMode — transformItemId covers
+        // BOTH images and text, so an id match alone does not prove a CornerPin host is up.
         if (transformItemId != null && transformItemId.equals(o.getId())
-                && transformOverlay != null && transformOverlay.host() != null) {
+                && transformOverlay != null && transformOverlay.host() != null
+                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.CornerPinTransformHost) {
             transformOverlay.refresh();
             return;
         }
@@ -24355,12 +24378,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         v.setHost(new com.fadcam.ui.faditor.transform.CornerPinTransformHost(
                 o, textHandlesTarget(o),
-                () -> lastPlayheadAbsoluteMs,
+                // SPEC J — the CORRECTED overlay clock, the same value every overlay surface
+                // renders at (see overlayClockMs). Inside the master track this is the identical
+                // number; past the last clip the segment-derived value is a clamp, and reading it
+                // raw made the handles read a stale pose (or vanish — frame() gates on
+                // isVisibleAt) while the picture rendered at the true time, and every armed write
+                // keyed at the wrong timeline moment.
+                () -> overlayClockMs(lastPlayheadAbsoluteMs),
                 this::refreshTextAfterHandleWrite), roles);
         // An IMAGE keeps the full vocabulary: it has a corner-pin renderer in BOTH surfaces, so
         // Tilt, Free and the fold all draw. Cleared explicitly because the view is reused across
         // selections and a spine clip may have set it.
         v.setAffineOnly(false);
+        // SPEC H — Bend is image-only: CornerPinTransformHost is the only host with a pin/mesh
+        // render path. The net shows when the picture is already bent, so a returning
+        // selection finds its dots; otherwise it waits on the ring slot.
+        v.setBendAvailable(true);
+        v.setBendVisible(o.hasMesh());
         // Double-tap keeps meaning what it has always meant on a selected object: open its
         // editor. For an image that is the image drawer (showTextOverlayEditor routes it).
         v.setOnDoubleTap(() -> showTextOverlayEditor(o));
@@ -24392,8 +24426,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = textHandlesTarget(o);
         v.setHost(new com.fadcam.ui.faditor.transform.TextAffineTransformHost(
-                o, t, () -> lastPlayheadAbsoluteMs, this::refreshTextAfterHandleWrite), roles);
+                o, t,
+                // SPEC J — corrected overlay clock; see the image host above for why.
+                () -> overlayClockMs(lastPlayheadAbsoluteMs),
+                this::refreshTextAfterHandleWrite), roles);
         v.setAffineOnly(true);
+        // SPEC H — text stays bend-free: no pin/mesh render path in either surface.
+        v.setBendAvailable(false);
+        v.setBendVisible(false);
         v.setOnDoubleTap(() -> showTextOverlayEditor(o));
         v.bringToFront();
         v.refresh();
@@ -24423,8 +24463,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = pipHandlesTarget(clip);
         v.setHost(new com.fadcam.ui.faditor.transform.PipAffineTransformHost(
-                clip, t, () -> lastPlayheadAbsoluteMs, this::refreshPipAfterHandleWrite), roles);
+                clip, t,
+                // SPEC J — corrected overlay clock; see the image host above for why.
+                () -> overlayClockMs(lastPlayheadAbsoluteMs),
+                this::refreshPipAfterHandleWrite), roles);
         v.setAffineOnly(true);
+        // SPEC H — PiP stays bend-free: no pin/mesh render path in either surface.
+        v.setBendAvailable(false);
+        v.setBendVisible(false);
         v.setOnDoubleTap(() -> showPipDrawerForObject(clip));
         v.bringToFront();
         v.refresh();
@@ -24511,7 +24557,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Clip-local ms at the playhead for the clip under it — the spine keyframes' time base. */
     private long spineClipLocalMs(@NonNull Clip clip) {
-        long inSegment = segmentRelativeForAbsolute(Math.max(0L, lastPlayheadAbsoluteMs));
+        // SPEC J — the CORRECTED overlay clock (see the transform hosts' playhead lambdas):
+        // past the last clip the segment-derived value is a clamp, and a keyframed spine pose
+        // would read stale while the timeline clock (and every overlay surface) said otherwise.
+        long inSegment = segmentRelativeForAbsolute(
+                Math.max(0L, overlayClockMs(lastPlayheadAbsoluteMs)));
         float speed = clip.getSpeedMultiplier();
         return speed > 0 ? (long) (inSegment / speed) : inSegment;
     }
@@ -24589,6 +24639,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }), roles);
         // AFFINE ONLY — see the block comment above this method.
         v.setAffineOnly(true);
+        // SPEC H — spine stays bend-free: no pin/mesh render path in either surface.
+        v.setBendAvailable(false);
+        v.setBendVisible(false);
         // Double-tap keeps its meaning: open the selected object's editor.
         v.setOnDoubleTap(this::showClipMenuForSelection);
         v.bringToFront();
@@ -24932,7 +24985,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // Either surface having taken the object counts as a hit. An image now lands on
                 // the transform overlay and leaves this one targetless by design, so asking only
                 // about hasTarget() would report "nothing here" for the commonest object there is.
-                return transformItemId != null
+                // SPEC J — a PiP and a SPINE clip land on the transform surface too, and BOTH
+                // leave this overlay targetless the same way, so the return must cover all three
+                // ids. transformItemId alone returned false for a PiP/spine tap, and the DOWN
+                // then fell through to the sibling layers — the PiP layer's legacy hit-test drag
+                // (arm-unaware: a plain drag COLLAPSED a keyframed PiP's X/Y tracks to one static
+                // pose) and any text box under the finger (a second, competing mover). Selecting
+                // a PiP or spine clip consumes the tap exactly as selecting an image does.
+                return transformItemId != null || transformPipClipId != null || transformSpineClipId != null
                         || (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget());
             }
 
@@ -24953,7 +25013,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public boolean handoffGesture(@NonNull MotionEvent e) {
                 com.fadcam.ui.faditor.transform.TransformOverlayView v = transformOverlay;
-                if (v == null || transformItemId == null) return false;
+                // SPEC J — PiP and SPINE clips also live on the transform surface (their ids are
+                // transformPipClipId / transformSpineClipId), so a mid-gesture selection of one
+                // must hand the still-running stream over the same way an image's does. Asking
+                // only about transformItemId returned false for both, so the first tap-drag on an
+                // unselected PiP or spine clip was a DEAD drag — exactly the SPEC B stutter this
+                // hook exists to end, alive on two of the four object types.
+                if (v == null || (transformItemId == null && transformPipClipId == null
+                        && transformSpineClipId == null)) {
+                    return false;
+                }
                 v.dispatchTouchEvent(e);
                 return true;
             }
@@ -25861,11 +25930,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // setPlayheadMs re-runs applyTransform; the time is unchanged so no reseek fires.
             // Pass the REAL playing state — a hardcoded false would pause the PiP decoder the
             // moment a handle is touched during playback.
-            overlayVideoLayer.setPlayheadMs(lastPlayheadAbsoluteMs,
+            // SPEC J — the CORRECTED overlay clock: past the last clip the segment-derived
+            // value is a clamp, which would repaint the PiP at the wrong moment (or hide it,
+            // the layer gates on the clip's window) while the handles showed the true pose.
+            overlayVideoLayer.setPlayheadMs(overlayClockMs(lastPlayheadAbsoluteMs),
                     playerManager != null && playerManager.isPlaying());
         }
         refreshOpenDrawerRows();
-        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+        // SPEC J — COALESCED, through the same channel every other gesture uses. This used to
+        // call syncAdjustmentPreview directly, so a two-finger similarity write — which is
+        // scaleTo + rotateTo + moveTo, each followed by one of these — rebuilt the whole GL
+        // plan up to THREE times per touch event, and the host's onChanged ending (which the
+        // other three hosts end every write with) would have added a fourth. requestGlPreviewResync
+        // collapses every write inside a frame into ONE rebuild: the same work the playhead
+        // tick already does, and the same coalescing the spine bridge and the image/text
+        // gesture path are built on.
+        requestGlPreviewResync();
     }
 
     /**
@@ -26901,6 +26981,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void syncAdjustmentPreview(long absoluteMs) {
         if (project == null) return;
+        // SPEC J — the CORRECTED overlay clock, once at the door. Every caller passes the
+        // segment-derived playhead, which past the last clip is a CLAMP (see overlayClockMs):
+        // the GL plan would then bake keyframed overlay and spine poses at the wrong moment
+        // while the Canvas surfaces rendered at the true time — the same LEDGER §1 blindness,
+        // one surface over. Inside the master track this is the identical number, so nothing
+        // that exists today changes by one frame; the correction only takes over exactly where
+        // the clamp lies. (setTextOverlayPlayhead corrects its own input the same way.)
+        absoluteMs = overlayClockMs(absoluteMs);
         try {
             syncGlAdjustmentPreview(absoluteMs);
         } catch (RuntimeException e) {
@@ -31370,12 +31458,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget()) {
             previewHandlesOverlay.invalidate();
         }
-        // And the TRANSFORM surface — for an image it is the one showing handles (the ordinary
-        // handles surrender images to it), so this is the refresh that actually matters for
-        // JoyRaptor's report: a drawer Rotate/Pos/Scale/pivot write must re-sync its quad the same
-        // way a playhead tick does, or the quad sat at the last-synced pose.
+        // And the TRANSFORM surface — for an image or text it is the one showing handles
+        // (the ordinary handles surrender images and text to it), so this is the refresh
+        // that actually matters for JoyRaptor's report: a drawer Rotate/Pos/Scale/pivot write
+        // must re-sync its quad the same way a playhead tick does, or the quad sat at the
+        // last-synced pose. Same three-id guard as the playhead tick (~line 10014) and
+        // setTextOverlayPlayhead: spine was missing here, so a spine drawer write never
+        // re-synced the quad.
         if (transformOverlay != null
-                && (transformItemId != null || transformPipClipId != null)) {
+                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
             transformOverlay.refresh();
         }
     }

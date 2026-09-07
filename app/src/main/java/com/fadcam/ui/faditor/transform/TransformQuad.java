@@ -712,4 +712,108 @@ public final class TransformQuad {
         out.baked = true;
         return out;
     }
+
+    // ── SPEC K: the pose/pivot-exact pin solve ─────────────────────────────
+    //
+    // CornerPinTransformHost.writeQuad used to un-fold every dragged corner about the
+    // pivot by −θ using the pivot offset read from the OLD (pre-gesture) pins, then
+    // measure against the pose box. That is exact only when the gesture leaves the
+    // pivot offset alone. The offset is a bilinear function of the pins themselves, so
+    // any gesture that moves the pin mean — a fold, a scale about the opposite corner,
+    // a free drag on a rotated picture with a non-neutral pivot — solved for the wrong
+    // frame, by (I−R)·(δold−δnew): tens to hundreds of pixels on a rotated picture,
+    // stored into the pins and re-read as a quad that no longer matches the gesture.
+    // Handles follow the finger, the picture follows the stored pins, and on release
+    // the handles snap to the picture. Repeated gestures accumulate the error until a
+    // single corner sits a full picture-height away from the other three.
+    //
+    // The pose centre itself is stable inside a distort gesture (only the pins move),
+    // so recovering it with the old offset stays correct. The pins are then solved
+    // IMPLICITLY: with C known, Q−C = (I−R)·δ + R·M·(b+o·s) and δ = δflat + Σw·o·s
+    // is linear in the eight unknown offsets, reducing to one 2x2 solve for δ and a
+    // direct read-off per corner. Round-trip is exact up to float noise at every
+    // pivot, mirror state and winding, including 365° (SPEC A raw storage).
+
+    /**
+     * Bilinear weights of the nine-anchor pivot at {@code (u,v)} over corners
+     * TL,TR,BR,BL. Sums to 1; at flat pins the pivot offset is exactly
+     * {@code ((u−0.5)·w, (v−0.5)·h)}.
+     *
+     * @param out4 receives the four weights in TL,TR,BR,BL order
+     */
+    public static void pivotWeights(float u, float v, float[] out4) {
+        out4[0] = (1f - u) * (1f - v);
+        out4[1] = u * (1f - v);
+        out4[2] = u * v;
+        out4[3] = (1f - u) * v;
+    }
+
+    /**
+     * Solve the pose-frame pin offsets whose presented quad is {@code quad8}.
+     *
+     * @param quad8  presented quad (TL,TR,BR,BL) in overlay px, exactly as dragged
+     * @param poseCx pose box centre x in the same px (recovered by unfolding the
+     *               folded box about the pivot with the OLD pins — the centre never
+     *               moves inside a distort gesture, so the old offset reads it exactly)
+     * @param poseCy pose box centre y
+     * @param w      untransformed drawn width, px
+     * @param h      untransformed drawn height, px
+     * @param thDeg  stored rotation, degrees (raw winding, e.g. 365.24 — only its
+     *               sine/cosine enter, so windings behave identically)
+     * @param smx    mirror sign x ({@code TextOverlayItem.mirrorSignX})
+     * @param smy    mirror sign y
+     * @param pivU   stored pivot x fraction (0, 0.5 or 1)
+     * @param pivV   stored pivot y fraction
+     * @param outPins8 receives the eight offsets in CornerPin order
+     * @return false when the 2x2 is singular (refuse, do not store)
+     */
+    public static boolean solvePinForQuad(float[] quad8,
+                                          float poseCx, float poseCy,
+                                          float w, float h, float thDeg,
+                                          float smx, float smy,
+                                          float pivU, float pivV,
+                                          float[] outPins8) {
+        if (quad8 == null || outPins8 == null || quad8.length < 8 || outPins8.length < 8) return false;
+        if (!(w > 0.5f) || !(h > 0.5f)) return false;
+        if (!isFinite(poseCx) || !isFinite(poseCy) || !isFinite(thDeg)) return false;
+        if (!isFinite(smx) || !isFinite(smy) || smx == 0f || smy == 0f) return false;
+        for (int i = 0; i < 8; i++) if (!isFinite(quad8[i])) return false;
+        double radI = Math.toRadians(-thDeg);
+        float ci = (float) Math.cos(radI), si = (float) Math.sin(radI);
+        if (!isFinite(ci) || !isFinite(si)) return false;
+        // A_i = M·R(−θ)·(Q_i − C) − b_i, the pin numerator at δ = 0.
+        float[] ax = new float[4], ay = new float[4];
+        for (int i = 0; i < 4; i++) {
+            float qx = quad8[i * 2] - poseCx, qy = quad8[i * 2 + 1] - poseCy;
+            float rx = ci * qx - si * qy, ry = si * qx + ci * qy;
+            float bx = (i == 0 || i == 3) ? -w / 2f : w / 2f;
+            float by = (i < 2) ? -h / 2f : h / 2f;
+            ax[i] = smx * rx - bx;
+            ay[i] = smy * ry - by;
+            if (!isFinite(ax[i]) || !isFinite(ay[i])) return false;
+        }
+        float[] ww = new float[4];
+        pivotWeights(pivU, pivV, ww);
+        float sAx = ww[0] * ax[0] + ww[1] * ax[1] + ww[2] * ax[2] + ww[3] * ax[3];
+        float sAy = ww[0] * ay[0] + ww[1] * ay[1] + ww[2] * ay[2] + ww[3] * ay[3];
+        float dFx = (pivU - 0.5f) * w, dFy = (pivV - 0.5f) * h;
+        // K = M·(R(−θ) − I); (I+K)·δ = δflat + Σw·A.
+        float k00 = smx * (ci - 1f), k01 = smx * (-si);
+        float k10 = smy * si, k11 = smy * (ci - 1f);
+        float m00 = 1f + k00, m01 = k01, m10 = k10, m11 = 1f + k11;
+        float det = m00 * m11 - m01 * m10;
+        if (!isFinite(det) || Math.abs(det) < 1e-9f) return false;
+        float rhsx = dFx + sAx, rhsy = dFy + sAy;
+        float dx = (rhsx * m11 - rhsy * m01) / det;
+        float dy = (m00 * rhsy - m10 * rhsx) / det;
+        if (!isFinite(dx) || !isFinite(dy)) return false;
+        for (int i = 0; i < 4; i++) {
+            float ox = (ax[i] - (k00 * dx + k01 * dy)) / w;
+            float oy = (ay[i] - (k10 * dx + k11 * dy)) / h;
+            if (!isFinite(ox) || !isFinite(oy)) return false;
+            outPins8[i * 2] = ox;
+            outPins8[i * 2 + 1] = oy;
+        }
+        return true;
+    }
 }

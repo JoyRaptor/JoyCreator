@@ -59,19 +59,32 @@ public final class MeshGlSource {
 
     private MeshGlSource() {}
 
-    /** See the class note. {@code aLocal} is deformed, {@code aUv} is not. */
+    /**
+     * See the class note. {@code aLocal} is deformed, {@code aUv} is not.
+     *
+     * <p>SPEC H mirror: {@code uMirror} carries {@code TextOverlayItem.mirrorSignX/Y} (+1/-1
+     * per axis), the ONE shared mirror definition every other renderer reads. Both the deformed
+     * position and the source coordinate are mirrored about the unit centre (0.5) BEFORE the
+     * homography, i.e. bitmap -&gt; MIRROR -&gt; pin -&gt; place — the exact order
+     * {@code ImageOverlayDraw}, {@code CornerPinImageView} and the GL Pip draw it in. Unmirrored
+     * (1,1) is the identity and compiles the same picture as before; preview and export compile
+     * THESE strings, so they cannot disagree.
+     */
     public static final String VERTEX_SHADER =
             "#version 100\n"
             + "attribute vec2 aLocal;\n"
             + "attribute vec2 aUv;\n"
             + "uniform mat3 uHomography;\n"
             + "uniform mat3 uPlace;\n"
+            + "uniform vec2 uMirror;\n"
             + "varying vec2 vUv;\n"
             + "void main() {\n"
-            + "  vec3 h = uHomography * vec3(aLocal, 1.0);\n"
+            + "  vec2 ml = vec2(0.5 + uMirror.x * (aLocal.x - 0.5), 0.5 + uMirror.y * (aLocal.y - 0.5));\n"
+            + "  vec2 mu = vec2(0.5 + uMirror.x * (aUv.x - 0.5), 0.5 + uMirror.y * (aUv.y - 0.5));\n"
+            + "  vec3 h = uHomography * vec3(ml, 1.0);\n"
             + "  vec3 p = uPlace * h;\n"
             + "  gl_Position = vec4(p.x, p.y, 0.0, p.z);\n"
-            + "  vUv = aUv;\n"
+            + "  vUv = mu;\n"
             + "}\n";
 
     /**

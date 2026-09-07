@@ -169,8 +169,12 @@ public final class TextAffineTransformHost implements TransformOverlayView.Host 
         float normCx = TransformQuad.clamp((cx - v.left) / v.width(), -2f, 3f);
         float normCy = TransformQuad.clamp((cy - v.top) / v.height(), -2f, 3f);
         target.moveTo(normCx, normCy, t);
-        // onChanged is already triggered via target's refresh, but ensure
-        // onChanged.run();
+        // SPEC J: the three target writes above already asked for a GL resync each
+        // (textHandlesTarget → refreshTextAfterHandleWrite → requestGlPreviewResync,
+        // coalesced to one rebuild per frame), but the host contract is that EVERY
+        // write path ends in onChanged, so a future target that stops refreshing
+        // cannot silently reintroduce JoyRaptor's stale-picture bug. Coalesced: free.
+        onChanged.run();
         return true;
     }
 
@@ -179,6 +183,11 @@ public final class TextAffineTransformHost implements TransformOverlayView.Host 
         RectF v = target.videoRect();
         if (v.width() <= 0f || v.height() <= 0f) return;
         target.moveTo(startCx + dxPx / v.width(), startCy + dyPx / v.height(), now());
+        // SPEC J — every write path ends in onChanged. The target's own writes already
+        // refresh (moveTo → refreshTextAfterHandleWrite → coalesced GL resync); this is the
+        // host-layer backstop so a future target that stops refreshing cannot silently
+        // reintroduce the stale-picture bug. Coalesced: free.
+        onChanged.run();
     }
 
     @Override
@@ -189,10 +198,14 @@ public final class TextAffineTransformHost implements TransformOverlayView.Host 
         target.scaleTo(Math.max(0.02f, startSize * factor), t);
         target.rotateTo(startRot + deltaDeg, t);
         target.moveTo((cxPx - v.left) / v.width(), (cyPx - v.top) / v.height(), t);
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
     }
 
     @Override
-    public void writeRotation(float deg) { target.rotateTo(deg, now()); }
+    public void writeRotation(float deg) {
+        target.rotateTo(deg, now());
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
+    }
 
     @Override
     public void commitGesture(@NonNull String what) { target.commit(what); }

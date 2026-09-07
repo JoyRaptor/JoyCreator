@@ -152,6 +152,9 @@ public final class PipAffineTransformHost implements TransformOverlayView.Host {
         float normCx = TransformQuad.clamp((cx - v.left) / v.width(), -2f, 3f);
         float normCy = TransformQuad.clamp((cy - v.top) / v.height(), -2f, 3f);
         target.moveTo(normCx, normCy, t);
+        // SPEC J — every write path ends in onChanged (coalesced GL resync; the PiP refresh
+        // routes through requestGlPreviewResync like the image/text gesture path).
+        onChanged.run();
         return true;
     }
 
@@ -160,6 +163,7 @@ public final class PipAffineTransformHost implements TransformOverlayView.Host {
         RectF v = target.videoRect();
         if (v.width() <= 0f || v.height() <= 0f) return;
         target.moveTo(startCx + dxPx / v.width(), startCy + dyPx / v.height(), now());
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
     }
 
     @Override
@@ -170,10 +174,14 @@ public final class PipAffineTransformHost implements TransformOverlayView.Host {
         target.scaleTo(Math.max(0.02f, startSize * factor), t);
         target.rotateTo(startRot + deltaDeg, t);
         target.moveTo((cxPx - v.left) / v.width(), (cyPx - v.top) / v.height(), t);
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
     }
 
     @Override
-    public void writeRotation(float deg) { target.rotateTo(deg, now()); }
+    public void writeRotation(float deg) {
+        target.rotateTo(deg, now());
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
+    }
 
     @Override
     public void commitGesture(@NonNull String what) { target.commit(what); }

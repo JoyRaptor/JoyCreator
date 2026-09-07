@@ -76,6 +76,11 @@ public final class MeshStampGl {
     private int program = 0;
     private int aLocalLoc = -1, aUvLoc = -1;
     private int uHomographyLoc = -1, uPlaceLoc = -1, uImageLoc = -1, uAlphaLoc = -1, uRevealLoc = -1;
+    /**
+     * SPEC H mirror uniform location ({@code MeshGlSource} {@code uMirror}). Uploaded every
+     * stamp draw from the caller's signs; (1,1) draws exactly what shipped.
+     */
+    private int uMirrorLoc = -1;
 
     private FloatBuffer posBuf;
     private FloatBuffer uvBuf;
@@ -117,6 +122,12 @@ public final class MeshStampGl {
      * @param alpha        baked opacity (animatedOpacity * preset alpha), 0..1
      * @param reveal       baked wipe 0..1 across undeformed u (1 = all)
      * @param cornerPin8   packed pin offsets or null/flat for identity homography
+     * @param mirrorX      {@code TextOverlayItem.mirrorSignX()} (+1/-1) — SPEC H: the mesh
+     *                     branch used to ignore the mirror, so a bent AND mirrored image exported
+     *                     unmirrored. Both callers pass the model's ONE shared definition, and the
+     *                     single {@code MeshGlSource} vertex string applies it, so preview and
+     *                     export cannot disagree. (1,1) draws exactly what shipped.
+     * @param mirrorY      {@code TextOverlayItem.mirrorSignY()} (+1/-1)
      * @return stamp texture id, or 0 to draw the ordinary unbent way
      */
     public int renderToStamp(@Nullable Bitmap src, @Nullable MeshWarpSpec spec, long localMs,
@@ -126,7 +137,8 @@ public final class MeshStampGl {
                              float presetScaleX, float presetScaleY,
                              float presetDxNorm, float presetDyNorm,
                              float alpha, float reveal,
-                             @Nullable float[] cornerPin8) {
+                             @Nullable float[] cornerPin8,
+                             float mirrorX, float mirrorY) {
         if (degraded) return 0;
         if (src == null || src.isRecycled() || src.getWidth() <= 0 || src.getHeight() <= 0) return 0;
         if (spec == null || !spec.hasWarp()) return 0;
@@ -196,6 +208,17 @@ public final class MeshStampGl {
             if (uAlphaLoc >= 0) GLES20.glUniform1f(uAlphaLoc, Math.max(0f, Math.min(1f, alpha)));
             if (uRevealLoc >= 0) {
                 GLES20.glUniform1f(uRevealLoc, Math.max(0f, Math.min(1f, reveal)));
+            }
+            // SPEC H mirror — sanitised to a sign (a corrupt value must cost the mirror,
+            // never the picture). (1,1) is the identity every existing project takes.
+            if (uMirrorLoc >= 0) {
+                float mx = mirrorX < 0f ? -1f : 1f;
+                float my = mirrorY < 0f ? -1f : 1f;
+                if (!Float.isNaN(mirrorX) && !Float.isNaN(mirrorY)) {
+                    GLES20.glUniform2f(uMirrorLoc, mx, my);
+                } else {
+                    GLES20.glUniform2f(uMirrorLoc, 1f, 1f);
+                }
             }
             if (aLocalLoc >= 0) {
                 GLES20.glEnableVertexAttribArray(aLocalLoc);
@@ -344,6 +367,7 @@ public final class MeshStampGl {
             uImageLoc = GLES20.glGetUniformLocation(program, "uImage");
             uAlphaLoc = GLES20.glGetUniformLocation(program, "uAlpha");
             uRevealLoc = GLES20.glGetUniformLocation(program, "uReveal");
+            uMirrorLoc = GLES20.glGetUniformLocation(program, "uMirror");
 
             posBuf = ByteBuffer.allocateDirect(MAX_VERTS * 2 * 4)
                     .order(ByteOrder.nativeOrder()).asFloatBuffer();

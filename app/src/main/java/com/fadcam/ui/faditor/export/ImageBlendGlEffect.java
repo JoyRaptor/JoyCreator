@@ -573,10 +573,13 @@ final class ImageBlendGlEffect implements GlEffect {
                 meshStamp.configure(meshFrameW, meshFrameH);
                 int stampTex = 0;
                 try {
+                    // SPEC H mirror — the model's ONE shared definition
+                    // (TextOverlayItem.mirrorSignX/Y), same values the preview passes.
                     stampTex = meshStamp.renderToStamp(meshSource, spec, localMs,
                             cx, cy, wNorm, hNorm, pivOffX, pivOffY, applyPivot, rot,
                             preset.scaleX, preset.scaleY, dxNorm, dyNorm,
-                            alpha, reveal, pins);
+                            alpha, reveal, pins,
+                            item.mirrorSignX(), item.mirrorSignY());
                 } catch (Exception e) {
                     com.fadcam.FLog.w("ImageBlendMesh", "stamp failed; drawing flat", e);
                     stampTex = 0;

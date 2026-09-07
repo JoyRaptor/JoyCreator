@@ -108,6 +108,35 @@ public class TransformOverlayView extends View {
 
         /** Mirror the picture inside its own box, about its own centre line. */
         void flip(boolean horizontal);
+
+        // ── SPEC H bend ──────────────────────────────────────────────
+        //
+        // The net is an additive layer: the View owns visibility and hit-testing, the host
+        // owns the pose (MeshProjection forward/inverse + MeshGuard). Defaults are inert so
+        // the text/PiP/spine hosts — affine-only, no mesh render path — change not at all.
+
+        /** True only for the image host (the only one with a pin/mesh render path). */
+        default boolean supportsBend() { return false; }
+        /** True when a warp is authored (drives the net's initial visibility). */
+        default boolean hasBend() { return false; }
+        /** Dots to draw/hit-test (9 for the L2 net), or 0 when there is nothing. */
+        default int bendHandleCount() { return 0; }
+        /** Lattice side for the grid lines (3 for L2), or 0 for no lines. */
+        default int bendGridSide() { return 0; }
+        /**
+         * Project dot {@code i} through homography {@code h} (from
+         * {@code TransformQuad.unitToQuad}) into view pixels. False = draw nothing.
+         */
+        default boolean bendHandlePosition(int i, float[] h, float[] out2) { return false; }
+        /**
+         * Drag dot {@code i} to a stage point (inverse homography + finger). Guarded;
+         * false leaves the pose untouched and the drag simply stops.
+         */
+        default boolean bendDragTo(int i, float[] hInv, float x, float y) { return false; }
+        /** A bend dot drag is starting: the ONE snapshot the whole drag will undo to. */
+        default void beginBendGesture() { beginGesture(); }
+        /** The bend drag ended cleanly: record ONE undo step. */
+        default void commitBendGesture(String what) { commitGesture(what); }
     }
 
     @Nullable private Host host;
@@ -119,6 +148,8 @@ public class TransformOverlayView extends View {
         host = h;
         handles = model;
         cancelGesture();
+        cancelBendDrag();
+        bendMode = false;
         closeRing();
         syncFromHost();
         setVisibility(h == null ? GONE : VISIBLE);
@@ -216,6 +247,22 @@ public class TransformOverlayView extends View {
         if (haveQuad) System.arraycopy(quad, 0, quadLastGood, 0, 8);
     }
 
+    /**
+     * SPEC K — a preview-rect change (drawer resize) moves every box in this view's
+     * pixel space. The quad is a snapshot in those pixels, so without a re-read the
+     * handles stand where the picture was while the picture draws where it is now;
+     * dragging then preserves the stale offset until release snaps it back. Re-read
+     * on resize when no gesture is in flight (mid-drag the live quad owns the truth
+     * and a sync would discard the finger).
+     */
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        if (w != oldw || h != oldh) {
+            refresh();
+        }
+    }
+
     /** Where the floating spin arc sits: outside the TOP edge, on that edge's OUTWARD normal. */
     private void computeRotateHandle() {
         TransformQuad.edgeMid(quad, TransformQuad.TOP, scratch2);
@@ -274,6 +321,10 @@ public class TransformOverlayView extends View {
             if (grabbed) size *= 1.28f;
             drawGlyph(c, h.shape, h.color, h.x, h.y, size, h.rotationDeg);
         }
+
+        // SPEC H — the net, over the top. Dots re-project through the CURRENT quad every
+        // frame, so a structural edit visibly carries the bend instead of wiping it.
+        if (bendMode && host != null && host.supportsBend()) drawBendNet(c, host);
 
         drawExitPill(c);
         if (ringOpen) drawRing(c);
@@ -680,6 +731,51 @@ public class TransformOverlayView extends View {
         return null;
     }
 
+    /**
+     * SPEC H — draw the bend net: lattice dots (blue) over lattice grid lines, all projected
+     * through the live quad. A degenerate quad draws nothing rather than half a net; a refused
+     * dot mid-frame does the same. No allocation: reused fields only.
+     */
+    private void drawBendNet(@NonNull Canvas c, @NonNull Host h) {
+        float[] hh = TransformQuad.unitToQuad(quad);
+        if (hh == null) return;
+        int n = h.bendHandleCount();
+        if (n <= 0 || n * 2 > bendPts.length) return;
+        for (int i = 0; i < n; i++) {
+            if (!h.bendHandlePosition(i, hh, bendScratch)) return;
+            bendPts[i * 2] = bendScratch[0];
+            bendPts[i * 2 + 1] = bendScratch[1];
+        }
+        int side = h.bendGridSide();
+        if (side >= 2 && side * side == n) {
+            stroke.setColor(withAlpha(HandleModel.COLOR_BEND, 0x8C));
+            stroke.setStrokeWidth(dp(1f));
+            for (int r = 0; r < side; r++) {
+                for (int cc = 0; cc < side - 1; cc++) {
+                    int a = r * side + cc;
+                    c.drawLine(bendPts[a * 2], bendPts[a * 2 + 1],
+                            bendPts[a * 2 + 2], bendPts[a * 2 + 3], stroke);
+                }
+            }
+            for (int cc = 0; cc < side; cc++) {
+                for (int r = 0; r < side - 1; r++) {
+                    int a = r * side + cc, b = (r + 1) * side + cc;
+                    c.drawLine(bendPts[a * 2], bendPts[a * 2 + 1],
+                            bendPts[b * 2], bendPts[b * 2 + 1], stroke);
+                }
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            boolean grabbed = i == bendDragIndex;
+            float r = dp(grabbed ? 9f : 7f);
+            fill.setColor(GLYPH_FILL);
+            c.drawCircle(bendPts[i * 2], bendPts[i * 2 + 1], r, fill);
+            stroke.setColor(HandleModel.COLOR_BEND);
+            stroke.setStrokeWidth(dp(grabbed ? 2.3f : 1.75f));
+            c.drawCircle(bendPts[i * 2], bendPts[i * 2 + 1], r, stroke);
+        }
+    }
+
     // ── The role ring ────────────────────────────────────────────────────
     //
     // Each option's own OUTLINE is the mode it installs — amber square = Scale, green diamond =
@@ -698,7 +794,49 @@ public class TransformOverlayView extends View {
      */
     private boolean ringBendEnabled = false;
 
-    public void setBendAvailable(boolean on) { ringBendEnabled = on; invalidate(); }
+    public void setBendAvailable(boolean on) {
+        ringBendEnabled = on;
+        if (!on) {
+            bendMode = false;
+            cancelBendDrag();
+        }
+        invalidate();
+    }
+
+    // ── SPEC H bend net ──────────────────────────────────────────────
+    //
+    // The net sits OVER the top (HandleModel.BEND_IS_A_NET): its dots hit-test first while
+    // visible, and the structural handles keep working underneath — a near-miss past the
+    // dots' slightly smaller radius still finds them. Toggling the net writes nothing;
+    // the pose is created on the first dot drag, so opening the tool is byte-identical.
+
+    /** Net visible. Set by the ring Bend slot and by selection (shown when bent). */
+    private boolean bendMode;
+    /** Dot being dragged, or -1. Separate from dragKind (a bend never reshapes the quad). */
+    private int bendDragIndex = -1;
+    private boolean bendMoved;
+    private float bendDownX, bendDownY;
+    /** Projected dots, handle-major x,y. Sized to the coarsest lattice (25 handles). */
+    private final float[] bendPts = new float[50];
+    private final float[] bendScratch = new float[2];
+
+    /**
+     * Show or hide the bend net. Honoured only for a supporting host while the tool is
+     * available — text/PiP/spine stay net-free however they are asked.
+     */
+    public void setBendVisible(boolean on) {
+        Host h = host;
+        bendMode = on && ringBendEnabled && h != null && h.supportsBend();
+        if (!bendMode) cancelBendDrag();
+        invalidate();
+    }
+
+    public boolean isBendVisible() { return bendMode; }
+
+    private void cancelBendDrag() {
+        bendDragIndex = -1;
+        bendMoved = false;
+    }
 
     /**
      * AFFINE ONLY: this object can be moved, scaled, rotated and mirrored, and nothing else.
@@ -859,9 +997,17 @@ public class TransformOverlayView extends View {
             if (Math.hypot(x - scratch2[0], y - scratch2[1]) <= pick) {
                 HandleModel.Role role = RING_ROLES[i];
                 if (role == null) {
-                    // The bend slot. Inert until the mesh lane lands — and inert LOUDLY, by
-                    // staying grey rather than silently doing nothing that looks like a miss.
+                    // SPEC H — the bend slot toggles the net OVER the top; structural handles
+                    // keep working underneath. Inert (grey) until the lane lands — and inert
+                    // LOUDLY, by staying grey rather than silently doing nothing.
                     if (!ringBendEnabled) return true;
+                    Host hh = host;
+                    if (hh != null && hh.supportsBend()) {
+                        bendMode = !bendMode;
+                        cancelBendDrag();
+                    }
+                    closeRing();
+                    invalidate();
                     return true;
                 }
                 // Tilt and Free are not offered on an affine-only object: there is no renderer
@@ -997,6 +1143,39 @@ public class TransformOverlayView extends View {
         if (!haveQuad) return false;
         rebuildHandles();
 
+        // SPEC H — the net sits OVER the top: dots first, with a slightly smaller radius so
+        // a near-miss still finds the structural handle underneath. A grabbed dot starts the
+        // ONE snapshot its whole drag will undo to (host ensures the spec first, so the
+        // first bend's undo restores "no bend at all").
+        if (bendMode && h.supportsBend()) {
+            float[] bh = TransformQuad.unitToQuad(quad);
+            if (bh != null) {
+                int bn = h.bendHandleCount();
+                float br = dp(18f);
+                int best = -1;
+                float bestD = Float.MAX_VALUE;
+                for (int i = 0; i < bn; i++) {
+                    if (!h.bendHandlePosition(i, bh, bendScratch)) continue;
+                    float d = (float) Math.hypot(bendScratch[0] - x, bendScratch[1] - y);
+                    if (d <= br && d < bestD) { bestD = d; best = i; }
+                }
+                if (best >= 0) {
+                    bendDragIndex = best;
+                    bendMoved = false;
+                    bendDownX = x;
+                    bendDownY = y;
+                    dragPointerId = e.getPointerId(0);
+                    h.beginBendGesture();
+                    setHud(null, x, y);
+                    if (getParent() != null) {
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                    invalidate();
+                    return true;
+                }
+            }
+        }
+
         HandleModel.Handle hit = HandleModel.hitTest(handleBuf, handleCount, x, y, grabPx());
         if (hit == null && !TransformQuad.contains(quad, x, y)) {
             // Nothing of ours: let it through, so the empty-canvas rule survives.
@@ -1041,6 +1220,9 @@ public class TransformOverlayView extends View {
     private boolean onMove(@NonNull Host h, @NonNull MotionEvent e) {
         if (ringOpen) return true;
         if (pinching) { applyPinch(h, e); return true; }
+        // SPEC H — a bend drag never reshapes the quad, so the homography is rebuilt from
+        // the live quad every move: the dots track structural edits made underneath.
+        if (bendDragIndex >= 0) { applyBendDrag(h, e); return true; }
         if (dragKind == null) return false;
         int idx = e.findPointerIndex(dragPointerId);
         if (idx < 0) return true;
@@ -1058,6 +1240,19 @@ public class TransformOverlayView extends View {
     private boolean onUp(@NonNull Host h, boolean clean) {
         removeCallbacks(longPress);
         if (pinching) { endPinch(h, clean); }
+        // SPEC H — one dot drag is one undo press: the host puts ONCE (armed) and commits
+        // through the same channel every other gesture uses. An unmoved tap commits nothing
+        // (the snapshot then matches and records nothing).
+        if (bendDragIndex >= 0) {
+            boolean bm = bendMoved;
+            bendDragIndex = -1;
+            bendMoved = false;
+            if (bm && clean) h.commitBendGesture("Bend");
+            hudEndedAtMs = SystemClock.uptimeMillis();
+            syncFromHost();
+            invalidate();
+            return true;
+        }
         boolean was = dragKind != null;
         HandleModel.Kind kind = dragKind;
         boolean didMove = moved;
@@ -1189,6 +1384,26 @@ public class TransformOverlayView extends View {
         }
     }
 
+    /**
+     * SPEC H — one frame of a bend-dot drag. The quad is untouched (a bend never reshapes
+     * it); the host turns the finger into a guarded nudge and asks for the GL resync that
+     * makes the preview follow. A refused dot (fold, degenerate frame) simply stops.
+     */
+    private void applyBendDrag(@NonNull Host h, @NonNull MotionEvent e) {
+        int idx = e.findPointerIndex(dragPointerId);
+        if (idx < 0) return;
+        float x = e.getX(idx), y = e.getY(idx);
+        if (!bendMoved && Math.hypot(x - bendDownX, y - bendDownY) > dp(MOVE_SLOP_DP)) {
+            bendMoved = true;
+        }
+        if (!bendMoved) return;
+        float[] hh = TransformQuad.unitToQuad(quad);
+        if (hh == null) return;
+        float[] inv = TransformQuad.invert3x3(hh);
+        if (inv == null) return;
+        if (h.bendDragTo(bendDragIndex, inv, x, y)) invalidate();
+    }
+
     // ── Two fingers ──────────────────────────────────────────────────────
 
     private void startPinch(@NonNull Host h, @NonNull MotionEvent e) {
@@ -1196,7 +1411,14 @@ public class TransformOverlayView extends View {
         removeCallbacks(longPress);
         // A one-finger drag already in flight is ABSORBED, not committed: one continuous
         // two-finger gesture is one edit in the user's head, and it must be one undo step.
-        if (dragKind == null) h.beginGesture();
+        // SPEC H — a bend-dot drag absorbs the same way: its live pose stays, and the
+        // pinch's begin/commit covers it (its snapshot is already taken, so it is not
+        // taken twice and the pre-bend state is what undo restores).
+        if (dragKind == null && bendDragIndex < 0) h.beginGesture();
+        if (bendDragIndex >= 0) {
+            bendDragIndex = -1;
+            bendMoved = false;
+        }
         dragKind = null;
         loupeShowing = false;
         pinchIdA = e.getPointerId(0);

@@ -211,23 +211,22 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
             // POSE box centre = the presented centre un-folded about the pivot.
             float dx = bcx - pvx, dy = bcy - pvy;
             bcx = pvx + uc * dx - us * dy;
-            bcy = pvy + us * dx + pc * dy;
+            bcy = pvy + us * dx + uc * dy;
         }
-        float[] baseX = {bcx - w / 2f, bcx + w / 2f, bcx + w / 2f, bcx - w / 2f};
-        float[] baseY = {bcy - h / 2f, bcy - h / 2f, bcy + h / 2f, bcy - h / 2f};
         float[] next = new float[CornerPin.SIZE];
-        // SPEC G — the pin lives in the UNMIRRORED box frame however the flags stand, so the
-        // dragged (mirrored) quad is un-mirrored about the pose centre on the way in. The
-        // pivot fold above is untouched: mirroring about the centre commutes with it (the
-        // pivot offset cancels exactly). Unmirrored this is the same two lines.
+        // SPEC K — the pin lives in the UNMIRRORED box frame however the flags stand, so the
+        // dragged (mirrored) quad is un-mirrored about the pose centre on the way in.
+        // Unmirrored this is the same two lines. The solve itself is implicit in the NEW
+        // pins (TransformQuad.solvePinForQuad): the pivot offset is a bilinear function
+        // of the pins being solved for, so unfolding with the OLD offset stored every
+        // fold/scale/free drag on a rotated picture into the wrong frame by
+        // (I−R)·(δold−δnew) — the handles followed the finger while the picture lagged,
+        // snapping back on release, and repeated gestures walked one corner a full
+        // picture-height away. The pose centre above is stable inside a distort gesture
+        // (only pins move), so recovering it with the old offset stays exact.
         float smx = item.mirrorSignX(), smy = item.mirrorSignY();
-        for (int i = 0; i < 4; i++) {
-            float dx = quad8[i * 2] - pvx, dy = quad8[i * 2 + 1] - pvy;
-            float ux = pvx + uc * dx - us * dy;
-            float uy = pvy + us * dx + uc * dy;
-            next[i * 2] = (smx * (ux - bcx) - (baseX[i] - bcx)) / w;
-            next[i * 2 + 1] = (smy * (uy - bcy) - (baseY[i] - bcy)) / h;
-        }
+        if (!TransformQuad.solvePinForQuad(quad8, bcx, bcy, w, h, th, smx, smy,
+                item.rotationPivotXNorm(), item.rotationPivotYNorm(), next)) return false;
         if (!withinRange(next)) return false;
         // REFUSE, DO NOT CLAMP, when the homography will not solve. Clamping would let the finger
         // keep dragging while the picture silently stopped following it — the shape on screen and
@@ -271,6 +270,11 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         RectF v = target.videoRect();
         if (v.width() <= 0f || v.height() <= 0f) return;
         target.moveTo(startCx + dxPx / v.width(), startCy + dyPx / v.height(), now());
+        // SPEC J — the host contract is that EVERY write path ends in onChanged: the target's
+        // own writes already refresh (moveTo → refreshTextAfterHandleWrite → coalesced GL
+        // resync), but a future target that stops refreshing cannot be allowed to silently
+        // reintroduce the stale-picture bug. Coalesced, so this costs nothing.
+        onChanged.run();
     }
 
     @Override
@@ -302,10 +306,14 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
             py = cyPx - (dY - (sn * dX + cs * dY));
         }
         target.moveTo((px - v.left) / v.width(), (py - v.top) / v.height(), t);
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
     }
 
     @Override
-    public void writeRotation(float deg) { target.rotateTo(deg, now()); }
+    public void writeRotation(float deg) {
+        target.rotateTo(deg, now());
+        onChanged.run();   // SPEC J — every write path ends in onChanged (coalesced)
+    }
 
     @Override
     public void commitGesture(@NonNull String what) { tryNormalizeOnCommit(); target.commit(what); }
@@ -509,6 +517,11 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         // read as the reset not working. No tracks to remove: the flags are static.
         item.setFlipH(false);
         item.setFlipV(false);
+        // SPEC H: the bend is geometry too, for the same reason — a reset that left the
+        // picture bent would read as the reset not working. Null when already null, so
+        // unbent pictures take the identical path they always did. The snapshot carries
+        // the mesh, so undo restores the bend with the pose.
+        if (item.getMesh() != null) item.setMesh(null);
         KeyframeSet ks = item.getKeyframes();
         for (String track : CornerPin.tracks()) ks.removeProperty(track);
         ks.removeProperty(KeyframeSet.ROTATION);
@@ -578,4 +591,219 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
 
     /** Does this item carry any distortion right now? Drives the entry point's on/off look. */
     public boolean isDistorted() { return item.hasCornerPin() || item.hasMirror(); }
+
+    // ── SPEC H: bend (mesh) edit seam ─────────────────────────────────────
+    //
+    // The net's dots live in the picture's OWN unit space and are re-projected through the
+    // CURRENT quad every frame (MeshProjection), so a structural edit carries the bend instead
+    // of wiping it. One finger drags one dot; the guard refuses folds; commit writes ONCE.
+    //
+    // Undo: beginBendGesture snapshots (TransformSnapshot already deep-copies the mesh), and
+    // commitBendGesture records ONE step through the same target.commit every other gesture
+    // uses. Unarmed the pose lives in the static handles (no track, no drawer diamond for a
+    // static bend); armed it is put ONCE to the pose track at the local clock. Either way one
+    // drag is one undo press.
+    //
+    // All scratch here is UI-thread only (the GL threads keep their own engine/scratch inside
+    // MeshStampGl); nothing here is ever shared across threads.
+
+    /** UI-thread guard scratch. Bound to the spec's topology before every check. */
+    @NonNull
+    private final com.fadcam.ui.faditor.transform.mesh.MeshBuffers bendScratch =
+            new com.fadcam.ui.faditor.transform.mesh.MeshBuffers();
+    /** UI-thread deformer, built lazily per kind (never shared with the GL threads). */
+    @androidx.annotation.Nullable
+    private com.fadcam.ui.faditor.transform.mesh.MeshDeformer bendDeformer;
+    /** UI-thread pose working space (max lattice arity 5x5x2 = 50). Never shared. */
+    @NonNull
+    private final float[] bendPose = new float[50];
+    /** UI-thread candidate pose (guard-checked before commit to the live handles). */
+    @NonNull
+    private final float[] bendCand = new float[50];
+    @NonNull
+    private final float[] bendOut2 = new float[2];
+
+    @Override
+    public boolean supportsBend() { return item.isImage(); }
+
+    @Override
+    public boolean hasBend() { return item.hasMesh(); }
+
+    /**
+     * The net the tool WOULD edit: the stored topology, or the L2 default before the first
+     * drag. Reporting the default keeps the rest grid drawable and grabbable with no model
+     * change — opening the tool writes nothing (toJson stays null for identity).
+     */
+    @NonNull
+    private static final com.fadcam.ui.faditor.transform.mesh.LatticeTopology BEND_DEFAULT =
+            new com.fadcam.ui.faditor.transform.mesh.LatticeTopology(
+                    com.fadcam.ui.faditor.transform.mesh.LatticeTopology.L2);
+
+    @Override
+    public int bendHandleCount() {
+        try {
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
+            if (s == null || s.topology() == null) return BEND_DEFAULT.handleCount();
+            return Math.max(0, s.topology().handleCount());
+        } catch (Exception ignored) {
+            return 0;
+        }
+    }
+
+    @Override
+    public int bendGridSide() {
+        try {
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
+            com.fadcam.ui.faditor.transform.mesh.MeshTopology t =
+                    (s == null || s.topology() == null) ? BEND_DEFAULT : s.topology();
+            if (t instanceof com.fadcam.ui.faditor.transform.mesh.LatticeTopology) {
+                return ((com.fadcam.ui.faditor.transform.mesh.LatticeTopology) t).side();
+            }
+        } catch (Exception ignored) { }
+        return 0;
+    }
+
+    /**
+     * Ensure a bend spec exists (L2 3x3 lattice — the approved net), creating it when the
+     * tool is opened on an unbent picture. Creating here (not on selection) keeps opening
+     * the tool byte-identical: MeshWarpSpec.toJson writes nothing for an identity pose.
+     */
+    @androidx.annotation.Nullable
+    private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec bendEnsureSpec() {
+        try {
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
+            if (s == null || s.topology() == null) {
+                s = com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.lattice(
+                        com.fadcam.ui.faditor.transform.mesh.LatticeTopology.L2);
+                item.setMesh(s);
+            }
+            item.installMeshCurve();
+            return item.getMesh();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * The pose to draw/drag: the track value at the playhead when present, else static.
+     * Writes directly into {@code out} (caller-owned, at least arity long) — no allocation.
+     */
+    private int bendCurrentPose(
+            @NonNull com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s,
+            @NonNull float[] out) {
+        try {
+            int arity = s.arity();
+            if (arity <= 0 || out.length < arity) return 0;
+            long localMs = item.meshLocalTime(now());
+            if (s.handlesAt(localMs, out)) return arity;
+            float[] h = s.handles();
+            if (h != null && h.length >= arity) {
+                System.arraycopy(h, 0, out, 0, arity);
+                return arity;
+            }
+        } catch (Exception ignored) { }
+        return 0;
+    }
+
+    @androidx.annotation.Nullable
+    private com.fadcam.ui.faditor.transform.mesh.MeshDeformer bendDeformerFor(
+            @NonNull com.fadcam.ui.faditor.transform.mesh.MeshTopology topo) {
+        com.fadcam.ui.faditor.transform.mesh.MeshDeformer d = bendDeformer;
+        if (d == null || !d.supports(topo)) {
+            d = com.fadcam.ui.faditor.transform.mesh.MeshTopologies.deformerFor(topo);
+            if (d != null) bendDeformer = d;
+        }
+        return bendDeformer;
+    }
+
+    @Override
+    public boolean bendHandlePosition(int i, @NonNull float[] h, @NonNull float[] out2) {
+        try {
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
+            com.fadcam.ui.faditor.transform.mesh.MeshTopology topo =
+                    (s == null || s.topology() == null) ? BEND_DEFAULT : s.topology();
+            if (i < 0 || i >= topo.handleCount()) return false;
+            int arity = topo.handleArity();
+            if (arity <= 0 || bendPose.length < arity) return false;
+            if (s != null && bendCurrentPose(s, bendPose) == arity) {
+                return com.fadcam.ui.faditor.transform.mesh.MeshProjection.projectHandle(
+                        topo, bendPose, i, h, out2);
+            }
+            // No spec yet (tool opened, nothing dragged): rest grid, zero nudges.
+            java.util.Arrays.fill(bendPose, 0, arity, 0f);
+            return com.fadcam.ui.faditor.transform.mesh.MeshProjection.projectHandle(
+                    topo, bendPose, i, h, out2);
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    @Override
+    public boolean bendDragTo(int i, @NonNull float[] hInv, float stageX, float stageY) {
+        try {
+            if (!Float.isFinite(stageX) || !Float.isFinite(stageY)) return false;
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = bendEnsureSpec();
+            if (s == null || s.topology() == null) return false;
+            com.fadcam.ui.faditor.transform.mesh.MeshTopology topo = s.topology();
+            if (i < 0 || i >= topo.handleCount()) return false;
+            com.fadcam.ui.faditor.transform.mesh.MeshDeformer deformer =
+                    bendDeformerFor(topo);
+            if (deformer == null || !deformer.supports(topo)) return false;
+            int arity = s.arity();
+            if (arity <= 0 || arity > bendPose.length || arity > bendCand.length) return false;
+            if (bendCurrentPose(s, bendPose) != arity) {
+                java.util.Arrays.fill(bendPose, 0, arity, 0f);
+            }
+            if (!com.fadcam.ui.faditor.transform.mesh.MeshProjection.dragToHandle(
+                    topo, deformer, i, hInv, stageX, stageY, bendOut2)) return false;
+            System.arraycopy(bendPose, 0, bendCand, 0, arity);
+            bendCand[i * 2] = bendOut2[0];
+            bendCand[i * 2 + 1] = bendOut2[1];
+            // The guard measures the SOLVED triangles, not the handles: bind first, or the
+            // scratch has no rest shape and every fold would pass. Refusal simply stops the
+            // drag — always recoverable, unlike rendering through a fold.
+            bendScratch.bind(topo);
+            if (!com.fadcam.ui.faditor.transform.mesh.MeshGuard.accepts(
+                    topo, deformer, bendScratch, bendCand)) return false;
+            float[] live = s.handles();
+            if (live == null || live.length != arity) return false;
+            System.arraycopy(bendCand, 0, live, 0, arity);
+            onChanged.run();
+            return true;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    @Override
+    public void beginBendGesture() {
+        // Ensure BEFORE the snapshot: the first bend's undo then restores "no bend at all".
+        bendEnsureSpec();
+        beginGesture();
+    }
+
+    @Override
+    public void commitBendGesture(@NonNull String what) {
+        try {
+            // Armed: the pose at the playhead becomes ONE track key (local clock, like every
+            // other animated property). Unarmed: the static handles already hold it — no track,
+            // no drawer diamond for a static bend. Either way exactly one write, one undo.
+            if (item.isArmed()) {
+                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
+                if (s != null && s.topology() != null) {
+                    int arity = s.arity();
+                    float[] live = s.handles();
+                    if (arity > 0 && live != null && live.length == arity) {
+                        long localMs = item.meshLocalTime(now());
+                        s.ensureTrack().put(localMs, live,
+                                com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack
+                                        .DEFAULT_EASING);
+                        item.installMeshCurve();
+                    }
+                }
+            }
+        } catch (Exception ignored) { }
+        commitGesture(what);
+    }
+
 }

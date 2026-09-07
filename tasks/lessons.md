@@ -594,3 +594,19 @@ ensureTransformOverlay) to learn which surface owns the object type. Any present
 transform applied on read must have its exact inverse applied on write. Verify on device by
 screenshot (adb shell screencap + pull; NEVER PowerShell > redirection of adb binary
 output â€” it corrupts the PNG).
+
+## 2026-09-06 — SPEC J: the dead panel vs the live surface (and "done" isn't done until the acceptance criteria are re-read)
+
+A rotation-slider fix was applied to MaskKeyPanel, whose opener (showMaskDialog) turned out to have
+NO caller — superseded by the object drawer's mask tab. The REACHABLE copy of the same defect
+(PipDrawerTabs mask tab, a 0..360 rotation slider writing cur.rotationDeg) survived both audit
+passes and was only caught in the final sweep. The spec's rule was explicit ("a rotation SLIDER
+must not survive anywhere") — a dead panel satisfied the letter of a per-file grep, not the rule.
+
+**Rules:**
+- Before reporting a UI defect fixed, locate the LIVE route to the screen (grep the constructor's
+  callers to the activity; zero callers = dead code — find the successor surface and check IT).
+- Before declaring a spec done, re-read its acceptance-criteria section line by line and produce
+  the exact artifact shapes it demands (per-host/per-method tables, per-site audits with counts).
+- Sweep for a class of defect, not an instance: grep for the CONTROL (SeekBar near "rotat"), not
+  for the file you already know.

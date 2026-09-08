@@ -104,6 +104,24 @@ description):
 
 Build all three as working mocks and record his pick in this file before implementing.
 
+### JOYRAPTOR'S PICK, 2026-09-08: **C — the ghost outline.**
+
+> "also i picked C - Ghost outline."
+
+So: no pill and no new widget at all. When the selected object leaves the canvas, draw its own
+quad clamped to the screen edge at low opacity, and tapping that ghost brings the object home as
+ONE undoable step. Options A and B are dead -- do not build them, and remove the Reframe pill
+when the ghost replaces it.
+
+Notes for whoever implements it:
+- The ghost is the object's REAL quad, squashed to the edge -- that is what makes it readable as
+  "your thing is over there" rather than as a button. Keep its shape, rotation and mirror.
+- It must not be confused with the pasteboard ghost (SPEC M section 4), which draws off-canvas
+  content dimmed inside the preview. This one is for an object that is entirely gone.
+- Same recovery semantics the pill had: move it just far enough to be grabbable, one undo step.
+- If SPEC L and SPEC P are both working, this should almost never appear. Design it as a quiet
+  safety net, not a feature.
+
 ## 4. Off-canvas content should be visible, not invisible
 
 JoyRaptor: *"currently anything off screen doesn't render on canvas. It should still show 25% opacity

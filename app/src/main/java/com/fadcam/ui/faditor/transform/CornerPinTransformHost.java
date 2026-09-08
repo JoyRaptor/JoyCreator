@@ -810,14 +810,53 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     /** UI-thread deformer, built lazily per kind (never shared with the GL threads). */
     @androidx.annotation.Nullable
     private com.fadcam.ui.faditor.transform.mesh.MeshDeformer bendDeformer;
-    /** UI-thread pose working space (max lattice arity 5x5x2 = 50). Never shared. */
+    /**
+     * UI-thread pose working space, sized EXACTLY to the topology's arity. Never shared.
+     *
+     * <p>SPEC O — these used to be fixed {@code float[50]} buffers (the largest lattice's arity),
+     * which silently disabled the whole tool: {@link
+     * com.fadcam.ui.faditor.transform.mesh.MeshDeformer#solve} takes a pose whose length IS the
+     * arity — {@code MeshEngine} resizes to {@code topo.handleArity()} for exactly that reason —
+     * so a 50-float candidate handed to a 3x3 (18-float) lattice made {@code LatticeDeformer.solve}
+     * return false, {@code MeshGuard.accepts} refuse, and every drag frame do nothing at all.
+     * Sized on the arity, so it allocates once per topology and never per frame.</p>
+     */
     @NonNull
-    private final float[] bendPose = new float[50];
+    private float[] bendPose = new float[0];
     /** UI-thread candidate pose (guard-checked before commit to the live handles). */
     @NonNull
-    private final float[] bendCand = new float[50];
+    private float[] bendCand = new float[0];
     @NonNull
     private final float[] bendOut2 = new float[2];
+    /**
+     * The refusal already reported for the gesture in flight, so a refused drag says WHY once
+     * instead of once per frame (TransformDiag is a discrete-gesture recorder, never a spammer).
+     */
+    @androidx.annotation.Nullable
+    private String bendSaid;
+    /** Whether this gesture already recorded its one "bend applied" line. */
+    private boolean bendAppliedSaid;
+
+    /** Largest pose any registered topology may ask for. A sanity bound, not a lattice fact. */
+    private static final int BEND_MAX_ARITY = 4096;
+
+    /** Grow/shrink a pose buffer to exactly {@code arity}. Allocation-free when it already is. */
+    @NonNull
+    private static float[] bendFit(@NonNull float[] a, int arity) {
+        return a.length == arity ? a : new float[arity];
+    }
+
+    /**
+     * SPEC O — no silent refusal survives in the bend path. Records the reason ONCE per gesture
+     * (the same frame-by-frame reason is not news) and returns false so callers stay one-liners.
+     */
+    private boolean bendRefuse(@NonNull String why) {
+        if (!why.equals(bendSaid)) {
+            bendSaid = why;
+            TransformDiag.log("bend refused: " + why);
+        }
+        return false;
+    }
 
     @Override
     public boolean supportsBend() { return item.isImage(); }
@@ -875,7 +914,8 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
             }
             item.installMeshCurve();
             return item.getMesh();
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            TransformDiag.log("bend ensureSpec threw " + e.getClass().getSimpleName());
             return null;
         }
     }
@@ -920,7 +960,8 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
                     (s == null || s.topology() == null) ? BEND_DEFAULT : s.topology();
             if (i < 0 || i >= topo.handleCount()) return false;
             int arity = topo.handleArity();
-            if (arity <= 0 || bendPose.length < arity) return false;
+            if (arity <= 0 || arity > BEND_MAX_ARITY) return false;
+            bendPose = bendFit(bendPose, arity);
             if (s != null && bendCurrentPose(s, bendPose) == arity) {
                 return com.fadcam.ui.faditor.transform.mesh.MeshProjection.projectHandle(
                         topo, bendPose, i, h, out2);
@@ -937,21 +978,34 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     @Override
     public boolean bendDragTo(int i, @NonNull float[] hInv, float stageX, float stageY) {
         try {
-            if (!Float.isFinite(stageX) || !Float.isFinite(stageY)) return false;
+            if (!Float.isFinite(stageX) || !Float.isFinite(stageY)) {
+                return bendRefuse("stage point not finite");
+            }
             com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = bendEnsureSpec();
-            if (s == null || s.topology() == null) return false;
+            if (s == null || s.topology() == null) return bendRefuse("no spec/topology");
             com.fadcam.ui.faditor.transform.mesh.MeshTopology topo = s.topology();
-            if (i < 0 || i >= topo.handleCount()) return false;
+            if (i < 0 || i >= topo.handleCount()) {
+                return bendRefuse("handle " + i + " outside 0.." + (topo.handleCount() - 1));
+            }
             com.fadcam.ui.faditor.transform.mesh.MeshDeformer deformer =
                     bendDeformerFor(topo);
-            if (deformer == null || !deformer.supports(topo)) return false;
+            if (deformer == null) return bendRefuse("no deformer for kind " + topo.kind());
+            if (!deformer.supports(topo)) {
+                return bendRefuse("deformer rejects kind " + topo.kind());
+            }
             int arity = s.arity();
-            if (arity <= 0 || arity > bendPose.length || arity > bendCand.length) return false;
+            if (arity <= 0 || arity > BEND_MAX_ARITY) return bendRefuse("arity " + arity);
+            // EXACTLY the arity, never merely big enough — see the field note above; a longer
+            // pose is what made this whole tool a no-op.
+            bendPose = bendFit(bendPose, arity);
+            bendCand = bendFit(bendCand, arity);
             if (bendCurrentPose(s, bendPose) != arity) {
                 java.util.Arrays.fill(bendPose, 0, arity, 0f);
             }
             if (!com.fadcam.ui.faditor.transform.mesh.MeshProjection.dragToHandle(
-                    topo, deformer, i, hInv, stageX, stageY, bendOut2)) return false;
+                    topo, deformer, i, hInv, stageX, stageY, bendOut2)) {
+                return bendRefuse("degenerate inverse homography");
+            }
             System.arraycopy(bendPose, 0, bendCand, 0, arity);
             bendCand[i * 2] = bendOut2[0];
             bendCand[i * 2 + 1] = bendOut2[1];
@@ -960,20 +1014,33 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
             // drag — always recoverable, unlike rendering through a fold.
             bendScratch.bind(topo);
             if (!com.fadcam.ui.faditor.transform.mesh.MeshGuard.accepts(
-                    topo, deformer, bendScratch, bendCand)) return false;
+                    topo, deformer, bendScratch, bendCand)) {
+                return bendRefuse("guard: fold/crush at handle " + i);
+            }
             float[] live = s.handles();
-            if (live == null || live.length != arity) return false;
+            if (live == null || live.length != arity) {
+                return bendRefuse("live pose " + (live == null ? "null" : live.length)
+                        + " != arity " + arity);
+            }
             System.arraycopy(bendCand, 0, live, 0, arity);
+            if (!bendAppliedSaid) {
+                // One line per gesture, on the FIRST frame that actually deformed anything.
+                bendAppliedSaid = true;
+                TransformDiag.log("bend applied i=" + i + " du=" + bendOut2[0]
+                        + " dv=" + bendOut2[1] + " arity=" + arity + " kind=" + topo.kind());
+            }
             onChanged.run();
             return true;
-        } catch (Exception ignored) {
-            return false;
+        } catch (Exception e) {
+            return bendRefuse("threw " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
     @Override
     public void beginBendGesture() {
         // Ensure BEFORE the snapshot: the first bend's undo then restores "no bend at all".
+        bendSaid = null;
+        bendAppliedSaid = false;
         bendEnsureSpec();
         beginGesture();
     }
@@ -998,7 +1065,13 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
                     }
                 }
             }
-        } catch (Exception ignored) { }
+        } catch (Exception e) {
+            TransformDiag.log("bend commit threw " + e.getClass().getSimpleName());
+        }
+        // One line per gesture: did the drag actually leave a warp on the model? This is the
+        // line SPEC O's repro was missing, and it is what "mesh" in project.json is written from.
+        TransformDiag.log("bend commit hasMesh=" + item.hasMesh()
+                + " armed=" + item.isArmed());
         commitGesture(what);
     }
 

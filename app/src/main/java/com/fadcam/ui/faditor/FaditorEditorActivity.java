@@ -24276,7 +24276,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Nullable private com.fadcam.ui.faditor.transform.TransformOverlayView transformOverlay;
     /** SPEC K pasteboard dim (outside-canvas ghosting). Created with the overlay above. */
-    @Nullable private com.fadcam.ui.faditor.overlay.PasteboardDimView pasteboardDim;
+    // PASTEBOARD DIM REMOVED (JoyRaptor, 2026-09-08). It shaded everything outside the canvas so
+    // off-frame content would read as outside -- but the thing that actually MAKES off-canvas
+    // content visible is TextOverlayLayer's overhang pass, which already existed and was simply
+    // broken (four clipRect calls INTERSECT, so it drew nothing). That is fixed; the dim was a
+    // second, purely decorative view on top of it. JoyRaptor: "I don't want another element that can
+    // break or go stale if we can avoid it" -- he had already seen it go stale and need a drawer
+    // resize to correct itself. The canvas edge is still marked by canvas_frame's hatch, which is
+    // what it looked like before and what he prefers. One fewer view that can fail.
     /** The item transform mode is open on, or null when it is closed. */
     @Nullable private String transformItemId;
     /**
@@ -24307,17 +24314,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // contend for it.
             transformOverlay.setElevation(8 * d);
             android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
-            // SPEC K pasteboard: dim everything outside the video canvas so off-frame
-            // content (or its clipped part) reads as outside instead of vanishing.
-            // Added BEFORE the transform overlay so handles stay bright above it, and
-            // after the XML-inflated overlay layers so it dims them. Preview-only.
-            if (pasteboardDim == null) {
-                pasteboardDim = new com.fadcam.ui.faditor.overlay.PasteboardDimView(this);
-                playerContainer.addView(pasteboardDim,
-                        new android.widget.FrameLayout.LayoutParams(
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                                android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-            }
             playerContainer.addView(transformOverlay,
                     new android.widget.FrameLayout.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
@@ -24350,9 +24346,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             // reposition anything: one stale-sized refresh is exactly the
                             // out-of-bounds flash on screen-on. Wait for a sane rect.
                             if ((r - l) < 50 || (b - t) < 50) return;
-                            if (pasteboardDim != null) {
-                                pasteboardDim.setCanvasRect(computeCanvasRect());
-                            }
                             refreshTextAfterHandleWrite();
                         }
                     });
@@ -25645,11 +25638,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (transformOverlay != null
                 && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
             transformOverlay.refresh();
-        }
-        // SPEC K pasteboard: keep the outside-canvas dim on the current canvas rect
-        // (clip switches change the aspect with no layout). Compare-and-set inside.
-        if (pasteboardDim != null) {
-            pasteboardDim.setCanvasRect(computeCanvasRect());
         }
     }
 

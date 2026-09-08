@@ -51,7 +51,8 @@ public class SpecKRebaseTest {
     }
 
     static boolean isNeutral(Pose p) {
-        return p.pivx == 0.5f && p.pivy == 0.5f && isFlat(p.off);
+        // Production: centre pivot never folds, however pinned (SPEC K catapult fix).
+        return p.pivx == 0.5f && p.pivy == 0.5f;
     }
 
     static float pivDx(Pose p) {

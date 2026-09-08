@@ -33,7 +33,8 @@ public class SpecKPinRoundTripTest {
     }
 
     static boolean isNeutral(float px, float py, float[] off) {
-        return px == 0.5f && py == 0.5f && isFlat(off);
+        // Production: centre pivot never folds, however pinned (SPEC K catapult fix).
+        return px == 0.5f && py == 0.5f;
     }
 
     static float pivDx(float w, float px, float py, float[] pins) {

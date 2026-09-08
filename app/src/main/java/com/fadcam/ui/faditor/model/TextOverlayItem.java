@@ -783,21 +783,23 @@ public class TextOverlayItem {
     public float rotationPivotYNorm() { return rotationPivotY; }
 
     /**
-     * TRUE ONLY WHEN THE PIVOT OFFSET IS EXACTLY ZERO — a centre pivot AND an undistorted
-     * picture. Every render fast path must ask THIS, not {@link #isRotationPivotCentre()}.
+     * TRUE WHEN THE PIVOT IS THE PICTURE'S CENTRE — rotation turns about the box centre
+     * and no pivot fold applies, however the corners are pinned.
      *
-     * <p>A centre pivot is not a zero offset once a picture is corner-pinned: the visible quad
-     * sits wherever the pins put it, and "centre" means the centre of THAT, which can be a
-     * picture-width away from the box. Guarding on the pivot value alone made the PREVIEW spin a
-     * pinned picture about its box centre while the EXPORT (ImageOverlayDraw, which never had
-     * the guard) spun it about the quad centre — a preview/export split, and on screen the
-     * picture ORBITED instead of turning in place. JoyRaptor, 2026-09-05: "as I rotate, the image
-     * raises up... the frame and the image rotate out of sync", with the pivot on centre.</p>
+     * <p>Deliberately blind to the pins (SPEC K, 2026-09-07): the fold used to anchor on
+     * the pinned quad's centroid, whose offset is the distortion mean — unbounded, up to
+     * ~2 picture sizes on hard perspective work — so any rotation parked picture,
+     * handles and selection box several frame-heights from the pose and read as
+     * "disappeared" (a centre pivot with a 2-size distortion mean at ~180° folds ~4
+     * sizes off). The box centre is the After Effects anchor too, and every render fast
+     * path already agrees on it. Non-centre pivots still anchor on the pinned quad
+     * (SPEC B: a corner pick computed on the box floats in empty space beside a
+     * distorted picture), where the fraction range ±0.5 keeps the fold bounded.
      *
-     * @param pins8 the caller's already-evaluated pin offsets; null or flat means undistorted
+     * @param pins8 accepted and ignored; kept so every call site reads unchanged
      */
     public boolean isRotationPivotNeutral(@Nullable float[] pins8) {
-        return isRotationPivotCentre() && CornerPin.isFlat(pins8);
+        return isRotationPivotCentre();
     }
 
     public boolean isRotationPivotCentre() {

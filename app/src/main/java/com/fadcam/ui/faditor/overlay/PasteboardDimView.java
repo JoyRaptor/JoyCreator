@@ -58,6 +58,8 @@ public class PasteboardDimView extends android.view.View {
             canvas.set(r);
             haveCanvas = true;
             invalidate();
+            com.fadcam.ui.faditor.transform.TransformDiag.log("pasteboard view="
+                    + getWidth() + "x" + getHeight() + " canvas=" + r);
         }
     }
 

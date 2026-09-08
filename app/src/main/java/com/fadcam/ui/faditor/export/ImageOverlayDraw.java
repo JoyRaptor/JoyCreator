@@ -253,10 +253,17 @@ final class ImageOverlayDraw {
             pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
             o.animatedCornerPin(timelineMs, pins);
         }
-        // Mirror-aware anchors (SPEC K flip exactness): the canvas turns about the
-        // VISUAL pivot. Unmirrored the signs are +1 and this is the same two lines.
-        float pvx = cx + o.mirrorSignX() * o.pivotOffsetFromCentreX(iw, ih, pins);
-        float pvy = cy + o.mirrorSignY() * o.pivotOffsetFromCentreY(iw, ih, pins);
+        // Rotation pivot (SPEC B), anchored like the preview: the box centre at a
+        // centre pivot, the visual (mirror-aware) pivot otherwise. Unmirrored the signs
+        // are +1 and the anchors are the same two lines as before.
+        float pvx, pvy;
+        if (o.isRotationPivotCentre()) {
+            pvx = cx;
+            pvy = cy;
+        } else {
+            pvx = cx + o.mirrorSignX() * o.pivotOffsetFromCentreX(iw, ih, pins);
+            pvy = cy + o.mirrorSignY() * o.pivotOffsetFromCentreY(iw, ih, pins);
+        }
         canvas.translate(ianim.dx, ianim.dy);
         canvas.rotate(rot, pvx, pvy);
         canvas.scale(ianim.scaleX, ianim.scaleY, pvx, pvy);

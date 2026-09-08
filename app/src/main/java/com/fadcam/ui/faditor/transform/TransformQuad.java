@@ -828,6 +828,93 @@ public final class TransformQuad {
         return out;
     }
 
+    // ── SPEC P: THE RENDER EQUATION, WRITTEN ONCE ──────────────────────────
+    //
+    // Every renderer draws an image overlay as:
+    //
+    //     bitmap -> mirror (about the box centre) -> corner pin -> rotate ABOUT THE PIVOT
+    //
+    // (ImageOverlayDraw's canvas stack, TextOverlayLayer's View pivot, the GL fold). Rotating
+    // about the pivot instead of the centre is the same thing as rotating about the centre and
+    // then shifting by (I - R(rot)) . o, where o is the pivot's mirror-signed offset from the
+    // box centre. That (I - R) . o term is the whole reason SPEC P existed: the commit-time bake
+    // and its self-check each carried their own transcription of it, they disagreed about which
+    // CENTRE they were anchored to, and the two errors cancelled inside the self-check while the
+    // picture moved half a centimetre on screen. There is now exactly one copy, here, and both
+    // the bake and the check call it.
+
+    /**
+     * Where the four drawn corners of a pinned, mirrored, rotated, pivot-folded picture land,
+     * in the caller's pixel space. This IS the render equation:
+     *
+     * <pre>  screen[i] = C + R(rot) . M . (boxCorner[i] + off[i] . (w, h)) + (I - R(rot)) . o</pre>
+     *
+     * @param poseCx  the POSE centre — the item's stored centre, NOT a box that has already had
+     *                the pivot fold applied to it (see {@code foldRotationPivotIntoBox}). Handing
+     *                in a folded box centre counts the fold twice; that was SPEC P's bug.
+     * @param pivOffX the pivot's MIRROR-SIGNED offset from the box centre, px — zero at a centre
+     *                pivot, exactly as every renderer gates it
+     * @param out8    packed TL,TR,BR,BL
+     */
+    public static void renderQuad(float poseCx, float poseCy, float w, float h,
+                                  float[] off8, float rotDeg,
+                                  float mirrorSignX, float mirrorSignY,
+                                  float pivOffX, float pivOffY, float[] out8) {
+        double rad = Math.toRadians(rotDeg);
+        float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+        // The pivot fold, once: rotating about (C + o) rather than C shifts by (I - R) . o.
+        float fx = pivOffX - (c * pivOffX - s * pivOffY);
+        float fy = pivOffY - (s * pivOffX + c * pivOffY);
+        float hw = w / 2f, hh = h / 2f;
+        for (int i = 0; i < 4; i++) {
+            float bx = (i == 0 || i == 3) ? -hw : hw;
+            float by = (i < 2) ? -hh : hh;
+            // Order: pin, then mirror — the pin lives in the unmirrored box frame.
+            float lx = mirrorSignX * (bx + (off8 == null ? 0f : off8[i * 2]) * w);
+            float ly = mirrorSignY * (by + (off8 == null ? 0f : off8[i * 2 + 1]) * h);
+            out8[i * 2] = poseCx + c * lx - s * ly + fx;
+            out8[i * 2 + 1] = poseCy + s * lx + c * ly + fy;
+        }
+    }
+
+    /**
+     * SPEC P — the POSE centre a commit-time bake must write so that not one pixel moves.
+     *
+     * <p>{@link #normalizePin} splits the drawn quad into an affine part and a residual such
+     * that {@code R(rot0) . l0[i] = R(rot1) . l1[i] + R(rot0) . t}. Substituting that into
+     * {@link #renderQuad} on both sides and demanding equality leaves exactly one unknown:</p>
+     *
+     * <pre>  C1 = C0 + R(rot0) . t + (I - R(rot0)) . o0 - (I - R(rot1)) . o1</pre>
+     *
+     * <p>The two fold terms do not cancel, because the bake redefines the pivot: {@code o} is
+     * pin-aware and the pin, the box size and the rotation all change. That is why the
+     * correction is angle-dependent — and why anchoring it at the wrong centre produced an
+     * error that grew with {@code 2 sin(rot/2)} and flipped sign with the sign of the angle,
+     * which is precisely what JoyRaptor measured by eye.</p>
+     *
+     * @param poseCx0 the POSE centre before the bake (stored centre in px), never a folded box
+     * @param tx      {@link PinNormalize#tx}, pose-frame px
+     * @param pivOff0X the OLD mirror-signed pivot offset, on the OLD box with the OLD pin
+     * @param pivOff1X the NEW mirror-signed pivot offset, on the NEW box with the residual pin
+     */
+    public static void bakedPoseCentre(float poseCx0, float poseCy0,
+                                       float rot0Deg, float pivOff0X, float pivOff0Y,
+                                       float tx, float ty,
+                                       float rot1Deg, float pivOff1X, float pivOff1Y,
+                                       float[] out2) {
+        double rad0 = Math.toRadians(rot0Deg), rad1 = Math.toRadians(rot1Deg);
+        float c0 = (float) Math.cos(rad0), s0 = (float) Math.sin(rad0);
+        float c1 = (float) Math.cos(rad1), s1 = (float) Math.sin(rad1);
+        float x = poseCx0 + c0 * tx - s0 * ty;
+        float y = poseCy0 + s0 * tx + c0 * ty;
+        x += (pivOff0X - (c0 * pivOff0X - s0 * pivOff0Y))
+                - (pivOff1X - (c1 * pivOff1X - s1 * pivOff1Y));
+        y += (pivOff0Y - (s0 * pivOff0X + c0 * pivOff0Y))
+                - (pivOff1Y - (s1 * pivOff1X + c1 * pivOff1Y));
+        out2[0] = x;
+        out2[1] = y;
+    }
+
     // ── SPEC L: clamp the DRAWN QUAD, not the box centre ───────────────────
     //
     // The travel clamp guards centreX/centreY, and a corner pin can translate the drawn

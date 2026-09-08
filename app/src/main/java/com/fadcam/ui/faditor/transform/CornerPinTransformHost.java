@@ -474,7 +474,25 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         RectF v = target.videoRect();
         if (v.width() <= 0f || v.height() <= 0f) return;
         float rot0 = target.rotationDeg(t);
-        float bcx0 = box.centerX(), bcy0 = box.centerY();
+        // SPEC P — THE ANCHOR IS THE POSE CENTRE, AND IT IS NOT box.centerX().
+        //
+        // `box` comes from Target.frame(), which ends in TextOverlayLayer.foldRotationPivotIntoBox:
+        // the rect handed back has ALREADY had the pivot fold (I − R(rot)) · o applied, because the
+        // dashed selection frame has to sit on the picture the user sees. That makes box.centerX()
+        // the PRESENTED centre. The bake writes through target.moveTo, which sets the POSE centre —
+        // the un-folded one — so anchoring the new centre at the presented one shipped the fold
+        // into the model a second time, and the picture jumped by exactly (I − R(rot0)) · o0 on
+        // finger-up: 2·sin(rot/2) · |o|, zero at 0°, sign flipping with the sign of the angle,
+        // 50–130px on JoyRaptor's Note 9 at −18.9° with a corner pivot. verifyBake could not see it
+        // because it anchored its BEFORE side at the same presented centre and then added the fold
+        // again too, so the two errors cancelled inside the check while the screen moved.
+        //
+        // target.centerX/centerY IS the field moveTo writes, read through the same videoRect the
+        // write is normalised by, so it is the anchor by definition — and unlike the box it does
+        // not depend on whether the layer happened to fold this frame. Only w/h come from the box
+        // now; the fold is a pure translation, so it never touched those.
+        float bcx0 = v.left + target.centerX(t) * v.width();
+        float bcy0 = v.top + target.centerY(t) * v.height();
         float size0 = target.sizeFraction(t);
         float sx0 = item.animatedScaleX(t), sy0 = item.animatedScaleY(t);
         float a = fit.newW / w, b = fit.newH / h;
@@ -503,22 +521,20 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         // Mirror-aware (SPEC K flip exactness): each side folds about its own visual
         // pivot — pre-bake flags on the way in, the fit's flags on the way out.
         // Unmirrored throughout, this is the same expression.
-        double rad0 = Math.toRadians(rot0);
-        float c0 = (float) Math.cos(rad0), s0 = (float) Math.sin(rad0);
-        float ncx = bcx0 + c0 * fit.tx - s0 * fit.ty;
-        float ncy = bcy0 + s0 * fit.tx + c0 * fit.ty;
         float mb0x = item.mirrorSignX(), mb0y = item.mirrorSignY();
-        // Centre pivots carry no fold offset (neutral by definition) on either side.
+        // Centre pivots carry no fold offset (neutral by definition) on either side — the same
+        // gate every renderer uses (ImageOverlayDraw, the View pivot, the GL fold).
         boolean wasCentre = item.isRotationPivotCentre();
         float o0x = wasCentre ? 0f : mb0x * item.pivotOffsetFromCentreX(w, h, pins0);
         float o0y = wasCentre ? 0f : mb0y * item.pivotOffsetFromCentreY(w, h, pins0);
         float sm1x = fit.mirrorX ? -1f : 1f, sm1y = fit.mirrorY ? -1f : 1f;
         float o1x = wasCentre ? 0f : sm1x * item.pivotOffsetFromCentreX(fit.newW, fit.newH, fit.residual);
         float o1y = wasCentre ? 0f : sm1y * item.pivotOffsetFromCentreY(fit.newW, fit.newH, fit.residual);
-        double rad1 = Math.toRadians(newRot);
-        float c1 = (float) Math.cos(rad1), s1 = (float) Math.sin(rad1);
-        ncx += (o0x - (c0 * o0x - s0 * o0y)) - (o1x - (c1 * o1x - s1 * o1y));
-        ncy += (o0y - (s0 * o0x + c0 * o0y)) - (o1y - (s1 * o1x + c1 * o1y));
+        // SPEC P — one shared derivation, in TransformQuad, tested at every angle off device.
+        float[] nc = new float[2];
+        TransformQuad.bakedPoseCentre(bcx0, bcy0, rot0, o0x, o0y,
+                fit.tx, fit.ty, newRot, o1x, o1y, nc);
+        float ncx = nc[0], ncy = nc[1];
         // SPEC K — cap the recentring: no single commit moves the pose centre by more
         // than 3 picture sizes. Genuine content (a fold's ±1-size swing, a sculpt
         // settling onto its centroid, corner-pivot anchor compensation) fits
@@ -631,27 +647,23 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
         float mAx = item.mirrorSignX(), mAy = item.mirrorSignY();
         float oAx = centre ? 0f : mAx * item.pivotOffsetFromCentreX(wA, hA, pinsA);
         float oAy = centre ? 0f : mAy * item.pivotOffsetFromCentreY(wA, hA, pinsA);
-        double r0 = Math.toRadians(rot0), rA = Math.toRadians(rotA);
-        float c0 = (float) Math.cos(r0), s0 = (float) Math.sin(r0);
-        float cA = (float) Math.cos(rA), sA = (float) Math.sin(rA);
         // The mirror rides the local corners on both sides (order of SPEC G: mirror, then
         // pin, then rotate). Before-side wears the pre-bake flags, after-side whatever the
         // bake left on the item — equal when the bake wrote nothing.
+        //
+        // SPEC P — both sides go through TransformQuad.renderQuad, the single copy of the
+        // render equation, and BOTH are anchored at a POSE centre (bcx0 is now read from
+        // target.centerX, not from the pivot-folded selection box). While this method kept its
+        // own transcription and anchored its before-side at the folded box, it added the fold
+        // twice on that side — the same mistake the bake was making, so the two cancelled and
+        // the check certified a picture that had visibly moved. One equation, two poses.
+        float[] before = new float[8], after = new float[8];
+        TransformQuad.renderQuad(bcx0, bcy0, w0, h0, pins0, rot0, mb0x, mb0y, o0x, o0y, before);
+        TransformQuad.renderQuad(cAx, cAy, wA, hA, pinsA, rotA, mAx, mAy, oAx, oAy, after);
         float worst = 0f;
         for (int i = 0; i < 4; i++) {
-            float qx0 = (i == 0 || i == 3) ? -w0 / 2f : w0 / 2f;
-            float qy0 = (i < 2) ? -h0 / 2f : h0 / 2f;
-            float lx0 = mb0x * (qx0 + pins0[i * 2] * w0);
-            float ly0 = mb0y * (qy0 + pins0[i * 2 + 1] * h0);
-            float px0 = bcx0 + c0 * lx0 - s0 * ly0 + (o0x - (c0 * o0x - s0 * o0y));
-            float py0 = bcy0 + s0 * lx0 + c0 * ly0 + (o0y - (s0 * o0x + c0 * o0y));
-            float qxA = (i == 0 || i == 3) ? -wA / 2f : wA / 2f;
-            float qyA = (i < 2) ? -hA / 2f : hA / 2f;
-            float lxA = mAx * (qxA + pinsA[i * 2] * wA);
-            float lyA = mAy * (qyA + pinsA[i * 2 + 1] * hA);
-            float pxA = cAx + cA * lxA - sA * lyA + (oAx - (cA * oAx - sA * oAy));
-            float pyA = cAy + sA * lxA + cA * lyA + (oAy - (sA * oAx + cA * oAy));
-            worst = Math.max(worst, (float) Math.hypot(pxA - px0, pyA - py0));
+            worst = Math.max(worst, (float) Math.hypot(after[i * 2] - before[i * 2],
+                    after[i * 2 + 1] - before[i * 2 + 1]));
             if (worst > 1f) return false;
         }
         return true;

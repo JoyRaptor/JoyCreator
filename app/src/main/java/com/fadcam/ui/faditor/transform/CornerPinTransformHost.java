@@ -391,8 +391,49 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
                 return;
             }
         }
-        tryNormalizeOnCommit();
+        tryNormalizeOnCommit(what);
+        keepDrawnQuadOnCanvas();
         target.commit(what);
+    }
+
+    /**
+     * SPEC L Part 2 — the backstop, and it measures the picture rather than the box.
+     *
+     * <p>The travel clamp guards {@code centerX/centerY}; a corner pin translates the DRAWN
+     * quad away from that centre, so a pinned picture could walk off canvas with the model
+     * reporting it as barely out. Part 1 puts translation back in the centre, which makes the
+     * travel clamp effective again — this is the one-gesture case that could still fling a
+     * picture out. At least {@link TransformQuad#QUAD_MIN_VISIBLE_FRAC} of the drawn quad's
+     * bounding box must remain on canvas; if not, the POSE is translated (never the pin, never
+     * the shape) by the minimum that satisfies it, through the same keyframe-aware target
+     * every gesture uses, before the single {@code commit} — so it is part of the same undo
+     * step, not a second one.</p>
+     *
+     * <p>Deliberately narrow: images only, no animated position or pin. An overlay whose X/Y
+     * or pin is keyframed may be legitimately off canvas at this instant (a fly-in preset is
+     * exactly that), and yanking it would destroy the animation rather than save the picture.
+     * Logged when it fires, because if Part 1 is right it should not.</p>
+     */
+    private void keepDrawnQuadOnCanvas() {
+        if (!item.isImage()) return;
+        if (hadPinKeys || item.isArmed()) return;
+        KeyframeSet ks = item.getKeyframes();
+        if (ks != null && (ks.hasProperty(KeyframeSet.X) || ks.hasProperty(KeyframeSet.Y))) return;
+        long t = now();
+        float[] quad = new float[8];
+        if (!readQuad(quad)) return;
+        RectF v = target.videoRect();
+        if (v.width() <= 0.5f || v.height() <= 0.5f) return;
+        float[] fix = new float[2];
+        if (!TransformQuad.quadEscapeFix(quad, v.left, v.top, v.right, v.bottom,
+                TransformQuad.QUAD_MIN_VISIBLE_FRAC, fix)) return;
+        float cx = target.centerX(t), cy = target.centerY(t);
+        target.moveTo(cx + fix[0] / v.width(), cy + fix[1] / v.height(), t);
+        onChanged.run();
+        FLog.d("PinBake", "escape-clamp id=" + item.getId()
+                + " dx=" + fix[0] + " dy=" + fix[1]);
+        TransformDiag.log("escape-clamp id=" + item.getId()
+                + " dx=" + fix[0] + " dy=" + fix[1]);
     }
 
     /**
@@ -409,7 +450,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
      * move/rotate/pinch commit never sprays keys it did not mean. A recentring beyond 3
      * picture sizes walks away instead (stale frame, not content).
      */
-    private void tryNormalizeOnCommit() {
+    private void tryNormalizeOnCommit(@NonNull String what) {
         long t = now();
         if (!item.isImage()) return;
         if (!readBox(t)) return;

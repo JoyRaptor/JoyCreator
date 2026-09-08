@@ -222,24 +222,47 @@ public class SpecKFlipTest {
                 p.off = new float[]{0.01633418f, 0.023442272f, -0.0027677903f, 0.023442322f,
                         -0.0027679296f, -0.1386609f, 0.17178443f, 0.0300554f};
                 float[] before = destQuad(p);
+                // SPEC L: the bake below now runs on this distorted pin (it used to walk
+                // away from any non-parallelogram), and a bake may RECENTRE the pose. So the
+                // double-flip restore has to be judged in ABSOLUTE pixels — the relative
+                // quad is measured from a centre the bake is entitled to move. The picture
+                // is what must come back, and it does.
+                float[] beforeAbs = absQuad(p);
                 if (axis == 0) hostFlipH(p); else hostFlipV(p);
                 float[] want = axis == 0 ? mirrorX(before) : mirrorY(before);
                 float d = dist(destQuad(p), want);
                 check(d < 0.5f, "joyraptor bible flip-" + (axis == 0 ? "H" : "V")
                         + ": exact central mirror (drift " + d + "px)");
+                // PRODUCTION never bakes on a flip commit — CornerPinTransformHost
+                // .commitGesture returns early for "Flip" — so the double-flip identity is
+                // measured on this untouched branch. The bake is exercised separately below
+                // (it must preserve the picture, and after SPEC L it always runs).
+                Pose q = copy(p);
                 float[] pre = absQuad(p);
                 boolean baked = hostBake(p);
                 float db = dist(pre, absQuad(p));
                 check(!baked || db < 1f, "joyraptor bible flip-" + (axis == 0 ? "H" : "V")
                         + ": bake preserves (baked=" + baked + ", drift " + db + "px)");
-                float thAfterOne = p.th;
-                boolean mAfterOne = axis == 0 ? p.mx : p.my;
-                float[] pinsAfterOne = p.off.clone();
-                if (axis == 0) hostFlipH(p); else hostFlipV(p);
-                check((axis == 0 ? p.mx : p.my) != mAfterOne, "second flip toggles back");
-                check(p.th == -thAfterOne, "second flip restores the angle");
-                check(dist(destQuad(p), before) < 0.5f, "double flip restores the picture");
-                check(java.util.Arrays.equals(pinsAfterOne, p.off), "flips never touch the pins");
+                // SPEC L — the recentring a legacy pin causes is ONE-TIME: the residual's
+                // corner mean is exactly zero by construction, so re-baking the baked pose
+                // finds no translation left to move. (This is why flips stay exact from the
+                // first bake onward, and why the pin cannot accumulate translation again.)
+                float[] preRe = absQuad(p);
+                float cxRe = p.cx, cyRe = p.cy;
+                hostBake(p);
+                check(dist(preRe, absQuad(p)) < 0.5f
+                                && Math.hypot(p.cx - cxRe, p.cy - cyRe) < 0.5f,
+                        "joyraptor bible flip-" + (axis == 0 ? "H" : "V")
+                                + ": re-baking a baked pose moves nothing (the migration is one-time)");
+                float thAfterOne = q.th;
+                boolean mAfterOne = axis == 0 ? q.mx : q.my;
+                float[] pinsAfterOne = q.off.clone();
+                if (axis == 0) hostFlipH(q); else hostFlipV(q);
+                check((axis == 0 ? q.mx : q.my) != mAfterOne, "second flip toggles back");
+                check(q.th == -thAfterOne, "second flip restores the angle");
+                float dd = dist(absQuad(q), beforeAbs);
+                check(dd < 0.5f, "double flip restores the picture (drift " + dd + "px)");
+                check(java.util.Arrays.equals(pinsAfterOne, q.off), "flips never touch the pins");
             }
         }
         // 2. Fuzz, both axes: EVERY pivot (corners included), angle, distortion and

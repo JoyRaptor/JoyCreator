@@ -627,13 +627,23 @@ public final class TransformQuad {
     /** Below this relative |a-b|, a scale stays uniform (the chain stays linked). */
     public static final float PIN_BAKE_UNIFORM_REL = 1e-4f;
     /**
-     * Above this opposite-edge mismatch (fraction of picture size), the quad is a genuine
-     * distortion, not a parallelogram wearing float dust: the bake keeps the pin EXACTLY as
-     * authored and touches nothing else, so a 5% nudge stores 0.05 with the box, the rotation
-     * and the scale chain all untouched. Exact parallelograms (flip, fold, rotate, scale)
-     * mismatch at ~1e-7 and always bake.
+     * Opposite-edge mismatch (fraction of picture size) above which a quad carries genuine
+     * perspective rather than float dust. SPEC L: this NO LONGER gates the bake — it is
+     * reported through {@link PinNormalize#keystone} for diagnostics only. See the SPEC L
+     * note on {@link #normalizePin}.
      */
     public static final float PIN_BAKE_PARALLELOGRAM_TOL = 0.005f;
+
+    /**
+     * SPEC L — below this relative anisotropy the fitted scale is read as UNIFORM, and the
+     * sliver of difference is absorbed by the residual (exactly, like every other snap here).
+     *
+     * <p>Without it every corner nudge would fit a scale like 0.9752 x 0.9756 — visually one
+     * number, arithmetically two — and the host would unlink the drawer's aspect chain and
+     * spray SCALE_X/SCALE_Y keys over a rounding difference. 5% is far below any anisotropy a
+     * hand actually authors on purpose and far above the fit noise a keystone produces.</p>
+     */
+    public static final float PIN_BAKE_ISO_REL = 0.05f;
 
     /**
      * The baked reading of one committed quad. All in overlay pixels and the pin's own
@@ -644,12 +654,19 @@ public final class TransformQuad {
         /** False = degenerate input (collapsed box or quad); leave the pin exactly alone. */
         public boolean valid;
         /**
-         * True when an affine part was actually extracted. False means "keep the pin as
-         * authored" — a genuine distortion (or an already-clean parallelogram): newW/newH
-         * are (w, h), the shifts are zero, the mirror echoes the input and the residual
-         * echoes the input offsets.
+         * True when an affine part was actually extracted. SPEC L: this is now true for
+         * EVERY valid quad — parallelogram or not — because the affine part is always
+         * fitted and always baked. It stays in the API because callers gate on it and
+         * {@code valid && !baked} remains the honest reading of a fit that produced
+         * nothing (there is no such case today; degenerate input reports {@code !valid}).
          */
         public boolean baked;
+        /**
+         * How far this quad is from a parallelogram, as a fraction of the picture size —
+         * i.e. how much genuine keystone the residual is carrying. Diagnostics only:
+         * nothing branches on it (SPEC L removed the gate that did).
+         */
+        public float keystone;
         /** Pose-frame translation, px: add R(oldRotation) . (tx, ty) to the pose centre. */
         public float tx, ty;
         /** Baked box size, px. Exactly (w, h) when the fit found no scale change. */
@@ -692,22 +709,32 @@ public final class TransformQuad {
         // flips signs of differences), so this reads the authored shape however it is worn.
         float m1x = (x1 - x0) - (x2 - x3), m1y = (y1 - y0) - (y2 - y3);
         float m2x = (x3 - x0) - (x2 - x1), m2y = (y3 - y0) - (y2 - y1);
-        float mis = Math.max((float) Math.hypot(m1x / w, m1y / h),
+        out.keystone = Math.max((float) Math.hypot(m1x / w, m1y / h),
                 (float) Math.hypot(m2x / w, m2y / h));
-        if (!(mis <= PIN_BAKE_PARALLELOGRAM_TOL)) {
-            // A genuine distortion (or garbage): keep the authored pin bit-for-bit and bake
-            // nothing. valid + !baked is the host's cue to walk away.
-            out.valid = true;
-            out.baked = false;
-            out.newW = w;
-            out.newH = h;
-            out.mirrorX = mirrorX;
-            out.mirrorY = mirrorY;
-            System.arraycopy(off8, 0, out.residual, 0, 8);
-            return out;
-        }
+        // ── SPEC L: THE GATE IS GONE, AND THAT IS THE WHOLE FIX ──────────────────────
+        //
+        // This used to read "if the quad is not a parallelogram, bake NOTHING and keep the
+        // authored pin bit-for-bit". That single early return is why objects escaped the
+        // canvas. A trapezoid never baked, so its translation, rotation and scale stayed
+        // locked in the pin and accumulated gesture after gesture — measured on JoyRaptor's live
+        // project 2026-09-07, a pin of −3.416 (three and a half picture-widths) with all four
+        // corners left of the box centre: the picture was two widths away from the box that
+        // supposedly held it, while the centre travel clamp — which only ever looks at
+        // centreX/centreY — reported the object as barely out of frame.
+        //
+        // The affine fit below was ALREADY correct for a trapezoid: centroid + opposite-edge
+        // averaging IS the least-squares affine fit of the four corners (for the four corners
+        // of a box the normal equations reduce to exactly these means), and the residual is
+        // computed against the SNAPPED fit, so the recompose is exact by construction whatever
+        // the shape. The old code fitted it and threw it away.
+        //
+        // So: fit always, bake always, keep only the keystone in the pin. Translation goes
+        // back to the centre where the travel clamp can see it, and the pin only ever carries
+        // shape. Nothing about the picture changes — verifyBake still rolls the whole bake
+        // back if any corner moves by a pixel.
+        //
         // Centroid = the translation. Opposite-edge averaging = the least-squares affine fit
-        // (exact for parallelograms, the even-handed average for trapezoids).
+        // (exact for parallelograms, the even-handed best fit for trapezoids).
         float tx = (x0 + x1 + x2 + x3) / 4f;
         float ty = (y0 + y1 + y2 + y3) / 4f;
         float exx = ((x1 - x0) + (x2 - x3)) * 0.5f;
@@ -754,6 +781,17 @@ public final class TransformQuad {
         }
         if (Math.abs(out.rotDeltaDeg) < PIN_BAKE_ROT_SNAP_DEG) out.rotDeltaDeg = 0f;
         float a = ew / w, b = eh / h;
+        // SPEC L — near-uniform reads as uniform. The bake now runs on shapes that are not
+        // parallelograms, and the best-fit basis lengths of a keystone differ by a fraction of
+        // a percent; without this the host would see two different scale factors, unlink the
+        // drawer's aspect chain and write SCALE_X/SCALE_Y keys every time a corner was nudged.
+        // The difference is absorbed by the residual below, so the picture is untouched.
+        float isoDen = Math.max(Math.abs(a), Math.abs(b));
+        if (isoDen > 1e-6f && Math.abs(a - b) / isoDen <= PIN_BAKE_ISO_REL) {
+            float m = (a + b) * 0.5f;
+            a = m;
+            b = m;
+        }
         if (Math.abs(a - 1f) < PIN_BAKE_SCALE_SNAP) a = 1f;
         if (Math.abs(b - 1f) < PIN_BAKE_SCALE_SNAP) b = 1f;
         out.newW = w * a;
@@ -790,6 +828,74 @@ public final class TransformQuad {
         return out;
     }
 
+    // ── SPEC L: clamp the DRAWN QUAD, not the box centre ───────────────────
+    //
+    // The travel clamp guards centreX/centreY, and a corner pin can translate the drawn
+    // picture arbitrarily far from its centre — so the only guard the system had was
+    // measuring the wrong point. SPEC L Part 1 puts translation back in the centre where
+    // that clamp can see it; this is the backstop for the one gesture that could still
+    // fling a picture out, and it measures the thing the user can actually see.
+    //
+    // TRANSLATE, NEVER RESHAPE: the authored shape is not ours to change, so the fix is a
+    // pure per-axis shift of the POSE. If Part 1 is right this should almost never fire.
+
+    /** SPEC L — this fraction of the drawn quad's bounding box must stay on canvas. */
+    public static final float QUAD_MIN_VISIBLE_FRAC = 0.15f;
+
+    /**
+     * The smallest translation that puts at least {@code minFrac} of {@code quad8}'s
+     * bounding box back inside the rect, per axis.
+     *
+     * <p>Per-axis rather than by area: a picture hanging off the left edge should slide
+     * right and not also drop down, which is what an area solve would do. When the quad's
+     * bounding box is bigger than the rect on an axis, the requirement on that axis is the
+     * rect's own extent (otherwise a picture legitimately larger than the canvas could
+     * never satisfy it).</p>
+     *
+     * @param quad8 the drawn quad in the same pixels as the rect
+     * @param out2  receives {dx, dy}; zeroed when nothing is needed
+     * @return true when a nonzero translation is required
+     */
+    public static boolean quadEscapeFix(float[] quad8,
+                                        float rectL, float rectT, float rectR, float rectB,
+                                        float minFrac, float[] out2) {
+        if (quad8 == null || quad8.length < 8 || out2 == null || out2.length < 2) return false;
+        out2[0] = 0f;
+        out2[1] = 0f;
+        for (float v : quad8) if (!isFinite(v)) return false;
+        if (!isFinite(rectL) || !isFinite(rectT) || !isFinite(rectR) || !isFinite(rectB)) return false;
+        if (!(rectR - rectL > 0.5f) || !(rectB - rectT > 0.5f)) return false;
+        if (!isFinite(minFrac) || !(minFrac > 0f) || minFrac > 1f) return false;
+        float bl = quad8[0], br = quad8[0], bt = quad8[1], bb = quad8[1];
+        for (int i = 1; i < 4; i++) {
+            bl = Math.min(bl, quad8[i * 2]);
+            br = Math.max(br, quad8[i * 2]);
+            bt = Math.min(bt, quad8[i * 2 + 1]);
+            bb = Math.max(bb, quad8[i * 2 + 1]);
+        }
+        out2[0] = axisEscapeFix(bl, br, rectL, rectR, minFrac);
+        out2[1] = axisEscapeFix(bt, bb, rectT, rectB, minFrac);
+        if (!isFinite(out2[0]) || !isFinite(out2[1])) { out2[0] = 0f; out2[1] = 0f; return false; }
+        return out2[0] != 0f || out2[1] != 0f;
+    }
+
+    /** One axis of {@link #quadEscapeFix}: the shift that restores the required overlap. */
+    private static float axisEscapeFix(float lo, float hi, float rLo, float rHi, float minFrac) {
+        float ext = hi - lo;
+        if (!(ext > 0f)) return 0f;
+        float need = Math.min(minFrac * ext, rHi - rLo);
+        float overlap = Math.min(hi, rHi) - Math.max(lo, rLo);
+        // A hair of slack, so the fix is IDEMPOTENT: re-measuring a quad this function has
+        // just moved re-derives the bounds in float and can land a thousandth of a pixel
+        // short of the requirement, which without this would shove the picture forever.
+        if (overlap >= need - 1e-3f) return 0f;
+        // Off the far side (lo beyond rHi - need) → pull back by the shortfall, and the
+        // other way round. Exactly one of these applies: the two cases cannot both hold
+        // once `need` is capped at the rect extent.
+        if (hi < rLo + need) return (rLo + need) - hi;
+        return (rHi - need) - lo;
+    }
+
     // ── SPEC K: the pose/pivot-exact pin solve ─────────────────────────────
     //
     // CornerPinTransformHost.writeQuad used to un-fold every dragged corner about the
@@ -807,9 +913,12 @@ public final class TransformQuad {
     // The pose centre itself is stable inside a distort gesture (only the pins move),
     // so recovering it with the old offset stays correct. The pins are then solved
     // IMPLICITLY: with C known, Q−C = (I−R)·δ + R·M·(b+o·s) and δ = δflat + Σw·o·s
-    // is linear in the eight unknown offsets, reducing to one 2x2 solve for δ and a
-    // direct read-off per corner. Round-trip is exact up to float noise at every
-    // pivot, mirror state and winding, including 365° (SPEC A raw storage).
+    // is linear in the eight unknown offsets, in closed form D = R·M·(δflat + Σw·A)
+    // with no inverse and no singularity at any angle or mirror state. Round-trip is
+    // exact up to float noise at every pivot, mirror state and winding, including
+    // 365° (SPEC A raw storage). At the centre pivot the folded offset is exactly
+    // zero (TextOverlayItem.isRotationPivotNeutral), so the solve reads straight
+    // through with no D term at all.
 
     /**
      * Bilinear weights of the nine-anchor pivot at {@code (u,v)} over corners
@@ -908,25 +1017,29 @@ public final class TransformQuad {
             ay[i] = smy * ry - by;
             if (!isFinite(ax[i]) || !isFinite(ay[i])) return false;
         }
-        float[] ww = new float[4];
-        pivotWeights(pivU, pivV, ww);
-        float sAx = ww[0] * ax[0] + ww[1] * ax[1] + ww[2] * ax[2] + ww[3] * ax[3];
-        float sAy = ww[0] * ay[0] + ww[1] * ay[1] + ww[2] * ay[2] + ww[3] * ay[3];
-        // (Folded-offset derivation continued below at the closed form.)
-        // Closed form for the folded pivot offset D: substituting o.s = A - K.D into
-        // D = M.dflat + Sw.M.(o.s) gives (I + M.K).D = M.(dflat + Sw.A), and M.K = Ri-I
-        // collapses the left side to Ri.D — so D = R.M.(dflat + Sw.A), no inverse, no
-        // singularity at any angle or mirror state. (An earlier revision solved a 2x2
-        // here and went singular at mirror+60 degrees.) Unmirrored this reduces to the
-        // original unbiased solve.
-        double radR = Math.toRadians(thDeg);
-        float cr = (float) Math.cos(radR), sr = (float) Math.sin(radR);
-        if (!isFinite(cr) || !isFinite(sr)) return false;
-        float mSx = smx * ((pivU - 0.5f) * w + sAx);
-        float mSy = smy * ((pivV - 0.5f) * h + sAy);
-        if (!isFinite(mSx) || !isFinite(mSy)) return false;
-        float dx = cr * mSx - sr * mSy, dy = sr * mSx + cr * mSy;
-        if (!isFinite(dx) || !isFinite(dy)) return false;
+        // SPEC K — a centre pivot never folds (TextOverlayItem.isRotationPivotNeutral),
+        // so the folded offset here is exactly zero however the pins read. (The closed
+        // form below would recover the same thing through δflat = 0 plus the gesture's
+        // own distortion mean — which is precisely the unbounded lever this avoids.)
+        float dx, dy;
+        if (pivU == 0.5f && pivV == 0.5f) {
+            dx = 0f;
+            dy = 0f;
+        } else {
+            float[] ww = new float[4];
+            pivotWeights(pivU, pivV, ww);
+            float sAx = ww[0] * ax[0] + ww[1] * ax[1] + ww[2] * ax[2] + ww[3] * ax[3];
+            float sAy = ww[0] * ay[0] + ww[1] * ay[1] + ww[2] * ay[2] + ww[3] * ay[3];
+            double radR = Math.toRadians(thDeg);
+            float cr = (float) Math.cos(radR), sr = (float) Math.sin(radR);
+            if (!isFinite(cr) || !isFinite(sr)) return false;
+            float mSx = smx * ((pivU - 0.5f) * w + sAx);
+            float mSy = smy * ((pivV - 0.5f) * h + sAy);
+            if (!isFinite(mSx) || !isFinite(mSy)) return false;
+            dx = cr * mSx - sr * mSy;
+            dy = sr * mSx + cr * mSy;
+            if (!isFinite(dx) || !isFinite(dy)) return false;
+        }
         // K = M.(Ri-I); o.s = A - K.D per corner.
         float k00 = smx * (ci - 1f), k01 = smx * (-si);
         float k10 = smy * si, k11 = smy * (ci - 1f);

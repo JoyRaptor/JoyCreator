@@ -66,6 +66,13 @@ public class EditorTimelineView extends View {
     private static final float EDGE_PADDING_DP = 20f;
 
     private static final float RULER_HEIGHT_DP = 22f;
+    /**
+     * SPEC_N §3 — height of the COLLAPSED spine strip. Deliberately the same 14dp as
+     * {@code LayerRowRenderer.ROW_HEIGHT_COLLAPSED_DP}: JoyRaptor asked for "a little tiny
+     * collapsible caret as well", i.e. the spine folding away into the SAME visual language
+     * a collapsed audio row already uses, not a second collapse idea with its own look.
+     */
+    private static final float SPINE_COLLAPSED_HEIGHT_DP = 14f;
     private static final float MINIMAP_HEIGHT_DP = 16f;
     // F-MINIMAP: thin per-layer lines stacked ABOVE the master tape, so a glance at the strip
     // shows WHERE the objects are across the whole project, not just where the clips are.
@@ -773,6 +780,30 @@ public class EditorTimelineView extends View {
     private final List<SegmentData> segments = new ArrayList<>();
     private final List<RectF> segRects = new ArrayList<>();
     private int selectedIndex = -1;  // UI selection (-1 = none selected)
+    /**
+     * SPEC_N §5 — true only while {@link #selectedIndex} was set by a DELIBERATE TAP on that
+     * spine segment. JoyRaptor: "Those fade sliders should not even be visible unless I have
+     * clicked on that spine piece directly. If I haven't clicked on it and it's only selected
+     * because the playhead is there, they shouldn't show up." The fade veils + knobs are gated
+     * on this, NOT on {@code selectedIndex >= 0}; the green trim handles keep their old
+     * selection-only behaviour. Cleared by: {@link #setSegments} (project/playhead-driven
+     * re-selection), {@link #setSelectedIndex} (every programmatic selection, which is the
+     * playhead path), the same-segment deselect toggle, collapsing the spine, and any DOWN
+     * that lands outside the master band (tapping a lane, the audio band, the ruler, the
+     * minimap — "the user taps away"). A DOWN inside the master band deliberately does NOT
+     * clear it, so a knob can still be grabbed and dragged.
+     *
+     * <p>Stored as the tapped SEGMENT INDEX rather than a bare boolean, and the knobs only
+     * paint while it still equals {@link #selectedIndex}. A plain boolean did not survive
+     * device testing: the activity re-feeds the whole segment list on every selection change
+     * and every seek ({@code setSegments}), so the flag was wiped a frame after the tap that
+     * set it and the knobs never appeared at all. Comparing indices instead means a REFEED of
+     * the same selection keeps the arming, while any selection that moves to a different clip
+     * — which is exactly what a playhead-driven selection does — drops it.</p>
+     */
+    private int spineTapSelectedIndex = -1;
+    /** SPEC_N §3 — screen-space rect of the spine's collapse caret (see drawSpineCollapseCaret). */
+    private final RectF spineCaretRect = new RectF();
     private int lastPlaybackIndex = 0;  // Playback tracking (persists when deselected)
     private long playheadPositionMs = 0; // Absolute playhead position in timeline
     private long totalEffectiveMs = 0;
@@ -1949,6 +1980,9 @@ public class EditorTimelineView extends View {
             thumbnailsFailed.remove(key);
         }
         selectedIndex = selected;  // Allow -1 for no selection
+        // SPEC_N §5: a refeed that lands on a DIFFERENT clip than the one the user tapped
+        // disarms the fade knobs; a refeed of the same selection leaves the arming alone.
+        if (selected != spineTapSelectedIndex) spineTapSelectedIndex = -1;
         selectedTransitionIndex = -1;
         if (selected >= 0) {
             lastPlaybackIndex = selected;  // Track for playback continuation
@@ -2209,6 +2243,10 @@ public class EditorTimelineView extends View {
     public void setSelectedIndex(int index) {
         if (index != selectedIndex && index >= 0 && index < segments.size()) {
             selectedIndex = index;
+            // SPEC_N §5: every caller of this is programmatic. It only fires when the index
+            // actually changes, so a playhead that walks onto a different clip lands here and
+            // disarms the knobs — the case JoyRaptor does not want them for.
+            if (index != spineTapSelectedIndex) spineTapSelectedIndex = -1;
             selectedTransitionIndex = -1;
             lastPlaybackIndex = index;  // Update playback tracking
             invalidate();
@@ -2557,7 +2595,7 @@ public class EditorTimelineView extends View {
             // Short clips are now genuinely narrow — you zoom in to work with them. Clips are kept
             // visually separated by a DISPLAY-ONLY inset in drawSegment (never in the time mapping).
             float segW = (sd.effectiveMs / 1000f) * dpPerSecondPx;
-            segRects.add(new RectF(x, tTop, x + segW, tTop + trackHeightPx));
+            segRects.add(new RectF(x, tTop, x + segW, tTop + spineTrackHeightPx()));
             x += segW;
         }
         contentWidthPx = x + edgePaddingPx;
@@ -2598,8 +2636,10 @@ public class EditorTimelineView extends View {
         layerRowRenderer.setViewportSqueezePx(0f);
         // F-MINIMAP: measure the LIVE strip height (base + the adaptive layer-line band),
         // not the base constant — otherwise the lines draw into the ruler's space.
+        // SPEC_N §3: reserve the COLLAPSED strip's height when the spine is collapsed, so the
+        // space it gives up is actually returned to the layer lanes instead of staying blank.
         float contentDp = minimapHeightPx / density
-                + RULER_HEIGHT_DP + TRACK_HEIGHT_DP + 2f * FILM_RAIL_DP;
+                + RULER_HEIGHT_DP + (spineTrackHeightPx() + 2f * filmRailPx()) / density;
         if (!audioLayerTracks.isEmpty()) {
             // Audio consolidation: audio renders as headered renderer rows in their own
             // band below master — reserve the renderer's band height instead of the
@@ -2735,6 +2775,9 @@ public class EditorTimelineView extends View {
         updatePlayheadContextColor();
 
         int w = getWidth();
+        // SPEC_N §3: one read per frame — every band-geometry accessor below already routes
+        // through isSpineCollapsed(), this local only gates the DRAWING of spine chrome.
+        final boolean spineCollapsed = isSpineCollapsed();
         float tTop = masterTopPx();
         float tBot = masterBotPx();
         // Reserve the transcript-row space below the segments (matches onMeasure) so the audio track /
@@ -2761,10 +2804,10 @@ public class EditorTimelineView extends View {
         // cue the user has no way to learn "now pull up" and the gesture reads as broken. Drawn
         // UNDER the segments so it reads as the clip lifting off the track rather than as an
         // overlay on top of it.
-        drawDislodgeArmedLift(canvas);
+        if (!spineCollapsed) drawDislodgeArmedLift(canvas);
 
         // Ghost trim: drawn first so neighbouring segments cover it
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+        if (!spineCollapsed && selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimGhosts(canvas, selectedIndex);
         }
 
@@ -2772,7 +2815,7 @@ public class EditorTimelineView extends View {
         // scroll/trim/reorder WITH their clip since geometry derives from segRects). Drawn
         // BEFORE the segment loop so a drawer-open clip's transcript (which slides down to
         // the drawer's inside bottom, painted by drawSegment) lands ON TOP of the shelf.
-        drawClipAudioDrawers(canvas);
+        if (!spineCollapsed) drawClipAudioDrawers(canvas);
 
         // Cull segments outside the visible viewport. onDraw runs on every frame
         // of a continuous trim/scroll drag; drawing (and lazily loading thumbnails
@@ -2781,25 +2824,36 @@ public class EditorTimelineView extends View {
         // window in content coordinates is [scrollOffsetPx, scrollOffsetPx + w].
         final float visLeft = scrollOffsetPx;
         final float visRight = scrollOffsetPx + w;
-        for (int i = 0; i < segRects.size(); i++) {
-            RectF segR = segRects.get(i);
-            if (segR.right < visLeft || segR.left > visRight) continue;
-            // Lazily extract thumbnails for segments as they scroll into view.
-            loadThumbnailsForSegment(i);
-            drawSegment(canvas, i);
-        }
+        if (spineCollapsed) {
+            // SPEC_N §3: collapsed = a thin strip that still shows WHERE the cuts are, and
+            // nothing else. No thumbnails are loaded while collapsed, so folding the spine
+            // away on a long project also stops its frame-extraction work.
+            drawCollapsedSpine(canvas, visLeft, visRight);
+        } else {
+            for (int i = 0; i < segRects.size(); i++) {
+                RectF segR = segRects.get(i);
+                if (segR.right < visLeft || segR.left > visRight) continue;
+                // Lazily extract thumbnails for segments as they scroll into view.
+                loadThumbnailsForSegment(i);
+                drawSegment(canvas, i);
+            }
 
-        // Master "filmstrip" frame (JoyRaptor 2026-07-06): drawn in content space (travels with the scroll)
-        // and BEFORE the trim handles so the green handles paint on top of the film, not behind it.
-        drawMasterFilmstrip(canvas, tTop, tBot, w);
+            // Master "filmstrip" frame (JoyRaptor 2026-07-06): drawn in content space (travels with the scroll)
+            // and BEFORE the trim handles so the green handles paint on top of the film, not behind it.
+            drawMasterFilmstrip(canvas, tTop, tBot, w);
+        }
 
         // FADE_KNOBS §2.5: the dark fade veil goes UNDER the green trim bars (JoyRaptor: "the dark
         // shadowy triangle needs to be under the green trim handle") — same layer as the film.
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+        // SPEC_N §5: veils + knobs now require a DELIBERATE TAP on the segment (see
+        // spineTapSelectedIndex); a playhead-driven selection no longer shows them.
+        if (spineFadeControlsVisible()) {
             drawMasterFadeVeils(canvas, segRects.get(selectedIndex));
         }
 
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+        // SPEC_N §3: trim handles, fade knobs and transitions are hidden while collapsed —
+        // a control you cannot usefully hit is worse than no control.
+        if (!spineCollapsed && selectedIndex >= 0 && selectedIndex < segRects.size()) {
             drawTrimHandles(canvas, segRects.get(selectedIndex));
             drawSlideFreezeHandles(canvas, segRects.get(selectedIndex));
         }
@@ -2812,14 +2866,7 @@ public class EditorTimelineView extends View {
         // long-press duration for the same hold gesture.
 
         // Transitions (fade/wipe/push bands between clips)
-        drawTransitions(canvas);
-
-        // FADE_KNOBS §2.5: spine knobs draw AFTER the transition bands so a knob near a seam
-        // is never painted under one (JoyRaptor: they "visually go behind some things" — keep the
-        // grip in the forefront, matching the hit-test which already arms knobs first).
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
-            drawMasterFadeKnobs(canvas, segRects.get(selectedIndex));
-        }
+        if (!spineCollapsed) drawTransitions(canvas);
 
         // M6 hook: multi-row Track UI (pinned master above; extra layer/audio rows
         // below, with their own capped-height vertical scroll). No-op for a plain
@@ -2853,6 +2900,22 @@ public class EditorTimelineView extends View {
         // wrapping them (it does: the window is where the whole entrance+exit tape runs).
         drawMotionRangeHandles(canvas);
 
+        // SPEC_N §4 — FADE KNOBS ON TOP OF EVERY LAYER ROW. JoyRaptor: "I add an adjustment layer,
+        // and I notice that the adjustment layer is covering up the fade slider on the main
+        // spine ... They should be on top of all the layers." The knobs used to draw just after
+        // drawTransitions() and therefore BEFORE layerRowRenderer.layout(), so any lane
+        // overlapping the 22dp the knobs float into painted straight over them.
+        //
+        // Both pre-existing ordering constraints still hold, and both are still JoyRaptor's:
+        //   • the VEIL stays UNDER the green trim bars — it is untouched, still drawn back at
+        //     the filmstrip, and it is clipped to the segment rect so no lane can cover it;
+        //   • the KNOBS stay ABOVE the transition bands — drawTransitions() runs earlier still.
+        // This is the same content-space translate the knobs were drawn in before, so their
+        // geometry is unchanged; only the paint order moved.
+        if (spineFadeControlsVisible()) {
+            drawMasterFadeKnobs(canvas, segRects.get(selectedIndex));
+        }
+
         // G8: marquee multi-selection highlights + the live selection box — content-x
         // space, so they ride the same translate as the rows themselves.
         if (!marqueeSelectedIds.isEmpty()) {
@@ -2874,6 +2937,11 @@ public class EditorTimelineView extends View {
         //      can be verified end-to-end by its data and still not exist on screen.
         drawSpineDropIndicator(canvas);
         drawCarry(canvas);
+
+        // SPEC_N §3: the spine's collapse caret. SCREEN space and pinned to the left gutter at
+        // exactly the x every lane row's caret uses, so the spine's control reads as one more
+        // row header rather than a new invention.
+        drawSpineCollapseCaret(canvas, tTop, masterBotPx());
 
         // Draw fixed center playhead (NOT affected by scroll)
         float playheadBot = !audioClips.isEmpty() ? audioBot : tBot;
@@ -3255,10 +3323,37 @@ public class EditorTimelineView extends View {
         return band > 0f ? rulerHeightPx + band + LAYER_TOP_GAP_DP * density : rulerHeightPx;
     }
 
+    /**
+     * SPEC_N §3 — is the SPINE collapsed?
+     *
+     * <p>State lives in the project's existing per-track flags side-table under the master
+     * track's own id ("master"), which {@code ProjectStorage} already serializes and already
+     * OMITS when every flag is default. So this is sparse exactly as the spec requires:
+     * absent = expanded, and a project that never collapses its spine re-saves byte-identically.
+     * Nothing new was added to the storage schema.</p>
+     */
+    private boolean isSpineCollapsed() {
+        if (liveTimeline == null) return false;
+        com.fadcam.ui.faditor.layers.TrackFlags f = liveTimeline.getTrackFlags("master");
+        return f != null && f.collapsed;
+    }
+
+    /**
+     * SPEC_N §3 — height (px) of the master film content. Collapsing shrinks THIS one number
+     * (and the rails below), which every rect, hit-test and measure already derives from, so
+     * the collapse cannot leave a stale band behind. Playback, export and the spine's own
+     * selection read none of this — collapsing is purely how tall the lane draws.
+     */
+    private float spineTrackHeightPx() {
+        return isSpineCollapsed() ? SPINE_COLLAPSED_HEIGHT_DP * density : trackHeightPx;
+    }
+
     /** Sprocket-rail thickness (px) reserved OUTSIDE the film content at the top &amp; bottom of the
      *  master band, so the perforations frame the thumbnails instead of covering them (JoyRaptor 2026-07-07). */
     private float filmRailPx() {
-        return FILM_RAIL_DP * density;
+        // SPEC_N §3: a collapsed spine is a thin strip — no sprocket rails to frame a
+        // filmstrip that is not drawn.
+        return isSpineCollapsed() ? 0f : FILM_RAIL_DP * density;
     }
 
     /** Top Y (px) of the master FILM CONTENT (thumbnails) — below the top sprocket rail. */
@@ -3268,7 +3363,7 @@ public class EditorTimelineView extends View {
 
     /** Bottom Y (px) of the MASTER video track band, including the sprocket rail above &amp; below the film. */
     private float masterBotPx() {
-        return masterTopPx() + filmRailPx() + trackHeightPx + filmRailPx();
+        return masterTopPx() + filmRailPx() + spineTrackHeightPx() + filmRailPx();
     }
 
     /** Reserved vertical space (px) for the master transcript row below the tape.
@@ -3664,6 +3759,14 @@ public class EditorTimelineView extends View {
         // Ruler band sits below the minimap strip; everything keyed off
         // rulerHeightPx shifts down together.
         rulerHeightPx = RULER_HEIGHT_DP * density + minimapHeightPx;
+        // SPEC_N §1 belt-and-braces: the band between minimapHeightPx and rulerHeightPx is the
+        // "0s 2s 4s" strip, and the spec is explicit that if it can EVER compute to zero that
+        // is the bug. It cannot from the arithmetic above, but density is read from a
+        // DisplayMetrics that has been observed to arrive as 0 on a detached view, which would
+        // collapse the whole band. Floor it so the strip can never have zero height.
+        if (rulerHeightPx - minimapHeightPx < 1f) {
+            rulerHeightPx = minimapHeightPx + RULER_HEIGHT_DP * Math.max(1f, density);
+        }
     }
 
     /** Number of layer lines the strip will draw (floating band then audio band, capped). */
@@ -6020,6 +6123,79 @@ if (sd.clip.hasVolumeKeyframes()) {
     }
 
     /**
+     * SPEC_N §5 — may the spine's fade veils + knobs paint at all?
+     *
+     * <p>Three things must be true: something is selected, the selection came from a
+     * DELIBERATE TAP on that segment (not from the playhead landing on it), and the spine is
+     * not collapsed (§3: a control you cannot usefully hit is worse than no control).</p>
+     */
+    private boolean spineFadeControlsVisible() {
+        return selectedIndex >= 0 && selectedIndex < segRects.size()
+                && spineTapSelectedIndex == selectedIndex
+                && !isSpineCollapsed();
+    }
+
+    /**
+     * SPEC_N §3 — the COLLAPSED spine: one thin bar per clip so the cuts are still readable,
+     * drawn in the same content space the full tape uses (so it scrolls and lines up with
+     * timeToX identically). The selected clip keeps its green tint, which is why collapsing
+     * cannot change the spine's selection — it only changes how the selection LOOKS.
+     */
+    private void drawCollapsedSpine(Canvas canvas, float visLeft, float visRight) {
+        float corner = 2f * density;
+        for (int i = 0; i < segRects.size(); i++) {
+            RectF r = segRects.get(i);
+            if (r.right < visLeft || r.left > visRight) continue;
+            segmentPaint.setColor(i == selectedIndex ? COLOR_SEGMENT_SEL : COLOR_SEGMENT);
+            // 1px display-only inset, the same trick drawSegment uses, so abutting clips
+            // still read as separate blocks without perturbing the time mapping.
+            canvas.drawRoundRect(r.left + density, r.top, Math.max(r.left + density, r.right - density),
+                    r.bottom, corner, corner, segmentPaint);
+            if (i == selectedIndex) {
+                borderPaint.setColor(COLOR_BORDER_SEL);
+                canvas.drawRoundRect(r.left + density, r.top,
+                        Math.max(r.left + density, r.right - density), r.bottom,
+                        corner, corner, borderPaint);
+            }
+        }
+    }
+
+    /**
+     * SPEC_N §3 — the spine's collapse caret, in SCREEN space at the same gutter x as every
+     * lane row's caret. A dark disc sits behind it because, unlike a lane header, the spine's
+     * left edge can have thumbnails scrolled under it.
+     */
+    private void drawSpineCollapseCaret(Canvas canvas, float tTop, float tBot) {
+        if (segments.isEmpty()) { spineCaretRect.setEmpty(); return; }
+        float size = layerRowRenderer.caretSizePx();
+        float cx = layerRowRenderer.caretCenterXPx();
+        float cy = (tTop + tBot) / 2f;
+        spineCaretRect.set(cx - size / 2f, cy - size / 2f, cx + size / 2f, cy + size / 2f);
+        segmentPaint.setColor(0xCC101014);
+        canvas.drawCircle(cx, cy, size * 0.85f, segmentPaint);
+        layerRowRenderer.drawCollapseCaret(canvas, spineCaretRect, isSpineCollapsed());
+    }
+
+    /**
+     * SPEC_N §3 — toggle the spine's collapse. Routed through the SAME
+     * {@code onTrackHeaderAction(track, CARET)} path a lane row's caret uses, with the master
+     * track: that one method already flips the flag in {@code Timeline}'s persistent
+     * side-table, records it as ONE undo step, prunes defaults so an expanded spine writes
+     * nothing, and schedules the autosave. Following the existing pattern rather than
+     * inventing a second collapse mechanism is the spec's explicit instruction — and it is
+     * why this feature needed no storage-schema change at all.
+     */
+    private void toggleSpineCollapsed() {
+        if (liveTimeline == null || trackHeaderActionListener == null) return;
+        // §5: a collapse hides the knobs, so the deliberate-tap arming must not survive it.
+        spineTapSelectedIndex = -1;
+        trackHeaderActionListener.onTrackHeaderAction(liveTimeline.getMasterTrack(),
+                com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.CARET);
+        requestLayout();
+        invalidate();
+    }
+
+    /**
      * FADE_KNOBS §2.5 — the spine's dark fade veil, drawn UNDER the trim bars. Same grammar
      * as the lane-row veil: near-black wedge + a razor-thin high-contrast line on the sloped
      * edge (JoyRaptor: "razor thin green line", same as the other elements' diagonals). On the
@@ -7267,6 +7443,29 @@ if (sd.clip.hasVolumeKeyframes()) {
         dislodgeArmedSegIndex = -1;
         if (dislodgeThresholdPx <= 0f) {
             dislodgeThresholdPx = 24f * getResources().getDisplayMetrics().density;
+        }
+
+        // SPEC_N §3: the spine's collapse caret is SCREEN space (pinned gutter), so it is
+        // tested on the raw x/y and before anything that consumes a master-band touch.
+        // The DRAWN glyph is 12dp; the TOUCH box is padded to a real finger target, exactly
+        // as LayerRowRenderer does for the row carets.
+        if (!spineCaretRect.isEmpty()
+                && x >= spineCaretRect.left - 8f * density && x <= spineCaretRect.right + 8f * density
+                && y >= spineCaretRect.top - 8f * density && y <= spineCaretRect.bottom + 8f * density) {
+            toggleSpineCollapsed();
+            return true;
+        }
+
+        // SPEC_N §5: "the user taps away". Any DOWN that is not on the master band disarms the
+        // fade knobs — a lane, the audio band, the ruler, the minimap, a scrub. A DOWN INSIDE
+        // the band deliberately does not, otherwise grabbing a knob would make it vanish under
+        // the finger. The band is extended upward by the knob's reach so the knobs themselves
+        // count as "on the spine".
+        {
+            float knobReach = (SPINE_KNOB_TOP_OFFSET_DP + SPINE_KNOB_R_DP) * density;
+            if (y < masterTopPx() - knobReach || y > masterBotPx()) {
+                spineTapSelectedIndex = -1;
+            }
         }
 
         // Adjust x for scroll offset
@@ -8519,6 +8718,7 @@ if (sd.clip.hasVolumeKeyframes()) {
                                 selectedIndex = doubleTapSegIndex;
                                 if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
                             }
+                            spineTapSelectedIndex = doubleTapSegIndex; // SPEC_N §5: a real tap
                             if (listener != null) listener.onSlideDoubleTapped(doubleTapSegIndex);
                             invalidate();
                             getParent().requestDisallowInterceptTouchEvent(false);
@@ -8534,14 +8734,19 @@ if (sd.clip.hasVolumeKeyframes()) {
                             selectedIndex = doubleTapSegIndex;
                             if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
                         }
+                        spineTapSelectedIndex = doubleTapSegIndex; // SPEC_N §5: a real tap
                         invalidate();
                     } else if (downSegIndex == selectedIndex) {
                         // Toggle selection: deselect if same segment, select if different
                         selectedIndex = -1;
+                        spineTapSelectedIndex = -1; // SPEC_N §5: deselected — nothing to arm
                         invalidate();
                         if (listener != null) listener.onSegmentSelected(-1);
                     } else {
                         selectedIndex = downSegIndex;
+                        // SPEC_N §5: THE tap that arms the fade knobs — a finger landed on this
+                        // spine segment and lifted on it.
+                        spineTapSelectedIndex = downSegIndex;
                         invalidate();
                         if (listener != null) listener.onSegmentSelected(downSegIndex);
                     }

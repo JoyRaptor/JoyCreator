@@ -106,6 +106,18 @@ public final class LayerRowRenderer {
     private static final int COLOR_HEADER_BG      = 0x99141420; // semi-transparent dark
     private static final int COLOR_HEADER_BG_LOCK = 0x99201414;
     private static final int COLOR_ROW_BODY_BG    = 0x661A1A24;
+    // SPEC_N §6 — ALTERNATING LANE BANDING (JoyRaptor 2026-09-08, "yes, but keep it subtle").
+    // A second, marginally lighter pair of backgrounds applied to every ODD row. The delta is
+    // deliberately ~3% of final lightness once the alpha is composited over the timeline's
+    // near-black ground: enough for the eye to follow one lane across a wide scrolling surface,
+    // not enough to fight the strongly-coloured lane content (teal IMG, purple text, green audio)
+    // or the selection stroke. Band parity is computed from the VISIBLE row order at DRAW time
+    // (see the counter in layout()), never cached against a track id or list index, so adding,
+    // removing, reordering, collapsing or expanding a row always re-bands the rows below it and
+    // the alternation can never show two same-coloured lanes side by side.
+    private static final int COLOR_ROW_BODY_BG_ALT = 0x662E2E3A;
+    private static final int COLOR_HEADER_BG_ALT   = 0x99202030;
+    private static final int COLOR_HEADER_BG_LOCK_ALT = 0x99302020;
     private static final int COLOR_ROW_NAME       = 0xFFEDEDED;
     private static final int COLOR_ICON_ON        = 0xFFFFFFFF;
     private static final int COLOR_ICON_OFF       = 0x66FFFFFF;
@@ -602,8 +614,17 @@ public final class LayerRowRenderer {
         // The opening gap is real height: leaving it out clips the bottom row while the lane
         // animates in, so the rows appear to slide UNDER the master track instead of apart.
         if (pendingLaneGapPx > 0.5f) total += pendingLaneGapPx + rowGap;
-        float capped = Math.min(total, effectiveViewportCapPx());
-        return TOP_GAP_DP * density + capped;
+        // SPEC_N §2 — DEAD GREY SPACE ABOVE THE SPINE. This used to be
+        //     TOP_GAP_DP * density + Math.min(total, cap)
+        // while layout() draws a viewport of
+        //     Math.min(TOP_GAP_DP * density + total, cap).
+        // The two agree while the rows fit under the cap, but the moment the band is
+        // scroll-capped (a project with more lanes than the band cap — JoyRaptor's Note 20)
+        // the MEASURE reserved a whole TOP_GAP_DP (28dp, almost a full 34dp lane) more
+        // than the band ever draws. That surplus lands between the last visible row and
+        // masterTopPx, i.e. as empty grey immediately above the spine. Mirroring layout()
+        // exactly is the fix; when the rows fit, this is arithmetically identical to before.
+        return Math.min(TOP_GAP_DP * density + total, effectiveViewportCapPx());
     }
 
     // ── Audio-band clipping fix (2026-07-08) ──────────────────────────────────────
@@ -770,11 +791,24 @@ public final class LayerRowRenderer {
         viewportHeightPx = Math.min(contentHeightPx, effectiveViewportCapPx());
         scrollOffsetPx = clampScroll(scrollOffsetPx);
         canvas.save();
-        float knobOverhang = (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f) * density;
-        canvas.clipRect(hScrollOffsetPx, topPx - knobOverhang, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
+        // SPEC_N §1 — THE VANISHING RULER. This clip used to start at
+        //     topPx - (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f) * density   (= 30dp)
+        // so the FIRST row's outboard fade knob could float above the band. topPx is the
+        // timeline's rulerHeightPx, and the ruler band itself is only RULER_HEIGHT_DP (22dp)
+        // tall — so a 30dp upward overhang licensed the layer rows to paint over the ENTIRE
+        // ruler and into the minimap. Harmless at scrollOffsetPx == 0 (nothing is up there),
+        // which is why it looked intermittent: the moment the band was scrolled, real row
+        // bodies translated up into the overhang and the "0s 2s 4s" strip was simply gone,
+        // with lanes showing through where it had been. That is JoyRaptor's report verbatim.
+        //
+        // The overhang was never needed: TOP_GAP_DP (28dp) already reserves more than the
+        // knob's reach above the clip (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP = 26dp), so
+        // clipping exactly at topPx costs the unscrolled first row nothing, and a SCROLLED
+        // row is supposed to clip. The ruler can no longer be painted over by anything.
+        canvas.clipRect(hScrollOffsetPx, topPx, hScrollOffsetPx + widthPx, topPx + viewportHeightPx);
         canvas.translate(0f, topPx - scrollOffsetPx);
         for (int i = 0; i < floatingRowCount; i++) {
-            drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
+            drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId, (i & 1) == 1);
         }
         // SPEC_20260829_WORD_SYNC §3.3 — onset ticks on the tape while mode is on.
         drawOnsetTicks(canvas, totalMs, timeToX, topPx, topPx + viewportHeightPx);
@@ -804,7 +838,9 @@ public final class LayerRowRenderer {
                     hScrollOffsetPx + widthPx, audioTopPx + audioBandHeightPx);
             canvas.translate(0f, audioTopPx);
             for (int i = floatingRowCount; i < rows.size(); i++) {
-                drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId);
+                // SPEC_N §6: parity continues from the floating band's counter, so the two
+                // bands read as one alternating stack rather than restarting at the spine.
+                drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId, (i & 1) == 1);
             }
             drawOnsetTicks(canvas, totalMs, timeToX, audioTopPx, audioTopPx + audioBandHeightPx);
             if (dragActive && crossBandInsertionArmed && !crossBandDraggedIsFloating) {
@@ -1008,12 +1044,25 @@ public final class LayerRowRenderer {
 
     private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,
                           long totalMs, @NonNull TimeToX timeToX, @Nullable String selectedItemId) {
+        drawRow(canvas, row, totalMs, timeToX, selectedItemId, false);
+    }
+
+    /**
+     * @param bandOdd SPEC_N §6: true for every other VISIBLE row, painting the subtly lighter
+     *                banding pair. Passed in (rather than derived from the track) precisely so
+     *                the stripe is a function of on-screen position and nothing else.
+     */
+    private void drawRow(@NonNull Canvas canvas, @NonNull RowLayout row,
+                          long totalMs, @NonNull TimeToX timeToX, @Nullable String selectedItemId,
+                          boolean bandOdd) {
         Track t = row.track;
         boolean collapsed = t.isCollapsed();
 
-        headerBgPaint.setColor(t.isLocked() ? COLOR_HEADER_BG_LOCK : COLOR_HEADER_BG);
+        headerBgPaint.setColor(t.isLocked()
+                ? (bandOdd ? COLOR_HEADER_BG_LOCK_ALT : COLOR_HEADER_BG_LOCK)
+                : (bandOdd ? COLOR_HEADER_BG_ALT : COLOR_HEADER_BG));
         canvas.drawRect(row.headerRect, headerBgPaint);
-        rowBodyBgPaint.setColor(COLOR_ROW_BODY_BG);
+        rowBodyBgPaint.setColor(bandOdd ? COLOR_ROW_BODY_BG_ALT : COLOR_ROW_BODY_BG);
         canvas.drawRect(row.bodyRect, rowBodyBgPaint);
 
         // B4: the 3dp level gutter bar. It sits on the header's RIGHT edge, flush against
@@ -1287,6 +1336,17 @@ public final class LayerRowRenderer {
     @Nullable private String trimmingItemId;
     /** uptimeMillis when the current trim armed, for the stripe fade-in. */
     private long trimStripeFadeStartMs;
+
+    // ── SPEC_N §3: the SPINE borrows this renderer's caret, so the two collapse controls
+    //    are literally the same glyph at the same gutter x, not a look-alike. ─────────────
+    /** Centre x (px, screen space) of a row's collapse caret within the pinned left gutter. */
+    public float caretCenterXPx() { return ICON_SIZE_DP * 0.7f * density; }
+    /** Drawn size (px) of a collapse caret. */
+    public float caretSizePx() { return ICON_SIZE_DP * density; }
+    /** Draw the shared collapse caret (right-pointing when collapsed, down when expanded). */
+    public void drawCollapseCaret(@NonNull Canvas canvas, @NonNull RectF r, boolean collapsed) {
+        drawCaret(canvas, r, collapsed);
+    }
 
     /** Set/clear which item (by id) is being trimmed, so it draws the stripe feedback. */
     public void setTrimmingItemId(@Nullable String itemId) {

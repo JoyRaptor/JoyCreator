@@ -111,6 +111,19 @@ eye track a row across a wide, scrolling surface — which is exactly this timel
    the user scrolls; identity-based banding makes stripes jump around when rows are reordered or
    collapsed, which reads as flicker.
 
+**JoyRaptor's clarification, 2026-09-08 — this is the acceptance test, not a nicety:**
+
+> "It's just a visual way to track alternating tracks and should gracefully handle whenever a new
+> track is added or collapsed. So it always looks like it's alternating, not having two bands
+> together."
+
+So the band index must be computed from the **VISIBLE row order at draw time**, and recomputed
+after any add, remove, reorder, collapse or expand. Never cache it against a track id, an
+underlying list index, or a position captured before a collapse — all three leave two same-coloured
+rows adjacent the moment a row disappears from the middle. A collapsed row still occupies a visible
+row, so it still consumes a band; a HIDDEN row does not. Test it: collapse a row in the middle of a
+stack and confirm the rows below it re-band so the alternation is unbroken.
+
 It must also not compete with the selection highlight — check a selected row on both band colours
 before calling it done.
 

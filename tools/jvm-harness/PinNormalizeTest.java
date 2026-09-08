@@ -202,26 +202,52 @@ public class PinNormalizeTest {
     }
 
     static void nudgeStaysSmall() {
-        // JoyRaptor's 5%: one corner nudged 5% of the height. Stores ~0.05, not 1.05 —
-        // and must NOT churn the box (the scale chain stays linked, no size write).
+        // JoyRaptor's 5%: one corner nudged 5% of the height. Stores a SMALL number, not 1.05.
+        //
+        // SPEC L changed what "small" means here. The bake used to walk away from any
+        // non-parallelogram, so the whole 0.05 stayed in the pin. It now fits the affine
+        // part unconditionally — that is the fix, because for JoyRaptor's real picture the part
+        // being walked away from was three and a half picture-widths of TRANSLATION. A one
+        // corner nudge does carry a sliver of affine (a ~1 degree turn, a ~2.5% shrink), so
+        // the box and the angle move a hair and the pin keeps only the keystone. The picture
+        // is bit-identical either way; only the bookkeeping changed.
         float w = 400f, h = 300f;
         float[] off = new float[8];
         off[0] = 0.05f; off[1] = 0.05f;
         PinNormalize f = TransformQuad.normalizePin(w, h, off, false, false);
-        check(f.valid, "nudge: valid");
-        checkNear(0.05f, maxAbs(f.residual), 0.015f, "5% nudge stores ~0.05 in the pin");
-        check(f.newW == w && f.newH == h, "5% nudge does not touch the box (chain stays linked)");
-        check(f.rotDeltaDeg == 0f, "5% nudge adds no rotation");
+        check(f.valid && f.baked, "nudge: valid, and now always baked");
+        check(maxAbs(f.residual) < 0.05f, "5% nudge stores LESS than 0.05 in the pin (got "
+                + maxAbs(f.residual) + ")");
+        check(maxAbs(f.residual) > 0.005f, "5% nudge keeps its keystone (the taper is not flattened)");
+        // The drawer's aspect chain must not unlink over fit noise: the two fitted scale
+        // factors have to come back exactly equal (PIN_BAKE_ISO_REL).
+        checkNear(f.newW / w, f.newH / h, 1e-6f, "5% nudge fits a UNIFORM scale (chain stays linked)");
+        check(Math.abs(f.newW / w - 1f) < 0.05f && Math.abs(f.newH / h - 1f) < 0.05f,
+                "5% nudge moves the box by under 5%");
+        check(Math.abs(f.rotDeltaDeg) < 2f, "5% nudge turns the box by under 2 degrees");
         check(recomposeErr(w, h, off, false, false, f) < 0.05f, "nudge round-trips within a pixel");
     }
 
     static void realTrapezoidSurvives() {
         // A genuine perspective taper stays in the pin — the bake must not flatten it.
+        //
+        // SPEC L: it stays, but only the taper does. This trapezoid is 45% narrower at the
+        // top than the bottom AND 45% narrower overall than its box; the width belongs in
+        // the size field, and after the fit the pin carries the keystone alone (~0.14 rather
+        // than ~0.3). The shape on screen is identical — checked below — which is the whole
+        // point: this is a change of representation, never of appearance.
         float w = 400f, h = 300f;
         float[] off = {0.3f, 0f, -0.3f, 0f, -0.15f, 0f, 0.15f, 0f};
         PinNormalize f = TransformQuad.normalizePin(w, h, off, false, false);
-        check(f.valid, "trapezoid: valid");
-        checkNear(0.3f, maxAbs(f.residual), 0.03f, "genuine taper still lives in the pin (~0.3)");
+        check(f.valid && f.baked, "trapezoid: valid, and now bakes (it never used to)");
+        check(maxAbs(f.residual) > 0.05f, "genuine taper still lives in the pin (got "
+                + maxAbs(f.residual) + ")");
+        check(maxAbs(f.residual) < maxAbs(off), "but the affine part of it does not");
+        // Still a trapezoid, not a rectangle: the two horizontal edges must still differ.
+        float topSpan = (0.5f + f.residual[2]) - (-0.5f + f.residual[0]);
+        float botSpan = (0.5f + f.residual[4]) - (-0.5f + f.residual[6]);
+        check(Math.abs(topSpan - botSpan) > 0.1f,
+                "the residual is STILL a keystone (top span " + topSpan + " vs bottom " + botSpan + ")");
         check(recomposeErr(w, h, off, false, false, f) < 1e-2f, "trapezoid round-trips");
     }
 

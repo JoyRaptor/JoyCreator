@@ -49,6 +49,11 @@ APP_BASE_NAME=`basename "$0"`
 # Java's Selector.open() needs one, so the wrapper CLIENT died with "Unable to establish
 # loopback connection" before it could even talk to the daemon. gradle.properties covers
 # the daemon; only this line covers the client. Re-apply after a wrapper upgrade.
+# FADCAM LOCAL PATCH (2026-09-08): belt-and-braces for the AF_UNIX bug documented below.
+# DEFAULT_JVM_OPTS alone proved unreliable for the wrapper CLIENT -- it reached the daemon but
+# the client still died with "could not be connected to". JAVA_TOOL_OPTIONS is picked up by
+# EVERY JVM the build starts (client, daemon, workers), so it cannot be missed.
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:-} -Djdk.net.unixdomain.tmpdir=C:/Temp"
 DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m" "-Djdk.net.unixdomain.tmpdir=C:/Temp"'
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Reframe affordance — 3 candidates (SPEC M §3)</title>
+<style>
+  :root { --bg:#0a0a0d; --card:#131318; --card2:#191920; --line:#282833; --txt:#ececf2;
+          --dim:#8a8a99; --accent:#7cc97c; --pill:#4c3f7a; --quad:#a78bfa; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { margin:0; background:var(--bg); color:var(--txt);
+    font:14px/1.45 "Segoe UI",system-ui,sans-serif; }
+  header { padding:18px 20px 6px; }
+  h1 { font-size:18px; margin:0 0 6px; }
+  .hint { color:var(--dim); font-size:12.5px; margin:0 0 4px; }
+  .hint b { color:#c9c9d6; font-weight:600; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+          gap:14px; padding:14px 20px 40px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .card h2 { font-size:15px; margin:0 0 2px; }
+  .card h2 span { color:var(--dim); font-weight:400; font-size:12px; }
+  .card .sub { color:var(--dim); font-size:11.5px; margin:0 0 10px; }
+  .stage { position:relative; width:100%; aspect-ratio:1/1.28; background:#08080b;
+           border:1px solid var(--line); border-radius:12px; overflow:hidden;
+           touch-action:none; cursor:grab; }
+  .stage:active { cursor:grabbing; }
+  .stage svg { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .cost { color:var(--dim); font-size:11.5px; margin:10px 0 0; }
+  .cost b { color:#c9c9d6; }
+  .verdict { display:flex; gap:8px; margin-top:10px; }
+  .verdict button { flex:1; font-size:12.5px; padding:7px 0; border-radius:9px;
+    border:1px solid var(--line); background:var(--card2); color:var(--txt); cursor:pointer; }
+  .verdict button.on { background:#14304d; border-color:#5aa9ff; color:#dcedff; font-weight:600; }
+  .bar { padding:0 20px 30px; color:var(--dim); font-size:12.5px; }
+  .bar .pickline { background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; }
+  .bar b { color:var(--accent); }
+  .reset { font-size:12px; color:var(--dim); background:var(--card2); border:1px solid var(--line);
+    border-radius:999px; padding:5px 12px; cursor:pointer; margin-left:10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Reframe affordance — 3 candidates</h1>
+  <p class="hint"><b>Drag the picture</b> in any panel and shove it off the canvas. All three
+  panels move together, so you are comparing the same loss three ways. Then <b>tap the
+  affordance</b> to bring it home.</p>
+  <p class="hint">This is a <b>safety net, not a daily tool</b> — with SPEC L landing, an object
+  should rarely leave the canvas at all. Judge it on "did I understand what happened and get out
+  of it", not on how pretty it is when nothing is wrong.
+  <button class="reset" id="reset">put it back</button></p>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div class="bar">
+  <div class="pickline" id="pickline">Nothing picked yet — tap <b>this one</b> under whichever
+  panel feels right. Your pick is recorded here for the spec.</div>
+</div>
+
+<script>
+/* ── the shared model ─────────────────────────────────────────────────────
+   ONE object pose, three drawings of it. The canvas is the tall white rect;
+   the surround is the pasteboard. Everything is in stage-fraction units so
+   the three panels stay identical whatever size they render at. */
+var S = { cx:0.5, cy:0.42, w:0.34, h:0.30, rot:-18 };
+var HOME = JSON.parse(JSON.stringify(S));
+var CANVAS = { x:0.235, y:0.02, w:0.53, h:0.96 };   /* the video canvas, stage fractions */
+
+var OPTS = [
+  { id:'A', name:'Directional bubble',
+    sub:'JoyRaptor’s own suggestion — a speech bubble with a tail that points at the object.',
+    cost:'<b>Says where as well as what.</b> Costs the most ink of the three, and the tail has to be '+
+         'redrawn every time the object moves. Reads as a notification, which is honest: something '+
+         'went wrong and here is the way back.' },
+  { id:'B', name:'Edge chevron',
+    sub:'No pill at all. An arrow on the edge nearest the object; it fattens as the object gets further away.',
+    cost:'<b>Least chrome by a mile.</b> Nothing to read, so nothing to misread — but also nothing '+
+         'that says what tapping it will do. Good if you already know the gesture, quiet enough to '+
+         'live on screen permanently.' },
+  { id:'C', name:'Ghost outline',
+    sub:'The object’s own shape, clamped to the edge at low opacity. Tap the ghost to bring it home.',
+    cost:'<b>No new widget at all.</b> The thing you lost is the thing you tap, at the size and angle '+
+         'you left it — so it doubles as "this is what is off screen". Can be mistaken for the real '+
+         'object if the opacity is set too high.' }
+];
+
+var PICK = null;
+
+/* ── geometry ─────────────────────────────────────────────────────────── */
+function corners(){
+  var r = S.rot*Math.PI/180, c=Math.cos(r), s=Math.sin(r), hw=S.w/2, hh=S.h/2, out=[];
+  var pts=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]];
+  for(var i=0;i<4;i++){
+    out.push({ x:S.cx + pts[i][0]*c - pts[i][1]*s, y:S.cy + pts[i][0]*s + pts[i][1]*c });
+  }
+  return out;
+}
+/* how far the centroid is outside the stage, 0..1-ish */
+function offAmount(){
+  var dx = Math.max(0, Math.max(-S.cx, S.cx-1));
+  var dy = Math.max(0, Math.max(-S.cy, S.cy-1));
+  return Math.hypot(dx,dy);
+}
+function isLost(){ return S.cx<0 || S.cy<0 || S.cx>1 || S.cy>1; }
+/* the parked point: the centroid clamped inside a margin, exactly like doReframe() */
+function parked(){
+  var m = 0.17;
+  return { x: Math.min(1-m, Math.max(m, S.cx)), y: Math.min(1-m, Math.max(m, S.cy)) };
+}
+
+/* ── drawing ──────────────────────────────────────────────────────────── */
+function esc(n){ return n.toFixed(3); }
+function poly(pts){ return pts.map(function(p){return esc(p.x*100)+','+esc(p.y*100);}).join(' '); }
+
+function svgFor(opt){
+  var parts = [];
+  var C = CANVAS;
+  /* pasteboard + canvas */
+  parts.push('<rect x="0" y="0" width="100" height="100" fill="#0d0d11"/>');
+  parts.push('<rect x="'+esc(C.x*100)+'" y="'+esc(C.y*100)+'" width="'+esc(C.w*100)+
+             '" height="'+esc(C.h*100)+'" fill="#f4f4f6"/>');
+  var q = corners();
+  /* the object: full opacity inside the canvas, 25% where it hangs off it — SPEC M §4 */
+  parts.push('<defs><clipPath id="cv'+opt.id+'"><rect x="'+esc(C.x*100)+'" y="'+esc(C.y*100)+
+             '" width="'+esc(C.w*100)+'" height="'+esc(C.h*100)+'"/></clipPath></defs>');
+  parts.push('<polygon points="'+poly(q)+'" fill="#7d5fd0" opacity=".25"/>');
+  parts.push('<polygon points="'+poly(q)+'" fill="#7d5fd0" clip-path="url(#cv'+opt.id+')"/>');
+  parts.push('<polygon points="'+poly(q)+'" fill="none" stroke="'+
+             (isLost()?'#6b5aa0':'#a78bfa')+'" stroke-width=".5"/>');
+
+  if(isLost()){
+    var p = parked(), px=p.x*100, py=p.y*100;
+    if(opt.id==='A') parts.push(bubbleA(px,py));
+    if(opt.id==='B') parts.push(chevronB());
+    if(opt.id==='C') parts.push(ghostC());
+  }
+  return '<svg viewBox="0 0 100 100" preserveAspectRatio="none">'+parts.join('')+'</svg>';
+}
+
+/* A — directional bubble: pill + a tail aimed along the line to the object */
+function bubbleA(px,py){
+  var ang = Math.atan2(S.cy-py/100, S.cx-px/100);
+  var w=27, h=9, rx=4.5;
+  var tl = 5.5;                                        /* tail length */
+  var tx = px + Math.cos(ang)*(w/2+tl), ty = py + Math.sin(ang)*(h/2+tl);
+  var nx = -Math.sin(ang)*3.0, ny = Math.cos(ang)*3.0; /* tail base half-width */
+  var bx = px + Math.cos(ang)*(w/2-1.5), by = py + Math.sin(ang)*(h/2-1.5);
+  return '<g>'+
+    '<polygon points="'+esc(bx+nx)+','+esc(by+ny)+' '+esc(bx-nx)+','+esc(by-ny)+' '+
+      esc(tx)+','+esc(ty)+'" fill="#131318" stroke="#4c3f7a" stroke-width=".45"/>'+
+    '<rect x="'+esc(px-w/2)+'" y="'+esc(py-h/2)+'" width="'+w+'" height="'+h+
+      '" rx="'+rx+'" fill="#131318" stroke="#4c3f7a" stroke-width=".45"/>'+
+    '<text x="'+esc(px)+'" y="'+esc(py+1.9)+'" text-anchor="middle" fill="#ececf2" '+
+      'font-family="Segoe UI,system-ui,sans-serif" font-size="4.6" font-weight="600">Reframe</text>'+
+  '</g>';
+}
+
+/* B — edge chevron: on the edge nearest the object, size/opacity carry the distance */
+function chevronB(){
+  var dx = S.cx<0 ? -1 : S.cx>1 ? 1 : 0;
+  var dy = S.cy<0 ? -1 : S.cy>1 ? 1 : 0;
+  if(dx===0 && dy===0) return '';
+  var k = Math.min(1, offAmount()/0.55);               /* 0 just-lost .. 1 miles away */
+  var sz = 5 + k*5.5, op = 0.45 + k*0.5;
+  var m = 5.5;
+  var cx = dx<0 ? m : dx>0 ? 100-m : Math.min(100-m, Math.max(m, S.cx*100));
+  var cy = dy<0 ? m : dy>0 ? 100-m : Math.min(100-m, Math.max(m, S.cy*100));
+  var ang = Math.atan2(S.cy-cy/100, S.cx-cx/100)*180/Math.PI;
+  return '<g transform="translate('+esc(cx)+','+esc(cy)+') rotate('+esc(ang)+')" opacity="'+esc(op)+'">'+
+    '<circle cx="0" cy="0" r="'+esc(sz*0.92)+'" fill="#131318" stroke="#4c3f7a" stroke-width=".45"/>'+
+    '<polyline points="'+esc(-sz*0.22)+','+esc(-sz*0.42)+' '+esc(sz*0.30)+',0 '+
+      esc(-sz*0.22)+','+esc(sz*0.42)+'" fill="none" stroke="#c9b8ff" stroke-width="1.1" '+
+      'stroke-linecap="round" stroke-linejoin="round"/>'+
+  '</g>';
+}
+
+/* C — ghost outline: the object's own quad, translated to the parked point, at low opacity */
+function ghostC(){
+  var p = parked();
+  var dx = (p.x - S.cx)*100, dy = (p.y - S.cy)*100;
+  var q = corners();
+  return '<g transform="translate('+esc(dx)+','+esc(dy)+')" opacity=".55">'+
+    '<polygon points="'+poly(q)+'" fill="#7d5fd0" opacity=".22"/>'+
+    '<polygon points="'+poly(q)+'" fill="none" stroke="#a78bfa" stroke-width=".55" '+
+      'stroke-dasharray="2.2 1.6"/>'+
+  '</g>';
+}
+
+/* ── hit testing the affordance ───────────────────────────────────────── */
+function hitAffordance(id, fx, fy){
+  if(!isLost()) return false;
+  var p = parked();
+  if(id==='A'){
+    return Math.abs(fx-p.x)<0.16 && Math.abs(fy-p.y)<0.075;
+  }
+  if(id==='B'){
+    var dx = S.cx<0?-1:S.cx>1?1:0, dy = S.cy<0?-1:S.cy>1?1:0;
+    var m=0.055;
+    var cx = dx<0?m: dx>0?1-m : Math.min(1-m,Math.max(m,S.cx));
+    var cy = dy<0?m: dy>0?1-m : Math.min(1-m,Math.max(m,S.cy));
+    return Math.hypot(fx-cx, fy-cy) < 0.11;
+  }
+  /* C: the ghost quad, tested as its bounding box in ghost space */
+  var gx = fx - (p.x - S.cx), gy = fy - (p.y - S.cy);
+  var q = corners();
+  var xs=q.map(function(a){return a.x;}), ys=q.map(function(a){return a.y;});
+  return gx>Math.min.apply(0,xs) && gx<Math.max.apply(0,xs)
+      && gy>Math.min.apply(0,ys) && gy<Math.max.apply(0,ys);
+}
+
+/* ── build ────────────────────────────────────────────────────────────── */
+var stages = {};
+var grid = document.getElementById('grid');
+OPTS.forEach(function(opt){
+  var card = document.createElement('div');
+  card.className='card';
+  card.innerHTML =
+    '<h2>'+opt.id+' — '+opt.name+'</h2>'+
+    '<p class="sub">'+opt.sub+'</p>'+
+    '<div class="stage" data-id="'+opt.id+'"></div>'+
+    '<p class="cost">'+opt.cost+'</p>'+
+    '<div class="verdict"><button data-pick="'+opt.id+'">this one</button></div>';
+  grid.appendChild(card);
+  stages[opt.id] = card.querySelector('.stage');
+});
+
+function render(){
+  OPTS.forEach(function(o){ stages[o.id].innerHTML = svgFor(o); });
+}
+
+/* drag: move the shared pose; tap on the affordance: bring it home */
+var drag = null;
+function frac(el, e){
+  var r = el.getBoundingClientRect();
+  return { x:(e.clientX-r.left)/r.width, y:(e.clientY-r.top)/r.height };
+}
+Object.keys(stages).forEach(function(id){
+  var el = stages[id];
+  el.addEventListener('pointerdown', function(e){
+    var f = frac(el, e);
+    if(hitAffordance(id, f.x, f.y)){
+      var p = parked(); S.cx=p.x; S.cy=p.y; render(); return;
+    }
+    drag = { id:id, ox:S.cx-f.x, oy:S.cy-f.y };
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', function(e){
+    if(!drag) return;
+    var f = frac(el, e);
+    S.cx = f.x + drag.ox; S.cy = f.y + drag.oy;
+    render();
+  });
+  ['pointerup','pointercancel'].forEach(function(t){
+    el.addEventListener(t, function(){ drag=null; });
+  });
+});
+
+document.getElementById('reset').addEventListener('click', function(){
+  S = JSON.parse(JSON.stringify(HOME)); render();
+});
+document.addEventListener('click', function(e){
+  var b = e.target.closest('[data-pick]');
+  if(!b) return;
+  PICK = b.getAttribute('data-pick');
+  document.querySelectorAll('[data-pick]').forEach(function(x){
+    x.classList.toggle('on', x.getAttribute('data-pick')===PICK);
+  });
+  var o = OPTS.filter(function(x){return x.id===PICK;})[0];
+  document.getElementById('pickline').innerHTML =
+    'Picked: <b>'+o.id+' — '+o.name+'</b>. Tell the agent, and it goes in '+
+    '<b>SPEC_M_bend_and_frame_ui.md §3</b> before anything is built.';
+});
+
+render();
+</script>
+</body>
+</html>

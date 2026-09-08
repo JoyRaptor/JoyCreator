@@ -465,6 +465,7 @@ public class TransformOverlayView extends View {
 
         drawExitPill(c);
         drawReframePill(c);
+        drawBendPill(c);
         if (ringOpen) drawRing(c);
         drawLoupe(c);
         drawHud(c);
@@ -592,6 +593,61 @@ public class TransformOverlayView extends View {
         text.setFakeBoldText(true);
         c.drawText("Done", rectf.centerX(), rectf.centerY() + dp(4f), text);
         text.setFakeBoldText(false);
+    }
+
+    // ── The Bend switch ──────────────────────────────────────────────────
+    //
+    // SPEC M §1.3 — AN ALWAYS-REACHABLE WAY OUT. Bend used to be reachable only through the
+    // long-press ring, and the ring lives on a handle: with the net covering every handle,
+    // the mode had no exit at all. The handles are reachable again (see bendLayout), but
+    // "long-press the right handle and find the right quarter of a ring" is not an escape
+    // hatch a stuck user finds. So the net gets its own switch, in a fixed place, on screen
+    // the whole time an object that CAN bend is selected — the same persistent Bend button the
+    // approved prototype has (TRANSFORM_UI_FEEL.html: "the Bend button IS a state light").
+    //
+    // It is a state light, in the prototype's own three colours:
+    //   grey outline  — net off
+    //   blue outline  — net armed, nothing bent yet
+    //   solid blue    — the picture is genuinely bent
+    // Top-right, mirroring the Done pill's top-left, so neither can ever sit on the object;
+    // drawn (and hit) before the ring and the loupe so it can never intercept them.
+
+    private void bendPillRect(@NonNull RectF out) {
+        float w = dp(78f), h = dp(34f), m = dp(8f);
+        out.set(getWidth() - m - w, m, getWidth() - m, m + h);
+    }
+
+    /** Shown whenever the selected object can bend and no gesture is in flight. */
+    private boolean showBendPill() {
+        Host h = host;
+        if (h == null || !haveQuad || !ringBendEnabled || !h.supportsBend()) return false;
+        return dragKind == null && bendDragIndex < 0 && !pinching && !ringOpen;
+    }
+
+    private void drawBendPill(@NonNull Canvas c) {
+        if (!showBendPill()) return;
+        Host h = host;
+        boolean bent = h != null && h.hasBend();
+        bendPillRect(rectf);
+        fill.setColor(bendMode && bent ? 0xFF14304D : 0xE6131318);
+        c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
+        stroke.setColor(!bendMode ? 0xFF2E2E3A : (bent ? HandleModel.COLOR_BEND : 0xFF3F7AB5));
+        stroke.setStrokeWidth(dp(bendMode ? 1.6f : 1f));
+        c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
+        text.setColor(!bendMode ? 0xFF70707F : (bent ? 0xFFDCEDFF : 0xFF8FC2F5));
+        text.setTextSize(dp(12f));
+        text.setFakeBoldText(true);
+        c.drawText(bendMode ? "Bend · on" : "Bend", rectf.centerX(), rectf.centerY() + dp(4f), text);
+        text.setFakeBoldText(false);
+    }
+
+    /** Is this touch on the Bend switch? Padded out to a 44dp target. */
+    private boolean hitsBendPill(float x, float y) {
+        if (!showBendPill()) return false;
+        bendPillRect(rectf);
+        float padY = Math.max(0f, (dp(44f) - rectf.height()) / 2f);
+        return x >= rectf.left && x <= rectf.right
+                && y >= rectf.top - padY && y <= rectf.bottom + padY;
     }
 
     /** Is this touch on the pill? The tested rect is padded out to a 44dp target. */
@@ -948,15 +1004,8 @@ public class TransformOverlayView extends View {
      * dot mid-frame does the same. No allocation: reused fields only.
      */
     private void drawBendNet(@NonNull Canvas c, @NonNull Host h) {
-        float[] hh = TransformQuad.unitToQuad(quad);
-        if (hh == null) return;
-        int n = h.bendHandleCount();
-        if (n <= 0 || n * 2 > bendPts.length) return;
-        for (int i = 0; i < n; i++) {
-            if (!h.bendHandlePosition(i, hh, bendScratch)) return;
-            bendPts[i * 2] = bendScratch[0];
-            bendPts[i * 2 + 1] = bendScratch[1];
-        }
+        int n = bendLayout(h);
+        if (n <= 0) return;
         int side = h.bendGridSide();
         if (side >= 2 && side * side == n) {
             stroke.setColor(withAlpha(HandleModel.COLOR_BEND, 0x8C));
@@ -976,15 +1025,100 @@ public class TransformOverlayView extends View {
                 }
             }
         }
+        // SPEC M §1 — the tether. The blue dot is only ever a DRAWING of a net point, pulled
+        // inboard so it can never sit on the corner/edge glyph it shares a spot with; the
+        // hairline says which point it actually drives. Straight out of the approved
+        // prototype (TRANSFORM_UI_FEEL.html, "tie each inboard blue dot back to the net
+        // point it actually drives").
+        stroke.setColor(withAlpha(HandleModel.COLOR_BEND, 0x8C));
+        stroke.setStrokeWidth(dp(0.9f));
+        for (int i = 0; i < n; i++) {
+            float tx = bendPts[i * 2], ty = bendPts[i * 2 + 1];
+            float dx2 = bendDots[i * 2], dy2 = bendDots[i * 2 + 1];
+            if (Math.hypot(tx - dx2, ty - dy2) > 2f) c.drawLine(dx2, dy2, tx, ty, stroke);
+        }
         for (int i = 0; i < n; i++) {
             boolean grabbed = i == bendDragIndex;
             float r = dp(grabbed ? 9f : 7f);
             fill.setColor(GLYPH_FILL);
-            c.drawCircle(bendPts[i * 2], bendPts[i * 2 + 1], r, fill);
+            c.drawCircle(bendDots[i * 2], bendDots[i * 2 + 1], r, fill);
             stroke.setColor(HandleModel.COLOR_BEND);
             stroke.setStrokeWidth(dp(grabbed ? 2.3f : 1.75f));
-            c.drawCircle(bendPts[i * 2], bendPts[i * 2 + 1], r, stroke);
+            c.drawCircle(bendDots[i * 2], bendDots[i * 2 + 1], r, stroke);
         }
+    }
+
+    /**
+     * SPEC M §1 — where the net's TRUE points are, and where their grab dots are DRAWN.
+     *
+     * <p>JoyRaptor, on the build that shipped the net: <i>"covers the handles so once applied you
+     * cannot even access the corners to turn it off or scale or anything."</i> He was right,
+     * and it was structural: a 3×3 lattice puts eight of its nine points exactly on the four
+     * corner glyphs and the four edge glyphs, and the net was hit-tested FIRST with an 18dp
+     * radius, so a direct corner tap could never reach the corner handle — and the long-press
+     * ring that turns Bend off lives on a handle. Locked in.</p>
+     *
+     * <p>The fix is the prototype's, which had it right all along: every outer dot is pushed
+     * <b>inboard</b> of the handle it shares a spot with by
+     * {@code clamp(shortestEdge * 0.20, 8dp, 21dp)} (never more than 42% of the way to the
+     * net's centre, so a small object cannot collapse its own net), drawn with a hairline
+     * tether back to the point it drives. The outer ink is always structure; the inner blue
+     * dot is always bend. The centre point has no handle under it and does not move.</p>
+     *
+     * <p>Nothing here touches the bend VALUE — that is the (u,v) offset the host owns, and a
+     * drag re-adds the dot's own offset before writing (see the grab offsets in onDown), so
+     * the picture bends about the true point and not about the drawing of it.</p>
+     *
+     * @return the handle count, or -1 when the net cannot be laid out this frame
+     */
+    private int bendLayout(@NonNull Host h) {
+        if (!haveQuad) return -1;
+        float[] hh = TransformQuad.unitToQuad(quad);
+        if (hh == null) return -1;
+        int n = h.bendHandleCount();
+        if (n <= 0 || n * 2 > bendPts.length) return -1;
+        for (int i = 0; i < n; i++) {
+            if (!h.bendHandlePosition(i, hh, bendScratch)) return -1;
+            bendPts[i * 2] = bendScratch[0];
+            bendPts[i * 2 + 1] = bendScratch[1];
+        }
+        int side = h.bendGridSide();
+        int centre = (side >= 2 && side * side == n && (side & 1) == 1) ? n / 2 : -1;
+        float refX, refY;
+        if (centre >= 0) {
+            refX = bendPts[centre * 2];
+            refY = bendPts[centre * 2 + 1];
+        } else {
+            TransformQuad.centroid(quad, bendScratch);
+            refX = bendScratch[0];
+            refY = bendScratch[1];
+        }
+        float inboard = bendInboardPx();
+        for (int i = 0; i < n; i++) {
+            float tx = bendPts[i * 2], ty = bendPts[i * 2 + 1];
+            float dx = refX - tx, dy = refY - ty;
+            float len = (float) Math.hypot(dx, dy);
+            if (i == centre || len < 1f || !isFinite(len)) {
+                bendDots[i * 2] = tx;
+                bendDots[i * 2 + 1] = ty;
+                continue;
+            }
+            float push = Math.min(inboard, len * 0.42f);
+            bendDots[i * 2] = tx + dx / len * push;
+            bendDots[i * 2 + 1] = ty + dy / len * push;
+        }
+        return n;
+    }
+
+    /** How far inboard of the real handles the blue net dots sit. Prototype's own formula. */
+    private float bendInboardPx() {
+        float m = Float.MAX_VALUE;
+        for (int i = 0; i < 4; i++) {
+            int a = i * 2, b = ((i + 1) % 4) * 2;
+            m = Math.min(m, (float) Math.hypot(quad[a] - quad[b], quad[a + 1] - quad[b + 1]));
+        }
+        if (!isFinite(m) || m <= 0f) return dp(8f);
+        return Math.max(dp(8f), Math.min(dp(21f), m * 0.20f));
     }
 
     // ── The role ring ────────────────────────────────────────────────────
@@ -1029,7 +1163,11 @@ public class TransformOverlayView extends View {
     private float bendDownX, bendDownY;
     /** Projected dots, handle-major x,y. Sized to the coarsest lattice (25 handles). */
     private final float[] bendPts = new float[50];
+    /** Where each net point's grab dot is DRAWN — pushed inboard of the structural handle. */
+    private final float[] bendDots = new float[50];
     private final float[] bendScratch = new float[2];
+    /** True net point minus the finger at grab, so an inboard dot bends about its own point. */
+    private float bendGrabDx, bendGrabDy;
 
     /**
      * Show or hide the bend net. Honoured only for a supporting host while the tool is
@@ -1380,31 +1518,52 @@ public class TransformOverlayView extends View {
             doReframe();
             return true;
         }
+        // SPEC M §1.3 — the escape hatch, tested before anything the net can cover.
+        if (hitsBendPill(x, y)) {
+            Host bh = host;
+            if (bh != null && bh.supportsBend()) {
+                bendMode = !bendMode;
+                cancelBendDrag();
+            }
+            invalidate();
+            return true;
+        }
         if (!haveQuad) syncFromHost();
         if (!haveQuad) return false;
         rebuildHandles();
 
-        // SPEC H — the net sits OVER the top: dots first, with a slightly smaller radius so
-        // a near-miss still finds the structural handle underneath. A grabbed dot starts the
-        // ONE snapshot its whole drag will undo to (host ensures the spec first, so the
-        // first bend's undo restores "no bend at all").
+        HandleModel.Handle hit = HandleModel.hitTest(handleBuf, handleCount, x, y, grabPx());
+
+        // SPEC M §1 — STRUCTURAL HANDLES OUTRANK THE NET. This block used to run FIRST, with
+        // an 18dp radius, on dots that sat exactly on the corner and edge glyphs: with Bend
+        // on, a corner tap could only ever grab a bend dot, so scale, flip and the long-press
+        // ring — the only way to turn Bend off — all became unreachable. Now the handle is
+        // tested first and keeps the touch unless a bend dot is CLEARLY the nearer target
+        // (8dp of daylight), which the inboard offset in bendLayout() guarantees for a
+        // deliberate tap on the blue dot. A grabbed dot starts the ONE snapshot its whole
+        // drag will undo to (host ensures the spec first, so the first bend's undo restores
+        // "no bend at all").
         if (bendMode && h.supportsBend()) {
-            float[] bh = TransformQuad.unitToQuad(quad);
-            if (bh != null) {
-                int bn = h.bendHandleCount();
-                float br = dp(18f);
+            int bn = bendLayout(h);
+            if (bn > 0) {
+                float br = dp(20f);
                 int best = -1;
                 float bestD = Float.MAX_VALUE;
                 for (int i = 0; i < bn; i++) {
-                    if (!h.bendHandlePosition(i, bh, bendScratch)) continue;
-                    float d = (float) Math.hypot(bendScratch[0] - x, bendScratch[1] - y);
+                    float d = (float) Math.hypot(bendDots[i * 2] - x, bendDots[i * 2 + 1] - y);
                     if (d <= br && d < bestD) { bestD = d; best = i; }
                 }
-                if (best >= 0) {
+                float handleD = hit == null ? Float.MAX_VALUE
+                        : (float) Math.hypot(hit.x - x, hit.y - y);
+                if (best >= 0 && bestD + dp(8f) < handleD) {
                     bendDragIndex = best;
                     bendMoved = false;
                     bendDownX = x;
                     bendDownY = y;
+                    // The dot is drawn inboard of the point it drives: carry that gap through
+                    // the drag, or the first move would snap the bend by the offset.
+                    bendGrabDx = bendPts[best * 2] - x;
+                    bendGrabDy = bendPts[best * 2 + 1] - y;
                     dragPointerId = e.getPointerId(0);
                     h.beginBendGesture();
                     setHud(null, x, y);
@@ -1417,7 +1576,6 @@ public class TransformOverlayView extends View {
             }
         }
 
-        HandleModel.Handle hit = HandleModel.hitTest(handleBuf, handleCount, x, y, grabPx());
         if (hit == null && !TransformQuad.contains(quad, x, y)) {
             // Nothing of ours: let it through, so the empty-canvas rule survives.
             return false;
@@ -1680,7 +1838,8 @@ public class TransformOverlayView extends View {
         if (hh == null) return;
         float[] inv = TransformQuad.invert3x3(hh);
         if (inv == null) return;
-        if (h.bendDragTo(bendDragIndex, inv, x, y)) invalidate();
+        // The dot is drawn inboard of the point it drives; bend about the POINT.
+        if (h.bendDragTo(bendDragIndex, inv, x + bendGrabDx, y + bendGrabDy)) invalidate();
     }
 
     // ── Two fingers ──────────────────────────────────────────────────────

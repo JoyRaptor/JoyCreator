@@ -39,6 +39,9 @@ for %%i in ("%APP_HOME%") do set APP_HOME=%%~fi
 @rem establish loopback connection" before it could even talk to the daemon.
 @rem gradle.properties covers the daemon; only this line covers the client.
 @rem Re-apply after a wrapper upgrade.
+@rem FADCAM LOCAL PATCH (2026-09-08): belt-and-braces for the AF_UNIX bug. JAVA_TOOL_OPTIONS
+@rem is picked up by EVERY JVM the build starts, so the client cannot miss it.
+set JAVA_TOOL_OPTIONS=%JAVA_TOOL_OPTIONS% -Djdk.net.unixdomain.tmpdir=C:/Temp
 set DEFAULT_JVM_OPTS="-Xmx64m" "-Xms64m" "-Djdk.net.unixdomain.tmpdir=C:/Temp"
 
 @rem Find java.exe

@@ -433,16 +433,35 @@ public class TextOverlayLayer extends FrameLayout {
         super.dispatchDraw(canvas);
         canvas.restore();
 
-        // Pass 2 — everything outside the live rect, at half opacity. The four
-        // strips mean only the child pixels that actually overhang are affected.
+        // Pass 2 — everything outside the live rect, at reduced opacity.
+        //
+        // SPEC M §4 — THE FOUR STRIPS WERE INTERSECTED, NOT UNIONED. Canvas.clipRect
+        // INTERSECTS with the clip already in force, so four calls in a row asked for
+        // "above the rect AND below it AND left of it AND right of it" — an empty region.
+        // Pass 2 therefore drew nothing at all, ever, and every pixel of an object hanging
+        // off the canvas simply vanished (JoyRaptor: "currently anything off screen doesn't
+        // render on canvas"). Only the transform chrome, which lives on a different view,
+        // still drew out there — which is what made it look like the object had been
+        // deleted rather than moved.
+        //
+        // One strip per pass is the union, with no Region.Op and no complex Path: still
+        // HW-accelerator friendly, and a child fully inside the live rect is still clipped
+        // away in every one of them, so nothing but real overhang costs a redraw.
         float w = getWidth();
         float h = getHeight();
+        drawOverhangStrip(canvas, 0f, 0f, w, r.top);
+        drawOverhangStrip(canvas, 0f, r.bottom, w, h);
+        drawOverhangStrip(canvas, 0f, r.top, r.left, r.bottom);
+        drawOverhangStrip(canvas, r.right, r.top, w, r.bottom);
+    }
+
+    /** One outside-the-live-area strip, drawn at {@link #OVERHANG_ALPHA}. Empty strips skip. */
+    private void drawOverhangStrip(@NonNull android.graphics.Canvas canvas,
+                                   float l, float t, float r, float b) {
+        if (r - l <= 0.5f || b - t <= 0.5f) return;
         canvas.save();
-        canvas.clipRect(0f, 0f, w, r.top);
-        canvas.clipRect(0f, r.bottom, w, h);
-        canvas.clipRect(0f, r.top, r.left, r.bottom);
-        canvas.clipRect(r.right, r.top, w, r.bottom);
-        canvas.saveLayerAlpha(0f, 0f, w, h, OVERHANG_ALPHA);
+        canvas.clipRect(l, t, r, b);
+        canvas.saveLayerAlpha(l, t, r, b, OVERHANG_ALPHA);
         super.dispatchDraw(canvas);
         canvas.restore();
         canvas.restore();

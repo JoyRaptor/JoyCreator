@@ -793,15 +793,20 @@ public class EditorTimelineView extends View {
      * minimap — "the user taps away"). A DOWN inside the master band deliberately does NOT
      * clear it, so a knob can still be grabbed and dragged.
      *
-     * <p>Stored as the tapped SEGMENT INDEX rather than a bare boolean, and the knobs only
-     * paint while it still equals {@link #selectedIndex}. A plain boolean did not survive
-     * device testing: the activity re-feeds the whole segment list on every selection change
-     * and every seek ({@code setSegments}), so the flag was wiped a frame after the tap that
-     * set it and the knobs never appeared at all. Comparing indices instead means a REFEED of
-     * the same selection keeps the arming, while any selection that moves to a different clip
-     * — which is exactly what a playhead-driven selection does — drops it.</p>
+     * <p>Stored as the tapped CLIP ID — not a boolean, and not an index. Both simpler forms
+     * were tried on the device and both failed, for the same underlying reason: one tap on the
+     * spine produces a whole CASCADE of selection traffic, not one selection. Logged on the
+     * Note 9, a single tap on a clip runs
+     *   UP → seekToTimelineMs(...) → activity → setSelectedIndex(tapped)
+     *      → setSegments(..., tapped) → [the view's own tap branch now sees
+     *        downSegIndex == selectedIndex, so it takes the DESELECT arm]
+     *      → setSegments(..., -1) → activity re-selects → setSelectedIndex(tapped)
+     * so a boolean was wiped by the refeed and an index was wiped by the transient -1, and in
+     * both cases the knobs never appeared at all. A clip id survives the cascade: a selection
+     * of -1 is ignored as transient, and the arming only drops once the selection SETTLES on a
+     * different clip — which is exactly what a playhead-driven selection change looks like.</p>
      */
-    private int spineTapSelectedIndex = -1;
+    @androidx.annotation.Nullable private String spineTapArmedClipId = null;
     /** SPEC_N §3 — screen-space rect of the spine's collapse caret (see drawSpineCollapseCaret). */
     private final RectF spineCaretRect = new RectF();
     private int lastPlaybackIndex = 0;  // Playback tracking (persists when deselected)
@@ -1982,7 +1987,7 @@ public class EditorTimelineView extends View {
         selectedIndex = selected;  // Allow -1 for no selection
         // SPEC_N §5: a refeed that lands on a DIFFERENT clip than the one the user tapped
         // disarms the fade knobs; a refeed of the same selection leaves the arming alone.
-        if (selected != spineTapSelectedIndex) spineTapSelectedIndex = -1;
+        noteSpineSelectionChanged(selected);
         selectedTransitionIndex = -1;
         if (selected >= 0) {
             lastPlaybackIndex = selected;  // Track for playback continuation
@@ -2246,7 +2251,7 @@ public class EditorTimelineView extends View {
             // SPEC_N §5: every caller of this is programmatic. It only fires when the index
             // actually changes, so a playhead that walks onto a different clip lands here and
             // disarms the knobs — the case JoyRaptor does not want them for.
-            if (index != spineTapSelectedIndex) spineTapSelectedIndex = -1;
+            noteSpineSelectionChanged(index);
             selectedTransitionIndex = -1;
             lastPlaybackIndex = index;  // Update playback tracking
             invalidate();
@@ -2846,7 +2851,7 @@ public class EditorTimelineView extends View {
         // FADE_KNOBS §2.5: the dark fade veil goes UNDER the green trim bars (JoyRaptor: "the dark
         // shadowy triangle needs to be under the green trim handle") — same layer as the film.
         // SPEC_N §5: veils + knobs now require a DELIBERATE TAP on the segment (see
-        // spineTapSelectedIndex); a playhead-driven selection no longer shows them.
+        // spineTapArmedClipId); a playhead-driven selection no longer shows them.
         if (spineFadeControlsVisible()) {
             drawMasterFadeVeils(canvas, segRects.get(selectedIndex));
         }
@@ -6130,9 +6135,24 @@ if (sd.clip.hasVolumeKeyframes()) {
      * not collapsed (§3: a control you cannot usefully hit is worse than no control).</p>
      */
     private boolean spineFadeControlsVisible() {
-        return selectedIndex >= 0 && selectedIndex < segRects.size()
-                && spineTapSelectedIndex == selectedIndex
-                && !isSpineCollapsed();
+        if (spineTapArmedClipId == null || isSpineCollapsed()) return false;
+        if (selectedIndex < 0 || selectedIndex >= segRects.size()
+                || selectedIndex >= segments.size()) return false;
+        return spineTapArmedClipId.equals(segments.get(selectedIndex).clipId);
+    }
+
+    /**
+     * SPEC_N §5 — every selection change routes through here. A settled selection on a
+     * DIFFERENT clip than the tapped one disarms the fade knobs (the playhead-driven case
+     * JoyRaptor does not want them for); a transient {@code -1} in the middle of the tap cascade
+     * described on {@link #spineTapArmedClipId} does not.
+     */
+    private void noteSpineSelectionChanged(int newSelected) {
+        if (spineTapArmedClipId == null) return;
+        if (newSelected < 0 || newSelected >= segments.size()) return;
+        if (!spineTapArmedClipId.equals(segments.get(newSelected).clipId)) {
+            spineTapArmedClipId = null;
+        }
     }
 
     /**
@@ -6188,7 +6208,7 @@ if (sd.clip.hasVolumeKeyframes()) {
     private void toggleSpineCollapsed() {
         if (liveTimeline == null || trackHeaderActionListener == null) return;
         // §5: a collapse hides the knobs, so the deliberate-tap arming must not survive it.
-        spineTapSelectedIndex = -1;
+        spineTapArmedClipId = null;
         trackHeaderActionListener.onTrackHeaderAction(liveTimeline.getMasterTrack(),
                 com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.CARET);
         requestLayout();
@@ -7464,7 +7484,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         {
             float knobReach = (SPINE_KNOB_TOP_OFFSET_DP + SPINE_KNOB_R_DP) * density;
             if (y < masterTopPx() - knobReach || y > masterBotPx()) {
-                spineTapSelectedIndex = -1;
+                spineTapArmedClipId = null;
             }
         }
 
@@ -8662,6 +8682,12 @@ if (sd.clip.hasVolumeKeyframes()) {
             }
         } else if (isUp && downSegIndex >= 0) {
             if (Math.abs(x - downX) < touchSlopPx) {
+                // SPEC_N §5: THE deliberate tap. Armed HERE — at the top of the tap branch and
+                // BEFORE seekToTimelineMs() fires the selection cascade — because every
+                // selection callback that follows would otherwise arrive while the knobs were
+                // still unarmed and be indistinguishable from a playhead-driven selection.
+                spineTapArmedClipId = downSegIndex < segments.size()
+                        ? segments.get(downSegIndex).clipId : null;
                 // Tapping a yellow silence candidate converts it to a cut.
                 if (showSilence && tryTapSilenceCandidate(downSegIndex, downX)) {
                     // consumed — don't change selection (and never pairs into a double-tap)
@@ -8718,7 +8744,6 @@ if (sd.clip.hasVolumeKeyframes()) {
                                 selectedIndex = doubleTapSegIndex;
                                 if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
                             }
-                            spineTapSelectedIndex = doubleTapSegIndex; // SPEC_N §5: a real tap
                             if (listener != null) listener.onSlideDoubleTapped(doubleTapSegIndex);
                             invalidate();
                             getParent().requestDisallowInterceptTouchEvent(false);
@@ -8734,19 +8759,14 @@ if (sd.clip.hasVolumeKeyframes()) {
                             selectedIndex = doubleTapSegIndex;
                             if (listener != null) listener.onSegmentSelected(doubleTapSegIndex);
                         }
-                        spineTapSelectedIndex = doubleTapSegIndex; // SPEC_N §5: a real tap
                         invalidate();
                     } else if (downSegIndex == selectedIndex) {
                         // Toggle selection: deselect if same segment, select if different
                         selectedIndex = -1;
-                        spineTapSelectedIndex = -1; // SPEC_N §5: deselected — nothing to arm
                         invalidate();
                         if (listener != null) listener.onSegmentSelected(-1);
                     } else {
                         selectedIndex = downSegIndex;
-                        // SPEC_N §5: THE tap that arms the fade knobs — a finger landed on this
-                        // spine segment and lifted on it.
-                        spineTapSelectedIndex = downSegIndex;
                         invalidate();
                         if (listener != null) listener.onSegmentSelected(downSegIndex);
                     }

@@ -1256,8 +1256,12 @@ public class TextOverlayLayer extends FrameLayout {
             float rot = live ? o.getRotationDeg() : o.animatedRotation(currentTimeMs);
             double rad = Math.toRadians(rot);
             float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
-            float dX = o.pivotOffsetFromCentreX(w - boxInset * 2f, h - boxInset * 2f, activePins);
-            float dY = o.pivotOffsetFromCentreY(w - boxInset * 2f, h - boxInset * 2f, activePins);
+            // Mirror-aware (SPEC K flip exactness): the clamp guards the VISUAL box,
+            // which folds about the visual pivot. Unmirrored the signs are +1.
+            float dX = o.mirrorSignX()
+                    * o.pivotOffsetFromCentreX(w - boxInset * 2f, h - boxInset * 2f, activePins);
+            float dY = o.mirrorSignY()
+                    * o.pivotOffsetFromCentreY(w - boxInset * 2f, h - boxInset * 2f, activePins);
             dispX = dX - (c * dX - s * dY);
             dispY = dY - (s * dX + c * dY);
         }
@@ -1294,7 +1298,11 @@ public class TextOverlayLayer extends FrameLayout {
         // SPEC B — the rotation pivot. For images the View pivot sits at the picture's centre
         // plus the model's ONE shared offset (pivotOffsetFromCentreX/Y), the same numbers
         // ImageOverlayDraw anchors the export's rotate/scale with, so a corner pivot spins
-        // about the corner in the editor AND in the file. The offset is measured on the
+        // about the corner in the editor AND in the file. Mirror-aware (SPEC K flip
+        // exactness): the layout parks the UNFOLDED pose centre, so the fixed point of the
+        // rotation is the visual pivot — the stored offset mirrored by the flags.
+        // Unmirrored the signs are +1 and this is the same two lines. The offset is
+        // measured on the PICTURE box (w/h minus the symmetric corner-pin excursion inset),
         // PICTURE box (w/h minus the symmetric corner-pin excursion inset), because the pivot
         // fractions are fractions of the picture — the same rect the export uses. While the
         // finger is down the default stays: the twist gesture bakes a centre-rotation into the
@@ -1306,9 +1314,9 @@ public class TextOverlayLayer extends FrameLayout {
         // the size changes. The tag remembers a custom pivot so the recycled view can be
         // restored to the true default when the pivot goes back to centre or a gesture starts.
         if (o.isImage() && !live && !o.isRotationPivotNeutral(activePins)) {
-            view.setPivotX(w / 2f + o.pivotOffsetFromCentreX(w - boxInset * 2f,
+            view.setPivotX(w / 2f + o.mirrorSignX() * o.pivotOffsetFromCentreX(w - boxInset * 2f,
                     h - boxInset * 2f, activePins));
-            view.setPivotY(h / 2f + o.pivotOffsetFromCentreY(w - boxInset * 2f,
+            view.setPivotY(h / 2f + o.mirrorSignY() * o.pivotOffsetFromCentreY(w - boxInset * 2f,
                     h - boxInset * 2f, activePins));
             view.setTag(com.fadcam.R.id.faditor_tag_pivot_custom, Boolean.TRUE);
         } else if (o.isImage()
@@ -1366,8 +1374,11 @@ public class TextOverlayLayer extends FrameLayout {
         }
         if (o.isRotationPivotNeutral(pins)) return false;
         float cx = io.centerX(), cy = io.centerY();
-        float pvx = cx + o.pivotOffsetFromCentreX(io.width(), io.height(), pins);
-        float pvy = cy + o.pivotOffsetFromCentreY(io.width(), io.height(), pins);
+        // Mirror-aware fold (SPEC K flip exactness): the fold turns about the VISUAL
+        // pivot — the stored offset mirrored by the flags. Unmirrored the signs are +1
+        // and this is the same three lines.
+        float pvx = cx + o.mirrorSignX() * o.pivotOffsetFromCentreX(io.width(), io.height(), pins);
+        float pvy = cy + o.mirrorSignY() * o.pivotOffsetFromCentreY(io.width(), io.height(), pins);
         double rad = Math.toRadians(rot);
         float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
         float vx = cx - pvx, vy = cy - pvy;
@@ -1511,10 +1522,10 @@ public class TextOverlayLayer extends FrameLayout {
         float cx = live ? o.getCenterX() : o.animatedCenterX(currentTimeMs);
         float cy = live ? o.getCenterY() : o.animatedCenterY(currentTimeMs);
         // SPEC G mirror: the sign rides the half-extent, so the shader samples the picture
-        // mirrored about its own centre with NO shader change (its q/half arithmetic is
-        // sign-agnostic) and the pin uniforms apply outside the mirror exactly as the Canvas
-        // paths do. Static flags — no live split. Unmirrored the signs are +1 and every
-        // number below is bit-for-bit what shipped.
+        // mirrored about its own centre, and the pin uniforms carry (mirror . pin)^-1 —
+        // mirror OUTSIDE pin, exactly as the Canvas paths draw. Static flags — no live
+        // split. Unmirrored the signs are +1 and every number below is bit-for-bit what
+        // shipped.
         float halfW = (wPx * anim.scaleX * o.mirrorSignX()) / r.width() * 0.5f;
         float halfH = (hPx * anim.scaleY * o.mirrorSignY()) / r.height() * 0.5f;
         float alpha = live ? 1f
@@ -1541,8 +1552,13 @@ public class TextOverlayLayer extends FrameLayout {
             else o.animatedCornerPin(currentTimeMs, pin);
         }
         if (!live && !o.isRotationPivotNeutral(pin)) {
-            float pvx = cx + o.pivotOffsetFromCentreX(wPx / r.width(), hPx / r.height(), pin);
-            float pvy = cy + o.pivotOffsetFromCentreY(wPx / r.width(), hPx / r.height(), pin);
+            // Mirror-aware fold (SPEC K flip exactness): the Pip quad rotates about its
+            // own centre, so "rotate about the pivot" moves the centre about the VISUAL
+            // pivot. Unmirrored the signs are +1 and this is the same two lines.
+            float pvx = cx + o.mirrorSignX()
+                    * o.pivotOffsetFromCentreX(wPx / r.width(), hPx / r.height(), pin);
+            float pvy = cy + o.mirrorSignY()
+                    * o.pivotOffsetFromCentreY(wPx / r.width(), hPx / r.height(), pin);
             float scx = pvx + anim.scaleX * (cx - pvx);
             float scy = pvy + anim.scaleY * (cy - pvy);
             double rad = Math.toRadians(rot);

@@ -861,8 +861,8 @@ public final class FxLivePreviewController {
                 pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
                 o.animatedCornerPin(playheadMs, pins);
             }
-            float pivOffX = o.pivotOffsetFromCentreX(wNorm, hNorm, pins);
-            float pivOffY = o.pivotOffsetFromCentreY(wNorm, hNorm, pins);
+            float pivOffX = o.mirrorSignX() * o.pivotOffsetFromCentreX(wNorm, hNorm, pins);
+            float pivOffY = o.mirrorSignY() * o.pivotOffsetFromCentreY(wNorm, hNorm, pins);
             boolean applyPivot = !o.isRotationPivotNeutral(pins);
             com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform preset =
                     com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(

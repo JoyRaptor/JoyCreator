@@ -71,8 +71,8 @@ public class SpecKPinRoundTripTest {
         if (isNeutral(p.pivx, p.pivy, p.off) || p.th == 0f) return new float[]{p.cx, p.cy};
         double rad = Math.toRadians(p.th);
         float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
-        float dX = pivDx(p.w, p.pivx, p.pivy, p.off);
-        float dY = pivDy(p.h, p.pivx, p.pivy, p.off);
+        float dX = p.smx * pivDx(p.w, p.pivx, p.pivy, p.off);
+        float dY = p.smy * pivDy(p.h, p.pivx, p.pivy, p.off);
         float pvx = p.cx + dX, pvy = p.cy + dY;
         float vx = p.cx - pvx, vy = p.cy - pvy;
         return new float[]{pvx + vx * c - vy * s, pvy + vx * s + vy * c};
@@ -103,8 +103,8 @@ public class SpecKPinRoundTripTest {
         float uc = (float) Math.cos(radU), us = (float) Math.sin(radU);
         double radP = Math.toRadians(p.th);
         float pc = (float) Math.cos(radP), ps = (float) Math.sin(radP);
-        float dX = pivDx(p.w, p.pivx, p.pivy, p.off);
-        float dY = pivDy(p.h, p.pivx, p.pivy, p.off);
+        float dX = p.smx * pivDx(p.w, p.pivx, p.pivy, p.off);
+        float dY = p.smy * pivDy(p.h, p.pivx, p.pivy, p.off);
         float pvx = cf[0] + pc * dX - ps * dY, pvy = cf[1] + ps * dX + pc * dY;
         float dx = cf[0] - pvx, dy = cf[1] - pvy;
         return new float[]{pvx + uc * dx - us * dy, pvy + us * dx + uc * dy};
@@ -269,7 +269,7 @@ public class SpecKPinRoundTripTest {
                 float[] pins = writeQuad(p, g);
                 if (pins == null) continue;
                 boolean range = true;
-                for (float v : pins) if (!Float.isFinite(v) || Math.abs(v) > 2.0001f) range = false;
+                for (float v : pins) if (!Float.isFinite(v) || Math.abs(v) > 8.0001f) range = false;
                 if (!range) continue;
                 Pose p2 = copy(p); p2.off = pins;
                 float d = quadDist(g, readQuad(p2));

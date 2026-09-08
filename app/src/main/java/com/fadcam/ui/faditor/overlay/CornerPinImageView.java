@@ -137,21 +137,30 @@ public class CornerPinImageView extends ImageView {
         dstRect.set(insetPx, insetPx, insetPx + w, insetPx + h);
         drawMatrix.setRectToRect(srcRect, dstRect, Matrix.ScaleToFit.FILL);
 
-        // SPEC G mirror, OUTSIDE the pin and about the unpinned picture centre: view =
-        // mirror . pin . base, the order the export draws. Skipped whole when unmirrored,
-        // so the matrix the pin path concatenates below is bit-for-bit what it was.
-        if (mirrorX || mirrorY) {
-            mirrorMatrix.setScale(mirrorX ? -1f : 1f, mirrorY ? -1f : 1f,
-                    insetPx + w / 2f, insetPx + h / 2f);
-            drawMatrix.preConcat(mirrorMatrix);
-        }
-
         // ...then the homography, INNERMOST relative to everything the parent applies. The View's
         // rotation, scale and translation are applied by the parent ABOVE this canvas, so a
         // concat here is necessarily inside them — which is the composition order the export
         // mirrors deliberately (see TextOverlayItem.cornerPinMatrix).
         if (CornerPin.buildMatrix(pinMatrix, insetPx, insetPx, w, h, pin)) {
+            // postConcat multiplies on the destination side, so this is pin . base: the pin
+            // maps the placed rect onto its distorted corners. (This order is load-bearing:
+            // pin-alone pictures have always previewed correctly through exactly this line.)
             drawMatrix.postConcat(pinMatrix);
+        }
+
+        // SPEC G mirror, OUTSIDE the pin and about the unpinned picture centre: view =
+        // mirror . pin . base, the order the export draws (ImageOverlayDraw concats the
+        // mirror first and the pin second, so the pin applies first). postConcat keeps it
+        // on the destination side with the destination-space pivot above. Skipped whole
+        // when unmirrored, so the matrix the pin path concatenates is bit-for-bit what it
+        // was. ( Assembling it with preConcat put the mirror on the SOURCE side with this
+        // destination-space pivot — mirroring the bitmap about the wrong line and shoving
+        // the picture half a frame sideways while the handles stayed put. JoyRaptor 2026-09-07:
+        // corner flip "flipped on a side axis", image half out of its quad.)
+        if (mirrorX || mirrorY) {
+            mirrorMatrix.setScale(mirrorX ? -1f : 1f, mirrorY ? -1f : 1f,
+                    insetPx + w / 2f, insetPx + h / 2f);
+            drawMatrix.postConcat(mirrorMatrix);
         }
         canvas.drawBitmap(bmp, drawMatrix, paint);
     }

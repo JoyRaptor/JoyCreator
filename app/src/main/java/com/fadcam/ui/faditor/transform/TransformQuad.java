@@ -202,6 +202,24 @@ public final class TransformQuad {
      */
     public static boolean scaleCorner(float[] q, float[] q0, int corner, float tx, float ty,
                                       float[] outFactors) {
+        float[] fac = outFactors != null ? outFactors : new float[2];
+        if (!scaleCornerFactors(q0, corner, tx, ty, fac)) return false;
+        scaleCornerApply(q, q0, corner, fac[0], fac[1]);
+        return true;
+    }
+
+    /**
+     * The two drag factors of a corner SCALE, without applying them: the ratio of the
+     * finger's frame coordinates to the dragged corner's own coordinates at grab time,
+     * clamped to {@link #MIN_FACTOR}..{@link #MAX_FACTOR}.
+     *
+     * @param outFactors receives {@code {fa, fb}}
+     * @return false when the frame is degenerate (caller keeps the last good pose)
+     */
+    public static boolean scaleCornerFactors(float[] q0, int corner, float tx, float ty,
+                                             float[] outFactors) {
+        if (q0 == null || outFactors == null || outFactors.length < 2) return false;
+        if (corner < 0 || corner > 3) return false;
         int opp = (corner + 2) % 4;
         float ox = q0[opp * 2], oy = q0[opp * 2 + 1];
         int ui = (corner + 3) % 4, vi = (corner + 1) % 4;
@@ -220,14 +238,73 @@ public final class TransformQuad {
         // corner is effectively ON the anchor and the ratio is meaningless — refuse rather than
         // launch the shape to infinity.
         if (Math.abs(c[corner][0]) < 1e-3f || Math.abs(c[corner][1]) < 1e-3f) return false;
-        float fa = clamp(tmp[0] / c[corner][0], MIN_FACTOR, MAX_FACTOR);
-        float fb = clamp(tmp[1] / c[corner][1], MIN_FACTOR, MAX_FACTOR);
+        outFactors[0] = clamp(tmp[0] / c[corner][0], MIN_FACTOR, MAX_FACTOR);
+        outFactors[1] = clamp(tmp[1] / c[corner][1], MIN_FACTOR, MAX_FACTOR);
+        return isFinite(outFactors[0]) && isFinite(outFactors[1]);
+    }
+
+    /**
+     * Rebuild the quad from the grab-time frame with EXPLICIT factors — the second half
+     * of {@link #scaleCorner}, split out so callers (uniform snap) can substitute their
+     * own factors. Every corner is rebuilt from its OWN coordinates, so a trapezoid
+     * stays a trapezoid at any factor pair — see the class note.
+     */
+    public static void scaleCornerApply(float[] q, float[] q0, int corner, float fa, float fb) {
+        int opp = (corner + 2) % 4;
+        float ox = q0[opp * 2], oy = q0[opp * 2 + 1];
+        int ui = (corner + 3) % 4, vi = (corner + 1) % 4;
+        float ux = q0[ui * 2] - ox, uy = q0[ui * 2 + 1] - oy;
+        float vx = q0[vi * 2] - ox, vy = q0[vi * 2 + 1] - oy;
+        float[][] c = new float[4][2];
+        float[] tmp = new float[2];
+        for (int k = 0; k < 4; k++) {
+            if (!uvCoords(q0[k * 2], q0[k * 2 + 1], ox, oy, ux, uy, vx, vy, tmp)) return;
+            c[k][0] = tmp[0];
+            c[k][1] = tmp[1];
+        }
         for (int k = 0; k < 4; k++) {
             q[k * 2] = ox + ux * c[k][0] * fa + vx * c[k][1] * fb;
             q[k * 2 + 1] = oy + uy * c[k][0] * fa + vy * c[k][1] * fb;
         }
-        if (outFactors != null) { outFactors[0] = fa; outFactors[1] = fb; }
-        return true;
+    }
+
+    /**
+     * Snap two corner-scale factors to uniform when they agree within {@code tol}
+     * (relative: {@code |fa-fb|/max(|fa|,|fb|) <= tol}).
+     *
+     * <p>The touch-screen answer to the Shift key: there is no modifier on a phone, so
+     * near-diagonal drags snap to uniform (the common case, and every modern competitor
+     * — Photoshop, Affinity, Figma — scales proportionally by default) while a
+     * deliberate off-diagonal push breaks out to free aspect. The snapped value is the
+     * arithmetic mean, applied to both axes, so a trapezoid stays similar. The caller
+     * owns the hysteresis (which tolerance to pass); this function is stateless.
+     *
+     * @param out receives {@code {fa, fb}} — {@code {m, m}} when snapped, the inputs
+     *            untouched otherwise
+     * @return true when snapped
+     */
+    public static boolean snapUniformFactors(float fa, float fb, float tol, float[] out) {
+        if (out == null || out.length < 2) return false;
+        if (!isFinite(fa) || !isFinite(fb) || !(tol >= 0f)) {
+            out[0] = fa;
+            out[1] = fb;
+            return false;
+        }
+        float denom = Math.max(Math.abs(fa), Math.abs(fb));
+        if (denom < 1e-6f) {
+            out[0] = fa;
+            out[1] = fb;
+            return false;
+        }
+        if (Math.abs(fa - fb) / denom <= tol) {
+            float m = (fa + fb) * 0.5f;
+            out[0] = m;
+            out[1] = m;
+            return true;
+        }
+        out[0] = fa;
+        out[1] = fb;
+        return false;
     }
 
     /**
@@ -510,11 +587,11 @@ public final class TransformQuad {
 
     // ── SPEC G: the corner-pin budget bake ──────────────────────────────────
     //
-    // Every distortion is stored as four corner offsets in units of the picture's own size,
-    // capped at CornerPin.MAX_OFFSET = 2. A flip writes offsets of magnitude 1 (50% of the
-    // budget) and a fold writes 2.0 (100%) — while the distortion the user actually authored,
-    // a 5% corner nudge, costs 0.05. Operations that carry no distortion still consume
-    // distortion budget, so the second fold is refused and reads as broken.
+    // Every distortion is stored as four corner offsets in units of the picture's own size
+    // (capped far out at CornerPin.MAX_OFFSET, which normal work never reaches). A flip in
+    // pin form writes offsets of magnitude 1 and a fold 2.0 — while the distortion the user
+    // actually authored, a 5% corner nudge, costs 0.05. Affine content never spends budget:
+    // it is baked out at commit (below), so mirroring is unlimited no matter the cap.
     //
     // The insight: a flip, fold, rotation or scale of a rectangle is a PARALLELOGRAM, fully
     // describable by centre, size, rotation and a mirror — no corner pin at all. Only a
@@ -749,6 +826,45 @@ public final class TransformQuad {
     }
 
     /**
+     * Rebase gesture-local pixels from an old canvas rect to a new one, in place.
+     *
+     * <p>A drag stores its truth in pixels — grab snapshot, live quad, finger origin —
+     * but the canvas rect those pixels are measured against can move underneath it
+     * (a drawer resize, the controls fading, anything that re-lays-out the preview
+     * container mid-gesture). Without a rebase the frozen snapshot and the live finger
+     * speak different frames, and the commit bakes the gap into the project as a
+     * teleport on finger-up. The mapping is the rect-to-rect diagonal affine (both
+     * rects are axis-aligned canvas fits, so per-axis scale plus translate is exact),
+     * applied to every stored point; differences (like the grab offset) scale, which
+     * the same affine does to them. No model writes — pure chrome, so it cannot cost
+     * the user anything and needs no undo.
+     *
+     * @param pts  packed {@code {x,y}} pairs (a quad, a finger origin, ...), remapped
+     *             in place
+     * @return false when the rects are degenerate or identical (caller keeps going —
+     *         nothing moved)
+     */
+    public static boolean rebasePoints(float[] pts,
+                                       float oldL, float oldT, float oldW, float oldH,
+                                       float newL, float newT, float newW, float newH) {
+        if (pts == null) return false;
+        if (!(oldW > 0.5f) || !(oldH > 0.5f) || !(newW > 0.5f) || !(newH > 0.5f)) return false;
+        for (float v : pts) if (!isFinite(v)) return false;
+        if (!isFinite(oldL) || !isFinite(oldT) || !isFinite(newL) || !isFinite(newT)) return false;
+        float sx = newW / oldW, sy = newH / oldH;
+        float tx = newL - oldL * sx, ty = newT - oldT * sy;
+        if (!isFinite(sx) || !isFinite(sy) || !isFinite(tx) || !isFinite(ty)) return false;
+        if (sx == 1f && sy == 1f && tx == 0f && ty == 0f) return false;
+        for (int i = 0; i + 1 < pts.length; i += 2) {
+            float x = pts[i] * sx + tx, y = pts[i + 1] * sy + ty;
+            if (!isFinite(x) || !isFinite(y)) return false;
+            pts[i] = x;
+            pts[i + 1] = y;
+        }
+        return true;
+    }
+
+    /**
      * Solve the pose-frame pin offsets whose presented quad is {@code quad8}.
      *
      * @param quad8  presented quad (TL,TR,BR,BL) in overlay px, exactly as dragged
@@ -765,7 +881,7 @@ public final class TransformQuad {
      * @param pivU   stored pivot x fraction (0, 0.5 or 1)
      * @param pivV   stored pivot y fraction
      * @param outPins8 receives the eight offsets in CornerPin order
-     * @return false when the 2x2 is singular (refuse, do not store)
+     * @return false for degenerate input (refuse, do not store)
      */
     public static boolean solvePinForQuad(float[] quad8,
                                           float poseCx, float poseCy,
@@ -796,17 +912,24 @@ public final class TransformQuad {
         pivotWeights(pivU, pivV, ww);
         float sAx = ww[0] * ax[0] + ww[1] * ax[1] + ww[2] * ax[2] + ww[3] * ax[3];
         float sAy = ww[0] * ay[0] + ww[1] * ay[1] + ww[2] * ay[2] + ww[3] * ay[3];
-        float dFx = (pivU - 0.5f) * w, dFy = (pivV - 0.5f) * h;
-        // K = M·(R(−θ) − I); (I+K)·δ = δflat + Σw·A.
+        // (Folded-offset derivation continued below at the closed form.)
+        // Closed form for the folded pivot offset D: substituting o.s = A - K.D into
+        // D = M.dflat + Sw.M.(o.s) gives (I + M.K).D = M.(dflat + Sw.A), and M.K = Ri-I
+        // collapses the left side to Ri.D — so D = R.M.(dflat + Sw.A), no inverse, no
+        // singularity at any angle or mirror state. (An earlier revision solved a 2x2
+        // here and went singular at mirror+60 degrees.) Unmirrored this reduces to the
+        // original unbiased solve.
+        double radR = Math.toRadians(thDeg);
+        float cr = (float) Math.cos(radR), sr = (float) Math.sin(radR);
+        if (!isFinite(cr) || !isFinite(sr)) return false;
+        float mSx = smx * ((pivU - 0.5f) * w + sAx);
+        float mSy = smy * ((pivV - 0.5f) * h + sAy);
+        if (!isFinite(mSx) || !isFinite(mSy)) return false;
+        float dx = cr * mSx - sr * mSy, dy = sr * mSx + cr * mSy;
+        if (!isFinite(dx) || !isFinite(dy)) return false;
+        // K = M.(Ri-I); o.s = A - K.D per corner.
         float k00 = smx * (ci - 1f), k01 = smx * (-si);
         float k10 = smy * si, k11 = smy * (ci - 1f);
-        float m00 = 1f + k00, m01 = k01, m10 = k10, m11 = 1f + k11;
-        float det = m00 * m11 - m01 * m10;
-        if (!isFinite(det) || Math.abs(det) < 1e-9f) return false;
-        float rhsx = dFx + sAx, rhsy = dFy + sAy;
-        float dx = (rhsx * m11 - rhsy * m01) / det;
-        float dy = (m00 * rhsy - m10 * rhsx) / det;
-        if (!isFinite(dx) || !isFinite(dy)) return false;
         for (int i = 0; i < 4; i++) {
             float ox = (ax[i] - (k00 * dx + k01 * dy)) / w;
             float oy = (ay[i] - (k10 * dx + k11 * dy)) / h;

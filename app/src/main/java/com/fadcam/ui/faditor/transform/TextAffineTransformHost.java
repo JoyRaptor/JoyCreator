@@ -87,6 +87,10 @@ public final class TextAffineTransformHost implements TransformOverlayView.Host 
     public float currentRotationDeg() { return target.rotationDeg(now()); }
 
     @Override
+    @NonNull
+    public RectF videoRect() { return target.videoRect(); }
+
+    @Override
     public void beginGesture() {
         long t = now();
         startCx = target.centerX(t);

@@ -79,6 +79,15 @@ public class TransformOverlayView extends View {
         /** A gesture is starting: take the ONE snapshot the whole gesture will undo to. */
         void beginGesture();
 
+        /**
+         * The canvas rect the gesture pixels are measured against, in this view's pixels.
+         * The view snapshots it when a gesture starts and rebases its frozen state if the
+         * rect moves underneath it (drawer resize, controls fade) instead of baking the
+         * gap into the project on release.
+         */
+        @NonNull
+        RectF videoRect();
+
         /** The shape changed. Return false to REFUSE (out of range, unsolvable homography). */
         boolean writeQuad(@NonNull float[] quad8);
 
@@ -162,8 +171,83 @@ public class TransformOverlayView extends View {
 
     /** The playhead moved or the object was written from elsewhere — re-read the quad. */
     public void refresh() {
-        if (dragKind == null && !pinching) syncFromHost();
+        if (dragKind == null && !pinching) {
+            syncFromHost();
+        } else {
+            rebaseForRectChange();
+        }
         invalidate();
+    }
+
+    /**
+     * SPEC K — the canvas rect moved underneath a live gesture (drawer resize, controls
+     * fade, anything re-laying-out the preview container mid-drag). The frozen snapshot
+     * and the live finger would then speak different frames, and the commit would bake
+     * the gap into the project as a teleport on finger-up. Rebase every stored pixel to
+     * the new rect instead: the gesture continues exactly where the finger is, with no
+     * model write, no undo step and no snap. Pure chrome.
+     */
+    private void rebaseForRectChange() {
+        Host h = host;
+        if (h == null || !haveRectAtGrab) return;
+        RectF cur;
+        try {
+            cur = h.videoRect();
+        } catch (RuntimeException e) {
+            return;   // no rect, no rebase — the gesture keeps its frame
+        }
+        if (cur == null || cur.width() <= 0.5f || cur.height() <= 0.5f) return;
+        float oL = rectAtGrab.left, oT = rectAtGrab.top;
+        float oW = rectAtGrab.width(), oH = rectAtGrab.height();
+        if (!(oW > 0.5f) || !(oH > 0.5f)) return;
+        if (cur.left == oL && cur.top == oT && cur.width() == oW && cur.height() == oH) return;
+        float sx = cur.width() / oW, sy = cur.height() / oH;
+        if (!isFinite(sx) || !isFinite(sy)) return;
+        // Every frozen pixel moves to the new frame; live fingers already live there.
+        TransformQuad.rebasePoints(quad, oL, oT, oW, oH,
+                cur.left, cur.top, cur.width(), cur.height());
+        TransformQuad.rebasePoints(quadAtGrab, oL, oT, oW, oH,
+                cur.left, cur.top, cur.width(), cur.height());
+        TransformQuad.rebasePoints(quadLastGood, oL, oT, oW, oH,
+                cur.left, cur.top, cur.width(), cur.height());
+        // Differences scale with the rect; origins remap.
+        float[] dd = {downX, downY};
+        if (TransformQuad.rebasePoints(dd, oL, oT, oW, oH,
+                cur.left, cur.top, cur.width(), cur.height())) {
+            downX = dd[0];
+            downY = dd[1];
+        }
+        grabOffsetX *= sx;
+        grabOffsetY *= sy;
+        if (pinching) {
+            float[] pf = {pinchAx, pinchAy, pinchBx, pinchBy, pinchPivotX, pinchPivotY};
+            if (TransformQuad.rebasePoints(pf, oL, oT, oW, oH,
+                    cur.left, cur.top, cur.width(), cur.height())) {
+                pinchAx = pf[0]; pinchAy = pf[1];
+                pinchBx = pf[2]; pinchBy = pf[3];
+                pinchPivotX = pf[4]; pinchPivotY = pf[5];
+            }
+        }
+        if (dragKind == HandleModel.Kind.ROTATE) {
+            float[] rp = {rotPivotX, rotPivotY, rotGrabX, rotGrabY};
+            if (TransformQuad.rebasePoints(rp, oL, oT, oW, oH,
+                    cur.left, cur.top, cur.width(), cur.height())) {
+                rotPivotX = rp[0];
+                rotPivotY = rp[1];
+                rotGrabX = rp[2];
+                rotGrabY = rp[3];
+            }
+            // The grab angle is re-derived in the new frame so the rotation does not jump;
+            // non-uniform rect changes distort angles slightly, and continuity wins.
+            rotStartAngleRad = (float) Math.atan2(rotGrabY - rotPivotY, rotGrabX - rotPivotX);
+        }
+        // A ring opened pre-resize would mis-hit; it reopens on the next long-press.
+        closeRing();
+        rectAtGrab.set(cur);
+    }
+
+    private static boolean isFinite(float v) {
+        return !Float.isNaN(v) && !Float.isInfinite(v);
     }
 
     // ── Metrics ──────────────────────────────────────────────────────────
@@ -182,6 +266,51 @@ public class TransformOverlayView extends View {
     private static final float MOVE_SLOP_DP = 7f;
     private static final long HUD_FADE_MS = 400L;
 
+    /**
+     * Uniform-snap hysteresis for corner scaling, as relative factor disagreement:
+     * break out of uniform past 15%, rejoin under 10%. Tuned so ordinary diagonal
+     * drags stay locked while a deliberate sideways push escapes on purpose.
+     */
+    private static final float SNAP_BREAK_REL = 0.15f;
+    private static final float SNAP_REJOIN_REL = 0.10f;
+
+    /**
+     * Snap-tint fade for the quad outline during corner scales: purple at rest and
+     * at identity, tilt-green while snapped uniform, free-red once broken out. The
+     * edges carry the state, never the handle glyphs (their shape+colour vocabulary
+     * already means the handle's role, not the drag's momentary state).
+     */
+    private static final long SNAP_FADE_MS = 150L;
+    private int snapTintFrom = HandleModel.COLOR_GUIDE;
+    private int snapTintTo = HandleModel.COLOR_GUIDE;
+    private long snapTintStartMs = 0L;
+
+    /** Point the outline tint at {@code color}; fades from whatever it shows now. */
+    private void setSnapTint(int color) {
+        if (color == snapTintTo) return;
+        snapTintFrom = snapTintNow();
+        snapTintTo = color;
+        snapTintStartMs = SystemClock.uptimeMillis();
+    }
+
+    /** The outline colour right now, advancing an in-flight fade (and continuing it). */
+    private int snapTintNow() {
+        long age = SystemClock.uptimeMillis() - snapTintStartMs;
+        if (age >= SNAP_FADE_MS) return snapTintTo;
+        if (age <= 0) return snapTintFrom;
+        postInvalidateOnAnimation();
+        return blendArgb(snapTintFrom, snapTintTo, age / (float) SNAP_FADE_MS);
+    }
+
+    private static int blendArgb(int a, int b, float f) {
+        float g = Math.max(0f, Math.min(1f, f));
+        int r = Math.round(((a >> 16) & 0xFF) + (((b >> 16) & 0xFF) - ((a >> 16) & 0xFF)) * g);
+        int gg = Math.round(((a >> 8) & 0xFF) + (((b >> 8) & 0xFF) - ((a >> 8) & 0xFF)) * g);
+        int bl = Math.round((a & 0xFF) + ((b & 0xFF) - (a & 0xFF)) * g);
+        int al = Math.round(((a >>> 24)) + (((b >>> 24)) - ((a >>> 24))) * g);
+        return (al << 24) | (r << 16) | (gg << 8) | bl;
+    }
+
     // ── State ────────────────────────────────────────────────────────────
 
     private final float[] quad = new float[8];       // live, in view px
@@ -195,12 +324,20 @@ public class TransformOverlayView extends View {
     @Nullable private HandleModel.Kind dragKind;
     private int dragIndex;
     private int dragPointerId = -1;
+    /** True once this corner-scale drag has broken out of uniform snap to free aspect. */
+    private boolean cornerSnapBroken;
     private float grabOffsetX, grabOffsetY;   // handle centre minus finger, so nothing jumps
     private float downX, downY;
     private boolean moved;
 
     // Pure-rotation gesture state.
     private float rotPivotX, rotPivotY, rotStartAngleRad, rotStartDeg;
+    /** Rotate-handle grab point, for re-deriving the grab angle after a rect rebase. */
+    private float rotGrabX, rotGrabY;
+
+    /** Canvas rect the gesture pixels are measured against, frozen at gesture start. */
+    private final RectF rectAtGrab = new RectF();
+    private boolean haveRectAtGrab;
 
     // Two-finger state.
     private boolean pinching;
@@ -298,12 +435,12 @@ public class TransformOverlayView extends View {
         stroke.setStrokeWidth(dp(0.9f));
         c.drawLine(scratch2[0], scratch2[1], rotateHandle[0], rotateHandle[1], stroke);
 
-        // The quad itself.
+        // The quad itself, tinted by the corner-scale snap state (purple rest).
         path.reset();
         path.moveTo(quad[0], quad[1]);
         for (int i = 1; i < 4; i++) path.lineTo(quad[i * 2], quad[i * 2 + 1]);
         path.close();
-        stroke.setColor(withAlpha(HandleModel.COLOR_GUIDE, 0xE6));
+        stroke.setColor(withAlpha(snapTintNow(), 0xE6));
         stroke.setStrokeWidth(dp(1.1f));
         c.drawPath(path, stroke);
 
@@ -327,9 +464,83 @@ public class TransformOverlayView extends View {
         if (bendMode && host != null && host.supportsBend()) drawBendNet(c, host);
 
         drawExitPill(c);
+        drawReframePill(c);
         if (ringOpen) drawRing(c);
         drawLoupe(c);
         drawHud(c);
+    }
+
+    // ── The reframe bubble ─────────────────────────────────────────────────
+    //
+    // SPEC K — Reset lives in the ring, the ring needs a handle, and a fully
+    // off-screen object has no reachable handle: without this, losing an object
+    // off-frame is a trap with no way back (the timeline lane can reselect, but the
+    // geometry tools stay out of reach). When the selected quad's centroid leaves the
+    // view, a "Reframe" pill parks at the nearest on-screen point and one tap moves
+    // the object (through the ordinary undoable translate channel) just far enough
+    // to grab again. It shows only when settled — never mid-drag, where it would
+    // steal the finger.
+
+    private final float[] reframeScratch = new float[2];
+
+    /** True when the bubble should be drawn and armed right now. */
+    private boolean showReframePill() {
+        if (host == null || !haveQuad) return false;
+        if (dragKind != null || pinching || ringOpen) return false;
+        TransformQuad.centroid(quad, reframeScratch);
+        float cx = reframeScratch[0], cy = reframeScratch[1];
+        return cx < 0f || cy < 0f || cx > getWidth() || cy > getHeight();
+    }
+
+    private void reframePillRect(@NonNull RectF out) {
+        float w = dp(96f), h = dp(34f);
+        float m = Math.min(dp(72f), Math.min(getWidth(), getHeight()) * 0.25f);
+        float cx = reframeScratch[0], cy = reframeScratch[1];
+        float px = Math.max(m, Math.min(getWidth() - m, cx));
+        float py = Math.max(m, Math.min(getHeight() - m, cy));
+        out.set(px - w / 2f, py - h / 2f, px + w / 2f, py + h / 2f);
+    }
+
+    private void drawReframePill(@NonNull Canvas c) {
+        if (!showReframePill()) return;
+        reframePillRect(rectf);
+        fill.setColor(0xE6131318);
+        c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
+        stroke.setColor(0xFF4C3F7A);
+        stroke.setStrokeWidth(dp(1f));
+        c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
+        text.setColor(0xFFECECF2);
+        text.setTextSize(dp(12f));
+        text.setFakeBoldText(true);
+        c.drawText("Reframe", rectf.centerX(), rectf.centerY() + dp(4f), text);
+        text.setFakeBoldText(false);
+    }
+
+    /** Is this touch on the pill (when shown)? Padded out to a 44dp target. */
+    private boolean hitsReframePill(float x, float y) {
+        if (!showReframePill()) return false;
+        reframePillRect(rectf);
+        float padX = Math.max(0f, (dp(44f) - rectf.width()) / 2f);
+        float padY = Math.max(0f, (dp(44f) - rectf.height()) / 2f);
+        return x >= rectf.left - padX && x <= rectf.right + padX
+                && y >= rectf.top - padY && y <= rectf.bottom + padY;
+    }
+
+    /** Move the object just far enough to grab again — one undoable translate. */
+    private void doReframe() {
+        Host h = host;
+        if (h == null || !haveQuad) return;
+        TransformQuad.centroid(quad, reframeScratch);
+        float m = Math.min(dp(72f), Math.min(getWidth(), getHeight()) * 0.25f);
+        float tx = Math.max(m, Math.min(getWidth() - m, reframeScratch[0]));
+        float ty = Math.max(m, Math.min(getHeight() - m, reframeScratch[1]));
+        float dx = tx - reframeScratch[0], dy = ty - reframeScratch[1];
+        if (!isFinite(dx) || !isFinite(dy)) return;
+        if (Math.hypot(dx, dy) < dp(2f)) return;   // rounding dust, not a loss
+        h.beginGesture();
+        h.writeTranslate(dx, dy);
+        h.commitGesture("Reframe");
+        invalidate();
     }
 
     // ── Leaving the surface ──────────────────────────────────────────────
@@ -633,7 +844,7 @@ public class TransformOverlayView extends View {
         path.moveTo(quad[0], quad[1]);
         for (int i = 1; i < 4; i++) path.lineTo(quad[i * 2], quad[i * 2 + 1]);
         path.close();
-        stroke.setColor(withAlpha(HandleModel.COLOR_GUIDE, 0xE6));
+        stroke.setColor(withAlpha(snapTintNow(), 0xE6));
         stroke.setStrokeWidth(dp(1.1f) / LOUPE_ZOOM);
         c.drawPath(path, stroke);
         for (int i = 0; i < handleCount; i++) {
@@ -1028,13 +1239,22 @@ public class TransformOverlayView extends View {
                 return true;
             }
         }
-        if (insideRing) return true;      // a miss inside the dial is not a dismissal
+        if (insideRing) {
+            // SPEC K — a miss inside the dial is not a dismissal, but it is not silence
+            // either: an unanswered tap reads as "folding stopped working". Say which
+            // thing to tap, briefly, on the chip.
+            setHud("Tap a symbol", x, y);
+            hudEndedAtMs = SystemClock.uptimeMillis();
+            invalidate();
+            return true;
+        }
         closeRing();
         return true;                      // ...but a touch outside it is, and it ends there
     }
 
     private void diagAction(int slot) {
         Host h = host;
+        TransformDiag.log("ring " + (ringIsCorner ? "corner" : "edge") + ringIndex + " slot=" + slot);
         switch (slot) {
             case 0:
                 if (ringIsCorner) {
@@ -1084,9 +1304,26 @@ public class TransformOverlayView extends View {
         if (!TransformQuad.foldOverEdge(quad, e)) return;
         if (!TransformQuad.isValid(quad)) { System.arraycopy(quadLastGood, 0, quad, 0, 8); return; }
         h.beginGesture();
-        if (h.writeQuad(quad)) h.commitGesture("Fold");
-        else System.arraycopy(quadLastGood, 0, quad, 0, 8);
+        if (h.writeQuad(quad)) {
+            h.commitGesture("Fold");
+            TransformDiag.log("fold edge=" + e + " accepted");
+        } else {
+            // SPEC K — a refused fold used to die silently and read as "folding stopped
+            // working". The pin budget (±2 extents) is real: a fold of an already hard
+            // distorted quad can ask for more than the tracks can carry, and clamping some
+            // corners and not others would shear the picture instead of folding it. Say so
+            // on the gesture chip (mid-drag refusals stay silent by design — the drag
+            // simply stops moving — but a discrete tap deserves an answer).
+            System.arraycopy(quadLastGood, 0, quad, 0, 8);
+            TransformDiag.log("fold edge=" + e + " refused-range");
+            TransformQuad.edgeMid(quad, e, scratch2);
+            setHud("Pin limit", scratch2[0], scratch2[1]);
+            // No finger is down (this came from the ring), so nothing will fade the chip:
+            // start its fade now, and repaint to show it.
+            hudEndedAtMs = SystemClock.uptimeMillis();
+        }
         syncFromHost();
+        invalidate();
     }
 
     // ── Touch ────────────────────────────────────────────────────────────
@@ -1139,6 +1376,10 @@ public class TransformOverlayView extends View {
             if (r != null) r.run();
             return true;
         }
+        if (hitsReframePill(x, y)) {
+            doReframe();
+            return true;
+        }
         if (!haveQuad) syncFromHost();
         if (!haveQuad) return false;
         rebuildHandles();
@@ -1185,8 +1426,21 @@ public class TransformOverlayView extends View {
         downX = x;
         downY = y;
         moved = false;
+        cornerSnapBroken = false;
         System.arraycopy(quad, 0, quadAtGrab, 0, 8);
         System.arraycopy(quad, 0, quadLastGood, 0, 8);
+        // Freeze the canvas rect with the gesture: if it moves underneath us, refresh()
+        // rebases this frozen state instead of baking the gap into the project on release.
+        haveRectAtGrab = false;
+        try {
+            RectF vr = h.videoRect();
+            if (vr != null && vr.width() > 0.5f && vr.height() > 0.5f) {
+                rectAtGrab.set(vr);
+                haveRectAtGrab = true;
+            }
+        } catch (RuntimeException caught) {
+            haveRectAtGrab = false;
+        }
 
         if (hit != null) {
             dragKind = hit.kind;
@@ -1198,6 +1452,8 @@ public class TransformOverlayView extends View {
                 h.readPivot(scratch2);
                 rotPivotX = scratch2[0];
                 rotPivotY = scratch2[1];
+                rotGrabX = hit.x;
+                rotGrabY = hit.y;
                 rotStartAngleRad = (float) Math.atan2(hit.y - rotPivotY, hit.x - rotPivotX);
                 rotStartDeg = h.currentRotationDeg();
             } else {
@@ -1284,7 +1540,11 @@ public class TransformOverlayView extends View {
         dragKind = null;
         dragPointerId = -1;
         moved = false;
+        cornerSnapBroken = false;
+        // The outline fades back to purple on release (snapTintNow animates it).
+        setSnapTint(HandleModel.COLOR_GUIDE);
         loupeShowing = false;
+        haveRectAtGrab = false;
     }
 
     /**
@@ -1339,11 +1599,30 @@ public class TransformOverlayView extends View {
                 HandleModel.Role r = affineOnly
                         ? HandleModel.Role.SCALE : handles.corner(dragIndex);
                 if (r == HandleModel.Role.SCALE) {
-                    if (!TransformQuad.scaleCorner(quad, quadAtGrab, dragIndex, tx, ty,
+                    // Uniform snap: near-diagonal drags scale proportionally by default
+                    // (the modern convention — Photoshop, Affinity, Figma — and the only
+                    // sane default on a phone, which has no Shift key); pushing clearly
+                    // off-diagonal breaks out to free aspect until nearly diagonal again.
+                    if (!TransformQuad.scaleCornerFactors(quadAtGrab, dragIndex, tx, ty,
                             scratchFactors)) return;
-                    hud = pct(scratchFactors[0])
-                            + (Math.abs(scratchFactors[0] - scratchFactors[1]) < 0.005f ? ""
-                            : " × " + pct(scratchFactors[1]));
+                    float tol = cornerSnapBroken ? SNAP_REJOIN_REL : SNAP_BREAK_REL;
+                    float[] sf = scratch2;
+                    boolean snapped = TransformQuad.snapUniformFactors(
+                            scratchFactors[0], scratchFactors[1], tol, sf);
+                    cornerSnapBroken = !snapped;
+                    TransformQuad.scaleCornerApply(quad, quadAtGrab, dragIndex, sf[0], sf[1]);
+                    // Outline tint: purple at identity (no change, or back where it
+                    // started), tilt-green while snapped uniform, free-red broken out.
+                    if (Math.abs(sf[0] - 1f) < 0.005f && Math.abs(sf[1] - 1f) < 0.005f) {
+                        setSnapTint(HandleModel.COLOR_GUIDE);
+                    } else if (snapped) {
+                        setSnapTint(HandleModel.COLOR_TILT);
+                    } else {
+                        setSnapTint(HandleModel.COLOR_FREE);
+                    }
+                    hud = pct(sf[0])
+                            + (Math.abs(sf[0] - sf[1]) < 0.005f ? ""
+                            : " × " + pct(sf[1]));
                 } else if (r == HandleModel.Role.TILT) {
                     TransformQuad.tiltCorner(quad, dragIndex, tx, ty);
                     hud = signed(tx - quadAtGrab[dragIndex * 2])
@@ -1429,6 +1708,17 @@ public class TransformOverlayView extends View {
         pinchBy = e.getY(1);
         System.arraycopy(quad, 0, quadAtGrab, 0, 8);
         System.arraycopy(quad, 0, quadLastGood, 0, 8);
+        // Freeze the canvas rect with the pinch, same as a one-finger down.
+        haveRectAtGrab = false;
+        try {
+            RectF vr = h.videoRect();
+            if (vr != null && vr.width() > 0.5f && vr.height() > 0.5f) {
+                rectAtGrab.set(vr);
+                haveRectAtGrab = true;
+            }
+        } catch (RuntimeException caught) {
+            haveRectAtGrab = false;
+        }
         h.readPivot(scratch2);
         pinchPivotX = scratch2[0];
         pinchPivotY = scratch2[1];
@@ -1482,6 +1772,9 @@ public class TransformOverlayView extends View {
         if (!pinching) return;
         pinching = false;
         pinchIdA = pinchIdB = -1;
+        haveRectAtGrab = false;
+        cornerSnapBroken = false;
+        setSnapTint(HandleModel.COLOR_GUIDE);
         if (clean && moved) h.commitGesture("Transform");
         hudEndedAtMs = SystemClock.uptimeMillis();
         moved = false;

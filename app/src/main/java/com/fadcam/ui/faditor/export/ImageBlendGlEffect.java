@@ -527,8 +527,8 @@ final class ImageBlendGlEffect implements GlEffect {
                 float pivOffX, pivOffY;
                 boolean applyPivot;
                 try {
-                    pivOffX = item.pivotOffsetFromCentreX(wNorm, hNorm, pins);
-                    pivOffY = item.pivotOffsetFromCentreY(wNorm, hNorm, pins);
+                    pivOffX = item.mirrorSignX() * item.pivotOffsetFromCentreX(wNorm, hNorm, pins);
+                    pivOffY = item.mirrorSignY() * item.pivotOffsetFromCentreY(wNorm, hNorm, pins);
                     applyPivot = !item.isRotationPivotNeutral(pins);
                 } catch (Exception ignored) {
                     drawFlatFallback(inputTexId, presentationTimeUs);

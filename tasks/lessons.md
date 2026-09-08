@@ -536,19 +536,20 @@ whole index. The bulletproof form is a PATH-LIMITED commit: `git commit -m "..."
 files>`, which commits exactly those paths from the working tree and ignores everything
 else in the index. Follow with `git show --stat HEAD` every time.
 
-## View.animate() is ONE shared animator per view � name EVERY axis you don't own
+## View.animate() is ONE shared animator per view � name EVERY axis you don't own
 
 **Pattern:** Multiple features translate the same container on different axes
-(eflowPreviewUnderDrawer uses translationY; H1 transcript reflow uses
+(
+eflowPreviewUnderDrawer uses translationY; H1 transcript reflow uses
 translationX). View.animate() returns the same ViewPropertyAnimator instance
 every call. Starting an animation that names only YOUR axis CANCELS the other
-axis's in-flight tween at its mid-flight value � the other feature's transform
+axis's in-flight tween at its mid-flight value � the other feature's transform
 freezes halfway and nothing ever re-derives it.
 
 **Rule:** Every writer of a shared view's transforms must carry the current
 TARGETS of all axes it does not own (keep them in fields: drawerReflowShiftY /
 transcriptReflowShiftX pattern). Bare setTranslationX/Y are safe mid-flight only
-in the sense that a later animate() restart picks up current values � but only
+in the sense that a later animate() restart picks up current values � but only
 if that later writer also names both axes.
 
 **Trigger:** Two features animating different properties of one view; symptom is
@@ -595,18 +596,95 @@ transform applied on read must have its exact inverse applied on write. Verify o
 screenshot (adb shell screencap + pull; NEVER PowerShell > redirection of adb binary
 output — it corrupts the PNG).
 
-## 2026-09-06 � SPEC J: the dead panel vs the live surface (and "done" isn't done until the acceptance criteria are re-read)
+## 2026-09-06 � SPEC J: the dead panel vs the live surface (and "done" isn't done until the acceptance criteria are re-read)
 
 A rotation-slider fix was applied to MaskKeyPanel, whose opener (showMaskDialog) turned out to have
-NO caller � superseded by the object drawer's mask tab. The REACHABLE copy of the same defect
+NO caller � superseded by the object drawer's mask tab. The REACHABLE copy of the same defect
 (PipDrawerTabs mask tab, a 0..360 rotation slider writing cur.rotationDeg) survived both audit
 passes and was only caught in the final sweep. The spec's rule was explicit ("a rotation SLIDER
-must not survive anywhere") � a dead panel satisfied the letter of a per-file grep, not the rule.
+must not survive anywhere") � a dead panel satisfied the letter of a per-file grep, not the rule.
 
 **Rules:**
 - Before reporting a UI defect fixed, locate the LIVE route to the screen (grep the constructor's
-  callers to the activity; zero callers = dead code � find the successor surface and check IT).
+  callers to the activity; zero callers = dead code � find the successor surface and check IT).
 - Before declaring a spec done, re-read its acceptance-criteria section line by line and produce
   the exact artifact shapes it demands (per-host/per-method tables, per-site audits with counts).
 - Sweep for a class of defect, not an instance: grep for the CONTROL (SeekBar near "rotat"), not
   for the file you already know.
+
+## 2026-09-07 — SPEC K flip follow-ups: mirror is a cross-cutting axis, not a flag
+
+**Pattern:** three stacked defects, each invisible on flat/unrotated pictures (the only states
+device-tested), each proven by a JVM harness that failed 1:1 against the old code:
+(1) `CornerPinTransformHost.flip` toggled the flag AND negated the pins — but the composition
+order is pin-inside-mirror, so an exact central mirror is flag-only; the negate shifted the
+picture by twice its own distortion (JoyRaptor: corner flip "flipped on a side axis").
+(2) `CornerPinImageView` assembled `preConcat(mirror)` + `postConcat(pin)` = pin.base.mirror
+with the mirror pivot in bitmap space — half a frame of sideways shove while the handles sat
+correct; the export draws mirror.pin.base. Pin-alone pictures always rendered fine through
+postConcat, which is what pins the pre/post Skia convention down (pre = source side).
+(3) the GL pin inverse read mirrored coordinates through the unmirrored homography (same swap).
+Deeper: mirror does not commute with rotation (`M.R = R(-).M`) or with the pivot fold, so an
+exact flip is flag + negated rotation + mirror-aware folds — proven 0.0px over 400 fuzz cases.
+The first fix attempt (flag-only, old angle) failed its own harness at 250-850px and forced the
+full architecture; the 2x2 solve first written for it went singular at mirror+60 degrees and
+collapsed to a closed form with no inverse.
+
+**Rules:**
+- A mirror flag is load-bearing in EVERY consumer of the offset it qualifies: pivot folds and
+  anchors (all renderers, bake comp + verify, solve, picker comp, travel clamp), both preview
+  matrix assemblies, the GL homography. Grep `mirrorSign|isFlipH` after any mirror change and
+  account for each site; unmirrored must reduce bit-identically (signs are +1).
+- Matrix assembly order is provable off-device: transcribe the pre/post op sequence into a
+  3x3 pure-Java check against the export's order. Never trust pre/post naming from memory —
+  derive it from a path that visibly works (pin-alone via postConcat).
+- When a harness fails after a "complete" fix, do the term-by-term algebra before scoping down:
+  the residual's shape (here: rotation-direction mismatch) names the missing piece.
+
+## 2026-09-07 — SPEC K: the bake keeps moving the pose, capped, and why
+
+**Pattern:** an attempt to make the commit bake never translate the pose (folding the
+fit's translation back into the residual) failed the round-trip harness by exactly
+the rotation angle: without fold terms the shift materializes through rotation
+alone, so the absorbed constant must be un-rotated first — and with centre-neutral
+folds there IS no fold term to complete it. Translation content genuinely belongs
+in the pose for folds/scales (a fold IS mostly translation); the fix for teleports
+is a CAP, not a relocation: no single commit recentres by more than 3 picture
+sizes (genuine fold swings, sculpt settling and anchor compensation fit; stale-frame
+garbage does not), else walk away keeping the gesture. Verify arbitrates regardless.
+
+**Rule:** when two representations both preserve (move-pose vs absorb-to-pins), pick
+the one whose error term has somewhere to complete — then prove it in-harness
+BEFORE committing to it. An absorption proof that silently assumes fold terms is
+worthless under centre-neutral semantics; the harness caught it in one run.
+
+## 2026-09-07 — SPEC K teleport on finger-up: rebase gesture chrome when the rect moves
+
+**Pattern:** resize-then-release teleported the object (commit baked a hundreds-of-px gap that
+verify passed as self-consistent). Root cause class: gesture state is frozen in pixels but the
+canvas rect can move underneath it mid-drag (drawer resize, controls fade); the frozen snapshot
+and the live finger then speak different frames. Skipping the resync mid-drag (to protect the
+finger) is correct for MODEL writes but wrong for the FRAME — the fix is a pure-chrome rebase
+(rect-to-rect diagonal affine over every stored pixel: quads, finger origin, scaled grab
+offset, pinch start fingers/pivot, re-derived grab angle; ring closed), no model write, no
+undo. Exact for uniform rect changes at any rotation; bounded for non-uniform (rotation does
+not commute with non-uniform scale — stated in the test, not hidden). Proved by
+SpecKRebaseTest: same norm finger target stores the same pins with/without a mid-drag move.
+
+**Rules:**
+- Any View state frozen in pixels needs a named frame (the canvas rect at grab) and a rebase
+  path when the frame moves; "don't sync mid-drag" without one is a teleport on release.
+- Commit-time verify can only catch self-INconsistent writes; translation-in-pins from a stale
+  frame is self-consistent, so guard the bake's inputs too (walk away when the pose moved
+  under a pins-only gesture — distort gestures never write the pose).
+
+## 2026-09-07 — SPEC K folds: range is real only for genuine distortion
+
+**Pattern:** repeated folds "stopped working" from the second fold at rotation: a fold over an
+edge of a ROTATED picture measures up to ~2.8 against the unrotated pose box, so the ±2 pin
+gate refused what the commit bake would have cleared to mirror flags for free — a deadlock
+(write refuses what bake clears). Fix: the range gate opens for exactly what normalizePin
+bakes to a flat residual (pure arithmetic mid-drag, deterministic with the commit), genuine
+distortion keeps the budget. Discrete fold refusals now say "Pin limit" on the gesture chip
+instead of dying silent (mid-drag refusals stay silent — the drag simply stops).
+

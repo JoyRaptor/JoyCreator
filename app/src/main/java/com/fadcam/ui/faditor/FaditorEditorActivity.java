@@ -1294,6 +1294,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // SPEC K flight recorder: gesture forensics that outlive logcat churn.
+        com.fadcam.ui.faditor.transform.TransformDiag.init(getFilesDir());
+
         // Register asset picker launchers (must be before onStart)
         registerAssetPickers();
 
@@ -24272,6 +24275,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // exactly one of the two is ever visible.
 
     @Nullable private com.fadcam.ui.faditor.transform.TransformOverlayView transformOverlay;
+    /** SPEC K pasteboard dim (outside-canvas ghosting). Created with the overlay above. */
+    @Nullable private com.fadcam.ui.faditor.overlay.PasteboardDimView pasteboardDim;
     /** The item transform mode is open on, or null when it is closed. */
     @Nullable private String transformItemId;
     /**
@@ -24302,6 +24307,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // contend for it.
             transformOverlay.setElevation(8 * d);
             android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+            // SPEC K pasteboard: dim everything outside the video canvas so off-frame
+            // content (or its clipped part) reads as outside instead of vanishing.
+            // Added BEFORE the transform overlay so handles stay bright above it, and
+            // after the XML-inflated overlay layers so it dims them. Preview-only.
+            if (pasteboardDim == null) {
+                pasteboardDim = new com.fadcam.ui.faditor.overlay.PasteboardDimView(this);
+                playerContainer.addView(pasteboardDim,
+                        new android.widget.FrameLayout.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            }
             playerContainer.addView(transformOverlay,
                     new android.widget.FrameLayout.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
@@ -24329,6 +24345,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             playerContainer.addOnLayoutChangeListener(
                     (v, l, t, r, b, ol, ot, orr, ob) -> {
                         if ((r - l) != (orr - ol) || (b - t) != (ob - ot)) {
+                            // Degenerate mid-churn sizes (surface recreation on sleep/wake
+                            // lays the container out through ~0px for a frame) must not
+                            // reposition anything: one stale-sized refresh is exactly the
+                            // out-of-bounds flash on screen-on. Wait for a sane rect.
+                            if ((r - l) < 50 || (b - t) < 50) return;
+                            if (pasteboardDim != null) {
+                                pasteboardDim.setCanvasRect(computeCanvasRect());
+                            }
                             refreshTextAfterHandleWrite();
                         }
                     });
@@ -25621,6 +25645,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (transformOverlay != null
                 && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
             transformOverlay.refresh();
+        }
+        // SPEC K pasteboard: keep the outside-canvas dim on the current canvas rect
+        // (clip switches change the aspect with no layout). Compare-and-set inside.
+        if (pasteboardDim != null) {
+            pasteboardDim.setCanvasRect(computeCanvasRect());
         }
     }
 
@@ -31373,11 +31402,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
             o.animatedCornerPin(ms, pins);
         }
-        float dXo = o.pivotOffsetFromCentreX(w, h, pins);
-        float dYo = o.pivotOffsetFromCentreY(w, h, pins);
+        // Centre pivots carry no fold offset (neutral by definition) on either side
+        // of the pick; other pivots read the shared pin-aware arithmetic as before.
+        boolean wasCentre = o.isRotationPivotCentre();
+        float dXo = wasCentre ? 0f : o.mirrorSignX() * o.pivotOffsetFromCentreX(w, h, pins);
+        float dYo = wasCentre ? 0f : o.mirrorSignY() * o.pivotOffsetFromCentreY(w, h, pins);
         o.setRotationPivot(normX, normY);
-        float dXn = o.pivotOffsetFromCentreX(w, h, pins);
-        float dYn = o.pivotOffsetFromCentreY(w, h, pins);
+        boolean isCentre = o.isRotationPivotCentre();
+        float dXn = isCentre ? 0f : o.mirrorSignX() * o.pivotOffsetFromCentreX(w, h, pins);
+        float dYn = isCentre ? 0f : o.mirrorSignY() * o.pivotOffsetFromCentreY(w, h, pins);
         float exX = (dXo - dXn) - (c * (dXo - dXn) - s * (dYo - dYn));
         float exY = (dYo - dYn) - (s * (dXo - dXn) + c * (dYo - dYn));
         // The travel clamp must already allow the NEW pivot's displacement, or the centre

@@ -53,12 +53,21 @@ public final class CornerPin {
     /**
      * How far one corner may be dragged, in units of the item's own size.
      *
-     * <p>Two full extents is generous — it lets a corner cross the whole picture and come out the
-     * far side, which is what a hard perspective tilt needs — while still being a LIMIT, so a
-     * stray keyframe cannot demand a quad a thousand widths across and hand the matrix solver a
-     * degenerate problem. Same reasoning as {@code KeyframeSet.POS_ABS}.</p>
+     * <p>Eight full extents: a corner can be pulled eight picture-sizes out, which is
+     * hard perspective work (a page curl, a billboard planted in a scene) without ever
+     * meeting a wall in normal use — After Effects places no wall here either, and an
+     * artist mid-drag must never discover one. It is still a LIMIT, not an invitation:
+     * a stray keyframe cannot demand a quad a thousand widths across and hand the
+     * matrix solver a degenerate problem, the excursion inset the preview lays out
+     * stays bounded (eight extents a side), and the GL preview's mediump pin inverse
+     * keeps sub-pixel precision this side of it. Same reasoning as
+     * {@code KeyframeSet.POS_ABS}.
+     *
+     * <p>Flips and folds never spend a unit of this: the commit bake clears affine
+     * content (mirror flags, rotation, size) with a zero residual, so mirroring is
+     * unlimited by construction, whatever the cap says.
      */
-    public static final float MAX_OFFSET = 2f;
+    public static final float MAX_OFFSET = 8f;
 
     /** Below this, an offset is not a distortion — it is float noise. See {@link #isFlat}. */
     public static final float EPSILON = 1e-5f;

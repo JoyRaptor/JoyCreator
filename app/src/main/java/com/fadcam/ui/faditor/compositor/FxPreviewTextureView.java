@@ -797,7 +797,7 @@ public class FxPreviewTextureView extends TextureView
                                   int frameW, int frameH, @NonNull String itemId,
                                   @Nullable android.graphics.Bitmap still, float revealFrac,
                                   @Nullable float[] cornerPin8) {
-            float[][] pin = pinUniforms(cornerPin8);
+            float[][] pin = pinUniforms(cornerPin8, halfW < 0f, halfH < 0f);
             if (pin == null) {
                 return build(cx, cy, halfW, halfH, rot, alpha, stack, editorMs, spec, blendMode,
                         frameW, frameH, itemId, still, /* liveSlot= */ 0,
@@ -835,14 +835,31 @@ public class FxPreviewTextureView extends TextureView
          *         image UNPINNED, which is what {@code CornerPin.buildMatrix} already chooses for
          *         the Canvas paths — an item drawn flat for a frame is recoverable, an item drawn
          *         through garbage is not.
+         *
+         * <p><b>Composition order is mirror OUTSIDE pin</b> — {@code (M . H)^-1} — the order the
+         * export draws ({@code ImageOverlayDraw} concats the mirror first and the pin second)
+         * and the order {@code CornerPinImageView} assembles. The fragment coordinate the
+         * shader feeds in already wears the mirror (it divides by the SIGNED half-extent), so
+         * the inverse must unmirror first and unpin second; inverting the pin alone reads the
+         * mirrored coordinate as an unmirrored one and shoves the picture sideways exactly
+         * like the Canvas path did before it was fixed (JoyRaptor 2026-09-07). A flat pin still
+         * returns null — the signed box alone draws a flat mirror with no matrix at all.
          */
         @Nullable
-        private static float[][] pinUniforms(@Nullable float[] cornerPin8) {
+        private static float[][] pinUniforms(@Nullable float[] cornerPin8,
+                                             boolean mirrorX, boolean mirrorY) {
             if (com.fadcam.ui.faditor.model.CornerPin.isFlat(cornerPin8)) return null;
             android.graphics.Matrix h = new android.graphics.Matrix();
             if (!com.fadcam.ui.faditor.model.CornerPin.buildMatrix(
                     h, 0f, 0f, 1f, 1f, cornerPin8)) {
                 return null;
+            }
+            if (mirrorX || mirrorY) {
+                android.graphics.Matrix total = new android.graphics.Matrix();
+                total.setScale(mirrorX ? -1f : 1f, mirrorY ? -1f : 1f, 0.5f, 0.5f);
+                // preConcat multiplies on the source side: total = mirror . pin.
+                total.preConcat(h);
+                h = total;
             }
             android.graphics.Matrix inv = new android.graphics.Matrix();
             if (!h.invert(inv)) return null;

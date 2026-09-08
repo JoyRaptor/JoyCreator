@@ -148,6 +148,10 @@ public final class SpineTransformHost implements TransformOverlayView.Host {
         return pose[SpineTransform.ROT];
     }
 
+    @Override
+    @NonNull
+    public RectF videoRect() { return bridge.canvasRect(); }
+
     // ── Writing ──────────────────────────────────────────────────────────
 
     @Override

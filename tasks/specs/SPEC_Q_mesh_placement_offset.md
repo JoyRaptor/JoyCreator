@@ -36,6 +36,34 @@ placement is correct, and so is the helper frame. Do not go looking in `Transfor
   `wNorm = sizeFrac * imageAspect * sx / frameAspect`, `hNorm = sizeFrac * sy`
   (`FxLivePreviewController.java:856-857`) — same shape as the flat path.
 
+## SECOND SYMPTOM, 2026-09-08 — and it names the cause
+
+> "I can transform, but when I turn mesh on and move a mesh point, then the image flips UPSIDE
+> DOWN."
+
+**An upside-down picture is a vertical flip applied an ODD number of times.** The mesh path
+y-flips for GL's y-up convention in exactly one place: `MeshPlacement.buildPlace` —
+`float cyGl = 1f - cyTop;` (line 133), the negated rotation `Math.toRadians(-rotTopDeg)`, and the
+`+ 2f * cyGl - 1f` term in `r12` (line 147).
+
+**Both of JoyRaptor's reports are almost certainly ONE bug:**
+
+| symptom | what it means |
+|---|---|
+| picture inverted | the flip happens an odd number of times, or reaches the geometry but not the point the rotation turns about |
+| offset grows with angle, worst at 90°, ~0 when vertical | a rotation about an UNflipped centre while the geometry IS flipped gives exactly `(I − R(θ))·δ` |
+
+Both fall out of the same mistake. Check the flip is applied **exactly once, end to end**, to all
+three of:
+
+1. the vertex positions,
+2. the centre the rotation turns about,
+3. the source/UV coordinate the shader samples (`MeshGlSource` — re-read its "source flip matched
+   to the still path" note against what the flat path actually does).
+
+The identity-bend measurement below now settles it in one look: **an identity bend that renders
+upside down cannot be mistaken for anything else.**
+
 ## Where to look
 
 `transform/mesh/MeshPlacement.fold(...)` and `MeshPlacement.buildPlace(...)`, plus the two callers

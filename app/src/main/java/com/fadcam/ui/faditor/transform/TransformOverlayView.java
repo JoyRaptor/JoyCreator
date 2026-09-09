@@ -463,68 +463,152 @@ public class TransformOverlayView extends View {
         // frame, so a structural edit visibly carries the bend instead of wiping it.
         if (bendMode && host != null && host.supportsBend()) drawBendNet(c, host);
 
+        // The ghost goes UNDER the pills: it can be large, and "Done"/"Bend" must never end up
+        // reading through a translucent wash of the object.
+        drawReframeGhost(c);
         drawExitPill(c);
-        drawReframePill(c);
         drawBendPill(c);
         if (ringOpen) drawRing(c);
         drawLoupe(c);
         drawHud(c);
     }
 
-    // ── The reframe bubble ─────────────────────────────────────────────────
+    // ── The reframe GHOST ──────────────────────────────────────────────────
     //
-    // SPEC K — Reset lives in the ring, the ring needs a handle, and a fully
-    // off-screen object has no reachable handle: without this, losing an object
-    // off-frame is a trap with no way back (the timeline lane can reselect, but the
-    // geometry tools stay out of reach). When the selected quad's centroid leaves the
-    // view, a "Reframe" pill parks at the nearest on-screen point and one tap moves
-    // the object (through the ordinary undoable translate channel) just far enough
-    // to grab again. It shows only when settled — never mid-drag, where it would
-    // steal the finger.
+    // SPEC K gave this job to a pill: when the selected quad's centroid left the view, a
+    // rounded "Reframe" lozenge parked at the nearest on-screen point and one tap brought the
+    // object home. SPEC M §3 is JoyRaptor's verdict on that pill —
+    //     "The reframe UI button doesn't look good so I want you to explore alternatives."
+    // — and of the three mocks in tasks/design/REFRAME_PILL_OPTIONS.html he picked C:
+    //     "also i picked C - Ghost outline."
+    // So the pill is GONE, and there is no widget at all in its place. What we draw instead is
+    // the object's OWN quad, translated (never re-cornered) until it lands on screen, at low
+    // opacity: shape, rotation and mirror all survive, because a pure translation of the four
+    // live corners cannot change any of them. That is what makes it read as "your thing is over
+    // there" rather than as a button. Tapping it runs the same undoable translate the pill ran,
+    // so it is still exactly ONE undo press.
+    //
+    // Not to be confused with the pasteboard ghost (SPEC M §4), which dims off-canvas content
+    // that is still partly in view. This one is for an object that is entirely gone. With SPEC L
+    // baking translation out of the corner pin and SPEC P's commit backstop keeping 15% of the
+    // quad on canvas, it should almost never appear — it is a safety net, not a feature.
 
     private final float[] reframeScratch = new float[2];
+    /** The ghost's four corners, view pixels. Rebuilt by {@link #reframeGhostQuad()}. */
+    private final float[] ghostQuad = new float[8];
 
-    /** True when the bubble should be drawn and armed right now. */
-    private boolean showReframePill() {
+    /** True when the ghost should be drawn and armed right now. */
+    private boolean showReframeGhost() {
         if (host == null || !haveQuad) return false;
-        if (dragKind != null || pinching || ringOpen) return false;
+        if (dragKind != null || pinching || ringOpen || bendDragIndex >= 0) return false;
         TransformQuad.centroid(quad, reframeScratch);
         float cx = reframeScratch[0], cy = reframeScratch[1];
         return cx < 0f || cy < 0f || cx > getWidth() || cy > getHeight();
     }
 
-    private void reframePillRect(@NonNull RectF out) {
-        float w = dp(96f), h = dp(34f);
-        float m = Math.min(dp(72f), Math.min(getWidth(), getHeight()) * 0.25f);
-        float cx = reframeScratch[0], cy = reframeScratch[1];
-        float px = Math.max(m, Math.min(getWidth() - m, cx));
-        float py = Math.max(m, Math.min(getHeight() - m, cy));
-        out.set(px - w / 2f, py - h / 2f, px + w / 2f, py + h / 2f);
+    /** Where the object's centroid is dragged back to — the pill's own landing rule. */
+    private float reframeHomeMargin() {
+        return Math.min(dp(72f), Math.min(getWidth(), getHeight()) * 0.25f);
     }
 
-    private void drawReframePill(@NonNull Canvas c) {
-        if (!showReframePill()) return;
-        reframePillRect(rectf);
-        fill.setColor(0xE6131318);
-        c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
-        stroke.setColor(0xFF4C3F7A);
-        stroke.setStrokeWidth(dp(1f));
-        c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
-        text.setColor(0xFFECECF2);
-        text.setTextSize(dp(12f));
-        text.setFakeBoldText(true);
-        c.drawText("Reframe", rectf.centerX(), rectf.centerY() + dp(4f), text);
-        text.setFakeBoldText(false);
+    /**
+     * Build the ghost into {@link #ghostQuad}. Two steps, both shape-preserving:
+     *
+     * <ol>
+     *   <li><b>Clamp to the edge by TRANSLATION.</b> The centroid is clamped into the view by
+     *       the same margin the tap will use, and all four corners move by that one delta — so
+     *       the ghost sits against whichever edge the object left through, and its outline is
+     *       congruent with the real quad. A rotated object's ghost is rotated the same way; a
+     *       mirrored one stays mirrored, because corner ORDER is never touched.</li>
+     *   <li><b>Shrink only if it would swamp the screen.</b> A huge object would otherwise
+     *       cover the preview in a grey wash, which is the opposite of quiet. A uniform scale
+     *       about the ghost's own centroid — never above 1 — caps its bounding box at 45% of
+     *       the short side. Uniform scale is a similarity: shape, rotation and mirror all
+     *       survive it too.</li>
+     * </ol>
+     *
+     * @return false when the quad is degenerate or off-view maths went non-finite
+     */
+    private boolean reframeGhostQuad() {
+        TransformQuad.centroid(quad, reframeScratch);
+        float m = reframeHomeMargin();
+        float tx = Math.max(m, Math.min(getWidth() - m, reframeScratch[0]));
+        float ty = Math.max(m, Math.min(getHeight() - m, reframeScratch[1]));
+        float dx = tx - reframeScratch[0], dy = ty - reframeScratch[1];
+        if (!isFinite(dx) || !isFinite(dy)) return false;
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (int i = 0; i < 4; i++) {
+            float gx = quad[i * 2] + dx, gy = quad[i * 2 + 1] + dy;
+            if (!isFinite(gx) || !isFinite(gy)) return false;
+            ghostQuad[i * 2] = gx;
+            ghostQuad[i * 2 + 1] = gy;
+            minX = Math.min(minX, gx); maxX = Math.max(maxX, gx);
+            minY = Math.min(minY, gy); maxY = Math.max(maxY, gy);
+        }
+        float span = Math.max(maxX - minX, maxY - minY);
+        float cap = Math.min(getWidth(), getHeight()) * 0.45f;
+        if (span > cap && cap > 1f) {
+            float s = cap / span;
+            for (int i = 0; i < 4; i++) {
+                ghostQuad[i * 2] = tx + (ghostQuad[i * 2] - tx) * s;
+                ghostQuad[i * 2 + 1] = ty + (ghostQuad[i * 2 + 1] - ty) * s;
+            }
+            minX = tx + (minX - tx) * s; maxX = tx + (maxX - tx) * s;
+            minY = ty + (minY - ty) * s; maxY = ty + (maxY - ty) * s;
+        }
+        // Step 3 — a second translation, so the WHOLE outline is on screen. Clamping the
+        // centroid alone leaves half a ghost hanging off the edge it came from, which reads as
+        // clipping rather than as "here it is"; nudging the bounding box inside costs nothing,
+        // and translation still cannot alter shape, rotation or mirror.
+        float pad = dp(8f);
+        float nx = 0f, ny = 0f;
+        if (maxX - minX <= getWidth() - 2f * pad) {
+            if (minX < pad) nx = pad - minX;
+            else if (maxX > getWidth() - pad) nx = getWidth() - pad - maxX;
+        }
+        if (maxY - minY <= getHeight() - 2f * pad) {
+            if (minY < pad) ny = pad - minY;
+            else if (maxY > getHeight() - pad) ny = getHeight() - pad - maxY;
+        }
+        if (nx != 0f || ny != 0f) {
+            for (int i = 0; i < 4; i++) {
+                ghostQuad[i * 2] += nx;
+                ghostQuad[i * 2 + 1] += ny;
+            }
+        }
+        return true;
     }
 
-    /** Is this touch on the pill (when shown)? Padded out to a 44dp target. */
-    private boolean hitsReframePill(float x, float y) {
-        if (!showReframePill()) return false;
-        reframePillRect(rectf);
-        float padX = Math.max(0f, (dp(44f) - rectf.width()) / 2f);
-        float padY = Math.max(0f, (dp(44f) - rectf.height()) / 2f);
-        return x >= rectf.left - padX && x <= rectf.right + padX
-                && y >= rectf.top - padY && y <= rectf.bottom + padY;
+    private void drawReframeGhost(@NonNull Canvas c) {
+        if (!showReframeGhost()) return;
+        if (!reframeGhostQuad()) return;
+        path.reset();
+        path.moveTo(ghostQuad[0], ghostQuad[1]);
+        for (int i = 1; i < 4; i++) path.lineTo(ghostQuad[i * 2], ghostQuad[i * 2 + 1]);
+        path.close();
+        fill.setColor(0x24ECECF2);
+        c.drawPath(path, fill);
+        stroke.setColor(0x8CECECF2);
+        stroke.setStrokeWidth(dp(1.2f));
+        c.drawPath(path, stroke);
+        // A hairline back to where the object actually is, so the ghost says WHICH WAY as well
+        // as "here". Clipped by the view like everything else; it just points off the edge.
+        stroke.setColor(0x40ECECF2);
+        stroke.setStrokeWidth(dp(0.9f));
+        float gcx = (ghostQuad[0] + ghostQuad[2] + ghostQuad[4] + ghostQuad[6]) / 4f;
+        float gcy = (ghostQuad[1] + ghostQuad[3] + ghostQuad[5] + ghostQuad[7]) / 4f;
+        c.drawLine(gcx, gcy, reframeScratch[0], reframeScratch[1], stroke);
+    }
+
+    /** Is this touch on the ghost (when shown)? A tiny ghost still gets a 44dp target. */
+    private boolean hitsReframeGhost(float x, float y) {
+        if (!showReframeGhost()) return false;
+        if (!reframeGhostQuad()) return false;
+        if (TransformQuad.contains(ghostQuad, x, y)) return true;
+        float gcx = (ghostQuad[0] + ghostQuad[2] + ghostQuad[4] + ghostQuad[6]) / 4f;
+        float gcy = (ghostQuad[1] + ghostQuad[3] + ghostQuad[5] + ghostQuad[7]) / 4f;
+        return Math.hypot(x - gcx, y - gcy) <= dp(22f);
     }
 
     /** Move the object just far enough to grab again — one undoable translate. */
@@ -532,7 +616,7 @@ public class TransformOverlayView extends View {
         Host h = host;
         if (h == null || !haveQuad) return;
         TransformQuad.centroid(quad, reframeScratch);
-        float m = Math.min(dp(72f), Math.min(getWidth(), getHeight()) * 0.25f);
+        float m = reframeHomeMargin();
         float tx = Math.max(m, Math.min(getWidth() - m, reframeScratch[0]));
         float ty = Math.max(m, Math.min(getHeight() - m, reframeScratch[1]));
         float dx = tx - reframeScratch[0], dy = ty - reframeScratch[1];
@@ -1094,18 +1178,36 @@ public class TransformOverlayView extends View {
             refY = bendScratch[1];
         }
         float inboard = bendInboardPx();
+        // SPEC S — the side is only allowed to change when NOTHING is under the finger. A dot
+        // that swaps sides mid-drag pulls the picture out from under the user, so every side
+        // decision is frozen for the whole gesture and re-read on the first layout after the
+        // finger lifts (onUp clears bendDragIndex, then invalidate() lands us back here).
+        boolean settled = bendDragIndex < 0 && dragKind == null && !pinching;
         for (int i = 0; i < n; i++) {
             float tx = bendPts[i * 2], ty = bendPts[i * 2 + 1];
             float dx = refX - tx, dy = refY - ty;
             float len = (float) Math.hypot(dx, dy);
             if (i == centre || len < 1f || !isFinite(len)) {
+                bendOuter[i] = false;
                 bendDots[i * 2] = tx;
                 bendDots[i * 2 + 1] = ty;
                 continue;
             }
             float push = Math.min(inboard, len * 0.42f);
-            bendDots[i * 2] = tx + dx / len * push;
-            bendDots[i * 2 + 1] = ty + dy / len * push;
+            // How much daylight an INNER dot would have left between itself and the reference.
+            // That gap — not the raw point distance — is what the eye reads as crowding, and it
+            // is what the hysteresis band is expressed in.
+            if (settled) {
+                float innerGap = len - push;
+                if (bendOuter[i]) {
+                    if (innerGap > dp(BEND_OUTER_EXIT_DP)) bendOuter[i] = false;
+                } else {
+                    if (innerGap < dp(BEND_OUTER_ENTER_DP)) bendOuter[i] = true;
+                }
+            }
+            float sign = bendOuter[i] ? -1f : 1f;
+            bendDots[i * 2] = tx + sign * dx / len * push;
+            bendDots[i * 2 + 1] = ty + sign * dy / len * push;
         }
         return n;
     }
@@ -1165,6 +1267,39 @@ public class TransformOverlayView extends View {
     private final float[] bendPts = new float[50];
     /** Where each net point's grab dot is DRAWN — pushed inboard of the structural handle. */
     private final float[] bendDots = new float[50];
+    /**
+     * SPEC S — which side of its own net point each dot is drawn on: false = inboard (the
+     * SPEC M default, which keeps the dot off the corner/edge glyph), true = OUTBOARD.
+     *
+     * <p>JoyRaptor: <i>"when bend handles get brought in too much, how they are to slip from an
+     * inner side buffer to an outer side buffer past a threshold after finger lifts."</i>
+     * Dragging net points toward the middle pulls their inboard dots further in still, so the
+     * group collapses into an illegible clump. Past the threshold the dot moves to the far end
+     * of its own tether instead — same point, same tether, other side — and the reading stays
+     * unambiguous. Pushing OUTWARD can never recreate the SPEC M trap: the structural glyph
+     * sits ON the net point, so an outer dot is at least {@code bendInboardPx()} (≥8dp) clear
+     * of it, and the handle still wins a contested tap by the 8dp tie-break in onDown.</p>
+     */
+    private final boolean[] bendOuter = new boolean[25];
+    /**
+     * SPEC S hysteresis band, measured in dp of daylight between the DRAWN dot and the net's
+     * reference point.
+     *
+     * <p>The eight non-centre dots of a 3x3 net sit on a RING around that reference, so their
+     * spacing from each other follows from the ring's radius: eight dots on a radius-g ring are
+     * {@code 2*g*sin(pi/8) = 0.765*g} apart. A dot is 14dp across, and it needs about its own
+     * width of clear air to read as a separate, grabbable thing — call it 22dp centre to
+     * centre, which needs {@code g ≈ 29dp}. Hence <b>30dp: below that the group has stopped
+     * being eight dots and become one blob</b>, and every dot moves to the far side of its own
+     * net point, where the ring opens out again.</p>
+     *
+     * <p>It comes back inboard only at <b>44dp</b> — half as much room again. That 14dp band is
+     * a whole dot wider than any nudge, so a dot parked on the boundary cannot chatter; and
+     * because the side is only ever re-read between gestures, the worst case is one settled
+     * flip per finger lift.</p>
+     */
+    private static final float BEND_OUTER_ENTER_DP = 30f;
+    private static final float BEND_OUTER_EXIT_DP = 44f;
     private final float[] bendScratch = new float[2];
     /** True net point minus the finger at grab, so an inboard dot bends about its own point. */
     private float bendGrabDx, bendGrabDy;
@@ -1514,10 +1649,6 @@ public class TransformOverlayView extends View {
             if (r != null) r.run();
             return true;
         }
-        if (hitsReframePill(x, y)) {
-            doReframe();
-            return true;
-        }
         // SPEC M §1.3 — the escape hatch, tested before anything the net can cover.
         if (hitsBendPill(x, y)) {
             Host bh = host;
@@ -1526,6 +1657,13 @@ public class TransformOverlayView extends View {
                 cancelBendDrag();
             }
             invalidate();
+            return true;
+        }
+        // SPEC M §3 — the ghost. AFTER the pills, because it is drawn under them and can be
+        // large enough to sit beneath both; a tap that looks like it landed on "Done" must be
+        // "Done". One tap, one undoable translate, object home.
+        if (hitsReframeGhost(x, y)) {
+            doReframe();
             return true;
         }
         if (!haveQuad) syncFromHost();

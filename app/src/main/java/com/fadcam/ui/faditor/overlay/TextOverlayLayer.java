@@ -1570,24 +1570,47 @@ public class TextOverlayLayer extends FrameLayout {
             if (live) o.copyCornerPinInto(pin);
             else o.animatedCornerPin(currentTimeMs, pin);
         }
-        if (!live && !o.isRotationPivotNeutral(pin)) {
-            // Mirror-aware fold (SPEC K flip exactness): the Pip quad rotates about its
-            // own centre, so "rotate about the pivot" moves the centre about the VISUAL
-            // pivot. Unmirrored the signs are +1 and this is the same two lines.
-            float pvx = cx + o.mirrorSignX()
+        //
+        // SPEC T — THE FOLD IS DELEGATED, NOT RESTATED. This is the same pivot fold
+        // MeshPlacement.fold performs, so it calls it rather than keeping a second copy of the
+        // arithmetic: the mesh copy of this block existed BECAUSE someone transcribed this one,
+        // and the transcription is exactly what drifted. MeshPlacement has no Android imports,
+        // so it is reachable from here and testable off device.
+        //
+        // The bug that delegation fixes: THE FOLD IS A ROTATION, AND A ROTATION IS ONLY A
+        // ROTATION IN SQUARE UNITS. cx/cy and the pivot offsets here are fractions of TWO
+        // DIFFERENT lengths — x of the content rect's width, y of its height — so the bare
+        // cos/sin this used to apply sheared the centre-minus-pivot vector instead of turning
+        // it. The error carries a factor of sin(rot): exactly zero at 0 deg and 180 deg,
+        // largest at 90 deg (644 px on a 1080x1920 rect at JoyRaptor's pose). The flat surfaces
+        // this must agree with never hit it because they fold in PIXELS, which are square —
+        // TextOverlayLayer.position hands the turn to the View's setPivotX/Y, and
+        // foldRotationPivotIntoBox turns a pixel rect. fold() therefore takes the content
+        // rect's aspect and converts into square units around the trig.
+        //
+        // Mirror-aware (SPEC K flip exactness): the Pip quad rotates about its own centre, so
+        // "rotate about the pivot" moves the centre about the VISUAL pivot. Unmirrored the
+        // signs are +1. At a centre pivot (or while the finger is down) applyPivot is false and
+        // the whole block is skipped inside fold(), so the result is bit-for-bit what shipped.
+        boolean applyPivot = !live && !o.isRotationPivotNeutral(pin);
+        float pivOffX = 0f, pivOffY = 0f;
+        if (applyPivot) {
+            pivOffX = o.mirrorSignX()
                     * o.pivotOffsetFromCentreX(wPx / r.width(), hPx / r.height(), pin);
-            float pvy = cy + o.mirrorSignY()
+            pivOffY = o.mirrorSignY()
                     * o.pivotOffsetFromCentreY(wPx / r.width(), hPx / r.height(), pin);
-            float scx = pvx + anim.scaleX * (cx - pvx);
-            float scy = pvy + anim.scaleY * (cy - pvy);
-            double rad = Math.toRadians(rot);
-            float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
-            float vx = scx - pvx, vy = scy - pvy;
-            cx = pvx + vx * c - vy * s;
-            cy = pvy + vx * s + vy * c;
         }
-        cx += anim.dx / r.width();
-        cy += anim.dy / r.height();
+        // Only the folded CENTRE is taken back: the half-extents above already carry the
+        // preset scale AND the mirror sign, which fold() knows nothing about.
+        float[] fold4 = new float[4];
+        com.fadcam.ui.faditor.transform.mesh.MeshPlacement.fold(
+                cx, cy, wPx / r.width(), hPx / r.height(),
+                pivOffX, pivOffY, applyPivot, rot,
+                anim.scaleX, anim.scaleY,
+                anim.dx / r.width(), anim.dy / r.height(),
+                r.width() / r.height(), fold4);
+        cx = fold4[0];
+        cy = fold4[1];
 
         // CORNER PIN. The GL chain is drawing this picture INSTEAD of its CornerPinImageView, so
         // without this the one image class of item that can carry a pin previewed FLAT while the

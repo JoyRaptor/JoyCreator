@@ -32,17 +32,32 @@ package com.fadcam.ui.faditor.transform.mesh;
  *       reverses winding and a culled fold vanishes instead of showing its back.</li>
  * </ul>
  *
- * <h3>Fragment: premultiplied, baked alpha + reveal, source flip matched to the still path</h3>
+ * <h3>Fragment: premultiplied, baked alpha + reveal, source sampled STRAIGHT (SPEC R)</h3>
  * <p>The stamp is a drop-in replacement for the frame-sized bitmap
  * {@code ImageOverlayFrameOverlay} produces: frame-sized RGBA, transparent outside the item,
  * opacity and wipe already baked into alpha. Downstream (preview identity-Pip composite,
  * export {@code ImageBlendGlEffect} mesh branch) then applies blend/mask/key/FX/adjustment
  * unchanged.
  * <ul>
- *   <li>Source is uploaded with {@code GLUtils.texImage2D} (top-row-first, premultiplied) exactly
- *       like the preview stills, so sampling uses {@code s = (vUv.x, 1-vUv.y)} — the same flip
- *       {@code PIP_STILL_FRAGMENT} applies. A stamp FBO texture (bottom-up) is sampled WITHOUT a
- *       flip downstream; the flip lives HERE so the two orientations meet exactly once.</li>
+ *   <li><b>SPEC R — sampling is STRAIGHT, {@code s = vUv}, and copying the still path's flip here
+ *       was the upside-down bug.</b> The flip is not a property of the bitmap upload alone; it is
+ *       the meeting of the upload with whatever {@code v} the quad hands the sampler, and the two
+ *       paths hand it OPPOSITE conventions.
+ *       <ul>
+ *         <li>{@code PIP_STILL_FRAGMENT} builds {@code uv = q*0.5+0.5} out of the frame's y-UP
+ *             {@code vFxUv}, so its {@code uv.y == 1} is the TOP of the picture. A
+ *             {@code GLUtils.texImage2D} upload puts the bitmap's top row at {@code t == 0}.
+ *             Top-meets-top therefore needs {@code 1-uv.y} there.</li>
+ *         <li>Here {@code aUv} is {@code MeshBuffers.rest} — object-local, TOP-LEFT origin, so
+ *             {@code vUv.y == 0} is the top of the picture ({@link MeshPlacement#buildPlace} sends
+ *             local {@code v=0} to clip {@code y=+1}, the top of the screen). Top already meets
+ *             top at {@code t == 0}: sampling {@code 1-vUv.y} is a SECOND flip on top of the one
+ *             the placement matrix already performs, and an even number of flips upside-down is
+ *             what JoyRaptor saw at 7.6 degrees.</li>
+ *       </ul>
+ *       Downstream is unchanged and stays correct: the stamp FBO is bottom-up, so
+ *       {@code PIP_MESH_FRAGMENT} (preview) and {@code FRAGMENT_MESH_BASE} (export) both sample it
+ *       without a flip. End to end the picture is flipped exactly once — in {@code uPlace}.</li>
  *   <li>Output is premultiplied ({@code rgb*a, a}) so the export's {@code sc = src.rgb/max(src.a)}
  *       un-premultiply recovers straight colour and the preview's premultiplied blend stays as it
  *       was for stills.</li>
@@ -106,7 +121,7 @@ public final class MeshGlSource {
             + "uniform float uReveal;\n"
             + "void main() {\n"
             + "  if (vUv.x > uReveal) { gl_FragColor = vec4(0.0); return; }\n"
-            + "  vec2 s = vec2(vUv.x, 1.0 - vUv.y);\n"
+            + "  vec2 s = vUv;\n"
             + "  vec4 tex = texture2D(uImage, s);\n"
             + "  gl_FragColor = vec4(tex.rgb * uAlpha, tex.a * uAlpha);\n"
             + "}\n";

@@ -95,6 +95,10 @@ public final class MeshStampGl {
     private boolean degraded;
     private boolean glInitialized;
     private boolean loggedInitFailure;
+    /** One-shot latch for {@link #probeGl} — the first GL fault names its stage, then silence. */
+    private boolean loggedGlError;
+    /** One-shot latch for the framebuffer-restore diagnostic. */
+    private boolean loggedFboRestore;
 
     /** Desired stamp size (output frame). Reallocates lazily on the GL thread. */
     public void configure(int w, int h) {
@@ -191,6 +195,9 @@ public final class MeshStampGl {
         } catch (Exception ignored) {
             prevFbo[0] = 0;
         }
+        // Whatever the caller left in the GL error queue is the CALLER's, not ours. Drained here
+        // so the stage probe below can only ever name a fault this class caused.
+        drainGlErrors();
         try {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, stampFboId);
             GLES20.glViewport(0, 0, frameW, frameH);
@@ -230,10 +237,13 @@ public final class MeshStampGl {
                 GLES20.glEnableVertexAttribArray(aUvLoc);
                 GLES20.glVertexAttribPointer(aUvLoc, 2, GLES20.GL_FLOAT, false, 0, uvBuf);
             }
+            probeGl("setup");
             GLES20.glDrawElements(GLES20.GL_TRIANGLES, b.indexCount(),
                     GLES20.GL_UNSIGNED_SHORT, idxBuf);
+            probeGl("draw");
             if (aLocalLoc >= 0) GLES20.glDisableVertexAttribArray(aLocalLoc);
             if (aUvLoc >= 0) GLES20.glDisableVertexAttribArray(aUvLoc);
+            probeGl("teardown");
         } catch (Exception e) {
             if (!loggedInitFailure) {
                 FLog.w(TAG, "stamp draw failed; drawing unwarped", e);
@@ -244,8 +254,61 @@ public final class MeshStampGl {
             try {
                 GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, prevFbo[0]);
             } catch (Exception ignored) { }
+            // THE STAMP MUST NEVER POISON ITS CALLER'S ERROR CHECK. The export composites the
+            // stamp and then calls media3's GlUtil.checkGlError(), which reports the FIRST flag
+            // set since anyone last looked — so an error raised in here surfaced there as
+            // "Video frame processing error" and killed the WHOLE export, while the preview
+            // (which never checks) drew the same frame happily. That is the preview/export split
+            // this codebase fears most, arriving as a total export failure. Device-confirmed on
+            // the Note 9, 2026-09-08: a bent image could not be exported at all. Anything we
+            // raised is ours to log and clear here; the caller's check then measures only the
+            // caller.
+            drainGlErrors();
+            // The invariant this class kept getting wrong, now measured rather than assumed: the
+            // target we hand back must be DRAWABLE. Logged once, never per frame.
+            if (!loggedFboRestore) {
+                int st;
+                try {
+                    st = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
+                } catch (Exception ignored) {
+                    st = GLES20.GL_FRAMEBUFFER_COMPLETE;
+                }
+                if (st != GLES20.GL_FRAMEBUFFER_COMPLETE) {
+                    loggedFboRestore = true;
+                    FLog.w(TAG, "handed back fbo=" + prevFbo[0] + " which is not complete (0x"
+                            + Integer.toHexString(st) + ") — the caller's next draw will fail");
+                }
+            }
         }
         return stampTexId;
+    }
+
+    /**
+     * Report the first GL error since the last drain, ONCE, naming the stage that caused it, then
+     * leave the queue clean. Latched: a per-frame log would flood, and one line is enough to find
+     * it again.
+     */
+    private void probeGl(@NonNull String stage) {
+        if (loggedGlError) return;
+        int err;
+        try {
+            err = GLES20.glGetError();
+        } catch (Exception ignored) {
+            return;
+        }
+        if (err == GLES20.GL_NO_ERROR) return;
+        loggedGlError = true;
+        FLog.w(TAG, "stamp GL error 0x" + Integer.toHexString(err) + " at stage " + stage
+                + " — the stamp still drew; cleared so it cannot fail the caller's check");
+    }
+
+    /** Empty the GL error queue, bounded so a wedged driver cannot spin here. */
+    private void drainGlErrors() {
+        try {
+            for (int i = 0; i < 8; i++) {
+                if (GLES20.glGetError() == GLES20.GL_NO_ERROR) return;
+            }
+        } catch (Exception ignored) { }
     }
 
     /** Forward pin homography on the unit square (single solver: CornerPin), to column-major. */
@@ -317,6 +380,23 @@ public final class MeshStampGl {
     private boolean ensureGlInitialized() {
         if (glInitialized) return true;
         if (degraded) return false;
+        // WHOSE FRAMEBUFFER IS BOUND RIGHT NOW IS THE CALLER'S, AND IT MUST SURVIVE THIS METHOD.
+        // Creating the stamp FBO necessarily binds it; this used to hand the binding back as
+        // framebuffer 0 instead of what the caller had. In the PREVIEW that is survivable —
+        // framebuffer 0 is the on-screen surface and the next pass re-focuses anyway. In the
+        // EXPORT media3 runs surfaceless: it focuses its output FBO, calls drawFrame ONCE, and
+        // framebuffer 0 there is GL_FRAMEBUFFER_UNDEFINED (0x8219). So the composite that follows
+        // drew into an undefined target and raised GL_INVALID_FRAMEBUFFER_OPERATION (0x506),
+        // which media3's checkGlError turned into "Video frame processing error" — a bent image
+        // could not be EXPORTED AT ALL, while the preview showed it happily. Device-confirmed on
+        // the Note 9, 2026-09-08, before and after the SPEC R flip fix alike, so it is its own
+        // bug. Saved and restored here, at the one place that moves it.
+        int[] callerFbo = new int[1];
+        try {
+            GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, callerFbo, 0);
+        } catch (Exception ignored) {
+            callerFbo[0] = 0;
+        }
         try {
             int[] tex = new int[1];
             GLES20.glGenTextures(1, tex, 0);
@@ -340,7 +420,7 @@ public final class MeshStampGl {
             GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER,
                     GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, stampTexId, 0);
             int status = GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER);
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, callerFbo[0]);
             if (status != GLES20.GL_FRAMEBUFFER_COMPLETE) {
                 FLog.w(TAG, "stamp FBO incomplete: " + status);
                 degraded = true;
@@ -384,6 +464,10 @@ public final class MeshStampGl {
         } catch (Exception e) {
             FLog.w(TAG, "stamp GL init failed; drawing unwarped", e);
             degraded = true;
+            // Even a half-built stamp must not leave the caller's target changed.
+            try {
+                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, callerFbo[0]);
+            } catch (Exception ignored) { }
             return false;
         }
     }

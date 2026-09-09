@@ -28,11 +28,21 @@ package com.fadcam.ui.faditor.transform.mesh;
  * </ul>
  *
  * <h3>Fold mirrors the flat preview exactly</h3>
- * <p>{@link #fold} is {@code TextOverlayLayer.fxPipFor}'s pivot + preset fold, line for line, in
- * the same order with the same trig: fold preset scale about the pivot, rotate about the pivot,
- * then translate by the preset. At the centre pivot (or while the finger is down) the block is
- * skipped and the expressions are the unfolded ones — byte-for-byte the flat path. If that host
- * method ever changes, this must change with it (future refactor: have the host call this).
+ * <p>{@link #fold} is {@code TextOverlayLayer.fxPipFor}'s pivot + preset fold, in the same order
+ * with the same trig: fold preset scale about the pivot, rotate about the pivot, then translate by
+ * the preset. At the centre pivot (or while the finger is down) the block is skipped and the
+ * expressions are the unfolded ones — byte-for-byte the flat path. If that host method ever
+ * changes, this must change with it (future refactor: have the host call this).
+ *
+ * <p><b>ONE deliberate difference, SPEC Q: the fold turns in SQUARE units.</b> The pivot fold is a
+ * rotation, and the surfaces this mirrors perform it in PIXELS — {@code TextOverlayLayer.position}
+ * hands the rotation to the View, which turns about {@code setPivotX/Y} in view pixels, and
+ * {@code foldRotationPivotIntoBox} turns a pixel rect. Pixels are square. {@code cx/cy} here are
+ * normalized fractions of two DIFFERENT lengths, so the same {@code cos/sin} applied to them is a
+ * shear, not a turn: zero error at 0 deg and 180 deg, worst at 90 deg. {@link #fold} therefore
+ * takes {@code frameAspect} and converts into square units around the trig. Passing 1 reproduces
+ * the old arithmetic exactly, and at a CENTRE pivot the whole block is skipped so nothing changes
+ * for the overwhelming majority of projects.
  *
  * <p>No Android imports.
  */
@@ -55,25 +65,42 @@ public final class MeshPlacement {
      * @param rotDeg           animated rotation, clockwise-positive on screen (model convention)
      * @param presetScaleX,presetScaleY preset whole-body scale (1 when live/off)
      * @param dxNorm,dyNorm    preset translation as frame fractions (0 when live/off)
+     * @param frameAspect      frame width / height. THE PIVOT FOLD IS A ROTATION, AND A ROTATION
+     *                         IS ONLY A ROTATION IN SQUARE UNITS (SPEC Q). {@code cx/cy} are
+     *                         fractions of DIFFERENT lengths — width and height — so turning the
+     *                         centre-minus-pivot vector with a bare {@code cos/sin} shears it
+     *                         instead of turning it. The error is exactly zero at 0 deg and 180
+     *                         deg (where {@code sin} is 0, so the cross terms this factor
+     *                         corrects vanish) and largest at 90 deg, which is precisely the
+     *                         offset JoyRaptor measured: nearly aligned upright, about a centimetre
+     *                         down-right at 45 deg, worst at 90 deg clockwise. The surfaces this
+     *                         mirrors — {@code TextOverlayLayer.position}'s View pivot and
+     *                         {@code foldRotationPivotIntoBox} — never hit it because they fold
+     *                         in PIXELS, which are square. Non-finite or non-positive falls back
+     *                         to 1 (square units), i.e. the pre-fix arithmetic.
      * @param out4             receives {@code {foldedCx, foldedCy, halfW, halfH}}
      */
     public static void fold(float cx, float cy, float wNorm, float hNorm,
                             float pivOffX, float pivOffY, boolean applyPivot,
                             float rotDeg, float presetScaleX, float presetScaleY,
-                            float dxNorm, float dyNorm, float[] out4) {
+                            float dxNorm, float dyNorm, float frameAspect, float[] out4) {
         float halfW = (wNorm * presetScaleX) * 0.5f;
         float halfH = (hNorm * presetScaleY) * 0.5f;
         float fx = cx, fy = cy;
         if (applyPivot) {
+            float a = (finite(frameAspect) && frameAspect > 0f) ? frameAspect : 1f;
             float pvx = cx + pivOffX;
             float pvy = cy + pivOffY;
             float scx = pvx + presetScaleX * (cx - pvx);
             float scy = pvy + presetScaleY * (cy - pvy);
             double rad = Math.toRadians(rotDeg);
             float c = (float) Math.cos(rad), s = (float) Math.sin(rad);
+            // Into square units (x fraction * aspect == x in units of frame HEIGHT), turn, back.
+            // Written folded into the two lines rather than as three steps so there is no
+            // intermediate to drift: x' = x*c - (y/a)*s ... and y' = (x*a)*s + y*c.
             float vx = scx - pvx, vy = scy - pvy;
-            fx = pvx + vx * c - vy * s;
-            fy = pvy + vx * s + vy * c;
+            fx = pvx + vx * c - (vy * s) / a;
+            fy = pvy + (vx * a) * s + vy * c;
         }
         fx += dxNorm;
         fy += dyNorm;

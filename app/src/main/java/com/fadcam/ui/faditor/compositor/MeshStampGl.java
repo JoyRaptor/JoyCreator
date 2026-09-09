@@ -150,10 +150,12 @@ public final class MeshStampGl {
         if (!ensureGlInitialized()) return 0;
         if (!uploadSource(src)) return 0;
 
-        // Single placement authority: fold (pivot+preset) then unit-square->clip.
-        MeshPlacement.fold(cx, cy, wNorm, hNorm, pivOffX, pivOffY, applyPivot, rotDeg,
-                presetScaleX, presetScaleY, presetDxNorm, presetDyNorm, folded4);
+        // Single placement authority: fold (pivot+preset) then unit-square->clip. The SAME
+        // aspect feeds both — SPEC Q: the fold's rotation about a non-centre pivot is only a
+        // rotation in square units, and normalized x/y are fractions of different lengths.
         float aspect = (float) frameW / (float) Math.max(1, frameH);
+        MeshPlacement.fold(cx, cy, wNorm, hNorm, pivOffX, pivOffY, applyPivot, rotDeg,
+                presetScaleX, presetScaleY, presetDxNorm, presetDyNorm, aspect, folded4);
         if (!MeshPlacement.buildPlace(folded4[0], folded4[1], folded4[2], folded4[3],
                 rotDeg, aspect, placeCol9)) {
             return 0;

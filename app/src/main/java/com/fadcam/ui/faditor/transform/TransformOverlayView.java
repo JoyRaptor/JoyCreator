@@ -1393,7 +1393,13 @@ public class TransformOverlayView extends View {
 
     private void drawRing(@NonNull Canvas c) {
         float r = ringRadiusPx();
-        fill.setColor(0xF613111C);
+        // JoyRaptor, 2026-09-10: "the main circle that is the pop-up menu for long holds on
+        // transform handles is semi-transparent but needs to be more transparent/less opaque."
+        // 0xF6 was 96% -- semi-transparent in name only; the picture underneath was invisible
+        // and the ring read as a modal dialog rather than something floating over the work.
+        // 0xCC is 80%: the glyphs still carry their contrast against it, and you can now see
+        // what you are about to change.
+        fill.setColor(0xCC13111C);
         c.drawCircle(ringCx, ringCy, r, fill);
         stroke.setColor(0xFF4C3F7A);
         stroke.setStrokeWidth(dp(1f));

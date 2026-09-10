@@ -137,3 +137,37 @@ He is distinguishing **passing through** from **parking**, and only parking shou
 Item by item, with device screenshots for 1 and 2. What was covering the badges. Whether the other
 add paths share the stacking bug. The full-span threshold and the dwell duration you chose, and
 why. Build verdict; compile-verified vs device-verified, per item.
+
+---
+
+## VERDICT, 2026-09-10 — items 1 and 2 DEVICE-VERIFIED on the sandbox phone
+
+Build installed and driven on the sandbox phone (`BundlingFontTest`). Three adjustment
+layers added through the Add Asset menu ("FX Adjustment Layer" — note it is not in the tool
+row; `R.id.tool_adjustment` is created programmatically with a long-press listener).
+
+**Item 2 — proved twice, in the data and on the screen.** `project.json` shows three
+distinct lane ids where before there was one:
+
+```
+adjustment layers: 3
+   layerId='adjustment'                            start=0 end=None
+   layerId='e60a2887-1d94-43b5-834a-a418df049998'  start=0 end=None
+   layerId='257ab3e0-163c-49dd-94c8-a74c1da3795f'  start=0 end=None
+```
+
+and the screenshot (`scratchpad/w_three.png`) shows three separate visible rows —
+"Adjustment 1 · 1", "Adjustment 2", "Adjustment 3". `assignAdjustmentToFreeLane` is minting
+fresh lanes rather than appending.
+
+**Item 1 — proved.** "Adjustment 3" is the selected layer in that screenshot (the title bar
+names it) and its trash badge is fully opaque; Adjustment 1's `fx` badge is solid purple.
+The reported fade is gone.
+
+Lanes read neutral grey with no blue cast, so SPEC U item 1 is still holding underneath.
+
+**Items 3, 4 and 5 remain compile-verified only** — the full-span exemption, the auto-pan
+suppression and the 700 ms dwell are carry-gesture behaviours and need a deliberate
+drag session to prove. Not yet done.
+
+Commits: `fbfcfed4` (main), `f2ecbbab` (bucket-key follow-up).

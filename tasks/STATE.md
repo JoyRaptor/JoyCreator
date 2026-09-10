@@ -84,7 +84,8 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | **External .glsl transitions from a dropped-in folder** | 🟢 ✔ | GlExternalTransitions.scanAndRegister — **this is already a working pack loader.** |
 | Speed / zoom / crop / flip | 🟢 ~ | |
 | Text overlays + animation | 🟢 ~ | SPEC_TEXT_ANIMATION; odometer preset proved character-by-character 2026-07-31 |
-| Adjustment layers / FX | 🔵 ~ | SPEC_ADJUSTMENT_LAYERS_FX.md — 742 lines of spec |
+| Adjustment layers / FX | 🟡 ✔ | Shell is 🟢 — add/select/own-lane/fx+trash badges device-proved on the sandbox phone 2026-09-10. **Whether an effect actually applies to the layers beneath is still unproved.** SPEC_ADJUSTMENT_LAYERS_FX.md |
+| Timeline lane allocation (no two objects stacked) | 🟢 ✔ | SPEC W — three adjustment layers took three lanes, device-proved 2026-09-10. Same rule now guards text/image/sprite/PiP adds. |
 | Mesh warp / Bend | 🟢 | **Complete and device-verified 2026-09-10.** SPEC A through T. |
 | Transform (affine handles, rotation dial, pivot) | 🟢 | **Complete 2026-09-10.** Shipped alongside Bend. |
 | Undo (one press = one step) | 🟢 ~ | JoyRaptor's ruling. Batch operations collapse to one undo. |

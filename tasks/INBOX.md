@@ -66,3 +66,13 @@ turns out it already exists), or gets deleted. Deleting is fine. That is what an
   not a blanket one, and it predates the layers work. Put a silent clip in front of a clip
   with sound and export. If it still fails, incoming generated video needs a silent audio
   track on import. If it does not, that whole normalisation step can be dropped.
+
+## Captured 2026-09-10 (idle power investigation)
+
+- **The app holds ~534MB RES.** Measured on the Note 20 while investigating JoyRaptor's hot
+  phone. It is **not** the heat source — idle JoyCreator draws 2.5–3.5% CPU, renders zero
+  frames, and holds no wakelocks; the heat was Google Messages at 100–124% plus Samsung
+  Rubin plus charging. But half a gigabyte resident on a memory-pressured device is worth a
+  look on its own: find out what is holding it (thumbnail caches, waveform tiles, GL
+  textures, decoded bitmaps) and whether any of it should be trimmed on
+  `onTrimMemory`/background.

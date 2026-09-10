@@ -29,6 +29,32 @@ It may instead be a filmstrip border or a band divider that SPEC U's new geometr
 **Say which it actually was.** If it turns out to be deliberate and useful, explain what it is for
 and make it read as intentional; if not, remove it.
 
+### IDENTIFIED, 2026-09-10 — they are the SELECTION BOX, drawn stale
+
+JoyRaptor, after a closer look, and this supersedes the guess above:
+
+> "When I collapsed the main tape, it would still show the green selection box FULL SIZE along
+> with two rails of dashed blue thin lines, which are different than the sprocket rails that are
+> decorative. And it would leave it up even as I scrolled lanes. It would just stay still, but it
+> wouldn't even be over the main collapsed spine."
+
+So the dashed rules are the selection chrome's own edges, and there are **two separate faults** in
+one symptom:
+
+1. **The collapsed branch does not suppress the selection box.** `drawCollapsedSpine` runs instead
+   of the segment loop, but the selection/trim chrome is still being drawn — at the EXPANDED
+   height, because that is the geometry it was built from. Every draw call that is gated on
+   `!spineCollapsed` needs auditing: something selection-related is outside those gates.
+2. **It does not move with the band.** It stays pinned while the lanes scroll under it, so it is
+   drawn in the wrong coordinate space — screen space where it should be content space, or from a
+   rect captured before the collapse and never recomputed.
+
+Fault 2 is the more interesting one: a stale rect that survives a scroll is a rect nobody is
+recomputing. Find who owns it and make it derive from the current geometry rather than a snapshot.
+
+**This replaces item 1's pending-lane-slot theory.** Check it anyway if the selection fix does not
+account for both rules, but start here.
+
 ## 2. A collapsed spine is invisible, and its thumbnails are covered
 
 > "When I collapse the main spine, I can't see where it is... when it's collapsed, I can't see the

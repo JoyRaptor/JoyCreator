@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Blocks the owner's personal identifiers from re-entering the repository.
+# See tasks/GIT_PRACTICE.md. Patterns live base64-encoded in .githooks/_patterns
+# so this guard does not itself publish what it guards.
+#
+# If this fires: use "JoyRaptor", studio@joycreator.cc, and "the sandbox phone".
+# Do NOT bypass with --no-verify. Ask the owner if you think it is a false alarm.
+
+here="$(dirname "$0")"
+pat=$(grep -v '^#' "$here/_patterns" | tr -d '\r\n' | base64 -d 2>/dev/null)
+[ -z "$pat" ] && { echo "guard: cannot read patterns - refusing to commit blind"; exit 1; }
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep -v '^\.githooks/')
+[ -z "$staged" ] && exit 0
+
+while IFS= read -r f; do
+  [ -n "$f" ] && [ -f "$f" ] || continue
+  hits=$(git show ":$f" 2>/dev/null | grep -nIEi "$pat" | head -3)
+  if [ -n "$hits" ]; then
+    echo "BLOCKED: personal identifier in $f"
+    echo "$hits" | sed 's/^/    /'
+    fail=1
+  fi
+done <<< "$staged"
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "The owner is JoyRaptor. Use that name, studio@joycreator.cc for email,"
+  echo "and 'the sandbox phone' / 'the Note 20' instead of device serials."
+  exit 1
+fi
+exit 0

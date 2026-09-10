@@ -1,0 +1,4 @@
+# Base64 of the identifier regex. Encoded so the guard does not itself publish
+# what it is guarding, and so it does not trip over its own source.
+# This is obfuscation, not secrecy - it stops casual discovery and grep, nothing more.
+c2NvdHR2aWdpbHxcYnNjb3R0XGJ8XGJtYXJ5XGJ8MjllMzcxMzgwNzFjN2VjZXxSNUNOODFBTVRLSA==

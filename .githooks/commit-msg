@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Same guard, for the commit message. Messages are the hardest part to clean up
+# later - they cannot be fixed without rewriting history.
+here="$(dirname "$0")"
+pat=$(grep -v '^#' "$here/_patterns" | tr -d '\r\n' | base64 -d 2>/dev/null)
+[ -z "$pat" ] && { echo "guard: cannot read patterns - refusing to commit blind"; exit 1; }
+hits=$(grep -nIEi "$pat" "$1" | head -3)
+if [ -n "$hits" ]; then
+  echo "BLOCKED: personal identifier in the commit message."
+  echo "$hits" | sed 's/^/    /'
+  echo ""
+  echo "The owner is JoyRaptor. Rewrite the message and commit again."
+  exit 1
+fi
+exit 0

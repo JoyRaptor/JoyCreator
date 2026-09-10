@@ -62,18 +62,20 @@ run) · Transcript source affordance
 
 ---
 
-## 2. 🔴 The open question this sweep raised and nobody answered
+## 2. ✅ CLOSED — the playback regression was not real
 
-**2026-08-29, check #7: playback was silent and the playhead did not move.** Audio stayed
-`state:idle` after eight taps; the previous build the same morning had worked. It was
-recorded as a *"critical regression"* and it blocked six other checks.
+**2026-08-29, check #7:** playback was silent and the playhead did not move. Audio stayed
+`state:idle` after eight taps. It was recorded as a *"critical regression"* and it blocked
+six other checks in that sweep.
 
-**Nobody confirmed whether it was real.** The next day JoyRaptor device-verified the fade knobs
-on the Note 9, which implies playback worked — so it may have been an automation artefact
-(an agent tapping coordinates that were not the play button). But it was never closed.
+**Closed 2026-09-10.** JoyRaptor opened a project and it plays music. The finding was an
+automation artefact — an agent tapping coordinates that were not the play button — not a
+defect in the app.
 
-**Do this first, it takes thirty seconds:** open a project with a music layer and press play.
-If it plays, close the finding. If it does not, everything else waits.
+**The lesson is worth more than the finding.** An agent driving a phone by screen
+coordinates reported a critical regression that never existed, and it stood for twelve days
+and blocked six other checks. When a sweep reports a failure nobody has seen with their own
+eyes, confirm it by hand before believing it or building on it.
 
 ---
 

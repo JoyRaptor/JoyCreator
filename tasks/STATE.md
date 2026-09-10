@@ -85,7 +85,8 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Speed / zoom / crop / flip | 🟢 ~ | |
 | Text overlays + animation | 🟢 ~ | SPEC_TEXT_ANIMATION; odometer preset proved character-by-character 2026-07-31 |
 | Adjustment layers / FX | 🔵 ~ | SPEC_ADJUSTMENT_LAYERS_FX.md — 742 lines of spec |
-| Mesh warp | 🟡 ✔ | transform/mesh/MeshWarpSpec + SPEC_20260902_MESH_WARP (780 lines). **In progress.** |
+| Mesh warp / Bend | 🟢 | **Complete and device-verified 2026-09-10.** SPEC A through T. |
+| Transform (affine handles, rotation dial, pivot) | 🟢 | **Complete 2026-09-10.** Shipped alongside Bend. |
 | Undo (one press = one step) | 🟢 ~ | JoyRaptor's ruling. Batch operations collapse to one undo. |
 | Export (out-of-process) | 🟢 ~ | Own process so an editor crash cannot kill an export. Proved 2026-07-30. |
 | Single-frame export (JPG/PNG) | 🟡 ~ | todo.md is this spec, marked partly done |

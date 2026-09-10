@@ -27,7 +27,7 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 
 | # | Item | Notes |
 |---|---|---|
-| 0.6 | Press play on a project with a music layer | 30 seconds. Answers an open "critical regression" from 2026-08-29 that was never closed. |
+| 0.6 | ✅ **DONE 2026-09-10** — it plays. The 2026-08-29 "critical regression" was an automation artefact, not a defect. | |
 | 0.7 | **Re-run the 41-check device sweep** (SPEC_20260829_DEVICE_VERIFY_ALL) | 14 finished features have never been looked at. One evening with a phone. **Highest value per hour on this page.** |
 | 0.8 | Fix whatever the sweep finds | |
 
@@ -79,7 +79,7 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 | 4.1 | New intro copy (drafted and approved 2026-09-09) |
 | 4.2 | Defer permission requests to the point of use |
 | 4.3 | Demo project — a small pre-loaded project you can press play on |
-| 4.4 | Hide Avatar Studio, mesh warp and other 🟡 features from the launch UI |
+| 4.4 | Hide Avatar Studio and other 🟡 features from the launch UI. Mesh warp / Bend is 🟢 as of 2026-09-10 and ships visible. |
 | 4.5 | Promotional screenshots (from the demo project) |
 | 4.6 | Feature graphic and store icon |
 | 4.7 | Store listing copy (generated from STATE.md) |

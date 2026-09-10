@@ -385,6 +385,15 @@ public class EditorTimelineView extends View {
             new java.util.HashMap<>();
     /** clipIds whose drawer TARGET state is open. */
     private final java.util.Set<String> clipAudioDrawerOpen = new java.util.HashSet<>();
+    /**
+     * SPEC_V §4 — "the audio drawer was out when the spine was collapsed, so put it back on
+     * expand". PURELY VIEW STATE, and deliberately a plain field on this View: it is not in
+     * {@code Timeline}, so it can reach neither {@code project.json} (ProjectStorage only ever
+     * serializes the Timeline) nor the undo stack (only {@code undoManager.recordAction} calls
+     * do, and nothing here records one). It dies with the editor screen, which is right — a
+     * remembered shelf is a convenience within one sitting, not a property of the project.
+     */
+    private boolean spineCollapseReopenDrawers = false;
     /** A3 tile cache for drawer bodies (the row renderer owns its own instance). */
     private com.fadcam.ui.faditor.waveform.TapeTileCache clipDrawerTapeCache;
     private long lastMasterTapUpMs;
@@ -852,6 +861,9 @@ public class EditorTimelineView extends View {
     @androidx.annotation.Nullable private String spineTapArmedClipId = null;
     /** SPEC_N §3 — screen-space rect of the spine's collapse caret (see drawSpineCollapseCaret). */
     private final RectF spineCaretRect = new RectF();
+    /** SPEC_V §2 — hoisted scratch rect for the collapsed strip's per-clip body (per-frame,
+     *  per-clip: allocating here showed up as GC churn on a long project). */
+    private final RectF collapsedStripRect = new RectF();
     private int lastPlaybackIndex = 0;  // Playback tracking (persists when deselected)
     private long playheadPositionMs = 0; // Absolute playhead position in timeline
     private long totalEffectiveMs = 0;
@@ -871,6 +883,10 @@ public class EditorTimelineView extends View {
      *  while staying ~5-10MB per segment; the proportional tile mapping in
      *  drawThumbnailsForSegment covers any remaining gap by repeating thumbs at deep zoom. */
     private static final int MAX_THUMBNAILS_PER_SEGMENT = 60;
+    /** SPEC_V §2: frames sampled per segment while the spine is COLLAPSED. A 14dp strip
+     *  cannot show 60 distinct frames, so it does not pay for them — a fifth of the seeks,
+     *  and each frame a sixteenth of the pixels (14dp vs 56dp, squared). */
+    private static final int COLLAPSED_THUMBNAILS_PER_SEGMENT = 12;
     // Disk cache so a re-opened project (or a re-scrubbed-past segment whose in-memory bitmaps
     // were evicted) doesn't re-decode frames it already extracted once. Mirrors
     // WaveformExtractor's disk-cache pattern (per-key file(s) under getCacheDir(), version-gated).
@@ -2014,9 +2030,13 @@ public class EditorTimelineView extends View {
             totalEffectiveMs += sd.effectiveMs;
             activeKeys.add(sd.thumbKey);
         }
-        // Evict cache entries no longer referenced
-        Set<String> toEvict = new HashSet<>(thumbnailsCache.keySet());
-        toEvict.removeAll(activeKeys);
+        // Evict cache entries no longer referenced. SPEC_V §3: entries are keyed
+        // source@sizeXcount now (see thumbVariantKey), so "still referenced" is decided on
+        // the SOURCE prefix — otherwise every re-feed would evict every size variant.
+        Set<String> toEvict = new HashSet<>();
+        for (String k : thumbnailsCache.keySet()) {
+            if (!activeKeys.contains(thumbKeyPrefixOf(k))) toEvict.add(k);
+        }
         for (String key : toEvict) {
             List<Bitmap> old = thumbnailsCache.remove(key);
             if (old != null) {
@@ -2619,6 +2639,39 @@ public class EditorTimelineView extends View {
         audioLaneCount = Math.max(1, lanes);
     }
 
+    /**
+     * SPEC_V §1/§3 — THE SPINE GEOMETRY {@link #segRects} WAS LAST BUILT FROM.
+     *
+     * <p>Every spine rect, the selection chrome, the context guides and the filmstrip tiling
+     * derive from {@code segRects}, and {@code segRects} was only ever rebuilt from
+     * {@code onSizeChanged} — i.e. it relied on a collapse CHANGING THIS VIEW'S HEIGHT.
+     * SPEC_U §4 is exactly the change that stopped that being true: the height the spine
+     * gives up is handed to the layer band, so the view measures the SAME total and
+     * {@code onSizeChanged} never fires. The rects then kept the old top/height until some
+     * unrelated re-feed rebuilt them — which is why the tape stayed squished "until you
+     * scroll past a clip border" (a scroll that changes the selected clip re-feeds
+     * {@code setTimeline}, and that calls {@code computeRects}).</p>
+     */
+    private float segRectsSpineTopPx = Float.NaN;
+    private float segRectsSpineHeightPx = Float.NaN;
+
+    /**
+     * SPEC_V §3 — rebuild {@link #segRects} iff the spine's band geometry has moved under
+     * them. Two float compares per frame, and a recompute ONLY on a real change: deliberately
+     * not a blanket per-draw invalidate, which would re-lay-out (and re-extract) continuously
+     * on a long project. Catches every height-changing path, not just the collapse caret —
+     * the layer band growing, the audio drawer sliding, a grab-bar drag.
+     */
+    private void ensureSegRectsFresh() {
+        if (segments.isEmpty()) return;
+        if (segRects.size() != segments.size()
+                || Float.isNaN(segRectsSpineTopPx)
+                || Math.abs(masterContentTopPx() - segRectsSpineTopPx) > 0.5f
+                || Math.abs(spineTrackHeightPx() - segRectsSpineHeightPx) > 0.5f) {
+            computeRects();
+        }
+    }
+
     /** Total vertical span of the (possibly multi-lane) audio track in px. */
     private float audioTrackTotalHeightPx() {
         return audioLaneCount * audioTrackHeightPx
@@ -2629,9 +2682,15 @@ public class EditorTimelineView extends View {
         segRects.clear();
         if (segments.isEmpty()) {
             contentWidthPx = 0;
+            segRectsSpineTopPx = Float.NaN;
+            segRectsSpineHeightPx = Float.NaN;
             return;
         }
         float tTop = masterContentTopPx();
+        // SPEC_V §1/§3 — stamp the spine geometry these rects were built from, so
+        // ensureSegRectsFresh() can tell a stale set from a current one in O(1).
+        segRectsSpineTopPx = tTop;
+        segRectsSpineHeightPx = spineTrackHeightPx();
         float x = edgePaddingPx;
 
         for (int i = 0; i < segments.size(); i++) {
@@ -2868,6 +2927,9 @@ public class EditorTimelineView extends View {
         // SPEC_N §3: one read per frame — every band-geometry accessor below already routes
         // through isSpineCollapsed(), this local only gates the DRAWING of spine chrome.
         final boolean spineCollapsed = isSpineCollapsed();
+        // SPEC_V §3: the rects must describe the band we are about to draw into. Cheap
+        // no-op unless the spine's top/height actually moved since they were built.
+        ensureSegRectsFresh();
         float tTop = masterTopPx();
         float tBot = masterBotPx();
         // Reserve the transcript-row space below the segments (matches onMeasure) so the audio track /
@@ -2915,9 +2977,9 @@ public class EditorTimelineView extends View {
         final float visLeft = scrollOffsetPx;
         final float visRight = scrollOffsetPx + w;
         if (spineCollapsed) {
-            // SPEC_N §3: collapsed = a thin strip that still shows WHERE the cuts are, and
-            // nothing else. No thumbnails are loaded while collapsed, so folding the spine
-            // away on a long project also stops its frame-extraction work.
+            // SPEC_N §3: collapsed = a thin strip that still shows WHERE the cuts are.
+            // SPEC_V §2 supersedes the "no thumbnails while collapsed" half of that: the
+            // tape stays visible, extracted at the COLLAPSED height (see spineThumbCount).
             drawCollapsedSpine(canvas, visLeft, visRight);
         } else {
             for (int i = 0; i < segRects.size(); i++) {
@@ -3983,11 +4045,14 @@ public class EditorTimelineView extends View {
             // yet draws in a DARKER shade of its own color (dark green selected / dark
             // gray unselected) with a soft pulse while extraction runs, snapping to full
             // color when loaded — "running slow because it's doing stuff, not broken."
+            // SPEC_V §3: read the CURRENT size variant, so the meter reports on the frames
+            // this strip height is actually going to draw.
+            String meterKey = thumbVariantKey(sd);
+            List<Bitmap> meterThumbs = thumbnailsCache.get(meterKey);
             boolean thumbsReady = sd.isImageClip
-                    ? thumbnailsCache.containsKey(sd.thumbKey)
-                    : (thumbnailsCache.containsKey(sd.thumbKey)
-                            && !thumbnailsCache.get(sd.thumbKey).isEmpty());
-            boolean thumbsLoading = thumbnailsLoading.contains(sd.thumbKey);
+                    ? meterThumbs != null
+                    : (meterThumbs != null && !meterThumbs.isEmpty());
+            boolean thumbsLoading = thumbnailsLoading.contains(meterKey);
             int full = i == selectedIndex ? 0xFF4CAF50 : 0xFF5A5A5A;
             int darkC = i == selectedIndex ? 0xFF23531F : 0xFF3A3A3A;
             int color = thumbsReady ? full : darkC;
@@ -4439,7 +4504,7 @@ public class EditorTimelineView extends View {
         SegmentData sd = segments.get(i);
 
         // Draw thumbnails if available, otherwise draw solid color
-        List<Bitmap> thumbs = thumbnailsCache.get(sd.thumbKey);
+        List<Bitmap> thumbs = thumbnailsCache.get(thumbVariantKey(sd));
         if (thumbs != null && !thumbs.isEmpty()) {
             drawThumbnailsForSegment(canvas, r, thumbs, sel, sd);
         } else {
@@ -5085,12 +5150,53 @@ if (sd.clip.hasVolumeKeyframes()) {
         invalidate();
     }
 
+    /**
+     * SPEC_V §2/§3 — extraction height (px) for the spine's filmstrip AT THE CURRENT SPINE
+     * HEIGHT. Was hard-wired to the expanded {@code trackHeightPx}; a collapsed strip is
+     * 14dp, so extracting at 56dp for it would be ~16× the pixels for frames drawn a
+     * quarter the size.
+     */
+    private int spineThumbSizePx() {
+        return Math.max(1, (int) spineTrackHeightPx());
+    }
+
+    /**
+     * SPEC_V §2 — how many frames to sample for a segment. SPEC_N §3 originally loaded NONE
+     * while collapsed to save extraction work on a long project; JoyRaptor has since asked
+     * for the tape to stay visible when collapsed, so the saving moves here instead: a
+     * collapsed strip gets a fifth of the frames at a sixteenth of the pixels each.
+     */
+    private int spineThumbCount(@NonNull SegmentData sd) {
+        if (sd.isImageClip) return 1;
+        return isSpineCollapsed() ? COLLAPSED_THUMBNAILS_PER_SEGMENT : MAX_THUMBNAILS_PER_SEGMENT;
+    }
+
+    /**
+     * SPEC_V §3 — THE CACHE KEY THAT WAS MISSING THE SIZE. {@code sd.thumbKey} identifies the
+     * SOURCE only, so one set of bitmaps served every strip height. That was harmless while
+     * the spine had exactly one height; the moment collapsing extracts a smaller set, an
+     * expand would redraw those small frames stretched over the full-height tape. Keying by
+     * the size+count the frames were actually extracted at makes the two sets distinct
+     * entries, so a height change picks up the right one (or extracts it) rather than
+     * silently reusing the wrong one. The two sets coexist cheaply — the collapsed one is
+     * ~1/80th the bytes of the expanded one.
+     */
+    private String thumbVariantKey(@NonNull SegmentData sd) {
+        return sd.thumbKey + "@" + spineThumbSizePx() + "x" + spineThumbCount(sd);
+    }
+
+    /** The source-only prefix of a variant key (see {@link #thumbVariantKey}). */
+    private static String thumbKeyPrefixOf(@NonNull String variantKey) {
+        int at = variantKey.indexOf('@');
+        return at < 0 ? variantKey : variantKey.substring(0, at);
+    }
+
     private void loadThumbnailsForSegment(int index) {
         if (index < 0 || index >= segments.size()) return;
         if (index >= segRects.size()) return;
 
         SegmentData sd = segments.get(index);
-        String key = sd.thumbKey;
+        String key = thumbVariantKey(sd);
 
         // Already loaded, currently loading, or known-failed
         if (thumbnailsCache.containsKey(key) && !thumbnailsCache.get(key).isEmpty()) return;
@@ -5102,18 +5208,19 @@ if (sd.clip.hasVolumeKeyframes()) {
         // Trim-independent extraction (2026-07-16): videos always sample the FULL source
         // with the max budget — one extraction per source file, ever; every trim/split
         // window maps onto it at draw time. Images keep their single-frame path.
-        int count = sd.isImageClip ? 1 : MAX_THUMBNAILS_PER_SEGMENT;
+        int count = spineThumbCount(sd);
 
-        int thumbSize = Math.max(1, (int) trackHeightPx);
+        int thumbSize = spineThumbSizePx();
         Uri uri = sd.sourceUri;
         boolean isImage = sd.isImageClip;
         long inMs = 0;
         long outMs = Math.max(1, sd.sourceDurationMs);
         int finalCount = count;
         // thumbSize/count affect what's actually extracted (a re-zoom changes tile density), so
-        // the disk key must include them — unlike the in-memory cacheKey which is just the
-        // source+trim window (zoom changes evict/reload from memory anyway via setTimeline).
-        String diskKey = key + "_" + thumbSize + "x" + finalCount;
+        // the disk key must include them. Built from the SOURCE prefix + the same suffix it
+        // always used (SPEC_V put the size into the in-memory key too, and spelling it twice
+        // here would invalidate every filmstrip already on disk for no gain).
+        String diskKey = thumbKeyPrefixOf(key) + "_" + thumbSize + "x" + finalCount;
         File diskDir = filmstripCacheDir(diskKey);
 
         thumbnailExecutor.execute(() -> {
@@ -5277,9 +5384,18 @@ if (sd.clip.hasVolumeKeyframes()) {
     @Nullable
     private Bitmap imagePreviewFor(@NonNull String imageUri, int targetHpx) {
         Bitmap cached = imagePreviewCache.get(imageUri);
-        if (cached != null && !cached.isRecycled()) return cached;
+        final Bitmap live = (cached != null && !cached.isRecycled()) ? cached : null;
+        // SPEC_V §3 (same class again): keyed by uri ALONE, so a preview decoded for a short
+        // row — a collapsed lane, or the band squeezed by the collapse dividend — stayed in
+        // place when the row grew back and drew soft. Fixed by UPGRADING IN PLACE rather than
+        // putting the size in the key: this cache is byte-budgeted and JoyRaptor's project has
+        // ~51 image overlays, so a second variant per image would cost him real memory to hold
+        // a version nothing wants. Only the largest height ever asked for matters. The small
+        // bitmap keeps drawing while the bigger decode runs, so nothing blanks.
+        boolean tooSmall = live != null && live.getHeight() < targetHpx * 0.75f;
+        if (live != null && !tooSmall) return live;
         if (imagePreviewLoading.contains(imageUri) || imagePreviewFailed.contains(imageUri)) {
-            return null;
+            return live;
         }
         imagePreviewLoading.add(imageUri);
         final int h = Math.max(1, targetHpx);
@@ -5302,7 +5418,8 @@ if (sd.clip.hasVolumeKeyframes()) {
                 }
             });
         });
-        return null;
+        // Keep drawing the too-small one until the upgrade lands (null only on a true miss).
+        return live;
     }
 
     /**
@@ -5362,7 +5479,14 @@ if (sd.clip.hasVolumeKeyframes()) {
     private List<Bitmap> filmstripForOverlayClip(@NonNull com.fadcam.ui.faditor.model.Clip clip,
                                                  int targetHpx) {
         if (clip.isImageClip()) return null; // image clips take the single-thumb path
-        String key = clip.getSourceUri().hashCode() + "_src";
+        // SPEC_V §3 (the same class of bug, found while fixing the spine): this shares
+        // thumbnailsCache with the master filmstrip and was keyed by the SOURCE only — so
+        // (a) an overlay clip and a master clip of the same file fought over one entry at
+        // whichever height loaded first, and (b) a lane row that changes height (collapse,
+        // or the band being squeezed) kept redrawing the frames extracted for the old one.
+        // Same size-in-the-key fix, same shape as thumbVariantKey.
+        String key = clip.getSourceUri().hashCode() + "_src@"
+                + Math.max(1, targetHpx) + "x" + MAX_THUMBNAILS_PER_SEGMENT;
         List<Bitmap> cached = thumbnailsCache.get(key);
         if (cached != null && !cached.isEmpty()) return cached;
         if (thumbnailsLoading.contains(key) || thumbnailsFailed.contains(key)) return null;
@@ -5371,7 +5495,9 @@ if (sd.clip.hasVolumeKeyframes()) {
         final long outMs = Math.max(1, clip.getSourceDurationMs());
         final int thumbSize = Math.max(1, targetHpx);
         final int count = MAX_THUMBNAILS_PER_SEGMENT;
-        final String diskKey = key + "_" + thumbSize + "x" + count;
+        // Prefix only, for the same reason loadThumbnailsForSegment uses one: keeps the disk
+        // key byte-identical to what is already cached on disk.
+        final String diskKey = thumbKeyPrefixOf(key) + "_" + thumbSize + "x" + count;
         final File diskDir = filmstripCacheDir(diskKey);
         thumbnailExecutor.execute(() -> {
             List<Bitmap> thumbs = readFilmstripDiskCache(diskDir, count);
@@ -5781,7 +5907,17 @@ if (sd.clip.hasVolumeKeyframes()) {
         // Horizontal row-band guides (segRects .top/.bottom are absolute
         // Y — only X is scrolled — so they are valid screen coordinates as-is).
         RectF band = null;
-        if (selectedIndex >= 0 && selectedIndex < segRects.size()) {
+        // SPEC_V §1 — THE TWO BLUE DOTTED LINES. They are these: the selected clip's row-band
+        // guides, blue because a selected master clip tints the playhead ObjectPalette.MASTER.
+        // They earn their keep on the EXPANDED spine (they are what you line a layer up
+        // against while trimming), but on a COLLAPSED spine the band is a 14dp sliver, so two
+        // rules 14dp apart read as unexplained chrome rather than as an alignment aid — and
+        // they are the same "hidden while collapsed" case as the trim handles and fade knobs
+        // (SPEC_N §3: a control you cannot usefully hit is worse than no control). The other
+        // half of JoyRaptor's report — that they sat at FULL height and did not move — was
+        // the stale-segRects fault fixed in ensureSegRectsFresh(); they now derive from the
+        // current geometry either way.
+        if (selectedIndex >= 0 && selectedIndex < segRects.size() && !isSpineCollapsed()) {
             band = segRects.get(selectedIndex);
         }
         if (band != null) {
@@ -6271,20 +6407,56 @@ if (sd.clip.hasVolumeKeyframes()) {
      */
     private void drawCollapsedSpine(Canvas canvas, float visLeft, float visRight) {
         float corner = 2f * density;
-        for (int i = 0; i < segRects.size(); i++) {
+        for (int i = 0; i < segRects.size() && i < segments.size(); i++) {
             RectF r = segRects.get(i);
             if (r.right < visLeft || r.left > visRight) continue;
-            segmentPaint.setColor(i == selectedIndex ? COLOR_SEGMENT_SEL : COLOR_SEGMENT);
+            SegmentData sd = segments.get(i);
+            boolean sel = (i == selectedIndex);
             // 1px display-only inset, the same trick drawSegment uses, so abutting clips
             // still read as separate blocks without perturbing the time mapping.
-            canvas.drawRoundRect(r.left + density, r.top, Math.max(r.left + density, r.right - density),
-                    r.bottom, corner, corner, segmentPaint);
-            if (i == selectedIndex) {
-                borderPaint.setColor(COLOR_BORDER_SEL);
-                canvas.drawRoundRect(r.left + density, r.top,
-                        Math.max(r.left + density, r.right - density), r.bottom,
-                        corner, corner, borderPaint);
+            collapsedStripRect.set(r.left + density, r.top,
+                    Math.max(r.left + density, r.right - density), r.bottom);
+
+            // SPEC_V §2 — THE TAPE STAYS VISIBLE WHILE COLLAPSED. JoyRaptor: "when it's
+            // collapsed, I can't see the frames because the black bars go on top ... the
+            // thumbnails tape [should] have higher [z] level." So the frames are drawn HERE,
+            // over the track background and the segment block, through the SAME helper the
+            // expanded tape uses — one tiling path, so the two cannot drift apart. This
+            // supersedes SPEC_N §3's "no thumbnails are loaded while collapsed"; the
+            // extraction saving it was protecting moves into spineThumbCount/spineThumbSizePx,
+            // which sample a collapsed strip at a fifth of the frames and a sixteenth of the
+            // pixels rather than not at all.
+            loadThumbnailsForSegment(i);
+            List<Bitmap> thumbs = thumbnailsCache.get(thumbVariantKey(sd));
+            if (thumbs != null && !thumbs.isEmpty()) {
+                drawThumbnailsForSegment(canvas, collapsedStripRect, thumbs, sel, sd);
+            } else {
+                segmentPaint.setColor(sel ? COLOR_SEGMENT_SEL : COLOR_SEGMENT);
+                canvas.drawRoundRect(collapsedStripRect, corner, corner, segmentPaint);
             }
+            if (sel) {
+                borderPaint.setColor(COLOR_BORDER_SEL);
+                canvas.drawRoundRect(collapsedStripRect, corner, corner, borderPaint);
+            }
+        }
+
+        // SPEC_V §2 — MAKE IT READ AS THE SPINE. JoyRaptor: "when I collapse the main spine,
+        // I can't see where it is." A collapsed lane row is a flat grey bar and so was this,
+        // which is exactly why it disappeared into the stack. Two cues, both already the
+        // spine's own vocabulary and neither costing a row of height:
+        //   • the filmstrip itself — no other row draws full-bleed video frames;
+        //   • a hairline of the film rail's own near-black along the top and bottom edge, so
+        //     the strip reads as a squashed piece of film rather than as one more lane bar.
+        // (The third cue, the caret disc in the left gutter, is already drawn in screen space
+        // by drawSpineCollapseCaret and lands on top of this.)
+        if (!segRects.isEmpty()) {
+            float hair = Math.max(1f, 1.2f * density);
+            float top = segRects.get(0).top;
+            float bot = segRects.get(0).bottom;
+            filmPaint.setStyle(Paint.Style.FILL);
+            filmPaint.setColor(COLOR_FILM_RAIL);
+            canvas.drawRect(visLeft, top, visRight, top + hair, filmPaint);
+            canvas.drawRect(visLeft, bot - hair, visRight, bot, filmPaint);
         }
     }
 
@@ -6321,10 +6493,44 @@ if (sd.clip.hasVolumeKeyframes()) {
         if (liveTimeline == null || trackHeaderActionListener == null) return;
         // §5: a collapse hides the knobs, so the deliberate-tap arming must not survive it.
         spineTapArmedClipId = null;
+        final boolean collapsing = !isSpineCollapsed();
         trackHeaderActionListener.onTrackHeaderAction(liveTimeline.getMasterTrack(),
                 com.fadcam.ui.faditor.layers.LayerRowRenderer.HitZone.CARET);
+
+        // SPEC_V §4 — the audio drawer travels with the spine, and remembers. Collapsing
+        // with the shelf out retracts it (and reclaims its band, which the collapsed spine
+        // was still reserving); expanding puts it back ONLY if it was out. A collapse over
+        // a closed drawer remembers nothing, so expanding cannot surprise the user with a
+        // shelf they did not open. See spineCollapseReopenDrawers for why this is view state.
+        if (collapsing) {
+            spineCollapseReopenDrawers = !clipAudioDrawerOpen.isEmpty();
+            if (spineCollapseReopenDrawers) setAllClipAudioDrawers(false);
+        } else if (spineCollapseReopenDrawers) {
+            spineCollapseReopenDrawers = false;
+            setAllClipAudioDrawers(true);
+        }
+
+        // SPEC_V §3 — REBUILD THE RECTS. The spine's height just changed, and since
+        // SPEC_U §4 that no longer changes THIS VIEW'S height (the freed px go to the layer
+        // band), so onSizeChanged — the only thing that used to call computeRects here —
+        // may never fire. See segRectsSpineTopPx.
+        computeRects();
         requestLayout();
         invalidate();
+    }
+
+    /**
+     * SPEC_V §4 — drive every (non-image) clip's audio drawer to one state. Same per-clip
+     * animation the double-tap shelf toggle uses ({@link #toggleLayerAudioDrawers}); this
+     * variant just does not need a clip to have been tapped. Idempotent per clip.
+     */
+    private void setAllClipAudioDrawers(boolean open) {
+        for (SegmentData sd : segments) {
+            if (sd.clipId == null || sd.isImageClip) continue;
+            if (clipAudioDrawerOpen.contains(sd.clipId) != open) {
+                toggleClipAudioDrawer(sd.clipId);
+            }
+        }
     }
 
     /**

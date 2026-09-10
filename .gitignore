@@ -81,3 +81,8 @@ tools/jvm-harness/__pycache__/
 
 # Local device serials — keep real hardware IDs out of the repo
 tools/devices.local.sh
+
+# Session scratch: device screenshots, pulled project data, probe output.
+# GIT_PRACTICE §4 -- screen dumps and device data must never be committed.
+scratchpad/
+window_dump.xml

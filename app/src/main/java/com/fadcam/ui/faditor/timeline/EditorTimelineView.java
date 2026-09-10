@@ -1284,13 +1284,22 @@ public class EditorTimelineView extends View {
             // even when the finger is held still in the edge zone (intent is vertical —
             // open a new lane). Vertical M6 row-reveal below stays live.
             boolean gapHover = layerGestureController.isHoverGapActive();
+            // SPEC W §4 — no auto-pan for full-span objects, either side of the
+            // hover: the dragged item spanning the timeline, or the occupant it is
+            // hovering over spanning it. Panning toward "the end" of something with
+            // no end is the disorientation being fixed; the shared full-span
+            // definition is the same one the resolvers use. Vertical row-reveal
+            // stays live — reaching an empty lane requires it, and it never chases
+            // an end.
+            boolean fullSpanPan = layerGestureController.isActiveDragFullSpan(totalEffectiveMs)
+                    || layerGestureController.isFullSpanBlocked();
             float fx = lastItemDragScreenX;
             float fy = lastItemDragScreenY;
             int vw = getWidth();
             float hDelta = 0f;
-            if (!gapHover && fx < edgeScrollZonePx) {
+            if (!gapHover && !fullSpanPan && fx < edgeScrollZonePx) {
                 hDelta = -edgeScrollMaxSpeedPx * (1f - fx / edgeScrollZonePx);
-            } else if (!gapHover && fx > vw - edgeScrollZonePx) {
+            } else if (!gapHover && !fullSpanPan && fx > vw - edgeScrollZonePx) {
                 hDelta = edgeScrollMaxSpeedPx * (1f - (vw - fx) / edgeScrollZonePx);
             }
             // VERTICAL M6 auto-scroll (JoyRaptor 2026-07-07 hand-test): a held item near the top/bottom of
@@ -1381,13 +1390,26 @@ public class EditorTimelineView extends View {
     private long excursionShownJointMs = Long.MIN_VALUE;
     private android.animation.ValueAnimator excursionAnimator;
     /**
-     * Dwell before the FIRST pan of a drag (feedback 2026-07-03am): someone moving the
-     * item slowly through the rows shouldn't have the view yanked sideways the instant
-     * a bookend arms — the excursion starts only after the bookend has been held
-     * ~220ms. Flips while ALREADY out on an excursion stay immediate (deliberate).
+     * SPEC W §5 — dwell before the FIRST pan of a drag. Was ~220ms (feedback
+     * 2026-07-03am): slow pass-throughs armed the excursion mid-travel and yanked
+     * the view somewhere the finger was only visiting. Now 700ms — the middle of
+     * the 600–800ms window — so only PARKING (finger substantially still over one
+     * target) arms it, and travelling through lanes never does, however slowly.
+     * Tune the feel in this ONE line; the reset distance below is the other half.
      */
-    private static final long EXCURSION_DWELL_MS = 220;
+    private static final long EXCURSION_DWELL_MS = 700;
+    /**
+     * SPEC W §5 — the other half of the dwell: finger travel (dp) that RESTARTS
+     * the dwell clock. Any deliberate move past this distance re-arms from zero,
+     * so a slow drag through several lanes keeps postponing the pan instead of
+     * firing mid-journey. One line, same tuning story as the duration above.
+     */
+    private static final float EXCURSION_DWELL_RESET_DP = 12f;
     private long pendingExcursionJointMs = Long.MIN_VALUE;
+    /** Finger position where the current dwell was armed — movement past the
+     * reset distance restarts the clock (SPEC W §5). */
+    private float dwellArmX = 0f, dwellArmY = 0f;
+    private float excursionDwellResetPx = 0f;
     private final Runnable excursionEnterRunnable = new Runnable() {
         @Override
         public void run() {
@@ -1881,6 +1903,9 @@ public class EditorTimelineView extends View {
                 new float[]{4f * density, 4f * density}, 0f));
         edgeScrollZonePx = EDGE_SCROLL_ZONE_DP * density;
         edgeScrollMaxSpeedPx = EDGE_SCROLL_MAX_SPEED_DP * density;
+        excursionDwellResetPx = EXCURSION_DWELL_RESET_DP * density;
+        excursionTellDashes = new android.graphics.DashPathEffect(
+                new float[]{6f * density, 5f * density}, 0f);
 
         // Reorder mode paints
         reorderBarHeightPx = REORDER_BAR_HEIGHT_DP * density;
@@ -3089,6 +3114,11 @@ public class EditorTimelineView extends View {
         //      can be verified end-to-end by its data and still not exist on screen.
         drawSpineDropIndicator(canvas);
         drawCarry(canvas);
+        // SPEC W §5 — the dwell's visible tell: while the excursion is ARMED (dwell
+        // pending, pan not yet fired), a dashed accent line marks the joint the view
+        // is ABOUT to reveal, so the pan is never a surprise. Screen space, same
+        // reason as the seam/carry indicators above.
+        drawPendingExcursionTell(canvas);
 
         // SPEC_N §3: the spine's collapse caret. SCREEN space and pinned to the left gutter at
         // exactly the x every lane row's caret uses, so the spine's control reads as one more
@@ -8312,6 +8342,30 @@ if (sd.clip.hasVolumeKeyframes()) {
     }
 
     /**
+     * SPEC W §3 — true when {@code [startMs, startMs + durMs)} intersects a lane
+     * occupant that spans (effectively) the whole timeline. The shared definition
+     * ({@link Timeline#isFullSpanRange}); the carried item itself is excluded the
+     * same way {@link #freeHoleMs} excludes it.
+     */
+    private boolean laneHasFullSpanOverlap(
+            @NonNull com.fadcam.ui.faditor.layers.Track lane, long startMs, long durMs,
+            @Nullable String ignoreItemId) {
+        if (totalEffectiveMs <= 0 || durMs <= 0) return false;
+        long endMs = startMs + durMs;
+        for (com.fadcam.ui.faditor.layers.TimedItem it : lane.getItems()) {
+            if (ignoreItemId != null && ignoreItemId.equals(it.getId())) continue;
+            long s = it.getTimelineStartMs();
+            long e = s + Math.max(0L, it.getDisplayDurationMs(totalEffectiveMs));
+            if (e <= s) continue;
+            if (Timeline.rangesOverlap(startMs, endMs, s, e)
+                    && Timeline.isFullSpanRange(s, e - s, totalEffectiveMs)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Decide what a release onto the lane band would do, and shape the card to match. Called every
      * move while the card is over the lanes.
      */
@@ -8332,7 +8386,21 @@ if (sd.clip.hasVolumeKeyframes()) {
         carryTargetLaneId = lane != null ? lane.getId() : null;
         long hole = freeHoleMs(lane, startMs, carryFromLayer ? carryLayerItemId : null);
         carryHoleMs = hole;
-        if (hole == Long.MAX_VALUE || hole >= durMs) {
+        // SPEC W §3 — full-span exemption for the carry card, same geometry as the
+        // move-drag path: the before/after shortcut (TRIM — "place this just before
+        // the end") is meaningless when the carried object spans the whole timeline
+        // or the occupant under the finger does. Offer an empty lane (FIT, only when
+        // the lane is genuinely empty) or a NEW lane — never a trim, never overlap.
+        // Uses the ONE overlap / full-span definitions (Timeline#rangesOverlap,
+        // Timeline#isFullSpanRange) the add paths and move resolver share.
+        boolean carriedFullSpan = Timeline.isFullSpanRange(startMs, durMs, totalEffectiveMs)
+                || durMs >= (long) (totalEffectiveMs * Timeline.FULL_SPAN_FRACTION);
+        boolean occupantFullSpan = lane != null
+                && laneHasFullSpanOverlap(lane, startMs, durMs,
+                        carryFromLayer ? carryLayerItemId : null);
+        if (carriedFullSpan || occupantFullSpan) {
+            carryDropState = (hole == Long.MAX_VALUE) ? CARRY_FIT : CARRY_NEWLANE;
+        } else if (hole == Long.MAX_VALUE || hole >= durMs) {
             carryDropState = CARRY_FIT;
         } else if (hole >= CARRY_MIN_HOLE_MS) {
             carryDropState = CARRY_TRIM;
@@ -8400,6 +8468,39 @@ if (sd.clip.hasVolumeKeyframes()) {
         spineDropPaint.setStyle(Paint.Style.STROKE);
         spineDropPaint.setStrokeWidth(2f * density);
         return spineDropPaint;
+    }
+
+    /**
+     * SPEC W §5 — the dwell's visible tell (see the onDraw call site). A dashed
+     * accent line at the pending joint, spanning the lane band, with a small ring
+     * where it meets the top: "parked long enough, the view is about to show you
+     * THIS". Same purple family as the gap insertion line, so it reads as the same
+     * promise (a placement preview) rather than a new warning vocabulary. Drawn
+     * only while the dwell is armed — passing through never shows it, because
+     * passing through never arms.
+     */
+    private final Paint excursionTellPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /** Cached dash — allocating a PathEffect per draw is per-frame churn (see lessons). */
+    private android.graphics.DashPathEffect excursionTellDashes;
+
+    private void drawPendingExcursionTell(@NonNull Canvas canvas) {
+        if (excursionActive || pendingExcursionJointMs == Long.MIN_VALUE) return;
+        if (!m7ItemGestureActive || layerGestureController == null
+                || !layerGestureController.isMoveDragActive()) return;
+        float contentX = timeToX(pendingExcursionJointMs);
+        float x = contentX - scrollOffsetPx;
+        if (x < -20f || x > getWidth() + 20f) return;
+        float top = getM6RowsTopPx();
+        float bottom = masterContentTopPx();
+        if (bottom <= top) return;
+        excursionTellPaint.setStyle(Paint.Style.STROKE);
+        excursionTellPaint.setStrokeWidth(1.5f * density);
+        excursionTellPaint.setColor(0xFFC9A6FF);
+        excursionTellPaint.setPathEffect(excursionTellDashes);
+        canvas.drawLine(x, top, x, bottom, excursionTellPaint);
+        excursionTellPaint.setPathEffect(null);
+        excursionTellPaint.setStyle(Paint.Style.STROKE);
+        canvas.drawCircle(x, top + 6f * density, 4f * density, excursionTellPaint);
     }
 
     private void drawCarrySeamLine(@NonNull Canvas canvas, int seam) {
@@ -8615,10 +8716,26 @@ if (sd.clip.hasVolumeKeyframes()) {
                     startOrRetargetExcursion(joint);
                 } else if (pendingExcursionJointMs != joint) {
                     // First pan of this hover: dwell so a slow pass-through doesn't
-                    // yank the view (feedback 2026-07-03am).
+                    // yank the view (SPEC W §5: 700ms, parking — not passing — arms).
                     longPressHandler.removeCallbacks(excursionEnterRunnable);
                     pendingExcursionJointMs = joint;
+                    dwellArmX = x;
+                    dwellArmY = y;
                     longPressHandler.postDelayed(excursionEnterRunnable, EXCURSION_DWELL_MS);
+                    invalidate();
+                } else {
+                    // SPEC W §5 — MOVEMENT RESETS THE TIMER. Same joint, but the
+                    // finger travelled: this is pass-through, not parking. Restart
+                    // the dwell from zero so a slow drag through lanes never arms
+                    // mid-journey, however long the journey takes.
+                    float dx = x - dwellArmX, dy = y - dwellArmY;
+                    if (dx * dx + dy * dy > excursionDwellResetPx * excursionDwellResetPx) {
+                        longPressHandler.removeCallbacks(excursionEnterRunnable);
+                        dwellArmX = x;
+                        dwellArmY = y;
+                        longPressHandler.postDelayed(excursionEnterRunnable, EXCURSION_DWELL_MS);
+                        invalidate();
+                    }
                 }
             } else if (joint == Long.MIN_VALUE) {
                 cancelPendingExcursionEnter();

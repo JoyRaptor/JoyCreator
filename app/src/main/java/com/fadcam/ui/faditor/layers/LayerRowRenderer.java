@@ -503,11 +503,24 @@ public final class LayerRowRenderer {
     }
 
     /**
+     * SPEC W §3 — content index of the floating-band row holding {@code trackId},
+     * or -1 when it is not laid out as a floating row. Lets a full-span-blocked
+     * drop create its new lane BESIDE the hovered row (gap index {@code +1}) rather
+     * than appending at the bottom. Same index space as {@link #gapIndexAt}.
+     */
+    public int floatingRowIndexOf(@NonNull String trackId) {
+        int n = Math.min(floatingRowCountAtLayout, rows.size());
+        for (int i = 0; i < n; i++) {
+            if (rows.get(i).track.getId().equals(trackId)) return i;
+        }
+        return -1;
+    }
+
+    /**
      * Gap hit-test in screen-y (floating band only). {@code currentGap} is the
      * already-armed index (or -1) — it gets a 2x exit zone so the armed line is
      * sticky. Returns the armed gap index, or -1.
-     */
-    public int gapIndexAt(float y, float topPx, int currentGap) {
+     */    public int gapIndexAt(float y, float topPx, int currentGap) {
         int n = floatingRowCountAtLayout;
         if (n <= 0) return -1;
         float localY = y - topPx + scrollOffsetPx;

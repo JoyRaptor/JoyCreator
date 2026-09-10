@@ -6,6 +6,7 @@ import androidx.annotation.Nullable;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.model.Timeline;
 
 /**
  * Owns ALL gesture logic for floating items on the M6 multi-row Track UI: move
@@ -1317,7 +1318,7 @@ public final class LayerGestureController {
                             // to show the butt): keep the last joint published until the
                             // finger has CLEARLY departed (2× radius) — per-event
                             // disarming flickered the joint and endlessly reset the
-                            // view's 220ms excursion dwell timer, so the pan never fired.
+                            // view's excursion dwell timer, so the pan never fired.
                             if (bookendJointMs != Long.MIN_VALUE
                                     && Math.abs(prospective - bookendSnapStartMs) > snapThrMs * 2) {
                                 clearBookend();
@@ -1626,6 +1627,22 @@ public final class LayerGestureController {
         }
         int blockCount = m + 1;
 
+        // SPEC W §3 — full-span exemption. The dragged object's span-ness is its
+        // DURATION (it is a whole-timeline object wherever the finger holds it, so
+        // no start gate); a sibling block counts via the shared definition. Either
+        // way the before/after shortcut does not apply: no butt, no joint, and the
+        // preview stays clamped under the finger instead of jumping to the tail
+        // past a full-span occupant. The drop redirects to a new lane beside the
+        // hovered row (onRowBodyUp), so this preview and that commit agree. NOTE:
+        // this method must stay side-effect-free apart from lastButtJointMs (the
+        // alignment probe below calls it speculatively) — the live
+        // {@link #fullSpanBlocked} flag is maintained by {@link #applyMoveTo}, the
+        // single funnel every preview write goes through.
+        if (isBlockedByFullSpan(selfId, desiredStart, dur, totalMs, row)) {
+            lastButtJointMs = Long.MIN_VALUE;
+            return Math.max(0, Math.min(desiredStart, Math.max(0, totalMs - dur)));
+        }
+
         // S5: finger inside a block + a side preference → escape to the chosen side.
         if (sidePref != 0) {
             for (int i = 0; i < blockCount; i++) {
@@ -1690,6 +1707,62 @@ public final class LayerGestureController {
     private long lastButtJointMs = Long.MIN_VALUE;
 
     /**
+     * SPEC W §3 — side-effect-free full-span test for a candidate placement: true
+     * when the dragged object itself is whole-timeline by duration, or when
+     * {@code [startMs, startMs + durMs)} intersects a sibling block on
+     * {@code row} that spans (effectively) the whole timeline. Kept free of
+     * side effects so the alignment legality probe can call it speculatively;
+     * {@link #nearestFreeStart} and the commit path share exactly this.
+     */
+    private boolean isBlockedByFullSpan(@NonNull String selfId, long startMs, long durMs,
+            long totalMs, @NonNull Track row) {
+        if (totalMs > 0 && durMs >= (long) (totalMs * Timeline.FULL_SPAN_FRACTION)) return true;
+        if (totalMs <= 0 || durMs <= 0) return false;
+        long endMs = startMs + durMs;
+        for (TimedItem sib : row.getItems()) {
+            if (sib.getId().equals(selfId)) continue;
+            long ss = sib.getTimelineStartMs();
+            long se = ss + Math.max(0, sib.getDisplayDurationMs(totalMs));
+            if (se <= ss) continue;
+            if (Timeline.rangesOverlap(startMs, endMs, ss, se)
+                    && Timeline.isFullSpanRange(ss, se - ss, totalMs)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * SPEC W §3 — true while the current MOVE preview is blocked by a full-span
+     * object: either the dragged item itself spans (effectively) the whole timeline,
+     * or the sibling block the desired position intersects does. "Place this before
+     * or after that" is meaningless when THAT has no before and no after, so the
+     * before/after shortcut (butt snap, bookend joint, view excursion) does not
+     * apply — what is offered instead is an empty lane or a new lane (the drop
+     * redirects to {@link Callback#onItemDroppedOnNewLayer} beside the hovered row),
+     * never an overlapping placement. Uses the ONE full-span definition
+     * ({@link Timeline#isFullSpanRange}); the view polls {@link #isFullSpanBlocked}
+     * for its auto-pan guard (SPEC W §4). Reset per gesture, maintained by
+     * {@link #applyMoveTo} for the live preview and recomputed at commit.
+     */
+    private boolean fullSpanBlocked = false;
+
+    /** See {@link #fullSpanBlocked} — polled by the view's auto-pan guard. */
+    public boolean isFullSpanBlocked() { return fullSpanBlocked; }
+
+    /**
+     * True when the ACTIVE drag's item spans (effectively) the whole timeline.
+     * Duration-only, deliberately: the carried object's nature does not change
+     * with where the finger holds it (unlike a sibling block, which counts via
+     * the start-gated shared definition). Matches the dragged branch of
+     * {@link #isBlockedByFullSpan}, so the magnets and the resolver agree.
+     */
+    public boolean isActiveDragFullSpan(long totalMs) {
+        return totalMs > 0 && dragStartDisplayDurMs > 0
+                && dragStartDisplayDurMs >= (long) (totalMs * Timeline.FULL_SPAN_FRACTION);
+    }
+
+    /**
      * Gentle butting SUGGESTION (dragux_v3 A3+A4): if {@code prospective} sits within
      * the snap radius of a legal butting position against any sibling on the landing
      * row (before its start or after its end), return that snapped start and publish
@@ -1700,11 +1773,18 @@ public final class LayerGestureController {
     private long nearestButtWithin(long prospective, long draggedDur, long totalMs, long thrMs) {
         Track row = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
         if (row == null || activeItem == null || draggedDur <= 0) return Long.MIN_VALUE;
+        // SPEC W §3 — no butt magnet for or against a full-span object (same rule as
+        // nearestFreeStart; the magnet is the before/after shortcut in miniature).
+        if (isActiveDragFullSpan(totalMs)) return Long.MIN_VALUE;
         long bestStart = Long.MIN_VALUE, bestJoint = 0, bestDist = thrMs + 1;
         for (TimedItem sib : row.getItems()) {
             if (sib.getId().equals(activeItem.getId())) continue;
             long ss = sib.getTimelineStartMs();
             long se = ss + sib.getDisplayDurationMs(totalMs);
+            // SPEC W §3 — never offer the before/after of a full-span sibling: its
+            // "before" is off the timeline and its "after" is the disorienting jump
+            // to the end of something with no end.
+            if (Timeline.isFullSpanRange(ss, se - ss, totalMs)) continue;
             long before = ss - draggedDur;   // our end butts the sibling's start
             long after = se;                  // our start butts the sibling's end
             if (before >= 0 && Math.abs(prospective - before) < bestDist) {
@@ -1749,6 +1829,9 @@ public final class LayerGestureController {
     private long nearestAlignWithin(long prospective, long draggedDur, long totalMs, long thrMs) {
         Track landing = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
         if (activeItem == null || draggedDur <= 0) return Long.MIN_VALUE;
+        // SPEC W §3 — a full-span object aligns with nothing: every edge pairing is
+        // the whole timeline, so the magnet can only mislead.
+        if (isActiveDragFullSpan(totalMs)) return Long.MIN_VALUE;
         long bestStart = Long.MIN_VALUE, bestDist = thrMs + 1;
         for (Track row : rowRenderer.laidOutTracks()) {
             // The landing row is the butt-magnet's business, not ours — offering the same edges
@@ -1824,6 +1907,15 @@ public final class LayerGestureController {
             long dur = dragStartDisplayDurMs > 0
                     ? dragStartDisplayDurMs : item.getDisplayDurationMs(lastTotalMs);
             rowRenderer.setTimeLockGuides(true, newStartMs, dur);
+            // SPEC W §3 — the live blocked flag follows the PREVIEWED position, from
+            // the one place that writes it (same reasoning as the guides above: one
+            // writer, no per-branch drift). A joint armed on a previous row must not
+            // survive onto a blocked hover — the excursion would pan to a joint that
+            // no longer applies.
+            Track landing = hoverTargetTrack != null ? hoverTargetTrack : activeTrack;
+            fullSpanBlocked = landing != null
+                    && isBlockedByFullSpan(item.getId(), newStartMs, dur, lastTotalMs, landing);
+            if (fullSpanBlocked) clearBookend();
         }
     }
 
@@ -2211,6 +2303,24 @@ public final class LayerGestureController {
         boolean commitWasMoveKind = activeKind == GestureKind.MOVE;
         boolean commitWasOpenEnded = dragStartDurationMs == Long.MAX_VALUE;
         boolean commitHomeSnapped = homeSnapArmed;
+        // SPEC W §3 — full-span-blocked drop. The live preview stayed clamped under
+        // the finger (no before/after shortcut), so the drop must not invent the
+        // tail placement the old resolver would have produced. Recomputed here
+        // against the destination row rather than trusting the live flag: when the
+        // item's current span still intersects a full-span sibling there, this
+        // becomes a NEW-LANE drop beside the hovered row ("create a lane in
+        // between"), never an overlapping placement. A side benefit for legacy
+        // projects: dragging one of two stacked objects un-stacks it.
+        if (committed && !droppedOnNewLayerZone && commitWasMoveKind && commitDur > 0
+                && item != null) {
+            Track dest = toTrack != null ? toTrack : fromTrack;
+            if (dest != null && isBlockedByFullSpan(item.getId(), item.getTimelineStartMs(),
+                    commitDur, effectiveTotalMs(), dest)) {
+                int hoverIdx = rowRenderer.floatingRowIndexOf(dest.getId());
+                commitInsertionIndex = hoverIdx >= 0 ? hoverIdx + 1 : Integer.MAX_VALUE;
+                droppedOnNewLayerZone = true;
+            }
+        }
         pendingDeleteBadge = false;
         spineHoverSuppressed = false;   // §3A.4: never let it leak into the next gesture
         active = false;
@@ -2228,6 +2338,7 @@ public final class LayerGestureController {
         suppressMoveMapping = false;
         hoveringHomeRow = false;
         homeSnapArmed = false;
+        fullSpanBlocked = false;
         dragStartDisplayDurMs = 0;
         lastLoggedHoverRow = null;
         rowRenderer.setDragTargetTrackId(null);

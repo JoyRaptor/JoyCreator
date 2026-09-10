@@ -989,6 +989,35 @@ public class Timeline {
     }
 
     /**
+     * SPEC W — ONE definition of "does this overlap", shared by every add path, the
+     * carry/drop resolver and the move-drag resolver. Two half-open ranges overlap
+     * when each starts before the other ends; merely butting (end == start) is NOT
+     * an overlap, so back-to-back objects may share a lane.
+     */
+    public static boolean rangesOverlap(long aStartMs, long aEndMs, long bStartMs, long bEndMs) {
+        return aStartMs < bEndMs && bStartMs < aEndMs;
+    }
+
+    /**
+     * SPEC W §3 — ONE definition of "full span", shared by the carry/drop resolver,
+     * the move-drag resolver and the auto-pan guards. "Place this before or after
+     * that" is meaningless when THAT spans the entire timeline — there is no before
+     * and no after — so the before/after shortcut must not apply. An object counts
+     * when its duration covers all but a small tolerance of the timeline: exact
+     * equality would flip the rule on trim rounding and open-ended resolution, and
+     * 5% of a typical 30–60 s project (1.5–3 s) is far shorter than any deliberate
+     * "almost the whole timeline" grade.
+     */
+    public static final float FULL_SPAN_FRACTION = 0.95f;
+
+    /** See {@link #FULL_SPAN_FRACTION}. {@code totalMs <= 0} never counts. */
+    public static boolean isFullSpanRange(long startMs, long durMs, long totalMs) {
+        if (totalMs <= 0 || durMs <= 0) return false;
+        if (startMs > totalMs * (1f - FULL_SPAN_FRACTION)) return false;
+        return durMs >= (long) (totalMs * FULL_SPAN_FRACTION);
+    }
+
+    /**
      * Slice F — enforce the no-overlap invariant on TEXT overlay lanes (FEEDBACK #2: "it must be
      * IMPOSSIBLE for two items to overlap on one lane"). {@link #getLayers()} groups text overlays by
      * {@code layerId}; items sharing a lane could OVERLAP in time. For each lane that holds
@@ -1087,6 +1116,50 @@ public class Timeline {
     private static long videoEndForPacking(@NonNull Clip oc) {
         long dur = oc.hasLoopExtension() ? oc.getVisualDurationMs() : oc.getTrimmedDurationMs();
         return oc.getOverlayStartMs() + Math.max(0, dur);
+    }
+
+    /**
+     * SPEC W item 2 — enforce the no-overlap invariant on ADJUSTMENT lanes, the last
+     * item type after text / sprite (T8) / PiP. Before this, every adjustment layer
+     * was created with {@code layerId "adjustment"} and {@link #getLayers()} bucketed
+     * them ALL into one lane, so the second layer's translucent body painted straight
+     * over the first's fx/trash badges (SPEC W item 1's "faded" badges) and the buried
+     * object could not be selected, moved or deleted. Same packing as text/video:
+     * per lane, in start order, each layer lands on the first sub-lane whose previous
+     * layer has ended, else a fresh deterministic {@code "adjustment-<id>"} lane is
+     * minted. Idempotent (safe on every load / undo-redo restore). Returns how many
+     * layers were moved (0 = clean).
+     */
+    public int enforceNoOverlapAdjustmentLanes() {
+        Map<String, List<AdjustmentLayer>> byLayer = new LinkedHashMap<>();
+        for (AdjustmentLayer a : adjustmentLayers) {
+            String id = a.getLayerId().isEmpty() ? "adjustment" : a.getLayerId();
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(a);
+        }
+        int moved = 0;
+        for (List<AdjustmentLayer> lane : byLayer.values()) {
+            if (lane.size() < 2) continue;
+            List<AdjustmentLayer> sorted = new ArrayList<>(lane);
+            sorted.sort((a, b) -> Long.compare(a.getStartMs(), b.getStartMs()));
+            List<Long> subLaneEnd = new ArrayList<>(); // last end (ms) per sub-lane
+            for (AdjustmentLayer a : sorted) {
+                long s = a.getStartMs();
+                long e = adjustmentEndForPacking(a);
+                int placed = -1;
+                for (int k = 0; k < subLaneEnd.size(); k++) {
+                    if (subLaneEnd.get(k) <= s) { placed = k; break; }
+                }
+                if (placed < 0) { placed = subLaneEnd.size(); subLaneEnd.add(e); }
+                else subLaneEnd.set(placed, e);
+                if (placed > 0) {
+                    // Overflow → its own deterministic lane (idempotent across loads).
+                    String want = "adjustment-" + a.getId();
+                    if (!want.equals(a.getLayerId())) { a.setLayerId(want); moved++; }
+                }
+                // placed == 0 keeps its original lane id (may be the seeded "adjustment").
+            }
+        }
+        return moved;
     }
 
     /**
@@ -1412,7 +1485,7 @@ public class Timeline {
 
     /** Half-open overlap: two items that merely BUTT (one ends where the next starts) do not. */
     private static boolean overlapsInTime(long aStart, long aEnd, long bStart, long bEnd) {
-        return aStart < bEnd && bStart < aEnd;
+        return rangesOverlap(aStart, aEnd, bStart, bEnd);
     }
 
     private static boolean laneIsFree(@NonNull List<long[]> occupied, long s, long e) {
@@ -3218,6 +3291,12 @@ public class Timeline {
         }
         for (Clip oc : overlayClips) {
             if (trackId.equals(oc.getLayerId())) return true;
+        }
+        // SPEC W item 2: adjustment layers were MISSING here, so a user ADJUSTMENT
+        // track still holding them could be pruned by maybeRemoveEmptyLayerTrack,
+        // orphaning its layers into defensive leftover buckets.
+        for (AdjustmentLayer a : adjustmentLayers) {
+            if (trackId.equals(a.getLayerId())) return true;
         }
         return false;
     }

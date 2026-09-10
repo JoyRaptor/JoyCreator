@@ -1509,6 +1509,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "Slice F: separated " + movedVideo
                             + " overlapping PiP/video overlay(s) onto their own lanes");
                 }
+                // SPEC W item 2: same no-overlap invariant for adjustment layers — every
+                // layer used to share the single "adjustment" lane, so the second
+                // layer's body painted over the first's badges and buried it.
+                // Model-level + idempotent; deterministic "adjustment-<id>" lane ids
+                // persist on the next autosave.
+                int movedAdj = project.getTimeline().enforceNoOverlapAdjustmentLanes();
+                if (movedAdj > 0) {
+                    FLog.i(TAG, "SPEC W: separated " + movedAdj
+                            + " overlapping adjustment layer(s) onto their own lanes");
+                }
                 // Why did we die last time? Reads the OS's own post-mortem (PSS/RSS + the ANR
                 // trace) and saves it where it survives. The long-file ANR has been "root-cause
                 // owed" since 2026-07-16 purely because nobody was holding a cable when it fired.
@@ -5028,12 +5038,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
             before.put(o.getId(), o.getLayerId());
         }
-        int moved = tl.enforceNoOverlapVideoLanes() + tl.enforceNoOverlapTextLanes();
+        // SPEC W item 2: adjustments share the invariant — a stacked pair repaired
+        // itself only on the NEXT open before this.
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            before.put(a.getId(), a.getLayerId());
+        }
+        int moved = tl.enforceNoOverlapVideoLanes() + tl.enforceNoOverlapTextLanes()
+                + tl.enforceNoOverlapAdjustmentLanes();
         if (moved <= 0) return;
         final java.util.Map<String, String> after = new java.util.HashMap<>();
         for (Clip oc : tl.getOverlayClips()) after.put(oc.getId(), oc.getLayerId());
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
             after.put(o.getId(), o.getLayerId());
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            after.put(a.getId(), a.getLayerId());
         }
         FLog.i(TAG, "lane invariant: separated " + moved + " overlapping object(s)");
         undoManager.amendTopAction(new EditActions.LambdaAction("Separate overlapping objects",
@@ -5048,6 +5067,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
             if (map.containsKey(o.getId())) o.setLayerId(map.get(o.getId()));
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            if (map.containsKey(a.getId())) a.setLayerId(map.get(a.getId()));
         }
     }
 
@@ -22730,6 +22752,119 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * no keyboard and nowhere to type. Preferring the top lane keeps a new text on the side of
      * the plane the editor lives on.</p>
      */
+    /**
+     * SPEC W item 2 — ONE occupancy test for every visual payload that can share a
+     * neutral lane, using the ONE overlap definition ({@link Timeline#rangesOverlap}).
+     * The text-only clash test this replaces could route a new text onto a lane whose
+     * PiP / sprite / adjustment sits inside the same time range — same stacking, same
+     * buried object, different payload types.
+     *
+     * <p>Ends mirror the packing helpers in {@link Timeline}: an open-ended text
+     * (end {@code MAX} or at/before its start) and a zero-duration adjustment
+     * (open-ended — runs to the end of the timeline) occupy their lane forever.
+     * A null {@code trackId} is the default text lane (only null-layer texts live
+     * there — a null-layer sprite buckets as "sprite", a different lane).
+     */
+    private boolean laneRangeOccupied(@NonNull Timeline tl, @Nullable String trackId,
+            long startMs, long endMs, @Nullable String ignoreId) {
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
+            if (o.getId().equals(ignoreId)) continue;
+            if (!java.util.Objects.equals(o.getLayerId(), trackId)) continue;
+            long e = o.getEndMs();
+            if (e == Long.MAX_VALUE || e <= o.getStartMs()) e = Long.MAX_VALUE;
+            if (Timeline.rangesOverlap(startMs, endMs, o.getStartMs(), e)) return true;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
+            if (s.getId().equals(ignoreId)) continue;
+            if (!java.util.Objects.equals(s.getLayerId(), trackId)) continue;
+            long e = s.getEndMs();
+            if (e == Long.MAX_VALUE || e <= s.getStartMs()) e = Long.MAX_VALUE;
+            if (Timeline.rangesOverlap(startMs, endMs, s.getStartMs(), e)) return true;
+        }
+        for (com.fadcam.ui.faditor.model.Clip oc : tl.getOverlayClips()) {
+            if (oc.getId().equals(ignoreId)) continue;
+            if (!java.util.Objects.equals(oc.getLayerId(), trackId)) continue;
+            long s = oc.getOverlayStartMs();
+            long dur = oc.hasLoopExtension() ? oc.getVisualDurationMs() : oc.getTrimmedDurationMs();
+            if (Timeline.rangesOverlap(startMs, endMs, s, s + Math.max(0, dur))) return true;
+        }
+        for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
+            if (a.getId().equals(ignoreId)) continue;
+            String aLane = a.getLayerId().isEmpty() ? "adjustment" : a.getLayerId();
+            String want = trackId == null ? "adjustment" : trackId;
+            if (!aLane.equals(want)) continue;
+            long e = a.getDurationMs() <= 0L ? Long.MAX_VALUE : a.getEndMs();
+            if (Timeline.rangesOverlap(startMs, endMs, a.getStartMs(), e)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * SPEC W item 2 — route a not-yet-added adjustment layer onto the TOP-most lane
+     * whose existing objects don't overlap the new layer's time range, creating a
+     * fresh ADJUSTMENT lane (emitted above the PiPs, the After Effects reading)
+     * when every lane is occupied. A new layer spans the whole timeline, so in
+     * practice this mints a lane every time — full-span objects can never share —
+     * and that is the fix: the old code hardcoded {@code "adjustment"} and appended,
+     * stacking every layer into one lane where each translucent body painted over
+     * the previous one's badges (item 1) and buried it out of reach.
+     */
+    private void assignAdjustmentToFreeLane(
+            @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer layer) {
+        Timeline tl = project.getTimeline();
+        long startMs = layer.getStartMs();
+        long endMs = layer.getDurationMs() <= 0L ? Long.MAX_VALUE : layer.getEndMs();
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.LayerTrackDef def : tl.getExtraLayerTracks()) {
+            // NEUTRAL SUBSTRATE: every FLOATING lane can hold an adjustment, so every
+            // one is a placement candidate (audio is the one band that cannot).
+            if (def.getKind() == com.fadcam.ui.faditor.layers.TrackKind.AUDIO) continue;
+            candidates.add(def.getId());
+        }
+        // Top-most first: getLayers() emits lanes bottom→top, so the last extra track
+        // is the highest. The seeded lane is the FLOOR and is tried last.
+        java.util.Collections.reverse(candidates);
+        candidates.add("adjustment");
+        for (String laneId : candidates) {
+            if (!laneRangeOccupied(tl, laneId, startMs, endMs, layer.getId())) {
+                layer.setLayerId(laneId);
+                return;
+            }
+        }
+        String newId = tl.createLayerTrack(
+                com.fadcam.ui.faditor.layers.TrackKind.ADJUSTMENT,
+                "Adjustment " + (tl.getAdjustmentLayers().size() + 1)); // TODO(strings)
+        layer.setLayerId(newId);
+    }
+
+    /**
+     * SPEC W item 2 — same free-lane routing for a not-yet-added PiP / video
+     * overlay over {@code [startMs, endMs)}. The old path hardcoded
+     * {@code "video"} and appended, stacking every PiP into one lane exactly like
+     * adjustments. A fresh lane is VIDEO-kind so it stays in the PiP phase.
+     */
+    private void assignOverlayClipToFreeLane(@NonNull com.fadcam.ui.faditor.model.Clip clip,
+            long startMs, long endMs) {
+        Timeline tl = project.getTimeline();
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        for (com.fadcam.ui.faditor.layers.LayerTrackDef def : tl.getExtraLayerTracks()) {
+            if (def.getKind() == com.fadcam.ui.faditor.layers.TrackKind.AUDIO) continue;
+            candidates.add(def.getId());
+        }
+        java.util.Collections.reverse(candidates);
+        candidates.add("video");
+        for (String laneId : candidates) {
+            if (!laneRangeOccupied(tl, laneId, startMs, endMs, clip.getId())) {
+                clip.setLayerId(laneId);
+                return;
+            }
+        }
+        String newId = tl.createLayerTrack(
+                com.fadcam.ui.faditor.layers.TrackKind.VIDEO,
+                "PiP " + (tl.getOverlayClips().size() + 1)); // TODO(strings)
+        clip.setLayerId(newId);
+    }
+
     private void assignTextOverlayToFreeLane(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         Timeline tl = project.getTimeline();
@@ -22748,17 +22883,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // reversal — it used to be tried first.
         java.util.Collections.reverse(candidates);
         candidates.add(null);
+        long endMs = item.getEndMs();
+        if (endMs == Long.MAX_VALUE || endMs <= item.getStartMs()) endMs = Long.MAX_VALUE;
         for (String trackId : candidates) {
-            boolean clash = false;
-            for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
-                if (o == item) continue;
-                if (!java.util.Objects.equals(o.getLayerId(), trackId)) continue;
-                if (o.getStartMs() < item.getEndMs() && item.getStartMs() < o.getEndMs()) {
-                    clash = true;
-                    break;
-                }
-            }
-            if (!clash) {
+            // SPEC W item 2: cross-type occupancy, not text-vs-text. A neutral lane can
+            // hold a PiP, sprite or adjustment inside this same time range — sharing it
+            // would stack two objects no matter their payload types.
+            if (!laneRangeOccupied(tl, trackId, item.getStartMs(), endMs, item.getId())) {
                 item.setLayerId(trackId);
                 return;
             }
@@ -23876,8 +24007,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     return;
                 }
                 final Clip overlay = new Clip(videoUri, finalDuration);
-                overlay.setLayerId("video");
+                // SPEC W item 2: never stack — route onto the first lane free over the
+                // new PiP's time range, minting one when every lane is occupied.
                 overlay.setOverlayStartMs(Math.max(0, lastPlayheadAbsoluteMs));
+                assignOverlayClipToFreeLane(overlay, overlay.getOverlayStartMs(),
+                        overlay.getOverlayStartMs() + Math.max(0, finalDuration));
                 overlay.setAudioMuted(true); // pixels only in preview AND export (M-EXPORT-1 rule)
                 com.fadcam.ui.faditor.keyframe.KeyframeSet kf =
                         new com.fadcam.ui.faditor.keyframe.KeyframeSet();
@@ -24003,6 +24137,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.model.TextOverlayItem item =
                 com.fadcam.ui.faditor.model.TextOverlayItem.createImage(
                         imageUri.toString(), 0.5f, 0.5f, 0.30f);
+        // SPEC W item 2: an image overlay is a text payload — route it through the
+        // same free-lane search instead of landing on the default lane regardless
+        // of overlap.
+        assignTextOverlayToFreeLane(item);
         project.getTimeline().addTextOverlay(item);
         overlayLayer.setData(com.fadcam.ui.faditor.compositor.LayerPreviewController.visibleTextOverlaysAboveVideo(project.getTimeline()), overlayLayerCallback());
         syncTimelineOverlays();
@@ -27979,9 +28117,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long total = Math.max(1L, project.getTimeline().getTotalDurationMs());
         com.fadcam.ui.faditor.model.AdjustmentLayer layer =
                 new com.fadcam.ui.faditor.model.AdjustmentLayer();
-        layer.setLayerId("adjustment");
         layer.setStartMs(0L);
         layer.setDurationMs(total);
+        // SPEC W item 2: never stack — route onto the first lane free over the new
+        // layer's time range, minting one when every lane is occupied.
+        assignAdjustmentToFreeLane(layer);
         layer.setName("Adjustment " + (project.getTimeline().getAdjustmentLayers().size() + 1));
 
         project.getTimeline().addAdjustmentLayer(layer);

@@ -22762,37 +22762,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Ends mirror the packing helpers in {@link Timeline}: an open-ended text
      * (end {@code MAX} or at/before its start) and a zero-duration adjustment
      * (open-ended — runs to the end of the timeline) occupy their lane forever.
-     * A null {@code trackId} is the default text lane (only null-layer texts live
-     * there — a null-layer sprite buckets as "sprite", a different lane).
+     *
+     * <p>Lanes are compared by {@link Timeline#getLayers()} BUCKET KEY, not by raw
+     * layerId: a null text buckets as "text", a null sprite as "sprite", a null PiP
+     * as "video", an empty adjustment as "adjustment" — four different lanes.
+     * Comparing raw ids would refuse the default text lane just because a sprite
+     * exists somewhere (or an adjustment block a text that shares no lane with
+     * it), minting a lane every time. A null {@code trackId} is the default text
+     * lane; every other caller passes a real lane id.
      */
     private boolean laneRangeOccupied(@NonNull Timeline tl, @Nullable String trackId,
             long startMs, long endMs, @Nullable String ignoreId) {
+        String candKey = trackId == null ? "text" : trackId;
         for (com.fadcam.ui.faditor.model.TextOverlayItem o : tl.getTextOverlays()) {
             if (o.getId().equals(ignoreId)) continue;
-            if (!java.util.Objects.equals(o.getLayerId(), trackId)) continue;
+            String key = o.getLayerId() == null ? "text" : o.getLayerId();
+            if (!key.equals(candKey)) continue;
             long e = o.getEndMs();
             if (e == Long.MAX_VALUE || e <= o.getStartMs()) e = Long.MAX_VALUE;
             if (Timeline.rangesOverlap(startMs, endMs, o.getStartMs(), e)) return true;
         }
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : tl.getSpriteOverlays()) {
             if (s.getId().equals(ignoreId)) continue;
-            if (!java.util.Objects.equals(s.getLayerId(), trackId)) continue;
+            String key = s.getLayerId() == null ? "sprite" : s.getLayerId();
+            if (!key.equals(candKey)) continue;
             long e = s.getEndMs();
             if (e == Long.MAX_VALUE || e <= s.getStartMs()) e = Long.MAX_VALUE;
             if (Timeline.rangesOverlap(startMs, endMs, s.getStartMs(), e)) return true;
         }
         for (com.fadcam.ui.faditor.model.Clip oc : tl.getOverlayClips()) {
             if (oc.getId().equals(ignoreId)) continue;
-            if (!java.util.Objects.equals(oc.getLayerId(), trackId)) continue;
+            String key = oc.getLayerId() == null ? "video" : oc.getLayerId();
+            if (!key.equals(candKey)) continue;
             long s = oc.getOverlayStartMs();
             long dur = oc.hasLoopExtension() ? oc.getVisualDurationMs() : oc.getTrimmedDurationMs();
             if (Timeline.rangesOverlap(startMs, endMs, s, s + Math.max(0, dur))) return true;
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
             if (a.getId().equals(ignoreId)) continue;
-            String aLane = a.getLayerId().isEmpty() ? "adjustment" : a.getLayerId();
-            String want = trackId == null ? "adjustment" : trackId;
-            if (!aLane.equals(want)) continue;
+            String key = a.getLayerId().isEmpty() ? "adjustment" : a.getLayerId();
+            if (!key.equals(candKey)) continue;
             long e = a.getDurationMs() <= 0L ? Long.MAX_VALUE : a.getEndMs();
             if (Timeline.rangesOverlap(startMs, endMs, a.getStartMs(), e)) return true;
         }

@@ -103,9 +103,18 @@ public final class LayerRowRenderer {
     private float maxVisibleRowsDp = DEFAULT_MAX_VISIBLE_ROWS_DP;
 
     // ── Colors (frosted dark glass — DESIGN §5) ─────────────────────
-    private static final int COLOR_HEADER_BG      = 0x99141420; // semi-transparent dark
+    // SPEC_U §1 — NEW CHROME TAKES ITS HUE FROM THE APP, NOT FROM ITSELF (JoyRaptor 2026-09-10:
+    // "the new elements are not grey but blue-shifted, starting to clash"). The lane
+    // backgrounds used to carry a measurable blue cast (0x2E2E3A has its blue channel 12
+    // points above red and green; 0x141420 is 12 points; 0x1A1A24 is 10). Against the app's
+    // established neutrals that reads as a second palette. Every band tint below is now
+    // derived from EditorTimelineView.COLOR_RULER_BG (0xFF141414) — the app's pure-neutral
+    // gutter grey, which sits directly above these rows — by keeping R == G == B and moving
+    // only the single lightness value. The LOCK variants stay red-shifted on purpose: that is
+    // a STATE signal, not neutral chrome.
+    private static final int COLOR_HEADER_BG      = 0x99141414; // ruler grey, semi-transparent
     private static final int COLOR_HEADER_BG_LOCK = 0x99201414;
-    private static final int COLOR_ROW_BODY_BG    = 0x661A1A24;
+    private static final int COLOR_ROW_BODY_BG    = 0x661A1A1A;
     // SPEC_N §6 — ALTERNATING LANE BANDING (JoyRaptor 2026-09-08, "yes, but keep it subtle").
     // A second, marginally lighter pair of backgrounds applied to every ODD row. The delta is
     // deliberately ~3% of final lightness once the alpha is composited over the timeline's
@@ -115,8 +124,11 @@ public final class LayerRowRenderer {
     // (see the counter in layout()), never cached against a track id or list index, so adding,
     // removing, reordering, collapsing or expanding a row always re-bands the rows below it and
     // the alternation can never show two same-coloured lanes side by side.
-    private static final int COLOR_ROW_BODY_BG_ALT = 0x662E2E3A;
-    private static final int COLOR_HEADER_BG_ALT   = 0x99202030;
+    // SPEC_U §1: same deltas as before, hue removed. Body 0x1A -> 0x2E is +20/255 at alpha
+    // 0x66 (0.40) => ~3.1% composited lightness; header 0x14 -> 0x20 is +12/255 at alpha 0x99
+    // (0.60) => ~2.8%. Both stay inside SPEC_N §6's 3-5% target; only the blue channel moved.
+    private static final int COLOR_ROW_BODY_BG_ALT = 0x662E2E2E;
+    private static final int COLOR_HEADER_BG_ALT   = 0x99202020;
     private static final int COLOR_HEADER_BG_LOCK_ALT = 0x99302020;
     private static final int COLOR_ROW_NAME       = 0xFFEDEDED;
     private static final int COLOR_ICON_ON        = 0xFFFFFFFF;
@@ -608,12 +620,6 @@ public final class LayerRowRenderer {
      */
     public float measureExtraHeightPx(@NonNull List<Track> layers) {
         if (layers.isEmpty()) return 0f;
-        float rowGap = ROW_GAP_DP * density;
-        float total = 0f;
-        for (Track t : layers) total += rowHeightPx(t) + rowGap;
-        // The opening gap is real height: leaving it out clips the bottom row while the lane
-        // animates in, so the rows appear to slide UNDER the master track instead of apart.
-        if (pendingLaneGapPx > 0.5f) total += pendingLaneGapPx + rowGap;
         // SPEC_N §2 — DEAD GREY SPACE ABOVE THE SPINE. This used to be
         //     TOP_GAP_DP * density + Math.min(total, cap)
         // while layout() draws a viewport of
@@ -624,7 +630,65 @@ public final class LayerRowRenderer {
         // than the band ever draws. That surplus lands between the last visible row and
         // masterTopPx, i.e. as empty grey immediately above the spine. Mirroring layout()
         // exactly is the fix; when the rows fit, this is arithmetically identical to before.
-        return Math.min(TOP_GAP_DP * density + total, effectiveViewportCapPx());
+        // SPEC_U §4 keeps that mirror intact: BOTH sides now read the same two numbers
+        // (measureLayerContentPx and effectiveViewportCapPx), so a grant can never make the
+        // measure pass and the layout pass disagree again.
+        return Math.min(measureLayerContentPx(layers), effectiveViewportCapPx());
+    }
+
+    /**
+     * SPEC_U §4 — the floating band's UNCAPPED demand (px): the height at which every one of
+     * its rows would be visible at once. This is the "what does this region WANT" input to
+     * the god view's band budget; {@link #measureExtraHeightPx} is the same number after the
+     * grant has been applied, and {@code layout()} draws exactly that.
+     */
+    public float measureLayerContentPx(@NonNull List<Track> layers) {
+        if (layers.isEmpty()) return 0f;
+        float rowGap = ROW_GAP_DP * density;
+        float total = 0f;
+        for (Track t : layers) total += rowHeightPx(t) + rowGap;
+        // The opening gap is real height: leaving it out clips the bottom row while the lane
+        // animates in, so the rows appear to slide UNDER the master track instead of apart.
+        if (pendingLaneGapPx > 0.5f) total += pendingLaneGapPx + rowGap;
+        return TOP_GAP_DP * density + total;
+    }
+
+    /** SPEC_U §4 — the AUDIO band's UNCAPPED demand (px), same idea as
+     *  {@link #measureLayerContentPx}. */
+    public float measureAudioContentPx(@NonNull List<Track> audioTracks) {
+        if (audioTracks.isEmpty()) return 0f;
+        float rowGap = ROW_GAP_DP * density;
+        float total = AUDIO_BAND_TOP_GAP_DP * density;
+        for (Track t : audioTracks) total += rowHeightPx(t) + rowGap;
+        return total;
+    }
+
+    /**
+     * SPEC_U §4 — the height (px) the AUDIO band has GIVEN UP by being collapsed: what it
+     * would want with every row expanded, minus what it wants now.
+     *
+     * <p>This is the number that makes "give the freed space to the lanes" computable without
+     * remembering anything. The alternative — noticing that the view got shorter — needs a
+     * memory of how tall it used to be, and a layout with memory drifts. Asking the rows
+     * directly is stateless: collapse two audio rows and this is exactly the two rows' worth
+     * of height that the layer band above is now allowed to take.</p>
+     */
+    public float audioCollapseSlackPx(@NonNull List<Track> audioTracks) {
+        float slack = 0f;
+        for (Track t : audioTracks) {
+            if (t.isCollapsed()) {
+                slack += (ROW_HEIGHT_AUDIO_EXPANDED_DP - ROW_HEIGHT_COLLAPSED_DP) * density;
+            }
+        }
+        return slack;
+    }
+
+    /** SPEC_U §4 — one usable row's worth of a band, the floor below which a region with
+     *  content may never be squeezed. Deliberately the COLLAPSED row height plus the gap:
+     *  it is the smallest thing that is still a readable, grabbable lane. */
+    public float minBandHeightPx(boolean floating) {
+        float row = ROW_HEIGHT_COLLAPSED_DP * density + ROW_GAP_DP * density;
+        return floating ? row + TOP_GAP_DP * density : row + AUDIO_BAND_TOP_GAP_DP * density;
     }
 
     // ── Audio-band clipping fix (2026-07-08) ──────────────────────────────────────
@@ -646,7 +710,29 @@ public final class LayerRowRenderer {
      *  below one collapsed band (40dp, the video-dominant G6.2 detent) so the band
      *  stays visible and scrollable. */
     private float effectiveViewportCapPx() {
+        // SPEC_U §4: when the god view has budgeted the bands for this pass, ITS number wins.
+        // The grant already accounts for the grab-bar cap, the space the spine and the audio
+        // band actually need, and any deficit the parent imposed — so consulting the raw cap
+        // or the squeeze here as well would double-count them.
+        if (layerGrantPx > 0f) return layerGrantPx;
         return Math.max(40f * density, maxVisibleRowsDp * density - viewportSqueezePx);
+    }
+
+    // ── SPEC_U §4 — adaptive band budget ────────────────────────────────────────
+    /** Height (px) this pass grants the FLOATING band; 0 = no budget set, use the old cap. */
+    private float layerGrantPx = 0f;
+    /** Height (px) this pass grants the AUDIO band; 0 = ungranted, the band takes its want. */
+    private float audioGrantPx = 0f;
+
+    /**
+     * SPEC_U §4 — the god view's per-measure budget for the two flexible bands. Called from
+     * {@code EditorTimelineView#onMeasure} BEFORE it reserves either band's height, so the
+     * measure pass and the draw pass are reading one set of numbers. Pass 0/0 to fall back to
+     * the pre-SPEC_U cap behaviour.
+     */
+    public void setBandGrantsPx(float layerPx, float audioPx) {
+        this.layerGrantPx = Math.max(0f, layerPx);
+        this.audioGrantPx = Math.max(0f, audioPx);
     }
 
     /**
@@ -655,11 +741,11 @@ public final class LayerRowRenderer {
      * lanes and the old legacy audio band grew the view the same way. Zero when no audio.
      */
     public float measureAudioBandHeightPx(@NonNull List<Track> audioTracks) {
-        if (audioTracks.isEmpty()) return 0f;
-        float rowGap = ROW_GAP_DP * density;
-        float total = AUDIO_BAND_TOP_GAP_DP * density;
-        for (Track t : audioTracks) total += rowHeightPx(t) + rowGap;
-        return total;
+        float want = measureAudioContentPx(audioTracks);
+        // SPEC_U §4: the audio band is the band that CANNOT scroll, so it is the last one to
+        // be squeezed — the god view only ever grants it less than its want when there is
+        // genuinely no room, and never below one row.
+        return audioGrantPx > 0f ? Math.min(want, audioGrantPx) : want;
     }
 
     /**
@@ -830,7 +916,10 @@ public final class LayerRowRenderer {
         // proxy/highlight and the gesture controller see one unified row world.
         float ay = AUDIO_BAND_TOP_GAP_DP * density;
         for (Track t : audioTracks) ay = addRow(t, ay, hScrollOffsetPx, widthPx, rowGap, false);
-        audioBandHeightPx = audioTracks.isEmpty() ? 0f : ay;
+        // SPEC_U §4: draw exactly the height the measure pass reserved — the clip below uses
+        // this number, so a granted band and its reservation can never disagree.
+        audioBandHeightPx = audioTracks.isEmpty() ? 0f
+                : (audioGrantPx > 0f ? Math.min(ay, audioGrantPx) : ay);
         if (audioBandHeightPx > 0f) {
             canvas.save();
             float audioKnobOverhang = (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f) * density;
@@ -3910,24 +3999,60 @@ public final class LayerRowRenderer {
      * the last {@link #layout} pass (content-space). Returns true if the scroll moved.
      */
     public boolean revealRowForItem(@NonNull String itemId) {
+        float target = revealScrollTargetFor(itemId);
+        if (Float.isNaN(target)) return false;
+        float before = scrollOffsetPx;
+        scrollOffsetPx = clampScroll(target);
+        return scrollOffsetPx != before;
+    }
+
+    /**
+     * SPEC_U §2 — where the floating band would have to be scrolled to so the row hosting
+     * {@code itemId} is fully on screen, or {@code Float.NaN} for "do not move at all".
+     *
+     * <p>MINIMUM MOVEMENT is the whole contract here (JoyRaptor: an off-screen selection is
+     * invisible, but a visible one must not be yanked around). NaN is returned whenever the
+     * row is already inside the viewport, whenever the item has no floating row (audio rows
+     * live below master and are always visible), and whenever the band has not laid out yet
+     * — a zero viewport would otherwise "reveal" by scrolling to the row's top, i.e. a jump
+     * with no reason. The caller animates from the current offset to this value; splitting
+     * the decision from the motion is what lets the god view animate without the renderer
+     * knowing anything about animators.</p>
+     */
+    public float revealScrollTargetFor(@NonNull String itemId) {
+        if (viewportHeightPx <= 0f) return Float.NaN;
         for (RowLayout row : rows) {
             if (!row.floatingBand) continue;
-            boolean hosts = false;
-            for (TimedItem item : row.track.getItems()) {
-                if (itemId.equals(item.getId())) { hosts = true; break; }
-            }
-            if (!hosts) continue;
+            if (!rowHostsItem(row, itemId)) continue;
             float pad = ROW_GAP_DP * density;
-            float before = scrollOffsetPx;
             if (row.bodyRect.top < scrollOffsetPx) {
-                scrollOffsetPx = clampScroll(row.bodyRect.top - pad);
-            } else if (row.bodyRect.bottom > scrollOffsetPx + viewportHeightPx) {
-                scrollOffsetPx = clampScroll(row.bodyRect.bottom - viewportHeightPx + pad);
+                return clampScroll(row.bodyRect.top - pad);
             }
-            return scrollOffsetPx != before;
+            if (row.bodyRect.bottom > scrollOffsetPx + viewportHeightPx) {
+                return clampScroll(row.bodyRect.bottom - viewportHeightPx + pad);
+            }
+            return Float.NaN; // already fully visible — leave the user's scroll alone
+        }
+        return Float.NaN;
+    }
+
+    /** SPEC_U §2/§3 — is {@code itemId} present in the LAST layout pass at all? A freshly
+     *  added object is selected before the band has re-laid-out, so the caller uses this to
+     *  know it must wait one frame instead of silently dropping the reveal. */
+    public boolean hasRowForItem(@NonNull String itemId) {
+        for (RowLayout row : rows) if (rowHostsItem(row, itemId)) return true;
+        return false;
+    }
+
+    private boolean rowHostsItem(@NonNull RowLayout row, @NonNull String itemId) {
+        for (TimedItem item : row.track.getItems()) {
+            if (itemId.equals(item.getId())) return true;
         }
         return false;
     }
+
+    /** SPEC_U §2 — absolute band scroll (px), clamped. Used by the reveal animator. */
+    public void setScrollOffsetPx(float px) { scrollOffsetPx = clampScroll(px); }
 
     /**
      * SCREEN-space {top, bottom} of the row band hosting {@code itemId} from the

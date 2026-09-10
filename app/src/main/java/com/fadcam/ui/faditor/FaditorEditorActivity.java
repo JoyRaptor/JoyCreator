@@ -8941,6 +8941,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     project.getTimeline().addAudioClip(audioClip);
                     editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+                    selectAndRevealNewObject(audioClip.getId());   // SPEC_U §3
                     // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).
                     maybeAskWaveformAnalysisTiming();
 
@@ -18604,6 +18605,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> project.getTimeline().removeWaveformOverlay(addedWo)));
         refreshWaveformOverlays();
         scheduleAutoSave();
+        selectAndRevealNewObject(addedWo.getId());   // SPEC_U §3
         Toast.makeText(this, "Visualizer added", Toast.LENGTH_SHORT).show();
     }
 
@@ -22704,6 +22706,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 overlayLayerCallback());
         syncTimelineOverlays();
         scheduleAutoSave();
+        selectAndRevealNewObject(item.getId());   // SPEC_U §3
         showTextOverlayEditor(item);
     }
 
@@ -23680,6 +23683,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Written once because there are now two ways to select an object — its timeline row and
      * its body on the canvas — and they must land on the same state.</p>
      */
+    /**
+     * SPEC_U §3 — ONE door for "I just made this": the new object becomes the selection and
+     * its lane is brought into view (JoyRaptor 2026-09-10: "anything added new should become
+     * the thing selected and its lane in-focus").
+     *
+     * <p>Two timing hazards, both handled here so no add path has to think about either:</p>
+     * <ul>
+     *   <li>The timeline's row lists are FED by {@code syncTimelineOverlays()} /
+     *       {@code setAudioClips()}. An add path that calls this before its refresh would
+     *       select an id the view has never heard of, and the selection would be silently
+     *       dropped — so the whole thing is repeated in a {@code post}, by which point every
+     *       synchronous refresh on this frame has run.</li>
+     *   <li>The row's GEOMETRY only exists after the band's next layout pass. The reveal
+     *       itself parks the id and retries after that draw (see
+     *       {@code EditorTimelineView#revealLayerRowForItem}).</li>
+     * </ul>
+     *
+     * <p>The reveal is a no-op for an audio item — audio rows sit below master and are always
+     * visible — but the SELECTION still lands, which is the half the user can see.</p>
+     */
+    private void selectAndRevealNewObject(@Nullable String id) {
+        if (id == null || editorTimeline == null) return;
+        editorTimeline.selectLayerItemById(id);
+        editorTimeline.revealLayerRowForItem(id);
+        editorTimeline.post(() -> {
+            if (editorTimeline == null) return;
+            editorTimeline.selectLayerItemById(id);
+            editorTimeline.revealLayerRowForItem(id);
+        });
+    }
+
     private void selectLayerItemById(@NonNull String id) {
         if (editorTimeline == null || project == null) return;
         com.fadcam.ui.faditor.layers.LayerGestureController ctrl =
@@ -23864,6 +23898,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         () -> { project.getTimeline().addOverlayClip(overlay); syncTimelineOverlays(); },
                         () -> { project.getTimeline().removeOverlayClip(overlay); syncTimelineOverlays(); }));
                 scheduleAutoSave();
+                selectAndRevealNewObject(overlay.getId());   // SPEC_U §3
                 Toast.makeText(this, R.string.faditor_pip_added, Toast.LENGTH_SHORT).show();
             });
         });
@@ -23975,6 +24010,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> project.getTimeline().addTextOverlay(item),
                 () -> project.getTimeline().removeTextOverlay(item)));
         scheduleAutoSave();
+        selectAndRevealNewObject(item.getId());   // SPEC_U §3
     }
 
     /**
@@ -24041,6 +24077,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         redo.run();
         undoManager.recordAction(new EditActions.LambdaAction("Add image as new layer", redo, undo));
         scheduleAutoSave();
+        selectAndRevealNewObject(item.getId());   // SPEC_U §3
         Toast.makeText(this, "Image added as new layer", Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
@@ -27962,6 +27999,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }));
         refreshAfterMarqueeBatchDelete();
         scheduleAutoSave();
+        selectAndRevealNewObject(layer.getId());   // SPEC_U §3
         // OPEN IT. A Toast saying "effects come next" is not a next step, it is an announcement
         // that fires behind whatever drawer is already up and leaves the user on the same
         // screen — which is precisely how this read as "the button did nothing". An empty
@@ -35464,6 +35502,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> { project.getTimeline().addSpriteOverlay(item); syncTimelineOverlays(); },
                 () -> { project.getTimeline().removeSpriteOverlay(item); syncTimelineOverlays(); }));
         scheduleAutoSave();
+        selectAndRevealNewObject(item.getId());   // SPEC_U §3
         Toast.makeText(this, R.string.sprite_placed, Toast.LENGTH_SHORT).show();
         return item;
     }
@@ -35751,6 +35790,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                 }));
         scheduleAutoSave();
+        selectAndRevealNewObject(item.getId());   // SPEC_U §3
         Toast.makeText(this, frameUris.size() + " frames · "
                         + com.fadcam.ui.faditor.sprite.DurationParser.formatMs(span),
                 Toast.LENGTH_SHORT).show();
@@ -39038,6 +39078,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ac.setOffsetMs(playheadMs);
         project.getTimeline().addAudioClip(ac);
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        selectAndRevealNewObject(ac.getId());   // SPEC_U §3
         // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).
         maybeAskWaveformAnalysisTiming();
 
@@ -39589,6 +39630,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ac.setLabel(item.displayName);
                 project.getTimeline().addAudioClip(ac);
                 editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+                selectAndRevealNewObject(ac.getId());   // SPEC_U §3
                 refreshTotalTimeDisplay();
                 saveProjectNow();
                 Toast.makeText(this, R.string.faditor_asset_added, Toast.LENGTH_SHORT).show();
@@ -39713,6 +39755,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ac.setLabel(item.displayName);
                 project.getTimeline().addAudioClip(ac);
                 editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+                selectAndRevealNewObject(ac.getId());   // SPEC_U §3
                 refreshTotalTimeDisplay();
                 saveProjectNow();
                 return;
@@ -40599,6 +40642,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ac.setOffsetMs(startMs);
         project.getTimeline().addAudioClip(ac);
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        selectAndRevealNewObject(ac.getId());   // SPEC_U §3
         // Waveform will be generated lazily; create a silent placeholder so the clip is visible
         // One-undo whole clip: AddAudioClipAction is the existing door for audio adds
         undoManager.recordAction(new EditActions.AddAudioClipAction(project.getTimeline(), ac, null, false, 1f));

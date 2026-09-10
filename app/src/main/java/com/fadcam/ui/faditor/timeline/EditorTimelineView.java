@@ -768,13 +768,56 @@ public class EditorTimelineView extends View {
      */
     public void revealLayerRowForItem(@Nullable String itemId) {
         if (itemId == null || layerRowRenderer == null) return;
-        if (layerRowRenderer.revealRowForItem(itemId)) invalidate();
+        if (!layerRowRenderer.hasRowForItem(itemId)) {
+            // SPEC_U §3: an object that was just ADDED is selected before the band has
+            // re-laid-out, so there is no row to reveal yet. Remember it and retry on the
+            // far side of the next draw (see the tail of onDraw) instead of dropping it —
+            // that silent drop is exactly why a new layer's lane never came into view.
+            pendingRevealItemId = itemId;
+            requestLayout();
+            invalidate();
+            return;
+        }
+        float target = layerRowRenderer.revealScrollTargetFor(itemId);
+        if (Float.isNaN(target)) return;   // already on screen — minimum movement means none
+        animateBandScrollTo(target);
+    }
+
+    /**
+     * SPEC_U §2 — "animate briefly rather than jumping". Short decelerating slide of the
+     * floating band's own scroll. Any new reveal, and any touch on the timeline, cancels the
+     * one in flight so the animation can never fight the user's finger.
+     */
+    private void animateBandScrollTo(float targetPx) {
+        cancelBandRevealAnim();
+        float from = layerRowRenderer.getScrollOffsetPx();
+        if (Math.abs(targetPx - from) < 0.5f) return;
+        bandRevealAnim = android.animation.ValueAnimator.ofFloat(from, targetPx);
+        bandRevealAnim.setDuration(BAND_REVEAL_ANIM_MS);
+        bandRevealAnim.setInterpolator(new android.view.animation.DecelerateInterpolator());
+        bandRevealAnim.addUpdateListener(a -> {
+            layerRowRenderer.setScrollOffsetPx((Float) a.getAnimatedValue());
+            invalidate();
+        });
+        bandRevealAnim.start();
+    }
+
+    /** SPEC_U §2 — stop a reveal slide (a touch, or a newer reveal, wins). */
+    private void cancelBandRevealAnim() {
+        if (bandRevealAnim != null) { bandRevealAnim.cancel(); bandRevealAnim = null; }
     }
 
     /** G9c: linked-member ids for the renderer's chain badge (fed by syncTimelineOverlays). */
     public void setLinkedItemIds(@NonNull java.util.Set<String> ids) {
         if (layerRowRenderer != null) layerRowRenderer.setLinkedItemIds(ids);
     }
+
+    // ── SPEC_U §2/§3 — reveal-the-lane state ─────────────────────────
+    /** Short enough to read as "it moved there", long enough not to be a jump. */
+    private static final long BAND_REVEAL_ANIM_MS = 180L;
+    @Nullable private android.animation.ValueAnimator bandRevealAnim;
+    /** An item asked to be revealed before its row existed; retried after the next draw. */
+    @Nullable private String pendingRevealItemId;
 
     // ── State ────────────────────────────────────────────────────────
     private final List<SegmentData> segments = new ArrayList<>();
@@ -2634,90 +2677,132 @@ public class EditorTimelineView extends View {
         }
     }
 
+    /**
+     * SPEC_U 4 - every px of this view whose height is NOT negotiable on a given pass: the
+     * minimap + ruler strip, the spine's own band (at its collapsed-or-not height, rails
+     * included), the divider gap above the spine, the transcript tail, the open clip-audio
+     * drawer, the audio band's top gap and the legacy in-strip overlay rows.
+     *
+     * <p>This exists so ONE expression feeds both the measure pass and the band budget. It is
+     * arranged to mirror the band-geometry accessors term for term - {@code masterTopPx} adds
+     * the divider gap only when the floating band actually has a footprint, so this adds it on
+     * exactly the same condition. It used to add that gap whenever there were audio tracks
+     * TOO, which on an audio-only project reserved 6dp that nothing ever drew: the same
+     * measure-vs-layout mismatch SPEC_N 2 found above the spine, in a second place.</p>
+     */
+    private float chromeHeightPx() {
+        float px = minimapHeightPx + RULER_HEIGHT_DP * density
+                + filmRailPx() + spineTrackHeightPx() + filmRailPx();
+        if (!layerTracks.isEmpty()) px += LAYER_TOP_GAP_DP * density;   // masterTopPx's gap
+        if (!audioLayerTracks.isEmpty() || !audioClips.isEmpty()) px += audioTrackGapPx;
+        if (audioLayerTracks.isEmpty() && !audioClips.isEmpty()) {
+            // Legacy in-strip audio lanes: fixed geometry, so they are chrome, not a band.
+            px += (audioLaneCount * AUDIO_TRACK_HEIGHT_DP
+                    + (audioLaneCount - 1) * AUDIO_LANE_GAP_DP) * density;
+        }
+        if (!segmentTranscripts.isEmpty()) px += 17f * density;
+        px += clipAudioDrawerBandPx();
+        // Captions share ONE track row (sequential clips don't overlap), like a real caption track.
+        int legacyRows = overlays.size() + waveformLayers.size() + (captionSpans.isEmpty() ? 0 : 1);
+        if (legacyRows > 0) {
+            px += (LAYER_TOP_GAP_DP + legacyRows * (LAYER_ROW_HEIGHT_DP + LAYER_ROW_GAP_DP) + 6f)
+                    * density;
+        }
+        return px;
+    }
+
+    /**
+     * SPEC_U 4 - ADAPTIVE VERTICAL SPACE. JoyRaptor shoots vertical video, so screen height is
+     * the scarcest thing in this app, and a collapsed region that leaves a grey hole instead of
+     * handing its height to a neighbour is a straight waste of it.
+     *
+     * <p><b>The rule, in one paragraph.</b> Chrome and the spine take what they need first -
+     * the spine keeps its full band unless the user explicitly collapsed it, because it is the
+     * primary track and a stack of layers must not be able to squeeze it away. Whatever height
+     * is left over is the pool the two flexible bands share. Each asks for what its rows
+     * actually need (rows x row height, collapsed rows asking only for their strip). If both
+     * fit, both get exactly their want and NOTHING is reserved for a region that does not want
+     * it - which is what makes collapsing the audio band, or the spine, hand real height to the
+     * layer lanes instead of leaving dead grey. If they do not both fit, the shortfall lands on
+     * the FLOATING band, because it is the one that scrolls: a row pushed out of it can still
+     * be reached by dragging, whereas an audio row pushed out of the audio band (which does not
+     * scroll) would simply be gone. Neither band is ever taken below one usable row while it
+     * has content.</p>
+     *
+     * <p>The budget is set BEFORE anything is reserved, and both the reservation and the
+     * drawing read it back through the renderer, so the measure pass and the layout pass
+     * cannot drift apart - the SPEC_N 2 trap, which is precisely what manufactures "negative
+     * space". Growing a band cannot teleport a mid-scroll position either: the band's scroll
+     * offset is never reset here, only re-clamped, and a band that grows can only ever REDUCE
+     * how far it is scrolled.</p>
+     */
     @Override
     protected void onMeasure(int wSpec, int hSpec) {
-        // Audio-band clipping fix: measure DESIRED height with no squeeze, then let the
-        // floating band absorb whatever the parent refuses (see end of this method).
+        // The pre-SPEC_U "squeeze" (the whole deficit dumped on the floating band) is
+        // superseded by the budget below, which knows about both bands and their floors.
+        // Zeroed so a stale value from an earlier pass can never leak into the fallback path.
         layerRowRenderer.setViewportSqueezePx(0f);
-        // F-MINIMAP: measure the LIVE strip height (base + the adaptive layer-line band),
-        // not the base constant — otherwise the lines draw into the ruler's space.
-        // SPEC_N §3: reserve the COLLAPSED strip's height when the spine is collapsed, so the
-        // space it gives up is actually returned to the layer lanes instead of staying blank.
-        float contentDp = minimapHeightPx / density
-                + RULER_HEIGHT_DP + (spineTrackHeightPx() + 2f * filmRailPx()) / density;
-        if (!audioLayerTracks.isEmpty()) {
-            // Audio consolidation: audio renders as headered renderer rows in their own
-            // band below master — reserve the renderer's band height instead of the
-            // legacy lane stack.
-            contentDp += AUDIO_TRACK_GAP_DP
-                    + layerRowRenderer.measureAudioBandHeightPx(audioLayerTracks) / density;
-        } else if (!audioClips.isEmpty()) {
-            contentDp += AUDIO_TRACK_GAP_DP
-                    + audioLaneCount * AUDIO_TRACK_HEIGHT_DP
-                    + (audioLaneCount - 1) * AUDIO_LANE_GAP_DP;
-        }
-        // Extra space for transcript text below segments
-        if (!segmentTranscripts.isEmpty()) {
-            contentDp += 17f;
-        }
-        // Clip-audio drawer band: measured at its CURRENT animated height so the view
-        // grows/shrinks smoothly with the slide (the animator requestLayout()s per frame).
-        contentDp += clipAudioDrawerBandPx() / density;
-        // Captions share ONE track row (sequential clips don't overlap), like a real caption track.
-        int layerRows = overlays.size() + waveformLayers.size() + (captionSpans.isEmpty() ? 0 : 1);
-        if (layerRows > 0) {
-            contentDp += LAYER_TOP_GAP_DP
-                    + layerRows * (LAYER_ROW_HEIGHT_DP + LAYER_ROW_GAP_DP) + 6f;
-        }
-        // Keep the established base height when there are no extra layer rows.
-        float totalDp = Math.max(BASE_TIMELINE_DP, contentDp);
-        int defH = (int) (totalDp * density);
-        // M6 hook: extra height for the Track-driven multi-row UI (zero for a plain
-        // single-track project — see LayerRowRenderer#isEmpty). Floating band only —
-        // the audio band's height is reserved in contentDp above.
-        defH += (int) layerRowRenderer.measureExtraHeightPx(layerTracks);
-        // Slice E: the M6 layer band moved ABOVE the master track, with a divider gap
-        // between the band and master (see masterTopPx). Reserve that gap here so the
-        // AUDIO band at the very bottom is never clipped by the measured height.
-        if (!layerTracks.isEmpty() || !audioLayerTracks.isEmpty()) {
-            defH += (int) (LAYER_TOP_GAP_DP * density);
-        }
-        // THE GRAB BAR RESIZES THE TIMELINE, NOT JUST THE LAYER BAND.
+        layerRowRenderer.setBandGrantsPx(0f, 0f);   // ask for the UNGRANTED wants
+
+        // -- 1. What the regions want -------------------------------------------------
+        final float chromePx = chromeHeightPx();
+        final float layerWantPx = layerRowRenderer.measureLayerContentPx(layerTracks);
+        final float audioWantPx = layerRowRenderer.measureAudioContentPx(audioLayerTracks);
+
+        // -- 2. How tall this view would therefore like to be -------------------------
         //
-        // Everything above sizes this view from its CONTENT. The band cap only bounded
-        // measureExtraHeightPx, i.e. the floating layer band — so on a project with no layer
-        // lanes the cap had nothing to act on and the grab bar was completely dead. JoyRaptor hit
-        // this the moment he started a music video: one video lane, one music lane, "i dont
-        // have drag still". Device log, mid-drag: the cap moved 203dp -> 248dp with a 654dp
-        // ceiling and plenty of preview to give, while the measured height sat at 717px for
-        // every single event.
+        // THE GRAB BAR RESIZES THE TIMELINE, NOT JUST THE LAYER BAND. Everything above sizes
+        // this view from its CONTENT; the cap the user dragged is also a FLOOR on the whole
+        // view, which is what makes the control do what it says ("drag up -> taller timeline,
+        // smaller preview") on a sparse project where the band alone had nothing to grow into,
+        // and what lets the preview collapse far enough to promote to a pop-out. Only a USER
+        // drag can push that cap past the content, so nothing else can ratchet it open.
+        final float grabFloorPx = layerRowRenderer.getMaxVisibleRowsDp() * density;
+        final float floorPx = Math.max(grabFloorPx, BASE_TIMELINE_DP * density);
         //
-        // The layout has always described this control as the preview/timeline split ("Drag UP
-        // -> taller timeline ... smaller preview"), and the preview is layout_weight=1, so
-        // whatever this view measures IS the split. Treating the cap as a FLOOR on the whole
-        // view makes the control do what it says: content still wins when it is taller (nothing
-        // changes for a busy project), and asking for more than the content exists gives empty
-        // band below the rows — which is exactly what "give the timeline more of the screen"
-        // means when there are only two lanes to show. It is also what makes the preview
-        // collapse far enough to promote to a pop-out on a sparse project, which was
-        // unreachable before.
-        //
-        // Only a USER drag can push the cap past the content (LayerRowRenderer clamps every
-        // other caller), so the PiP's additive band fill still cannot ratchet this open.
-        defH = Math.max(defH, (int) (layerRowRenderer.getMaxVisibleRowsDp() * density));
-        int h = resolveSize(defH, hSpec);
-        // Audio-band clipping fix (2026-07-08, found in the audio-consolidation smoke):
-        // when the parent grants LESS than desired, every band used to keep its ideal
-        // geometry and the bottom-most band (AUDIO) silently clipped off-screen. The
-        // floating band is the only internally-scrolling, flexible band — hand it the
-        // deficit so master + audio pull up and stay fully visible. Draw-time geometry
-        // (measureExtraHeightPx → masterTopPx → audioBandTopPx) picks the squeeze up
-        // automatically.
-        if (h < defH && (!layerTracks.isEmpty() || !audioLayerTracks.isEmpty())) {
-            layerRowRenderer.setViewportSqueezePx(defH - h);
-        }
+        // THE COLLAPSE DIVIDEND — the heart of SPEC_U §4. The grab-bar cap bounds the LAYER
+        // band; the audio band and the spine are outside it. So when the user collapsed the
+        // audio band, the height it stopped needing came off the view's total and went back to
+        // the PREVIEW — which, on a vertical video, cannot use it: it becomes exactly the
+        // "negative space below the spine" JoyRaptor reported. Handing that height to the
+        // layer band instead is what he actually asked for ("those things come down to make
+        // room for more lanes"), and the amount is the slack the collapse created, asked of
+        // the rows themselves rather than remembered from a previous layout.
+        final float freedPx = layerRowRenderer.audioCollapseSlackPx(audioLayerTracks)
+                + spineCollapseSlackPx();
+        final float layerCapPx = grabFloorPx + freedPx;
+        int defH = (int) Math.ceil(Math.max(
+                chromePx + Math.min(layerWantPx, layerCapPx) + audioWantPx, floorPx));
+        final int h = resolveSize(defH, hSpec);
+
+        // -- 3. Hand the space out ----------------------------------------------------
+        final float flexPx = Math.max(0f, h - chromePx);
+        final float layerMinPx = layerTracks.isEmpty()
+                ? 0f : layerRowRenderer.minBandHeightPx(true);
+        final float audioMinPx = audioLayerTracks.isEmpty()
+                ? 0f : layerRowRenderer.minBandHeightPx(false);
+        // Audio first, because it cannot scroll - but never at the cost of the layer band's
+        // last row, and never more than it wants (a collapsed audio band wants only its strip,
+        // and the remainder therefore flows to the lanes above).
+        final float audioGrantPx = audioLayerTracks.isEmpty() ? 0f
+                : Math.min(audioWantPx, Math.max(audioMinPx, flexPx - layerMinPx));
+        final float layerGrantPx = layerTracks.isEmpty() ? 0f
+                : Math.max(layerMinPx, Math.min(layerWantPx, flexPx - audioGrantPx));
+        layerRowRenderer.setBandGrantsPx(layerGrantPx, audioGrantPx);
+
+        // -- 4. Measure what the bands actually took ----------------------------------
+        // Read back THROUGH the renderer (not from the local grants) so this number is the
+        // same one layout() will draw with, by construction.
+        float usedPx = chromePx
+                + layerRowRenderer.measureExtraHeightPx(layerTracks)
+                + layerRowRenderer.measureAudioBandHeightPx(audioLayerTracks);
+        // Never shrink below what the user's own grab-bar drag asked for, never claim height
+        // the parent did not offer, and never squeeze the floors away: when even the two
+        // minimums do not fit (a phone-height edge case) usedPx wins and the parent clips,
+        // which is what already happened before, only now with the floors intact.
+        int finalH = (int) Math.ceil(Math.max(usedPx, Math.min(floorPx, h)));
         int w = MeasureSpec.getSize(wSpec);
-        setMeasuredDimension(w, h);
+        setMeasuredDimension(w, finalH);
     }
 
     @Override
@@ -2978,6 +3063,16 @@ public class EditorTimelineView extends View {
         // Frame-accurate trim-edge preview bubble (screen space, on top of all).
         // (Trim-edge preview now happens in the main video, not as a finger-blocking
         // bubble here — drawTrimEdgePreview is retained but no longer activated.)
+
+        // SPEC_U §3: a reveal that arrived before its row existed. The band has now laid out
+        // (the M6 hook above ran layout()), so the row geometry is real — retry it once, off
+        // this draw. Cleared unconditionally first: if the row STILL is not there the request
+        // is dropped rather than re-posting forever.
+        if (pendingRevealItemId != null) {
+            String id = pendingRevealItemId;
+            pendingRevealItemId = null;
+            if (layerRowRenderer.hasRowForItem(id)) post(() -> revealLayerRowForItem(id));
+        }
     }
 
     private final Paint seqReadoutBgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -3351,6 +3446,19 @@ public class EditorTimelineView extends View {
      */
     private float spineTrackHeightPx() {
         return isSpineCollapsed() ? SPINE_COLLAPSED_HEIGHT_DP * density : trackHeightPx;
+    }
+
+    /**
+     * SPEC_U §4 — the height (px) the SPINE has given up by being collapsed: its full band
+     * (rails + track) minus the thin strip it draws now, or 0 while it is expanded. The
+     * audio-band twin of this is {@code LayerRowRenderer#audioCollapseSlackPx}; together they
+     * are the "collapse dividend" the layer band is allowed to grow into (see onMeasure).
+     * Note the spine can only give this up on the user's explicit say-so — nothing else
+     * collapses it — which is how it keeps its floor as the primary track.
+     */
+    private float spineCollapseSlackPx() {
+        if (!isSpineCollapsed()) return 0f;
+        return (trackHeightPx + 2f * FILM_RAIL_DP * density) - SPINE_COLLAPSED_HEIGHT_DP * density;
     }
 
     /** Sprocket-rail thickness (px) reserved OUTSIDE the film content at the top &amp; bottom of the
@@ -6191,7 +6299,11 @@ if (sd.clip.hasVolumeKeyframes()) {
         float cx = layerRowRenderer.caretCenterXPx();
         float cy = (tTop + tBot) / 2f;
         spineCaretRect.set(cx - size / 2f, cy - size / 2f, cx + size / 2f, cy + size / 2f);
-        segmentPaint.setColor(0xCC101014);
+        // SPEC_U §1: the disc is NEW chrome introduced with the collapsible spine, so it takes
+        // the gutter's neutral grey (COLOR_RULER_BG) at 80% rather than the master track's
+        // slightly blue film-black — the caret sits in the same left gutter as every lane
+        // caret, and those now read pure neutral too.
+        segmentPaint.setColor(0xCC000000 | (COLOR_RULER_BG & 0x00FFFFFF));
         canvas.drawCircle(cx, cy, size * 0.85f, segmentPaint);
         layerRowRenderer.drawCollapseCaret(canvas, spineCaretRect, isSpineCollapsed());
     }
@@ -6848,6 +6960,8 @@ if (sd.clip.hasVolumeKeyframes()) {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 gestureActive = true;
+                // SPEC_U §2: the finger always wins over a reveal slide in flight.
+                cancelBandRevealAnim();
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_CANCEL:

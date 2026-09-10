@@ -18,31 +18,31 @@ If a symptom below reappears, it is a REGRESSION, not a new bug — start from t
 
 | What was wrong | Commit | How it was proved |
 |---|---|---|
-| Transcripts stored once per clip instead of once per file — bloated project files and the undo snapshot | `9c59d0e` | Harness 29/29 + device round-trip 14/14; 24% smaller on a 9-clip project |
-| One undo press after a crash could revert a whole session (441 fields, mislabelled as one small edit) | `34b4297` | Reproduced, then before/after: sidecar advanced 622,949 → 658,527 bytes on the same action that previously left it untouched |
-| Transcript pool stopped paying after any cross-session undo (file grew back) | `34b4297` | 31,945 → 37,684 bytes before; holds at 31,944 after |
-| Playback froze partway through an image clip and the transport went dead | `8a3acaf` | Two runs froze at head=4593; two runs after play through to head=13,264 |
-| Previous clip kept playing (audibly, unmuted) underneath a still image | `2a0329d` | playerPos 1338→9714 across the image before; flat at 487 after |
-| Image-timer flag leaked when leaving an image clip, freezing the playhead and looping one second of audio forever | `46b4450` | Fixed at the funnel (`loadClipForPlayback`) after call-site patches proved insufficient |
-| Play was dead on an image clip after a pause (images had no way to restart the playhead loop) | `92c41b9` | Caused by `2a0329d` removing accidental life support; `startImagePlayback` now posts the loop |
-| A transient buffering stall killed the playhead loop permanently | `92c41b9` | Captured `playing=false pwr=TRUE … moved=false`; loop now keyed on playWhenReady too |
-| "Rename lane" wrote a name to disk + pushed an undo step while nothing ever drew it (§3c) | `228293b` | Row + its 57-line dialog deleted; no callers remained |
-| The AI reported "ducking set to N%" for a field nothing reads (§3f) | `228293b` | Tool unregistered; `duckAmount` has 0 refs in export and 0 in the player package |
-| **A drag could seek a clip using ANOTHER clip's coordinates** — the §2a big one | `d3e3a63` | New `SEEKRANGE` probe, same scripted gesture each run on AudioExportVerify: **40 out-of-range seeks → 0** (two runs), in-range 379 → 446/444 so the probe stayed alive |
-| Seek right after loading a clip landed at the clip's START | `d3e3a63` | `effectiveTrimEnd()` tested `Long.MIN_VALUE`, but media3 reports `C.TIME_UNSET` (= MIN_VALUE+1) and 0 pre-prepare → window collapsed to 0. **14 zero-window seeks → 0** |
-| A transition longer than the clip it hands off to seeks past that clip's end | `d3e3a63` | Caught by `SEEKRANGE` as `rel=600 window=500` from the GL handoff; clamped to B's length |
-| `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `d3e3a63` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
+| Transcripts stored once per clip instead of once per file — bloated project files and the undo snapshot | `88cd1b7` | Harness 29/29 + device round-trip 14/14; 24% smaller on a 9-clip project |
+| One undo press after a crash could revert a whole session (441 fields, mislabelled as one small edit) | `d41e130` | Reproduced, then before/after: sidecar advanced 622,949 → 658,527 bytes on the same action that previously left it untouched |
+| Transcript pool stopped paying after any cross-session undo (file grew back) | `d41e130` | 31,945 → 37,684 bytes before; holds at 31,944 after |
+| Playback froze partway through an image clip and the transport went dead | `4e19c44` | Two runs froze at head=4593; two runs after play through to head=13,264 |
+| Previous clip kept playing (audibly, unmuted) underneath a still image | `d8d6bb3` | playerPos 1338→9714 across the image before; flat at 487 after |
+| Image-timer flag leaked when leaving an image clip, freezing the playhead and looping one second of audio forever | `c43522f` | Fixed at the funnel (`loadClipForPlayback`) after call-site patches proved insufficient |
+| Play was dead on an image clip after a pause (images had no way to restart the playhead loop) | `c073ae7` | Caused by `d8d6bb3` removing accidental life support; `startImagePlayback` now posts the loop |
+| A transient buffering stall killed the playhead loop permanently | `c073ae7` | Captured `playing=false pwr=TRUE … moved=false`; loop now keyed on playWhenReady too |
+| "Rename lane" wrote a name to disk + pushed an undo step while nothing ever drew it (§3c) | `386c636` | Row + its 57-line dialog deleted; no callers remained |
+| The AI reported "ducking set to N%" for a field nothing reads (§3f) | `386c636` | Tool unregistered; `duckAmount` has 0 refs in export and 0 in the player package |
+| **A drag could seek a clip using ANOTHER clip's coordinates** — the §2a big one | `1d061ea` | New `SEEKRANGE` probe, same scripted gesture each run on AudioExportVerify: **40 out-of-range seeks → 0** (two runs), in-range 379 → 446/444 so the probe stayed alive |
+| Seek right after loading a clip landed at the clip's START | `1d061ea` | `effectiveTrimEnd()` tested `Long.MIN_VALUE`, but media3 reports `C.TIME_UNSET` (= MIN_VALUE+1) and 0 pre-prepare → window collapsed to 0. **14 zero-window seeks → 0** |
+| A transition longer than the clip it hands off to seeks past that clip's end | `1d061ea` | Caught by `SEEKRANGE` as `rel=600 window=500` from the GL handoff; clamped to B's length |
+| `ENDED` with clips still ahead parked forever instead of advancing (§2a layer ii) | `1d061ea` | Net added + its recovery action proved with a temporary switch (advanced `sel=2 → 3`, playback continued); it also fired on a real park at the last clip. See the caveat below. |
 | A clip serving as another's luma matte still rendered as a normal PiP in the PREVIEW, and — worse, because it survived into the exported file — still contributed its AUDIO to the export while its picture was hidden (the two §3a divergences) | see §3a | New `MatteVisibilityTest`, **14 checks against the REAL model classes** (not stubs), `bash tools/jvm-harness/run-matte.sh`. It pins both sides: the peer is still in `visibleOverlayVideoClips` (the export video path resolves peers out of that list) and is NOT in the new `renderableOverlayVideoClips`, including the case where it is opted into audio and unmuted — i.e. it would be audible on its own terms and is excluded before that question is ever asked. Dex-scanned for `renderableOverlayVideoClips` + `servingMatteClipIds`, with `FadCamApplication` and `FaditorEditorActivity` as the positive control |
-| Lane mute icon: drawn on lanes with no audio, fake speaker glyph, stranded 62dp from the caret (§3b) | `a19ee53` | Screenshots: layer lanes now draw a caret only; audio lanes a real `volume_up`, red crossed `volume_off` when muted. `undo_count` unchanged (3) across taps where the glyph sits on no-audio lanes; 3 → 4 → 5 on an audio lane. Gutter 92dp → 34.4dp |
-| §3g text-box motion was UNVERIFIED end to end — the serializer was proved but nothing showed the PICKER actually reaching `TextOverlayItem` (§3g) | see §3g | Note 9, `bb2a9deb`, baseline **zero** `textAnim` keys so no leftover could masquerade as success; picked **RISE** because nothing on disk had held it. Three levels agreed: the dialog's MOTION row read **"Rise · 25% in / 0% out of this box"** (25% = `MAX_ZONE_PCT/2`, the seed, so the label reports the model not the tap); the text **vanished from the preview at t=0**, which is RISE at progress 0 — the renderer consuming the new fields; and after Close & Save the disk held `"textAnimPreset":"RISE"` + `"textAnimInPct":0.25`. Controls: a full-file `diff` shows the keys on **exactly one** overlay and none of the other five (not blanket defaults); the same diff shows `"Enter text"` → `"PICKERTEST"`, an independent signal that OK committed, so a missing key could not be blamed on the dialog failing; a no-edit reopen + re-save returned both keys unchanged (full round-trip); undo 17 → 19; and "Animate by" offered only `Block`, i.e. `36a8e3c`'s gate working. `textAnimGranularity`/`textAnimOutPct` correctly ABSENT (default + sparse-omit) |
-| The §3g preset tiles were static poses, so a preset's ease could not be seen at all — three glyphs frozen at progress {0, 0.5, 1} (§3g) | `4a1ea41` | 16-frame burst on the real picker in `bb2a9deb`. **Per-tile temporal sd: Type 4.08, Fade 3.92, Rise 6.90, Ghost 7.21, Beam 6.84 — and NONE exactly 0.00.** NONE is the built-in control: it is deliberately left static, so a zero there proves the instrument reads the TILES and not the clock, the timeline or global screen noise. Before, all frames were byte-identical, i.e. 0.00 everywhere. Character is proved too: sampled ink shows TYPEWRITER quantised to 3 discrete values (44.96 / 48.10 / 51.24, one per glyph) while FADE sweeps continuously (41.96 → 51.22) — step vs ramp, exactly what a frozen tile could not express. Removing the 600ms hold (span = 2 × zone) roughly halved the frames where a pair is indistinguishable: Type/Fade 8/16 → 6/16, Rise/Beam 5/16 → 3/16, Type/Ghost 6/16 → 2/16. Freshness control: `javap -constants` shows `TILE_SPAN_MS = 1800` (the old 2400 would survive a stale compile) and the dex has `drawUnits` PRESENT with the deleted `drawSamples` ABSENT, `FadCamApplication` present as the partial-dex control. **Caveat, deliberately not swept under: the FREEZE-FRAME half is not fixed — see §3g outstanding item 1.** |
+| Lane mute icon: drawn on lanes with no audio, fake speaker glyph, stranded 62dp from the caret (§3b) | `e1fe61d` | Screenshots: layer lanes now draw a caret only; audio lanes a real `volume_up`, red crossed `volume_off` when muted. `undo_count` unchanged (3) across taps where the glyph sits on no-audio lanes; 3 → 4 → 5 on an audio lane. Gutter 92dp → 34.4dp |
+| §3g text-box motion was UNVERIFIED end to end — the serializer was proved but nothing showed the PICKER actually reaching `TextOverlayItem` (§3g) | see §3g | Note 9, `bb2a9deb`, baseline **zero** `textAnim` keys so no leftover could masquerade as success; picked **RISE** because nothing on disk had held it. Three levels agreed: the dialog's MOTION row read **"Rise · 25% in / 0% out of this box"** (25% = `MAX_ZONE_PCT/2`, the seed, so the label reports the model not the tap); the text **vanished from the preview at t=0**, which is RISE at progress 0 — the renderer consuming the new fields; and after Close & Save the disk held `"textAnimPreset":"RISE"` + `"textAnimInPct":0.25`. Controls: a full-file `diff` shows the keys on **exactly one** overlay and none of the other five (not blanket defaults); the same diff shows `"Enter text"` → `"PICKERTEST"`, an independent signal that OK committed, so a missing key could not be blamed on the dialog failing; a no-edit reopen + re-save returned both keys unchanged (full round-trip); undo 17 → 19; and "Animate by" offered only `Block`, i.e. `44f80d2`'s gate working. `textAnimGranularity`/`textAnimOutPct` correctly ABSENT (default + sparse-omit) |
+| The §3g preset tiles were static poses, so a preset's ease could not be seen at all — three glyphs frozen at progress {0, 0.5, 1} (§3g) | `aac13f0` | 16-frame burst on the real picker in `bb2a9deb`. **Per-tile temporal sd: Type 4.08, Fade 3.92, Rise 6.90, Ghost 7.21, Beam 6.84 — and NONE exactly 0.00.** NONE is the built-in control: it is deliberately left static, so a zero there proves the instrument reads the TILES and not the clock, the timeline or global screen noise. Before, all frames were byte-identical, i.e. 0.00 everywhere. Character is proved too: sampled ink shows TYPEWRITER quantised to 3 discrete values (44.96 / 48.10 / 51.24, one per glyph) while FADE sweeps continuously (41.96 → 51.22) — step vs ramp, exactly what a frozen tile could not express. Removing the 600ms hold (span = 2 × zone) roughly halved the frames where a pair is indistinguishable: Type/Fade 8/16 → 6/16, Rise/Beam 5/16 → 3/16, Type/Ghost 6/16 → 2/16. Freshness control: `javap -constants` shows `TILE_SPAN_MS = 1800` (the old 2400 would survive a stale compile) and the dex has `drawUnits` PRESENT with the deleted `drawSamples` ABSENT, `FadCamApplication` present as the partial-dex control. **Caveat, deliberately not swept under: the FREEZE-FRAME half is not fixed — see §3g outstanding item 1.** |
 
 | The text-box timing carets (§3h) existed but were PARKED with no caller, and the one question that mattered — can a caret be grabbed without stealing a trim grab — could not be answered off-device | see §1f | Six scripted drags on the Note 9. Three caret drags landed on **predicted** stored values (0.1241798 vs 0.1243; 0.359678; 0.20713 vs 0.204±0.004), each moving undo by **exactly one** (32→33→34→35→36, `Recorded: Text animation timing`). Two grabs at the trim cap — including its exact drawn centre — recorded `Overlay time range` instead, i.e. **the trim was NOT stolen**. Neither caret erased the other's zone. Harness 303 → **326, 0 failed**, and the new checks were shown to discriminate by reintroducing the old negative-travel floor (4 fail, then restored). Dex: 7 new symbols present, 2 deleted ones ABSENT, `FadCamApplication`=3 |
 
 ## 1b. THE EXPORT IS PROVED — 2026-07-30, and it found two real bugs on the way
 
 **The oldest gap in §3g is closed: a file has been exported and its PIXELS checked.** Every prior
-§3g proof was preview-only or model-only; the shared-renderer rewrite (`a247b5c`) rested on an
+§3g proof was preview-only or model-only; the shared-renderer rewrite (`651359b`) rested on an
 argument from construction. It now rests on a measurement.
 
 **Method — predicted, not eyeballed.** `PICKERTEST` (text box, open-ended, no `startMs`/`endMs`)
@@ -64,7 +64,7 @@ newest letter all match the arithmetic. **The shared renderer does what its one-
 design claimed.** Captions, the sticker and the waveform visualizer are all present in the exported
 frames too — also never previously pixel-confirmed.
 
-**~~BUG A~~ / ~~BUG A2~~ / ~~BUG B~~ — ALL THREE FIXED AND PROVED, 2026-07-30, `9b03bdc`.
+**~~BUG A~~ / ~~BUG A2~~ / ~~BUG B~~ — ALL THREE FIXED AND PROVED, 2026-07-30, `13bd59e`.
 See §1c below for the measurement. The three paragraphs that follow are kept as the original
 diagnosis, because the reasoning is what made the fix a one-shot.**
 
@@ -88,7 +88,7 @@ divergence, and does not weaken the proof above), but it is close to certainly n
 means by "animate this title in". It is arguably downstream of BUG A: if the visual duration drove
 the span, the entrance would fit.
 
-**~~BUG C~~ — FIXED AND PROVED, 2026-07-30, `5a6cb4c`. See §1d below. The paragraph that follows
+**~~BUG C~~ — FIXED AND PROVED, 2026-07-30, `49390f4`. See §1d below. The paragraph that follows
 is the original diagnosis, kept because its root cause was exact and made the fix a one-shot.**
 
 **BUG C — IMAGE OVERLAYS DO NOT EXPORT. CONFIRMED BY MEASUREMENT, and the root cause is exact.**
@@ -126,7 +126,7 @@ overlay's rect. The preview already does it, so the geometry is settled; this is
 only. **Not attempted this session** — it is a feature, not a one-liner, and the session's job was
 to establish whether it was real.
 
-## 1d. BUG C IS FIXED — IMAGE OVERLAYS EXPORT, 2026-07-30, `5a6cb4c`
+## 1d. BUG C IS FIXED — IMAGE OVERLAYS EXPORT, 2026-07-30, `49390f4`
 
 The cheapest real win on the docket, and it was cheap for the reason the ledger predicted: the
 root cause was exact and the geometry was already settled by the preview.
@@ -167,7 +167,7 @@ both within ~2px.
 
 **Both image overlays work, and they exercise DIFFERENT paths:** `edff4a88` is a `project://assets`
 PNG, `37b215f3` is a `content://` URI — and the latter sits at 23497–23747, i.e. inside the tail
-filler from `9b03bdc`, so **images render over the filler too**.
+filler from `13bd59e`, so **images render over the filler too**.
 
 **Verified:** harness **298 passed, 0 failed**, matte ALL PASS, both from a clean compile. APK
 dex-scanned with `FadCamApplication` as the positive control (3) alongside `imageOverlayBitmap`.
@@ -208,7 +208,7 @@ is exactly why this read as "the time is 20.8s but the overlay is missing".
 
 **Scope, stated plainly: this is bigger than an overlay bug.** Nothing placed past the last video
 clip can be seen, positioned or keyframed in the editor, although the export now renders it
-correctly (`9b03bdc`, `5a6cb4c`) — so the preview and the export disagree about a whole region of
+correctly (`13bd59e`, `49390f4`) — so the preview and the export disagree about a whole region of
 the timeline, in the direction that hides work the user has already done.
 **FIXED AND PROVED ON THE NOTE 9, 2026-07-30.** One helper,
 `FaditorEditorActivity.overlayClockMs(segmentDerivedMs)`: past the master track it returns the
@@ -245,11 +245,11 @@ ticks all four.
 failed once with `cannot find symbol` across ExportManager's imports, then succeeded on an immediate
 re-run with **no source change** — the documented re-run rule. But the successful run had javac
 EXECUTE while `dexBuilder`, `mergeProjectDex` and `packageDefaultDebug` all reported `UP-TO-DATE`,
-which is the exact signature of the corrupt APK `d29e8bf` warned about. The APK was dex-scanned
+which is the exact signature of the corrupt APK `2883b8c` warned about. The APK was dex-scanned
 before it was trusted; it was in fact fresh. **A spurious failure does not excuse skipping the
 artifact check — it is precisely when to do it.**
 
-## 1e. MATRIX REWORKED — it RESOLVES across the message now, 2026-07-30, `debaf60`
+## 1e. MATRIX REWORKED — it RESOLVES across the message now, 2026-07-30, `78a2d13`
 
 **The user rejected the shipped MATRIX on sight**, and was right:
 
@@ -295,7 +295,7 @@ a leading edge exists at p=0; settled/churning/blank zones coexist in that order
 holes at any progress**; characters resolve at differing offsets.
 
 **A PRE-EXISTING HARNESS FAILURE THE HANDOFF DID NOT KNOW ABOUT — the number was wrong.** The
-harness at `06dc5f2` was **295 passed / 1 FAILED**, not the recorded 298/0. NEON_FLICKER shipped a
+harness at `3ebd586` was **295 passed / 1 FAILED**, not the recorded 298/0. NEON_FLICKER shipped a
 deliberately unit-keyed flicker, which broke a control asserting that only UNSCRAMBLE varies with
 `unitIndex` — and that session had REVERTED its own harness test over an encoding problem, so
 nobody re-ran it and the stale figure was copied into the handoff. **This is the third time a
@@ -331,9 +331,9 @@ existing range invariant holds unchanged. **Harness 300 → 303**, and the ratio
 sampled from real output rather than as a character list — thinning the ASCII back out fails the
 test even if every character is still "declared".
 
-## 1c. BUGS A, A2 AND B ARE FIXED AND MEASURED — 2026-07-30, `9b03bdc` (on `d29e8bf`)
+## 1c. BUGS A, A2 AND B ARE FIXED AND MEASURED — 2026-07-30, `13bd59e` (on `2883b8c`)
 
-`d29e8bf` was committed **uncompiled and untested**. It has now been built, corrected and proved.
+`2883b8c` was committed **uncompiled and untested**. It has now been built, corrected and proved.
 
 **BUG A — the export dropped everything past the master track.** Per-stream `ffprobe` on the
 sandbox, same project, before → after:
@@ -381,7 +381,7 @@ and fully opaque by 8.0s, so the finished word is now shown for the remaining 23
 separate work was needed. (The sandbox is at BLOCK granularity, so the whole body fades together —
 that is the default state it was restored to, not a regression of the LETTER work.)
 
-**A DEFECT IN `d29e8bf` FOUND BY READING BEFORE BUILDING:** it left `buildClipItem`'s `@NonNull`
+**A DEFECT IN `2883b8c` FOUND BY READING BEFORE BUILDING:** it left `buildClipItem`'s `@NonNull`
 stranded above the new method's javadoc, so `ensureBlackFillerUri` carried **both** `@NonNull` and
 `@Nullable` while `buildClipItem` carried none. Legal Java, so a green build would never have said
 so. Moved back.
@@ -392,9 +392,9 @@ t=8 and t=10 frames while both sprites and both text boxes draw in the same fram
 filler renders overlays generally, and images specifically are still broken at
 `CompositeExportOverlay`. Untouched by this change.
 
-**Verification:** harness **298 passed, 0 failed** (unchanged from `b01ad53`), matte harness ALL
+**Verification:** harness **298 passed, 0 failed** (unchanged from `e3b0ef5`), matte harness ALL
 PASS, both from a clean compile. APK dex-scanned with `FadCamApplication` as the positive control —
-**3 hits, where the corrupt APK `d29e8bf` warned about read 0** — alongside `ensureBlackFillerUri`
+**3 hits, where the corrupt APK `2883b8c` warned about read 0** — alongside `ensureBlackFillerUri`
 (3) and the new-path strings `"ms black filler"`, `"Tail filler"`. Editor opened with 0 fatals.
 
 **Residual, stated rather than hidden:** the video now runs 30.776s against 30.912s of audio, so it
@@ -498,7 +498,7 @@ this is corrupted characters inside a resource file that already exists.*
 
 ## 1e. GHOST'S BLUR SHIPS, AND NEON_FLICKER IS BUILT-BUT-UNSEEN — 2026-07-30
 
-**GHOST's blur — `17a6254`, DONE and device-proved.** A recorded user decision with a condition
+**GHOST's blur — `0f8c404`, DONE and device-proved.** A recorded user decision with a condition
 attached ("if ghost preview would cause noticeable lag... the divergence is warranted"), so the
 answer was a number. Measured with the layer type read from a flag file, one build, both arms:
 **193.5us -> 591.0us** on a 1041x564 box (+205%) and **201.0us -> 566.0us** on a 1080x1031 one
@@ -512,7 +512,7 @@ settles, with `PICKERTEST` in the same frame staying sharp as a free positive co
 **Scope: TEXT BOXES only.** Captions still ignore `blurPx` — one shared view for all words, so a
 different cost profile and a separate decision.
 
-**NEON_FLICKER — `e66d5b7`, BUILT AND NEVER SEEN. Do not mark it verified.** In the installed
+**NEON_FLICKER — `0566390`, BUILT AND NEVER SEEN. Do not mark it verified.** In the installed
 APK (control 3, `NEON_FLICKER`=1, `glowPx`=3), but the Note 9 was unplugged immediately after the
 install, so the look, the flicker rhythm and the entire caption-side glow are unobserved.
 Its recorded blocker named the wrong obstacle — modulation was never the hard part, HAVING
@@ -531,7 +531,7 @@ NEON_FLICKER invariant test, which was written and reverted. Harness unchanged a
 
 ## 1f. THE TEXT-BOX TIMING CARETS ARE BUILT, AND THE DRAG QUESTION IS ANSWERED — 2026-07-30
 
-**§3h is closed.** The carets parked since `665d543` now ride a TEXT BOX's tape on its layer row:
+**§3h is closed.** The carets parked since `27762a6` now ride a TEXT BOX's tape on its layer row:
 drag `▶`/`◀` inward, the zone tints, release commits. The interaction is the one the user drove
 and approved for captions, unchanged — no redesign, no slider pair.
 
@@ -605,7 +605,7 @@ load/save.** A full deep-diff of the project before and after the test showed th
 intended caret edits. It is the same class as the §3 rig-driven sprite drift — opening a project
 mutates data the user never touched — and it belongs on that list.
 
-## 1g. ODOMETER IS BUILT — the last of the five presets, 2026-07-31, `4145938`
+## 1g. ODOMETER IS BUILT — the last of the five presets, 2026-07-31, `d9c54e4`
 
 **The user's spec correction IS the design.** The written design said the fillers came from
 MATRIX's deterministic `mix`. Wrong: a wheel is an ORDERED ring and the point of an odometer is
@@ -684,7 +684,7 @@ Settled by reading the code rather than by looking harder at the screen:
 Both halves reproduce figures this ledger measured independently in §1c (5743 master track, 30771
 project duration, export dialog `00:30`), so the number is triangulated rather than asserted. **The
 tape is simply a different quantity** — items are drawn against the master track — and it was the
-editor header that agreed with the model all along. The correction is committed at `80a18f1`,
+editor header that agreed with the model all along. The correction is committed at `c326524`,
 **deliberately BEFORE any device work, so the model was frozen ahead of the capture.**
 Confirmed a third time on screen afterwards: playback ran to a playhead of **`00:30.771`**.
 
@@ -778,7 +778,7 @@ Two further facts from the same cycle, both useful:
 ## 1j. THE PICKER NO LONGER UNDER-ADVERTISES GHOST — and a doc that contradicted its own body
 
 Docket item 2, both halves. **Two stale javadocs and one stale behaviour, all the same root fact:**
-GHOST's blur shipped in `17a6254` (§1e) and three places were never told.
+GHOST's blur shipped in `0f8c404` (§1e) and three places were never told.
 
 **THE DOC CONTRADICTION — found by the previous session, confirmed and fixed.** The handoff spotted
 that `TextBoxRenderer.drawUnit`'s javadoc said *"blurPx is not applied, and that is a decision"*
@@ -1047,7 +1047,7 @@ JoyRaptor, on a Note 20 holding his real 45-minute project: *"the tap to seek ha
 delay… it seems to not be the same on the Note 9."* Correct observation, and not a device
 difference.
 
-**ATTEMPT 1 (REVERTED, `9ef6c29` → reverted in `917d06d`).** Diagnosis: a tap calls
+**ATTEMPT 1 (REVERTED, `18e320b` → reverted in `4f4fe49`).** Diagnosis: a tap calls
 `setExactSeek(true)`, so ExoPlayer decodes forward from the previous keyframe, and §3d measured
 keyframes ~1.0s apart. Fix: seek FAST, then settle EXACT 180ms later — the two-stage shape
 drag-scrubbing already used. **It did not help, and made the count worse.** A review found that
@@ -1056,7 +1056,7 @@ on the very NEXT line, and `onUp` fires the latter again — and its body did an
 `setExactSeek(true) + pause + seekInClip`. So a tap ALREADY cost two exact decodes beyond its own,
 and adding a settle made it four.
 
-**ATTEMPT 2 (`2785d7b`, shipped).** The settle is drag-scrubbing's: when the finger lifts mid-scrub
+**ATTEMPT 2 (`b5a6c1b`, shipped).** The settle is drag-scrubbing's: when the finger lifts mid-scrub
 the preview sits on a keyframe, so it re-seeks precisely. **A tap has no such problem — its own
 seek was already exact.** `onPlayheadDragFinished` simply had no did-a-drag guard. Gated on
 `wasRealDrag`, captured before `userDragging` is cleared (`userDragging = true` appears in exactly
@@ -1185,7 +1185,7 @@ that drives it is safe to open, or whether the field it writes is ever read back
 
 ## 2. OPEN — diagnosed, root cause known, NOT yet fixed
 
-**2a. Playhead↔clip mapping — FIXED 2026-07-28, `d3e3a63`. Moved to §1.**
+**2a. Playhead↔clip mapping — FIXED 2026-07-28, `1d061ea`. Moved to §1.**
 Root cause, for the record: the drag computed its position against the segment under the
 playhead but handed it to the player holding the clip the drag STARTED on, because
 `selectedClipIndex` was frozen for the whole gesture — the index and the media load were tied
@@ -1256,7 +1256,7 @@ The question this ledger has carried open longest is closed. The user's words:
 
 **So: revive the PARKED caret behaviour verbatim, aimed at a TEXT BOX.** Drag `▶` / `◀` inward on
 the item's tape to set the in/out zones, with the zone tinted — the exact interaction that shipped
-for captions in `665d543` and was retired there. **Do not redesign it**, and do not substitute a
+for captions in `27762a6` and was retired there. **Do not redesign it**, and do not substitute a
 slider pair in the Edit-text dialog: that was offered as a cheaper alternative and the user has now
 chosen the carets explicitly, for the second time.
 
@@ -1282,7 +1282,7 @@ for.
 the green trim handles, and this ledger already records that the caret-vs-trim grab "needs a drag,
 not a screenshot". It is the one open item whose correctness cannot be established off-device at
 all. **Not started 2026-07-30 for exactly that reason** — the Note 9 was unplugged, and blind-
-building a two-coordinate-system drag is how `d29e8bf` happened.
+building a two-coordinate-system drag is how `2883b8c` happened.
 
 **2d. ✅ FIXED AND PROVED ON DEVICE 2026-08-03 — overlays no longer drift. Moved from OPEN.**
 **THE FIX:** `ExportManager.editorTimeOffsetFor` → `CompositeExportOverlay` and
@@ -1301,7 +1301,7 @@ export has already swallowed: **the sum of every transition at a seam BEFORE thi
 <details><summary>Original entry — how it was found and first proved</summary>
 
 Found by reading while mapping §4A call sites, then **PROVED BY EXPORT on the Note 9**. Model was
-frozen in `1030037` (`tasks/PREDICT_transition_overlay_drift.md`) BEFORE the capture.
+frozen in `60861f1` (`tasks/PREDICT_transition_overlay_drift.md`) BEFORE the capture.
 
 **THE MEASUREMENT.** Fixture `302da9ac`, unmodified: 600ms `tangentMotionBlur` at the seam
 (editor 3200ms), PiP `6126e8b4` at `overlayStartMs` **5501**. Two hypotheses, frozen, 600ms apart:
@@ -1914,7 +1914,7 @@ from the canvas is explained rather than mysterious.
 
 **Sequencing (user, revised 2026-07-28): §3g TEXT ANIMATION COMES FIRST, then this.**
 
-**3b. Lane mute icon — DONE 2026-07-28, `a19ee53`. Moved to §1.**
+**3b. Lane mute icon — DONE 2026-07-28, `e1fe61d`. Moved to §1.**
 All three asks landed: absent (not greyed) with no audio, a real `volume_up`/`volume_off`
 speaker, flush against the caret with the gutter shrunk 92dp → 34.4dp. The touch box was also
 enlarged from the 12dp glyph to the full row height, since a 12dp target is not finger-sized.
@@ -1925,8 +1925,8 @@ Rename row, the dialog persists a name, pushes an undo step and writes to disk, 
 `LayerRowRenderer` never draws a track name anywhere. The user types a name and sees nothing.
 
 **3d. Cut smoothness — BUILT, MEASURED, and DELETED. CLOSED, do not rebuild it.**
-The hybrid was implemented (`7b3edff`), measured, and reverted on the user's decision
-(`bd2bd58`, 2026-07-28): *"170 nearly useless lines? 1-in-1000 odds of landing on a keyframe.
+The hybrid was implemented (`8f3196f`), measured, and reverted on the user's decision
+(`14e07ee`, 2026-07-28): *"170 nearly useless lines? 1-in-1000 odds of landing on a keyframe.
 lets not bloat the codebase."*
 
 **The number, so nobody re-derives it:** over two projects, **7 real window starts, 0 aligned.**
@@ -1970,7 +1970,7 @@ saying the feature is unimplemented; the AI copy was missed. User has said ducki
 priority, so the fix is to stop the assistant claiming it happened, not to build ducking.
 
 **3g-TEXTBOX. Text-box animation — ENGINE DONE AND AUTHORABLE; the round-trip is NOT yet proved.**
-Commits `b7391e8` (engine) + the UI commit below. The other half of the user's 2026-07-29
+Commits `6d6667d` (engine) + the UI commit below. The other half of the user's 2026-07-29
 direction.
 
 **What is proved, on the Note 9, 2026-07-29:**
@@ -2168,7 +2168,7 @@ Controls that make the above mean something:
   model → disk → read → model → disk is now closed end to end.
 - Undo count moved 17 → 19 (one step for the animation, one for the text), consistent with
   `applyTextOverlayAnim` recording an undo action.
-- **"Animate by" offered ONLY `Block`**, which is `36a8e3c`'s supported-set gate working on the
+- **"Animate by" offered ONLY `Block`**, which is `44f80d2`'s supported-set gate working on the
   text-box path — visible in the same screenshot.
 
 **The route in, since the last attempt could not find it.** Long-press the overlay **in the
@@ -2291,9 +2291,9 @@ to be two different beasts sharing one panel:
    I'm gonna be having to do a lot of dragging over perhaps a thirty minute clip. And that just
    won't do."*
 
-**BOTH HALVES OF THAT DIRECTION ARE NOW BUILT AND PROVED ON THE PHONE — `d71b614`, `665d543`.**
+**BOTH HALVES OF THAT DIRECTION ARE NOW BUILT AND PROVED ON THE PHONE — `97eb73b`, `27762a6`.**
 
-**1. The model change — DONE, `d71b614`.** `Clip.captionAnimInMs`/`OutMs` are now
+**1. The model change — DONE, `97eb73b`.** `Clip.captionAnimInMs`/`OutMs` are now
 `captionAnimInPct`/`OutPct`, floats 0…0.5, a fraction of each LINE. The reasoning was the good
 part and it survived: the ms version had to be held in SOURCE ms by hand so a speed-adjusted clip
 would not animate over the wrong span — the exact mistake §3g originally was. **A fraction has no
@@ -2306,7 +2306,7 @@ honest conversion, and they only ever existed in the 2026-07-29 sandbox build.
 `zoneForSpan` keeps a floor cap next to the clamp: rounding half an ODD span up would let two
 zones sum to one ms more than the line they sit on.
 
-**2. The caption range control — DONE, `665d543`.** The caption drawer has a **Timing** section:
+**2. The caption range control — DONE, `27762a6`.** The caption drawer has a **Timing** section:
 In and Out sliders, 0–50% of every caption line, reading *"Applied to every caption line, as a
 share of that line"* and *"In n%  Out n%  of each line"*, which at 50/50 gains *"· in ends as out
 begins"*. Dragging previews live and records NOTHING; one undo step is written on release against
@@ -2329,14 +2329,14 @@ into it.**
 
 | Step | State | Commit |
 |---|---|---|
-| 1. One evaluator (`CaptionAnimator`), preview and export on the same clock | DONE | `95dc7e2` |
-| 2. Presets + granularity + unit splitting, with a harness | DONE | `5cc34fd` |
-| 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `c7b6359` |
-| 4. Tape `▶` `◀` carets | BUILT, then RETIRED for captions and PARKED for text boxes | `665d543` |
+| 1. One evaluator (`CaptionAnimator`), preview and export on the same clock | DONE | `afa1f78` |
+| 2. Presets + granularity + unit splitting, with a harness | DONE | `8618a46` |
+| 3. Persist on `Clip`, round-trip, and RUN in both renderers | DONE | `08499cc` |
+| 4. Tape `▶` `◀` carets | BUILT, then RETIRED for captions and PARKED for text boxes | `27762a6` |
 | 5. Preset grid picker + granularity selector in the caption drawer | DONE | see below |
 | 6. **Large-amplitude device frame** | **SUPERSEDED.** The user drove the whole thing and approved it, which is better evidence than the frame. The one question the frame stood in for that a human could NOT answer — does LETTER hold frame rate — is now measured, below | — |
-| 7. Timing model → per-line fraction | DONE | `d71b614` |
-| 8. Caption range control in the style panel; carets off for captions | DONE | `665d543` |
+| 7. Timing model → per-line fraction | DONE | `97eb73b` |
+| 8. Caption range control in the style panel; carets off for captions | DONE | `27762a6` |
 
 **LETTER GRANULARITY HOLDS FRAME RATE. Measured 2026-07-29, and this closes the cost centre.**
 Matched 5s runs on the Note 9 over the SAME captioned span of `bb2a9deb`, changing only
@@ -2378,7 +2378,7 @@ the same measurement, against a tile that plainly reads differently: **None vs T
 17.7% differing**, i.e. the instrument detects a real difference at ~24× the signal it finds
 between Type and Fade. Zoomed 3× the five presets ARE distinguishable (Rise raises and shrinks
 the first A, Beam narrows it, Fade dims it) but at 60dp the label is doing all the work.
-**→ The static-poses half of this was FIXED in `4a1ea41`; see §1. The freeze-frame half is still
+**→ The static-poses half of this was FIXED in `aac13f0`; see §1. The freeze-frame half is still
 open and is now a user call — outstanding item 1 below carries the current numbers.**
 **Not yet answered:** the caret-vs-trim-handle grab (the carets are drawn ~10px from the green
 trim handles, so this is the real question, and it needs a drag, not a screenshot), the
@@ -2418,11 +2418,11 @@ following it would make a correct dex look stale.
   so words outside the trim — which are never drawn — could stretch the handle's travel.
 
 **New decisions, with their reasoning, so they are not re-litigated:**
-- ~~Caret travel is scaled to `CaptionPhrases.maxUsefulZoneMs()`~~ — **OBSOLETE, `d71b614`.** That
+- ~~Caret travel is scaled to `CaptionPhrases.maxUsefulZoneMs()`~~ — **OBSOLETE, `97eb73b`.** That
   scaling existed because zones were absolute durations spent per PHRASE, so a linear map onto a
   60s tape left ~94% of the travel dead. A fraction is already per-line, so full travel is 0.5 at
   every length and there is no scale factor at all. `maxUsefulZoneMs` is deleted.
-- ~~`finishCaptionAnimDrag` does NOT divide by the speed multiplier~~ — **OBSOLETE, `d71b614`,
+- ~~`finishCaptionAnimDrag` does NOT divide by the speed multiplier~~ — **OBSOLETE, `97eb73b`,
   and this is the good kind of obsolete.** That warning existed because zones were source ms while
   the freeze carets it copies are timeline ms. A fraction has no base, so the hazard is gone rather
   than handled, and the warning was deleted with it.
@@ -2471,7 +2471,7 @@ entrance without hunting.
   against each phrase's own span. Every stated property survives: zero is off, and capping each
   zone at half the span (`CaptionAnimator.zoneForSpan`) makes the entrance end exactly where the
   exit begins at EVERY phrase length.
-- ~~Zones are SOURCE ms, not timeline ms~~ — **SUPERSEDED by `d71b614`: zones are a FRACTION of
+- ~~Zones are SOURCE ms, not timeline ms~~ — **SUPERSEDED by `97eb73b`: zones are a FRACTION of
   each line and have no base at all.** The original note read: "`getTrimmedDurationMs()` divides
   by the speed multiplier; clamping against it would have halved the zones on a 2× clip — the same
   units confusion that WAS §3g." Kept struck-through rather than deleted because it names the
@@ -2480,7 +2480,7 @@ entrance without hunting.
 - **Presets compose with `CaptionStyle.Anim`, they do not replace it.** POP/ZOOM/BOUNCE sit at
   1.15× at rest (an active-word emphasis, not an entrance), so merging the vocabularies would
   silently restyle every existing captioned project.
-- **MATRIX IS BUILT AND SHIPPED — `c85a7c5`, 2026-07-30.** First of the five, in the order the user
+- **MATRIX IS BUILT AND SHIPPED — `b1e0e00`, 2026-07-30.** First of the five, in the order the user
   set. Its blocker was expressiveness, not difficulty: a `Transform` is geometry and alpha, and
   MATRIX animates WHICH CHARACTER is drawn, which no scale/offset/opacity expresses. So it needed a
   **second output channel**, `CaptionAnimator.substituteUnit`. MATRIX leaves geometry and alpha at
@@ -2853,7 +2853,7 @@ entrance without hunting.
 
 **STILL OUTSTANDING FOR §3g — the honest short list, 2026-07-29:**
 1. ~~The six preset tiles / freeze-frame distinction.~~ **CLOSED — not by engineering, by the
-   user's decision. See §4.** The tiles animate (`4a1ea41`); the freeze-frame gap (~3.0–3.7 mean /
+   user's decision. See §4.** The tiles animate (`aac13f0`); the freeze-frame gap (~3.0–3.7 mean /
    ~4% Type-vs-Fade against 33.90 / 98.5% for the None-vs-Type control) is real and is ACCEPTED as
    motion-only. Kept struck-through rather than deleted because the numbers are the reason the
    decision was a decision. Do not reopen it by giving a tile a decorative cue the renderers do not
@@ -2944,7 +2944,7 @@ the read-and-ignore path working as designed, not data loss.
 - **The preset tiles are DONE — motion-only distinction is accepted. (User, 2026-07-30.)**
   Asked whether to accept it or give the tiles more than 60dp, he said: *"I don't know exactly
   what is at stake. the animations you have, I think, look great."* So the half-open item from
-  `d1a0761` is CLOSED as-is: the tiles are distinguishable by watching and not from a still, and
+  `9c40056` is CLOSED as-is: the tiles are distinguishable by watching and not from a still, and
   that is fine. **Do not "fix" the freeze-frame half by adding a decorative cue** — the tiles are
   trustworthy precisely because they can only advertise motion the renderers actually produce,
   and a badge or a label glyph would trade that away for a screenshot nobody looks at.

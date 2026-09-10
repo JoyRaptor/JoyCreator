@@ -111,7 +111,7 @@ go — it is the only thing that survives between sessions.
 
 ---
 
-## ✅ ADDENDUM — SUPERSEDED. §2d IS **FIXED AND PROVED** (2026-08-03, `ccf2b06`).
+## ✅ ADDENDUM — SUPERSEDED. §2d IS **FIXED AND PROVED** (2026-08-03, `0215297`).
 
 PiP onset **5.50s → 4.90s** on the same fixture. The formula was the problem, not the plumbing:
 the offset is the **cumulative transition duration at seams BEFORE the clip**, NOT

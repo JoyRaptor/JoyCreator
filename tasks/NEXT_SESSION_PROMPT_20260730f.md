@@ -9,7 +9,7 @@ never delete an entry to shorten the list, strike through and correct instead.
 
 ## ⚠ READ THIS BEFORE YOU BUILD — the tree is clean, the BUILD DIR IS NOT
 
-Last commit is `d29e8bf`, and it is **NOT COMPILED AND NOT TESTED**. The session ran out of
+Last commit is `2883b8c`, and it is **NOT COMPILED AND NOT TESTED**. The session ran out of
 budget mid-build. It is committed rather than dropped so the reasoning survives, but nothing
 about it is proved. Its own commit message is the long version of this section.
 
@@ -19,7 +19,7 @@ about it is proved. Its own commit message is the long version of this section.
    path error about the very directory that had just been deleted — so **re-run before
    debugging**, which is a standing rule here.
 2. **WHY they were deleted, and it is the sharpest instance of the artifact rule yet.** A build
-   of `d29e8bf` produced an APK **missing `FadCamApplication`** — the manifest's Application
+   of `2883b8c` produced an APK **missing `FadCamApplication`** — the manifest's Application
    class — while happily containing the change's new symbol `ensureBlackFillerUri`. Dex scan:
    3 hits in the previous APK, **0** in that one. That is a partial/corrupt dex from a failed
    compile followed by an `UP-TO-DATE` rerun, and it would have crashed on launch. **It was
@@ -29,12 +29,12 @@ about it is proved. Its own commit message is the long version of this section.
    project `bb2a9deb` is intact at md5 **`eb3d16b8`**.
 
 **First three things to do, in this order:**
-1. Clean-build and confirm `d29e8bf` compiles at all.
+1. Clean-build and confirm `2883b8c` compiles at all.
 2. Dex-scan for `FadCamApplication` **and** `ensureBlackFillerUri` **together** before installing.
 3. Export the sandbox and check `ffprobe` reports a VIDEO duration near 30.9s instead of 5.7s,
    with the PiP clip visible around t=10s.
 
-## THE BUG d29e8bf IS TRYING TO FIX (bug A)
+## THE BUG 2883b8c IS TRYING TO FIX (bug A)
 
 The export builds its video sequence from **master clips only**, so the video stream ends when
 they do. Measured: video `duration=5.743844` / 177 frames against audio `duration=30.912` / 1449
@@ -44,7 +44,7 @@ two image overlays, a sprite from 12645, and the tail of PICKERTEST. 25 of 30.9 
 
 Overlays are composited **per host clip** (`assembleClipVideoEffects` runs off the item the frame
 belongs to), so a span with no clip under it has nothing to draw them onto — a muxer duration hint
-will not do, it needs a real item. `d29e8bf` appends a black image clip for the remainder and
+will not do, it needs a real item. `2883b8c` appends a black image clip for the remainder and
 pushes it through the SAME `buildClipItem` path so it inherits the overlay pipeline, reusing the
 black spacer PNG the editor's "Gap" feature already writes (that feature is the existing proof
 that overlays render over a synthetic image clip). If the spacer cannot be created it logs loudly
@@ -136,7 +136,7 @@ for a file that is 30.9s. The dialog reports video length, the muxer writes audi
    UTF-8). Build such constants from code points. Comments are fine — only literals matter.
  - Do not pipe gradle through Select-String (exit 255 on success). Capture to a variable.
  - Screenshots via Bash (`adb exec-out screencap -p > f.png`), never PowerShell `>`.
- - Harness: 298 passed, 0 failed at `b01ad53`. Measure it by RUNNING it, from a CLEAN compile.
+ - Harness: 298 passed, 0 failed at `e3b0ef5`. Measure it by RUNNING it, from a CLEAN compile.
  - adb: C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe
    Gradle needs `$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP`
    Build task is **assembleDefaultDebug** (there is no assembleBetaDebug).

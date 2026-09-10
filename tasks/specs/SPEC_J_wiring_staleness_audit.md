@@ -71,7 +71,7 @@ here, just confirm the boundary.
   is not an answer.
 - **Fix only what is small and certain.** Anything structural: write it up, do not do it.
 - **Do not touch** `transform/mesh/**` (SPEC H) or the two-finger routing (SPEC I).
-- The tree is green at commit `a26b6650`. If it goes red in a file you did not edit, stop and say
+- The tree is green at commit `bed9c816`. If it goes red in a file you did not edit, stop and say
   so — do not fix it.
 
 ## Acceptance criteria

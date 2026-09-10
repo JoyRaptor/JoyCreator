@@ -13,8 +13,8 @@ directory is healthy and the installed APK is fresh and complete (dex-scanned wi
 
 ## WHAT LANDED THIS SESSION
 
-1. `c8f705b` — **diagnosed** the preview-side gap the previous session left open.
-2. `a44fe76` — **fixed it.** See below; it was bigger than it looked.
+1. `72739dd` — **diagnosed** the preview-side gap the previous session left open.
+2. `026b302` — **fixed it.** See below; it was bigger than it looked.
 3. Ledger — **the export path's per-glyph cost, measured for the first time.**
 
 **The preview fix, because it is the interesting one.** The previous session recorded: past the
@@ -60,7 +60,7 @@ say `00:05` — bugs A/A2 working on a real device.
    does NOT hit the GHOST-blur wall (`setShadowLayer` is honoured for text on a hardware canvas;
    `TextBoxRenderer` already relies on it). Design in `SPEC_TEXT_ANIMATION.md`.
 3. **ODOMETER** — designed, not built. **The user deferred its scope call, but the thing that
-   blocked it is GONE** (text boxes got a canvas renderer in `a247b5c`), so it is materially
+   blocked it is GONE** (text boxes got a canvas renderer in `651359b`), so it is materially
    narrower than when they were asked — worth re-offering. Its spec still carries the flaw the user
    caught: fillers must roll a SEQUENCE, not MATRIX's scramble. Fix the spec before building.
 4. **GHOST's blur** — the user DECIDED with a condition: *"if ghost preview would cause noticeable

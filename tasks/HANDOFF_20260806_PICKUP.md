@@ -10,8 +10,8 @@
 
 **Read this first, then `HANDOFF_20260806_IMAGE_SEQUENCES.md` for detail.**
 
-Branch `joy-creator`. HEAD `ed206a8`. Tree clean, all harnesses green, APK installed and
-timestamp-verified. 13 commits this session, `1e907ca` → `ed206a8`.
+Branch `joy-creator`. HEAD `f240bb9`. Tree clean, all harnesses green, APK installed and
+timestamp-verified. 13 commits this session, `822f27c` → `f240bb9`.
 
 JoyRaptor is not a developer. Make ENGINEERING calls yourself; bring him PRODUCT/UX decisions only.
 

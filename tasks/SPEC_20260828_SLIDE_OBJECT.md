@@ -45,7 +45,7 @@ a non-starter on time, disk and export speed.
 
 **The content only changes 136 times in 7 minutes.** Rasterise on a CUE BOUNDARY, not
 on a clock. Hold ONE bitmap and swap it when the cue changes. This is the same move that
-took the export from 15 minutes to 1m38s (`1d00f159`, `53ef0811`): stop doing per-frame
+took the export from 15 minutes to 1m38s (`a4880de5`, `fb23f6dc`): stop doing per-frame
 work for something that changes rarely.
 
 ---
@@ -126,7 +126,7 @@ Rules:
 
 1. Rasterise only when the cue index changes, or the box/style changes. Cache one bitmap.
 2. The export runs **per frame in a separate process**. Anything computed per frame there
-   is a bug; see `SEQ_FRAMES` and commit `53ef0811`.
+   is a bug; see `SEQ_FRAMES` and commit `fb23f6dc`.
 3. Preview and export must resolve the cue with the same function on the same clock.
 
 ---

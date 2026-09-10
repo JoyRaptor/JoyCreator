@@ -1,8 +1,8 @@
 # Feature Spec: Synchronized Dual-Stream Recording — Screen + Raw Webcam (for Claude Code)
 
-**Status (2026-07-17):** Phase 0 DONE (`2970737`). **Phases 1–3 DONE** (compile-green on the
+**Status (2026-07-17):** Phase 0 DONE (`95535ac`). **Phases 1–3 DONE** (compile-green on the
 file-watcher; NOT yet device-verified — see the verification checklist at the end of this block).
-**Phase 4 FOUNDATION landed** (`6bf5066`, 2026-07-17, compile-green): `Clip.linkedClipId`
+**Phase 4 FOUNDATION landed** (`99bff31`, 2026-07-17, compile-green): `Clip.linkedClipId`
 schema + getter/setter/isLinked + ProjectStorage write/tolerant-read (omit-when-null, so old
 projects stay byte-identical) + copy semantics (fresh-id `Clip(other)` does NOT inherit the link;
 `relinked()` keeps it since it preserves the id) + `Timeline.findClipById/findLinkedClip/
@@ -46,7 +46,7 @@ NOT match the codebase.
 
 ### What was built (Phases 1–3)
 
-- **`fadrec/encoding/RecordingClock.java` (new, commit `c3b77fa`)** — the single pause/rebase
+- **`fadrec/encoding/RecordingClock.java` (new, commit `a777e08`)** — the single pause/rebase
   source of truth (Decision 3). Extracted the pause/timestamp math that lived privately in
   `ScreenRecordingPipeline` (`recordingStartTimeNanos` / `firstVideoTimestampNanos` /
   `totalPausedTimeNanos` / `pauseStartTimeNanos` / `isPaused`). Shared **pause state**
@@ -57,14 +57,14 @@ NOT match the codebase.
   OFF) is a no-op refactor. `ScreenRecordingPipeline` was refactored to drive/read the clock;
   it also gained `getRecordingClock()` and a `setAudioTap(AudioTap)` PCM hook.
 
-- **`fadrec/encoding/WebcamEncoderPipeline.java` (new, commit `23b194b`)** — the raw-webcam
+- **`fadrec/encoding/WebcamEncoderPipeline.java` (new, commit `0d80326`)** — the raw-webcam
   encoder: `video/avc` MediaCodec fed by a Surface + AAC MediaCodec fed by the teed PCM +
   `FragmentedMp4MuxerWrapper`, mirroring `ScreenRecordingPipeline`'s encoder/muxer shape. All
   PTS route through a `RecordingClock.Stream`. Output `<screenfile>_webcam.mp4`.
   **v1 skips segment rollover for the webcam file** (writes one continuous file even if the
   screen file auto-splits) — noted in the class javadoc.
 
-- **`fadrec/ui/FloatingWebcamService.java` (commit `23b194b`)** — static bridge
+- **`fadrec/ui/FloatingWebcamService.java` (commit `0d80326`)** — static bridge
   (`attachRecordingSurface` / `detachRecordingSurface` / `isPlainWebcamActive` /
   `getActivePreviewSize` / `getActiveSensorOrientation` / `setOverlayLifecycleListener`).
   Adds the encoder input surface as a **second target** on the existing camera session
@@ -74,7 +74,7 @@ NOT match the codebase.
   dual-stream falls back to screen-only there). Overlay close fires the lifecycle listener so
   the recording service finalizes the webcam file (a shorter-but-valid pair beats a corrupt one).
 
-- **`fadrec/services/ScreenRecordingService.java` (commit `23b194b`)** — owns the orchestration.
+- **`fadrec/services/ScreenRecordingService.java` (commit `0d80326`)** — owns the orchestration.
   On start, `startDualStreamWebcamIfEnabled()` gates on: pref `fadrec_dual_stream_webcam` ON
   **AND** `DualEncoderCapabilityChecker.supportsDualHardwareEncode()` **AND**
   `FloatingWebcamService.isPlainWebcamActive()`. It builds `WebcamEncoderPipeline` sharing

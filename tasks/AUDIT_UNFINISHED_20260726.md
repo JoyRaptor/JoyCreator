@@ -1,6 +1,6 @@
 # AUDIT: unfinished / deferred / half-landed work across all planning docs
 
-**Run 2026-07-26 against HEAD `108cff9`** (BEFORE that night's transcript-sharing commit —
+**Run 2026-07-26 against HEAD `d3c870d`** (BEFORE that night's transcript-sharing commit —
 see the note on item 1.1). Method: sweep all ~80 docs in `tasks/` for unfinished-work
 markers, then **verify each candidate against the code** rather than trusting the doc. Docs
 are frequently stale in the "still says TODO but was built" direction, so Tier 5 lists
@@ -22,18 +22,18 @@ remaining instance of that pattern.
 > | item | state | commit |
 > |---|---|---|
 > | 2.3 preset crops in transitions | **EXPORT LEG CLOSED** — preset↔custom exports now bit-identical (0/798 frames) vs 235/798 before; regression control passed. **Preview leg NOT shipped: needs a user decision** (the live preview never renders a named preset crop at all) | `see §0z` |
-> | 1.1 transcript windowing step 3 | **CLOSED** — built as the DECIDED navigator (current-clip highlight + tap-a-dimmed-word-jumps-to-that-clip), device-verified against blind offline predictions; also fixed the shared-instance highlight freeze at a split seam | `bd84402` |
-> | 1.2 LAYER schema hole | **CLOSED** — stamp v11, offline-proved + device-verified | `d77daf3` |
-> | 2.1 caption size in preview | **CLOSED** — device A/B 3%↔20%, plus the re-bind-blanks-captions bug found doing it | `eaff34b` |
-> | 2.2 audio caption size persisted | **CLOSED** — device round-trip 0.15 in → 0.15 out | `eaff34b` |
-> | 1.3 `layerId: null` | **CLOSED for the 4 named sites**; ~219 sibling reads still exposed, see the commit | `7a09eb6` |
+> | 1.1 transcript windowing step 3 | **CLOSED** — built as the DECIDED navigator (current-clip highlight + tap-a-dimmed-word-jumps-to-that-clip), device-verified against blind offline predictions; also fixed the shared-instance highlight freeze at a split seam | `2627e00` |
+> | 1.2 LAYER schema hole | **CLOSED** — stamp v11, offline-proved + device-verified | `bb30275` |
+> | 2.1 caption size in preview | **CLOSED** — device A/B 3%↔20%, plus the re-bind-blanks-captions bug found doing it | `7735a21` |
+> | 2.2 audio caption size persisted | **CLOSED** — device round-trip 0.15 in → 0.15 out | `7735a21` |
+> | 1.3 `layerId: null` | **CLOSED for the 4 named sites**; ~219 sibling reads still exposed, see the commit | `2c03e2b` |
 > | 1.4 downgrade drill | **RAN 7/7 on device** — guard holds, dialog fires, file byte-identical, export works. Found one real gap: the undo-history sidecar was written for a read-only project | see below |
-> | guard hygiene | zero-match now a hard failure in both python guards | `b8b6234` |
-> | 2.7 neutral substrate | items **2, 3** (preview/eye, device A/B) and **8** (export frame diff) now RUN and pass; 4 re-confirmed. Items 5–7 still open (gesture injection drifts) | `c8cee20`, `9c8e8bc` |
+> | guard hygiene | zero-match now a hard failure in both python guards | `003895e` |
+> | 2.7 neutral substrate | items **2, 3** (preview/eye, device A/B) and **8** (export frame diff) now RUN and pass; 4 re-confirmed. Items 5–7 still open (gesture injection drifts) | `99dcc99`, `d180cf5` |
 > | 2.6 cross-type Z | **CLOSED** — acceptance 1, 2 and 4 all run on device. Z3's visual debt and Z4's frame-diff debt are cleared | see `SPEC_CROSSTYPE_Z.md` |
-> | 2.5 PiP audio | **export leg PROVED** — fitted gain 0.993, corr 0.999, silent before the offset, and no audio track at all when not opted in. So "doubled audio" is ruled out. **Preview leg still UNVERIFIED (needs a human to listen); acceptance 4 still open (no dual-stream pair project exists)** | `cc1691a` |
-> | 2.4 captions after a split | **CLOSED, and the audit had the direction backwards** — the EXPORT is correct (it windows per clip); the PREVIEW over-rendered the neighbouring clip's words. Observed on a real transcript, fixed, device-verified | `1a4bcc8` |
-> | timer export (handoff §7) | **ANSWERED** — timer renders and counts in an export: 0:04/0:03/0:02/0:01 at the right times, 4/4 | `21f518a` |
+> | 2.5 PiP audio | **export leg PROVED** — fitted gain 0.993, corr 0.999, silent before the offset, and no audio track at all when not opted in. So "doubled audio" is ruled out. **Preview leg still UNVERIFIED (needs a human to listen); acceptance 4 still open (no dual-stream pair project exists)** | `3dd0354` |
+> | 2.4 captions after a split | **CLOSED, and the audit had the direction backwards** — the EXPORT is correct (it windows per clip); the PREVIEW over-rendered the neighbouring clip's words. Observed on a real transcript, fixed, device-verified | `cd060f5` |
+> | timer export (handoff §7) | **ANSWERED** — timer renders and counts in an export: 0:04/0:03/0:02/0:01 at the right times, 4/4 | `879eba5` |
 >
 > New reusable tooling: `tasks/export_ab_diff.py` (absolute-geometry export frame diff, with a
 > `--check-asym` gate that refuses fixtures symmetric enough to hide a flip),
@@ -137,7 +137,7 @@ working it. These are two different failure modes and they need two different in
 
 ## TIER 1 — DATA-LOSS RISK
 
-### 1.6 ~~NEW (found + FULLY device-verified 2026-07-26)~~ **FIXED 2026-07-27 (`5b06c4a`)**: undo after an app restart does NOTHING
+### 1.6 ~~NEW (found + FULLY device-verified 2026-07-26)~~ **FIXED 2026-07-27 (`fddf7a8`)**: undo after an app restart does NOTHING
 Not previously in this audit, and **no AI involvement** — this hits every user who edits,
 closes the app, reopens the project and presses undo.
 
@@ -166,7 +166,7 @@ snapshot-only entries — and then it restores the state that already includes t
 **Risk:** SILENT WRONGNESS, and it is the everyday case (restart is normal). Undo reports
 success and the badge moves, so the user believes the edit was reverted.
 ~~**VERIFIED-OPEN.** Not fixed here — see the note below; it is core-path surgery.~~
-**FIXED 2026-07-27 in `5b06c4a`** — via the "recommended direction" below, but WITHOUT
+**FIXED 2026-07-27 in `fddf7a8`** — via the "recommended direction" below, but WITHOUT
 touching the 18 sites. Instead of normalising each call site, a **deferred rolling baseline**
 makes the ordering irrelevant: the manager keeps the project state as of the last edit and
 hands it to each new entry as its `snapshotBefore`, recapturing it on the looper tick AFTER
@@ -270,9 +270,9 @@ AI's work) is reasoned from `:302-307` and is **still UNVERIFIED** — it needs 
 `action == null`, i.e. history loaded from disk in a fresh session.
 **Risk:** SILENT WRONGNESS (action path, CONFIRMED on device) + DATA-LOSS (snapshot path,
 unverified). ~~**VERIFIED-OPEN.**~~
-**CLOSED — fixed in `4f0eee6` one hour AFTER this repro, and the entry was never updated.**
+**CLOSED — fixed in `fc34336` one hour AFTER this repro, and the entry was never updated.**
 Re-verified against the code 2026-07-27. The repro above is timestamped 2026-07-26 ~18:33;
-`4f0eee6` ("an AI edit is now one labelled, undoable, violet step") landed 19:31 the same
+`fc34336` ("an AI edit is now one labelled, undoable, violet step") landed 19:31 the same
 evening and IS an ancestor of HEAD. `FaditorEditorActivity.java:1296-1303` now calls
 `recordAiCheckpoint(...)` — capturing the PRE-AI state from the copy still held, BEFORE
 `project = reloaded` — and then `invalidateActionsForProjectSwap()`, which nulls the action refs
@@ -324,7 +324,7 @@ in/out. **No transcript migration existed** (grepped every `migrate*` in
 Timeline/ProjectStorage). Live consequence: the exact regression baking was added to prevent
 now ships — after a split the panel wraps ALL words sequentially, so each half shows the
 other's words misaligned.
-**Risk:** DATA-LOSS (historical) + SILENT WRONGNESS (current). **CLOSED `bd84402`.**
+**Risk:** DATA-LOSS (historical) + SILENT WRONGNESS (current). **CLOSED `2627e00`.**
 *(Migration since built. Step 3 landed 2026-07-26 — but NOT as "window the panel to the
 clip": the user decided the panel should keep showing the WHOLE source and become a
 NAVIGATOR. The "each half shows the other's words misaligned" symptom above was already
@@ -358,7 +358,7 @@ back. A repro exists at `tasks/schema_layer_stamp.py`. **Do not re-scope.**
 path it swallows the whole sprite. Only reachable via hand-edited JSON today, but any future
 writer that serializes nulls (repair tool, import path, AI-generated project) silently
 deletes objects. Four `isJsonNull()` checks. ~~**VERIFIED-OPEN.**~~
-**ALREADY CLOSED in `7a09eb6` — re-verified against the code 2026-07-27.** The line numbers
+**ALREADY CLOSED in `2c03e2b` — re-verified against the code 2026-07-27.** The line numbers
 above are stale. A `hasValue(o, key)` helper (`ProjectStorage.java:1439-1441`) returns
 `o.has(key) && !o.get(key).isJsonNull()`, and every `layerId` read now goes through it:
 clip `:1633`, audio clip `:2289`, overlay `:2402`, sprite `:2633` (the last three are even
@@ -418,7 +418,7 @@ proofs miss flips — exactly what a two-bucket partition can get wrong. **VERIF
 ### 2.7 Neutral substrate: 7 of 8 validation-queue items never run
 `SPEC_NEUTRAL_SUBSTRATE.md:258-291`. Items 1 and 4 done; open are #2 preview renders all
 payload types, #3 lane eye hides all types, #5-#7 the gesture half, and **#8 the export A/B
-frame diff**. Weight: item 1 alone found a real device bug (`4eda119`) that code review had
+frame diff**. Weight: item 1 alone found a real device bug (`8fc7cb4`) that code review had
 missed twice. **VERIFIED-OPEN.**
 
 ---
@@ -492,11 +492,11 @@ the rebrand / de-politicize decisions.
 |---|---|---|
 | `DIAG_assetbrowser_20260626.md:108-110` | MISSING state/badge/export-block "not started" | All three built; export IS blocked (`FaditorEditorActivity.java:9701-9707`) |
 | `FEEDBACK_20260706_audio_and_delineation.md:41` | audio-only export not built | Built (`ExportService.java:175,253,289,335`) |
-| `PERF_SPEC_LONGFILE_20260718.md:365` | speed-change gapless deferred | Landed `3de40a2` |
+| `PERF_SPEC_LONGFILE_20260718.md:365` | speed-change gapless deferred | Landed `066d20d` |
 | `PERF_SPEC_LONGFILE_20260718.md` F11/F12/F13 | "Uncommitted" | Committed; only the F12 preset sub-case (2.3) is open |
 | `LANE_BADGES_AND_PREVIEWS_SPEC_20260714.md:92` + `FEEDBACK_20260717…:283` | section 4.5 migration not done | Contradicted at `:54` in the same file; `Timeline.migrateTrackEyeLockToObjects():2057` exists |
 | `gl_transitions_params.md:6`, `PLAN_filters_color_text_transitions.md:91` | GL transitions not built | Long since built and device-proven |
-| `HANDOFF_NEXT_20260622.md:56`, `…0623.md:55` | clip opacity keyframes not implemented | Probably stale (shipped `96b99d5`) — worth one grep before re-scoping |
+| `HANDOFF_NEXT_20260622.md:56`, `…0623.md:55` | clip opacity keyframes not implemented | Probably stale (shipped `409b820`) — worth one grep before re-scoping |
 | `todo_asset_browser.md` | 23 unchecked boxes | Superseded by the v2 plan + shipped browser; historical |
 
 ---
@@ -529,7 +529,7 @@ real project. Not a defect — the orphan-lane branch in `getLayers()` is the su
 legacy ids already rely on it — but it means item 1.2's fix is unproven in the field rather than
 proven safe. Worth one hand-made LAYER-def fixture before trusting it.
 
-**NEW — FIXED `b524c1c`: the no-overlap invariant was enforced on LOAD only.**
+**NEW — FIXED `d1ba30d`: the no-overlap invariant was enforced on LOAD only.**
 `enforceNoOverlapVideoLanes()` runs at open but nowhere else, so an overlap created mid-session
 survived the whole session and repaired itself silently on the NEXT open — which reads to the user
 as the app moving their clip by itself. This is the concrete, in-the-wild instance of **3.7**
@@ -568,8 +568,8 @@ Two separate worries, both answered by reading the code:
 Running total of items in this audit that read as open and are not: **1.2, 1.3, 1.4, 2.1, 2.2,
 2.3, 2.4, 3.3.** Eight. **Grep for the fix before scoping anything from this file.**
 
-**3.4 — CLOSED today.** Both halves now exist: `ProjectIntegrity` (detect, `f163ee7`) and
-`ProjectConsolidator` + a Settings row (fix, `2420349`, hardened in `35a8d06`). Device-proven:
+**3.4 — CLOSED today.** Both halves now exist: `ProjectIntegrity` (detect, `1e5d225`) and
+`ProjectConsolidator` + a Settings row (fix, `836127d`, hardened in `d8c5795`). Device-proven:
 4 files / 55MB copied, every reference rewritten to `project://media/…`, reopen reports
 "INTEGRITY ok". Note the storage layer normalises to `project://` on save, so a consolidated
 project is PORTABLE, not merely self-contained.

@@ -101,11 +101,11 @@ throws. Roughly 120 call sites of `getSelectedClip()` remain unaudited.
 
 **3.5 — `View.animate()` is ONE shared animator per view.** Starting a second animation on the
 same view cancels the first mid-flight, including axes you did not name. Any writer must carry
-every axis it cares about. See commit `30ef6b68` and `tasks/lessons.md`.
+every axis it cares about. See commit `e4911942` and `tasks/lessons.md`.
 
-**3.6 — Never rewrite a whole file to make a small edit.** Commit `584904f9` did, and the
+**3.6 — Never rewrite a whole file to make a small edit.** Commit `48df0cde` did, and the
 rewrite introduced a UTF-8 BOM plus 19 lines of double-encoded text; `javac` rejected the BOM
-on line 1 and HEAD did not compile. Repaired in `07f36175`. Edit in place; if you must rewrite,
+on line 1 and HEAD did not compile. Repaired in `0cbc501e`. Edit in place; if you must rewrite,
 verify the first bytes are not `EF BB BF` and that the file still decodes as UTF-8.
 
 **3.7 — Build protocol.** Read `tasks/LANES.md` fresh and follow it, especially **rule 6: never
@@ -156,7 +156,7 @@ NORMAL image is not. Video overlays composite correctly because they already liv
 > "images can affect other images if both images have a blending mode on … I am seeing a screen
 > affecting on the image." Two images that BOTH carry a blend mode are both in GL and composite
 > correctly. What made the whole area look broken was a separate bug — the preview painted lanes
-> in the exact reverse of the timeline's row order (fixed in `78032689`), so it was impossible to
+> in the exact reverse of the timeline's row order (fixed in `9ad6f201`), so it was impossible to
 > tell which image was supposed to be on top. With z-order correct, the ONLY real gap left here
 > is the one above: an image on NORMAL never reaches GL, so it can neither show its own mask nor
 > be composited against by a blend above it.
@@ -165,7 +165,7 @@ The comment above `hasExportKey()` states the original reasoning — "routing a 
 image into GL would shift its z for nothing." That reasoning is wrong for the user: it trades
 a correct picture for a z-order convenience. **It is also now largely obsolete**: the z-order it
 was protecting was itself inverted against the timeline for any default project, and was fixed
-in `78032689`. Do not treat that comment as a live objection; note in your report whether the z
+in `9ad6f201`. Do not treat that comment as a live objection; note in your report whether the z
 it was guarding still moves at all once masked images route to GL.
 
 **Required:**

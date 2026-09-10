@@ -77,7 +77,7 @@ renderer at all, because the tag filter used names those classes do not log unde
 gap in the measurement, not evidence of absence.
 
 **Known-adjacent:** the legacy `PlayerView`-transform path in `updatePreviewTransforms()` was
-deleted on 2026-08-25 (commit `cbfb00d5`) partly on the theory that its stale
+deleted on 2026-08-25 (commit `404c2351`) partly on the theory that its stale
 `effectiveVideoSize()` read caused this. JoyRaptor confirmed the squash **still happens** on a
 build that includes that deletion, so that theory is dead. Do not re-derive it.
 
@@ -89,7 +89,7 @@ changes size and when relative to the transition. Only then propose a cause.
 
 ## 3. What is already fixed — do not re-open
 
-- **Image z-order** (`78032689`). Preview painted lanes in the exact reverse of the timeline's
+- **Image z-order** (`9ad6f201`). Preview painted lanes in the exact reverse of the timeline's
   row order for any project with default track flags, which is nearly all of them. Confirmed
   fixed by JoyRaptor on device.
 - **Preview crop** now follows the playhead clip and renders in the GL chain.
@@ -123,8 +123,8 @@ nothing on its own.
 (WORKING-TREE HAZARD: uncommitted work here has been destroyed at least six times). Commit by
 explicit path, never `git add -A`.
 
-**4.5 — Never rewrite a whole file to make a small edit.** `584904f9` did and introduced a BOM
-that stopped the tree compiling; repaired in `07f36175`. Check the first bytes are not
+**4.5 — Never rewrite a whole file to make a small edit.** `48df0cde` did and introduced a BOM
+that stopped the tree compiling; repaired in `0cbc501e`. Check the first bytes are not
 `EF BB BF` if you must rewrite.
 
 ---

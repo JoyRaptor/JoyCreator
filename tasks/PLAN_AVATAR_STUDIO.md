@@ -148,9 +148,9 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
 - Crossfade for EVERY sprite swap — no; visemes hard-snap (see above).
 
 ## Status
-- [x] merge external research (z.ai merged; GLM-5.1 mining merged 827947c — bake-to-param-track,
+- [x] merge external research (z.ai merged; GLM-5.1 mining merged c97e693 — bake-to-param-track,
       driverType split, life package, empty-cell inheritance, Spine license landmine all folded in)
-- [x] A1 MODEL COMPLETE (a9d6cc5): AvatarRig schema (parts/parentId/anchors/followWeight, 1D+2D
+- [x] A1 MODEL COMPLETE (ac2fd68): AvatarRig schema (parts/parentId/anchors/followWeight, 1D+2D
       PoseDomains with per-cell PartPose incl. warp pins, visemeMap, self-serializing JSON) +
       PuppetPoseResolver — pure single-authority evaluator: bilinear blend of continuous props AND pins,
       EMPTY-CELL INHERITANCE via weight renormalization, discrete cell/z/flip via dominant-corner
@@ -158,16 +158,16 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       replay is deterministic. FaditorProject.avatarRigs[] + storage round-trip, dual-write stamp v10.
       STILL OWED for A1 sign-off: resolver review gate + a scrub-driven matrix-editor scaffold (the UI
       half of A1) — next session's first work item.
-- [x] A1-UI matrix editor SHIPPED (bb68685, 2026-07-05): AvatarStudioActivity + PuppetPreviewView
+- [x] A1-UI matrix editor SHIPPED (7649599, 2026-07-05): AvatarStudioActivity + PuppetPreviewView
       (parent∘child matrix composition at draw time, MISSING placeholder, drag-to-pose when armed) +
       PoseMatrixView (authored solid / auto-blend dashed / armed ring / live blend marker). Arm-a-cell
       seeds poses from the CURRENT blended state; clear-cell restores auto-blend. Entry: Sprites tool →
-      Avatar Studio → rig list. Review-gate fixes landed first (eafb687): per-part discrete hysteresis
+      Avatar Studio → rig list. Review-gate fixes landed first (58f8de9): per-part discrete hysteresis
       (DiscreteState keyed domainId/partId), swapped-on-source-change, tolerant fromJson, pin
       renormalization over pin-carriers — all proven by a JVM harness (7 cases green). OWED: on-device
       launch verify once the build watcher returns; user feel-test of the blend.
 - [x] A2 tracking driver: bus/pipeline/One-Euro/life landed earlier; D4 MediaPipe
-      FaceLandmarker source landed bdb9be8. Axis-tuning knobs MIRROR_YAW/SIGN_PITCH await
+      FaceLandmarker source landed 8dc10fc. Axis-tuning knobs MIRROR_YAW/SIGN_PITCH await
       device verify.
 - [x] A3 visemes — **BOTH TIERS BUILT (status corrected 2026-08-06 by code audit).** The
       spectral tier is real: SpectralVisemeAnalyzer + MicVisemeSource + MicAugmentedSource,
@@ -177,7 +177,7 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       "use the natural order" (class index -> mouth cell index), so it works unconfigured
       and stays overridable. Contract: a 6-cell mouth in CLASS_NAMES order
       (REST, AA, EE, OO, CLOSURE, FRIC). OWED: device feel-test with a real mouth sheet.
-- [x] **A4 COMPLETE 2026-07-11 (c0c4020 + 7b4edb3 + 16a712f, device verify owed)**:
+- [x] **A4 COMPLETE 2026-07-11 (af62738 + da45221 + 4e23295, device verify owed)**:
       (1) puppet RENDERS into the webcam bubble — camera single-owner honored (Camera2
       preview never opens in avatar mode; the tracker owns the front cam and webcam pixels
       never render), PuppetPreviewView cleanRender + vsync pull loop, live webcam↔avatar
@@ -189,7 +189,7 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       bake (AvatarNeutralBaker, offscreen PuppetPreviewView = preview==bake) → 1-cell
       sprite sheet → the complete sprite pipeline. AvatarParamTrack (bake foundation,
       ParamTrackTest 25/25) landed for the next slice.
-- [x] **BAKE-TO-KEYFRAMES COMPLETE 2026-07-11 (41908c5 + 4b10fb1 + 685e056 + 9158cb1,
+- [x] **BAKE-TO-KEYFRAMES COMPLETE 2026-07-11 (c2a5e1a + 92e6cb3 + 20e2089 + bbb6204,
       device-verified same night)**: (1) STORAGE — placed sprite item carries avatarRigId +
       AvatarParamTrack (additive, tolerant-read; insert stamps the linkage; the asset-name
       convention is now just a human-readable mirror). (2) REPLAY RENDER — AvatarItemPuppet:
@@ -209,12 +209,12 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       in the exported mp4 at the same timestamps — preview==export, webcam never re-runs.
       OWED: real-face record + axis feel (needs JoyRaptor's face); bubble face-button/clear-stage
       re-verify blocked on the "Display over other apps" permission (user must grant).
-- [x] **A4-NEXT POINT-AT-VIDEO CODE-COMPLETE + NO-FACE DEVICE-SMOKED 2026-07-11 (db1c1fb +
-      c6ef7cf)**: "🎬 From video" chip on avatar items in the sprite palette → VideoFaceSweeper
+- [x] **A4-NEXT POINT-AT-VIDEO CODE-COMPLETE + NO-FACE DEVICE-SMOKED 2026-07-11 (ba86775 +
+      83d4fae)**: "🎬 From video" chip on avatar items in the sprite palette → VideoFaceSweeper
       sweeps [item.startMs, min(item.endMs, video-track end)] through a FRESH VIDEO-mode
       FaceLandmarker (sync detectForVideo, monotonic stamps), frames via one
       MediaMetadataRetriever per clip at ~12.5fps/OPTION_CLOSEST downscaled to ~320px. Every
-      frame maps through MediaPipeTrackingSource.resultToParams (ae9dc61 statics — one param
+      frame maps through MediaPipeTrackingSource.resultToParams (76d7e93 statics — one param
       vocabulary, one axis knob with live). Time authority: SweepTimeMapper (pure walk,
       mirrors Timeline.segmentStartMs; harness SweepTimeMapperTest 19/19) → Clip.mapToSourceMs
       (existing thumbnail/seek/export single authority, loop reps included). No-face frames add
@@ -231,7 +231,7 @@ still prove the model with Canvas + rigid parts; the GL strip renderer lands wit
       STILL ORPHANED: AvatarRigTemplates.bipedTemplate()/templateJson() are called only by
       the JVM harness — the tool description hand-writes its own rig shape instead, and
       Avatar Studio hand-builds a 1-part rig. No "start from a biped" flow exists.
-- [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (5e3a94d)**: PinWarpStrip math (JVM harness
+- [~] A6 limbs — **PIN-WARP CORE LANDED 2026-07-06 (f28b4a5)**: PinWarpStrip math (JVM harness
       PinWarpTest 16/16 — identity/translation/90° bend/guards/degenerates), Part.restPins
       schema (additive, tolerant read; ResolverGateTest re-run green), PuppetPreviewView warp
       draw + 130ms pin-snap crossfade on the resolver's swapped signal (old cell rides the

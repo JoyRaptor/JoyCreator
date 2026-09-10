@@ -14,7 +14,7 @@ PiP/layout regions of the same file.
 
 ## 1. Where this stands
 
-Fixed already in `7747ca27` — read it first. `resolveTranscriptTarget()` used to pick its
+Fixed already in `81779e91` — read it first. `resolveTranscriptTarget()` used to pick its
 target from what was SELECTED, so on a music project (where the selection is usually the
 auto-blank black spacer) the panel looked for a transcript on a clip that can never have
 one, found none, and threw up the "Select a transcript" chooser **every time**. JoyRaptor:
@@ -57,7 +57,7 @@ about *which transcript*. Add `+ Source` at its **start**, not its end.
 
 **Put it first.** The Import chip in the caption font row was appended last and sat off
 the right edge behind other controls — present, wired, and undiscoverable until it was
-moved (`d8bd797d`). Do not repeat that.
+moved (`90d77721`). Do not repeat that.
 
 ### 2.3 The one-time offer, with a way to silence it
 
@@ -85,7 +85,7 @@ people who know, never the only route.
 Use JoyRaptor's project: 4.6s video, 6:11 mp3 with a transcript, auto-blank spacer.
 
 1. Opening the panel with nothing selected still goes straight to the song's words, no
-   dialog. (Already true — confirm you have not regressed `7747ca27`.)
+   dialog. (Already true — confirm you have not regressed `81779e91`.)
 2. The header names the source, and tapping it opens the chooser.
 3. `+ Source` is visible without scrolling the version row.
 4. On a project with no transcript at all, the offer appears with a working

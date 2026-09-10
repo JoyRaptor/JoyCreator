@@ -214,16 +214,16 @@ drag proxy snaps rows vertically; a true y-glide is new renderer work).
 ## 10. When you're back — device-session runbook + feel-test checklist
 
 **A. Feel-test the constants already shipped this session** (each is a one-line retune if wrong):
-1. **Mute (`7045904`):** tap the mute glyph on a TEXT/visual lane (no audio) → nothing should
+1. **Mute (`8d528db`):** tap the mute glyph on a TEXT/visual lane (no audio) → nothing should
    happen (no undo entry appears). On an audio lane → it still toggles. Correct = disabled-looking
    mute is inert.
-2. **Gap target (`e6e895f`, 5dp):** pick up an object and drag it toward a NEIGHBOURING lane →
+2. **Gap target (`fd9a77a`, 5dp):** pick up an object and drag it toward a NEIGHBOURING lane →
    it should land ON that lane, not spawn a new one. Deliberately aim at the thin gap between rows
    → a new lane should still be creatable. If lane creation feels too hard, nudge 5dp→6dp; if it
    still steals row taps, 5dp→4dp (`GAP_HIT_HALF_DP`, LayerRowRenderer).
-3. **Hold-release menu (`4557cf9`, 8dp):** select an object → hold → release in place → the object
+3. **Hold-release menu (`eec7ed2`, 8dp):** select an object → hold → release in place → the object
    menu should now open reliably (was "sometimes"). Retune `MOVE_SLOP_DP` in EditorTimelineView.
-4. **Trim unchanged (`e0c510b`):** grab a text/audio/PiP item's edge and trim → should feel exactly
+4. **Trim unchanged (`9c732e1`):** grab a text/audio/PiP item's edge and trim → should feel exactly
    as before (no dead-zone lurch at the start). If it lurches, the scope-fix regressed.
 
 **B. Wire #6 live (the device-gated step) — do IN THIS ORDER, verifying each:**
@@ -288,14 +288,14 @@ Reuse the object-menu path's `followScrubTimeMs` edge-tracking + `updateLayerIte
 Validated: the object-menu scrubber works + is "very smooth".
 
 **DONE this chat (installed; awaiting user's final feel-confirm where noted):**
-- [x] scrubber v1 — text overlays, lock-only (`3556d63`); shuttle/engine/session proven (31/31).
-- [x] edge-tracking — pan before the edge (`c772384`).
+- [x] scrubber v1 — text overlays, lock-only (`fcd5ade`); shuttle/engine/session proven (31/31).
+- [x] edge-tracking — pan before the edge (`dc39134`).
 - [x] **B-WARP + B-BELOW** — root cause was the NON-UNIFORM time axis (min-width clamp + inter-clip
-  gap); proven off the SCRUBWARP log (dur constant). Fixed by making time UNIFORM (`1bfc121`).
+  gap); proven off the SCRUBWARP log (dur constant). Fixed by making time UNIFORM (`d697ca9`).
   Awaiting the user's confirm that the warp is gone + clips still read separate.
-- [x] **B-OVERSHOOT** — push-past now steps flush just past the obstacle, no shoot-past (`9a7a0a4`).
-- [x] diagonal hand-drag loosened — small side-move breaks the lane time-lock (`699937b`).
-- [x] terminology — rows="lanes", object move="Move layer", kept "object" (`1395738`).
+- [x] **B-OVERSHOOT** — push-past now steps flush just past the obstacle, no shoot-past (`3d58688`).
+- [x] diagonal hand-drag loosened — small side-move breaks the lane time-lock (`c0d4241`).
+- [x] terminology — rows="lanes", object move="Move layer", kept "object" (`1ab0d88`).
 - [x] **B-ENDHERE FIXED (status corrected 2026-08-06 by code audit)** — "End here" does NOTHING
   was a real logic bug in `setOverlayRangeEdgeAtPlayhead`'s end case; both edges now validate and
   set symmetrically (`ph <= o.getStartMs()` guard, `afterEnd = ph`) — see
@@ -316,7 +316,7 @@ Validated: the object-menu scrubber works + is "very smooth".
   move the selected object; Lane up/down real relayering).
 
 **OPEN — POLISH / FEATURES:**
-- [x] **F-COLOR** DONE `c4fc55f`. Palette now lives ONCE in
+- [x] **F-COLOR** DONE `c174205`. Palette now lives ONCE in
   `com.fadcam.ui.faditor.layers.ObjectPalette` (text=purple, visualizer=pink, sprite=amber,
   image=teal, audio=green, caption=gold, video/master=blue). The purple→blue bug was structural:
   `drawExpandedItems` hoisted `baseColorFor(track.getKind())` OUT of the item loop, so every
@@ -336,7 +336,7 @@ Validated: the object-menu scrubber works + is "very smooth".
 - [ ] **F-CAPTIONDRAWER** the caption Pop/Zoom/Bounce drawer (`caption_drawer`/`showCaptionDrawer`,
   opened by the captions tool) should only appear + pop-animate when a caption is SELECTED
   (timeline OR preview), not stay up.
-- [x] **F-MINIMAP** DONE `c4fc55f`. Per-layer lines above the master tape: 1.2dp lines on a 2dp
+- [x] **F-MINIMAP** DONE `c174205`. Per-layer lines above the master tape: 1.2dp lines on a 2dp
   pitch, floating band then audio (timeline order), capped at 12, coloured by type through
   `ObjectPalette`, selected object blinks white, all clipped to master length so an object parked
   past the end mid-drag can't paint outside the strip. An EMPTY layer still draws a faint rail so
@@ -345,7 +345,7 @@ Validated: the object-menu scrubber works + is "very smooth".
   `setLayerTracks` and `onMeasure` reads the live strip height, not the base constant.
   **CONFIRMED BY THE USER 2026-07-27 on the Note 20's real project: "minimap looks great".**
   So the adaptive band, the 2dp pitch and the by-type colouring all read correctly at real layer
-  counts — no density tuning needed. (`f59850a` playback also re-confirmed the same session:
+  counts — no density tuning needed. (`b0400b8` playback also re-confirmed the same session:
   "played well".)
 - [ ] **F-MOVEDRAWER** (SPEC §11) also build the scrubber into the move drawer.
 
@@ -354,7 +354,7 @@ Validated: the object-menu scrubber works + is "very smooth".
 CONFIRMED WORKING: uniform timeline (drags now uniform width), "lane" terminology, caption size
 slider resizes text live.
 
-- [x] **B-PLAYFREEZE** (Note 20, large project) FIXED `f59850a` — **CONFIRMED ON DEVICE
+- [x] **B-PLAYFREEZE** (Note 20, large project) FIXED `b0400b8` — **CONFIRMED ON DEVICE
   2026-07-27 17:48**, in the user's real project. 90 post-fix PHDIAG samples: **0 frozen, 0
   `drag=true`**, playhead advancing throughout.
   **The confirming run is more informative than a clean one would have been.** The self-heal
@@ -373,7 +373,7 @@ slider resizes text live.
   Reported as: during playback the playhead stops, the timeline stalls and text layers stop
   compositing in as they enter, while video+audio keep playing; scrubbing to a text's range still
   renders it; intermittent; "works zoomed in, breaks when zoomed out".
-  ROOT CAUSE, measured not guessed (PHDIAG instrumentation, `701c1e0`, two independent app
+  ROOT CAUSE, measured not guessed (PHDIAG instrumentation, `61f184d`, two independent app
   processes): `playing=true` with `playerPos` advancing 157900→188175 over 30s while `head`
   never changed — and `drag=true` throughout. `userDragging` was a STRANDED LATCH.
   `updatePlayheadPosition()` early-returns on it, so the return became permanent.
@@ -395,10 +395,10 @@ slider resizes text live.
   zoom-out should show `drag=false`/`moved=true`. **Remove PHDIAG once confirmed.**
   STILL OPEN from the same report, NOT yet investigated: the unnaturally long pause at
   inter-clip gaps, and playback perf with many text/visualizer/PiP layers. First thing to rule
-  out for the gap pause: the display-only inter-clip inset from `1bfc121` is a RENDERING inset
+  out for the gap pause: the display-only inter-clip inset from `d697ca9` is a RENDERING inset
   and must not be costing playback time.
 
-- [ ] **B-DIAGPREVIEW** (diagonal drag) — the loosen (`699937b`) WORKED: the object now goes
+- [ ] **B-DIAGPREVIEW** (diagonal drag) — the loosen (`c0d4241`) WORKED: the object now goes
   where it should. BUT the PREVIEW during the drag is wrong — it stays snapped VERTICALLY and
   doesn't show the horizontal (side-to-side) offset until the finger LIFTS. So it PLACES correctly
   but isn't WYSIWYG — the user can't see where it'll land until release. Fix the drag PROXY to
@@ -410,7 +410,7 @@ slider resizes text live.
   via border/overlay). Check on-device whether a clip is still visibly selected.
 - [ ] **F-COLOR reconfirmed OPEN** — a text layer STILL changes color when moved to another
   lane. Color BY TYPE (SPEC §12 F-COLOR) is the fix; still not built.
-- [ ] **D-OVERSHOOT-v2** — the step-past (`9a7a0a4`) still overshoots. User's refined design: on
+- [ ] **D-OVERSHOOT-v2** — the step-past (`3d58688`) still overshoots. User's refined design: on
   breakthrough (nudge past the obstacle WITHOUT releasing), transport the object flush past it
   AND RESET SHUTTLE VELOCITY TO ZERO so motion STOPS completely — giving the user a beat to
   register + decide — then continued pushing re-accelerates from zero. All without lifting the

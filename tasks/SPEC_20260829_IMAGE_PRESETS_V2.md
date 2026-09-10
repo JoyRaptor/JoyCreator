@@ -7,7 +7,7 @@ run gradle), the WORKING-TREE HAZARD, the **no bare `git commit`** corollary, an
 `tools/phone.sh` for device work all apply.
 
 **This supersedes the behaviour of `SPEC_20260829_IMAGE_ANIM_PRESETS` §3.2–3.4.** Phases
-1–3 landed (`0be24e6f`, `b22af2cd`) and JoyRaptor used them on a real project. The plumbing is
+1–3 landed (`1bc9a273`, `3e91ccc5`) and JoyRaptor used them on a real project. The plumbing is
 right; the semantics are wrong. **My original spec is the reason** — it said what keyframes
 to write and never said what to clear first.
 
@@ -255,7 +255,7 @@ Use `bash tools/phone.sh`. Paste `bash tools/phone.sh devices` and `build`.
 - `getSelectedClip()` returns `getClip(0)` when nothing is selected — on a music project
   that is the auto-blank black spacer. Use `clipUnderPlayhead()`.
 - **`strings.xml` is UTF-8 with a BOM.** It was rewritten as UTF-16 on 2026-08-29 and had to
-  be restored (`af302055`). Never open it with a tool that rewrites encoding; verify
+  be restored (`1e5df369`). Never open it with a tool that rewrites encoding; verify
   `file app/src/main/res/values/strings.xml` still says UTF-8 before you commit.
 - Never `perl -i` without `-CSD`. Verify `grep -c 'â' <file>` is 0 on every file touched.
 - One undo step per user action, including a preset application that clears twenty keys.

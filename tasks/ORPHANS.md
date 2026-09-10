@@ -18,7 +18,7 @@ This is why every agent rediscovers the app, and it is worth more than the list 
 | Document | Claims undone | Reality at HEAD |
 |---|---|---|
 | `todo_asset_browser.md` | 23 unchecked items | ✅ **Asset browser is built.** `AssetScanner`, `AssetBrowserPanel` exist and run. Nobody ticked the boxes. |
-| `PLAN_SPEC_20260829_IMAGE_ANIM_PRESETS.md` | 13 unchecked items | ✅ **Landed** in `0be24e6f`. Plan never updated. |
+| `PLAN_SPEC_20260829_IMAGE_ANIM_PRESETS.md` | 13 unchecked items | ✅ **Landed** in `1bc9a273`. Plan never updated. |
 | `DIAG_20260627` item 131 | "out-of-process export deferred" | ✅ **Built and proved** 2026-07-30 |
 | `DOCKET_20260829` — "built, not wired" | `PcmSidecar`, `ScrubEngine`, `OnsetDetector` | ✅ **All three wired** during Word Sync V2 on 2026-08-30 — *one day after the docket was written.* Verified: each is referenced from 3–5 other files. |
 
@@ -40,20 +40,20 @@ re-run.** These are still unlooked-at today.
 
 | Feature | Commit | What to look at first |
 |---|---|---|
-| Keyframe shape language (5 glyphs drawn from the curve) | `d8feba6f` | **Ramp direction — most likely thing to be backwards** |
-| A/V Sync calibration tab (click track + slider) | in `4df29504` | Does the slider move the playhead against the waveform |
+| Keyframe shape language (5 glyphs drawn from the curve) | `88e73dc3` | **Ramp direction — most likely thing to be backwards** |
+| A/V Sync calibration tab (click track + slider) | in `5e96b5c3` | Does the slider move the playhead against the waveform |
 | Caption layers — model, storage, export, preview | staged | Three tracks rendering independently |
-| Image `presetOwned` amber keyframes | `0be24e6f` | Amber appears, timeline drag converts, one undo restores |
-| Fit / Fill quick actions | `0be24e6f` | Tall and wide image, both modes |
-| Image opacity fade handles | `0be24e6f` | Fade multiplies rather than replaces |
-| Image animation presets (pan / zoom / slide) | `0be24e6f` | No background peek at any point |
+| Image `presetOwned` amber keyframes | `1bc9a273` | Amber appears, timeline drag converts, one undo restores |
+| Fit / Fill quick actions | `1bc9a273` | Tall and wide image, both modes |
+| Image opacity fade handles | `1bc9a273` | Fade multiplies rather than replaces |
+| Image animation presets (pan / zoom / slide) | `1bc9a273` | No background peek at any point |
 | Preview perf — content-keyed cache + texture quads | staged | Animated text under a blend appears at all |
-| Sticky bookend keyframes follow a trim | `0be24e6f` | Drag the out point, amber key follows |
+| Sticky bookend keyframes follow a trim | `1bc9a273` | Drag the out point, amber key follows |
 
 ### Inherited from 2026-08-28, still unverified
 
 Opacity keyframe delete + on-key dot · Caption font Import chip · Caption Fit tab
-(OFF/UNIFORM/PER_CUE) · **Export GL frames** (`63f31202` `4c405edd` — timing and PSNR never
+(OFF/UNIFORM/PER_CUE) · **Export GL frames** (`7727af0a` `7f8c283a` — timing and PSNR never
 run) · Transcript source affordance
 
 > **This is the highest-value block on the board.** Not one line of new code. It is a phone,

@@ -5,7 +5,7 @@ Read FadCam/tasks/LEDGER.md FIRST. It is the single record of what is fixed (wit
 evidence that proved it), what is open, and what has been promised. Keep it current —
 never delete an entry to shorten the list, strike through and correct instead.
 
-**Supersedes NEXT_SESSION_PROMPT_20260730h.md.** Tree clean at `850652e`.
+**Supersedes NEXT_SESSION_PROMPT_20260730h.md.** Tree clean at `fe97e70`.
 **Harness 303 passed / 0 failed — MEASURED, not copied.** Note 9 attached, rotation lock 0.
 Sandbox `bb2a9deb` restored and verified at md5 **`82d8342d`** (NOT `eb3d16b8` — that figure in
 older handoffs is stale and must not be used as a restore target).
@@ -24,7 +24,7 @@ This is the longest-open item in the ledger and it is now unblocked by a direct 
 
 **Revive the PARKED caret behaviour verbatim, aimed at a TEXT BOX.** Drag `▶` / `◀` inward on the
 item's tape to set the in/out zones, zone tinted — the exact interaction that shipped for captions
-in `665d543` and was retired there. **Do NOT redesign it. Do NOT substitute a slider pair in the
+in `27762a6` and was retired there. **Do NOT redesign it. Do NOT substitute a slider pair in the
 Edit-text dialog** — that was offered as the cheap alternative and the user has now chosen the
 carets explicitly, twice. Full decision record: LEDGER §3h.
 
@@ -81,8 +81,8 @@ be established off-device at all. The previous session declined to blind-build i
 
 ## WHAT LANDED THIS SESSION
 
-1. `debaf60` — **MATRIX reworked**: it RESOLVES across the message instead of starting as noise.
-2. `850652e` / `57431fa` / `d413877` — ledger, spec model, caret decision.
+1. `78a2d13` — **MATRIX reworked**: it RESOLVES across the message instead of starting as noise.
+2. `fe97e70` / `51536e9` / `96e7548` — ledger, spec model, caret decision.
 3. **Glyph pool weighted to ASCII** (user direction) — 85% katakana → **75% ASCII**.
 
 **MATRIX is PROVED ON DEVICE, character-for-character.** Predicted from `tasks/matrix2_predict.py`
@@ -98,7 +98,7 @@ looks good… Ghost Blur looks good as well."* Both close.
 ## ⚠ THREE CORRECTIONS TO WHAT EARLIER HANDOFFS TOLD YOU
 
 1. **The harness count in `…h.md` was WRONG.** It said 298/0; it was actually **295 passed / 1
-   FAILED** at `06dc5f2`. NEON_FLICKER shipped a deliberately unit-keyed flicker which broke a
+   FAILED** at `3ebd586`. NEON_FLICKER shipped a deliberately unit-keyed flicker which broke a
    control asserting only UNSCRAMBLE varies with `unitIndex`, and that session had REVERTED its own
    harness test over an encoding problem, so nobody re-ran it. Fixed here; the control is now a
    **pinned SET**. **This is the third time a harness number in a doc has been wrong — run it.**
@@ -111,7 +111,7 @@ looks good… Ghost Blur looks good as well."* Both close.
 ## THEN, IN ORDER
 
 1. **ODOMETER** — the last unimplemented preset. Designed in `SPEC_TEXT_ANIMATION.md`, and its
-   blocker is GONE: it needed a canvas renderer for text boxes in preview, which `a247b5c` shipped.
+   blocker is GONE: it needed a canvas renderer for text boxes in preview, which `651359b` shipped.
    **Fix the spec first — the user caught a real flaw: fillers must roll a SEQUENCE, not MATRIX's
    scramble.** The user previously declined to answer its scope question ("skip odometer for now i
    dont know how to answer"); that question is now moot, so it can simply be built.

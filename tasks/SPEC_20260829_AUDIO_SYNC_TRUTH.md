@@ -202,7 +202,7 @@ public static int outputLatencyMs(Context ctx);
 Applied at exactly ONE place: where `editorTimeline.setPlayheadPositionMs(...)` is fed
 during playback. **Not** in the model, **not** in seeking, **not** in export — only the
 drawn position during playback. If you apply it anywhere else you will make word-tap
-seeking wrong, which currently works (`2248a52e`).
+seeking wrong, which currently works (`b8e8859d`).
 
 Guard it: when paused, the offset is 0 (there is nothing being heard to compensate for).
 A discontinuity of ~30 ms at the play/pause boundary is correct and invisible.
@@ -272,7 +272,7 @@ drift bands, and the `audioStoppedSinceMs` debounce that lives in the activity t
 - `getSelectedClip()` silently returns `getClip(0)` when nothing is selected — on a music
   project that is the auto-blank black spacer. Use `clipUnderPlayhead()`.
 - A value written and never read was the root cause three times in one day
-  (`audioPlayersReady` is exactly this bug, fixed in `355db4b8`). When your new state does
+  (`audioPlayersReady` is exactly this bug, fixed in `d1b245bc`). When your new state does
   nothing, check that something CONSUMES it before assuming the logic is wrong.
 - Never `perl -i` without `-CSD`. Verify `grep -c 'â' <file>` is 0 on every file touched.
 - The export runs in its own process (`com.fadcam.beta:export`) and survives app restarts.

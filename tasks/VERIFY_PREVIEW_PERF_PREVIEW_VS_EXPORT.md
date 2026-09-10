@@ -1,7 +1,7 @@
 # VERIFY — SPEC_20260829_PREVIEW_PERF §5.7 Preview vs Export
 
 **Spec:** `SPEC_20260829_PREVIEW_PERF.md` §5.7  
-**Commit:** `069ffdfc` — 4 files (pathspec, never bare)  
+**Commit:** `6a959d2c` — 4 files (pathspec, never bare)  
 **Device:** `<note9-serial> device` (SM-N986U) — `C:\...\adb.exe devices`  
 **Build:** `BUILD SUCCESSFUL in 13s` at `2026-08-29 02:41:41` (mtime `02:41:41` > edit `02:39:31`, date `2026-08-29`)  
 **APK:** `app-default-arm64-v8a-debug.apk` installed on SM-N960U at `02:39:03`
@@ -14,7 +14,7 @@
 
 - Export: `ExportManager.java:3224-3271` — `LayerPreviewController.plainTextsBelowBlend` / `plainSpritesBelowBlend` collected from `orderedVisualItems`, filtered by `alreadyBelowIds`, then `new CompositeExportOverlay(... belowBlendTexts/Sprites ...)` inserted as `OverlayEffect` **before** `ImageBlendGlEffect`. Chain order IS paint order, so below-blend composites before the blend. Comment explicitly: “export twin of FxLivePreviewController's belowBlend bitmap”.
 - Preview (before fix): same `LayerPreviewController` calls, but `buildBelowBlendBitmap` excluded animated (`isAnimated`/`keyframes`) → gap. Animated title vanished, export correct → **preview vs export disagreed** (spec's documented gap).
-- Preview (after fix, `069ffdfc`): `FxLivePreviewController.java:755-886` — `buildBelowBlendSignature` keys on content (including `TextBoxRenderer.textAt` for timers) + `OverlayTextureCache` (1.5× at authored size, 16/64 MB LRU) + `FxPreviewTextureView` quad via `Pip`. `buildBelowBlendBitmap` now skips only `canUseTexture==true` (pose-animated → texture quad), `buildBelowBlendOverlays` creates `Pip.ofImage` quads before blend. Both paths use **same** `LayerPreviewController` ordering and **same** `TextBoxRenderer.measure/draw` (single authority). No second transform pipeline; `Pip` fields `cx,cy,halfW,halfH,rotationDeg,alpha` already exist.
+- Preview (after fix, `6a959d2c`): `FxLivePreviewController.java:755-886` — `buildBelowBlendSignature` keys on content (including `TextBoxRenderer.textAt` for timers) + `OverlayTextureCache` (1.5× at authored size, 16/64 MB LRU) + `FxPreviewTextureView` quad via `Pip`. `buildBelowBlendBitmap` now skips only `canUseTexture==true` (pose-animated → texture quad), `buildBelowBlendOverlays` creates `Pip.ofImage` quads before blend. Both paths use **same** `LayerPreviewController` ordering and **same** `TextBoxRenderer.measure/draw` (single authority). No second transform pipeline; `Pip` fields `cx,cy,halfW,halfH,rotationDeg,alpha` already exist.
 
 **One predicate, one place:** `OverlayTextureCache.canUseTexture(Text/Sprite)` — `LayerPreviewController.belowBlendUsesTexture` delegates there. No “two answers to one question” (trap 2026-08-28).
 

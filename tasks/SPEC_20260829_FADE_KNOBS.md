@@ -117,7 +117,7 @@ object with a 0..1 intensity has fade knobs.*
 | Host | Property | Note |
 |---|---|---|
 | Audio clip | volume | exists today |
-| Image / video overlay | opacity | exists today (`0be24e6f`) |
+| Image / video overlay | opacity | exists today (`1bc9a273`) |
 | **Caption span** | opacity | **JoyRaptor's ask — see below** |
 | Text overlay | opacity | same model as images |
 | Sprite / sticker | opacity | same |
@@ -214,7 +214,7 @@ app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java  (top p
 ```
 
 **Out of scope:** the fade MODEL. Audio volume fades and image `imageFadeInMs/OutMs` already
-exist and already compose correctly (`0be24e6f`). You are replacing the affordance, not the
+exist and already compose correctly (`1bc9a273`). You are replacing the affordance, not the
 data.
 
 ---
@@ -252,7 +252,7 @@ a false audio regression because it reused stale coordinates after a layout chan
 ## 7. Traps
 
 - **`strings.xml` is UTF-8 with a BOM** — corrupted to UTF-16 on 2026-08-29, restored in
-  `af302055`. Run `file` on it before committing.
+  `1e5df369`. Run `file` on it before committing.
 - A child pushed outside its parent is clipped by it. A knob drawn above a row will be
   clipped by that row unless the parent allows overdraw — four attempts at an unrelated
   feature were lost to exactly this on 2026-08-28. **Expect it and check it first.**

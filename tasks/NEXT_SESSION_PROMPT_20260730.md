@@ -15,25 +15,25 @@ with its proof; never delete an entry to shorten the list.
 Work as autonomously as you can. Give me one message confirming you understand the state and
 what you intend to do, then get to work. **Prove things rather than asserting them.**
 
-Last good commit: **`b3bd093`**. Tree is clean and builds.
+Last good commit: **`8f0f596`**. Tree is clean and builds.
 
 ## WHAT HAPPENED LAST SESSION (2026-07-29)
 
 Three things landed, and then the whole §3g timing model got redesigned by the user.
 
-1. **`da20e6d` — §3a: a matte peer stops being a PiP everywhere.** Two divergences, one cause.
+1. **`d0d9759` — §3a: a matte peer stops being a PiP everywhere.** Two divergences, one cause.
    `LayerPreviewController` now separates *is this overlay visible at all*
    (`visibleOverlayVideoClips`, which the export VIDEO path needs because it resolves peers out
    of that list) from *does this show up as a PiP* (`renderableOverlayVideoClips`). The preview
    and the export overlay-AUDIO sequence take the renderable list. Before this, a matte peer with
    `overlayAudioEnabled` contributed **sound to the exported file** while its picture was hidden.
    Proof: `bash tools/jvm-harness/run-matte.sh` — 14 checks against the REAL model classes.
-2. **`1bd6b26` — §3a: the soft-edges (feather) engine.** `CompositingSpec.maskFeather` 0…1;
+2. **`da28310` — §3a: the soft-edges (feather) engine.** `CompositingSpec.maskFeather` 0…1;
    `clipCanvas` replaced by a `beginMask`/`endMask` bracket at all three call sites and DELETED.
    Feather 0 (every existing project) takes the identical `clipPath` path. Proof:
    `CompositingSpecTest` 12 → 30 checks. **The pixels are still unverified** — the slider that
    would exercise it is not built yet.
-3. **`b3bd093` — §3g first sighting on a phone,** plus the measured tile finding below.
+3. **`8f0f596` — §3g first sighting on a phone,** plus the measured tile finding below.
 
 ## §3g — VALIDATED, THEN REDESIGNED. THIS IS THE MAIN WORK.
 
@@ -99,7 +99,7 @@ v1"* has nothing to put a mask on. `LayerPreviewController.visibleImageItems` is
 "always empty today — nothing can create an IMAGE track yet", and the overlay-`Clip`-with-a-still
 route has no creation path either — the single PiP entry point (`FaditorEditorActivity:16925`)
 builds its clip from a picked **video** URI. So that is *build the image overlay first*, not mask
-plumbing. **§3d is CLOSED — measured, then deleted on the user's call (`bd2bd58`). Do not rebuild it.**
+plumbing. **§3d is CLOSED — measured, then deleted on the user's call (`14e07ee`). Do not rebuild it.**
 
 ## DECISIONS THAT BELONG TO THE USER — do not guess
 
@@ -110,7 +110,7 @@ plumbing. **§3d is CLOSED — measured, then deleted on the user's call (`bd2bd
   renderer. The obvious fix is a trap: `BlurMaskFilter` is ignored on a hardware-accelerated
   canvas, so blurring the preview alone does nothing on screen while the export — drawing into a
   `Bitmap`, i.e. software — really would. Full reasoning on the field's javadoc.
-  **Note:** the feather work (`1bd6b26`) hit this exact trap and solved it by blurring inside an
+  **Note:** the feather work (`da28310`) hit this exact trap and solved it by blurring inside an
   ALPHA_8 Bitmap. That works there because the blurred thing is STATIC geometry. For GHOST it is
   every video frame, so it does not transfer — the cost is real.
 - **Whether emphasis should be suppressed during an entrance** rather than multiplied into it.

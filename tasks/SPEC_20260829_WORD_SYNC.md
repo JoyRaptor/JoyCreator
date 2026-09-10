@@ -26,13 +26,13 @@ right and eighty words need moving.
 
 | Piece | What it gives you | Where |
 |---|---|---|
-| `waveform/PcmSidecar` | flat, memory-mapped, decoder-free audio (~2.6 MB/min) | `00e7413f` |
-| `audio/ScrubEngine` | AE-style granular scrub playback, ~23ms latency | `00e7413f` |
-| **`waveform/OnsetDetector`** | **where every word STARTS**, plus `snap()` | `0546a39e`, **16/16 harness tests pass** |
+| `waveform/PcmSidecar` | flat, memory-mapped, decoder-free audio (~2.6 MB/min) | `b74c57db` |
+| `audio/ScrubEngine` | AE-style granular scrub playback, ~23ms latency | `b74c57db` |
+| **`waveform/OnsetDetector`** | **where every word STARTS**, plus `snap()` | `0eebaee2`, **16/16 harness tests pass** |
 | `audio/ScrubAudioController` | already wires scrubbing to the playhead drag | `9a18dc5e` |
-| **`transcript/WordSyncOnsets`** | **onset cache + zoom-scaled snap tolerance (§3.3 is DONE)** | `51f23ecc` |
-| **`transcript/WordSyncRipple`** | **ONE / RIPPLE / STRETCH + `anchorFor` (§3.4 is DONE)** | `c4e4eaa0` |
-| **`move/TimeShuttleView`** | **already shrunk to 72dp, gesture measured against the screen (§3.5 is DONE)** | `6becec92` |
+| **`transcript/WordSyncOnsets`** | **onset cache + zoom-scaled snap tolerance (§3.3 is DONE)** | `ac184cd6` |
+| **`transcript/WordSyncRipple`** | **ONE / RIPPLE / STRETCH + `anchorFor` (§3.4 is DONE)** | `370e9481` |
+| **`move/TimeShuttleView`** | **already shrunk to 72dp, gesture measured against the screen (§3.5 is DONE)** | `98f5ef0c` |
 
 **Three sections of this spec are already built and tested.** Run
 `bash tools/jvm-harness/run-onset.sh` (22/22) and `bash tools/jvm-harness/run-wordsync.sh`
@@ -191,7 +191,7 @@ the same rule that made `AudioLayerSync`'s four defects fixable in one file.
 - `getSelectedClip()` returns `getClip(0)` when nothing is selected — on a music project
   that is the auto-blank black spacer. Use `clipUnderPlayhead()`.
 - A value written and never read caused three bugs on 2026-08-28, one of them transcript
-  words written to a map nothing consumed (`27c8b75d`). If a moved word does not move on
+  words written to a map nothing consumed (`ec4897e3`). If a moved word does not move on
   screen, check the renderer READS your write.
 - One undo step per gesture. A ripple that undoes word-by-word is a failure, not a detail.
 - Never `perl -i` without `-CSD`. Verify `grep -c 'â' <file>` is 0 on every file touched.

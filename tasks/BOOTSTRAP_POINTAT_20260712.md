@@ -13,7 +13,7 @@ rigging if budget remains.
    opencode's uncommitted files (FilterBottomSheet.java, effects/GradePresetStore.java,
    res/values/strings.xml — use inline string literals). DEVICE token protocol before any adb.
 2. tasks/PLAN_AVATAR_STUDIO.md §Status — bake-to-keyframes is COMPLETE + DEVICE-VERIFIED
-   (41908c5 storage, 4b10fb1 replay render, 685e056 record, 9158cb1 harness, d76feb4 docs).
+   (c2a5e1a storage, 92e6cb3 replay render, 20e2089 record, bbb6204 harness, 6dc770c docs).
    §MINED doctrine stays BINDING: tracks store RESOLVED params; export replays through
    resolve(rig, track.sampleAt(itemLocalMs), fresh DiscreteState stepped in time order);
    the webcam NEVER re-runs at export; preview==export; A/B-proof any export change
@@ -28,7 +28,7 @@ rigging if budget remains.
 - Editor record path: 🎯 Record chip in sprite/SpritePalettePanel for avatar items →
   FaditorEditorActivity.togglePerformanceRecording (studio mount pattern, camera single-owner,
   synthetic fallback, stop on tap/item-end/delete/onPause, one-undo whole-take swap).
-- **ae9dc61 PREP (your on-ramp): MediaPipeTrackingSource now exposes STATIC
+- **76d7e93 PREP (your on-ramp): MediaPipeTrackingSource now exposes STATIC
   putHeadPose(params, matrix) and resultToParams(FaceLandmarkerResult) → the live stream
   already calls them. The sweep must map frames through these SAME methods — one axis-knob
   set (MIRROR_YAW/SIGN_PITCH), one param vocabulary, zero drift.**
@@ -67,7 +67,7 @@ create a fresh landmarker per sweep. detectForVideo is synchronous — no result
 (c) Recorder bubble face-button + clear-stage toggle — BLOCKED on "Display over other apps"
     permission (JoyRaptor must grant it in Settings; do NOT grant system permissions yourself).
 (d) Point-at-video (Task 1) on a real face-bearing clip.
-(e) Older owed: 313e7fa export transition≥clip muxer-stall fix (repro: AudioExportVerify
+(e) Older owed: 2ef2d1e export transition≥clip muxer-stall fix (repro: AudioExportVerify
     aeb0517e seam-2 → 600ms, export both paths).
 Cleanup note for JoyRaptor: P0 control2 project cebc19e0 carries a stray "Enter text" overlay, an
 inserted A6 Warp Smoke item with an injected 2s yaw-sweep track (good for feel-testing), and

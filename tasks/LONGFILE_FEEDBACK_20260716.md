@@ -1,6 +1,6 @@
 # Long-file (45-min real project) feedback — JoyRaptor 2026-07-16, post remux-fix walkthrough
 
-Context: after the remux-cache poisoning fix (bb723c7), "first lecture on phone" loads and plays.
+Context: after the remux-cache poisoning fix (b050e44), "first lecture on phone" loads and plays.
 Performance/transitions "doing good". These are the remaining gaps found on a REAL long file, ranked.
 JoyRaptor: "work autonomously on getting the performance dialed in… work out all the broken things."
 
@@ -36,7 +36,7 @@ JoyRaptor: "work autonomously on getting the performance dialed in… work out a
 8. **Spark dots ½–⅓ current size** — the white spark dots are "quite large relative to the tape…
    a little bit obnoxious."
 
-## Status (updated 2026-07-16, commit c579b58 — BUILT + INSTALLED on <note20-serial>)
+## Status (updated 2026-07-16, commit 0c17337 — BUILT + INSTALLED on <note20-serial>)
 - ✅ #2 filmstrip: proportional tile→thumb mapping + cap 30→60. No more blank/stretched tail.
 - ✅ #3 stripes: incomplete extractions displayed but never cached; renderer silences past real data.
 - ✅ #4 background analysis: kicks at setTimeline for every master clip, FULL-source spans + new
@@ -65,7 +65,7 @@ JoyRaptor: "work autonomously on getting the performance dialed in… work out a
   (~120dp), sweep the VISIBLE region, slow the period.
 - 🔧 label does NOT pin (coordinate space bug — seg.left is content-space under scroll translate?).
 - 🔥 tape shows ~2/3 analyzed then flatlines WITH NO indicator and the label vanishes: OLD poisoned
-  disk-cache entries (written before c579b58 as "complete") still load as complete → displayed,
+  disk-cache entries (written before 0c17337 as "complete") still load as complete → displayed,
   no re-extract, no analyzing state. Fix: coverage-validate disk cache on READ (span <95% covered →
   discard + re-extract), mirroring hasLeadingMoov self-heal.
 - 🔥 clip 3 (tail of the lecture): filmstrip eventually appeared but PREVIEW WINDOW BLACK + play does
@@ -130,12 +130,12 @@ installed there); ⑥ preview double-tap → object menu for avatar/captions (st
   didn't crash; still needs the actual ⇩/⇧ file-picker test.
 
 ## Evening autonomous block — LANDED (all installed on <note20-serial> by 19:00)
-- ✅ 2-min zoom-out (MIN_ZOOM 0.07) + word→thin-white-mark crossfade (gap scanning) + 2m/5m ruler tiers (7c21c37)
-- ✅ trim-independent thumbnails — cuts/trims keep frames, no re-decode (579323d)
-- ✅ transcript version-chip menu: copy plain / [mm:ss] / SRT + import SRT/VTT/[mm:ss] (2295d95, TranscriptIO)
-- ✅ preview double-tap → object menu (sprite/avatar) and style-bar+keyframes drawer (captions) (2295d95)
+- ✅ 2-min zoom-out (MIN_ZOOM 0.07) + word→thin-white-mark crossfade (gap scanning) + 2m/5m ruler tiers (cb38dc8)
+- ✅ trim-independent thumbnails — cuts/trims keep frames, no re-decode (15f1289)
+- ✅ transcript version-chip menu: copy plain / [mm:ss] / SRT + import SRT/VTT/[mm:ss] (df417d8, TranscriptIO)
+- ✅ preview double-tap → object menu (sprite/avatar) and style-bar+keyframes drawer (captions) (df417d8)
 - ✅ minimap loading meters (dark-unloaded + pulse + thin blue audio-progress bar) + "Opening project…"
-  overlay until first STATE_READY (4075369)
+  overlay until first STATE_READY (fa09512)
 - ✅ slides spec addendum: API-less copy-a-prompt path (in feature-ai-generated-slides-spec.md)
 
 ## Still open (updated 2026-07-17)

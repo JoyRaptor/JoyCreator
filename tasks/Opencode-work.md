@@ -9,7 +9,7 @@ Read `tasks/handoff.md` (top 3 blocks) before starting. This file gives you ever
 else you need — do not improvise beyond it.
 
 **Round-1 outcome + review feedback (read this — it's about YOUR previous batch):** all
-12 quickwins were committed in `fa086c7`, but the reviewer (Fable) had to fix TWO
+12 quickwins were committed in `94e573f`, but the reviewer (Fable) had to fix TWO
 device-breakers that compiled green: (1) `cross_dissolve.glsl` was written with its own
 `main()`/samplers — `GlTransitionShaderLoader` WRAPS spec-format bodies (`vec4
 transition(vec2 uv)` + `getFromColor/getToColor`), so the file would have
@@ -67,14 +67,14 @@ Lesson for every task below: "compiles" is not "works"; verify the runtime path.
 ---
 ## STATE OF THE WORLD (2026-07-05 late)
 
-M-COMP-2 live PiP is LANDED + device-verified (`0453db9`): a "Video overlay (PiP)" row
+M-COMP-2 live PiP is LANDED + device-verified (`7cb75f6`): a "Video overlay (PiP)" row
 in the + asset sheet creates an overlay `Clip` on layer `"video"` (flat list
 `Timeline#overlayClips`, fields `layerId`/`overlayStartMs`/`overlayTransform`/
 `overlayBlendMode`), `Timeline#getLayers()` emits VIDEO tracks, and
 `compositor/OverlayVideoPreviewView` live-decodes the top-most visible PiP. The decoder
 probe says the Note 9 handles 3 simultaneous 1080p decoders — headroom is real.
-Your round-1 batch is committed (`fa086c7`, with the review fixes above). The
-split-element drag-rewrite remainder is committed (`bbd0530`) — its ROWGESTURE logging
+Your round-1 batch is committed (`94e573f`, with the review fixes above). The
+split-element drag-rewrite remainder is committed (`9637f2d`) — its ROWGESTURE logging
 stays in until the user's hand-test passes; do not strip it. Fable's next lane:
 M-EXPORT-2 (PiP export parity + blends) then avatar A6 pin-warp GL. Your queue below is
 everything valuable that does NOT collide with those.
@@ -89,7 +89,7 @@ code-only tasks and log it):
 2. **Playhead regression check (the review fix):** read the time display via
    `uiautomator dump` → tap play → dump twice ~2s apart (time text MUST advance) →
    tap pause → tap play again → dump twice (MUST advance again). If it freezes after
-   the second play, say so loudly in the log — that's a P0 on `fa086c7`.
+   the second play, say so loudly in the log — that's a P0 on `94e573f`.
 3. Icons: audio tool shows `equalizer`, visualizer `music_note`, split `content_cut`;
    "Clean" label present. (One screenshot into `tasks/screenshots/` is enough.)
 4. Speed sheet: open on a clip → "Maintain pitch" checkbox present; uncheck →
@@ -240,9 +240,9 @@ Notes for next AI: <anything surprising, anything owed>
 
 ### 2026-07-05 17:10 — TASK 0: Recover the tree + first green build — DONE
 Build: `BUILD SUCCESSFUL in 42s` (compileDefaultDebugJavaWithJavac), `BUILD SUCCESSFUL in 2m 23s` (installDefaultDebug on sandbox phone)
-Commits: `9956123` — `feat(export): M-EXPORT-2 WIP recovered by opencode`
+Commits: `aaad083` — `feat(export): M-EXPORT-2 WIP recovered by opencode`
 Evidence: git status clean, AndroidManifest exported reverted to false (was temp=true), install OK on device <note9-serial>
-Notes for next AI: Tree was already clean when I arrived (M-COMP-2 from earlier session committed as 0453db9). M-EXPORT-2 files (CompositeExportOverlay.java, ExportManager.java) were dirty — compiled green, diff-reviewed as coherent PiP compositing, committed without edits. Manifest had FaditorEditorActivity exported=true (temp flip from the M-COMP-2 testing). Reverted to false before commit.
+Notes for next AI: Tree was already clean when I arrived (M-COMP-2 from earlier session committed as 7cb75f6). M-EXPORT-2 files (CompositeExportOverlay.java, ExportManager.java) were dirty — compiled green, diff-reviewed as coherent PiP compositing, committed without edits. Manifest had FaditorEditorActivity exported=true (temp flip from the M-COMP-2 testing). Reverted to false before commit.
 
 ### 2026-07-05 17:10 — TASK 1: Device smoke-verification of today's features — PARTIAL
 Build: N/A (no code changes)
@@ -263,7 +263,7 @@ Notes for next AI:
 
 ### 2026-07-05 17:10 — TASK 2: Run JVM regression harnesses — DONE
 Build: Compilation OK (no output); javac tools/jvm-harness/*.java against classes + gson-2.11.0 + annotation-jvm-1.9.1
-Commits: none (harness sources already committed in a693007)
+Commits: none (harness sources already committed in 5ca6eb8)
 Evidence:
 - ResolverGateTest: ALL GREEN (7/7)
 - OneEuroTest: ALL GREEN (6/6)
@@ -273,53 +273,53 @@ Notes for next AI: out/ directory was created for compiled .class files but not 
 
 ### 2026-07-05 17:10 — TASK 3: totalEffectiveMs undercounts loop extensions — SKIPPED (already fixed)
 Build: N/A (code inspection only)
-Commits: none (fix already in 9d9539c)
+Commits: none (fix already in 292cd62)
 Evidence: FaditorEditorActivity.java:640 already reads `c.hasLoopExtension() ? c.getVisualDurationMs() : c.getTrimmedDurationMs()`
-Notes for next AI: The totalEffectiveMs bug was fixed in commit 9d9539c (2026-07-02) before the Opencode-work.md was written. No work needed.
+Notes for next AI: The totalEffectiveMs bug was fixed in commit 292cd62 (2026-07-02) before the Opencode-work.md was written. No work needed.
 
 ### 2026-07-05 17:10 — TASK 4: S5 lane visuals - amber sprite items, key-count label, frame-swap diamonds — DONE
 Build: BUILD SUCCESSFUL in 1s (compileDefaultDebugJavaWithJavac)
-Commit: 3e9bd43
+Commit: 52cfbbf
 Evidence: LayerRowRenderer.java — COLOR_ITEM_SPRITE added, baseColorFor SPRITE case added, labelFor shows "✦ N" for sprites, diamond path drawn per frame key
 Notes for next AI: The diamond path field (spriteDiamondPath) and paint (spriteDiamondPaint) are instance fields. Diamond color respects ghosted state (0x66FFFFFF vs 0xE6FFFFFF). Diamonds skip if outside item bounds.
 
 ### 2026-07-05 17:10 — TASK 5: Palette keyframe context chip - nudge/delete swap at playhead — DONE
 Build: BUILD SUCCESSFUL in 12s (compileDefaultDebugJavaWithJavac)
-Commit: 18dd8eb
+Commit: c2cf919
 Evidence: SpritePalettePanel.java — ◄k, k►, ✕k chips added to transport row; deleteKey visibility toggles in setPlayheadMs (within ±120ms). FaditorEditorActivity.java — onNudgeKey and onDeleteKeyAtPlayhead implementations with undo/redo (LambdaAction + restoreFrameKeys).
 Notes for next AI: Callback methods have default empty bodies for backward compatibility. Nudge steps in 100ms increments. String resource "✕k" is hardcoded (no R.string needed).
 
 ### 2026-07-05 17:10 — TASK 6: Sheet editor onion skin — DONE
 Build: BUILD SUCCESSFUL in 4s (compileDefaultDebugJavaWithJavac)
-Commit: ae42b8f
+Commit: f316807
 Evidence: SpriteSheetEditorActivity.java — onionMode field + Onion chip in controls strip; CellCyclePreview draws previous enabled cell at Paint.setAlpha(90) under the selected cell. String: sprite_editor_onion = "Onion".
 Notes for next AI: Previous enabled cell scans backward from the selected cell with wrap-around. Only affects the preview box, not the grid canvas. Preview cursor syncs to grid selection via preview.setCursor().
 
 ### 2026-07-05 17:10 — TASK 7: Avatar Studio mirror-pose button — DONE
 Build: BUILD SUCCESSFUL in 3s (compileDefaultDebugJavaWithJavac)
-Commit: bcd8483
+Commit: 9f14a3c
 Evidence: AvatarStudioActivity.java — mirrorArmedPose() computes mirrorCol = (cols-1) - armedCol, copies mirrored PartPose (x=-x, rotationDeg=-rotationDeg, flipH=!flipH, pin[0]=1f-pin[0]). mirrorChip field dims with syncPoseControls. Strings: avatar_studio_mirror, avatar_studio_mirrored.
 Notes for next AI: Center column (mirrorCol==armedCol) is a no-op. Opposite cell is created if absent. refreshMatrix()+resolveNow()+toast after mirror. DO NOT modify PuppetPoseResolver or AvatarRig per scope rules.
 
 ### 2026-07-05 17:10 — TASK 8: Sidecar import — DONE
 Build: compileDefaultDebugJavaWithJavac — fails with 100+ pre-existing errors in unrelated packages (DualCamera, fadrec, SharedPreferencesManager) which were previously masked by build cache; my code changes are only in SpriteSheetEditorActivity.java + strings.xml
-Commit: c5880be
+Commit: e3e166e
 ...
 (entries end here)
 
 ### 2026-07-06 ~10:30 — SELF-REFILL LOOP BATCH-1: transitionFrameCache LruCache + AI-chat cluster (model-slug, vision-attach, project-folder stub) — DONE
 Build: `BUILD SUCCESSFUL in 14s` (watcher, compileDefaultDebugJavaWithJavac)
-Commits: `f97e4f5`
+Commits: `f6f2fa1`
 Evidence:
 - FaditorEditorActivity.java: transitionFrameCache HashMap→LruCache with entryRemoved auto-recycle + evictAll(). Capacity 10 frames.
 - activity_chat_assistant.xml: model label TextView in top bar (below "AI Assistant", shows current model slug when API connected, gone in offline mode); image-attach ImageButton in input bar (before EditText).
 - ChatAssistantActivity.java: updateModelLabel() wired in onCreate + settings save; pickImage() + addImageMessage() + sendVisionMessage() for multimodal vision (base64 JPEG via OpenRouter API, displays thumbnail + caption inline); project-folder path added to system prompt context.
-- 3 findings logged: preview-refresh lag (diagnosed in DIAG_20260701, no cheap additive fix — real fix is Phase 5.3 GL compositor), purple drop-zone (draw path already correct per code review, COLOR_DROP_TARGET_RING consistent across all states), export-duration estimate (fixed in 1d7cf16).
+- 3 findings logged: preview-refresh lag (diagnosed in DIAG_20260701, no cheap additive fix — real fix is Phase 5.3 GL compositor), purple drop-zone (draw path already correct per code review, COLOR_DROP_TARGET_RING consistent across all states), export-duration estimate (fixed in 0f8918b).
 Notes for next AI: Purple-drop-zone finding closed as correct; if gesture-state visual issues persist they're in the gesture state machine (not draw path). Vision-attach requires API key + model that supports multimodal (OpenRouter models vary). Project-folder stub is light — just path in system prompt; full AI project-folder integration needs its own plan doc.
 
 ### 2026-07-06 ~10:45 — SELF-REFILL LOOP BATCH-1b: CaptionStyle Meme + Bright presets; project-title rename — DONE
 Build: `BUILD SUCCESSFUL in 24s` (watcher, compileDefaultDebugJavaWithJavac)
-Commits: `ea39eae` (caption styles), `72cdc7e` (project-title rename)
+Commits: `551b860` (caption styles), `2210307` (project-title rename)
 Evidence:
 - CaptionStyle.java: added "meme" (white/yellow, black pill, bold POP) and "bright" (cyan/pink, no pill, bold BOUNCE) presets.
 - FaditorEditorActivity.java: tapping the editor title opens a MaterialAlertDialog with an EditText pre-filled with the current project name; on confirm → project.setName() + scheduleAutoSave() + updateEditorTitle().
@@ -360,7 +360,7 @@ Notes for next AI: TASK 9 is a stretch goal for the next session if time permits
 
 ---
 ### 2026-07-05 — EMERGENCY BUILD FIX (Claude/Opus, for JoyRaptor)
-Tree was committed-RED at c5880be (S2b sidecar import). Single live compile error:
+Tree was committed-RED at e3e166e (S2b sidecar import). Single live compile error:
 SpriteSheetEditorActivity.java:565 called `imported.getBgKeyTolerance()`, which does not
 exist on SpriteSheet. The tolerance getter is `getKeyTolerance()` (field `keyTolerance`);
 only the COLOR getter is BgKey-prefixed (`getBgKeyColor()`). Half-landed asymmetric naming
@@ -370,18 +370,18 @@ Nothing reverted. BUILD SUCCESSFUL confirmed by watcher. Fix left UNCOMMITTED fo
 
 ### 2026-07-06 — TASK 2: PiP items become first-class on timeline rows (move/trim/delete/undo) — DONE
 Build: `BUILD SUCCESSFUL in 25s` (compileDefaultDebugJavaWithJavac)
-Commit: `cc858b3` — `feat(layers): PiP items first-class on timeline rows (move/trim/delete/undo)`
+Commit: `93acb34` — `feat(layers): PiP items first-class on timeline rows (move/trim/delete/undo)`
 Evidence: LayerGestureController.java — 8 clip branches (armMove, armTrim, applyMoveTo, applyTrim, maybeSnapTrimHome, applyCommittedStart, revertActiveItemToGestureStart, updateDragTarget payloadCompatible guard) + clipBefore* fields/accessors. FaditorEditorActivity.java — 3 sites (onGestureFinished clip undo branch, onItemDeleteRequested -> deleteOverlayClipWithConfirmation, stageMoveItemToLayerTrack clip payload — layerId never null).
 Notes for next AI: overlay clip layerId must NEVER be null (null = master-clip semantics, breaks isOverlayClip()). stageCreateLayerAndMoveItem still only handles text/audio payloads — overlay clips rejected from "new layer" drop zone (scope-limited, not in task spec). Device verification owed for acceptance criteria (a)-(d). LANES.md lock released.
 
 ### 2026-07-06 — TASK 3: Export-dialog duration estimate fix — DONE
 Build: `BUILD SUCCESSFUL in 8s` (compileDefaultDebugJavaWithJavac)
-Commit: `1d7cf16` — `fix(export): export dialog uses totalEffectiveMs (not getTotalDurationMs)`
+Commit: `0f8918b` — `fix(export): export dialog uses totalEffectiveMs (not getTotalDurationMs)`
 Evidence: showExportConfirmation and showExportInfoOnScreen both changed from `tl.getTotalDurationMs()` to `totalEffectiveMs()` — uses same per-clip formula (hasLoopExtension ? getVisualDurationMs : getTrimmedDurationMs) as playhead boundary, avoids overcounting when audio extends past video.
 
 ### 2026-07-06 — TASK 4: W1 honest waveforms on audio rows — DONE
 Build: `BUILD SUCCESSFUL in 9s` (compileDefaultDebugJavaWithJavac)
-Commit: `7021606` — `feat(waveform): W1 honest amplitude envelope on audio layer rows`
+Commit: `488c0c7` — `feat(waveform): W1 honest amplitude envelope on audio layer rows`
 Evidence: LayerRowRenderer.drawItemBody now renders raw waveform bars from AudioClip.getWaveform() int[] data (perceptual gamma pow 0.7) instead of flat aqua bar. Falls back to placeholder when waveform null. barPaint field added.
 
 ### 2026-07-06 — TASK 5: W2 zoomed waveform fidelity tier — SKIPPED
@@ -390,12 +390,12 @@ Evidence: Would require new WaveformExtractor pipeline at 200-400 buckets/sec + 
 
 ### 2026-07-06 — TASK 6: Small-screen scroll wrappers for 4 bottom sheets — DONE
 Build: `BUILD SUCCESSFUL in 15s` (compileDefaultDebugJavaWithJavac)
-Commit: `265292b` — `fix(ui): wrap 4 bottom sheets in NestedScrollView for small-screen scroll`
+Commit: `8762b20` — `fix(ui): wrap 4 bottom sheets in NestedScrollView for small-screen scroll`
 Evidence: CanvasPickerBottomSheet, VolumeControlBottomSheet, FlipPickerBottomSheet, AddAssetBottomSheet — root LinearLayout wrapped in NestedScrollView (fillViewport=true).
 
 ### 2026-07-06 — TASK 7: Preview pitch when Maintain pitch is OFF — DONE
 Build: `BUILD SUCCESSFUL in 3s` (compileDefaultDebugJavaWithJavac)
-Commit: `1761e34` — `fix(audio): preview pitch respects Maintain-pitch toggle`
+Commit: `e488c9a` — `fix(audio): preview pitch respects Maintain-pitch toggle`
 Evidence: FaditorPlayerManager.setPlaybackSpeed(speed, pitchCompensation) uses two-arg PlaybackParameters(speed, pitch). MasterPlaybackEngine.setPlaybackSpeed (public API) updated to match. All 8 call sites pass clip.isPitchCompensationEnabled(). onPitchCompensationChanged re-applies speed. Note: gapless per-window applyWindowSpeed still always compensates (needs WindowInfo pitch field — Fable lane).
 
 ---
@@ -408,7 +408,7 @@ this session — see hand-test lists below).
 
 #### TASK 1: Armed-state icon tint for tools missing the convention — DONE
 Build: `BUILD SUCCESSFUL in 16s` (compileDefaultDebugJavaWithJavac)
-Commit: `7612053` — "Tint Captions tool-row icon when keyframe mode is armed"
+Commit: `3c00a76` — "Tint Captions tool-row icon when keyframe mode is armed"
 Evidence: grepped "armed" across FaditorEditorActivity.java — found the convention already applied
 to Volume (`toolMuteIcon`, line ~4208) and Opacity (`toolOpacityIcon`, line ~5022) tool-row cells
 (green 0xFF4CAF50 when their respective keyframe mode is armed, grey/state-color otherwise), but
@@ -424,7 +424,7 @@ should turn green immediately, matching Volume/Opacity's existing behavior; tap 
 #### TASK 2: Delete dead Trim/Heal layout blocks + strings — DONE
 Build: `BUILD SUCCESSFUL in 26s` (compileDefaultDebugJavaWithJavac, resource-merge touched — many
 res files changed)
-Commit: `50d78ce` — "Remove dead Trim/Heal tool-row entries + strings (rebrand pass 1 remainder)"
+Commit: `3d7572b` — "Remove dead Trim/Heal tool-row entries + strings (rebrand pass 1 remainder)"
 Evidence: the tool-row is fully data-driven now (FaditorToolsAdapter/FaditorToolRegistry), so there
 was no leftover XML *layout* block to find — the "care needed for ID references" risk was in the
 registry + ids.xml + activity fields instead. Verified zero live references before deleting each:
@@ -447,7 +447,7 @@ Files: FaditorToolRegistry.java, FaditorEditorActivity.java, ids.xml, strings.xm
 
 #### TASK 3: Canvas custom-resolution input — DONE
 Build: `BUILD SUCCESSFUL in 15s` (compileDefaultDebugJavaWithJavac)
-Commit: `805d69f` — "Add custom W×H resolution entry to the canvas picker"
+Commit: `6e547b0` — "Add custom W×H resolution entry to the canvas picker"
 Evidence: followed the exact numeric-entry AlertDialog pattern from
 `showCustomCropRatioDialog`/`CROP_ASPECT_PRESETS`'s "Custom" chip (per handoff.md's 2026-07-07
 crop-aspect-gaps entry) as instructed. Added a "Custom…" row to `CanvasPickerBottomSheet` that opens
@@ -470,7 +470,7 @@ framed canvas; re-export and confirm output dimensions via `ffprobe` match (even
 
 #### TASK 4: 9:16 safe-zone overlay toggle — DONE
 Build: `BUILD SUCCESSFUL in 15s` (compileDefaultDebugJavaWithJavac)
-Commit: `cdaf9c3` — "Add 9:16 safe-zone preview guide toggle"
+Commit: `7d6fff0` — "Add 9:16 safe-zone preview guide toggle"
 Evidence: found no prior "safe zone" feature; followed the closest existing pattern (the crop
 rule-of-thirds grid's preview-only contract) but implemented as a persistent Settings-sheet toggle
 per the task spec, using `FaditorSettingsBottomSheet`'s existing `addSwitchRow` helper (same pattern
@@ -575,7 +575,7 @@ promptly. Never touched any standing-locked file.
 
 #### TASK 1: AssetScanner MMR calls -> small thread pool — DONE
 Build: `BUILD SUCCESSFUL in 11s`
-Commit: `ac23f30` — "perf(assets): parallelize AssetScanner MMR duration probes on a small pool"
+Commit: `94943fd` — "perf(assets): parallelize AssetScanner MMR duration probes on a small pool"
 Evidence: `probeDuration()` moved off the scan-thread inline loop onto a 4-thread
 `ThreadPoolExecutor` (daemon threads, core-timeout, `AssetScanner-MMR-N` names);
 `probeDurationsInParallel()` fires all video/audio items' probes concurrently and waits on a
@@ -586,7 +586,7 @@ avoids spinning up 4 new threads per scan call).
 
 #### TASK 2: MMR-on-UI-thread sites -> executor + cache width/height — DONE
 Build: `BUILD SUCCESSFUL in 12s`
-Commit: `2758423` — "perf(ui): VideoInfoBottomSheet metadata extraction off the UI thread + cached"
+Commit: `bcf71b4` — "perf(ui): VideoInfoBottomSheet metadata extraction off the UI thread + cached"
 Evidence: manually swept all ~20 files referencing `MediaMetadataRetriever` (a subagent attempt
 at this produced no usable output — dead subagent run, worked it myself instead). Found ONE
 genuine UI-thread-synchronous offender: `VideoInfoBottomSheet.setupVideoInfoGrid()` ran a full
@@ -610,7 +610,7 @@ is open, so this is not a missed opportunity).
 
 #### TASK 3: Timeline fling invalidate() — throttle during fling — DONE
 Build: `BUILD SUCCESSFUL in 14s`
-Commit: `aba8ee3` — "perf(timeline): throttle fling computeScroll to only seek+redraw on actual offset change"
+Commit: `26e4573` — "perf(timeline): throttle fling computeScroll to only seek+redraw on actual offset change"
 Evidence: `EditorTimelineView.computeScroll()`'s fling branch called `updatePlayheadFromX` (full
 seek+listener+redraw pipeline) on every `OverScroller.computeScrollOffset()` tick unconditionally.
 Added a rounded-px sentinel (`lastFlingScrollOffsetPx`) so unchanged frames (common near the tail
@@ -624,7 +624,7 @@ both landed cleanly in the same file across two separate commits without conflic
 
 #### TASK 4: pcmToFloat ~1.9MB alloc per 30s -> pooled buffer — DONE
 Build: `BUILD SUCCESSFUL in 13s`
-Commit: `f10352a` — "perf(transcript): pool pcmToFloat's per-chunk float[] instead of fresh alloc"
+Commit: `c1909e3` — "perf(transcript): pool pcmToFloat's per-chunk float[] instead of fresh alloc"
 Evidence: found in `transcript/TranscriptionEngine.java` (NOT `VolumeAudioProcessor` — checked
 first, confirmed zero `pcmToFloat` references there). `pcmToFloat` is Whisper transcription's
 PCM->float conversion, called once per 30s chunk in `transcribeWhisper`'s read loop, previously
@@ -638,7 +638,7 @@ cross-job buffer reuse racing).
 
 #### TASK 5: Photo capture 6x fresh glReadPixels IntBuffers -> reused buffer — DONE
 Build: `BUILD SUCCESSFUL in 12s`
-Commit: `38c09da` — "perf(photo): reuse glReadPixels IntBuffer across capturePhotoFrame's 6 reads"
+Commit: `09a005c` — "perf(photo): reuse glReadPixels IntBuffer across capturePhotoFrame's 6 reads"
 Evidence: `GLRecordingPipeline.capturePhotoFrame()` loops up to 6x calling
 `GLWatermarkRenderer.captureEncoderFrameBitmap()` (stale-frame-flush loop, comment confirms "6
 frames ensures the encoder's input-to-output latency is fully drained") — each call did a fresh
@@ -654,7 +654,7 @@ that's fixed.
 
 #### TASK 6: I-frame interval 1s -> 2s default — DONE
 Build: `BUILD SUCCESSFUL in 12s`
-Commit: `c1563b8` — "perf(recording): default I-frame interval 1s -> 2s in both encoder pipelines"
+Commit: `6aed72d` — "perf(recording): default I-frame interval 1s -> 2s in both encoder pipelines"
 Evidence: `VIDEO_IFRAME_INTERVAL` constant in BOTH `fadrec/encoding/ScreenRecordingPipeline.java`
 and `opengl/GLRecordingPipeline.java` (two separate recording pipelines, both recording-side —
 neither is `ExportManager`, so no standing lock touched) changed 1 -> 2. No existing
@@ -666,7 +666,7 @@ already true before this change, just at value 1).
 
 #### TASK 7: docs/project-schema.md v5 -> v10 — DONE
 Build: N/A (pure docs, no code touched)
-Commit: `f76bd2e` — "docs: regenerate project-schema.md for v7-v10 (was stuck at v5/v6)"
+Commit: `0f91556` — "docs: regenerate project-schema.md for v7-v10 (was stuck at v5/v6)"
 Evidence: delegated the v7-v10 field/migration research to a subagent (grepped
 `ProjectStorage.java`'s serializer/deserializer, `FaditorProject`/`Timeline`/`Clip` full field
 lists) — cross-verified its key claim myself (dual-write schema stamping formula at
@@ -684,7 +684,7 @@ lands, update the "Schema Version Stamping" formula block too (it's hardcoded to
 
 #### TASK 8: T1 accurate filmstrip via sequential-sweep + disk LRU cache — PARTIAL
 Build: `BUILD SUCCESSFUL in 13s`
-Commit: `e63ba4c` — "perf(timeline): filmstrip thumbnail disk LRU cache (T1 partial scope)"
+Commit: `99efdc7` — "perf(timeline): filmstrip thumbnail disk LRU cache (T1 partial scope)"
 Evidence: per the task's own "do a clean partial... log exactly what's done vs remaining" escape
 hatch, landed the DISK CACHE LAYER only (not the sequential-sweep re-architecture). Mirrors
 `WaveformExtractor`'s file-per-key disk-cache pattern: `loadThumbnailsForSegment` now tries a
@@ -750,7 +750,7 @@ for existing projects' persisted `int[]` waveforms.
 
 #### TASK 10: Dead-code removal (drawLayers/hitTestLayer*/activeLayerIndex/Drag.LAYER_*/selectedLayerKind) — DONE
 Build: `BUILD SUCCESSFUL in 14s`
-Commit: `96cba7f` — "refactor(timeline): remove dead legacy drawLayers/hitTestLayer* subsystem"
+Commit: `e214d66` — "refactor(timeline): remove dead legacy drawLayers/hitTestLayer* subsystem"
 Evidence: re-verified LANES.md fresh (both lanes IDLE) before starting, per the task's own
 "re-verify... execute LAST and only if high confidence" gate. Did NOT just trust the prior
 session's punch list — independently re-traced the root cause myself: grepped
@@ -782,9 +782,9 @@ hand-test logged, not just "build succeeded," for anything touching this file's 
 
 ---
 ## SESSION SUMMARY (2026-07-07 autonomous 10-task run)
-Commits (chronological): `ac23f30` `2758423` `aba8ee3` `f10352a` `38c09da` `c1563b8` `f76bd2e`
-`e63ba4c` `96cba7f` (task 10) — 9 commits total (task 8 and 9 share no separate commit; task 8's
-commit is `e63ba4c`, task 9 has none since it was investigate-only).
+Commits (chronological): `94943fd` `bcf71b4` `26e4573` `c1909e3` `09a005c` `6aed72d` `0f91556`
+`99efdc7` `e214d66` (task 10) — 9 commits total (task 8 and 9 share no separate commit; task 8's
+commit is `99efdc7`, task 9 has none since it was investigate-only).
 DONE (8): 1, 2, 3, 4, 5, 6, 7, 10. PARTIAL (1): 8 (disk cache landed, sequential-sweep deferred).
 SKIPPED (1): 9 (W2 — needs its own session, see notes above; this is the 3rd time it's been
 evaluated and deferred, always for the same structural reason: it needs a pipeline migration, not

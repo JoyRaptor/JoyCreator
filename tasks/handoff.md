@@ -1,10 +1,10 @@
 ﻿# FadCam AI Handoff
 
-> **🔬 2026-07-25 ~21:30 — OPUS 5 (device-verification session). HEAD `4eda119`, tree clean.
+> **🔬 2026-07-25 ~21:30 — OPUS 5 (device-verification session). HEAD `8fc7cb4`, tree clean.
 > The headline: the previous session's "35 commits, all compile-green" was NOT TRUE, and the
 > first device-verified substrate bug is found, fixed and pinned.**
 >
-> **0. THE BUILD WAS BROKEN AND NOTHING HAD EVER COMPILED (`292b791`).** The installed APK was
+> **0. THE BUILD WAS BROKEN AND NOTHING HAD EVER COMPILED (`9ec93c0`).** The installed APK was
 > from 13:56 — *before* the evening lane started landing. The build watcher had died at that
 > same moment, so **none of those ~35 commits were ever compiled.** Two failures stacked:
 > (a) `app/build/intermediates/javac/defaultDebug` was **stale from 2026-07-06**, so every build
@@ -16,7 +16,7 @@
 > worthless — check `lastUpdateTime` against `git log`, and check the watcher is alive
 > (`build.log` mtime > source mtime, AND java processes exist).**
 >
-> **1. SEEDED-LANE PRE-EMPTION — found, DEVICE-PROVEN, fixed, pinned (`4eda119`).** Moving ONE
+> **1. SEEDED-LANE PRE-EMPTION — found, DEVICE-PROVEN, fixed, pinned (`8fc7cb4`).** Moving ONE
 > text overlay onto the seeded PiP lane made `getLayers()` emit
 > `id=video kind=TEXT name=Text` at row 3 instead of `id=video kind=VIDEO name=PiP` at row 5.
 > Three wrongs at once: the lane was **renamed**, its **TrackKind flipped**, and it was
@@ -64,7 +64,7 @@
 > is now MORE interesting because row order is provably mutable); slice D drawer taps; the
 > PiP-audio plumbing above.
 
-> **🧭 2026-07-25 late — OPUS 5 continuous session. HEAD `b57884d`. Two lanes landed + three
+> **🧭 2026-07-25 late — OPUS 5 continuous session. HEAD `b9cdcd0`. Two lanes landed + three
 > specs; SIX real bugs found by adversarial review, all fixed. NOTHING device-verified below —
 > the phone was in human use (see DEVICE at the end).**
 >
@@ -145,7 +145,7 @@
 > the H.264 episode is the standing reminder that compile-green proves nothing; (b) PiP-audio
 > slice D = the layer-row audio drawer (the tape cache already has a URI-keyed API the master
 > drawer uses, so a PiP can reuse it); (c) `SPEC_CROSSTYPE_Z.md` Z1–Z5.
-> **DEVICE (29e37138):** verification was ABORTED mid-run when a screenshot showed the phone in
+> **DEVICE (<sandbox-serial>):** verification was ABORTED mid-run when a screenshot showed the phone in
 > human use (Messages), per the etiquette rule; a later check showed it Awake on a different home
 > page, so no input was injected after that. Sandbox project `129d8643` was restored to its exact
 > original 37879 bytes. ⚠️ **The app rotates its own `project.json.bak`** — that file is NOT a
@@ -155,10 +155,10 @@
 > **⚡ 2026-07-25 ~14:10 — FABLE 5 (frontier pass): NEUTRAL SUBSTRATE lane OPENED — spec +
 > the risky slices LANDED, device-proven.** See `tasks/SPEC_NEUTRAL_SUBSTRATE.md` (its top
 > HANDOFF block is authoritative). Two commits:
-> - `e3ec062` S0 foundation: `TrackKind.LAYER` + `getLayers()` neutral MERGE pass (one Track
+> - `356993a` S0 foundation: `TrackKind.LAYER` + `getLayers()` neutral MERGE pass (one Track
 >   per LAYER def holding text+sprite+PiP together; byte-identical when zero LAYER defs) +
 >   `layerTrackHasItems` now scans sprites/overlayClips (pre-existing wrongful-prune bug).
-> - `68814a4` S1+S4+S5: `payloadCompatible` accepts any VISUAL payload on a LAYER lane;
+> - `b7115d5` S1+S4+S5: `payloadCompatible` accepts any VISUAL payload on a LAYER lane;
 >   `LayerPreviewController.visibleTextOverlays/visibleSpriteItems/visibleOverlayVideoClips`
 >   walk LAYER tracks (export shares these SAME methods — no export-side change needed).
 >   KEY FINDING: cross-type z inside a mixed lane = the fixed global surface stack (PiP
@@ -190,9 +190,9 @@
 > only in a separate band. Needs its own spec — see the spec's DECISION section.
 
 > **⚡ 2026-07-25 ~13:20 — OPUS 4.8 (user directive: "do everything except frontier work"; ≤3
-> subagents). Tree CLEAN, HEAD `9eed3b7`.**
+> subagents). Tree CLEAN, HEAD `031ed07`.**
 > **Committed 2 fixes** (both compile-green on the watcher, revert-friendly, device-verify owed):
-> - `3de40a2` SPEED-CHANGE GAPLESS SIBLING (the deferred half of F10's structural resync): a
+> - `066d20d` SPEED-CHANGE GAPLESS SIBLING (the deferred half of F10's structural resync): a
 >   per-clip speed edit now re-bakes the gapless snapshot on speed-sheet COMMIT (new
 >   `SpeedSliderBottomSheet.onSpeedCommitted`, fired from `onDismiss` — NEVER per slider tick) via
 >   the existing `resyncGaplessAfterStructuralEdit` funnel, homing to the edited clip at
@@ -201,14 +201,14 @@
 >   takes effect live + the landing frame. Possible refinement: gate the rebuild on
 >   speed-actually-changed (a no-op sheet peek during gapless playback currently triggers one
 >   rebuild-hitch).
-> - `9eed3b7` F9 COSMETIC (closes the PERF_SPEC F9 niggle): band-tape "analyzing audio…" sticking
+> - `031ed07` F9 COSMETIC (closes the PERF_SPEC F9 niggle): band-tape "analyzing audio…" sticking
 >   after extraction — `BandedTimelineWaveformCache.get()`'s superset-reuse scan early-returned
 >   null on the FIRST in-flight covering span, masking an already-READY covering entry later in
 >   HashMap order. Now scans all candidates before returning null (no-dup guarantee preserved).
-> **0719 BATCH (`95e91af`) INSTALLED + smoke-verified** on the Note 9 (it had NEVER been installed —
+> **0719 BATCH (`c207526`) INSTALLED + smoke-verified** on the Note 9 (it had NEVER been installed —
 > device was unplugged): app launches, Faditor opens project 81033, editor renders clean, and the
 > promoted transport SELECT toggle is FUNCTIONAL (green + "Select: touch anything the box crosses"
-> marquee hint). Latest APK (both fixes + batch) INSTALLED on 29e37138 at 13:20.
+> marquee hint). Latest APK (both fixes + batch) INSTALLED on <sandbox-serial> at 13:20.
 > **STILL OWED (JoyRaptor hand-test / lesser models — token-expensive via tap-injection):** object-centric
 > batch items (badges on objects, double-tap→text dialog, drag-on-object move); P1 multi-axis
 > links; G9 links; dual-stream pair ops; P2 ping-pong drill (proven recipe in NEXT_SESSION_PROMPT).
@@ -224,15 +224,15 @@
 
 > **🔗 2026-07-19 ~04:00 — FABLE(5) autonomous resume (JoyRaptor's keep-working directive; wakeup
 > #12949963 armed for 07:57).** Committed the two held lanes as separate commits under the new
-> directive (review still owed, both revert-friendly): `a8efb6a` GL live A+B blend + export
-> canvas parity (device-proven per its handoff) and `d83bfd2` KineMaster playhead (chip/context
+> directive (review still owed, both revert-friendly): `c7d7149` GL live A+B blend + export
+> canvas parity (device-proven per its handoff) and `dd6eb98` KineMaster playhead (chip/context
 > color/guides/bookmarks). Then BUILT, all compile-green:
-> **(1) `f0e0cd2` playhead seams closed** — bookmark sidecar wired (load on open + new-project,
+> **(1) `a90b5b7` playhead seams closed** — bookmark sidecar wired (load on open + new-project,
 > ONE undo step per add/remove), layer-item context guides via new
 > `LayerRowRenderer.screenBandForItem`.
-> **(2) `2341596` audio-band marquee** — rect converted per-band, audio highlight pass, batch
+> **(2) `282f182` audio-band marquee** — rect converted per-band, audio highlight pass, batch
 > delete handles audio (same-instance re-add, player resync only when audio touched).
-> **(3) `114a163` G9c/d/e peer TIME links** — see PLAN_G9_LINK_ENGINE.md's new STATUS block:
+> **(3) `50e540a` G9c/d/e peer TIME links** — see PLAN_G9_LINK_ENGINE.md's new STATUS block:
 > propagation INSIDE resyncLinkGroups (last-known-start tracking, one-step undo for free),
 > "Link timing" in the marquee batch menu, chain badge, "Unlink timing…" in all five drawers.
 > **DEVICE:** Note 9 attached; build with all of the above installing at session tail.
@@ -246,11 +246,11 @@
 > for 06:58 to resume autonomously (JoyRaptor's standing directive: keep finishing specs until credits
 > run out, re-scheduling wakeups as needed).**
 > **LANDED EARLIER THIS ARC (all committed):** Joy Viz Engine COMPLETE — P3 particles/softness/
-> trails (`23bf053`, device-verified), P4 multi-stop gradients + attack/release response + perf +
-> 4 presets (`c877c31`, presets device-verified: Aurora Veil band-axis multi-stop + particles
+> trails (`3ec5645`, device-verified), P4 multi-stop gradients + attack/release response + perf +
+> 4 presets (`1d45693`, presets device-verified: Aurora Veil band-axis multi-stop + particles
 > render), Layers UI drawer with per-instance customStyleJson + shared resolveEffectiveStyle
-> across preview/export/save (`f2cbc05`, installed on Note 9 — hand-test owed). GL transitions:
-> live A+B motion tier + export crop parity (`509f842`..`14a6c47`, see
+> across preview/export/save (`27018af`, installed on Note 9 — hand-test owed). GL transitions:
+> live A+B motion tier + export crop parity (`420bca6`..`2e01166`, see
 > GL_TRANSITIONS_HANDOFF_20260718.md).
 > **IN-FLIGHT, UNCOMMITTED (review first on resume):** GL-transitions export-parity continuation —
 > modified: GlTransitionExportEffect/PreviewView/ShaderLoader/ShaderProgram, FaditorEditorActivity,
@@ -267,7 +267,7 @@
 
 > **♦ 2026-07-17 evening — OPUS 4.8 (started as Fable 5, user switched to Opus mid-session):
 > two spec-debt lanes landed, both compile-green + one installed.**
-> **(1) `3fed299` ObjectMenuSheet §2 adapters for audio / PiP / visualizer** (STILL-OPEN debt
+> **(1) `b6f92b6` ObjectMenuSheet §2 adapters for audio / PiP / visualizer** (STILL-OPEN debt
 > item, now ✅). Sheet gained `Prop.keyframeable` + `staticProp()` (Sub-lane A built by an Opus
 > subagent that then stalled mid-stream on an API error — I finished B/C/D + wiring by hand).
 > Audio = one Volume prop on its OWN VolumeKeyframe envelope (no ease picker; diamond mapped to
@@ -276,14 +276,14 @@
 > parity when unarmed; whole-pose arming on first diamond; ease picker; pose-preserving clear;
 > undo via `restoreOverlayTransform`). Viz = static pos/size/rotate (no diamond) + Start/End-here
 > chips + More…→viz drawer. Both dispatch sites wired (hold + C6 retarget). Installed on SM-N986U.
-> **(2) `6bf5066` Dual-stream Phase 4 FOUNDATION** — `Clip.linkedClipId` schema + ProjectStorage
+> **(2) `99bff31` Dual-stream Phase 4 FOUNDATION** — `Clip.linkedClipId` schema + ProjectStorage
 > round-trip + `Timeline.findClipById/findLinkedClip/linkClips/unlinkClip`. Safe + dormant. The
 > REACHABLE parts (link-creation UI + mirrored delete/trim/split) are deliberately UNBUILT — they
 > need the sandbox device + a UI decision (see the dual-stream spec's updated Status block).
 > **DEVICE-VERIFY OWED (JoyRaptor, sandbox):** hold an audio/PiP/viz item→drawer + all three prop
 > families; PiP arm→animate→ease→scrub→clear; viz sliders have NO diamond/ribbon; C6 retarget
 > across types; save/reload a linked pair → link survives. **DEVICE NOTE:** this session the
-> sandbox Note 9 (29e37138) was DETACHED; only the main phone <note20-serial> (SM-N986U, work-profile
+> sandbox Note 9 (<sandbox-serial>) was DETACHED; only the main phone <note20-serial> (SM-N986U, work-profile
 > user 150) was online — `run-as`/`pm list` are BLOCKED there, so the export A/B proof (Lane 3)
 > and any project.json injection need the Note 9 back. **Lane 3 prep:** wrote
 > `tasks/LANE3_gl_transition_ab_hypothesis.md` — code analysis found the export transition fits
@@ -293,27 +293,27 @@
 > visualizer-studio Phase 4. WARNING unchanged: NEVER `gradlew --rerun-tasks`.
 
 > **♦ 2026-07-17 afternoon — FABLE(5) orchestrating OPUS subagents: the ENTIRE 0717 UI queue is
-> BUILT + the fresh build is INSTALLED on the sandbox (29e37138 re-authorized; APK 13:12).**
+> BUILT + the fresh build is INSTALLED on the sandbox (<sandbox-serial> re-authorized; APK 13:12).**
 > 4 commits, all compile-green, each reviewed line-by-line before commit:
-> **(1) `fdf72ec` D2a curve math:** Easing grew EXPO pair / ANTICIPATE / OVERSHOOT / 3 springs
+> **(1) `b40264e` D2a curve math:** Easing grew EXPO pair / ANTICIPATE / OVERSHOOT / 3 springs
 > (ω=odd·π/2 so cos≡0 at t=1 — exact endpoints, no residual ramp) / BOUNCE / STAIRS_4;
 > endpoint contract JVM-verified (scratchpad harness: 0/1 exact, bounce in-range, bouncy>soft).
-> **(2) `0bf5235` D2 widget + C7 + D2a picker:** new `KeyframeDiamondControl` (‹♦› — chevrons
+> **(2) `5a84910` D2 widget + C7 + D2a picker:** new `KeyframeDiamondControl` (‹♦› — chevrons
 > prev/next, custom-drawn diamond, carved-× on-key, tap=add/remove, long-press=picker) adopted by
 > the drawer rows; Prop grew armed/easeGet/easeSet; C7 inline "Static — tap ♦ to animate" hint +
 > pulse (NO auto-key); `EasePickerPopover` — 14 tiles rendered FROM apply(), ⊘ first, GREEN ring
 > 0xFF4CAF50, edits the segment the playhead is IN (left key owns it); also on the ribbon diamond
 > long-press. Old dialog "Add keyframe"/"Clear" buttons killed; "Clear all keyframes" = drawer
 > action (does NOT reset range anymore — deliberate).
-> **(3) `ddeb17d` C4 row display-parity:** consolidated GREEN property-key diamonds (66ms-bucket
+> **(3) `b496217` C4 row display-parity:** consolidated GREEN property-key diamonds (66ms-bucket
 > union) below the midline on overlay/sprite blocks; horizontal diamond drag = move the bucket in
 > time (SELECTED item only, trim-style routing, neighbor clamps, one undo, cancel-restores);
 > opacity-only rubber-band over a scrim (≥2 OPACITY keys).
-> **(4) `2fbc874` C8 closed:** AUDIT FINDING — A1 edge auto-pan + DRAG_OUTLINE machine were
-> already in 470f936 (the "not in code" was the stale-build artifact); real gaps fixed: gap-hover
+> **(4) `e355c12` C8 closed:** AUDIT FINDING — A1 edge auto-pan + DRAG_OUTLINE machine were
+> already in c92f6e0 (the "not in code" was the stale-build artifact); real gaps fixed: gap-hover
 > suppresses edge-pan (isHoverGapActive), same-row outline WHITE (was item-blend ≈ purple on
 > text/sticker = the 07-04 ambiguity).
-> Slice 2 gap-insertion (`32d19bb`) was already committed by the prior harness — reviewed, spec
+> Slice 2 gap-insertion (`71175b4`) was already committed by the prior harness — reviewed, spec
 > status updated. **DEVICE-VERIFY OWED (JoyRaptor, on the JUST-INSTALLED sandbox build):** every
 > DEVICE-VERIFY line in the 0717 spec's status block items 2/3/4 + the C8 line, PLUS the older
 > queues (gesture grammar, dual-stream checklist, lane visuals). **NEXT BUILD LANES (pick per
@@ -322,7 +322,7 @@
 > migration. WARNING: NEVER `gradlew --rerun-tasks` — it corrupts media3-patched inter-module
 > jars (recover: normal incremental build, or clean lib-extractor/lib-exoplayer).**
 > **ðŸŽ›ï¸ 2026-07-17 morning â€” FABLE(5) with JoyRaptor live: UI-spec critique + DRAWER BATCH built
-> (`f8daae1`, compile-green 13s; INSTALL BLOCKED â€” sandbox 29e37138 went adb `unauthorized`
+> (`4425392`, compile-green 13s; INSTALL BLOCKED â€” sandbox <sandbox-serial> went adb `unauthorized`
 > mid-session, JoyRaptor must accept the USB prompt / cycle USB debugging; watcher installs next build).**
 > **READ FIRST: `tasks/FEEDBACK_20260717_ui_dialogs_and_keyframes.md`** â€” ground-truth answers
 > (dual-stream toggle IS visible on the Note 9, probed live: 16 concurrent HW AVC encoders; it
@@ -341,7 +341,7 @@
 
 > **ðŸ¤ 2026-07-17 night â€” FABLE(5) orchestrating OPUS/SONNET subagents: three spec lanes landed
 > in parallel, all compile-green on the watcher; NONE device-verified yet.**
-> **(1) DUAL-STREAM RECORDING Phases 0â€“3 (`2970737` me, `c3b77fa`+`23b194b`+`a43e25a` Opus agent):**
+> **(1) DUAL-STREAM RECORDING Phases 0â€“3 (`95535ac` me, `a777e08`+`0d80326`+`41c2cea` Opus agent):**
 > Phase 0 capability gate + hidden-unless-supported settings toggle (pref `fadrec_dual_stream_webcam`);
 > I wrote the "architecture reality map" into the spec (the webcam is FloatingWebcamService's OWN
 > session â€” the new encoder surface is its SECOND stream; screen side only needed its pause/PTS state
@@ -350,19 +350,19 @@
 > FloatingWebcamService second-surface bridge, and ScreenRecordingService orchestration with clean
 > screen-only downgrade. Deferred: webcam-file rollover, avatar mode, Phase 4 `linkedClipId` editor
 > linkage. **The spec's Status block contains the full adb/ffprobe device-verify checklist.**
-> **(2) LANE_BADGES Â§2+Â§3 (`1693565`, Opus agent):** item preview images (image start-thumb, sprite
+> **(2) LANE_BADGES Â§2+Â§3 (`0280ec5`, Opus agent):** item preview images (image start-thumb, sprite
 > cell at every frame key, video filmstrips REUSING the master T1 cache) + pinned-thumbnail scroll,
 > all provider-injected so LayerRowRenderer stays pure-draw, viewport-culled. Â§4.5 eye/lockâ†’per-object
 > migration still deliberately deferred.
-> **(3) Transition clamp feedback (`5619b89`, Sonnet agent):** span-clamped resize drags now toast the
+> **(3) Transition clamp feedback (`97bd9bc`, Sonnet agent):** span-clamped resize drags now toast the
 > seam limit, and the chip label shows "1.6s (of 5.0s)" when stored duration exceeds drawable span.
 > **DEVICE-VERIFY QUEUE:** dual-stream checklist (spec Status block); lane Â§1-Â§3 visuals; clamp toast;
 > plus everything from the earlier 2026-07-17 blocks. **REMAINING BUILD:** dual-stream Phase 4 (editor
 > linked clips â€” editor lane); visualizer-studio Phase 4 (live-recording viz, perf-gated); export-side
 > GL transition A/B.**
 
-> **ðŸŒ€ 2026-07-17 late â€” FABLE(5): GL transition preview 4-bug fix (`ab4fc42`), DEVICE-VERIFIED on
-> sandbox 29e37138 (installed there; main phone has the previous build).** JoyRaptor's "3 levels of
+> **ðŸŒ€ 2026-07-17 late â€” FABLE(5): GL transition preview 4-bug fix (`c2d1b25`), DEVICE-VERIFIED on
+> sandbox <sandbox-serial> (installed there; main phone has the previous build).** JoyRaptor's "3 levels of
 > disjointedness": (1) A sampled from its HEAD â€” seam preview double-subtracted the window offset
 > (currentPos is already trim-relative); (2) BOTH clips frozen on their first frame â€” transition
 > frame cache key had NO time component (now 50ms-bucketed); (3) frames inverted for the transition's
@@ -377,30 +377,30 @@
 > Export-side GL transitions untouched this pass â€” JoyRaptor should A/B an export with a GL transition;
 > the export overlay (GlTransitionFrameOverlay) has its own orientation/scale conventions.
 
-> **ðŸŽ¨ 2026-07-17 â€” FABLE(5): JoyRaptor-feedback batch + spec sweep. 7 commits (`46523ed`â€¦`4b6533e`),
+> **ðŸŽ¨ 2026-07-17 â€” FABLE(5): JoyRaptor-feedback batch + spec sweep. 7 commits (`13ddafe`â€¦`68754ad`),
 > ALL compile-green; FULL build installed on main phone <note20-serial> at session end.**
-> **(1) LANDED THE PRIOR SESSION'S IN-FLIGHT TREE (`46523ed`, 1397 lines, was uncommitted):** slides
+> **(1) LANDED THE PRIOR SESSION'S IN-FLIGHT TREE (`13ddafe`, 1397 lines, was uncommitted):** slides
 > Phase 4 overlay mode + time-stretch trims + freeze handles + SlideCodeBottomSheet + runtime r2 +
 > double-transition clamp fix â€” all device-proven per the spec doc; icons/PSD left uncommitted (not ours).
-> **(2) QUICK FIXES (`da555f1`):** (a) SlideCodeBottomSheet keyboard â€” sheet window wasn't IME-focusable
+> **(2) QUICK FIXES (`bfb71fe`):** (a) SlideCodeBottomSheet keyboard â€” sheet window wasn't IME-focusable
 > over the immersive editor (clearFlags + ADJUST_RESIZE + explicit showSoftInput); (b) transcript
 > version-chip menu gained "Copy word-level timing" (`[mm:ss.mmm-mm:ss.mmm] word` per line, exact spans,
 > round-trips through import with NO interpolation â€” TranscriptIO.parseWordLevel runs first); (c) the
 > transition "handles snap back" bug: the 100..2000ms clamp lived in FOUR places and the Transition
 > CONSTRUCTOR clobbered longer durations on every load round-trip â€” all sites now share
 > `Transition.clampDurationMs` (50ms..10s; export still seam-clamps via effectiveTransitionMs).
-> **(3) CAPTIONS OVERHAUL (`0ac1fa2`, JoyRaptor's pro-tool spec):** CaptionStyle grew font/outline/shadow
+> **(3) CAPTIONS OVERHAUL (`a372571`, JoyRaptor's pro-tool spec):** CaptionStyle grew font/outline/shadow
 > (+JSON); both renderers honor them identically; new `CaptionStyleStore` (app-wide named customs
 > `custom_*` listed in the bottom ticker + per-clip drafts `customdraft_<clipId>` so tweaking one clip
 > never restyles another; :export inits the store in CompositeExportOverlay). Drawer rebuilt: style row
 > gone, 3-line position toggle + size on one row, collapsed font carousel, Pop/Zoom/Bounce, Text/
 > Highlight swatches, Box/Outline toggle+color, Shadow, palette picker, save-floppyâ†’named style in the
 > ticker, trash, export/import styles as text.
-> **(4) LONGFILE ROUND-4 (`75f0a49`):** transcript SEARCH hits mirror on the words tape (amber bold /
+> **(4) LONGFILE ROUND-4 (`be7616e`):** transcript SEARCH hits mirror on the words tape (amber bold /
 > taller amber marks at wide zoom); BOTH silence dialogs live-preview candidates on slider release
 > ("N gaps â€” Xs would be trimmed", generation-guarded); visualizer long-press â†’ object menu
 > (Customize/Delete) replacing the confirm-less instant delete.
-> **(5) SPEC SWEEP (`034c7c2`, `4b6533e`):** narrative-reorder = COMPLETE (added the last TODO,
+> **(5) SPEC SWEEP (`545f4b2`, `68754ad`):** narrative-reorder = COMPLETE (added the last TODO,
 > Decision-5 boundaryâ†’silence snapping in apply_narrative_proposal); b-roll spec audit = COMPLETE
 > (header was stale, all 4 phases landed); LANE_BADGES Â§1 built (`drawKindBadge` gutter glyphs replace
 > name labels; Â§4.5 eye/lockâ†’per-object migration deliberately deferred â€” needs per-object controls
@@ -413,24 +413,24 @@
 > LANE_BADGES Â§2 item previews + Â§3 pinned thumbs; narrative/b-roll visual-verify with an AI key.**
 
 > **ðŸŽ¬ 2026-07-16 evening â€” FABLE(5): AI-GENERATED SLIDES LANDED (spec + addendum), capture pipeline
-> DEVICE-PROVEN behind a locked keyguard. 3 commits (`ee75ade`, `b58d92c`, `642fb06`) + docs.**
+> DEVICE-PROVEN behind a locked keyguard. 3 commits (`9b26c83`, `8bff4ee`, `c4826ac`) + docs.**
 > **State discovered at session start:** the whole June `slides/` package (Phases 0â€“3: capture/encode/
 > cache/contract/generate_slide/live-scrub-preview, schema v5 `generatedSource`) existed but **nothing
 > ever invoked the render pipeline** â€” no caller of SlideCaptureEngine/SlideEncoder anywhere, so a slide
 > clip's content-addressed MP4 never materialized and export/playback had no file.
-> **(1) `ee75ade` render pre-pass:** new `slides/SlideRenderer` = the spec's ensureGeneratedSlidesRendered,
+> **(1) `9b26c83` render pre-pass:** new `slides/SlideRenderer` = the spec's ensureGeneratedSlidesRendered,
 > but living in the EDITOR process, not ExportManager â€” the `:export` process can't host the WebView
 > capture (WebView single-process data-dir rule + in-process latch). Runs at export kickoff
 > (`startOutOfProcessExport` â†’ render off-main â†’ `doStartOutOfProcessExport`) and opportunistically on
 > project load (`checkMissingMedia` tail) so play-through/thumbnails work pre-export. Generated slides
 > exempt from the missing-media relink gate (their MP4 is regenerable cache, not source).
-> **(2) `b58d92c` addendum (JoyRaptor 2026-07-16):** Add-asset â†’ "AI slide (animated)" â†’ SlideImportBottomSheet:
+> **(2) `8bff4ee` addendum (JoyRaptor 2026-07-16):** Add-asset â†’ "AI slide (animated)" â†’ SlideImportBottomSheet:
 > Copy slide prompt (`SlideContract.buildExternalPrompt`, embeds + asks the model to echo a
 > `faditor-slide-contract v1` marker; `CONTRACT_VERSION`), Paste slide HTML, Import .html. Import
 > validates against the same contract, parses authored duration from `Faditor.register(...)`, emits the
 > SAME ADD_GENERATED_SLIDE EditScript as the in-app tool, records undo, background-renders. Newer-than-app
 > contract markers are rejected with an update hint. All strings hardcoded + TODO(strings).
-> **(3) `642fb06` â€” first-ever device run found the June pipeline captured BLANK WHITE frames** (Chromium
+> **(3) `c4826ac` â€” first-ever device run found the June pipeline captured BLANK WHITE frames** (Chromium
 > pauses rendering while the host activity is stopped; the sandbox sat behind a PIN Bouncer): fixed with
 > setShowWhenLocked/turnScreenOn + webView.onResume/resumeTimers + `postVisualStateCallback` per-frame
 > sync (raced 250ms fallback) + scrollbars off. Also: **this ffmpeg-kit build has NO libopenh264** â€” the
@@ -445,23 +445,23 @@
 
 > **ðŸ§­ 2026-07-12 â€” OPUS 4.8 truth-sweep + land-the-remainder session (sandbox UNPLUGGED all session â†’
 > compile-verify only; every device check is queued, not run). 11 commits.**
-> **(1) ROADMAP TRUTH-SWEEP (`5dd4dc6`):** the road_map top block was ~6 days stale (HEAD was far ahead).
+> **(1) ROADMAP TRUTH-SWEEP (`5bef3f0`):** the road_map top block was ~6 days stale (HEAD was far ahead).
 > Added a 2026-07-12 block marking the whole avatar loop (A1â€“A6 + bake + point-at-video + A5), sprites
 > (S1â€“S7 + FF-A/B), AV1â€“AV5, T1 filmstrip, clip-audio drawer, G1â€“G9, and the export fixes COMPLETE, and
 > restated the real remainder as ship-blockers vs owed-verifies vs additive-backlog.
 > **(2) LANDED THE CAPPED IN-FLIGHT TREE** (a subagent confirmed 4 complete, compile+package-verified
-> features): `8c306e5` G5(b) piggyback-looks (attached viz fades with host opacity on export â€” **A/B
-> proof owed**), `8332370` grade presets (opencode), `b36a36f` visualizer SAF import/export in the real
+> features): `4355b66` G5(b) piggyback-looks (attached viz fades with host opacity on export â€” **A/B
+> proof owed**), `0f74e63` grade presets (opencode), `dfe012e` visualizer SAF import/export in the real
 > drawer + one-tap Low-bandwidth (720p+Low) export chip. Tree cleaned.
-> **(3) AV4 WIRE-UP (`cbf3dd5`, Fable subagent):** the built-but-unwired tape-waveform settings sheet is
+> **(3) AV4 WIRE-UP (`600e6c4`, Fable subagent):** the built-but-unwired tape-waveform settings sheet is
 > now reachable (editor Settings â†’ "Waveform visualizer"), persists via TapeWaveformStyle prefs, and a
 > one-time eager/lazy chooser fires only from the two real user-initiated audio-add sites (extract /
 > import â€” NOT project load). Eager kick wired. Device-verify owed.
-> **(4) `.m4a` COMPLETE-COPY (`da96248`):** audio-only exports now say "Your audioâ€¦" not "Your videoâ€¦"
+> **(4) `.m4a` COMPLETE-COPY (`8a8fc9c`):** audio-only exports now say "Your audioâ€¦" not "Your videoâ€¦"
 > (ExportService threads audioOnly â†’ notification + broadcast EXTRA_AUDIO_ONLY; activity picks the new
 > string at both UI sites).
 > **(5) TWO DURABLE DOCS:** `DEVICE_VERIFY_QUEUE_20260712.md` (every owed on-device check in one ordered
-> turnkey list, solo-doable vs needs-JoyRaptor â€” item A1 = the `148c155` export re-verify, `aeb0517e` is AT
+> turnkey list, solo-doable vs needs-JoyRaptor â€” item A1 = the `d161a57` export re-verify, `aeb0517e` is AT
 > the repro) and `DEPOLITICIZE_INVENTORY_20260712.md` (Â§4 audit: NO advocacy text remains, footers already
 > neutralized; what's left = a small flag-accent+6-easter-egg sweep gated on ONE design choice, plus a
 > large FadSec-brand/forensics reskin gated on 4 JoyRaptor-decisions â€” NOT a blind mass-edit).
@@ -471,13 +471,13 @@
 > encoder-profile hook, TODO(strings) polish. Big never-started features are post-v1 (see roadmap Â§ðŸŒ±).
 
 > **ðŸ—„ï¸ 2026-07-11 midday â€” FABLE(model=fable): CLIP-AUDIO DRAWER v2 SHIPPED + DEVICE-PROVEN
-> (`5179647`, on the REAL phone SM-N986U â€” it replaced the sandbox on USB and is authorized).**
+> (`a91b019`, on the REAL phone SM-N986U â€” it replaced the sandbox on USB and is authorized).**
 > JoyRaptor's design, full live-follow in v1: **double-tap a master clip â†’ its embedded audio slides
 > down as a quad-band-tape shelf below the strip; double-tap closes.** Drawer is PINNED to its
 > clip (geometry derives per-frame from segRects â†’ scroll/trim/reorder followed live with zero
 > bookkeeping â€” device-proven by trimming 5.2sâ†’3.3s with the drawer open). Cuts cut video+audio
 > together by construction. Transcript words RIDE the drawer (slide to its inside bottom; visual
-> verify owed on a transcribed clip). Also landed: opencode's filmstrip T1 sweep (`78a6c6b`).
+> verify owed on a transcribed clip). Also landed: opencode's filmstrip T1 sweep (`fe6aaba`).
 > **Two render bugs found by ground-truthing (pulled the band cache bin + ffprobe'd the source):
 > a SILENT audio track normalized to its own zero peak â†’ full-height slab (fixed: <1e-5 RMS â†’
 > flat baseline) and peak-sparks spammed flat plateaus (fixed: prominence required).** Real
@@ -494,24 +494,24 @@
 > bdd51919). Landed the pending in-flight work as 5 commits and cleared the ENTIRE device-verify
 > backlog â€” all PASS. Sandbox restored pristine (md5 `e81a6df8â€¦`), DEVICE token released.**
 > **COMMITS THIS SESSION:**
-> â€¢ `313e7fa` **export transitionâ‰¥clip muxer-stall FIX** (the filed engine bug). A transition as
+> â€¢ `2ef2d1e` **export transitionâ‰¥clip muxer-stall FIX** (the filed engine bug). A transition as
 >   long as/longer than the clip it straddles trims that clip's body to a sub-frame sliver â†’ Media3
 >   emits NO output sample â†’ muxer watchdog aborts ("no output sample in 10000ms"). Fix: (1) new
 >   `effectiveTransitionMs()` seam-clamps every head/tail overlap to what the straddled clip has;
 >   (2) `mainBodyDegenerate` guard (<40ms timeline, transition-touched clips only) skips the micro
 >   EditedMediaItem. Ordinary timelines untouched. **DEVICE VERIFY STILL OWED** â€” repro: AudioExportVerify
 >   (`aeb0517e`) seam-2 transition â†’ 600ms (clip 3 is 427ms), export BOTH paths, expect no stall.
-> â€¢ `fdad81f` **AV3 audio-row expand/collapse layout â€” DEVICE-VERIFIED.** 1st audio track expanded
+> â€¢ `2157abb` **AV3 audio-row expand/collapse layout â€” DEVICE-VERIFIED.** 1st audio track expanded
 >   (76dp tall quad-band tape), rest thin collapsed bars; tap a thin bar â†’ expands via the caret path
 >   (undo step recorded, verified). Caption-enabled audio clips get a CC ribbon inside the expanded row.
-> â€¢ `e7a863c` **AV4-groundwork (UNWIRED):** `TapeWaveformStyle` SharedPreferences round-trip
+> â€¢ `3555f70` **AV4-groundwork (UNWIRED):** `TapeWaveformStyle` SharedPreferences round-trip
 >   (`wave_viz_*` keys) + `analyzeEager` flag + `WaveformVisualizerSettingsSheet` (complete, referenced
 >   by nothing â€” wiring under toolbar Settings + a first-import eager/lazy popup is the remaining AV4).
-> â€¢ `acaeace` **AV5 plan doc** (`tasks/PLAN_AV5_PERF_AND_CLEANUP.md`): tile-cache the per-frame tape
+> â€¢ `eb1c394` **AV5 plan doc** (`tasks/PLAN_AV5_PERF_AND_CLEANUP.md`): tile-cache the per-frame tape
 >   draw (currently `tapeRenderer.draw` runs for every visible audio item every onDraw) + dead-code removal.
-> â€¢ (`4ff1707` from the prior block â€” the two AUDIO#3 findings â€” was already committed + device-verified.)
+> â€¢ (`29428de` from the prior block â€” the two AUDIO#3 findings â€” was already committed + device-verified.)
 > **DEVICE-VERIFY BATCH â€” ALL PASS on bdd51919:**
-> â€¢ **W2 HD zoom (`0433439`):** zoomed-in audio bars pull the high-density span-limited extraction and
+> â€¢ **W2 HD zoom (`0379391`):** zoomed-in audio bars pull the high-density span-limited extraction and
 >   resolve letter/onset-level detail; zoomed-out unchanged; smooth scroll. PASS.
 > â€¢ **Smoke (i)** extract-from-video â†’ the Audio tool extracted a new clip that renders its waveform on a
 >   new audio row (persisted `waveform` int[] present). PASS. **(k)** vertical drag in the audio band
@@ -526,18 +526,18 @@
 >   (Crossfade/Fade Black/Fade White/Wipe/Radial) **DO render LIVE GL correctly on this GPU** â€” captured
 >   mid-animation they each show their DISTINCT effect (Fade Blackâ†’black, Fade Whiteâ†’white, Wipe's split
 >   line moving between two demo images, Crossfade blending). So GL transition shaders compile+run fine in
->   the live GLSurfaceView on the SM-N960U. **â‡’ the `2593bdb` baker's headless shader-compile failure is
+>   the live GLSurfaceView on the SM-N960U. **â‡’ the `f2016b9` baker's headless shader-compile failure is
 >   CONTEXT-LEVEL (pbuffer EGLConfig/precision vs GLSurfaceView default), NOT a GPU-wide problem** â€” the
->   leading suspect in the 2593bdb javadoc stands; fix = match the pbuffer context config to the working
+>   leading suspect in the f2016b9 javadoc stands; fix = match the pbuffer context config to the working
 >   live one. Also: **"âŒ„ More effects" is a non-clickable hint TextView** (`clickable="false"`), which is
 >   why earlier sessions "couldn't expand" it â€” there is nothing to expand; the card strip is a plain
 >   HorizontalScrollView.
-> **STILL OWED (needs JoyRaptor):** the `313e7fa` export fix device verify (above); P0/P1 on real phone
+> **STILL OWED (needs JoyRaptor):** the `2ef2d1e` export fix device verify (above); P0/P1 on real phone
 > <note20-serial> (USB-debug toggle); G9 UI (5 answers in PLAN_G9_LINK_ENGINE.md); the .m4a export-complete
 > copy string ("Your videoâ€¦"). NEXT build work: AV4 wire-up, then AV5 perf + dead-code.
 
-> **ðŸŒŠ 2026-07-10 late â€” FABLE(5) continuation: findings FIXED (`4ff1707`, device-verified before
-> the phone dropped) + W2 HD WAVEFORM ZOOM BUILT (`0433439`, build-green, DEVICE VERIFY OWED â€”
+> **ðŸŒŠ 2026-07-10 late â€” FABLE(5) continuation: findings FIXED (`29428de`, device-verified before
+> the phone dropped) + W2 HD WAVEFORM ZOOM BUILT (`0379391`, build-green, DEVICE VERIFY OWED â€”
 > phone went offline mid-session; adb shows no devices; watcher fails only at installDefaultDebug).**
 > **W2 design (as built):** timeline audio bars now pull zoom-TIERED data (200/400 buckets-per-sec at
 > â‰¥50/â‰¥150 px-per-sec, else legacy) from the shared `WaveformExtractor` via new
@@ -555,11 +555,11 @@
 > (JoyRaptor's USB toggle).** Sandbox bdd51919 was left PRISTINE by the findings-fix session (verify-then
 > -restore, per its LANES note). G9 still gated on JoyRaptor's 5 answers (PLAN_G9_LINK_ENGINE.md).
 
-> **ðŸŽšï¸ 2026-07-10 â€” FABLE(5): AUDIO-ONLY EXPORT SHIPPED + DEVICE-PROVEN (`bafe177`); AUDIO #3
+> **ðŸŽšï¸ 2026-07-10 â€” FABLE(5): AUDIO-ONLY EXPORT SHIPPED + DEVICE-PROVEN (`85240c5`); AUDIO #3
 > per-op smoke MOSTLY GREEN with 2 real findings; sandbox restored pristine.**
-> **(1) AUDIO-ONLY EXPORT (`bafe177`) â€” the full user path works on SM-N960U:** dialog checkbox
+> **(1) AUDIO-ONLY EXPORT (`85240c5`) â€” the full user path works on SM-N960U:** dialog checkbox
 > ("Export audio only (.m4a)", greys Resolution/Quality) â†’ EXTRA_AUDIO_ONLY through the same OOP
-> ExportService/snapshot/notification infra â†’ `exportAudioOnly` (engine `d32cb02`). Pulled the .m4a:
+> ExportService/snapshot/notification infra â†’ `exportAudioOnly` (engine `b17c725`). Pulled the .m4a:
 > single AAC 48k stereo track, duration 13.739s vs 13.692s timeline; ffmpeg RMS proves music mixed at
 > offsets over image silence (âˆ’31dB vs âˆ’65dB floor), 4-pt fade envelope applied (fade-in +25dB ramp,
 > fade-out âˆ’11dB), muted/image spans silent, master-clip audio present, 2x-speed clip contributes its
@@ -568,7 +568,7 @@
 > **ðŸ”´ PRE-EXISTING ENGINE BUG (filed as background-task chip): a transition whose durationMs â‰¥ the
 > FOLLOWING clip's duration stalls BOTH export paths** (watchdog "no output sample in 10000ms" â†’
 > "Muxer error"). Repro: set the AudioExportVerify project's seam-2 transition back to 600ms (clip 3
-> is 427ms). The audio path now survives the zero-length-item flavor (skip guard in `bafe177`), but
+> is 427ms). The audio path now survives the zero-length-item flavor (skip guard in `85240c5`), but
 > the video path stalls even with that clip skipped â€” root cause is deeper in the transition-item
 > construction. Fix in buildComposition + clamp transition duration at authoring time.
 > **(2) AUDIO #3 PER-OP SMOKE (sandbox `bdd51919`, current build) â€” PASS: (a) rows render below
@@ -596,7 +596,7 @@
 
 > **ðŸ§µ 2026-07-09 crunch â€” OPUS (Fable thread, multi-agent: Opus main + Opus & Sonnet subagents).
 > THREE COMMITS, tree green, device-verified where it counts.**
-> **(1) `9b37f99` audio-band clipping fix â€” DEVICE-VERIFIED.** Found in the audio-consolidation smoke:
+> **(1) `4118d07` audio-band clipping fix â€” DEVICE-VERIFIED.** Found in the audio-consolidation smoke:
 > with several floating layer rows + master + the new audio band, the view's desired height exceeds
 > what the parent grants, `resolveSize()` clamps it, and the bottom-most band (AUDIO) silently ran
 > off-screen (2nd audio row half-clipped). Fix: the floating band is the only internally-scrolling
@@ -604,11 +604,11 @@
 > squeeze, and if granted less, hands the shortfall to `LayerRowRenderer.setViewportSqueezePx()`; the
 > floating viewport cap shrinks by that (never below one 40dp band), pulling master + audio up. Proof:
 > both audio rows fully visible even with the transitions drawer compressing the timeline.
-> **AUDIO CONSOLIDATION (`f31f16c`) also now DEVICE-SMOKED** here: two headered Audio rows render below
+> **AUDIO CONSOLIDATION (`aebfb6b`) also now DEVICE-SMOKED** here: two headered Audio rows render below
 > master in their own band, NO legacy duplicate bar, aqua waveforms â€” the FEEDBACK-#1 double-bar bug is
 > gone. (Full per-op smoke â€” trim/move/volume-kf/mute/split/delete â€” still worth a pass, but the render
 > + no-dup half is confirmed.)
-> **(2) `2593bdb` GL-transition card baker (Opus subagent) â€” P0 CRASH FIXED, feature crash-safe but
+> **(2) `f2016b9` GL-transition card baker (Opus subagent) â€” P0 CRASH FIXED, feature crash-safe but
 > INERT.** The subagent's headless sprite-strip baker NATIVE-ABORTED the whole app on editor open:
 > `GLES20.glGetShaderInfoLog(int)` on Adreno/Samsung returns invalid Modified-UTF-8 bytes, and the
 > native `NewStringUTF` inside it aborts under CheckJNI â€” UNCATCHABLE by the Java try/catch the baker
@@ -623,7 +623,7 @@
 > to expand via tap or down-fling, itself worth a look) render the real effect or also fall back â€” that
 > says whether shaders compile at all on this GPU or only the baker's context is at fault. Do NOT
 > reintroduce the InfoLog(int) calls.**
-> **(3) `bca07d3` G9 link-engine design doc (Sonnet subagent).** `tasks/PLAN_G9_LINK_ENGINE.md`, 285
+> **(3) `7074958` G9 link-engine design doc (Sonnet subagent).** `tasks/PLAN_G9_LINK_ENGINE.md`, 285
 > lines, lean-A: one shared link engine, G5 attach re-expressed as a preset over it. Grounded in the
 > shipped G5 code; slices G9aâ€“G9f (G9a/b are UI-less plumbing, can start before G8; G9d needs G8
 > multi-select); 5 open questions for JoyRaptor (trim propagation, a new `stratified` field on
@@ -632,7 +632,7 @@
 > via the Rolodex link icon, trim its host clip, confirm the VIZ row rides along + project.json shows
 > attachedClipId); the audio per-op smoke; and the real-phone <note20-serial> P0/P1 re-verify.
 
-> **ðŸŽ›ï¸ 2026-07-07 late â€” FABLE(5): AUDIO ROW CONSOLIDATION BUILT (`f31f16c`, build-green + installed
+> **ðŸŽ›ï¸ 2026-07-07 late â€” FABLE(5): AUDIO ROW CONSOLIDATION BUILT (`aebfb6b`, build-green + installed
 > on SM-N960U; DEVICE SMOKE BLOCKED â€” phone locked with a secure Bouncer mid-session, needs JoyRaptor's
 > unlock).** Implemented exactly per the scoping block below: **(1) two-band renderer** â€”
 > `LayerRowRenderer.layout()` now takes an `audioTopPx` anchor and lays audio rows in their OWN
@@ -685,9 +685,9 @@
 > transcript-panel switch. Estimated one focused session with JoyRaptor available for trim-feel.
 
 > **ðŸŽ¯ 2026-07-07 ~18:00-19:20 â€” FABLE(5) FINAL-DAY SESSION: ðŸ”´ P0 image-clip gapless gap FIXED +
-> DEVICE-PROVEN (`62b227f`), a NEW pre-existing engine freeze found/bisected/guarded (`f855e51`), the
+> DEVICE-PROVEN (`411eb15`), a NEW pre-existing engine freeze found/bisected/guarded (`44b3c49`), the
 > gradle build blocker for agent shells root-caused + memoried, and opencode round-3 chat-UI work
-> reviewed/committed (`cd95162` + `62012a4` + docs `6340e83`).**
+> reviewed/committed (`c63ba6f` + `dd5483b` + docs `525a514`).**
 > **(1) P0 FIX:** engine serves image clips as native media3 image windows (`setImageDurationMs`, same
 > pipeline as export; ImageRenderer/PlayerView image output confirmed present in the patched media3 1.8);
 > one image window spans the clip's whole visual duration (loop-extending a still = a longer still).
@@ -762,19 +762,19 @@
 > **ðŸ”ï¸ 2026-07-07 ~13:25â€“14:05 â€” FABLE(5) "finish the frontier" swoop #1: ALL SIX remaining ðŸŸ¡-tier
 > items LANDED build-green + committed; session was INTERRUPTED mid-device-verify-batch (~14:05), so
 > device coverage of these is UNKNOWN â€” the follow-on session re-smokes them.** The landings:
-> **(0ce35ea) export edit-safety + quality/resolution wired into the encoder** â€” `ExportService` now
+> **(0d72e49) export edit-safety + quality/resolution wired into the encoder** â€” `ExportService` now
 > receives a SNAPSHOT of the project (closes the Opus-flagged by-reference mutation hazard) and
 > `ExportManager` finally reads `ExportSettings.Resolution`/`.Quality` (encoder bitrate/size caps â€”
-> the previously-dead enums are live). **(a533aa0) LUT filters + intensity slider** â€” `LutManager`
+> the previously-dead enums are live). **(384b251) LUT filters + intensity slider** â€” `LutManager`
 > pre-bakes intensity into the LUT bitmap (identity-lerp), `FilterBottomSheet` slider,
-> `EffectStack` + `ProjectStorage` persist it. **(a4baee5) G6.3/G6.4 PiP promotion +
+> `EffectStack` + `ProjectStorage` persist it. **(2ff1a25) G6.3/G6.4 PiP promotion +
 > minimize-during-export** â€” new `player/PreviewPipController` (fullscreen-extreme â†’ draggable PiP
 > preview; small-preview/landscape promotion), export dialog got resolution/quality pickers, and
-> export survives backgrounding (foreground-service glue in `ExportService`). **(f4eca41) B-roll
+> export survives backgrounding (foreground-service glue in `ExportService`). **(6ad632c) B-roll
 > Phase 3 vision tagging** â€” `AIToolExecutor` tags the asset bucket via vision API, `BRollBucket`
-> stores tags. **(dbf1628) G8 marquee multi-select** â€” three-state toggle, live drag box in
+> stores tags. **(6552083) G8 marquee multi-select** â€” three-state toggle, live drag box in
 > `EditorTimelineView` + `LayerRowRenderer`, batch delete; additive selection mode, existing gesture
-> branches untouched. **(ae07b21) visualizer studio Phase 3 remainder** â€” per-instance bar
+> branches untouched. **(ea88bee) visualizer studio Phase 3 remainder** â€” per-instance bar
 > width/gap overrides persisted on `WaveformOverlayInstance`. **VERIFY STATE: watcher green 14:05;
 > device verify batch started but interrupted â€” treat ALL SIX as build-green-only until the smoke
 > pass below reports.** Stray tree state cleaned (trailing-newline diff reverted).
@@ -782,11 +782,11 @@
 > **ðŸŽ“ 2026-07-07 â€” OPUS "easy frontier" session: G7 COACH-MARKS + TRANSITIONS PULL-DOWN landed,
 > JOYRAPTOR-VERIFIED ON DEVICE ("both work"); both export items DEFERRED (honest re-grade).** Two of four
 > "easy"-graded frontier items were genuinely safe/self-contained and shipped build-green + device-proven:
-> **G7 coach-marks (`954a63e`)** â€” first-ever timeline-item selection surfaces a one-time,
+> **G7 coach-marks (`7bd7df3`)** â€” first-ever timeline-item selection surfaces a one-time,
 > non-blocking banner teaching the invisible per-item gestures (double-tap=edit Â· hold=menu Â·
 > drag=move); persisted in `faditor_ui`/`coachmark_item_gestures_shown`, auto-dismisses, hooks the
 > existing `onItemSelectionChanged`, fully try-wrapped so it can never break selection. **Transitions
-> pull-down-for-more-rows (`00d9e41`)** â€” studio-drawers Â§C's last TODO: the GL-effects second row now
+> pull-down-for-more-rows (`a6afaee`)** â€” studio-drawers Â§C's last TODO: the GL-effects second row now
 > starts COLLAPSED behind a discoverable "âŒ„ More effects" bar (tap or down-fling reveals, up-fling/
 > re-tap collapses); additive to the transition panel, basics + insert paths untouched. **DEFERRED
 > (honest re-grade â€” both turned out entangled with the standing-locked, correctness-critical
@@ -801,22 +801,22 @@
 > stays gone; (b) Transitions drawer "âŒ„ More effects" bar reveals/collapses the GL row. No follow-ups owed.
 >
 > **âš¡ 2026-07-07 â€” OPENCODE/SONNET: 10-task road_map Â§BACKLOG queue â€” 8 DONE, 1 PARTIAL, 1
-> SKIPPED (all detail in Opencode-work.md's bottom PROGRESS LOG entry).** Commits: `ac23f30`
-> (AssetScanner MMR probes â†’ 4-thread pool, `scan()` stays synchronous), `2758423`
+> SKIPPED (all detail in Opencode-work.md's bottom PROGRESS LOG entry).** Commits: `94943fd`
+> (AssetScanner MMR probes â†’ 4-thread pool, `scan()` stays synchronous), `bcf71b4`
 > (VideoInfoBottomSheet's FFprobe+MMR metadata extraction moved off `onViewCreated` to a
 > single-thread executor + cached per-sheet-instance â€” was the one genuine UI-thread-MMR offender
-> after surveying ~20 files; everything else already backgrounded or dead code), `aba8ee3`
+> after surveying ~20 files; everything else already backgrounded or dead code), `26e4573`
 > (timeline fling `computeScroll()` now skips the seek+redraw when the rounded-px offset is
-> unchanged frame-to-frame, still ticks the scroller normally), `f10352a` (Whisper transcription's
+> unchanged frame-to-frame, still ticks the scroller normally), `c1909e3` (Whisper transcription's
 > `pcmToFloat` per-30s-chunk `float[]` pooled instead of freshly allocated â€” not in
-> VolumeAudioProcessor, checked first), `38c09da` (photo capture's 6x `glReadPixels` now share one
-> pooled `IntBuffer` instead of 6 fresh allocations â€” `GLWatermarkRenderer`), `c1563b8` (recording
+> VolumeAudioProcessor, checked first), `09a005c` (photo capture's 6x `glReadPixels` now share one
+> pooled `IntBuffer` instead of 6 fresh allocations â€” `GLWatermarkRenderer`), `6aed72d` (recording
 > I-frame interval 1sâ†’2s in both encoder pipelines, no existing settings surface so stayed a
-> constant), `f76bd2e` (`docs/project-schema.md` regenerated for v7-v10, was stuck at v5/v6;
+> constant), `0f91556` (`docs/project-schema.md` regenerated for v7-v10, was stuck at v5/v6;
 > corrected a stale "unknown fields preserved" claim â€” saves do NOT round-trip genuinely
-> unrecognized keys, hand-written serializer not reflective Gson), `e63ba4c` (T1 filmstrip: disk
+> unrecognized keys, hand-written serializer not reflective Gson), `99efdc7` (T1 filmstrip: disk
 > LRU cache layer landed â€” PARTIAL, the harder "sequential MediaCodec sweep instead of seek-per-
-> thumbnail" accuracy fix is NOT done, see notes), `96cba7f` (pure-deletion removal of the
+> thumbnail" accuracy fix is NOT done, see notes), `e214d66` (pure-deletion removal of the
 > confirmed-dead `drawLayers`/`hitTestLayer*`/`Drag.LAYER_*`/`activeLayerIndex`/`selectedLayerKind`
 > subsystem in `EditorTimelineView.java` â€” 506 lines removed, independently re-verified the
 > dead-code trace before deleting, not just trusted the prior session's punch list; turned out
@@ -839,15 +839,15 @@
 > **ðŸ§° 2026-07-07 â€” OPENCODE/SONNET: 6-task road_map Â§BACKLOG queue â€” 4 landed, 1 blocked, 1
 > investigated-deferred.** All additive/low-risk, none touched a standing-locked file. **DONE:**
 > (1) Captions tool-row icon now tints green when caption-style keyframe mode is armed, matching
-> the existing Volume/Opacity convention (`7612053`). (2) Removed the dead "trim"/"heal" tool-row
+> the existing Volume/Opacity convention (`3c00a76`). (2) Removed the dead "trim"/"heal" tool-row
 > entries (registry + ids.xml + activity fields + strings, 12 locale files) â€” trim had zero
-> handler, heal was fully superseded by the Split tool's contextual heal-mode (`50d78ce`). (3)
+> handler, heal was fully superseded by the Split tool's contextual heal-mode (`3d7572b`). (3)
 > Canvas picker gained a "Customâ€¦" WÃ—H numeric-entry dialog (mirrors the crop toolbar's Custom-
 > ratio chip pattern exactly), emitting a `custom_<w>_<h>` preset key through the existing
 > callback â€” `CanvasPickerBottomSheet.resolveCanvasDimensions`/`displayLabel` updated, ExportManager
-> untouched (`805d69f`). (4) New 9:16 safe-zone preview guide toggle in the Settings sheet (new
+> untouched (`6e547b0`). (4) New 9:16 safe-zone preview guide toggle in the Settings sheet (new
 > `SafeZoneOverlayView`, dashed amber rect + thirds ticks, only draws near true 9:16, preview-only â€”
-> never touches the project model or export) (`cdaf9c3`). **BLOCKED:** (5) low-bandwidth 720p/H.264-
+> never touches the project model or export) (`7d6fff0`). **BLOCKED:** (5) low-bandwidth 720p/H.264-
 > baseline export preset â€” `ExportManager` has zero encoder-profile hook anywhere (no
 > `Codec.EncoderFactory`/`VideoEncoderSettings`) and the export dialog has no resolution/quality
 > picker UI at all yet; needs the Fable/Opus lane since it requires editing the locked file. Full
@@ -866,7 +866,7 @@
 > confirmed absent from the exported file.
 >
 > **ðŸŽ¯ 2026-07-07 â€” FABLE(5): G3 committed + G4 PREVIEW MANIPULATION HANDLES landed, DEVICE-PROVEN
-> (975ade2 + 5b53db4).** G3 (built pre-interruption, recovered): diamond swipe=prev/next key nav,
+> (3030ddc + ede6a8b).** G3 (built pre-interruption, recovered): diamond swipe=prev/next key nav,
 > long-press=delete key, top â—€â—‡â–¶ ribbon over the preview while a keyframeable property is focused â€”
 > committed after reverting the temp MOVE_SLOP_PX 80fâ†’4f. **G4 (contract Â§1/Â§7-G4): tap-select a
 > text/image/sprite row item â†’ handles spawn over the PREVIEW** â€” dashed box (drag inside = MOVE,
@@ -895,7 +895,7 @@
 > G7 coach-marks, G8 marquee, G9 linking; G2 audio/PiP/viz Prop adapters.
 >
 > **ðŸ—‚ï¸ 2026-07-07 â€” FABLE: G2 GENERAL ADVANCED MENU landed â€” peek/expand object bottom sheet (contract
-> Â§2/Â§3), DEVICE-PROVEN for text/image (7e934f5) + SPRITE (follow-up commit).** Holdâ†’release-in-place (and
+> Â§2/Â§3), DEVICE-PROVEN for text/image (45737a3) + SPRITE (follow-up commit).** Holdâ†’release-in-place (and
 > canvas long-press) now opens a NON-MODAL sheet in the activity tree: **peek** = grip + the active
 > property row (slider + keyframe diamond) with preview AND timeline still live â€” scrub while nudging;
 > **expand** (grip drag-up/tap) = identity header (swatch Â· name Â· trash Â· âœ•) + general rows Pos X/Y Â·
@@ -921,14 +921,14 @@
 >
 > **ðŸ‘† 2026-07-07 â€” OPUS: G1 GESTURE STATE MACHINE â€” double-tap + hold-release landed (contract Â§1).**
 > Two of the four G1 gestures are now wired, ALWAYS-GREEN, additive with zero change to the existing
-> move/trim/pickup/scrub machinery. **G1a double-tap â†’ type editor (c17ec31, DEVICE-PROVEN):** detection
+> move/trim/pickup/scrub machinery. **G1a double-tap â†’ type editor (fdff129, DEVICE-PROVEN):** detection
 > in `LayerGestureController.onRowBodyUp`'s tap-resolution (a 2nd clean tap on the SAME item within a 320ms
 > UP-to-UP window) fires a new default `Callback.onItemDoubleTapped`; `FaditorEditorActivity` routes
 > text/imageâ†’`showTextOverlayEditor`, spriteâ†’`openSpritePalette`, visualizerâ†’`showVisualizerDrawer`
 > (audio/PiP = documented no-op until their drawers exist). Single tap still only selects (unchanged).
 > DEVICE PROOF (SM-N960U, sandbox bdd51919): single tap on a text row bar = select only (delete badge, no
 > dialog); double-tap opens the "Edit text" editor (field/colours/fonts/opacity/keyframes). **G1b
-> holdâ†’release-in-place â†’ general menu (64566be, BUILD-GREEN + pickup-path-proven):** after a pickup lifts
+> holdâ†’release-in-place â†’ general menu (e52e06e, BUILD-GREEN + pickup-path-proven):** after a pickup lifts
 > the item, releasing WITHOUT crossing the move slop fires `Callback.onItemMenuRequested` (guarded
 > `pickupArmed && !movedDuringGesture && committed`, mutually exclusive with MOVE/TAP/double-tap/delete/
 > CANCEL) â†’ text/image route to the existing `showLayerItemActionsDialog` as the interim Â§2 menu. The
@@ -944,7 +944,7 @@
 > self-heal sanitizer. **G1 REMAINDER:** tapâ†’preview manipulation handles is G4 (separate slice); the
 > Â§2/Â§3 peek/sandwich general menu (G2/G3) supersedes the interim `showLayerItemActionsDialog` when built.
 >
-> **ðŸ“ 2026-07-07 â€” OPUS: G6.2 SNAP DETENTS for the resizable timeline (67259b1, DEVICE-PROVEN both ways).**
+> **ðŸ“ 2026-07-07 â€” OPUS: G6.2 SNAP DETENTS for the resizable timeline (0d02787, DEVICE-PROVEN both ways).**
 > Extends shipped G6.1: on grab-bar release the band-height split snaps to the nearest of three detents â€”
 > video-dominant (40dp) / balanced (140dp) / timeline-dominant (460dp), matching `LayerRowRenderer`
 > MIN/DEFAULT/CAP â€” within a 32dp radius, with a CLOCK_TICK haptic; drops further out keep their free
@@ -1037,7 +1037,7 @@
 > tidy left-edge accent (not an oversized outline), with the moving proxy showing the item's real size?
 > **NEXT (G1 proper):** the hold/tap/double-tap state machine (contract Â§1, Â§7-G1) â€” STRONG-MODEL.
 >
-> **âœ¨ 2026-07-06 ~15:25 â€” FABLE: T8 multi-sprite-per-lane bug FIXED + DEVICE-VERIFIED (b55b1cd).**
+> **âœ¨ 2026-07-06 ~15:25 â€” FABLE: T8 multi-sprite-per-lane bug FIXED + DEVICE-VERIFIED (02b51c2).**
 > Pre-T8 every placed sprite left `layerId=null`, so `Timeline.getLayers()` bucketed them ALL into the
 > single default `"sprite"` track â†’ they overlapped (JoyRaptor's FEEDBACK_20260706 #2). Fix (Timeline.java +
 > FaditorEditorActivity.java, +56 lines, dep-free): `Timeline.spriteLayerIdFor(item)="sprite-"+item.id`
@@ -1062,8 +1062,8 @@
 > hit-test path must not be orphaned when the old renderer is deleted (Slice C).
 >
 > **ðŸŽ­ 2026-07-06 ~12:05 â€” FABLE-DAY: A2 TRACKING CORE + COMPOSITING FAMILY LANDED, ALL DEVICE-PROVEN
-> (fafb0a8 + 22f29ee), + a REVIEW CATCH fixed: a4fbeba had flipped every PiP vertically on export.**
-> **A2 core (fafb0a8, dep-free â€” MediaPipe stays USER-GATED):** params ARE the contract
+> (05cf3ac + c7188c4), + a REVIEW CATCH fixed: 4ad796a had flipped every PiP vertically on export.**
+> **A2 core (05cf3ac, dep-free â€” MediaPipe stays USER-GATED):** params ARE the contract
 > (`TrackingFrame`: yaw/pitch [-1..1], blendshapes by name, limb IK as `pinTarget.<partId>.x|.y`) â†’
 > `TrackingParamPipeline` (One-Euro ALL inputs â†’ amplitude-jaw fallback â†’ LifeSignals merge,
 > deterministic = bake-replay safe) â†’ `TrackingDriverBus` (tracker-thread push / render-pull,
@@ -1072,7 +1072,7 @@
 > the device proof: smoke rig puppets itself, yaw sweep + arm orbit, frame-diffs 2.5â€“15.6 luma/s,
 > USER-CONFIRMED motion, zero crashes. TrackingCoreTest 18/18. MediaPipe = drop-in behind
 > `TrackingSource` (exact mapping in tasks/SPEC_FABLEDAY_20260706_delegation.md Â§D4).
-> **Compositing family (22f29ee, Â§C of FEEDBACK_20260702 â€” ONE additive model, not three bolt-ons):**
+> **Compositing family (c7188c4, Â§C of FEEDBACK_20260702 â€” ONE additive model, not three bolt-ons):**
 > `CompositingSpec { masks[], chromaKey, matte }` on Clip (gson, tolerant, omit-empty);
 > `MaskPathBuilder` = the single Path authority (Path.op; canvas-normalized shapes; addâˆªâˆ’subâˆª,
 > invert = window mode). Masks: PipFrameOverlay clips at export, OverlayVideoPreviewView clips the
@@ -1082,7 +1082,7 @@
 > Track matte (2nd PipFrameOverlay per recipient, lumaÃ—alpha, CPU `activeAt` gate; ExportManager
 > resolves peerId + hides the serving peer): PROVEN â€” alpha follows matte luma (pure-PiP 0.82â†’0.48),
 > unmatted outside the matte window (0.83 = control), peer hidden.
-> **âš ï¸ REVIEW CATCH (device-proven, fixed in 22f29ee):** since a4fbeba (this morning) EVERY PiP
+> **âš ï¸ REVIEW CATCH (device-proven, fixed in c7188c4):** since 4ad796a (this morning) EVERY PiP
 > exported VERTICALLY FLIPPED in place (bitmap textures Y-down vs frame UVs Y-up; authored y=.378
 > rendered at .622; the blend A/B luma proof was symmetric in the flip = blind). Fix: shader samples
 > overlay/matte V-flipped. Do not remove.
@@ -1095,11 +1095,11 @@
 > Sandbox restored (project.json.bak reverted, manifest flips reverted, temp cleaned).
 
 > **ðŸŒŒ 2026-07-06 ~08:10 â€” AUTONOMOUS RUN #2: PiP still-fallback + A6 mesh density. STATE-OF-THE-WORLD:**
-> **M-EXPORT-2 is COMPLETE (parity a7f7b89 + blend fc3055a). A6 is COMPLETE for the editor** (pin-warp core
-> 5e3a94d, smooth+density c54e981/4ede612, pin authoring 0fc9365, dangle 00733aa, mesh overlay) â€” only the
-> A2 tracking hookup (MediaPipe, USER-GATED) remains. This run landed: **(bfb60f4) PiP still-frame fallback**
+> **M-EXPORT-2 is COMPLETE (parity 3972afd + blend 2574a39). A6 is COMPLETE for the editor** (pin-warp core
+> f28b4a5, smooth+density b6e5f8a/1fee58a, pin authoring 49bf70f, dangle a597391, mesh overlay) â€” only the
+> A2 tracking hookup (MediaPipe, USER-GATED) remains. This run landed: **(3f1eaee) PiP still-frame fallback**
 > â€” 2nd+ simultaneous overlay videos now render a cached MMR still instead of nothing (device-proven: two
-> overlapping PiPs both visible, top-most live + lower as still at its authored xy); **(4ede612) per-part
+> overlapping PiPs both visible, top-most live + lower as still at its authored xy); **(1fee58a) per-part
 > warp mesh density** â€” `AvatarRig.Part.warpSegments` + a "Mesh" stepper (device-proven: 8 bands faceted â†’
 > 40 smooth, persisted to JSON) + fixed a stale initial-label desync. Full run-#1 detail in the block below.
 > **REMAINING FABLE (ungated):** A6 polish candidates (per-row alpha-extent strip clamp; PiP blend-preview
@@ -1120,7 +1120,7 @@
 > cost is one cheap shader pass, unavoidable since media3 effects can't time-scope to part of a clip).
 
 > **ðŸŒ™ 2026-07-06 ~03:35 â€” AUTONOMOUS RUN #1 (3:01 wakeup): M-EXPORT-2 FULLY COMPLETE + review fixes.**
-> **Blend modes LANDED + DEVICE-PROVEN (fc3055a):** `export/BlendModeGlEffect` (MULTIPLY/SCREEN/OVERLAY/ADD
+> **Blend modes LANDED + DEVICE-PROVEN (2574a39):** `export/BlendModeGlEffect` (MULTIPLY/SCREEN/OVERLAY/ADD
 > against the ACCUMULATED frame, GlTransitionExportEffect pattern) fed by `export/PipFrameOverlay` (MMR
 > frames positioned by the SAME transform conventions as the NORMAL pass; both BitmapOverlay texture-identity
 > traps handled â€” new-instance-per-live-frame AND identity-stable transparent for empty paths). Inserted
@@ -1128,8 +1128,8 @@
 > composite). ACCEPTANCE: MULTIPLY over the black gap clip â†’ PiP-region luma 82.2â†’17.1, control region
 > byte-identical (diff 0.0), pipFrames 171â†’0 proves the skip. Preview shows NORMAL for blend clips (probe #4
 > rule: export = ground truth). Blend-picker UI awaits the user's design call â€” engine ready.
-> **ADVERSARIAL REVIEW of the 07-06 landings â€” 2 CONFIRMED defects fixed:** (03b9d59) PiP MMR extraction/
-> release now share one lock (the GlTransitionFrameOverlay thread-safety precedent); (d6850c1) unposed rig
+> **ADVERSARIAL REVIEW of the 07-06 landings â€” 2 CONFIRMED defects fixed:** (6307f2c) PiP MMR extraction/
+> release now share one lock (the GlTransitionFrameOverlay thread-safety precedent); (ccd115c) unposed rig
 > fell back to NOTHING â€” rest chain now doubles as the pose (identity warp) so freshly authored pins +
 > dangle are live without arming a cell (was a silent authoring dead-end). All six JVM harnesses re-run ALL
 > GREEN. PLAUSIBLE-but-unconfirmed (noted, not churned): GRAVITY/damping are px-based â†’ feel varies with
@@ -1140,7 +1140,7 @@
 > **REMAINING for next runs:** PiP still-frame fallback (2nd+ simultaneous overlay), per-part mesh density,
 > handoff consolidation. GATED: A2 MediaPipe dep, blend UI design, main phone.
 
-> **ðŸª‚ 2026-07-07 ~00:35 â€” A6 DANGLE PHYSICS LANDED + DEVICE-PROVEN (00733aa). A6 build phase COMPLETE
+> **ðŸª‚ 2026-07-07 ~00:35 â€” A6 DANGLE PHYSICS LANDED + DEVICE-PROVEN (a597391). A6 build phase COMPLETE
 > minus the A2-gated tracking hookup.** `avatar/DangleSim` (deterministic verlet chain, anchor-motion
 > excitation, FABRIK-style final normalization = exact bone lengths at ANY whip violence â€” the harness
 > caught 3 relaxation passes stretching ~10%; DangleTest 9/9). The chain's nodes BECOME the part's posed
@@ -1156,7 +1156,7 @@
 > injection test â†’ delegable stragglers â†’ per-part mesh density â†’ docs consolidation. A2 MediaPipe dep
 > stays USER-GATED.
 
-> **ðŸŽ¯ 2026-07-06 ~23:15 â€” A6 PIN AUTHORING UI LANDED + DEVICE-PROVEN (0fc9365). A6 is now AUTHORABLE
+> **ðŸŽ¯ 2026-07-06 ~23:15 â€” A6 PIN AUTHORING UI LANDED + DEVICE-PROVEN (49bf70f). A6 is now AUTHORABLE
 > end-to-end without JSON injection.** "âŒ– Pins" chip in Avatar Studio: disarmed = edit the REST chain
 > (tap adds y-SORTED, drag moves with neighbor-clamped y â€” the PinWarpStrip monotonic convention is
 > UI-unviolable; count changes re-seed every cell's pose pins), armed = pose the armed cell's pins
@@ -1191,7 +1191,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > threshold; does the warp FEEL right? **NEXT FABLE:** A6 pin authoring UI (design sketch below in the
 > plan queue), then FABRIKâ†’tracking (A2, MediaPipe dep).
 
-> **ðŸ¦¾ 2026-07-06 â€” A6 PIN-WARP CORE LANDED (5e3a94d, harnesses 16/16 + resolver-gate re-run GREEN).**
+> **ðŸ¦¾ 2026-07-06 â€” A6 PIN-WARP CORE LANDED (f28b4a5, harnesses 16/16 + resolver-gate re-run GREEN).**
 > `avatar/PinWarpStrip` (pure math â†’ `Canvas.drawBitmapMesh` vertex grid; width-preserving sweep along the
 > resolved pin chain, end-bone extrapolation, monotonic-chain guard â†’ rigid fallback) +
 > `AvatarRig.Part.restPins` (additive tolerant-read schema â€” the art-space rest chain) +
@@ -1206,7 +1206,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > Avatar Studio â†’ wiggle the domain slider â†’ strip must bend smoothly + crossfade on cell swap.
 
 > **ðŸ“¦ 2026-07-06 â€” M-EXPORT-2 CORE LANDED + DEVICE-PROVEN (Fable lane). PiP now exports with preview parity.**
-> The 9956123-recovered WIP is completed: **PiP export rides `CompositeExportOverlay`** (a bottom-most
+> The aaad083-recovered WIP is completed: **PiP export rides `CompositeExportOverlay`** (a bottom-most
 > overlay-video pass drawing MMR-decoded frames per absolute timelineMs, transform sampled from the SAME
 > KeyframeSet + the preview's own DEFAULT_* constants). **The M-EXPORT-1 second-video-sequence path is
 > DELETED** â€” probe #3 (verified against DefaultVideoCompositor source): the compositor draws the PRIMARY
@@ -1221,13 +1221,13 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > content rect, export clips at the canvas â€” small preview-honesty fix: clamp/clip the PiP TextureView to
 > the content rect (delegable); (3) transition items don't carry overlays (pre-existing, brief); (4) MMR
 > per-frame decode is the PiP export cost â€” streaming-decoder TextureOverlay is the perf follow-up if real
-> projects hurt. NEXT FABLE: A6 pin-warp GL strip renderer (FabrikSolver 0fe01bd + plan Â§Pin-warp).
+> projects hurt. NEXT FABLE: A6 pin-warp GL strip renderer (FabrikSolver 96c88a9 + plan Â§Pin-warp).
 
 > **ðŸ§¾ 2026-07-05 night â€” FABLE REVIEW GATE ON THE DEEPSEEK BATCH + DRAG REMAINDER: ALL COMMITTED.**
 > Personal review (no-swarm rule) of the two uncommitted batches; both compile-green in the 19:30 watcher
-> build and now in history: **bbd0530** = the stalled opus drag-rewrite finishing pass (collapsed-row proxy
+> build and now in history: **9637f2d** = the stalled opus drag-rewrite finishing pass (collapsed-row proxy
 > render, TEMP ROWGESTURE move/drop lines, proxy-state reset â€” the single-proxy CORE was already committed;
-> USER HAND-TEST remains the gate, logging stays until it passes). **fa086c7** = DeepSeek's 12 quickwins +
+> USER HAND-TEST remains the gate, logging stays until it passes). **94e573f** = DeepSeek's 12 quickwins +
 > THREE review fixes for defects that compiled green but would have broken on device: (1) cross_dissolve.glsl
 > had its own main()/samplers â€” the loader WRAPS spec-format bodies â†’ runtime shader-compile failure;
 > rewritten as `vec4 transition(uv)`. (2) The playhead-ticker optimization never restarted on play (onResume's
@@ -1246,11 +1246,11 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > first (export the PiP sandbox, read what the inert path produces), then sequence-gap/offset timing,
 > per-frame transform via media3 VideoCompositorSettings sampling the SAME KeyframeSet, opacity, z-vs-captions,
 > migrate buildOverlayVideoSequence to a shared LayerPreviewController authority, THEN BlendModeGlEffect;
-> **then A6 pin-warp GL strip renderer** (FabrikSolver landed 0fe01bd). Sprite/avatar remaining: A2 MediaPipe
+> **then A6 pin-warp GL strip renderer** (FabrikSolver landed 96c88a9). Sprite/avatar remaining: A2 MediaPipe
 > driver (dep now possible â€” watcher alive), A4 recorder integration, A5 AI rigging; Build-1 sprite items are
-> otherwise COMPLETE (S5 landed 3e9bd43, S7 landed 4b90a68).
+> otherwise COMPLETE (S5 landed 52cfbbf, S7 landed 96c38ea).
 
-> **ðŸ¤– 2026-07-05 ~22:00 â€” OPENCODE AGENT DeepSeek V4 BATCH (all compile-verified, no commit yet â€” SUPERSEDED: committed as fa086c7 with review fixes, see block above).**
+> **ðŸ¤– 2026-07-05 ~22:00 â€” OPENCODE AGENT DeepSeek V4 BATCH (all compile-verified, no commit yet â€” SUPERSEDED: committed as 94e573f with review fixes, see block above).**
 > Batch of Sonnet-class quick wins from the planner road map (tasks/PLAN_QUICKWINS_20260702.md +
 > handoff backlog items) that don't touch the 3 dirty drag-rewrite files (LayerGestureController,
 > LayerRowRenderer, EditorTimelineView) or JoyRaptor-lane sprite/avatar files. **ALL build-verified green.**
@@ -1271,15 +1271,15 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > **NEXT:** user to review + commit; then continue with remaining quick wins or next queue item.
 >
 > **ðŸ› ï¸ 2026-07-05 eve (Fable orchestrator) â€” GREEN-FIX + RELIABLE CROSS-LAYER + EXPORT FIX; DRAG REWRITE IN FLIGHT.**
-> Sequence this session (all committed, watcher green, Note 9 attached): (1) **ee19a86** greened a
-> committed-red tree â€” one getter typo (`getBgKeyTolerance`â†’`getKeyTolerance`, c5880be); the "100+ errors"
+> Sequence this session (all committed, watcher green, Note 9 attached): (1) **137313b** greened a
+> committed-red tree â€” one getter typo (`getBgKeyTolerance`â†’`getKeyTolerance`, e3e166e); the "100+ errors"
 > were stale build.log noise. The user's phone had been on a STALE build â†’ the reason gesture fixes "never
 > landed"; NEW RULE: nothing is "done" on code-trace, only on user confirmation against a green build.
-> (2) **13c382a** RELIABLE cross-layer path (user-endorsed over fragile drag): add-image-as-new-layer
+> (2) **9da3b9b** RELIABLE cross-layer path (user-endorsed over fragile drag): add-image-as-new-layer
 > (device-proven preview+persist, uses TextOverlayItem.createImage shared render path) + move-clip dialog
 > "New layer above/below / Move to layer" (green+installed, long-press entry HAND-TEST-OWED). P3 masterâ†’layer
 > promote left as proposal â€” NOW REVISIT: M-COMP-2 PiP just landed, so a non-destructive "copy master clip to
-> video PiP layer" is viable (was blocked on live-PiP). (3) **c8eae1e** fixed a PRE-EXISTING export bug:
+> video PiP layer" is viable (was blocked on live-PiP). (3) **7e06ba1** fixed a PRE-EXISTING export bug:
 > image/gap clips (16x16 faditor_gap_black.png) collapsed ALL overlays to sub-pixel on export ("original"
 > preset had no rescue Presentation); image-clip-gated scale-to-fit, video path byte-identical, before/after
 > device frames prove overlays restored. (4) ðŸ”„ IN FLIGHT: **split-element drag rewrite** (opus) â€” user
@@ -1290,7 +1290,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > waveform fidelity W1; sprite same-frame-dup (JOYRAPTOR lane, FEEDBACK_20260705.md); 16x16 placeholder data-smell.
 > USER OWED HAND-TESTS: P2 new-layer long-press dialog; the drag rewrite when it lands.
 
-> **ðŸŽ¬ 2026-07-05 ~16:50 â€” M-COMP-2 LIVE PiP LANDED + PROBE #1 CLOSED (0453db9). WATCHER ALIVE, device attached.**
+> **ðŸŽ¬ 2026-07-05 ~16:50 â€” M-COMP-2 LIVE PiP LANDED + PROBE #1 CLOSED (7cb75f6). WATCHER ALIVE, device attached.**
 > **Probe #1 (PLAN_LAYERS_V2 Part 10) verdict: GO with headroom** â€” the Note 9 ran 2 AND 3 simultaneous
 > 1080x1920 **HEVC** decoders at full ~29fps, zero steady-state drops (`compositor/DecoderBudgetProbeActivity`,
 > permanent adb-driven debug tool; temp-flip exported to use). **2b creation** = AddAssetBottomSheet
@@ -1311,7 +1311,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > native keyframe support â€” sample the SAME KeyframeSet), opacity, z-vs-captions parity (PiP must stay UNDER
 > text/captions like preview; may need composition-level overlay), migrate buildOverlayVideoSequence to
 > `LayerPreviewController.visibleOverlayVideoClips`, THEN blend modes (BlendModeGlEffect after
-> GlTransitionExportEffect pattern). **(2) A6 pin-warp GL strip renderer** (FabrikSolver landed 0fe01bd, plan
+> GlTransitionExportEffect pattern). **(2) A6 pin-warp GL strip renderer** (FabrikSolver landed 96c88a9, plan
 > Â§Pin-warp: quad-strip + 3 pins, warp between cells, pin-snap crossfade; GL path since Canvas can't warp).
 > **DELEGABLE (weaker AI, well-patterned):** PiP timeline-lane move/trim â€” add `item.getClip()` branches to
 > `LayerGestureController` mutation sites (mirror TextOverlayItem/AudioClip: MOVEâ†’setOverlayStartMs,
@@ -1332,8 +1332,8 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > TASK 0 handles them by the twice-proven recover-or-stash protocol.
 
 > **ðŸ§µ 2026-07-05 ~10:30 â€” JOYRAPTOR LANE SESSION SUMMARY (all commits local, watcher STILL down):**
-> eafb687 resolver review-gate fixes â†’ bb68685 A1-UI matrix editor â†’ 7df95e9 S4 sprite preview +
-> placement path â†’ c924c9f S2b (grid auto-detect + bg-key UI + sidecar export) â†’ f270f48 S6 export
+> 58f8de9 resolver review-gate fixes â†’ 7649599 A1-UI matrix editor â†’ e27343d S4 sprite preview +
+> placement path â†’ 1a276aa S2b (grid auto-detect + bg-key UI + sidecar export) â†’ d3fed78 S6 export
 > compositing (preview parity by construction) â†’ A2 core (One-Euro filter + smoother bank, harness
 > ALL GREEN). **EVERY touched .java file is compile-verified via direct javac** (technique now in
 > DEVICE_CONTROL_RUNBOOK-adjacent memory + reproduced below): real jars from ~/.gradle/caches
@@ -1345,7 +1345,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > device-verify: (1) Avatar Studio opens + add part + arm/drag/blend; (2) place star-guy â†’ scrub â†’
 > drag â†’ undo; (3) export a clip with a sprite â†’ ffmpeg frame extraction == preview (S6 acceptance).
 > Remaining Build-1: S3 palette panel â†’ S5 lane/keyframing â†’ S7 relink; then A2 MediaPipe driver.
-> **S3 LANDED TOO (ca496e7):** SpritePalettePanel â€” micro (frame-step transport + live cell readout)
+> **S3 LANDED TOO (8083e84):** SpritePalettePanel â€” micro (frame-step transport + live cell readout)
 > + palette detents (instance chips, live cell-thumb carousel where TAP = drop a swap at the playhead
 > w/ one-step undo, flips, end-behavior cycle, âš™ manager, empty "+ Load"). Sprites tool button now
 > opens the PANEL; manager dialog reachable via âš™. Panel + full activity javac-clean (merged stub-R).
@@ -1357,17 +1357,17 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > your usual command). Gradle STILL can't run in-agent (loopback, re-tested today even unsandboxed).
 > Agent workaround used meanwhile: javac against SDK-36 + app intermediates + gradle-cache androidx
 > jars (working classpath saved: scratchpad verified-cp.txt) + JVM harness runs for pure-Java logic.
-> **ðŸŽ­ JOYRAPTOR LANE TODAY: A1 review-gate fixes (eafb687) + A1-UI MATRIX EDITOR LANDED (bb68685).**
+> **ðŸŽ­ JOYRAPTOR LANE TODAY: A1 review-gate fixes (58f8de9) + A1-UI MATRIX EDITOR LANDED (7649599).**
 > A1-UI = AvatarStudioActivity + PuppetPreviewView + PoseMatrixView (arm-a-cell 3Ã—3, drag-to-pose,
 > yaw/pitch sliders puppet the blend live, parts from sprite sheets, parent/unparent, dashed
 > auto-blend cells). Entry: Sprites tool â†’ "ðŸŽ­ Avatar Studioâ€¦". VERIFIED: all 5 avatar files
 > javac-clean + a 7-case JVM harness (ResolverGateTest) proves the review-gate fixes + hysteresis â€”
 > ALL GREEN. **NOT yet verified (owed when watcher returns): FaditorEditorActivity dialog wiring,
-> manifest/strings XML, on-device launch.** HONESTY NOTE: eafb687's original "build green/installed"
+> manifest/strings XML, on-device launch.** HONESTY NOTE: 58f8de9's original "build green/installed"
 > claim was a STALE build.log read (03:06 build) â€” retroactively covered by today's javac+harness.
 > Owed user hand-test when convenient: Sprites â†’ Avatar Studio â†’ new avatar â†’ add star-guy part â†’
 > arm center cell, drag it, disarm, wiggle yaw/pitch â€” does the blend feel right?
-> **S4 SPRITE PREVIEW ALSO LANDED (7df95e9):** SpriteOverlayView above video / below text+captions,
+> **S4 SPRITE PREVIEW ALSO LANDED (e27343d):** SpriteOverlayView above video / below text+captions,
 > resolver cells + keyframed transforms + drag/pinch/auto-keyframe/snap (TextOverlayLayer parity),
 > visibleSpriteItems shared filter (S6 export must reuse it), renderer cache identity-validated.
 > Interim placement: Sprites tool â†’ tap sheet â†’ "Place on video". javac-verified except
@@ -1376,8 +1376,8 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > panel â†’ S5 lane/keyframing â†’ S6 export (via visibleSpriteItems + resolver) â†’ S7 missing-sheet;
 > avatar A2 tracking driver AFTER (needs MediaPipe gradle dep = watcher).
 
-> **ðŸŽ­ 2026-07-05 â€” JOYRAPTOR LANE: A1 RESOLVER REVIEW GATE CLOSED (eafb687; see honesty note above re verification).**
-> Gate found 3 confirmed MAJOR defects in a9d6cc5's PuppetPoseResolver, all FIXED: (1) discrete props
+> **ðŸŽ­ 2026-07-05 â€” JOYRAPTOR LANE: A1 RESOLVER REVIEW GATE CLOSED (58f8de9; see honesty note above re verification).**
+> Gate found 3 confirmed MAJOR defects in ac2fd68's PuppetPoseResolver, all FIXED: (1) discrete props
 > were domain-dominant-cell-global â†’ sparse-authored cells reset unposed parts' sprites to cell 0;
 > discrete choice is now PER PART (heaviest corner posing that part, own hysteresis, DiscreteState
 > keyed "domainId/partId", sticky when the neighborhood doesn't pose it); (2) swapped/crossfade signal
@@ -1391,7 +1391,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > **NEXT (JoyRaptor lane, unchanged order):** A1-UI matrix editor scaffold (built personally, in flight) â†’
 > S4 sprite preview (SpriteOverlayView) â†’ S2b polish â†’ A2 tracking driver.
 
-> **ðŸ› ï¸ 2026-07-05 â€” OVERLAP BUG FIXED (1bc4652), root-caused + PROVEN. User re-tested slice-3 and hit:
+> **ðŸ› ï¸ 2026-07-05 â€” OVERLAP BUG FIXED (0f6f723), root-caused + PROVEN. User re-tested slice-3 and hit:
 > (a) could place two clips OVERLAPPING by dropping between two butted clips; (b) cross-row preview
 > OVERLAPS instead of butting. ROOT CAUSE (both, + the old diagonal tug-of-war): resolveNoOverlapStart /
 > resolveOverlapOnRow were a 4-pass push-loop that OSCILLATED butt-before/after with no room and gave up
@@ -1410,7 +1410,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > first (concrete, infra exists), then #5. Files: EditorTimelineView (edge-pan/excursion) +
 > LayerGestureController. Owed user hand-test after. Everything below is prior state.**
 
-> **ðŸŽšï¸ 2026-07-05 â€” SLICE-3 GESTURE ROUND: 3 of 5 items LANDED (commit after 7f5313a), BUILD GREEN,
+> **ðŸŽšï¸ 2026-07-05 â€” SLICE-3 GESTURE ROUND: 3 of 5 items LANDED (commit after e43b92f), BUILD GREEN,
 > installed on Note 9. AWAITING USER HAND-TEST (drag-feel = unscriptable on this device).**
 > Spec: tasks/FEEDBACK_20260703_dragux_v3.md (A9 SNAP-PRIORITY + WYSIWYG DROP PRINCIPLE, both BINDING).
 > **DONE:** (#3/A9) diagonal tug-of-war killed â€” in a vertical time-lock the drag now RAILS STRAIGHT at
@@ -1430,10 +1430,10 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > message. After the user re-tests: fix what the feel surfaces, then either build #5 or move to the next
 > queue item (transcript dedup relaunch).
 
-> **âœ… 2026-07-05 â€” PHASE P RECOVERED, COMMITTED (7f5313a), FULLY DEVICE-VERIFIED. Step 1 of the
+> **âœ… 2026-07-05 â€” PHASE P RECOVERED, COMMITTED (e43b92f), FULLY DEVICE-VERIFIED. Step 1 of the
 > landing block below is DONE â€” next AI starts at step 2 (slice-3 gesture round).**
 > The prior agent's uncommitted Phase P work was found compile-GREEN (build.log: BUILD SUCCESSFUL,
-> installed SM-N960U) with a coherent diff across the 6 expected code files. Committed as 7f5313a
+> installed SM-N960U) with a coherent diff across the 6 expected code files. Committed as e43b92f
 > ("feat(layers): Phase P - track header menu + M11 ripple/gap toggle"). The AndroidManifest change
 > was ONLY the temp `exported=true` uiautomator-launch flip â€” reverted, NOT committed (per the standing
 > rule it never enters history). **Device verification (sandbox project bdd51919 project.json ground
@@ -1445,7 +1445,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > VISUAL duration (proves the `hasLoopExtension()?getVisualDurationMs():getTrimmedDurationMs()` branch),
 > clipCount preserved at 4 (no ripple shift). NOTE: the default-track-rename path (TrackFlags.customName
 > â†’ layers-block "trackNames" map) is compile-verified only â€” the device test happened to rename a
-> USER-created LayerTrackDef track instead; both paths are in 7f5313a. OWED USER HAND-TEST (feel only):
+> USER-created LayerTrackDef track instead; both paths are in e43b92f. OWED USER HAND-TEST (feel only):
 > long-press a layer header â†’ menu; toggle ripple/gap chip â†’ delete a clip â†’ confirm black gap stays.
 > Now proceeding to slice-3 per the user-ordered queue.
 
@@ -1455,7 +1455,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > UNCOMMITTED work (compile-GREEN at landing) touches: AndroidManifest, FaditorEditorActivity, TrackFlags,
 > Timeline, ProjectStorage, EditorTimelineView, activity_faditor_editor.xml. Protocol (proven 3Ã—):
 > `git status` + build.log green + coherent `git diff` â†’ COMMIT with an honest message; red/incoherent â†’
-> stash named clearly, restore green from 2995db4. Verify M11 gap-mode + menu behaviors on the sandbox
+> stash named clearly, restore green from 302122d. Verify M11 gap-mode + menu behaviors on the sandbox
 > Note 9 if attached (taps are scriptable; screencap STALE â†’ screenrecord+ffmpeg; input swipe can't drag).
 > **2. THEN slice-3 gesture round (JUMPS the queue, user-ordered):** tasks/FEEDBACK_20260703_dragux_v3.md
 > â€” the "A9 SNAP-PRIORITY RULE" + "SLICE 3 EXPANDED SPEC (WYSIWYG DROP PRINCIPLE)" sections are BINDING
@@ -1476,7 +1476,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > Last updated: 2026-07-04
 
 > **ðŸ›¬ 2026-07-04 eve â€” JOYRAPTOR LANDING: sprite S2 DEVICE-PROVEN end-to-end + avatar A1 model COMPLETE.**
-> **S2 (cb07ad7 + a44350a):** full adb-driven device proof on the Note 9 â€” editor launch â†’ OS picker â†’
+> **S2 (999bbac + 08da22b):** full adb-driven device proof on the Note 9 â€” editor launch â†’ OS picker â†’
 > star-guy from Downloads (fresh pushes need a MEDIA SCAN broadcast to appear in DocumentsUI) â†’ steppers
 > 3x3â†’4x4 â†’ cell 0 named "idle" â†’ Save â†’ project.json: schemaVersion **9** (conditional stamp correct),
 > sheetUri project://assets/<uuid>.png, cells [{0,"idle"}] â†’ reopened by sheet id: state restored on
@@ -1484,11 +1484,11 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > NPE (buildUi before sheet creation). Verification technique for the never-idle editor: uiautomator can't
 > dump FaditorEditorActivity (live player invalidation) â€” launch the TARGET activity directly; the temp
 > exported=true flip never entered git history (flipped + reverted between commits).
-> **Avatar A1 model (a9d6cc5):** PuppetPoseResolver (pure single-authority: bilinear continuous+pin blend,
+> **Avatar A1 model (ac2fd68):** PuppetPoseResolver (pure single-authority: bilinear continuous+pin blend,
 > empty-cell inheritance, dominant-corner hysteresis, swappedâ†’crossfade signal, caller-owned DiscreteState
 > = deterministic bake replay) + AvatarRig storage, schema **v10** stamped only when rigs exist. GLM-5.1
-> mined decisions (827947c) folded into the build.
-> **âš ï¸ DISCLOSURE for the dragux lane:** a9d6cc5's `git add -A` accidentally swept your two in-flight
+> mined decisions (c97e693) folded into the build.
+> **âš ï¸ DISCLOSURE for the dragux lane:** ac2fd68's `git add -A` accidentally swept your two in-flight
 > files (LayerGestureController +17, LayerRowRenderer +40) â€” they built green and are committed under my
 > A1 message; nothing lost, but your WIP is now in history there.
 > **NEXT (JoyRaptor lane, strict order):** (1) resolver review gate + A1-UI matrix-editor scaffold
@@ -1497,15 +1497,15 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > User hand-test owed when convenient: open Sprites tool from the carousel â†’ does the star-guy sheet feel
 > right to slice by hand (pinch-zoom, pivot drag â€” unscriptable gestures).
 
-> **2026-07-02 night â€” Â§6/M6+M7 ROW-BAND TOUCH FIXED: tap-select, long-press-delete, AND scrub-over-rows all work now (BUILT GREEN, device-verified Note 9 sandbox bdd51919â€¦, com.fadcam.beta, NO commit). This unblocks the Layers hand-test.** The two bottom Track rows (purple "Text"/aqua "Audio") were totally inert â€” no select, no long-press, no scrub â€” because touches were consumed then dropped. **ROOT CAUSE (proven with temp logging, now removed): `LayerRowRenderer.hitTestHeader` had NO X-bounds check.** The per-row `headerRect` spans the row's FULL width in Y but is only meant to be the left 92dp header column; with only a Y-band test, ANY body touch (content-x well right of the header) fell through the 4 icon `.contains()` tests and hit the `return HitZone.NONE` fallthrough â†’ `handleM6RowTouch` treated the whole row (header AND body) as a header hit, returned true, and never called `onRowBodyDown` (M7 select/long-press/drag) NOR reached the scrub axis-decision. Log proof: body tap at content-x=398 â†’ `headerHit=NONE`, hitTestItem never ran. **FIX 1 (the primary):** added `if (x < row.headerRect.left || x > row.headerRect.right) continue;` in `hitTestHeader` â€” body-column touches now skip the header and fall through correctly. That alone restored TAP-select (brightened purple stroke + end-cap handles from 7ae8e42 now show â€” screenshotted) and LONG-PRESS ("Remove text overlay?" dialog fires â€” screenshotted). **Two more bugs surfaced for the SCRUB path (6a47560's intent) and were also fixed:** FIX 2 â€” the pending-axis DOWN in `handleM6RowTouch` returned true but never called `getParent().requestDisallowInterceptTouchEvent(true)` (every other armed-DOWN branch does), so the parent scroll container stole the follow-up MOVEs and the axis decision in `onMove` never ran â†’ added that call. FIX 3 â€” the scrub-passthrough delta was computed in CONTENT-space (`x + scrollOffsetPx`), but `updatePlayheadFromX` re-centers every call so `scrollOffsetPx` shifts by ~the same amount x moved â†’ the delta netted to ~0 and the playhead froze after the first event; changed it to RAW view-space x deltas (`m6RowPendingLastX - x`), exactly mirroring `GestureListener.onScroll`'s `distanceX`. After all three: horizontal swipe over the empty row band scrubs (log-proven playhead 5394â†’6815ms + ruler moved 0sâ†’17s, screenshotted), vertical stays row-scroll (symmetric branch; not meaningfully exercisable here since content 202px â‰¤ viewport 210px = nothing to scroll), a drag STARTING on an item still arms M7 move (`hit=BODY` â†’ m7ItemGestureActive â€” 6a47560's "item hits keep M7/M10 untouched" preserved), and DOWN above/below the rows still passes to normal timeline (`within=false`). Files: `layers/LayerRowRenderer.java` (+9, the X guard), `timeline/EditorTimelineView.java` (3 hunks: disallow-intercept + raw-x scrub Ã—2). Also removed a prior agent's leftover `DIAG onRowBodyDown` FLog in `LayerGestureController` (temp instrumentation, same class as mine). ALL my temp logging (M6_DIAG/LRR_DIAG) grep-verified gone. NOTE: this sandbox's items span the FULL project width, so there's little in-row EMPTY space to scrub from (mostly the top/bottom dead-bands + gaps) and items can't slide sideways â€” Â§7 duration-on-create + numeric fields is still the real ergonomic fix for that; the mechanism is correct regardless. User hand-test list in REPORT_RELAY.
+> **2026-07-02 night â€” Â§6/M6+M7 ROW-BAND TOUCH FIXED: tap-select, long-press-delete, AND scrub-over-rows all work now (BUILT GREEN, device-verified Note 9 sandbox bdd51919â€¦, com.fadcam.beta, NO commit). This unblocks the Layers hand-test.** The two bottom Track rows (purple "Text"/aqua "Audio") were totally inert â€” no select, no long-press, no scrub â€” because touches were consumed then dropped. **ROOT CAUSE (proven with temp logging, now removed): `LayerRowRenderer.hitTestHeader` had NO X-bounds check.** The per-row `headerRect` spans the row's FULL width in Y but is only meant to be the left 92dp header column; with only a Y-band test, ANY body touch (content-x well right of the header) fell through the 4 icon `.contains()` tests and hit the `return HitZone.NONE` fallthrough â†’ `handleM6RowTouch` treated the whole row (header AND body) as a header hit, returned true, and never called `onRowBodyDown` (M7 select/long-press/drag) NOR reached the scrub axis-decision. Log proof: body tap at content-x=398 â†’ `headerHit=NONE`, hitTestItem never ran. **FIX 1 (the primary):** added `if (x < row.headerRect.left || x > row.headerRect.right) continue;` in `hitTestHeader` â€” body-column touches now skip the header and fall through correctly. That alone restored TAP-select (brightened purple stroke + end-cap handles from 94cc373 now show â€” screenshotted) and LONG-PRESS ("Remove text overlay?" dialog fires â€” screenshotted). **Two more bugs surfaced for the SCRUB path (a75c115's intent) and were also fixed:** FIX 2 â€” the pending-axis DOWN in `handleM6RowTouch` returned true but never called `getParent().requestDisallowInterceptTouchEvent(true)` (every other armed-DOWN branch does), so the parent scroll container stole the follow-up MOVEs and the axis decision in `onMove` never ran â†’ added that call. FIX 3 â€” the scrub-passthrough delta was computed in CONTENT-space (`x + scrollOffsetPx`), but `updatePlayheadFromX` re-centers every call so `scrollOffsetPx` shifts by ~the same amount x moved â†’ the delta netted to ~0 and the playhead froze after the first event; changed it to RAW view-space x deltas (`m6RowPendingLastX - x`), exactly mirroring `GestureListener.onScroll`'s `distanceX`. After all three: horizontal swipe over the empty row band scrubs (log-proven playhead 5394â†’6815ms + ruler moved 0sâ†’17s, screenshotted), vertical stays row-scroll (symmetric branch; not meaningfully exercisable here since content 202px â‰¤ viewport 210px = nothing to scroll), a drag STARTING on an item still arms M7 move (`hit=BODY` â†’ m7ItemGestureActive â€” a75c115's "item hits keep M7/M10 untouched" preserved), and DOWN above/below the rows still passes to normal timeline (`within=false`). Files: `layers/LayerRowRenderer.java` (+9, the X guard), `timeline/EditorTimelineView.java` (3 hunks: disallow-intercept + raw-x scrub Ã—2). Also removed a prior agent's leftover `DIAG onRowBodyDown` FLog in `LayerGestureController` (temp instrumentation, same class as mine). ALL my temp logging (M6_DIAG/LRR_DIAG) grep-verified gone. NOTE: this sandbox's items span the FULL project width, so there's little in-row EMPTY space to scrub from (mostly the top/bottom dead-bands + gaps) and items can't slide sideways â€” Â§7 duration-on-create + numeric fields is still the real ergonomic fix for that; the mechanism is correct regardless. User hand-test list in REPORT_RELAY.
 
-> **2026-07-02 late â€” PING-PONG PARKED by user decision + resize-revert/black-screen regression FIXED (BUILT GREEN, device-verified Note 9 sandbox, NO commit).** User hit two bugs after L2 (9d9539c): resizing a loop reverted its size, then that clip + others went BLACK. ROOT CAUSE (cluster): (1) BLACK SPREAD = the gapless engine is ONE shared ExoPlayer/ONE playlist; a PING_PONG clip auto-promotes the whole project to gapless and injects baked-reversed MediaItems â€” if a reversed item fails to decode (or the auto-promote rebuild races) the shared player blacks out and the black spreads to EVERY clip. Evidence: an orphan baked file `cache/reversed/rev-1899-4884-*.mp4` existed for clip[3] but clip[3] was saved OFF â€” user set ping-pong, hit the black, reverted (deleted that orphan). (2) RESIZE REVERT = a loop-extension edge drag fired BOTH `onTrimFinished` AND `onLoopTrimFinished`; for a right-loop-drag the trim `endFraction`â†’1.0 (handle pinned to source bound), so `onTrimFinished` clobbered the clip's real out-point out to full source. FIX: new single flag `Clip.PING_PONG_PARKED=true` gates 4 seams (all L2 code KEPT, just dormant) â€” (a) loop-drawer ping-pong chip disabled/dimmed + "coming soon" toast, no mode switch; (b) `resolveReversedUri` returns null while parked â†’ `MasterPlaybackEngine.isEligible` rejects every PING_PONG clip â†’ whole project drops to LEGACY forward-tail = a stored ping-pong clip DEGRADES to a plain forward NORMAL-loop wrap (never black, never crash) in preview; (c) `ExportManager.buildLoopExtensionItem` `reverse` forced false â†’ export forward-tail too (preview==export); (d) `kickReverseBakeIfNeeded` early-returns â†’ NO bake ever kicked, incl. from resize. RESIZE FIX: `EditorTimelineView` ACTION_UP now fires `onLoopTrimFinished` ONLY (not `onTrimFinished`) when `loopChangedDuringDrag`, so a loop resize no longer clobbers in/out; `onLoopTrimFinished` made self-sufficient (`userDragging=false`, `setTrimFromClip`, `updateTrimBounds`, `setExactSeek`). DEVICE-VERIFIED (Note 9 sandbox bdd51919â€¦, package com.fadcam.beta): loop drawer shows ping-pong DIMMED + tapping it leaves loopMode=1 (proven via project.json), Loop chip stays green; "Extend to end" grew clip[1] loopAfterMs 11000â†’12000 with in/out UNCHANGED (0/8962) + clean gapless rebuild (6 items, no PlayerError) â€” this is the same updateTrimBoundsâ†’rebuild path an edge-drag uses; undo restored 11000 + clean rebuild; force-stop+relaunch came back "Gapless engine ACTIVE for 4 clips", zero black in any of ~6 screenshots across all clips. L3 WIP KEPT (see PLAN Â§Status). NOTE for un-parking: flip `Clip.PING_PONG_PARKED=false` restores L2 exactly as 9d9539c â€” but FIRST fix the black-decode root cause (a reversed item that won't decode must fall back to forward per-item, not black the shared player). Â§6 rows still dead (see below). NOT re-attempted: the raw edge-DRAG resize gesture (one scripted attempt missed the handle hit-zone in the reflowing per-clip zoom view) â€” hand-test item for user; the code path itself is proven via the drawer button.
+> **2026-07-02 late â€” PING-PONG PARKED by user decision + resize-revert/black-screen regression FIXED (BUILT GREEN, device-verified Note 9 sandbox, NO commit).** User hit two bugs after L2 (292cd62): resizing a loop reverted its size, then that clip + others went BLACK. ROOT CAUSE (cluster): (1) BLACK SPREAD = the gapless engine is ONE shared ExoPlayer/ONE playlist; a PING_PONG clip auto-promotes the whole project to gapless and injects baked-reversed MediaItems â€” if a reversed item fails to decode (or the auto-promote rebuild races) the shared player blacks out and the black spreads to EVERY clip. Evidence: an orphan baked file `cache/reversed/rev-1899-4884-*.mp4` existed for clip[3] but clip[3] was saved OFF â€” user set ping-pong, hit the black, reverted (deleted that orphan). (2) RESIZE REVERT = a loop-extension edge drag fired BOTH `onTrimFinished` AND `onLoopTrimFinished`; for a right-loop-drag the trim `endFraction`â†’1.0 (handle pinned to source bound), so `onTrimFinished` clobbered the clip's real out-point out to full source. FIX: new single flag `Clip.PING_PONG_PARKED=true` gates 4 seams (all L2 code KEPT, just dormant) â€” (a) loop-drawer ping-pong chip disabled/dimmed + "coming soon" toast, no mode switch; (b) `resolveReversedUri` returns null while parked â†’ `MasterPlaybackEngine.isEligible` rejects every PING_PONG clip â†’ whole project drops to LEGACY forward-tail = a stored ping-pong clip DEGRADES to a plain forward NORMAL-loop wrap (never black, never crash) in preview; (c) `ExportManager.buildLoopExtensionItem` `reverse` forced false â†’ export forward-tail too (preview==export); (d) `kickReverseBakeIfNeeded` early-returns â†’ NO bake ever kicked, incl. from resize. RESIZE FIX: `EditorTimelineView` ACTION_UP now fires `onLoopTrimFinished` ONLY (not `onTrimFinished`) when `loopChangedDuringDrag`, so a loop resize no longer clobbers in/out; `onLoopTrimFinished` made self-sufficient (`userDragging=false`, `setTrimFromClip`, `updateTrimBounds`, `setExactSeek`). DEVICE-VERIFIED (Note 9 sandbox bdd51919â€¦, package com.fadcam.beta): loop drawer shows ping-pong DIMMED + tapping it leaves loopMode=1 (proven via project.json), Loop chip stays green; "Extend to end" grew clip[1] loopAfterMs 11000â†’12000 with in/out UNCHANGED (0/8962) + clean gapless rebuild (6 items, no PlayerError) â€” this is the same updateTrimBoundsâ†’rebuild path an edge-drag uses; undo restored 11000 + clean rebuild; force-stop+relaunch came back "Gapless engine ACTIVE for 4 clips", zero black in any of ~6 screenshots across all clips. L3 WIP KEPT (see PLAN Â§Status). NOTE for un-parking: flip `Clip.PING_PONG_PARKED=false` restores L2 exactly as 292cd62 â€” but FIRST fix the black-decode root cause (a reversed item that won't decode must fall back to forward per-item, not black the shared player). Â§6 rows still dead (see below). NOT re-attempted: the raw edge-DRAG resize gesture (one scripted attempt missed the handle hit-zone in the reflowing per-clip zoom view) â€” hand-test item for user; the code path itself is proven via the drawer button.
 
 > **ðŸ›¬ 2026-07-03 evening â€” SESSION LANDING. Sprite S1 REVIEW-GATED + P0 no-overlap fixed. READ FIRST.**
 > Since the S1 commit: (1) **RIG VISION recorded as binding direction** (PLAN_SPRITE_ANIMATION Â§RIG VISION):
 > keyframed transforms + per-item anchor override + parentItemId = full puppet rigs; all ADDITIVE to the S1
 > schema; a future resolveTransformAt must be the single transform authority like SpriteFrameResolver is for
-> cells; reviewers must flag anything in S2â€“S7 that paints us out. (2) **P0 audio-stacking FIXED (c7442ae)**:
+> cells; reviewers must flag anything in S2â€“S7 that paints us out. (2) **P0 audio-stacking FIXED (35b4768)**:
 > applyMove â†’ resolveNoOverlapStart snaps same-row overlaps to the nearer butting edge (multi-pass, landing
 > row = hoverTarget else own row); cross-row occupied drops were already bookend-handled. (3) **S1 adversarial
 > review gate ran (2 lenses Ã— 2 skeptics): 5 findings, ALL FIXED** â€” MAJOR: setTimeRange degenerate-range
@@ -1519,7 +1519,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > srcRect math from grid geometry, bg color-key at decode) â€” pure engine, no UX decisions. User hand-test
 > owed: no-overlap feel (try to stack two audio items; try to stack text) + the batch-2 drag/trim items.
 >
-> **ðŸŽ¬ 2026-07-03 afternoon â€” SPRITE ANIMATION BUILD 1 STARTED (S1 model+storage DONE, 3243fdb) + roadmap synced (c46c612).**
+> **ðŸŽ¬ 2026-07-03 afternoon â€” SPRITE ANIMATION BUILD 1 STARTED (S1 model+storage DONE, ce2161d) + roadmap synced (108a1b5).**
 > User decisions: Fable-5 builds vision-heavy work personally (sprites, AI integrations, UX overhauls;
 > small stuff can go to lesser models); major AI features AFTER core stability; NOT full ultracode â€”
 > sequential Fable implementation + adversarial-review workflows at S1/S4/S6 gates. Roadmap got a sync
@@ -1537,15 +1537,15 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > **ðŸ›¬ 2026-07-03 ~04:15 â€” SESSION LANDING (Fable orchestrator, autonomous overnight run complete). READ THIS FIRST.**
 > **The ENTIRE gesture cluster is DONE and installed on the sandbox (<note9-serial>), awaiting ONE morning
 > hand-test.** Code commits this session, all BUILT GREEN via the watcher, each checkpoint-committed:
-> 9cf3080 (contract redesign recovered from the lost agent + 2 orch fixes) â†’ aadf9c1 (delete = selection
-> trash badge) â†’ 4375fab (feedback batch 1: badge 9dp+viewport-pinned, row-scrub FLING, timeline-locked
-> TRIM STRIPES, honest cross-band preview + insertion line) â†’ fcc0bd5 (adversarial-review fixes â€” CRITICAL:
+> 1ef4496 (contract redesign recovered from the lost agent + 2 orch fixes) â†’ 75167b1 (delete = selection
+> trash badge) â†’ 5462ecd (feedback batch 1: badge 9dp+viewport-pinned, row-scrub FLING, timeline-locked
+> TRIM STRIPES, honest cross-band preview + insertion line) â†’ 450aa13 (adversarial-review fixes â€” CRITICAL:
 > ACTION_CANCEL/pinch-interrupt now ABORTS+REVERTS instead of committing the drop/new-lane; delete badge
 > deferred to tap-on-UP so swipes-from-badge scrub; trim handles win the badge-overlap strip; VelocityTracker
-> recycle) â†’ c0248db (BOOKEND MANEUVER: occupied-row snap, panel-half BEFORE/AFTER, animated view excursion
-> with CONTENT-LOCKED playhead cue, animate-back, suppressMoveMapping across the return glide) â†’ 5ac5701
+> recycle) â†’ fda802c (BOOKEND MANEUVER: occupied-row snap, panel-half BEFORE/AFTER, animated view excursion
+> with CONTENT-LOCKED playhead cue, animate-back, suppressMoveMapping across the return glide) â†’ 7813563
 > (post-pinch dead zone: surviving finger pans immediately, re-anchored zero-jump, flings on release).
-> **Review evidence:** a 3-lens Ã— 2-skeptic adversarial workflow confirmed 5 defects (all fixed in fcc0bd5);
+> **Review evidence:** a 3-lens Ã— 2-skeptic adversarial workflow confirmed 5 defects (all fixed in 450aa13);
 > full findings JSON in the session task output. Hand-test #1 evidence: ROWGESTURE pull proved every
 > contract case (AXIS-HORIZONTAL scrub-not-move, TAP select-only, PICKUP, drop commits) and proved the old
 > 7dp badge got ZERO hits (hence the redesign). Logcat buffer CLEARED at landing for a clean morning pull.
@@ -1557,16 +1557,16 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > insertion line honesty, trim stripes, pinchâ†’pan handback) + pull `adb logcat -d -s ROWGESTURE:D`, verify
 > BOOKEND/EXCURSION/PINCH-HANDBACK/DELETE lines; (2) fix whatever the feel-test surfaces; (3) STRIP the TEMP
 > ROWGESTURE logging (LayerGestureController ROWGESTURE_LOG + all RG() in EditorTimelineView/LayerRowRenderer);
-> (4) then the standing queue: rebrand pass 1 (name DECIDED "Joy Creator", icons in art/, quick-wins d86a3c0)
+> (4) then the standing queue: rebrand pass 1 (name DECIDED "Joy Creator", icons in art/, quick-wins 1d49eca)
 > â†’ Tier-1 durability â†’ transcript dedup (timestamped project.json backup FIRST) â†’ M11 â†’ M-EXPORT-1 (Opus) â†’
 > ping-pong unpark. Known deferred bookend edges are listed in the PLAN Status block (same-row overlap,
 > 0-clamp, interior gaps).
 >
-> **ðŸ›¬ 2026-07-03 ~03:45 UPDATE 2 â€” HAND-TEST #1 PASSED (log-verified) + FEEDBACK BATCH 1 LANDED (4375fab).**
+> **ðŸ›¬ 2026-07-03 ~03:45 UPDATE 2 â€” HAND-TEST #1 PASSED (log-verified) + FEEDBACK BATCH 1 LANDED (5462ecd).**
 > User hand-tested the redesign: core contract CONFIRMED by feel AND by ROWGESTURE pull (AXIS HORIZONTAL
 > scrub-not-move Ã—2, TAP select-only, PICKUP-MOVE commits, droppedOnNewLayer=true, cross-row toTrack move;
 > trim "works excellent"). Log also PROVED the trash badge got ZERO hits all session ("hard to hit").
-> **4375fab ships their 4 feedback fixes:** (1) badge 9dp + 2.0r slop + PINNED to screen-right edge on long
+> **5462ecd ships their 4 feedback fixes:** (1) badge 9dp + 2.0r slop + PINNED to screen-right edge on long
 > items (deleteBadgeCx single-sources glyph+hitzone; layout() captures hScroll/width); (2) row-band scrub
 > FLING (VelocityTracker on the custom path â†’ startPlayheadFling, extracted from onFling); (3) edge-trim
 > STRIPES â€” timeline-locked content-space diagonal grid, 180ms fade (resize visibly "eats stripes" vs move);
@@ -1578,17 +1578,17 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > timeline-PANEL-half bookend choice, playhead stays content-locked as the "temporary maneuver" cue,
 > animate-back on exit) now in PLAN_LAYER_GESTURE_CONTRACT.md FOLLOW-UP 1 â€” Opus-tier, NEXT after user
 > confirms batch 1 + the spec restatement. Post-pinch handback (FOLLOW-UP 2) still queued after that.
-> An adversarial multi-agent review of 9cf3080+aadf9c1+4375fab ran at landing â€” check the session report
+> An adversarial multi-agent review of 1ef4496+75167b1+5462ecd ran at landing â€” check the session report
 > for surviving findings before building on these files.
 >
 > **ðŸ›¬ 2026-07-03 ~03:10 UPDATE (orchestrator pickup) â€” GESTURE REDESIGN RECOVERED + COMMITTED, AWAITING USER HAND-TEST.**
 > The in-flight agent's diff was found dirty + RED (1 compile error). Diff-reviewed (coherent, matches PLAN
-> TARGET CONTRACT), fixed, committed **9cf3080**: swipe-on-item=scrub, tap=select, 450ms long-press=pickup
+> TARGET CONTRACT), fixed, committed **1ef4496**: swipe-on-item=scrub, tap=select, 450ms long-press=pickup
 > (haptic+lift), drop zone PINNED to visible viewport bottom. Orch fixes folded in: (1) dead write-only field
 > `m7PendingLastX` used out-of-scope `x` (the compile error) â€” removed; (2) **onUp had NO m7ItemPendingDown
 > branch** â€” a quick tap left the 450ms pickup timer live â†’ item self-lifts after the finger left + gestures
 > jam until next DOWN â€” added TAP resolution (cancel timer, close pending gesture, release parent intercept).
-> Then **aadf9c1**: delete relocation done (plan's unchecked item â€” the agent had unwired long-press delete
+> Then **75167b1**: delete relocation done (plan's unchecked item â€” the agent had unwired long-press delete
 > leaving onItemDeleteRequested UNREACHABLE): trash roundel on the SELECTED item (right end, inside trim cap),
 > ItemZone.DELETE hit-tested first w/ finger slop, DownResult.CONSUMED fires the same confirmation dialog on
 > DOWN like header icons; badge auto-skipped on too-narrow items (deleteBadgeCx single-sources glyph+hitzone).
@@ -1598,8 +1598,8 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > PICKUP armed + zoneInViewport=true + screenZoneBot < ~924, DELETE badge CONSUMED. Then queue items 2-5
 > below (sub-lanes â†’ post-pinch handback â†’ strip ROWGESTURE â†’ rebrand...). ROWGESTURE logging still IN.**
 >
-> **2026-07-04 â€” LAYERS MVP COMPLETE (M-EXPORT-1 @ 1d0c0b0: shared-authority export parity, decoded-stream
-> md5 gate) + PHASE R ROBUSTNESS LANDED (26cf3cf: hide-toggle live refresh device-proven; same-row overlap
+> **2026-07-04 â€” LAYERS MVP COMPLETE (M-EXPORT-1 @ cc09f74: shared-authority export parity, decoded-stream
+> md5 gate) + PHASE R ROBUSTNESS LANDED (d6bb54f: hide-toggle live refresh device-proven; same-row overlap
 > never persists â€” row system + legacy waveform lane + audio-trim clamps; ONE 8dp snap constant everywhere;
 > time-locked vertical swap w/ dashed guides, occupant-never-moves). PHASE P IN FLIGHT (Fable): layer header
 > long-press menu (rename/move-z/delete), z-order end-to-end, M11 ripple/gap toggle â€” if found dirty, assess
@@ -1610,7 +1610,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > handoff), v3 remaining P1s (edge auto-pan, minimap drag-nav), timeline fidelity W1/W2/T1, M-COMP-2
 > probe-first, preview perf memoization (Track views rebuild per access), export-duration math oddity.
 
-> **ðŸ“ 2026-07-03 eve â€” PING-PONG UNPARKED, FULLY DEVICE-PROVEN (fe88e39). Diagnosis method: ultracode
+> **ðŸ“ 2026-07-03 eve â€” PING-PONG UNPARKED, FULLY DEVICE-PROVEN (72c8cd7). Diagnosis method: ultracode
 > 3-investigator + adversarial-judge workflow (plan + full evidence: tasks/PLAN_PINGPONG_UNPARK.md/.json).**
 > Root cause SETTLED: mid-playlist HEVCâ†’AVC codec swap (amplified by zero error handling in the gapless
 > engine). Fixed: (1) rank-1 containment â€” onPlayerError â†’ poison reversed URI â†’ PER-CLIP forward degrade â†’
@@ -1632,16 +1632,16 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > long-press=pickup+lift+haptic, drop zone pinned INSIDE viewport, delete moves to selection state, extend
 > the TEMP ROWGESTURE logging). On pickup: `git status` â€” if those files are dirty: build.log green + diff
 > coherent â†’ COMMIT it (agent reports are lost between sessions; diff-review is the protocol, done twice
-> already today, see 7ae8e42); red/incoherent â†’ stash w/ clear name, restore green from 64192bb.
+> already today, see 94cc373); red/incoherent â†’ stash w/ clear name, restore green from 600a0c4.
 > **THEN, strict order (same files, ONE agent at a time):** (1) relay the redesign's â‰¤4-gesture hand-test to
 > the user, pull `adb logcat -d -s ROWGESTURE:D` after; (2) sub-lane overlap rendering (PLAN FOLLOW-UP Â§);
 > (3) post-pinch pan handback (PLAN FOLLOW-UP 2 Â§); (4) strip ROWGESTURE TEMP logging once user confirms.
-> **Today's landed evidence chain:** row scrub pass-through 6a47560+1a13557+23930bb (X-only-slop + pinch-leak
-> fixes); ghost-lock/selection 7ae8e42; L1 loops 52cdc29; L2 ping-pong 9d9539c but **PARKED** by ffcdc86
+> **Today's landed evidence chain:** row scrub pass-through a75c115+4361379+1a0d4c5 (X-only-slop + pinch-leak
+> fixes); ghost-lock/selection 94cc373; L1 loops 2c3738a; L2 ping-pong 292cd62 but **PARKED** by 03a4b09
 > (shared-player reversed-item decode failure blacks out preview â€” unpark = fix that decode, the parity
-> architecture is sound); icon art in art/ (9562300; orchestrator rec: Expanse=splash, simplified Director
-> clapper=launcher); name DECIDED = **Joy Creator** (5069a3b), Studio = descriptor.
-> **Queue after the gesture cluster:** rebrand pass 1 (quick-wins catalog d86a3c0) â†’ Tier-1 durability â†’
+> architecture is sound); icon art in art/ (db017d5; orchestrator rec: Expanse=splash, simplified Director
+> clapper=launcher); name DECIDED = **Joy Creator** (5f5d56b), Studio = descriptor.
+> **Queue after the gesture cluster:** rebrand pass 1 (quick-wins catalog 1d49eca) â†’ Tier-1 durability â†’
 > transcript dedup (timestamped backup FIRST) â†’ M11 â†’ M-EXPORT-1 (Opus) â†’ ping-pong unpark â†’ feedback
 > batch (#8 small-screen, #5 transcribe-on-add+gear, #6 tools drawer) â†’ masking/chroma/alpha planning
 > (FEEDBACK_20260702_layers_masking.md Â§C) â†’ full-studio Â§7 of DESIGN doc.
@@ -1650,15 +1650,15 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > **User workflow:** not a programmer; hand-tests on the Note 9 and describes FEEL â€” turn that into log
 > evidence (ROWGESTURE pattern), never script drags (impossible on this device), â‰¤4-gesture checklists.
 
-> **2026-07-02 eve â€” L2 TRUE PING-PONG COMPLETE (9d9539c, device-verified) + ghost-lock/selection commit (7ae8e42) + user icon art in art/ (9562300).** Ping-pong now truly reverses: `export/ReversedSegmentCache` (ffmpeg-kit, **libx264 forced â€” Note 9 HW encoder rejects these sources**, ~6s bake for 3.5s span, 30s guard, off-main + drawer kick + auto-promote); preview playlist alternates fwd/rev; ExportManager reverse branch uses the SAME baked file+formula (old forward-tail fake + mirror hack + `setPlaybackSpeed(-1f)` all DELETED); `totalEffectiveMs()` now counts loop extensions â€” closes the audio-tail resume-from-pause bug AND the totalEffectiveMs follow-up in one fix. Owed: user eyeball of a live ping-pong wrap + reverse-leg audio listen (test clip was muted); >30s bake guard untested on device (no long source). 7ae8e42 = TrackFlags baseline-snapshot merge guard (shows-unlocked-acts-locked fixed) + stale-flags cleanup + SELECTION VISUALS now actually drawn (were never implemented) â€” user hand-test checklist delivered. NEXT per queue: L3 loop polish (incl. dead ping-pong fields cleanup) â†’ rebrand pass 1 (icon concepts in art/, naming question OPEN: art says "Joy Creator STUDIO" â€” confirm with user before mass string work) â†’ Tier-1 durability â†’ dedup â†’ M11 â†’ M-EXPORT-1.
+> **2026-07-02 eve â€” L2 TRUE PING-PONG COMPLETE (292cd62, device-verified) + ghost-lock/selection commit (94cc373) + user icon art in art/ (db017d5).** Ping-pong now truly reverses: `export/ReversedSegmentCache` (ffmpeg-kit, **libx264 forced â€” Note 9 HW encoder rejects these sources**, ~6s bake for 3.5s span, 30s guard, off-main + drawer kick + auto-promote); preview playlist alternates fwd/rev; ExportManager reverse branch uses the SAME baked file+formula (old forward-tail fake + mirror hack + `setPlaybackSpeed(-1f)` all DELETED); `totalEffectiveMs()` now counts loop extensions â€” closes the audio-tail resume-from-pause bug AND the totalEffectiveMs follow-up in one fix. Owed: user eyeball of a live ping-pong wrap + reverse-leg audio listen (test clip was muted); >30s bake guard untested on device (no long source). 94cc373 = TrackFlags baseline-snapshot merge guard (shows-unlocked-acts-locked fixed) + stale-flags cleanup + SELECTION VISUALS now actually drawn (were never implemented) â€” user hand-test checklist delivered. NEXT per queue: L3 loop polish (incl. dead ping-pong fields cleanup) â†’ rebrand pass 1 (icon concepts in art/, naming question OPEN: art says "Joy Creator STUDIO" â€” confirm with user before mass string work) â†’ Tier-1 durability â†’ dedup â†’ M11 â†’ M-EXPORT-1.
 
-> **2026-07-02 â€” L1 (seamless NORMAL loops on gapless engine) COMPLETE, BUILT GREEN, device-verified on Note 9 sandbox (bdd51919â€¦).** Resumed WIP `1597fee` (compile-green, cut mid-verification) â€” the WIP was ~95% done: `MasterPlaybackEngine` already expanded NORMAL-loop clips into before/main/after rep windows with clamp math verified to mirror `ExportManager.buildLoopExtensionItem` EXACTLY (read both side by side â€” same `ceil` rep count, same `min(trimmedPlayMs, extensionMs - repIndex*trimmedPlayMs)` clamp, same append order), same-clip rep-to-rep seams suppressed (`SeamListener` fires only on real timeline-clip change), continuous visual position/duration plumbed through `getCurrentPositionInWindow()`/`getCurrentWindowDuration()`, and the activity's poll-based NORMAL-loop wrap block correctly bypassed when `playerManager.isGapless()` (ordering: PING_PONG legacy â†’ gapless-NORMAL early-return â†’ legacy-NORMAL â†’ STILL legacy, all correct, none of L2/L3 touched). **Real gap found and fixed:** the loop DRAWER's button-driven paths (`applyLoopMode`, `extendLoop` â€” the "Off/Loop/Still/Ping-pong" mode chips and "Extend to start/end/prev/next clip" buttons) mutated the clip's loop fields but never called `playerManager.updateTrimBounds(clip)`, unlike the drag-driven path (`onLoopTrimFinished`, already wired) and undo/redo (`refreshEditorAfterUndoRedo`, already wired) â€” so editing a loop via the drawer left the gapless engine's playlist STALE (wrong rep count/boundaries, or wrong engine entirely if switching to/from PING_PONG/STILL) until some unrelated action forced a rebuild. Fixed by adding the same `if (!clip.isImageClip()) playerManager.updateTrimBounds(clip);` call (guarded, matching the established convention) to both methods. Flag `FaditorPlayerManager.GAPLESS_ENGINE` restored to `true` (previous agent had set it `false` for baseline measurement only).
+> **2026-07-02 â€” L1 (seamless NORMAL loops on gapless engine) COMPLETE, BUILT GREEN, device-verified on Note 9 sandbox (bdd51919â€¦).** Resumed WIP `0b5ed7b` (compile-green, cut mid-verification) â€” the WIP was ~95% done: `MasterPlaybackEngine` already expanded NORMAL-loop clips into before/main/after rep windows with clamp math verified to mirror `ExportManager.buildLoopExtensionItem` EXACTLY (read both side by side â€” same `ceil` rep count, same `min(trimmedPlayMs, extensionMs - repIndex*trimmedPlayMs)` clamp, same append order), same-clip rep-to-rep seams suppressed (`SeamListener` fires only on real timeline-clip change), continuous visual position/duration plumbed through `getCurrentPositionInWindow()`/`getCurrentWindowDuration()`, and the activity's poll-based NORMAL-loop wrap block correctly bypassed when `playerManager.isGapless()` (ordering: PING_PONG legacy â†’ gapless-NORMAL early-return â†’ legacy-NORMAL â†’ STILL legacy, all correct, none of L2/L3 touched). **Real gap found and fixed:** the loop DRAWER's button-driven paths (`applyLoopMode`, `extendLoop` â€” the "Off/Loop/Still/Ping-pong" mode chips and "Extend to start/end/prev/next clip" buttons) mutated the clip's loop fields but never called `playerManager.updateTrimBounds(clip)`, unlike the drag-driven path (`onLoopTrimFinished`, already wired) and undo/redo (`refreshEditorAfterUndoRedo`, already wired) â€” so editing a loop via the drawer left the gapless engine's playlist STALE (wrong rep count/boundaries, or wrong engine entirely if switching to/from PING_PONG/STILL) until some unrelated action forced a rebuild. Fixed by adding the same `if (!clip.isImageClip()) playerManager.updateTrimBounds(clip);` call (guarded, matching the established convention) to both methods. Flag `FaditorPlayerManager.GAPLESS_ENGINE` restored to `true` (previous agent had set it `false` for baseline measurement only).
 >
 > **Device verification (Note 9 sandbox `bdd51919â€¦`, clip[1]: loopMode=NORMAL, loopAfterMs=11000, trimmed=8962ms â†’ 2 reps, rep0=8962ms full + rep1=2038ms clamped-partial, visual duration=19962ms):** wrap measurement used logcat-timestamped `MasterPlayEngine` seam/wrap markers correlated against `screenrecord` + `ffmpeg` frame extraction (NOT naive whole-clip `freezedetect` â€” this footage is near-static rug/fabric texture, so freezedetect at -30dB threshold produced sustained false-positive "freezes" on genuinely smooth playback; the reliable signal was per-frame MD5 hashing at 30fps in a 1s window bracketing each logcat-timestamped wrap, counting consecutive IDENTICAL frames). Results: main-passâ†’rep0 wrap = 2 single-duplicate-pairs out of 30 frames (normal frame-pacing rate, zero extended freeze); rep0â†’rep1 (partial) wrap = 1 duplicate pair out of 30; clip[1]â†’clip[2] exhaustion/auto-advance = 2 duplicate pairs out of 31 â€” **all three wraps show ZERO frozen-frame runs longer than 1 frame (33ms)**, vs the previous agent's measured legacy baseline of 106â€“163ms. Play-through auto-advance across BOTH remaining cuts (clip1â†’clip2, clip2â†’clip3) confirmed via `onGaplessSeam autoAdvance=true` reaching a clean 00:27/00:27 end state. Pause mid-extension (00:18, within rep1) held a coherent non-corrupted frame; trim-via-drawer ("Extend to end" +1000ms) confirmed via `project.json` diff (loopAfterMs 11000â†’12000) AND a live "gapless playlist prepared: 6 clipped items" log confirming the rebuild fired; undo confirmed via `project.json` byte-diff (only `lastModified` timestamp differs, loop fields exact match, gapless rebuild fired again on undo via the pre-existing `refreshEditorAfterUndoRedo`â†’`updateTrimBounds` path).
 >
-> **Seam-clobber add-on (commit `9edad8a`, already-committed fix â€” verifying it holds now that loops ride the same engine):** captured 3 genuine user-seek cross-clip seams (`autoAdvance=false`) during scripted taps and 2 auto-advance seams (`autoAdvance=true`) during play-through. All 3 user-seek seams correctly took the "don't re-home" code path (verified both by the `autoAdvance=false` log flag, which gates the `setPlayheadFraction` call in `onGaplessSeam`, and by the final on-screen playhead sitting at a real tapped position, never 0/a clip-start); both auto-advance seams correctly DID re-home (reaching the clean timeline end). **Caveat, reported honestly per the one/two-attempt rule:** a controlled "40 scripted taps across ONE fixed boundary" batch was NOT cleanly achieved â€” `EditorTimelineView` auto-reflows into a per-clip "zoomed filmstrip" view on tap, which invalidates a pre-computed tap coordinate the instant the view mode flips (recalibrating from a stale screenshot lands taps back inside the already-zoomed clip instead of crossing the boundary again). Two attempts (one blind 40-tap batch, one recalibrated 5-pair-at-a-time batch) both hit this same reflow obstacle; real cross-clip seam samples were captured through the incidental view transitions that DID occur, and all samples agree, but this is a smaller/less controlled sample than a clean 40-cross run would have given. Not iterated on further per the testing-economics rule â€” flagging for the next session if a stronger sample is wanted (would need e.g. a fixed-zoom / non-reflowing scrub surface, or driving seeks via a debug intent extra instead of raw taps).
+> **Seam-clobber add-on (commit `9123612`, already-committed fix â€” verifying it holds now that loops ride the same engine):** captured 3 genuine user-seek cross-clip seams (`autoAdvance=false`) during scripted taps and 2 auto-advance seams (`autoAdvance=true`) during play-through. All 3 user-seek seams correctly took the "don't re-home" code path (verified both by the `autoAdvance=false` log flag, which gates the `setPlayheadFraction` call in `onGaplessSeam`, and by the final on-screen playhead sitting at a real tapped position, never 0/a clip-start); both auto-advance seams correctly DID re-home (reaching the clean timeline end). **Caveat, reported honestly per the one/two-attempt rule:** a controlled "40 scripted taps across ONE fixed boundary" batch was NOT cleanly achieved â€” `EditorTimelineView` auto-reflows into a per-clip "zoomed filmstrip" view on tap, which invalidates a pre-computed tap coordinate the instant the view mode flips (recalibrating from a stale screenshot lands taps back inside the already-zoomed clip instead of crossing the boundary again). Two attempts (one blind 40-tap batch, one recalibrated 5-pair-at-a-time batch) both hit this same reflow obstacle; real cross-clip seam samples were captured through the incidental view transitions that DID occur, and all samples agree, but this is a smaller/less controlled sample than a clean 40-cross run would have given. Not iterated on further per the testing-economics rule â€” flagging for the next session if a stronger sample is wanted (would need e.g. a fixed-zoom / non-reflowing scrub surface, or driving seeks via a debug intent extra instead of raw taps).
 >
-> **One pre-existing bug found (NOT fixed â€” out of L1's gapless-engine scope, flagged separately, follow-up task spawned):** `FaditorEditorActivity.totalEffectiveMs()` (~line 587) sums `getTrimmedDurationMs()` per clip but never adds `loopBeforeMs`/`loopAfterMs`, so on any project with a loop extension it undercounts the real timeline length (confirmed: sandbox project's real total = 27624ms, `totalEffectiveMs()` returns 16624ms â€” short by exactly the 11000ms extension). This function gates the "audio-tail" feature (`onPlayPauseClicked`-equivalent ~line 3009): pressing Play from a paused position anywhere past the miscalculated `videoEndMs` (which includes the back half of clip[1]'s extension plus all of clip[2]/clip[3] in the sandbox) triggers `audioTailActive` mode â€” the video freezes on whatever frame was last shown while `updatePlayheadPosition()`'s audio-tail branch drives the time counter purely by wall-clock elapsed time, never resuming real ExoPlayer playback, until it "catches up" to the timeline end a few real seconds later. Reproduced live on-device. This is flag-independent (present in both `GAPLESS_ENGINE=true/false`) and pre-dates this whole session (`git log -S"totalEffectiveMs"` â†’ only the `10bc40b` baseline commit), so it's a latent defect in the audio-tail feature exposed by loop extensions, not something L1 introduced â€” left alone as instructed ("don't touch scope outside L1"), but it directly breaks "pause mid-loop â†’ resume" for any looped project, so it's a real near-term fix (one-line: mirror the `hasLoopExtension() ? getVisualDurationMs() : getTrimmedDurationMs()` pattern already used correctly elsewhere in this same file, e.g. ~7130-7136/~7160-7167/~6960-6966).
+> **One pre-existing bug found (NOT fixed â€” out of L1's gapless-engine scope, flagged separately, follow-up task spawned):** `FaditorEditorActivity.totalEffectiveMs()` (~line 587) sums `getTrimmedDurationMs()` per clip but never adds `loopBeforeMs`/`loopAfterMs`, so on any project with a loop extension it undercounts the real timeline length (confirmed: sandbox project's real total = 27624ms, `totalEffectiveMs()` returns 16624ms â€” short by exactly the 11000ms extension). This function gates the "audio-tail" feature (`onPlayPauseClicked`-equivalent ~line 3009): pressing Play from a paused position anywhere past the miscalculated `videoEndMs` (which includes the back half of clip[1]'s extension plus all of clip[2]/clip[3] in the sandbox) triggers `audioTailActive` mode â€” the video freezes on whatever frame was last shown while `updatePlayheadPosition()`'s audio-tail branch drives the time counter purely by wall-clock elapsed time, never resuming real ExoPlayer playback, until it "catches up" to the timeline end a few real seconds later. Reproduced live on-device. This is flag-independent (present in both `GAPLESS_ENGINE=true/false`) and pre-dates this whole session (`git log -S"totalEffectiveMs"` â†’ only the `78c82cd` baseline commit), so it's a latent defect in the audio-tail feature exposed by loop extensions, not something L1 introduced â€” left alone as instructed ("don't touch scope outside L1"), but it directly breaks "pause mid-loop â†’ resume" for any looped project, so it's a real near-term fix (one-line: mirror the `hasLoopExtension() ? getVisualDurationMs() : getTrimmedDurationMs()` pattern already used correctly elsewhere in this same file, e.g. ~7130-7136/~7160-7167/~6960-6966).
 >
 > **Files touched:** `FaditorEditorActivity.java` (+13, the two `updateTrimBounds` calls + comments), `FaditorPlayerManager.java` (flag restore, 1 line). No commit made (per instructions â€” the user commits). Build green throughout, no temp logging added or left behind.
 
@@ -1670,11 +1670,11 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 >   â€¢ **Mechanism 2 (surface overlap / two surfaces eat one finger during a ruler DRAG):** NOT yet investigated in the preview/workspace surface code â€” only the timeline side was read. The timeline's `EditorTimelineView` already calls `getParent().requestDisallowInterceptTouchEvent(true)` on down/scroll, so the parent shouldn't steal it; the suspected culprit is a SEPARATE gesture surface on the preview/player area that also scrubs. Next session: find the preview-surface touch/scrub handler (search `playerView`/preview drag-to-scrub in `FaditorEditorActivity`), confirm both process pointers, and add first-claim-wins pointer ownership (a shared "a scrub gesture is active" latch checked by both). Physical gap between ruler hit-zone and that surface, and whether a few-dp dead-zone/hit-slop helps, is UNMEASURED â€” do it there.
 > **Untouched/again-green rules honored:** no git commit; ExportManager/Layers-gesture/captions code not modified for this task; all temp `SNAPDBG` logging + the scratch `userSeekInFlight` field removed (grep-verified zero matches). **Legacy engine:** flip `FaditorPlayerManager.GAPLESS_ENGINE=false` to bypass â€” the seam path (and thus this whole bug class) doesn't run in legacy, so the fix is inert there; not re-tested with the flag off this session.
 
-> **2026-07-02 â€” Caption-style-keyframe UX REDO COMPLETE (BUILT GREEN, full device-verify with JSON+screenshot evidence).** Found the M-COMP-1 commit (`01d0d66`) had already landed most of the scaffolding (data model, undo action, `caption_keyframe_drawer` XML, arm/nav/delete wiring, and the CC-lane per-segment coloring in `EditorTimelineView`) â€” this was NOT the killed stash (left untouched, stash@{1}), it was real committed foundation. Closed the actual gaps: (1) fixed a real bug where `Clip.captionStyleId` never resynced when kf[0] was replaced/removed, so deleting the first keyframe reverted to a STALE base style instead of "next keyframe's style extends back" â€” `Clip.java` now keeps `captionStyleId` as a derived cache of keyframe[0]'s style across `addOrUpdateCaptionStyleKeyframe`/`removeCaptionStyleKeyframe`/`setCaptionStyleKeyframes` (the last one matters most: undo/redo is now self-contained with no separate style snapshot needed); (2) tolerance 40msâ†’50ms (`Clip.CAPTION_STYLE_KEYFRAME_TOLERANCE_MS`); (3) nav buttons now dim/disable per-direction at ends (were show/hide as a pair); (4) new `captions/CaptionStyleKeyframeController.java` (stateless: `computeNavState`, `isOnKeyframe`, `tapActionFor`, `colorForStyle` alias) centralizes logic that was duplicated inline; (5) added a stopwatch shortcut (`caption_kf_arm_shortcut`) to the bottom caption-style chip bar so keyframe mode is reachable without long-pressing the CC timeline lane â€” taps the SAME arm state + drawer, not a second source of truth.
+> **2026-07-02 â€” Caption-style-keyframe UX REDO COMPLETE (BUILT GREEN, full device-verify with JSON+screenshot evidence).** Found the M-COMP-1 commit (`e46d0ac`) had already landed most of the scaffolding (data model, undo action, `caption_keyframe_drawer` XML, arm/nav/delete wiring, and the CC-lane per-segment coloring in `EditorTimelineView`) â€” this was NOT the killed stash (left untouched, stash@{1}), it was real committed foundation. Closed the actual gaps: (1) fixed a real bug where `Clip.captionStyleId` never resynced when kf[0] was replaced/removed, so deleting the first keyframe reverted to a STALE base style instead of "next keyframe's style extends back" â€” `Clip.java` now keeps `captionStyleId` as a derived cache of keyframe[0]'s style across `addOrUpdateCaptionStyleKeyframe`/`removeCaptionStyleKeyframe`/`setCaptionStyleKeyframes` (the last one matters most: undo/redo is now self-contained with no separate style snapshot needed); (2) tolerance 40msâ†’50ms (`Clip.CAPTION_STYLE_KEYFRAME_TOLERANCE_MS`); (3) nav buttons now dim/disable per-direction at ends (were show/hide as a pair); (4) new `captions/CaptionStyleKeyframeController.java` (stateless: `computeNavState`, `isOnKeyframe`, `tapActionFor`, `colorForStyle` alias) centralizes logic that was duplicated inline; (5) added a stopwatch shortcut (`caption_kf_arm_shortcut`) to the bottom caption-style chip bar so keyframe mode is reachable without long-pressing the CC timeline lane â€” taps the SAME arm state + drawer, not a second source of truth.
 >
 > **Device-verified on Note 9 sandbox (`bdd51919â€¦`), tap-only, no drags:** armâ†’toastâ†’drawer-open; drop keyframe (JSON: `t`/`s` fields, e.g. `{t:0,s:"boxed"},{t:6500,s:"hot"}`); on-keyframe tap = REPLACE (toast "Keyframe style replaced", array stays same length) vs off-keyframe = DROP (toast "Style keyframe dropped", array grows) â€” confirmed via `CaptionStyleKeyframeController.tapActionFor` computed BEFORE mutation; `<`/`>` nav jumps exactly onto keyframe times + dims at ends (`enabled`+`alpha` both checked via `uiautomator dump`); delete removes + confirmed the first-keyframe-removed-extends-back fix works (chip highlight + solid CC-bar color flipped from the deleted style to the surviving one); undo restored the keyframe array byte-for-byte across DROP/REPLACE/REMOVE (undo counter decremented, redo incremented, JSON diffed each step). CC-bar per-segment coloring + diamond markers (spec's visual ask) were ALREADY correct pre-existing code â€” got a clean two-tone screenshot (tealâ†’mint transition with a diamond at the boundary) as bonus confirmation. **Caveat found, not a bug:** on a very-high-speed clip (6.5x in the sandbox), nav-to-keyframe can land outside the Â±50ms tolerance because timelineâ†’source seek quantization gets amplified by the speed multiplier â€” pre-existing seek-pipeline characteristic (same pattern the opacity/volume keyframe drawers would hit), not something this task's scope covers fixing. `buildCaptionDrawerContent()`'s separate "Caption Style" bottom-sheet (distinct from the floating chip bar) still bypasses keyframe mode entirely (its chips always set base style) â€” left as-is, not in the spec's UX description, flagging for a future pass if the user wants keyframe-awareness there too.
 
-> **2026-07-02 â€” M10 drag-between-layers + drop-to-new-layer COMPLETE (BUILT GREEN, one-undo-step gap fixed, device-verify PARTIAL â€” sandbox tap/pan/lock checks passed, the actual drag gesture unconfirmed).** Picked up `0cf3a4c`'s WIP, which was already ~95% complete: `LayerTrackDef.java` (new, persistent user-created track defs), `Timeline.getLayers()/getAudioTracks()` grouped by `layerId` with `extraLayerTracks`, `LayerRowRenderer` cross-row highlight ring + "+ New layer" drop zone (drawn BELOW the last row, not above the top row â€” the WIP took the plan's "or a dedicated drop zone" branch; document this if a future agent expects an above-top-row zone), `LayerGestureController` hover-target tracking + same-band/locked/hidden rejection guard, full `ProjectStorage` serialize/deserialize of `trackDefs`+`layerId`, and the real pre-existing `onScroll` guard fix (`!m7ItemGestureActive && !m6RowDragActive`) â€” kept as-is, verified regression-free (see below). **Gap I fixed:** the WIP recorded the position-change and the track-change as TWO separate `undoStack` pushes for a diagonal drag (the common case â€” finger rarely moves in a pure vertical line), violating acceptance (d) "each completed drag = ONE undo step." Fix: flipped `LayerGestureController.onRowBodyUp()`'s callback order so `onItemMovedToTrack`/`onItemDroppedOnNewLayer` fire BEFORE `onGestureFinished` (was: after); they now stage undo/redo `Runnable`s into `FaditorEditorActivity.pendingLayerTrackUndo` instead of calling `recordAction` themselves, and `onGestureFinished` folds them into ONE `mergedAction()` alongside the position-change halves (also handles the track-only-no-position-change case via `maybeRecordTrackOnlyChange`, which the WIP would have silently dropped in that edge case). Compiles green (`compileDefaultDebugJavaWithJavac` executed + passed, installed on Note 9). Files touched beyond `0cf3a4c`: `layers/LayerGestureController.java`, `FaditorEditorActivity.java` only â€” no model/storage changes, so v8-stamping behavior is exactly what the WIP already established.
+> **2026-07-02 â€” M10 drag-between-layers + drop-to-new-layer COMPLETE (BUILT GREEN, one-undo-step gap fixed, device-verify PARTIAL â€” sandbox tap/pan/lock checks passed, the actual drag gesture unconfirmed).** Picked up `ab316a5`'s WIP, which was already ~95% complete: `LayerTrackDef.java` (new, persistent user-created track defs), `Timeline.getLayers()/getAudioTracks()` grouped by `layerId` with `extraLayerTracks`, `LayerRowRenderer` cross-row highlight ring + "+ New layer" drop zone (drawn BELOW the last row, not above the top row â€” the WIP took the plan's "or a dedicated drop zone" branch; document this if a future agent expects an above-top-row zone), `LayerGestureController` hover-target tracking + same-band/locked/hidden rejection guard, full `ProjectStorage` serialize/deserialize of `trackDefs`+`layerId`, and the real pre-existing `onScroll` guard fix (`!m7ItemGestureActive && !m6RowDragActive`) â€” kept as-is, verified regression-free (see below). **Gap I fixed:** the WIP recorded the position-change and the track-change as TWO separate `undoStack` pushes for a diagonal drag (the common case â€” finger rarely moves in a pure vertical line), violating acceptance (d) "each completed drag = ONE undo step." Fix: flipped `LayerGestureController.onRowBodyUp()`'s callback order so `onItemMovedToTrack`/`onItemDroppedOnNewLayer` fire BEFORE `onGestureFinished` (was: after); they now stage undo/redo `Runnable`s into `FaditorEditorActivity.pendingLayerTrackUndo` instead of calling `recordAction` themselves, and `onGestureFinished` folds them into ONE `mergedAction()` alongside the position-change halves (also handles the track-only-no-position-change case via `maybeRecordTrackOnlyChange`, which the WIP would have silently dropped in that edge case). Compiles green (`compileDefaultDebugJavaWithJavac` executed + passed, installed on Note 9). Files touched beyond `ab316a5`: `layers/LayerGestureController.java`, `FaditorEditorActivity.java` only â€” no model/storage changes, so v8-stamping behavior is exactly what the WIP already established.
 >
 > **Device verification done (cheap, per testing-economics rule):** tap-scrub on master timeline ruler moved playhead + preview + captions correctly (confirms the onScroll guard fix does NOT break normal panning â€” the M6/M10 flags are scoped to `handleM6RowTouch`, which early-returns `false` whenever `layerRowRenderer.isWithinRowRegion` is false, i.e. always for plain projects); horizontal swipe-pan also scrubbed correctly; no crashes in logcat across the session. Ground truth: pulled sandbox `project.json` (`bdd51919â€¦`) via `run-as` â€” schema v8, ONE "text" track + ONE "audio" track (locked, matching its on-screen padlock icon), `trackDefs: []` (M10 track-creation never yet exercised on this project â€” clean baseline for the user's hand-test). **My ONE scripted drag attempt landed on the master-timeline scrub area instead of the target row item** (coordinate miss â€” confirmed via before/after `project.json` diff: bit-identical, zero mutation, no crash) â€” per the mandate this was not iterated on. Full numbered hand-test checklist is in `tasks/REPORT_RELAY_20260702.md` and this session's final report.
 >
@@ -1795,7 +1795,7 @@ Older backlog (still valid, folded into the order above):
 > behind FaditorPlayerManager's API; flag `GAPLESS_ENGINE` (FaditorPlayerManager:50) DEFAULT ON, legacy = OFF;
 > ineligible projects (loops/transitions/images) auto-use legacy. Measured on Note 9: 0 frozen frames at all
 > seams vs 1.79s/3.64s legacy stalls, same project. Also 2026-07-02: caption hide-pill long-press now applies
-> to ALL clips (b6c2a0c, user-requested hotfix, installed on S10e+Note 9); Layers M6 (multi-row timeline),
+> to ALL clips (7d81c69, user-requested hotfix, installed on S10e+Note 9); Layers M6 (multi-row timeline),
 > M7 (row item move/trim/delete), M-COMP-1 (layer preview compositing) all landed; M5 REGRESSION GATE PASSED
 > bit-identical on device. Full detail: tasks/REPORT_RELAY_20260702.md + PLAN_LAYERS_V2.md status ticks.
 

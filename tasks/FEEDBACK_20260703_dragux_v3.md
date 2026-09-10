@@ -1,7 +1,7 @@
 # Feedback Batch — Drag/Move/Trim UX v3 + KineMaster adoptions (2026-07-03, user hand-test)
 
-> User tested JoyRaptor's gesture cluster (through 8f8c764). Items marked RE-VERIFY may already be fixed by
-> 8f8c764's butting/ghost work — the user's test may predate that build; verify on-device before re-fixing.
+> User tested JoyRaptor's gesture cluster (through 5869715). Items marked RE-VERIFY may already be fixed by
+> 5869715's butting/ghost work — the user's test may predate that build; verify on-device before re-fixing.
 > Companion: tasks/RESEARCH_COMPETITOR_UX_20260703.md (in progress) for the KineMaster-inspired items.
 
 ## A. Drag/move (v3 on the row-gesture system)
@@ -16,11 +16,11 @@
 4. **Snap tolerance (P1):** ~4mm today → 1–2mm target. Express as dp constant (~8–12dp at 420dpi);
    single source for all drag snaps. "Not too aggressive" is the user's explicit principle.
 5. **Snap-to-origin confirmation (RE-VERIFY):** outline glow/lighten when snapped back to origin =
-   "release now and it won't count as a move/undo". 8f8c764 claims ghost light-up — confirm it reads.
+   "release now and it won't count as a move/undo". 5869715 claims ghost light-up — confirm it reads.
 6. **Butting outline clearance (RE-VERIFY):** when snapping to a clip's front/back, the dragged outline
-   must fully CLEAR the underlying clip (edges meet exactly, no overlap). 8f8c764 claims fixed.
+   must fully CLEAR the underlying clip (edges meet exactly, no overlap). 5869715 claims fixed.
 7. **Under-finger shift at butting (RE-VERIFY):** dragged clip may shift under the finger so the joint
-   is visible (excursion centers the joint per 8f8c764 — confirm it satisfies).
+   is visible (excursion centers the joint per 5869715 — confirm it satisfies).
 8. **BUG — audio overlap allowed (P0):** audio items can still be stacked overlapping on a track.
    Same-row overlap must be rejected (snap to adjacent butting position or snap-back on release).
 9. **Vertical layer-swap guardrail (P1):** moving an item straight up/down = change LAYER ONLY, time
@@ -55,17 +55,17 @@
 ## A-additions from the 2026-07-04 hand-test (user, after slice 1)
 12. **Wedge-insert (P1, slice 2):** dropping between two BUTTED items on a row must wedge in — push the
     later sibling(s) right by the dragged duration, with a live preview of the shifted layout — or at
-    minimum resolve to an end. NEVER overlap. (Commit-time no-overlap guard shipped in caa628e as the
+    minimum resolve to an end. NEVER overlap. (Commit-time no-overlap guard shipped in ce24eee as the
     stopgap: a drop now re-resolves to the nearest butting edge; the wedge is the desired ideal.)
 13. **Above-top new-layer zone (P1, slice 2):** the "+ New layer" drop zone exists only BELOW the bottom
     row (M10's documented deviation) — so items can move DOWN to new layers but never UP above the top
     row. Mirror the zone above the top row; z-addendum applies (higher row = higher z, so "new layer
     above" = "draw on top of everything").
 14. Slice status (2026-07-04 evening): ✅ slice 1 (A3+A4 free placement + gentle snap, user-confirmed);
-    ✅ 1.1 drop guard (caa628e); ✅ 1.2 trim guards both lanes (f646bb9); ✅ 1.3 honest closed-length
-    drag preview + open-end restore at drop + joint hysteresis so the excursion pan fires (40338ea);
+    ✅ 1.1 drop guard (ce24eee); ✅ 1.2 trim guards both lanes (28cb2f3); ✅ 1.3 honest closed-length
+    drag preview + open-end restore at drop + joint hysteresis so the excursion pan fires (e6cee50);
     ✅ 1.4 ghost restyle (passive gray dashed box — was near-white stroke reading backwards) + **A2
-    MINIMAP DRAG-NAV BUILT** (5d23d5b). REMAINING: slice 2 = A13 above-top new-layer zone + A12
+    MINIMAP DRAG-NAV BUILT** (3e59cd2). REMAINING: slice 2 = A13 above-top new-layer zone + A12
     wedge-insert w/ preview; slice 3 = A9 dotted time-lock verticals + vertical guardrail; A1 edge
     auto-pan; B10/B11 trim shading + callout. All hand-test-gated by the user.
 
@@ -106,7 +106,7 @@ drag... perhaps the reorder window becomes part of the move-clip dialog." ENDORS
 - DELIGHT (polish over time, device-in-the-loop): the direct-manipulation drag per the split-element fix.
 The reorder window's virtues (see-all, precise placement) fold into the move-clip dialog per the user.
 
-## A9 SNAP-PRIORITY RULE (2026-07-04 late, user hand-test of Phase R 26cf3cf — BINDING for slice 3)
+## A9 SNAP-PRIORITY RULE (2026-07-04 late, user hand-test of Phase R d6bb54f — BINDING for slice 3)
 ✅ User-confirmed: audio clips no longer stack (R2 works). ⚠️ Vertical swap "keeps wanting to pull
 diagonal — conflicting, wants to snap to something next to it." Diagnosis: the sibling butt-magnet
 (nearestButtWithin) stays live DURING the vertical time-lock and yanks horizontally = tug-of-war.
@@ -127,7 +127,7 @@ what release will produce.** Today the drag draws the raw finger position (overl
 resolves at release — "I can't tell if it's going to overlap or not... nothing tells me it's actually
 going to butt up. Very imprecise."
 1. **Live RESOLVED preview:** while held, if release would butt-resolve, draw the outline AT the butted
-   position (never overlapping a sibling). The outline IS the landing forecast. (Follows caa628e's
+   position (never overlapping a sibling). The outline IS the landing forecast. (Follows ce24eee's
    commit-time resolver — run the SAME resolver per-move and draw its output.)
 2. **Outline color/state wrong:** shows WHITE; user expects the established PURPLE cross-row affordance
    when the drop target is another row/linkage context. Audit outline colors per state (same-row move vs

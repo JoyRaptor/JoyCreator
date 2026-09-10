@@ -42,7 +42,7 @@ Open the project named **openart-90208197…** (top of the Faditor list): a 4.6s
 Each: state PASS/FAIL, attach a screenshot, and for layout questions give the
 `uiautomator` bounds rather than an impression.
 
-### 2.1 Opacity keyframe helper — never seen (`42e0fb48`)
+### 2.1 Opacity keyframe helper — never seen (`6ac64156`)
 Select the video clip, open the Opacity drawer, turn keyframe mode on, drop two
 keyframes.
 - Standing ON a keyframe: a green dot appears and a red delete icon appears.
@@ -50,18 +50,18 @@ keyframes.
 - The keyframe diamond is **amber** on a keyframe, **green** armed-but-not-on-one, grey off.
 - Delete removes the keyframe under the playhead — and the one the dot claimed.
 
-### 2.2 Caption font Import chip — never seen (`d8bd797d`)
+### 2.2 Caption font Import chip — never seen (`90d77721`)
 Open the caption Style drawer's font row. `+ Import` must be the FIRST chip, visible
 with no horizontal scrolling.
 
-### 2.3 An imported font actually rendering (`5bfea064`, `a1f6a78e`)
+### 2.3 An imported font actually rendering (`49f5fce1`, `d0fecd60`)
 Import a `.ttf` and a `.otf` (JoyRaptor's are on the SD card; any font file will do). Then:
 - it appears in the caption font row marked with `*`
 - selecting it changes the caption's typeface **on the preview**
 - it also appears in the TEXT font picker (one folder feeds both)
 - fonts land in the app's files dir: `adb shell run-as com.fadcam.beta ls -la files/fonts`
 
-### 2.4 Caption Fit tab (`7acdf2d3`) — the agent could not verify these
+### 2.4 Caption Fit tab (`a9c67386`) — the agent could not verify these
 - The Fit tab exists alongside Style / Timing / Position and is no taller than the others.
 - Words-per-caption dial is now on **Fit**, and gone from the Style size row.
 - Set a cue to ~30 words. `OFF` overflows the box; `UNIFORM` shrinks every cue to one
@@ -71,7 +71,7 @@ Import a `.ttf` and a `.otf` (JoyRaptor's are on the SD card; any font file will
 
 ### 2.5 Fit `OFF` is byte-identical to before
 Export the project with fit `OFF`, then compare against an export from **before**
-`b0b89dbd` if one exists, or reason from a stable frame. At minimum: confirm captions
+`bbd21a4b` if one exists, or reason from a stable frame. At minimum: confirm captions
 render exactly as they did with the same style and size. Report PSNR if you can produce
 both files.
 

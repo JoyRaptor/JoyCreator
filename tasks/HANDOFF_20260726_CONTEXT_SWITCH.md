@@ -64,7 +64,7 @@ user-gated (five decisions queued — see `NEXT_SESSION_PROMPT_20260727.md` item
 plus the one-pinch stranded-latch test) or diminishing-return sweeps.
 
 ### 2026-07-28 ~07:40 — the stale player under an image clip is STOPPED too. Both halves done.
-Closes the half `8a3acaf` deliberately scoped out. `startImagePlayback` is documented as
+Closes the half `4e19c44` deliberately scoped out. `startImagePlayback` is documented as
 "internal timer, no ExoPlayer", but nothing on the `advanceToSegment` path enforced it: the
 OUTGOING clip's player kept decoding underneath the still at the OUTGOING clip's speed.
 
@@ -77,7 +77,7 @@ OUTGOING clip's player kept decoding underneath the still at the OUTGOING clip's
 reason — the audio-tail branch even carries the note *"the image branch below restarted image
 playback and never paused the audio players, so the music kept going"*. This path never got it.
 
-**Sequencing worth noting:** this is only safe BECAUSE of `8a3acaf`. Before the ticker counted
+**Sequencing worth noting:** this is only safe BECAUSE of `4e19c44`. Before the ticker counted
 `imagePlaybackActive`, pausing here would have killed the ticker the instant it ran — the same
 trap flagged last wake. The freeze fix had to land first; then this became a two-line change.
 
@@ -86,7 +86,7 @@ after, **flat at 487** for the whole image clip, `head` advancing normally 748 �
 playback still reaching `segAtHead=4, head=13607` of a 14092ms timeline — stale decode gone,
 nothing downstream broken.
 
-### 2026-07-28 ~07:15 — IMAGE-CLIP PLAYBACK FREEZE: found and FIXED (`8a3acaf`).
+### 2026-07-28 ~07:15 — IMAGE-CLIP PLAYBACK FREEZE: found and FIXED (`4e19c44`).
 The `aeb0517e` "wedge" from the last wake was not a fixture quirk — it is a real bug in any
 legacy-path project where a video clip is followed by an IMAGE clip. Playback stops dead
 partway through the image and the transport goes unresponsive.
@@ -435,9 +435,9 @@ ACTION_UP on a PINCH, which is also exactly the shape of the FIRST stranding (th
 handback pan). `adb input` has no multitouch and `sendevent` is denied on this device, so this
 needs either the user's fingers or a different injection route. **Recommend: stop spending
 autonomous cycles on it and ask the user for one pinch-zoom-then-release while playing** —
-`1fc3298` will name the branch the moment it happens. Keep `PHDIAG` + the snapshot until then.
+`c158456` will name the branch the moment it happens. Keep `PHDIAG` + the snapshot until then.
 
-### 2026-07-28 ~03:05 — DATA-LOSS BUG FOUND AND FIXED (`34b4297`): one undo could eat a session.
+### 2026-07-28 ~03:05 — DATA-LOSS BUG FOUND AND FIXED (`d41e130`): one undo could eat a session.
 Found by MEASURING, not reading, while checking whether the v12 pool shrank the 22MB sidecar:
 after eight edits across two app sessions, `project.json` had been rewritten twice and
 `undo_history.json` still carried the PREVIOUS DAY's mtime. Cause: the debounced
@@ -490,7 +490,7 @@ OVERLAY/ADD via `BlendModeGlEffect` (M-EXPORT-2 landed); preview still does not
 deserializer, so a user cannot currently produce a non-NORMAL value. Stale-comment cleanup,
 not a bug.
 
-### 2026-07-28 ~02:30 — OUTSTANDING ITEM 2 DONE: transcripts are stored ONCE per file (`9c59d0e`).
+### 2026-07-28 ~02:30 — OUTSTANDING ITEM 2 DONE: transcripts are stored ONCE per file (`88cd1b7`).
 The undo-snapshot cost item from `NEXT_SESSION_PROMPT_20260727.md` §2 is implemented and
 proved. Schema **v12** adds a project-level `transcriptPool` + per-clip `transcriptRefs`;
 each distinct transcript is written once instead of once per clip that carries it.
@@ -516,7 +516,7 @@ the inline shape, its older stamp, and byte-identical JSON.
 returns the model to its exact starting value) the saved file went v11→v12, 37,779→32,060
 bytes, and expanding it and comparing ABSOLUTELY against the pre-change file shows the ONLY
 field that differs anywhere is `.label`, which is `TranscriptLabelMigration`'s documented
-`"Fast"`→`"Fast timing"` rename (`a3657da`), unrelated to pooling; and the read path proved by
+`"Fast"`→`"Fast timing"` rename (`15706a1`), unrelated to pooling; and the read path proved by
 the APP rather than by my host reimplementation — force-stop, cold reopen (captions render),
 edit, save again, 7/7 with the pool byte-identical across pooled→load→pooled.
 
@@ -528,7 +528,7 @@ which on the real project is 99.2% with 71.8% duplication.
 **STILL OPEN from that same item:** `undo_history.json` is 22MB (several full snapshots) and
 was NOT looked at — it is now written in the pooled form, so it should shrink on its own, but
 nobody has confirmed that or asked whether 50 retained snapshots is the right number.
-**Note on the `activeTranscript` index→id migration** (the landmine flagged in `1075eec`): it
+**Note on the `activeTranscript` index→id migration** (the landmine flagged in `ed0d7ec`): it
 is NOT made worse by this change — pooling preserves list order exactly, which the harness
 asserts — but it is also NOT fixed, and it remains the right thing to do.
 
@@ -539,19 +539,19 @@ in the user's real project, 0 frozen, 0 `drag=true`. See SPEC §13 for the full 
 **THE ONE THING TO DO NEXT:** the confirming run showed the self-heal FIRING once with playback
 continuing through it — so a SECOND stranding path exists that the direct fix did not cover.
 Not user-visible (the net catches it), but close it so the net stays a net.
-**The instrument is already in and waiting (`1fc3298`)** — additive only, no control flow on it.
+**The instrument is already in and waiting (`c158456`)** — additive only, no control flow on it.
 `EditorTimelineView` snapshots the branch-selecting flags at every ACTION_UP/CANCEL and the heal
 warning prints them, so the NEXT stranding names its own culprit:
 `userDragging was stranded … | lastUp: action=UP reorder=… scaling=… postPinchPan=… activeDrag=…`
 So: have the user drive the editor normally, grep for `lastUp:`, read which branch was live,
 fix THAT return, done. Suspects if you want a prior: the `if (isScaling) return true` UP, the
 audio-band tap/double-tap returns, the slide double-tap return.
-NOTE `1fc3298` is **compile-verified only** — the Note 20 was unplugged, so the watcher's
+NOTE `c158456` is **compile-verified only** — the Note 20 was unplugged, so the watcher's
 `installDefaultDebug` failed with "No connected devices!" while javac ran clean. It installs on
 the next connect; confirm the APK timestamp before trusting it.
-KEEP `PHDIAG` (`701c1e0`) until that second path is closed; remove both together after.
+KEEP `PHDIAG` (`61f184d`) until that second path is closed; remove both together after.
 
-**B-PLAYFREEZE fixed (`f59850a`)** — full write-up in SPEC §13. Short version: `userDragging`
+**B-PLAYFREEZE fixed (`b0400b8`)** — full write-up in SPEC §13. Short version: `userDragging`
 was a stranded latch; the post-pinch handback pan latched it and its ACTION_UP returned before
 the shared block that clears it. Measured, not guessed — and the instrument proved WRONG the
 two hypotheses a read-only pass had produced. Fix is (1) that branch now ends its own drag and
@@ -563,11 +563,11 @@ pause at inter-clip gaps, and playback perf with many layers.
 freshly-armed monitor re-reports OLD lines. It briefly looked like the fix had failed; the
 timestamps were all pre-install. Use `logcat -T 1` when watching for NEW events.
 
-**F-COLOR + F-MINIMAP done (`c4fc55f`)**, palette harness 30/30 — see SPEC §12. Appearance is
+**F-COLOR + F-MINIMAP done (`c174205`)**, palette harness 30/30 — see SPEC §12. Appearance is
 compile-verified only and **wants the user's eyes**, especially whether 12 mini-map lines at
 2dp pitch is the right density on the Note 20.
 
-**Audit sweep (`3b03081`)**: 1.5's mechanical half done (AI clip-reorder is now rollbackable);
+**Audit sweep (`29c7937`)**: 1.5's mechanical half done (AI clip-reorder is now rollbackable);
 **1.2 and 1.3 re-verified as ALREADY CLOSED** — the audit text was stale, now marked with
 evidence so a later session doesn't re-scope them. 1.5's three-way decision still needs the
 user, and a NEW related risk is logged: an AI reorder silently drops any clip missing from
@@ -577,7 +577,7 @@ user, and a NEW related risk is logged: an AI reorder silently drops any clip mi
 there on every save, which KILLS the running app. That cost a live repro once. Don't save app
 source while the user is mid-test on that phone.
 
-### 2026-07-27 ~16:10 — AUDIT 1.6 FIXED AND PROVEN (`5b06c4a`). Next: Note 20 playback sync/perf.
+### 2026-07-27 ~16:10 — AUDIT 1.6 FIXED AND PROVEN (`fddf7a8`). Next: Note 20 playback sync/perf.
 **Undo after an app restart now actually reverts the edit.** Root cause was that
 `snapshotBefore` held the state AFTER the edit (recordAction captured at record time; most
 sites mutate first). In-session undo hid it entirely because it prefers `action.undo()`.
@@ -613,14 +613,14 @@ DOES render it. Intermittent — sometimes audio+video+overlays+playhead move, b
 together. Separately: **gaps between clips have an unnaturally long pause**, and the user
 suspects the visual inter-clip gap is being given real time to resync. They also want
 playback perf checked with many text layers, visualizers and PiP layers. NOTE: the display-
-only inter-clip inset from the uniform-axis change (`1bfc121`) is a rendering inset and should
+only inter-clip inset from the uniform-axis change (`d697ca9`) is a rendering inset and should
 NOT add playback time — verify that first, and prove whatever is claimed.
 
 ### CONTEXT-WINDOW HANDOFF (2026-07-27 ~14:50). Batch of device-driven fixes landed; undo 1.6 next.
 This session's scrubber/timeline fixes, all installed on the Note 9, all AWAITING the user's
-final feel-confirm: uniform time axis (`1bfc121`, fixed the warp + below-length at the root),
-edge-tracking (`c772384`), overshoot step-past (`9a7a0a4`), diagonal-drag loosen (`699937b`),
-terminology lanes/layers (`1395738`), and "End here" live-playhead + scroll-off clamp (`this batch`).
+final feel-confirm: uniform time axis (`d697ca9`, fixed the warp + below-length at the root),
+edge-tracking (`dc39134`), overshoot step-past (`3d58688`), diagonal-drag loosen (`c0d4241`),
+terminology lanes/layers (`1ab0d88`), and "End here" live-playhead + scroll-off clamp (`this batch`).
 Field-feedback ledger = SPEC §12 (honest DONE/OPEN list). **NEXT SESSION TOP PRIORITY = AUDIT 1.6**
 (undo after app restart silently does nothing — the everyday data-trust bug). Deliberately NOT
 rushed in a closing window: it is core-path surgery, every obvious fix is wrong (audit 1.6 lists
@@ -631,14 +631,14 @@ invalidation on the plain snapshot path). Then SPEC §12 open items (scrubber co
 payloads, relayer+glide, move drawer; polish: color-by-type, badge, center-on-add, pan-delay,
 caption-drawer, mini-map).
 
-### WARP BUG DIAGNOSED (proven) → TIME AXIS MADE UNIFORM (`1bfc121`), awaiting user test.
+### WARP BUG DIAGNOSED (proven) → TIME AXIS MADE UNIFORM (`d697ca9`), awaiting user test.
 User reported a BOUNDED text block changing length while scrubbed. Instrumented `onPreview` with a
 `SCRUBWARP` Log.d; the device log PROVED the model is perfect — `dur` held constant at 2488ms the
 whole scrub, `lightFound=true` (no resync fallback). So the warp was RENDER-side: the block width
 = `timeToX(end)-timeToX(start)` and `timeToX` was NON-LINEAR. Root cause (confirmed in
 `computeRects`): a MIN-WIDTH clamp on short clips (`Math.max(minSegmentPx, …)`) + a positioning GAP
 between clips (`+ segmentGapPx`) — both add pixels that aren't time. User's call: make time UNIFORM
-("that's what zooming fixes"). `1bfc121`: `computeRects` now lays segments strictly proportional
+("that's what zooming fixes"). `d697ca9`: `computeRects` now lays segments strictly proportional
 with NO gap/clamp (video+audio) → `segRects` abut → `timeToX`/`xToTime` linear = uniform scale.
 Kills the overlay warp AND makes the playhead↔time mapping EXACT (prerequisite for precise
 Start/End-here). Short clips are now genuinely narrow (zoom to work with them — accepted trade);
@@ -650,10 +650,10 @@ playhead/trim/thumbnails/overlays/hit-test/minimap) — watch for any regression
 and clamp the scrub so an object can't be pushed past the timeline end (scroll-off-forever).
 Full field-feedback queue = SPEC §12.
 
-### #6 v1 VALIDATED ON DEVICE + edge-tracking added (`c772384`). PLACEMENT: the MOVE DRAWER is the real home.
+### #6 v1 VALIDATED ON DEVICE + edge-tracking added (`dc39134`). PLACEMENT: the MOVE DRAWER is the real home.
 User tested the object-menu scrubber: **"the moving itself was very smooth"** — so v1 WORKS
 (menu opened, no crash, buttery). Two things from the feedback:
-1. **Edge-tracking (FIXED `c772384`):** scrubbing an object toward the viewport edge ran it
+1. **Edge-tracking (FIXED `dc39134`):** scrubbing an object toward the viewport edge ran it
    off-screen. Added `EditorTimelineView.followScrubTimeMs(ms)` — pans the timeline to keep the
    scrubbed point inside a centered dead-zone (25% margin each side), so tracking starts BEFORE
    the edge with lookahead. Called from onPreview. Installed Note 9 APK 09:38:23. Pending feel.
@@ -669,10 +669,10 @@ User tested the object-menu scrubber: **"the moving itself was very smooth"** �
    The proven toolkit (engine/session/shuttle) re-homes here; the move-drawer XML already has the
    slots (`move_target_input`, `move_go`, `move_layer_up/down`, `move_position_*`, `move_clip_*`).
 
-### #6 LIVE WIRING STARTED — user greenlit it (2026-07-27). v1 slice: TEXT OVERLAYS, lock-only (`3556d63`).
+### #6 LIVE WIRING STARTED — user greenlit it (2026-07-27). v1 slice: TEXT OVERLAYS, lock-only (`fcd5ade`).
 User: "Note 20 is unplugged — wire up #6, I'll feel-test." Only the Note 9 is attached (safe).
 Staged per SPEC §10 B: ONE payload first (text overlay), lock-only collision, then extend +
-add relayer. What landed (`3556d63`, compiles + installed Note 9 APK 09:13:02, NOT run by me —
+add relayer. What landed (`fcd5ade`, compiles + installed Note 9 APK 09:13:02, NOT run by me —
 menu opens via hold-release, adb can't reach it):
 - `ObjectMenuSheet.setTimeScrub` gained a `showPushThrough` arg (v1 hides the toggle).
 - `EditorTimelineView.updateLayerItemStartLight(id, ms)` — the ANR-safe per-frame path: nudges the
@@ -687,29 +687,29 @@ visualizer riders resync on commit not live; push-through relayer + cross-lane y
 NEXT slice. After Note 9 passes → swap to Note 20 to PROFILE the light refresh on a large project.
 NEXT payloads: sprite, audio (AudioClip.setOffsetMs), PiP (Clip.setOverlayStartMs), visualizer.
 
-### ENGINE HARNESS HARDENED (`3eee17e`) — `ObjectTimeMoverTest` 15→21 (total move harness now 31/31).
+### ENGINE HARNESS HARDENED (`0f93cda`) — `ObjectTimeMoverTest` 15→21 (total move harness now 31/31).
 Added multi-obstacle + list-order-independence + multi-item-above cases (each with a positive
 control): lock-right/left pick the NEAREST obstacle regardless of list order; the above lane is
 scanned fully. Test-only, no app change — hardens the core the device-gated wiring will build on.
 
-### ADVERSARIAL SELF-REVIEW of this session's changes — caught + fixed one regression (`e0c510b`).
-The #7 move-slop fix (`4557cf9`) dp-scaled the slop at `onRowBodyMove:711`, which is SHARED by
+### ADVERSARIAL SELF-REVIEW of this session's changes — caught + fixed one regression (`9c732e1`).
+The #7 move-slop fix (`eec7ed2`) dp-scaled the slop at `onRowBodyMove:711`, which is SHARED by
 MOVE and TRIM. TRIM maps the edge to the finger's ABSOLUTE time (`applyTrim`, no grab offset),
 so the enlarged slop turned a trim's first ~8dp into a dead zone then snapped the edge to the
 finger — an ~3mm start-lurch (MOVE is immune: it captures `moveGrabOffsetMs`). Fixed by scoping
 the enlarged slop to MOVE only (its purpose is the hold-release menu, which TRIM lacks) and
 keeping TRIM at the historical raw `TRIM_START_SLOP_PX = 4f` — trim feel now byte-for-byte as
-before `4557cf9`. Everything else reviewed clean: mute guard (`7045904`) agrees with the drawn
-disabled state; dead-code removal (`9d3f1ba`) provably unreachable + compiles; gap shrink
-(`e6e895f`) is a pure constant; the menu section (`5904532`) is inert (nothing calls
+before `eec7ed2`. Everything else reviewed clean: mute guard (`8d528db`) agrees with the drawn
+disabled state; dead-code removal (`effc7b7`) provably unreachable + compiles; gap shrink
+(`fd9a77a`) is a pure constant; the menu section (`08beb76`) is inert (nothing calls
 `setTimeScrub`, no background loop when GONE). Move-package harnesses re-run: 25/25.
 
 ### ALL BLIND-SAFE LAYER-POLISH WORK NOW DONE (2026-07-27). Only device/feel-gated work remains.
-- #1 lock one-way door — `c6274e4`. #2 lane names — DROPPED (user: "layers don't need names").
-  #3 mute-on-non-audio-lane — `7045904`. #4 dead hide/lock header hit zones removed — `9d3f1ba`
+- #1 lock one-way door — `565f63a`. #2 lane names — DROPPED (user: "layers don't need names").
+  #3 mute-on-non-audio-lane — `8d528db`. #4 dead hide/lock header hit zones removed — `effc7b7`
   (provably dead: `HitZone.HIDE/LOCK` produced only by branches gated on always-empty rects;
-  enum + activity handlers left intact). #5 gap hit-zone 8dp→5dp — `e6e895f` (user chose "shrink
-  it"; feel-tune, retunable). #7 move-slop dp-scaled to 8dp — `4557cf9`.
+  enum + activity handlers left intact). #5 gap hit-zone 8dp→5dp — `fd9a77a` (user chose "shrink
+  it"; feel-tune, retunable). #7 move-slop dp-scaled to 8dp — `eec7ed2`.
 - #6 object time-scrubber — toolkit BUILT+PROVEN + inert UI section shipped; LIVE wiring
   DEVICE-GATED (see below). This is the ONLY remaining scrubber work.
 - **What's left is all device/user-gated:** the #6 live wiring (crash+ANR risk if built blind),
@@ -717,8 +717,8 @@ disabled state; dead-code removal (`9d3f1ba`) provably unreachable + compiles; g
   more layer-polish is safely buildable blind. Next autonomous cycles should catch a user reply
   or do device-verified work — NOT force blind changes.
 
-### OBJECT TIME-SCRUBBER (#6) — UI SECTION BUILT (`5904532`); LIVE WIRING IS DEVICE-GATED (why below).
-Additive `ObjectMenuSheet.setTimeScrub(...)` section landed (`5904532`): the `TimeShuttleView`,
+### OBJECT TIME-SCRUBBER (#6) — UI SECTION BUILT (`08beb76`); LIVE WIRING IS DEVICE-GATED (why below).
+Additive `ObjectMenuSheet.setTimeScrub(...)` section landed (`08beb76`): the `TimeShuttleView`,
 a tap-to-type `m:ss.mmm` readout (→ jump-to-time), and Push-through + Snap toggles. It is INERT —
 `show()`'s signature is unchanged and nothing calls `setTimeScrub` yet, so no existing menu/gesture
 behaviour is touched. Compiles; not run (object menu opens via hold-release, adb can't reach it).
@@ -734,7 +734,7 @@ project. That is a usability/correctness risk that MUST be device-profiled — b
 "feel-tuning" the user accepted blind. The cross-lane GLIDE (§9) is also new renderer work (even
 the drag proxy snaps rows vertically). So the Host + per-frame refresh + relayer glide land as a
 DEVICE-VERIFIED step (blueprint = SPEC §8/§8a/§9). The whole PROVEN toolkit is ready for it:
-engine (`c7cf338`, 15/15), session (`db744be`, 10/10), shuttle (`3eaee80`), section (`5904532`).
+engine (`c1f5bc7`, 15/15), session (`36c7d02`, 10/10), shuttle (`a6c9510`), section (`08beb76`).
 
 ### OBJECT TIME-SCRUBBER (#6) — LOGICAL CORE BUILT + PROVEN; editor wiring specified, deferred.
 User decisions (2026-07-26): **build the whole feature**; **push-through is a TOGGLE for all
@@ -742,11 +742,11 @@ kinds incl. audio** (on = relayer, off = lock); **animation must be "buttery, no
 The user then stepped out → full autonomy.
 
 Landed this stretch, each proven OFF-DEVICE with positive controls (see commits):
-- `c7cf338` `ObjectTimeMover` — collision lock + push-through one-lane-up-or-new relayer,
+- `c1f5bc7` `ObjectTimeMover` — collision lock + push-through one-lane-up-or-new relayer,
   return-to-origin, breakthrough threshold, toggle-off=lock. Harness 15/15.
-- `3eaee80` `TimeShuttleView` — Choreographer frame-synced variable-speed jog/shuttle, dead
+- `a6c9510` `TimeShuttleView` — Choreographer frame-synced variable-speed jog/shuttle, dead
   zone + cubic ramp, inertial eased spring-back. Compiles; feel is device-only (retunable consts).
-- `db744be` `ObjectTimeScrubSession` — tick→resolve→preview, one-step commit / no-op-if-unchanged,
+- `36c7d02` `ObjectTimeScrubSession` — tick→resolve→preview, one-step commit / no-op-if-unchanged,
   origin-anchored lock reference. Harness 10/10.
 All three live in `app/.../faditor/move/`; harness tests in `tools/jvm-harness/*Test.java`
 (compile+run cmds in each test's header; out4). App build stays green.
@@ -774,7 +774,7 @@ Interactive Q&A corrected my layer-polish framing. Load-bearing corrections, do 
   return-to-origin). It is a MULTI-PHASE, feel-driven feature, NOT a commit — Phase 1 (UI shell +
   lock-at-collision, no relayering) can start; Phase 2 (relayering) waits on the user confirming
   §2/§6 of that spec. User's verbatim answer is in the spec's appendix.
-- **#7 gesture slop FIXED — `4557cf9`.** The "hold works only sometimes" cause: the post-pickup
+- **#7 gesture slop FIXED — `eec7ed2`.** The "hold works only sometimes" cause: the post-pickup
   move slop was a hardcoded 4 RAW px (~1.5dp here, tighter on the Note 20) — smaller than
   hold-jitter, so hold→release registered a micro-move and the object menu didn't open. Now
   dp-scaled via `setMoveSlopPx` (mirrors `setSnapRadiusPx`) to the conventional 8dp; only touches
@@ -785,7 +785,7 @@ Interactive Q&A corrected my layer-polish framing. Load-bearing corrections, do 
 - **Priority order the user gave: #7 → #6 → #4.** #7 done; #6 = the SPEC above (next, needs
   Phase-2 confirmation); #4 = dead hide/lock header code removal (cleanup, last).
 
-### LAYER FINDING #3 (mute-on-non-audio-lane) FIXED — `7045904` (new account, 2026-07-26 ~22:05).
+### LAYER FINDING #3 (mute-on-non-audio-lane) FIXED — `8d528db` (new account, 2026-07-26 ~22:05).
 The mute glyph is drawn DISABLED (COLOR_ICON_OFF, no strike) on any lane with no audio
 (`drawMuteIcon`'s `applicable` = `rowCarriesAudio(t)`), but `hitTestHeader` returned
 `HitZone.MUTE` regardless — so tapping the greyed mute on a text lane flipped `TrackFlags.muted`,
@@ -793,7 +793,7 @@ pushed a "Mute track" undo step and scheduled an autosave for zero audible effec
 `hitTestHeader` now reports MUTE only when `rowCarriesAudio(row.track)` (the same predicate that
 greys it), else consumes as `HitZone.NONE`. Compile-verified + installed (APK 22:04:56 > edit
 22:04:44). CONFIRMED BY CODE READING, NOT device-reproduced — mute rect is on a custom Canvas
-view (no uiautomator node), same adb limitation as the `c6274e4` lock fix; wants the same ~10s
+view (no uiautomator node), same adb limitation as the `565f63a` lock fix; wants the same ~10s
 human test. Safe by construction (mirrors an existing condition; audio/master lanes untouched).
 **All other layer findings (#2, #4–#7) verified against code this session and are AFFORDANCE/
 DESIGN decisions — NOT shipped blind. Put to the user via AskUserQuestion; awaiting the answer.**
@@ -850,7 +850,7 @@ parked.
    hold-release menu needs the finger to stay within **4 raw px** (~1.3dp), which is why "hold
    works sometimes".
 
-### RELOADED UNDO HISTORY CAME BACK INVERTED — **FIXED + verified** (`f52cb26`, audit 1.7).
+### RELOADED UNDO HISTORY CAME BACK INVERTED — **FIXED + verified** (`b27d2b8`, audit 1.7).
 `loadHistory` appended with `addLast()` while the rest of the class pushes/pops the other end,
 so after a restart the OLDEST edit was on top and the history popup listed events upside down.
 Proven against the SAME sidecar file, unchanged on disk: before the fix it rendered
@@ -886,14 +886,14 @@ fixed — core-path surgery, wants its own session and its own positive control.
 Restoring an entry's `snapshotBefore` yields the state INCLUDING that edit, not the state
 before it, despite the field's name and javadoc. Measured: after undoing a
 `Trim [0–1929] → [0–616]` via the snapshot path, the saved project still held
-`outPointMs=616`. **Pre-existing, not introduced by 4f0eee6** — the same mechanism governs
+`outPointMs=616`. **Pre-existing, not introduced by fc34336** — the same mechanism governs
 every history entry reloaded from disk, so undo after an app RESTART has presumably always
 been off by one (that variant is NOT separately reproduced). The AI checkpoint is immune by
 construction because it is captured before the project swap. Fixing it means moving when
 `recordAction` captures its snapshot, which is core-path surgery and wants its own session
 plus a positive control. **Do not fold it into an unrelated change.**
 
-### AI EDITS ARE NOW ONE LABELLED, UNDOABLE, VIOLET UNDO STEP (`4f0eee6`) — user-approved
+### AI EDITS ARE NOW ONE LABELLED, UNDOABLE, VIOLET UNDO STEP (`fc34336`) — user-approved
 design, device-verified. `recordAiCheckpoint()` captures the pre-AI state BEFORE
 `project = reloaded`; `invalidateActionsForProjectSwap()` drops the poisoned action refs and
 keeps the snapshots (removing entries that have neither, since `recordAction` skips the
@@ -913,7 +913,7 @@ per AI turn. (2) A pre-execution checkbox approval list of what the AI plans to 
 carries typed ops and a description and `validate()` already exists, BUT ops are
 order/state-dependent, so unchecking one needs re-validation and dependent-op handling.
 
-### PRIOR TIER-1 BUG, **DEVICE-REPRODUCED** then FIXED by 4f0eee6: undo silently dead after an AI edit
+### PRIOR TIER-1 BUG, **DEVICE-REPRODUCED** then FIXED by fc34336: undo silently dead after an AI edit
 (full write-up = audit item **1.5**). When the AI assistant edits a project, the editor
 reloads and does `project = reloaded` (`FaditorEditorActivity.java:1245-1272`) but never
 clears or rebinds the undo stack, so every entry still points at the DISCARDED object graph.
@@ -1085,7 +1085,7 @@ decisions now number five: B1, B4, B5, B3's remedy, and the preview-side preset-
   standing warning in the RE-SCOPED block): parity with the cut is the goal, and
   "fixing" the constants would break it.
 
-- **TRANSCRIPT NAVIGATOR DONE + device-verified (`bd84402`).** Built both halves of the
+- **TRANSCRIPT NAVIGATOR DONE + device-verified (`2627e00`).** Built both halves of the
   decided design. (1) `TranscriptPanelView.setClipWindow(inMs,outMs)` + `inClipWindow()`:
   words whose SOURCE start falls outside the current clip's trim draw dimmed (0xFF6E6E6E,
   struck 0xFF4A4A4A); the window defaults to UNBOUNDED so any caller that never sets one
@@ -1178,7 +1178,7 @@ B1 (PiP audio route), B4 (link badge = "lock", no unlink), B5 (dual-stream disco
 and B3's remedy are all discoverability/affordance calls the user has NOT decided. Diagnosed;
 await a design decision before shipping UX changes.
 
-- **LOAD-FAILURE SHAPE fix DONE + device-verified (`e6a1f0b`).** Decided behaviour built:
+- **LOAD-FAILURE SHAPE fix DONE + device-verified (`5803fce`).** Decided behaviour built:
   one bad item no longer aborts the whole load into a silent `.bak`. ProjectStorage's
   deserializer now wraps each clip / overlay-clip / audio-clip / text-overlay / waveform
   item in its own try/catch (sprite path already did); a bad item is skipped + recorded on
@@ -1216,7 +1216,7 @@ await a design decision before shipping UX changes.
   the pre-experiment pull `scratchpad/b3_before.json` (start=1892) when done with B1/B4 (they
   also need cebc19e0's PiPs/link-groups). Note: still deciding whether B4's unlink UX is a
   user-design call before shipping.
-- **B2 FIXED + device-verified (`a9e4503`).** Diagnosis: NOT a start-freeze. cebc19e0
+- **B2 FIXED + device-verified (`21e4cce`).** Diagnosis: NOT a start-freeze. cebc19e0
   ("P0 control2 plain", the cat project, row 1/2 in the list — NOT the screen-recording
   "Untitled" project that happens to be open on arrival, which is a DIFFERENT project)
   plays fine from the start. The bug is **pressing play with the playhead already at the
@@ -1297,11 +1297,11 @@ The other 9 still match. Do not "restore" `cebc19e0` until B2/B3 are diagnosed f
 
 ## 0. CURRENT STATE (updated 11:40) — READ THIS FIRST
 
-HEAD `270ce4c`, branch `joy-creator`, tree clean except the always-ignorable
+HEAD `45905e0`, branch `joy-creator`, tree clean except the always-ignorable
 `tools/jvm-harness/out*/`. Build watcher ALIVE, installing to the **Note 9 only** (Note 20
 unplugged). APK 11:19:50, installed, newer than every source file.
 
-**Pick up here.** The `hasValue()` sweep is now COMPLETE (`0c13dca` + `270ce4c`): all 195
+**Pick up here.** The `hasValue()` sweep is now COMPLETE (`6712a17` + `45905e0`): all 195
 guard sites in ProjectStorage's read paths examined, 182 converted, 13 identity fields left
 loud on purpose. Device-verified on both the clip path and the audio/text/sprite/overlayClip
 paths.
@@ -1430,11 +1430,11 @@ Landed in the first stretch, each with its own offline proof and device verifica
 
 | commit | audit item | proof |
 |---|---|---|
-| `b8b6234` | guard hygiene | both python guards now hard-fail on zero matched files |
-| `d77daf3` | **1.2** LAYER schema hole | `tasks/schema_layer_stamp.py` (survey + corruption repro + guard + 4 source tripwires); device 7→11 with a LAYER def, stays 7 without |
-| `eaff34b` | **2.1 + 2.2** caption size | device A/B 3%↔20% live in preview; audio size 0.15 round-trips. Also fixed: any re-bind blanked the captions while paused |
-| `7a09eb6` | **1.3** `layerId: null` | device: 15 objects in → 15 out with 4 explicit nulls; control (`cropPreset: null`) silently opens the older `.bak` |
-| `6851eca` | **1.4** downgrade drill | drill RAN 7/7; found + fixed the undo-history sidecar being written for a read-only project |
+| `003895e` | guard hygiene | both python guards now hard-fail on zero matched files |
+| `bb30275` | **1.2** LAYER schema hole | `tasks/schema_layer_stamp.py` (survey + corruption repro + guard + 4 source tripwires); device 7→11 with a LAYER def, stays 7 without |
+| `7735a21` | **2.1 + 2.2** caption size | device A/B 3%↔20% live in preview; audio size 0.15 round-trips. Also fixed: any re-bind blanked the captions while paused |
+| `2c03e2b` | **1.3** `layerId: null` | device: 15 objects in → 15 out with 4 explicit nulls; control (`cropPreset: null`) silently opens the older `.bak` |
+| `d6cbd46` | **1.4** downgrade drill | drill RAN 7/7; found + fixed the undo-history sidecar being written for a read-only project |
 
 **Device hygiene:** every experiment used throwaway `cp -r` clones. All 10 real sandbox
 projects are **sha256-identical to their safety copies** — verified after the last
@@ -1466,7 +1466,7 @@ Faditor `(627,2108)` → row 1 `(538,705)`. Delete the clone when done.
 2. `ProjectStorage` has ~223 typed JSON reads guarded by `.has()` alone (78 `getAsString`,
    57 `getAsFloat`, 38 `getAsLong`, 34 `getAsBoolean`, 22 `getAsInt`; only 6 null-guarded).
    Audit 1.3 fixed the 4 named `layerId` sites; the rest want one `optString/optFloat`
-   helper and a mechanical sweep, with its own proof. See `7a09eb6`.
+   helper and a mechanical sweep, with its own proof. See `2c03e2b`.
 
 Next per the audit's own order: **2.5** (PiP audio plumbing), **2.6** (cross-type Z
 absolute-geometry A/B), **2.7** (neutral substrate queue items 2,3,5–8), then **2.3**
@@ -1476,7 +1476,7 @@ absolute-geometry A/B), **2.7** (neutral substrate queue items 2,3,5–8), then 
 
 Written at the end of a long Opus 5 session because the account ran out of credits and work
 continues on a **different login, same machine**. Everything below lived only in that
-session's context and would otherwise be lost. HEAD at write time: `11c4927`, tree clean
+session's context and would otherwise be lost. HEAD at write time: `6a9a800`, tree clean
 (except the always-ignorable `tools/jvm-harness/out*/`).
 
 ---
@@ -1579,14 +1579,14 @@ attached, think before saving.
 
 | commit | what |
 |---|---|
-| `292b791` | fixed the build — `staticProp` lives on `Prop`; nothing had compiled since 13:56 |
-| `4eda119` | seeded-lane pre-emption: a payload on another type's seeded lane stole that lane, renaming it, flipping its kind and hoisting it up the band (= a silent paint-order change). Device-proven; 4 assertions added to `getlayers_equiv.py` |
-| `cfb0452` | **countdown/count-up timer text objects** — `TimerSpec`/`TimerText`, one authority shared by preview+export, 38/38 harness, device-verified counting 0:05→0:01 |
-| `2b4530d` | `selectSegment` resolved positions against the OLD selection (stale view index) |
-| `58485af` | transcript word-tap: resolve against the transcript's clip, re-home onto the clip that contains the tapped time. **Fixed the user's 0:00 teleport**, verified on their own taps |
-| `108cff9` | playhead glides through a cut instead of freezing 110–330ms at every seam |
-| `71fd1f8` | **transcript sharing** + legacy-partition migration (see §1) |
-| `11c4927` | the unfinished-work audit |
+| `9ec93c0` | fixed the build — `staticProp` lives on `Prop`; nothing had compiled since 13:56 |
+| `8fc7cb4` | seeded-lane pre-emption: a payload on another type's seeded lane stole that lane, renaming it, flipping its kind and hoisting it up the band (= a silent paint-order change). Device-proven; 4 assertions added to `getlayers_equiv.py` |
+| `5b29ea7` | **countdown/count-up timer text objects** — `TimerSpec`/`TimerText`, one authority shared by preview+export, 38/38 harness, device-verified counting 0:05→0:01 |
+| `9745071` | `selectSegment` resolved positions against the OLD selection (stale view index) |
+| `1042345` | transcript word-tap: resolve against the transcript's clip, re-home onto the clip that contains the tapped time. **Fixed the user's 0:00 teleport**, verified on their own taps |
+| `d3c870d` | playhead glides through a cut instead of freezing 110–330ms at every seam |
+| `9ec300a` | **transcript sharing** + legacy-partition migration (see §1) |
+| `6a9a800` | the unfinished-work audit |
 
 ## 6. Open, in priority order
 

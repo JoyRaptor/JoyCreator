@@ -15,7 +15,7 @@ Status Board every time something changes.
 ## 1. Situation (as of 2026-08-06)
 
 - Joy Creator is a fork of [FadCam](https://github.com/anonfaded/FadCam) (GPLv3, by
-  anonfaded), imported at commit `78647c1` (2026-06-05).
+  anonfaded), imported at commit `5abcbbe` (2026-06-05).
 - Measured split at HEAD: **~42% our code, ~58% FadCam** (287,648 java/kt lines total;
   664 files). See §9 for method.
 - Our contribution is ~87% concentrated in **one subsystem: Faditor**, the video editor
@@ -216,7 +216,7 @@ Until then, treat cloud/streaming as OFF for anything we publish.
 Append here. Never rewrite history — add a new dated entry instead.
 
 **2026-08-06 — Measured the fork split.**
-Method: diffed the true import root `78647c1` against HEAD. Bucketed every `.java`/`.kt`
+Method: diffed the true import root `5abcbbe` against HEAD. Bucketed every `.java`/`.kt`
 file at HEAD as added-by-us (277 files / 73,369 lines), modified (50 / 96,374, of which
 47,669 insertions ours), or untouched-upstream (337 / 117,905). Caveat: `--numstat`
 scores a reformatted upstream line as ours, so ~42% slightly flatters us.

@@ -1,6 +1,6 @@
 # SPEC_20260902_MESH_WARP — Bendy mesh warp for image overlays
 
-Status: DESIGN. No code written. Research pass verified against the tree at `joy-creator` @ `a52dd22d`.
+Status: DESIGN. No code written. Research pass verified against the tree at `joy-creator` @ `98c031c8`.
 
 Companion doc: `tasks/design/SKEW_WARP_OPTIONS.html` (Option C, "Corners first, grid later", is the
 chosen UI). This spec designs what the **"+ Finer"** button opens into.

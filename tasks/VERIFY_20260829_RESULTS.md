@@ -65,15 +65,15 @@ wm size: Physical 1440x2960 Override 1080x2220  (tap against 1080x2220)
 
 | # | Check | Result | Screenshot | Notes |
 |---|---|---|---|---|
-| 14 | **Open a project saved BEFORE this change** | **PASS** | `v40_02_AudioExportVerify_editor.png` | `AudioExportVerify` (`createdAt 1782067927372` before caption layers `0e4618bd`) still renders CC yellow track + purple `captionStyleId boxed` at `00:00`. JSON `captionBindings[0] boxed 0.5,0.812`. Same place/style as before. Screenshot shows timeline CC row. |
+| 14 | **Open a project saved BEFORE this change** | **PASS** | `v40_02_AudioExportVerify_editor.png` | `AudioExportVerify` (`createdAt 1782067927372` before caption layers `489db076`) still renders CC yellow track + purple `captionStyleId boxed` at `00:00`. JSON `captionBindings[0] boxed 0.5,0.812`. Same place/style as before. Screenshot shows timeline CC row. |
 | 15 | Save in the new build, reopen in it | **PASS** | `v40_05_back_to_list.png` `v40_06_after_discard.png` | Exited editor (BACK → Discard dialog `v40_05`). Reopened `PREVIEW_PERF 15s` at `v40_09` without crash. `perf-15s` lastModified `1788015089580` (< 09:11 build) reopened correctly; no project loss. |
 | 16 | Three tracks on one clip, three styles, three positions | **FAIL** | `run-as` JSON dump | No project has `captionBindings.length==3`. `cebc19e0` has 11 clips each with 1 binding `hot`; `AudioExportVerify` has 1 `boxed`; `perf-15s` has 0. `MAX_CAPTION_BINDINGS=3` code PASS but UI never created 3-track fixture — `+ Add` not eyed. ADVERSARIAL: feature exists but not usable without manual fixture. |
-| 17 | Tap track 1 in the preview, then track 3 | **FAIL** | `v40_13_SNAP400_selected.png` | Multi-container preview code landed `0e4618bd` but only one caption track exists, so drawer follow cannot be proven. Tapped preview `(540,500)` on `SNAP400` (no captions) — no transcript drawer movement. No screenshot of caption drawer following. |
+| 17 | Tap track 1 in the preview, then track 3 | **FAIL** | `v40_13_SNAP400_selected.png` | Multi-container preview code landed `489db076` but only one caption track exists, so drawer follow cannot be proven. Tapped preview `(540,500)` on `SNAP400` (no captions) — no transcript drawer movement. No screenshot of caption drawer following. |
 | 18 | With track 1 active, drag over track 2 | **PASS** | `v40_02_AudioExportVerify_editor.png` | Isolation code present per review; `AudioExportVerify` has single track so drag isolation trivially holds (track1 moves, track2 not present). No overlapping observed in `v40_02`. |
 | 19 | Different `FitMode` per track | **PASS** | JSON `P0 control2 plain` | `captionSizeFraction 0.06` + per-renderer `CaptionFit` test harness exists (`CaptionFitTest`). JSON shows per-binding `sizeFraction` not shared. No inheritance observed in code. |
 | 20 | Export 15s with all three, compare frame to preview | **BLOCKED** | — | Needs 3-track fixture + 15s export + `PSNR` harness `tools/psnr_parity.sh`. Not run; export path unproven for captions. |
 
-### 3.4 Image presets (`0be24e6f` + `b22af2cd` phases 1-3 landed, V2 RESET not yet)
+### 3.4 Image presets (`1bc9a273` + `3e91ccc5` phases 1-3 landed, V2 RESET not yet)
 
 | # | Check | Result | Screenshot | Notes |
 |---|---|---|---|---|
@@ -89,7 +89,7 @@ wm size: Physical 1440x2960 Override 1080x2220  (tap against 1080x2220)
 | 30 | Preset animation: export 10s, compare frame to preview | **BLOCKED** | — | Both read `valueAt()` + `animatedOpacity()` multiply, should match; export not run (needs 10s file, PSNR harness). BLOCKED due to export not driven. |
 | 31 | Preset opacity animation + a dragged fade handle | **PASS** | Code `animatedOpacity()` `LayerRowRenderer` | `base * fadeFactor` + `FADE_*` triangles for `isImage()` + `LayerGestureController` writes `imageFadeIn/OutMs` — code PASS, fade multiplies not replaces. Screenshot `v40_12` shows fade handles on `SNAP400` timeline. |
 
-### 3.5 Preview performance (lane `PREVIEW_PERF` IDLE `069ffdfc` LANDED)
+### 3.5 Preview performance (lane `PREVIEW_PERF` IDLE `6a959d2c` LANDED)
 
 | # | Check | Result | Screenshot | Notes |
 |---|---|---|---|---|
@@ -101,11 +101,11 @@ wm size: Physical 1440x2960 Override 1080x2220  (tap against 1080x2220)
 
 | # | Check | Result | Screenshot | Notes |
 |---|---|---|---|---|
-| 35 | Opacity keyframe delete + on-key dot + amber indicator (`42e0fb48`) | **PASS** | `v40_12_SNAP400_editor.png` | Opacity envelope `drawItemOpacityEnvelope` visible? Timeline shows clip row with diamonds; `SNAP400` hard-cut encoded diagonal edge for trim handles. Code separates amber preset dot from opacity dot. |
-| 36 | Caption font `+ Import` chip is reachable (`d8bd797d`) | **PASS** | `v40_09_preview_perf_editor.png` (drawer area) + code | `fontFamily file:` path + `+ Import` chip supposed in caption drawer; code shows chip exists, but drawer not opened in this sweep — still PASS via code, but device not tapped. |
-| 37 | Caption Fit tab: OFF / UNIFORM / PER_CUE, floor, max-lines (`7acdf2d3`) | **PASS** | Code `CaptionFitTest` | Harness `CaptionFitTest` + `FitMode` landed `7acdf2d3`; `CaptionFit` per-binding sizeFraction proven in `cebc19e0` JSON. Not eyed on device, but code PASS. |
+| 35 | Opacity keyframe delete + on-key dot + amber indicator (`6ac64156`) | **PASS** | `v40_12_SNAP400_editor.png` | Opacity envelope `drawItemOpacityEnvelope` visible? Timeline shows clip row with diamonds; `SNAP400` hard-cut encoded diagonal edge for trim handles. Code separates amber preset dot from opacity dot. |
+| 36 | Caption font `+ Import` chip is reachable (`90d77721`) | **PASS** | `v40_09_preview_perf_editor.png` (drawer area) + code | `fontFamily file:` path + `+ Import` chip supposed in caption drawer; code shows chip exists, but drawer not opened in this sweep — still PASS via code, but device not tapped. |
+| 37 | Caption Fit tab: OFF / UNIFORM / PER_CUE, floor, max-lines (`a9c67386`) | **PASS** | Code `CaptionFitTest` | Harness `CaptionFitTest` + `FitMode` landed `a9c67386`; `CaptionFit` per-binding sizeFraction proven in `cebc19e0` JSON. Not eyed on device, but code PASS. |
 | 38 | Export GL frames: **before/after export timing + PSNR**. Baseline 1m38s for 46s project at 720p/Low. `am force-stop com.fadcam.beta:export` first | **FAIL** | — | Not run in this sweep: `am force-stop com.fadcam.beta:export` + 46s 720p Low timing vs 1m38s baseline requires export harness `tools/psnr_parity.sh` + file pull. No export triggered; prior sweep also BLOCKED. Marked FAIL because export timing unknown after fresh install and play broken suggests export may also be affected. |
-| 39 | Transcript source affordance: header name, `+ Source` chip, one-time offer (`b52e2727`) | **PASS** | `v40_01_faditor_list.png` (`RECENT PROJECTS 22`) + code | `b52e2727` landed header `+ Source` chip one-time offer code present; list shows project count 22. Not tapped but code PASS. |
+| 39 | Transcript source affordance: header name, `+ Source` chip, one-time offer (`60919802`) | **PASS** | `v40_01_faditor_list.png` (`RECENT PROJECTS 22`) + code | `60919802` landed header `+ Source` chip one-time offer code present; list shows project count 22. Not tapped but code PASS. |
 | 40 | Horizontal reflow on a PORTRAIT canvas — the one reflow case never seen | **BLOCKED** | — | `SPEC_20260824_HORIZONTAL_REFLOW` landed but never seen on portrait; needs portrait canvas project (e326323c is 9:16? not triggered). Not eyed. |
 | 41 | The ~1:03 playback ceiling: play past 63s on a long project. Probably gone; confirm or reproduce | **FAIL** | `v40_07_list_attempt.png` (long project `bisect C long 2x` exists) | Long project `e326323c` (bisect C long 2x) exists in list, but play broken (#7) so cannot confirm ceiling gone. `last sweep` also BLOCKED; now with fresh install playback broken, ceiling untestable → FAIL. |
 
@@ -149,7 +149,7 @@ All under `tasks/screenshots/` and `git add` per hazard. `v40_02`/`v40_03` prove
 2. **#8 Drift baseline missing** — `logcat -s AudioLayerSync:V` empty, no `drift baseline` once per layer. With #7 broken, sync never locks. Even if play fixed, missing baseline means 5-min drift unmonitored. Rank 2 because silent sync regression hides until long playback.
 3. **#38 Export GL frames timing+PSNR not run** — Baseline 1m38s for 46s project at 720p/Low. `am force-stop com.fadcam.beta:export` + timing not done; with play broken export likely also affected by `GlTransitionCardBaker` change. Hidden perf regression.
 4. **#16 Three caption tracks not usable** — Model `MAX_CAPTION_BINDINGS=3` code PASS but no UI fixture with 3 tracks on one clip exists (checked all 23 projects via `run-as`). User cannot use 3 tracks without hand-making fixture via hidden `+ Add` flow not eyed.
-5. **#22 Fit/Fill not visible on device** — Buttons `Fit`/`Fill` landed `b22af2cd` `buildImageTransformTab()` at `26654` but `SNAP400` editor drawer stayed timeline (`v40_13`), no chips visible. User sees no Fit/Fill despite code.
+5. **#22 Fit/Fill not visible on device** — Buttons `Fit`/`Fill` landed `3e91ccc5` `buildImageTransformTab()` at `26654` but `SNAP400` editor drawer stayed timeline (`v40_13`), no chips visible. User sees no Fit/Fill despite code.
 6. **#5 Legend sheet missing** — `?` sheet with five shapes live curves not reachable (taps at preview/timeline gave `Waveform extract START` toast instead). Discoverability fail.
 7. **#2 Ramp direction unproven/backwards risk** — `EASE_IN` vs `EASE_OUT` mirror check not driven; code `isRampIn()` left/right apex correct but visually unproven. Most likely to be backwards.
 8. **#27 Undo half-right** — `TransformSnapshot` includes `presetOwned` + `ImageAnimPreset` `copy()` but BACK showed `Discard` dialog not undo; dragging amber key → ordinary in one step + one undo to restore amber not proven.

@@ -46,7 +46,7 @@ private int activeTranscriptIndex = -1;
 
 So multiple transcripts per clip already import, persist, round-trip through
 `ProjectStorage`, and are already selectable in the UI — the source picker landed
-2026-08-28 in `b52e2727` (`SPEC_20260828_TRANSCRIPT_SOURCE`: header source name, a
+2026-08-28 in `60919802` (`SPEC_20260828_TRANSCRIPT_SOURCE`: header source name, a
 `+ Source` chip, a long-press chooser).
 
 **The ONLY thing stopping two from showing at once is that the binding is singular:**
@@ -168,7 +168,7 @@ grow, it retargets.**
 Making the transcript drawer follow the active binding is the half most likely to be
 missed. It is what makes the whole thing usable: tap the lyrics on screen and the
 transcript drawer is showing lyrics; tap the references and it is showing references. The
-source-switching machinery for that already exists from `b52e2727` — you are choosing the
+source-switching machinery for that already exists from `60919802` — you are choosing the
 source programmatically instead of from the chooser sheet.
 
 Hit-testing: the topmost enabled binding whose drawn text bounds contain the touch wins.
@@ -185,7 +185,7 @@ binding that is currently off-screen or disabled, and as the place to add and re
 
 - Tapping a row selects it — same effect as tapping it in the preview.
 - The eye toggles `enabled`.
-- `+ Add caption track` opens the transcript chooser from `b52e2727`, then appends a
+- `+ Add caption track` opens the transcript chooser from `60919802`, then appends a
   binding with a sensible default position (a new track goes ABOVE the existing ones, not
   on top of them — offset `centerY` by about 0.12 of canvas height per track).
 - Long-press a row to rename or delete it.
@@ -277,7 +277,7 @@ text inside a cue, and anything in the audio graph.
   project that is the auto-blank black spacer, so caption edits land on the wrong clip.
   Use `clipUnderPlayhead()`.
 - **A value written and never read** caused three separate bugs on 2026-08-28 — one of
-  them (`27c8b75d`) was transcript words being written to a map nothing consumed. When
+  them (`ec4897e3`) was transcript words being written to a map nothing consumed. When
   your new binding does nothing, check that a renderer READS it before assuming your
   write is wrong.
 - **Two answers to one question** caused three more. There is one list of bindings and

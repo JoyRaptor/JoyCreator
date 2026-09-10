@@ -5,25 +5,25 @@ Read FadCam/tasks/LEDGER.md FIRST. It is the single record of what is fixed (wit
 evidence that proved it), what is open, and what has been promised. Keep it current —
 never delete an entry to shorten the list, strike through and correct instead.
 
-Last good commit: 1aac3b0. Tree clean, builds, APK installed on the Note 9 and verified.
+Last good commit: 73967d1. Tree clean, builds, APK installed on the Note 9 and verified.
 Sandbox project bb2a9deb restored to md5 eb3d16b8 (byte-identical to its pre-session state).
 
 ## WHAT LANDED LAST SESSION
 
-1. `564e2d6` — the MATRIX mid-scramble photograph, the gap that had been open. Done better
+1. `04d959b` — the MATRIX mid-scramble photograph, the gap that had been open. Done better
    than a photograph: MATRIX is deterministic, so `tasks/matrix_predict.py` (written BEFORE
    capturing) predicts the exact string, and each screencap was checked character-for-character
    against the on-screen time chip in the same framebuffer grab. **11/11 matched** — 6 paused,
    5 during real playback, both phrases, entrance and exit, seven ticks. Two frames are the
    built-in control: progress past 1, prediction is the real text, render is the real text.
-2. `97d40f7` — **UNSCRAMBLE shipped.** Its blocker note was WRONG: it needed no third channel,
+2. `5d753b0` — **UNSCRAMBLE shipped.** Its blocker note was WRONG: it needed no third channel,
    only a `unitIndex` parameter on `presetTransform`, because at LETTER granularity every glyph
    is already its own unit with its own Transform in both renderers. Harness 192 → 209.
-3. `3e5be09` — ODOMETER designed, not built. See the OPEN DECISION below.
-4. `b44a6eb` — **the auto-rotate alarm was our own `adb shell monkey`**, which calls
+3. `bdbdab3` — ODOMETER designed, not built. See the OPEN DECISION below.
+4. `849b63d` — **the auto-rotate alarm was our own `adb shell monkey`**, which calls
    `thawRotation()` on teardown. It cost three sessions and was blamed on the user, then a
    package event, then Tasker. **LAUNCH WITH `am start -n`, NEVER `monkey`.**
-5. `1aac3b0` — **MATRIX now churns in halfwidth katakana + digits** (the user asked). Harness
+5. `73967d1` — **MATRIX now churns in halfwidth katakana + digits** (the user asked). Harness
    209 → 213, proved on device against the predictor.
 
 ## OPEN DECISION THAT BELONGS TO THE USER — ODOMETER's scope

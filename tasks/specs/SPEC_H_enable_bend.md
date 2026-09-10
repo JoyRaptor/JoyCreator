@@ -7,7 +7,7 @@
 
 The SPEC E lane landed the mesh renderer and deliberately stopped short of the button, because the
 button lives in SPEC D's files and the two ran under a file-ownership boundary. Verified facts
-about the CURRENT tree (commit `a26b6650`):
+about the CURRENT tree (commit `bed9c816`):
 
 - `TransformOverlayView.setBendAvailable(boolean)` exists at line 701 and **has no callers**.
 - `TextOverlayItem.setMesh(...)` is reachable **only** from `ProjectStorage` (loading a saved

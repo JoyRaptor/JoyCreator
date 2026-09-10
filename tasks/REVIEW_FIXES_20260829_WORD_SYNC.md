@@ -1,6 +1,6 @@
 # REVIEW FIXES — SPEC_20260829_WORD_SYNC (adversarial audit 2026-08-29)
 
-**Branch:** `joy-creator` · **Base commit:** `b3648455` (WordSyncMode + banner/lockout/ticks) · **Fix commit:** this one
+**Branch:** `joy-creator` · **Base commit:** `b8ac6a6c` (WordSyncMode + banner/lockout/ticks) · **Fix commit:** this one
 **Reviewer:** muse-spark (self-adversarial) · **Owner:** JoyRaptor (non-technical explanation also in this doc, §7)
 
 This file logs what the audit found and what was changed, so JoyRaptor can see the reasoning and tweak thresholds without re-reading code.

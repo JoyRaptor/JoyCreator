@@ -1,6 +1,6 @@
 # REPORT 2026-08-29 — SPEC_20260829_CAPTIONS_GL
 
-**Branch:** joy-creator b4ee2b3b + 0dbc64bc + 943f8f2c (+ 17:19 reinstall, 17:42 data loss – see § Re-verify)
+**Branch:** joy-creator ecf389de + ea77873e + 41457684 (+ 17:19 reinstall, 17:42 data loss – see § Re-verify)
 **Lane:** SPEC_20260829_CAPTIONS_GL ACTIVE 2026-08-29T12:00 → 2026-08-29T17:40 re-verify (code landed, device blocked)
 **Author:** muse-spark / opencode
 

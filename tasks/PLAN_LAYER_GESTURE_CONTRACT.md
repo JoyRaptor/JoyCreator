@@ -1,5 +1,5 @@
 # PLAN — Layer-row gesture contract redesign (2026-07-03)
-From live device flight-recorder (ROWGESTURE log, build 23930bb) + user hand-test. The M10 drag MECHANICS
+From live device flight-recorder (ROWGESTURE log, build 1a0d4c5) + user hand-test. The M10 drag MECHANICS
 work (log shows real onItemDroppedOnNewLayer + onItemMovedToTrack commits) — but the interaction model is
 wrong and the drop target is off-screen, so the feature is unusable in practice.
 
@@ -42,7 +42,7 @@ items, fire on committed tap-UP (never on DOWN), and lose to trim handles where 
 
 ## ANCHORS
 - timeline/EditorTimelineView.java: row-band touch routing (handleM6RowTouch, the pending-axis + parent-
-  intercept logic from 1a13557, onUp/onCancel, resetRowGestureFlags), getM6RowsTopPx, viewport height.
+  intercept logic from 4361379, onUp/onCancel, resetRowGestureFlags), getM6RowsTopPx, viewport height.
 - layers/LayerGestureController.java: onRowBodyDown/Move/Up, armMove, long-press runnable (currently delete),
   MOVE_SLOP, hover-target + new-layer-zone detection, band/locked/hidden rejection guards.
 - layers/LayerRowRenderer.java: drawNewLayerZone geometry (the off-screen bug), selection stroke, hit tests.
@@ -106,12 +106,12 @@ timeline surface (not just the row band). Verify via the existing onTouchEvent d
 must show scroll consumption, and scroll position must be continuous across the handback.
 
 ## Status
-- [x] Contract redesign (9cf3080 — recovered agent diff + 2 orch fixes: dead-field compile error, onUp missing pending-TAP branch that left the pickup timer live)
-- [x] off-screen zone fix (9cf3080 — zone pinned to visible viewport bottom, zone height reserved so last row scrolls clear)
+- [x] Contract redesign (1ef4496 — recovered agent diff + 2 orch fixes: dead-field compile error, onUp missing pending-TAP branch that left the pickup timer live)
+- [x] off-screen zone fix (1ef4496 — zone pinned to visible viewport bottom, zone height reserved so last row scrolls clear)
 - [x] delete relocation (trash roundel on the SELECTED item, right end inside the trim cap; ItemZone.DELETE hit-tested FIRST with finger slop; fires the same onItemDeleteRequested confirmation on DOWN like header icons; DownResult.CONSUMED; badge skipped on too-narrow items — geometry single-sourced in deleteBadgeCx)
 - [x] ~~sub-lane overlap rendering~~ SUPERSEDED by bookend snap (user decision 2026-07-03)
-- [x] feedback batch 1 (4375fab): badge 9dp+pinned, row fling, trim stripes, honest cross-band preview
-- [x] adversarial-review fixes (fcc0bd5): CANCEL aborts+reverts (was: committed the drop incl. lane
+- [x] feedback batch 1 (5462ecd): badge 9dp+pinned, row fling, trim stripes, honest cross-band preview
+- [x] adversarial-review fixes (450aa13): CANCEL aborts+reverts (was: committed the drop incl. lane
       creation), delete badge deferred to tap-on-UP (was: fired on DOWN, hijacked swipes + swallowed the
       right trim handle), VelocityTracker recycle
 - [x] FOLLOW-UP 1 bookend maneuver IMPLEMENTED (see commit): occupied-row snap (no overlap), panel-half
@@ -120,7 +120,7 @@ must show scroll consumption, and scroll position must be continuous across the 
       same-row overlap not yet prevented (only cross-row drops snap); BEFORE-snap clamps to 0 when the
       dragged item is longer than the gap before the row's first item (can still overlap there); interior
       gaps of multi-item rows not placeable via drag.
-- [x] post-pinch pan handback (follow-up 2, 5ac5701): onScaleEnd arms a handback branch placed BEFORE the
+- [x] post-pinch pan handback (follow-up 2, 7813563): onScaleEnd arms a handback branch placed BEFORE the
       stale gesture-detector guard; surviving finger re-anchors on its first MOVE (zero jump) and drives
       updatePlayheadFromX raw-x deltas; UP flings (velocity restarted from the re-anchor). Pinch→pan→fling
       = one fluid motion. Log lines: PINCH-HANDBACK armed/re-anchored/end/fling.

@@ -5,7 +5,7 @@
 > perf item on the roadmap.** Cause (as Part A predicted): `TapeWaveformRenderer.draw()` runs
 > full vector work — path building, per-band `LinearGradient` allocation, two-pass glow
 > strokes, spark scan, `columns()` frame scans — on EVERY 60fps `onDraw` for every visible
-> audio item, and now ALSO for every open clip-audio drawer (`5179647`). Fix order:
+> audio item, and now ALSO for every open clip-audio drawer (`a91b019`). Fix order:
 > **A3 tile caching first** (bake each tape into bitmap tiles keyed by clip+zoom+style-epoch;
 > blit while panning/playing; only the playhead layer redraws — this alone should restore
 > silky scroll), then **A1 envelope mipmaps** + **A2 Uint8 quantization**. The clip-audio
@@ -32,7 +32,7 @@
 >    the new data lands (the AV4 sheet's `onStyleChanged(crossoversChanged)` already splits
 >    these paths).
 
-Scope: quad-band "tape" audio waveform (commits AV1 `2120720`, AV2 `8501b1d`).
+Scope: quad-band "tape" audio waveform (commits AV1 `b1e2f29`, AV2 `41d6723`).
 Target device: Note-8-class phone (SM-N960U, Adreno 540, 4 GB). Plan only — no code
 in this doc. All paths are repo-root-relative under `app/src/main/java/com/fadcam/ui/faditor/`.
 
@@ -207,7 +207,7 @@ Method: greps run against the current `joy-creator` working tree, not the (stale
 list. **Correction to the punch list:** the large `drawLayers` / `hitTestLayer*` / `hitTestLayerRow`
 / `hitTestLayerTap` / `activeLayerIndex` / `Drag.LAYER_*` / `selectedLayerKind` / `selectedLayerValue`
 / `doLayerDrag` / `layerSibling*` / `sameLayerLane` subsystem is **ALREADY REMOVED** (handoff.md
-records commit `96cba7f`, "506 lines removed"). Grep of `EditorTimelineView.java` for all those
+records commit `e214d66`, "506 lines removed"). Grep of `EditorTimelineView.java` for all those
 symbols now returns only the unrelated layout constants `LAYER_ROW_HEIGHT_DP` / `LAYER_ROW_GAP_DP`
 / `LAYER_TOP_GAP_DP` (94-96, used at 1715-1716, 1729, 2206) — those are LIVE geometry, **not**
 `Drag.LAYER_*`. Nothing left to remove there.
@@ -284,6 +284,6 @@ it is live for text/audio/overlay/visualizer items.
 - **A1 mipmaps second** — kills the per-pixel multi-frame max-scan in `columns()` (zoomed-out draw
   goes O(frames)->O(pixels)) and provides the tiered data tiles read from.
 - **A2 quantize** rides along with A1 for a ~4x memory cut on shaped/mip data, no visual change.
-- **B**: the large `drawLayers`/`Drag.LAYER_*` subsystem is already gone (`96cba7f`); only the six
+- **B**: the large `drawLayers`/`Drag.LAYER_*` subsystem is already gone (`e214d66`); only the six
   orphaned `on*Layer{Tapped,LongPressed}` callbacks are CONFIRMED-DEAD and safe to delete; the
   caption delete-badge is a LIVE no-op to guard, not remove.

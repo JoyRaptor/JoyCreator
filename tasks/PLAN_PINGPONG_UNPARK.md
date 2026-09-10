@@ -1,6 +1,6 @@
 # PLAN — Ping-pong UNPARK (2026-07-03, ultracode diagnosis: 3 investigators + adversarial judge)
 Full ranked plan + evidence: **tasks/PLAN_PINGPONG_UNPARK_full.json** (implementation agent: READ IT).
-Supersedes guesswork about the ffcdc86 blackout. Sandbox Note 9 = SM-N960U **SNAPDRAGON** (sdm845,
+Supersedes guesswork about the 03a4b09 blackout. Sandbox Note 9 = SM-N960U **SNAPDRAGON** (sdm845,
 OMX.qcom) — all Exynos-specific lore is VOID for this device.
 
 ## Verdict (two layers)
@@ -39,7 +39,7 @@ OMX.qcom) — all Exynos-specific lore is VOID for this device.
    forward degrade + playback continues = rank-1 proven; **EXPORT the ping-pong project ON-DEVICE and
    frame-compare the reverse leg vs preview (the owed, never-run parity check)**; reverse-leg AUDIO listen.
 
-## Status — ✅ COMPLETE 2026-07-03 (commit fe88e39, fully device-proven)
+## Status — ✅ COMPLETE 2026-07-03 (commit 72c8cd7, fully device-proven)
 - [x] Rank-1 resilience (forced-corruption drill: per-clip forward degrade, NO blackout, live video)
 - [x] Rank-2 bake chain — **hevc_mediacodec/nv12 won attempt 1 both bakes** (40.8Mbps AVC → 10.5Mbps HEVC
   hvc1 = matches sources; single-codec playlist; libx264 fallback host-validated, never needed)

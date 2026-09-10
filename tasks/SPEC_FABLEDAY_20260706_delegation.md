@@ -1,6 +1,6 @@
 # Fable-day 2026-07-06 — delegation-ready specs (periphery of A2 + compositing family)
 
-Core landed + device-proven today (commits `fafb0a8` A2 tracking core, `22f29ee` compositing
+Core landed + device-proven today (commits `05cf3ac` A2 tracking core, `c7188c4` compositing
 family + PiP y-flip fix). Everything below is PERIPHERY: UI, adapters, polish — buildable by
 any lane against the frozen contracts named here. Do NOT redesign the contracts; they are
 device-proven.
@@ -37,7 +37,7 @@ device-proven.
   precedent in OverlayVideoPreviewView.onOverlayVideoManipulated).
 - Preview updates free (drawChild clip reads the spec each frame; just invalidate).
 - ACCEPTANCE: author 2 shapes (one sub) by hand on device, save, reopen, export —
-  hole matches preview (the 22f29ee A/B technique, tasks/ has the recipe).
+  hole matches preview (the c7188c4 A/B technique, tasks/ has the recipe).
 
 ## D2. Chroma-key UI (B2) — small
 - Drawer: "Key" chip → enable toggle, color swatch, tolerance/fuzziness/offset sliders
@@ -82,7 +82,7 @@ device-proven.
 - Thermal: PowerManager thermal listener → drop tracker to 10fps / disable limb targets
   first (plan §MINED thermal governor).
 - ACCEPTANCE: the a6-smoke-rig nods with the user's head; screenrecord + frame-diff
-  (the fafb0a8 technique) + zero dropped-frame jank at 15fps tracking.
+  (the 05cf3ac technique) + zero dropped-frame jank at 15fps tracking.
 
 ## D5. Masks on sprite/text items — small, mechanical
 - `CompositeExportOverlay`: wrap each sprite/text draw in

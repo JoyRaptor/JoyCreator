@@ -5,19 +5,19 @@ Read FadCam/tasks/LEDGER.md FIRST. It is the single record of what is fixed (wit
 evidence that proved it), what is open, and what has been promised. Keep it current —
 never delete an entry to shorten the list, strike through and correct instead.
 
-Last good commit: a247b5c. Tree clean, builds, APK installed on the Note 9.
+Last good commit: 651359b. Tree clean, builds, APK installed on the Note 9.
 Sandbox project bb2a9deb restored to md5 eb3d16b8 (byte-identical to its pre-session state).
 Harness: 298 passed, 0 failed. Matte harness: ALL PASS.
 
 ## WHAT LANDED LAST SESSION
 
-1. `438ed73` — **MASK_WIPE shipped** (third preset). Its big finding: it does NOT hit the
+1. `28000aa` — **MASK_WIPE shipped** (third preset). Its big finding: it does NOT hit the
    text-box `TextView` wall, because that wall is about drawing TWO things, not about clipping —
    `View.setClipBounds` clips one body fine.
-2. `7093877` — **a correction that doubled an estimate.** The recorded reason text boxes were
+2. `7842bd5` — **a correction that doubled an estimate.** The recorded reason text boxes were
    BLOCK-only read as "preview can't, export already does". Neither side did it: the export
    rasterised the whole box and animated the bitmap.
-3. `a247b5c` — **text boxes now animate per LETTER / WORD / SENTENCE.** This is what the user
+3. `651359b` — **text boxes now animate per LETTER / WORD / SENTENCE.** This is what the user
    actually wanted: *"really that was the only point in doing animate text in the first place."*
 
 **The shape of (3), because it is the load-bearing decision.** Captions keep preview and export
@@ -108,7 +108,7 @@ centres it on the frame), the 0.35em pad, and rotation composition order.
    `cat classes*.dex | grep -a -o -F -- "sym" | wc -l`.
  - **A FAILING `javac` LEAVES THE OLD .class FILES AND THE HARNESS REPORTS A CONFIDENT PASS ON
    STALE BYTECODE.** Delete the output dir or check the exit code.
- - Measure the harness count by RUNNING it. It is 298 at `a247b5c`.
+ - Measure the harness count by RUNNING it. It is 298 at `651359b`.
  - The strongest DEVICE freshness control is behavioural: each new preset makes the picker grow a
    tile (six → seven → eight → nine so far). No symbol scan can fake that.
  - Literal non-ASCII in a Java CHAR/STRING literal breaks the harness build (windows-1252 vs

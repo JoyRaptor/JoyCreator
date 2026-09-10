@@ -1,6 +1,6 @@
 # Handoff — 2026-08-06, overnight run: SPEC_IMAGE_SEQUENCE
 
-Branch `joy-creator`. Six commits, `1e907ca` → `c7812ae`. Tree clean, all harnesses green,
+Branch `joy-creator`. Six commits, `822f27c` → `f6fed86`. Tree clean, all harnesses green,
 APK installed and timestamp-checked, both borrowed projects restored byte-exact.
 
 **SPEC_IMAGE_SEQUENCE.md is BUILT and DEVICE-VERIFIED end to end**, including the export A/B.
@@ -103,7 +103,7 @@ the other.
 
 ---
 
-## Adversarial review — 8 defects found, 7 fixed (commit `6267fc0`)
+## Adversarial review — 8 defects found, 7 fixed (commit `c6f5d9b`)
 
 A read-only agent reviewed the whole session diff. Fixed: a resize on a
 "continues" object being silently reverted (and keeping the new fps — a 60s object
@@ -151,7 +151,7 @@ other with mismatched halves.
 - **`frameChangesIn` rounds where `resolveCellAt` floors**, so scrubbing exactly onto a tape mark
   can show the previous frame (sub-frame, cosmetic). `Math.ceil` is the correct inverse.
 - **Dead code:** `MaskKeyPanel` (357 lines, no callers — left in place deliberately, see
-  `c6ab9f3`), `SpritePalettePanel.openDopeSheet()`, `SequenceImportDialog.showFor()`.
+  `c5bd23f`), `SpritePalettePanel.openDopeSheet()`, `SequenceImportDialog.showFor()`.
 
 ## Genuinely open
 

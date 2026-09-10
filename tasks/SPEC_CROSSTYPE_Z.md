@@ -97,7 +97,7 @@ have nothing to draw and can skip layout entirely — keeping the whole feature 
 
 ## Slices (for C)
 
-- **Z1 — ✅ DONE (`88f522d`).** `LayerPreviewController.orderedVisualItems`, with all three
+- **Z1 — ✅ DONE (`1df2399`).** `LayerPreviewController.orderedVisualItems`, with all three
   `visible*` methods derived from it; equivalence proved over 11 real projects by
   `tasks/visible_equiv.py`.
 - **Z2 — ✅ DONE.** `partitionAroundVideo` / `paintsBelowVideo` / `topPipLaneZ`. An item is
@@ -155,7 +155,7 @@ Three throwaway clones, identical in every respect except the one variable, each
 
 Geometry is absolute and asymmetric — text centre (0.42, 0.60), PiP centre (0.45, 0.55);
 `--check-asym` confirms no x-, y- or xy-flip maps either onto the other or onto itself, so a
-flip cannot hide (the a4fbeba lesson).
+flip cannot hide (the 4ad796a lesson).
 
 **Acceptance 1 — text on the lower lane really is BEHIND the PiP.** In `Zbelow` the glyph run
 `ZPROBE` comes out as `ZP…E`: measured over the text band (rows 429–564, threshold 40/255,

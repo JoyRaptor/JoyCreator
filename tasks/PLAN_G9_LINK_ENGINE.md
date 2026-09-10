@@ -1,6 +1,6 @@
 # PLAN — G9 Object Linking: shared link engine (lean A)
 
-> **STATUS 2026-07-19 (Fable 5): G9a–G9e BUILT.** G9a/b groundwork `cc68b3b`; G9c/d/e `114a163`
+> **STATUS 2026-07-19 (Fable 5): G9a–G9e BUILT.** G9a/b groundwork `6e0295d`; G9c/d/e `50e540a`
 > per JoyRaptor's five answers. DEVIATIONS from this plan, deliberate: (1) G9e peer propagation lives
 > INSIDE `Timeline.resyncLinkGroups()` via last-known-start tracking on LinkMember (unclamped
 > virtual positions), NOT in gesture code — propagates from every mutation surface and makes
@@ -18,7 +18,7 @@
 
 Execution design for gesture contract §5.6 (`PLAN_GESTURE_CONTRACT_FINAL_20260706.md` lines 262-281)
 and the G9 build-slice row (same doc, lines 348-350). Lean **A**: build one link engine, then
-re-express G5 piggyback/stratified attachment (already shipped, commit 5192186) as a named preset
+re-express G5 piggyback/stratified attachment (already shipped, commit 40d1495) as a named preset
 over it, instead of a second parallel grouping system. Design only — no code changes in this doc.
 
 ---

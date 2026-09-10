@@ -6,9 +6,9 @@ Continuation brief for the next agent. Read `tasks/PERF_SPEC_LONGFILE_20260718.m
 
 ## Where things stand (all committed)
 
-- `f05f43b` F10–F12: gapless structural-edit resync; transition add/remove undoable +
+- `5983af7` F10–F12: gapless structural-edit resync; transition add/remove undoable +
   player resync both directions; PREVIEW transition frames crop to clip bounds.
-- `924df30` F13: GL transition PREVIEW overhaul — reliable and good-looking:
+- `4ab0444` F13: GL transition PREVIEW overhaul — reliable and good-looking:
   ticker survives STATE_ENDED at file-end seams; endpoint frames (A@out, B@in) decoded
   off-main + prefetched ~1.2s ahead; ValueAnimator drives the shader at frame rate;
   native GLUtils texture upload only-on-change; frames composed at the GL VIEW's rect
@@ -96,14 +96,14 @@ Key invariants (breaking these re-introduces fixed bugs — see F13 in the spec)
 
 ## Task 2 — EXPORT parity (transitions must match preview)
 
-> **UPDATE 2026-07-18 ~15:50 (commit 62bc140): Task 2A is DONE and device-proven** —
+> **UPDATE 2026-07-18 ~15:50 (commit d125e14): Task 2A is DONE and device-proven** —
 > see "F12 CLOSED" in the spec. Remaining here: 2B verification sweep, and the known
 > limit that incoming-leg crop covers the "custom" preset only (named preset crops on
 > the incoming clip still blend uncropped).
 
 Two known export gaps, both in the transition segment:
 
-A. ~~CROPS IGNORED~~ FIXED in 62bc140 (spec F12 CLOSED). Original description: `ExportManager.assembleClipVideoEffects` skips the Crop
+A. ~~CROPS IGNORED~~ FIXED in d125e14 (spec F12 CLOSED). Original description: `ExportManager.assembleClipVideoEffects` skips the Crop
    effect when `isTransitionItem == true` (~line 2181), and `GlTransitionExportEffect`
    samples the INCOMING clip's raw source (built in `ExportManager` ~line 1361 with
    `nextClip.getSourceUri()`). Exported result: framing pops to uncropped raw + black
@@ -148,9 +148,9 @@ cropped framing holds through the blend and matches preview screenrecords.
 
 ## Also open (smaller, unrelated to transitions)
 
-- ~~Speed-change gapless sibling~~ FIXED `3de40a2` (2026-07-25): speed-sheet COMMIT
+- ~~Speed-change gapless sibling~~ FIXED `066d20d` (2026-07-25): speed-sheet COMMIT
   (`onSpeedCommitted`/`onDismiss`) re-bakes the gapless snapshot via
   `resyncGaplessAfterStructuralEdit`. Device-verify on a multi-clip gapless project owed.
-- ~~F9 cosmetic ("analyzing audio…" sticks)~~ FIXED `9eed3b7` (2026-07-25): the superset-reuse
+- ~~F9 cosmetic ("analyzing audio…" sticks)~~ FIXED `031ed07` (2026-07-25): the superset-reuse
   scan in `BandedTimelineWaveformCache.get()` early-returned null on the first in-flight covering
   span, masking a ready covering entry later in HashMap order; now scans all candidates first.

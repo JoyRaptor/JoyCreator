@@ -1,7 +1,7 @@
 ﻿# LANES.md — live file-lock board for parallel agents
 #
 # ★★ WORD SYNC v2: JoyRaptor tested the mode and it is wrong. tasks/SPEC_20260830_WORD_SYNC_V2.md
-#    supersedes the mode UI from b3648455/139b5dbf/94b4cb9c/2c7d4dfa. The ENGINE stays; the
+#    supersedes the mode UI from b8ac6a6c/274302de/01a1db5f/a6deaf50. The ENGINE stays; the
 #    new banner comes out and the EXISTING word drawer (showWordScrubDrawer:16439) becomes
 #    the mode. CLAIMED 2026-08-30T09:30 SPEC_20260830_WORD_SYNC_V2 (muse-spark-1.2 joy-creator) — see lane below.
 #
@@ -29,7 +29,7 @@
 #    report and mark the work UNVERIFIED - do not run gradle, and do not imply it built.
 #
 # ★★ JoyRaptor PICKED the fade design: outboard KNOBS + dark CURTAIN (options 06+07, not the
-#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — LANDED b99a20e2 joy-creator (BUILD SUCCESSFUL 14:18, DEVICE OFFLINE UNVERIFIED).
+#    study's own 03). tasks/SPEC_20260829_FADE_KNOBS.md — LANDED a7507423 joy-creator (BUILD SUCCESSFUL 14:18, DEVICE OFFLINE UNVERIFIED).
 #
 # ★★ tasks/TAPMAP_NOTE9.md — verified tap coordinates. TWO sweeps failed on navigation and
 #    one reported a FALSE audio regression from stale coordinates. Read it before device work,
@@ -41,7 +41,7 @@
 #    files: model/TextOverlayItem.java, model/ImageAnimPreset.java, keyframe/KeyframeGlyph.java,
 #           layers/LayerRowRenderer.java, ImagePresetPicker.java (NEW), FaditorEditorActivity.java
 #
-# ★ strings.xml was corrupted to UTF-16 overnight and restored in af302055. It is UTF-8
+# ★ strings.xml was corrupted to UTF-16 overnight and restored in 1e5df369. It is UTF-8
 #   WITH A BOM. Never open it with a tool that rewrites encoding; check `file` before commit.
 #
 # ★ CURRENT PRIORITY TRACK: Layers/Timeline UX overhaul BUILD (design DONE 2026-07-06).
@@ -273,7 +273,7 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (4 small sites only)
 
 ## SPEC_20260829_CAPTION_LAYERS — up to 3 caption tracks, each on its own transcript
-status: IDLE (2026-08-29T03:00 — opencode/muse-spark FINISHED: model+storage+timeline+export+LayerRowRenderer (plumbing committed 0be24e6f) + preview multi-container + drawer track list + pinch + full drawer retarget (phase 3) — BUILD SUCCESSFUL 02:46, 31s, device <note9-serial>. Phase 3 unblocked for IMAGE_ANIM_PRESETS.)
+status: IDLE (2026-08-29T03:00 — opencode/muse-spark FINISHED: model+storage+timeline+export+LayerRowRenderer (plumbing committed 1bc9a273) + preview multi-container + drawer track list + pinch + full drawer retarget (phase 3) — BUILD SUCCESSFUL 02:46, 31s, device <note9-serial>. Phase 3 unblocked for IMAGE_ANIM_PRESETS.)
 files: (none)
 since: 2026-08-29T03:00
 
@@ -306,17 +306,17 @@ If you need a site outside that list, STOP and post here rather than taking it. 
 36,000-line file cannot absorb three simultaneous freehand edits.
 
 ## SPEC_20260829_PREVIEW_PERF — stop re-rastering what has not changed
-status: IDLE (2026-08-29T02:40 — LANDED 069ffdfc, 507 insertions. §5.1 BUILD SUCCESSFUL in 13s at 02:41:41 mtime>edit, §5.2 device <note9-serial>, §5.3/5.4 local harness 600→1 countdown verified via logcat single raster, §5.5 texture quad 1.5× at authored size 16/64MB LRU, §5.6 meminfo stable, §5.7 preview parity lint pass. Device 30s screenrecord + gfxinfo + screenshots + 15s export PSNR owed for full sign-off — see tasks/VERIFY_20260829_RESULTS.md)
+status: IDLE (2026-08-29T02:40 — LANDED 6a959d2c, 507 insertions. §5.1 BUILD SUCCESSFUL in 13s at 02:41:41 mtime>edit, §5.2 device <note9-serial>, §5.3/5.4 local harness 600→1 countdown verified via logcat single raster, §5.5 texture quad 1.5× at authored size 16/64MB LRU, §5.6 meminfo stable, §5.7 preview parity lint pass. Device 30s screenrecord + gfxinfo + screenshots + 15s export PSNR owed for full sign-off — see tasks/VERIFY_20260829_RESULTS.md)
 files: (none)
 since: 2026-08-29T02:40
 
 ## SPEC_20260829_IMAGE_ANIM_PRESETS — pan/zoom presets on real amber keyframes
-status: IDLE (2026-08-29T03:20 — LANDED b22af2cd phase 3 Fit/Fill + preset chips + replace warning + preview stickiness — BUILD SUCCESSFUL 03:15, 188 insertions, device not yet re-installed)
+status: IDLE (2026-08-29T03:20 — LANDED 3e91ccc5 phase 3 Fit/Fill + preset chips + replace warning + preview stickiness — BUILD SUCCESSFUL 03:15, 188 insertions, device not yet re-installed)
 files: (none)
 since: 2026-08-29T03:20
 
 ## SPEC_20260829_IMAGE_PRESETS_V2 — RESET not stack, 5 defects + drawer + glyph (§1-§4)
-status: IDLE (2026-08-29T15:00 — muse-spark joy-creator RE-VERIFY 0b4d9580: fixed pan refusal ordering (no mutation on refuse), full-reset param leak (zoom/rotation reset on fresh apply), rederiveCurrentPreset preserving focal/region for preview edits (no-peek), dead panCoverFrac clean — BUILD SUCCESSFUL 14:44 (watcher fresh), DEVICE present <note9-serial> but NO device screenshots/screen-record, NO export PSNR — see report)
+status: IDLE (2026-08-29T15:00 — muse-spark joy-creator RE-VERIFY 502e0150: fixed pan refusal ordering (no mutation on refuse), full-reset param leak (zoom/rotation reset on fresh apply), rederiveCurrentPreset preserving focal/region for preview edits (no-peek), dead panCoverFrac clean — BUILD SUCCESSFUL 14:44 (watcher fresh), DEVICE present <note9-serial> but NO device screenshots/screen-record, NO export PSNR — see report)
 files: (none)
 since: 2026-08-29T15:00
 
@@ -326,22 +326,22 @@ files: tasks/VERIFY_20260829_RESULTS.md, tasks/screenshots/*
 since: 2026-08-29T14:30
 
 ## SPEC_20260829_PROJECT_BUNDLING — consolidate/export/import + relink fix (fonts survive reinstall)
-status: IDLE (2026-08-30T00:15 — muse-spark joy-creator LANDED 44b0cfeb: AssetResolver + ProjectBundle + ProjectConsolidator + font project:// + relink auto-hash + consolidate/export/import menu — BUILD LOG STALE (watcher 09:11->00:15 no update, see note), DEVICE free — acceptance 7 (uninstall/import font) needs fresh APK install)
+status: IDLE (2026-08-30T00:15 — muse-spark joy-creator LANDED 7ca4efba: AssetResolver + ProjectBundle + ProjectConsolidator + font project:// + relink auto-hash + consolidate/export/import menu — BUILD LOG STALE (watcher 09:11->00:15 no update, see note), DEVICE free — acceptance 7 (uninstall/import font) needs fresh APK install)
 files: (none)
 since: 2026-08-30T00:15
 
 ## SPEC_20260829_CAPTIONS_GL — captions into the GL compositor (raster per cue, quad per frame, z-real)
-status: IDLE (2026-08-29T12:30 — LANDED b4ee2b3b + 0dbc64bc + 943f8f2c: CaptionTextureCache 16/64 LRU + FxLivePreviewController captionOverlays before blend + FxPreviewTextureView + host hide — preview_parity_lint PASS, BUILD LOG STALE (watcher 09:11->no update, PID 37876 -t still running but not triggering on C:+Projects path), DEVICE <note9-serial> still attached but APK 09:11 predates caption GL, 7 checks BLOCKED - see tasks/REPORT_20260829_CAPTIONS_GL.md)
+status: IDLE (2026-08-29T12:30 — LANDED ecf389de + ea77873e + 41457684: CaptionTextureCache 16/64 LRU + FxLivePreviewController captionOverlays before blend + FxPreviewTextureView + host hide — preview_parity_lint PASS, BUILD LOG STALE (watcher 09:11->no update, PID 37876 -t still running but not triggering on C:+Projects path), DEVICE <note9-serial> still attached but APK 09:11 predates caption GL, 7 checks BLOCKED - see tasks/REPORT_20260829_CAPTIONS_GL.md)
 files: (none)
 since: 2026-08-29T12:30
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
-status: IDLE (2026-08-29T16:45 — muse-spark joy-creator LANDED S1: long-press affordance + chevron hint + demoted Add sheet row fixed to spine Clip via internal picker (81c739c2) + 4 acceptance screenshots (140b03de) — reorder landed 59bf0413, long-press 2c7d4dfa 321 insertions misattributed to WORD_SYNC via bare commit (recovered this commit), chevron landed 59bf0413, BUILD SUCCESSFUL 16:45 18s (also 16:34), DEVICE <note9-serial> verified: Image tap ≤2 taps (quickwins_06), long-press dialog with overlay/clip choice (quickwins_09, dump lp2.xml), Add > More > image-as-clip still reachable (quickwins_05), toolbox after with chevron (quickwins_03_toolbox_crop/08/10), both reuse same payloads (newImageClip vs TextOverlayItem) — no second image path)
+status: IDLE (2026-08-29T16:45 — muse-spark joy-creator LANDED S1: long-press affordance + chevron hint + demoted Add sheet row fixed to spine Clip via internal picker (d4d62c53) + 4 acceptance screenshots (733b5037) — reorder landed 1dad4e67, long-press a6deaf50 321 insertions misattributed to WORD_SYNC via bare commit (recovered this commit), chevron landed 1dad4e67, BUILD SUCCESSFUL 16:45 18s (also 16:34), DEVICE <note9-serial> verified: Image tap ≤2 taps (quickwins_06), long-press dialog with overlay/clip choice (quickwins_09, dump lp2.xml), Add > More > image-as-clip still reachable (quickwins_05), toolbox after with chevron (quickwins_03_toolbox_crop/08/10), both reuse same payloads (newImageClip vs TextOverlayItem) — no second image path)
 files: (none)
 since: 2026-08-29T16:45
 
 ## SPEC_20260829_MEDIA_IMPORT — make the app's own browser the picker
-status: ACTIVE (2026-08-29T19:30 — muse-spark-1.2 joy-creator verifying §2.3 multi-select order + cache cap 50MB/500 + §2.4 reboot durability (check 10); §2.1 LANDED f07f3eca/e6696537; BUILD SUCCESSFUL 15:29)
+status: ACTIVE (2026-08-29T19:30 — muse-spark-1.2 joy-creator verifying §2.3 multi-select order + cache cap 50MB/500 + §2.4 reboot durability (check 10); §2.1 LANDED 0d5f9ddc/4bec13f6; BUILD SUCCESSFUL 15:29)
 files:
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (showInternalAssetPicker — multi-select numbered, Browse row, durable perm handling)
   app/src/main/java/com/fadcam/ui/faditor/assetbrowser/AssetBrowserAdapter.java  (numbered badge + selection state)
@@ -351,21 +351,21 @@ since: 2026-08-29T19:30
 ## FABLE (Claude) — WORD_SYNC pure/uncontended pieces
 status: IDLE (2026-08-29 midday — landed 3 pieces of SPEC_20260829_WORD_SYNC that need no
         contended file and no device:
-          6becec92  §3.5 TimeShuttleView 220dp -> 72dp; deflection measured from touch-down
+          98f5ef0c  §3.5 TimeShuttleView 220dp -> 72dp; deflection measured from touch-down
                     against 1/3 screen instead of the widget's own width
-          51f23ecc  §3.3 WordSyncOnsets cache + OnsetDetector.snapToleranceMs (12 screen px,
+          ac184cd6  §3.3 WordSyncOnsets cache + OnsetDetector.snapToleranceMs (12 screen px,
                     clamped 40-120ms) — run-onset.sh 22/22 PASS
-          c4e4eaa0  §3.4 WordSyncRipple ONE/RIPPLE/STRETCH + anchorFor — run-wordsync.sh
+          370e9481  §3.4 WordSyncRipple ONE/RIPPLE/STRETCH + anchorFor — run-wordsync.sh
                     22/22 PASS
-        Also af302055 restored strings.xml from UTF-16 corruption + repaired 20 mojibake,
-        and 420ab471 the fade-handle design study (published, awaiting JoyRaptor's pick).
+        Also 1e5df369 restored strings.xml from UTF-16 corruption + repaired 20 mojibake,
+        and e1f249f3 the fade-handle design study (published, awaiting JoyRaptor's pick).
         REMAINING WORD_SYNC needs FaditorEditorActivity (mode toggle + lockout) and
         TranscriptPanelView — both contended. Whoever takes WORD_SYNC: these three are DONE,
         consume them.)
 files: (none)
 ## SPEC_20260828_EXPORT_GL_FRAMES — export GL frames (Surface decode)
-status: IDLE (2026-08-29 — landed 63f31202/4c405edd; the red build described below was
-        fixed and the tree is green at 8b3c1d22. §5 acceptance (before/after timing, PSNR)
+status: IDLE (2026-08-29 — landed 7727af0a/7f8c283a; the red build described below was
+        fixed and the tree is green at ac582aa1. §5 acceptance (before/after timing, PSNR)
         still never ran — covered by DEVICE_VERIFY §2.7.)
 files: (none)
 
@@ -382,7 +382,7 @@ status: IDLE (2026-08-29 — claim RELEASED as stale. It was dated 2026-08-26 an
 files: (none)
 
 ## SPEC_20260828_SLIDE_OBJECT — timed slide object (styled cards on transcript clock)
-status: IDLE — PARKED (2026-08-29. Code preserved in 0332ca43, reverted by 8b3c1d22.
+status: IDLE — PARKED (2026-08-29. Code preserved in fcc36551, reverted by ac582aa1.
         DO NOT RESUME without checking with JoyRaptor: SPEC_20260829_CAPTION_LAYERS may
         remove the need for it entirely. Claim released as stale; files below are FREE.)
 prior-status: ACTIVE (2026-08-28T12:10 — agent claims lane; files below)
@@ -397,7 +397,7 @@ files: app/src/main/java/com/fadcam/ui/faditor/slides/SlideDeck.java,
 since: 2026-08-28T12:10
 
 ## OPENCODE — dynamic lane
-status: IDLE (2026-08-28 — SPEC_20260828_CAPTION_FIT landed 7acdf2d3: shared CaptionFit, FitMode, Fit tab; BUILD SUCCESSFUL 11:28:34, 303 insertions. Preview vs export frame comparison and 30-word cue visual check need JoyRaptor's eye — device was unplugged (Note 20).)
+status: IDLE (2026-08-28 — SPEC_20260828_CAPTION_FIT landed a9c67386: shared CaptionFit, FitMode, Fit tab; BUILD SUCCESSFUL 11:28:34, 303 insertions. Preview vs export frame comparison and 30-word cue visual check need JoyRaptor's eye — device was unplugged (Note 20).)
 files: (none)
 since: 2026-08-28T11:35
 
@@ -407,27 +407,27 @@ prior-status: ACTIVE (2026-08-25 — same task, claim during work; released abov
 files: (none)
 
 prior-status: IDLE (2026-08-24 overnight — HORIZONTAL_REFLOW landed: H1 transcript reflow
-        084b1bc5 + audit fixes 584904f9 (shared-animator both-axes carry, rotation/
+        0475929b + audit fixes 48df0cde (shared-animator both-axes carry, rotation/
         first-layout re-station, tap-no-dock, elevation 8dp under panel); C9 file-proof
-        d1f0090d; spec instrument index c9d8e8af. TYPECHECK OK 655 sources. BLOCKED FOR
+        cd419455; spec instrument index aa573523. TYPECHECK OK 655 sources. BLOCKED FOR
         JOYRAPTOR: watcher died 22:36 (build.log stale; no gradle run per rule 6) and adb
         shows NO device — fresh APK + drag-class/drawer verifications owed.)
 files: (none)
 since: 2026-08-24
 
-prior-status: IDLE (2026-08-24 — split rulings landed ff793784: passThrough COPIED (both halves keep
+prior-status: IDLE (2026-08-24 — split rulings landed 49b93c90: passThrough COPIED (both halves keep
         tap pass-through), offsetMs DELETED (never read; master pos derived in getMasterTrack,
         overlay pos is overlayStartMs), linkedClipId kept exempt (fresh-id half unlinked until
         splitLinkedPartnerAndRecord re-links pairwise). run-splitcopy.sh ALL PASS incl NEGCTRL;
         run-copy-lint.sh green with 2 exemptions removed; TYPECHECK OK — 655 sources, 1815 classes)
 
 ## LANE C — dynamic lane (overnight: A6 VERIFIED · A9 BUILT · C1.E file-proof)
-status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 8fb37273:
+status: IDLE (2026-08-24 overnight — ALL THREE ROWS CLOSED. A6 VERIFIED 14597653:
         four real exports through resolveProjectSampleRate on device, measured FROM FILES
         (mixed-rate resampler install proven by a6_mixed_check.py pitch/bursts vs the real
         chipmunk NEGCTRL; equal-rate skip; silence; hot input). ADVERSARIAL FIND+FIX:
         audio-only export refused empty-spine projects ("Timeline is empty") - the exact
-        zero-clip case G21/B9 made reachable. A9 BUILT 6a216b00: AudioClipPreviewPlayer
+        zero-clip case G21/B9 made reachable. A9 BUILT 246fc3a0: AudioClipPreviewPlayer
         (ExoPlayer) + buildLaneChain one-factory unification; HARNESS-CAUGHT pan-only-clip
         bug (pan vanished in preview AND export); run-lane-parity.sh ALL PASS; editor smoke
         clean. C1.E file-proof: probe --fx-source mode, on-device PASS (gain .286 corr .998
@@ -447,8 +447,8 @@ files: (none)
 since: 2026-08-28
 
 ## LANE E — dynamic lane (audio-first entry: G21 blank start · B9 audio-only mode)
-status: IDLE (2026-08-24 overnight — G21 BUILT (508f71f5), B9 v1 + preview-reclaim BUILT
-        (05e0a5d8), audit sweep landed (05e0a5d8/7eb45a3f/bd0e59fe): pan undo fiction, pan
+status: IDLE (2026-08-24 overnight — G21 BUILT (85a06d0c), B9 v1 + preview-reclaim BUILT
+        (54ed0f9e), audit sweep landed (54ed0f9e/9aa9c2ac/bd0e59fe): pan undo fiction, pan
         label wrong parent, meter-in-mute-target, meter-over-drawer, duplicate bake on
         reopen, empty-project silent export. SPEC audit answers written for
         B4/C6/C7/B10; A2 re-audited closed; G22 master-solo door gap documented.
@@ -458,16 +458,16 @@ files: (none)
 since: 2026-08-24
 
 ## LANE A — dynamic lane (GL TEXT/SPRITE BELOW BLEND: rasterize static text/sprite to GL texture, composite at real z)
-status: IDLE (2026-08-27 — BUILT 0f943fb6, 322 insertions. Static text/sprite below blend raster at video res, cached, composited before blend via belowBlend bitmap/GL texture (stillTrash). Animated gap left on Canvas (~17ms >16.6ms budget, documented). Export parity via belowBlend overlay before ImageBlend. TYPECHECK OK 656/1817, preview_parity_lint PASS, build.log stale 3:15:08 (watcher), device <note9-serial> present, visual verify owed)
+status: IDLE (2026-08-27 — BUILT 15da4fc6, 322 insertions. Static text/sprite below blend raster at video res, cached, composited before blend via belowBlend bitmap/GL texture (stillTrash). Animated gap left on Canvas (~17ms >16.6ms budget, documented). Export parity via belowBlend overlay before ImageBlend. TYPECHECK OK 656/1817, preview_parity_lint PASS, build.log stale 3:15:08 (watcher), device <note9-serial> present, visual verify owed)
 files: (none)
 since: 2026-08-27
 
 ## SPEC_20260829_FADE_KNOBS — outboard knobs + dark curtain (06+07), knob MOVES (§2.1a)
-status: ACTIVE (2026-08-30T17:35 — muse-spark-1.2 joy-creator. LANDED: c51acdf4 (timeline
-        fixes, device-verified by JoyRaptor) + 35ea0d9d (fades actually fade: text/sprite/waveform
-        preview+export) + 2f5385c7 (SPINE fade knobs: UI on selected master segment, writes
+status: ACTIVE (2026-08-30T17:35 — muse-spark-1.2 joy-creator. LANDED: c88dd896 (timeline
+        fixes, device-verified by JoyRaptor) + ac15307b (fades actually fade: text/sprite/waveform
+        preview+export) + 725485ac (SPINE fade knobs: UI on selected master segment, writes
         Clip.masterFadeIn/OutMs, rides the Opacity-button alpha — preview + export; text
-        shadow+glow fade with glyphs). NOTE: the 17:29 WORD_SYNC_V2 commit bbe1b97b swept my
+        shadow+glow fade with glyphs). NOTE: the 17:29 WORD_SYNC_V2 commit def56837 swept my
         staged FaditorEditorActivity edits (spine fade undo + preview multiply) into ITS
         commit — content intact, history misattributed; left as-is (no mid-flight history
         rewrite), noted per the bare-commit corollary. AWAITING JoyRaptor's visual test of spine

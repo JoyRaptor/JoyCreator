@@ -11,7 +11,7 @@ point-at-video if budget remains.
    watcher — it only rebuilds on saves). Don't touch opencode's uncommitted files
    (FilterBottomSheet.java, effects/GradePresetStore.java, res/values/strings.xml — use inline
    string literals). DEVICE token protocol before any adb.
-2. tasks/PLAN_AVATAR_STUDIO.md — §Status: A4 is COMPLETE (commits c0c4020, 7b4edb3, 16a712f).
+2. tasks/PLAN_AVATAR_STUDIO.md — §Status: A4 is COMPLETE (commits af62738, da45221, 4e23295).
    The §MINED bake-to-parameter-track doctrine is BINDING.
 
 ## State you inherit (all committed, watcher-green, device verify OWED)

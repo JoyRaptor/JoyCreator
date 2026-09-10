@@ -5,7 +5,7 @@ Read FadCam/tasks/LEDGER.md FIRST. It is the single record of what is fixed (wit
 evidence that proved it), what is open, and what has been promised. Keep it current —
 never delete an entry to shorten the list, strike through and correct instead.
 
-**Supersedes NEXT_SESSION_PROMPT_20260730g.md.** Tree clean at `e66d5b7`. Harness 298/0.
+**Supersedes NEXT_SESSION_PROMPT_20260730g.md.** Tree clean at `0566390`. Harness 298/0.
 Sandbox `bb2a9deb` restored and verified to md5 **`82d8342d`**, 11 projects, rotation lock 0.
 
 ## ⚠ THE ONE THING TO DO FIRST
@@ -24,10 +24,10 @@ channels are supposed to land on identity at p=1).
 
 ## WHAT LANDED THIS SESSION
 
-1. `17a6254` — **GHOST's blur ships**, on text boxes, preview AND export. This was a recorded
+1. `0f8c404` — **GHOST's blur ships**, on text boxes, preview AND export. This was a recorded
    USER DECISION with a condition attached, and the condition was a number, so it was measured
    rather than argued.
-2. `e66d5b7` — **NEON_FLICKER built** (see above; unverified).
+2. `0566390` — **NEON_FLICKER built** (see above; unverified).
 
 **The GHOST measurement, because the method matters more than the number.** The spec recorded
 the price as "`LAYER_TYPE_SOFTWARE` on the overlay, which costs every frame of playback". That
@@ -82,7 +82,7 @@ Recorded because every one of them looked like a finding first.
    cheaper and strictly better than today's nothing. **The question was put to them this session
    and not answered — ask again before building.**
 3. **ODOMETER.** Designed, not built, and its blocker is GONE (text boxes got a canvas renderer
-   in `a247b5c`). **Fix the spec first** — the user caught a real flaw: fillers must roll a
+   in `651359b`). **Fix the spec first** — the user caught a real flaw: fillers must roll a
    SEQUENCE, not MATRIX's scramble. Then build; it is now the last unimplemented preset.
 4. **The picker thumbnail under-advertises.** `TextAnimPickerPopover` deliberately omits blur
    "to match" the fact that nothing drew it. Text boxes now DO. Small, and it keeps the tile

@@ -8,7 +8,7 @@ JoyRaptor: after Slice E the master is centered but not visually distinct enough
 handsome darker texture so it looks like a filmstrip or something else" so the main track reads as the
 anchor. Scope: a paint/draw treatment on the master band in `EditorTimelineView.onDraw` (darker recessed
 bg + accent divider above/below + optional filmstrip sprocket-hole edges). No geometry/hit-test change →
-low risk. Pairs directly with Slice E (commits 7e89fb5 / 4608da1).
+low risk. Pairs directly with Slice E (commits 4bf908d / b43865a).
 
 ## 2. Accurate waveform display  ⚠️ ASKED "did we already do this?" — ANSWER: NO (not on the timeline bar).
 CODE-VERIFIED ground truth:
@@ -36,7 +36,7 @@ MOVE audio clips freely, just like the video/overlay layers. Current state (code
   no-overlap/move resolver (Slice F) to audio, positioned as a SECOND scrollable M6-style band BELOW
   master. Blocked-ish on: re-anchoring the ~9 `getSelectedAudioIndex` audio ops (volume kf / split /
   mute / trim-to-selection / delete) onto the unified `selectedItemId` (why the new audio rows were
-  suppressed in 93fe745). Real work, multi-commit.
+  suppressed in f92c602). Real work, multi-commit.
 
 ## 4. Audio-only export (export an audio FILE)  [new — not built]
 CODE-VERIFIED: `ExportManager` has NO audio-only path. Its only audio-file code is the silence-WAV gap
@@ -44,9 +44,9 @@ padding. Audio-only export = a new export mode (mux the composed audio sequence 
 Touches `ExportManager` (Fable standing-lock) + the export dialog. Not currently on the roadmap → adding.
 
 ## STATUS (JoyRaptor chose "quick visual wins first" 2026-07-06):
-- ✅ #1 delineation DONE — master filmstrip (84b570b) + refinement (3409931: travels w/ scroll, green
+- ✅ #1 delineation DONE — master filmstrip (40d6081) + refinement (6bfb31e: travels w/ scroll, green
   handles in front, narrowed 14→11dp). Device-verified.
-- ✅ #2 waveform W1 DONE — peak extraction + peak render + perceptual (38b29ee). Device-verified.
+- ✅ #2 waveform W1 DONE — peak extraction + peak render + perceptual (e6fb3af). Device-verified.
   (W2 HD-zoom tier for letter-level onsets on long clips still OPEN.)
 - ⏭ #3 audio multi-track editor — QUEUED (the big backbone).
 - ⏭ #4 audio-only export — QUEUED.

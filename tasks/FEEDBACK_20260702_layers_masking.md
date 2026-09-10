@@ -11,11 +11,11 @@ User's exact symptoms, testing the M10/M6 rows on device:
 Triage (orchestrator): consistent with the M6/M7 row-touch region CONSUMING all touches inside the row band
 (M7 design: non-item touches fall back to "M6 scroll-only, touch consumed"). Horizontal drags over row
 bodies never reach the timeline scrub path, and taps on these rows' items don't arm selection. This is the
-same "surface overlap" root cause recorded in handoff (b760b40) as agreed-fix #2 (fix #1, clip-tap
-seek-to-start, landed in 9edad8a). Expected fix shape: within the row band, taps hit-test items first
+same "surface overlap" root cause recorded in handoff (561f6f9) as agreed-fix #2 (fix #1, clip-tap
+seek-to-start, landed in 9123612). Expected fix shape: within the row band, taps hit-test items first
 (select/trim-handles), horizontal drags NOT on an item (or not armed as an M7/M10 gesture) pass through to
 timeline scrubbing; vertical drags keep scrolling the row region; long-press keeps M10 pickup.
-STATUS: **FIXED + committed 6a47560, installed on Note 9** (~13:25). Root cause exactly as triaged:
+STATUS: **FIXED + committed a75c115, installed on Note 9** (~13:25). Root cause exactly as triaged:
 `handleM6RowTouch` claimed every non-item touch as row-scroll. Now: axis decision → horizontal = scrub
 pass-through (same updatePlayheadFromX primitive), vertical = row scroll, item hits unchanged. Scripted
 drags are IMPOSSIBLE on this Note 9 (input swipe truncates to one MOVE) → USER HAND-TEST CHECKLIST owed

@@ -1,6 +1,6 @@
 # Adversarial check — SPEC_20260829_CAPTIONS_GL — 2026-08-29 20:14
 
-**Author:** muse-spark / opencode — joy-creator `4fbcdcee` → style-keyframe fix `FxLivePreviewController.java:1029-1037` (this file) — BUILD SUCCESSFUL 20:10:44, install 20:14:59, device `<note9-serial>`
+**Author:** muse-spark / opencode — joy-creator `66b883f9` → style-keyframe fix `FxLivePreviewController.java:1029-1037` (this file) — BUILD SUCCESSFUL 20:10:44, install 20:14:59, device `<note9-serial>`
 
 This is not a green report. It is the list of stacked surfaces where a user *will* put a caption, and whether the code as shipped does the honest thing (right pixels, right z, no hidden cost) or the quiet wrong thing (Canvas above GL, double draw, or a cache key that re-rasters per drag).
 

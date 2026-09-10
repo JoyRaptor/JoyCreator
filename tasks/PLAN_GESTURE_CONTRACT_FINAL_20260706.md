@@ -221,7 +221,7 @@ space between preview and timeline — no fixed split.
 - **[JoyRaptor 2026-07-07] Small preview ⇒ PiP (incl. landscape).** When the preview shrinks past a
   threshold — whether by dragging the split up OR by rotating to landscape (JoyRaptor does NOT want a
   portrait lock) — it should turn INTO the draggable PiP window instead of a cramped inline box. The
-  reflowPreview() rotation fix (c3610cf) is the hook: the same size-change signal that re-flows the
+  reflowPreview() rotation fix (a2e1101) is the hook: the same size-change signal that re-flows the
   canvas should, below the threshold, promote the preview to PiP. **Constraint:** the caption-style
   strip (Pop/Zoom/…) and the tool row must stay reachable when PiP is active (don't let the PiP or the
   expanded timeline bury them) — reserve/relocate those controls, not hide them.

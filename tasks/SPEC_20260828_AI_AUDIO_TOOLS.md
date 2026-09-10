@@ -28,7 +28,7 @@ tools only ever looked at the video spine. `AudioClip` has carried the same tran
 API as `Clip` all along (`getTranscripts`, `getActiveNamedTranscript`) — nothing needed
 building, only looking at.
 
-Fixed in `e13b7e7c`, and **you should read that commit before starting**:
+Fixed in `8f14a3b3`, and **you should read that commit before starting**:
 
 - `findAudioClip(proj, id)` and `findActiveTranscript(proj, id)` — resolve a video OR
   audio clip through ONE path. **Reuse these. Do not add a second resolver.**

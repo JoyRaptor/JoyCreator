@@ -70,7 +70,7 @@ believable and will be checked line by line.**
 
 ### P1 — `SPEC_20260829_IMAGE_ANIM_PRESETS` phase 3 — **NOW UNBLOCKED**
 `CAPTION_LAYERS` went IDLE at 03:00, so `FaditorEditorActivity` is free. Phases 1+2 landed
-in `0be24e6f` and **the user cannot reach any of it** — there are no drawer buttons. This is
+in `1bc9a273` and **the user cannot reach any of it** — there are no drawer buttons. This is
 finished work sitting behind a missing door: preset chips, Fit/Fill buttons, the replace
 warning, preview-drag wiring. Highest value-per-hour on the board.
 
@@ -104,7 +104,7 @@ These are landed features whose own acceptance never ran. Each is an hour with a
 | Horizontal reflow on a PORTRAIT canvas — the one reflow case never seen | `HANDOFF_20260828` |
 | The ~1:03 playback ceiling — reproduce or declare gone | `HANDOFF_20260828` |
 | **Scrub audio on device** — VERIFIED WORKING by JoyRaptor 2026-08-29 03:00, and confirmed at the OS level (`state:started`, `CONTENT_TYPE_MUSIC`) | `9a18dc5e` — done |
-| **AudioTrack churn while scrubbing a PAUSED playhead.** `bash tools/phone.sh audio` during a scrub session shows ~20 ExoPlayer AudioTracks (`CONTENT_TYPE_UNKNOWN`, `flags=0xA00`) allocated in ~6s. Cause is almost certainly `AudioLayerSync.onPlayheadScrubbed` → debounced `parkAt` → `prepare()` per scrub, each making a fresh track. NOT the scrub engine (that made exactly one). Not fatal, but it is allocation churn on every drag and the same class of bug as `7173fada`. Diagnose before fixing | found 2026-08-29 03:00 |
+| **AudioTrack churn while scrubbing a PAUSED playhead.** `bash tools/phone.sh audio` during a scrub session shows ~20 ExoPlayer AudioTracks (`CONTENT_TYPE_UNKNOWN`, `flags=0xA00`) allocated in ~6s. Cause is almost certainly `AudioLayerSync.onPlayheadScrubbed` → debounced `parkAt` → `prepare()` per scrub, each making a fresh track. NOT the scrub engine (that made exactly one). Not fatal, but it is allocation churn on every drag and the same class of bug as `6f1d7fa1`. Diagnose before fixing | found 2026-08-29 03:00 |
 
 ---
 
@@ -142,7 +142,7 @@ Listed so nobody invents one at 4am. They need a design conversation with JoyRap
   before anyone acts on it.
 - **Per-word rich text in a caption cue** — needed for `WORD_SYNC`'s B/U/I buttons. If Word
   Sync finds it does not exist, grey those three out and report; do not build it inline.
-- **Slide object** — parked (`0332ca43`, reverted by `8b3c1d22`). **Probably obsolete now**
+- **Slide object** — parked (`fcc36551`, reverted by `ac582aa1`). **Probably obsolete now**
   that caption layers exist. Ask JoyRaptor before resuming.
 
 ---

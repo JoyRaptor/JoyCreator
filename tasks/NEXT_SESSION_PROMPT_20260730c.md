@@ -5,13 +5,13 @@ Read FadCam/tasks/LEDGER.md FIRST. It is the single record of what is fixed (wit
 evidence that proved it), what is open, and what has been promised. Keep it current —
 never delete an entry to shorten the list, strike through and correct instead.
 
-Last good commit: 438ed73. Tree clean, builds, APK installed on the Note 9 and verified.
+Last good commit: 28000aa. Tree clean, builds, APK installed on the Note 9 and verified.
 Sandbox project bb2a9deb restored to md5 eb3d16b8 (byte-identical to its pre-session state),
 re-opened with 0 fatal exceptions.
 
 ## WHAT LANDED LAST SESSION
 
-`438ed73` — **MASK_WIPE shipped**, third of the five presets, with the caption path, the
+`28000aa` — **MASK_WIPE shipped**, third of the five presets, with the caption path, the
 text-box path, the picker tile and the export path all wired to one new channel.
 
 Two findings that change how you should plan the rest:
@@ -91,7 +91,7 @@ scope question below.
  - **A FAILING `javac` LEAVES THE OLD .class FILES AND THE HARNESS THEN REPORTS A CONFIDENT PASS
    ON STALE BYTECODE.** Delete the output dir or check the compiler exit before believing it.
  - **Measure the harness count by running it, not by reading the ledger** — it has gone stale
-   twice. It is 298 as of `438ed73`; confirm by stashing if you quote a delta.
+   twice. It is 298 as of `28000aa`; confirm by stashing if you quote a delta.
  - A green build / gradle UP-TO-DATE proves nothing. **Gradle failed with 100 cascading
    `cannot find symbol` errors last session and then succeeded on an immediate re-run with no
    source change** — so a single build failure here is worth re-running before debugging.

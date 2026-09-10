@@ -42,7 +42,7 @@ left edge — "similar to the trash-can behavior, except on the other side of th
 - Row gutter rendering lives in `LayerRowRenderer` (track headers) + `EditorTimelineView` (master/audio
   rows). The name labels come from track kind display names — replace with badge glyphs (vector-drawn
   or icon-font, match existing gutter icon style).
-- Master-strip filmstrip extraction (T1 `78a6c6b` sequential MediaCodec sweep) is the machinery to
+- Master-strip filmstrip extraction (T1 `fe6aaba` sequential MediaCodec sweep) is the machinery to
   reuse for §2 video-item previews on overlay lanes.
 - Sprite keyframe poses: the dope-sheet/pin-warp data already knows the frame at each keyframe; render
   its sheet cell at the ✦ x.
@@ -51,8 +51,8 @@ left edge — "similar to the trash-can behavior, except on the other side of th
 - Suggested order: (1) badges [small, pure gutter change], (2) image-item thumbnail + §3 pinning,
   (3) sprite keyframe poses, (4) video-item strip previews [heaviest — extraction cost/caching].
 
-**Status (2026-07-19, Fable 5): §4.5 EYE/LOCK → PER-OBJECT MIGRATION BUILT** (`e926f88` fields+
-storage, `d5b7f42` hide live everywhere + drawer toggles, `508a74c` lock enforcement + gutter
+**Status (2026-07-19, Fable 5): §4.5 EYE/LOCK → PER-OBJECT MIGRATION BUILT** (`4bc1a87` fields+
+storage, `7107f5c` hide live everywhere + drawer toggles, `caab2a9` lock enforcement + gutter
 retire + load migration). Hidden/locked now live on the OBJECT (audio: lock only — its per-clip
 mute is the eye); toggles in every object drawer; hide honored by the shared preview/export
 visible* filters + row ghosting; locked = selectable-but-immutable (hold still opens the drawer

@@ -78,7 +78,7 @@ on this track at a time; the 14:25 scheduled session should take rebrand/dedup/M
 
 ## Status
 - [x] **L2 UN-PARKED (verified 2026-07-19; the un-park itself landed 2026-07-03 via the separate
-  `PLAN_PINGPONG_UNPARK` lineage, commit fe88e39, an ancestor of joy-creator HEAD 60fd849).** This
+  `PLAN_PINGPONG_UNPARK` lineage, commit 72c8cd7, an ancestor of joy-creator HEAD a6bf440).** This
   plan's [!] PARKED entry below is HISTORICAL — the real defect was fixed and the flag flipped weeks
   ago; a 2026-07-19 audit re-read every seam, confirmed the flag is `Clip.PING_PONG_PARKED=false`,
   and confirmed `compileDefaultDebugJavaWithJavac` is green.
@@ -105,7 +105,7 @@ on this track at a time; the 14:25 scheduled session should take rebrand/dedup/M
     `ExportManager` reverse leg uses the SAME baked file (export.ExportManager.java:1467).
   - **DEVICE ACCEPTANCE (owed — orchestrator owns; no device work done in this audit).** Note:
     `PLAN_PINGPONG_UNPARK` §Status records these as device-proven on the SM-N960U on 2026-07-03
-    (commit fe88e39); re-run/confirm on the current joy-creator HEAD since the god-files have moved
+    (commit 72c8cd7); re-run/confirm on the current joy-creator HEAD since the god-files have moved
     substantially since then:
     - [ ] ffmpeg frame-inversion check: extract frames across a ping-pong wrap; a moving object's
       positions must INVERT sequence on the reverse leg (true reverse, not forward tail-replay).
@@ -139,7 +139,7 @@ on this track at a time; the 14:25 scheduled session should take rebrand/dedup/M
 - [x] L1 (2026-07-02, device-verified Note 9 sandbox bdd51919…: gapless wrap + exhaustion freeze-free,
   pause/trim/undo preserved, seam-clobber fix holds under loops; see handoff.md for full evidence and the
   one open follow-up (totalEffectiveMs() loop-duration bug, pre-existing, spawned separately) — L2/L3 untouched)
-- [x] L2 built (2026-07-02 eve, commit 9d9539c) — ⚠️ NOW PARKED, see the [!] entry at the top of §Status.
+- [x] L2 built (2026-07-02 eve, commit 292cd62) — ⚠️ NOW PARKED, see the [!] entry at the top of §Status.
   ReversedSegmentCache w/ libx264 forced —
   Note 9 h264_mediacodec REJECTS these HEVC sources (Error 0xffffffc3), remember this for any future
   in-app encode; 3.5s span bakes in ~6s; not-yet-baked = project stays legacy until bake completes then

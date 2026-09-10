@@ -5,7 +5,7 @@ Read FadCam/tasks/LEDGER.md FIRST. It is the single record of what is fixed (wit
 evidence that proved it), what is open, and what has been promised. Keep it current —
 never delete an entry to shorten the list, strike through and correct instead.
 
-**Supersedes NEXT_SESSION_PROMPT_20260730i.md.** Tree clean at `c5304b9`.
+**Supersedes NEXT_SESSION_PROMPT_20260730i.md.** Tree clean at `831fcd2`.
 **Harness 326 passed / 0 failed — MEASURED, not copied** (was 303; the caret px maths is now
 covered). Note 9 attached, rotation lock 0, sandbox `bb2a9deb` verified at md5 **`82d8342d`**.
 
@@ -27,7 +27,7 @@ the user drove that version and approved it.
 ## ⚠ THE JOB: ODOMETER, and FIX THE SPEC BEFORE YOU BUILD IT
 
 The last unimplemented preset. Designed in `SPEC_TEXT_ANIMATION.md`, and its old blocker is gone
-— it needed a canvas renderer for text boxes in preview, which `a247b5c` shipped.
+— it needed a canvas renderer for text boxes in preview, which `651359b` shipped.
 
 **Fix the spec first. The user caught a real flaw: the fillers must roll a SEQUENCE, not MATRIX's
 scramble.** An odometer's digits step through adjacent values on their way to the answer; picking

@@ -68,7 +68,7 @@ Rules that matter:
 
 Once consolidated, `project.json` must reference assets **relative to the project folder**,
 not by absolute path or `content://` URI. Something like `project://media/clip1.mp4` — the
-codebase already uses a `project://` scheme (`b22af2cd` resolves `project://assets/...`), so
+codebase already uses a `project://` scheme (`3e91ccc5` resolves `project://assets/...`), so
 **extend that, do not invent a second scheme.**
 
 Loading must accept BOTH forms indefinitely: a `project://` relative reference, and a legacy
@@ -165,7 +165,7 @@ its **date**.
 ## 5. Traps
 
 - **`strings.xml` is UTF-8 with a BOM.** It was corrupted to UTF-16 on 2026-08-29 and
-  restored in `af302055`. Check `file app/src/main/res/values/strings.xml` before committing.
+  restored in `1e5df369`. Check `file app/src/main/res/values/strings.xml` before committing.
 - `getSelectedClip()` returns `getClip(0)` when nothing is selected — use
   `clipUnderPlayhead()`.
 - The export runs in its own process (`com.fadcam.beta:export`) and survives app restarts.

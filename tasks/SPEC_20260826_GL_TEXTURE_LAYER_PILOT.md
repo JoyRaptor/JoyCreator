@@ -78,7 +78,7 @@ second path.
    NOT on every tick. **Per-frame re-rasterisation is the thing most likely to sink this; if you
    end up doing it, measure it and say so.**
 2. **Composite the bitmap as a layer in the GL plan at its real z**, from
-   `LayerPreviewController.orderedVisualItems` (the ordering fixed in `78032689` — top band row
+   `LayerPreviewController.orderedVisualItems` (the ordering fixed in `9ad6f201` — top band row
    carries the highest z and paints last).
 3. **Keep the view for interaction.** It stays in the layout as an invisible hit-test surface so
    dragging, selection and handles keep working. Only DRAWING moves.
@@ -99,7 +99,7 @@ oldest device and it sets the ceiling. Report:
   during 30s of playback. Frequency matters more than unit cost.
 - **Memory**: bitmap bytes held for the texture at preview resolution.
 - **Whether anything regressed visually**: z-order against masked/blended images, drag and
-  selection, and the seam behaviour fixed in `cb807d5e`.
+  selection, and the seam behaviour fixed in `4dbd85de`.
 
 Then answer plainly: **can the Note 9 carry this for text and sprites too, or not?** A number
 and a recommendation. If the answer is no, say which of the fallbacks looks viable —
@@ -137,8 +137,8 @@ it passed on a tree gradle could not compile, so it proves nothing alone.
 **6.6 — Claim a lane** (LANES.md rule 1) and `git add` each file as you write it (WORKING-TREE
 HAZARD: uncommitted work here has been destroyed at least six times). Commit by explicit path.
 
-**6.7 — Never rewrite a whole file for a small edit.** `584904f9` did and introduced a BOM that
-stopped the tree compiling (repaired in `07f36175`). Check the first bytes are not `EF BB BF`.
+**6.7 — Never rewrite a whole file for a small edit.** `48df0cde` did and introduced a BOM that
+stopped the tree compiling (repaired in `0cbc501e`). Check the first bytes are not `EF BB BF`.
 
 ---
 

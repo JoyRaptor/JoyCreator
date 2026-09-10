@@ -1,24 +1,24 @@
 # Joy Creator (formerly FadCam/Faditor) — Autonomous Roadmap
 
-## 🎯 2026-07-12 TRUTH SWEEP (supersedes the 07-06 block below; HEAD `cbba5f2`)
+## 🎯 2026-07-12 TRUTH SWEEP (supersedes the 07-06 block below; HEAD `1d0e4e2`)
 The 07-06 block understates reality by ~6 days of shipping (39 commits landed 2026-07-11 alone).
 **The editor is functionally complete + export-proven.** This block is the authoritative "what's
 actually left." Marked ✅ = landed on this branch (git-log-verified); everything else is honestly open.
 
 **✅ NEWLY COMPLETE since the 07-06 block (git-verified, most device-verified):**
-- **Avatar Studio — FULL LOOP DONE.** A1 rig+matrix editor, A2 FaceLandmarker tracking (`bdb9be8`),
-  A3 spectral 6-class visemes (`930db2c`), A4 recorder/library/standalone/editor-item (`c0c4020`/
-  `7b4edb3`/`16a712f`/`4860b8f`), A5 AI rigging + FF-B describe_sprite_sheet (`f206b1e`), A6 pin-warp
-  (closed `ba2ca35`), **bake-to-keyframes** (`41908c5`/`4b10fb1`/`685e056`, device-verified), and
-  **point-at-video** (`db1c1fb`/`c6ef7cf`, no-face smoked). Only real-face axis-feel verify remains.
-- **Sprites — FULL.** S1–S7 + S2b polish (`693a943`) + S7 relink (`a40e649`) + FF-A dope-sheet
-  (`5a57919`) + FF-B (above). 
-- **Audio waveforms — AV1–AV5 DONE** incl. the perf tile-cache/mip-pyramid (`5460b1c`), plus W2 HD
-  zoom (`0433439`), and the **clip-audio drawer v2** (`5179647`, device-proven on the real SM-N986U).
-- **Timeline fidelity — T1 accurate filmstrip** via sequential MediaCodec sweep (`78a6c6b`).
-- **Gestures G1–G9** all shipped; **export fixes** `313e7fa` (transition≥clip stall) + `148c155`
+- **Avatar Studio — FULL LOOP DONE.** A1 rig+matrix editor, A2 FaceLandmarker tracking (`8dc10fc`),
+  A3 spectral 6-class visemes (`ae11ae2`), A4 recorder/library/standalone/editor-item (`af62738`/
+  `da45221`/`4e23295`/`bb99249`), A5 AI rigging + FF-B describe_sprite_sheet (`42babbc`), A6 pin-warp
+  (closed `98a0616`), **bake-to-keyframes** (`c2a5e1a`/`92e6cb3`/`20e2089`, device-verified), and
+  **point-at-video** (`ba86775`/`83d4fae`, no-face smoked). Only real-face axis-feel verify remains.
+- **Sprites — FULL.** S1–S7 + S2b polish (`dc606fa`) + S7 relink (`a6f68cc`) + FF-A dope-sheet
+  (`3607558`) + FF-B (above). 
+- **Audio waveforms — AV1–AV5 DONE** incl. the perf tile-cache/mip-pyramid (`3e1bbbc`), plus W2 HD
+  zoom (`0379391`), and the **clip-audio drawer v2** (`a91b019`, device-proven on the real SM-N986U).
+- **Timeline fidelity — T1 accurate filmstrip** via sequential MediaCodec sweep (`fe6aaba`).
+- **Gestures G1–G9** all shipped; **export fixes** `2ef2d1e` (transition≥clip stall) + `d161a57`
   (audio-coverage guard) — the latter's device re-verify is OWED (aeb0517e left at the 600ms repro).
-- Quickwins/perf: asset-scan cache + configurable GOP (`fa241cf`); AV4 dead-code cleanup (`6fc3ba3`).
+- Quickwins/perf: asset-scan cache + configurable GOP (`4815d9b`); AV4 dead-code cleanup (`8092a29`).
 
 **🚢 REAL SHIP-BLOCKERS (not code — these gate a public release):**
 1. **Rebrand asset set** — adaptive icon (fg/bg/mono), wordmark SVG, notification glyph
@@ -30,7 +30,7 @@ actually left." Marked ✅ = landed on this branch (git-log-verified); everythin
    on 4 JoyRaptor-decisions. Not a blind mass-edit — needs the scope calls first.
 3. **Schema downgrade-guard drill** — only forward migration exercised on a real project.
 
-**📱 OWED DEVICE VERIFIES (code done; needs a phone / JoyRaptor):** `148c155` export re-verify (solo-doable,
+**📱 OWED DEVICE VERIFIES (code done; needs a phone / JoyRaptor):** `d161a57` export re-verify (solo-doable,
 sandbox aeb0517e is AT the repro) · 🎯 Record stop-swap persistence hand-run · real-face avatar axis
 (MIRROR_YAW/SIGN_PITCH) + record→replay→export · bubble face-button/clear-stage (blocked on "Display
 over other apps" grant) · new-avatar-from-image picker · clip-audio drawer transcript-relocation /
@@ -38,25 +38,25 @@ split-with-open / real-finger double-tap feel · P0/P1 gapless re-verify on real
 
 **🔧 SMALL BUILD REMAINDER (solo lane, no JoyRaptor):** AV4 wire-up (settings sheet exists UNWIRED — surface
 under toolbar Settings + first-import eager/lazy popup) · clip-audio drawer → overlay/PiP videos ·
-low-bandwidth export: the one-tap 720p+Low CHIP ✅ landed (`b36a36f`); the true H.264-**baseline-profile**
+low-bandwidth export: the one-tap 720p+Low CHIP ✅ landed (`dfe012e`); the true H.264-**baseline-profile**
 part is **mis-scoped as "an ExportManager hook"** — SCOPED 2026-07-14 (see
 `H264_BASELINE_PROFILE_FINDING_20260714.md`): Media3 hardcodes AVCProfileHigh for H264 on API≥29 and
 IGNORES the requested profile, so it needs a small principled patch to the load-bearing media3 fork
 (`DefaultEncoderFactory.adjustMediaFormatForH264EncoderSettings` — guard the unconditional KEY_PROFILE
 overwrite) + a `Quality.LOW`→Baseline request in ExportManager, then codec-profile device verify. Full
 context (rebuilds the media3 fork). · ~~SAF style export/import buttons in
-the real editor drawer~~ ✅ DONE (`b36a36f`, hand-test owed) · `.m4a` export-complete copy still says
-"Your video…" [fixed `da96248`] + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity
+the real editor drawer~~ ✅ DONE (`dfe012e`, hand-test owed) · `.m4a` export-complete copy still says
+"Your video…" [fixed `8a8fc9c`] + ~34 TODO(strings) markers (mostly in the FaditorEditorActivity
 god-class). **NOTE (2026-07-14):** the TODO(strings) extraction is **intentionally FROZEN** — the code
 comment at FaditorEditorActivity.java:9917 says "hardcoded per the rebrand-freeze standing rule." Do NOT
 extract these into strings.xml until the rebrand naming + de-politicize sweep (ship-blockers #1/#2, both
 JoyRaptor-gated) land — a strings.xml refactor now would collide with those pending brand-string changes and
 force rework. Freeze-gated, not free-to-do.
-**Also completed this session (2026-07-12):** ✅ AV4 wire-up (`cbf3dd5`, device-verify owed) · ✅ the
-`.m4a` export-complete copy now says "audio" (`da96248`). Both close items listed as open just above.
-**Also landed 2026-07-12 from the capped in-flight tree:** ✅ `8c306e5` G5(b) piggyback-looks (attached
-visualizer fades with host opacity on export — A/B proof owed) · ✅ `8332370` user color-grade presets
-(opencode) · ✅ `b36a36f` (the two editor items above). Tree now clean.
+**Also completed this session (2026-07-12):** ✅ AV4 wire-up (`600e6c4`, device-verify owed) · ✅ the
+`.m4a` export-complete copy now says "audio" (`8a8fc9c`). Both close items listed as open just above.
+**Also landed 2026-07-12 from the capped in-flight tree:** ✅ `4355b66` G5(b) piggyback-looks (attached
+visualizer fades with host opacity on export — A/B proof owed) · ✅ `0f74e63` user color-grade presets
+(opencode) · ✅ `dfe012e` (the two editor items above). Tree now clean.
 
 **🗳️ JOYRAPTOR-DECISIONS (not code):** bookmarks (ruler markers) + playhead time-chip (designed in dragux_v3,
 NOT in the G1–G9 contract — fold-in vs drop) · muted-track caption show/hide (open since M-EXPORT-1) ·
@@ -79,10 +79,10 @@ BY DESIGN.
 ## 🎯 2026-07-06 STRATEGIC STATE (HISTORICAL — see the 07-12 TRUTH SWEEP above for current status)
 **DONE (device-proven):** Layers MVP + schema v8→v10, gapless engine ⚠️ **(see 🔴 P0 critical gap below —
 gapless engine does NOT cover projects with image clips)**, multi-row timeline, cross-row drag,
-M-EXPORT-1/2 (export parity + blend modes, `fc3055a`), M-COMP-2 live PiP (preview+export parity,
-`0453db9`+`306aa27`), compositing family — masks/chroma-key/track-matte (`22f29ee`), Phase P/R track
+M-EXPORT-1/2 (export parity + blend modes, `2574a39`), M-COMP-2 live PiP (preview+export parity,
+`7cb75f6`+`f6533f2`), compositing family — masks/chroma-key/track-matte (`c7188c4`), Phase P/R track
 management, loops (L1/L2/L3), transcript dedup, Layers-UX Slices A–D (renderer consolidation, double-render
-dead, caption/visualizer Track citizens, caption-chooser autohide — `0d0c5a1`/`1f35695`/`41dd79e`/`93fe745`).
+dead, caption/visualizer Track citizens, caption-chooser autohide — `dc6a43c`/`37b5680`/`d40f3c0`/`f92c602`).
 Sprites: Build-1 S1–S7 + T8 per-lane fix. Avatar: A1 (rig+matrix editor), A2 core (tracking bus+FABRIK,
 synthetic source proven), A6 (pin-warp+dangle+mesh density), A3 (amplitude visemes). Rebrand pass 1.
 DeepSeek/opencode round 2: 8/8 tasks (PiP row gestures, export-dialog fix, W1 waveforms, 4 scroll-wrapped
@@ -92,11 +92,11 @@ sheets, preview-pitch fix) — all committed, reviewed.
 into §BACKLOG below. Nothing from the 57 tasks/*.md files is untracked as of this pass.**
 
 **🏁 FABLE FINAL-DAY RESULTS (2026-07-07 evening→late; all committed, tree green):** P1 gapless freeze
-FIXED AT THE ROOT (entry below) · **OUT-OF-PROCESS EXPORT SHIPPED + DEVICE-PROVEN** (`3b5af9a` — export
+FIXED AT THE ROOT (entry below) · **OUT-OF-PROCESS EXPORT SHIPPED + DEVICE-PROVEN** (`c8480cf` — export
 runs in `:export`, survives an editor-process kill mid-export, valid full-length file from the orphaned
-process; export work package now COMPLETE) · **AUDIO ROW CONSOLIDATION BUILT** (`f31f16c` — the last
+process; export work package now COMPLETE) · **AUDIO ROW CONSOLIDATION BUILT** (`aebfb6b` — the last
 dual render system retired, two-band renderer, ~15 legacy ops derive-mapped; SMOKE OWED, checklist in
-handoff) · **G5a VISUALIZER ATTACH/DETACH BUILT** (`5192186` — overlays time-ride their host clip via
+handoff) · **G5a VISUALIZER ATTACH/DETACH BUILT** (`40d1495` — overlays time-ride their host clip via
 one resync write-point; link toggle in the Rolodex; DEVICE VERIFY OWED; caption-detach/piggyback-looks/
 host-checkboxes are the G5 fast-follows) · G8 marquee smoked on device (armed toggle, live box,
 edge-scroll) · export quality/resolution wiring re-smoked (480p/Low 776KB vs Original/High 9.9MB).
@@ -104,7 +104,7 @@ edge-scroll) · export quality/resolution wiring re-smoked (480p/Low 776KB vs Or
 in handoff.md's top blocks, then the <note20-serial> re-verify of the P0/P1 fixes on JoyRaptor's real project.**
 
 **✅ P1 FIXED AT THE ROOT 2026-07-07 evening (Fable-5 final-day session; media3-patched `c2f22f9` +
-FadCam `f4d4ed1`, DEVICE-PROVEN on SM-N960U):** the short-speed-clip gapless clock freeze below was a
+FadCam `c9fac30`, DEVICE-PROVEN on SM-N960U):** the short-speed-clip gapless clock freeze below was a
 CROSS-RENDERER DEADLOCK in media3, not an engine bug: a first window whose post-Sonic audio undershoots
 the AudioTrack start threshold (e.g. 250ms@2x → 10752 frames < the 15392-frame buffer on this device)
 never starts platform playout → the audio clock never advances → the clock-gated VIDEO renderer never
@@ -113,12 +113,12 @@ finishes reading the period (probe-proven: renderer 0 wedged in hasReadingPeriod
 stall-kick (detects playing + head-parked-at-0 + written<buffer + 400ms starvation from
 getCurrentPositionUs, forces playout via the simulated-position path, rebuilds the track when data
 resumes). **`settings.gradle.kts` now substitutes `media3-exoplayer` with the patched source build —
-LOAD-BEARING, the stock Maven artifact lacks the fix; never remove it.** The `f855e51` eligibility guard
+LOAD-BEARING, the stock Maven artifact lacks the fix; never remove it.** The `44b3c49` eligibility guard
 is REMOVED — short speed clips are gapless-eligible again. Device proof: bisect A (froze permanently)
 plays end-to-end on one tap with a single ~400ms recovery; bisect C + the image project: zero kicks,
 warm seams. Diagnosis trail (probe method, flinger evidence) in handoff.md's top block.
 
-**✅ P0 FIXED 2026-07-07 (Fable, `62b227f` + guard `f855e51`→removed `f4d4ed1`, DEVICE-PROVEN on SM-N960U):** image clips
+**✅ P0 FIXED 2026-07-07 (Fable, `411eb15` + guard `44b3c49`→removed `c9fac30`, DEVICE-PROVEN on SM-N960U):** image clips
 now play as native media3 image playlist windows (`MediaItem.setImageDurationMs` — the same pipeline
 export uses; media3 1.8 ImageRenderer + PlayerView image output), so a freeze-frame/photo insert no
 longer ejects the WHOLE project from the gapless engine. Activity keeps the proven Glide image overlay
@@ -133,7 +133,7 @@ gapless player — READY + isPlaying=true but the position clock never starts (p
 pause/seek/play does not unwedge). Bisect: 500ms@1x plays, 10.2s@2x plays ⇒ trigger = short clipped
 window + Sonic speedup; likely the audio sink's start/drain is never satisfied for a sub-second
 speed-adjusted window (media3 `DefaultAudioSink`/Sonic EOS-drain territory, possibly device-specific —
-only proven on SM-N960U/Android 10 so far). INTERIM GUARD SHIPPED (`f855e51`): speed≠1 clips that are
+only proven on SM-N960U/Android 10 so far). INTERIM GUARD SHIPPED (`44b3c49`): speed≠1 clips that are
 <3s trimmed or loop-extended make the timeline ineligible → legacy path (today's behavior, playable).
 Long plain speed clips stay gapless (device-proven). REAL FIX = Fable/Opus lane, media3-patched
 `DefaultAudioSink` or engine-side workaround; repro projects live on the sandbox phone
@@ -183,22 +183,22 @@ the surrounding footage. Separate concern from the P0 above; check opportunistic
    (auto-detect grid gutter-scan, onion skin, bg-key UI, sw600dp two-pane, sidecar .sprite.json export
    button, filmstrip polish — list in `PLAN_SPRITE_ANIMATION.md` S2 status block). T6/T7 in that same
    list = FF-A (presets + dope-sheet UI) and FF-B (AI sprite tools) — both still open; ~~dead-code
-   cleanup of the old `drawLayers`/`selectedLayerKind` path~~ DONE (`96cba7f`, verified zero remaining
-   references); ~~audio old-vs-new row consolidation~~ DONE (`f31f16c` two-band renderer + `9b37f99`
+   cleanup of the old `drawLayers`/`selectedLayerKind` path~~ DONE (`e214d66`, verified zero remaining
+   references); ~~audio old-vs-new row consolidation~~ DONE (`aebfb6b` two-band renderer + `4118d07`
    clipping fix; per-op smoke PASS per handoff.md 2026-07-11); small never-built features — see §BACKLOG, mostly closed
    as of the 2026-07-07 sweep. Queue lives in `tasks/Opencode-work.md`. **G1–G8 all shipped** (hashes:
-   `c17ec31`/`64566be` G1, `7e934f5` G2, `975ade2` G3, `5b53db4` G4, `5192186` G5a, `bf7b63e`/`67259b1`/
-   `a4baee5` G6.x, `954a63e` G7, `dbf1628` G8); **G9 groundwork** landed `cc68b3b` + design doc `bca07d3` —
+   `fdff129`/`e52e06e` G1, `45737a3` G2, `3030ddc` G3, `ede6a8b` G4, `40d1495` G5a, `d46973d`/`0d02787`/
+   `2ff1a25` G6.x, `7bd7df3` G7, `6552083` G8); **G9 groundwork** landed `6e0295d` + design doc `7074958` —
    G5 fast-follows and G9 UI (needs JoyRaptor's 5 answers, `PLAN_G9_LINK_ENGINE.md`) remain open.
 3. ~~Export work package (minimize-during-export + edit-safety + out-of-process + quality setting)~~
-   SHIPPED: edit-safety+quality (`0ce35ea`), minimize-during-export (`a4baee5`), out-of-process export
-   (`3b5af9a`, device-proven — survives editor-process kill mid-export), audio-only export engine+UI
-   (`d32cb02` + `bafe177`, device-verified .m4a on SM-N960U). Package COMPLETE. Note: `313e7fa` fixed a
+   SHIPPED: edit-safety+quality (`0d72e49`), minimize-during-export (`2ff1a25`), out-of-process export
+   (`c8480cf`, device-proven — survives editor-process kill mid-export), audio-only export engine+UI
+   (`b17c725` + `85240c5`, device-verified .m4a on SM-N960U). Package COMPLETE. Note: `2ef2d1e` fixed a
    related export-stall bug (transition ≥ straddled clip duration) — build-green, **device verify still
    owed**.
-4. GL wave / timeline-fidelity items — T1 filmstrip: disk-cache half landed (`e63ba4c`), sweep half
+4. GL wave / timeline-fidelity items — T1 filmstrip: disk-cache half landed (`99efdc7`), sweep half
    IN PROGRESS this session (Opus agent); masking already shipped via the compositing family, this is
-   the remaining timeline-render polish. W2 zoomed-tier waveform separately SHIPPED (`0433439`,
+   the remaining timeline-render polish. W2 zoomed-tier waveform separately SHIPPED (`0379391`,
    device-verified per handoff 2026-07-11) — see §BACKLOG entry below.
 **GATES:** ~~main-phone real-project session (NEVER YET RUN)~~ **RUN 2026-07-07** — device authorized,
 current build installed, real project (`27221664…`, schemaVersion 7 on disk, pre-Layers-model) opened
@@ -225,15 +225,15 @@ AssetScanner MMR calls → small thread pool; MMR-on-UI-thread sites → executo
 first read; Timeline fling `invalidate()` unthrottled during fling; `pcmToFloat` ~1.9MB alloc per 30s →
 pooled buffer; photo capture 6× `glReadPixels` fresh IntBuffers → PixelCopy/reused buffer; I-frame interval
 1s → 2s default (configurable); `docs/project-schema.md` says v5, code is v8-v10 → regenerate. (Done already:
-`transitionFrameCache` → LruCache `f97e4f5`; KEEP_SCREEN_ON scoping + playhead-tick gating `fa086c7`.)
+`transitionFrameCache` → LruCache `f6f2fa1`; KEEP_SCREEN_ON scoping + playhead-tick gating `94e573f`.)
 
 **~~Rebrand pass 1 remainder~~ — CLOSED (verified 2026-07-07):** armed-state icon tint convention now covers
 Volume/Opacity/Captions (`FaditorEditorActivity.java:4982-4983` — Captions mirrors the existing convention,
-landed `7612053`); dead Trim/Heal layout blocks + strings fully removed, no references remain
-(`50d78ce`, confirmed via live grep — zero hits for tool_trim/tool_heal). Nothing to do here.
+landed `3c00a76`); dead Trim/Heal layout blocks + strings fully removed, no references remain
+(`3d7572b`, confirmed via live grep — zero hits for tool_trim/tool_heal). Nothing to do here.
 
 **Small never-built features (lane: opencode, additive/low-risk) — status corrected 2026-07-07:**
-~~canvas custom-resolution input~~ DONE (`805d69f`); ~~9:16 safe-zone overlay toggle~~ DONE (`cdaf9c3`);
+~~canvas custom-resolution input~~ DONE (`6e547b0`); ~~9:16 safe-zone overlay toggle~~ DONE (`7d6fff0`);
 ~~low-bandwidth export preset~~ FUNCTIONALLY DONE — `showExportConfirmation()`
 (`FaditorEditorActivity.java:8240-8365`) already has independent Resolution (Original/1080p/720p/480p) +
 Quality (High/Medium/Low) spinners wired to the encoder (`ExportManager.java:310-323`), so 720p+Low is
@@ -251,8 +251,8 @@ big-bang — no single task to point at).
 
 **Timeline fidelity remainder (`FEEDBACK_20260703_timeline_fidelity.md` — W1 waveforms shipped by opencode;
 lane: opencode unless it touches shared render paths):** T1 — accurate filmstrip via a background
-sequential-sweep MediaCodec pass + disk LRU cache: disk-cache half landed (`e63ba4c`, "T1 partial scope"),
-sweep half IN PROGRESS this session (Opus agent). ~~W2 zoomed-tier waveform~~ DONE (`0433439`, HD zoom
+sequential-sweep MediaCodec pass + disk LRU cache: disk-cache half landed (`99efdc7`, "T1 partial scope"),
+sweep half IN PROGRESS this session (Opus agent). ~~W2 zoomed-tier waveform~~ DONE (`0379391`, HD zoom
 tier for audio-row waveforms, device-verified per handoff.md 2026-07-11 device-verify batch — was
 explicitly skipped by opencode round 2, later picked up and shipped).
 
@@ -279,12 +279,12 @@ start without a fresh go-ahead):** export work package (Fable lane, §above); AI
 apply-UI (Phase 2) + vision-tagging (Phase 3, explicitly out of scope for now); LUT filters + intensity
 slider (`PLAN_filters_color_text_transitions.md` §2); GL transition menu UI with pre-baked animated cards
 (§4.8); studio drawers redesign remainder — ~~transitions-drawer pull-down-for-more-rows gesture~~ DONE
-(`00d9e41`, device-verified by JoyRaptor); external `.glsl` params auto-parsing confirmation still open
+(`a6afaee`, device-verified by JoyRaptor); external `.glsl` params auto-parsing confirmation still open
 (`PLAN_studio_drawers_redesign.md`); ~~waveform-visualizer-studio Phase 3 remainder (bar-width/gap
-sliders, template gallery, SAF import/export of custom styles)~~ DONE (`ae07b21` — template gallery and
+sliders, template gallery, SAF import/export of custom styles)~~ DONE (`ea88bee` — template gallery and
 SAF import/export were already live per that commit's own audit, bar-width/gap was the real gap and it
 shipped); only remaining piece is surfacing SAF Export/Import buttons in the real editor drawer
-(currently debug-host-only, `d59b7b6`).
+(currently debug-host-only, `2e3f1e9`).
 
 **Direction-only, below the active queue (`DESIGN_JOY_CREATOR.md` §7 — not a build order):** full-studio
 vision (Capture → Library → Studio → Remote fold); forensics-module repurpose (Story Board, auto-markers,
@@ -531,7 +531,7 @@ These clear blockers for everything else. Do FIRST, in order.
 **Status:** ✅ DONE + DEVICE-VERIFIED (2026-07-10) — was stale, corrected in 2026-07-11 truth sweep
 | **Depends on:** nothing
 - Java side FULLY BUILT: `GlTransitionShaderLoader`, `GLTransitionCatalog`, headless card baker
-  (`2593bdb`) + fix (`347cde1`, upload-flip + highp retry, cache VERSION 2)
+  (`f2016b9`) + fix (`d9ecf2e`, upload-flip + highp retry, cache VERSION 2)
 - Device-verified on SM-N960U: 35+ of ~37 shaders bake and demo their real GLSL effect (upright,
   correct orientation); `powerKaleido` fails GLSL compile at both precisions on this driver and stays
   on its category-proxy card BY DESIGN (documented driver limitation, not a gap)
@@ -539,7 +539,7 @@ These clear blockers for everything else. Do FIRST, in order.
   `player/TransitionPreviewCardView.java`
 
 ### 3.2 Transitions pull-down-for-more-rows gesture [Track F]
-**Status:** ✅ DONE + DEVICE-VERIFIED (`00d9e41`, verified by JoyRaptor per handoff `c6117a2`/`08433d4`) —
+**Status:** ✅ DONE + DEVICE-VERIFIED (`a6afaee`, verified by JoyRaptor per handoff `79e4f91`/`75281c6`) —
 was stale, corrected in 2026-07-11 truth sweep  |  **Depends on:** 3.1
 - Pull down on transition drawer to reveal 2nd/3rd row of cards
 - **Files:** `FaditorEditorActivity.java`
@@ -684,11 +684,11 @@ Left below for historical trace only — do not read the per-item statuses as cu
 - **Files:** `AIToolExecutor.java`, new vision integration
 
 ### 6.3 Visualizer Studio Phase 3 — full designer [Track E]
-**Status:** ✅ DONE (`ae07b21`) — was stale, corrected in 2026-07-11 truth sweep. Per `ae07b21`'s own
+**Status:** ✅ DONE (`ea88bee`) — was stale, corrected in 2026-07-11 truth sweep. Per `ea88bee`'s own
 commit body: template gallery was already live (Rolodex style/gradient carousels) and SAF import/export
 already existed in `WaveformStyleIO` — the only genuinely-missing piece was bar-width/gap sliders,
 which that commit shipped (preview+export share the same `applyOverrides`, zero export-path changes).
-**One real gap remains:** SAF import/export is only wired into the debug host (`d59b7b6`) — surfacing
+**One real gap remains:** SAF import/export is only wired into the debug host (`2e3f1e9`) — surfacing
 Export/Import buttons in the real `FaditorEditorActivity` drawer is still an owed follow-up.
 |  **Depends on:** nothing
 - **Files:** `WaveformStyleIO.java`, visualizer drawer

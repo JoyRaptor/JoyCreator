@@ -37,7 +37,7 @@
 >   the repro state: 600ms GL_SHADER transition after clip[3]=427ms) 480p/Low. Started 01:54:18,
 >   **completed cleanly 01:55:34** (~76s): logcat `ExportManager/ExportService: Export completed` +
 >   `FaditorEditor: Export saved to:` + `TransformerInternal: Release` (clean), Service destroyed. **NO
->   muxer stall, NO "no output sample" error** — the `313e7fa` (seam-clamp + degenerate-skip) + `148c155`
+>   muxer stall, NO "no output sample" error** — the `2ef2d1e` (seam-clamp + degenerate-skip) + `d161a57`
 >   (audio-coverage guard) fixes hold on the exact repro that stalled 2026-07-12. STILL OWED (quick):
 >   the audio-only (.m4a) path — re-export with "Export audio only" checked (already survived per prior
 >   sessions; confirm on this build).
@@ -53,13 +53,13 @@
 >   across sheet close/reopen; restored default OFF). First-import eager/lazy chooser still owed.
 > - **A4 grade presets: ✅ PASS** (adjust→save named preset→chip→persists→apply snaps grade back→long-press
 >   delete). cebc19e0 restored (grade undone, preset deleted). Cross-clip-apply not separately shown.
-> - A1 audio-only (.m4a): ✅ PASS (66.88kB output, da96248 copy verified). A1 fully closed.
+> - A1 audio-only (.m4a): ✅ PASS (66.88kB output, 8a8fc9c copy verified). A1 fully closed.
 > - A7 clip-audio drawer: ⏸ deferred (320ms double-tap is real-finger-only; adb can't land it).
 > - A6 record stop-swap: ⚠️ Record entry point NOT in the selected-avatar toolbar — needs discovery
 >   (likely standalone Studio). Badge to beat: ✦ 21. cebc19e0 unmutated.
 > - A2 G5(b): ⏳ scouted — viz IS attached on aeb0517e but host has NO opacity fade; needs a fresh
 >   throwaway project + opacity-fade setup + dual export. Best done with full context next session.
-> - **Session net: A1(both)+A4+A5 PASS + da96248 bonus. Remaining solo items all need fresh
+> - **Session net: A1(both)+A4+A5 PASS + 8a8fc9c bonus. Remaining solo items all need fresh
 >   context (A2), real-finger (A6/A7), or file-picker (A3a SAF round-trip — untouched).**
 >
 > **▶ 2026-07-16 JoyRaptor real-finger walkthrough (live, both phones):**
@@ -72,7 +72,7 @@
 >   double-tapping CAPTIONS in the preview does nothing. Both should open the item's advanced
 >   dropdown (object menu). → build item.
 > - **🐛 NEW: visualizer crash (SANDBOX)** — long-press on the visualizer AND tapping the visualizer
->   dropdown both crash the app on 29e37138. NEW instability. Sandbox was unplugged before logs could
+>   dropdown both crash the app on <sandbox-serial>. NEW instability. Sandbox was unplugged before logs could
 >   be pulled — **need the sandbox re-plugged to pull the crash buffer** (logcat -b crash persists a
 >   while; also check tombstones). A3a (SAF round-trip) is BLOCKED behind this crash.
 > - **🔥 FIXED ×2: the "first lecture on phone" glitch (REAL phone) — TWO stacked bugs.**
@@ -109,15 +109,15 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
 = `aeb0517e…` (AudioExportVerify); avatar test bed = `cebc19e0…` (P0 control2).
 
 ## A. Solo-doable (no JoyRaptor, sandbox only) — do these first
-1. **`148c155` export audio-coverage fix (RE-VERIFY).** ✅ **BOTH PATHS PASS.** Video path PASS on
+1. **`d161a57` export audio-coverage fix (RE-VERIFY).** ✅ **BOTH PATHS PASS.** Video path PASS on
    2026-07-14 ~01:55 (aeb0517e 600ms repro, see top marker). Audio-only (.m4a) path PASS 2026-07-14
    ~02:34 (cebc19e0): checked "Export audio only (.m4a)" (Resolution/Quality correctly grey out) →
    Export Now → logcat `ExportManager: Audio-only export started`→`…completed` in ~2s, clean
    `TransformerInternal: Release`, NO "no output sample" stall, `Export saved to:`, Service destroyed.
-   BONUS — `da96248` verified on-device: the Export-Complete overlay reads **"Your audio has been saved
+   BONUS — `8a8fc9c` verified on-device: the Export-Complete overlay reads **"Your audio has been saved
    to the Records Tab."** (the audio-specific R.string.faditor_export_complete_summary_audio, not the
    old "Your video…"). A1 fully closed.
-2. **`8c306e5` G5(b) piggyback-looks (A/B FRAME-DIFF PROOF).** ⏳ **SCOUTED, needs fresh full context
+2. **`4355b66` G5(b) piggyback-looks (A/B FRAME-DIFF PROOF).** ⏳ **SCOUTED, needs fresh full context
    (2026-07-14).** Precondition check on aeb0517e (AudioExportVerify): the visualizer IS attached
    (`attachedClipId: 92bec151-379c-42f4-abcd-35e69d19022a`, `attachOffsetMs: 1000`) BUT the host clip
    92bec151 has **NO opacity keyframes** (project.json only has captionStyleKeyframes + volumeKeyframes;
@@ -130,9 +130,9 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
    envelope; a DETACHED one must not. Use the absolute-geometry A/B diff method (see the
    ab-export-frame-diff-proof memory — symmetric proofs miss it). Attach a viz to a clip that has an
    opacity keyframe fade, export, confirm the viz dims with the host; detach, export, confirm full-opacity.
-3. **`b36a36f` editor items (hand-test).** (a) Visualizer drawer ⇩/⇧ round-trips a style through a
+3. **`dfe012e` editor items (hand-test).** (a) Visualizer drawer ⇩/⇧ round-trips a style through a
    `.json` file (SAF). (b) Export dialog "Low bandwidth" chip sets the resolution to 720p + quality Low.
-4. **`8332370` grade presets.** ✅ **PASS (2026-07-14 ~02:30, cebc19e0).** Filter sheet → dragged Contrast
+4. **`0f74e63` grade presets.** ✅ **PASS (2026-07-14 ~02:30, cebc19e0).** Filter sheet → dragged Contrast
    0.00→0.61 → "Save as preset…" → named "VerifyGrade" → OK → chip appeared in the presets row →
    persisted across a filter-sheet close+reopen (global library persists). Apply proof: dragged Contrast
    to -0.52, tapped the VerifyGrade chip → Contrast snapped back to 0.61 (chip applies its stored grade).
@@ -166,7 +166,7 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
    (✦ 21→>21)→one-undo-step run. Note: adb can do the button taps + wait, but avatar-Studio gestures may
    need real-finger. Current badge count to beat: **✦ 21**. cebc19e0 left unmutated (undo 2/redo 0).
    (Last attempt the stop-swap didn't persist — likely a stop-on-onPause discard when the session exited.)
-7. **Clip-audio drawer feels (`5179647`).** ✅ **GESTURE PASS, JoyRaptor real-finger 2026-07-14 ~03:2x** —
+7. **Clip-audio drawer feels (`a91b019`).** ✅ **GESTURE PASS, JoyRaptor real-finger 2026-07-14 ~03:2x** —
    "double snap feels pretty good," drawer opens. **4 follow-ups from JoyRaptor's hands-on:**
    (a) **BUG — tap-disambiguation race:** single tap centers the playhead, so on short clips the clip
    shifts under the finger between the two taps → second tap lands on a different clip and no drawer

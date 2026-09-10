@@ -9,7 +9,7 @@ WORKING-TREE HAZARD (`git add` each file as you write it) are not optional here.
 
 ## 1. What already exists — do not rebuild it
 
-Landed 2026-08-28 in `b0b89dbd`:
+Landed 2026-08-28 in `bbd21a4b`:
 
 - `CaptionStyle.maxWords` (default 6, range 1..60) — how many words a cue may hold.
 - `CaptionPhrases.of(Transcript, int maxWords)` — the ONE grouping both renderers call.
@@ -83,7 +83,7 @@ Replace the boolean `autoFit` with this enum (keep reading `autoFit` from old JS
 
 `UNIFORM` must be computed ONCE per transcript+box+style, not per frame. Cache it and
 invalidate when any of those change. Doing it per frame at 30fps in the export path
-would be a repeat of the export bug fixed in `53ef0811`.
+would be a repeat of the export bug fixed in `fb23f6dc`.
 
 ### 3.3 A Fit tab in the caption drawer
 
@@ -92,7 +92,7 @@ three-plus controls it does. The caption drawer already has tabs; add one:
 
 - Fit mode (Off / Uniform / Per cue)
 - Words per caption — **MOVE the existing dial here**, and leave the Style row as it was
-  before `b0b89dbd`. It was put inline because there was only one control; there are now
+  before `bbd21a4b`. It was put inline because there was only one control; there are now
   several, and they belong together.
 - Minimum size floor (percentage, default 45%)
 - Max lines (optional; 0 = unlimited)

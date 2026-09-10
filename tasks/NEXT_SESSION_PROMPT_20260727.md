@@ -50,18 +50,18 @@ Continuing an interactive build/debug session. Work autonomously until I say oth
 ## OUTSTANDING WORK, in priority order
 
 ### 1. Close the second stranded-latch path — instrument is already in and waiting
-`f59850a` fixed the playhead/timeline freeze and it is **device-confirmed** (90 samples, 0
+`b0400b8` fixed the playhead/timeline freeze and it is **device-confirmed** (90 samples, 0
 frozen, user: "played well"). But the confirming run showed the SELF-HEAL firing once, proving a
 second stranding path the direct fix did not cover. Not user-visible (the net catches it), but a
 net that is load-bearing is not a net.
-**The instrument is already committed (`1fc3298`)** — additive, no control flow depends on it.
+**The instrument is already committed (`c158456`)** — additive, no control flow depends on it.
 On every ACTION_UP/CANCEL the view snapshots the branch-selecting flags and the heal warning
 prints them:
 `userDragging was stranded … | lastUp: action=UP reorder=… scaling=… postPinchPan=… activeDrag=…`
 So: have the user drive the editor normally, `grep lastUp:`, read which branch was live, fix
 THAT early return. Suspects: the `if (isScaling) return true` UP, the audio-band tap and
 double-tap returns, the slide double-tap return.
-**Then REMOVE both `PHDIAG` (`701c1e0`) and this snapshot (`1fc3298`).**
+**Then REMOVE both `PHDIAG` (`61f184d`) and this snapshot (`c158456`).**
 
 **UPDATE 2026-07-28 — hunted over adb, NOT reproduced, and the search is now narrowed.** Every
 adb-injectable SINGLE-TOUCH gesture releases the latch cleanly (audio-band scrub — the only one
@@ -74,7 +74,7 @@ denied on this device. **So this needs the user: one pinch-zoom-and-release WHIL
 self-manufactured signals it produced are in handoff §0z (2026-07-28 ~03:35) — read that before
 re-running, especially the "playback stops on a short fixture and `tail -1` goes stale" trap.
 
-### 2. Undo-snapshot cost on large projects — ~~implementation open~~ **DONE (`9c59d0e`)**
+### 2. Undo-snapshot cost on large projects — ~~implementation open~~ **DONE (`88cd1b7`)**
 Implemented as the schema-**v12** transcript pool: each distinct transcript is stored ONCE per
 file (`transcriptPool`) and clips carry `transcriptRefs`. Proved by `TranscriptPoolCodecTest`
 29/29 plus a Note 9 round-trip 14/14 and a cold-reopen read-path check 7/7 — see handoff §0z
@@ -85,7 +85,7 @@ line — the char count should drop by roughly the duplication share.
 **Still open:** `undo_history.json` was **22 MB** — several full project snapshots. It is now
 written pooled so it should shrink by itself, but that is unconfirmed, and nobody has asked
 whether retaining 50 snapshots is the right number. Worth its own look.
-**Not made worse, still not fixed:** the `activeTranscript` index→id migration (`1075eec`).
+**Not made worse, still not fixed:** the `activeTranscript` index→id migration (`ed0d7ec`).
 Pooling preserves the version list's order exactly (asserted in the harness), so the persisted
 index stays valid — but an index into a mutable list is still the wrong key.
 
@@ -152,7 +152,7 @@ Method + the reproducible unexplained backward playhead jumps are in handoff §0
 Every clip boundary costs ~150–250ms: playback runs at 0.77–0.91× for ~1s after each seam then
 recovers to exactly 1.00×. Cause is a decoder seek into a DISCONTINUOUS source position — the 11
 clips are cuts from one long recording, so each seam jumps in source time. The clips DO abut in
-timeline time; there are no real gaps. The display-only inter-clip inset from `1bfc121` was ruled
+timeline time; there are no real gaps. The display-only inter-clip inset from `d697ca9` was ruled
 OUT by reading the code (applied at draw time only, costs no playback time). The user says perf
 "was better than I remembered" but wants it as smooth as possible without removing features.
 
@@ -172,7 +172,7 @@ looked clean but I did NOT verify pixels.
 so most seams win and none lie. Any of 1/2/4 needs a pixel check right after a seam first.
 
 ### 3b. Undo sidecar staleness after a crash — NEEDS A USER DECISION
-`34b4297` fixed the big half (autosave now writes the undo sidecar, so one undo after a crash
+`d41e130` fixed the big half (autosave now writes the undo sidecar, so one undo after a crash
 no longer reverts a whole session — reproduced and proved on the Note 9; see handoff §0z
 2026-07-28 ~03:05). But a death inside the 15s throttle still leaves `project.json` ahead of
 `undo_history.json`, and a stale sidecar's newest snapshot is a pre-state for an edit that is
@@ -188,7 +188,7 @@ it is most wanted. Ask, don't guess.
 `EditScriptApplier.applyReorderClips` silently deletes any clip missing from the AI's `newOrder`.
 Deliberate for a well-formed script, but a truncated or hallucinated response deletes clips with
 no error and no dependable undo (audit 1.5: the undo stack does not survive an AI reload intact).
-The mechanical half is DONE (`3b03081` — captures a pre-state, restores on a mid-rebuild throw).
+The mechanical half is DONE (`29c7937` — captures a pre-state, restores on a mid-rebuild throw).
 Options: refuse unless `newOrder` is a permutation of the existing clip ids, or append the
 unlisted clips in their original relative order. **Ask before changing behaviour.**
 

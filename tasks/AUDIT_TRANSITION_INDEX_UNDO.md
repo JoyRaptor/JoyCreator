@@ -1,6 +1,6 @@
 # Audit: transition index shifting vs undo
 
-Opened 2026-07-25 (Opus 5) after fixing the delete case in `601383a`, then **completed the
+Opened 2026-07-25 (Opus 5) after fixing the delete case in `6673dc0`, then **completed the
 same session**. Every clip-structural undo path now restores transition placement, and the
 rules are pinned by a JVM harness. One genuine gap remains, and it is NOT an index bug — see
 "The one structural gap left".
@@ -46,8 +46,8 @@ Tools now available for the rest: `Transition.copy()` (deep — `paramOverrides`
 
 | Site | Call | Verdict |
 |---|---|---|
-| `EditActions.DeleteClipAction` | delete | **FIXED** — snapshot/restore (`601383a`) |
-| `confirmDeleteLinkedPair` | delete | **FIXED** — snapshot/restore (`601383a`) |
+| `EditActions.DeleteClipAction` | delete | **FIXED** — snapshot/restore (`6673dc0`) |
+| `confirmDeleteLinkedPair` | delete | **FIXED** — snapshot/restore (`6673dc0`) |
 | `EditActions.SplitClipAction` | split | **FIXED** — snapshot/restore, call site snapshots pre-shift |
 | `splitLinkedPartnerAndRecord` | split | **FIXED** — same |
 | `EditActions.AddClipAction` | insert | **FIXED** — exact inverse (covers all four add-clip/add-image sites) |

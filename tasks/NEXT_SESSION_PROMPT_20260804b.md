@@ -86,7 +86,7 @@ drag over the spine yet, so there is nothing to highlight into. The right order 
 - The stacked-PiP-bands render JoyRaptor saw after two "Move PiP" actions — captured, unexplained,
   not investigated.
 (The three fourth-review findings previously listed here — the marker-only reorder restore, the
-two silent `onUp` early-returns, and the session-lifetime id set — are all FIXED in `2785d7b`.)
+two silent `onUp` early-returns, and the session-lifetime id set — are all FIXED in `b5a6c1b`.)
 
 ## HOW TO WORK HERE
 

@@ -37,7 +37,7 @@ related and should share machinery.
 | Both fed the same four values | `FaditorEditorActivity.bindCaptionData`, `CompositeExportOverlay` |
 | 131 off-device checks | `tools/jvm-harness/CaptionAnimatorTest.java` |
 
-Commits `95dc7e2` (unification), `5cc34fd` (presets + harness), `c7b6359` (live end to end).
+Commits `afa1f78` (unification), `8618a46` (presets + harness), `08499cc` (live end to end).
 Evidence for each is in LEDGER §3g, including the honest limit on the device proof.
 
 **The load-bearing rule:** every preset lands on `CaptionAnimator`. If you find yourself writing
@@ -61,7 +61,7 @@ so any future wall-clock term fails the harness instead of failing quietly in an
   durations and applied against each phrase's own span, capped at half of it
   (`zoneForSpan`). Otherwise continuous speech would animate its first phrase and let every
   later one simply appear.
-- ~~**Zones are SOURCE ms.**~~ **SUPERSEDED 2026-07-29 (`d71b614`): zones are a FRACTION of each
+- ~~**Zones are SOURCE ms.**~~ **SUPERSEDED 2026-07-29 (`97eb73b`): zones are a FRACTION of each
   LINE, 0…0.5, and have no units at all.** The old note read "both renderers evaluate against
   source time; timeline ms would halve the zones on a 2× clip" — true, and it required every call
   site to remember which base it was in. A fraction is correct in both bases by construction, so
@@ -102,7 +102,7 @@ Strings are HARDCODED with `// TODO(strings)` — the extraction is frozen behin
 ### DONE — decisions forced while building the UI, each with its reasoning
 
 - ~~**The caret's travel is scaled to what actually changes, not to the tape.**~~ **OBSOLETE
-  (`d71b614`).** That scaling — full travel mapping to `CaptionPhrases.maxUsefulZoneMs()`, half
+  (`97eb73b`).** That scaling — full travel mapping to `CaptionPhrases.maxUsefulZoneMs()`, half
   the longest visible phrase — existed only because the zones were absolute durations on the CLIP
   spent against each PHRASE, so a linear map onto a 60s tape left ~94% of the travel dead. A
   fraction is already per-line: full travel is 0.5 at every phrase length, there is no scale
@@ -122,7 +122,7 @@ Strings are HARDCODED with `// TODO(strings)` — the extraction is frozen behin
   Choosing a preset is an explicit request to animate, so it seeds, in the SAME undo step, and the
   Timing sliders then show what happened.
 - ~~**The carets appear only while the caption drawer is open.**~~ **They no longer appear for
-  captions at all** (`665d543`). The reasoning behind the original rule — a captioned clip is
+  captions at all** (`27762a6`). The reasoning behind the original rule — a captioned clip is
   commonly selected for reasons unrelated to animating it, and two extra carets competing with the
   trim handles for the tape edges is clutter — is why they should stay opt-in when text boxes
   revive them.
@@ -367,7 +367,7 @@ What is left, in order:
 **What is actually left, in order:**
 
 ~~1. Make the preset tiles legible at 60dp.~~ **CLOSED, twice over.** The static-pose half was
-   fixed in `4a1ea41` (tiles now animate, driven by the evaluator). The residual freeze-frame gap
+   fixed in `aac13f0` (tiles now animate, driven by the evaluator). The residual freeze-frame gap
    was then **accepted by the user, 2026-07-30** — *"the animations you have, I think, look great"*
    — as motion-only distinction. **Do not "fix" it with a decorative cue:** the tiles are
    trustworthy precisely because they can only advertise motion the renderers actually produce.
@@ -381,7 +381,7 @@ What is left, in order:
 5. Add more presets, one at a time, as data driven by `unitProgress` — and never any easing
    arithmetic outside `CaptionAnimator`. ~~which to build next is the reporter's call~~ —
    **ANSWERED: MATRIX, UNSCRAMBLE, ODOMETER, MASK_WIPE, NEON_FLICKER** (user, 2026-07-30).
-   **MATRIX shipped `c85a7c5`; UNSCRAMBLE shipped 2026-07-29. ODOMETER is next and is designed
+   **MATRIX shipped `b1e0e00`; UNSCRAMBLE shipped 2026-07-29. ODOMETER is next and is designed
    below.**
 
 ## NEON_FLICKER — the recorded blocker is MISLEADING. Read this before estimating it.

@@ -5,8 +5,8 @@
 **Read `tasks/LANES.md` first** and claim `SPEC_20260830_WORD_SYNC_V2`. Never run gradle,
 never a bare `git commit`, `git add` as you write, merge conflict = STOP.
 
-**This supersedes the Word Sync mode UI that landed in `b3648455`/`139b5dbf`/`94b4cb9c`/
-`2c7d4dfa`.** The engine underneath is right and stays. The interface built on top of it is
+**This supersedes the Word Sync mode UI that landed in `b8ac6a6c`/`274302de`/`01a1db5f`/
+`a6deaf50`.** The engine underneath is right and stays. The interface built on top of it is
 wrong and comes out.
 
 ---
@@ -120,7 +120,7 @@ So: **keep `TimeShuttleView`, replace `WordScrubView`.**
 1. In the drawer layout (`activity_faditor_editor.xml` ~2873, `@+id/word_scrub_strip`),
    replace the full-width `WordScrubView` with a `TimeShuttleView` at its natural width.
    `TimeShuttleView` is already 72dp and already measures deflection against a third of the
-   screen rather than its own width (`6becec92`), which is exactly what JoyRaptor asked for:
+   screen rather than its own width (`98f5ef0c`), which is exactly what JoyRaptor asked for:
    *"make it only 1/3rd what it currently is… once the user grabs the knob it's sensitive
    the entire width."* **That work is done — do not redo it.**
 2. Its listener calls **`applyWordGroupDelta(deltaMs)`**, not

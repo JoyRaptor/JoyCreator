@@ -8,10 +8,10 @@ Every answer below was code-verified this session (file:line anchors), not recal
 ### Dual-stream toggle — WHERE IT IS + Note 9 IS capable
 - The toggle is NOT in the floating helper panel. Path: **FadRec tab → tap the "Screen Recording"
   card (top-left, resolution row) → "Record webcam as separate file"**.
-- Verified LIVE on the Note 9 (29e37138) this session: the row renders ("Off"), and the capability
+- Verified LIVE on the Note 9 (<sandbox-serial>) this session: the row renders ("Off"), and the capability
   gate logged `Hardware AVC encoder max concurrent instances: 16` — far above the ≥2 requirement.
   The Note 9 is fully dual-stream capable.
-- ⚠️ Installed build timestamp is 07:59:42; the Phases 1–3 recording commit (`23b194b`) was committed
+- ⚠️ Installed build timestamp is 07:59:42; the Phases 1–3 recording commit (`0d80326`) was committed
   08:01. The watcher builds from saved files so the code was likely in, but treat "toggle ON actually
   produces `<name>_webcam.mp4`" as unproven until the spec's device checklist runs on a fresh install.
 
@@ -222,13 +222,13 @@ already property-focused.)
    - DEVICE-VERIFY OWED (JoyRaptor, real fingers — adb can't fake double-tap feel): tap/double/hold on
      image + text + sprite in preview; scrub with drawer open → End-here extends an image; drawer
      retarget on cross-object taps; row auto-reveal; sprite badge delete.
-2. **Slice 2 gap-insertion — ✅ BUILT 2026-07-17 (`32d19bb`, compile-green).** Pinned purple zone
+2. **Slice 2 gap-insertion — ✅ BUILT 2026-07-17 (`71175b4`, compile-green).** Pinned purple zone
    + cross-band arm text KILLED; every floating-band gap (+above-top/+below-bottom) is an
    insertion target drawn as one accent line; release creates the track AT that index with z
    renumbered in ONE undo step (old zIndexes snapshotted for fold-in undo). C5 riders in: sticky
    hover (2x exit zone), gap entry disarms the bookend excursion, content-coordinate hit-testing.
    C8 stragglers ✅ CLOSED 2026-07-17 (audit finding: A1 edge auto-pan + the DRAG_OUTLINE state
-   machine were ALREADY in 470f936 and survived Slice 2 — C8's "not in code" was the stale-build
+   machine were ALREADY in c92f6e0 and survived Slice 2 — C8's "not in code" was the stale-build
    artifact). Two real gaps fixed: (1) gap-insertion hover now suppresses horizontal edge-pan
    (isHoverGapActive gate, both the 60fps runnable and the arm site — vertical intent, no
    competing scroll; M6 vertical reveal stays live); (2) same-row outline was
@@ -282,7 +282,7 @@ already property-focused.)
 - dragux_v3 **A14** teal-lane retirement + row keyframe-visual parity (unbuilt) — item 3 above.
 - LANE_BADGES **§4.5** eye/lock → per-object migration (deliberately deferred; needs per-object controls).
 - ObjectMenuSheet §2 Prop adapters for **audio / PiP / visualizer** — ✅ BUILT 2026-07-17
-  (`3fed299`, compile-green + installed on SM-N986U). Static-prop support added to the sheet
+  (`b6f92b6`, compile-green + installed on SM-N986U). Static-prop support added to the sheet
   (Prop.keyframeable + staticProp → no diamond/ribbon for non-animatable props). Audio = one
   Volume prop on its own VolumeKeyframe envelope (no ease); PiP = full transform keyframes on
   the overlay Clip's getOverlayTransform() (absolute-ms keys, whole-pose arming, ease picker,

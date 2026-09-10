@@ -17,9 +17,9 @@ Measured on JoyRaptor's Note 9, one 46-second project, 720p/Low:
 | | Time |
 |---|---|
 | Before any of this | ~15m 00s |
-| One forward decode per source (`1d00f159`) | 3m 49s |
-| Fast pixel conversion (`53ef0811`) | 1m 47s |
-| Seek to first needed frame (`8e4f584b`) | **1m 38s** |
+| One forward decode per source (`a4880de5`) | 3m 49s |
+| Fast pixel conversion (`fb23f6dc`) | 1m 47s |
+| Seek to first needed frame (`9d35c33b`) | **1m 38s** |
 
 That is 9.2x, and the output was verified **pixel-identical** (PSNR inf) across the
 last change. It is still **2.1x slower than realtime**, and JoyRaptor's finished music

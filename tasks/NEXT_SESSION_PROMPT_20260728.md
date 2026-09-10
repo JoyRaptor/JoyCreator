@@ -16,14 +16,14 @@ with its proof; never delete an entry to shorten the list.
 
 **§3g text animation now RUNS end to end.** Three commits, each with its evidence:
 
-- `5cc34fd` — **presets, granularity and unit splitting land on the one evaluator**, plus a JVM
+- `8618a46` — **presets, granularity and unit splitting land on the one evaluator**, plus a JVM
   harness. The handoff asked for the unification to be verified before building on it: it holds
   BY CONSTRUCTION, because preview (`FaditorEditorActivity:8121`) and export
   (`CompositeExportOverlay:576,590`) compute source time with the same formula and apply the
   speed multiplier on both sides before the animator sees anything. A frame-diff proves one
   sample; what makes them agree everywhere is that the animation is a pure function of ELAPSED
   media time, so that is pinned instead (`CaptionAnimatorTest.clockInvariant`).
-- `c7b6359` — **the animation actually runs.** Four fields on `Clip`, round-tripped through
+- `08499cc` — **the animation actually runs.** Four fields on `Clip`, round-tripped through
   `ProjectStorage`, driving BOTH renderers. `CaptionPhrases` extracted, because the phrase
   grouping was a second identical-and-independent copy across the same preview/export boundary
   that WAS §3g — and it became load-bearing the moment the phrase span became the animation's
@@ -35,13 +35,13 @@ with its proof; never delete an entry to shorten the list.
 javac -nowarn -d tools/jvm-harness/out-caption tools/jvm-harness/stubs/androidx/annotation/*.java tools/jvm-harness/stubs-caption/com/fadcam/ui/faditor/transcript/CaptionStyle.java app/src/main/java/com/fadcam/ui/faditor/transcript/CaptionAnimator.java tools/jvm-harness/CaptionAnimatorTest.java && java -cp tools/jvm-harness/out-caption CaptionAnimatorTest
 ```
 
-Earlier the same day: `d3e3a63` §2a playhead↔clip mapping (FIXED, re-verified against the code
-this session — all four claims hold), `a19ee53` §3b lane mute icon, `7b3edff`+`bd2bd58` §3d built
-then deleted, `95dc7e2` §3g step 1.
+Earlier the same day: `1d061ea` §2a playhead↔clip mapping (FIXED, re-verified against the code
+this session — all four claims hold), `e1fe61d` §3b lane mute icon, `8f3196f`+`14e07ee` §3d built
+then deleted, `afa1f78` §3g step 1.
 
 ## UPDATE 2026-07-28 (late) — the §3g AUTHORING UI IS DONE. Two commits.
 
-`dbc6ab0` (carets + picker + drawer row + docs) and `bbfbcf0` (popover UX). The section below is
+`2ddd80d` (carets + picker + drawer row + docs) and `18e7733` (popover UX). The section below is
 superseded and kept only for its line-number references. Read `SPEC_TEXT_ANIMATION.md` and
 LEDGER §3g for the current state.
 
@@ -74,7 +74,7 @@ exit 255 on a run that succeeded; capture the output to a variable instead.
 
 ## AFTER §3g — two decisions belong to the user
 
-**§3d is CLOSED — measured, then deleted on the user's call (`bd2bd58`). Do not rebuild it.**
+**§3d is CLOSED — measured, then deleted on the user's call (`14e07ee`). Do not rebuild it.**
 The number is in LEDGER §3d so nobody re-derives it: 0 of 7 real window starts keyframe-aligned,
 keyframes ~1.0s apart, so a millisecond-precision trim has ~1-in-1000 odds. User: *"170 nearly
 useless lines? … lets not bloat the codebase."*

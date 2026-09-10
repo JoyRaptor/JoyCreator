@@ -1,5 +1,5 @@
 # ✅ 2026-08-06 — FAST-FOLLOW A IS BUILT. The dope sheet owed since 2026-07-06 shipped with
-#   SPEC_IMAGE_SEQUENCE (commit 960744a), built ONCE for sprites AND image sequences per that
+#   SPEC_IMAGE_SEQUENCE (commit caf0256), built ONCE for sprites AND image sequences per that
 #   spec's §0. It is the palette's third detent, where S3 always drew it. A sequence strips its
 #   frames and edits their weights; a grid sprite strips its frame-track KEYS and can turn a
 #   selection into a preset ("Make preset"). Read tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md.
@@ -9,7 +9,7 @@
 #   ⚠ The "REMAINING" line further down this file is STALE about FF-A. Trust the code.
 #
 # 📊 BUILD-1 STATUS 2026-07-06 ~13:20 (Fable — DEVICE-VERIFIED this session, watcher live/green):
-#   • Picked up opencode (out of credits): finished the audio-overlap P0 + committed a52965b —
+#   • Picked up opencode (out of credits): finished the audio-overlap P0 + committed 4ba23f1 —
 #     addAudioClip(clip) auto-resolves; undo/redo/split-restore/deserialize routed to (clip,false)
 #     for exact placement. Watcher rebuilt green (18s).
 #   • SPRITE Build-1 is FUNCTIONALLY LIVE ON DEVICE (SM-N960U, project FadCam_20260621_145132):
@@ -31,7 +31,7 @@
 #     now renders TWO "Sprite" rows (was one); project.json split s2→layerId sprite-81563c97…; a placed
 #     3rd sprite got its own sprite-9a97698f… lane (then removed to restore JoyRaptor's 2-sprite content).
 #     NOTE: migrated/leftover lanes render with the generic "Sprite" header name — per-lane naming
-#     lands with the LAYERS-UX renderer consolidation (FEEDBACK_20260706 #1). Commit: b55b1cd.
+#     lands with the LAYERS-UX renderer consolidation (FEEDBACK_20260706 #1). Commit: 02b51c2.
 #   ▶ NEXT — LAYERS-UX OVERHAUL BUILD. Gesture design pass is DONE (co-designed w/ JoyRaptor 2026-07-06).
 #     ★ START A NEW SESSION WITH: tasks/BOOTSTRAP_LAYERS_BUILD_20260706.md (paste-ready prompt).
 #     Authoritative design = tasks/PLAN_GESTURE_CONTRACT_FINAL_20260706.md; always-green slice
@@ -54,8 +54,8 @@
 #     FF-B AI sprite tools (AIToolExecutor has 0 sprite refs today). Do them in that order.
 #
 # ── prior status (2026-07-05, kept as history) ──
-# 📊 BUILD-1 STATUS 2026-07-05 (JoyRaptor lane): S1 ✅ S2 ✅ S2b-core ✅(c924c9f) S3 ✅(ca496e7)
-# S4 ✅(7df95e9) S6 ✅(f270f48) — S5 lane visuals + S7 relink remain; ALL of today's work is
+# 📊 BUILD-1 STATUS 2026-07-05 (JoyRaptor lane): S1 ✅ S2 ✅ S2b-core ✅(1a276aa) S3 ✅(8083e84)
+# S4 ✅(e27343d) S6 ✅(d3fed78) — S5 lane visuals + S7 relink remain; ALL of today's work is
 # javac-verified but OWED watcher-green + on-device acceptance (watcher died 03:06, see handoff).
 
 # ⚡ AMENDMENT 2026-07-03 (Fable, BINDING — read before the original plan below)
@@ -92,7 +92,7 @@ implementation can't parallelize (one watcher tree, god-class files); reviews ca
 **S2 design gate:** before building the setup editor UX, do a design pass against competitor workflows —
 fold in tasks/RESEARCH_COMPETITOR_UX_20260703.md when it lands (in flight from another worker).
 
-**S4 STATUS 2026-07-05: PREVIEW SHIPPED (7df95e9), device verify owed (watcher down).**
+**S4 STATUS 2026-07-05: PREVIEW SHIPPED (e27343d), device verify owed (watcher down).**
 SpriteOverlayView in the preview stack (above video, below text/captions per the export rule):
 resolver-driven cell, KeyframeSet transforms, drag/pinch with auto-keyframe-when-armed + snap
 (TextOverlayLayer contract parity), MISSING placeholder, pass-through touches. SpriteOverlayItem
@@ -101,7 +101,7 @@ LayerPreviewController.visibleSpriteItems is the SHARED hidden-track filter — 
 Interim placement path until S3: Sprites tool → tap sheet → "Place on video" (first enabled cell,
 holds from playhead). S3 palette panel + S5 lane/keyframing remain next in Build 1.
 
-**S2 STATUS 2026-07-04: CORE SHIPPED + DEVICE-PROVEN** (cb07ad7 + the onCreate-order NPE fix):
+**S2 STATUS 2026-07-04: CORE SHIPPED + DEVICE-PROVEN** (999bbac + the onCreate-order NPE fix):
 engine (SpriteSheetRenderer: decode-once, color-key-at-decode, cellRectSource geometry authority),
 SpriteGridEditorView (zoom/pan/tap/pivot), SpriteSheetEditorActivity (import→slice→name→save), Sprites
 carousel tool + sheet-list dialog. DEVICE PROOF (Note 9, adb-driven end-to-end): launched editor → OS

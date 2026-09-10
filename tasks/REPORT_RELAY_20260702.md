@@ -25,7 +25,7 @@ scrub — are FIXED. This unblocks your Layers hand-test.
   duration-on-create + numeric time fields (§7), still to come.
 
 ## 🅿️ 2026-07-02 late — PING-PONG PARKED + resize/black-screen regression fixed (device-verified, NO commit)
-User report (Note 9, after L2 9d9539c): resizing a loop reverted its size; then that clip + others went BLACK.
+User report (Note 9, after L2 292cd62): resizing a loop reverted its size; then that clip + others went BLACK.
 - **Root cause (cluster):** BLACK = the gapless engine is ONE shared ExoPlayer/ONE playlist; a PING_PONG clip
   auto-promotes the whole project + injects baked-reversed items — an item that fails to decode blacks out the
   shared player and the black spreads to every clip (evidence: an orphan `cache/reversed/rev-1899-4884-*.mp4`
@@ -69,15 +69,15 @@ a disjoint item. NEW USER SPECS captured in tasks/FEEDBACK_20260702_layers_maski
 0. **THE SANDBOX NOTE 9 (<note9-serial>) CAME BACK ON USB ~01:45** — device work unblocked. Note: gradle's
    `installDefaultDebug` can fail with a transient ADB `EOF` even when a device IS attached — that is NOT a
    compile failure; `adb install -r` manually works. If a late-window agent was doing the M5 regression gate
-   (branch-dance: checkout ff39b6a → export → checkout joy-creator → export → compare), the tree might be left
-   DETACHED at ff39b6a if it was killed mid-run — `git -C <proj> checkout joy-creator` restores it; check
+   (branch-dance: checkout fe67798 → export → checkout joy-creator → export → compare), the tree might be left
+   DETACHED at fe67798 if it was killed mid-run — `git -C <proj> checkout joy-creator` restores it; check
    `git status`/`git log -1` FIRST.
 1. **A git STASH exists** on `joy-creator`: `WIP caption-style-keyframe UX - interrupted by usage cap 2026-07-01 23:33`.
    The previous session's caption-style-keyframe-UX agent was killed mid-surgery (FaditorEditorActivity was left
    missing whole methods + string resources → tree was RED). I stashed it (incl. untracked `faditor/captions/`) to
    restore green. **Do NOT `git stash pop` blindly** — it will conflict with Layers work on FaditorEditorActivity/Clip.
    Treat the feature as NOT DONE; redo it fresh later (use the stash as reference only). It stays in the queue.
-2. Tree was verified GREEN at `ff39b6a` (carousel v2) after the stash, 2026-07-01 ~23:50.
+2. Tree was verified GREEN at `fe67798` (carousel v2) after the stash, 2026-07-01 ~23:50.
 3. **No device attached all night** (checked adb repeatedly). Everything this window is COMPILE-GREEN only;
    device work is batched below.
 4. Reminder: build.log "BUILD FAILED" from `installDefaultDebug ... No connected devices!` is GREEN — only
@@ -91,20 +91,20 @@ remuxed fMP4 — REQUIRES a device before the engine is built; do not build it b
   layer preview, Sonnet), as far as the usage window reaches. Checkpoint commit after each green milestone.
 
 ## ✅ M5 REGRESSION GATE: **PASSED** (2026-07-02 ~02:10, Note 9)
-ff39b6a vs 01d0d66 sandbox exports: ALL 621 frames byte-identical (PSNR inf, MSE 0), raw video md5 identical,
+fe67798 vs e46d0ac sandbox exports: ALL 621 frames byte-identical (PSNR inf, MSE 0), raw video md5 identical,
 raw PCM md5 identical, RMS curves identical to 6dp, durations equal to the sample. Evidence + MP4s/frames in
 the session scratchpad (see agent report). Old-build save strips the layers block; current build re-materializes
-it losslessly — dual-write working as designed. Tree ended clean on joy-creator @ 01d0d66, build green,
+it losslessly — dual-write working as designed. Tree ended clean on joy-creator @ e46d0ac, build green,
 4.0.0-beta9 installed on the Note 9. Sandbox project untouched (6 clips intact).
 Still owed on-device: undo-after-trim spot check; downgrade-guard behavior (hand-stamped v9 project → read-only).
 
 ## FULL DEVICE-VERIFY BATCH (when ANY phone is attached; sandbox Note 9 <note9-serial> preferred; NEVER the real project 27221664 / phone <note20-serial>)
 1. M5 regression gate (above) — FIRST.
-2. Carousel edit v2 (`ff39b6a`): full interaction pass + fix known conflict (in edit mode, mute/opacity long-press
+2. Carousel edit v2 (`fe67798`): full interaction pass + fix known conflict (in edit mode, mute/opacity long-press
    fires BOTH drag-pickup AND old long-press action — suppress tool long-press actions while in edit mode).
 3. Export filename dialog (both storage modes), transcript header on small screen, compact-bar rotate
    slim/flush, export top-stripe fill/animate/hide (all from 2026-07-01 batch, see handoff.md).
-4. Caption apply-to-all + undo history popup (c3c0c03).
+4. Caption apply-to-all + undo history popup (315be8a).
 
 ## QUEUE AFTER LAYERS MILESTONES (unchanged from previous session's ordering)
 caption style keyframe UX (REDO — see stash note) → rebrand pass 1 (DESIGN_JOY_CREATOR.md; de-politicize,
@@ -112,7 +112,7 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
 → M-COMP-0 (device required) → continue PLAN_LAYERS_V2 sequence (M-EXPORT-1 …).
 
 ## LANDED THIS WINDOW (updated as I go)
-- (2026-07-01 23:50) Recovery: stashed broken caption-keyframe WIP, tree green at ff39b6a.
+- (2026-07-01 23:50) Recovery: stashed broken caption-keyframe WIP, tree green at fe67798.
 - (2026-07-02 ~00:15) **M5 LANDED, compile-green** (Opus). New `faditor/layers/` (TrackKind, BlendMode, Track,
   TimedItem); Timeline +98 (rippleMode + ephemeral synchronized-from-flat Track views — flats stay in-memory
   storage of record, views rebuilt per access so APIs can never diverge); FaditorProject +33 (SCHEMA_VERSION=8,
@@ -153,7 +153,7 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
 - (2026-07-02 ~02:20) M-COMP-0 first attempt was killed by the usage cap 7s in (no edits); relaunched ~07:30
   after refresh; that run was then STOPPED mid-implementation for an urgent user hotfix (below) — its partial
   engine WIP was stashed and later cleanly re-applied.
-- (2026-07-02 ~morning) **URGENT USER HOTFIX LANDED b6c2a0c + INSTALLED on S10e AND Note 9**: the caption
+- (2026-07-02 ~morning) **URGENT USER HOTFIX LANDED 7d81c69 + INSTALLED on S10e AND Note 9**: the caption
   hide pill (eye-slash) now applies to all clips on long-press like the style chips
   (showHideCaptionsOnAllClipsDialog/hideCaptionsOnAllClips: captionsEnabled=false everywhere, keyframes
   untouched, ONE undo step). User's friend's S10e (R58M34STHCA) got it before being detached.
@@ -171,7 +171,7 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   Known-weak (next device session): waveform-level A/V sync proof; live export round-trip + bg/fg resume in
   gapless mode; >100% LoudnessEnhancer boost path. Engine WIP safety stash dropped after landing.
 - (2026-07-02 ~10:15) **M10 LANDED — drag-between-layers + drop-to-new-layer, compile-green** (Sonnet resume
-  of `0cf3a4c`'s WIP, which was already ~95% done). WIP had: `LayerTrackDef.java` (new persistent track defs),
+  of `ab316a5`'s WIP, which was already ~95% done). WIP had: `LayerTrackDef.java` (new persistent track defs),
   `Timeline` layerId-grouping + `extraLayerTracks`, `LayerRowRenderer` cross-row highlight + "+ New layer"
   zone (drawn BELOW the last row — the plan's "or a dedicated drop zone" branch, not an above-top-row zone),
   `LayerGestureController` hover-target + same-band/locked/hidden rejection, full `ProjectStorage` v10 field
@@ -192,7 +192,7 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   a real finger — next device session should run the checklist below before this milestone is called fully
   device-accepted.
 - (2026-07-02 later) **Caption-style-keyframe UX REDO LANDED, compile-green, FULLY device-verified** (Sonnet).
-  The `01d0d66` M-COMP-1 commit had already landed most scaffolding (model, undo action, drawer XML, arm/nav/
+  The `e46d0ac` M-COMP-1 commit had already landed most scaffolding (model, undo action, drawer XML, arm/nav/
   delete wiring, CC-lane per-segment coloring) — confirmed via `git log` this predates and is separate from
   stash@{1} (the actual killed WIP, left untouched). Real gaps closed: `Clip.captionStyleId` now resyncs to
   keyframe[0]'s style on every keyframe-list mutation (fixes a stale-base-style bug on first-keyframe delete —
@@ -235,7 +235,7 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   handoff.md.** NEXT SESSION PICK-UP: re-run the tap/scrub loop scrolled to a mid-timeline boundary → expect
   zero snap-to-0; then decide if mechanisms 1/2 still need code.
 - (2026-07-02 later) **L1 (loop/ping-pong plan §L1) LANDED — device-verified on Note 9 sandbox `bdd51919…`,
-  BUILT GREEN, flag `GAPLESS_ENGINE` restored to `true`** (Sonnet, resumed WIP `1597fee`). WIP was ~95% complete
+  BUILT GREEN, flag `GAPLESS_ENGINE` restored to `true`** (Sonnet, resumed WIP `0b5ed7b`). WIP was ~95% complete
   (MasterPlaybackEngine rep-window expansion, clamp math verified to mirror ExportManager exactly, same-clip
   seam suppression, continuous visual position/duration, activity-side gapless bypass of the poll wrap block —
   all correct, none of L2/L3 touched). Real gap closed: the loop DRAWER's `applyLoopMode`/`extendLoop` (mode
@@ -248,7 +248,7 @@ KEEP long-press character mechanic) → transcript dedup (timestamped project.js
   106–163ms legacy baseline; play-through auto-advance across both remaining cuts reached a clean end state;
   pause mid-extension held a coherent frame; drawer-driven trim + undo confirmed via `project.json` diff
   (loopAfterMs 11000→12000→11000, gapless rebuild fired both times, undo byte-identical except `lastModified`).
-  Seam-clobber fix (9edad8a) add-on: 3 user-seek seams + 2 auto-advance seams captured, all correct (seeks never
+  Seam-clobber fix (9123612) add-on: 3 user-seek seams + 2 auto-advance seams captured, all correct (seeks never
   re-homed, auto-advance did) — but the planned "40 taps across one boundary" batch was hampered by
   `EditorTimelineView`'s per-clip zoom auto-reflow invalidating pre-computed tap coordinates; 2 attempts, both
   hit the same obstacle, reported honestly rather than ground on per the one/two-attempt rule — samples that

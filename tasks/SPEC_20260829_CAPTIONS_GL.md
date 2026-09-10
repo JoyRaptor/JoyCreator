@@ -23,7 +23,7 @@ This also closes the last structural hole in the Photoshop-parity stack. Caption
 live on a Canvas surface, so a blended image above them composites against the video instead
 of against the captions.
 
-The groundwork is done. `SPEC_20260829_PREVIEW_PERF` landed `OverlayTextureCache` (`069ffdfc`)
+The groundwork is done. `SPEC_20260829_PREVIEW_PERF` landed `OverlayTextureCache` (`6a959d2c`)
 which already does exactly this for text and sprite overlays: raster once at the authored
 size, key on content and never on pose, transform the quad per frame. **Captions are a third
 client of that cache, not a new mechanism.**
@@ -32,7 +32,7 @@ client of that cache, not a new mechanism.**
 
 ## 2. Prerequisite, now satisfied
 
-This was blocked on `SPEC_20260829_CAPTION_LAYERS`, which landed (`0e4618bd`). A clip now
+This was blocked on `SPEC_20260829_CAPTION_LAYERS`, which landed (`489db076`). A clip now
 carries up to three `CaptionBinding`s, each with its own transcript, style, position and
 size. **Every binding is its own GL layer** — do not collapse them into one texture, or a
 blend between two caption tracks becomes impossible and the z-ordering the caption work just
@@ -105,7 +105,7 @@ Paste `phone.sh devices` and `build` (with its date).
 ## 6. Traps
 
 - **`strings.xml` is UTF-8 with a BOM** — corrupted to UTF-16 on 2026-08-29, restored in
-  `af302055`. Check `file` on it before committing.
+  `1e5df369`. Check `file` on it before committing.
 - A value written and never read caused three bugs on 2026-08-28. If a caption does not
   appear, check the compositor READS your texture before assuming the upload failed.
 - A child pushed outside its parent is clipped by it — relevant if a caption near the canvas

@@ -139,7 +139,7 @@ overlay content to the canvas, and say what you found.
   geometry. This spec is `TransformOverlayView`, `PasteboardDimView`, and the pill/dim wiring in
   `FaditorEditorActivity`.
 - Do not change flip/fold behaviour.
-- Tree is green at `c9cac612` plus staged work. If the build goes red in a file you did not edit,
+- Tree is green at `4475002b` plus staged work. If the build goes red in a file you did not edit,
   stop and say so.
 
 ## Deliver

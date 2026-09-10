@@ -9,12 +9,12 @@ rule I set for myself: no unattended edits to his real project.
 
 | Commit | What | Verified |
 |---|---|---|
-| `5ed2baef` | **The undo preview jump — root cause and fix** | **DEVICE**, reproduced and re-tested by me |
-| `d33f694d` | **Motion range no longer outlives its object** | HARNESS, 15 assertions |
-| `ee779c28` | **Black clips you can place yourself, any length** | **DEVICE**, end to end |
-| `d4db52fd` | Diagnostics removed; a broken harness runner repaired | full suite green |
+| `95b4950b` | **The undo preview jump — root cause and fix** | **DEVICE**, reproduced and re-tested by me |
+| `ed3977bc` | **Motion range no longer outlives its object** | HARNESS, 15 assertions |
+| `c86ffad8` | **Black clips you can place yourself, any length** | **DEVICE**, end to end |
+| `b4087cbe` | Diagnostics removed; a broken harness runner repaired | full suite green |
 
-### The undo preview jump (`5ed2baef`) — the one that had beaten me four times
+### The undo preview jump (`95b4950b`) — the one that had beaten me four times
 `updateCurrentTimeDisplay`'s parameter is `positionInCurrentSegmentMs` — SEGMENT-RELATIVE —
 and it calls `getAbsolutePlayheadMs` to add the preceding clips' durations. Two bugs from
 that one fact:
@@ -39,7 +39,7 @@ the player entirely. PREVDIAG showed the compositor faithfully drawing whatever 
 Only PHJUMP, logging the playhead's own setter, named the culprit. When a bug survives two
 code-reading rounds, print the value and the caller.
 
-### Black clips (`ee779c28`)
+### Black clips (`c86ffad8`)
 "Black clip (title card / pause)" in the Add Asset sheet, right after the Image rows,
 because that is what it is. Length comes from `promptForTimeMs`, so it inherits the whole
 §3c grammar for free — `2m30s`, `10.5s`, `1:30`, `90f`, `1/6 min`. Inserted AFTER the

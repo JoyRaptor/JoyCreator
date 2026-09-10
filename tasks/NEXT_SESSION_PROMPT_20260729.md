@@ -20,11 +20,11 @@ what you intend to do, then get to work. Prove things rather than asserting them
 **Engine, persistence, preview, export AND the authoring UI are all DONE.** Spec:
 `SPEC_TEXT_ANIMATION.md`. Ledger: §3g. Recent commits:
 
-- `dbc6ab0` — the authoring UI: amber `▶` `◀` tape carets, the preset grid, granularity row,
+- `2ddd80d` — the authoring UI: amber `▶` `◀` tape carets, the preset grid, granularity row,
   "A in motion" entry point, undo on all three, plus the schema docs.
-- `bbfbcf0` — picking a granularity no longer closes the popover.
-- `3f75a27` — handoff pointed at the evidence instead of the finished build.
-- Earlier: `95dc7e2` (one evaluator, one clock), `5cc34fd` (presets + harness), `c7b6359` (runs
+- `18e7733` — picking a granularity no longer closes the popover.
+- `611616c` — handoff pointed at the evidence instead of the finished build.
+- Earlier: `afa1f78` (one evaluator, one clock), `8618a46` (presets + harness), `08499cc` (runs
   end to end).
 
 Both formerly-open questions are ANSWERED in the spec — v1 is the six implemented presets
@@ -69,7 +69,7 @@ method (render the mask to an ALPHA_8 bitmap and `DST_OUT` it, because `clipPath
 antialiased). Fix the two preview/export divergences listed there FIRST, including the one where
 **matte-peer AUDIO still exports** while its picture is hidden.
 
-**§3d is CLOSED — measured, then deleted on the user's call (`bd2bd58`). Do not rebuild it.**
+**§3d is CLOSED — measured, then deleted on the user's call (`14e07ee`). Do not rebuild it.**
 
 ## DECISIONS THAT BELONG TO THE USER — do not guess
 

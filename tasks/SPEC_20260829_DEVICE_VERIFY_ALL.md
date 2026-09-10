@@ -88,7 +88,7 @@ than yours did.
 Each row: what to do, and what a PASS looks like. Record **PASS / FAIL / BLOCKED** and the
 screenshot filename. `FAIL` needs one sentence of what you saw instead.
 
-### 3.1 Keyframe shapes (`d8feba6f`)
+### 3.1 Keyframe shapes (`88e73dc3`)
 
 | # | Check | PASS looks like |
 |---|---|---|
@@ -123,7 +123,7 @@ screenshot filename. `FAIL` needs one sentence of what you saw instead.
 | 19 | Different `FitMode` per track | each fits independently; track 2 does not inherit track 1's size |
 | 20 | Export 15s with all three, compare a frame to the preview at the same time | identical text, size, position |
 
-### 3.4 Image presets (`0be24e6f`)
+### 3.4 Image presets (`1bc9a273`)
 
 | # | Check | PASS looks like |
 |---|---|---|
@@ -151,11 +151,11 @@ screenshot filename. `FAIL` needs one sentence of what you saw instead.
 
 | # | Check |
 |---|---|
-| 35 | Opacity keyframe delete + on-key dot + amber indicator (`42e0fb48`) |
-| 36 | Caption font `+ Import` chip is reachable (`d8bd797d`) |
-| 37 | Caption Fit tab: OFF / UNIFORM / PER_CUE, floor, max-lines (`7acdf2d3`) |
+| 35 | Opacity keyframe delete + on-key dot + amber indicator (`6ac64156`) |
+| 36 | Caption font `+ Import` chip is reachable (`90d77721`) |
+| 37 | Caption Fit tab: OFF / UNIFORM / PER_CUE, floor, max-lines (`a9c67386`) |
 | 38 | Export GL frames: **before/after export timing + PSNR**. Baseline to beat: **1m38s** for the 46s project at 720p/Low. `am force-stop com.fadcam.beta:export` first — export runs in its own process and survives restarts, so without this you time old code |
-| 39 | Transcript source affordance: header name, `+ Source` chip, one-time offer (`b52e2727`) |
+| 39 | Transcript source affordance: header name, `+ Source` chip, one-time offer (`60919802`) |
 | 40 | Horizontal reflow on a PORTRAIT canvas — the one reflow case never seen |
 | 41 | The ~1:03 playback ceiling: play past 63s on a long project. Probably gone; confirm or reproduce |
 

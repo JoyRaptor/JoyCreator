@@ -97,15 +97,15 @@ particle count budget ≤ ~64/band-window at xxhdpi.
 
 ## STATUS
 - 2026-07-17: spec written.
-- **P1 ✅ (`69756ac`)**: VizLayer model + 4-stage pipeline + GeometryMapper (linear/radial,
+- **P1 ✅ (`4a281c0`)**: VizLayer model + 4-stage pipeline + GeometryMapper (linear/radial,
   spread/phase/mirror) + DOTS + ADD blend + layers JSON (transient field, IO splice, unknown
   emitters skipped). Legacy auto-wrap parity: JVM arithmetic trace 108/108 + on-device visual
   (all legacy presets render identically in WaveformDebugActivity).
-- **P2 ✅ (`b944477`)**: PEAKS (K=8 taps × 66ms, stateless per §3), SQUARES, RING (radial-only),
+- **P2 ✅ (`1360331`)**: PEAKS (K=8 taps × 66ms, stateless per §3), SQUARES, RING (radial-only),
   shadow params + blurred-translated shadow pass (never setShadowLayer), 4 stacked retrowave
   presets (joy_neon_stack / joy_pulse_ring / joy_retro_grid / joy_soft_glow). DEVICE-VERIFIED
   2026-07-17 on Note 9 via WaveformDebugActivity: peaks caps visible, mirror/phase/ADD all live.
-- **P3 ✅ (`23bf053`, DEVICE-VERIFIED 2026-07-17 Note 9):** PARTICLES per §3 — spawn lattice = hash(b,i) phase over a
+- **P3 ✅ (`3ec5645`, DEVICE-VERIFIED 2026-07-17 Note 9):** PARTICLES per §3 — spawn lattice = hash(b,i) phase over a
   1400ms life; birth time quantized to an absolute 175ms grid indexes the shared banded cache (via a
   new per-render-call TapSampler memo that peaks/trails/particles all share), so birth energy is one
   stable tap and the whole trajectory/alpha/size is a closed form of t. Softness 0..1 (NORMAL blur

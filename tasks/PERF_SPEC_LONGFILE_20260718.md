@@ -333,7 +333,7 @@ F9 DEVICE-VERIFIED (build 12:09, fresh empty bands cache): logcat
   one drawer kept showing "analyzing audio…" after completion (data was ready+cached;
   restart cleared it) — likely a missed invalidate/alias handoff in
   BandedTimelineWaveformCache onReady → superset alias path; cosmetic, worth a look.
-  FIXED `9eed3b7` (2026-07-25): it was the superset-REUSE scan in `get()`, not onReady — it
+  FIXED `031ed07` (2026-07-25): it was the superset-REUSE scan in `get()`, not onReady — it
   early-returned null on the first IN-FLIGHT covering span, short-circuiting before it could find
   an already-READY covering entry later in HashMap iteration order (two overlapping extractions =
   full-source prime + per-clip window). Now scans all candidates for a ready covering span first;
@@ -348,7 +348,7 @@ F10 — STRUCTURAL EDITS DESYNC THE GAPLESS ENGINE (JoyRaptor 2026-07-18 pm: cut
   mutated the Timeline model only — engine kept playing the pre-edit cut. Split is worst:
   new Clip(original) mints FRESH ids, so the engine's tracked clip id dies and any stale
   resume homes to window 0 ("audio from the start").
-  FIX (uncommitted, on top of 9be7032):
+  FIX (uncommitted, on top of 0d7a2ce):
   - FaditorPlayerManager: rebuildGaplessTimeline() refactored onto shared
     rebuildGaplessInternal(); new rebuildGaplessResumingAt(homeClipId, clipLocalMs,
     playAfter) homes to a CALLER-chosen post-edit clip; stale-id guard via

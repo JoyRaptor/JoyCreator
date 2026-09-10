@@ -51,7 +51,7 @@ Market share of mobile video editors: **< 0.01%**. Niche share of "AE-class Andr
 
 | Name | Reality |
 |---|---|
-| FadCam | Upstream GPLv3 recorder. Forked `78647c1` (2026-06-05). `applicationId` still `com.fadcam.beta`. |
+| FadCam | Upstream GPLv3 recorder. Forked `5abcbbe` (2026-06-05). `applicationId` still `com.fadcam.beta`. |
 | Faditor | Editor. ~87% of fork code. `com.fadcam.ui.faditor.*`. |
 | Joy Creator | Locked name 2026-07-02. Capture → Library → Studio. |
 

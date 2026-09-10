@@ -10,7 +10,7 @@ are at `FadCam/tasks/…`.
 and what was decided — each with the evidence that proved it. Keep it current. Never delete an
 entry to make the list shorter.
 
-Tree is clean at **`d1a0761`** and builds. Nothing is half-finished.
+Tree is clean at **`9c40056`** and builds. Nothing is half-finished.
 
 **Work autonomously. Send one message confirming the state and your plan, then get to work.
 Prove things rather than asserting them — a green build proves nothing here.**
@@ -20,9 +20,9 @@ Prove things rather than asserting them — a green build proves nothing here.**
 §3g text animation is **finished and user-approved on the phone** — engine, presets, persistence,
 preview, export, and the authoring UI. He drove it himself: *"animations per word and per letter
 look great! i tried all styles carets worked well."* The timing model was then redesigned at his
-direction and that landed too: caption zones are a **fraction of each caption line** (`d71b614`),
+direction and that landed too: caption zones are a **fraction of each caption line** (`97eb73b`),
 and captions got a **range control in the style panel and lost their timeline carets**
-(`665d543`). The preset tiles animate (`4a1ea41`).
+(`27762a6`). The preset tiles animate (`aac13f0`).
 
 **Do not reopen any of that.** Two questions that were open for four sessions are now answered
 and recorded in LEDGER §4:
@@ -43,7 +43,7 @@ LEDGER §3g.
 
 **2. The text-box half of §3g — but tell the user how big it is before starting.** His direction
 was that the carets become text-box-only, measured against *that line's* display duration. The
-caret code is written and PARKED (`665d543`), and the reason it is parked is the real work:
+caret code is written and PARKED (`27762a6`), and the reason it is parked is the real work:
 **there is no text-box path into the caption style panel at all.** `caption_drawer` opens only
 from `toggleCaptions()`, `tweakCaptionStyle` targets a video or audio clip, and `TextOverlayItem`
 has its own colour/font and keyframes with no `CaptionStyle` and no animation zones. That is a
@@ -51,7 +51,7 @@ build, not a context branch. LEDGER §3g has the detail. If text boxes get dropp
 the parked caret block with them.
 
 **3. §3a — the masking / chroma-key AUTHORING UI.** The engine is built and device-proven, the
-matte and feather work landed (`da20e6d`, `1bd6b26`), and **nothing in the app can still create
+matte and feather work landed (`d0d9759`, `da28310`), and **nothing in the app can still create
 one**. This is the feature that was built once and then LOST for weeks, which is why the ledger
 exists. Four binding scope answers are in LEDGER §3a. **One finding to raise first:** *"image
 overlays in v1"* has nothing to put a mask on — no IMAGE track can be created, and the single PiP
@@ -60,7 +60,7 @@ plumbing, and the user should get to decide whether it stays in v1.
 
 **4. §3e** — the two-stage AI clip reorder.
 
-**§3d is CLOSED. Measured, then deleted on the user's call (`bd2bd58`). Do not rebuild it.**
+**§3d is CLOSED. Measured, then deleted on the user's call (`14e07ee`). Do not rebuild it.**
 
 ## ONE THING STILL UNMEASURED
 

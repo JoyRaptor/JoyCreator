@@ -40,7 +40,7 @@ OPERATING RULES (non-negotiable):
   - Claim your lane + the DEVICE token before device work; release both when done. Update tracking docs
     after each verified milestone.
 
-VERIFIED STATE (don't redo): Sprite Build-1 live + device-verified. T8 (sprite-per-lane) DONE = b55b1cd.
+VERIFIED STATE (don't redo): Sprite Build-1 live + device-verified. T8 (sprite-per-lane) DONE = 02b51c2.
 The layers overhaul is the current priority track (before sprite fast-follows T3/T4/T6/T7, which add more
 layer items).
 

@@ -2,7 +2,7 @@
 
 Companion to `tasks/FEEDBACK_20260706_layers_ux.md` (the WHAT/WHY/order, JoyRaptor's gripes triaged).
 This doc is the HOW: confirmed code facts + an incremental, ALWAYS-GREEN execution sequence, so the
-renderer consolidation lands without a broken tree. Written after T8 (b55b1cd) closed the sprite-per-
+renderer consolidation lands without a broken tree. Written after T8 (02b51c2) closed the sprite-per-
 lane bug; the layers-UX overhaul is the next priority track.
 
 Model policy: Fable 5 builds this (UI/UX overhaul — vision-heavy tier). Sequential, checkpoint commit

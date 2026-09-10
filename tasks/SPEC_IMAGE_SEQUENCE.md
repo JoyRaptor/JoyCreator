@@ -5,8 +5,8 @@ Companion to `PLAN_SPRITE_ANIMATION.md` — read that first; this deliberately r
 
 > ## ✅ 2026-08-06 — SHIPPED. See `tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md`.
 >
-> Commits `66f2ed7` (model + import), `7712a8f` (tape + the Gradle unblock), `960744a`
-> (dope sheet + resize modes + looping), `4ddcb6d` (AI tools + export bound + verification).
+> Commits `d1ce8f8` (model + import), `a2bc668` (tape + the Gradle unblock), `caf0256`
+> (dope sheet + resize modes + looping), `4c28aa7` (AI tools + export bound + verification).
 >
 > **The load-bearing proof:** a 12-frame sequence at 2 fps with all weights ×2 was exported and
 > its frames extracted with ffmpeg. Every sampled timestamp (0.5 / 1.5 / 4.5 / 8.5 / 11.5s)

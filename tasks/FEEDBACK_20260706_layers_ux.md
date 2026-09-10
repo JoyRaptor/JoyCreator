@@ -2,7 +2,7 @@
 
 > **EXECUTION PLAN:** `tasks/PLAN_LAYERS_UX_EXECUTION.md` turns this triage into 7 always-green slices
 > (A–G) grounded in the confirmed data-flow (both renderers run in `onDraw`; text/audio double-render;
-> captions/visualizers have no TrackKind). T8 (sprite-per-lane, the first slice of #2) DONE = b55b1cd.
+> captions/visualizers have no TrackKind). T8 (sprite-per-lane, the first slice of #2) DONE = 02b51c2.
 
 Spurred by the pangolin sprite work. This is a coherent timeline/layers overhaul, not scattered
 nitpicks. **Root cause of most of it:** two row-rendering systems run at once — the OLD read-only

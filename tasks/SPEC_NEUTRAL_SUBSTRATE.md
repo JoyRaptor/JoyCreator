@@ -107,7 +107,7 @@ Therefore, inside a mixed lane:
 True per-lane cross-type interleaving would require unifying five surfaces into one
 compositor (and the export bitmap/GL split) — flagged, out of scope.
 
-## ADVERSARIAL REVIEW (2026-07-25, post-`d420272`) — 2 real bugs found + fixed
+## ADVERSARIAL REVIEW (2026-07-25, post-`47eb452`) — 2 real bugs found + fixed
 
 Reviewing my own rewrite before building on it. Both bugs were introduced BY the rewrite;
 neither would have shown up in a compile or a happy-path click-through.
@@ -257,7 +257,7 @@ add there; item bodies were already per-item-kind.
 
 ## Validation queue (device — items 1/4 DONE 2026-07-25 ~21:20, Note 9)
 
-> **DONE — item 1 ran and FOUND A BUG (fixed in `4eda119`).** A payload on another type's
+> **DONE — item 1 ran and FOUND A BUG (fixed in `8fc7cb4`).** A payload on another type's
 > seeded lane let an EARLIER phase's leftover flush claim that lane: the row was renamed, its
 > TrackKind flipped, and it was hoisted up the band (a silent z change under cross-type Z).
 > See the handoff block. Item 4 (layerIds round-trip literally) is covered by the same runs —
@@ -267,7 +267,7 @@ add there; item bodies were already per-item-kind.
 > `android.util.Log` probe at the end of `getLayers()` (and one of its INPUT lists — it is what
 > caught a fixture artifact masquerading as a dropped sprite). ~~Also: pristine project.json
 > **omits** an absent `layerId` key; writing `"layerId": null` instead makes the loader DROP
-> the sprite~~ — **that trap is GONE as of `7a09eb6` (audit 1.3)**: all four `layerId` readers
+> the sprite~~ — **that trap is GONE as of `2c03e2b` (audit 1.3)**: all four `layerId` readers
 > now check `isJsonNull()`, so an explicit `null` is read as "no layer" instead of throwing.
 > Editing only the field under test is still the right habit, but a stray null no longer
 > destroys the fixture.
@@ -309,7 +309,7 @@ add there; item bodies were already per-item-kind.
 >   hash comparison would have reported a difference that does not exist.
 > - **Asymmetric geometry.** Items at (0.30,0.22), (0.68,0.40), (0.35,0.72): no x-, y- or
 >   xy-flip maps any item onto another item's slot or onto itself. `--check-asym` re-derives
->   this and refuses to run on a fixture that could hide a flip — the a4fbeba lesson.
+>   this and refuses to run on a fixture that could hide a flip — the 4ad796a lesson.
 >
 > One harness trap worth knowing: an export of this project takes **~55 s**, not the ~15 s
 > the progress dialog suggests, and `am force-stop` during muxing truncates the file (no

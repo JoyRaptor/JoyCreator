@@ -1,6 +1,6 @@
 # START HERE — 2026-08-06 (evening). Supersedes HANDOFF_20260806_PICKUP.md.
 
-Branch `joy-creator`. HEAD `a43b720`. Tree clean apart from JoyRaptor's own untracked
+Branch `joy-creator`. HEAD `3bc55b0`. Tree clean apart from JoyRaptor's own untracked
 `TRADEMARK.md` and modified `LAUNCH_STRATEGY.md` / `OUTREACH_ANONFADED.md` — **leave those
 alone, they are his.**
 

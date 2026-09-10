@@ -17,7 +17,7 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 
 | # | Item | Who | Notes |
 |---|---|---|---|
-| 0.1 | 🚨 **Back the repository up to JoyRaptor's own GitHub** | JoyRaptor + Claude | 1,391 commits exist only on one PC. Private is fine — GPL does not require publication until you distribute. **Highest priority item in the project.** |
+| 0.1 | ✅ **DONE 2026-09-09** — repo backed up to github.com/JoyRaptor/JoyCreator | — | 3,253 commits pushed. History rewritten first: name, personal email and device serials removed from every commit, file and message. Local copy of the original history kept at `../joycreator-backup-20260909-2035.git`. **Confirm the GitHub repo is set to Private.** |
 | 0.2 | Google Play developer account | JoyRaptor | One-time fee plus identity verification, which takes days |
 | 0.3 | A developer email address | JoyRaptor | Goes on the listing publicly. Not the personal one. |
 | 0.4 | Recruit 12 closed testers | JoyRaptor | Family, church, one Reddit post |

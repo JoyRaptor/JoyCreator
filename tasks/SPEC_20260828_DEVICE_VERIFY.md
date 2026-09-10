@@ -17,7 +17,7 @@ A long polishing session landed many small changes that were built, installed, a
 looked at. JoyRaptor is using the app as a product and reporting what he hits; this sweep is
 meant to find the rest before he does.
 
-**The Note 20 IS connected.** `adb devices` → `REAL_SERIAL`. An older LANES note says
+**The Note 20 IS connected.** `adb devices` → `<note20-serial>`. An older LANES note says
 "UNPLUGGED"; it is stale and cost the caption agent its visual checks.
 
 Useful invocations:

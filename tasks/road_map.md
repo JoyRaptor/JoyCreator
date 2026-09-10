@@ -101,7 +101,7 @@ one resync write-point; link toggle in the Rolodex; DEVICE VERIFY OWED; caption-
 host-checkboxes are the G5 fast-follows) · G8 marquee smoked on device (armed toggle, live box,
 edge-scroll) · export quality/resolution wiring re-smoked (480p/Low 776KB vs Original/High 9.9MB).
 **Phone locked (secure Bouncer) at session end — first unlocked session runs the two smoke checklists
-in handoff.md's top blocks, then the REAL_SERIAL re-verify of the P0/P1 fixes on JoyRaptor's real project.**
+in handoff.md's top blocks, then the <note20-serial> re-verify of the P0/P1 fixes on JoyRaptor's real project.**
 
 **✅ P1 FIXED AT THE ROOT 2026-07-07 evening (Fable-5 final-day session; media3-patched `c2f22f9` +
 FadCam `f4d4ed1`, DEVICE-PROVEN on SM-N960U):** the short-speed-clip gapless clock freeze below was a
@@ -150,7 +150,7 @@ an edge case, it's a landmine under most real projects. The legacy fallback is t
 cold-re-prepare stall `DIAG_20260701_transition_preview.md` originally diagnosed: playback freezes at every
 clip boundary (not just near the image), sometimes requiring the user to manually re-tap play multiple
 times to get past a seam. **Device-confirmed 2026-07-07** on the real project (`27221664…`, 15 clips + 1
-image clip + no configured Transition object, REAL_SERIAL/SM_N986U): screen-recording frame-hash analysis
+image clip + no configured Transition object, <note20-serial>/SM_N986U): screen-recording frame-hash analysis
 showed a run of 22-72 identical consecutive frames (~0.7-2.4s) right at a clip boundary; timing matched
 JoyRaptor's independent real-time report of the stall landing at the ~3s mark, needing multiple play-taps to get
 past. Scrub-preview renders correctly (different, non-realtime compositing path) — only live playback
@@ -434,7 +434,7 @@ These clear blockers for everything else. Do FIRST, in order.
 
 ### 0.2 Device-verify overlay opacity [Track B]
 **Status:** ✅ DONE (2026-06-25)  |  **Depends on:** nothing
-- Code built and installed; APK installs successfully on device SANDBOX_SERIAL
+- Code built and installed; APK installs successfully on device <note9-serial>
 - Feature implemented in previous session (2026-06-22), code compiles and builds
 - Manual visual verification deferred (UI automation too fragile for this device)
 - **Files:** `FaditorEditorActivity.java`, `TextOverlayLayer.java`, `ExportManager.java`

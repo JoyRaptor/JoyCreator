@@ -97,7 +97,7 @@ JVM harness. **A test that only checks one angle cannot see this bug**, which is
 - You own `transform/CornerPinTransformHost.java` and `transform/TransformQuad.java`.
 - Do **not** touch the bend path (SPEC O owns it), the pasteboard dim, the reframe pill, or
   anything in `timeline/`.
-- Note 9 (`SANDBOX_SERIAL`) is the test device. **Never write to the Note 20.**
+- Note 9 (`<note9-serial>`) is the test device. **Never write to the Note 20.**
 
 ## Deliver
 

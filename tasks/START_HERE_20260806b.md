@@ -42,7 +42,7 @@ bash tools/jvm-harness/run-matte.sh      # run-anchor.sh (35), run-promote.sh (2
 
 ## 1. DEVICE — everything you need to drive it
 
-- **Sandbox is Note 9 `SANDBOX_SERIAL` ONLY.** If Note 20 `REAL_SERIAL` is attached, STOP —
+- **Sandbox is Note 9 `<note9-serial>` ONLY.** If Note 20 `<note20-serial>` is attached, STOP —
   it holds JoyRaptor's real 45-minute project. `build-install.sh` refuses when it sees it. Both were
   attached at different points today; check `adb devices` before every device action.
 - Screen is **1080×2220** (the runbook's 1440×2960 is wrong for this device).

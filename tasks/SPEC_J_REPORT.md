@@ -35,7 +35,7 @@ Image → image drawer (via `showTextOverlayEditor` isImage routing, ~30355), te
 ### 6. Mirror coverage — VERIFIED, no changes needed
 All four image paths mirror: `CornerPinImageView` (`usesMatrix()` includes mirror flags, set at TextOverlayLayer:1231), GL `buildPip` (1518-1519), export `ImageOverlayDraw.draw` (286), GL blend (`ImageOverlayFrameOverlay:81`) + canvas export (`CompositeExportOverlay:775`) route through it. The mesh stamp ignores mirroring — a known hole **owned by SPEC H**; boundary confirmed: preview and export agree unmirrored, so they do not disagree.
 
-## Device smoke test (Note 9, serial SANDBOX_SERIAL, sandbox project "BundlingFontTest")
+## Device smoke test (Note 9, serial <note9-serial>, sandbox project "BundlingFontTest")
 - Tap-select an unselected overlay: **PASS** (handles appear on first tap)
 - Drag selected overlay, handles follow: **PASS**
 - One-gesture tap-drag (select + continuous move, no stutter): **PASS**

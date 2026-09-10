@@ -1,4 +1,4 @@
-# TAP MAP — Note 9 (`SANDBOX_SERIAL`), verified by hand 2026-08-29 13:01
+# TAP MAP — Note 9 (`<note9-serial>`), verified by hand 2026-08-29 13:01
 
 **Why this file exists.** Two verification sweeps failed on navigation, and the second one
 reported a **false audio regression** because it reused tap coordinates from an earlier
@@ -18,7 +18,7 @@ believe the screenshot, not this file — and fix the file.
 ## Device
 
 ```
-serial   SANDBOX_SERIAL   (SM-N960U, Note 9)
+serial   <note9-serial>   (SM-N960U, Note 9)
 physical 1440 x 2960
 OVERRIDE 1080 x 2220   <-- compute ALL taps against this
 ```

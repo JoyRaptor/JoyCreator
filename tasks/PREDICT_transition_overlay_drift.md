@@ -1,7 +1,7 @@
 # PREDICTION — transition/overlay export drift (LEDGER §2d)
 
 **Committed BEFORE the capture, per the house rule that a model must be provably frozen.**
-Written 2026-08-03. Device: Note 9 `SANDBOX_SERIAL`, sole attachment. Rotation lock verified `0`.
+Written 2026-08-03. Device: Note 9 `<note9-serial>`, sole attachment. Rotation lock verified `0`.
 
 ## Fixture — project `302da9ac-1b96-48ca-bbe9-c659b4dd3ba0`, UNMODIFIED
 

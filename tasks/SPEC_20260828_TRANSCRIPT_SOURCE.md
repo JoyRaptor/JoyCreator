@@ -94,7 +94,7 @@ Use JoyRaptor's project: 4.6s video, 6:11 mp3 with a transcript, auto-blank spac
 5. Long-press on the Transcript tool opens the chooser from anywhere.
 
 Report with screenshots (`adb exec-out screencap -p > x.png`) — the Note 20 IS connected
-(`adb devices` shows `REAL_SERIAL`), regardless of what an older LANES note says.
+(`adb devices` shows `<note20-serial>`), regardless of what an older LANES note says.
 
 ---
 

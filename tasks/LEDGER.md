@@ -3023,8 +3023,8 @@ the read-and-ignore path working as designed, not data loss.
   </details>
 
 
-- **BLOCKED 2026-07-28 21:xx: the only phone attached is the Note 20 `REAL_SERIAL`.** The Note 9
-  sandbox `SANDBOX_SERIAL` is absent. Under the standing device rule that is a full stop on
+- **BLOCKED 2026-07-28 21:xx: the only phone attached is the Note 20 `<note20-serial>`.** The Note 9
+  sandbox `<note9-serial>` is absent. Under the standing device rule that is a full stop on
   device work, so **§3g step 6 (the large-amplitude frame) could not be attempted**, and neither
   could the thumb/60dp/LETTER-frame-rate walk. Nothing was installed, tapped or captured; the
   only device command run this session was `adb devices`. §3g therefore stays in §3.

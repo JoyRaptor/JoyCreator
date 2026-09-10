@@ -1,7 +1,7 @@
 # HANDOFF — autonomous night session, 2026-08-19
 
 JoyRaptor went to bed with ~40% of a 5-hour window left and asked me to finish what I could.
-Everything below was done while he slept, on the **sandbox Note 9** (`SANDBOX_SERIAL`).
+Everything below was done while he slept, on the **sandbox Note 9** (`<note9-serial>`).
 **His Note 20 was not attached and "first lecture on phone" was never opened.** That was a
 rule I set for myself: no unattended edits to his real project.
 
@@ -85,7 +85,7 @@ run-flextime 42, run-motionrange 15.
 - **JoyRaptor's Note 20:** last got the `04:30` build, which is now several commits behind and
   still contains all five diagnostics. **It needs a reinstall** to get tonight's four commits:
   ```
-  adb -s REAL_SERIAL install -r app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk
+  adb -s <note20-serial> install -r app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk
   ```
 - Sandbox project `P0 control2 plain` was used as a fixture: it now has an extra `Blank` clip
   and a few undo/redo steps applied. Nothing of JoyRaptor's was touched.

@@ -21,12 +21,12 @@ the next. A PowerShell watcher rebuilds+installs on save; check the build with
 - `uiautomator dump` returns null root → navigate by screenshot coordinates (PNG is full device res 1440×3088).
 
 ## Device
-- Work phone **REAL_SERIAL** (SM-N986U, 1440×3088) — the user's real projects (tiger "primed_she_believed";
+- Work phone **<note20-serial>** (SM-N986U, 1440×3088) — the user's real projects (tiger "primed_she_believed";
   "In the day ye eat thereof" Eden project; etc.). Nav: tap **Faditor** bottom-nav icon ~(840,2915) → project
   row ~(720,1150) → play/pause ~(720,2050). The bottom **tool row** (~y2950) scrolls horizontally; swipe LEFT
   there (NOT at y2560 — that scrubs the timeline) to reach Split/Delete/Duplicate/Add/**Text**/Visualizer and
   further for Transcript/Transitions/Volume.
-- Backup phone **SANDBOX_SERIAL** (SM-N960U, 1440×2960) — dedicated test project (3 captioned scenes,
+- Backup phone **<note9-serial>** (SM-N960U, 1440×2960) — dedicated test project (3 captioned scenes,
   visualizer, 2 audio clips, volume keyframes). Nav: Faditor ~(835,2755); project ~(720,1170); Volume ~(375,2895).
 - Only one is usually connected; the watcher installs to whichever is. Gotchas: editor "Welcome Back" Continue
   is broken (tap **New Project** to clear); USB offline/unauthorized → `adb kill-server && adb start-server`;

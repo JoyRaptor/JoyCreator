@@ -32,7 +32,7 @@ OPERATING RULES (non-negotiable):
     device-verifies before the next.
   - Local commit per GREEN milestone, one task each. NEVER push/rebase/reset/stash.
     End commit messages with: Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
-  - Device is single-owner (LANES DEVICE token). Phone: SM-N960U (SANDBOX_SERIAL), plugged in.
+  - Device is single-owner (LANES DEVICE token). Phone: SM-N960U (<note9-serial>), plugged in.
     adb: C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe (not on PATH).
   - Drag/gesture tests: ONE scripted attempt, then hand me a numbered hand-test checklist. Tap/state/
     JSON verification stays agent-side. At most ONE sonnet subagent (low/med), sequential. Gesture state

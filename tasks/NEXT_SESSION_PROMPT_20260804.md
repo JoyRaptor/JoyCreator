@@ -103,7 +103,7 @@ Sandbox `302da9ac` restored byte-exact (md5 `a74cd91c…`), rotation lock `0`.
 Carry forward `NEXT_SESSION_PROMPT_20260731c.md` §"HOW TO WORK HERE" and the 20260803 additions.
 New this session:
 
-- **Always target the device explicitly: `adb -s SANDBOX_SERIAL`.** A stale offline
+- **Always target the device explicitly: `adb -s <note9-serial>`.** A stale offline
   `emulator-5584` appeared mid-session and broke every unqualified command.
 - **`export MSYS_NO_PATHCONV=1`** before any `adb shell /storage/...` in Git Bash.
 - **`strings` is not installed.** Dex-scan with `grep -alc` — and always include a NEGATIVE
@@ -119,7 +119,7 @@ New this session:
 
 ## DEVICE RULES — NON-NEGOTIABLE
 
-Note 9 `SANDBOX_SERIAL` is the sandbox. If the Note 20 `REAL_SERIAL` appears, STOP. Launch with
+Note 9 `<note9-serial>` is the sandbox. If the Note 20 `<note20-serial>` appears, STOP. Launch with
 `am start`, **never `monkey`**. Take a device-local backup before touching a project
 (`run-as com.fadcam.beta cp …/project.json files/backup.json`) and restore with `cp` inside
 `run-as`, never `adb push`. Rotation lock verified `0` at session end; sandbox project

@@ -13,7 +13,7 @@ the only output.** Build agents follow it in order.
 **Standing rules that bind every milestone here** (from `EVAL_20260701_joy_creator.md` §8):
 always-green (revert if you can't compile; you cannot run Gradle — poll `build.log`); new features = new
 files (`faditor/layers/`, `faditor/compositor/`), extract-on-touch for the god classes; every surface
-scrolls; device-verify on the sandbox Note 9 (`SANDBOX_SERIAL`), never the user's real project; data ops
+scrolls; device-verify on the sandbox Note 9 (`<note9-serial>`), never the user's real project; data ops
 back up first; update `handoff.md` (≤8 lines) after each landed milestone; screenshots via
 `screencap`+`adb pull`. The DESIGN doc §5 (frosted, resizable, collapsible panels; the timeline must stay
 navigable; transcripts drawer is the gold standard) is BINDING for all Layers UI.
@@ -491,7 +491,7 @@ These are not extra milestones; they're why the Track model is shaped to *host* 
 ## PART 10 — WHAT A BUILD AGENT MUST PROBE FIRST (could not be determined from code alone)
 1. **Two-decoder budget on the actual Note 9.** The "2 simultaneous 1080p AVC decoders" figure is the
    Snapdragon-845 class norm, but the real ceiling (and whether the master's TextureView surface + a second
-   decoder + the encoder during a background export coexist) MUST be measured on `SANDBOX_SERIAL` before
+   decoder + the encoder during a background export coexist) MUST be measured on `<note9-serial>` before
    committing M-COMP-2's live-second-video path. Probe: decode two 1080p AVC streams into two SurfaceTextures
    and composite; watch for `MediaCodec` allocation failures / dropped frames.
 2. **Does gapless multi-`MediaItem` `ClippingConfiguration` actually seek on FadCam's fragmented MP4 after

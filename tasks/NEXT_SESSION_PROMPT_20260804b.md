@@ -92,7 +92,7 @@ two silent `onUp` early-returns, and the session-lifetime id set — are all FIX
 
 Carry forward `NEXT_SESSION_PROMPT_20260731c.md` and the 20260803/0804 additions. Critical ones:
 
-- **`adb -s SANDBOX_SERIAL`** always — a stale offline `emulator-5584` broke unqualified commands.
+- **`adb -s <note9-serial>`** always — a stale offline `emulator-5584` broke unqualified commands.
 - **`export MSYS_NO_PATHCONV=1`** before `adb shell /storage/...` — BUT it breaks the harness
   scripts' `mktemp`. Run harnesses in a clean shell.
 - **NEVER build while an export is running.** A gradle build triggers the repo's install watcher,
@@ -104,8 +104,8 @@ Carry forward `NEXT_SESSION_PROMPT_20260731c.md` and the 20260803/0804 additions
 - **One scripted gesture attempt, then stop** and write a hand test. Do not grind synthetic input.
 - **Live-writing dialogs need `setOnDismissListener` AND a save on revert** — BACK/outside-tap
   bypass the button, and a 3s autosave debounce means a cancelled edit is often already on disk.
-- Device rules unchanged: Note 9 `SANDBOX_SERIAL` is the sandbox; if the Note 20
-  `REAL_SERIAL` appears, STOP. `am start`, never `monkey`. Back up `project.json` device-locally
+- Device rules unchanged: Note 9 `<note9-serial>` is the sandbox; if the Note 20
+  `<note20-serial>` appears, STOP. `am start`, never `monkey`. Back up `project.json` device-locally
   and restore with `run-as cp`, never `adb push` onto it.
 
 Sandbox `302da9ac` restored byte-exact (md5 `a74cd91c…`); rotation lock `0`.

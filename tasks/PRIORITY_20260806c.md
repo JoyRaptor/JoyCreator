@@ -222,7 +222,7 @@
 Merges `START_HERE_20260806b.md` §3, `SPEC_ADJUSTMENT_LAYERS_FX.md` M0–M7, and the multi-shape
 mask work (which **is** that spec's M0 — it was never a separate item).
 
-Branch `joy-creator`, HEAD `6313f26`. Sandbox Note 9 `SANDBOX_SERIAL` attached, Note 20 absent.
+Branch `joy-creator`, HEAD `6313f26`. Sandbox Note 9 `<note9-serial>` attached, Note 20 absent.
 
 **The ordering rule used throughout:** cheapest regression-catch first, then the things that are
 *load-bearing for later milestones*, then size. Anything needing a JoyRaptor decision is parked in P5

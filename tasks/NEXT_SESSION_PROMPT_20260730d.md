@@ -136,8 +136,8 @@ centres it on the frame), the 0.35em pad, and rotation composition order.
  - Strings are HARDCODED with `// TODO(strings)` — frozen behind the rebrand, don't "fix" it.
 
 ## DEVICE RULES — NON-NEGOTIABLE
- - The Note 9 SANDBOX_SERIAL is the sandbox and must be the ONLY phone attached.
- - If the Note 20 REAL_SERIAL appears, STOP all device work — it holds the user's real
+ - The Note 9 <note9-serial> is the sandbox and must be the ONLY phone attached.
+ - If the Note 20 <note20-serial> appears, STOP all device work — it holds the user's real
    45-minute project.
  - **LAUNCH WITH `adb shell am start -n com.fadcam.beta/com.fadcam.SplashActivity`. NEVER
    `monkey` — it calls `thawRotation()` and turns the user's rotation lock OFF.** See LEDGER §5.

@@ -32,7 +32,7 @@ do NOT improvise architecture. When a step is ambiguous or you'd have to guess a
   Bash, or `screencap` + `adb pull` from PowerShell — PowerShell `>` corrupts PNGs), tap by coordinate,
   re-screenshot. For exports, pull the MP4 and check it with `ffmpeg` (audio RMS) + frame extraction
   (see DIAG_20260626.md for the exact commands).
-- **Read the live project to know ground truth:** `adb -s REAL_SERIAL shell run-as com.fadcam.beta cat
+- **Read the live project to know ground truth:** `adb -s <note20-serial> shell run-as com.fadcam.beta cat
   files/faditor/projects/<id>/project.json`. Newest dir under `.../projects/` = active project.
 - **Data safety first.** Anything that copies/moves/deletes user media must be opt-in, reviewable, and
   COPY-not-move by default. Never delete originals without an explicit confirmed checkbox.
@@ -48,7 +48,7 @@ The user calls the asset browser "busted." Before changing anything, find out ex
 **Steps:**
 1. Read the companion docs above.
 2. Confirm watcher is running (`build.log` fresh, ends in `BUILD SUCCESSFUL` then `Waiting for changes`)
-   and device `REAL_SERIAL` is connected.
+   and device `<note20-serial>` is connected.
 3. Pull the active `project.json`; note its clips, audio, asset URIs (`file://` internal vs SAF
    `content://` vs `project://`).
 4. On the device, open the editor → open the asset browser. Exercise it: open/resize/scroll, tap an

@@ -39,7 +39,7 @@ Run these from `C:\+Projects\Screenrecorder\FadCam`:
 ```powershell
 .\gradlew.bat compileDefaultDebugJavaWithJavac --no-daemon
 .\gradlew.bat assembleDefaultDebug --no-daemon
-& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -s REAL_SERIAL install -r "C:\+Projects\Screenrecorder\FadCam\app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -s <note20-serial> install -r "C:\+Projects\Screenrecorder\FadCam\app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
 ```
 
 Manual playback check:

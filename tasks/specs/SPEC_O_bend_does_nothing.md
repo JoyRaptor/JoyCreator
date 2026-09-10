@@ -23,7 +23,7 @@ Then drag a dot. The dot centres were located by colour-sampling the screenshot,
 coordinates, not estimates:
 
 ```
-adb -s SANDBOX_SERIAL shell input swipe 693 337 560 480 1200
+adb -s <note9-serial> shell input swipe 693 337 560 480 1200
 ```
 
 `(693, 337)` is the centre of a net dot to within 4 px, and the hit radius is 18dp (~54 px on this
@@ -103,7 +103,7 @@ that is stored but drawn by the Canvas path would look exactly like this: nothin
   and the mesh render paths in `compositor/` and `export/`.
 - Do **not** change `TransformQuad.normalizePin`, flip/fold, the pasteboard dim, the reframe pill,
   or anything in `timeline/`.
-- Do not touch the Note 20. The Note 9 (`SANDBOX_SERIAL`) is the test device.
+- Do not touch the Note 20. The Note 9 (`<note9-serial>`) is the test device.
 
 ## Deliver
 

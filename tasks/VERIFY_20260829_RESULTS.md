@@ -1,4 +1,4 @@
-# VERIFY — Device sweep 2026-08-29 (41 checks) — SANDBOX_SERIAL — 3rd sweep FRESH APK via phone.ps1 install
+# VERIFY — Device sweep 2026-08-29 (41 checks) — <note9-serial> — 3rd sweep FRESH APK via phone.ps1 install
 
 **Build tested:** `app-default-arm64-v8a-debug.apk` `2026-08-29 09:11:13` (138,154,491 bytes) — `lastUpdateTime 2026-08-29 11:15:10` (`adb shell dumpsys package com.fadcam.beta`) — installed via `.\tools\phone.ps1 install` (Success) after `BUILD SUCCESSFUL in 22s` at 09:11:26 and `BUILD SUCCESSFUL in 13s` watcher tail. Prior sweep tested 02:18 APK; this sweep installs current watcher APK per AGENTS instruction.
 
@@ -9,7 +9,7 @@ BUILD SUCCESSFUL in 1m 20s  (193 tasks: 7 executed)
 BUILD SUCCESSFUL in 13s  (GlTransitionCardBaker new file detected)
 ```
 
-**Device:** `SANDBOX_SERIAL device product:crownqltesq model:SM_N960U` — `Physical 1440x2960 Override 1080x2220` (`adb shell wm size`) — all taps computed against **1080x2220** per SPEC §2b. `adb devices` pasted below.
+**Device:** `<note9-serial> device product:crownqltesq model:SM_N960U` — `Physical 1440x2960 Override 1080x2220` (`adb shell wm size`) — all taps computed against **1080x2220** per SPEC §2b. `adb devices` pasted below.
 
 **Tester:** opencode/muse-spark lane `SPEC_20260829_DEVICE_VERIFY_ALL` — DEVICE token held 11:15 (LANES.md), **writes NO production code**.
 
@@ -22,7 +22,7 @@ BUILD SUCCESSFUL in 13s  (GlTransitionCardBaker new file detected)
 ## adb devices (pasted)
 ```
 List of devices attached
-SANDBOX_SERIAL       device product:crownqltesq model:SM_N960U device:crownqltesq transport_id:10
+<note9-serial>       device product:crownqltesq model:SM_N960U device:crownqltesq transport_id:10
 ```
 
 ## APK tested
@@ -161,7 +161,7 @@ All under `tasks/screenshots/` and `git add` per hazard. `v40_02`/`v40_03` prove
 ## How to reproduce this sweep (3rd, with §2b + phone.ps1 install)
 
 ```
-adb devices  → SANDBOX_SERIAL device (C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe)
+adb devices  → <note9-serial> device (C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe)
 adb shell wm size → Physical 1440x2960 Override 1080x2220  (tap against 1080x2220)
 adb shell dumpsys package com.fadcam.beta | grep lastUpdateTime → 2026-08-29 11:15:10 (fresh)
 ls app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk → 2026-08-29 09:11:13 (138154491 bytes)
@@ -199,7 +199,7 @@ run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json  # check cap
 ## CORRECTION — check #7 is NOT a regression (Fabián, 2026-08-29 13:02)
 
 **The top-ranked FAIL in this sweep is a navigation error, not a bug.** Re-tested by hand on
-`SANDBOX_SERIAL` against the 13:00:45 install, project `AudioExportVerify`:
+`<note9-serial>` against the 13:00:45 install, project `AudioExportVerify`:
 
 - `dumpsys audio` during playback: **`ID:10391 … state:started`** — audio is flowing.
 - `logcat -s FaditorEditor:D` PHDIAG: `head=5851 -> 5921 -> 6164 -> 6194 -> 6454` —

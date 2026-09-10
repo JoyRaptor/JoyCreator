@@ -25,8 +25,8 @@ adb devices -l
 
 **2. Two phones exist. Name the one you mean** — a bare `adb` command fails with 'more than one device':
 ```bash
-adb -s REAL_SERIAL shell ...      # Note 20, SM-N986U, 1440x3088 -- JoyRaptor's WORKING projects
-adb -s SANDBOX_SERIAL shell ... # Note 9,  SM-N960U, 1440x2960 -- test device
+adb -s <note20-serial> shell ...      # Note 20, SM-N986U, 1440x3088 -- JoyRaptor's WORKING projects
+adb -s <note9-serial> shell ... # Note 9,  SM-N960U, 1440x2960 -- test device
 ```
 
 **3. Prove an install actually landed.** `Success` is NOT proof — the file can install without the app
@@ -87,7 +87,7 @@ JoyRaptor checks, and a wrong claim costs him a test cycle.
   have to match the device ABI).
 - **Build log:** `build.log` at the project root, **UTF-16 encoded** — read it with
   `tr -d '\000' < build.log | tail -n 40` (the `tr` strips the null bytes so normal tools can read it).
-- **Known devices:** work phone `REAL_SERIAL` (SM-N986U, screen **1440×3088**); backup `SANDBOX_SERIAL`
+- **Known devices:** work phone `<note20-serial>` (SM-N986U, screen **1440×3088**); backup `<note9-serial>`
   (SM-N960U, **1440×2960**). Only one is usually plugged in. Screenshots come back at full device resolution,
   so all tap coordinates below are in **device pixels**, not dp.
 
@@ -113,12 +113,12 @@ Pick the form for your shell and put it at the front of your commands:
   & $adb devices -l
   ```
 
-Expected healthy output: a serial followed by `device` (e.g. `REAL_SERIAL   device ...`).
+Expected healthy output: a serial followed by `device` (e.g. `<note20-serial>   device ...`).
 - `unauthorized` → unlock the phone and tap **Allow USB debugging** on its screen.
 - `offline` or nothing listed → see Troubleshooting (kill-server/start-server).
 
 If more than one device is connected, target one explicitly with `-s <serial>` on every command, e.g.
-`adb -s REAL_SERIAL shell ...`. The examples below assume exactly one device; add `-s` if needed.
+`adb -s <note20-serial> shell ...`. The examples below assume exactly one device; add `-s` if needed.
 
 ---
 
@@ -327,8 +327,8 @@ The debug build is debuggable, and the app is installed under **user 0** (NOT Se
 `user 150 / Secure Folder` entry may show `installed=false`; ignore it). So `run-as` works and you can read
 the exact project JSON the app is editing — clips, transcripts, keyframes, caption flags/positions, transitions:
 ```bash
-adb -s REAL_SERIAL shell run-as com.fadcam.beta ls -t files/faditor/projects   # newest dir = active project
-adb -s REAL_SERIAL shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json > proj.json
+adb -s <note20-serial> shell run-as com.fadcam.beta ls -t files/faditor/projects   # newest dir = active project
+adb -s <note20-serial> shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json > proj.json
 ```
 Then parse `timeline.clips[]` / `timeline.audioClips[]` / `timeline.transitions[]`. Key JSON fields:
 `inPointMs/outPointMs/sourceDurationMs`, `loopMode/loopAfterMs`, `captionsEnabled/captionStyleId/
@@ -342,7 +342,7 @@ Export composes at a 9:16 canvas inferred from the first decodable clip; a clip 
 color metadata differs explains mis-sized overlays and desaturated output. `ffprobe` is on the host:
 ```bash
 FF="C:/Users/JoyRaptor/AppData/Local/Microsoft/WinGet/Packages/Gyan.FFmpeg_*/ffmpeg-*/bin/ffprobe.exe"
-adb -s REAL_SERIAL pull "/storage/0000-0000/+Projects/Fadcam video assets/<file>.mp4" clip.mp4
+adb -s <note20-serial> pull "/storage/0000-0000/+Projects/Fadcam video assets/<file>.mp4" clip.mp4
 "$FF" -v error -select_streams v:0 -show_entries stream=width,height,pix_fmt,color_space,color_transfer,color_primaries -of default=noprint_wrappers=1 clip.mp4
 ```
 (`color_*=unknown` on a clip is a red flag for export color shifts vs the ExoPlayer preview.)
@@ -350,8 +350,8 @@ adb -s REAL_SERIAL pull "/storage/0000-0000/+Projects/Fadcam video assets/<file>
 ## 7d. Capture an EXPORT failure (errors scroll off the noisy main buffer)
 Filter to the app pid and save to a file, THEN export, THEN grep:
 ```bash
-PID=$(adb -s REAL_SERIAL shell pidof com.fadcam.beta)
-adb -s REAL_SERIAL logcat --pid=$PID -v threadtime > export_cap.txt   # run, then tap Export, then stop
+PID=$(adb -s <note20-serial> shell pidof com.fadcam.beta)
+adb -s <note20-serial> logcat --pid=$PID -v threadtime > export_cap.txt   # run, then tap Export, then stop
 grep -nE "ExportManager|CompositeExportOverlay|GlTransition|ExoPlaybackException|ExportException|Source error|overlay summary" export_cap.txt
 ```
 The real Media3 failure shows as `ExoPlaybackException: Source error` / `UnrecognizedInputFormatException` /
@@ -361,7 +361,7 @@ caption/text/waveform frame counts.
 
 ## 7e. adb reliability
 The **Bash tool's** adb intermittently prints `no devices/emulators found` mid-script. The **PowerShell tool**
-with the full adb path and `-s REAL_SERIAL` is reliable; prefer it for adb. `adb kill-server; adb start-server`
+with the full adb path and `-s <note20-serial>` is reliable; prefer it for adb. `adb kill-server; adb start-server`
 recovers a wedged server.
 
 ## 7f. Building from inside the agent — **SOLVED 2026-08-06. The agent CAN build.**

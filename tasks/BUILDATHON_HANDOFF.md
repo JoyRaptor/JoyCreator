@@ -17,7 +17,7 @@ You are continuing autonomous development on **FadCam/Faditor** (Android video e
 A watcher runs in PowerShell: `.\gradlew.bat -t installDefaultDebug 2>&1 | Tee-Object build.log` — it rebuilds+installs on every save. Check compile results with `tr -d '\000' < build.log | tail -n 40` (UTF-16). Grep for `error:`, FIX failures, re-check. Compile is verifiable from build.log even if the device drops. **ALWAYS-GREEN: never end a chunk with the tree not compiling** — revert rather than leave it broken.
 
 ## Device verification (device is reachable now!)
-ADB: `C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe`, device `REAL_SERIAL` (SM-N986U, 1440×3088). Use `MSYS_NO_PATHCONV=1` for `/sdcard` paths. Screenshots: `exec-out screencap -p > tasks/_x.png`, Read it, then delete temp files.
+ADB: `C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe`, device `<note20-serial>` (SM-N986U, 1440×3088). Use `MSYS_NO_PATHCONV=1` for `/sdcard` paths. Screenshots: `exec-out screencap -p > tasks/_x.png`, Read it, then delete temp files.
 **Editor is `exported="false"` — navigate via UI:** `monkey -p com.fadcam.beta -c android.intent.category.LAUNCHER 1` → tap the **FadCam top tab** → ignore the "continue?" dialog (its Continue button is broken) → tap the **4th-from-left bottom-nav icon** (~`(840,2915)`) = Faditor → it opens the last project in `FaditorEditorActivity`. Play button ~`(720,2217)`; bottom toolbar ~y2885. Screenshots are downscaled — tap in DEVICE pixels (use `uiautomator dump /sdcard/ui.xml` for exact bounds).
 
 ## ORDER OF WORK

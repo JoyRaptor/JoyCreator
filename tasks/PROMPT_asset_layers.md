@@ -21,9 +21,9 @@ You're working on **FadCam/Faditor**, an Android video editor at
   (`watch-build.ps1`) that rebuilds + reinstalls on save and logs to `build.log` (UTF-16:
   `tr -d '\000' < build.log | tail -40`). Edit source, then wait for the FINAL `BUILD SUCCESSFUL` before
   testing. If `build.log` is stale, ask me to start the watcher.
-- **Verify on the device, don't assume.** Device serial `REAL_SERIAL`, package `com.fadcam.beta`. adb at
+- **Verify on the device, don't assume.** Device serial `<note20-serial>`, package `com.fadcam.beta`. adb at
   `C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe` (use the **PowerShell** tool with
-  `-s REAL_SERIAL`; the Bash tool's adb is flaky). Screenshot via `screencap` + `adb pull` (PowerShell
+  `-s <note20-serial>`; the Bash tool's adb is flaky). Screenshot via `screencap` + `adb pull` (PowerShell
   `>` corrupts PNGs). For exports, pull the MP4 and check with `ffmpeg` (audio RMS) + extracted frames —
   hold layers to "export matches preview."
 - **Ship in small chunks** and update `tasks/road_map.md` + `tasks/handoff.md` status after each verified

@@ -9,7 +9,7 @@ supersedes its #1.
 
 ## Repro / environment
 
-- Device: SM-N960U (`REAL_SERIAL`), app `com.fadcam.beta`, project "Joy Creator"
+- Device: SM-N960U (`<note20-serial>`), app `com.fadcam.beta`, project "Joy Creator"
   (`a32d24e2-6b8d-4bd8-8432-ef5a6169dcfc`): 4 clips over ONE 46-min 2.3GB fMP4 source
   `/storage/emulated/0/Android/data/com.fadcam.beta/files/FadCam/Screen/The_woman_and_the_5.mp4`,
   clip0 in=0 out=501515, sourceDuration=2757301ms. No separate audio clips.

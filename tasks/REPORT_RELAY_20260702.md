@@ -66,7 +66,7 @@ a disjoint item. NEW USER SPECS captured in tasks/FEEDBACK_20260702_layers_maski
 > For the next AI (Basil autonomous wake 03:26, or anyone else). Read this FIRST, then handoff.md.
 
 ## ⚠️ CRITICAL STATE FACTS
-0. **THE SANDBOX NOTE 9 (SANDBOX_SERIAL) CAME BACK ON USB ~01:45** — device work unblocked. Note: gradle's
+0. **THE SANDBOX NOTE 9 (<note9-serial>) CAME BACK ON USB ~01:45** — device work unblocked. Note: gradle's
    `installDefaultDebug` can fail with a transient ADB `EOF` even when a device IS attached — that is NOT a
    compile failure; `adb install -r` manually works. If a late-window agent was doing the M5 regression gate
    (branch-dance: checkout ff39b6a → export → checkout joy-creator → export → compare), the tree might be left
@@ -98,7 +98,7 @@ it losslessly — dual-write working as designed. Tree ended clean on joy-creato
 4.0.0-beta9 installed on the Note 9. Sandbox project untouched (6 clips intact).
 Still owed on-device: undo-after-trim spot check; downgrade-guard behavior (hand-stamped v9 project → read-only).
 
-## FULL DEVICE-VERIFY BATCH (when ANY phone is attached; sandbox Note 9 SANDBOX_SERIAL preferred; NEVER the real project 27221664 / phone REAL_SERIAL)
+## FULL DEVICE-VERIFY BATCH (when ANY phone is attached; sandbox Note 9 <note9-serial> preferred; NEVER the real project 27221664 / phone <note20-serial>)
 1. M5 regression gate (above) — FIRST.
 2. Carousel edit v2 (`ff39b6a`): full interaction pass + fix known conflict (in edit mode, mute/opacity long-press
    fires BOTH drag-pickup AND old long-press action — suppress tool long-press actions while in edit mode).

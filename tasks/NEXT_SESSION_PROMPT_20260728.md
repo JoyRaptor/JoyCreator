@@ -153,8 +153,8 @@ Project files: `run-as com.fadcam.beta cat files/faditor/projects/<id>/project.j
 
 ## DEVICE RULES — NON-NEGOTIABLE
 
-- The Note 9 `SANDBOX_SERIAL` is the sandbox and must be the ONLY phone attached.
-- **If the Note 20 `REAL_SERIAL` appears, STOP all device work.** It holds the user's real
+- The Note 9 `<note9-serial>` is the sandbox and must be the ONLY phone attached.
+- **If the Note 20 `<note20-serial>` appears, STOP all device work.** It holds the user's real
   45-minute project. Installing force-stops whatever is running.
 - Installing the app kills the user's session — tell them, they may be mid-test.
 - If adb drops the device mid-run, `adb kill-server; adb start-server` recovers it — and

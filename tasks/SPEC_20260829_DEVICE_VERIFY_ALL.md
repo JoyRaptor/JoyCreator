@@ -51,8 +51,8 @@ screenshots of the splash screen and stopped.
   confirm.** If you are waiting for an element tree you will wait forever.
 - `FaditorEditorActivity` is **not exported** — you cannot `am start` it. You must navigate
   through the UI from the launcher.
-- Screenshots come back at full device resolution. Note the device: Note 20 `REAL_SERIAL`
-  is 1440×3088; Note 9 `SANDBOX_SERIAL` reports 1440×2960 physical but an **override
+- Screenshots come back at full device resolution. Note the device: Note 20 `<note20-serial>`
+  is 1440×3088; Note 9 `<note9-serial>` reports 1440×2960 physical but an **override
   size of 1080×2220** — `adb shell wm size` first and compute taps against the OVERRIDE.
 
 A working path into a project, verified by hand on 2026-08-29:

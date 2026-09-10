@@ -18,8 +18,8 @@ Run in one command off-device:
   python tools/frame_parity_matrix.py --matrix
 
 Run live on device (needs fixtures pushed and app available):
-  bash tools/run-frame-parity-matrix.sh SANDBOX_SERIAL
-  python tools/frame_parity_matrix.py --matrix --serial SANDBOX_SERIAL
+  bash tools/run-frame-parity-matrix.sh <sandbox-serial>
+  python tools/frame_parity_matrix.py --matrix --serial <sandbox-serial>
 
 Output: markdown table + diff images under tools/jvm-harness/out-frameparity-matrix/
 Fixture projects live under export/fixtures/parity/*.json

@@ -84,7 +84,7 @@ placement.
   `TransformOverlayView`, `foldRotationPivotIntoBox`, or `timeline/**`.
 - **Do not undo SPEC Q.** The square-units fold in `MeshPlacement.fold` is verified over 5400
   poses; if you think it is wrong, say so in your report rather than changing it.
-- Note 9 (`SANDBOX_SERIAL`) is the test device. **Never write to the Note 20.**
+- Note 9 (`<note9-serial>`) is the test device. **Never write to the Note 20.**
 
 ## Test-bed note
 

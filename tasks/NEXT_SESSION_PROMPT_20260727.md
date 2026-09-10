@@ -39,11 +39,11 @@ Continuing an interactive build/debug session. Work autonomously until I say oth
 
 ## Devices
 
-- **Note 20 `REAL_SERIAL`** — the user's REAL phone; large 45-min project
+- **Note 20 `<note20-serial>`** — the user's REAL phone; large 45-min project
   `a32d24e2-6b8d-4bd8-8432-ef5a6169dcfc`. Experimental work here only with the user present.
   The build watcher auto-installs to whatever single device is attached, which KILLS the running
   app — do not save app source while they are mid-test.
-- **Note 9 `SANDBOX_SERIAL`** — the sandbox.
+- **Note 9 `<note9-serial>`** — the sandbox.
 - adb: `C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe`. Never `logcat -c`.
 - Gradle needs `$env:TEMP='C:\Users\JoyRaptor\gtmp'; $env:TMP=$env:TEMP`. Never `--rerun-tasks`.
 

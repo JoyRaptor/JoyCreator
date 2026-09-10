@@ -128,7 +128,7 @@ All typechecked, built and installed. The listed check is what is missing.
   run-caption 9, run-flextime 42, run-motionrange 24. run-anchor had been failing to COMPILE
   for some time (missing getAssets() in the Context stub); a test that never runs reads as
   coverage. Check that runners actually run.
-- JoyRaptor's Note 20 is REAL_SERIAL; the sandbox Note 9 is SANDBOX_SERIAL and holds the
+- JoyRaptor's Note 20 is <note20-serial>; the sandbox Note 9 is <note9-serial> and holds the
   FXPROOF-* fixtures built for image FX/blend verification — use those, not his real project.
 - Backup of his project: project.json.bak_20260821 on the device. The local copy lives in a
   temp scratchpad and WILL NOT SURVIVE; re-snapshot before device work.

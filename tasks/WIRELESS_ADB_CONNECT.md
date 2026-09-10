@@ -6,7 +6,7 @@
 
 ## Facts
 - `adb` is **not on PATH**: `C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe`
-- Device: **REAL_SERIAL** (SM-N986U, Android 13, screen 1440×3088)
+- Device: **<note20-serial>** (SM-N986U, Android 13, screen 1440×3088)
 - Already paired with this PC — but pairing persists while the **connection does not**.
   The IP:port changes whenever wireless debugging restarts, so re-discover it each session.
 
@@ -14,11 +14,11 @@
 ```powershell
 $adb = "C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe"
 & $adb mdns services                     # discovers phone on the LAN, e.g.:
-# adb-REAL_SERIAL-Q8aCqY  _adb-tls-connect._tcp  192.168.1.151:35445
+# adb-<note20-serial>-Q8aCqY  _adb-tls-connect._tcp  192.168.1.151:35445
 & $adb connect <ip-from-above>:<port>    # no pairing code needed — pairing is remembered
 & $adb devices -l                        # must list `192.168.1.x:port  device`
 ```
-Then run every command with `-s 192.168.1.x:<port>` (IP:port IS the serial now — not `REAL_SERIAL`).
+Then run every command with `-s 192.168.1.x:<port>` (IP:port IS the serial now — not `<note20-serial>`).
 
 ## If mDNS finds nothing
 1. Phone and PC must be on the same WiFi network.

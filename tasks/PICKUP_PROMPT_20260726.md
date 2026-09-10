@@ -69,12 +69,12 @@ RULES THAT WERE PAID FOR IN BUGS:
   be the harness.
 
 DEVICES:
-- Note 9, serial SANDBOX_SERIAL (SM-N960U, Android 10, 1080x2220) is the SANDBOX and must
+- Note 9, serial <note9-serial> (SM-N960U, Android 10, 1080x2220) is the SANDBOX and must
   be the ONLY phone attached. Its projects are disposable.
 - Pristine copies: C:\Users\JoyRaptor\fadcam-safety-2026-07-26\note9-projects\ — restore
   anything you modify and verify by sha256. All 10 were verified identical at the last
   handoff update; re-verify at the end of your stretch.
-- The user's REAL phone is the Note 20 (REAL_SERIAL). If it appears, STOP device work and do
+- The user's REAL phone is the Note 20 (<note20-serial>). If it appears, STOP device work and do
   code + offline validation only — the build watcher auto-installs to whatever single device
   is attached, so saving a source file would push a build to their live phone.
 - adb is NOT on PATH: C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe

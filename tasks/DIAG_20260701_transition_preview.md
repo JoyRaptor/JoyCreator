@@ -118,7 +118,7 @@ compositor/second-surface rework (that's roadmap Phase 5.3, `road_map.md` line 3
   companion change (`OPTION_CLOSEST`) is itself higher-risk than the problem
   it's fixing (main-thread exact-frame decode during real-time playback ticks).
 - On-device verification (screenrecord + ffmpeg frame extraction, Note 9
-  sandbox, serial `SANDBOX_SERIAL`) was attempted for the plain-cut boundary
+  sandbox, serial `<note9-serial>`) was attempted for the plain-cut boundary
   case (project's first two clips, ~0.8s in). `adb shell screenrecord`
   repeatedly truncated short capture windows (1-2s instead of the requested
   5-6s) on this device/build of platform-tools, which is a capture-tooling

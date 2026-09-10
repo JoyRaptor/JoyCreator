@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# LOCAL ONLY — never committed (see .gitignore). Holds the real device serials so they
+# stay off GitHub while tools/build-install.sh keeps its wrong-phone guard working.
+#
+# SANDBOX_SERIAL — the phone it is safe to install onto.
+# REAL_SERIAL    — the phone holding real projects. The build script REFUSES if it is attached.
+SANDBOX_SERIAL="PUT_SANDBOX_SERIAL_HERE"
+REAL_SERIAL="PUT_REAL_PHONE_SERIAL_HERE"

@@ -12,10 +12,10 @@ after each chunk, then start the next. A PowerShell watcher rebuilds+installs on
 `BUILD FAILED` lines are normal — confirm the FINAL tail is `BUILD SUCCESSFUL` before verifying.
 
 ## Devices
-- Work phone **REAL_SERIAL** (SM-N986U, 1440×3088) — has the user's real projects ("In the day ye eat
+- Work phone **<note20-serial>** (SM-N986U, 1440×3088) — has the user's real projects ("In the day ye eat
   thereof" Eden project; tiger "primed_she_believed"; etc.). Nav: Faditor nav icon ~(840,2915); project row
   ~(720,1160); play/pause ~(720,2050); toolbar scroll horizontally to reach Transcript/Transitions/Visualizer.
-- Backup phone **SANDBOX_SERIAL** (SM-N960U, 1440×2960) — dedicated test project (3 captioned scenes, a
+- Backup phone **<note9-serial>** (SM-N960U, 1440×2960) — dedicated test project (3 captioned scenes, a
   visualizer, 2 audio clips, volume keyframes). Nav: Faditor ~(835,2755); project ~(720,1170); Volume ~(375,2895).
 - Only one is usually connected; the watcher installs to whichever is. `uiautomator dump` returns null root on
   both → navigate by screenshot coords (PNG is full device res). Gotchas: editor "Welcome Back" Continue is

@@ -90,7 +90,7 @@ second path.
 
 ## 5. The measurement — the actual deliverable
 
-On **JoyRaptor's Note 9 (SM-N960U, Android 10, serial `SANDBOX_SERIAL`)**, because it is the
+On **JoyRaptor's Note 9 (SM-N960U, Android 10, serial `<note9-serial>`)**, because it is the
 oldest device and it sets the ceiling. Report:
 
 - **Frame time** with the layer on Canvas vs as a GL texture — median and worst case, while

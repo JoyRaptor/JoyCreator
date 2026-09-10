@@ -283,7 +283,7 @@
 > **DEVICE-VERIFY OWED (JoyRaptor, sandbox):** hold an audio/PiP/viz item→drawer + all three prop
 > families; PiP arm→animate→ease→scrub→clear; viz sliders have NO diamond/ribbon; C6 retarget
 > across types; save/reload a linked pair → link survives. **DEVICE NOTE:** this session the
-> sandbox Note 9 (29e37138) was DETACHED; only the main phone REAL_SERIAL (SM-N986U, work-profile
+> sandbox Note 9 (29e37138) was DETACHED; only the main phone <note20-serial> (SM-N986U, work-profile
 > user 150) was online — `run-as`/`pm list` are BLOCKED there, so the export A/B proof (Lane 3)
 > and any project.json injection need the Note 9 back. **Lane 3 prep:** wrote
 > `tasks/LANE3_gl_transition_ab_hypothesis.md` — code analysis found the export transition fits
@@ -378,7 +378,7 @@
 > the export overlay (GlTransitionFrameOverlay) has its own orientation/scale conventions.
 
 > **ðŸŽ¨ 2026-07-17 â€” FABLE(5): JoyRaptor-feedback batch + spec sweep. 7 commits (`46523ed`â€¦`4b6533e`),
-> ALL compile-green; FULL build installed on main phone REAL_SERIAL at session end.**
+> ALL compile-green; FULL build installed on main phone <note20-serial> at session end.**
 > **(1) LANDED THE PRIOR SESSION'S IN-FLIGHT TREE (`46523ed`, 1397 lines, was uncommitted):** slides
 > Phase 4 overlay mode + time-stretch trims + freeze handles + SlideCodeBottomSheet + runtime r2 +
 > double-transition clamp fix â€” all device-proven per the spec doc; icons/PSD left uncommitted (not ours).
@@ -533,7 +533,7 @@
 >   why earlier sessions "couldn't expand" it â€” there is nothing to expand; the card strip is a plain
 >   HorizontalScrollView.
 > **STILL OWED (needs JoyRaptor):** the `313e7fa` export fix device verify (above); P0/P1 on real phone
-> REAL_SERIAL (USB-debug toggle); G9 UI (5 answers in PLAN_G9_LINK_ENGINE.md); the .m4a export-complete
+> <note20-serial> (USB-debug toggle); G9 UI (5 answers in PLAN_G9_LINK_ENGINE.md); the .m4a export-complete
 > copy string ("Your videoâ€¦"). NEXT build work: AV4 wire-up, then AV5 perf + dead-code.
 
 > **ðŸŒŠ 2026-07-10 late â€” FABLE(5) continuation: findings FIXED (`4ff1707`, device-verified before
@@ -551,7 +551,7 @@
 > watcher will auto-install on its next build â€” then zoom into a long audio clip â†’ letter-level
 > onsets resolve, zoomed-out unchanged, scroll smooth (extraction is once-per-tier, swap-in via
 > invalidate); (2) the STILL-OWED smoke: i (extract-from-video) / k (audio-band vertical drag) /
-> l (cross-band insertion line), G5a attach/detach, GL "More effects" row; (3) P0/P1 on REAL_SERIAL
+> l (cross-band insertion line), G5a attach/detach, GL "More effects" row; (3) P0/P1 on <note20-serial>
 > (JoyRaptor's USB toggle).** Sandbox bdd51919 was left PRISTINE by the findings-fix session (verify-then
 > -restore, per its LANES note). G9 still gated on JoyRaptor's 5 answers (PLAN_G9_LINK_ENGINE.md).
 
@@ -590,7 +590,7 @@
 > audio selection. (Undone on the spot; sandbox then restored from the pristine 12:41 pull â€”
 > project.json byte-identical, undo_history.json cleared since it contained my smoke states.)
 > **NOT REACHED: G5a attach/detach verify, GL "More effects" row check, P0/P1 real-phone re-verify
-> (REAL_SERIAL not connected â€” needs JoyRaptor's USB toggle), W2 HD-waveform zoom, G9 UI (needs JoyRaptor's 5
+> (<note20-serial> not connected â€” needs JoyRaptor's USB toggle), W2 HD-waveform zoom, G9 UI (needs JoyRaptor's 5
 > answers in PLAN_G9_LINK_ENGINE.md). Also: export-complete UI copy says "Your video has been
 > savedâ€¦" for .m4a exports â€” one-string polish, strings.xml was opencode's lane this session.**
 
@@ -630,7 +630,7 @@
 > WaveformOverlayInstance, overlapping groups, toolbar tie-break, caption-attach scope).
 > **STILL OWED (device, JoyRaptor's unlock needed if it re-locks): G5a attach/detach verify** (attach a viz
 > via the Rolodex link icon, trim its host clip, confirm the VIZ row rides along + project.json shows
-> attachedClipId); the audio per-op smoke; and the real-phone REAL_SERIAL P0/P1 re-verify.
+> attachedClipId); the audio per-op smoke; and the real-phone <note20-serial> P0/P1 re-verify.
 
 > **ðŸŽ›ï¸ 2026-07-07 late â€” FABLE(5): AUDIO ROW CONSOLIDATION BUILT (`f31f16c`, build-green + installed
 > on SM-N960U; DEVICE SMOKE BLOCKED â€” phone locked with a secure Bouncer mid-session, needs JoyRaptor's
@@ -698,7 +698,7 @@
 > shape was ineligible before), ONE play tap crossed videoâ†’imageâ†’videoâ†’video with warm AUTO_TRANSITION
 > seams (image window ran exactly 9864ms), and frame-hashing the 30fps screenrecording found no
 > identical run >3 frames vs the bug's 22-72. NOT yet re-verified on JoyRaptor's real phone/project â€” that's
-> the next session's first errand (install current build on REAL_SERIAL, reopen `27221664â€¦`, play across
+> the next session's first errand (install current build on <note20-serial>, reopen `27221664â€¦`, play across
 > the freeze-frame boundary; her project must also dodge the new P1 below, i.e. check it for short
 > speedâ‰ 1 clips first).
 > **(2) NEW ðŸ”´ P1 (pre-existing, exposed by verify):** short speedâ‰ 1 clipped windows wedge the gapless
@@ -721,7 +721,7 @@
 
 > **ðŸš¨ 2026-07-07 ~16:15-17:00 â€” SONNET: first-ever main-phone real-project verify session, surfaced a P0
 > gapless-engine gap. Full detail + fix guidance filed in `road_map.md`'s new ðŸ”´ P0 block (top of file) â€”
-> this entry is the session narrative/evidence trail.** Device `REAL_SERIAL` (real phone, SM_N986U) had
+> this entry is the session narrative/evidence trail.** Device `<note20-serial>` (real phone, SM_N986U) had
 > gone `unauthorized` in adb; JoyRaptor cycled the USB-debugging toggle on-device to force a fresh authorization
 > prompt (killing/restarting the adb server alone did NOT trigger it â€” needs the toggle cycle). Installed
 > the current debug build over the existing `4.0.0-beta9` (same package, `com.fadcam.beta` â€” confirmed via
@@ -1468,7 +1468,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > **OPEN USER CALLS:** muted-track captions show/hide?; main-phone real-project session (never yet run).
 > **STANDING RULES:** ONE editing agent at a time (shared watcher; parallel edits burn â€” proven). NEVER
 > gradle (watcher builds on save; "BUILD FAILED" from install/device/EOF lines = compile SUCCESS). Sandbox
-> Note 9 SANDBOX_SERIAL only; NEVER main phone REAL_SERIAL/project 27221664. Commit each green item.
+> Note 9 <note9-serial> only; NEVER main phone <note20-serial>/project 27221664. Commit each green item.
 > Local commits only, NEVER push. Don't touch faditor/avatar/ or sprite files (JoyRaptor's lane) or stash@{0}.
 > Everything below this block is history; the queue above is current.
 
@@ -1535,7 +1535,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > if absent next bundle, REMIND the user). Still open elsewhere: audio-overlap P0 (dragux_v3 A8).
 >
 > **ðŸ›¬ 2026-07-03 ~04:15 â€” SESSION LANDING (Fable orchestrator, autonomous overnight run complete). READ THIS FIRST.**
-> **The ENTIRE gesture cluster is DONE and installed on the sandbox (SANDBOX_SERIAL), awaiting ONE morning
+> **The ENTIRE gesture cluster is DONE and installed on the sandbox (<note9-serial>), awaiting ONE morning
 > hand-test.** Code commits this session, all BUILT GREEN via the watcher, each checkpoint-committed:
 > 9cf3080 (contract redesign recovered from the lost agent + 2 orch fixes) â†’ aadf9c1 (delete = selection
 > trash badge) â†’ 4375fab (feedback batch 1: badge 9dp+viewport-pinned, row-scrub FLING, timeline-locked
@@ -1592,7 +1592,7 @@ rounds, and older. Read top-down only if you need the "why" behind a current dec
 > leaving onItemDeleteRequested UNREACHABLE): trash roundel on the SELECTED item (right end, inside trim cap),
 > ItemZone.DELETE hit-tested first w/ finger slop, DownResult.CONSUMED fires the same confirmation dialog on
 > DOWN like header icons; badge auto-skipped on too-narrow items (deleteBadgeCx single-sources glyph+hitzone).
-> BUILD GREEN both commits; APK auto-installed on sandbox SANDBOX_SERIAL @ 03:05; logcat buffer CLEARED for
+> BUILD GREEN both commits; APK auto-installed on sandbox <note9-serial> @ 03:05; logcat buffer CLEARED for
 > a clean ROWGESTURE pull. **NEXT: user hand-test (4-gesture checklist relayed 03:06) â†’ pull
 > `adb logcat -d -s ROWGESTURE:D`, verify: PENDING body â†’ AXIS HORIZONTAL scrub (no MOVE), TAP select-only,
 > PICKUP armed + zoneInViewport=true + screenZoneBot < ~924, DELETE badge CONSUMED. Then queue items 2-5
@@ -1756,7 +1756,7 @@ Older backlog (still valid, folded into the order above):
 1. **Re-export the user's REAL project** `27221664-21e9-4e9d-8fd7-e8884bb0eb55` (21 clips, `content://`+`project://`
    sources, transitions at clips 10/15, 2 audio, long audio caption) on the NEW build and verify: orientation
    (`ffprobe` â†’ 1080Ã—1920, no rotation), captions play through the WHOLE song, transitions OK, audio present.
-   This is the one thing not yet verified on the new code for the user's actual content. Main phone = `REAL_SERIAL`.
+   This is the one thing not yet verified on the new code for the user's actual content. Main phone = `<note20-serial>`.
 2. Interactive editor pass in-hand: caption sizing, crop-preview consistency, frame-accurate scrub, reorder
    minimap nav, move-clip drawer, undo on captions/filters. (Most editor changes are compile+smoke-verified only.)
 
@@ -1780,7 +1780,7 @@ Older backlog (still valid, folded into the order above):
 - User runs a watcher (`watch-build.ps1`) that auto-builds + installs on save â†’ `build.log` (UTF-16:
   `tr -d '\000' < build.log | tail -40`). **Do NOT run gradle.** Wait for `BUILD SUCCESSFUL`. Always-green: revert
   rather than break. `installDefaultDebug FAILED ... No connected devices` = fine, only compile matters.
-- Devices: main `REAL_SERIAL` (SM-N986U, has real project 27221664); backup Note 9 `SANDBOX_SERIAL`
+- Devices: main `<note20-serial>` (SM-N986U, has real project 27221664); backup Note 9 `<note9-serial>`
   (SANDBOX project `bdd51919â€¦` â€” currently left in a modified test state: 9:16 canvas + tweaked in-points, harmless);
   new S10e `R58M34STHCA` (fresh install). adb: `C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe`
   via PowerShell (`-s <serial>`). Screenshots: `screencap` + `adb pull` (PowerShell `>` corrupts PNGs). UI nav is
@@ -1858,7 +1858,7 @@ STILL QUEUED (not done): crop-during-transition GL geometry (risky GL + hard to 
 
 ## â­ Most recent work (2026-06-27) â€” color fix, ANR fixes, editor features (BUILT GREEN, pending on-device verify)
 
-All built via the watcher (BUILD SUCCESSFUL, installed on REAL_SERIAL). Launch smoke-tested (no FATAL).
+All built via the watcher (BUILD SUCCESSFUL, installed on <note20-serial>). Launch smoke-tested (no FATAL).
 Interactive gestures (trim/reorder/move) NOT yet user-verified â€” do not drive them blind on the user's
 real project (risks mutating their timeline).
 
@@ -2186,7 +2186,7 @@ It receives absolute `presentationTimeUs`, but each effect lookup uses the appro
 > **Divider semantics:** a divider `View` sits in the row (subtle `0x33FFFFFF` normally, green + wider in edit). LEFT of it = pinned home row in manual order (= `PREF_FADITOR_TOOL_PINS`, stored order); RIGHT = unpinned, auto-sorted by `PREF_FADITOR_TOOL_RECENCY` desc. Drag math is pure index-based (`commitDrop`): capture pinned count `D` at pickup, remove dragged â†’ `effD`, translate the visible drop-slot, `draggedPinned = insVis<=effD`, new left section = first `newD` ids of the final visible order; a drop into the right side stamps descending recency so the dropped Lâ†’R order sticks. â‰¥1-pinned ENFORCED (dragging the last pin right â†’ `newD<=0` â†’ reject + snap-back + divider width-flash). Drawer mirrors `adapter.getTools()` (pins then usage). 
 > **Prefs migration (v1â†’v2):** `migrateIfNeeded` runs lazily on first `resolveOrder`/`dividerIndex`: existing `PREF_FADITOR_TOOL_PINS` become the left section verbatim; `PREF_FADITOR_TOOL_ORDER` + `PREF_FADITOR_TOOL_ORDER_MODE` keys are REMOVED and the mode is gone (`getManualOrder`/`isRecentMode`/`setOrderMode`/`MODE_*` deleted); if no pins ever existed, the first canonical VISIBLE tool (`speed`) is seeded so â‰¥1-pinned holds. Unknown/new ids land in the right (usage) section (never vanish).
 > **Persistent Done:** built in the overlay FrameLayout pinned `END|CENTER_VERTICAL` (fixed to screen edge, overlays the scrolling row); shown only in edit mode; tap commits+exits, as does system back (`initBackHandler`, after the drawer check). The trailing Edit chip now only ENTERS edit mode (hidden while editing).
-> **Build:** compile GREEN (`compileDefaultDebugJavaWithJavac` + `packageDefaultDebug` OK; only `installDefaultDebug` fails = no device). **NOT device-verified** â€” the Note 9 sandbox (`SANDBOX_SERIAL`) was offline and no emulator/AVD available all session; every spec point needs on-device confirmation (one-line labels incl. transitions/transcript; swipe-scrolls-vs-long-press-drags with before/after uiautomator order; lifted icon + green line mid-drag; cross-divider pin/unpin + last-pin snap-back; Done visible at edge after scroll; order/pins survive force-stop; drawer order). **Accepted gap:** in edit mode the `mute`/`opacity` cells still carry the activity's custom long-press OnTouchListener (keyframe toggle) alongside the new drag pickup â€” both could fire on a long-press of those two cells; not rewired (out of minimal-wiring scope, and the activity installs those listeners post-build). Unused `faditor_settings_tool_order_*` strings left in place (removing risks stale refs).
+> **Build:** compile GREEN (`compileDefaultDebugJavaWithJavac` + `packageDefaultDebug` OK; only `installDefaultDebug` fails = no device). **NOT device-verified** â€” the Note 9 sandbox (`<note9-serial>`) was offline and no emulator/AVD available all session; every spec point needs on-device confirmation (one-line labels incl. transitions/transcript; swipe-scrolls-vs-long-press-drags with before/after uiautomator order; lifted icon + green line mid-drag; cross-divider pin/unpin + last-pin snap-back; Done visible at edge after scroll; order/pins survive force-stop; drawer order). **Accepted gap:** in edit mode the `mute`/`opacity` cells still carry the activity's custom long-press OnTouchListener (keyframe toggle) alongside the new drag pickup â€” both could fire on a long-press of those two cells; not rewired (out of minimal-wiring scope, and the activity installs those listeners post-build). Unused `faditor_settings_tool_order_*` strings left in place (removing risks stale refs).
 
 ---
 
@@ -2223,7 +2223,7 @@ It receives absolute `presentationTimeUs`, but each effect lookup uses the appro
 > it wasn't shipped either. **No code changed.** Build was already green;
 > nothing to revert.
 >
-> **Device verification attempt.** Note 9 sandbox (serial `SANDBOX_SERIAL`),
+> **Device verification attempt.** Note 9 sandbox (serial `<note9-serial>`),
 > project with a plain-cut boundary at ~0.8s between clip 1 and clip 2.
 > `adb shell screenrecord` truncated short capture windows unreliably (1-2s
 > instead of requested 5-6s) on the first several attempts; a clean 5s capture

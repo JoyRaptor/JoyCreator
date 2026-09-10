@@ -1531,7 +1531,7 @@ path if the migration goes wrong. **Do not delete them.** The migration also wri
 
 | | Note 9 (sandbox) | Note 20 (THE USER'S REAL PHONE) |
 |---|---|---|
-| serial | `SANDBOX_SERIAL` | `REAL_SERIAL` |
+| serial | `<note9-serial>` | `<note20-serial>` |
 | model | SM-N960U, Android 10 | SM-N986U, Android 13 |
 | screen | **1080x2220** | **1440x3088** |
 | holds | disposable sandbox projects | **the user's real work** |

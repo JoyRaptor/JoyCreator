@@ -1,6 +1,6 @@
 # Diagnosis — Asset Browser State (2026-06-26)
 
-**Device:** SM-N960U `SANDBOX_SERIAL` (1440×2960, 560dpi)  
+**Device:** SM-N960U `<note9-serial>` (1440×2960, 560dpi)  
 **App:** `com.fadcam.beta` v4.0.0-beta9  
 **Project:** `bdd51919-f47d-4d33-b91e-e6ebbc56e445` (schema v7, 8 clips, 2 audio, 0 text overlays, 2 waveforms)  
 **Watcher:** Running, `BUILD SUCCESSFUL` confirmed  

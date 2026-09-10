@@ -155,6 +155,6 @@ before calling it done.
 ## Deliver
 
 Item by item: what you changed and the evidence. Screenshots from the **Note 9**
-(`SANDBOX_SERIAL`) for items 2, 3, 4 and 6 — these are visual and a claim without a picture is
-not verification. **Never install to or write on the Note 20 (`REAL_SERIAL`); it holds JoyRaptor's
+(`<note9-serial>`) for items 2, 3, 4 and 6 — these are visual and a claim without a picture is
+not verification. **Never install to or write on the Note 20 (`<note20-serial>`); it holds JoyRaptor's
 real projects.** Build verdict; compile-verified vs device-verified.

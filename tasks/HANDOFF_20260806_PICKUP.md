@@ -49,7 +49,7 @@ bash tools/jvm-harness/run-matte.sh      # run-anchor.sh (35), run-promote.sh (2
 ```
 
 ### Device
-- Sandbox is **Note 9 `SANDBOX_SERIAL` ONLY**. If Note 20 `REAL_SERIAL` is attached, STOP —
+- Sandbox is **Note 9 `<note9-serial>` ONLY**. If Note 20 `<note20-serial>` is attached, STOP —
   it holds JoyRaptor's real project. `build-install.sh` refuses to run when it sees it.
 - `am start -n com.fadcam.beta/com.fadcam.SplashActivity`, **never `monkey`** (it silently
   unlocks rotation).

@@ -2,7 +2,7 @@
 
 **Branch:** joy-creator  
 **Commit:** b99a20e2 — FADE_KNOBS: outboard knobs + curtain, knob MOVES (2.1a is point)  
-**Build:** BUILD SUCCESSFUL 14:18 via compileDefaultDebugJavaWithJavac (see build.log 2026-08-29T14:18:03). Install step FAILED — Device Offline (SANDBOX_SERIAL OFFLINE), so **UNVERIFIED** on device; no screenshots yet ( .\tools\phone.ps1 devices shows OFFLINE). Rule 6 obeyed: never ran gradle directly, watched build.log.
+**Build:** BUILD SUCCESSFUL 14:18 via compileDefaultDebugJavaWithJavac (see build.log 2026-08-29T14:18:03). Install step FAILED — Device Offline (<note9-serial> OFFLINE), so **UNVERIFIED** on device; no screenshots yet ( .\tools\phone.ps1 devices shows OFFLINE). Rule 6 obeyed: never ran gradle directly, watched build.log.
 
 **What was built (§2.1a is point):**
 

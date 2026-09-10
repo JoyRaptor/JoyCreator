@@ -101,8 +101,8 @@ earned this session:
 
 ## DEVICE RULES — NON-NEGOTIABLE
 
-Unchanged from `20260731c`. Note 9 `SANDBOX_SERIAL` is the sandbox and must be the ONLY phone
-attached; if the Note 20 `REAL_SERIAL` appears, STOP. Launch with `am start`, **never `monkey`**
+Unchanged from `20260731c`. Note 9 `<note9-serial>` is the sandbox and must be the ONLY phone
+attached; if the Note 20 `<note20-serial>` appears, STOP. Launch with `am start`, **never `monkey`**
 (it calls `thawRotation()` and unlocks the user's rotation). Rotation lock verified `0` at the end
 of this session.
 

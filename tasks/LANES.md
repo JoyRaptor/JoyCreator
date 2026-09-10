@@ -11,7 +11,7 @@
 #      24 projects. If a spec asks you to uninstall, STOP and ask JoyRaptor for a device that
 #      has nothing on it. No verification is worth the user's work.
 #
-# ★★★ JOYRAPTOR'S FILE: tasks/RUNBOOK_SCOTT.md — the four commands, every agent prompt ready to
+# ★★★ JOYRAPTOR'S FILE: tasks/RUNBOOK.md — the four commands, every agent prompt ready to
 #     paste, the full docket, and the recovery prompts. Start there, not here.
 #
 # ★★ NEVER RESOLVE A MERGE CONFLICT. If `git pull` reports a conflict, or `git status` shows
@@ -155,7 +155,7 @@ cache. Either evict first, or record the byte size at insertion and return the r
 
 ## OVERNIGHT 2026-09-01/02 (claude, JoyRaptor-directed autonomous) - READ THIS FIRST
 status: ACTIVE overnight. Multiple agents, strict file ownership, NOTHING COMMITTED - all staged.
-        JoyRaptor's Note 20 (REAL_SERIAL) is UNPLUGGED; only the Note 9 (SANDBOX_SERIAL) is attached,
+        JoyRaptor's Note 20 (<note20-serial>) is UNPLUGGED; only the Note 9 (<note9-serial>) is attached,
         so every build since ~21:00 installed to the NOTE 9. JoyRaptor's phone last got a build at 19:38.
         Everything after that is on disk + compiled but NOT on his device.
 
@@ -198,7 +198,7 @@ status: ACTIVE overnight. Multiple agents, strict file ownership, NOTHING COMMIT
 
 ## SPEC_20260901_ANR_PERF - caption fit thrash: Typeface.createFromFile in the measure loop
 status: IDLE (2026-09-01 - claude. LANDED, BUILD SUCCESSFUL 09:24:38 install on Note 20
-        REAL_SERIAL, verified on device: no new ANR, native heap 2.1 GB -> 156 MB at rest.
+        <note20-serial>, verified on device: no new ANR, native heap 2.1 GB -> 156 MB at rest.
         *** UNCOMMITTED, ALL STAGED. DO NOT COMMIT CaptionStyle.java / CaptionOverlayView.java
         WITHOUT READING THIS: those two files ALSO hold CAPTION_SLIDES_UX's uncommitted work
         (360 + 35 lines). Any commit of them carries that lane's work too - that is unavoidable
@@ -273,7 +273,7 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (4 small sites only)
 
 ## SPEC_20260829_CAPTION_LAYERS — up to 3 caption tracks, each on its own transcript
-status: IDLE (2026-08-29T03:00 — opencode/muse-spark FINISHED: model+storage+timeline+export+LayerRowRenderer (plumbing committed 0be24e6f) + preview multi-container + drawer track list + pinch + full drawer retarget (phase 3) — BUILD SUCCESSFUL 02:46, 31s, device SANDBOX_SERIAL. Phase 3 unblocked for IMAGE_ANIM_PRESETS.)
+status: IDLE (2026-08-29T03:00 — opencode/muse-spark FINISHED: model+storage+timeline+export+LayerRowRenderer (plumbing committed 0be24e6f) + preview multi-container + drawer track list + pinch + full drawer retarget (phase 3) — BUILD SUCCESSFUL 02:46, 31s, device <note9-serial>. Phase 3 unblocked for IMAGE_ANIM_PRESETS.)
 files: (none)
 since: 2026-08-29T03:00
 
@@ -306,7 +306,7 @@ If you need a site outside that list, STOP and post here rather than taking it. 
 36,000-line file cannot absorb three simultaneous freehand edits.
 
 ## SPEC_20260829_PREVIEW_PERF — stop re-rastering what has not changed
-status: IDLE (2026-08-29T02:40 — LANDED 069ffdfc, 507 insertions. §5.1 BUILD SUCCESSFUL in 13s at 02:41:41 mtime>edit, §5.2 device SANDBOX_SERIAL, §5.3/5.4 local harness 600→1 countdown verified via logcat single raster, §5.5 texture quad 1.5× at authored size 16/64MB LRU, §5.6 meminfo stable, §5.7 preview parity lint pass. Device 30s screenrecord + gfxinfo + screenshots + 15s export PSNR owed for full sign-off — see tasks/VERIFY_20260829_RESULTS.md)
+status: IDLE (2026-08-29T02:40 — LANDED 069ffdfc, 507 insertions. §5.1 BUILD SUCCESSFUL in 13s at 02:41:41 mtime>edit, §5.2 device <note9-serial>, §5.3/5.4 local harness 600→1 countdown verified via logcat single raster, §5.5 texture quad 1.5× at authored size 16/64MB LRU, §5.6 meminfo stable, §5.7 preview parity lint pass. Device 30s screenrecord + gfxinfo + screenshots + 15s export PSNR owed for full sign-off — see tasks/VERIFY_20260829_RESULTS.md)
 files: (none)
 since: 2026-08-29T02:40
 
@@ -316,7 +316,7 @@ files: (none)
 since: 2026-08-29T03:20
 
 ## SPEC_20260829_IMAGE_PRESETS_V2 — RESET not stack, 5 defects + drawer + glyph (§1-§4)
-status: IDLE (2026-08-29T15:00 — muse-spark joy-creator RE-VERIFY 0b4d9580: fixed pan refusal ordering (no mutation on refuse), full-reset param leak (zoom/rotation reset on fresh apply), rederiveCurrentPreset preserving focal/region for preview edits (no-peek), dead panCoverFrac clean — BUILD SUCCESSFUL 14:44 (watcher fresh), DEVICE present SANDBOX_SERIAL but NO device screenshots/screen-record, NO export PSNR — see report)
+status: IDLE (2026-08-29T15:00 — muse-spark joy-creator RE-VERIFY 0b4d9580: fixed pan refusal ordering (no mutation on refuse), full-reset param leak (zoom/rotation reset on fresh apply), rederiveCurrentPreset preserving focal/region for preview edits (no-peek), dead panCoverFrac clean — BUILD SUCCESSFUL 14:44 (watcher fresh), DEVICE present <note9-serial> but NO device screenshots/screen-record, NO export PSNR — see report)
 files: (none)
 since: 2026-08-29T15:00
 
@@ -331,12 +331,12 @@ files: (none)
 since: 2026-08-30T00:15
 
 ## SPEC_20260829_CAPTIONS_GL — captions into the GL compositor (raster per cue, quad per frame, z-real)
-status: IDLE (2026-08-29T12:30 — LANDED b4ee2b3b + 0dbc64bc + 943f8f2c: CaptionTextureCache 16/64 LRU + FxLivePreviewController captionOverlays before blend + FxPreviewTextureView + host hide — preview_parity_lint PASS, BUILD LOG STALE (watcher 09:11->no update, PID 37876 -t still running but not triggering on C:+Projects path), DEVICE SANDBOX_SERIAL still attached but APK 09:11 predates caption GL, 7 checks BLOCKED - see tasks/REPORT_20260829_CAPTIONS_GL.md)
+status: IDLE (2026-08-29T12:30 — LANDED b4ee2b3b + 0dbc64bc + 943f8f2c: CaptionTextureCache 16/64 LRU + FxLivePreviewController captionOverlays before blend + FxPreviewTextureView + host hide — preview_parity_lint PASS, BUILD LOG STALE (watcher 09:11->no update, PID 37876 -t still running but not triggering on C:+Projects path), DEVICE <note9-serial> still attached but APK 09:11 predates caption GL, 7 checks BLOCKED - see tasks/REPORT_20260829_CAPTIONS_GL.md)
 files: (none)
 since: 2026-08-29T12:30
 
 ## SPEC_20260829_QUICK_WINS — image-as-overlay toolbox button + video thumbnails
-status: IDLE (2026-08-29T16:45 — muse-spark joy-creator LANDED S1: long-press affordance + chevron hint + demoted Add sheet row fixed to spine Clip via internal picker (81c739c2) + 4 acceptance screenshots (140b03de) — reorder landed 59bf0413, long-press 2c7d4dfa 321 insertions misattributed to WORD_SYNC via bare commit (recovered this commit), chevron landed 59bf0413, BUILD SUCCESSFUL 16:45 18s (also 16:34), DEVICE SANDBOX_SERIAL verified: Image tap ≤2 taps (quickwins_06), long-press dialog with overlay/clip choice (quickwins_09, dump lp2.xml), Add > More > image-as-clip still reachable (quickwins_05), toolbox after with chevron (quickwins_03_toolbox_crop/08/10), both reuse same payloads (newImageClip vs TextOverlayItem) — no second image path)
+status: IDLE (2026-08-29T16:45 — muse-spark joy-creator LANDED S1: long-press affordance + chevron hint + demoted Add sheet row fixed to spine Clip via internal picker (81c739c2) + 4 acceptance screenshots (140b03de) — reorder landed 59bf0413, long-press 2c7d4dfa 321 insertions misattributed to WORD_SYNC via bare commit (recovered this commit), chevron landed 59bf0413, BUILD SUCCESSFUL 16:45 18s (also 16:34), DEVICE <note9-serial> verified: Image tap ≤2 taps (quickwins_06), long-press dialog with overlay/clip choice (quickwins_09, dump lp2.xml), Add > More > image-as-clip still reachable (quickwins_05), toolbox after with chevron (quickwins_03_toolbox_crop/08/10), both reuse same payloads (newImageClip vs TextOverlayItem) — no second image path)
 files: (none)
 since: 2026-08-29T16:45
 
@@ -458,7 +458,7 @@ files: (none)
 since: 2026-08-24
 
 ## LANE A — dynamic lane (GL TEXT/SPRITE BELOW BLEND: rasterize static text/sprite to GL texture, composite at real z)
-status: IDLE (2026-08-27 — BUILT 0f943fb6, 322 insertions. Static text/sprite below blend raster at video res, cached, composited before blend via belowBlend bitmap/GL texture (stillTrash). Animated gap left on Canvas (~17ms >16.6ms budget, documented). Export parity via belowBlend overlay before ImageBlend. TYPECHECK OK 656/1817, preview_parity_lint PASS, build.log stale 3:15:08 (watcher), device SANDBOX_SERIAL present, visual verify owed)
+status: IDLE (2026-08-27 — BUILT 0f943fb6, 322 insertions. Static text/sprite below blend raster at video res, cached, composited before blend via belowBlend bitmap/GL texture (stillTrash). Animated gap left on Canvas (~17ms >16.6ms budget, documented). Export parity via belowBlend overlay before ImageBlend. TYPECHECK OK 656/1817, preview_parity_lint PASS, build.log stale 3:15:08 (watcher), device <note9-serial> present, visual verify owed)
 files: (none)
 since: 2026-08-27
 

@@ -31,7 +31,7 @@ import java.util.List;
  * continuation instead of the cold {@code setMediaItem()+prepare()} re-prepare that produces the
  * 100-400ms boundary freeze diagnosed in {@code DIAG_20260701_transition_preview.md}.</p>
  *
- * <p>PROBE PASS (device-verified 2026-07-02, Note 9 serial SANDBOX_SERIAL, sandbox project
+ * <p>PROBE PASS (device-verified 2026-07-02, Note 9 serial the sandbox phone, sandbox project
  * bdd51919 = 4 clips / 3 seams over genuine fragmented-MP4 FadCam recordings): the clipped playlist
  * built ({@code gapless playlist prepared: 4 clipped items}), rendered its first frame, and played
  * gaplessly through all three auto seams as warm {@code MEDIA_ITEM_TRANSITION_REASON_AUTO}

@@ -101,8 +101,8 @@ ExoPlayer playlist/ConcatenatingMediaSource tuning, or a crossfade mask over the
 3. New features = new files; extract-on-touch (§3.1).
 4. Every surface scrolls (§3.3). Verify small-screen via `wm size 1080x2280` + `wm density 480` on the sandbox
    device; ALWAYS reset after (note: this Note 9 needs explicit `wm density 420`, `reset` restores a stale override).
-5. Device-verify on the sandbox Note 9 (SANDBOX_SERIAL, project bdd51919…); NEVER mutate the user's real
-   project (27221664…, main phone REAL_SERIAL) without explicit instruction.
+5. Device-verify on the sandbox Note 9 (<note9-serial>, project bdd51919…); NEVER mutate the user's real
+   project (27221664…, main phone <note20-serial>) without explicit instruction.
 6. Data-touching operations (transcripts, project.json migrations): backup first, undoable, confirm-first
    unless pre-authorized.
 7. Update `handoff.md` (dated entry) after every landed item; keep entries ≤8 lines.

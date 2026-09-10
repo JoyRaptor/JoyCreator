@@ -184,8 +184,8 @@ the file on the device — never push one of those back.
 
 ## DEVICE RULES — NON-NEGOTIABLE
 
-- The Note 9 `SANDBOX_SERIAL` is the sandbox and must be the ONLY phone attached.
-- **If the Note 20 `REAL_SERIAL` appears, STOP all device work.** It holds the user's real
+- The Note 9 `<note9-serial>` is the sandbox and must be the ONLY phone attached.
+- **If the Note 20 `<note20-serial>` appears, STOP all device work.** It holds the user's real
   45-minute project. (It was attached at the start of 2026-07-29 and all device work was blocked
   until it was unplugged. That rule earned its keep.)
 - Installing the app kills whatever session is running — tell the user.

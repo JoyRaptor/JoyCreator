@@ -46,8 +46,8 @@ FadCam / Joy Creator — `C:\+Projects\Screenrecorder\FadCam`, branch `joy-creat
 
 ## Device rules — NON-NEGOTIABLE
 
-- **The Note 9 `SANDBOX_SERIAL` is the sandbox and must be the ONLY phone attached.**
-- **If the Note 20 `REAL_SERIAL` appears, STOP all device work immediately.** It is the user's
+- **The Note 9 `<note9-serial>` is the sandbox and must be the ONLY phone attached.**
+- **If the Note 20 `<note20-serial>` appears, STOP all device work immediately.** It is the user's
   real phone holding the large 45-minute project. The build watcher auto-installs to whatever
   single device is attached, which kills the running app. Never write to its `project.json`
   without the user present.

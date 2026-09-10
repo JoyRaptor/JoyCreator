@@ -190,7 +190,7 @@ real regression or a test that missed.
 
 **Everything feels tangled:**
 ```
-Read tasks/LANES.md and tasks/RUNBOOK_SCOTT.md, then give me the current true state: what is
+Read tasks/LANES.md and tasks/RUNBOOK.md, then give me the current true state: what is
 green, what is red, what is claimed, and what is actually owed. Verify against the repo.
 ```
 

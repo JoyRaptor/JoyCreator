@@ -112,8 +112,8 @@ pulled copy reads larger than the file on the device — never push one back.
 
 ## DEVICE RULES — NON-NEGOTIABLE
 
-- The Note 9 `SANDBOX_SERIAL` is the sandbox and must be the ONLY phone attached.
-- **If the Note 20 `REAL_SERIAL` appears, STOP all device work.** It holds the user's real
+- The Note 9 `<note9-serial>` is the sandbox and must be the ONLY phone attached.
+- **If the Note 20 `<note20-serial>` appears, STOP all device work.** It holds the user's real
   45-minute project. It was attached once and blocked a whole session; the rule earned its keep.
 - **A human may be using the Note 9.** A screen once switched to Chrome mid-sequence and an
   injected tap may have landed in that browser. Check `dumpsys activity activities | grep

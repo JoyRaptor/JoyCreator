@@ -161,8 +161,8 @@ building M12 first would bake in an answer that anchoring then has to unpick.
 **Total 6–9 sessions**, of which phases 1–3 (roughly half) need no phone at all.
 
 ### ⚠ The device gate
-House rule: the Note 9 `SANDBOX_SERIAL` is the sandbox and the ONLY phone that may be driven; if
-the Note 20 `REAL_SERIAL` is attached, device work STOPS (it holds the user's real 45-minute project).
+House rule: the Note 9 `<note9-serial>` is the sandbox and the ONLY phone that may be driven; if
+the Note 20 `<note20-serial>` is attached, device work STOPS (it holds the user's real 45-minute project).
 **As of 2026-08-03 only the Note 20 is attached.** Phases 1–3 are therefore the correct place to
 spend effort now, and they are sequenced first for that reason as well as the dependency reason. A
 drag cannot be replaced by reasoning — phases 4–6 are NOT done until fingers have been on the Note 9.

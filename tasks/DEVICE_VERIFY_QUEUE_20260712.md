@@ -48,7 +48,7 @@
 > - REMAINING Section A: A1 audio-path, A2 G5(b) A/B proof, A3 finish (SAF round-trip), A6 record
 >   stop-swap, A7 clip-audio drawer feels. Section B needs JoyRaptor.
 >
-> **▶ 2026-07-14 ~02:30 (device SANDBOX_SERIAL, autonomous run continued):**
+> **▶ 2026-07-14 ~02:30 (device <note9-serial>, autonomous run continued):**
 > - **A5 AV4 waveform settings: ✅ PASS** (sheet opens populated; ANALYSIS toggle live-updates + persists
 >   across sheet close/reopen; restored default OFF). First-import eager/lazy chooser still owed.
 > - **A4 grade presets: ✅ PASS** (adjust→save named preset→chip→persists→apply snaps grade back→long-press
@@ -95,16 +95,16 @@
 >   and rebuilt the identical playlist → identical error → ~18 rebuilds/sec on the main thread
 >   forever (glitched loading screen). FIX: per-clip unpoisoned-failure cap (3) → stop + one toast.
 >   Both fixes complement: cap breaks any future storm; validation removes this storm's trigger.
-> - Real phone (REAL_SERIAL) is on an OLD build — install the current APK on it once this build
+> - Real phone (<note20-serial>) is on an OLD build — install the current APK on it once this build
 >   lands so the loop-breaker + walkthrough fixes reach the real device.
 
 
-The sandbox (SM-N960U, adb `SANDBOX_SERIAL`) was UNPLUGGED as of this writing, so a large batch
+The sandbox (SM-N960U, adb `<note9-serial>`) was UNPLUGGED as of this writing, so a large batch
 of code-complete work is compile-verified only. This is the single ordered list of everything owed on
 device — plug the sandbox in and work top-to-bottom. Items needing JoyRaptor/a real face/a grant are tagged.
 Device protocol: take the `DEVICE:` token in LANES.md first; restore any sandbox project you mutate.
 
-Ground truth for any project state: `adb -s SANDBOX_SERIAL shell run-as com.fadcam.beta cat
+Ground truth for any project state: `adb -s <note9-serial> shell run-as com.fadcam.beta cat
 files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…`; audio/export repro
 = `aeb0517e…` (AudioExportVerify); avatar test bed = `cebc19e0…` (P0 control2).
 
@@ -198,7 +198,7 @@ files/faditor/projects/<id>/project.json`. Sandbox editor project = `bdd51919…
     "+ New avatar from image…" → the picker flow (untested).
 11. **Point-at-video on a FACE-bearing clip** — the no-face path is smoked; a real face confirms the
     sweep produces a live-driven take (incl. the video-vs-front-cam MIRROR_YAW check).
-12. **P0/P1 gapless re-verify on the REAL project** `27221664…` (device REAL_SERIAL) — needs JoyRaptor's
+12. **P0/P1 gapless re-verify on the REAL project** `27221664…` (device <note20-serial>) — needs JoyRaptor's
     USB-debug toggle cycle to re-authorize adb. Play across the freeze-frame / short-speed-clip
     boundaries; frame-hash a screenrecord (no >2-3 identical consecutive frames at 30fps).
 

@@ -36,7 +36,7 @@ JoyRaptor: "work autonomously on getting the performance dialed in… work out a
 8. **Spark dots ½–⅓ current size** — the white spark dots are "quite large relative to the tape…
    a little bit obnoxious."
 
-## Status (updated 2026-07-16, commit c579b58 — BUILT + INSTALLED on REAL_SERIAL)
+## Status (updated 2026-07-16, commit c579b58 — BUILT + INSTALLED on <note20-serial>)
 - ✅ #2 filmstrip: proportional tile→thumb mapping + cap 30→60. No more blank/stretched tail.
 - ✅ #3 stripes: incomplete extractions displayed but never cached; renderer silences past real data.
 - ✅ #4 background analysis: kicks at setTimeline for every master clip, FULL-source spans + new
@@ -129,7 +129,7 @@ installed there); ⑥ preview double-tap → object menu for avatar/captions (st
   long-press → object menu; JoyRaptor to confirm. A3a (SAF style round-trip) is UNBLOCKED — the drawer
   didn't crash; still needs the actual ⇩/⇧ file-picker test.
 
-## Evening autonomous block — LANDED (all installed on REAL_SERIAL by 19:00)
+## Evening autonomous block — LANDED (all installed on <note20-serial> by 19:00)
 - ✅ 2-min zoom-out (MIN_ZOOM 0.07) + word→thin-white-mark crossfade (gap scanning) + 2m/5m ruler tiers (7c21c37)
 - ✅ trim-independent thumbnails — cuts/trims keep frames, no re-decode (579323d)
 - ✅ transcript version-chip menu: copy plain / [mm:ss] / SRT + import SRT/VTT/[mm:ss] (2295d95, TranscriptIO)

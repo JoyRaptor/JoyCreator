@@ -35,7 +35,7 @@ Current preview blend is FREEZE-FRAME: two static endpoint bitmaps, A's motion p
 >   completion the main player resumes B at in+transitionDur (matches the overlap timeline
 >   model; freeze tier used to rewind B's head). Log markers: "GL live blend ENGAGED seam=N" /
 >   "GL live blend skipped: …".
-> - Device proof (sandbox SANDBOX_SERIAL, project 302da9ac): screenrecord frame pulls show A's
+> - Device proof (sandbox <note9-serial>, project 302da9ac): screenrecord frame pulls show A's
 >   tail MOVING into the blend, B moving mid-blend, hold, B continuing forward (no rewind), zero
 >   black frames; crop parity proven by injecting custom crops (blend framing == PlayerView
 >   crop-zoom framing, no snap at handoff); pause-mid-blend honored (accidental live test).
@@ -134,14 +134,14 @@ cropped framing holds through the blend and matches preview screenrecords.
   (AppData TEMP is AF_UNIX-broken → "Unable to establish loopback connection"). If
   "Could not get file mode … java_res": `rm -rf app/build/intermediates/java_res`.
   APK: `app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk`.
-- Sandbox device SM-N960U id `SANDBOX_SERIAL` (1080x2220): launch
+- Sandbox device SM-N960U id `<note9-serial>` (1080x2220): launch
   `monkey -p com.fadcam.beta -c android.intent.category.LAUNCHER 1`, Faditor nav tap
   (627,2100), top recent project (540,706), play (541,1746), seek-to-0 = tap minimap far
   left (45,1815). Play at timeline END does NOT restart — seek first. adb from Git Bash:
   `export MSYS_NO_PATHCONV=1`; screencap redirect only in Git Bash (PowerShell mangles).
 - Verify pattern: `screenrecord --time-limit 9` + tap play + pull +
   `ffmpeg -vf fps=10,scale=300:-1` frame pull; read the frames.
-- JoyRaptor's personal phone is `REAL_SERIAL` — NEVER inject taps while it's in-hand (screen
+- JoyRaptor's personal phone is `<note20-serial>` — NEVER inject taps while it's in-hand (screen
   rotation between screenshots = in-hand; stop immediately). Model truth via
   `run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json`.
 - Do not commit without asking. The human is reviewer-of-record.

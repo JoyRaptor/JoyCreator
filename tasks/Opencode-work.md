@@ -40,9 +40,9 @@ Lesson for every task below: "compiles" is not "works"; verify the runtime path.
 - **Never claim "build green" without quoting the tail of the build output you just ran.**
 
 **Device**
-- Sandbox test phone ONLY: adb serial `SANDBOX_SERIAL` (Note 9). **NEVER touch device
-  `REAL_SERIAL` or project `27221664…`** (the user's real phone/project).
-- Ground truth = `adb -s SANDBOX_SERIAL shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json`.
+- Sandbox test phone ONLY: adb serial `<note9-serial>` (Note 9). **NEVER touch device
+  `<note20-serial>` or project `27221664…`** (the user's real phone/project).
+- Ground truth = `adb -s <note9-serial> shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json`.
   The sandbox project id starts `bdd51919`. It contains one injected PiP overlay clip +
   an on-device backup `project.json.bak-mcomp2-20260705` — LEAVE BOTH IN PLACE.
 - Drag/pinch gestures CANNOT be scripted reliably here. ONE scripted attempt max, then
@@ -241,7 +241,7 @@ Notes for next AI: <anything surprising, anything owed>
 ### 2026-07-05 17:10 — TASK 0: Recover the tree + first green build — DONE
 Build: `BUILD SUCCESSFUL in 42s` (compileDefaultDebugJavaWithJavac), `BUILD SUCCESSFUL in 2m 23s` (installDefaultDebug on sandbox phone)
 Commits: `9956123` — `feat(export): M-EXPORT-2 WIP recovered by opencode`
-Evidence: git status clean, AndroidManifest exported reverted to false (was temp=true), install OK on device SANDBOX_SERIAL
+Evidence: git status clean, AndroidManifest exported reverted to false (was temp=true), install OK on device <note9-serial>
 Notes for next AI: Tree was already clean when I arrived (M-COMP-2 from earlier session committed as 0453db9). M-EXPORT-2 files (CompositeExportOverlay.java, ExportManager.java) were dirty — compiled green, diff-reviewed as coherent PiP compositing, committed without edits. Manifest had FaditorEditorActivity exported=true (temp flip from the M-COMP-2 testing). Reverted to false before commit.
 
 ### 2026-07-05 17:10 — TASK 1: Device smoke-verification of today's features — PARTIAL
@@ -403,7 +403,7 @@ Evidence: FaditorPlayerManager.setPlaybackSpeed(speed, pitchCompensation) uses t
 
 Followed tasks/LANES.md protocol throughout (claimed ACTIVE with exact files before each edit,
 released to IDLE between tasks). Branch `joy-creator`, never ran gradle (watcher-only), device
-`SANDBOX_SERIAL` touched only for `adb devices`/package check (no drag/gesture scripting attempted
+`<note9-serial>` touched only for `adb devices`/package check (no drag/gesture scripting attempted
 this session — see hand-test lists below).
 
 #### TASK 1: Armed-state icon tint for tools missing the convention — DONE
@@ -570,7 +570,7 @@ anywhere either — same dead-code family, same removal batch.
 Followed tasks/LANES.md protocol throughout (claimed ACTIVE with exact files before each edit,
 released to IDLE between tasks; both lanes IDLE / device free at session start, no conflicts hit).
 Never ran gradle — watcher-only, read build.log tail after every save. Device
-`SANDBOX_SERIAL` touched once for task 10's post-deletion smoke check (see below), released
+`<note9-serial>` touched once for task 10's post-deletion smoke check (see below), released
 promptly. Never touched any standing-locked file.
 
 #### TASK 1: AssetScanner MMR calls -> small thread pool — DONE

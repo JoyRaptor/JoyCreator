@@ -193,7 +193,7 @@ fully-qualified `com.fadcam.R`; loop variables not effectively final in the cell
 final copies), both fixed; then `./gradlew assembleDefaultDebug --console=plain` → BUILD
 SUCCESSFUL. Still compile-verified, not device-verified.
 
-## Device push (2026-09-05, Note 9 `SANDBOX_SERIAL`)
+## Device push (2026-09-05, Note 9 `<note9-serial>`)
 
 `adb install -r app-default-arm64-v8a-debug.apk` → **Success** (`-r` replaces while KEEPING
 app data — JoyRaptor's projects untouched; no uninstall was run). App launched via its launcher

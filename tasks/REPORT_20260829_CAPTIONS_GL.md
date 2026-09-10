@@ -10,7 +10,7 @@
 
 ```
 adb devices
-SANDBOX_SERIAL	device product:crownqltesq model:SM_N960U device:crownqltesq transport_id:3
+<note9-serial>	device product:crownqltesq model:SM_N960U device:crownqltesq transport_id:3
 
 wm size
 Physical size: 1440x2960
@@ -59,7 +59,7 @@ Source of truth for 5/6 remains the code + the pre-regression measurement (`PREV
 ```
 adb devices
 List of devices attached
-SANDBOX_SERIAL	device product:crownqltesq model:SM_N960U device:crownqltesq transport_id:10
+<note9-serial>	device product:crownqltesq model:SM_N960U device:crownqltesq transport_id:10
 
 wm size
 Physical size: 1440x2960

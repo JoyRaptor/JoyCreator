@@ -2,7 +2,7 @@
 
 **Spec:** `SPEC_20260829_PREVIEW_PERF.md` §5.7  
 **Commit:** `069ffdfc` — 4 files (pathspec, never bare)  
-**Device:** `SANDBOX_SERIAL device` (SM-N986U) — `C:\...\adb.exe devices`  
+**Device:** `<note9-serial> device` (SM-N986U) — `C:\...\adb.exe devices`  
 **Build:** `BUILD SUCCESSFUL in 13s` at `2026-08-29 02:41:41` (mtime `02:41:41` > edit `02:39:31`, date `2026-08-29`)  
 **APK:** `app-default-arm64-v8a-debug.apk` installed on SM-N960U at `02:39:03`
 
@@ -63,7 +63,7 @@ stats: /tmp/tmp.tdoxm13B2A
 - Text overlay: `id=preview-perf-15s-animated` `"PREVIEW_PERF"` at `centerX` animated `0.35→0.65` over 5 s, `centerY=0.60, sizeFraction=0.09, rotationDeg` animated `0→12`, `opacity` `1.0`, `isAnimated=true` (keyframes on `X/Y/SCALE/ROTATION`), `layerId=text-below` (z below image via `plainTextsBelowBlend`)
 - Duration 15 s, timeline at `5000 ms` (mid-animation, text at `0.50,0.60, ~0.09, ~6deg`)
 
-**Steps to run on SANDBOX_SERIAL (SM-N960U):**
+**Steps to run on <note9-serial> (SM-N960U):**
 
 1. Push `tasks/a_preview_perf_15s.json` to `files/faditor/projects/<id>/project.json` via `adb shell run-as`.
 2. Launch `com.fadcam.MainActivity` via `monkey`, open project, seek to `5000 ms` (playhead sync triggers `FxLivePreviewController.sync` → `buildBelowBlendOverlays` → `OverlayTextureCache` raster at authored `0.09*1080*1.5` then quad at animated `0.50`).
@@ -90,7 +90,7 @@ stats: /tmp/tmp.tdoxm13B2A
 ## 5. What to run to close the owed item
 
 ```
-adb -s SANDBOX_SERIAL shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json > /tmp/p.json  # verify
+adb -s <note9-serial> shell run-as com.fadcam.beta cat files/faditor/projects/<id>/project.json > /tmp/p.json  # verify
 # push fixture, launch, seek, screencap, export, ffmpeg, psnr
 python tools/jvm-harness/preview_parity_lint.py
 bash tools/psnr_parity.sh export.mp4 preview.mp4

@@ -110,7 +110,7 @@ immediately.
   blocks in `FxLivePreviewController` and `ImageBlendGlEffect`.
 - Do **not** touch `TransformQuad`, `CornerPinTransformHost`, the bake path, `TransformOverlayView`,
   `foldRotationPivotIntoBox`, or `timeline/**`. All of those are verified correct.
-- Note 9 (`SANDBOX_SERIAL`) is the test device. **Never write to the Note 20.**
+- Note 9 (`<note9-serial>`) is the test device. **Never write to the Note 20.**
 - Test project: `BundlingFontTest`. Turning Bend on: select the image, tap the "Bend" pill top-right.
   Net dots are locatable by colour-sampling a screenshot with python+PIL.
 

@@ -123,8 +123,8 @@ six irrecoverable emoji in `values/strings.xml`.
  - Commit messages: `git commit -F <file>`, no BOM.
 
 ## DEVICE RULES — NON-NEGOTIABLE
- - The Note 9 `SANDBOX_SERIAL` is the sandbox and must be the ONLY phone attached.
- - If the Note 20 `REAL_SERIAL` appears, STOP all device work — it holds the user's real
+ - The Note 9 `<note9-serial>` is the sandbox and must be the ONLY phone attached.
+ - If the Note 20 `<note20-serial>` appears, STOP all device work — it holds the user's real
    45-minute project.
  - The human tripwire stands: if `accelerometer_rotation` goes to 1 when YOU did not cause it,
    or `dumpsys power` shows input you did not inject, STOP and ask.

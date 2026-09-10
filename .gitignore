@@ -78,3 +78,6 @@ tools/jvm-harness/out-frameparity/
 /perf/
 tasks/screenshots/
 tools/jvm-harness/__pycache__/
+
+# Local device serials — keep real hardware IDs out of the repo
+tools/devices.local.sh

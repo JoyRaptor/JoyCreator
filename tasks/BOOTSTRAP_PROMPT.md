@@ -35,7 +35,7 @@ You are the ORCHESTRATOR. You manage subagents to do the actual work. Each cycle
 
 DEVICE VERIFICATION:
 - Build: .\gradlew.bat assembleDefaultDebug --no-daemon (add GRADLE_OPTS='-Xmx4096m -Dfile.encoding=UTF-8' for dexing)
-- Install: & "C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s REAL_SERIAL install -r "C:\+Projects\Screenrecorder\FadCam\app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
+- Install: & "C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s <note20-serial> install -r "C:\+Projects\Screenrecorder\FadCam\app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
 - Screenshot: adb exec-out screencap -p > "C:\Users\JoyRaptor\AppData\Local\Temp\s.png" then read that path
 - adb is NOT on PATH — prefix each call with the full path above
 

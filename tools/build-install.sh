@@ -20,16 +20,26 @@
 #
 # Usage:  bash tools/build-install.sh [gradle-task]     (default :app:installDefaultDebug)
 #
-# ⚠ DEVICE RULE: this installs onto whatever phone is attached. The Note 9 SANDBOX_SERIAL is
-# the sandbox; the Note 20 REAL_SERIAL holds JoyRaptor's real project. This script REFUSES to run if
+# ⚠ DEVICE RULE: this installs onto whatever phone is attached. The Note 9 is
+# the sandbox; the Note 20 holds JoyRaptor's real project. This script REFUSES to run if
 # the Note 20 is attached — the 2026-08-04 incident where a build was pushed onto it happened
 # because nothing checked.
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
 export PATH="$PATH:/c/Users/JoyRaptor/AppData/Local/Android/Sdk/platform-tools"
-if adb devices | grep -q "REAL_SERIAL"; then
-  echo "REFUSING: the Note 20 (REAL_SERIAL) is attached — it holds the real project."
+# Real serials live outside the repo (tools/devices.local.sh, gitignored). Fail CLOSED: if the
+# file is missing we cannot tell the phones apart, and guessing is how the 2026-08-04 incident
+# happened.
+if [ ! -f "tools/devices.local.sh" ]; then
+  echo "REFUSING: tools/devices.local.sh not found - cannot identify which phone is attached."
+  exit 1
+fi
+# shellcheck disable=SC1091
+. tools/devices.local.sh
+
+if adb devices | grep -q "$REAL_SERIAL"; then
+  echo "REFUSING: the Note 20 is attached — it holds the real project."
   exit 1
 fi
 
@@ -47,6 +57,6 @@ echo "--- installed APK ---"
 # Explicit serial: a bare `adb shell` here silently produced nothing when a stale offline
 # entry was in the device list, which turned the freshness check into a no-op — the exact
 # false reassurance it exists to prevent.
-adb -s SANDBOX_SERIAL shell dumpsys package com.fadcam.beta 2>/dev/null \
+adb -s "$SANDBOX_SERIAL" shell dumpsys package com.fadcam.beta 2>/dev/null \
     | grep -E "lastUpdateTime" || echo "  (could not read lastUpdateTime — CHECK MANUALLY)"
 date '+now                     %Y-%m-%d %H:%M:%S'

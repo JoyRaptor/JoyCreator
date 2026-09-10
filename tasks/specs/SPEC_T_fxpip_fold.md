@@ -68,7 +68,7 @@ bug.
   `transform/mesh/MeshPlacement.java`.
 - Do **not** touch `TransformQuad`, `CornerPinTransformHost`, the bake path,
   `TransformOverlayView` (SPEC S is running there), `transform/mesh/**`, or `timeline/**`.
-- Note 9 (`SANDBOX_SERIAL`) is the test device. **Never write to the Note 20.**
+- Note 9 (`<note9-serial>`) is the test device. **Never write to the Note 20.**
 
 ## Deliver
 

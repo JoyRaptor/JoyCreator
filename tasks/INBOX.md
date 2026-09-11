@@ -76,3 +76,37 @@ turns out it already exists), or gets deleted. Deleting is fine. That is what an
   look on its own: find out what is holding it (thumbnail caches, waveform tiles, GL
   textures, decoded bitmaps) and whether any of it should be trimmed on
   `onTrimMemory`/background.
+
+## Captured 2026-09-10 (SpriteLab session)
+
+- **A character sheet is a more valuable asset than a project.** Reusable, portable,
+  hand-editable, AI-extensible, small. Argues for a sheet library outside any project, and
+  further out for a shareable character format (sheet + JSON + rig as one bundle).
+- **A well-named cell has more uses than the person who named it intended.** `surprise` is
+  an expression, an "O" phoneme, a reaction beat, and a blink-alternative. JoyRaptor has
+  tested this: LLMs infer secondary uses unprompted. The value compounds with every AI tool
+  added later. Specced in SPEC_20260910_SEMANTIC_CELLS — this line is the reminder that the
+  *idea* is bigger than the feature and must not decay into "labelling".
+- **Animated GIF / WebP preview per clip from SpriteLab** — so a clip can be checked on a
+  phone or in a message without opening Joy Creator. Needs an encoder; none in the current
+  zero-dependency build. Park until it earns a dependency.
+- **Onion-skin anchor ghost** — pin one chosen frame as a permanent faint ghost so a walk
+  cycle's feet can be kept planted against a fixed reference, not just against neighbours.
+- **Sprite sheet from video** — sample N frames from a clip, background-key them, pack into
+  a sheet. `SequencePacker` already packs a sequence into a grid sheet; the missing half is
+  the sampler. Would make a sprite out of anything you filmed.
+- **Joybot's own sheet is the first customer.** JoyRaptor is animating the AI-window mascot
+  in SpriteLab right now. Whatever the tool cannot do for Joybot is the next feature.
+- **Undo history in the SpriteLab project file** — deliberately excluded for now (reload
+  starts clean). Revisit only if someone actually asks.
+
+## Captured 2026-09-11
+
+- **Desktop sprite editor as a web app on joycreator.cc** — build sprite sheets on a big
+  screen with a mouse, then move the sheet plus its `.sprite.json` sidecar into Joy Creator.
+  The sidecar is already documented in code as "the sharing format, the plugin contract",
+  so the contract exists; this is a second client for a model that already ships.
+  Open question the owner raised and preferred: land them in a **shared Assets library**
+  rather than one project's folder, so a sprite is reusable across projects. That is the
+  same question the vault answers — do not design a separate home for it.
+- **Sprite sheet adjustment work** in the app is in flight alongside this.

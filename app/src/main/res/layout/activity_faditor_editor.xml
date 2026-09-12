@@ -1264,20 +1264,6 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
-                <!-- G13: voiceover mic on transport, pulsing red while recording -->
-                <TextView
-                    android:id="@+id/btn_voiceover"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="mic"
-                    android:textColor="#888888"
-                    android:textSize="18sp"
-                    android:layout_marginStart="8dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Record voiceover" />
-
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -1334,6 +1320,25 @@
                 android:textColor="#999999"
                 android:textSize="11sp"
                 android:fontFamily="monospace" />
+
+            <!-- G13: voiceover mic, pulsing red while recording. JoyRaptor 2026-09-12:
+                 moved off the play/redo cluster to the far right of the row, just left
+                 of the project duration — it sat next to Play and was being hit by
+                 accident. Declared after time_total so layout_toStartOf resolves. -->
+            <TextView
+                android:id="@+id/btn_voiceover"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_toStartOf="@id/time_total"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="10dp"
+                android:gravity="center"
+                android:fontFamily="@font/materialicons"
+                android:text="mic"
+                android:textColor="#888888"
+                android:textSize="18sp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Record voiceover" />
 
             <TextView
                 android:id="@+id/transcript_status_badge"

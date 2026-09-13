@@ -345,6 +345,30 @@ public class AudioClip implements AudioParams {
 
     public int[] getWaveform() { return waveform; }
 
+    /**
+     * Peak amplitude, 0..1, at {@code clipLocalMs} into this clip's trimmed span — or -1 when no
+     * waveform has been extracted yet.
+     *
+     * <p>This is the SIGNAL, not the gain. JoyRaptor, 2026-09-13, on the master meter: <i>"I don't
+     * need it to show me what my phone is outputting to headphones, I need to show what it will
+     * output to the export file."</i> Multiplying this by {@link #gainAtClipMs} gives exactly what
+     * the export mixer will write, computed from the same stored data the timeline already draws
+     * its waveform from — so it needs no tap on the playback engine, and unlike a tap it is
+     * correct while paused and while scrubbing.
+     *
+     * <p>Indexed in SOURCE time ({@code inPointMs + clipLocalMs}), because that is what the array
+     * spans — a trimmed clip reads from the middle of its own waveform, not the start.
+     */
+    public float amplitudeAt(long clipLocalMs) {
+        int[] w = waveform;
+        if (w == null || w.length == 0 || sourceDurationMs <= 0) return -1f;
+        long sourceMs = inPointMs + Math.max(0L, clipLocalMs);
+        if (sourceMs >= sourceDurationMs) return 0f;
+        int i = (int) (sourceMs * (long) w.length / sourceDurationMs);
+        if (i < 0 || i >= w.length) return 0f;
+        return Math.max(0f, Math.min(1f, w[i] / 255f));
+    }
+
     @NonNull
     public String getLabel() { return label; }
 

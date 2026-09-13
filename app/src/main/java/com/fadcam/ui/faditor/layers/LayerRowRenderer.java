@@ -286,12 +286,27 @@ public final class LayerRowRenderer {
      * noted upgrade path). Unscaled linear units, 0..~2.
      */
     public static float trackLevelAt(@NonNull Track t, long playheadAbsMs) {
+        return trackLevelAt(t, playheadAbsMs, false);
+    }
+
+    /**
+     * @param signal true to multiply each clip's gain by its actual PEAK AMPLITUDE at that moment
+     *               — what the export will write — rather than reporting gain alone. Clips with no
+     *               extracted waveform fall back to gain, so a meter never reads silent merely
+     *               because analysis has not caught up.
+     */
+    public static float trackLevelAt(@NonNull Track t, long playheadAbsMs, boolean signal) {
         if (playheadAbsMs == Long.MIN_VALUE || !isTrackAudible(t)) return 0f;
         float sum = 0f;
         for (TimedItem item : t.getItems()) {
             com.fadcam.ui.faditor.model.AudioClip ac = item.getAudioClip();
             if (ac != null) {
-                sum += clipContribution(ac, item.getTimelineStartMs(), playheadAbsMs);
+                float g = clipContribution(ac, item.getTimelineStartMs(), playheadAbsMs);
+                if (signal && g > 0f) {
+                    float amp = ac.amplitudeAt(playheadAbsMs - item.getTimelineStartMs());
+                    if (amp >= 0f) g *= amp;
+                }
+                sum += g;
                 continue;
             }
             com.fadcam.ui.faditor.model.Clip c = item.getClip();
@@ -496,7 +511,16 @@ public final class LayerRowRenderer {
     /** Floating-row count at the last {@link #layout} — gap indices are only valid against it. */
     private int floatingRowCountAtLayout = 0;
 
-    public void setHoverGapIndex(int gapIndex) { this.hoverGapIndex = gapIndex; }
+    public void setHoverGapIndex(int gapIndex) { setHoverGapIndex(gapIndex, false); }
+
+    /** As above, saying which band the gap belongs to so the line is drawn in the right one. */
+    public void setHoverGapIndex(int gapIndex, boolean audioBand) {
+        this.hoverGapIndex = gapIndex;
+        this.hoverGapIsAudio = audioBand;
+    }
+
+    /** True when {@link #hoverGapIndex} indexes the AUDIO band's gaps rather than the floating band's. */
+    private boolean hoverGapIsAudio;
 
     /** G9c: ids of every link-group member — drives the chain badge on item blocks. */
     private final java.util.Set<String> linkedItemIds = new java.util.HashSet<>();
@@ -551,6 +575,58 @@ public final class LayerRowRenderer {
         return best;
     }
 
+    /**
+     * The same gap hit-test, for the AUDIO band.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"I could not pull down to have an audio track go into a new
+     * lane, so I had to actually pull it UP above the spine into the other objects' lanes and then
+     * I moved it to a lower new audio lane. Very weird, and I wouldn't expect anyone else to
+     * figure that out."</i>
+     *
+     * <p>He had found the only route there was. {@link #gapIndexAt} measures in the FLOATING
+     * band's content space and walks only the floating rows, and the gesture controller asked for
+     * a gap only when the drag STARTED in that band — "floating band first", scoped and never
+     * followed up. So an audio clip could never target a gap, while a clip lifted into the
+     * floating band and brought back down could, because by then the drag's origin band was the
+     * floating one. The affordance existed; it was keyed to the wrong thing.
+     *
+     * <p>The audio band has its own origin ({@code lastAudioTopPx}) and never scrolls, so it needs
+     * its own measurement rather than a parameter on the floating one — folding the two would put
+     * a scroll offset into a band that has none.
+     *
+     * @return a gap index in the AUDIO band's own 0..n space, or -1
+     */
+    public int audioGapIndexAt(float y, float topPx, int currentGap) {
+        int n = rows.size() - floatingRowCountAtLayout;
+        if (n <= 0) return -1;
+        float localY = y - lastAudioTopPx;
+        float enter = GAP_HIT_HALF_DP * density;
+        if (localY < -enter || localY > audioBandHeightPx + enter) return -1;
+        int best = -1;
+        float bestD = Float.MAX_VALUE;
+        for (int i = 0; i <= n; i++) {
+            float d = Math.abs(localY - audioGapBoundaryY(i));
+            float half = (i == currentGap) ? enter * 2f : enter;
+            if (d <= half && d < bestD) { bestD = d; best = i; }
+        }
+        return best;
+    }
+
+    /** Audio-band-space y of audio gap boundary {@code gapIndex}. */
+    private float audioGapBoundaryY(int gapIndex) {
+        int n = rows.size() - floatingRowCountAtLayout;
+        if (n <= 0) return 0f;
+        float halfGap = (ROW_GAP_DP * density) / 2f;
+        if (gapIndex <= 0) {
+            return rows.get(floatingRowCountAtLayout).bodyRect.top - halfGap;
+        }
+        if (gapIndex >= n) {
+            return rows.get(rows.size() - 1).bodyRect.bottom + halfGap;
+        }
+        return (rows.get(floatingRowCountAtLayout + gapIndex - 1).bodyRect.bottom
+                + rows.get(floatingRowCountAtLayout + gapIndex).bodyRect.top) / 2f;
+    }
+
     /** Content-space y of gap boundary {@code gapIndex} (see {@link #hoverGapIndex} doc). */
     private float gapBoundaryY(int gapIndex) {
         float halfGap = (ROW_GAP_DP * density) / 2f;
@@ -559,6 +635,21 @@ public final class LayerRowRenderer {
             return rows.get(floatingRowCountAtLayout - 1).bodyRect.bottom + halfGap;
         }
         return (rows.get(gapIndex - 1).bodyRect.bottom + rows.get(gapIndex).bodyRect.top) / 2f;
+    }
+
+    /** The audio band's insertion line — same accent, measured in the audio band's own space. */
+    private void drawAudioGapInsertionLine(@NonNull Canvas canvas, float hScrollOffsetPx,
+                                           float widthPx) {
+        int n = rows.size() - floatingRowCountAtLayout;
+        if (n <= 0 || hoverGapIndex < 0 || hoverGapIndex > n) return;
+        // The caller has already translated to the audio band's origin.
+        float lineY = audioGapBoundaryY(hoverGapIndex);
+        float left = hScrollOffsetPx + HEADER_WIDTH_DP * density;
+        float right = hScrollOffsetPx + widthPx;
+        stripPaint.setColor(COLOR_DROP_TARGET_RING);
+        float half = 1.25f * density;
+        canvas.drawRoundRect(left, lineY - half, right - 4f * density, lineY + half,
+                half, half, stripPaint);
     }
 
     /** The Slice 2 insertion line: one accent line in the armed gap, no text. */
@@ -918,7 +1009,7 @@ public final class LayerRowRenderer {
         }
         // SPEC_20260829_WORD_SYNC §3.3 — onset ticks on the tape while mode is on.
         drawOnsetTicks(canvas, totalMs, timeToX, topPx, topPx + viewportHeightPx);
-        if (dragActive && hoverGapIndex >= 0) {
+        if (dragActive && hoverGapIndex >= 0 && !hoverGapIsAudio) {
             drawGapInsertionLine(canvas, hScrollOffsetPx, widthPx);
         }
         if (dragActive && crossBandInsertionArmed && crossBandDraggedIsFloating) {
@@ -952,6 +1043,9 @@ public final class LayerRowRenderer {
                 drawRow(canvas, rows.get(i), totalMs, timeToX, selectedItemId, (i & 1) == 1);
             }
             drawOnsetTicks(canvas, totalMs, timeToX, audioTopPx, audioTopPx + audioBandHeightPx);
+            if (dragActive && hoverGapIndex >= 0 && hoverGapIsAudio) {
+                drawAudioGapInsertionLine(canvas, hScrollOffsetPx, widthPx);
+            }
             if (dragActive && crossBandInsertionArmed && !crossBandDraggedIsFloating) {
                 drawCrossBandInsertionLine(canvas, hScrollOffsetPx, widthPx);
             }
@@ -4208,8 +4302,20 @@ public final class LayerRowRenderer {
      * playhead. Resting state is the dim baseline track at zero, ALWAYS drawn (the G18
      * lesson: a meter that appears only when audio plays reads as broken).</p>
      *
-     * <p>Like the gutter bars this shows the mix maths' intended loudness — envelope × gain,
-     * mute/solo-gated — not a post-DSP measurement; no engine tap exists yet.</p>
+     * <p><b>It meters the EXPORT, not the headphones.</b> JoyRaptor, 2026-09-13: <i>"I don't need
+     * it to show me what my phone is outputting to headphones, I need to show what it will output
+     * to the export file."</i> So each contributing clip's gain — envelope × volume, mute and
+     * solo-gated — is multiplied by that clip's own PEAK AMPLITUDE at the moment, read from the
+     * waveform the timeline already draws with. The product is what the export mixer writes.
+     *
+     * <p>Deliberately not a tap on the playback engine, which was the noted upgrade path and is
+     * the wrong one: a tap can only report what is being played, so it would read nothing while
+     * paused, nothing while scrubbing, and the wrong thing whenever preview and export differ —
+     * which is the failure this whole codebase is organised against. Reading the stored waveform
+     * answers for any playhead position, moving or not.
+     *
+     * <p>A clip whose waveform has not been extracted yet falls back to its gain alone, so the
+     * meter never reads silent merely because analysis is behind.</p>
      */
     public static final class MasterMeterView extends android.view.View {
 
@@ -4259,6 +4365,22 @@ public final class LayerRowRenderer {
          * @param clips    the master clips, in spine order
          * @param startsMs each clip's start on the timeline, same length and order
          */
+        /**
+         * Where the meter gets the spine's actual SIGNAL. The master clips' waveforms are not
+         * stored on the model the way an AudioClip's are — they live in the timeline view's own
+         * extraction cache — so the host supplies the lookup rather than this class reaching for
+         * a view it should not know about.
+         *
+         * @return peak amplitude 0..1 at that SOURCE position, or negative when not yet analysed
+         */
+        public interface SpineAmplitude {
+            float amplitudeAt(@NonNull com.fadcam.ui.faditor.model.Clip clip, long sourceMs);
+        }
+
+        @Nullable private SpineAmplitude spineAmplitude;
+
+        public void setSpineAmplitude(@Nullable SpineAmplitude p) { this.spineAmplitude = p; }
+
         public void setSpine(@Nullable java.util.List<com.fadcam.ui.faditor.model.Clip> clips,
                              @Nullable long[] startsMs) {
             spineClips = clips;
@@ -4272,10 +4394,10 @@ public final class LayerRowRenderer {
             float target = 0f;
             if (ph != Long.MIN_VALUE) {
                 if (floatingBand != null) {
-                    for (Track t : floatingBand) target += trackLevelAt(t, ph);
+                    for (Track t : floatingBand) target += trackLevelAt(t, ph, true);
                 }
                 if (audioBand != null) {
-                    for (Track t : audioBand) target += trackLevelAt(t, ph);
+                    for (Track t : audioBand) target += trackLevelAt(t, ph, true);
                 }
                 if (spineClips != null && spineStartsMs != null) {
                     int n = Math.min(spineClips.size(), spineStartsMs.length);
@@ -4283,7 +4405,15 @@ public final class LayerRowRenderer {
                         com.fadcam.ui.faditor.model.Clip c = spineClips.get(i);
                         // A still has no sound to contribute, whatever its gain says.
                         if (c == null || c.isImageClip()) continue;
-                        target += clipContribution(c, spineStartsMs[i], ph);
+                        float g = clipContribution(c, spineStartsMs[i], ph);
+                        if (g > 0f && spineAmplitude != null) {
+                            // Source time, because that is the domain the spine's waveform cache
+                            // is keyed in — a trimmed clip reads from the middle of its own file.
+                            float amp = spineAmplitude.amplitudeAt(
+                                    c, c.getInPointMs() + (ph - spineStartsMs[i]));
+                            if (amp >= 0f) g *= amp;
+                        }
+                        target += g;
                     }
                 }
                 target = Math.max(0f, Math.min(1.2f, target));

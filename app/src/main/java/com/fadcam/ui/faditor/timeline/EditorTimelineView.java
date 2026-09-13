@@ -5024,6 +5024,27 @@ if (sd.clip.hasVolumeKeyframes()) {
         canvas.restore();
     }
 
+    /**
+     * Peak amplitude 0..1 of {@code uri}'s audio at {@code sourceMs}, or -1 if that source has not
+     * been analysed yet.
+     *
+     * <p>For the master level meter, which must report what the EXPORT will write and therefore
+     * needs the spine's own signal — not just its gain. Reads the cache the tape waveform is
+     * already drawn from, so it costs a lookup and never triggers extraction: a source that has
+     * not been analysed answers -1 and the meter falls back to gain for that clip.
+     */
+    public float sourceAmplitudeAt(@Nullable android.net.Uri uri, long sourceMs, long sourceDurMs) {
+        if (uri == null || sourceDurMs <= 0) return -1f;
+        int[] wave = sourceWaveforms.get(uri.hashCode());
+        if (wave == null) return -1f;       // not analysed — do NOT kick off extraction here
+        if (wave.length == 0) return 0f;    // analysed, and it has no audio track
+        if (sourceMs < 0) return 0f;
+        if (sourceMs >= sourceDurMs) return 0f;
+        int i = (int) (sourceMs * (long) wave.length / sourceDurMs);
+        if (i < 0 || i >= wave.length) return 0f;
+        return Math.max(0f, Math.min(1f, wave[i] / 255f));
+    }
+
     private void drawSegmentWaveform(Canvas canvas, RectF rect, SegmentData sd) {
         if (sd.isImageClip || sd.sourceDurationMs <= 0) return;
         int key = sd.sourceUri.hashCode();

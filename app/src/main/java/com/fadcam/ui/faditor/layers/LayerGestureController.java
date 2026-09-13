@@ -518,7 +518,7 @@ public final class LayerGestureController {
         pendingDeleteBadge = !objectLocked && hit.zone == LayerRowRenderer.ItemZone.DELETE;
         hoverTargetTrack = null;
         hoverGapIndex = -1;
-        rowRenderer.setHoverGapIndex(-1);
+        rowRenderer.setHoverGapIndex(-1, false);
         lastLoggedHoverRow = null;
         rowRenderer.setDragTargetTrackId(null);
         rowRenderer.setProxyRowTrackId(null);
@@ -1390,17 +1390,28 @@ public final class LayerGestureController {
             rowRenderer.setDragTargetTrackId(null);
             rowRenderer.setProxyRowTrackId(null);
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
-            rowRenderer.setHoverGapIndex(-1);
+            rowRenderer.setHoverGapIndex(-1, false);
             rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_SAME_ROW);
             logHoverTarget("spine-suppressed");
             return;
         }
 
         // Slice 2 (dragux_v3, BINDING): the GAP is the new-layer target. Checked FIRST
-        // so line-in-gap and row-highlight are mutually exclusive by construction.
-        // Floating-band items only (C5 scope); the currently-armed gap gets a 2x exit
-        // zone inside gapIndexAt (sticky hover — no flicker at the boundary).
-        int gap = sourceIsFloatingBand ? rowRenderer.gapIndexAt(y, topPx, hoverGapIndex) : -1;
+        // so line-in-gap and row-highlight are mutually exclusive by construction. The
+        // currently-armed gap gets a 2x exit zone inside the hit-test (sticky hover — no
+        // flicker at the boundary).
+        //
+        // BOTH BANDS. This used to read `sourceIsFloatingBand ? gapIndexAt(...) : -1`, scoped
+        // "floating band first" and never followed up, so an audio clip dragged within the audio
+        // band had no new-lane target at all. JoyRaptor, 2026-09-13: "I could not pull down to
+        // have an audio track go into a new lane, so I had to pull it UP above the spine and then
+        // move it to a lower new audio lane." That worked because the test is on where the drag
+        // BEGAN, which is not what decides whether a new lane makes sense — the band under the
+        // finger is. Each band now answers for its own gaps.
+        boolean gapIsAudio = !sourceIsFloatingBand;
+        int gap = gapIsAudio
+                ? rowRenderer.audioGapIndexAt(y, topPx, hoverGapIndex)
+                : rowRenderer.gapIndexAt(y, topPx, hoverGapIndex);
         if (gap >= 0) {
             hoverGapIndex = gap;
             hoverCrossBandNewLane = false;
@@ -1416,13 +1427,13 @@ public final class LayerGestureController {
             // itself remains the ONE coherent body on its origin row).
             rowRenderer.setProxyRowTrackId(null);
             rowRenderer.setCrossBandInsertionArmed(false, sourceIsFloatingBand);
-            rowRenderer.setHoverGapIndex(gap);
+            rowRenderer.setHoverGapIndex(gap, gapIsAudio);
             rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NEW_LAYER);
             logHoverTarget("gap:" + gap);
             return;
         }
         hoverGapIndex = -1;
-        rowRenderer.setHoverGapIndex(-1);
+        rowRenderer.setHoverGapIndex(-1, false);
 
         Track candidate = rowRenderer.rowTrackAt(y, topPx);
         // Home-snap eligibility: only while hovering the item's OWN row (putting it
@@ -2350,7 +2361,7 @@ public final class LayerGestureController {
         rowRenderer.setHomeGhost(null, 0, 0);
         rowRenderer.setHomeGhostArmed(false);
         rowRenderer.setCrossBandInsertionArmed(false, true);
-        rowRenderer.setHoverGapIndex(-1);
+        rowRenderer.setHoverGapIndex(-1, false);
         rowRenderer.setTimeLockGuides(false, 0, 0);
         rowRenderer.setDragOutlineState(LayerRowRenderer.DRAG_OUTLINE_NONE);
         if (wasMoved && item != null) {

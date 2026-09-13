@@ -10022,6 +10022,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     spineStarts[i] = mt.getClipStartMs(i);
                 }
                 meter.setSpine(spine, spineStarts);
+                if (editorTimeline != null) {
+                    meter.setSpineAmplitude((clip, sourceMs) ->
+                            editorTimeline.sourceAmplitudeAt(clip.getSourceUri(), sourceMs,
+                                    clip.getSourceDurationMs()));
+                }
                 meter.tick();
             }
         }

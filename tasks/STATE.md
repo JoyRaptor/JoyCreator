@@ -189,10 +189,14 @@ What is device-proved on the Note 9, 2026-09-13:
 | Undo | snapshot-based, one press one step, a whole drag folded into one |
 
 What is **not** on the phone yet, and is therefore still desktop-only in violation of the rule
-above: multi-sheet merge and the source chips, Swap / Ripple / Reset order, "Name many…", the
-suspect-cell flag, bake-to-a-new-sheet with its fit/fill/keep and PNG/JPG options, numbered
-frame export, and drag-to-reorder on the film strip and the clips shelf. Alignment-as-data
-removes the NEED to bake on the phone, but the rest are owed.
+above: multi-sheet merge and the source chips, bake-to-a-new-sheet with its fit/fill/keep and
+PNG/JPG options, numbered frame export, and drag-to-reorder on the film strip and the clips
+shelf. Alignment-as-data removes the NEED to bake on the phone, but the rest are owed.
+
+**Swap / Ripple / Reset order is BLOCKED on a ruling, not on work** — see INBOX 2026-09-13.
+Reordering cells decides whether a name and an alignment follow the DRAWING or the SLOT, and
+that changes what happens to sheets JoyRaptor has already named. Two options are written out
+there; it needs one word from him.
 
 > ⚠️ **Avatar Studio is the largest 🟡 block in the app.** Substantial, sophisticated, and
 > never exercised by a human. Recommendation: **present in the launch build, not reachable

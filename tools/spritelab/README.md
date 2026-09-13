@@ -177,9 +177,12 @@ one press.
 
 ### What is still desktop-only
 
-Multi-sheet merge and the Sources rail, Swap / Ripple / Reset order, bulk naming, the
-suspect-cell flag, baking a new sheet (fit / fill / keep, PNG / JPG), numbered frame export,
-and drag-to-reorder on the film strip and the clips shelf.
+Multi-sheet merge and the Sources rail, baking a new sheet (fit / fill / keep, PNG / JPG),
+numbered frame export, and drag-to-reorder on the film strip and the clips shelf.
+
+Swap / Ripple / Reset order is blocked on a decision rather than on work: reordering cells
+decides whether a name and an alignment follow the drawing or the slot. See
+`tasks/INBOX.md`, 2026-09-13.
 
 Alignment travels as **data** now — `cellXf` on the sheet — so nothing has to be baked to move
 work from here to the phone or back. The rest of that list is owed, because the standing rule

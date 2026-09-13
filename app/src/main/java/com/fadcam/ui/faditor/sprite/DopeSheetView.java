@@ -108,17 +108,18 @@ public class DopeSheetView extends View {
 
     public DopeSheetView(@NonNull Context ctx) {
         super(ctx);
-        cellBgPaint.setColor(0xFF23232B);
+        cellBgPaint.setColor(SpriteTheme.CONTROL_HI);
         selPaint.setStyle(Paint.Style.STROKE);
         selPaint.setStrokeWidth(2.5f * density);
-        selPaint.setColor(0xFF7FD1FF);
-        badgePaint.setColor(0xE6101014);
-        textPaint.setColor(0xFFFFFFFF);
+        selPaint.setColor(SpriteTheme.SELECTED);
+        // A scrim over the tape, so it keeps its alpha on purpose (SpriteTheme rule 2).
+        badgePaint.setColor(SpriteTheme.DRAWER_SCRIM);
+        textPaint.setColor(SpriteTheme.INK);
         textPaint.setTextSize(11 * density);
         textPaint.setFakeBoldText(true);
-        idxPaint.setColor(0x99FFFFFF);
+        idxPaint.setColor(SpriteTheme.DIM);
         idxPaint.setTextSize(8.5f * density);
-        playheadPaint.setColor(0xFF4FC3F7);
+        playheadPaint.setColor(SpriteTheme.LIVE);
         playheadPaint.setStrokeWidth(2f * density);
     }
 

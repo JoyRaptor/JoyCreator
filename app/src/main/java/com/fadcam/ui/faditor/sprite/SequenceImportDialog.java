@@ -77,7 +77,7 @@ public final class SequenceImportDialog {
         TextView hint = new TextView(ctx);
         hint.setText("How long should it run? You can change all of this later.");
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        hint.setAlpha(0.7f);
+        hint.setTextColor(SpriteTheme.DIM);
         hint.setPadding(0, 0, 0, dp(ctx, 14));
         root.addView(hint);
 
@@ -190,7 +190,7 @@ public final class SequenceImportDialog {
         TextView t = new TextView(ctx);
         t.setText(label);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        t.setAlpha(0.75f);
+        t.setTextColor(SpriteTheme.DIM);
         t.setLayoutParams(new LinearLayout.LayoutParams(dp(ctx, 130),
                 LinearLayout.LayoutParams.WRAP_CONTENT));
         row.addView(t);

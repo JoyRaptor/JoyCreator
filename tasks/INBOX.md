@@ -219,3 +219,32 @@ turns out it already exists), or gets deleted. Deleting is fine. That is what an
   Two cheap fixes: put **Sprites / sprite sheet** in the **Add asset** menu where people look
   for assets, and surface an import affordance in the drawer's empty state. The deeper fix is
   the planned top-level Sprite Lab entry.
+
+## 2026-09-13 — ONE RULING NEEDED: does a cell's name follow the drawing or the slot?
+
+Swap / Ripple / Reset order is the last thing from the mobile mockup's Slice section that is
+not on the phone, and it is not a build problem — it is a semantics problem I will not guess
+at, because guessing wrong silently rearranges work you already did.
+
+Reordering cells means the sheet gets a `cellOrder` map: "slot 3 now shows the drawing that
+was in slot 7". The question is what happens to everything ELSE that is keyed by cell number:
+the name, the alignment nudge, the viseme.
+
+**Option A — the name follows the DRAWING.** You called that picture "surprised", so it stays
+"surprised" wherever you move it, and its alignment travels with it. Costs a second index
+space inside the sheet (slot number vs drawing number), and saved animations keep referring to
+SLOTS, so an animation you already made would play different drawings after a reorder.
+
+**Option B — the name follows the SLOT.** Moving a drawing moves its name and its alignment
+with it in one operation, so there is only ever one numbering. Saved animations keep playing
+the same slots, which now hold the drawings you just arranged — which is usually what
+reordering is FOR. SpriteLab on the desktop behaves this way and warns that reordering
+renumbers.
+
+I lean **B**: one numbering, no hidden second identity, and it matches the tool you are
+already using. But it is your work being rearranged, so it is your call.
+
+Everything else from the mockup's Slice section landed on 2026-09-13 (Grid / Names switches,
+Suspect, Name many…). Still owed after this ruling: multi-sheet merge and the Sources rail,
+bake-to-a-new-sheet, numbered frame export, and drag-to-reorder on the film strip and clips
+shelf.

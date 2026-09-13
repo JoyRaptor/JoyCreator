@@ -3092,4 +3092,24 @@ JoyRaptor's personal Gmail. **Screenshot, or check
 `adb shell dumpsys window | grep mCurrentFocus`, before every tap batch.** The screenshots
 were deleted unread.
 
-Commits: 28b03c0e · 1561af46 · 6657cffd · 73330444
+### Two more, found by testing the ROUND TRIP rather than the feature
+
+- **Slice finished**: Grid / Names switches, Suspect (an amber dot on any cell whose ink runs
+  into its own edge — it correctly flagged the two widest poses on the test sheet), and
+  **Name many…**, which walks the cells with the art in front of you. Naming a cell the old
+  way was four moves; sixteen cells was sixty-four, which is why sheets stay unnamed.
+- **The Lab did not autosave on pause.** Named cell 0 "smile", killed the app, reopened — gone.
+  Not a naming bug: this screen only saved on Back while the rest of the editor autosaves on
+  pause. Proved fixed: named, pressed Home, relaunched, "smile" is on the grid in cyan and in
+  the Alignment header, save button grey.
+
+### Left undone ON PURPOSE
+
+Swap / Ripple / Reset order is the last item from the mockup's Slice section and it is stopped
+on a RULING, not on work: reordering cells decides whether a cell's name and its alignment
+follow the drawing or the slot, and either answer silently rearranges sheets JoyRaptor has
+already named. Both options and my lean are in INBOX 2026-09-13. Guessing that at 6am on his
+behalf is how you lose someone's afternoon.
+
+Commits: 28b03c0e · 1561af46 · 6657cffd · 73330444 · 9924d6ef · b02f0eaa · 95047608 ·
+b3494144 · 13840add

@@ -120,11 +120,26 @@ public class SpriteGridEditorView extends View {
 
     public void setListener(@Nullable Listener l) { this.listener = l; }
 
+    /** Source size the current view matrix was fitted to, so a re-decode can keep the zoom. */
+    private int fittedW = -1, fittedH = -1;
+
     public void setSheet(@Nullable SpriteSheet sheet, @Nullable SpriteSheetRenderer renderer) {
         this.sheet = sheet;
         this.renderer = renderer;
-        matrixInitialized = false;
-        selectedCell = sheet != null && sheet.cellCount() > 0 ? 0 : -1;
+        // Keep the zoom and pan when the ART is the same size as before. An undo, a tolerance
+        // change or a relink all re-decode the bitmap, and throwing the view back to "fit"
+        // every time means losing the close-up you were aligning in.
+        int w = renderer == null ? -1 : renderer.sourceWidth();
+        int h = renderer == null ? -1 : renderer.sourceHeight();
+        boolean sameArt = w > 0 && w == fittedW && h == fittedH;
+        if (!sameArt) {
+            matrixInitialized = false;
+            fittedW = w;
+            fittedH = h;
+            selectedCell = sheet != null && sheet.cellCount() > 0 ? 0 : -1;
+        } else if (sheet != null && selectedCell >= sheet.cellCount()) {
+            selectedCell = sheet.cellCount() - 1;
+        }
         invalidate();
     }
 
@@ -274,6 +289,8 @@ public class SpriteGridEditorView extends View {
 
     private void fitToView() {
         if (renderer == null) return;
+        fittedW = renderer.sourceWidth();
+        fittedH = renderer.sourceHeight();
         float sw = renderer.sourceWidth(), sh = renderer.sourceHeight();
         float pad = 12f * density;
         float scale = Math.min((getWidth() - 2 * pad) / sw, (getHeight() - 2 * pad) / sh);

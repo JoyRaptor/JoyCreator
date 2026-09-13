@@ -494,9 +494,23 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             redoStack.clear();
         }
         burstAt = now;
-        settled = snapshot();
+        // Serialising the whole sheet on every keystroke and every drag tick is work nobody
+        // sees; take the snapshot once the hand comes off the control. A stale `settled` is
+        // harmless in the meantime, because undo snapshots the live state itself.
+        if (benchBody != null) {
+            benchBody.removeCallbacks(settle);
+            benchBody.postDelayed(settle, 250);
+        } else {
+            settled = snapshot();
+        }
         syncUndo();
     }
+
+    private final Runnable settle = new Runnable() {
+        @Override public void run() {
+            if (!restoring) settled = snapshot();
+        }
+    };
 
     private void undo() {
         if (undoStack.isEmpty()) { Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show(); return; }
@@ -1255,7 +1269,22 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private void refreshArt() {
         gridView.refresh();
         preview.invalidate();
-        rebuildFilm();
+        // Repaint the roll, do not rebuild it. A nudge changes how the frames LOOK, not which
+        // frames they are, and building forty chips per drag tick is how a slider feels broken.
+        invalidateFilm();
+    }
+
+    /** Repaint every thumbnail in the film strip in place. */
+    private void invalidateFilm() {
+        for (View chip : filmBoxes) invalidateTree(chip);
+    }
+
+    private static void invalidateTree(@NonNull View v) {
+        v.invalidate();
+        if (v instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) v;
+            for (int i = 0; i < g.getChildCount(); i++) invalidateTree(g.getChildAt(i));
+        }
     }
 
     @NonNull
@@ -1894,9 +1923,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     acc += Math.max(1, labSeq.get(i)[1]);
                     if (t < acc) { labCur = i; break; }
                 }
+                labHold = 0;
                 preview.setCursor(labSeq.get(labCur)[0]);
                 gridView.setPlayingCell(labSeq.get(labCur)[0]);
-                rebuildFilm();
+                // Retint the roll rather than rebuilding it: this fires on every move event.
+                syncFilmCursor();
                 invalidate();
                 return true;
             }
@@ -2273,7 +2304,16 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private void setTolerance(float value) {
         sheet.setBgKey(sheet.getBgKeyColor(), Math.max(0f, Math.min(0.5f, value)));
         markDirty();
-        if (sheet.getBgKeyColor() != 0) reloadRenderer();
+        // Re-key the art WITHOUT rebuilding the section: the pill being dragged lives in it.
+        if (sheet.getBgKeyColor() != 0) {
+            if (renderer != null) renderer.recycle();
+            renderer = SpriteSheetRenderer.load(this, sheet);
+            gridView.setSheet(sheet, renderer);
+            preview.bind(sheet, renderer);
+            preview.setCursor(labSeq.isEmpty() ? labSelected : labSeq.get(
+                    Math.max(0, Math.min(labSeq.size() - 1, labCur)))[0]);
+            invalidateFilm();
+        }
         gridView.refresh();
         if (preview != null) preview.invalidate();
     }

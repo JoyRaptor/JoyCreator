@@ -207,7 +207,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     /** The roll being assembled: {cellIndex, holdTicks}. "Save clip" turns it into a preset. */
     private final java.util.List<int[]> labSeq = new java.util.ArrayList<>();
     private final java.util.List<View> filmBoxes = new java.util.ArrayList<>();
-    private final java.util.List<TextView> filmLabels = new java.util.ArrayList<>();
     private int labCur = 0;
     /** "slice" | "play" | "clips" | "out" */
     private String labSection = "play";
@@ -253,8 +252,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         root.addView(gridView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        View divider = new View(this);
-        divider.setBackgroundColor(SpriteTheme.LINE);
+        View divider = new Divider(this);
         divider.setOnTouchListener(new View.OnTouchListener() {
             float downY; int startPx;
             @Override public boolean onTouch(View v, MotionEvent e) {
@@ -318,6 +316,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         setContentView(root);
         showSection(labSection);
         rebuildFilm();
+        settled = snapshot();
     }
 
     /** Back · name · four coloured section icons · save. One line. */
@@ -344,6 +343,14 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         nLp.leftMargin = pad / 2;
         top.addView(nameField, nLp);
+
+        undoBtn = ichip("undo");
+        undoBtn.setOnClickListener(v -> undo());
+        top.addView(undoBtn);
+        redoBtn = ichip("redo");
+        redoBtn.setOnClickListener(v -> redo());
+        top.addView(redoBtn);
+        syncUndo();
 
         // Four sections, four colours, in ONE segmented pill. Solid when active, plain grey
         // when not — there is no half-opaque middle state anywhere in this package.
@@ -401,7 +408,131 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         tintToggle(saveBtn, labDirty, SpriteTheme.LIVE);
     }
 
-    private void markDirty() { labDirty = true; syncSaveBtn(); }
+    private void markDirty() { labDirty = true; syncSaveBtn(); noteChange(); }
+
+    // ── undo ─────────────────────────────────────────────────────────────
+    //
+    // Snapshots, not commands. The sheet already knows how to write and read itself, so a
+    // step is one string; the alternative is an undoable twin of every edit in this file,
+    // and those rot the moment someone adds an edit and forgets the twin.
+
+    private final java.util.ArrayDeque<String> undoStack = new java.util.ArrayDeque<>();
+    private final java.util.ArrayDeque<String> redoStack = new java.util.ArrayDeque<>();
+    private TextView undoBtn;
+    private TextView redoBtn;
+    /** The state as it stands now, ready to become the next undo step. */
+    private String settled;
+    private long burstAt;
+    /**
+     * How long a run of changes counts as ONE press. A drag widens it so the whole gesture
+     * is a single step — JoyRaptor's rule is one press, one step.
+     */
+    private int burstMs = 600;
+
+    @NonNull
+    private String snapshot() {
+        StringBuilder sb = new StringBuilder(sheet.toJson().toString());
+        sb.append('\0').append(labCur).append('|');
+        for (int[] f : labSeq) sb.append(f[0]).append(':').append(f[1]).append(',');
+        return sb.toString();
+    }
+
+    private boolean restoring;
+
+    private void restore(@NonNull String snap) {
+        int cut = snap.indexOf('\0');
+        if (cut < 0) return;
+        SpriteSheet restored;
+        try {
+            restored = SpriteSheet.fromJson(
+                    com.google.gson.JsonParser.parseString(snap.substring(0, cut)).getAsJsonObject());
+        } catch (RuntimeException e) {
+            return;   // a snapshot we cannot read is not worth crashing over
+        }
+        java.util.List<SpriteSheet> all = project.getSpriteSheets();
+        for (int i = 0; i < all.size(); i++) {
+            if (all.get(i).getId().equals(sheet.getId())) { all.set(i, restored); break; }
+        }
+        sheet = restored;
+
+        restoring = true;
+        labSeq.clear();
+        String tail = snap.substring(cut + 1);
+        int bar = tail.indexOf('|');
+        labCur = 0;
+        if (bar >= 0) {
+            try { labCur = Integer.parseInt(tail.substring(0, bar)); } catch (NumberFormatException ignored) { }
+            tail = tail.substring(bar + 1);
+        }
+        for (String part : tail.split(",")) {
+            if (part.isEmpty()) continue;
+            int colon = part.indexOf(':');
+            if (colon <= 0) continue;
+            try {
+                labSeq.add(new int[]{Integer.parseInt(part.substring(0, colon)),
+                        Integer.parseInt(part.substring(colon + 1))});
+            } catch (NumberFormatException ignored) { }
+        }
+        labCur = Math.max(0, Math.min(Math.max(0, labSeq.size() - 1), labCur));
+        labHold = 0;
+
+        reloadRenderer();
+        rebuildFilm();
+        showSection(labSection);
+        nameField.setText(sheet.getName());
+        restoring = false;
+    }
+
+    /** Fold this change into the current step, or open a new one if the last has settled. */
+    private void noteChange() {
+        if (restoring) return;   // rebuilding the UI must not look like a fresh edit
+        long now = android.os.SystemClock.uptimeMillis();
+        if (settled == null) { settled = snapshot(); burstAt = now; return; }
+        if (now - burstAt > burstMs) {
+            undoStack.push(settled);
+            while (undoStack.size() > 40) undoStack.removeLast();
+            redoStack.clear();
+        }
+        burstAt = now;
+        settled = snapshot();
+        syncUndo();
+    }
+
+    private void undo() {
+        if (undoStack.isEmpty()) { Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show(); return; }
+        redoStack.push(snapshot());
+        restore(undoStack.pop());
+        settled = snapshot();
+        burstAt = 0;
+        labDirty = true;
+        syncSaveBtn();
+        syncUndo();
+    }
+
+    private void redo() {
+        if (redoStack.isEmpty()) return;
+        undoStack.push(snapshot());
+        restore(redoStack.pop());
+        settled = snapshot();
+        burstAt = 0;
+        labDirty = true;
+        syncSaveBtn();
+        syncUndo();
+    }
+
+    /** Grey means there is nothing back there — the button says so before you press it. */
+    private void syncUndo() {
+        if (undoBtn != null) {
+            int ink = undoStack.isEmpty() ? SpriteTheme.DIMMER : SpriteTheme.INK;
+            undoBtn.setTextColor(ink);
+            tintIcon(undoBtn, ink);
+        }
+        if (redoBtn != null) {
+            int ink = redoStack.isEmpty() ? SpriteTheme.DIMMER : SpriteTheme.INK;
+            redoBtn.setTextColor(ink);
+            tintIcon(redoBtn, ink);
+        }
+    }
 
     @NonNull
     private View buildTransport(float d) {
@@ -506,9 +637,16 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      */
     int neighbourCell(int from, int offset) {
         if (!labSeq.isEmpty()) {
+            // Prefer the frame the playhead is actually on. Searching for the first entry
+            // that uses this cell ghosts the wrong neighbours the moment a cell repeats,
+            // which on a hand-made sheet is most of the time.
             int at = -1;
-            for (int i = 0; i < labSeq.size(); i++) if (labSeq.get(i)[0] == from) { at = i; break; }
-            if (at < 0) at = Math.max(0, Math.min(labSeq.size() - 1, labCur));
+            int cur = Math.max(0, Math.min(labSeq.size() - 1, labCur));
+            if (labSeq.get(cur)[0] == from) at = cur;
+            if (at < 0) {
+                for (int i = 0; i < labSeq.size(); i++) if (labSeq.get(i)[0] == from) { at = i; break; }
+            }
+            if (at < 0) at = cur;
             int want = at + offset;
             if (want < 0 || want >= labSeq.size()) return -1;
             return labSeq.get(want)[0];
@@ -549,11 +687,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     /** Retint the film instead of rebuilding it — playback touches this every frame. */
     void syncFilmCursor() {
         for (int i = 0; i < filmBoxes.size(); i++) {
-            boolean on = i == labCur;
-            filmBoxes.get(i).setBackgroundColor(on ? SpriteTheme.LIVE : SpriteTheme.CONTROL);
-            if (i < filmLabels.size()) {
-                filmLabels.get(i).setTextColor(on ? 0xFF3B0322 : SpriteTheme.DIMMER);
-            }
+            Object t = filmBoxes.get(i).getTag();
+            if (t instanceof ChipTint) ((ChipTint) t).set(i == labCur, false);
         }
         if (scrubBar != null) scrubBar.invalidate();
     }
@@ -1205,9 +1340,14 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     // ── CLIPS ────────────────────────────────────────────────────────────
+    /** The id of the clip whose frames the grid is lighting, or null. */
+    @Nullable private String pickedClip;
+
     private void buildClipsSection() {
         float d = density();
         if (sheet.getPresets().isEmpty()) {
+            pickedClip = null;
+            gridView.setRoll(labSeq);
             TextView empty = new TextView(this);
             empty.setText("No animations yet. Build a sequence in Play, then Save clip.");
             empty.setTextColor(SpriteTheme.DIMMER);
@@ -1215,67 +1355,76 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             benchBody.addView(empty);
             return;
         }
+
+        TextView hint = new TextView(this);
+        hint.setText("Tap a clip to see it on the sheet. Its frames light up in order.");
+        hint.setTextColor(SpriteTheme.DIMMER);
+        hint.setTextSize(10f);
+        benchBody.addView(hint);
+
+        FlowLayout shelf = new FlowLayout(this);
+        shelf.setPadding(0, (int) (5 * d), 0, (int) (5 * d));
+        SpriteSheet.Preset picked = null;
         for (int i = 0; i < sheet.getPresets().size(); i++) {
             final SpriteSheet.Preset pr = sheet.getPresets().get(i);
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setBackgroundColor(SpriteTheme.CONTROL);
-            int pad = (int) (6 * d);
-            row.setPadding(pad, pad, pad, pad);
+            boolean sel = pr.id.equals(pickedClip);
+            if (sel) picked = pr;
+            View chip = spriteChip(0, pr, pr.name, pr.frames.size() + "f \u00b7 "
+                    + (int) (pr.fps > 0 ? pr.fps : sheet.getFps()) + "fps", 0, false, sel);
+            chip.setOnClickListener(v -> {
+                pickedClip = pr.id.equals(pickedClip) ? null : pr.id;
+                showSection("clips");
+            });
+            shelf.addView(chip);
+        }
+        benchBody.addView(shelf);
 
-            PresetThumb th = new PresetThumb(this, renderer, pr);
-            row.addView(th, new LinearLayout.LayoutParams((int) (46 * d), (int) (46 * d)));
+        // A picked clip lights its own frames on the sheet, in its own order — which is the
+        // fastest way to see what a clip actually is without loading it over your work.
+        if (picked != null) {
+            java.util.List<int[]> asRoll = new java.util.ArrayList<>();
+            for (int k = 0; k < picked.frames.size(); k++) {
+                asRoll.add(new int[]{picked.frames.get(k),
+                        SequenceTiming.weightAt(picked.weights, k)});
+            }
+            gridView.setRoll(asRoll);
 
-            LinearLayout meta = new LinearLayout(this);
-            meta.setOrientation(LinearLayout.VERTICAL);
-            TextView nm = new TextView(this);
-            nm.setText(pr.name);
-            nm.setTextColor(0xFFFFFFFF);
-            nm.setTextSize(13f);
-            nm.setTypeface(Typeface.DEFAULT_BOLD);
-            meta.addView(nm);
-            TextView sub = new TextView(this);
-            sub.setText(pr.frames.size() + " frames · "
-                    + (pr.fps > 0 ? (int) pr.fps : (int) sheet.getFps()) + " fps · " + pr.type);
-            sub.setTextColor(SpriteTheme.DIMMER);
-            sub.setTextSize(10f);
-            meta.addView(sub);
-            LinearLayout.LayoutParams mLp = new LinearLayout.LayoutParams(
-                    0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-            mLp.leftMargin = (int) (8 * d);
-            row.addView(meta, mLp);
-
-            TextView load = chip("⤒");
+            final SpriteSheet.Preset pick = picked;
+            FlowLayout acts = new FlowLayout(this);
+            TextView load = ichip("layers", "Load into sequence");
+            tintToggle(load, true, SpriteTheme.ACCENT_CLIPS);
             load.setOnClickListener(v -> {
+                noteChange();
                 labSeq.clear();
-                for (int k = 0; k < pr.frames.size(); k++) {
-                    labSeq.add(new int[]{pr.frames.get(k),
-                            SequenceTiming.weightAt(pr.weights, k)});
-                }
+                labSeq.addAll(asRoll);
                 labCur = 0;
+                labHold = 0;
+                labWrap = pick.type == null ? "loop" : pick.type;
+                syncWrap();
+                pickedClip = null;
                 rebuildFilm();
                 showSection("play");
             });
-            row.addView(load);
+            acts.addView(load);
 
-            TextView edit = chip("✎");
-            edit.setOnClickListener(v -> editPreset(pr));
-            row.addView(edit);
+            TextView edit = ichip("tag", "Rename / retime");
+            edit.setOnClickListener(v -> editPreset(pick));
+            acts.addView(edit);
 
-            TextView del = chip("✕");
+            TextView del = ichip("x", "Delete");
             del.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
-                    .setTitle("Delete “" + pr.name + "”?")
+                    .setTitle("Delete \u201c" + pick.name + "\u201d?")
                     .setPositiveButton("Delete", (dl, w) -> {
-                        sheet.getPresets().remove(pr); markDirty(); showSection("clips");
+                        sheet.getPresets().remove(pick);
+                        pickedClip = null;
+                        markDirty();
+                        showSection("clips");
                     })
                     .setNegativeButton("Cancel", null).show());
-            row.addView(del);
-
-            LinearLayout.LayoutParams rLp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            rLp.bottomMargin = (int) (6 * d);
-            benchBody.addView(row, rLp);
+            acts.addView(del);
+            benchBody.addView(acts);
+        } else {
+            gridView.setRoll(labSeq);
         }
     }
 
@@ -1360,9 +1509,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private void rebuildFilm() {
         if (filmRow == null) return;
         float d = density();
+        gridView.setRoll(labSeq);
         filmRow.removeAllViews();
         filmBoxes.clear();
-        filmLabels.clear();
         if (labSeq.isEmpty()) {
             TextView hint = new TextView(this);
             hint.setText("Tap cells on the sheet to build a sequence");
@@ -1376,49 +1525,129 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         for (int i = 0; i < labSeq.size(); i++) {
             final int idx = i;
             int[] f = labSeq.get(i);
-            LinearLayout box = new LinearLayout(this);
-            box.setOrientation(LinearLayout.VERTICAL);
-            box.setGravity(Gravity.CENTER_HORIZONTAL);
-            box.setBackgroundColor(i == labCur ? SpriteTheme.LIVE : SpriteTheme.CONTROL);
-            int cp = (int) (2 * d);
-            box.setPadding(cp, cp, cp, cp);
-
-            PresetThumb th = new PresetThumb(this, renderer, null);
-            th.setStill(f[0]);
-            box.addView(th, new LinearLayout.LayoutParams((int) (44 * d), (int) (44 * d)));
-
-            TextView lb = new TextView(this);
-            String nm = sheet.cellName(f[0]);
-            lb.setText((nm != null && !nm.isEmpty() ? nm : "c" + f[0])
-                    + (f[1] > 1 ? " ×" + f[1] : ""));
-            lb.setTextColor(i == labCur ? 0xFF3B0322 : SpriteTheme.DIMMER);
-            lb.setTextSize(8.5f);
-            lb.setMaxLines(1);
-            box.addView(lb);
-
-            box.setOnClickListener(v -> {
+            View chip = spriteChip(f[0], null, cellLabel(f[0]),
+                    "#" + (i + 1) + " \u00b7 c" + f[0], f[1], i == labCur, false);
+            chip.setOnClickListener(v -> {
                 labCur = idx;
+                labHold = 0;
                 preview.setCursor(labSeq.get(idx)[0]);
                 gridView.setPlayingCell(labSeq.get(idx)[0]);
-                rebuildFilm();
-                if (scrubBar != null) scrubBar.invalidate();
+                syncFilmCursor();
+                if ("play".equals(labSection)) showSection("play");
             });
-            box.setOnLongClickListener(v -> {
+            chip.setOnLongClickListener(v -> {
+                noteChange();
                 labSeq.remove(idx);
                 if (labCur >= labSeq.size()) labCur = Math.max(0, labSeq.size() - 1);
                 rebuildFilm();
-                if (scrubBar != null) scrubBar.invalidate();
+                if ("play".equals(labSection)) showSection("play");
                 return true;
             });
             LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             bl.rightMargin = (int) (4 * d);
-            strip.frames().addView(box, bl);
-            filmBoxes.add(box);
-            filmLabels.add(lb);
+            strip.frames().addView(chip, bl);
+            filmBoxes.add(chip);
         }
         filmRow.addView(strip);
         if (scrubBar != null) scrubBar.invalidate();
+    }
+
+    /**
+     * THE chip. One design for a still and for a saved animation; the only difference is a
+     * mode dot in the corner, which is exactly how the web design draws it.
+     *
+     * <p>Two chip designs is how you end up explaining to someone that the square ones are
+     * frames and the other square ones are clips.</p>
+     */
+    @NonNull
+    private View spriteChip(int cell, @Nullable SpriteSheet.Preset preset,
+                            @Nullable String label, @Nullable String sub,
+                            int hold, boolean now, boolean sel) {
+        float d = density();
+        android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setGravity(Gravity.CENTER_HORIZONTAL);
+        int pad = (int) (2 * d);
+        body.setPadding(pad, pad, pad, pad);
+
+        PresetThumb th = new PresetThumb(this, renderer, preset);
+        if (preset == null) th.setStill(cell);
+        body.addView(th, new LinearLayout.LayoutParams((int) (44 * d), (int) (32 * d)));
+
+        TextView lb = new TextView(this);
+        lb.setText(label == null ? "" : label);
+        lb.setTextSize(8f);
+        lb.setTextColor(0xFFFFFFFF);
+        lb.setTypeface(Typeface.DEFAULT_BOLD);
+        lb.setMaxLines(1);
+        lb.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        lb.setGravity(Gravity.CENTER);
+        body.addView(lb);
+
+        TextView sb = new TextView(this);
+        sb.setText(sub == null ? "" : sub);
+        sb.setTextSize(7f);
+        sb.setMaxLines(1);
+        sb.setGravity(Gravity.CENTER);
+        body.addView(sb);
+
+        android.widget.FrameLayout.LayoutParams bl = new android.widget.FrameLayout.LayoutParams(
+                (int) (52 * d), ViewGroup.LayoutParams.WRAP_CONTENT);
+        wrap.addView(body, bl);
+
+        if (hold > 1) {
+            TextView hd = new TextView(this);
+            hd.setText("x" + hold);
+            hd.setTextSize(7.5f);
+            hd.setTypeface(Typeface.DEFAULT_BOLD);
+            hd.setTextColor(SpriteTheme.ON_ACCENT);
+            android.graphics.drawable.GradientDrawable hb = new GradientDrawable();
+            hb.setColor(SpriteTheme.ACCENT_GRID);
+            hb.setCornerRadius(3 * d);
+            hd.setBackground(hb);
+            hd.setPadding((int) (3 * d), 0, (int) (3 * d), 0);
+            android.widget.FrameLayout.LayoutParams hl = new android.widget.FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            hl.gravity = Gravity.START | Gravity.TOP;
+            wrap.addView(hd, hl);
+        }
+
+        ChipTint tint = new ChipTint(body, sb, d);
+        tint.set(now, sel);
+        wrap.setTag(tint);
+        return wrap;
+    }
+
+    /** Repaint a chip's state without rebuilding it — playback touches this every frame. */
+    private static class ChipTint {
+        private final View body;
+        private final TextView sub;
+        private final float d;
+        ChipTint(@NonNull View body, @NonNull TextView sub, float d) {
+            this.body = body; this.sub = sub; this.d = d;
+        }
+        void set(boolean now, boolean sel) {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(now ? SpriteTheme.LIVE : SpriteTheme.CONTROL);
+            bg.setCornerRadius(9 * d);
+            bg.setStroke((int) (2 * d), sel ? SpriteTheme.SELECTED : 0x00000000);
+            body.setBackground(bg);
+            sub.setTextColor(now ? 0xFF3B0322 : SpriteTheme.DIMMER);
+        }
+    }
+
+    /** The name to put under a cell's chip: what it is called, or what number it is. */
+    @NonNull
+    private String cellLabel(int cell) {
+        String nm = sheet.cellName(cell);
+        if (nm == null || nm.isEmpty()) {
+            SpriteSheet.Cell m = sheet.cellAt(cell);
+            nm = m == null ? null : m.name;
+        }
+        return nm == null || nm.isEmpty() ? ("cell " + cell) : nm;
     }
 
     private interface FloatGet { float get(); }
@@ -1500,6 +1729,34 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     // ── small views ──────────────────────────────────────────────────────
+
+    /**
+     * The bench's top edge. A bare line reads as decoration, so it wears the design's grab
+     * pill: a thing you can obviously take hold of.
+     */
+    private static class Divider extends View {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF grip = new RectF();
+        private final float d;
+        Divider(Context c) {
+            super(c);
+            d = c.getResources().getDisplayMetrics().density;
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            p.setColor(SpriteTheme.LINE);
+            canvas.drawRect(0, getHeight() / 2f - 0.5f * d, getWidth(), getHeight() / 2f + 0.5f * d, p);
+            float w = 48 * d, h = Math.min(getHeight(), (int) (7 * d));
+            grip.set((getWidth() - w) / 2f, (getHeight() - h) / 2f,
+                    (getWidth() + w) / 2f, (getHeight() + h) / 2f);
+            p.setColor(SpriteTheme.CONTROL_HI);
+            canvas.drawRoundRect(grip, h / 2f, h / 2f, p);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(d);
+            p.setColor(SpriteTheme.LINE);
+            canvas.drawRoundRect(grip, h / 2f, h / 2f, p);
+            p.setStyle(Paint.Style.FILL);
+        }
+    }
 
     /** A row that wraps. Chips fill the width beside the preview, then carry on beneath it. */
     private static class FlowLayout extends ViewGroup {
@@ -1858,6 +2115,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 case MotionEvent.ACTION_DOWN:
                     downX = e.getRawX();
                     dragged = false;
+                    burstMs = 4000;   // the whole gesture is one undo step
                     // Inside two nested scrollers; without this the first millimetre of a
                     // horizontal drag is stolen and the number never moves.
                     if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -1873,10 +2131,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     return true;
                 }
                 case MotionEvent.ACTION_UP:
+                    burstMs = 600;
                     if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
                     if (!dragged) askForValue();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
+                    burstMs = 600;
                     if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
                     return true;
                 default:
@@ -1996,6 +2256,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      */
     private void onCellTappedInLab(int index) {
         if (index < 0 || sheet == null) return;
+        noteChange();
         labSeq.add(new int[]{index, 1});
         labCur = labSeq.size() - 1;
         labSelected = index;

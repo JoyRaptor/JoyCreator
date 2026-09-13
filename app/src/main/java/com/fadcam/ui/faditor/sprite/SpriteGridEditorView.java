@@ -55,7 +55,20 @@ public class SpriteGridEditorView extends View {
     private final Paint selPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint playPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pivotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint namePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint visPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint badgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint badgeInk = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF badgeBox = new RectF();
     private final float density = getResources().getDisplayMetrics().density;
+
+    /**
+     * Where each cell sits in the roll being built — "3", or "2,5" when it is used twice.
+     *
+     * <p>The grid is where the sequence is READ. Without this the only record of the order
+     * you tapped lives in the film strip, and you cannot see it while looking at the art.</p>
+     */
+    private final java.util.Map<Integer, String> orders = new java.util.HashMap<>();
 
     private final ScaleGestureDetector scaleDetector;
     private boolean scaling = false;
@@ -67,20 +80,32 @@ public class SpriteGridEditorView extends View {
         super(ctx);
         gridPaint.setStyle(Paint.Style.STROKE);
         gridPaint.setStrokeWidth(1.5f * density);
-        gridPaint.setColor(0xAA00E5A0);
-        numPaint.setColor(0xFFFFFFFF);
-        numPaint.setTextSize(11f * density);
+        gridPaint.setColor(SpriteTheme.LINE);
+        numPaint.setColor(SpriteTheme.DIMMER);
+        numPaint.setTextSize(9f * density);
         numPaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        namePaint.setColor(SpriteTheme.SELECTED);
+        namePaint.setTextSize(8.5f * density);
+        namePaint.setTextAlign(Paint.Align.RIGHT);
+        namePaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        visPaint.setColor(SpriteTheme.ACCENT_CELL);
+        visPaint.setTextSize(8.5f * density);
+        visPaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        badgeInk.setTextSize(9.5f * density);
+        badgeInk.setTextAlign(Paint.Align.CENTER);
+        badgeInk.setFakeBoldText(true);
         shadePaint.setColor(0x99000000);
+        // Cyan is "you are pointing at this", pink is "this is what the preview is showing
+        // right now" — the same two meanings they carry everywhere else in the package.
         selPaint.setStyle(Paint.Style.STROKE);
-        selPaint.setStrokeWidth(3f * density);
-        selPaint.setColor(0xFFFFD54F);
+        selPaint.setStrokeWidth(2.5f * density);
+        selPaint.setColor(SpriteTheme.SELECTED);
         playPaint.setStyle(Paint.Style.STROKE);
         playPaint.setStrokeWidth(3f * density);
-        playPaint.setColor(0xFF00E5FF);
+        playPaint.setColor(SpriteTheme.LIVE);
         pivotPaint.setStyle(Paint.Style.STROKE);
         pivotPaint.setStrokeWidth(2f * density);
-        pivotPaint.setColor(0xFFFF6E9C);
+        pivotPaint.setColor(SpriteTheme.LIVE);
         touchSlop = 8f * density;
         scaleDetector = new ScaleGestureDetector(ctx, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override public boolean onScaleBegin(ScaleGestureDetector d) { scaling = true; return true; }
@@ -117,12 +142,25 @@ public class SpriteGridEditorView extends View {
     public void setColorPickMode(boolean on) { colorPickMode = on; invalidate(); }
     public boolean isColorPickMode() { return colorPickMode; }
 
+    /** Tell the grid which cells the roll uses, and in what order. */
+    public void setRoll(@Nullable java.util.List<int[]> roll) {
+        orders.clear();
+        if (roll != null) {
+            for (int i = 0; i < roll.size(); i++) {
+                int cell = roll.get(i)[0];
+                String had = orders.get(cell);
+                orders.put(cell, had == null ? String.valueOf(i + 1) : had + "," + (i + 1));
+            }
+        }
+        invalidate();
+    }
+
     /** Re-fit on next draw (geometry controls changed nothing about the matrix). */
     public void refresh() { invalidate(); }
 
     @Override
     protected void onDraw(Canvas canvas) {
-        canvas.drawColor(0xFF16161C);
+        canvas.drawColor(SpriteTheme.BG);
         if (renderer == null || sheet == null) {
             numPaint.setTextAlign(Paint.Align.CENTER);
             canvas.drawText(getContext().getString(com.fadcam.R.string.sprite_editor_missing_image),
@@ -165,23 +203,59 @@ public class SpriteGridEditorView extends View {
             SpriteSheet.Cell meta = sheet.cellAt(i);
             if (meta != null && !meta.enabled) canvas.drawRect(rf, shadePaint);
             canvas.drawRect(rf, gridPaint);
-            if (i == selectedCell) canvas.drawRect(rf, selPaint);
-            if (i == playingCell && i != selectedCell) canvas.drawRect(rf, playPaint);
+            // A cell the roll uses is lit cyan too: while a sequence is being built, the
+            // question the grid has to answer is "which of these am I using?"
+            if (i == selectedCell || orders.containsKey(i)) canvas.drawRect(rf, selPaint);
+            if (i == playingCell) canvas.drawRect(rf, playPaint);
         }
         canvas.restore();
 
-        // Numbers + names drawn in VIEW space (constant size regardless of zoom).
-        float[] pt = new float[2];
+        // Labels drawn in VIEW space, so they stay legible at any zoom. Four corners, four
+        // different facts: index bottom-left, name bottom-right, viseme top-left, and the
+        // order badge top-centre. Stacking them in one string made none of them readable.
+        float[] tl = new float[2];
+        float[] br = new float[2];
         for (int i = 0; i < count; i++) {
             Rect r = SpriteSheetRenderer.cellRectSource(sheet, i, renderer.sourceWidth(), renderer.sourceHeight());
-            pt[0] = r.left; pt[1] = r.top;
-            viewMatrix.mapPoints(pt);
-            SpriteSheet.Cell meta = sheet.cellAt(i);
-            String label = meta != null && !meta.name.isEmpty() ? i + " " + meta.name : String.valueOf(i);
-            canvas.drawText(label, pt[0] + 3f * density, pt[1] + 12f * density, numPaint);
+            tl[0] = r.left; tl[1] = r.top;
+            br[0] = r.right; br[1] = r.bottom;
+            viewMatrix.mapPoints(tl);
+            viewMatrix.mapPoints(br);
+            if (br[0] - tl[0] < 26f * density) continue;   // too small to letter
+
+            canvas.drawText(String.valueOf(i), tl[0] + 3f * density,
+                    br[1] - 3f * density, numPaint);
+
+            // Two stores, one meaning: the map is authoritative, the per-cell record is
+            // what older sheets carry. Reading only one left named cells looking unnamed.
+            String nm = sheet.cellName(i);
+            if (nm == null || nm.isEmpty()) {
+                SpriteSheet.Cell cm = sheet.cellAt(i);
+                nm = cm == null ? null : cm.name;
+            }
+            if (nm != null && !nm.isEmpty()) {
+                canvas.drawText(nm, br[0] - 3f * density, br[1] - 3f * density, namePaint);
+            }
+            String vis = visemeOf(i);
+            if (vis != null) {
+                canvas.drawText(vis, tl[0] + 3f * density, tl[1] + 10f * density, visPaint);
+            }
+            String ord = orders.get(i);
+            if (ord != null) {
+                float cx = (tl[0] + br[0]) / 2f;
+                float w = badgeInk.measureText(ord) + 9f * density;
+                badgeBox.set(cx - w / 2f, tl[1] + 2f * density,
+                        cx + w / 2f, tl[1] + 15f * density);
+                boolean now = i == playingCell;
+                badgePaint.setColor(now ? SpriteTheme.LIVE : SpriteTheme.SELECTED);
+                canvas.drawRoundRect(badgeBox, 4f * density, 4f * density, badgePaint);
+                badgeInk.setColor(now ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
+                canvas.drawText(ord, cx, badgeBox.bottom - 3.2f * density, badgeInk);
+            }
         }
 
         // Pivot crosshair inside the selected cell (sheet-level pivot, 0..1 of a cell).
+        float[] pt = new float[2];
         if (selectedCell >= 0) {
             Rect r = SpriteSheetRenderer.cellRectSource(sheet, selectedCell, renderer.sourceWidth(), renderer.sourceHeight());
             pt[0] = r.left + sheet.getPivotX() * r.width();
@@ -192,6 +266,16 @@ public class SpriteGridEditorView extends View {
             canvas.drawLine(pt[0] - rad * 1.4f, pt[1], pt[0] + rad * 1.4f, pt[1], pivotPaint);
             canvas.drawLine(pt[0], pt[1] - rad * 1.4f, pt[0], pt[1] + rad * 1.4f, pivotPaint);
         }
+    }
+
+    /** The viseme this cell answers for, if any. A cell may hold an expression AND a mouth. */
+    @Nullable
+    private String visemeOf(int cell) {
+        if (sheet == null) return null;
+        for (java.util.Map.Entry<String, Integer> e : sheet.getVisemeMap().entrySet()) {
+            if (e.getValue() != null && e.getValue() == cell) return e.getKey();
+        }
+        return null;
     }
 
     private void fitToView() {

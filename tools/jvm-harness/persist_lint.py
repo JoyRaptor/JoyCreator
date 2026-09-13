@@ -30,6 +30,27 @@ ALIASES = {
     # Written only when TRUE ("omit at default") and read back with hasValue, so false
     # round-trips as the field default. The JSON key is shorter than the field name.
     "voiceFxEnabled": "voiceFx",
+    # Sprite keys whose JSON name is shorter than the field name.
+    "continuesUntilBlocked": "continues",
+    "sequenceStartFrame": "startFrame",
+    # The corner pin is EIGHT sparse keys named by CornerPin.jsonKeyFor -- "pinTLdx" and the
+    # seven siblings -- not one key called "cornerPin". Aliased to a REAL member of the family
+    # rather than exempted: an exemption would pass even if the whole block were deleted, while
+    # this fails the moment the writer or the reader stops emitting the family.
+}
+
+# field -> (writer regex, reader regex, why) for keys this lint cannot see as literals.
+#
+# The corner pin is EIGHT keys built at runtime by CornerPin.jsonKeyFor("pin" + name + axis),
+# so there is no literal "pinTLdx" anywhere in ProjectStorage to search for. Exempting it would
+# pass even if the whole block were deleted -- the outcome this lint's own history says to avoid.
+# So instead: name the two calls that MUST be there, per model, and require both. The variable
+# prefix (so./o.) is what makes it per-model rather than "some pin block exists somewhere".
+CUSTOM = {
+    ("SpriteOverlayItem", "cornerPin"): (
+        r"so\.getCornerPin\(", r"so\.setCornerPin\(",
+        "eight runtime keys via CornerPin.jsonKeyFor; proved by the getter+setter pair",
+    ),
 }
 
 # field -> why it needs no key. Keep the reason concrete and checkable.
@@ -62,6 +83,10 @@ EXEMPT = {
 TARGETS = [
     ("AudioClip", "app/src/main/java/com/fadcam/ui/faditor/model/AudioClip.java"),
     ("Clip", "app/src/main/java/com/fadcam/ui/faditor/model/Clip.java"),
+    # Added 2026-09-13 with SPEC Z, which gave sprites a corner pin and a mesh. A new field on
+    # a model ProjectStorage hand-serializes is exactly what this lint exists to catch, and
+    # until now the sprite model was not checked at all.
+    ("SpriteOverlayItem", "app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteOverlayItem.java"),
 ]
 
 # A field declaration line. `transient` is detected on the LINE rather than via a lookahead
@@ -102,6 +127,12 @@ def main():
             if f in exempt:
                 continue
             checked += 1
+            custom = CUSTOM.get((label, f))
+            if custom:
+                wre, rre, _why = custom
+                if not re.search(wre, storage) or not re.search(rre, storage):
+                    failures.append((label, f, "(custom)", "writer+reader"))
+                continue
             key = ALIASES.get(f, f)
             # BOTH SIDES, checked separately. An earlier version searched the file for the
             # bare key and passed when only ONE side existed -- proved by deleting the pan

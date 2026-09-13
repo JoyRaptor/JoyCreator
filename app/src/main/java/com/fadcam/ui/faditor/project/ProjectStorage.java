@@ -2642,6 +2642,32 @@ public class ProjectStorage {
                         }
                         sj.add("keyframes", tracksJson);
                     }
+                    // SPEC Z slice 1 — the sprite's own distortion. Written with EXACTLY the
+                    // image overlay's contract (see the corner-pin block above): eight sparse
+                    // keys, each present only when that corner has been dragged off zero, and a
+                    // "mesh" object only when a bend is actually authored. So a project with no
+                    // warped sprite adds not one byte and round-trips identically, and a reader
+                    // that predates this drops both members without noticing — the same tolerance
+                    // MeshWarpSpec already relies on. The eight KEYFRAME tracks need no code:
+                    // the generic track loop above writes any track name the model created.
+                    for (int pc = 0; pc < 4; pc++) {
+                        for (int pa = 0; pa < 2; pa++) {
+                            float pv = so.getCornerPin(pc, pa);
+                            if (pv != 0f) {
+                                sj.addProperty(com.fadcam.ui.faditor.model.CornerPin
+                                        .jsonKeyFor(pc, pa), pv);
+                            }
+                        }
+                    }
+                    com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec soMesh = so.getMesh();
+                    if (soMesh != null) {
+                        try {
+                            JsonObject smj = soMesh.toJson();
+                            if (smj != null) sj.add("mesh", smj);
+                        } catch (Exception ignored) {
+                            // A bend that cannot serialize costs the bend, never the sprite.
+                        }
+                    }
                     // §4.5 per-object eye/lock (write-if-true).
                     if (so.isHidden()) sj.addProperty("objHidden", true);
                     if (so.isLocked()) sj.addProperty("objLocked", true);
@@ -3606,6 +3632,28 @@ public class ProjectStorage {
                                                         kj.get("e").getAsString()));
                                     }
                                 }
+                            }
+                            // SPEC Z slice 1 — corner pin, TOLERANT, and that is the whole
+                            // contract: an absent key is zero and zero is undistorted, so every
+                            // project written before a sprite could bend loads and renders
+                            // exactly as it always did. Nothing here can fail on old JSON because
+                            // nothing here is required.
+                            for (int pc = 0; pc < 4; pc++) {
+                                for (int pa = 0; pa < 2; pa++) {
+                                    String pk = com.fadcam.ui.faditor.model.CornerPin
+                                            .jsonKeyFor(pc, pa);
+                                    if (hasValue(sj, pk)) {
+                                        so.setCornerPin(pc, pa, sj.get(pk).getAsFloat());
+                                    }
+                                }
+                            }
+                            // The bend, same tolerance: a mesh that cannot be parsed costs the
+                            // bend and never the sprite.
+                            if (hasValue(sj, "mesh")) {
+                                try {
+                                    so.setMesh(com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec
+                                            .fromJson(sj.getAsJsonObject("mesh")));
+                                } catch (Exception ignored) { }
                             }
                             // §4.5 per-object eye/lock (tolerant: absent = false).
                             if (hasValue(sj, "objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());

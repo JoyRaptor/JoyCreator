@@ -83,6 +83,13 @@ public final class LayerRowRenderer {
     private static final float FADE_KNOB_HIT_R_DP = 24f;
     /** How far the knob center sits above the clip's top edge. */
     private static final float FADE_KNOB_TOP_OFFSET_DP = 16f;
+
+    /**
+     * How far a fade knob reaches ABOVE its row's top edge. The draw pass widens its clip by this
+     * and the hit pass pads its band bound by it — ONE number, so the knob can never be painted
+     * where it cannot be pressed.
+     */
+    private static final float KNOB_OVERHANG_DP = FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f;
     /** Hairline stem width. */
     private static final float FADE_STEM_W_DP = 1.2f;
     private static final float ICON_SIZE_DP = 12f;
@@ -935,7 +942,7 @@ public final class LayerRowRenderer {
                 : (audioGrantPx > 0f ? Math.min(ay, audioGrantPx) : ay);
         if (audioBandHeightPx > 0f) {
             canvas.save();
-            float audioKnobOverhang = (FADE_KNOB_TOP_OFFSET_DP + FADE_KNOB_R_DP + 4f) * density;
+            float audioKnobOverhang = KNOB_OVERHANG_DP * density;
             canvas.clipRect(hScrollOffsetPx, audioTopPx - audioKnobOverhang,
                     hScrollOffsetPx + widthPx, audioTopPx + audioBandHeightPx);
             canvas.translate(0f, audioTopPx);
@@ -3535,11 +3542,33 @@ public final class LayerRowRenderer {
      * special-casing.
      */
     private float bandLocalY(@NonNull RowLayout row, float y, float topPx) {
+        return bandLocalY(row, y, topPx, 0f);
+    }
+
+    /**
+     * Band-local y, optionally allowing the touch to sit up to {@code padTopPx} ABOVE the band.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"having a hard time grabbing audio fade handles, hit zone must
+     * be covered or something."</i> It was not covered — it was outside. A fade knob floats
+     * {@link #FADE_KNOB_TOP_OFFSET_DP} above its clip's top edge, and the DRAW pass already
+     * expands its clip rect upward by {@link #KNOB_OVERHANG_DP} so the topmost row's knob is
+     * visible above the band. The HIT pass had no such allowance, so on the first audio row the
+     * upper part of the knob — most of its 48dp target — was painted somewhere no touch could
+     * reach. Same failure as the "renders correctly, but I can't hit it" note on
+     * {@link #hitTestItem}'s pass 1, one boundary further out.
+     *
+     * <p>The pad only ever widens the hit area for a knob that is genuinely drawn there, and only
+     * for the SELECTED item (pass 1's own guard), so nothing else becomes reachable from outside
+     * its band.
+     */
+    private float bandLocalY(@NonNull RowLayout row, float y, float topPx, float padTopPx) {
         if (row.floatingBand) {
-            if (y < topPx || y > topPx + viewportHeightPx) return Float.NaN;
+            if (y < topPx - padTopPx || y > topPx + viewportHeightPx) return Float.NaN;
             return y - topPx + scrollOffsetPx;
         }
-        if (y < lastAudioTopPx || y > lastAudioTopPx + audioBandHeightPx) return Float.NaN;
+        if (y < lastAudioTopPx - padTopPx || y > lastAudioTopPx + audioBandHeightPx) {
+            return Float.NaN;
+        }
         return y - lastAudioTopPx;
     }
 
@@ -3720,7 +3749,7 @@ public final class LayerRowRenderer {
             RowLayout row = rows.get(r);
             Track t = row.track;
             if (t.isCollapsed() || t.isLocked() || t.isHidden()) continue;
-            float localY = bandLocalY(row, y, topPx);
+            float localY = bandLocalY(row, y, topPx, KNOB_OVERHANG_DP * density);
             if (Float.isNaN(localY)) continue;
             float top = row.bodyRect.top + 3f * density;
             for (TimedItem item : t.getItems()) {

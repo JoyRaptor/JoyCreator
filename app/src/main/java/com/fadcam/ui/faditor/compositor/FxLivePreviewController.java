@@ -126,6 +126,17 @@ public final class FxLivePreviewController {
          */
         default void onGlOwnedSprites(@NonNull java.util.Set<String> ids) { }
 
+        /**
+         * The sprite's real pixels for the composite to sample — see
+         * {@code SpriteOverlayView.rasterFor}. Null when its sheet is not loaded yet, which omits
+         * the sprite for that frame rather than drawing a placeholder.
+         */
+        @Nullable default android.graphics.Bitmap spriteRasterFor(
+                @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp,
+                int frameW, int frameH) {
+            return null;
+        }
+
         @Nullable default FxPreviewTextureView.Pip imagePipFor(
                 @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, int frameW, int frameH) {
             return null;
@@ -834,7 +845,12 @@ public final class FxLivePreviewController {
             long playheadMs, @NonNull int[] size) {
         try {
             if (size[0] <= 0 || size[1] <= 0) return null;
-            android.graphics.Bitmap tex = overlayTextureCache.getOrCreate(sp, size[0], size[1]);
+            // The REAL cells, from the view that owns the sheet — NOT
+            // OverlayTextureCache.rasterizeSprite, which is a placeholder that fills a solid blue
+            // rectangle. Routing GL sprites through that placeholder was this lane's regression
+            // on 2026-09-13: a bent sprite previewed as a blue box while the export rasterised
+            // real cells (caught by the ZA lane, finding 1).
+            android.graphics.Bitmap tex = host.spriteRasterFor(sp, size[0], size[1]);
             if (tex == null || tex.isRecycled() || tex.getHeight() <= 0) return null;
             float alpha = sp.animatedOpacity(playheadMs);
             if (alpha < 0.005f) return null;
@@ -1126,6 +1142,9 @@ public final class FxLivePreviewController {
             }
             SpriteOverlayItem sso = v.item.getSprite();
             if (sso != null && belowSpriteIds.contains(sso.getId()) && sso.isVisibleAt(playheadMs)) {
+                // A sprite the composite already owns must not ALSO be emitted here — it would
+                // be drawn twice, the second time without its warp (ZA lane, finding 3).
+                if (sso.wantsGl()) continue;
                 if (!OverlayTextureCache.canUseTexture(sso)) continue;
                 float alpha = sso.animatedOpacity(playheadMs);
                 if (alpha < 0.005f) continue;

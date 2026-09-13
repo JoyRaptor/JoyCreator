@@ -27866,6 +27866,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             return overlayLayerBelow == null
                                     ? null : overlayLayerBelow.fxPipFor(o, frameW, frameH);
                         }
+                        @Override public android.graphics.Bitmap spriteRasterFor(
+                                @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp,
+                                int frameW, int frameH) {
+                            return spriteOverlayView == null
+                                    ? null : spriteOverlayView.rasterFor(sp, frameW, frameH);
+                        }
                         @Override public void onGlOwnedSprites(
                                 @NonNull java.util.Set<String> ids) {
                             // The composite has these; the Canvas view must not paint them too,

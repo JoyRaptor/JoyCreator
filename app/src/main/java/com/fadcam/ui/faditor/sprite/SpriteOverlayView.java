@@ -214,6 +214,59 @@ public class SpriteOverlayView extends View {
         }
     }
 
+    /**
+     * The sprite's REAL pixels, as a bitmap, for the GL composite to sample.
+     *
+     * <p>Fixes a regression this lane shipped on 2026-09-13 and the ZA lane caught:
+     * {@code OverlayTextureCache.rasterizeSprite} is a placeholder that fills a solid blue
+     * rectangle ("placeholder square; real sheet cell aspect would be sheet-dependent"). Harmless
+     * while nothing used it — and then this lane routed GL-owned sprites through it, so a bent
+     * sprite PREVIEWED as a blue box while the export rasterised real cells. Preview and export
+     * disagreeing about the actual pixels is the worst version of the bug rule 7 exists to stop.
+     *
+     * <p>Rasterised by {@link #drawSpriteContent}, which is the same method that paints the sprite
+     * on this Canvas — so the texture holds exactly what the Canvas path would have drawn, cell or
+     * rig, and the two cannot diverge. The aspect comes from the sheet's own cell rather than the
+     * placeholder's square guess.
+     *
+     * @return the bitmap, or null when the sheet is not loaded yet (the composite then omits the
+     *         sprite for that frame rather than drawing a wrong one)
+     */
+    @Nullable
+    public android.graphics.Bitmap rasterFor(@NonNull SpriteOverlayItem o, int frameW, int frameH) {
+        if (frameW <= 0 || frameH <= 0) return null;
+        SpriteSheet sheet = callback.lookupSheet(o.getSheetId());
+        SpriteSheetRenderer renderer = sheet != null
+                ? callback.lookupRenderer(o.getSheetId()) : null;
+        if (renderer == null) return null;
+        float hNorm = o.animatedSizeFraction(currentTimeMs);
+        if (!(hNorm > 0f)) return null;
+        // Cell aspect from the sheet, not a square guess.
+        int cell = SpriteFrameResolver.resolveCellAt(sheet, o, currentTimeMs);
+        float aspect = 1f;
+        try {
+            android.graphics.Rect cr = cell != SpriteFrameResolver.NO_CELL
+                    ? renderer.cellRectBitmap(cell) : null;
+            if (cr != null && cr.height() > 0) aspect = cr.width() / (float) cr.height();
+        } catch (Exception ignored) { }
+        if (!(aspect > 0f)) aspect = 1f;
+        int hi = Math.max(1, Math.min(4096, Math.round(hNorm * frameH)));
+        int wi = Math.max(1, Math.min(4096, Math.round(hi * aspect)));
+        try {
+            android.graphics.Bitmap bmp =
+                    android.graphics.Bitmap.createBitmap(wi, hi, android.graphics.Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(bmp);
+            RectF into = new RectF(0f, 0f, wi, hi);
+            com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet = puppetFor(o);
+            // Alpha 1: opacity is applied by the composite, not baked into the texture, or it
+            // would be applied twice.
+            drawSpriteContent(c, o, into, renderer, sheet, puppet, 1f);
+            return bmp;
+        } catch (OutOfMemoryError e) {
+            return null;
+        }
+    }
+
     private void drawSprite(@NonNull Canvas canvas, @NonNull SpriteOverlayItem o,
                             @NonNull RectF r) {
         // GL has this one — see setGlOwnedIds.

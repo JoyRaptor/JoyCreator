@@ -262,6 +262,15 @@ public class TransformOverlayView extends View {
     /** How far outside the top edge the spin arc floats, on its hairline stalk. */
     private float rotateStandoffPx() { return dp(46f); }
 
+    /**
+     * Rotation detent width. Inside {@code ENTER} of a cardinal the angle sticks to it; once
+     * escaped it does not re-stick until back inside {@code EXIT}... deliberately the SMALLER of
+     * the two, so breaking out is sticky and re-entering is not grabby. Tuned here in one line —
+     * JoyRaptor asked for "a bit more difficult", not "impossible".
+     */
+    private static final float ROT_DETENT_ENTER_DEG = 3.5f;
+    private static final float ROT_DETENT_EXIT_DEG = 1.5f;
+
     private static final long LONG_PRESS_MS = 450L;
     private static final float MOVE_SLOP_DP = 7f;
     private static final long HUD_FADE_MS = 400L;
@@ -332,6 +341,8 @@ public class TransformOverlayView extends View {
 
     // Pure-rotation gesture state.
     private float rotPivotX, rotPivotY, rotStartAngleRad, rotStartDeg;
+    /** True once this drag has escaped the cardinal detent (see ROT_DETENT_*). */
+    private boolean rotDetentBroken;
     /** Rotate-handle grab point, for re-deriving the grab angle after a rect rebase. */
     private float rotGrabX, rotGrabY;
 
@@ -1757,6 +1768,7 @@ public class TransformOverlayView extends View {
                 rotGrabX = hit.x;
                 rotGrabY = hit.y;
                 rotStartAngleRad = (float) Math.atan2(hit.y - rotPivotY, hit.x - rotPivotX);
+                rotDetentBroken = false;
                 rotStartDeg = h.currentRotationDeg();
             } else {
                 postDelayed(longPress, LONG_PRESS_MS);
@@ -1883,10 +1895,27 @@ public class TransformOverlayView extends View {
                 // at the gesture's start angle (JoyRaptor, 2026-09-05: "the helper making a 360
                 // degree rotation on itself whereas the image is making a 360 plus moving in
                 // a circle").
+                // 2026-09-13 detent. The SAME snapped angle drives the live quad and the
+                // written pose — if the preview rotated by the raw delta and the model stored
+                // the snapped one, the picture and the handles would disagree by up to the
+                // detent width, which is the preview/export parity bug in miniature.
+                float rawAbs = rotStartDeg + deltaDeg;
+                // Update the hysteresis flag FIRST, then snap through it, so one frame can
+                // never both escape and re-stick.
+                float offDeg = Math.abs(rawAbs - Math.round(rawAbs / 90f) * 90f);
+                if (rotDetentBroken) {
+                    if (offDeg <= ROT_DETENT_EXIT_DEG) rotDetentBroken = false;
+                } else if (offDeg > ROT_DETENT_ENTER_DEG) {
+                    rotDetentBroken = true;
+                }
+                float snapAbs = TransformQuad.detentCardinalDeg(
+                        rawAbs, ROT_DETENT_ENTER_DEG, ROT_DETENT_EXIT_DEG, rotDetentBroken);
+                float snapDelta = snapAbs - rotStartDeg;
                 h.readFoldPivot(scratch2);
                 TransformQuad.rotateAbout(quad, quadAtGrab, scratch2[0], scratch2[1],
-                        ang - rotStartAngleRad);
-                float abs = rotStartDeg + deltaDeg;
+                        (float) Math.toRadians(snapDelta));
+                float abs = snapAbs;
+                deltaDeg = snapDelta;
                 h.writeRotation(abs);
                 shapeChanged = false;
                 setHud(Math.round(norm180(abs)) + "° (" + signedDeg(norm180(deltaDeg)) + ")",
@@ -1912,7 +1941,9 @@ public class TransformOverlayView extends View {
                     boolean snapped = TransformQuad.snapUniformFactors(
                             scratchFactors[0], scratchFactors[1], tol, sf);
                     cornerSnapBroken = !snapped;
-                    TransformQuad.scaleCornerApply(quad, quadAtGrab, dragIndex, sf[0], sf[1]);
+                    // JoyRaptor 2026-09-13: grow from the CENTRE, not the opposite corner.
+                    TransformQuad.scaleCornerApplyAboutCentre(
+                            quad, quadAtGrab, dragIndex, sf[0], sf[1]);
                     // Outline tint: purple at identity (no change, or back where it
                     // started), tilt-green while snapped uniform, free-red broken out.
                     if (Math.abs(sf[0] - 1f) < 0.005f && Math.abs(sf[1] - 1f) < 0.005f) {

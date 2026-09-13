@@ -159,8 +159,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @NonNull
     private static Clip newImageClip(@NonNull Uri uri) {
-        Clip c = new Clip(uri, IMAGE_CLIP_DURATION_MS);
-        c.setSourceDurationMs(IMAGE_CLIP_MAX_MS);   // trim bound only; outPoint stays at 5s
+        return newImageClip(uri, IMAGE_CLIP_DURATION_MS);
+    }
+
+    /**
+     * Same, for the black clips that need a starting length of their own — a gap spacer matches
+     * the clip it replaced, the auto-blank matches the overhang it covers, and a user blank is
+     * whatever length was picked.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"I cannot extend an inserted blank section longer than 5
+     * seconds in the spine."</i> The three black-clip sites were still building their clips with
+     * {@code new Clip(uri, dur)} directly, which is the very mistake the comment on
+     * {@link #IMAGE_CLIP_MAX_MS} describes: it sets the trim bound equal to the starting length,
+     * so the handle has nothing left to give. Sending them through here is what makes that
+     * comment true.
+     */
+    @NonNull
+    private static Clip newImageClip(@NonNull Uri uri, long visibleMs) {
+        Clip c = new Clip(uri, Math.max(100L, visibleMs));
+        // The bound must never be SHORTER than the clip itself, or the constructor's outPoint
+        // would be clamped back down the first time anything re-set it.
+        c.setSourceDurationMs(Math.max(IMAGE_CLIP_MAX_MS, Math.max(100L, visibleMs)));
         c.setImageClip(true);
         return c;
     }
@@ -1518,6 +1537,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (movedAdj > 0) {
                     FLog.i(TAG, "SPEC W: separated " + movedAdj
                             + " overlapping adjustment layer(s) onto their own lanes");
+                }
+                // 2026-09-13: and audio, which never had this pass at all.
+                int movedAudio = project.getTimeline().enforceNoOverlapAudioLanes();
+                if (movedAudio > 0) {
+                    FLog.i(TAG, "separated " + movedAudio
+                            + " overlapping audio clip(s) onto their own lanes");
                 }
                 // Why did we die last time? Reads the OS's own post-mortem (PSS/RSS + the ANR
                 // trace) and saves it where it survives. The long-file ANR has been "root-cause
@@ -5043,8 +5068,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
             before.put(a.getId(), a.getLayerId());
         }
+        // 2026-09-13: audio joins the invariant. It was the one family left out — it had
+        // resolveAudioOverlap instead, which keeps the lane and slides the clip in TIME.
+        for (AudioClip ac : tl.getAudioClips()) {
+            before.put(ac.getId(), ac.getLayerId());
+        }
         int moved = tl.enforceNoOverlapVideoLanes() + tl.enforceNoOverlapTextLanes()
-                + tl.enforceNoOverlapAdjustmentLanes();
+                + tl.enforceNoOverlapAdjustmentLanes() + tl.enforceNoOverlapAudioLanes();
         if (moved <= 0) return;
         final java.util.Map<String, String> after = new java.util.HashMap<>();
         for (Clip oc : tl.getOverlayClips()) after.put(oc.getId(), oc.getLayerId());
@@ -5054,6 +5084,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
             after.put(a.getId(), a.getLayerId());
         }
+        for (AudioClip ac : tl.getAudioClips()) after.put(ac.getId(), ac.getLayerId());
         FLog.i(TAG, "lane invariant: separated " + moved + " overlapping object(s)");
         undoManager.amendTopAction(new EditActions.LambdaAction("Separate overlapping objects",
                 () -> applyLaneMap(after), () -> applyLaneMap(before)));
@@ -5070,6 +5101,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         for (com.fadcam.ui.faditor.model.AdjustmentLayer a : tl.getAdjustmentLayers()) {
             if (map.containsKey(a.getId())) a.setLayerId(map.get(a.getId()));
+        }
+        for (AudioClip ac : tl.getAudioClips()) {
+            if (map.containsKey(ac.getId())) ac.setLayerId(map.get(ac.getId()));
         }
     }
 
@@ -15397,8 +15431,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         long durMs = original.hasLoopExtension()
                 ? original.getVisualDurationMs() : original.getTrimmedDurationMs();
-        final Clip spacer = new Clip(blackUri, Math.max(100, durMs));
-        spacer.setImageClip(true);
+        final Clip spacer = newImageClip(blackUri, Math.max(100, durMs));
         spacer.setAudioMuted(true);
         spacer.setDisplayName("Gap"); // TODO(strings)
 
@@ -15447,8 +15480,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         Timeline timeline = project.getTimeline();
         final int at = Math.min(timeline.getClipCount(), Math.max(0, selectedClipIndex + 1));
-        final Clip blank = new Clip(blackUri, dur);
-        blank.setImageClip(true);
+        final Clip blank = newImageClip(blackUri, dur);
         blank.setAudioMuted(true);
         blank.setDisplayName(USER_BLANK_NAME);
 
@@ -15578,8 +15610,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FLog.w(TAG, "Cannot extend spine for overhang — no black spacer available");
             return false;
         }
-        Clip blank = new Clip(blackUri, neededMs);
-        blank.setImageClip(true);
+        Clip blank = newImageClip(blackUri, neededMs);
         blank.setAudioMuted(true);
         blank.setDisplayName(AUTO_BLANK_NAME);
         timeline.addClip(n, blank);

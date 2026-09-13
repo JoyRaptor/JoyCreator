@@ -740,11 +740,119 @@ public class Timeline {
      * with existing clips on the same layer track (audio-overlap P0 fix).
      */
     public void addAudioClip(@NonNull AudioClip audioClip) {
+        String freeLane = findFreeAudioLane(audioClip);
+        if (freeLane != null) {
+            // The requested TIME is what the user chose; the lane is ours to pick.
+            audioClip.setLayerId(freeLane);
+            audioClips.add(audioClip);
+            return;
+        }
+        // Every lane is busy across this span — fall back to the old behaviour and slide it
+        // along its own lane rather than dropping it on top of something.
         long resolved = resolveAudioOverlap(audioClip.getOffsetMs(), audioClip);
         if (resolved != audioClip.getOffsetMs()) {
             audioClip.setOffsetMs(resolved);
         }
         audioClips.add(audioClip);
+    }
+
+    /**
+     * Pick an audio lane on which {@code candidate} can sit AT THE OFFSET IT ASKED FOR.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"adding audio when there's already audio had songs stack in one
+     * lane, not drop another audio lane as expected."</i> Audio was the one overlay family with no
+     * no-overlap lane rule — text, PiP/video and adjustment layers each have an
+     * {@code enforceNoOverlap*Lanes}, and audio instead had {@link #resolveAudioOverlap}, which
+     * keeps the LANE and moves the clip in TIME. For a music bed that is the wrong trade: where a
+     * song starts is the user's decision and which row it draws on is not, so shoving a second
+     * song to the tail of the first silently destroys the only part they chose.
+     *
+     * <p>Tries the lane the clip already names, then every other existing audio lane in row order,
+     * then mints a deterministic {@code "audio-<id>"} lane — the same scheme
+     * {@link #enforceNoOverlapTextLanes()} uses for overflow, so a fresh lane surfaces through
+     * {@link #getAudioTracks()}'s leftover-bucket pass without needing a registered def.
+     *
+     * @return a lane id that is free across the candidate's span, or {@code null} if the candidate
+     *         has no usable duration (in which case the caller keeps its old behaviour).
+     */
+    @Nullable
+    private String findFreeAudioLane(@NonNull AudioClip candidate) {
+        long start = Math.max(0, candidate.getOffsetMs());
+        long end = start + Math.max(1, candidate.getTrimmedDurationMs());
+
+        // Candidate lanes, in the order a user would expect them to fill: the one it names
+        // first, then the rest of the existing rows.
+        List<String> lanes = new ArrayList<>();
+        String own = candidate.getLayerId() != null ? candidate.getLayerId() : "audio";
+        lanes.add(own);
+        for (AudioClip ac : audioClips) {
+            if (ac == candidate) continue;
+            String id = ac.getLayerId() != null ? ac.getLayerId() : "audio";
+            if (!lanes.contains(id)) lanes.add(id);
+        }
+        for (LayerTrackDef def : extraLayerTracks) {
+            if (def.getKind() == TrackKind.AUDIO && !lanes.contains(def.getId())) {
+                lanes.add(def.getId());
+            }
+        }
+
+        for (String lane : lanes) {
+            if (audioLaneFreeOver(lane, start, end, candidate)) return lane;
+        }
+        return "audio-" + candidate.getId();
+    }
+
+    /** True when no audio clip on {@code laneId} (other than {@code self}) covers [startMs, endMs). */
+    private boolean audioLaneFreeOver(@NonNull String laneId, long startMs, long endMs,
+                                      @Nullable AudioClip self) {
+        for (AudioClip ac : audioClips) {
+            if (ac == self) continue;
+            String id = ac.getLayerId() != null ? ac.getLayerId() : "audio";
+            if (!laneId.equals(id)) continue;
+            long s = ac.getOffsetMs();
+            long e = s + Math.max(1, ac.getTrimmedDurationMs());
+            if (rangesOverlap(startMs, endMs, s, e)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Enforce the no-overlap invariant on AUDIO lanes, mirroring
+     * {@link #enforceNoOverlapTextLanes()}. Audio was the family this pass never covered, so a
+     * project saved before {@link #findFreeAudioLane} existed can still hold two clips on one lane
+     * at the same time. Idempotent: overflow clips take a deterministic {@code "audio-<id>"} lane,
+     * so running it on every load settles rather than churns.
+     *
+     * @return how many clips were moved to a fresh lane (0 = nothing to fix).
+     */
+    public int enforceNoOverlapAudioLanes() {
+        Map<String, List<AudioClip>> byLayer = new LinkedHashMap<>();
+        for (AudioClip ac : audioClips) {
+            String id = ac.getLayerId() != null ? ac.getLayerId() : "audio";
+            byLayer.computeIfAbsent(id, k -> new ArrayList<>()).add(ac);
+        }
+        int moved = 0;
+        for (List<AudioClip> lane : byLayer.values()) {
+            if (lane.size() < 2) continue;
+            List<AudioClip> sorted = new ArrayList<>(lane);
+            sorted.sort((a, b) -> Long.compare(a.getOffsetMs(), b.getOffsetMs()));
+            List<Long> subLaneEnd = new ArrayList<>();
+            for (AudioClip ac : sorted) {
+                long s = ac.getOffsetMs();
+                long e = s + Math.max(1, ac.getTrimmedDurationMs());
+                int placed = -1;
+                for (int k = 0; k < subLaneEnd.size(); k++) {
+                    if (subLaneEnd.get(k) <= s) { placed = k; break; }
+                }
+                if (placed < 0) { placed = subLaneEnd.size(); subLaneEnd.add(e); }
+                else subLaneEnd.set(placed, e);
+                if (placed > 0) {
+                    String want = "audio-" + ac.getId();
+                    if (!want.equals(ac.getLayerId())) { ac.setLayerId(want); moved++; }
+                }
+            }
+        }
+        return moved;
     }
 
     /**

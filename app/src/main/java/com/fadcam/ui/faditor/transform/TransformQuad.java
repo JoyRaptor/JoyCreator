@@ -249,6 +249,65 @@ public final class TransformQuad {
      * own factors. Every corner is rebuilt from its OWN coordinates, so a trapezoid
      * stays a trapezoid at any factor pair — see the class note.
      */
+    /**
+     * Corner scale that keeps the object's CENTRE where it is, instead of pinning the opposite
+     * corner.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"resizing from the new transform corners should grow from
+     * center."</i> Opposite-corner anchoring is the desktop convention, and it is the wrong one
+     * here: on a phone the object is usually centred on something the user has already positioned,
+     * and growing it shoves that composition sideways, so every resize costs a follow-up move.
+     * Growing about the centre keeps the framing and changes only the size.
+     *
+     * <p>Implemented as the existing scale followed by a translation back onto the original
+     * centre. For an affine scale those are the same thing — scaling about any point and then
+     * restoring the centroid IS scaling about the centroid — so this inherits
+     * {@link #scaleCornerApply}'s uv decomposition rather than duplicating it, and the two can
+     * never drift apart.
+     */
+    public static void scaleCornerApplyAboutCentre(float[] q, float[] q0, int corner,
+                                                   float fa, float fb) {
+        if (q == null || q0 == null || q.length < 8 || q0.length < 8) return;
+        // Seed with the source so a degenerate early return inside scaleCornerApply leaves q
+        // equal to q0 — and therefore a zero re-centring delta, rather than a translation
+        // computed against whatever q happened to hold.
+        System.arraycopy(q0, 0, q, 0, 8);
+        scaleCornerApply(q, q0, corner, fa, fb);
+        float cx0 = 0f, cy0 = 0f, cx1 = 0f, cy1 = 0f;
+        for (int k = 0; k < 4; k++) {
+            cx0 += q0[k * 2];  cy0 += q0[k * 2 + 1];
+            cx1 += q[k * 2];   cy1 += q[k * 2 + 1];
+        }
+        cx0 *= 0.25f; cy0 *= 0.25f; cx1 *= 0.25f; cy1 *= 0.25f;
+        if (!isFinite(cx0) || !isFinite(cy0) || !isFinite(cx1) || !isFinite(cy1)) return;
+        translate(q, cx0 - cx1, cy0 - cy1);
+    }
+
+    /**
+     * Angular detent for the rotate handle: pull {@code deg} onto the nearest cardinal
+     * (0/90/180/270) while it is within {@code enterDeg}, and release only past {@code exitDeg}.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"transform rotation is too sensitive, should be a bit more
+     * difficult to get off 0 degrees."</i> The handle mapped finger angle to object angle 1:1, so
+     * upright was not a state you could return to — only one you could pass through. A detent
+     * makes square the thing you fall into and tilt the thing you choose.
+     *
+     * <p>Stateless by design, like {@link #snapUniformFactors}: the caller owns the hysteresis
+     * flag and passes the tolerance that goes with it, so the same function serves both the
+     * "about to grab" and "already broken out" cases.
+     *
+     * @param broken true when the caller has already escaped the detent (pass the wider tolerance)
+     * @return the snapped angle, or {@code deg} unchanged when outside the detent
+     */
+    public static float detentCardinalDeg(float deg, float enterDeg, float exitDeg,
+                                          boolean broken) {
+        if (!isFinite(deg)) return deg;
+        float tol = broken ? exitDeg : enterDeg;
+        if (!(tol > 0f)) return deg;
+        float nearest = Math.round(deg / 90f) * 90f;
+        return Math.abs(deg - nearest) <= tol ? nearest : deg;
+    }
+
     public static void scaleCornerApply(float[] q, float[] q0, int corner, float fa, float fb) {
         int opp = (corner + 2) % 4;
         float ox = q0[opp * 2], oy = q0[opp * 2 + 1];

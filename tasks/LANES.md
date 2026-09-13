@@ -513,6 +513,36 @@ files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/Audi
        FaditorEditorActivity.java
 since: 2026-08-24
 
+## TRANSFORM SURFACE — SPEC X, Y, Z (2026-09-13 day session)
+status: ACTIVE (2026-09-13T10:25 — Claude/Opus, autonomous, parallel with the SpriteLab agent)
+specs: tasks/specs/SPEC_X_preview_stack_elevation.md, SPEC_Y_one_transform_surface.md,
+       SPEC_Z_warpable_objects.md
+files:
+  ui/faditor/transform/**            (TransformOverlayView, the four *TransformHost, TransformQuad)
+  ui/faditor/transform/mesh/**       (MeshWarpSpec, MeshEngine, LatticeDeformer)
+  compositor/MeshStampGl.java, compositor/FxPreviewTextureView.java,
+  compositor/OverlayTextureCache.java, compositor/FxLivePreviewController.java
+  export/ImageBlendGlEffect.java, export/SpineTransformExportEffect.java, export/TextFxGlEffect.java
+  model/TextOverlayItem.java, model/Clip.java (pin/mesh fields only)
+  sprite/SpriteOverlayItem.java, sprite/SpriteOverlayView.java
+  FaditorEditorActivity.java, res/layout/activity_faditor_editor.xml
+  tools/build-verify.sh              (NEW — see below)
+NOT MINE, do not edit — the SpriteLab agent owns the sheet editor:
+  sprite/SpriteBaker.java, sprite/SpriteSheetEditorActivity.java, sprite/SpriteSheet.java,
+  sprite/SpriteIcons.java, sprite/SpritePalettePanel.java, sprite/SpriteTheme.java,
+  tools/spritelab/**
+SHARED, READ-ONLY FOR ME: sprite/SpriteSheetRenderer.java.
+
+⚠ WE SHARE ONE BUILD DIRECTORY, AND GRADLE LIES ABOUT IT. 2026-09-13: a concurrent build deleted
+  app/build/intermediates/javac out from under this lane, and from then on Gradle reported
+  "BUILD SUCCESSFUL in 1s" with NO FaditorEditorActivity.class anywhere on disk and an APK newer
+  than the source edit that did not contain the edit. Nothing in the output said so. Installing
+  that APK would have "device-verified" a change that was never compiled.
+  Use `bash tools/build-verify.sh <symbol>` — it greps the packaged dex for a symbol you just
+  wrote and fails loudly if it is missing. "Unable to delete directory" means contention, not a
+  code error: wait for the other build and retry. Do not `clean`; it is not your build dir alone.
+since: 2026-09-13T10:25
+
 ## SPRITELAB OUTPUT — bake, merge, frame export, roll reorder (2026-09-13 day session)
 status: ACTIVE (2026-09-13T10:20 — Claude/Opus, autonomous, parallel with the SPEC X/Y/Z agent)
 files:

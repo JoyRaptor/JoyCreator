@@ -790,6 +790,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // would have syncControls poking at views that are no longer on screen.
         stepperSyncs.clear();
         dragBtns.clear();
+        clipShelf = null;
+        clipDragFrom = -1;
         // Arranging is a thing you do in Slice. Leaving with it still armed means the next
         // drag on the sheet silently rearranges your work, in a section that does not even
         // show you the control that did it.
@@ -1654,6 +1656,82 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     /** The id of the clip whose frames the grid is lighting, or null. */
     @Nullable private String pickedClip;
 
+    // ── rearranging the shelf ────────────────────────────────────────────
+
+    @Nullable private FlowLayout clipShelf;
+    private int clipDragFrom = -1;
+    private int clipDropAt = -1;
+    @Nullable private View clipDragView;
+    private float clipDragStartX, clipDragStartY;
+
+    private void beginClipDrag(int index, @NonNull View chip) {
+        clipDragFrom = index;
+        clipDropAt = index;
+        clipDragView = chip;
+        int[] at = new int[2];
+        chip.getLocationOnScreen(at);
+        clipDragStartX = at[0] + chip.getWidth() / 2f;
+        clipDragStartY = at[1] + chip.getHeight() / 2f;
+        chip.setScaleX(1.12f);
+        chip.setScaleY(1.12f);
+        chip.setElevation(12 * density());
+        if (chip.getParent() != null) chip.getParent().requestDisallowInterceptTouchEvent(true);
+        chip.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+    }
+
+    private void moveClipDrag(float rawX, float rawY) {
+        View chip = clipDragView;
+        if (chip == null || clipShelf == null) return;
+        chip.setTranslationX(rawX - clipDragStartX);
+        chip.setTranslationY(rawY - clipDragStartY);
+        clipDropAt = nearestClip(rawX, rawY);
+    }
+
+    /**
+     * The chip whose centre is closest to the finger.
+     *
+     * <p>A wrapped shelf has no single line of gaps to fall between, so "nearest centre" is
+     * both simpler than a 2D gap model and what the hand expects: you drop ON the one you want
+     * to take the place of.</p>
+     */
+    private int nearestClip(float rawX, float rawY) {
+        if (clipShelf == null) return clipDragFrom;
+        int best = clipDragFrom;
+        float bestD = Float.MAX_VALUE;
+        int[] at = new int[2];
+        for (int i = 0; i < clipShelf.getChildCount(); i++) {
+            View c = clipShelf.getChildAt(i);
+            c.getLocationOnScreen(at);
+            float cx = at[0] + c.getWidth() / 2f, cy = at[1] + c.getHeight() / 2f;
+            // The lifted chip has moved with the finger; judge it by where it STARTED.
+            if (i == clipDragFrom) { cx = clipDragStartX; cy = clipDragStartY; }
+            float dx = cx - rawX, dy = cy - rawY;
+            float d2 = dx * dx + dy * dy;
+            if (d2 < bestD) { bestD = d2; best = i; }
+        }
+        return best;
+    }
+
+    private void endClipDrag(boolean commit) {
+        View chip = clipDragView;
+        int from = clipDragFrom, to = clipDropAt;
+        clipDragFrom = -1;
+        clipDropAt = -1;
+        clipDragView = null;
+        if (chip != null) {
+            chip.setScaleX(1f); chip.setScaleY(1f);
+            chip.setTranslationX(0); chip.setTranslationY(0);
+            chip.setElevation(0f);
+        }
+        java.util.List<SpriteSheet.Preset> all = sheet.getPresets();
+        if (!commit || from < 0 || to < 0 || from == to
+                || from >= all.size() || to >= all.size()) return;
+        noteChange();
+        all.add(to, all.remove(from));
+        markDirty();
+        showSection("clips");
+    }
+
     private void buildClipsSection() {
         float d = density();
         if (sheet.getPresets().isEmpty()) {
@@ -1668,23 +1746,44 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
 
         TextView hint = new TextView(this);
-        hint.setText("Tap a clip to see it on the sheet. Its frames light up in order.");
+        hint.setText("Tap a clip to see it on the sheet. Long-press to drag it somewhere else.");
         hint.setTextColor(SpriteTheme.DIMMER);
         hint.setTextSize(10f);
         benchBody.addView(hint);
 
         FlowLayout shelf = new FlowLayout(this);
         shelf.setPadding(0, (int) (5 * d), 0, (int) (5 * d));
+        clipShelf = shelf;
         SpriteSheet.Preset picked = null;
         for (int i = 0; i < sheet.getPresets().size(); i++) {
             final SpriteSheet.Preset pr = sheet.getPresets().get(i);
             boolean sel = pr.id.equals(pickedClip);
             if (sel) picked = pr;
+            final int at = i;
             View chip = spriteChip(0, pr, pr.name, pr.frames.size() + "f \u00b7 "
                     + (int) (pr.fps > 0 ? pr.fps : sheet.getFps()) + "fps", 0, false, sel);
             chip.setOnClickListener(v -> {
                 pickedClip = pr.id.equals(pickedClip) ? null : pr.id;
                 showSection("clips");
+            });
+            // Same gesture as the roll: long-press lifts, then drag to a new place. The shelf
+            // WRAPS, so the drop target is the nearest chip centre rather than a gap on a line.
+            chip.setOnLongClickListener(v -> { beginClipDrag(at, chip); return true; });
+            chip.setOnTouchListener((v, e) -> {
+                if (clipDragFrom != at) return false;
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_MOVE:
+                        moveClipDrag(e.getRawX(), e.getRawY());
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        endClipDrag(true);
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        endClipDrag(false);
+                        return true;
+                    default:
+                        return false;
+                }
             });
             shelf.addView(chip);
         }

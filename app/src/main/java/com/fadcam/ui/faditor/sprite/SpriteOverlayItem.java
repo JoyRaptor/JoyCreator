@@ -504,6 +504,31 @@ public class SpriteOverlayItem {
         return com.fadcam.ui.faditor.model.CornerPin.buildMatrix(out, left, top, w, h, off);
     }
 
+    /**
+     * Must this sprite be drawn by GL rather than by the Canvas view?
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"We need sprites to be GL so that they interact with the other
+     * layers properly for blending modes, masks, and adjustment layers. GL can work images just
+     * fine, and the sprite is just an image."</i>
+     *
+     * <p>He is right about the consequence, and it is the reason this predicate exists rather than
+     * a Canvas warp being enough. A sprite drawn on the Canvas is painted OVER the GL surface, so
+     * it cannot be sampled by a blend above it, cannot be cut by a mask, and cannot be graded by
+     * an adjustment layer — it sits outside the composite instead of inside it. Bending it on the
+     * Canvas would have bought the warp and kept it locked out of everything else.
+     *
+     * <p>Mirrors {@code TextOverlayItem.wantsGlExport} in shape deliberately: same question, same
+     * answer style, so the two families cannot drift into different ideas of "this one is GL". The
+     * list is shorter only because a sprite has no blend, key or fx channel YET — when it gains
+     * one, it is added here and everything downstream already works.
+     *
+     * <p>Checked BEFORE any GL object exists, so a project with no warped sprite compiles no
+     * program and allocates no framebuffer.
+     */
+    public boolean wantsGl() {
+        return hasMesh() || hasCornerPin();
+    }
+
     /** True when a bend is authored. Checked before any GL object exists, so no bend costs zero. */
     public boolean hasMesh() {
         return mesh != null && mesh.hasWarp();

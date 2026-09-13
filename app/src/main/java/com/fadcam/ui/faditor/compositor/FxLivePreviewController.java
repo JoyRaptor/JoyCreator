@@ -119,6 +119,13 @@ public final class FxLivePreviewController {
          * deriving any of those a second time is how the drawn image and the effected image end
          * up in two different places.</p>
          */
+        /**
+         * Sprites the composite is drawing this frame, so the Canvas view can stop painting them.
+         * Mirrors {@code onGlOwnedImages}; told every tick, including when empty, or a sprite that
+         * left GL would stay invisible.
+         */
+        default void onGlOwnedSprites(@NonNull java.util.Set<String> ids) { }
+
         @Nullable default FxPreviewTextureView.Pip imagePipFor(
                 @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o, int frameW, int frameH) {
             return null;
@@ -767,6 +774,30 @@ public final class FxLivePreviewController {
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             glOwned.add(o.getId());
         }
+        // ── SPRITES THAT BELONG TO THE COMPOSITE ────────────────────────────────────────────
+        // JoyRaptor, 2026-09-13: "We need sprites to be GL so that they interact with the other
+        // layers properly for blending modes, masks, and adjustment layers."
+        //
+        // A sprite painted by its Canvas view sits OVER this surface, so a blend above it samples
+        // the video instead of the sprite, a mask cannot cut it and an adjustment layer cannot
+        // grade it. Drawn here it is INSIDE the composite and all three work — which is why the
+        // answer was never a nicer Canvas warp.
+        //
+        // The comment a few hundred lines up says text and sprites "have no preview rasterizer".
+        // That was true when it was written and is not now: OverlayTextureCache.rasterizeSprite
+        // exists, and the same cache the below-blend path already uses serves this one.
+        java.util.Set<String> glSprites = new java.util.HashSet<>();
+        for (LayerPreviewController.VisualItem v
+                : LayerPreviewController.orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp = v.item.getSprite();
+            if (sp == null || !sp.wantsGl() || !sp.isVisibleAt(playheadMs)) continue;
+            FxPreviewTextureView.Pip p = spritePip(sp, playheadMs, size);
+            if (p == null) continue;   // not rasterised yet: absent until ready, as an image is
+            rungs.add(FxPreviewTextureView.Rung.pip(p));
+            glSprites.add(sp.getId());
+        }
+        host.onGlOwnedSprites(glSprites);
+
         // NO "deferred" pass for the remaining plain images. They stay on Canvas, drawn by
         // their own ImageView over this surface — which is where the export paints them too
         // (its final CompositeExportOverlay pass runs after every ImageBlendGlEffect).
@@ -783,6 +814,67 @@ public final class FxLivePreviewController {
                     + " layers=" + snapshot.size() + " offer=" + offer);
         }
         return new FxPreviewTextureView.CompositePlan(snapshot, rungs, spineLayerIndex);
+    }
+
+    /**
+     * One sprite as a GL quad — texture, pose, corner pin and bend.
+     *
+     * <p>Everything here comes from the sprite's OWN model authorities
+     * ({@code animatedCentre/Size/Rotation/Opacity}, {@code animatedCornerPin}, {@code getMesh}),
+     * the same ones the Canvas view and the export read, so the three cannot disagree about where
+     * the sprite is. Aspect comes from the rasterised bitmap — the exact pixels the stamp will
+     * sample — which is the same rule the image path states for itself.
+     *
+     * <p>Returns null when there is nothing to draw yet. Absent-until-ready is how a still PiP
+     * behaves too; a half-rasterised sprite is not worth a frame of wrong picture.
+     */
+    @Nullable
+    private FxPreviewTextureView.Pip spritePip(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp,
+            long playheadMs, @NonNull int[] size) {
+        try {
+            if (size[0] <= 0 || size[1] <= 0) return null;
+            android.graphics.Bitmap tex = overlayTextureCache.getOrCreate(sp, size[0], size[1]);
+            if (tex == null || tex.isRecycled() || tex.getHeight() <= 0) return null;
+            float alpha = sp.animatedOpacity(playheadMs);
+            if (alpha < 0.005f) return null;
+
+            float hNorm = sp.animatedSizeFraction(playheadMs);
+            float aspect = tex.getWidth() / (float) tex.getHeight();
+            float frameAspect = size[0] / (float) size[1];
+            if (!(hNorm > 0f) || !(aspect > 0f) || !(frameAspect > 0f)) return null;
+            float wNorm = hNorm * aspect / frameAspect;
+
+            float cx = sp.animatedCenterX(playheadMs);
+            float cy = sp.animatedCenterY(playheadMs);
+            float rot = sp.animatedRotation(playheadMs);
+
+            float[] pins = null;
+            if (sp.hasCornerPin()) {
+                pins = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+                sp.animatedCornerPin(playheadMs, pins);
+            }
+            FxPreviewTextureView.Pip p = FxPreviewTextureView.Pip.ofImage(
+                    cx, cy, wNorm / 2f, hNorm / 2f, rot, alpha,
+                    null, playheadMs, null, 0f, size[0], size[1], sp.getId(), tex, 1f, pins);
+            if (!sp.hasMesh()) return p;
+
+            sp.installMeshCurve();
+            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec src = sp.getMesh();
+            if (src == null || !src.hasWarp()) return p;
+            FxPreviewTextureView.MeshInputs mi = new FxPreviewTextureView.MeshInputs(
+                    src.copy(), sp.meshLocalTime(playheadMs), cx, cy, wNorm, hNorm,
+                    // No stored rotation pivot on a sprite, so the fold is about the centre.
+                    0f, 0f, false, rot,
+                    // No caption-style preset on a sprite: identity scale, no offset, full reveal.
+                    1f, 1f, 0f, 0f,
+                    alpha, 1f, pins,
+                    sp.isFlipH() ? -1f : 1f, sp.isFlipV() ? -1f : 1f);
+            FxPreviewTextureView.Pip mp = p.withMesh(mi);
+            return mp != null ? mp : p;
+        } catch (Exception ignored) {
+            return null;   // never let a sprite cost the frame
+        }
     }
 
     /**

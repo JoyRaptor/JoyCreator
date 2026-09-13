@@ -27866,6 +27866,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             return overlayLayerBelow == null
                                     ? null : overlayLayerBelow.fxPipFor(o, frameW, frameH);
                         }
+                        @Override public void onGlOwnedSprites(
+                                @NonNull java.util.Set<String> ids) {
+                            // The composite has these; the Canvas view must not paint them too,
+                            // or the Canvas copy would sit ON TOP of the very blend/mask/grade
+                            // the sprite moved into GL to receive.
+                            if (spriteOverlayView != null) {
+                                spriteOverlayView.setGlOwnedIds(ids);
+                            }
+                        }
                         @Override public void onGlOwnedImages(
                                 @NonNull java.util.Set<String> ids) {
                             // Told to BOTH, always: an item that moved between the buckets would

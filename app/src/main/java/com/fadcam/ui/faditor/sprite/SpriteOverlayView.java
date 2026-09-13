@@ -81,6 +81,25 @@ public class SpriteOverlayView extends View {
     private final ScaleGestureDetector scaleDetector;
     /** Scratch for the sprite corner pin — allocated once, never inside a draw. */
     private final android.graphics.Matrix pinMatrix = new android.graphics.Matrix();
+    /** The bend, shared with the export — see SpriteMeshDraw. */
+    private final SpriteMeshDraw meshDraw = new SpriteMeshDraw();
+
+    /**
+     * Sprites the GL composite is drawing this frame — this view must not paint them too.
+     *
+     * <p>Exactly {@code TextOverlayLayer.setGlOwnedImageIds}'s job, and named to match. A sprite
+     * that has moved into the composite is drawn INSIDE it, where a blend above can sample it and
+     * a mask can cut it; painting it here as well would double it and put the Canvas copy on top
+     * of the very effects it moved to GL to receive.
+     */
+    @NonNull private java.util.Set<String> glOwnedIds = java.util.Collections.emptySet();
+
+    /** Told every frame by the composite; cheap no-op when the set has not changed. */
+    public void setGlOwnedIds(@NonNull java.util.Set<String> ids) {
+        if (glOwnedIds.equals(ids)) return;
+        glOwnedIds = new java.util.HashSet<>(ids);
+        invalidate();
+    }
     private float downRawX, downRawY, startCenterX, startCenterY;
     private boolean moved;
     @Nullable private SpriteOverlayItem.TransformSnapshot beforeGesture;
@@ -197,6 +216,8 @@ public class SpriteOverlayView extends View {
 
     private void drawSprite(@NonNull Canvas canvas, @NonNull SpriteOverlayItem o,
                             @NonNull RectF r) {
+        // GL has this one — see setGlOwnedIds.
+        if (glOwnedIds.contains(o.getId())) return;
         SpriteSheet sheet = callback.lookupSheet(o.getSheetId());
         SpriteSheetRenderer renderer = sheet != null
                 ? callback.lookupRenderer(o.getSheetId()) : null;
@@ -233,26 +254,49 @@ public class SpriteOverlayView extends View {
             canvas.concat(pinMatrix);
         }
         com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet = puppetFor(o);
+        // SPEC Z slice 1 — THE BEND. Everything the sprite shows is drawn into an offscreen and
+        // that picture is warped, so a cell swap or a rig pose change cannot change the bend and
+        // the mouth follows the head. Returns false and costs nothing when there is no bend.
+        if (meshDraw.draw(canvas, o, currentTimeMs, workRect,
+                (c, into) -> drawSpriteContent(c, o, into, renderer, sheet, puppet, alpha),
+                drawPaint)) {
+            canvas.restore();
+            return;
+        }
+        drawSpriteContent(canvas, o, workRect, renderer, sheet, puppet, alpha);
+        canvas.restore();
+    }
+
+    /**
+     * What the sprite SHOWS at this instant — a rig's composed parts, a sheet cell, or the missing
+     * placeholder. Split out so the bend can rasterise exactly this and warp the result, with no
+     * second copy of the branches.
+     */
+    private void drawSpriteContent(@NonNull Canvas canvas, @NonNull SpriteOverlayItem o,
+                                   @NonNull RectF into,
+                                   @Nullable SpriteSheetRenderer renderer,
+                                   @Nullable SpriteSheet sheet,
+                                   @Nullable com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet,
+                                   float alpha) {
         if (puppet != null && o.getAvatarTrack() != null) {
             // Live puppet replay (bake-to-keyframes): resolver-driven, replaces
             // the static neutral cell. Rotate/flip above apply; workRect is the
             // same box the neutral PNG occupied, so geometry is unchanged.
-            puppet.draw(canvas, workRect, o.getAvatarTrack(),
+            puppet.draw(canvas, into, o.getAvatarTrack(),
                     Math.max(0, o.toLocalMs(currentTimeMs)), alpha);
         } else if (renderer != null && sheet != null) {
             int cell = SpriteFrameResolver.resolveCellAt(sheet, o, currentTimeMs);
             if (cell != SpriteFrameResolver.NO_CELL) {
                 drawPaint.setAlpha(Math.round(alpha * 255));
-                renderer.drawCell(canvas, cell, workRect, drawPaint);
+                renderer.drawCell(canvas, cell, into, drawPaint);
             }
             // NO_CELL with an empty frame track = a just-placed sprite; S3's
             // palette drops the first entry. Draw nothing (not even MISSING).
         } else {
-            canvas.drawRect(workRect, missingPaint);
-            canvas.drawText("sprite?", workRect.centerX(),
-                    workRect.centerY() + missingText.getTextSize() / 3f, missingText);
+            canvas.drawRect(into, missingPaint);
+            canvas.drawText("sprite?", into.centerX(),
+                    into.centerY() + missingText.getTextSize() / 3f, missingText);
         }
-        canvas.restore();
     }
 
     // ── Gestures (TextOverlayLayer contract: drag move, pinch scale,

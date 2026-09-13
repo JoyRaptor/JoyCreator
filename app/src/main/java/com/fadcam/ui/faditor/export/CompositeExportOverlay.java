@@ -248,6 +248,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
     @Nullable private Canvas canvasB;
     /** Scratch for the sprite corner pin — allocated once, never per frame. */
     private final android.graphics.Matrix spritePinMatrix = new android.graphics.Matrix();
+    /** The bend, shared with the preview — see SpriteMeshDraw. */
+    private final com.fadcam.ui.faditor.sprite.SpriteMeshDraw spriteMeshDraw =
+            new com.fadcam.ui.faditor.sprite.SpriteMeshDraw();
     /** EXPORT COST INSTRUMENTATION: how much of an export this clip's overlay pass actually is. */
     /** Identity-stable, never drawn into; see the empty-frame branch in getBitmap. */
     @Nullable private Bitmap emptyBitmap;
@@ -682,14 +685,23 @@ public class CompositeExportOverlay extends BitmapOverlay {
                         dest.left, dest.top, dest.width(), dest.height())) {
                     canvas.concat(spritePinMatrix);
                 }
-                if (puppet != null && o.getAvatarTrack() != null) {
-                    // Bake-to-keyframes replay: live puppet in the SAME dest box
-                    // the neutral cell occupied (preview parity by construction —
-                    // SpriteOverlayView takes the identical branch).
-                    puppet.draw(canvas, dest, o.getAvatarTrack(),
-                            Math.max(0, o.toLocalMs(timelineMs)), opacity);
-                } else {
-                    r.drawCell(canvas, cell, dest, spritePaint);
+                // SPEC Z slice 1 — THE BEND, through the SAME SpriteMeshDraw the preview calls.
+                // One class, one deformation authority, two surfaces: the sprite export and the
+                // sprite preview cannot disagree about a bend because there is only one of it.
+                final int fCell = cell;
+                final com.fadcam.ui.faditor.avatar.AvatarItemPuppet fPuppet = puppet;
+                final float fOpacity = opacity;
+                com.fadcam.ui.faditor.sprite.SpriteMeshDraw.Content content = (c, into) -> {
+                    if (fPuppet != null && o.getAvatarTrack() != null) {
+                        fPuppet.draw(c, into, o.getAvatarTrack(),
+                                Math.max(0, o.toLocalMs(timelineMs)), fOpacity);
+                    } else {
+                        r.drawCell(c, fCell, into, spritePaint);
+                    }
+                };
+                if (!spriteMeshDraw.draw(canvas, o, timelineMs, dest, content, spritePaint)) {
+                    // No bend: the byte-identical path this always took.
+                    content.draw(canvas, dest);
                 }
                 canvas.restore();
                 drawnSprite++;

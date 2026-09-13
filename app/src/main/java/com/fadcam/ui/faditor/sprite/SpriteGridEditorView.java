@@ -138,8 +138,25 @@ public class SpriteGridEditorView extends View {
         canvas.concat(viewMatrix);
         // Bitmap drawn in SOURCE-pixel space (scale decoded bitmap up to source dims
         // so all grid geometry is in one space).
+        //
+        // ONE blit while nothing is aligned; cell by cell the moment anything is. A single
+        // drawBitmap of the whole sheet cannot show a per-cell nudge, so the grid would have
+        // sat there showing raw art while the preview showed the aligned frame — and lining
+        // cells up AGAINST EACH OTHER on the grid is precisely what this screen is for. The
+        // fast path keeps every sheet that has never been nudged exactly as cheap as before.
         RectF srcSpace = new RectF(0, 0, renderer.sourceWidth(), renderer.sourceHeight());
-        canvas.drawBitmap(renderer.getBitmap(), null, srcSpace, bmpPaint);
+        if (sheet.getCellTransforms().isEmpty()) {
+            canvas.drawBitmap(renderer.getBitmap(), null, srcSpace, bmpPaint);
+        } else {
+            int n = sheet.cellCount();
+            RectF cellDest = new RectF();
+            for (int i = 0; i < n; i++) {
+                Rect cr = SpriteSheetRenderer.cellRectSource(
+                        sheet, i, renderer.sourceWidth(), renderer.sourceHeight());
+                cellDest.set(cr);
+                renderer.drawCell(canvas, i, cellDest, bmpPaint);
+            }
+        }
 
         int count = sheet.cellCount();
         for (int i = 0; i < count; i++) {

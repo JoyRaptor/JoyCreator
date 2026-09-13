@@ -1544,6 +1544,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     FLog.i(TAG, "separated " + movedAudio
                             + " overlapping audio clip(s) onto their own lanes");
                 }
+                int freed = raiseStillTrimBounds();
+                if (freed > 0) {
+                    FLog.i(TAG, "raised the stretch bound on " + freed
+                            + " still(s) that were pinned at their creation length");
+                }
                 // Why did we die last time? Reads the OS's own post-mortem (PSS/RSS + the ANR
                 // trace) and saves it where it survives. The long-file ANR has been "root-cause
                 // owed" since 2026-07-16 purely because nobody was holding a cable when it fired.
@@ -22868,6 +22873,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * it), minting a lane every time. A null {@code trackId} is the default text
      * lane; every other caller passes a real lane id.
      */
+
+    /**
+     * Give every STILL on the spine its full stretch range back.
+     *
+     * <p>JoyRaptor, 2026-09-13, after the create-time fix shipped: <i>"I still cannot extend my
+     * blank spine clip past 5 seconds."</i> Correct, and the create-time fix could never have
+     * helped him: {@code sourceDurationMs} is PERSISTED, so a blank made before it already
+     * carries 5000 in project.json and arrives with the handle pinned. His project holds three —
+     * a "Blank" at 5000, an image at 5000, and a "Blank (auto)" pinned at the 261705 it happened
+     * to be created at.
+     *
+     * <p>For a still, source duration is not a measurement of anything — there is no file whose
+     * end could be overrun. It is purely the trim handle's bound, which is why
+     * {@link #IMAGE_CLIP_MAX_MS} exists and why raising it decodes nothing extra: the frame is
+     * decoded once and held. So this is a repair, not a guess about intent.
+     *
+     * <p>Idempotent, and it touches only stills: a clip already at or above the bound is skipped,
+     * and out-points are left exactly as they are — a blank keeps the length the user gave it and
+     * merely regains the room to grow.
+     *
+     * @return how many clips were repaired (0 = nothing to do)
+     */
+    private int raiseStillTrimBounds() {
+        if (project == null) return 0;
+        Timeline tl = project.getTimeline();
+        int n = 0;
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (c == null || !c.isImageClip()) continue;
+            if (c.getSourceDurationMs() >= IMAGE_CLIP_MAX_MS) continue;
+            c.setSourceDurationMs(IMAGE_CLIP_MAX_MS);
+            n++;
+        }
+        return n;
+    }
+
     private boolean laneRangeOccupied(@NonNull Timeline tl, @Nullable String trackId,
             long startMs, long endMs, @Nullable String ignoreId) {
         String candKey = trackId == null ? "text" : trackId;

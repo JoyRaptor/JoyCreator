@@ -153,17 +153,53 @@ public final class AudioClipPreviewPlayer {
     }
 
     /**
+     * SOURCE time to the player's own WINDOW time.
+     *
+     * <p>THE TWO DOMAINS. This class's public API is documented in SOURCE time — every call site
+     * computes {@code inPointMs + playhead - offset} and hands that in. But the media item is
+     * built with a {@link MediaItem.ClippingConfiguration} from the in-point to the out-point, and
+     * a clipped ExoPlayer timeline starts at ZERO at the in-point. So the player's domain is the
+     * WINDOW, and the difference between the two is exactly {@code inPointMs}.
+     *
+     * <p>Nothing bridged them. Every seek therefore overshot by the in-point, which is silent on a
+     * clip trimmed from the start of its file (in-point 0, the two domains coincide) and wrong by
+     * the whole trim on any other. JoyRaptor, 2026-09-13: <i>"the first audio clip was working till
+     * I cut it and trimmed it, now it's just giving one short sample over and over again, the next
+     * audio right after it still works."</i> The one that still worked had an in-point of zero.
+     * His device log names the fault outright:
+     *
+     * <pre>AudioPlayer[2] seekPos=42950 exceeds mediaDuration=14202, clamping</pre>
+     *
+     * <p>42950 is the correct SOURCE position — in-point 32751 plus 10199 of playhead. 14202 is
+     * the WINDOW's length. The guard then clamped the seek to just before the window's end, so
+     * every tick re-parked on the same final fragment and played it again: one short sample, over
+     * and over.
+     */
+    private long toWindowMs(long sourceMs) {
+        long w = sourceMs - clip.getInPointMs();
+        if (w < 0L) return 0L;
+        long dur = player != null ? player.getDuration() : androidx.media3.common.C.TIME_UNSET;
+        if (dur != androidx.media3.common.C.TIME_UNSET && dur > 0 && w > dur) return dur;
+        return w;
+    }
+
+    /** The player's WINDOW time back to SOURCE time — the inverse of {@link #toWindowMs}. */
+    private long toSourceMs(long windowMs) {
+        return Math.max(0L, windowMs) + clip.getInPointMs();
+    }
+
+    /**
      * Seek to an absolute position in the SOURCE file (the domain every existing call
      * site computes in: {@code inPointMs + playhead - offset}).
      */
     public void seekTo(long sourceMs) {
-        if (player != null) player.seekTo(Math.max(0L, sourceMs));
+        if (player != null) player.seekTo(toWindowMs(sourceMs));
     }
 
     /** Park (seek + buffer) at sourceMs WITHOUT starting. */
     public void parkAt(long sourceMs) {
         long target = Math.max(0L, sourceMs);
-        parkTargetMs = target;
+        parkTargetMs = target;   // kept in SOURCE time — isParkedAt is asked in the same domain
         if (player == null) {
             prepareAsync();
             // seek will happen once player exists; target kept for isParkedAt
@@ -171,7 +207,7 @@ public final class AudioClipPreviewPlayer {
         }
         try {
             player.setPlayWhenReady(false);
-            player.seekTo(target);
+            player.seekTo(toWindowMs(target));
             if (player.getPlaybackState() == Player.STATE_IDLE) {
                 player.prepare();
             }
@@ -184,14 +220,20 @@ public final class AudioClipPreviewPlayer {
     public boolean isParkedAt(long sourceMs) {
         if (player == null) return false;
         if (player.getPlaybackState() != Player.STATE_READY) return false;
-        long pos = player.getCurrentPosition();
+        long pos = toSourceMs(player.getCurrentPosition());
         return Math.abs(pos - sourceMs) <= PARK_TOLERANCE_MS;
     }
 
-    /** Current source position in ms. */
+    /**
+     * Current position in SOURCE time, as the name says — the drift loop compares this against
+     * {@code inPointMs + playhead - offset}, so it must be in that domain. It used to return the
+     * raw window position, which on a trimmed clip is short by the in-point; the drift baseline
+     * quietly absorbed the difference and called a whole trim's worth of offset "pipeline
+     * latency". See {@link #toWindowMs}.
+     */
     public long getCurrentPosition() {
         if (player == null) return 0L;
-        return Math.max(0L, player.getCurrentPosition());
+        return toSourceMs(player.getCurrentPosition());
     }
 
     public int getPlaybackState() {
@@ -218,11 +260,19 @@ public final class AudioClipPreviewPlayer {
         try { return player.getPlaybackParameters().speed; } catch (Exception e) { return 1f; }
     }
 
-    /** Source duration in ms, or 0 while unknown. */
+    /**
+     * The last SOURCE position this player can reach, or 0 while unknown.
+     *
+     * <p>In SOURCE time, to match {@link #seekTo} and {@link #getCurrentPosition}. The player's
+     * own duration is the WINDOW's length, and callers compare this against a source-domain seek
+     * position — which is how a legitimate seek to 42950 came to be judged "past the end" of a
+     * 14202-long file and clamped onto a repeating fragment.
+     */
     public long getDuration() {
         if (player == null) return 0L;
         long d = player.getDuration();
-        return d == androidx.media3.common.C.TIME_UNSET ? 0L : Math.max(0L, d);
+        if (d == androidx.media3.common.C.TIME_UNSET) return 0L;
+        return toSourceMs(Math.max(0L, d));
     }
 
     /**

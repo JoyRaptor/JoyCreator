@@ -159,13 +159,27 @@ public final class AudioFxChainFactory {
             vp.setVolume(clip.getVolumeLevel());
             volumeAdjusted = true;
         }
-        // HARNESS-CAUGHT (LaneChainParityTest, tonight): gating on volumeAdjusted alone
-        // meant a PAN-ONLY clip (unity volume, no envelope) dropped the whole processor —
-        // its pan silently vanished in preview AND export. Pan is work the processor does;
-        // gate on it too.
-        if (volumeAdjusted || Math.abs(clip.getPan()) >= 0.001f) {
-            out.add(vp);
-        }
+        // THE GATE IS GONE, AND IT SHOULD NOT COME BACK.
+        //
+        // It has been wrong twice. First it read `volumeAdjusted` alone, so a PAN-ONLY clip
+        // (unity volume, no envelope) dropped the whole processor and its pan vanished from
+        // preview AND export — caught by LaneChainParityTest. Pan was added to the condition.
+        //
+        // JoyRaptor, 2026-09-13: "fade handles don't seem to be fading the audio." Same fault,
+        // third channel. An audio fade IS a volume envelope (AudioClip.setFadeInMs writes the
+        // keyframe pair), but the chain is built ONCE when the preview player is created, and
+        // refreshLaneChain can only push new values into a processor that is already mounted.
+        // So a clip that was at unity with no envelope when its player was built — his was, and
+        // a second sat at 0.9958, inside the 0.01 dead-band — had no processor to refresh, and
+        // every fade drawn on it afterwards was inaudible. Nothing in the model was wrong; there
+        // was simply nothing listening.
+        //
+        // Each fix widened the condition by one channel and left the next one waiting. The
+        // condition is the bug: it asks what the clip looks like NOW to decide what it may ever
+        // become. At unity gain, no envelope and centre pan this processor is a multiply by one,
+        // and it is the same object export mounts, so always mounting it changes no output —
+        // only whether a later edit can be heard.
+        out.add(vp);
         if (applyVoiceChain && !bypassed) {
             out.add(FxChain.createVoiceChain(
                     projectSampleRate > 0 ? projectSampleRate : 48000));

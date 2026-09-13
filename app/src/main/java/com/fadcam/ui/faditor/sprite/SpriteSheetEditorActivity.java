@@ -1988,9 +1988,13 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             String sub = isOpen ? "open now"
                     : o.getSheetUri().isEmpty() ? "no art"
                     : o.cellCount() + " cells";
-            if (!o.getBakedFrom().isEmpty()) {
+            if (!o.getBakedFrom().isEmpty() && !isOpen) {
                 sub = "baked \u00b7 " + android.text.TextUtils.join(" + ", o.getBakedFrom());
             }
+            // A sheet whose art has gone is the one you most want to find here, to relink it
+            // or to remove it, and it is invisible otherwise: a sheet is just a row of numbers
+            // until something tries to draw it.
+            if (artIsMissing(o)) sub = "\u26a0 art is missing";
             // NO thumbnail. spriteChip draws through THIS activity's renderer, so every row
             // would show cell 0 of the sheet you already have open — you would be choosing
             // which sheet to delete from a list where all the pictures are the same and none
@@ -2061,6 +2065,29 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         b.addView(del);
 
         benchBody.addView(g);
+    }
+
+    /**
+     * Has this sheet's image gone?
+     *
+     * <p>Only ever answers TRUE when it is certain: a path it can resolve and check that is not
+     * there. Anything it cannot resolve (a content:// grant, a scheme it does not know) is
+     * reported as fine, because a false "missing" on good art would send someone relinking
+     * something that never broke.</p>
+     */
+    private boolean artIsMissing(@NonNull SpriteSheet sh) {
+        String uri = sh.getSheetUri();
+        if (uri.isEmpty()) return false;              // "no art" is a different statement
+        try {
+            File dir = storage.projectDir(project.getId());
+            android.net.Uri resolved =
+                    com.fadcam.ui.faditor.project.AssetResolver.resolve(dir, uri);
+            if (resolved == null || !"file".equals(resolved.getScheme())) return false;
+            String path = resolved.getPath();
+            return path != null && !new File(path).exists();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /**

@@ -1787,7 +1787,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             try {
                 com.fadcam.ui.faditor.model.FaditorProject reloaded =
                         projectStorage.load(project.getId());
-                if (reloaded != null && !reloaded.getTimeline().isEmpty()) {
+                if (reloadLooksReal(reloaded)) {
                     // The AI's work becomes ONE undoable step, and it has to be captured
                     // from the state we are still holding — i.e. BEFORE the swap below.
                     // Snapshot-based on purpose: the AI edited a separate copy on disk, so
@@ -1821,6 +1821,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // next user edit records a correct pre-state (audit 1.6).
                     undoManager.resetBaseline();
                     Toast.makeText(this, "AI edits applied", Toast.LENGTH_SHORT).show();
+                } else {
+                    // The signal was consumed above, so refusing here means the change on disk
+                    // is lost the moment this activity autosaves. Never do that silently.
+                    FLog.w(TAG, "Refused to reload after an external edit: the file came back "
+                            + "empty or unreadable. This editor is holding a STALE project.");
+                    Toast.makeText(this, "Changes were saved — reopen the project to see them",
+                            Toast.LENGTH_LONG).show();
                 }
             } catch (Exception e) {
                 FLog.e(TAG, "Failed to reload project after AI edits", e);
@@ -1836,6 +1843,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
         invalidateSpriteMissingState();
 
         playheadHandler.post(playheadUpdater);
+    }
+
+    /**
+     * Is a re-read of this project from disk worth swapping in?
+     *
+     * <p>This used to ask {@code !timeline.isEmpty()}, which is VIDEO CLIPS only. The intent was
+     * right — do not replace a live editor with a project that failed to load — but the test was
+     * wrong: a sprite-only or sequence-only project legitimately has zero clips, so the reload
+     * was skipped, {@code project} stayed stale, and this editor's next autosave wrote the stale
+     * copy back over whatever had just been saved elsewhere.</p>
+     *
+     * <p>Survivable while the sprite editor only made additive edits. Not now: the Sprite Lab
+     * can REMOVE a sheet and rename one, and both were silently revertible through this gate
+     * (found by the SpriteLab lane's review, 2026-09-13).</p>
+     *
+     * <p>Trustworthy means "has any content at all", not "has video". A project with nothing in
+     * it anywhere is still refused, because that is what a failed load looks like.</p>
+     */
+    private boolean reloadLooksReal(
+            @Nullable com.fadcam.ui.faditor.model.FaditorProject reloaded) {
+        if (reloaded == null) return false;
+        com.fadcam.ui.faditor.model.Timeline t = reloaded.getTimeline();
+        if (t == null) return false;
+        return !t.isEmpty()
+                || !t.getSpriteOverlays().isEmpty()
+                || !t.getTextOverlays().isEmpty()
+                || !t.getAudioClips().isEmpty()
+                || !reloaded.getSpriteSheets().isEmpty();
     }
 
     @Override

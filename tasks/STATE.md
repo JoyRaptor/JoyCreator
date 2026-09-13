@@ -86,7 +86,10 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Text overlays + animation | 🟢 ~ | SPEC_TEXT_ANIMATION; odometer preset proved character-by-character 2026-07-31 |
 | Adjustment layers / FX | 🟡 ✔ | Shell is 🟢 — add/select/own-lane/fx+trash badges device-proved on the sandbox phone 2026-09-10. **Whether an effect actually applies to the layers beneath is still unproved.** SPEC_ADJUSTMENT_LAYERS_FX.md |
 | Timeline lane allocation (no two objects stacked) | 🟢 ✔ | SPEC W — three adjustment layers took three lanes, device-proved 2026-09-10. Same rule now guards text/image/sprite/PiP adds. |
-| Mesh warp / Bend | 🟢 | **Complete and device-verified 2026-09-10.** SPEC A through T. |
+| Mesh warp / Bend (IMAGES) | 🟢 | **Complete and device-verified 2026-09-10.** SPEC A through T. |
+| Corner pin on SPRITES | 🟡 ✔ | SPEC Z slice 1, 2026-09-13. Model, persistence, undo, transform surface, authoring and BOTH renderers — one shared matrix method. Compile- and harness-verified; **no one has dragged a sprite corner on a phone yet.** |
+| Mesh bend on sprites / PiP / text / spine | 🔵 | SPEC Z. Sprites hold a MeshWarpSpec that nothing draws; PiP and spine need the Clip model work; text needs a pinned view. |
+| Sprites on the transform surface | 🟡 ✔ | SPEC Z slice 1 step 2, 2026-09-13. They used the legacy handle overlay until now. |
 | Transform (affine handles, rotation dial, pivot) | 🟢 | **Complete 2026-09-10.** Shipped alongside Bend. |
 | Undo (one press = one step) | 🟢 ~ | JoyRaptor's ruling. Batch operations collapse to one undo. |
 | Export (out-of-process) | 🟢 ~ | Own process so an editor crash cannot kill an export. Proved 2026-07-30. |

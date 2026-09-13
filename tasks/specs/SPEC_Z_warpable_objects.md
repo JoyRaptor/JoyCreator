@@ -131,6 +131,63 @@ Slice 2 and slice 4 share the `Clip` model work — do them adjacent, and do 2 f
 
 ---
 
+---
+
+## STATUS, 2026-09-13 (autonomous session)
+
+### Slice 1 — SPRITES: the PIN half is DONE, end to end
+
+| | |
+|---|---|
+| Model | `SpriteOverlayItem` carries a corner pin and a `MeshWarpSpec`, shaped exactly like the image model's, with `cornerPinMatrix` mirroring it |
+| Persistence | eight sparse keys + a `mesh` object, image contract exactly; **the persistence lint now covers the sprite model** and proves the pin family is written AND read |
+| Undo | `TransformSnapshot` carries both; bends compare by serialised form so "same bend" has one definition |
+| Transform surface | sprites reach it at last, on the SHARED `AffineTransformHost` — no new host, which is SPEC Y acceptance 4 demonstrated |
+| Authoring | an optional `PinChannel` on the shared host; the distortion is solved by the SAME `TransformQuad.solvePinForQuad` the image host uses |
+| Preview | `SpriteOverlayView` concats the pin innermost |
+| Export | `CompositeExportOverlay` concats the same matrix at the same point |
+
+**The warp is structurally sprite-level, not per-cell.** The pin is concat-ed inside the rotate and
+flip and immediately around the draw, and both branches under that point — a rig puppet and a plain
+cell — draw into the same rect. So there is nowhere in this code to apply the warp per-cell even by
+accident, which is what makes JoyRaptor's requirement a property of the structure rather than a rule
+someone has to remember.
+
+**Two deliberate refusals**, both stated where they happen: a MIRRORED sprite refuses a distortion
+rather than guessing (its flip is applied outside the pin, so the quad is in mirrored screen space
+while the offsets are stored in item space — reconciling that is the image host's un-mirror step,
+which this narrow channel does not carry), and an out-of-range offset refuses rather than clamping
+into a shape the user did not draw.
+
+### Slice 1 — SPRITES: the MESH half is NOT done
+
+The model holds a `MeshWarpSpec` and nothing draws it. `setBendAvailable(false)` stands. What it
+needs: sprites onto the GL texture path when warped (extend `OverlayTextureCache.canUseTexture`,
+which is already documented as "one predicate, one place"), then through the existing
+`MeshStampGl`. Do not write a second warp.
+
+### Slice 3 — TEXT: a finding that changes the plan
+
+The spec above says text is nearly free because the model already holds a pin. That is true of the
+MODEL and false of the RENDERER, and the difference matters:
+
+**Text does not draw on a canvas — it draws through child Views** (`TextBoxView` inside
+`TextOverlayLayer`). So the sprite trick of concat-ing a matrix around the draw has no equivalent
+place to live. A pinned text box needs what a pinned image already has: a view that applies the
+matrix in its own `draw`, plus the layout inflation that stops a pulled corner being clipped by its
+parent — i.e. a `CornerPinTextView` mirroring `CornerPinImageView`, and the matching inflation in
+`TextOverlayLayer`'s layout pass. The export half then needs the same in `TextOverlayRenderer`.
+
+The good news the finding brings: because a pin on text would be a **matrix on glyph outlines**
+rather than a warped raster, the sharpness risk this spec flags for text applies only to the MESH,
+not to the pin. A pinned text box stays vector-sharp.
+
+### Slices 2 and 4 — PiP and SPINE: not started
+
+Both still need the `Clip` model work (pin + mesh fields, persistence, undo, copy). Their renderers
+remain the best-placed of the four — both are already live GL textures in both surfaces, which is
+exactly what `MeshStampGl` consumes.
+
 ## Acceptance criteria
 
 1. Each slice: the capability is ON only when both renderers draw it. For each, name the preview

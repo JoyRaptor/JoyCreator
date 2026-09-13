@@ -136,6 +136,42 @@ pixel value.
 `supportsPin()`, `supportsBend()`, `supportsFlip()`, `readFoldPivot()` (defaulting to `readPivot`,
 which is what three of the four already do).
 
+---
+
+## STATUS, 2026-09-13 (autonomous session)
+
+**Stage 1 DONE.** `TextAffineTransformHost` and `PipAffineTransformHost` are gone, replaced by one
+`AffineTransformHost`. Net −135 lines. The two things a type may differ about are now data: the
+size floor is a parameter (it was 0.02/0.02/0.01 — collapsing to one constant would have changed
+the image floor by 2x) and the reset policy is a hook (text keeps its size, PiP returns to its
+creation pose — a divergence that used to be silent). Verified the old classes are actually gone
+from the packaged dex, not merely unreferenced: they survived two rebuilds as leftover `$Playhead`
+entries because javac does not delete outputs for deleted sources.
+
+**Acceptance 4 is already demonstrated.** Sprites became the fifth object type on the surface and
+cost an adapter and a mode entry — no new class in `transform/` at all.
+
+**The optional `PinChannel` landed with them**, which is the pattern stages 2 and 3 should follow:
+a capability is a narrow interface a type supplies once its renderers can draw the result, not a
+subclass.
+
+**Stages 2 and 3 remain**, and they are the hard half:
+
+- **The spine** needs per-axis scale on the adapter. It writes a uniform `SC` for a pinch and
+  per-axis `SX`/`SY` for a corner drag; the shared host writes one uniform factor. Merging naively
+  would cost the spine its non-uniform scaling, which acceptance 2 forbids. The design is in this
+  spec already (`scaleAxesTo`, defaulting to a no-op).
+- **The image host** is ~1078 lines of which roughly 740 are pin/mesh-specific — the commit-time
+  bake, `verifyBake`, the escape clamp, the armed-keyframe surgery and the whole bend seam. Its
+  general third is what `AffineTransformHost` now holds. Moving the rest behind the channel pattern
+  is the biggest single piece of remaining work on the transform surface, and it touches the most
+  device-verified code in the app, so it wants its own session and its own device pass rather than
+  the tail of somebody else's.
+
+**Drift items D8, D10 and D11 were fixed separately** (they were user-visible), and a FOURTH
+instance of the same refresh drift turned up in the sprite write path when SPEC Z forced it to do
+what its siblings do. Four write paths had four different subsets of the same four calls.
+
 ## Acceptance criteria
 
 1. ONE class implements `TransformOverlayView.Host`. `CornerPinTransformHost`,

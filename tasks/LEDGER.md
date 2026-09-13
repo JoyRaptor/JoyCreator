@@ -3113,3 +3113,64 @@ behalf is how you lose someone's afternoon.
 
 Commits: 28b03c0e · 1561af46 · 6657cffd · 73330444 · 9924d6ef · b02f0eaa · 95047608 ·
 b3494144 · 13840add
+
+---
+
+## 2026-09-13 (later) — the ruling, and closing the polish gap
+
+JoyRaptor, on the morning report: *"yes name and alignment move with it"*, and — on the UI —
+*"still seeing emojis for icons instead of svgs. drawer dosnt have round overs and generally
+still dosnt look near as nice... close that gap."*
+
+### Cell order, built to the ruling
+
+One numbering, plus a display->source map every lookup goes through. `cellNames`, `cellXf`,
+the viseme and the enabled flag are keyed by the SOURCE cell, so a drawing brings all of them
+when it moves, and Reset order restores everything because none of it was ever attached to the
+slot. The map is applied in `SpriteSheetRenderer.cellRectBitmap` — the one place a slot becomes
+a piece of art — so preview, export, grid, film and drawer reorder together by construction.
+A saved animation's frame list deliberately does NOT follow: those are slots, and that is what
+arranging a sheet is for.
+
+Device-proved: armed Swap, dragged slot 0 onto slot 3, and "smile" arrived with the smiling
+star while "surprised" went the other way. Reset order put both back.
+
+### The polish gap
+
+| Was | Now |
+|---|---|
+| Drawer had square corners on a flat panel | Rounded top on the scrim token, video still visible under it |
+| Drawer chips were art floating on the background | CARDS — art on a surface, name, sub-line — the design's `.ch` |
+| Three loose keyframe buttons | One segmented pill; the middle is a KEY diamond, not a bin that left you guessing what it would delete |
+| Emoji for the bin, record, film, overflow, step arrows, mode dots | Eight more icons added TO THE DESIGN FILE and regenerated |
+| Flip H / Flip V as words | The design's marks |
+| Three controls calling setBackgroundColor | Pills that stay pills |
+| Delete-key faded to 32% | Pink when it will do something, grey when it will not |
+
+The scrim had to go from 0xE0 to 0xF2: the web design separates the drawer with
+`backdrop-filter: blur(13px)`, Android has no cheap equivalent, and at 0xE0 the toolbox labels
+behind it stayed legible and read as a rendering fault rather than as depth.
+
+### The adversarial pass on Slice
+
+Four things decided what a drag on the sheet would do — pan, pivot, swap, ripple — as four
+chips that looked exactly like the three DISPLAY switches beside them, and **two could be
+armed at once**, with the touch handler silently letting reorder win so Pivot would just stop
+working. One segment now, exclusive by construction because a single setter drives both grid
+modes. "Key" became "Bg key" (it read as "keyframe" on a screen that has none) with a droplet
+of its own rather than borrowing Detect's wand.
+
+### One thing I could not account for
+
+Twice a cell name I had verified on screen was missing from `project.json` later. I could not
+reproduce it: writing a name, pressing Home and reading the file off the device shows it
+saved, and it survives a full editor round trip — checked by `run-as ... cat project.json`
+both times, not by looking at the UI. So rather than claim a fix, the window was narrowed:
+the Lab now writes about a second after you stop changing something, debounced, instead of
+only on pause and on Back. If a name ever does go missing again, that is the thread to pull —
+and the remaining suspect is a second in-memory copy of the project being saved over the top.
+
+**The test sheet was left exactly as found**: the probe name written to cell 13 was cleared and
+`project.json` re-read to confirm `{3: "surprised"}`.
+
+Commits: ec257b73 · ca52d34a

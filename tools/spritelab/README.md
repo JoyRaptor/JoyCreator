@@ -180,9 +180,10 @@ one press.
 Multi-sheet merge and the Sources rail, baking a new sheet (fit / fill / keep, PNG / JPG),
 numbered frame export, and drag-to-reorder on the film strip and the clips shelf.
 
-Swap / Ripple / Reset order is blocked on a decision rather than on work: reordering cells
-decides whether a name and an alignment follow the drawing or the slot. See
-`tasks/INBOX.md`, 2026-09-13.
+Swap / Ripple / Reset order DID land, 2026-09-13. Arm one in Slice's drag segment and drag a
+cell onto another; the drawing rides your finger and the target lights amber. A drawing's name,
+alignment and viseme travel with it, which is JoyRaptor's ruling — so Reset order restores
+everything, because none of it was ever attached to the slot.
 
 Alignment travels as **data** now — `cellXf` on the sheet — so nothing has to be baked to move
 work from here to the phone or back. The rest of that list is owed, because the standing rule

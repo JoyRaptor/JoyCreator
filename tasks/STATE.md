@@ -193,10 +193,12 @@ above: multi-sheet merge and the source chips, bake-to-a-new-sheet with its fit/
 PNG/JPG options, numbered frame export, and drag-to-reorder on the film strip and the clips
 shelf. Alignment-as-data removes the NEED to bake on the phone, but the rest are owed.
 
-**Swap / Ripple / Reset order is BLOCKED on a ruling, not on work** — see INBOX 2026-09-13.
-Reordering cells decides whether a name and an alignment follow the DRAWING or the SLOT, and
-that changes what happens to sheets JoyRaptor has already named. Two options are written out
-there; it needs one word from him.
+**Arranging the sheet LANDED 2026-09-13.** JoyRaptor ruled that a drawing's name and alignment
+travel with it, so `SpriteSheet` grew `cellOrder` (display -> source) and every per-cell lookup
+maps through it; the map is applied in `cellRectBitmap`, the one place a slot becomes art, so
+every surface reorders together. Slice carries one segment — drag [ Pan | Pivot | Swap |
+Ripple ] — because four modes that all change what a drag does must be mutually exclusive, and
+as four separate chips two could be armed at once with reorder silently winning.
 
 > ⚠️ **Avatar Studio is the largest 🟡 block in the app.** Substantial, sophisticated, and
 > never exercised by a human. Recommendation: **present in the launch build, not reachable

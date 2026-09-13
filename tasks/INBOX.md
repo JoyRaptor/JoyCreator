@@ -220,7 +220,21 @@ turns out it already exists), or gets deleted. Deleting is fine. That is what an
   for assets, and surface an import affordance in the drawer's empty state. The deeper fix is
   the planned top-level Sprite Lab entry.
 
-## 2026-09-13 — ONE RULING NEEDED: does a cell's name follow the drawing or the slot?
+## 2026-09-13 — RULED AND BUILT: a cell's name follows the DRAWING
+
+**JoyRaptor, same day: "yes name and alignment move with it."** Built and device-proved —
+swapped slot 0 with slot 3 and "smile" went with the smiling star. Kept below because the
+reasoning is the reason the implementation looks the way it does.
+
+The shape that makes his answer true without inventing a second identity: ONE numbering, plus
+a display->source map that every lookup goes through. `cellNames`, `cellXf`, the viseme and the
+enabled flag are keyed by the SOURCE cell, so moving a drawing brings all of them, and "Reset
+order" restores everything because none of it was ever attached to the slot. A saved
+animation's frame list does NOT follow — those are slots, which is the point of arranging.
+
+---
+
+## (original question, 2026-09-13)
 
 Swap / Ripple / Reset order is the last thing from the mobile mockup's Slice section that is
 not on the phone, and it is not a build problem — it is a semantics problem I will not guess

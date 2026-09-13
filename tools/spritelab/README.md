@@ -177,8 +177,10 @@ one press.
 
 ### What is still desktop-only
 
-Multi-sheet merge and the Sources rail, baking a new sheet (fit / fill / keep, PNG / JPG),
-numbered frame export, and drag-to-reorder on the film strip and the clips shelf.
+Nothing, as of 2026-09-13 — bake, merge, frame export and drag-to-reorder all landed on the
+phone that day. The one thing the web tool still has that the phone does not is the Sources
+RAIL: on the phone you pick sheets to merge from a list rather than seeing them as chips you
+can grey out and restore.
 
 Swap / Ripple / Reset order DID land, 2026-09-13. Arm one in Slice's drag segment and drag a
 cell onto another; the drawing rides your finger and the target lights amber. A drawing's name,

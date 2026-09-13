@@ -262,3 +262,18 @@ Everything else from the mockup's Slice section landed on 2026-09-13 (Grid / Nam
 Suspect, Name many…). Still owed after this ruling: multi-sheet merge and the Sources rail,
 bake-to-a-new-sheet, numbered frame export, and drag-to-reorder on the film strip and clips
 shelf.
+
+## 2026-09-13 — a sprite sheet cannot be deleted from inside the app
+
+Found by using the new bake: it adds a sheet to the project, which is right, and there is then
+no way to remove one. Testing left two ("Starguy baked", "Starguy baked baked") in JoyRaptor's
+BundlingFontTest project. They are harmless — extra entries in the sheet list plus their PNGs
+in assets/ — but they cannot be tidied away without editing project.json by hand, which is
+exactly the kind of outside-the-app edit that has caused silent loss in this repo before.
+
+A sheet list with rename/delete belongs somewhere. The drawer's gear button already opens
+"manage sheets", so that is probably the place.
+
+Wanted alongside it: the bake dialog offers "Open it", but nothing tells you later which sheets
+are bakes of which. A `bakedFrom` field is already in the web tool's JSON and would be one line
+to carry.

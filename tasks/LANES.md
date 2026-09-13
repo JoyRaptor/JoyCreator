@@ -555,7 +555,9 @@ progress:
 since: 2026-09-13T10:25
 
 ## SPRITELAB OUTPUT — bake, merge, frame export, roll reorder (2026-09-13 day session)
-status: ACTIVE (2026-09-13T10:20 — Claude/Opus, autonomous, parallel with the SPEC X/Y/Z agent)
+status: DONE (2026-09-13T11:20 — Claude/Opus). All four device-proved on the Note 9; see
+        LEDGER 2026-09-13 (later) for the evidence. No file the transform agent owns was
+        touched, and SpriteSheetRenderer was read but never modified. Files below are FREE.
 files:
   app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteBaker.java              (NEW — bake/merge/frames)
   app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java (Out section, film reorder)

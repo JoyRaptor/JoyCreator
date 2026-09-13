@@ -189,9 +189,15 @@ What is device-proved on the Note 9, 2026-09-13:
 | Undo | snapshot-based, one press one step, a whole drag folded into one |
 
 What is **not** on the phone yet, and is therefore still desktop-only in violation of the rule
-above: multi-sheet merge and the source chips, bake-to-a-new-sheet with its fit/fill/keep and
-PNG/JPG options, numbered frame export, and drag-to-reorder on the film strip and the clips
-shelf. Alignment-as-data removes the NEED to bake on the phone, but the rest are owed.
+above: **nothing, as of 2026-09-13.** Bake-to-a-new-sheet (content fit or keep, PNG or JPG),
+multi-sheet merge, numbered frame export and drag-to-reorder on both the film strip and the
+clips shelf all landed and were device-proved that day. `SpriteBaker` draws every pixel through
+`SpriteSheetRenderer.drawCell`, the same single blit the preview uses, so a bake cannot disagree
+with what was on screen; sources whose cells are a different shape letterbox rather than squash.
+A bake never touches the original — it adds a new sheet beside it.
+
+What is NOT there: a way to DELETE a sprite sheet. Testing the bake left two sheets in a real
+project with no way to remove them from inside the app. See INBOX 2026-09-13.
 
 **Arranging the sheet LANDED 2026-09-13.** JoyRaptor ruled that a drawing's name and alignment
 travel with it, so `SpriteSheet` grew `cellOrder` (display -> source) and every per-cell lookup

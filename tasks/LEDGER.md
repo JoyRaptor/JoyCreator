@@ -3174,3 +3174,60 @@ and the remaining suspect is a second in-memory copy of the project being saved 
 `project.json` re-read to confirm `{3: "surprised"}`.
 
 Commits: ec257b73 · ca52d34a
+
+---
+
+## 2026-09-13 (day) — the SpriteLab output pipeline, in parallel with the transform agent
+
+JoyRaptor: *"Get started on all the spec on your list... respect lanes and coordinate with it
+so theres no conflicts... adversarially check your work."*
+
+**Lane discipline.** Claimed SPRITELAB OUTPUT before the first edit and named, in the claim,
+the files that belong to the SPEC X/Y/Z agent (TransformOverlayView, the four TransformHosts,
+MeshStampGl, TransformQuad, MeshWarpSpec, OverlayTextureCache, FxPreviewTextureView,
+ImageBlendGlEffect, FaditorEditorActivity, SpriteOverlayItem/View) so the boundary was on the
+board rather than in my head. `SpriteSheetRenderer` was declared READ-ONLY for me and stayed
+that way: the baker calls `drawCell`/`cellRectBitmap` and modifies neither. Nothing of theirs
+was touched, and their commit c93218f0 (two spec files) did not collide.
+
+**What landed**, all four device-proved on the Note 9:
+
+| | Evidence |
+|---|---|
+| Bake to a new sheet | 3 frames -> 3x1, 1458x448 px, animation carried, "surprised" carried to its new slot, original untouched. PNG pulled off the device and looked at. |
+| Merge across sheets | Starguy baked + Sprite pang -> 8x2, 3888x904, 9 frames. The pangolin panels are PORTRAIT and the stars are square: the merged sheet shows them letterboxed, undistorted. |
+| Numbered frames | three PNGs on disk, listed by `run-as ls`, one pulled and viewed |
+| Roll reorder | long-press lift, drag right past the end: `cell0, cell1, surprised` -> `cell1, surprised, cell0`, grid badges following |
+| Shelf reorder | `winkclip1, clip2` -> `clip2, winkclip1` |
+
+The gesture could only be scripted because `input motionevent` turns out to exist on this
+Android 10 build — DOWN, hold, MOVEs, UP. `input swipe` cannot test a long-press-then-drag,
+because it starts moving immediately and cancels the long press.
+
+**The adversarial pass was the valuable part.** A reviewer went at the diff and found twelve
+things; the first was mine and fatal:
+
+- `moveRollDrag` computed the drop gap, drew it, and never stored it. The drop line tracked
+  your finger perfectly and the reorder was a no-op **every single time**. The arithmetic
+  around it was correct — the value just never arrived. A screenshot would have shown a
+  convincing drag doing nothing.
+- Back during a bake finished the Activity, and the completion block then showed a dialog on a
+  dead window and saved that Activity's STALE project over whatever the editor had since
+  written. The bake is modal now and the completion block checks it is still alive.
+- The worker walked the live preset and sheet lists — a ConcurrentModification there is an
+  uncaught exception on a non-UI thread, i.e. process death, not a message.
+- **The sidecar importer had fallen behind the exporter**: per-cell ALIGNMENT, visemes and the
+  arrangement were all silently destroyed by an export/import round trip.
+- Re-slicing left a stale `cellOrder` pointing slots at drawings that no longer existed.
+- `ensureCell` keyed a new Cell record by the display slot instead of the drawing, so on a
+  rearranged sheet the Enabled switch darkened somebody else's frame.
+
+Plus the hint that re-laid-out the strip under the lifted chip, no edge auto-scroll on a long
+roll, a null preset frame, padding ignored in one fit mode, mkdir failures reported as "nothing
+to write", and dropped animations never counted.
+
+**Housekeeping.** The test clip was deleted and `project.json` re-read to confirm "Starguy" is
+exactly as found. Two baked sheets could NOT be removed — there is no delete-a-sheet
+affordance anywhere in the app. Logged in INBOX; it is a real gap, not a tidying nit.
+
+Commits: d4ff2b6e - 00d15220

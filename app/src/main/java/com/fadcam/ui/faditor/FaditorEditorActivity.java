@@ -24055,6 +24055,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     editorTimeline.selectLayerItemById(item.getId());
                     editorTimeline.revealLayerRowForItem(item.getId());
                 }
+                // ...and the sprite drawer follows. It used to change its mind only when its
+                // own selection was deleted, so picking a different sprite left its chips, its
+                // keyframe controls and its Sprite Lab button aimed at the previous one.
+                if (spritePalettePanel != null) spritePalettePanel.focusItem(item);
             }
 
             @Override
@@ -24226,6 +24230,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             for (com.fadcam.ui.faditor.layers.TimedItem it : t.getItems()) {
                 if (id.equals(it.getId())) {
                     ctrl.setSelectedItem(t, it);
+                    // One door for "this object is now the selected one", so the sprite drawer
+                    // cannot be left aimed at the previous sprite. Selecting on the CANVAS goes
+                    // through onSpriteTapped; selecting a timeline ROW comes through here.
+                    if (spritePalettePanel != null && it.getSprite() != null) {
+                        spritePalettePanel.focusItem(it.getSprite());
+                    }
                     editorTimeline.invalidate();
                     return;
                 }

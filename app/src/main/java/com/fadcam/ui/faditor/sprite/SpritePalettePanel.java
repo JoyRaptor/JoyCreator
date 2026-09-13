@@ -314,6 +314,22 @@ public class SpritePalettePanel extends FrameLayout {
 
     public void setCallback(@Nullable Callback cb) { this.callback = cb; }
 
+    /**
+     * The user picked this sprite somewhere else — on the canvas, or on a timeline row. Follow
+     * it.
+     *
+     * <p>Without this the drawer only ever changed its mind when its own selection was DELETED,
+     * so selecting a different object left the chips, the keyframe controls and the Sprite Lab
+     * button all pointed at the previous one. You would tap a cell and key a sprite you were
+     * not looking at.</p>
+     */
+    public void focusItem(@Nullable SpriteOverlayItem item) {
+        if (item == null || item == selected) return;
+        if (!items.contains(item)) return;     // not one of ours (yet)
+        selected = item;
+        if (isAttachedToWindow()) rebuild();
+    }
+
     /** Bind the current placed sprites; keeps (or re-picks) the selection. */
     public void setData(@NonNull List<SpriteOverlayItem> items) {
         this.items = items;

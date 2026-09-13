@@ -437,6 +437,15 @@ public final class PreviewHandlesOverlay extends View {
 
     // ── Touch ────────────────────────────────────────────────────────────
 
+    /** Lets the host answer "is this point on a drawn caption?" — see onTouchEvent's DOWN. */
+    public interface CaptionProbe {
+        boolean isOnCaption(float x, float y);
+    }
+
+    @Nullable private CaptionProbe captionProbe;
+
+    public void setCaptionProbe(@Nullable CaptionProbe p) { this.captionProbe = p; }
+
     private final float[] pt = new float[2];
 
     @SuppressLint("ClickableViewAccessibility")
@@ -458,6 +467,22 @@ public final class PreviewHandlesOverlay extends View {
         // the in-canvas editor owns its own caret taps and selection drags — while a stale id can
         // now cost at most one unreachable object instead of the whole surface.
         if (editingItemId != null && hitsEditedBox(e.getX(), e.getY())) return false;
+        // CAPTIONS BEAT THE PICKER. JoyRaptor, 2026-09-13: "closed captions used to be tappable
+        // and movable, for some reason they seem unselectable, immovable in place."
+        //
+        // This overlay carries an 8dp elevation, so it is offered every DOWN before the caption
+        // layer beneath it, and it claims one as soon as selectionSource.selectAt finds ANY
+        // object under the finger. A full-frame image overlay is under the finger everywhere —
+        // and images on a caption-heavy project usually are — so every tap aimed at a caption was
+        // spent selecting the picture behind it, and the caption layer never saw a single one.
+        //
+        // Deliberately ahead of the selected object's own handles as well, not just the general
+        // picker: the caption is drawn ON TOP of everything in the preview stack, and "the
+        // topmost thing you touch wins" is the rule the caption layer itself already states. The
+        // cost is that a handle parked underneath a caption needs the caption moved off it first,
+        // which is visible and undoable; the alternative was a caption that could not be touched
+        // at all, which was neither.
+        if (captionProbe != null && captionProbe.isOnCaption(e.getX(), e.getY())) return false;
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN: {
                 // LOOSE POINTS FIRST. They are only on screen while their editor is open, so a

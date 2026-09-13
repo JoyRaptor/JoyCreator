@@ -10536,8 +10536,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (slidePreview.getVisibility() != View.VISIBLE) {
             slidePreview.setVisibility(View.VISIBLE);
             slidePreview.bringToFront();
-            // Keep editable overlays (and their touch targets) above the slide.
+            // Keep editable overlays (and their touch targets) above the slide — then put the
+            // whole stack back in its declared order, because bringToFront raised this layer
+            // above the CAPTIONS as well, which is not what "above the slide" meant.
             if (overlayLayer != null) overlayLayer.bringToFront();
+            restorePreviewStackOrder();
         }
         // Stretch/freeze mapping (JoyRaptor 2026-07-16): clip-local time → authored
         // animation time, mirroring exactly what the baked render does.
@@ -11384,11 +11387,60 @@ public class FaditorEditorActivity extends AppCompatActivity {
         renderTransitionPreview(progress, seekPosition);
     }
 
+
+    /**
+     * Re-assert the preview stack's documented order after anything has called
+     * {@link View#bringToFront()} on one of its members.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"closed captions... are currently coverable by image objects,
+     * that used to not be the case."</i>
+     *
+     * <p>The order lives in the layout: {@code caption_overlay} is declared AFTER
+     * {@code overlay_layer}, so captions sit above images by construction. But
+     * {@code bringToFront()} raises a child above ALL of its siblings, not just the one the
+     * caller had in mind, and two slide paths call it on {@code overlayLayer} to keep editable
+     * overlays above a generated SLIDE. Each of those silently promoted every image overlay above
+     * the captions too, and nothing put them back: the one call that re-raised the caption layers
+     * was gated on the project having waveform visualizers, so a project without one never
+     * recovered.
+     *
+     * <p>So the fix is to stop treating child order as something each call site may adjust on its
+     * own and give the stack one place that states it. This lists the layers bottom-to-top, in the
+     * layout's own order, and raising each in turn leaves exactly the XML arrangement — whatever
+     * order they were in when it was called.
+     *
+     * <p>Cheap and idempotent: {@code bringToFront} on a child already in position is a no-op
+     * reorder, and the list is nine views.
+     */
+    private void restorePreviewStackOrder() {
+        View[] bottomToTop = {
+                waveformOverlayView,
+                layerImageOverlay,
+                spriteOverlayView,
+                overlayLayer,
+                audioCaptionOverlay,
+                captionOverlay,
+                captionStyleBar,
+                cropOverlay,
+                safeZoneOverlay,
+        };
+        for (View v : bottomToTop) {
+            if (v != null && v.getParent() != null) v.bringToFront();
+        }
+        // The handle surfaces are added programmatically and belong above everything listed
+        // above; they carry their own elevation, but keeping child order in agreement with it
+        // means the two can never disagree about who receives a touch.
+        if (previewHandlesOverlay != null && previewHandlesOverlay.getParent() != null) {
+            previewHandlesOverlay.bringToFront();
+        }
+    }
+
     /** Restore the slide WebView (and editable overlays) above the transition layers. */
     private void restoreSlideZOrder() {
         if (slidePreview != null && slidePreview.getVisibility() == View.VISIBLE) {
             slidePreview.bringToFront();
             if (overlayLayer != null) overlayLayer.bringToFront();
+            restorePreviewStackOrder();
         }
     }
 
@@ -13604,6 +13656,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         showVisualizerStylePicker(overlay);
                     }
                 });
+        // Was gated on `!overlays.isEmpty()`, which made the caption layers' z depend on whether
+        // the project happened to have a visualizer. The stack order is not a visualizer concern.
+        restorePreviewStackOrder();
         if (!overlays.isEmpty()) {
             waveformOverlayView.bringToFront(); // sit above other layers so it receives touches
             if (audioCaptionOverlay != null) audioCaptionOverlay.bringToFront();
@@ -24482,6 +24537,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT));
             previewHandlesOverlay.setSelectionSource(previewSelectionSource());
+            // Both caption layers get a say: the clip-transcript one and the audio-caption one
+            // draw independently and either may be the thing under the finger.
+            previewHandlesOverlay.setCaptionProbe((x, y) ->
+                    (captionOverlay != null
+                            && captionOverlay.getVisibility() == View.VISIBLE
+                            && captionOverlay.hitsCaption(x, y))
+                    || (audioCaptionOverlay != null
+                            && audioCaptionOverlay.getVisibility() == View.VISIBLE
+                            && audioCaptionOverlay.hitsCaption(x, y)));
         }
         return previewHandlesOverlay;
     }

@@ -1085,6 +1085,20 @@ public class CaptionOverlayView extends View {
     }
 
 
+    /**
+     * Is {@code (x, y)} on the caption this view drew this frame?
+     *
+     * <p>Exactly the test {@link #onTouchEvent}'s DOWN branch runs, exposed so a view ABOVE this
+     * one can decline a touch that belongs to a caption. Empty {@code blockRect} — a frame that
+     * drew no caption — always answers false, so a silent caption layer never claims anything.
+     */
+    public boolean hitsCaption(float x, float y) {
+        if (blockRect.isEmpty() || callback == null) return false;
+        float hitSlop = 12f * density;
+        return x >= blockRect.left - hitSlop && x <= blockRect.right + hitSlop
+                && y >= blockRect.top - hitSlop && y <= blockRect.bottom + hitSlop;
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         switch (e.getActionMasked()) {

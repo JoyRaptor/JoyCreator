@@ -235,6 +235,14 @@ public final class TextAffineTransformHost implements TransformOverlayView.Host 
         onChanged.run();
     }
 
+    /**
+     * False, and that is the same fact the empty {@link #flip} body below states — now said where
+     * the surface can act on it. The ring used to begin and commit a gesture around that empty
+     * body, spending an undo press on nothing.
+     */
+    @Override
+    public boolean supportsFlip() { return false; }
+
     @Override
     public void flip(boolean horizontal) {
         // No honest render path for flipped text (TextBoxView has no mirror) — inert.

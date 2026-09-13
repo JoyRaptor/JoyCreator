@@ -126,6 +126,22 @@ public class TransformOverlayView extends View {
 
         /** True only for the image host (the only one with a pin/mesh render path). */
         default boolean supportsBend() { return false; }
+
+        /**
+         * Can this object actually mirror?
+         *
+         * <p>Text and PiP cannot — neither has an honest render path for a mirrored picture, so
+         * their {@code flip} bodies are deliberately empty. But the ring called
+         * {@code beginGesture / flip / commitGesture} unconditionally, and the targets record an
+         * undo action whenever a gesture was begun. So flipping a text box or a PiP did nothing
+         * AND cost the user an undo press, twice over: press undo and the first press appears to
+         * do nothing at all.
+         *
+         * <p>Gated here rather than by making the empty bodies "smarter", for the same reason
+         * {@link #supportsBend()} is: a capability the renderers do not have is a fact about the
+         * type, and the surface should not offer it in the first place.
+         */
+        default boolean supportsFlip() { return true; }
         /** True when a warp is authored (drives the net's initial visibility). */
         default boolean hasBend() { return false; }
         /** Dots to draw/hit-test (9 for the L2 net), or 0 when there is nothing. */
@@ -1542,28 +1558,37 @@ public class TransformOverlayView extends View {
         return true;                      // ...but a touch outside it is, and it ends there
     }
 
+    /**
+     * Mirror, but only if the object can. See {@link Host#supportsFlip()} — on a type that cannot,
+     * this used to open and commit a gesture that changed nothing, which spent an undo press on a
+     * no-op.
+     */
+    private void doFlip(@Nullable Host h, boolean horizontal) {
+        if (h == null || !h.supportsFlip()) return;
+        h.beginGesture();
+        h.flip(horizontal);
+        h.commitGesture("Flip");
+    }
+
     private void diagAction(int slot) {
         Host h = host;
         TransformDiag.log("ring " + (ringIsCorner ? "corner" : "edge") + ringIndex + " slot=" + slot);
         switch (slot) {
             case 0:
                 if (ringIsCorner) {
-                    if (h != null) { h.beginGesture(); h.flip(true); h.commitGesture("Flip"); }
+                    doFlip(h, true);
                 } else if (!affineOnly) {
                     foldOverEdge(ringIndex);
                 }
                 break;
             case 1:
                 if (ringIsCorner) {
-                    if (h != null) { h.beginGesture(); h.flip(false); h.commitGesture("Flip"); }
-                } else if (h != null) {
+                    doFlip(h, false);
+                } else {
                     // Mirroring ACROSS a top/bottom edge is a horizontal mirror of the picture;
                     // across a left/right edge it is a vertical one. Same axis the fold uses.
-                    boolean horizontal = ringIndex == TransformQuad.TOP
-                            || ringIndex == TransformQuad.BOTTOM;
-                    h.beginGesture();
-                    h.flip(horizontal);
-                    h.commitGesture("Flip");
+                    doFlip(h, ringIndex == TransformQuad.TOP
+                            || ringIndex == TransformQuad.BOTTOM);
                 }
                 break;
             case 2:

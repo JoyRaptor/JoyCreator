@@ -25150,6 +25150,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // display refreshes).
                         requestGlPreviewResync();
                         if (transformOverlay != null) transformOverlay.refresh();
+                        // SPEC Y drift D10: this path had every OTHER refresh an image or PiP
+                        // gesture does except this one, so dragging the spine's handles left an
+                        // open drawer showing the numbers from before the drag. Three write
+                        // paths, three different subsets of the same refresh — which is the
+                        // argument for one host in the first place.
+                        refreshOpenDrawerRows();
                     }
 
                     @Override public void commitSpineTransform(
@@ -26063,6 +26069,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshTextAfterHandleWrite() {
         setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         refreshOpenDrawerRows();
+        // SPEC Y drift D11, the mirror of D10: the spine's write path re-syncs the transform
+        // overlay and this one did not, so the handles could sit one write behind the model
+        // whenever something other than the gesture itself moved the object.
+        if (transformOverlay != null) transformOverlay.refresh();
         // AND THE GL COMPOSITE. This method is the ONLY thing a hand gesture calls, and it
         // repositioned the sibling VIEWS and nothing else. An image overlay that has left the
         // Canvas path — because it carries a blend, an effect, a key or a mask
@@ -26477,6 +26487,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     playerManager != null && playerManager.isPlaying());
         }
         refreshOpenDrawerRows();
+        // SPEC Y drift D11: the transform overlay was refreshed by the spine's write path and by
+        // neither of the other two. Same refresh, same reason, all three now.
+        if (transformOverlay != null) transformOverlay.refresh();
         // SPEC J — COALESCED, through the same channel every other gesture uses. This used to
         // call syncAdjustmentPreview directly, so a two-finger similarity write — which is
         // scaleTo + rotateTo + moveTo, each followed by one of these — rebuilt the whole GL

@@ -378,6 +378,25 @@ public class EditorTimelineView extends View {
     /** Max UP-to-UP ms for two master-segment taps to read as a double-tap (mirrors
      *  LayerGestureController.DOUBLE_TAP_WINDOW_MS). */
     private static final long MASTER_DOUBLE_TAP_WINDOW_MS = 320;
+
+    /**
+     * When the touch we are handling actually HAPPENED, from {@link MotionEvent#getEventTime()}.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"double tapping on main spine video that has keyframed volume
+     * changes wasn't triggering the drawer, I had to double tap an adjacent video."</i>
+     *
+     * <p>The double-tap window was measured with {@code SystemClock.uptimeMillis()} — i.e. when we
+     * got ROUND to handling the lift, not when the finger left the glass. The first tap of the
+     * pair seeks, and a seek on a 48-minute project rebuilds the spine and decodes a frame; every
+     * millisecond that work blocks the UI thread is taken out of a 320ms budget the user never
+     * knew they were spending. So the same two taps register on a cheap clip and miss on an
+     * expensive one, which is exactly the "it works on the clip next to it" shape of the report —
+     * a clip carrying a keyframed volume envelope draws strictly more than its neighbours.
+     *
+     * <p>{@code getEventTime()} is already in the {@code uptimeMillis} timebase, so this is a
+     * drop-in that makes the window mean what it says.
+     */
+    private long lastTouchEventTimeMs;
     /** clipId → animated open fraction 0..1 (present only while open or animating). */
     private final java.util.Map<String, Float> clipAudioDrawerFraction = new java.util.HashMap<>();
     /** clipId → its running slide animator (cancelled + replaced on re-toggle). */
@@ -7358,6 +7377,8 @@ if (sd.clip.hasVolumeKeyframes()) {
         // Row-band scrub fling: capture velocity for every custom-path touch. Consumed
         // only when a scrub-passthrough lifts (see onUp) — harmless otherwise.
         int maskedAction = e.getActionMasked();
+        // The EVENT's own clock, not ours. See lastTouchEventTimeMs.
+        lastTouchEventTimeMs = e.getEventTime();
         if (maskedAction == MotionEvent.ACTION_DOWN) {
             if (rowScrubVelocityTracker == null) rowScrubVelocityTracker = android.view.VelocityTracker.obtain();
             else rowScrubVelocityTracker.clear();
@@ -9136,7 +9157,8 @@ if (sd.clip.hasVolumeKeyframes()) {
                     // tap doesn't deselect what the first tap selected.
                     SegmentData tappedSd = downSegIndex < segments.size()
                             ? segments.get(downSegIndex) : null;
-                    long tapNow = android.os.SystemClock.uptimeMillis();
+                    long tapNow = lastTouchEventTimeMs != 0L
+                            ? lastTouchEventTimeMs : android.os.SystemClock.uptimeMillis();
                     // Double-tap = same SCREEN spot in quick succession, resolved against the
                     // FIRST tap's clip (JoyRaptor 2026-07-14). The first tap's seek auto-centers the
                     // strip, so on short clips the second tap resolves to a DIFFERENT (shifted)

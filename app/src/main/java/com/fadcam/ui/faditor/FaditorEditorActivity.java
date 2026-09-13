@@ -10006,6 +10006,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (!drawerOpen) {
                 meter.setTracks(project.getTimeline().getLayers(),
                         project.getTimeline().getAudioTracks());
+                // The spine is not a lane, so it needs handing over separately — without this
+                // the meter reads silence on a project whose sound is the footage's own.
+                Timeline mt = project.getTimeline();
+                int mc = mt.getClipCount();
+                java.util.List<Clip> spine = new java.util.ArrayList<>(mc);
+                long[] spineStarts = new long[mc];
+                for (int i = 0; i < mc; i++) {
+                    spine.add(mt.getClip(i));
+                    spineStarts[i] = mt.getClipStartMs(i);
+                }
+                meter.setSpine(spine, spineStarts);
                 meter.tick();
             }
         }

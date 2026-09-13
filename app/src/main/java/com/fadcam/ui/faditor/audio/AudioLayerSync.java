@@ -158,8 +158,8 @@ public final class AudioLayerSync {
             AudioClipPreviewPlayer mp = safePlayer(idx);
             if (ac == null || mp == null) continue;
             long seekPos = ac.getInPointMs() + (playheadMs - ac.getOffsetMs());
-            long dur = mp.getDuration();
-            if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
+            seekPos = clampSeek(mp, ac, seekPos);
+            if (seekPos < 0) continue;
             mp.parkAt(seekPos);
             // Ensure volume/effects are current
             if (timeline != null) {
@@ -177,8 +177,8 @@ public final class AudioLayerSync {
                     AudioClipPreviewPlayer mp = safePlayer(idx);
                     if (ac == null || mp == null) continue;
                     long seekPos = ac.getInPointMs() + (playheadMs - ac.getOffsetMs());
-                    long dur = mp.getDuration();
-                    if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
+                    seekPos = clampSeek(mp, ac, seekPos);
+                    if (seekPos < 0) continue;
                     if (!mp.isParkedAt(seekPos)) { allParked = false; break; }
                 }
                 long elapsed = SystemClock.elapsedRealtime() - start;
@@ -295,15 +295,18 @@ public final class AudioLayerSync {
                         // into place — which is what that lock is FOR. A layer entering a few
                         // tens of ms late and converging is strictly better than a silent one.
                         long seekPos = ac.getInPointMs() + (playheadMs - start);
-                        long dur = mp.getDuration();
-                        if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
+                        seekPos = clampSeek(mp, ac, seekPos);
+                        if (seekPos < 0) continue;
                         // Rate-limit: see START_RETRY_MS. Also refuse to restart a player that
                         // has run off the end of its media — it can never report playing, so
                         // retrying is a guaranteed loop rather than a recoverable hiccup.
                         long nowMs = SystemClock.elapsedRealtime();
                         Long lastTry = lastStartAttemptMs.get(mp);
                         if (lastTry != null && nowMs - lastTry < START_RETRY_MS) continue;
-                        long durMs = mp.getDuration();
+                        // Same honest duration as clampSeek: MediaPlayer's VBR estimate alone
+                        // would refuse to START a trimmed clip whose in-point lies past that
+                        // estimate, which trades the looping fragment for silence.
+                        long durMs = Math.max(mp.getDuration(), ac.getSourceDurationMs());
                         if (durMs > 0 && seekPos >= durMs - 50) continue;
                         lastStartAttemptMs.put(mp, nowMs);
 
@@ -395,8 +398,8 @@ public final class AudioLayerSync {
                             mp.setPlaybackSpeed(1f);
                             trimming.put(mp, false);
                             long seekPos = ac.getInPointMs() + (playheadMs - start);
-                            long dur = mp.getDuration();
-                            if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
+                            seekPos = clampSeek(mp, ac, seekPos);
+                            if (seekPos < 0) continue;
                             resetBaseline(mp);
                             mp.parkAt(seekPos);
                             // Will start next tick when parked
@@ -421,6 +424,37 @@ public final class AudioLayerSync {
         }
     }
 
+    /**
+     * Clamp a source-time seek to the end of the media, without trusting the player's own
+     * duration over the project's.
+     *
+     * <p><b>This is hardening, not a diagnosis.</b> It was written while chasing JoyRaptor's
+     * "one short sample over and over" report on a trimmed audio clip, on the theory that
+     * {@code MediaPlayer}'s VBR duration estimate came back short and the old
+     * {@code seekPos = dur - 100} clamp then parked the layer on the same fragment every tick.
+     * The file was checked and that theory is WRONG: it carries a Xing header reading 2501 frames
+     * at 48kHz — 60.024s, exactly the {@code sourceDurationMs} the project stored — so the player
+     * could read its length perfectly well. The cause of that report is still open.
+     *
+     * <p>What stands on its own is the old clamp's shape. Silently rewriting an out-of-range seek
+     * to "100ms before the end" turns a seek failure into an endlessly repeating fragment, which
+     * is the worst way to fail: it sounds like a bug in the audio rather than a bug in the seek.
+     * Returning -1 and parking nothing fails silent instead, and taking the LARGER of the player's
+     * duration and the project's removes the player's estimate as a single point of truth.
+     *
+     * @return the position to seek to, or -1 when the request is past the end of the media
+     */
+    private static long clampSeek(@NonNull AudioClipPreviewPlayer mp, @NonNull AudioClip ac,
+                                  long seekPos) {
+        if (seekPos < 0) return 0;
+        long playerDur = mp.getDuration();
+        long knownDur = ac.getSourceDurationMs();
+        long dur = Math.max(playerDur, knownDur);
+        if (dur <= 0) return seekPos;                 // nothing reliable to clamp against
+        if (seekPos >= dur) return -1;                // genuinely past the end
+        return seekPos;
+    }
+
     // ── helpers ────────────────────────────────────────────────────────
 
     private void parkAllAt(long playheadMs) {
@@ -433,9 +467,8 @@ public final class AudioLayerSync {
             long end = ac.getEndOnTimelineMs();
             if (playheadMs >= start && playheadMs < end) {
                 long seekPos = ac.getInPointMs() + (playheadMs - start);
-                long dur = mp.getDuration();
-                if (dur > 0 && seekPos >= dur) seekPos = Math.max(0, dur - 100);
-                mp.parkAt(seekPos);
+                seekPos = clampSeek(mp, ac, seekPos);
+                if (seekPos >= 0) mp.parkAt(seekPos);
             }
         }
     }

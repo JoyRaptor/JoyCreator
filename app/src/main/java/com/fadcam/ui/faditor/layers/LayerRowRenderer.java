@@ -4220,6 +4220,9 @@ public final class LayerRowRenderer {
 
         @Nullable private java.util.List<Track> floatingBand;
         @Nullable private java.util.List<Track> audioBand;
+        /** The master spine's clips, and where each starts on the timeline — see {@link #setSpine}. */
+        @Nullable private java.util.List<com.fadcam.ui.faditor.model.Clip> spineClips;
+        @Nullable private long[] spineStartsMs;
         private final android.graphics.Paint trackPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         private final android.graphics.Paint fillPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
 
@@ -4239,6 +4242,30 @@ public final class LayerRowRenderer {
             invalidate();
         }
 
+        /**
+         * The MASTER SPINE's contribution — the sound of the video itself.
+         *
+         * <p>JoyRaptor, 2026-09-13: <i>"levels indicator in upper right seems to not register any
+         * audio except from audio tracks... it dies down to nothing when the only audio is from
+         * video."</i> It was reading the two LANE bands and nothing else, and the spine is not a
+         * lane — master clips live in {@code Timeline.getClips()}, not in {@code getLayers()} or
+         * {@code getAudioTracks()}. So on a project whose sound comes from the footage, which is
+         * most of them, the meter measured silence and said so.
+         *
+         * <p>Costs nothing new: a master clip implements the same {@code AudioParams} the lane
+         * contributions already go through, so it reads its mute, its volume and its envelope
+         * from the one place the mix maths do.
+         *
+         * @param clips    the master clips, in spine order
+         * @param startsMs each clip's start on the timeline, same length and order
+         */
+        public void setSpine(@Nullable java.util.List<com.fadcam.ui.faditor.model.Clip> clips,
+                             @Nullable long[] startsMs) {
+            spineClips = clips;
+            spineStartsMs = startsMs;
+            invalidate();
+        }
+
         /** One tick from the host: advance smoothing + repaint. */
         public void tick() {
             long ph = hostPlayheadMs;
@@ -4249,6 +4276,15 @@ public final class LayerRowRenderer {
                 }
                 if (audioBand != null) {
                     for (Track t : audioBand) target += trackLevelAt(t, ph);
+                }
+                if (spineClips != null && spineStartsMs != null) {
+                    int n = Math.min(spineClips.size(), spineStartsMs.length);
+                    for (int i = 0; i < n; i++) {
+                        com.fadcam.ui.faditor.model.Clip c = spineClips.get(i);
+                        // A still has no sound to contribute, whatever its gain says.
+                        if (c == null || c.isImageClip()) continue;
+                        target += clipContribution(c, spineStartsMs[i], ph);
+                    }
                 }
                 target = Math.max(0f, Math.min(1.2f, target));
             }

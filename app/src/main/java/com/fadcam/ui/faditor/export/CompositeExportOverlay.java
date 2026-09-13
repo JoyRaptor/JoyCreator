@@ -248,6 +248,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
     @Nullable private Canvas canvasB;
     /** Scratch for the sprite corner pin — allocated once, never per frame. */
     private final android.graphics.Matrix spritePinMatrix = new android.graphics.Matrix();
+    /** Scratch for the text corner pin (SPEC ZC) — allocated once, never per frame. */
+    private final android.graphics.Matrix textPinMatrix = new android.graphics.Matrix();
     /** The bend, shared with the preview — see SpriteMeshDraw. */
     private final com.fadcam.ui.faditor.sprite.SpriteMeshDraw spriteMeshDraw =
             new com.fadcam.ui.faditor.sprite.SpriteMeshDraw();
@@ -449,14 +451,27 @@ public class CompositeExportOverlay extends BitmapOverlay {
         return slots;
     }
 
-    /** Same clip-window filter as text overlays (visual-duration upper bound;
-     *  the per-frame isVisibleAt check does the exact gating). */
+    /**
+     * Same clip-window filter as text overlays (visual-duration upper bound;
+     * the per-frame isVisibleAt check does the exact gating).
+     *
+     * <p>SPEC_ZA: a sprite that belongs to the GL composite is dropped here, exactly as
+     * {@code filterTextOverlays} drops an image that belongs to {@code ImageBlendGlEffect}.
+     * The two decisions consult the SAME single predicate — {@code wantsGl()} — and must
+     * stay exactly complementary: {@code ExportManager} emits a {@code SpriteBlendGlEffect}
+     * for every sprite where it is true, so dropping anything else here would draw it
+     * twice (once warped in the shader, once plain on top of the grade it moved to GL
+     * to receive), and keeping anything it covers would erase it from the export
+     * entirely. One predicate makes that structural instead of something a test has to
+     * keep catching — the same arrangement the image path already relies on.
+     */
     private List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> filterSpriteItems(
             List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all) {
         List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : all) {
             if (o.getEndMs() < clipTimelineStartMs) continue;
             if (o.getStartMs() > clipVisualEndMs) continue;
+            if (o.wantsGl()) continue;
             out.add(o);
         }
         return out;
@@ -770,6 +785,16 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 com.fadcam.ui.faditor.overlay.TextBoxRenderer.measure(o, shown, fontPx, size);
                 canvas.save();
                 canvas.rotate(rot, cx, cy);
+                // SPEC ZC — the text corner pin, built by the SAME method the preview calls
+                // (TextOverlayItem.cornerPinMatrix) and concat-ed at the SAME point: inside the
+                // rotate, immediately around the draw below. An undistorted box takes the
+                // byte-identical path it always did, because the method returns false and nothing
+                // is concat-ed. The pin is a matrix on glyph outlines, not a warped raster, so
+                // the box stays vector-sharp here exactly as in the preview.
+                if (o.cornerPinMatrix(textPinMatrix, timelineMs,
+                        cx - size[0] / 2f, cy - size[1] / 2f, size[0], size[1])) {
+                    canvas.concat(textPinMatrix);
+                }
                 com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(canvas, o, shown,
                         cx - size[0] / 2f, cy - size[1] / 2f, fontPx, timelineMs,
                         projectDurationMs, true, opacity);

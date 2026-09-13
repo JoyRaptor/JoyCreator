@@ -4155,13 +4155,106 @@ public class ExportManager {
             java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> blendCandidates =
                     new ArrayList<>(belowTexts);
             blendCandidates.addAll(exportTextOverlays);
+            // SPEC_ZA — sprites that belong to the GL composite join THIS emission, merged
+            // with the blended images at TRUE lane z (bottom→top) rather than appended as a
+            // second group. Chain position IS z-order, so a blend samples the accumulated
+            // frame beneath it: with the sprite emitted below the image above it, a
+            // SCREEN-blended image over a bent sprite composites against the SPRITE, not
+            // the video — which is the whole point of moving sprites into GL (on the
+            // Canvas a sprite sat OVER the GL surface and no blend above it could see it).
+            //
+            // Provably inert for every project without a warped sprite: the sprite
+            // candidates are gated on wantsGl() (false for all of them), so the merged
+            // list holds exactly today's images in exactly today's order. Images among
+            // themselves keep their relative order under the stable z-sort below (the
+            // below bucket sorts wholly beneath the above bucket by lane zIndex, and each
+            // bucket already arrives in orderedVisualItems order), so image behaviour is
+            // unchanged — only a cross-type pair whose lane order contradicts type order
+            // composites differently, and that is the correction, not a regression.
+            //
+            // The sprite candidates span all three Canvas buckets, because a warped
+            // sprite below a blend was promoted out of exportSpriteItems into the
+            // below-blend pass (and is dropped from its Canvas draw there by
+            // filterSpriteItems, like everywhere else): emitting from exportSpriteItems
+            // alone would orphan it. belowSprites and exportSpriteItems are still in
+            // scope; the promotion remainder is re-derived here with the same pure
+            // query the promotion block used.
+            java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> allGlImagesZa =
+                    new ArrayList<>();
+            for (LayerPreviewController.VisualItem vv
+                    : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
+                com.fadcam.ui.faditor.model.TextOverlayItem oo = vv.item.getTextOverlay();
+                if (oo != null && oo.wantsGlExport()) allGlImagesZa.add(oo);
+            }
+            java.util.Set<String> belowIdsZa = new java.util.HashSet<>();
+            for (com.fadcam.ui.faditor.model.TextOverlayItem b : belowTexts) {
+                belowIdsZa.add(b.getId());
+            }
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem b : belowSprites) {
+                belowIdsZa.add(b.getId());
+            }
+            java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> promotedSpritesZa =
+                    new ArrayList<>();
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem b
+                    : LayerPreviewController.plainSpritesBelowBlend(
+                            project.getTimeline(), allGlImagesZa)) {
+                if (!belowIdsZa.contains(b.getId())) promotedSpritesZa.add(b);
+            }
+            final java.util.Map<String, Integer> overlayZById = new java.util.HashMap<>();
+            {
+                java.util.List<LayerPreviewController.VisualItem> zOrder =
+                        LayerPreviewController.orderedVisualItems(project.getTimeline());
+                for (int i = 0; i < zOrder.size(); i++) {
+                    LayerPreviewController.VisualItem v = zOrder.get(i);
+                    com.fadcam.ui.faditor.model.TextOverlayItem to = v.item.getTextOverlay();
+                    if (to != null && !overlayZById.containsKey(to.getId())) {
+                        overlayZById.put(to.getId(), i);
+                    }
+                    com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp = v.item.getSprite();
+                    if (sp != null && !overlayZById.containsKey(sp.getId())) {
+                        overlayZById.put(sp.getId(), i);
+                    }
+                }
+            }
+            java.util.List<Object> glOverlaysBottomTop = new java.util.ArrayList<>();
             for (com.fadcam.ui.faditor.model.TextOverlayItem to : blendCandidates) {
-                if (!to.wantsGlExport()) continue;
-                videoEffects.add(new ImageBlendGlEffect(context, to,
-                        project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
-                                - (isLoopBeforeItem
-                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
+                if (to.wantsGlExport()) glOverlaysBottomTop.add(to);
+            }
+            java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteBucketsZa =
+                    new ArrayList<>(belowSprites);
+            spriteBucketsZa.addAll(promotedSpritesZa);
+            spriteBucketsZa.addAll(exportSpriteItems);
+            for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBucketsZa) {
+                if (s.wantsGl()) glOverlaysBottomTop.add(s);
+            }
+            final long overlayOffsetMs =
+                    editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                            - (isLoopBeforeItem
+                                    ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
+            glOverlaysBottomTop.sort((a, b) -> {
+                String ida = (a instanceof com.fadcam.ui.faditor.model.TextOverlayItem)
+                        ? ((com.fadcam.ui.faditor.model.TextOverlayItem) a).getId()
+                        : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) a).getId();
+                String idb = (b instanceof com.fadcam.ui.faditor.model.TextOverlayItem)
+                        ? ((com.fadcam.ui.faditor.model.TextOverlayItem) b).getId()
+                        : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) b).getId();
+                Integer ia = overlayZById.get(ida), ib = overlayZById.get(idb);
+                return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
+            });
+            for (Object o : glOverlaysBottomTop) {
+                if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+                    com.fadcam.ui.faditor.model.TextOverlayItem to =
+                            (com.fadcam.ui.faditor.model.TextOverlayItem) o;
+                    videoEffects.add(new ImageBlendGlEffect(context, to,
+                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                } else {
+                    com.fadcam.ui.faditor.sprite.SpriteOverlayItem s =
+                            (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o;
+                    if (s.isHidden()) continue;
+                    videoEffects.add(new SpriteBlendGlEffect(context, s,
+                            project.getSpriteSheets(), project.getAvatarRigs(),
+                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                }
             }
 
             // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M4) ───────────────────────────

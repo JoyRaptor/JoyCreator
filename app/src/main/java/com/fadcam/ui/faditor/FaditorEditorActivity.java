@@ -10098,7 +10098,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // animated lookup (Clip.spinePoseAt at the clip-local playhead), so leaving it out would
         // freeze the handles on a keyframed spine transform while the picture moved under them.
         if (transformOverlay != null
-                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
+                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null
+                        || transformSpriteId != null)) {
             transformOverlay.refresh();
         }
 
@@ -24821,6 +24822,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
             transformRoles = new java.util.HashMap<>();
 
+    /**
+     * SPRITE transform surface (SPEC Z slice 1).
+     *
+     * <p>Sprites were the one object family that never reached the transform surface at all —
+     * selecting one went to the legacy handle overlay, so they had no smart handles, no role ring
+     * and no bend, while text, PiP, images and the spine all did. They join on the SHARED
+     * {@code AffineTransformHost} using the {@code Target} they already had, which is SPEC Y's
+     * acceptance 4 demonstrated rather than argued: a new object type costs an adapter and
+     * nothing else — no fifth host.
+     */
+    @Nullable private String transformSpriteId;
+    private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
+            spriteTransformRoles = new java.util.HashMap<>();
+
     /** PiP transform surface — separate from image/text and spine (SPEC D). */
     @Nullable private String transformPipClipId;
     private final java.util.Map<String, com.fadcam.ui.faditor.transform.HandleModel>
@@ -24902,6 +24917,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformItemId = o.getId();
         transformSpineClipId = null;
         transformPipClipId = null;
+        transformSpriteId = null;
         // THE ORDINARY HANDLES SURRENDER THE PICTURE, NOT THE PREVIEW.
         //
         // Their TARGET goes null, which is what makes them draw nothing and grab nothing -- the
@@ -25010,6 +25026,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformItemId = o.getId();
         transformSpineClipId = null;
         transformPipClipId = null;
+        transformSpriteId = null;
         ensurePreviewHandlesOverlay().setTarget(null);
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setPointHandles(null);
@@ -25036,6 +25053,78 @@ public class FaditorEditorActivity extends AppCompatActivity {
         v.refresh();
     }
 
+    /**
+     * SPEC Z slice 1 step 2 — put a SPRITE on the same transform surface as everything else.
+     *
+     * <p>Affine-only FOR NOW, and the gate is the same one every other type answers to: a
+     * capability is offered when both the preview and the export can draw it. Neither can draw a
+     * warped sprite yet, so {@code setBendAvailable(false)} stands until the renderers land. The
+     * model underneath already carries the pin and the mesh, which is deliberate — the data
+     * arrives first and the gate opens last, so there is never a window where a user can author a
+     * distortion nothing can render.
+     */
+    private void enterSpriteTransformMode(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp) {
+        if (transformSpriteId != null && transformSpriteId.equals(sp.getId())
+                && transformOverlay != null && transformOverlay.host() != null
+                && transformOverlay.host()
+                        instanceof com.fadcam.ui.faditor.transform.AffineTransformHost) {
+            transformOverlay.refresh();
+            return;
+        }
+        com.fadcam.ui.faditor.transform.HandleModel roles = spriteTransformRoles.get(sp.getId());
+        if (roles == null) {
+            roles = new com.fadcam.ui.faditor.transform.HandleModel();
+            spriteTransformRoles.put(sp.getId(), roles);
+        }
+        transformSpriteId = sp.getId();
+        transformItemId = null;
+        transformSpineClipId = null;
+        transformPipClipId = null;
+        ensurePreviewHandlesOverlay().setTarget(null);
+        if (previewHandlesOverlay != null) {
+            previewHandlesOverlay.setPointHandles(null);
+            previewHandlesOverlay.setVisibility(View.VISIBLE);
+        }
+        com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
+        com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = spriteHandlesTarget(sp);
+        v.setHost(new com.fadcam.ui.faditor.transform.AffineTransformHost(
+                t,
+                () -> overlayClockMs(lastPlayheadAbsoluteMs),
+                this::refreshSpriteAfterHandleWrite,
+                // Matches the sprite model's own floor (setSizeFraction clamps at 0.01), so the
+                // handle cannot author a size the model would silently clamp behind it.
+                0.01f,
+                () -> resetSpriteGeometry(sp)), roles);
+        v.setAffineOnly(true);
+        v.setBendAvailable(false);
+        v.setBendVisible(false);
+        v.setOnDoubleTap(() -> showObjectMenuSheetForSprite(sp));
+        v.bringToFront();
+        v.refresh();
+    }
+
+    /**
+     * Reset policy for a SPRITE. Keeps size, siding with text and images rather than PiP: a
+     * sprite's size is authored work and there is no creation pose to return to.
+     */
+    private void resetSpriteGeometry(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet ks = sp.getKeyframes();
+        ks.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.X);
+        ks.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y);
+        ks.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION);
+        sp.setCenter(0.5f, 0.5f);
+        sp.setRotationDeg(0f);
+        // The sprite CAN carry a pin now, so reset genuinely has to clear one — unlike text,
+        // where the same call is only defensive.
+        sp.clearCornerPin();
+        for (String tr : com.fadcam.ui.faditor.model.CornerPin.tracks()) {
+            ks.removeProperty(tr);
+        }
+        sp.setMesh(null);
+        refreshSpriteAfterHandleWrite();
+    }
+
     // ── SPEC D: PIP TRANSFORM — affine-only (no pin channel in preview or export)
     private void enterPipTransformMode(@NonNull Clip clip) {
         if (transformPipClipId != null && transformPipClipId.equals(clip.getId())
@@ -25052,6 +25141,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformPipClipId = clip.getId();
         transformItemId = null;
         transformSpineClipId = null;
+        transformSpriteId = null;
         ensurePreviewHandlesOverlay().setTarget(null);
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setPointHandles(null);
@@ -25180,6 +25270,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         transformItemId = null;
         transformSpineClipId = clip.getId();
         transformPipClipId = null;
+        transformSpriteId = null;
         // Same surrender the image path makes, for the same reason: the ordinary handles overlay
         // keeps its VISIBILITY (it is the preview's one hit-test surface) and loses its TARGET,
         // so exactly one view is reading MotionEvents over the picture.
@@ -25266,12 +25357,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Close the transform surface. The caller decides what the preview shows next. */
     private void exitTransformMode() {
         if (transformItemId == null && transformSpineClipId == null && transformPipClipId == null
-                && transformOverlay == null) {
+                && transformSpriteId == null && transformOverlay == null) {
             return;
         }
         transformItemId = null;
         transformSpineClipId = null;
         transformPipClipId = null;
+        transformSpriteId = null;
         if (transformOverlay != null) {
             // setHost(null) also sets the view GONE, so nothing of it remains -- no orphaned
             // handles, and nothing left in the preview reading a MotionEvent but the ordinary
@@ -25598,6 +25690,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // pose) and any text box under the finger (a second, competing mover). Selecting
                 // a PiP or spine clip consumes the tap exactly as selecting an image does.
                 return transformItemId != null || transformPipClipId != null || transformSpineClipId != null
+                        || transformSpriteId != null
                         || (previewHandlesOverlay != null && previewHandlesOverlay.hasTarget());
             }
 
@@ -25764,7 +25857,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // channel for text — a distortion would be authored with nowhere to draw it.
             enterTextTransformMode(item.getTextOverlay());
         } else if (item != null && item.getSprite() != null) {
-            ensurePreviewHandlesOverlay().setTarget(spriteHandlesTarget(item.getSprite()));
+            // SPEC Z slice 1: sprites used to stop here, on the legacy handle overlay. They get
+            // the same surface, the same ring and the same grammar as every other object now.
+            enterSpriteTransformMode(item.getSprite());
         } else if (item != null && item.getClip() != null && item.getClip().isOverlayClip()) {
             // SPEC D: PiP now gets the transform surface, affine-only — neither PipFrameOverlay
             // (export) nor FxPreviewTextureView.Pip (preview) can draw a corner-pinned PiP today.
@@ -26228,7 +26323,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             previewHandlesOverlay.setPlayheadMs(ms);
         }
         if (transformOverlay != null
-                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
+                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null
+                        || transformSpriteId != null)) {
             transformOverlay.refresh();
         }
     }
@@ -26379,6 +26475,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshSpriteAfterHandleWrite() {
         setSpriteOverlayPlayhead(lastPlayheadAbsoluteMs);
         refreshOpenDrawerRows();
+        // SPEC Y drift, a FOURTH instance of it — found only because SPEC Z gave sprites the
+        // transform surface and this method suddenly had to do what its three siblings do. It
+        // repositioned the sprite's view and refreshed the drawer, and left both the transform
+        // handles and the GL composite reading the pose from before the write. Four write paths,
+        // four different subsets of the same four calls.
+        if (transformOverlay != null) transformOverlay.refresh();
+        requestGlPreviewResync();
     }
 
     /**
@@ -32085,7 +32188,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // setTextOverlayPlayhead: spine was missing here, so a spine drawer write never
         // re-synced the quad.
         if (transformOverlay != null
-                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null)) {
+                && (transformItemId != null || transformSpineClipId != null || transformPipClipId != null
+                        || transformSpriteId != null)) {
             transformOverlay.refresh();
         }
     }

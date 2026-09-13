@@ -175,6 +175,9 @@ public final class SpriteIcons {
                 "M19 12H5",
                 "m11 6-6 6 6 6",
         });
+        STROKED.put("drop", new String[]{
+                "M12 3.5c3.2 3.6 5.5 6.4 5.5 9.1a5.5 5.5 0 0 1-11 0c0-2.7 2.3-5.5 5.5-9.1Z",
+        });
         STROKED.put("prev", new String[]{
                 "m14 6-6 6 6 6",
         });

@@ -41,8 +41,15 @@ public final class SpriteTheme {
     public static final int CONTROL   = 0xFF1C1C22;
     public static final int CONTROL_HI= 0xFF262630;
     public static final int LINE      = 0xFF2C2C35;
-    /** The drawer floats over live video; see rule 2. */
-    public static final int DRAWER_SCRIM = 0xE0111114;
+    /**
+     * The drawer floats over live video; see rule 2.
+     *
+     * <p>The web design gets its separation from {@code backdrop-filter: blur(13px)}, which
+     * Android has no cheap equivalent for. Opacity has to do that work instead, so this is
+     * higher than the CSS: at 0xE0 the toolbox labels behind the drawer stayed legible and
+     * read as a rendering fault rather than as depth.</p>
+     */
+    public static final int DRAWER_SCRIM = 0xF2111114;
 
     // ── ink ─────────────────────────────────────────────────────────────
     public static final int INK       = 0xFFE4E4E7;

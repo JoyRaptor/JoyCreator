@@ -266,7 +266,10 @@ public class SpritePalettePanel extends FrameLayout {
         // Always PRESENT, lit only when the playhead is actually on a key. Hiding it made the
         // row jump; greying it answers "will this delete my object or my keyframe" before the
         // question is asked.
-        deleteKey = segIcon("trash");
+        // A KEY, not a bin. Between two step arrows a bin reads as "delete something" and
+        // leaves you guessing whether it means the keyframe or the sprite; a diamond that
+        // lights pink when the playhead is on a key says what it is and what it will remove.
+        deleteKey = segIcon("key");
         deleteKey.setOnClickListener(v -> {
             if (callback != null && selected != null && isOnKey()) {
                 callback.onDeleteKeyAtPlayhead(selected);

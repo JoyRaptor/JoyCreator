@@ -74,7 +74,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private TextView cellTitle;
     private EditText cellNameField;
     private Switch cellEnabled;
-    private TextView pivotBtn;
     private boolean onionMode = false;
     /** How many frames ghost behind and ahead. 0 turns that side off. */
     private int onionPast = 1;
@@ -212,6 +211,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // The rest of the editor autosaves on pause; this screen only saved on Back, so
         // switching apps in the middle of naming a sheet threw the naming away — and naming
         // is the slow, valuable part.
+        if (benchBody != null) benchBody.removeCallbacks(autoSave);
         if (labDirty) save(true);
     }
 
@@ -430,7 +430,35 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         tintToggle(saveBtn, labDirty, SpriteTheme.LIVE);
     }
 
-    private void markDirty() { labDirty = true; syncSaveBtn(); noteChange(); }
+    private void markDirty() {
+        labDirty = true;
+        syncSaveBtn();
+        noteChange();
+        scheduleSave();
+    }
+
+    /**
+     * Write the sheet a moment after you stop changing it.
+     *
+     * <p>Saving only on pause and on Back means anything between the last pause and a crash,
+     * a low-memory kill or a reinstall is gone. During this build I twice could not account
+     * for where a cell name went, and could not reproduce it either; rather than leave that
+     * open, the window in which work exists only in RAM is now about a second wide.</p>
+     *
+     * <p>Debounced rather than per-change: a number drag would otherwise write the project
+     * file thirty times a second.</p>
+     */
+    private void scheduleSave() {
+        if (benchBody == null || restoring) return;
+        benchBody.removeCallbacks(autoSave);
+        benchBody.postDelayed(autoSave, 1500);
+    }
+
+    private final Runnable autoSave = new Runnable() {
+        @Override public void run() {
+            if (labDirty && !isFinishing()) save(true);
+        }
+    };
 
     // ── undo ─────────────────────────────────────────────────────────────
     //
@@ -748,12 +776,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // Every number pill belongs to the section that built it; keeping stale ones alive
         // would have syncControls poking at views that are no longer on screen.
         stepperSyncs.clear();
-        reorderBtns.clear();
+        dragBtns.clear();
         // Arranging is a thing you do in Slice. Leaving with it still armed means the next
-        // drag on the sheet silently rearranges your work.
-        if (!"slice".equals(id) && gridView.getReorderMode() != SpriteGridEditorView.Reorder.OFF) {
-            gridView.setReorderMode(SpriteGridEditorView.Reorder.OFF);
-        }
+        // drag on the sheet silently rearranges your work, in a section that does not even
+        // show you the control that did it.
+        if (!"slice".equals(id) && dragMode != DragMode.PAN) setDragMode(DragMode.PAN);
         benchBody.removeAllViews();
         switch (id) {
             case "slice": buildSliceSection(); break;
@@ -876,19 +903,43 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         b.addView(detect);
         detectRow(b);
 
-        keyBtn = chip(sheet.getBgKeyColor() != 0
-                ? getString(R.string.sprite_editor_key_clear) : getString(R.string.sprite_editor_key));
+        keyBtn = ichip("drop", "Bg key");
         keyBtn.setOnClickListener(v -> { onKeyChipTapped(); syncKeyChip(); });
         b.addView(keyBtn);
         syncKeyChip();
 
-        pivotBtn = gchip(getString(R.string.sprite_editor_pivot),
-                gridView.isPivotMode(), SpriteTheme.LIVE);
-        pivotBtn.setOnClickListener(v -> {
-            gridView.setPivotMode(!gridView.isPivotMode());
-            tintToggle(pivotBtn, gridView.isPivotMode(), SpriteTheme.LIVE);
-        });
-        b.addView(pivotBtn);
+        // What a DRAG on the sheet does. Four mutually exclusive answers, so one segment —
+        // not four chips that look like the three display switches next to them and can be
+        // armed two at a time.
+        LinearLayout dragSeg = seg();
+        // The word rides INSIDE the pill. Outside it, the wrap put "drag" at the end of the
+        // previous line and left the segment orphaned underneath, labelling nothing.
+        TextView dragLabel = new TextView(this);
+        dragLabel.setText("drag");
+        dragLabel.setTextSize(9.5f);
+        dragLabel.setTextColor(SpriteTheme.DIMMER);
+        dragLabel.setPadding((int) (7 * d), 0, (int) (3 * d), 0);
+        dragSeg.addView(dragLabel);
+        addDrag(dragSeg, DragMode.PAN, "Pan", SpriteTheme.DIM);
+        addDrag(dragSeg, DragMode.PIVOT, "Pivot", SpriteTheme.LIVE);
+        addDrag(dragSeg, DragMode.SWAP, "Swap", SpriteTheme.ACCENT_GRID);
+        addDrag(dragSeg, DragMode.RIPPLE, "Ripple", SpriteTheme.ACCENT_GRID);
+        space(dragSeg, d, 1);
+        syncDrag();
+        b.addView(dragSeg);
+
+        if (sheet.hasCustomOrder()) {
+            TextView reset = ichip("undo", "Reset order");
+            reset.setOnClickListener(v -> {
+                sheet.resetOrder();
+                markDirty();
+                refreshArt();
+                showSection("slice");
+                Toast.makeText(this, "Every drawing is back where it started",
+                        Toast.LENGTH_SHORT).show();
+            });
+            b.addView(reset);
+        }
         benchBody.addView(g);
         syncControls();
 
@@ -958,7 +1009,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      * own edge is either clipped or the grid is off by a row.</p>
      */
     private void detectRow(@NonNull FlowLayout b) {
-        TextView grid = chip("Grid");
+        TextView grid = ichip("grid", "Grid");
         tintToggle(grid, gridView.isShowGrid(), SpriteTheme.ACCENT_GRID);
         grid.setOnClickListener(v -> {
             gridView.setShowGrid(!gridView.isShowGrid());
@@ -995,59 +1046,55 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         TextView many = ichip("tag", "Name many\u2026");
         many.setOnClickListener(v -> nameMany(Math.max(0, gridView.getSelectedCell())));
         b.addView(many);
-
-        // Arranging the sheet. While either is lit, dragging a cell moves the DRAWING rather
-        // than the view — and the name, the nudge and the viseme go with it.
-        LinearLayout modes = seg();
-        addReorder(modes, SpriteGridEditorView.Reorder.SWAP, "Swap");
-        addReorder(modes, SpriteGridEditorView.Reorder.RIPPLE, "Ripple");
-        space(modes, density(), 1);
-        syncReorder();
-        b.addView(modes);
-
-        if (sheet.hasCustomOrder()) {
-            TextView reset = ichip("undo", "Reset order");
-            reset.setOnClickListener(v -> {
-                sheet.resetOrder();
-                markDirty();
-                refreshArt();
-                showSection("slice");
-                Toast.makeText(this, "Every drawing is back where it started",
-                        Toast.LENGTH_SHORT).show();
-            });
-            b.addView(reset);
-        }
     }
 
-    private final java.util.Map<SpriteGridEditorView.Reorder, TextView> reorderBtns =
-            new java.util.LinkedHashMap<>();
+    /** The four things a drag on the sheet can mean. Exactly one is true at a time. */
+    private enum DragMode { PAN, PIVOT, SWAP, RIPPLE }
 
-    private void addReorder(@NonNull LinearLayout parent,
-                            @NonNull SpriteGridEditorView.Reorder mode, @NonNull String label) {
+    private final java.util.Map<DragMode, TextView> dragBtns = new java.util.LinkedHashMap<>();
+
+    private void addDrag(@NonNull LinearLayout parent, @NonNull DragMode mode,
+                         @NonNull String label, int colour) {
         float d = density();
         TextView b = new TextView(this);
         b.setText(label);
         b.setTextSize(11f);
         b.setGravity(Gravity.CENTER);
         b.setMinHeight((int) (24 * d));
-        b.setPadding((int) (10 * d), (int) (2 * d), (int) (10 * d), (int) (2 * d));
+        b.setPadding((int) (9 * d), (int) (2 * d), (int) (9 * d), (int) (2 * d));
+        b.setTag(colour);
         b.setOnClickListener(v -> {
-            gridView.setReorderMode(gridView.getReorderMode() == mode
-                    ? SpriteGridEditorView.Reorder.OFF : mode);
-            syncReorder();
-            if (gridView.getReorderMode() != SpriteGridEditorView.Reorder.OFF) {
-                Toast.makeText(this, "Drag a cell onto another one", Toast.LENGTH_SHORT).show();
+            setDragMode(mode);
+            if (mode == DragMode.SWAP || mode == DragMode.RIPPLE) {
+                Toast.makeText(this, mode == DragMode.SWAP
+                        ? "Drag a cell onto another to trade places"
+                        : "Drag a cell where you want it; the rest shuffle up",
+                        Toast.LENGTH_SHORT).show();
             }
         });
-        reorderBtns.put(mode, b);
+        dragBtns.put(mode, b);
         parent.addView(b);
     }
 
-    private void syncReorder() {
-        for (java.util.Map.Entry<SpriteGridEditorView.Reorder, TextView> e
-                : reorderBtns.entrySet()) {
-            tintSeg(e.getValue(), gridView.getReorderMode() == e.getKey(),
-                    SpriteTheme.ACCENT_GRID);
+    private DragMode dragMode = DragMode.PAN;
+
+    /** One setter, so two modes can never be armed at once. */
+    private void setDragMode(@NonNull DragMode mode) {
+        dragMode = mode;
+        gridView.setPivotMode(mode == DragMode.PIVOT);
+        gridView.setReorderMode(mode == DragMode.SWAP ? SpriteGridEditorView.Reorder.SWAP
+                : mode == DragMode.RIPPLE ? SpriteGridEditorView.Reorder.RIPPLE
+                : SpriteGridEditorView.Reorder.OFF);
+        syncDrag();
+    }
+
+    private void syncDrag() {
+        for (java.util.Map.Entry<DragMode, TextView> e : dragBtns.entrySet()) {
+            TextView b = e.getValue();
+            // Pan is the neutral mode, but it is still a mode, and DIM-on-CONTROL made the
+            // active one look switched off. A light grey pill with dark ink reads as chosen
+            // without borrowing a colour that already means something else.
+            tintSeg(b, dragMode == e.getKey(), (Integer) b.getTag());
         }
     }
 
@@ -2688,9 +2735,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private void syncKeyChip() {
         if (keyBtn == null) return;
         boolean keyed = sheet.getBgKeyColor() != 0;
-        keyBtn.setText(keyed ? getString(R.string.sprite_editor_key_clear)
-                : getString(R.string.sprite_editor_key));
-        keyBtn.setBackgroundColor(keyed || gridView.isColorPickMode() ? 0xFF4A3B5C : 0xFF26262E);
+        // "Key" alone read as "keyframe" on a screen that has none. It is the background
+        // colour being knocked out, and the button should say so.
+        keyBtn.setText(keyed ? "Clear bg key"
+                : gridView.isColorPickMode() ? "Tap the colour" : "Bg key");
+        tintToggle(keyBtn, keyed || gridView.isColorPickMode(), SpriteTheme.ACCENT_CELL);
     }
 
     /** Write the standalone sidecar (<image>.sprite.json, same JSON as the

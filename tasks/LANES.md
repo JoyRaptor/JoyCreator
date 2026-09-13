@@ -554,8 +554,15 @@ progress:
            and the persistence lint now watches the sprite model. Renderers not started.
 since: 2026-09-13T10:25
 
-## SPRITELAB OUTPUT — bake, merge, frame export, roll reorder (2026-09-13 day session)
-status: DONE (2026-09-13T11:20 — Claude/Opus). All four device-proved on the Note 9; see
+## SPRITELAB OUTPUT — bake, merge, frames, reorder, SHEET MANAGEMENT (2026-09-13)
+status: ACTIVE again (2026-09-13T11:45 — Claude/Opus). Round 2: a Sheets group in the Lab's
+        Out section (open / rename / delete, with an in-use guard), the merge Sources rail,
+        and bake provenance. Sheet management deliberately lives in the LAB, not in the
+        editor drawer's "manage sheets" — that callback is in FaditorEditorActivity, which
+        the transform lane owns.
+        Reads, never writes: Timeline.getSpriteOverlays() and SpriteOverlayItem.getSheetId(),
+        to tell whether a sheet is still in use before offering to delete it.
+prior:  DONE (2026-09-13T11:20). All four device-proved on the Note 9; see
         LEDGER 2026-09-13 (later) for the evidence. No file the transform agent owns was
         touched, and SpriteSheetRenderer was read but never modified. Files below are FREE.
 files:

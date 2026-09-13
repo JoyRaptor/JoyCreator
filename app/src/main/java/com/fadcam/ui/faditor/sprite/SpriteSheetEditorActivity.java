@@ -7,6 +7,8 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.Editable;
@@ -73,12 +75,30 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private EditText cellNameField;
     private Switch cellEnabled;
     private TextView pivotBtn;
-    private TextView onionBtn;
     private boolean onionMode = false;
+    /** How many frames ghost behind and ahead. 0 turns that side off. */
+    private int onionPast = 1;
+    private int onionFuture = 1;
+    /** Ghost colours. Past is a state colour by default, but the artist gets to say. */
+    private int onionPastColour = SpriteTheme.LIVE;
+    private int onionFutureColour = SpriteTheme.SELECTED;
+    /** How loud the nearest ghost is. Distant ones fall off from here. */
+    private float onionStrength = 0.40f;
+    /** Which of {@link #BG_NAMES} the preview sits on. */
+    int previewBg = 0;
+    private TextView onionToggle;
+    private TextView pastPill;
+    private TextView futurePill;
+    private BgSwatch bgSwatch;
     private TextView keyBtn;
     private TextView playBtn;
     private CellCyclePreview preview;
-    private TextView fpsValue;
+    private NumPill fpsPill;
+    /** The Lab's own playback mode. It is what a saved clip inherits. */
+    private String labWrap = "loop";
+    private final java.util.Map<String, TextView> wrapBtns = new java.util.LinkedHashMap<>();
+    /** The subtitle of the slice group, so a dragged number can update it in place. */
+    private TextView sliceSub;
     private final float density() { return getResources().getDisplayMetrics().density; }
 
     private final ActivityResultLauncher<String[]> imagePicker =
@@ -186,6 +206,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     // ── Lab state ────────────────────────────────────────────────────────
     /** The roll being assembled: {cellIndex, holdTicks}. "Save clip" turns it into a preset. */
     private final java.util.List<int[]> labSeq = new java.util.ArrayList<>();
+    private final java.util.List<View> filmBoxes = new java.util.ArrayList<>();
+    private final java.util.List<TextView> filmLabels = new java.util.ArrayList<>();
     private int labCur = 0;
     /** "slice" | "play" | "clips" | "out" */
     private String labSection = "play";
@@ -197,7 +219,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private LinearLayout filmRow;
     private ScrubBar scrubBar;
     private TextView saveBtn;
-    private TextView wrapBtn;
     private final java.util.Map<String, TextView> navBtns = new java.util.LinkedHashMap<>();
     private final java.util.Set<String> openGroups =
             new java.util.HashSet<>(java.util.Arrays.asList("seq", "align", "slice1", "cellEd", "exp"));
@@ -308,7 +329,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         int pad = (int) (8 * d);
         top.setPadding(pad, pad / 2, pad, pad / 2);
 
-        TextView back = chip("←");
+        TextView back = ichip("back");
         back.setOnClickListener(v -> onBackPressed());
         top.addView(back);
 
@@ -324,23 +345,43 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         nLp.leftMargin = pad / 2;
         top.addView(nameField, nLp);
 
-        // Four sections, four colours. Solid when active, plain grey when not — there is no
-        // half-opaque middle state anywhere in this package.
-        addNav(top, "slice", "▦", SpriteTheme.ACCENT_GRID);
-        addNav(top, "play",  "✛", SpriteTheme.ACCENT_ALIGN);
-        addNav(top, "clips", "🎞", SpriteTheme.ACCENT_CLIPS);
-        addNav(top, "out",   "↑", SpriteTheme.ACCENT_OUT);
+        // Four sections, four colours, in ONE segmented pill. Solid when active, plain grey
+        // when not — there is no half-opaque middle state anywhere in this package.
+        LinearLayout nav = seg();
+        addNav(nav, "slice", "grid",   SpriteTheme.ACCENT_GRID);
+        addNav(nav, "play",  "target", SpriteTheme.ACCENT_ALIGN);
+        addNav(nav, "clips", "clips",  SpriteTheme.ACCENT_CLIPS);
+        addNav(nav, "out",   "out",    SpriteTheme.ACCENT_OUT);
+        space(nav, d, 1);
+        top.addView(nav);
 
-        saveBtn = chip("💾");
+        saveBtn = ichip("save");
         saveBtn.setOnClickListener(v -> { save(); labDirty = false; syncSaveBtn(); });
         top.addView(saveBtn);
         syncSaveBtn();
+        space(top, d, 5);
         return top;
     }
 
+    /** Space a row's children by the design's gap, without a layout file to say it in. */
+    private void space(@NonNull LinearLayout row, float d, int dp) {
+        for (int i = 1; i < row.getChildCount(); i++) {
+            View ch = row.getChildAt(i);
+            ViewGroup.LayoutParams lp = ch.getLayoutParams();
+            if (lp instanceof LinearLayout.LayoutParams) {
+                ((LinearLayout.LayoutParams) lp).leftMargin = (int) (dp * d);
+            } else {
+                LinearLayout.LayoutParams n = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                n.leftMargin = (int) (dp * d);
+                ch.setLayoutParams(n);
+            }
+        }
+    }
+
     private void addNav(@NonNull LinearLayout parent, @NonNull String id,
-                        @NonNull String glyph, int colour) {
-        TextView b = chip(glyph);
+                        @NonNull String icon, int colour) {
+        TextView b = segBtn(icon);
         b.setTag(colour);
         b.setOnClickListener(v -> showSection(id));
         navBtns.put(id, b);
@@ -350,18 +391,14 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private void syncNav() {
         for (java.util.Map.Entry<String, TextView> e : navBtns.entrySet()) {
             TextView b = e.getValue();
-            boolean on = e.getKey().equals(labSection);
-            int colour = (Integer) b.getTag();
-            b.setBackgroundColor(on ? colour : SpriteTheme.CONTROL);
-            b.setTextColor(on ? SpriteTheme.ON_ACCENT : SpriteTheme.DIM);
+            tintSeg(b, e.getKey().equals(labSection), (Integer) b.getTag());
         }
     }
 
     /** Pink while there is something unsaved; plain grey the moment there is not. */
     private void syncSaveBtn() {
         if (saveBtn == null) return;
-        saveBtn.setBackgroundColor(labDirty ? SpriteTheme.LIVE : SpriteTheme.CONTROL);
-        saveBtn.setTextColor(labDirty ? 0xFFFFFFFF : SpriteTheme.DIMMER);
+        tintToggle(saveBtn, labDirty, SpriteTheme.LIVE);
     }
 
     private void markDirty() { labDirty = true; syncSaveBtn(); }
@@ -377,13 +414,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         preview = new CellCyclePreview(this);   // lives in the Play section; built here so the
         preview.bind(sheet, renderer);          // transport can drive it from any section
 
-        playBtn = chip(getString(R.string.sprite_editor_play));
-        playBtn.setOnClickListener(v -> {
-            boolean now = !preview.isPlaying();
-            preview.setPlaying(now);
-            playBtn.setText(now ? getString(R.string.sprite_editor_stop)
-                    : getString(R.string.sprite_editor_play));
-        });
+        playBtn = ichip("play");
+        playBtn.setOnClickListener(v -> togglePlay());
         row.addView(playBtn);
 
         TextView prev = chip("◀");
@@ -393,56 +425,137 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         row.addView(prev);
         row.addView(next);
 
-        wrapBtn = chip(endGlyphFor(sheet));
-        wrapBtn.setOnClickListener(v -> { cycleSheetWrap(); wrapBtn.setText(endGlyphFor(sheet)); tintWrap(); });
-        tintWrap();
-        row.addView(wrapBtn);
+        // How the roll ENDS, as three visible states rather than one button you have to
+        // press twice to find out what it does now.
+        LinearLayout wrapSeg = seg();
+        addWrap(wrapSeg, "loop",     "loop", SpriteTheme.ACCENT_GRID);
+        addWrap(wrapSeg, "pingpong", "ping", SpriteTheme.ACCENT_CELL);
+        addWrap(wrapSeg, "once",     "once", SpriteTheme.LIVE);
+        space(wrapSeg, d, 1);
+        syncWrap();
+        row.addView(wrapSeg);
 
-        LinearLayout fpsBox = stepperShell(row, "FPS");
-        TextView minus = stepBtn("−");
-        fpsValue = stepValue();
-        TextView plus = stepBtn("+");
-        minus.setOnClickListener(v -> { sheet.setFps(sheet.getFps() - 0.5f); syncControls(); markDirty(); });
-        plus.setOnClickListener(v -> { sheet.setFps(sheet.getFps() + 0.5f); syncControls(); markDirty(); });
-        fpsBox.addView(minus); fpsBox.addView(fpsValue); fpsBox.addView(plus);
-
-        onionBtn = chip(getString(R.string.sprite_editor_onion));
-        onionBtn.setOnClickListener(v -> {
-            onionMode = !onionMode;
-            tintToggle(onionBtn, onionMode, SpriteTheme.ACCENT_VIEW);
-            preview.invalidate();
+        TextView rev = ichip("rev");
+        rev.setOnClickListener(v -> {
+            if (labSeq.isEmpty()) return;
+            java.util.Collections.reverse(labSeq);
+            labCur = labSeq.size() - 1 - Math.max(0, Math.min(labSeq.size() - 1, labCur));
+            rebuildFilm();
+            if (scrubBar != null) scrubBar.invalidate();
         });
-        tintToggle(onionBtn, onionMode, SpriteTheme.ACCENT_VIEW);
-        row.addView(onionBtn);
-        return row;
+        row.addView(rev);
+
+        fpsPill = new NumPill("fps", null, () -> sheet.getFps(),
+                v -> { sheet.setFps(Math.max(0.5f, Math.min(60f, v))); markDirty(); },
+                1f, true, "");
+        row.addView(fpsPill);
+
+        space(row, d, 4);
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.addView(row);
+        return scroll;
     }
 
-    private void tintWrap() {
-        if (wrapBtn == null) return;
-        String t = sheet.getPresets().isEmpty() ? "loop" : sheet.getPresets().get(0).type;
-        int c = "loop".equals(t) ? SpriteTheme.ACCENT_GRID
-                : "pingpong".equals(t) ? SpriteTheme.ACCENT_CELL : SpriteTheme.LIVE;
-        wrapBtn.setBackgroundColor(c);
-        wrapBtn.setTextColor(c == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
+    private void addWrap(@NonNull LinearLayout parent, @NonNull String type,
+                         @NonNull String icon, int colour) {
+        TextView b = segBtn(icon);
+        b.setTag(colour);
+        b.setOnClickListener(v -> { labWrap = type; syncWrap(); markDirty(); });
+        wrapBtns.put(type, b);
+        parent.addView(b);
     }
 
-    @NonNull
-    private static String endGlyphFor(@NonNull SpriteSheet sh) {
-        String t = sh.getPresets().isEmpty() ? "loop" : sh.getPresets().get(0).type;
-        return "loop".equals(t) ? "∞" : "pingpong".equals(t) ? "⇄" : "▸|";
+    private void syncWrap() {
+        for (java.util.Map.Entry<String, TextView> e : wrapBtns.entrySet()) {
+            TextView b = e.getValue();
+            tintSeg(b, e.getKey().equals(labWrap), (Integer) b.getTag());
+        }
     }
 
-    private void cycleSheetWrap() {
-        if (sheet.getPresets().isEmpty()) return;
-        SpriteSheet.Preset p = sheet.getPresets().get(0);
-        p.type = "loop".equals(p.type) ? "pingpong" : "pingpong".equals(p.type) ? "once" : "loop";
-        markDirty();
+    /** Play or stop the roll, keeping the button's face honest about which it will do. */
+    private void togglePlay() {
+        boolean now = !preview.isPlaying();
+        preview.setPlaying(now);
+        syncPlayBtn();
+    }
+
+    private void syncPlayBtn() {
+        if (playBtn == null) return;
+        boolean on = preview != null && preview.isPlaying();
+        float d = density();
+        playBtn.setCompoundDrawables(
+                SpriteIcons.of(on ? "pause" : "play", on ? inkOn(SpriteTheme.SELECTED)
+                        : SpriteTheme.INK, (int) (16 * d)), null, null, null);
+        tintToggle(playBtn, on, SpriteTheme.SELECTED);
     }
 
     /** Solid accent or plain grey — never a wash. */
     private static void tintToggle(@NonNull TextView v, boolean on, int colour) {
-        v.setBackgroundColor(on ? colour : SpriteTheme.CONTROL);
-        v.setTextColor(on ? SpriteTheme.ON_ACCENT : SpriteTheme.DIM);
+        float d = v.getResources().getDisplayMetrics().density;
+        int ink = on ? inkOn(colour) : SpriteTheme.DIM;
+        v.setBackground(pillBg(on ? colour : SpriteTheme.CONTROL,
+                on ? colour : SpriteTheme.LINE, d));
+        v.setTextColor(ink);
+        tintIcon(v, ink);
+    }
+
+    /**
+     * The cell {@code offset} frames away from {@code from} — along the roll if one is being
+     * built, otherwise along the enabled cells of the sheet.
+     */
+    int neighbourCell(int from, int offset) {
+        if (!labSeq.isEmpty()) {
+            int at = -1;
+            for (int i = 0; i < labSeq.size(); i++) if (labSeq.get(i)[0] == from) { at = i; break; }
+            if (at < 0) at = Math.max(0, Math.min(labSeq.size() - 1, labCur));
+            int want = at + offset;
+            if (want < 0 || want >= labSeq.size()) return -1;
+            return labSeq.get(want)[0];
+        }
+        int c = from + offset;
+        if (c < 0 || c >= sheet.cellCount()) return -1;
+        SpriteSheet.Cell m = sheet.cellAt(c);
+        return (m != null && !m.enabled) ? -1 : c;
+    }
+
+    private int labHold = 0;
+    private int labDir = 1;
+
+    /**
+     * Step the roll by one FRAME, not one entry: a hold of x4 stays put for four ticks.
+     *
+     * @return false when a "once" roll has just run off its end, so playback stops there.
+     */
+    boolean advanceRoll() {
+        if (labSeq.isEmpty()) return false;
+        labCur = Math.max(0, Math.min(labSeq.size() - 1, labCur));
+        if (++labHold < Math.max(1, labSeq.get(labCur)[1])) return true;
+        labHold = 0;
+        if (labSeq.size() == 1) return !"once".equals(labWrap);
+        if ("pingpong".equals(labWrap)) {
+            labCur += labDir;
+            if (labCur >= labSeq.size()) { labCur = labSeq.size() - 2; labDir = -1; }
+            else if (labCur < 0) { labCur = 1; labDir = 1; }
+            return true;
+        }
+        labCur++;
+        if (labCur < labSeq.size()) return true;
+        if ("once".equals(labWrap)) { labCur = labSeq.size() - 1; return false; }
+        labCur = 0;
+        return true;
+    }
+
+    /** Retint the film instead of rebuilding it — playback touches this every frame. */
+    void syncFilmCursor() {
+        for (int i = 0; i < filmBoxes.size(); i++) {
+            boolean on = i == labCur;
+            filmBoxes.get(i).setBackgroundColor(on ? SpriteTheme.LIVE : SpriteTheme.CONTROL);
+            if (i < filmLabels.size()) {
+                filmLabels.get(i).setTextColor(on ? 0xFF3B0322 : SpriteTheme.DIMMER);
+            }
+        }
+        if (scrubBar != null) scrubBar.invalidate();
     }
 
     private void stepLab(int dir) {
@@ -461,6 +574,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private void showSection(@NonNull String id) {
         labSection = id;
         syncNav();
+        // Every number pill belongs to the section that built it; keeping stale ones alive
+        // would have syncControls poking at views that are no longer on screen.
+        stepperSyncs.clear();
         benchBody.removeAllViews();
         switch (id) {
             case "slice": buildSliceSection(); break;
@@ -472,7 +588,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     /** A collapsible group: coloured icon, white title, grey caret, on black. */
     @NonNull
-    private LinearLayout group(@NonNull String key, int colour, @NonNull String glyph,
+    private TextView lastGroupSub;
+
+    private LinearLayout group(@NonNull String key, int colour, @NonNull String icon,
                                @NonNull String title, @Nullable String sub) {
         float d = density();
         LinearLayout wrap = new LinearLayout(this);
@@ -483,11 +601,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(0, (int) (4 * d), 0, (int) (3 * d));
 
-        TextView icon = new TextView(this);
-        icon.setText(glyph);
-        icon.setTextColor(colour);
-        icon.setTextSize(13f);
-        head.addView(icon);
+        TextView ic = new TextView(this);
+        ic.setCompoundDrawables(SpriteIcons.of(icon, colour, (int) (14 * d)), null, null, null);
+        ic.setCompoundDrawablePadding(0);
+        head.addView(ic);
 
         TextView t = new TextView(this);
         t.setText("  " + title.toUpperCase());
@@ -496,20 +613,23 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         t.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(t);
 
+        lastGroupSub = null;
         if (sub != null && !sub.isEmpty()) {
             TextView e = new TextView(this);
             e.setText("  " + sub);
             e.setTextColor(SpriteTheme.DIMMER);
             e.setTextSize(9.5f);
             head.addView(e);
+            lastGroupSub = e;
         }
 
         View sp = new View(this);
         head.addView(sp, new LinearLayout.LayoutParams(0, 1, 1f));
 
         TextView caret = new TextView(this);
-        caret.setTextColor(SpriteTheme.DIMMER);
-        caret.setTextSize(11f);
+        caret.setCompoundDrawables(
+                SpriteIcons.of("caret", SpriteTheme.DIMMER, (int) (13 * d)), null, null, null);
+        caret.setCompoundDrawablePadding(0);
         head.addView(caret);
 
         final FlowLayout body = new FlowLayout(this);
@@ -517,12 +637,14 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         boolean open = openGroups.contains(key);
         body.setVisibility(open ? View.VISIBLE : View.GONE);
-        caret.setText(open ? "⌄" : "›");
+        caret.setRotation(open ? 0f : -90f);
         head.setOnClickListener(v -> {
             boolean nowOpen = !openGroups.contains(key);
             if (nowOpen) openGroups.add(key); else openGroups.remove(key);
             body.setVisibility(nowOpen ? View.VISIBLE : View.GONE);
-            caret.setText(nowOpen ? "⌄" : "›");
+            caret.animate().rotation(nowOpen ? 0f : -90f).setDuration(180).start();
+            // Alignment opening or closing decides whether Sequence spans both columns.
+            if ("align".equals(key) && "play".equals(labSection)) showSection("play");
         });
 
         wrap.addView(head);
@@ -546,24 +668,33 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     // ── SLICE ────────────────────────────────────────────────────────────
     private void buildSliceSection() {
         float d = density();
-        View g = group("slice1", SpriteTheme.ACCENT_GRID, "▦", "Grid & slicing",
+        View g = group("slice1", SpriteTheme.ACCENT_GRID, "grid", "Grid & slicing",
                 cellSizeLabel());
         FlowLayout b = bodyOf(g);
-        stepperSyncs.clear();
-        addStepper(b, "Cols", () -> sheet.getCols(),
-                delta -> { sheet.setGrid(sheet.getCols() + delta, sheet.getRows()); markDirty(); });
-        addStepper(b, "Rows", () -> sheet.getRows(),
-                delta -> { sheet.setGrid(sheet.getCols(), sheet.getRows() + delta); markDirty(); });
-        addStepper(b, "Marg X", () -> sheet.getMarginX(),
-                delta -> { sheet.setMargins(sheet.getMarginX() + delta * 2, sheet.getMarginY()); markDirty(); });
-        addStepper(b, "Marg Y", () -> sheet.getMarginY(),
-                delta -> { sheet.setMargins(sheet.getMarginX(), sheet.getMarginY() + delta * 2); markDirty(); });
-        addStepper(b, "Space X", () -> sheet.getSpacingX(),
-                delta -> { sheet.setSpacing(sheet.getSpacingX() + delta * 2, sheet.getSpacingY()); markDirty(); });
-        addStepper(b, "Space Y", () -> sheet.getSpacingY(),
-                delta -> { sheet.setSpacing(sheet.getSpacingX(), sheet.getSpacingY() + delta * 2); markDirty(); });
+        sliceSub = lastGroupSub;
+        b.addView(num("cols", null, () -> sheet.getCols(),
+                v -> { sheet.setGrid(Math.max(1, Math.round(v)), sheet.getRows()); gridNumChanged(); },
+                1f, true, ""));
+        b.addView(num("rows", null, () -> sheet.getRows(),
+                v -> { sheet.setGrid(sheet.getCols(), Math.max(1, Math.round(v))); gridNumChanged(); },
+                1f, true, ""));
+        b.addView(num("mg x", null, () -> sheet.getMarginX(),
+                v -> { sheet.setMargins(Math.max(0, Math.round(v)), sheet.getMarginY()); gridNumChanged(); },
+                1f, true, ""));
+        b.addView(num("mg y", null, () -> sheet.getMarginY(),
+                v -> { sheet.setMargins(sheet.getMarginX(), Math.max(0, Math.round(v))); gridNumChanged(); },
+                1f, true, ""));
+        b.addView(num("sp x", null, () -> sheet.getSpacingX(),
+                v -> { sheet.setSpacing(Math.max(0, Math.round(v)), sheet.getSpacingY()); gridNumChanged(); },
+                1f, true, ""));
+        b.addView(num("sp y", null, () -> sheet.getSpacingY(),
+                v -> { sheet.setSpacing(sheet.getSpacingX(), Math.max(0, Math.round(v))); gridNumChanged(); },
+                1f, true, ""));
+        b.addView(num("tol", null, () -> sheet.getKeyTolerance() * 100f,
+                v -> { setTolerance(v / 100f); }, 1f, true, "%"));
 
-        TextView detect = gchip("✲ Detect", false, SpriteTheme.ACCENT_GRID);
+        TextView detect = ichip("wand", "Detect");
+        tintToggle(detect, true, SpriteTheme.ACCENT_GRID);
         detect.setOnClickListener(v -> { autoDetectGrid(); markDirty(); showSection("slice"); });
         b.addView(detect);
 
@@ -572,17 +703,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         keyBtn.setOnClickListener(v -> { onKeyChipTapped(); syncKeyChip(); });
         b.addView(keyBtn);
         syncKeyChip();
-
-        LinearLayout tolBox = stepperShell(b, "Tol");
-        TextView tm = stepBtn("−");
-        TextView tv = stepValue();
-        TextView tp = stepBtn("+");
-        Runnable tolSync = () -> tv.setText(Math.round(sheet.getKeyTolerance() * 100) + "%");
-        stepperSyncs.add(tolSync);
-        tm.setOnClickListener(v -> { adjustTolerance(-0.02f, tolSync); markDirty(); });
-        tp.setOnClickListener(v -> { adjustTolerance(0.02f, tolSync); markDirty(); });
-        tolBox.addView(tm); tolBox.addView(tv); tolBox.addView(tp);
-        tolSync.run();
 
         pivotBtn = gchip(getString(R.string.sprite_editor_pivot),
                 gridView.isPivotMode(), SpriteTheme.LIVE);
@@ -597,7 +717,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // ── the cell's own identity: name, tags, viseme ──
         int cell = Math.max(0, gridView.getSelectedCell());
         String nm = sheet.cellName(cell);
-        View cg = group("cellEd", SpriteTheme.ACCENT_CELL, "🏷",
+        View cg = group("cellEd", SpriteTheme.ACCENT_CELL, "tag",
                 "Cell " + cell, nm == null || nm.isEmpty() ? "unnamed" : nm);
         FlowLayout cb = bodyOf(cg);
 
@@ -709,26 +829,252 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // No header on this row: the label would cost as much as the content.
         FlowLayout bar = new FlowLayout(this);
         bar.setPadding(0, (int) (4 * d), 0, 0);
-        TextView t = gchip("◍", onionMode, SpriteTheme.ACCENT_VIEW);
-        t.setOnClickListener(v -> {
+        onionToggle = ichip("onion");
+        onionToggle.setOnClickListener(v -> {
             onionMode = !onionMode;
-            tintToggle(t, onionMode, SpriteTheme.ACCENT_VIEW);
-            tintToggle(onionBtn, onionMode, SpriteTheme.ACCENT_VIEW);
+            syncOnion();
             preview.invalidate();
         });
-        bar.addView(t);
-        // The colour IS the control: the pill shows how many ghosts on that side.
-        TextView past = chip("1");
-        past.setBackgroundColor(SpriteTheme.LIVE);
-        past.setTextColor(0xFFFFFFFF);
-        past.setAlpha(onionMode ? 1f : 0.35f);
-        bar.addView(past);
-        TextView future = chip("1");
-        future.setBackgroundColor(SpriteTheme.SELECTED);
-        future.setTextColor(SpriteTheme.ON_ACCENT);
-        future.setAlpha(onionMode ? 1f : 0.35f);
-        bar.addView(future);
+        bar.addView(onionToggle);
+
+        // The colour IS the control: slide a pill to change how many ghosts that side
+        // shows, tap it to choose what colour they come out. Two buttons instead of two
+        // swatches plus two number fields.
+        pastPill = onionPill(true);
+        futurePill = onionPill(false);
+        bar.addView(pastPill);
+        bar.addView(futurePill);
+
+        bar.addView(num("", null, () -> onionStrength * 100f,
+                v -> {
+                    onionStrength = Math.max(0.05f, Math.min(1f, v / 100f));
+                    preview.invalidate();
+                }, 5f, true, "%"));
+
+        // One button for the ground behind the art: tap cycles it, hold lists it.
+        bgSwatch = new BgSwatch(this);
+        bgSwatch.setOnClickListener(v -> {
+            previewBg = (previewBg + 1) % BG_NAMES.length;
+            bgSwatch.invalidate();
+            preview.invalidate();
+        });
+        bgSwatch.setOnLongClickListener(v -> {
+            new android.app.AlertDialog.Builder(this)
+                    .setTitle("Preview background")
+                    .setItems(BG_NAMES, (dl, which) -> {
+                        previewBg = which;
+                        bgSwatch.invalidate();
+                        preview.invalidate();
+                    })
+                    .show();
+            return true;
+        });
+        bar.addView(bgSwatch, new ViewGroup.LayoutParams((int) (26 * d), (int) (26 * d)));
+
+        syncOnion();
         return bar;
+    }
+
+    /**
+     * One side's ghosts. Sliding changes how many; tapping picks the colour they draw in.
+     *
+     * <p>When onion skin is off the pills go plain grey rather than a wash of their own
+     * colour: a half-opaque control is a lie about whether it is on.</p>
+     */
+    @NonNull
+    private TextView onionPill(boolean past) {
+        final float d = density();
+        TextView pill = chip("0");
+        pill.setTypeface(Typeface.DEFAULT_BOLD);
+        pill.setPadding((int) (9 * d), (int) (5 * d), (int) (9 * d), (int) (5 * d));
+        pill.setOnTouchListener(new View.OnTouchListener() {
+            float downX;
+            boolean dragged;
+            @Override public boolean onTouch(View v, MotionEvent e) {
+                float per = 13 * d;
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_DOWN:
+                        downX = e.getRawX();
+                        dragged = false;
+                        if (v.getParent() != null) {
+                            v.getParent().requestDisallowInterceptTouchEvent(true);
+                        }
+                        return true;
+                    case MotionEvent.ACTION_MOVE: {
+                        int steps = (int) ((e.getRawX() - downX) / per);
+                        if (steps != 0) {
+                            dragged = true;
+                            downX += steps * per;
+                            if (past) onionPast = Math.max(0, Math.min(6, onionPast + steps));
+                            else onionFuture = Math.max(0, Math.min(6, onionFuture + steps));
+                            syncOnion();
+                            preview.invalidate();
+                        }
+                        return true;
+                    }
+                    case MotionEvent.ACTION_UP:
+                        if (v.getParent() != null) {
+                            v.getParent().requestDisallowInterceptTouchEvent(false);
+                        }
+                        if (!dragged) showGhostSwatch(past);
+                        return true;
+                    default:
+                        return true;
+                }
+            }
+        });
+        return pill;
+    }
+
+    /** Keep the three onion controls telling the same story. */
+    private void syncOnion() {
+        if (onionToggle != null) tintToggle(onionToggle, onionMode, SpriteTheme.ACCENT_VIEW);
+        if (pastPill != null) {
+            pastPill.setText(String.valueOf(onionPast));
+            tintToggle(pastPill, onionMode && onionPast > 0, onionPastColour);
+        }
+        if (futurePill != null) {
+            futurePill.setText(String.valueOf(onionFuture));
+            tintToggle(futurePill, onionMode && onionFuture > 0, onionFutureColour);
+        }
+    }
+
+    /** The ghost colours on offer. State colours first, because those are the defaults. */
+    private static final int[] SWATCHES = {
+            SpriteTheme.LIVE, SpriteTheme.SELECTED, SpriteTheme.ACCENT_GRID,
+            SpriteTheme.ACCENT_OUT, SpriteTheme.ACCENT_VIEW, SpriteTheme.ACCENT_CELL,
+            0xFFFFFFFF, 0xFFFB7185};
+
+    private void showGhostSwatch(boolean past) {
+        float d = density();
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER);
+        int pad = (int) (16 * d);
+        row.setPadding(pad, pad, pad, pad);
+        final android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this)
+                .setTitle(past ? "Past ghosts" : "Future ghosts")
+                .setView(row)
+                .setNegativeButton("Close", null)
+                .create();
+        for (int c : SWATCHES) {
+            final int colour = c;
+            View sw = new View(this);
+            sw.setBackground(pillBg(colour, SpriteTheme.LINE, d));
+            sw.setOnClickListener(v -> {
+                if (past) onionPastColour = colour; else onionFutureColour = colour;
+                syncOnion();
+                preview.invalidate();
+                dlg.dismiss();
+            });
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    (int) (34 * d), (int) (34 * d));
+            lp.leftMargin = (int) (4 * d);
+            row.addView(sw, lp);
+        }
+        dlg.show();
+    }
+
+    // ── the ground behind the art ────────────────────────────────────────
+
+    /** The eight preview grounds, in the order the swatch cycles them. */
+    static final String[] BG_NAMES = {"Checker", "Dotted grid", "Black", "White",
+            "Zinc", "Cyan", "Magenta", "Green"};
+    /** Flat fills for the ones that are just a colour; the first two are patterns. */
+    private static final int[] BG_FLAT = {0, 0, 0xFF000000, 0xFFFFFFFF, 0xFF18181C,
+            0xFF22D3EE, 0xFFF43F8E, 0xFF34D399};
+
+    /**
+     * Paint one of the preview grounds into {@code r}.
+     *
+     * <p>The little swatch and the big preview call this same method, so the button can
+     * never lie about what you are about to get.</p>
+     */
+    static void drawBg(@NonNull Canvas c, @NonNull RectF r, int which, float d,
+                       @NonNull Paint p) {
+        int idx = Math.max(0, Math.min(BG_FLAT.length - 1, which));
+        p.setColorFilter(null);
+        p.setStyle(Paint.Style.FILL);
+        int save = c.save();
+        c.clipRect(r);
+        if (idx == 0) {
+            float sq = 7.5f * d;
+            p.setColor(0xFF212128);
+            c.drawRect(r, p);
+            p.setColor(0xFF3A3A45);
+            int row = 0;
+            for (float y = r.top; y < r.bottom; y += sq, row++) {
+                for (int col = row & 1; ; col += 2) {
+                    float x = r.left + col * sq;
+                    if (x >= r.right) break;
+                    c.drawRect(x, y, Math.min(x + sq, r.right), Math.min(y + sq, r.bottom), p);
+                }
+            }
+        } else if (idx == 1) {
+            p.setColor(0xFF121215);
+            c.drawRect(r, p);
+            p.setColor(0xFF3F3F46);
+            float pitch = 11 * d;
+            for (float y = r.top + pitch / 2; y < r.bottom; y += pitch) {
+                for (float x = r.left + pitch / 2; x < r.right; x += pitch) {
+                    c.drawCircle(x, y, 1.2f * d, p);
+                }
+            }
+        } else {
+            p.setColor(BG_FLAT[idx]);
+            c.drawRect(r, p);
+        }
+        c.restoreToCount(save);
+    }
+
+    /** A round button that IS the ground it selects. */
+    private class BgSwatch extends View {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF r = new RectF();
+        private final android.graphics.Path clip = new android.graphics.Path();
+
+        BgSwatch(Context c) { super(c); }
+
+        @Override protected void onDraw(Canvas canvas) {
+            float d = density();
+            r.set(0, 0, getWidth(), getHeight());
+            float rad = Math.min(getWidth(), getHeight()) / 2f;
+            int save = canvas.save();
+            clip.reset();
+            clip.addRoundRect(r, rad, rad, android.graphics.Path.Direction.CW);
+            canvas.clipPath(clip);
+            // A tighter pitch, so the pattern still reads at button size.
+            drawBg(canvas, r, previewBg, d * 0.45f, p);
+            canvas.restoreToCount(save);
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(2 * d);
+            p.setColor(SpriteTheme.LINE);
+            canvas.drawRoundRect(r, rad, rad, p);
+        }
+    }
+
+    /**
+     * Luminance, then a hue. The shape has to stay readable, so brightness survives and only
+     * the colour is replaced; the 0.30 floor keeps dark art from disappearing into the ground
+     * instead of reading as a ghost.
+     */
+    @NonNull
+    private static Paint ghostPaint(int colour, int alpha) {
+        float r = ((colour >> 16) & 0xFF) / 255f;
+        float g = ((colour >> 8) & 0xFF) / 255f;
+        float b = (colour & 0xFF) / 255f;
+        float k = 0.70f;
+        float[] m = {
+                0.2126f * r * k, 0.7152f * r * k, 0.0722f * r * k, 0f, 0.30f * r * 255f,
+                0.2126f * g * k, 0.7152f * g * k, 0.0722f * g * k, 0f, 0.30f * g * 255f,
+                0.2126f * b * k, 0.7152f * b * k, 0.0722f * b * k, 0f, 0.30f * b * 255f,
+                0f, 0f, 0f, 1f, 0f
+        };
+        Paint p = new Paint();
+        p.setColorFilter(new android.graphics.ColorMatrixColorFilter(
+                new android.graphics.ColorMatrix(m)));
+        p.setAlpha(alpha);
+        return p;
     }
 
     @NonNull
@@ -736,16 +1082,21 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         SpriteSheet.CellXf t = sheet.cellTransform(cell);
         final SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
         String nm = sheet.cellName(cell);
-        View g = group("align", SpriteTheme.ACCENT_ALIGN, "✦", "Alignment",
+        View g = group("align", SpriteTheme.ACCENT_ALIGN, "target", "Alignment",
                 "cell " + cell + (nm == null || nm.isEmpty() ? "" : " · " + nm));
         FlowLayout b = bodyOf(g);
 
-        addFloatStepper(b, "↔ x", () -> xf.dx, v -> { xf.dx = v; applyXf(cell, xf); }, 1f);
-        addFloatStepper(b, "↕ y", () -> xf.dy, v -> { xf.dy = v; applyXf(cell, xf); }, 1f);
-        addFloatStepper(b, "scale", () -> xf.scale, v -> { xf.scale = Math.max(0.05f, v); applyXf(cell, xf); }, 0.05f);
-        addFloatStepper(b, "rot", () -> xf.rot, v -> { xf.rot = v; applyXf(cell, xf); }, 5f);
+        b.addView(num("x", "movex", () -> xf.dx,
+                v -> { xf.dx = v; applyXf(cell, xf); }, 1f, true, ""));
+        b.addView(num("y", "movey", () -> xf.dy,
+                v -> { xf.dy = v; applyXf(cell, xf); }, 1f, true, ""));
+        b.addView(num("scale", "scale", () -> xf.scale,
+                v -> { xf.scale = Math.max(0.05f, v); applyXf(cell, xf); }, 0.05f, false, "×"));
+        b.addView(num("rot", "rot", () -> xf.rot,
+                v -> { xf.rot = v; applyXf(cell, xf); }, 5f, true, "°"));
 
-        TextView centre = gchip("✲ Auto-centre", false, SpriteTheme.ACCENT_ALIGN);
+        TextView centre = ichip("wand", "Auto-centre");
+        tintToggle(centre, true, SpriteTheme.ACCENT_ALIGN);
         centre.setOnClickListener(v -> { autoCentre(false); showSection("play"); });
         b.addView(centre);
         TextView feet = chip("Plant feet");
@@ -775,7 +1126,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     @NonNull
     private View buildSeqGroup() {
-        View g = group("seq", SpriteTheme.ACCENT_SEQ, "≣", "Sequence",
+        View g = group("seq", SpriteTheme.ACCENT_SEQ, "layers", "Sequence",
                 labSeq.size() + " frames");
         FlowLayout b = bodyOf(g);
         TextView add = chip("+ this cell");
@@ -805,7 +1156,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         TextView clear = chip("Clear");
         clear.setOnClickListener(v -> { labSeq.clear(); labCur = 0; rebuildFilm(); showSection("play"); });
         b.addView(clear);
-        TextView saveClip = gchip("🎬 Save clip", true, SpriteTheme.ACCENT_SEQ);
+        TextView saveClip = ichip("clips", "Save clip");
+        tintToggle(saveClip, true, SpriteTheme.ACCENT_SEQ);
         saveClip.setOnClickListener(v -> saveLabClip());
         b.addView(saveClip);
         return g;
@@ -981,10 +1333,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     // ── EXPORT ───────────────────────────────────────────────────────────
     private void buildOutSection() {
-        View g = group("exp", SpriteTheme.ACCENT_OUT, "↑", "Export",
+        View g = group("exp", SpriteTheme.ACCENT_OUT, "out", "Export",
                 "sheet + .sprite.json");
         FlowLayout b = bodyOf(g);
-        TextView ex = gchip("↑ Write .sprite.json", true, SpriteTheme.ACCENT_OUT);
+        TextView ex = ichip("out", "Write .sprite.json");
+        tintToggle(ex, true, SpriteTheme.ACCENT_OUT);
         ex.setOnClickListener(v -> exportSidecar());
         b.addView(ex);
         TextView im = chip("Import .sprite.json");
@@ -1008,6 +1361,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (filmRow == null) return;
         float d = density();
         filmRow.removeAllViews();
+        filmBoxes.clear();
+        filmLabels.clear();
         if (labSeq.isEmpty()) {
             TextView hint = new TextView(this);
             hint.setText("Tap cells on the sheet to build a sequence");
@@ -1059,29 +1414,13 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             bl.rightMargin = (int) (4 * d);
             strip.frames().addView(box, bl);
+            filmBoxes.add(box);
+            filmLabels.add(lb);
         }
         filmRow.addView(strip);
         if (scrubBar != null) scrubBar.invalidate();
     }
 
-    /**
-     * A float stepper, for the alignment numbers. The integer {@link #addStepper} could not
-     * carry a scale of 1.15 or a rotation of 7.5 degrees.
-     */
-    private void addFloatStepper(@NonNull ViewGroup parent, @NonNull String label,
-                                 @NonNull FloatGet get, @NonNull FloatSet set, float step) {
-        LinearLayout box = stepperShell(parent, label);
-        TextView minus = stepBtn("−");
-        TextView value = stepValue();
-        TextView plus = stepBtn("+");
-        Runnable sync = () -> value.setText(step >= 1f
-                ? String.valueOf(Math.round(get.get()))
-                : String.format(java.util.Locale.US, "%.2f", get.get()));
-        minus.setOnClickListener(v -> { set.set(get.get() - step); sync.run(); });
-        plus.setOnClickListener(v -> { set.set(get.get() + step); sync.run(); });
-        box.addView(minus); box.addView(value); box.addView(plus);
-        sync.run();
-    }
     private interface FloatGet { float get(); }
     private interface FloatSet { void set(float v); }
 
@@ -1341,69 +1680,272 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
     }
 
-    private interface IntGet { int get(); }
-    private interface IntDelta { void apply(int delta); }
     private final java.util.List<Runnable> stepperSyncs = new java.util.ArrayList<>();
 
-    private void addStepper(@NonNull ViewGroup parent, @NonNull String label,
-                            @NonNull IntGet get, @NonNull IntDelta apply) {
-        LinearLayout box = stepperShell(parent, label);
-        TextView minus = stepBtn("−");
-        TextView value = stepValue();
-        TextView plus = stepBtn("+");
-        Runnable sync = () -> value.setText(String.valueOf(get.get()));
-        stepperSyncs.add(sync);
-        minus.setOnClickListener(v -> { apply.apply(-1); gridChanged(); });
-        plus.setOnClickListener(v -> { apply.apply(+1); gridChanged(); });
-        box.addView(minus);
-        box.addView(value);
-        box.addView(plus);
-        sync.run();
+    /** A pill: a flat fill on a one-pixel line, which is every control in this design. */
+    @NonNull
+    private static GradientDrawable pillBg(int fill, int stroke, float d) {
+        GradientDrawable g = new GradientDrawable();
+        g.setColor(fill);
+        g.setCornerRadius(SpriteTheme.RADIUS_PILL * d);
+        g.setStroke(Math.max(1, (int) d), stroke);
+        return g;
     }
 
-    private LinearLayout stepperShell(@NonNull ViewGroup parent, @NonNull String label) {
-        float d = density();
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.HORIZONTAL);
-        box.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        lp.leftMargin = (int) (10 * d);
-        TextView title = new TextView(this);
-        title.setText(label);
-        title.setTextColor(0x99FFFFFF);
-        title.setTextSize(11f);
-        title.setPadding(0, 0, (int) (4 * d), 0);
-        box.addView(title);
-        parent.addView(box, lp);
-        return box;
+    /** The ink that reads ON a saturated accent. Pink is dark enough to need white. */
+    private static int inkOn(int accent) {
+        return accent == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT;
     }
 
-    private TextView stepBtn(@NonNull String glyph) {
-        float d = density();
-        TextView b = chip(glyph);
-        b.setMinWidth((int) (34 * d));
-        b.setGravity(Gravity.CENTER);
-        return b;
-    }
-
-    private TextView stepValue() {
-        float d = density();
-        TextView v = new TextView(this);
-        v.setTextColor(Color.WHITE);
-        v.setMinWidth((int) (30 * d));
-        v.setGravity(Gravity.CENTER);
-        return v;
-    }
-
+    @NonNull
     private TextView chip(@NonNull String text) {
         float d = density();
         TextView t = new TextView(this);
         t.setText(text);
-        t.setTextColor(Color.WHITE);
-        t.setBackgroundColor(0xFF26262E);
-        t.setPadding((int) (12 * d), (int) (8 * d), (int) (12 * d), (int) (8 * d));
+        t.setTextSize(11.5f);
+        t.setTextColor(SpriteTheme.INK);
+        t.setGravity(Gravity.CENTER);
+        t.setBackground(pillBg(SpriteTheme.CONTROL, SpriteTheme.LINE, d));
+        t.setPadding((int) (11 * d), (int) (5 * d), (int) (11 * d), (int) (5 * d));
+        t.setMinHeight((int) (28 * d));
         return t;
+    }
+
+    /**
+     * A chip whose face is one of the web design's icons rather than a stand-in glyph.
+     *
+     * <p>Left and right padding are equal and no minimum width is set, so the icon lands
+     * dead centre without any of the hand-tuning a compound drawable usually needs.</p>
+     */
+    @NonNull
+    private TextView ichip(@NonNull String icon) {
+        float d = density();
+        TextView t = chip("");
+        t.setCompoundDrawables(SpriteIcons.of(icon, SpriteTheme.INK, (int) (16 * d)),
+                null, null, null);
+        t.setCompoundDrawablePadding(0);
+        t.setPadding((int) (8 * d), (int) (5 * d), (int) (8 * d), (int) (5 * d));
+        return t;
+    }
+
+    /** Icon then label, the way every labelled button in the design is built. */
+    @NonNull
+    private TextView ichip(@NonNull String icon, @NonNull String text) {
+        float d = density();
+        TextView t = chip(text);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setCompoundDrawables(SpriteIcons.of(icon, SpriteTheme.INK, (int) (16 * d)),
+                null, null, null);
+        t.setCompoundDrawablePadding((int) (5 * d));
+        t.setPadding((int) (9 * d), (int) (5 * d), (int) (11 * d), (int) (5 * d));
+        return t;
+    }
+
+    /** Retint a chip's icon along with its ink. An icon never goes half-opaque. */
+    private static void tintIcon(@NonNull TextView v, int ink) {
+        for (Drawable dr : v.getCompoundDrawables()) {
+            if (dr instanceof SpriteIcons.IconDrawable) {
+                ((SpriteIcons.IconDrawable) dr).setColour(ink);
+            }
+        }
+    }
+
+    /** The design's segmented control: one pill holding several borderless buttons. */
+    @NonNull
+    private LinearLayout seg() {
+        float d = density();
+        LinearLayout g = new LinearLayout(this);
+        g.setOrientation(LinearLayout.HORIZONTAL);
+        g.setGravity(Gravity.CENTER_VERTICAL);
+        g.setBackground(pillBg(SpriteTheme.CONTROL, SpriteTheme.LINE, d));
+        int p = (int) (2 * d);
+        g.setPadding(p, p, p, p);
+        return g;
+    }
+
+    @NonNull
+    private TextView segBtn(@NonNull String icon) {
+        float d = density();
+        TextView t = new TextView(this);
+        t.setGravity(Gravity.CENTER);
+        t.setMinHeight((int) (24 * d));
+        t.setCompoundDrawables(SpriteIcons.of(icon, SpriteTheme.DIMMER, (int) (15 * d)),
+                null, null, null);
+        t.setCompoundDrawablePadding(0);
+        t.setPadding((int) (9 * d), (int) (2 * d), (int) (9 * d), (int) (2 * d));
+        t.setBackground(pillBg(0x00000000, 0x00000000, d));
+        return t;
+    }
+
+    /** A segment button lit in its own colour, or transparent and grey when it is not. */
+    private static void tintSeg(@NonNull TextView v, boolean on, int colour) {
+        float d = v.getResources().getDisplayMetrics().density;
+        int ink = on ? inkOn(colour) : SpriteTheme.DIMMER;
+        v.setBackground(pillBg(on ? colour : 0x00000000, 0x00000000, d));
+        v.setTextColor(ink);
+        tintIcon(v, ink);
+    }
+
+    /**
+     * One number, one pill: drag it sideways to change the value, tap it to type one.
+     *
+     * <p>The old {@code [-] [value] [+]} stepper cost three chips of width apiece, which is
+     * why the alignment row ran off the side of the phone. This is the same control in the
+     * space of one chip and matches the web design's {@code .num} exactly.</p>
+     */
+    private class NumPill extends LinearLayout {
+        private final TextView valueView;
+        private final FloatGet get;
+        private final FloatSet set;
+        private final float step;
+        private final boolean integral;
+        private final String suffix;
+        private final String key;
+        private float downX;
+        private boolean dragged;
+
+        NumPill(@NonNull String key, @Nullable String icon, @NonNull FloatGet get,
+                @NonNull FloatSet set, float step, boolean integral, @NonNull String suffix) {
+            super(SpriteSheetEditorActivity.this);
+            this.get = get; this.set = set; this.step = step;
+            this.integral = integral; this.suffix = suffix; this.key = key;
+            float d = density();
+            setOrientation(HORIZONTAL);
+            setGravity(Gravity.CENTER_VERTICAL);
+            setBackground(pillBg(0xFF0B0B0E, SpriteTheme.LINE, d));
+            setPadding((int) (9 * d), (int) (4 * d), (int) (9 * d), (int) (4 * d));
+            setMinimumHeight((int) (26 * d));
+            setClickable(true);
+
+            if (icon != null) {
+                TextView ic = new TextView(SpriteSheetEditorActivity.this);
+                ic.setCompoundDrawables(SpriteIcons.of(icon, SpriteTheme.DIMMER, (int) (13 * d)),
+                        null, null, null);
+                ic.setCompoundDrawablePadding(0);
+                ic.setPadding(0, 0, (int) (4 * d), 0);
+                addView(ic);
+            }
+            if (!key.isEmpty()) {
+                TextView k = new TextView(SpriteSheetEditorActivity.this);
+                k.setText(key);
+                k.setTextSize(9.5f);
+                k.setTextColor(SpriteTheme.DIMMER);
+                k.setPadding(0, 0, (int) (5 * d), 0);
+                addView(k);
+            }
+            valueView = new TextView(SpriteSheetEditorActivity.this);
+            valueView.setTextSize(11.5f);
+            valueView.setTextColor(SpriteTheme.INK);
+            valueView.setTypeface(Typeface.DEFAULT_BOLD);
+            addView(valueView);
+            sync();
+        }
+
+        void sync() { valueView.setText(text()); }
+
+        @NonNull
+        private String text() {
+            float v = get.get();
+            return (integral ? String.valueOf(Math.round(v))
+                             : String.format(java.util.Locale.US, "%.2f", v)) + suffix;
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent e) {
+            float d = density();
+            float perStep = 9 * d;
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = e.getRawX();
+                    dragged = false;
+                    // Inside two nested scrollers; without this the first millimetre of a
+                    // horizontal drag is stolen and the number never moves.
+                    if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+                    return true;
+                case MotionEvent.ACTION_MOVE: {
+                    int steps = (int) ((e.getRawX() - downX) / perStep);
+                    if (steps != 0) {
+                        dragged = true;
+                        downX += steps * perStep;
+                        set.set(get.get() + steps * step);
+                        sync();
+                    }
+                    return true;
+                }
+                case MotionEvent.ACTION_UP:
+                    if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+                    if (!dragged) askForValue();
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+                    return true;
+                default:
+                    return super.onTouchEvent(e);
+            }
+        }
+
+        /** Dragging is for feel; typing is for "exactly 12". Both reach the same setter. */
+        private void askForValue() {
+            final EditText in = new EditText(SpriteSheetEditorActivity.this);
+            in.setSingleLine(true);
+            in.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
+                    | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+                    | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
+            in.setText(integral ? String.valueOf(Math.round(get.get()))
+                                : String.format(java.util.Locale.US, "%.2f", get.get()));
+            in.setSelectAllOnFocus(true);
+            new android.app.AlertDialog.Builder(SpriteSheetEditorActivity.this)
+                    .setTitle(key.isEmpty() ? "Value" : key)
+                    .setView(in)
+                    .setPositiveButton("Set", (dl, w) -> {
+                        try {
+                            set.set(Float.parseFloat(in.getText().toString().trim()));
+                            sync();
+                        } catch (NumberFormatException ignored) {
+                            // An unparseable entry means "never mind", not a crash.
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+    }
+
+    /** Build a number pill and register it so {@link #syncControls} can refresh it. */
+    @NonNull
+    private NumPill num(@NonNull String key, @Nullable String icon, @NonNull FloatGet get,
+                        @NonNull FloatSet set, float step, boolean integral,
+                        @NonNull String suffix) {
+        NumPill p = new NumPill(key, icon, get, set, step, integral, suffix);
+        stepperSyncs.add(p::sync);
+        return p;
+    }
+
+    /**
+     * A grid number moved. Re-slice and repaint, but do NOT rebuild the section: the pill
+     * being dragged lives inside it, and destroying it mid-drag ends the gesture.
+     */
+    private void gridNumChanged() {
+        if (sheet.cellCount() > 0 && gridView.getSelectedCell() >= sheet.cellCount()) {
+            gridView.setSelectedCell(sheet.cellCount() - 1);
+        }
+        if (sliceSub != null) sliceSub.setText("  " + cellSizeLabel());
+        markDirty();
+        gridView.refresh();
+        if (preview != null) preview.invalidate();
+    }
+
+    /**
+     * Set the colour-key tolerance outright, which is what a dragged pill hands over.
+     *
+     * <p>Tolerance only changes anything once a key colour is set, but it stays adjustable
+     * beforehand so the eyedropper applies the value you already chose.</p>
+     */
+    private void setTolerance(float value) {
+        sheet.setBgKey(sheet.getBgKeyColor(), Math.max(0f, Math.min(0.5f, value)));
+        markDirty();
+        if (sheet.getBgKeyColor() != 0) reloadRenderer();
+        gridView.refresh();
+        if (preview != null) preview.invalidate();
     }
 
     private void gridChanged() {
@@ -1418,7 +1960,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     private void syncControls() {
         for (Runnable r : stepperSyncs) r.run();
-        if (fpsValue != null) fpsValue.setText(String.valueOf(sheet.getFps()));
+        if (fpsPill != null) fpsPill.sync();
         if (gridView != null) gridView.refresh();
         if (preview != null) preview.invalidate();
     }
@@ -1503,15 +2045,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (gridView.isColorPickMode()) {
             Toast.makeText(this, R.string.sprite_editor_key_pick_hint, Toast.LENGTH_SHORT).show();
         }
-    }
-
-    /** Tolerance only affects anything once a key color is set; still adjustable
-     *  beforehand so the eyedropper pick applies the pre-set value immediately. */
-    private void adjustTolerance(float delta, @NonNull Runnable sync) {
-        float next = Math.max(0f, Math.min(0.5f, sheet.getKeyTolerance() + delta));
-        sheet.setBgKey(sheet.getBgKeyColor(), next);
-        sync.run();
-        if (sheet.getBgKeyColor() != 0) reloadRenderer();
     }
 
     private void applyBgKey(int argb) {
@@ -1633,21 +2166,45 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         private int cursor = 0;
         private final RectF dest = new RectF();
         private final Paint onionPaint = new Paint();
+        /** Ghosts fade with distance, so "one frame back" and "three back" are tellable apart. */
+        private static int alphaFor(int distance, float strength) {
+            float a = 255f * strength * (float) Math.pow(0.62, Math.max(0, distance - 1));
+            return Math.max(12, Math.min(255, Math.round(a)));
+        }
         private final Runnable tick = new Runnable() {
             @Override public void run() {
                 if (!playing || sheet == null) return;
+                long ms = (long) (1000f / Math.max(0.5f, sheet.getFps()));
+                // Play the ROLL when there is one. Cycling the sheet instead would ignore
+                // the sequence the user just built, which is the whole point of the Lab.
+                if (activity != null && !activity.labSeq.isEmpty()) {
+                    if (!activity.advanceRoll()) {
+                        setPlaying(false);
+                        activity.syncPlayBtn();
+                        return;
+                    }
+                    cursor = activity.labSeq.get(activity.labCur)[0];
+                    invalidate();
+                    activity.gridView.setPlayingCell(cursor);
+                    activity.syncFilmCursor();
+                    postDelayed(this, ms);
+                    return;
+                }
                 cursor = nextEnabled(cursor + 1);
                 invalidate();
                 // S2b filmstrip polish: mirror the playing cell on the main grid so
                 // the run cycle is visible at full size, not just in the tiny preview.
                 if (activity != null) activity.gridView.setPlayingCell(cursor);
-                postDelayed(this, (long) (1000f / Math.max(0.5f, sheet.getFps())));
+                postDelayed(this, ms);
             }
         };
 
+        private final RectF bgRect = new RectF();
+        private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Path bgClip = new android.graphics.Path();
+
         CellCyclePreview(Context ctx) {
             super(ctx);
-            setBackgroundColor(0xFF1B1B22);
             if (ctx instanceof SpriteSheetEditorActivity) activity = (SpriteSheetEditorActivity) ctx;
         }
 
@@ -1701,18 +2258,38 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         @Override
         protected void onDraw(Canvas canvas) {
             if (renderer == null || sheet == null) return;
+            float d = getResources().getDisplayMetrics().density;
+            bgRect.set(0, 0, getWidth(), getHeight());
+            int outer = canvas.save();
+            bgClip.reset();
+            bgClip.addRoundRect(bgRect, 8 * d, 8 * d, android.graphics.Path.Direction.CW);
+            canvas.clipPath(bgClip);
+            drawBg(canvas, bgRect, activity != null ? activity.previewBg : 0, d, bgPaint);
             dest.set(2, 2, getWidth() - 2, getHeight() - 2);
             int showCell = Math.min(cursor, sheet.cellCount() - 1);
             // S2b onion skin: ghost the previous AND next enabled cell (by index) at
             // ~30% alpha under/over the selected cell — the classic run-cycle flow check.
             if (activity != null && activity.onionMode && showCell >= 0) {
-                onionPaint.setAlpha(77); // ~30%
-                int prev = previousEnabled(showCell);
-                if (prev >= 0 && prev != showCell) renderer.drawCell(canvas, prev, dest, onionPaint);
-                int next = nextEnabled(showCell + 1);
-                if (next != showCell && next != prev) renderer.drawCell(canvas, next, dest, onionPaint);
+                // Past pink, future cyan, dimming with distance. Ghosts follow the ROLL when
+                // there is one — the frames either side in the animation you are building are
+                // what you are judging against, not whatever happens to sit next on the sheet.
+                for (int k = activity.onionPast; k >= 1; k--) {
+                    int c = activity.neighbourCell(showCell, -k);
+                    if (c >= 0 && c != showCell) {
+                        renderer.drawCell(canvas, c, dest, ghostPaint(
+                                activity.onionPastColour, alphaFor(k, activity.onionStrength)));
+                    }
+                }
+                for (int k = activity.onionFuture; k >= 1; k--) {
+                    int c = activity.neighbourCell(showCell, k);
+                    if (c >= 0 && c != showCell) {
+                        renderer.drawCell(canvas, c, dest, ghostPaint(
+                                activity.onionFutureColour, alphaFor(k, activity.onionStrength)));
+                    }
+                }
             }
             renderer.drawCell(canvas, showCell, dest, null);
+            canvas.restoreToCount(outer);
         }
     }
 }

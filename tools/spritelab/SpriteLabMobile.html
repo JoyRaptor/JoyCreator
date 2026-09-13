@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SpriteLab Mobile — the design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050507; --panel:#111114; --ctl:#1c1c22; --ctl2:#262630; --line:#2c2c35;
+  --ink:#e4e4e7; --dim:#a1a1aa; --dimmer:#71717a;
+  --cyan:#22d3ee; --pink:#f43f8e; --amber:#fbbf24; --green:#34d399;
+  --blue:#60a5fa; --violet:#a78bfa;
+  --r:14px; --r2:11px; --pill:999px;
+  --disp:"Outfit",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --drawer:rgba(17,17,20,.88);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:#08080b;color:var(--ink);
+  font:13px/1.45 ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:4px 11px;cursor:pointer;min-height:28px;
+  display:inline-flex;align-items:center;gap:5px;user-select:none;white-space:nowrap}
+button:hover{background:var(--ctl2)}
+button.sm{min-height:24px;padding:2px 9px;font-size:11px}
+button.ic{padding:4px;min-width:28px;justify-content:center}
+button.on{background:var(--cyan);border-color:var(--cyan);color:#09090b;font-weight:600}
+svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.seg{display:inline-flex;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:2px;gap:1px;flex:0 0 auto}
+.seg button{border:0;background:transparent;min-height:23px;padding:2px 9px;
+  color:var(--dimmer);font-size:11px}
+.seg button.on{background:var(--cyan);color:#09090b}
+.seg button.on.a{background:var(--amber)} .seg button.on.v{background:var(--violet)}
+.seg button.on.p{background:var(--pink);color:#fff}
+input[type=text]{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--pill);
+  padding:5px 11px;width:100%;color:inherit;font:inherit;font-size:11.5px}
+
+header{position:sticky;top:0;z-index:30;background:#08080b;border-bottom:1px solid var(--line);
+  padding:11px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{font:800 16px/1 var(--disp);letter-spacing:-.02em}
+.brand b{color:var(--cyan)} .brand i{color:var(--pink);font-style:normal}
+.brand u{color:var(--amber);text-decoration:none}
+.lbl{font:600 9.5px/1 var(--disp);letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer)}
+main{padding:20px 18px 70px;display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;
+  justify-content:center}
+.slot{display:flex;flex-direction:column;align-items:center;gap:9px}
+.cap{max-width:392px;font-size:11.5px;color:var(--dimmer);line-height:1.6}
+.cap b{color:var(--ink)}
+.hint{font-size:10px;color:var(--dimmer);line-height:1.5}
+
+/* phone */
+.phone{width:392px;height:800px;background:var(--bg);border:9px solid #17171c;
+  border-radius:38px;position:relative;overflow:hidden;flex:0 0 auto;box-shadow:0 20px 60px #000a}
+.sbar{height:24px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;font-size:9.5px;color:var(--dimmer)}
+.scr{position:absolute;inset:24px 0 0 0;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── top bar: coloured icon nav, one line ── */
+.tbar{height:42px;display:flex;align-items:center;gap:5px;padding:0 9px;flex:0 0 auto}
+.tbar .t{font:600 13.5px/1 var(--disp);flex:1;min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.nav{display:inline-flex;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:2px;gap:1px}
+.nav button{border:0;background:transparent;min-height:26px;min-width:30px;padding:2px;
+  justify-content:center;color:var(--dimmer);border-radius:var(--pill)}
+.nav button[data-s="slice"].on{background:var(--amber);color:#09090b}
+.nav button[data-s="play"].on {background:var(--cyan); color:#09090b}
+.nav button[data-s="clips"].on{background:var(--violet);color:#09090b}
+.nav button[data-s="out"].on  {background:var(--green); color:#09090b}
+.save{border:0;background:var(--ctl);color:var(--dimmer);min-width:32px;padding:4px;
+  justify-content:center;border-radius:var(--pill)}
+.save.dirty{background:var(--pink);color:#fff}
+
+/* ── grid ── */
+.gridwrap{overflow-y:auto;padding:6px 9px;scrollbar-width:none}
+.gridwrap::-webkit-scrollbar{display:none}
+.grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:8px;overflow:hidden}
+.cell{background:#0c0c10;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  position:relative;font-size:25px;cursor:pointer;user-select:none}
+.cell .n{position:absolute;left:3px;bottom:1px;font-size:8.5px;color:var(--dimmer)}
+.cell .nm{position:absolute;right:3px;bottom:1px;font-size:8px;color:var(--cyan)}
+.cell .vi{position:absolute;left:3px;top:2px;font-size:8px;color:var(--violet)}
+.cell .sus{position:absolute;right:4px;top:4px;width:6px;height:6px;border-radius:50%;
+  background:var(--amber)}
+.cell.sel{outline:2px solid var(--cyan);outline-offset:-2px}
+.cell.now{outline:2.5px solid var(--pink);outline-offset:-2px}
+.cell .ord{position:absolute;top:2px;left:50%;transform:translateX(-50%);background:var(--cyan);
+  color:#09090b;font:700 9.5px/1.5 system-ui;border-radius:4px;padding:0 5px}
+.cell.now .ord{background:var(--pink);color:#fff}
+
+/* ── workbench ── */
+.split{flex:1;display:grid;grid-template-rows:1fr 7px minmax(0,300px);overflow:hidden}
+.divider{background:var(--line);cursor:ns-resize;position:relative;touch-action:none}
+.divider::after{content:'';position:absolute;left:50%;top:-6px;transform:translateX(-50%);
+  width:48px;height:17px;border-radius:var(--pill);background:var(--ctl2);
+  border:1px solid var(--line)}
+.bench{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.benchbody{flex:1;min-height:0;overflow-y:auto;padding:6px 9px 0;display:block;
+  scrollbar-width:none}
+.benchbody::-webkit-scrollbar{display:none}
+/* Two explicit columns: the preview and the onion controls stack in the left
+   one (the onion is compact enough to sit right under the preview), alignment
+   fills the right, and the sequence spans beneath both. Past a threshold the
+   preview spans the full width and the rest falls underneath it. */
+.pvgrid{display:grid;gap:7px;align-items:start}
+.pvgrid > .span{grid-column:1/-1}
+.colL,.colR{display:flex;flex-direction:column;gap:6px;min-width:0}
+.colL .pv{width:100%}
+/* the onion row lives without a header — it IS the header */
+.onionbar{--gc:var(--blue);--gi:#09090b;display:flex;flex-wrap:wrap;gap:3px;align-items:center}
+.onionbar .sm{padding:2px 7px;min-width:26px}
+.onionbar .onb{min-width:26px;padding:2px 6px}
+.onionbar .onstr{padding:3px 7px}
+.onionbar button.on{background:var(--gc);border-color:var(--gc);color:var(--gi);font-weight:600}
+.bgsw{width:25px;height:25px;min-width:25px;border:2px solid var(--line)}
+
+.grp{margin-bottom:7px}
+.grphead{display:flex;align-items:center;gap:6px;padding:4px 2px;cursor:pointer;
+  background:var(--bg);font:600 10px/1 var(--disp);letter-spacing:.09em;text-transform:uppercase;
+  color:#fff}
+.grphead svg.i{width:14px;height:14px}
+.grphead em{font-style:normal;color:var(--dimmer);font-size:9.5px;letter-spacing:0;
+  text-transform:none;font-weight:400}
+.grphead .cv{margin-left:auto;color:var(--dimmer);font-size:11px;transition:transform .2s}
+.grp.closed .cv{transform:rotate(-90deg)}
+.grpbody{padding:3px 0 0;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.grp.closed .grpbody{display:none}
+/* every group carries its own colour; grey is "not active", colour is "active
+   or primary". Nothing is half-opaque. */
+.grp{--gc:var(--cyan);--gi:#09090b}
+.grp[data-c="amber"] {--gc:var(--amber)}
+.grp[data-c="pink"]  {--gc:var(--pink);--gi:#fff}
+.grp[data-c="cyan"]  {--gc:var(--cyan)}
+.grp[data-c="blue"]  {--gc:var(--blue)}
+.grp[data-c="violet"]{--gc:var(--violet)}
+.grp[data-c="green"] {--gc:var(--green)}
+.grp .grphead svg.i{color:var(--gc)}
+.grp button.on,.grp button.pri{background:var(--gc);border-color:var(--gc);
+  color:var(--gi);font-weight:600}
+.grp .seg button.on{background:var(--gc);color:var(--gi)}
+.grp .num{border-color:#33333d}
+
+.band{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.band.nw{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.band.nw::-webkit-scrollbar{display:none}
+.band.col{flex-direction:column;align-items:stretch}
+.band.col .num{justify-content:space-between}
+.sp{flex:1}
+.num{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--pill);
+  padding:3px 9px;display:flex;gap:5px;align-items:center;font-size:11px;cursor:ew-resize;
+  flex:0 0 auto}
+.num .k{color:var(--dimmer);font-size:9.5px;display:flex;align-items:center;gap:4px}
+.num .v{font-weight:700;font-variant-numeric:tabular-nums}
+.sw{width:23px;height:23px;min-width:23px;border-radius:var(--pill);
+  border:2px solid var(--line);padding:0;cursor:pointer}
+/* The colour IS the control: slide it to change how many ghosts, tap it for a
+   swatch. Two buttons instead of two swatches plus two number fields. */
+.onb{min-width:30px;padding:2px 8px;min-height:24px;border:0;justify-content:center;
+  font:700 11.5px/1 system-ui;color:#09090b;cursor:ew-resize;touch-action:none}
+.onb.pk{background:var(--pink);color:#fff} .onb.cy{background:var(--cyan)}
+.onb.off{filter:grayscale(1);opacity:.35}
+.num.dim{opacity:.35}
+
+/* preview */
+.bg-check{background:repeating-conic-gradient(#3a3a45 0 25%,#212128 0 50%) 0 0/15px 15px}
+.bg-dots{background:radial-gradient(#3f3f46 1.2px,#121215 1.3px) 0 0/11px 11px}
+.bg-black{background:#000} .bg-white{background:#fff} .bg-zinc{background:#18181c}
+.bg-cy{background:#22d3ee} .bg-mag{background:#f43f8e} .bg-gr{background:#34d399}
+.bgsw.bg-check{background-size:7px 7px} .bgsw.bg-dots{background-size:6px 6px}
+.pv{background:repeating-conic-gradient(#3a3a45 0 25%,#212128 0 50%) 0 0/15px 15px;
+  border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;
+  overflow:hidden;flex:0 0 auto}
+.pv .art{font-size:56px;filter:drop-shadow(0 0 9px #0008);position:relative;z-index:2}
+.pv .hud{position:absolute;left:5px;bottom:4px;background:#000b;border-radius:5px;
+  padding:2px 6px;font:600 9.5px/1 system-ui;z-index:3}
+.pv .tag{position:absolute;left:5px;top:4px;background:var(--cyan);color:#09090b;
+  border-radius:5px;padding:2px 7px;font:600 9.5px/1 system-ui;z-index:3}
+.ghost{position:absolute;font-size:56px;opacity:.4;z-index:1}
+.ghost.p{filter:sepia(1) saturate(7) hue-rotate(300deg);transform:translateX(-12px)}
+.ghost.f{filter:sepia(1) saturate(7) hue-rotate(140deg);transform:translateX(12px)}
+.pv .box{position:absolute;border:1.5px dashed var(--cyan);z-index:4}
+.pv .hdl{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--cyan);z-index:5}
+.pv .rot{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--amber);z-index:5}
+.pv .piv{position:absolute;z-index:5;color:var(--pink);font-size:13px;line-height:1}
+
+/* transport pinned above the scrub */
+.transport{flex:0 0 auto;padding:5px 9px;border-top:1px solid var(--line);
+  background:var(--bg);display:flex;gap:4px;align-items:center;overflow-x:auto;
+  scrollbar-width:none}
+.transport::-webkit-scrollbar{display:none}
+.scrub{height:19px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;
+  display:flex;gap:1px;padding:2px;flex:0 0 auto;margin:0 9px 5px}
+.scrub i{border-radius:1px;background:#33333d;cursor:pointer}
+.scrub i.on{background:var(--pink)}
+
+/* film strip — sprockets in the LAB only */
+.filmw{padding:0 7px 6px;display:flex;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.filmw::-webkit-scrollbar{display:none}
+.filmw.mid{justify-content:center}
+.film{background:#1a1a1f;border-radius:3px;display:inline-flex;flex-direction:column;flex:0 0 auto}
+.sprock{height:9px;background:repeating-linear-gradient(90deg,#1a1a1f 0 6px,var(--bg) 6px 13px,#1a1a1f 13px 19px)}
+.frames{display:flex;gap:4px;padding:3px}
+
+/* ══ THE CHIP — one design, stills and animations ══ */
+.ch{width:52px;border:2px solid transparent;border-radius:9px;background:var(--ctl);
+  padding:2px;cursor:pointer;flex:0 0 auto;position:relative;text-align:center;
+  transition:transform .16s,box-shadow .16s}
+.ch .im{font-size:24px;line-height:1.18;height:30px;display:flex;align-items:center;
+  justify-content:center}
+.ch .lb{font-size:8px;color:#fff;font-weight:600;overflow:hidden;white-space:nowrap;
+  text-overflow:ellipsis;line-height:1.25}
+.ch .sub{font-size:7px;color:var(--dimmer);line-height:1.2}
+.ch .hd{position:absolute;left:-3px;top:-4px;font-size:7.5px;color:#09090b;font-weight:700;
+  background:var(--amber);border-radius:3px;padding:0 3px}
+/* the ONE difference between a still and an animation */
+.ch .mode{position:absolute;right:-2px;bottom:12px;width:15px;height:15px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;
+  color:#09090b;border:1.5px solid var(--bg)}
+.ch .mode.l{background:var(--cyan)} .ch .mode.pp{background:var(--violet)}
+.ch .mode.o{background:var(--pink);color:#fff}
+.ch.sel{border-color:var(--cyan)} .ch.now{background:var(--pink)}
+.ch.now .sub{color:#3b0322}
+.ch.lift{transform:scale(1.12);box-shadow:0 10px 26px #000c;z-index:40;border-color:var(--amber)}
+.ch.drag{opacity:.35}
+.ch .badges{position:absolute;left:0;right:0;top:-13px;display:none;justify-content:center;gap:3px}
+.ch.open .badges{display:flex}
+.ch .badges b{background:var(--ctl2);border:1px solid var(--line);border-radius:var(--pill);
+  font:700 8.5px/1.7 system-ui;padding:0 6px;color:var(--ink)}
+.trash{position:absolute;right:10px;bottom:10px;width:44px;height:44px;border-radius:50%;
+  background:#2a1220;border:1px solid var(--pink);display:none;align-items:center;
+  justify-content:center;font-size:19px;z-index:45;transition:transform .15s,background .15s}
+.trash.show{display:flex} .trash.hot{background:var(--pink);transform:scale(1.18)}
+
+/* clips shelf */
+.shelf{display:flex;gap:5px;flex-wrap:wrap}
+.shelf.row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.shelf.row::-webkit-scrollbar{display:none}
+
+/* save-clip flight */
+.flyer{position:absolute;z-index:60;pointer-events:none;display:flex;gap:2px;
+  transition:none;will-change:transform,opacity}
+.flyer .ch{width:40px}
+
+/* json */
+.json{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--r2);
+  font:9.5px/1.5 Consolas,monospace;color:var(--dim);padding:6px;height:104px;overflow:auto}
+.json b{color:var(--cyan);font-weight:400} .json u{color:var(--amber);text-decoration:none}
+
+/* ── editor + drawer ── */
+.vid{flex:1;background:linear-gradient(155deg,#1b2740,#0d1220);display:flex;align-items:center;
+  justify-content:center;font-size:64px;position:relative}
+.tl{height:74px;background:#0a0a0d;border-top:1px solid var(--line);padding:5px 7px;
+  display:flex;flex-direction:column;gap:4px;flex:0 0 auto}
+.tape{height:21px;border-radius:6px;background:linear-gradient(90deg,#1f3350,#2a4468);
+  display:flex;align-items:center;padding:0 7px;font-size:9px;color:#9fc4ee;position:relative}
+.tape.s{background:linear-gradient(90deg,#3a2350,#53306e);color:#d6b8f2}
+.ph{position:absolute;left:44%;top:0;bottom:0;width:2px;background:var(--pink);z-index:3}
+.drawer{position:absolute;left:0;right:0;bottom:0;background:var(--drawer);
+  backdrop-filter:blur(13px);border-top:1px solid var(--line);z-index:10;
+  border-radius:var(--r) var(--r) 0 0;transition:height .26s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;overflow:hidden}
+.grip{height:14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  cursor:ns-resize;touch-action:none}
+.grip i{width:36px;height:4px;border-radius:2px;background:#52525b;display:block}
+.drow{display:flex;align-items:center;gap:5px;padding:0 8px 4px;flex:0 0 auto}
+.drow.nw{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.drow.nw::-webkit-scrollbar{display:none}
+.kf{display:inline-flex;align-items:center;gap:1px;background:var(--ctl);
+  border:1px solid var(--line);border-radius:var(--pill);padding:1px;flex:0 0 auto}
+.kf span{padding:2px 7px;font-size:11px;color:var(--dim);cursor:pointer;border-radius:var(--pill)}
+.kf span.armed{color:#fff;background:var(--pink)}
+.mini{font-size:10px;color:var(--dim);white-space:nowrap}
+.labbtn{color:var(--amber)}
+.inst{background:var(--violet);color:#09090b;font-weight:700;border-radius:var(--pill);
+  padding:2px 10px;font-size:10.5px;flex:0 0 auto}
+.rail{display:flex;flex-direction:column;gap:3px;padding:0 6px 5px 2px;flex:0 0 auto}
+.rail button{min-height:22px;padding:1px 6px;font-size:10.5px;justify-content:center}
+
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+ <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
+ <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 14 9 5 9-5"/></symbol>
+ <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+ <symbol id="i-braces" viewBox="0 0 24 24"><path d="M8 3c-2 0-3 1-3 3v3c0 1.5-1 2-2 3 1 1 2 1.5 2 3v3c0 2 1 3 3 3"/><path d="M16 3c2 0 3 1 3 3v3c0 1.5 1 2 2 3-1 1-2 1.5-2 3v3c0 2-1 3-3 3"/></symbol>
+ <symbol id="i-clips" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="M19 8v11a2 2 0 0 1-2 2H8"/><path d="m8 9 4 3-4 3V9Z"/></symbol>
+ <symbol id="i-cross" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5"/><circle cx="12" cy="12" r="1.6"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></symbol>
+ <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="M19 8v11a2 2 0 0 1-2 2H8"/><path d="m8 9 4 3-4 3V9Z"/></symbol>
+ <symbol id="i-out" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+ <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5V3Z"/><path d="M8 3v6h7V3M8 14h8M8 17h8"/></symbol>
+ <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4 8h11a5 5 0 0 1 0 10h-6"/><path d="m8 4-4 4 4 4"/></symbol>
+ <symbol id="i-redo" viewBox="0 0 24 24"><path d="M20 8H9a5 5 0 0 0 0 10h6"/><path d="m16 4 4 4-4 4"/></symbol>
+ <symbol id="i-caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+ <symbol id="i-onion" viewBox="0 0 24 24"><path d="M12 6.2C12 4.5 13 3.4 14.4 3c-.2 1.6-1 2.6-2.4 3.2Z"/><path d="M12 6.2c-4.3 0-6.6 3.4-6.6 6.9 0 4 3 8.1 6.6 8.1s6.6-4.1 6.6-8.1c0-3.5-2.3-6.9-6.6-6.9Z"/><path d="M12 6.2c-2.1 0-3.2 3.4-3.2 6.9 0 4 1.4 8.1 3.2 8.1"/><path d="M12 6.2c2.1 0 3.2 3.4 3.2 6.9 0 4-1.4 8.1-3.2 8.1"/></symbol>
+ <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8V4Z" fill="currentColor" stroke="none"/></symbol>
+ <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 4v16M16 4v16"/></symbol>
+ <symbol id="i-loop" viewBox="0 0 24 24"><path d="M4 9a5 5 0 0 1 5-5h9"/><path d="m15 1 3 3-3 3"/><path d="M20 15a5 5 0 0 1-5 5H6"/><path d="m9 23-3-3 3-3"/></symbol>
+ <symbol id="i-ping" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></symbol>
+ <symbol id="i-once" viewBox="0 0 24 24"><path d="M3 12h13"/><path d="m12 7 5 5-5 5"/><path d="M20 5v14"/></symbol>
+ <symbol id="i-rev" viewBox="0 0 24 24"><path d="M20 12H5"/><path d="m10 7-5 5 5 5"/></symbol>
+ <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 11V4h7l10 10-7 7L3 11Z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+ <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 10-10"/><path d="m14 6 4 4"/><path d="M17 3v4M21 5h-4M6 4v3M7.5 5.5h-3"/></symbol>
+ <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M8 10.5h5M10.5 8v5"/></symbol>
+ <symbol id="i-movex" viewBox="0 0 24 24"><path d="M3 12h18"/><path d="m6 9-3 3 3 3M18 9l3 3-3 3"/></symbol>
+ <symbol id="i-movey" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3"/></symbol>
+ <symbol id="i-scale" viewBox="0 0 24 24"><rect x="3" y="3" width="9" height="9" rx="1.5"/><path d="M12 21h9v-9"/><path d="m13.5 19.5 6-6"/></symbol>
+ <symbol id="i-rot" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.5 3.5V8H16"/></symbol>
+ <symbol id="i-fliph" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M8 7 4 12l4 5V7ZM16 7l4 5-4 5V7Z"/></symbol>
+ <symbol id="i-flipv" viewBox="0 0 24 24"><path d="M3 12h18"/><path d="M7 8 12 4l5 4H7ZM7 16l5 4 5-4H7Z"/></symbol>
+ <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
+ <symbol id="i-lab" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M9 21V9"/></symbol>
+ <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+ <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 6-6 6 6 6"/></symbol>
+ <symbol id="i-run" viewBox="0 0 24 24"><circle cx="15" cy="4.5" r="2"/><path d="M13.5 21l1.5-5-3-2.5 1-5.5 3.5 2 2.5 1"/><path d="m12 8-3.5 1.5L6 14"/><path d="m12.5 13.5-4 2L6 21"/></symbol>
+</svg>
+
+<header>
+  <div class="brand">Sprite<b>L</b><i>a</i><u>b</u> · mobile design</div>
+  <div style="display:flex;align-items:center;gap:7px">
+    <span class="lbl">Drawer</span>
+    <div class="seg" id="drwSeg">
+      <button data-v="1" class="on">1 rows</button><button data-v="2">2 rail</button></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:7px">
+    <span class="lbl">Settings chip</span>
+    <div class="seg" id="gearSeg">
+      <button data-v="on" class="on">show</button><button data-v="off">hide</button></div>
+  </div>
+  <span class="hint" id="note"></span>
+</header>
+
+<main id="stage"></main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const q = (s,r=document) => r.querySelector(s);
+const qa = (s,r=document) => [...r.querySelectorAll(s)];
+const ic = (n,cls='') => `<svg class="i ${cls}"><use href="#i-${n}"/></svg>`;
+
+/* ══════════════════════════════════════════════════════════════════════
+   SpriteLab mobile — layout C, refined.
+
+   · One chip design for stills AND animations; the only difference is a
+     corner mode dot, and an animation plays in place.
+   · The Lab sets things up and organises them. It never drops a key at the
+     playhead — you cannot see the timeline from here, so that belongs to
+     the drawer.
+   · The transport is pinned above the scrub, always.
+   · The workbench reflows as you drag the divider: side-by-side, then
+     stacked fields, then preview full width with the fields beneath.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const FACES = ['😀','😉','😮','😢','😠','😐','😍','😴','🤔','😅','😳','🤩','😝','🥺','😎','🙃'];
+const NAMES = {1:'smile',3:'surprised',4:'angry',6:'love',11:'excited',13:'plead'};
+const VIS   = {1:'EE',3:'OO',5:'REST'};
+const SUSPECT = {9:1};
+
+const st = {
+  sel:3, now:2, seq:[0,1,3,6,3,11], holds:{2:3},
+  clips:[{id:'c1',n:'idle',t:'loop',fps:8,f:[0,1,0,5]},
+         {id:'c2',n:'talk',t:'pingpong',fps:12,f:[1,3,6,3,1,0]},
+         {id:'c3',n:'surprise',t:'once',fps:10,f:[0,2,3]}],
+  section:'play', dirty:true, drawer:'1', gear:true, detent:2, pickedClip:null,
+  onionOn:true, onB:1, onA:1, bg:0,
+  open:{seq:true, align:true, onion:false},
+  benchH:300, playing:true, openChip:null
+};
+const cur = () => st.seq[st.now] ?? 0;
+const MODE = {loop:['l','∞'], pingpong:['pp','⇄'], once:['o','1']};
+// name, css class — the swatch cycles on a tap and lists on a hold
+const BG = [['Checker','bg-check'],['Dotted grid','bg-dots'],['Black','bg-black'],
+            ['White','bg-white'],['Zinc','bg-zinc'],['Cyan','bg-cy'],
+            ['Magenta','bg-mag'],['Green','bg-gr']];
+
+/* ── the chip: stills and animations, one design ────────────────────── */
+function chipStill(i, idx, opts={}){
+  const nm = NAMES[i];
+  return `<div class="ch ${opts.now?'now':''} ${opts.sel?'sel':''}" data-cell="${i}"
+      ${idx!=null?`data-f="${idx}"`:''}>
+    ${opts.hold?`<span class="hd">×${opts.hold}</span>`:''}
+    <div class="im">${FACES[i]}</div>
+    <div class="lb">${nm||('cell '+i)}</div>
+    <div class="sub">${idx!=null?`#${idx+1} · c${i}`:`c${i}`}</div></div>`;
+}
+function chipClip(c, i){
+  const [cls,gl] = MODE[c.t];
+  return `<div class="ch clip ${st.pickedClip===c.id?'sel':''}" data-clip="${c.id}" data-i="${i}">
+    <div class="badges"><b data-act="edit">✎ edit</b><b data-act="load">⤒ load</b></div>
+    <div class="im" data-anim="${c.id}">${FACES[c.f[0]]}</div>
+    <span class="mode ${cls}">${gl}</span>
+    <div class="lb">${c.n}</div>
+    <div class="sub">${c.f.length}f · ${c.fps}fps</div></div>`;
+}
+
+/* ── modules ────────────────────────────────────────────────────────── */
+const grp = (key,colour,icon,title,sub,body) =>
+  `<div class="grp ${st.open[key]?'':'closed'}" data-grp="${key}" data-c="${colour}">
+    <div class="grphead">${ic(icon)}${title}${sub?`<em>${sub}</em>`:''}
+      <span class="cv">${ic('caret')}</span></div>
+    <div class="grpbody">${body}</div></div>`;
+
+const previewInner = () => {
+  const p = st.seq[st.now-1], n = st.seq[st.now+1], c = cur();
+  return `
+    ${p!=null?`<span class="ghost p">${FACES[p]}</span>`:''}
+    ${n!=null?`<span class="ghost f">${FACES[n]}</span>`:''}
+    <span class="art">${FACES[c]}</span>
+    ${NAMES[c]?`<span class="tag">${NAMES[c]}${VIS[c]?' · '+VIS[c]:''}</span>`:''}
+    <span class="box" style="left:30%;top:19%;right:30%;bottom:19%"></span>
+      <span class="hdl" style="left:29%;top:18%"></span><span class="hdl" style="right:29%;top:18%"></span>
+      <span class="hdl" style="left:29%;bottom:18%"></span><span class="hdl" style="right:29%;bottom:18%"></span>
+      <span class="rot" style="left:49%;top:8%"></span>
+      <span class="piv" style="left:47.5%;top:46%">✛</span>
+    <span class="hud">${st.now+1}/${st.seq.length} · c${c} · x0 y0 1.00× 0°</span>`;
+};
+
+const transport = () => `<div class="transport" id="transport">
+  <button class="ic" id="playBtn">${ic(st.playing?'pause':'play')}</button>
+  <button class="ic sm">◀</button><button class="ic sm">▶</button>
+  <span class="seg"><button class="on a">${ic('loop')}</button><button class="v">${ic('ping')}</button>
+    <button class="p">${ic('once')}</button></span>
+  <button class="ic sm">${ic('rev')}</button>
+  <div class="num"><span class="k">fps</span><span class="v">12</span></div>
+  <div class="num"><span class="k">${ic('zoom')}</span><span class="v">170%</span></div>
+  <button class="ic sm">⤢</button>
+  <button class="ic sm" title="Difference against the previous frame">Δ</button></div>`;
+
+const scrub = () => `<div class="scrub">${st.seq.map((c,i)=>
+  `<i class="${i===st.now?'on':''}" style="flex:${st.holds[i]||1}" data-s="${i}"></i>`).join('')}</div>`;
+
+const labFilm = () => `<div class="filmw mid" id="labFilm"><div class="film">
+  <div class="sprock"></div>
+  <div class="frames">${st.seq.map((c,i)=>
+    chipStill(c,i,{now:i===st.now, sel:i===st.sel, hold:st.holds[i]})).join('')}</div>
+  <div class="sprock"></div></div></div>`;
+
+/* ── sections ───────────────────────────────────────────────────────── */
+function secSlice(){ return `
+  <div class="band nw" style="padding-bottom:4px">
+    <button class="sm on" style="background:var(--amber);border-color:var(--amber);color:#09090b;
+      font-weight:600">● starguy.png</button>
+    <button class="sm">● starguy_b.png</button>
+    <button class="sm" style="opacity:.55">● old.png ↺</button>
+    <button class="sm">＋ merge sheet</button></div>
+  ${grp('slice1','amber','grid','Grid &amp; slicing','103×103 px · 16 cells',`
+    <div class="num"><span class="k">cols</span><span class="v">4</span></div>
+    <div class="num"><span class="k">rows</span><span class="v">4</span></div>
+    <div class="num"><span class="k">${ic('zoom')}</span><span class="v">86%</span></div>
+    <div class="num"><span class="k">mg x</span><span class="v">0</span></div>
+    <div class="num"><span class="k">mg y</span><span class="v">0</span></div>
+    <div class="num"><span class="k">sp x</span><span class="v">0</span></div>
+    <div class="num"><span class="k">sp y</span><span class="v">0</span></div>
+    <div class="num"><span class="k">tol</span><span class="v">10%</span></div>
+    <button class="sm pri">${ic('wand')}Detect</button>
+    <button class="sm on">Grid</button><button class="sm on">${ic('tag')}Names</button>
+    <button class="sm">Key</button><button class="sm">Fit</button>
+    <button class="sm">Suspect</button>
+    <span class="seg"><button class="on">Swap</button><button>Ripple</button></span>
+    <button class="sm">Reset order</button>
+    <button class="sm">${ic('tag')}Name many…</button>`)}
+  ${grp('cellEd','violet','tag',`Cell ${st.sel}`, NAMES[st.sel]||'unnamed',`
+    <input type="text" value="${NAMES[st.sel]||''}" placeholder="surprise, wide_smile…">
+    <button class="sm on">face</button><button class="sm on">mouth</button>
+    <button class="sm">＋ tag</button>
+    <span class="hint" style="width:100%">Viseme</span>
+    ${['REST','AA','EE','OO','CL','FR'].map(v=>
+      `<button class="sm ${VIS[st.sel]===v?'on':''}">${v}</button>`).join('')}`)}`;
+}
+
+function secPlay(full, pvW, pvH){
+  // No collapse on the onion row: the header would cost as much as the content.
+  const onion = `<div class="onionbar">
+    <button class="sm ${st.onionOn?'on':''}" id="onionToggle"
+      title="Onion skin on or off">${ic('onion')}</button>
+    <button class="onb pk ${st.onionOn?'':'off'}"
+      title="Past ghosts — slide to change how many, tap for a swatch">${st.onB}</button>
+    <button class="onb cy ${st.onionOn?'':'off'}"
+      title="Future ghosts — slide to change how many, tap for a swatch">${st.onA}</button>
+    <div class="num onstr ${st.onionOn?'':'dim'}"><span class="v">40%</span></div>
+    <button class="sw bgsw ${BG[st.bg][1]}" id="bgBtn"
+      title="Preview background — tap to cycle, hold for the list"></button></div>`;
+
+  const align = grp('align','cyan','target','Alignment',`frame ${st.now+1} · c${cur()}`,`
+    <div class="num"><span class="k">${ic('movex')}x</span><span class="v">0</span></div>
+    <div class="num"><span class="k">${ic('movey')}y</span><span class="v">0</span></div>
+    <div class="num"><span class="k">${ic('scale')}scale</span><span class="v">1.00</span></div>
+    <div class="num"><span class="k">${ic('rot')}rot</span><span class="v">0°</span></div>
+    <button class="sm pri">${ic('wand')}Auto-centre</button>
+    <button class="sm">Plant feet</button><button class="sm">Match</button>
+    <button class="sm">Drift…</button><button class="sm">Reset</button>
+    <button class="sm">Copy to all</button>
+    <div class="num"><span class="k">piv x</span><span class="v">50%</span></div>
+    <div class="num"><span class="k">piv y</span><span class="v">50%</span></div>`);
+
+  const seq = grp('seq','pink','layers','Sequence',`${st.seq.length} frames`,`
+    <button class="sm">Clear</button><button class="sm">Add all</button>
+    <button class="sm">Hold +</button><button class="sm">Hold −</button>
+    <button class="sm">Play all</button><button class="sm">${ic('tag')}Name…</button>
+    <button class="sm pri" id="saveClip">${ic('clips')}Save clip</button>`);
+
+  // Sequence spans the full width only while Alignment is open. Collapse
+  // Alignment and Sequence moves up into the space it just freed, instead of
+  // leaving a black rectangle there.
+  const alignOpen = st.open.align;
+  if(full) return `<div class="pvgrid" style="grid-template-columns:1fr">
+    <div class="colL"><div class="pv ${BG[st.bg][1]}" style="height:${pvH}px">${previewInner()}</div>
+      ${onion}</div>
+    <div class="colR">${align}${seq}</div></div>`;
+  return `<div class="pvgrid" style="grid-template-columns:${pvW}px 1fr">
+    <div class="colL"><div class="pv ${BG[st.bg][1]}" style="height:${pvH}px">${previewInner()}</div>
+      ${onion}</div>
+    <div class="colR">${align}${alignOpen?'':seq}</div>
+    ${alignOpen?`<div class="span">${seq}</div>`:''}
+  </div>`;
+}
+
+function secClips(){ return `
+  <div class="band" style="padding-bottom:5px">
+    <span class="hint">Long-press to reorder or bin. Tap for badges.
+      A selected clip lights its frames cyan on the grid.</span></div>
+  <div class="shelf" id="shelf">${st.clips.map((c,i)=>chipClip(c,i)).join('')}</div>
+  <div class="trash" id="trash">🗑</div>`;
+}
+
+function secOut(){ return `
+  ${grp('exp','green','out','Export','sheet + .sprite.json',`
+    <input type="text" value="starguy">
+    <div class="num"><span class="k">bake cols</span><span class="v">8</span></div>
+    <div class="num"><span class="k">pad</span><span class="v">2</span></div>
+    <span class="seg"><button class="on">Fit to art</button><button>Fill</button>
+      <button>Keep</button></span>
+    <span class="seg"><button class="on">PNG</button><button>JPG</button></span>
+    <button class="sm pri">${ic('out')}Bake sheet + JSON</button>
+    <button class="sm">{ } JSON only</button><button class="sm">Frames</button>`)}
+  ${grp('json','amber','braces','JSON','what Joy Creator reads',`
+    <div class="json" style="width:100%">{<br>
+    &nbsp;"name": <b>"starguy"</b>,<br>&nbsp;"cols": 4, "rows": 4, "fps": 12,<br>
+    &nbsp;<u>"cellNames"</u>: { "1": <b>"smile"</b>, "3": <b>"surprised"</b> },<br>
+    &nbsp;<u>"visemeMap"</u>: { "EE": 1, "OO": 3, "REST": 5 },<br>
+    &nbsp;<u>"presets"</u>: [<br>
+    &nbsp;&nbsp;{ "name": <b>"talk"</b>, "type": "pingpong",<br>
+    &nbsp;&nbsp;&nbsp;"frames": [1,3,6,3,1,0] }<br>&nbsp;]<br>}</div>
+    <button class="sm pri">Copy</button>`)}
+  ${grp('proj','violet','save','Project','',`
+    <button class="sm">Load sheet</button><button class="sm">Save project</button>
+    <button class="sm">Open project</button><button class="sm">Relink art</button>
+    <button class="sm">Sequence → sheet</button>`)}`;
+}
+
+/* ── the Lab ────────────────────────────────────────────────────────── */
+function lab(){
+  const h = st.benchH;
+  // The preview floats until the bench is tall enough for it to span the width;
+  // the option chips wrap beside it and then keep going underneath, so there is
+  // never a dead square.
+  const full = h >= 340;
+  const pvW  = h < 200 ? 118 : Math.min(184, Math.round(h*0.56));
+  const pvH  = full ? Math.min(290, h-150) : Math.min(h-84, Math.round(pvW*0.95));
+  const body = st.section==='slice' ? secSlice()
+            : st.section==='play'  ? secPlay(full, pvW, pvH)
+            : st.section==='clips' ? secClips() : secOut();
+  const nav = [['slice','grid'],['play','target'],['clips','clips'],['out','out']];
+  return `<div class="scr">
+    <div class="tbar">
+      <button class="ic sm">${ic('back')}</button>
+      <div class="t">Starguy</div>
+      <button class="ic sm">${ic('undo')}</button><button class="ic sm">${ic('redo')}</button>
+      <span class="nav" id="nav">${nav.map(([s,i])=>
+        `<button data-s="${s}" class="${st.section===s?'on':''}">${ic(i)}</button>`).join('')}</span>
+      <button class="save ${st.dirty?'dirty':''}" id="saveBtn"
+        title="${st.dirty?'Unsaved changes':'Everything saved'}">${ic('save')}</button>
+    </div>
+    <div class="split" id="split" style="grid-template-rows:1fr 7px minmax(0,${h}px)">
+      <div class="gridwrap">
+        <div class="grid" style="grid-template-columns:repeat(4,1fr)">
+          ${Array.from({length:16},(_,i)=>{
+            const ords = st.seq.map((c,k)=>c===i?k+1:0).filter(Boolean);
+            const inClip = st.pickedClip
+              ? st.clips.find(c=>c.id===st.pickedClip)?.f.includes(i)
+              : st.sel===i;
+            return `<div class="cell ${inClip?'sel':''} ${cur()===i?'now':''}" data-c="${i}">
+              ${FACES[i]}<span class="n">${i}</span>
+              ${NAMES[i]?`<span class="nm">${NAMES[i]}</span>`:''}
+              ${VIS[i]?`<span class="vi">${VIS[i]}</span>`:''}
+              ${SUSPECT[i]?`<span class="sus"></span>`:''}
+              ${ords.length?`<span class="ord">${ords.join(',')}</span>`:''}</div>`;}).join('')}
+        </div></div>
+      <div class="divider" id="divider"></div>
+      <div class="bench"><div class="benchbody" id="benchbody">${body}</div>${transport()}</div>
+    </div>
+    ${scrub()}${labFilm()}
+  </div>`;
+}
+
+/* ── the drawer ─────────────────────────────────────────────────────── */
+// Measured from the real content, not guessed. Detent 1 is one mixed row of
+// animations and cells; 2 splits them; 3 wraps the cells into a grid.
+const DH = {1:[140,206,272], 2:[128,194,260]};
+const kf = () => `<span class="kf"><span title="Previous keyframe — or swipe">◂K</span>
+  <span class="armed" title="Delete the keyframe under the playhead">🗑</span>
+  <span title="Next keyframe — or swipe">K▸</span></span>`;
+const behav = () => `<button class="ic sm">${ic('fliph')}</button>
+  <button class="ic sm">${ic('flipv')}</button>
+  <span class="seg"><button class="on a">${ic('loop')}</button><button class="v">${ic('ping')}</button>
+  <button class="p">${ic('once')}</button></span>`;
+
+/**
+ * Animations first, then cells, as ONE list split into equal rows. No labels —
+ * an animation is plainly an animation. Balanced so three clips over seventeen
+ * cells becomes two rows of ten, not a stub row over a long one.
+ */
+function drawerChips(detent){
+  const items = [...st.clips.map((c,i)=>chipClip(c,i)),
+                 ...Array.from({length:17},(_,i)=>chipStill(i%16,null,{now:i===3}))];
+  const rows = detent;
+  const per = Math.ceil(items.length / rows);
+  const chunks = [];
+  for(let i=0;i<items.length;i+=per) chunks.push(items.slice(i,i+per));
+  return `<div class="filmw" style="padding-bottom:5px">
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${chunks.map(r=>`<div style="display:flex;gap:5px">${r.join('')}</div>`).join('')}
+    </div></div>`;
+}
+function drawerBody(){
+  const d = st.detent;
+  const gear = st.gear ? `<button class="ic sm">${ic('gear')}</button>` : '';
+  if(st.drawer==='1') return `<div class="grip"><i></i></div>
+    <div class="drow nw"><span class="inst">Starguy 1</span>
+      <span class="mini">cell 3 · surprised</span><span class="sp"></span>
+      ${kf()}<button class="ic sm labbtn" title="Open Sprite Lab">${ic('grid')}</button>
+      <button class="ic sm">${ic('x')}</button></div>
+    ${drawerChips(d)}
+    <div class="drow nw">${behav()}<span class="sp"></span>${gear}</div>`;
+  return `<div class="grip"><i></i></div>
+    <div class="drow nw"><span class="inst">Starguy 1</span>
+      <span class="mini">cell 3 · surprised</span><span class="sp"></span>
+      ${kf()}<button class="ic sm">${ic('layers')}</button>
+      <button class="ic sm labbtn">${ic('grid')}</button>
+      <button class="ic sm">${ic('x')}</button></div>
+    <div style="display:flex;flex:1;min-height:0">
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden">
+        ${drawerChips(d)}</div>
+      <div class="rail"><button class="ic">${ic('fliph')}</button>
+        <button class="ic">${ic('flipv')}</button><button class="ic on">${ic('loop')}</button>
+        ${st.gear?`<button class="ic">${ic('gear')}</button>`:''}</div></div>`;
+}
+function editor(){
+  return `<div class="scr">
+    <div class="vid">${FACES[cur()]}
+      <div style="position:absolute;left:10px;top:9px;font-size:10px;color:#7da3d0">preview</div></div>
+    <div class="tl"><div class="tape">clip.mp4<span class="ph"></span></div>
+      <div class="tape s">Starguy · sprite</div></div>
+    <div class="drawer" id="drawer" style="height:${DH[st.drawer][st.detent-1]}px">
+      ${drawerBody()}</div></div>`;
+}
+
+/* ── render ─────────────────────────────────────────────────────────── */
+const ANIMS = [];
+function render(){
+  ANIMS.forEach(clearInterval); ANIMS.length = 0;
+  $('stage').innerHTML =
+    `<div class="slot"><div class="phone"><div class="sbar"><span>7:43</span><span>▮▮▮</span></div>
+      ${lab()}</div>
+      <div class="cap"><b>The Lab</b> — grid above, workbench below, transport pinned over the
+      scrub. Drag the divider: the fields stack, then the preview goes full width. Shrink the
+      grid to one row and scroll it when you need the biggest possible preview.</div></div>
+     <div class="slot"><div class="phone"><div class="sbar"><span>7:43</span><span>▮▮▮</span></div>
+      ${editor()}</div>
+      <div class="cap"><b>The drawer</b> — no sprockets; these are tap-to-key buttons.
+      Animations carry a corner mode dot and play in place. Drag the grip: one mixed row,
+      then animations and cells on their own rows, then a wrapped grid of cells.</div></div>`;
+  wire(); startAnims();
+  $('note').textContent = `bench ${st.benchH}px · drawer ${DH[st.drawer][st.detent-1]}px`;
+}
+
+/* animations play in place, in the Lab shelf and in the drawer */
+function startAnims(){
+  qa('[data-anim]').forEach(el => {
+    const c = st.clips.find(x => x.id === el.dataset.anim); if(!c) return;
+    let k = 0, dir = 1;
+    ANIMS.push(setInterval(() => {
+      el.textContent = FACES[c.f[Math.max(0,Math.min(c.f.length-1,k))]];
+      if(c.t==='pingpong'){ k+=dir; if(k>=c.f.length-1){k=c.f.length-1;dir=-1;}
+        if(k<=0){k=0;dir=1;} }
+      else k = (k+1) % c.f.length;
+    }, 1000/c.fps));
+  });
+}
+
+function wire(){
+  qa('.cell').forEach(c => c.onclick = () => { st.sel = +c.dataset.c;
+    const i = st.seq.indexOf(st.sel); if(i>=0) st.now = i;
+    if(st.section!=='play' && st.section!=='slice') st.section='play';
+    render(); });
+  qa('.ch[data-f]').forEach(c => c.onclick = () => { st.now = +c.dataset.f;
+    st.sel = st.seq[st.now]; render(); });
+  qa('.scrub i').forEach(s => s.onclick = () => { st.now = +s.dataset.s;
+    st.sel = st.seq[st.now]; render(); });
+
+  const nav = $('nav');
+  if(nav) qa('button',nav).forEach(b => b.onclick = () => { st.section = b.dataset.s; render(); });
+  const sb = $('saveBtn');
+  if(sb) sb.onclick = () => { st.dirty = !st.dirty; render(); };
+  const pb = $('playBtn');
+  if(pb) pb.onclick = () => { st.playing = !st.playing; render(); };
+  const ot = $('onionToggle');
+  if(ot) ot.onclick = () => { st.onionOn = !st.onionOn; render(); };
+  const bg = $('bgBtn');
+  if(bg){
+    let lp=null, held=false;
+    bg.addEventListener('pointerdown', () => { held=false;
+      lp = setTimeout(() => { held=true; showBgMenu(bg); }, 400); });
+    bg.addEventListener('pointerup', () => { clearTimeout(lp); lp=null;
+      if(!held){ st.bg = (st.bg+1) % BG.length; render(); } });
+    bg.addEventListener('pointercancel', () => { clearTimeout(lp); lp=null; });
+  }
+  qa('.onb').forEach(b => {
+    const which = b.classList.contains('pk') ? 'onB' : 'onA';
+    let sx=null, base=0, moved=false;
+    b.addEventListener('pointerdown', e => { sx=e.clientX; base=st[which]; moved=false;
+      b.setPointerCapture(e.pointerId); });
+    b.addEventListener('pointermove', e => { if(sx===null) return;
+      const d = Math.round((e.clientX - sx)/14);
+      if(d===0) return; moved=true;
+      st[which] = Math.max(0, Math.min(4, base + d)); b.textContent = st[which]; });
+    b.addEventListener('pointerup', () => {
+      if(sx===null) return; sx=null;
+      if(!moved){ // a tap opens the swatch
+        const inp=document.createElement('input'); inp.type='color';
+        inp.value = which==='onB' ? '#f43f8e' : '#22d3ee';
+        inp.style.cssText='position:fixed;left:-9999px'; document.body.appendChild(inp);
+        inp.addEventListener('input',()=>{ b.style.background=inp.value; });
+        inp.addEventListener('change',()=>setTimeout(()=>inp.remove(),80));
+        inp.click(); return;
+      }
+      render();
+    });
+  });
+
+  qa('.grphead').forEach(h => h.onclick = () => {
+    const k = h.parentElement.dataset.grp; st.open[k] = !st.open[k];
+    h.parentElement.classList.toggle('closed', !st.open[k]); });
+
+  // divider — reflows the bench
+  const div = $('divider');
+  if(div){
+    let dy=null, h0=0;
+    div.addEventListener('pointerdown', e => { dy=e.clientY; h0=st.benchH;
+      div.setPointerCapture(e.pointerId); });
+    div.addEventListener('pointermove', e => { if(dy===null) return;
+      st.benchH = Math.max(150, Math.min(520, h0 - (e.clientY-dy)));
+      $('split').style.gridTemplateRows = `1fr 7px minmax(0,${st.benchH}px)`; });
+    div.addEventListener('pointerup', () => { if(dy===null) return; dy=null; render(); });
+  }
+
+  // clip chips — tap for badges, long-press to lift and reorder or bin
+  wireClips();
+
+  // save clip → the roll flies into the Clips section
+  const sc = $('saveClip');
+  if(sc) sc.onclick = flySaveClip;
+
+  // drawer grip
+  const grip = q('.drawer .grip');
+  if(grip){
+    let gy=null;
+    grip.addEventListener('pointerdown', e => { gy=e.clientY; grip.setPointerCapture(e.pointerId); });
+    grip.addEventListener('pointerup', e => { if(gy===null) return; const d=gy-e.clientY; gy=null;
+      if(d>20) st.detent=Math.min(3,st.detent+1);
+      else if(d<-20) st.detent=Math.max(1,st.detent-1); else return; render(); });
+  }
+}
+
+function wireClips(){
+  const shelf = $('shelf'), trash = $('trash');
+  qa('.ch.clip').forEach(el => {
+    let lp=null, lifted=false, sx=0, sy=0, from=null;
+    el.addEventListener('pointerdown', e => {
+      if(e.target.closest('.badges')) return;
+      sx=e.clientX; sy=e.clientY; lifted=false;
+      lp = setTimeout(() => { lifted=true; el.classList.add('lift');
+        from = el.dataset.i; if(trash) trash.classList.add('show'); }, 330);
+    });
+    el.addEventListener('pointermove', e => {
+      if(!lifted){ if(Math.hypot(e.clientX-sx,e.clientY-sy)>8){ clearTimeout(lp); lp=null; }
+        return; }
+      el.style.transform = `translate(${e.clientX-sx}px,${e.clientY-sy}px) scale(1.12)`;
+      if(trash){ const r=trash.getBoundingClientRect();
+        trash.classList.toggle('hot', e.clientX>r.left&&e.clientX<r.right&&
+          e.clientY>r.top&&e.clientY<r.bottom); }
+      if(shelf){ const t = document.elementFromPoint(e.clientX,e.clientY)?.closest?.('.ch.clip');
+        if(t && t!==el){ const a=[...shelf.children], i=a.indexOf(t), j=a.indexOf(el);
+          shelf.insertBefore(el, i>j ? t.nextSibling : t); sx=e.clientX; sy=e.clientY;
+          el.style.transform='scale(1.12)'; } }
+    });
+    const up = e => {
+      clearTimeout(lp); lp=null;
+      if(!lifted){ // a tap: pick it, and show its badges
+        const id = el.dataset.clip;
+        st.pickedClip = st.pickedClip === id ? null : id;
+        render();
+        const again = q(`.ch.clip[data-clip="${id}"]`);
+        if(again && st.pickedClip) again.classList.add('open');
+        return; }
+      lifted=false; el.classList.remove('lift'); el.style.transform='';
+      if(trash){
+        const hot = trash.classList.contains('hot');
+        trash.classList.remove('show','hot');
+        if(hot){ st.clips = st.clips.filter(c => c.id !== el.dataset.clip); render(); return; }
+      }
+      if(shelf){ // commit the new order
+        const ids = qa('.ch.clip', shelf).map(x => x.dataset.clip);
+        st.clips.sort((a,b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+      }
+      render();
+    };
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointercancel', () => { clearTimeout(lp); lp=null; lifted=false;
+      el.classList.remove('lift'); el.style.transform=''; if(trash) trash.classList.remove('show','hot'); });
+  });
+  qa('.ch.clip .badges b').forEach(b => b.onclick = e => { e.stopPropagation();
+    b.closest('.ch').classList.remove('open'); });
+}
+
+function showBgMenu(anchor){
+  const old = q('#bgMenu'); if(old) old.remove();
+  const m = document.createElement('div');
+  m.id = 'bgMenu'; m.className = 'more open';
+  m.innerHTML = BG.map((b,i)=>`<button data-b="${i}">
+    <span class="sw ${b[1]}" style="width:17px;height:17px;min-width:17px;border-width:1px">
+    </span>${b[0]}</button>`).join('');
+  const ph = anchor.closest('.phone'), pr = ph.getBoundingClientRect();
+  const ar = anchor.getBoundingClientRect();
+  m.style.left = Math.max(8, ar.left - pr.left - 64) + 'px';
+  m.style.right = 'auto';
+  m.style.bottom = (pr.bottom - ar.top + 6) + 'px';
+  ph.appendChild(m);
+  qa('button', m).forEach(b => b.onclick = () => { st.bg = +b.dataset.b; m.remove(); render(); });
+  setTimeout(() => document.addEventListener('pointerdown', function off(e){
+    if(!e.target.closest('#bgMenu')){ m.remove(); document.removeEventListener('pointerdown', off); }
+  }), 0);
+}
+
+/**
+ * Save clip: the sequence roll gathers itself up into a little stack and arcs
+ * across into the Clips section, so it is obvious where the thing you just
+ * made went to live.
+ */
+function flySaveClip(){
+  const film = $('labFilm'), navBtn = q('#nav [data-s="clips"]');
+  if(!film || !navBtn) return;
+  const phone = film.closest('.phone');
+  const pr = phone.getBoundingClientRect();
+  const fr = film.getBoundingClientRect(), tr = navBtn.getBoundingClientRect();
+  const fly = document.createElement('div');
+  fly.className = 'flyer';
+  fly.innerHTML = st.seq.slice(0,5).map(c => chipStill(c,null,{})).join('');
+  fly.style.left = (fr.left - pr.left + 12) + 'px';
+  fly.style.top  = (fr.top  - pr.top) + 'px';
+  phone.appendChild(fly);
+  const dx = (tr.left - pr.left) - (fr.left - pr.left + 12) + 8;
+  const dy = (tr.top  - pr.top)  - (fr.top  - pr.top) + 6;
+  const kids = qa('.ch', fly);
+  const t0 = performance.now(), DUR = 760;
+  let done = false;
+  const finish = () => {
+    if(done) return; done = true;
+    fly.remove();
+    navBtn.animate([{transform:'scale(1)'},{transform:'scale(1.45)'},{transform:'scale(1)'}],
+      {duration:340, easing:'ease-out'});
+    st.clips.push({id:'c'+(st.clips.length+1), n:'clip'+(st.clips.length+1),
+      t:'loop', fps:12, f:[...st.seq]});
+    st.dirty = true; render();
+  };
+  // rAF is suspended when the app is backgrounded; the clip must still land.
+  setTimeout(finish, DUR + 150);
+  (function step(t){
+    const k = Math.min(1, (t - t0) / DUR);
+    // 1) gather into a stack   2) arc up and across   3) shrink into the icon
+    const gather = Math.min(1, k / 0.32);
+    kids.forEach((el,i) => {
+      el.style.transform = `translateX(${-i * 46 * gather}px) rotate(${(1-gather)*0}deg)`;
+      el.style.opacity = i ? String(1 - gather*0.75) : '1';
+    });
+    if(k > 0.32){
+      const p = (k - 0.32) / 0.68, ease = 1 - Math.pow(1-p, 3);
+      const arc = -70 * Math.sin(Math.PI * p);
+      fly.style.transform =
+        `translate(${dx*ease}px, ${dy*ease + arc}px) scale(${1 - 0.62*ease}) rotate(${18*ease}deg)`;
+      fly.style.opacity = String(1 - Math.max(0, (p-0.75)/0.25));
+    }
+    if(done) return;
+    if(k < 1) requestAnimationFrame(step); else finish();
+  })(t0);
+}
+
+$('drwSeg').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  st.drawer=b.dataset.v; qa('button',$('drwSeg')).forEach(x=>x.classList.toggle('on',x===b)); render(); };
+$('gearSeg').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  st.gear = b.dataset.v==='on'; qa('button',$('gearSeg')).forEach(x=>x.classList.toggle('on',x===b));
+  render(); };
+render();
+</script>
+</body>
+</html>

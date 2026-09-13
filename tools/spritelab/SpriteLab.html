@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SpriteLab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* ── palette: Tailwind zinc + two accents, read off app.spritepop.art ──────
+   The two-accent rule is load-bearing. cyan = SELECTED (what you are pointing
+   at). pink = LIVE (what is playing / recording). Never swap them.          */
+:root{
+  --bg:#050507; --panel:#111114; --ctl:#1c1c22; --ctl2:#262630; --line:#2c2c35;
+  --ink:#e4e4e7; --dim:#a1a1aa; --dimmer:#71717a;
+  /* The five category accents, read off spritepop.art's own icon strokes
+     (cyan / pink / amber / emerald) plus two companions from the same
+     Tailwind-400 tier. Colour separates CATEGORIES here; the only two that
+     also carry STATE are cyan = selected and pink = showing in the preview. */
+  --cyan:#22d3ee; --pink:#f43f8e; --amber:#fbbf24;
+  --green:#34d399; --blue:#60a5fa; --violet:#a78bfa;
+  --sel:#22d3ee; --sel-dim:#0e7490;
+  --live:#f43f8e; --live-dim:#9d174d;
+  --warn:#fbbf24; --alt:#a78bfa; --bad:#fb7185; --ok:#34d399;
+  --r:14px; --r2:11px; --pill:999px;
+  --disp:"Outfit",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --body:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.45 var(--body);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+/* Pills, like Joy Creator's own controls - the one place this diverges from
+   SpritePop on purpose. */
+button{background:var(--ctl);border:1px solid var(--line);border-radius:var(--pill);
+  padding:6px 13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+  min-height:33px;user-select:none}
+button:hover{background:var(--ctl2);border-color:#43434f}
+button.on{background:var(--sel);border-color:var(--sel);color:#09090b;font-weight:600}
+button.live{background:var(--live);border-color:var(--live);color:#fff;font-weight:600}
+button:disabled{opacity:.35;cursor:default}
+button.icon{padding:6px;min-width:34px;justify-content:center}
+.seg{display:inline-flex;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:3px}
+.seg button{border:0;background:transparent;border-radius:var(--pill);min-height:27px;
+  padding:3px 11px;color:var(--dimmer)}
+.seg button.on{background:var(--live);color:#fff}
+.seg button.on.cy{background:var(--sel);color:#09090b}
+/* Wrap modes read as icons, grey until chosen, then each in its own colour —
+   cheaper in width than three words and faster to find by shape. */
+.seg.icons button{padding:3px 9px;color:var(--dimmer)}
+.seg.icons button.on{background:transparent}
+.seg.icons button.on[data-l="loop"]{background:var(--amber);color:#09090b}
+.seg.icons button.on[data-l="ping"]{background:var(--violet);color:#09090b}
+.seg.icons button.on[data-l="once"]{background:var(--pink);color:#fff}
+#bRev.on{background:var(--blue);color:#09090b;border-color:var(--blue)}
+input[type=text]{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--pill);
+  padding:7px 13px;width:100%}
+input[type=range]{width:100%;accent-color:var(--sel)}
+svg.i{width:16px;height:16px;flex:0 0 auto;stroke:currentColor;fill:none;
+  stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+h3{margin:0 0 9px;font:600 12px/1 var(--disp);letter-spacing:.06em;text-transform:uppercase;
+  color:#fff;display:flex;align-items:center;gap:7px}
+h3 svg.i{width:17px;height:17px;stroke-width:1.8}
+/* The icon carries the category colour; the word stays white so the eye lands
+   on the picture first and reads the label only if it needs to. */
+.c-amber{color:var(--amber)} .c-cyan{color:var(--cyan)} .c-pink{color:var(--pink)}
+.c-green{color:var(--green)} .c-violet{color:var(--violet)} .c-blue{color:var(--blue)}
+h3 .sp{flex:1}
+h3 small{font-weight:400;letter-spacing:0;text-transform:none;color:var(--dimmer)}
+.hide{display:none !important}
+.hint{font-size:11px;color:var(--dimmer);line-height:1.55}
+kbd{background:var(--ctl2);border:1px solid var(--line);border-radius:3px;padding:0 4px;font-size:10px}
+
+#app{display:grid;grid-template-columns:minmax(360px,1.15fr) minmax(320px,1fr) 320px;
+  grid-template-rows:46px 1fr;height:100vh;
+  transition:grid-template-columns .28s cubic-bezier(.4,0,.2,1)}
+#top{grid-column:1/-1;display:flex;align-items:center;gap:8px;padding:0 14px;
+  background:var(--bg);position:relative}
+/* A rule that separates rather than frames - it stops short of both edges, the
+   way spritepop's does, so the header reads as part of the page. */
+#top::after{content:'';position:absolute;left:18px;right:18px;bottom:0;height:1px;
+  background:var(--line)}
+.brand{font:800 17px/1 var(--disp);letter-spacing:-.02em;margin-right:6px}
+.brand b{color:var(--cyan)}.brand i{color:var(--pink);font-style:normal}
+.brand u{color:var(--amber);text-decoration:none}
+.sp{flex:1}
+.col{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px;
+  min-height:0;min-width:0;
+  transition:padding .28s cubic-bezier(.4,0,.2,1),opacity .2s linear}
+/* Collapsed is a zero-width TRACK plus zero padding, never display:none -
+   display:none cannot be transitioned, and it was what let the remaining
+   columns reflow over each other instead of sliding shut. */
+.col.collapsed{padding-left:0;padding-right:0;opacity:0;pointer-events:none;overflow:hidden}
+#left{}
+/* Last resort: past the point where the lower cards have shrunk to nothing,
+   the whole column scrolls rather than putting anything out of reach. */
+#mid{overflow-y:auto;overflow-x:hidden}
+/* Priority when the window gets small: the preview and its transport are the
+   work; Sequence and Alignment are the ones that give up room and scroll. */
+#midRest{display:flex;flex-direction:column;gap:10px;flex:0 1 auto;overflow-y:auto;
+  min-height:0;padding-right:2px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:11px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* ── scrubby number ── */
+.num{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--pill);
+  padding:5px 11px;display:flex;align-items:center;gap:4px;cursor:ew-resize;
+  touch-action:none;user-select:none;min-height:30px}
+.num:hover{border-color:#52525b}
+.num.act{border-color:var(--sel)}
+.num .lb{font-size:10px;color:var(--dimmer);flex:0 0 auto;white-space:nowrap}
+.num svg.i{width:15px;height:15px;color:var(--dim);flex:0 0 auto}
+.num:hover svg.i,.num.act svg.i{color:var(--cyan)}
+.num .vv{flex:1;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.num input{all:unset;flex:1;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+#bubble{position:fixed;z-index:300;background:var(--sel);color:#09090b;font:700 15px/1 var(--body);
+  padding:7px 11px;border-radius:var(--r2);pointer-events:none;display:none;
+  transform:translate(-50%,-100%);box-shadow:0 6px 20px #000a;white-space:nowrap}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+
+/* ── sources rail ── */
+#srcRail{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.src{flex:0 0 auto;border:2px solid var(--line);border-radius:var(--pill);padding:4px 11px;
+  cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px;background:var(--ctl)}
+.src.on{border-color:var(--sel)}
+.src .dot{width:8px;height:8px;border-radius:50%}
+.src .x{color:var(--dimmer);font-size:13px}
+
+/* ── sheet ── */
+#sheetWrap{position:relative;overflow:auto;flex:1;min-height:220px;border:1px solid var(--line);
+  border-radius:var(--r);background:#0d0d10;touch-action:none}
+#sheetInner{position:relative;transform-origin:0 0}
+#sheetCv,#sheetOv{position:absolute;left:0;top:0;image-rendering:pixelated}
+#drop{border:2px dashed var(--line);border-radius:12px;padding:40px 16px;text-align:center;
+  color:var(--dim);cursor:pointer;font-family:var(--disp)}
+#drop.hot{border-color:var(--sel);color:var(--ink);background:#0c1a1e}
+
+/* ── preview + strip, fused ── */
+/* The stage never shrinks below its own content, so the transport and the film
+   cannot be pushed off or slid under anything. Everything in it is fixed
+   height except the preview, which takes the slack. */
+#stage{display:flex;flex-direction:column;gap:8px;flex:1 1 auto;min-height:min-content}
+#stage > *{flex:0 0 auto}
+#pvWrap{position:relative;flex:1 1 auto !important;min-height:104px;border:1px solid var(--line);border-radius:var(--r);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}
+#pvWrap.drag{cursor:grabbing}
+#preview{image-rendering:pixelated}
+#pvOv{position:absolute;inset:0;pointer-events:none}
+#hud{position:absolute;left:8px;bottom:8px;font:600 11px/1 var(--body);color:var(--ink);
+  background:#000b;padding:5px 8px;border-radius:5px;pointer-events:none;font-variant-numeric:tabular-nums}
+#nameTag{position:absolute;left:8px;top:8px;font:600 12px/1 var(--body);color:#09090b;
+  background:var(--sel);padding:5px 9px;border-radius:5px;pointer-events:none;display:none}
+.bg-checker{background:repeating-conic-gradient(#3a3a45 0 25%,#212128 0 50%) 0 0/20px 20px}
+.bg-dots{background:radial-gradient(#3f3f46 1.2px,#121215 1.3px) 0 0/12px 12px}
+.bg-black{background:#000}.bg-white{background:#fff}.bg-zinc{background:#18181b}
+.bg-cyan{background:#22d3ee}.bg-magenta{background:#f43f8e}.bg-green{background:#34d399}
+
+#scrub{height:26px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;
+  position:relative;touch-action:none;cursor:pointer;overflow:hidden}
+#scrubCv{position:absolute;inset:0;width:100%;height:100%}
+
+/* A strip of film, not a list of thumbnails. The sprockets live INSIDE the
+   scrolled element and are exactly as wide as the frames, so the film is only
+   as long as the take and the holes travel with the picture when you scroll
+   it — which is the whole point of drawing them. */
+/* No box around it. The film just lies on the bench - an outline here is
+   noise that says nothing the sprockets do not already say. */
+#stripWrap{position:relative;padding:14px 7px;min-height:132px;touch-action:none;cursor:grab}
+#stripWrap.panning{cursor:grabbing}
+#strip{overflow-x:auto;overflow-y:hidden;touch-action:none;display:flex;
+  justify-content:flex-start;scrollbar-width:none}
+#strip.centre{justify-content:center}
+#strip::-webkit-scrollbar{display:none}
+#film{display:inline-flex;flex-direction:column;flex:0 0 auto;background:#1a1a1f;
+  border-radius:3px;min-width:74px}
+/* Nothing loaded is not a one-frame reel - it is no reel. */
+#film.empty{background:transparent}
+#film.empty .sprock{display:none}
+/* Holes PUNCHED THROUGH the film, with stock left above and below each one -
+   otherwise they read as castle crenellations rather than sprockets. The
+   gradient is sized to 8px tall and centred, so 4px of film survives either
+   side of the perforation. */
+.sprock{height:16px;flex:0 0 auto;cursor:grab;
+  background:
+    repeating-linear-gradient(90deg,transparent 0 7px,var(--bg) 7px 16px,transparent 16px 23px)
+      0 center / auto 8px no-repeat,
+    #1a1a1f;
+  border-radius:3px 3px 0 0}
+.sprock:last-child{border-radius:0 0 3px 3px}
+#frames{display:flex;gap:6px;align-items:flex-start;padding:3px 4px}
+#strip::-webkit-scrollbar{height:7px}
+#strip::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+#caret{position:absolute;width:3px;border-radius:2px;background:var(--sel);display:none;
+  top:18px;bottom:18px;pointer-events:none;box-shadow:0 0 8px var(--sel);z-index:3}
+.chip{position:relative;flex:0 0 auto;width:62px;border:2px solid transparent;border-radius:8px;
+  background:var(--ctl);padding:2px;text-align:center;touch-action:none;user-select:none}
+.chip canvas{width:56px;height:56px;display:block;image-rendering:pixelated;border-radius:4px;
+  background:repeating-conic-gradient(#3f3f46 0 25%,#27272a 0 50%) 0 0/10px 10px}
+.chip .lbl{font-size:9.5px;color:var(--dimmer);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip .nm{font-size:9.5px;color:var(--sel);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip.sel{border-color:var(--sel)}
+/* Two independent facts, two independent channels, so both can be true at
+   once: the fill says "this is what the preview is showing", the border says
+   "this is the one you are editing". */
+.chip.live{background:var(--live)}
+.chip.live .lbl{color:#3b0322}
+.chip.live .nm{color:#20000f}
+.chip.out{opacity:.38;filter:saturate(.3)}
+.chip.ghost{opacity:.3}
+.chip .hold{position:absolute;left:-3px;top:-4px;background:var(--warn);color:#09090b;
+  font:700 9px/1.5 var(--body);border-radius:3px;padding:1px 3px}
+.chip .x{position:absolute;top:-5px;right:-5px;width:18px;height:18px;line-height:15px;
+  border-radius:50%;background:#27272a;color:var(--bad);font-size:12px;border:1px solid var(--line);
+  cursor:pointer;opacity:0;transition:opacity .12s}
+.chip:hover .x,.chip.sel .x{opacity:1}
+
+/* ── clips ── */
+.clip{background:var(--ctl);border:1px solid var(--line);border-radius:var(--r);padding:7px;
+  display:flex;gap:8px;align-items:center;margin-bottom:7px;touch-action:none}
+.clip.sel{border-color:var(--sel)}
+.clip canvas{width:54px;height:54px;flex:0 0 auto;image-rendering:pixelated;border-radius:5px;
+  background:repeating-conic-gradient(#3f3f46 0 25%,#27272a 0 50%) 0 0/10px 10px}
+.clip .meta{flex:1;min-width:0}
+.clip .nm{font:600 13px/1.3 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.clip .sub{font-size:11px;color:var(--dimmer)}
+.clip .acts{display:flex;flex-direction:column;gap:3px}
+.clip .acts button{padding:2px 6px;min-height:22px;font-size:11px}
+.badge{display:inline-block;font:700 9px/1.6 var(--body);padding:0 5px;border-radius:3px;
+  background:var(--live);color:#fff;vertical-align:1px}
+.badge.cy{background:var(--sel);color:#09090b}
+
+/* ── cell editor popover ── */
+#cellEd{position:fixed;z-index:250;width:280px;background:var(--panel);border:1px solid var(--sel);
+  border-radius:var(--r);padding:11px;display:none;box-shadow:0 14px 40px #000c}
+#tagBox{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.tag{background:var(--ctl2);border:1px solid var(--line);border-radius:10px;padding:1px 8px;
+  font-size:11px;cursor:pointer}
+.tag.on{background:var(--alt);border-color:var(--alt);color:#09090b;font-weight:600}
+.vis{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px}
+.vis button{padding:3px;min-height:26px;font-size:10px;justify-content:center}
+.vis button.on{background:var(--alt);border-color:var(--alt);color:#09090b}
+/* The button IS the colour. Tap toggles that side of the onion, long-press
+   recolours it. In Joy Creator this long-press opens the app-wide colour
+   helper instead of the browser's picker. */
+.sw{width:30px;min-width:30px;height:30px;border-radius:var(--pill);border:2px solid var(--line);
+  padding:0;cursor:pointer;flex:0 0 auto;touch-action:none}
+.sw.off{opacity:.28}
+.sw:hover{border-color:#8a8a99}
+
+#scrim{position:fixed;inset:0;background:#000b;z-index:380;display:flex;
+  align-items:center;justify-content:center;padding:20px}
+.dlg{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  padding:16px;width:330px;box-shadow:0 24px 70px #000d}
+.dlg .foot{display:flex;gap:8px;justify-content:flex-end;margin-top:15px}
+.dlg label{margin:11px 0 4px}
+#bgMenu{position:fixed;z-index:390;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);padding:6px;display:none;box-shadow:0 16px 44px #000c}
+#bgMenu button{width:100%;justify-content:flex-start;border:0;background:transparent;
+  margin:1px 0}
+#bgMenu button:hover{background:var(--ctl2)}
+#bgMenu .dot{width:20px;height:20px;border-radius:var(--pill);border:1px solid var(--line)}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:#000e;
+  border:1px solid var(--line);border-radius:var(--pill);padding:10px 18px;z-index:400;display:none;
+  max-width:62vw;text-align:center}
+#ghostImg{position:fixed;pointer-events:none;z-index:320;display:none;border:2px solid var(--sel);
+  border-radius:5px;image-rendering:pixelated;box-shadow:0 8px 24px #000b}
+textarea#jsonOut{width:100%;height:150px;background:#0b0b0e;border:1px solid var(--line);
+  border-radius:var(--r2);color:var(--dim);font:11px/1.45 Consolas,monospace;padding:7px;resize:vertical}
+</style>
+</head>
+<body>
+
+<svg style="display:none">
+ <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></symbol>
+ <symbol id="i-film" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 12h18"/></symbol>
+ <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 14 9 5 9-5"/></symbol>
+ <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+ <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 11V4h7l10 10-7 7L3 11Z"/><circle cx="7.5" cy="7.5" r="1.2"/></symbol>
+ <symbol id="i-clips" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="M19 8v11a2 2 0 0 1-2 2H8"/><path d="m8 9 4 3-4 3V9Z"/></symbol>
+ <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m8 7 4-4 4 4"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+ <symbol id="i-braces" viewBox="0 0 24 24"><path d="M8 3c-2 0-3 1-3 3v3c0 1.5-1 2-2 3 1 1 2 1.5 2 3v3c0 2 1 3 3 3"/><path d="M16 3c2 0 3 1 3 3v3c0 1.5 1 2 2 3-1 1-2 1.5-2 3v3c0 2-1 3-3 3"/></symbol>
+ <symbol id="i-undo" viewBox="0 0 24 24"><path d="M4 8h11a5 5 0 0 1 0 10h-6"/><path d="m8 4-4 4 4 4"/></symbol>
+ <symbol id="i-redo" viewBox="0 0 24 24"><path d="M20 8H9a5 5 0 0 0 0 10h6"/><path d="m16 4 4 4-4 4"/></symbol>
+ <symbol id="i-wand" viewBox="0 0 24 24"><path d="m4 20 10-10"/><path d="m14 6 4 4"/><path d="M17 3v4M21 5h-4M6 4v3M7.5 5.5h-3"/></symbol>
+ <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+ <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h13"/><path d="m14 5 3 3-3 3"/><path d="M20 16H7"/><path d="m10 13-3 3 3 3"/></symbol>
+ <symbol id="i-mouth" viewBox="0 0 24 24"><path d="M4 10c3 6 13 6 16 0"/><path d="M4 10c3-3 13-3 16 0"/></symbol>
+ <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8V4Z"/></symbol>
+ <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 4v16M16 4v16"/></symbol>
+ <symbol id="i-open" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></symbol>
+ <symbol id="i-save" viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5V3Z"/><path d="M8 3v6h7V3M8 14h8"/></symbol>
+ <symbol id="i-onion" viewBox="0 0 24 24"><path d="M12 6.2C12 4.5 13 3.4 14.4 3c-.2 1.6-1 2.6-2.4 3.2Z"/><path d="M12 6.2c-4.3 0-6.6 3.4-6.6 6.9 0 4 3 8.1 6.6 8.1s6.6-4.1 6.6-8.1c0-3.5-2.3-6.9-6.6-6.9Z"/><path d="M12 6.2c-2.1 0-3.2 3.4-3.2 6.9 0 4 1.4 8.1 3.2 8.1"/><path d="M12 6.2c2.1 0 3.2 3.4 3.2 6.9 0 4-1.4 8.1-3.2 8.1"/></symbol>
+ <symbol id="i-cols" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/></symbol>
+ <symbol id="i-rows" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9.3h18M3 14.6h18"/></symbol>
+ <symbol id="i-mgx" viewBox="0 0 24 24"><rect x="7" y="5" width="10" height="14" rx="1.5"/><path d="M2 5v14M22 5v14"/><path d="M3.5 12h2.5M20.5 12H18"/><path d="m5 10.5 1.5 1.5L5 13.5M19 10.5 17.5 12 19 13.5"/></symbol>
+ <symbol id="i-mgy" viewBox="0 0 24 24"><rect x="5" y="7" width="14" height="10" rx="1.5"/><path d="M5 2h14M5 22h14"/><path d="M12 3.5V6M12 20.5V18"/><path d="M10.5 5 12 6.5 13.5 5M10.5 19 12 17.5 13.5 19"/></symbol>
+ <symbol id="i-spx" viewBox="0 0 24 24"><rect x="2" y="5" width="7" height="14" rx="1.5"/><rect x="15" y="5" width="7" height="14" rx="1.5"/><path d="M10.5 12h3"/><path d="m11.5 10.5-1.5 1.5 1.5 1.5M12.5 10.5 14 12l-1.5 1.5"/></symbol>
+ <symbol id="i-spy" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="7" rx="1.5"/><rect x="5" y="15" width="14" height="7" rx="1.5"/><path d="M12 10.5v3"/><path d="M10.5 11.5 12 10l1.5 1.5M10.5 12.5 12 14l1.5-1.5"/></symbol>
+ <symbol id="i-zoom" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5M8 10.5h5M10.5 8v5"/></symbol>
+ <symbol id="i-movex" viewBox="0 0 24 24"><path d="M3 12h18"/><path d="m6 9-3 3 3 3M18 9l3 3-3 3"/></symbol>
+ <symbol id="i-movey" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3"/></symbol>
+ <symbol id="i-scale" viewBox="0 0 24 24"><rect x="3" y="3" width="9" height="9" rx="1.5"/><path d="M12 21h9v-9"/><path d="m13.5 19.5 6-6"/></symbol>
+ <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20.5 3.5V8H16"/></symbol>
+ <symbol id="i-loop" viewBox="0 0 24 24"><path d="M4 9a5 5 0 0 1 5-5h9"/><path d="m15 1 3 3-3 3"/><path d="M20 15a5 5 0 0 1-5 5H6"/><path d="m9 23-3-3 3-3"/></symbol>
+ <symbol id="i-ping" viewBox="0 0 24 24"><path d="M4 12h16"/><path d="m8 8-4 4 4 4M16 8l4 4-4 4"/></symbol>
+ <symbol id="i-rev" viewBox="0 0 24 24"><path d="M20 12H5"/><path d="m10 7-5 5 5 5"/></symbol>
+ <symbol id="i-once" viewBox="0 0 24 24"><path d="M3 12h13"/><path d="m12 7 5 5-5 5"/><path d="M20 5v14"/></symbol>
+ <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+</svg>
+
+<div id="app">
+ <div id="top">
+  <div class="brand">Sprite<b>L</b><i>a</i><u>b</u></div>
+  <button id="bLoad" title="Open a sprite sheet image (drop more in later to merge them)"><svg class="i"><use href="#i-open"/></svg>Load sheet</button>
+  <button class="icon" id="bUndo" title="Undo (Ctrl+Z)"><svg class="i"><use href="#i-undo"/></svg></button>
+  <button class="icon" id="bRedo" title="Redo (Ctrl+Shift+Z)"><svg class="i"><use href="#i-redo"/></svg></button>
+  <div class="sp"></div>
+  <span id="info" class="hint"></span>
+  <div class="sp"></div>
+  <button id="bRailL" class="icon on" title="Show or hide the sheet panel">◧</button>
+  <button id="bRailR" class="icon on" title="Show or hide the clips panel">◨</button>
+  <button id="bProjSave" title="Save your slicing, alignment, names and clips as a .spritelab.json"><svg class="i"><use href="#i-save"/></svg>Save project</button>
+  <button id="bProjOpen" title="Load a .spritelab.json back onto the sheets you have open">Open project</button>
+ </div>
+
+ <!-- ═══ LEFT ═══ -->
+ <div id="left" class="col">
+  <div id="drop"><b>Drop a sprite sheet</b><br><span class="hint">or click &nbsp;·&nbsp; PNG, WebP, JPG, GIF &nbsp;·&nbsp; drop more to merge them</span></div>
+
+  <div id="srcRail" class="hide"></div>
+  <div id="sheetWrap" class="hide">
+   <div id="sheetInner"><canvas id="sheetCv"></canvas><canvas id="sheetOv"></canvas></div>
+  </div>
+
+  <div class="card hide" id="gridCard">
+   <h3><svg class="i c-amber"><use href="#i-grid"/></svg>Grid &amp; slicing<span class="sp"></span>
+     <small id="cellInfo"></small></h3>
+   <div class="g3" id="gridNums"></div>
+   <div class="row" style="margin-top:8px">
+    <button id="bDetect" title="Guess the grid from the picture - gutters first, then square cells"><svg class="i"><use href="#i-wand"/></svg>Auto-detect</button>
+    <button id="bGrid" title="Show or hide the grid, numbers and names over the sheet" class="on"><svg class="i"><use href="#i-grid"/></svg>Grid</button>
+    <button id="bKey" title="Pick a background colour on the sheet to knock out to transparent">Key colour</button>
+    <button id="bKeyClear" class="icon" title="Clear key">✕</button>
+    <button id="bFit" title="Fit the whole sheet in the window">Fit</button>
+   </div>
+   <div class="row hide" id="tolRow" style="margin-top:7px"><div id="tolNum" style="flex:1"></div></div>
+   <div class="row" style="margin-top:8px">
+    <span class="hint">Cell drag</span>
+    <div class="seg" id="segMode">
+      <button data-m="swap" class="on cy" title="Dragging one cell onto another trades the two">Swap</button><button data-m="ripple" title="Dragging one cell onto another pulls it out and shoves the rest along">Ripple</button>
+    </div>
+    <button id="bOrderReset" class="icon" title="Reset arrangement"><svg class="i"><use href="#i-swap"/></svg></button>
+    <div class="sp"></div>
+    <button id="bNames" class="on" title="Show cell names on the sheet and chips"><svg class="i"><use href="#i-tag"/></svg></button>
+    <button id="bSuspect" title="Flag empty / duplicate / outlier cells">Suspect</button>
+   </div>
+   <div class="hint" style="margin-top:8px">
+    Tap a cell to add it · tap its <b style="color:var(--sel)">number badge</b> to take one back ·
+    long-press the badge to clear it · long-press a cell to name it · drag a cell onto another to rearrange.
+   </div>
+  </div>
+ </div>
+
+ <!-- ═══ MIDDLE ═══ -->
+ <div id="mid" class="col">
+  <div id="stage">
+   <div id="pvWrap" class="bg-checker">
+    <canvas id="preview"></canvas><canvas id="pvOv"></canvas>
+    <div id="nameTag"></div><div id="hud">no frames</div>
+   </div>
+   <div id="scrub"><canvas id="scrubCv"></canvas></div>
+   <div class="row">
+    <button id="bPlay" title="Play and pause the sequence (Space)" class="icon"><svg class="i"><use href="#i-play"/></svg></button>
+    <button id="bPrev" title="Previous frame" class="icon">◀</button><button id="bNext" title="Next frame" class="icon">▶</button>
+    <div class="seg icons" id="segLoop">
+      <button data-l="loop" class="on" title="Loop"><svg class="i"><use href="#i-loop"/></svg></button>
+      <button data-l="ping" title="Ping-pong"><svg class="i"><use href="#i-ping"/></svg></button>
+      <button data-l="once" title="Play once, hold the last frame"><svg class="i"><use href="#i-once"/></svg></button>
+    </div>
+    <button id="bRev" class="icon" title="Reverse"><svg class="i"><use href="#i-rev"/></svg></button>
+    <div id="fpsNum" style="width:86px"></div>
+    <div class="sp"></div>
+    <div id="pvZoomNum" style="width:96px"></div>
+    <button id="bBg" class="sw bg-checker" title="Preview background - tap to cycle, hold to choose"></button>
+    <button id="bPvFit" class="icon" title="Fit the preview to the box">⤢</button>
+    <button id="bOnion" class="icon" title="Onion skin"><svg class="i"><use href="#i-onion"/></svg></button>
+    <button id="bDiff" class="icon" title="Difference against the previous frame">Δ</button>
+   </div>
+   <div class="row hide" id="onionRow">
+    <button class="sw" id="swB" title="Past ghosts - tap to toggle, hold to recolour"></button>
+    <div id="onBNum" style="flex:1"></div>
+    <button class="sw" id="swA" title="Future ghosts - tap to toggle, hold to recolour"></button>
+    <div id="onANum" style="flex:1"></div>
+    <div id="onSNum" style="flex:1"></div>
+   </div>
+   <div id="stripWrap"><div id="caret"></div><div id="strip"><div id="film">
+     <div class="sprock"></div><div id="frames"></div><div class="sprock"></div>
+    </div></div></div>
+  </div>
+
+  <div id="midRest">
+  <div class="card">
+   <h3><svg class="i c-pink"><use href="#i-layers"/></svg>Sequence<span class="sp"></span><small id="seqCount"></small></h3>
+   <div class="row">
+    <button id="bClear" title="Remove every frame from the sequence">Clear</button><button id="bAll" title="Add every cell of this sheet, in reading order">Add all</button>
+    <button id="bHoldUp" title="Hold the selected frames one tick longer">Hold +</button><button id="bHoldDn" title="Hold the selected frames one tick less">Hold −</button>
+    <div class="sp"></div>
+    <button id="bName" title="Name several frames at once - base name plus automatic numbering"><svg class="i c-cyan"><use href="#i-tag"/></svg>Name…</button>
+    <button id="bRangeClr" title="Clear the range and play the whole sequence again">Play all</button>
+    <button id="bSaveClip" title="Save what is playing as a named animation clip" class="live"><svg class="i"><use href="#i-clips"/></svg>Save clip</button>
+   </div>
+  </div>
+
+  <div class="card">
+   <h3><svg class="i c-cyan"><use href="#i-target"/></svg>Alignment<span class="sp"></span><small id="xfTitle"></small></h3>
+   <div class="g4" id="xfNums"></div>
+   <div class="row" style="margin-top:7px">
+    <button id="bXfReset" title="Put this frame back where it started">Reset</button>
+    <button id="bCenter" title="Move every frame so its art is centred on the pivot">
+      <svg class="i"><use href="#i-wand"/></svg>Auto-centre</button>
+    <button id="bFeet" title="Line up the BOTTOM of every frame's art, so a walk keeps its feet on the ground while the body bobs">Plant feet</button>
+    <button id="bMatch" title="Move every frame so its art lines up with the frame you are on">Match to current</button>
+    <button id="bTrim" title="List how far each frame's art drifts from the average - the numbers behind the onion skin">Drift…</button>
+    <button id="bXfAll" title="Give every frame in the sequence this frame’s alignment">Copy to all</button>
+    <button id="bXfClear" title="Clear the alignment on every frame">Reset all</button>
+   </div>
+   <div class="g2" style="margin-top:7px" id="pivotNums"></div>
+  </div>
+  </div>
+ </div>
+
+ <!-- ═══ RIGHT ═══ -->
+ <div id="right" class="col">
+  <div class="card">
+   <h3><svg class="i c-violet"><use href="#i-clips"/></svg>Animation clips</h3>
+   <div id="clipList"><span class="hint">Build a sequence, then <b>Save clip</b>.</span></div>
+  </div>
+  <div class="card">
+   <h3><svg class="i c-green"><use href="#i-export"/></svg>Export</h3>
+   <input type="text" id="iBase" title="The name your exported files get" value="sprite">
+   <div class="row" style="margin-top:8px">
+    <button id="bBake" title="Write a clean sheet with your alignment burned in, plus its .sprite.json" class="live" style="flex:1;justify-content:center">
+      <svg class="i"><use href="#i-export"/></svg>Bake sheet + JSON</button>
+   </div>
+   <div class="g2" style="margin-top:7px" id="bakeNums"></div>
+   <div class="row" style="margin-top:7px">
+    <div class="seg" id="segFit">
+      <button data-f="content" class="on cy" title="Measure the real art and size the baked cell to it - no clipping, no wasted margin">Fit to art</button><button data-f="fill" title="Scale each frame to COVER its cell. Crops - a head can be cut off. Only useful when merging sheets of very different shapes">Fill</button><button data-f="cell" title="Keep the original cell size, so the bake matches an existing sheet">Keep cell size</button>
+    </div>
+    <div class="seg" id="segFmt">
+      <button data-x="png" class="on cy" title="PNG - keeps transparency">PNG</button><button data-x="jpg" title="JPG - smaller, no transparency">JPG</button>
+    </div>
+   </div>
+   <div class="row" style="margin-top:7px">
+    <button id="bJson" title="Write only the .sprite.json, numbered against your original image" style="flex:1;justify-content:center"><svg class="i"><use href="#i-braces"/></svg>JSON only</button>
+    <button id="bFrames" title="Write one numbered image file per frame, per clip" style="flex:1;justify-content:center">Frames</button>
+   </div>
+  </div>
+  <div class="card">
+   <h3><svg class="i c-amber"><use href="#i-braces"/></svg>JSON<span class="sp"></span>
+     <button id="bCopy" title="Copy the JSON to the clipboard" style="min-height:22px;padding:1px 7px;font-size:11px">Copy</button></h3>
+   <textarea id="jsonOut" readonly></textarea>
+   <div class="hint" style="margin-top:6px">Names are how the AI understands your character —
+     <b>wide_smile</b> can also become the “E” mouth shape.</div>
+  </div>
+ </div>
+</div>
+
+<div id="cellEd"></div>
+<div id="bgMenu"></div>
+<div id="bubble"></div>
+<img id="ghostImg">
+<div id="toast"></div>
+<input type="file" id="fPick" accept="image/*" multiple class="hide">
+<input type="file" id="pPick" accept=".json,application/json" class="hide">
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════════════
+   SpriteLab — repair an AI-rendered sprite sheet, hand Joy Creator a sheet it
+   can slice and a .sprite.json it already reads.
+
+   THE MODEL (SPEC_20260910_SPRITELAB_MODEL):
+     srcId  "s0:14"  — WHICH PICTURE. Assigned at load. Never changes.
+     slot   0..n-1   — WHERE IT SITS on the grid right now. Changes on rearrange.
+     order[slot] = original cell index, per source.
+
+   Everything the user authors — sequence, clips, alignment, names, tags,
+   visemes — is keyed by srcId. So rearranging the sheet moves pictures and
+   changes nothing else. That is the whole reason "does 7 mean 7 or 8" is not
+   a question you can ask here.
+
+   Cell geometry is a port of SpriteSheetRenderer.cellRectSource(): symmetric
+   margins, uniform spacing, row-major. Anything expressible here, the phone
+   slices identically.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+const uid = () => 'p' + Math.random().toString(36).slice(2,10);
+const SRC_COLORS = ['#22d3ee','#a78bfa','#fbbf24','#f43f8e','#34d399','#fb923c'];
+const VIS = ['REST','AA','EE','OO','CLOSURE','FRIC'];
+
+const S = {
+  sources: [], active: 0,
+  fps: 12,
+  seq: [],            // [{id, hold}]  id = srcId
+  clips: [],          // [{id,name,type,fps,frames:[{id,hold}]}]
+  xf: {},             // srcId -> {dx,dy,sc,rot}
+  names: {}, tags: {}, visemes: {},   // srcId -> value
+  pivotX: 0.5, pivotY: 0.5,
+  cur: 0, sel: -1, rangeA: -1, rangeB: -1,
+  playing: false, loopMode: 'loop', rev: false,
+  onion: false, onB: 1, onA: 1, onS: 40, diff: false,
+  onColB: '#f43f8e', onColA: '#22d3ee',   // past, future - long-press a swatch to change
+  showGrid: true, showNames: true, pickKey: false, dragMode: 'swap', bg: 'bg-checker',
+  zoom: 1, pvZoom: 200, hideL: false, hideR: false, bakeCols: 8, bakePad: 2, fitMode: 'content', fmt: 'png',
+  suspect: null
+};
+
+const src = () => S.sources[S.active] || null;
+const cellCache = new Map(), onionCache = new Map();
+
+/* ── geometry ─────────────────────────────────────────────────────────── */
+function nCells(s){ return Math.max(1,s.cols) * Math.max(1,s.rows); }
+function rectOf(s, cellIndex){
+  const cols = Math.max(1,s.cols), rows = Math.max(1,s.rows);
+  const col = cellIndex % cols, row = (cellIndex/cols)|0;
+  const iw = s.w - 2*s.mgX - (cols-1)*s.spX, ih = s.h - 2*s.mgY - (rows-1)*s.spY;
+  const cw = Math.max(1, iw/cols), ch = Math.max(1, ih/rows);
+  return {x:Math.round(s.mgX + col*(cw+s.spX)), y:Math.round(s.mgY + row*(ch+s.spY)),
+          w:Math.round(cw), h:Math.round(ch)};
+}
+const cellW = s => rectOf(s||src(),0).w;
+const cellH = s => rectOf(s||src(),0).h;
+
+function sidOf(si, cellIndex){ return 's'+si+':'+cellIndex; }
+/** srcId at a grid slot of the ACTIVE source. */
+function idAtSlot(slot){ const s = src(); if(!s) return null;
+  return sidOf(S.active, s.order[slot] ?? slot); }
+/** The slot a srcId currently occupies, or -1 if it belongs to another source. */
+function slotOfId(id){
+  const [si, ci] = parseId(id);
+  const s = S.sources[si]; if(!s) return -1;
+  const k = s.order.indexOf(ci);
+  return k < 0 ? ci : k;
+}
+function parseId(id){ const m = /^s(\d+):(\d+)$/.exec(id); return m ? [+m[1], +m[2]] : [0,0]; }
+function srcOfId(id){ return S.sources[parseId(id)[0]] || null; }
+const xfOf = id => S.xf[id] || {dx:0,dy:0,sc:1,rot:0};
+
+/* ── art ──────────────────────────────────────────────────────────────── */
+function cellCanvas(id){
+  if(cellCache.has(id)) return cellCache.get(id);
+  const [si, ci] = parseId(id), s = S.sources[si];
+  const c = document.createElement('canvas');
+  if(!s){ c.width=c.height=1; return c; }
+  const r = rectOf(s, ci);
+  c.width = Math.max(1,r.w); c.height = Math.max(1,r.h);
+  c.getContext('2d').drawImage(s.cv, r.x, r.y, r.w, r.h, 0, 0, r.w, r.h);
+  cellCache.set(id, c);
+  return c;
+}
+/**
+ * THE single draw path — preview, chips, clip thumbs, bake and the sheet all
+ * call it, so what you see is exactly what bakes. Pivot is the origin of both
+ * rotation and scale, and it maps to the same relative point of the dest box.
+ */
+function drawArt(cx, id, dw, dh, alpha, tintCv){
+  const t = xfOf(id), px = S.pivotX, py = S.pivotY;
+  const c = tintCv || cellCanvas(id);
+  const s = srcOfId(id); if(!s) return;
+  // ONE scale factor for both axes, never dw/cw and dh/ch separately. With a
+  // single sheet they are equal and nothing changes; with sheets of different
+  // cell sizes merged together, separate factors stretch the character. Fit
+  // letterboxes (default, never crops); fill crops to cover.
+  const kx = dw / cellW(s), ky = dh / cellH(s);
+  const k = S.fitMode === 'fill' ? Math.max(kx, ky) : Math.min(kx, ky);
+  const w = cellW(s) * k, h = cellH(s) * k;
+  cx.save();
+  cx.globalAlpha = alpha === undefined ? 1 : alpha;
+  cx.imageSmoothingEnabled = false;
+  cx.translate(px*dw + t.dx*k, py*dh + t.dy*k);
+  if(t.rot) cx.rotate(t.rot * Math.PI/180);
+  cx.scale(t.sc, t.sc);
+  cx.drawImage(c, -px*w, -py*h, w, h);
+  cx.restore();
+  if(s.gone && !tintCv){          // a source whose image was removed
+    cx.save(); cx.globalAlpha = 0.9;
+    cx.strokeStyle='#71717a'; cx.lineWidth=Math.max(1,dw/40);
+    for(let i=-dh;i<dw;i+=Math.max(6,dw/7)){
+      cx.beginPath(); cx.moveTo(i,0); cx.lineTo(i+dh,dh); cx.stroke(); }
+    cx.restore();
+  }
+}
+
+/* ── undo: snapshot with explicit transactions ────────────────────────── */
+const HIST = {u:[], r:[], open:null};
+function snap(){
+  return JSON.stringify({
+    o: S.sources.map(s=>({order:s.order, cols:s.cols, rows:s.rows, mgX:s.mgX, mgY:s.mgY,
+                          spX:s.spX, spY:s.spY, keyColor:s.keyColor, keyTol:s.keyTol})),
+    seq:S.seq, clips:S.clips, xf:S.xf, names:S.names, tags:S.tags, visemes:S.visemes,
+    fps:S.fps, px:S.pivotX, py:S.pivotY, cur:S.cur, sel:S.sel, ra:S.rangeA, rb:S.rangeB
+  });
+}
+function restore(j){
+  const d = JSON.parse(j);
+  d.o.forEach((o,i) => { const s = S.sources[i]; if(!s) return;
+    const geomChanged = s.cols!==o.cols||s.rows!==o.rows||s.mgX!==o.mgX||s.mgY!==o.mgY
+                        ||s.spX!==o.spX||s.spY!==o.spY;
+    const keyChanged = JSON.stringify(s.keyColor)!==JSON.stringify(o.keyColor)||s.keyTol!==o.keyTol;
+    Object.assign(s, o);
+    if(keyChanged) rebuildSource(s);
+    if(geomChanged||keyChanged) cellCache.clear();
+  });
+  S.seq=d.seq; S.clips=d.clips; S.xf=d.xf; S.names=d.names; S.tags=d.tags; S.visemes=d.visemes;
+  S.fps=d.fps; S.pivotX=d.px; S.pivotY=d.py; S.cur=d.cur; S.sel=d.sel; S.rangeA=d.ra; S.rangeB=d.rb;
+  cellCache.clear(); onionCache.clear(); S.suspect=null;
+  syncAll(); renderAll();
+}
+/** Open a transaction. One pointer-drag = one open + one commit = ONE undo step. */
+function tx(){ if(HIST.open===null) HIST.open = snap(); }
+function commit(){
+  if(HIST.open === null) return;
+  const now = snap();
+  if(now !== HIST.open){ HIST.u.push(HIST.open); if(HIST.u.length>100) HIST.u.shift(); HIST.r.length=0; }
+  HIST.open = null;
+  saveMeta(); refreshJson(); syncUndo();
+}
+function act(fn){ tx(); fn(); commit(); }
+function undo(){ if(!HIST.u.length) return; HIST.r.push(snap()); restore(HIST.u.pop()); syncUndo(); saveMeta(); }
+function redo(){ if(!HIST.r.length) return; HIST.u.push(snap()); restore(HIST.r.pop()); syncUndo(); saveMeta(); }
+function syncUndo(){ $('bUndo').disabled = !HIST.u.length; $('bRedo').disabled = !HIST.r.length; }
+
+/* ── toast ────────────────────────────────────────────────────────────── */
+let tT; function toast(m, ms=2400){ const t=$('toast'); t.innerHTML=m; t.style.display='block';
+  clearTimeout(tT); tT=setTimeout(()=>t.style.display='none', ms); }
+
+/* ══════════ scrubby numbers ══════════ */
+function mkNum(host, opt){
+  const el = document.createElement('div'); el.className='num';
+  // An icon where a cryptic abbreviation used to be. "MG X" told nobody
+  // anything; a rect with arrows pressing in from both sides does. The word
+  // survives as the tooltip for when the picture is not enough.
+  el.title = opt.title || opt.label;
+  el.innerHTML = (opt.icon ? `<svg class="i ${opt.cls||''}"><use href="#i-${opt.icon}"/></svg>` : '')
+    + (opt.label ? `<span class="lb">${opt.label}</span>` : '')
+    + `<span class="vv"></span>`;
+  const vv = el.querySelector('.vv');
+  const fmt = v => opt.fmt ? opt.fmt(v) : (opt.step<1 ? v.toFixed(2) : String(Math.round(v)));
+  const sync = () => { if(!el.editing) vv.textContent = fmt(opt.get()); };
+  el.sync = sync; sync();
+  let down=false, sx=0, base=0, moved=false;
+  el.addEventListener('pointerdown', e => {
+    if(el.editing) return;
+    down=true; moved=false; sx=e.clientX; base=opt.get();
+    el.setPointerCapture(e.pointerId); el.classList.add('act');
+    if(opt.tx!==false) tx();
+  });
+  el.addEventListener('pointermove', e => {
+    if(!down) return;
+    const dx = e.clientX - sx;
+    if(!moved && Math.abs(dx) < 3) return;
+    moved = true;
+    let mult = e.shiftKey ? 10 : (e.altKey ? 0.1 : 1);
+    let v = base + (dx/4) * opt.step * mult;
+    if(opt.step >= 1) v = Math.round(v);
+    v = clamp(v, opt.min, opt.max);
+    opt.set(v); sync();
+    const b = $('bubble'); b.textContent = fmt(v); b.style.display='block';
+    b.style.left = e.clientX+'px'; b.style.top = (e.clientY-48)+'px';
+  });
+  const up = () => {
+    if(!down) return;
+    down=false; el.classList.remove('act'); $('bubble').style.display='none';
+    if(opt.tx!==false) commit();
+    if(!moved) edit();
+  };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  function edit(){
+    el.editing = true;
+    const inp = document.createElement('input');
+    inp.value = fmt(opt.get()); vv.replaceWith(inp); inp.focus(); inp.select();
+    const done = ok => {
+      if(ok){ const v = parseFloat(inp.value); if(!isNaN(v)) act(()=>opt.set(clamp(v,opt.min,opt.max))); }
+      inp.replaceWith(vv); el.editing=false; sync();
+    };
+    inp.onblur = () => done(true);
+    inp.onkeydown = e => { if(e.key==='Enter'){e.preventDefault();done(true);} if(e.key==='Escape')done(false); };
+  }
+  host.appendChild(el);
+  NUMS.push(el);
+  return el;
+}
+const NUMS = [];
+const syncNums = () => NUMS.forEach(n => n.sync());
+
+/* ══════════ loading ══════════ */
+function addSource(file){
+  const url = URL.createObjectURL(file);
+  const im = new Image();
+  im.onload = () => {
+    const s = {
+      id: uid(), name: file.name, img: im, w: im.naturalWidth, h: im.naturalHeight,
+      cols:4, rows:4, mgX:0, mgY:0, spX:0, spY:0, keyColor:null, keyTol:0.10,
+      order:[], color: SRC_COLORS[S.sources.length % SRC_COLORS.length]
+    };
+    s.cv = document.createElement('canvas'); s.cv.width=s.w; s.cv.height=s.h;
+    s.cx = s.cv.getContext('2d',{willReadFrequently:true});
+    const first = S.sources.length === 0;
+    S.sources.push(s); S.active = S.sources.length-1;
+    rebuildSource(s);
+    detectGrid(s, true);
+    s.order = Array.from({length:nCells(s)}, (_,i)=>i);
+    if(first){
+      $('iBase').value = file.name.replace(/\.[^.]+$/,'');
+      $('drop').classList.add('hide');
+      ['srcRail','sheetWrap','gridCard'].forEach(k=>$(k).classList.remove('hide'));
+      restoreMeta();
+    }
+    HIST.u.length = 0; HIST.r.length = 0; syncUndo();
+    fitZoom(); fitPreview(); syncAll(); renderAll();
+    URL.revokeObjectURL(url);
+  };
+  im.onerror = () => toast('Could not decode ' + file.name);
+  im.src = url;
+}
+function rebuildSource(s){
+  s.cx.clearRect(0,0,s.w,s.h);
+  s.cx.drawImage(s.img,0,0);
+  if(s.keyColor){
+    const d = s.cx.getImageData(0,0,s.w,s.h), p = d.data;
+    const [kr,kg,kb] = s.keyColor, tol = s.keyTol*255*1.732;
+    for(let i=0;i<p.length;i+=4){
+      if(!p[i+3]) continue;
+      const dr=p[i]-kr, dg=p[i+1]-kg, db=p[i+2]-kb;
+      if(Math.sqrt(dr*dr+dg*dg+db*db) <= tol) p[i+3]=0;
+    }
+    s.cx.putImageData(d,0,0);
+  }
+  cellCache.clear(); onionCache.clear(); S.suspect=null;
+}
+
+/* ══════════ grid detection ══════════ */
+function detectGrid(s, silent){
+  const d = s.cx.getImageData(0,0,s.w,s.h).data;
+  const bg = s.keyColor ? [...s.keyColor,255] : cornerColor(d,s);
+  const colE = new Int32Array(s.w), rowE = new Int32Array(s.h);
+  for(let y=0;y<s.h;y++){ let re=0;
+    for(let x=0;x<s.w;x++){ const i=(y*s.w+x)*4;
+      if(isEmpty(d[i],d[i+1],d[i+2],d[i+3],bg)){ colE[x]++; re++; } }
+    rowE[y]=re; }
+  let r = fromStats(colE,rowE,s.w,s.h) || squareGuess(s);
+  if(!r){ if(!silent) toast('No confident grid — set columns and rows by hand.'); return false; }
+  s.cols=r.cols; s.rows=r.rows; s.mgX=r.mgX; s.mgY=r.mgY; s.spX=r.spX; s.spY=r.spY;
+  s.order = Array.from({length:nCells(s)}, (_,i)=>i);
+  cellCache.clear();
+  if(!silent) toast(`Detected ${r.cols}×${r.rows}.`);
+  return true;
+}
+function cornerColor(d,s){
+  const px=(x,y)=>{const i=(y*s.w+x)*4;return [d[i],d[i+1],d[i+2],d[i+3]];};
+  const c=[px(0,0),px(s.w-1,0),px(0,s.h-1),px(s.w-1,s.h-1)];
+  let b=0,bv=0; for(let i=0;i<4;i++){let v=0;for(let j=0;j<4;j++)if(c[j].join()===c[i].join())v++;
+    if(v>bv){bv=v;b=i;}} return c[b];
+}
+const isEmpty = (r,g,b,a,bg) => a<=24 ? true : (bg[3]<=24 ? false :
+  Math.abs(r-bg[0])<=12 && Math.abs(g-bg[1])<=12 && Math.abs(b-bg[2])<=12);
+function contentRuns(e, len){
+  const thr = Math.round(len*0.98), out=[]; let inC=false;
+  for(let i=0;i<e.length;i++){ const c = e[i]<thr;
+    if(c&&!inC){out.push(i);inC=true;} if(!c&&inC){out.push(i);inC=false;} }
+  if(inC) out.push(e.length); return out;
+}
+function roughlyUniform(r){ let mn=1e9,mx=0;
+  for(let i=0;i<r.length;i+=2){const L=r[i+1]-r[i];mn=Math.min(mn,L);mx=Math.max(mx,L);}
+  return mn>0 && mx/mn<1.6; }
+function avgGutter(r){ const n=r.length/2; if(n<=1)return 0;
+  let s=0; for(let i=1;i<n;i++) s+=r[i*2]-r[(i-1)*2+1]; return Math.round(s/(n-1)); }
+function fromStats(colE,rowE,w,h){
+  const xr=contentRuns(colE,h), yr=contentRuns(rowE,w);
+  const cols=xr.length/2, rows=yr.length/2;
+  if(cols<1||rows<1||(cols===1&&rows===1)||cols>32||rows>32) return null;
+  if(!roughlyUniform(xr)||!roughlyUniform(yr)) return null;
+  return {cols,rows, mgX:Math.round((xr[0]+(w-xr[xr.length-1]))/2),
+          mgY:Math.round((yr[0]+(h-yr[yr.length-1]))/2),
+          spX:avgGutter(xr), spY:avgGutter(yr)};
+}
+/** No gutters at all — which is most image-model output. Assume square cells. */
+function squareGuess(s){
+  let best=null;
+  for(let c=1;c<=16;c++) for(let r=1;r<=16;r++){
+    if(c*r<2) continue;
+    const err = Math.abs((s.w/c)/(s.h/r) - 1);
+    if(err > 0.02) continue;
+    // FEWEST cells first, then squarest. A 13x5 fit that is 0.001 squarer than a
+    // 4x3 one is not a better reading of the sheet, it is a worse one.
+    const score = c*r*1000 + err;
+    if(!best || score < best.score) best={cols:c,rows:r,mgX:0,mgY:0,spX:0,spY:0,score};
+  }
+  return best;
+}
+
+/* ══════════ sheet rendering ══════════ */
+let previewOrder = null;   // live rearrange: the order the drag WOULD produce
+function fitZoom(){
+  const s = src(); if(!s) return;
+  const w = $('sheetWrap');
+  S.zoom = clamp(Math.min((w.clientWidth-6)/s.w, (w.clientHeight-6)/s.h, 2), 0.05, 8);
+  applyZoom();
+}
+function applyZoom(){
+  const s = src(); if(!s) return;
+  $('sheetInner').style.transform = `scale(${S.zoom})`;
+  $('sheetInner').style.width = (s.w*S.zoom)+'px';
+  $('sheetInner').style.height = (s.h*S.zoom)+'px';
+}
+function drawSheet(){ drawSheetArt(); drawSheetOverlay(); }
+function drawSheetArt(){
+  const s = src(); if(!s) return;
+  const a=$('sheetCv'), o=$('sheetOv');
+  a.width=o.width=s.w; a.height=o.height=s.h;
+  const ax=a.getContext('2d'); ax.clearRect(0,0,s.w,s.h); ax.imageSmoothingEnabled=false;
+  // The sheet's own four outer corners get the same curve as the panel holding
+  // it. Square corners inside a rounded box read as a mistake at the seam.
+  ax.save(); sheetClip(ax, s);
+  const ord = previewOrder || s.order;
+  // Cell by cell, from the CURRENT arrangement — so a swap visibly moves the art.
+  for(let slot=0; slot<nCells(s); slot++){
+    const from = rectOf(s, ord[slot] ?? slot), to = rectOf(s, slot);
+    ax.drawImage(s.cv, from.x, from.y, from.w, from.h, to.x, to.y, to.w, to.h);
+  }
+  ax.restore();
+}
+/** Outer-corner rounding in IMAGE pixels, so it looks the same at any zoom. */
+function sheetClip(cx, s){
+  const r = clamp(10/S.zoom, 2, Math.min(s.w,s.h)/2);
+  roundRect(cx, 0, 0, s.w, s.h, r); cx.clip();
+}
+/**
+ * Numbers, names and the pink "showing now" marker. Split out from the art
+ * because it has to repaint on EVERY frame change — during playback the sheet
+ * was only ever redrawn by renderAll(), so the pink stayed on whichever cell
+ * you last tapped instead of following the preview.
+ */
+function drawSheetOverlay(){
+  const s = src(); if(!s) return;
+  const o=$('sheetOv');
+  if(o.width!==s.w||o.height!==s.h){ o.width=s.w; o.height=s.h; }
+  const ord = previewOrder || s.order;
+  const cx=o.getContext('2d'); cx.clearRect(0,0,s.w,s.h);
+  if(!S.showGrid) return;
+  cx.save(); sheetClip(cx, s);
+
+  const use = new Map();
+  const curId = S.seq[S.cur] ? S.seq[S.cur].id : null;
+  let curSlot = -1;
+  S.seq.forEach((f,i) => {
+    const [si,ci] = parseId(f.id); if(si !== S.active) return;
+    const slot = (ord.indexOf(ci) < 0) ? ci : ord.indexOf(ci);
+    if(!use.has(slot)) use.set(slot,[]); use.get(slot).push(i+1);
+    if(f.id === curId && i === S.cur) curSlot = slot;
+  });
+  const lw = Math.max(1, 1/S.zoom);
+  const fs = clamp(cellH(s)*0.24, 8, 26/S.zoom);
+  for(let slot=0; slot<nCells(s); slot++){
+    const r = rectOf(s, slot);
+    cx.lineWidth=lw; cx.strokeStyle='rgba(63,63,70,.85)';
+    cx.strokeRect(r.x+lw/2, r.y+lw/2, r.w-lw, r.h-lw);
+    // ONE number per cell. It is the number that will export.
+    cx.font=`${fs*0.7}px ui-sans-serif,system-ui`; cx.fillStyle='rgba(161,161,170,.55)';
+    cx.textBaseline='bottom'; cx.textAlign='left';
+    cx.fillText(String(slot), r.x+3, r.y+r.h-3);
+    const id = sidOf(S.active, ord[slot] ?? slot);
+    const nm = S.showNames ? S.names[id] : null;
+    if(nm){ cx.fillStyle='rgba(34,211,238,.8)'; cx.textAlign='right';
+      cx.font=`${fs*0.62}px ui-sans-serif,system-ui`;
+      cx.fillText(nm.slice(0,14), r.x+r.w-3, r.y+r.h-3); }
+    if(S.visemes[id]){ cx.fillStyle='rgba(167,139,250,.9)'; cx.textAlign='left';
+      cx.fillText(S.visemes[id], r.x+3, r.y+fs*0.8); }
+    if(S.suspect && S.suspect[id]){
+      cx.fillStyle = 'rgba(250,204,21,.95)';
+      cx.beginPath(); cx.arc(r.x+r.w-6, r.y+6, Math.max(2.5,fs*0.16), 0, 7); cx.fill();
+    }
+    const ord2 = use.get(slot);
+    if(ord2){
+      const txt = ord2.length>3 ? ord2.slice(0,3).join(',')+'…' : ord2.join(',');
+      cx.font=`700 ${fs}px ui-sans-serif,system-ui`; cx.textAlign='center'; cx.textBaseline='middle';
+      const tw = Math.max(cx.measureText(txt).width + fs*0.6, fs*1.5);
+      // Same language as the chips and the scrub bar: pink is the frame on
+      // screen right now, cyan is everything else in the sequence. Three
+      // places, one colour rule, so your eye can jump between them.
+      const now = slot === curSlot;
+      cx.fillStyle = now ? 'rgba(244,63,142,.95)' : 'rgba(34,211,238,.92)';
+      roundRect(cx, r.x+r.w/2-tw/2, r.y+2, tw, fs*1.4, 4); cx.fill();
+      cx.fillStyle='#09090b'; cx.fillText(txt, r.x+r.w/2, r.y+2+fs*0.72);
+      cx.strokeStyle = now ? 'rgba(244,63,142,.95)' : 'rgba(34,211,238,.9)';
+      cx.lineWidth = now ? lw*3 : lw*2;
+      cx.strokeRect(r.x+lw, r.y+lw, r.w-lw*2, r.h-lw*2);
+    }
+  }
+  cx.restore();
+}
+/** Everything that must change when the current frame changes, in one place. */
+function onCurChanged(){
+  drawPreview(); markLive(); drawScrub(); drawSheetOverlay(); syncNums();
+  $('xfTitle').textContent = S.seq[S.cur]
+    ? `frame ${S.cur+1} · cell ${slotOfId(S.seq[S.cur].id)}` : 'no frame';
+}
+function roundRect(cx,x,y,w,h,r){ cx.beginPath(); cx.moveTo(x+r,y);
+  cx.arcTo(x+w,y,x+w,y+h,r); cx.arcTo(x+w,y+h,x,y+h,r);
+  cx.arcTo(x,y+h,x,y,r); cx.arcTo(x,y,x+w,y,r); cx.closePath(); }
+
+function hit(cx, cy){
+  const s = src(); if(!s) return {slot:-1};
+  const b = $('sheetOv').getBoundingClientRect();
+  const x=(cx-b.left)/S.zoom, y=(cy-b.top)/S.zoom;
+  for(let slot=0; slot<nCells(s); slot++){
+    const r = rectOf(s, slot);
+    if(x>=r.x && x<r.x+r.w && y>=r.y && y<r.y+r.h){
+      // The badge is a real touch target (40 screen px) but may never eat more
+      // than 45% of the cell, or a tap meant for the picture lands on it. It is
+      // only a target when a badge is actually drawn — there is nothing to
+      // take back from a cell that is not in the sequence.
+      const id = idAtSlot(slot);
+      const used = S.seq.some(f => f.id === id);
+      const bh = Math.min(r.h*0.45, Math.max(r.h*0.30, 40/S.zoom));
+      const bw = Math.min(r.w*0.8,  Math.max(r.w*0.45, 40/S.zoom));
+      const inBadge = used && y < r.y+bh && Math.abs(x-(r.x+r.w/2)) < bw/2;
+      return {slot, inBadge, x, y};
+    }
+  }
+  return {slot:-1};
+}
+
+/* ── sheet pointer: tap adds, badge removes, drag rearranges ── */
+let cancelCellDrag = () => {};   // assigned by the drag IIFE below
+(function(){
+  const ov = $('sheetOv');
+  let from=-1, moved=false, sx=0, sy=0, badge=false, lp=null;
+  ov.addEventListener('pointerdown', e => {
+    const s = src(); if(!s) return;
+    if(S.pickKey){ pickKey(e); return; }
+    const h = hit(e.clientX, e.clientY);
+    if(h.slot < 0) return;
+    from = h.slot; badge = !!h.inBadge; moved=false; sx=e.clientX; sy=e.clientY;
+    ov.setPointerCapture(e.pointerId);
+    lp = setTimeout(() => {
+      lp = null; moved = true;                       // long press: consume the gesture
+      const id = idAtSlot(from);
+      if(badge) act(() => { S.seq = S.seq.filter(f => f.id !== id); fixCur(); });
+      else openCellEditor(id, e.clientX, e.clientY);
+      renderAll();
+    }, 420);
+  });
+  ov.addEventListener('pointermove', e => {
+    if(from < 0) return;
+    if(!moved && Math.hypot(e.clientX-sx, e.clientY-sy) > 6){
+      clearTimeout(lp); lp=null; moved = true;
+      if(!badge){
+        const g=$('ghostImg'); g.src = cellCanvas(idAtSlot(from)).toDataURL();
+        g.style.width='58px'; g.style.display='block';
+      }
+    }
+    if(moved && !badge){
+      const g=$('ghostImg'); g.style.left=(e.clientX-29)+'px'; g.style.top=(e.clientY-29)+'px';
+      const h = hit(e.clientX, e.clientY);
+      previewOrder = (h.slot>=0 && h.slot!==from) ? reorder(src().order, from, h.slot) : null;
+      drawSheet();
+    }
+  });
+  const end = e => {
+    if(from < 0) return;
+    clearTimeout(lp); lp=null;
+    $('ghostImg').style.display='none';
+    const f = from, wasBadge = badge, didMove = moved;
+    from = -1; previewOrder = null;
+    if(!didMove){
+      const id = idAtSlot(f);
+      if(wasBadge){                                   // take back the most recent instance
+        act(() => { for(let i=S.seq.length-1;i>=0;i--) if(S.seq[i].id===id){ S.seq.splice(i,1); break; } fixCur(); });
+      } else if(e.shiftKey){
+        act(() => { S.seq = S.seq.filter(x => x.id !== id); fixCur(); });
+      } else {
+        act(() => { S.seq.push({id, hold:1}); S.sel = S.seq.length-1; S.cur = S.sel; });
+      }
+      renderAll(); return;
+    }
+    if(wasBadge){ renderAll(); return; }
+    const h = hit(e.clientX, e.clientY);
+    if(h.slot >= 0 && h.slot !== f){
+      act(() => { src().order = reorder(src().order, f, h.slot); cellCache.clear(); onionCache.clear(); });
+    }
+    renderAll();
+  };
+  document.addEventListener('keydown', e => {
+    // Escape abandons a rearrange you have changed your mind about.
+    if(e.key==='Escape' && from>=0){
+      clearTimeout(lp); lp=null; from=-1; previewOrder=null; moved=false;
+      $('ghostImg').style.display='none'; drawSheet();
+    }
+  });
+  ov.addEventListener('pointerup', end);
+  ov.addEventListener('pointercancel', () => { clearTimeout(lp); from=-1; previewOrder=null;
+    $('ghostImg').style.display='none'; drawSheet(); });
+  cancelCellDrag = () => {
+    if(from < 0) return;
+    clearTimeout(lp); lp=null; from=-1; previewOrder=null; moved=false;
+    $('ghostImg').style.display='none'; drawSheet();
+  };
+})();
+/**
+ * Two fingers on the sheet pan and zoom it. Without this a big sheet is
+ * unreachable on a touch-only tablet - the same hole the filmstrip had, in the
+ * place you spend the most time.
+ */
+(function(){
+  const wrap = $('sheetWrap');
+  const pts = new Map();
+  let start = null;
+  wrap.addEventListener('pointerdown', e => {
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pts.size === 2){
+      const [p,q] = [...pts.values()];
+      start = {d: Math.hypot(p.x-q.x, p.y-q.y), zoom: S.zoom,
+               cx:(p.x+q.x)/2, cy:(p.y+q.y)/2,
+               sl: wrap.scrollLeft, st: wrap.scrollTop};
+      cancelCellDrag();             // two fingers is navigation, not a rearrange
+    }
+  }, true);
+  wrap.addEventListener('pointermove', e => {
+    if(!pts.has(e.pointerId)) return;
+    pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(pts.size !== 2 || !start) return;
+    const [p,q] = [...pts.values()];
+    const d = Math.hypot(p.x-q.x, p.y-q.y);
+    const mx = (p.x+q.x)/2, my = (p.y+q.y)/2;
+    const z = clamp(start.zoom * (d/Math.max(1,start.d)), 0.05, 8);
+    // Keep whatever is between the fingers under the fingers while zooming.
+    const b = wrap.getBoundingClientRect();
+    const ax = (start.sl + (start.cx - b.left)) / start.zoom;
+    const ay = (start.st + (start.cy - b.top))  / start.zoom;
+    S.zoom = z; applyZoom(); syncNums();
+    wrap.scrollLeft = ax*z - (mx - b.left);
+    wrap.scrollTop  = ay*z - (my - b.top);
+  }, true);
+  const up = e => { pts.delete(e.pointerId); if(pts.size < 2) start = null; };
+  wrap.addEventListener('pointerup', up, true);
+  wrap.addEventListener('pointercancel', up, true);
+  // Ctrl/Cmd+wheel zooms, plain wheel scrolls - the convention everywhere else.
+  wrap.addEventListener('wheel', e => {
+    if(!(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    S.zoom = clamp(S.zoom * (e.deltaY < 0 ? 1.08 : 1/1.08), 0.05, 8);
+    applyZoom(); syncNums();
+  }, {passive:false});
+})();
+/** Swap or ripple, non-destructively — returns a NEW order array. */
+function reorder(order, from, to){
+  const o = order.slice();
+  if(S.dragMode === 'swap'){ const t=o[from]; o[from]=o[to]; o[to]=t; }
+  else { const m = o.splice(from,1)[0]; o.splice(to,0,m); }
+  return o;
+}
+function fixCur(){ S.cur = clamp(S.cur, 0, Math.max(0,S.seq.length-1));
+  S.sel=-1; S.rangeA=S.rangeB=-1; }
+
+function pickKey(e){
+  const s = src(); const b=$('sheetOv').getBoundingClientRect();
+  const x=clamp(Math.floor((e.clientX-b.left)/S.zoom),0,s.w-1);
+  const y=clamp(Math.floor((e.clientY-b.top)/S.zoom),0,s.h-1);
+  const p = s.cx.getImageData(x,y,1,1).data;
+  act(() => { s.keyColor=[p[0],p[1],p[2]]; rebuildSource(s); });
+  S.pickKey=false; $('bKey').classList.remove('on'); $('tolRow').classList.remove('hide');
+  renderAll(); toast(`Keying rgb(${p[0]},${p[1]},${p[2]}).`);
+}
+
+/* ══════════ preview ══════════ */
+const hexRgb = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+/**
+ * Luma-only tinted copy of a cell - the onion ghost. Luminance survives as
+ * brightness so the shape still reads; the hue is whatever the swatch says.
+ * Past and future default to the app's own pink and cyan.
+ */
+function onionCanvas(id, hex){
+  const k = id+'|'+hex;
+  if(onionCache.has(k)) return onionCache.get(k);
+  const s0 = cellCanvas(id);
+  const c = document.createElement('canvas'); c.width=s0.width; c.height=s0.height;
+  const cx = c.getContext('2d',{willReadFrequently:true});
+  cx.drawImage(s0,0,0);
+  const d = cx.getImageData(0,0,c.width,c.height), p=d.data;
+  const [tr,tg,tb] = hexRgb(hex);
+  for(let i=0;i<p.length;i+=4){
+    if(!p[i+3]) continue;
+    const l = (0.2126*p[i]+0.7152*p[i+1]+0.0722*p[i+2])/255;
+    const k2 = 0.30 + 0.70*l;          // floor, so dark art still reads as a ghost
+    p[i]=tr*k2; p[i+1]=tg*k2; p[i+2]=tb*k2;
+  }
+  cx.putImageData(d,0,0); onionCache.set(k,c); return c;
+}
+function range(){ return (S.rangeA>=0 && S.rangeB>=S.rangeA)
+  ? {a:S.rangeA,b:S.rangeB} : {a:0,b:S.seq.length-1}; }
+/** Size the preview so a whole cell fits its box — a cropped frame is useless. */
+function fitPreview(){
+  const s = src(); if(!s) return;
+  const w = $('pvWrap');
+  if(!w.clientWidth || !w.clientHeight) return;
+  const z = Math.min((w.clientWidth-24)/cellW(s), (w.clientHeight-24)/cellH(s));
+  S.pvZoom = clamp(Math.round(z*100), 25, 800);
+  syncNums();
+}
+function drawPreview(){
+  const cv=$('preview'), ov=$('pvOv'), s=src();
+  if(!s || !S.seq.length){ cv.width=cv.height=1; $('hud').textContent='no frames';
+    $('nameTag').style.display='none'; ov.width=ov.height=1; return; }
+  const z = S.pvZoom/100, cw=cellW(s), ch=cellH(s);
+  cv.width=Math.max(1,Math.round(cw*z)); cv.height=Math.max(1,Math.round(ch*z));
+  cv.style.width=cv.width+'px'; cv.style.height=cv.height+'px';
+  const cx=cv.getContext('2d'); cx.clearRect(0,0,cv.width,cv.height); cx.imageSmoothingEnabled=false;
+  const {a,b}=range(); const i=clamp(S.cur,a,b); const f=S.seq[i]; if(!f) return;
+
+  if(S.diff && i>a){
+    drawArt(cx, S.seq[i-1].id, cv.width, cv.height, 1);
+    cx.globalCompositeOperation='difference';
+    drawArt(cx, f.id, cv.width, cv.height, 1);
+    cx.globalCompositeOperation='source-over';
+  } else {
+    if(S.onion){
+      for(let k=S.onB;k>=1;k--){ const j=i-k; if(j<a) continue;
+        drawArt(cx, S.seq[j].id, cv.width, cv.height, (S.onS/100)*(1-(k-1)*0.25), onionCanvas(S.seq[j].id,S.onColB)); }
+      for(let k=S.onA;k>=1;k--){ const j=i+k; if(j>b) continue;
+        drawArt(cx, S.seq[j].id, cv.width, cv.height, (S.onS/100)*(1-(k-1)*0.25), onionCanvas(S.seq[j].id,S.onColA)); }
+    }
+    drawArt(cx, f.id, cv.width, cv.height, 1);
+  }
+  // pivot crosshair
+  ov.width=cv.width; ov.height=cv.height;
+  ov.style.width=cv.width+'px'; ov.style.height=cv.height+'px';
+  ov.style.position='absolute';
+  const b2=cv.getBoundingClientRect(), p2=$('pvWrap').getBoundingClientRect();
+  ov.style.left=(b2.left-p2.left)+'px'; ov.style.top=(b2.top-p2.top)+'px';
+  const ox=ov.getContext('2d'); ox.clearRect(0,0,ov.width,ov.height);
+  const H = frameHandles(f.id, ov.width, ov.height);
+  if(H){
+    ox.strokeStyle='rgba(34,211,238,.85)'; ox.lineWidth=1.25;
+    ox.setLineDash([5,4]);
+    ox.beginPath(); ox.moveTo(H.c[0][0],H.c[0][1]);
+    for(let i=1;i<4;i++) ox.lineTo(H.c[i][0],H.c[i][1]);
+    ox.closePath(); ox.stroke(); ox.setLineDash([]);
+    // rotate stalk
+    ox.beginPath(); ox.moveTo(H.topMid[0],H.topMid[1]); ox.lineTo(H.rot[0],H.rot[1]); ox.stroke();
+    ox.fillStyle='#22d3ee';
+    H.c.forEach(([x,y])=>{ ox.beginPath(); ox.arc(x,y,4.5,0,7); ox.fill(); });
+    ox.fillStyle='#fbbf24';
+    ox.beginPath(); ox.arc(H.rot[0],H.rot[1],5,0,7); ox.fill();
+  }
+  ox.strokeStyle='rgba(244,63,142,.85)'; ox.lineWidth=1.25;
+  const pxp=S.pivotX*ov.width, pyp=S.pivotY*ov.height;
+  ox.beginPath(); ox.moveTo(pxp-8,pyp); ox.lineTo(pxp+8,pyp);
+  ox.moveTo(pxp,pyp-8); ox.lineTo(pxp,pyp+8); ox.stroke();
+  ox.beginPath(); ox.arc(pxp,pyp,3,0,7); ox.stroke();
+
+  const t=xfOf(f.id);
+  $('hud').textContent = `${i+1}/${S.seq.length} · cell ${slotOfId(f.id)}${f.hold>1?' ×'+f.hold:''}`
+    + ` · x${t.dx} y${t.dy} ${t.sc.toFixed(2)}×${t.rot?' '+t.rot.toFixed(0)+'°':''}`;
+  const nm = S.names[f.id];
+  const tag = $('nameTag');
+  if(nm){ tag.textContent = nm + (S.visemes[f.id] ? ' · '+S.visemes[f.id] : ''); tag.style.display='block'; }
+  else tag.style.display='none';
+}
+
+/**
+ * Where the current frame's box lands on screen, corners included, so the
+ * handles and the hit-test cannot disagree with what is drawn. Same arithmetic
+ * as drawArt, run forwards.
+ */
+function frameHandles(id, dw, dh){
+  const s0 = srcOfId(id); if(!s0) return null;
+  const t = xfOf(id), px=S.pivotX, py=S.pivotY;
+  const kx = dw/cellW(s0), ky = dh/cellH(s0);
+  const k = S.fitMode==='fill' ? Math.max(kx,ky) : Math.min(kx,ky);
+  const w = cellW(s0)*k*t.sc, h = cellH(s0)*k*t.sc;
+  const cx0 = px*dw + t.dx*k, cy0 = py*dh + t.dy*k;
+  const a = t.rot*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a);
+  const P = (lx,ly) => [cx0 + lx*ca - ly*sa, cy0 + lx*sa + ly*ca];
+  const l = -px*w, r = (1-px)*w, tp = -py*h, bt = (1-py)*h;
+  return {c:[P(l,tp),P(r,tp),P(r,bt),P(l,bt)], topMid:P((l+r)/2,tp),
+          rot:P((l+r)/2, tp-26), centre:[cx0,cy0], w, h, k};
+}
+/* transport */
+let last=0, acc=0, dir=1;
+function raf(ts){
+  requestAnimationFrame(raf);
+  if(!S.playing || !S.seq.length){ last=ts; return; }
+  const {a,b}=range(); if(b<a) return;
+  const f = S.seq[clamp(S.cur,a,b)] || {hold:1};
+  const spf = 1000/Math.max(1,S.fps) * Math.max(1,f.hold||1);
+  acc += ts-last; last=ts;
+  if(acc < spf) return;
+  acc = 0;
+  let n = S.cur + (S.rev ? -dir : dir);
+  if(n>b){ if(S.loopMode==='ping'){dir=-1;n=Math.max(a,b-1);}
+           else if(S.loopMode==='loop') n=a; else { n=b; S.playing=false; syncPlay(); } }
+  else if(n<a){ if(S.loopMode==='ping'){dir=1;n=Math.min(b,a+1);}
+           else if(S.loopMode==='loop') n=b; else { n=a; S.playing=false; syncPlay(); } }
+  S.cur=n; onCurChanged();
+}
+requestAnimationFrame(ts => { last=ts; raf(ts); });
+/**
+ * Pressing Play when a "once" take is already parked on its last frame did
+ * nothing visible, which reads as a broken button - you had to rewind by hand
+ * first. Nobody should have to know that. Rewind to the other end and go.
+ */
+function togglePlay(){
+  if(!S.playing && S.loopMode==='once' && S.seq.length){
+    const {a,b} = range();
+    if(!S.rev && S.cur >= b) S.cur = a;
+    else if(S.rev && S.cur <= a) S.cur = b;
+    onCurChanged();
+  }
+  S.playing = !S.playing; dir = 1; syncPlay(); drawChips();
+}
+function syncPlay(){ const b=$('bPlay');
+  b.innerHTML = `<svg class="i"><use href="#${S.playing?'i-pause':'i-play'}"/></svg>`;
+  b.classList.toggle('live', S.playing); }
+
+/* preview gestures: drag = move, pinch = scale, twist = rotate */
+(function(){
+  const w = $('pvWrap');
+  const pts = new Map(); let mode=null, start=null;
+  const local = e => { const b=$('preview').getBoundingClientRect();
+    return [e.clientX-b.left, e.clientY-b.top]; };
+  w.addEventListener('pointerdown', e => {
+    if(!S.seq.length) return;
+    pts.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    w.setPointerCapture(e.pointerId);
+    if(pts.size===1){
+      const f = S.seq[S.cur];
+      const H = f && frameHandles(f.id, $('preview').width, $('preview').height);
+      const [lx,ly] = local(e);
+      const near = (p) => Math.hypot(lx-p[0], ly-p[1]) < 13;
+      if(H && near(H.rot)){
+        mode='rot'; start={a0:Math.atan2(ly-H.centre[1], lx-H.centre[0]), rot:xfOf(f.id).rot};
+        tx(); return;
+      }
+      if(H && H.c.some(near)){
+        mode='scale';
+        start={d0:Math.hypot(lx-H.centre[0], ly-H.centre[1]), sc:xfOf(f.id).sc};
+        tx(); return;
+      }
+      mode='move'; w.classList.add('drag'); tx(); }
+    else if(pts.size===2){
+      const [p,q] = [...pts.values()];
+      const f = S.seq[S.cur]; const t = xfOf(f.id);
+      start = {d: Math.hypot(p.x-q.x,p.y-q.y), a: Math.atan2(q.y-p.y,q.x-p.x), sc:t.sc, rot:t.rot};
+      mode='pinch';
+    }
+  });
+  w.addEventListener('pointermove', e => {
+    if(!pts.has(e.pointerId)) return;
+    const prev = pts.get(e.pointerId);
+    pts.set(e.pointerId, {x:e.clientX,y:e.clientY});
+    const f = S.seq[S.cur]; if(!f) return;
+    if((mode==='rot' || mode==='scale') && pts.size===1){
+      const H = frameHandles(f.id, $('preview').width, $('preview').height);
+      const [lx,ly] = local(e);
+      const t = {...xfOf(f.id)};
+      if(mode==='rot'){
+        let deg = t.rot + (Math.atan2(ly-H.centre[1], lx-H.centre[0]) - start.a0)*180/Math.PI;
+        start.a0 = Math.atan2(ly-H.centre[1], lx-H.centre[0]);
+        if(e.shiftKey) deg = Math.round(deg/15)*15;        // shift snaps to 15°
+        t.rot = ((deg+180)%360+360)%360-180;
+      } else {
+        const d = Math.hypot(lx-H.centre[0], ly-H.centre[1]);
+        t.sc = clamp(start.sc * (d/Math.max(1,start.d0)), 0.05, 8);
+      }
+      setXf(f.id, t); return;
+    }
+    if(mode==='move' && pts.size===1){
+      const t = {...xfOf(f.id)};
+      const z = S.pvZoom/100;
+      t.dx = Math.round(t.dx + (e.clientX-prev.x)/z);
+      t.dy = Math.round(t.dy + (e.clientY-prev.y)/z);
+      setXf(f.id, t);
+    } else if(mode==='pinch' && pts.size===2 && start){
+      const [p,q] = [...pts.values()];
+      const d = Math.hypot(p.x-q.x,p.y-q.y), a = Math.atan2(q.y-p.y,q.x-p.x);
+      const t = {...xfOf(f.id)};
+      t.sc = clamp(start.sc * (d/Math.max(1,start.d)), 0.05, 8);
+      t.rot = start.rot + (a-start.a)*180/Math.PI;
+      setXf(f.id, t);
+    }
+  });
+  const up = e => {
+    pts.delete(e.pointerId);
+    if(!pts.size){ if(mode) commit(); mode=null; start=null; w.classList.remove('drag'); }
+    else if(pts.size===1){ mode='move'; }
+  };
+  w.addEventListener('pointerup', up); w.addEventListener('pointercancel', up);
+  w.addEventListener('wheel', e => {
+    if(!S.seq.length) return;
+    e.preventDefault();
+    const f = S.seq[S.cur]; if(!f) return;
+    act(() => { const t={...xfOf(f.id)};
+      t.sc = clamp(t.sc*(e.deltaY<0?1.05:1/1.05),0.05,8); setXfRaw(f.id,t); });
+    drawPreview(); drawChips(); syncNums();
+  }, {passive:false});
+})();
+function setXfRaw(id,t){
+  if(!t.dx && !t.dy && Math.abs(t.sc-1)<1e-6 && !t.rot) delete S.xf[id];
+  else S.xf[id] = {dx:t.dx||0, dy:t.dy||0, sc:t.sc??1, rot:t.rot||0};
+}
+function setXf(id,t){ setXfRaw(id,t); drawPreview(); drawChips(); syncNums(); }
+
+/* ══════════ scrub bar ══════════ */
+function drawScrub(){
+  const cv=$('scrubCv'), host=$('scrub');
+  const W = host.clientWidth, H = host.clientHeight;
+  cv.width = W*devicePixelRatio|0; cv.height = H*devicePixelRatio|0;
+  const cx = cv.getContext('2d'); cx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
+  cx.clearRect(0,0,W,H);
+  if(!S.seq.length) return;
+  const total = S.seq.reduce((a,f)=>a+Math.max(1,f.hold||1),0);
+  const {a,b} = range();
+  let acc2=0;
+  S.seq.forEach((f,i) => {
+    const wgt = Math.max(1,f.hold||1);
+    const x = (acc2/total)*W, w2 = (wgt/total)*W;
+    const inR = i>=a && i<=b;
+    cx.fillStyle = i===S.cur ? '#f43f8e' : (inR ? '#3a3a45' : '#191920');
+    cx.fillRect(x+0.5, 3, Math.max(1,w2-1), H-6);
+    if(S.sel===i || (S.rangeA>=0&&i>=S.rangeA&&i<=S.rangeB)){
+      cx.strokeStyle='#22d3ee'; cx.lineWidth=1; cx.strokeRect(x+0.5,2.5,Math.max(1,w2-1),H-5);
+    }
+    acc2 += wgt;
+  });
+}
+(function(){
+  const host=$('scrub');
+  let down=false;
+  const pick = e => {
+    if(!S.seq.length) return;
+    const b=host.getBoundingClientRect();
+    const total = S.seq.reduce((a,f)=>a+Math.max(1,f.hold||1),0);
+    let t = clamp((e.clientX-b.left)/b.width,0,0.9999)*total, acc2=0;
+    for(let i=0;i<S.seq.length;i++){ acc2 += Math.max(1,S.seq[i].hold||1);
+      if(t < acc2){ S.cur=i; break; } }
+    onCurChanged(); drawChips();
+  };
+  host.addEventListener('pointerdown', e => { down=true; host.setPointerCapture(e.pointerId); pick(e); });
+  host.addEventListener('pointermove', e => { if(down) pick(e); });
+  host.addEventListener('pointerup', () => down=false);
+})();
+
+/* ══════════ chips ══════════ */
+function drawChips(){
+  const strip=$('frames');
+  $('seqCount').textContent = S.seq.length ? `${S.seq.length} frames` : '';
+  $('film').classList.toggle('empty', !S.seq.length);
+  if(!S.seq.length){ strip.innerHTML='<span class="hint" style="padding:26px 10px">Tap cells on the sheet to build a sequence.</span>';
+    centreStrip(); return; }
+  const {a,b}=range();
+  strip.innerHTML='';
+  S.seq.forEach((f,i) => {
+    const d=document.createElement('div');
+    // "Showing in the preview" is true whether or not playback is running —
+    // paused is exactly when you need to know which frame you are looking at.
+    d.className='chip'+(i===S.cur?' live':'')+(inSel(i)?' sel':'')+((i<a||i>b)?' out':'');
+    d.dataset.i=i;
+    const c=document.createElement('canvas'); c.width=c.height=56;
+    drawArt(c.getContext('2d'), f.id, 56, 56, 1);
+    d.appendChild(c);
+    const l=document.createElement('div'); l.className='lbl';
+    l.textContent = `${i+1} · c${slotOfId(f.id)}`; d.appendChild(l);
+    const nm = S.showNames ? S.names[f.id] : null;
+    if(nm){ const n=document.createElement('div'); n.className='nm'; n.textContent=nm; d.appendChild(n); }
+    if(f.hold>1){ const h=document.createElement('div'); h.className='hold'; h.textContent='×'+f.hold; d.appendChild(h); }
+    const x=document.createElement('div'); x.className='x'; x.textContent='×';
+    x.title = 'Remove this frame from the sequence';
+    x.onpointerdown = ev => { ev.stopPropagation();
+      act(()=>{ S.seq.splice(i,1); fixCur(); }); renderAll(); };
+    d.appendChild(x);
+    strip.appendChild(d);
+  });
+  markLive();
+  centreStrip();
+}
+const inSel = i => (S.rangeA>=0 && S.rangeB>=S.rangeA) ? (i>=S.rangeA&&i<=S.rangeB) : i===S.sel;
+function markLive(){
+  [...$('frames').children].forEach(el => {
+    if(!el.dataset || el.dataset.i===undefined) return;
+    el.classList.toggle('live', +el.dataset.i===S.cur);
+  });
+  centreStrip();
+}
+/** A short take sits centred like a length of film on a bench; a long one runs
+    off to the right and scrolls. */
+function centreStrip(){
+  const st = $('strip');
+  st.classList.toggle('centre', st.scrollWidth <= st.clientWidth + 1);
+}
+/* pointer-driven chip reorder — works with mouse, pen and finger */
+(function(){
+  const strip=$('frames'), scroller=$('strip'), caret=$('caret'), wrap=$('stripWrap');
+  let src2=-1, moved=false, sx=0, el=null, target=-1, lp=null;
+  strip.addEventListener('pointerdown', e => {
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    src2 = +chip.dataset.i; el = chip; moved=false; sx=e.clientX;
+    strip.setPointerCapture(e.pointerId);
+    lp = setTimeout(()=>{ lp=null; if(!moved){ moved=true; el.classList.add('ghost'); } }, 250);
+  });
+  strip.addEventListener('pointermove', e => {
+    if(src2 < 0) return;
+    if(!moved && Math.abs(e.clientX-sx) > 8){ clearTimeout(lp); lp=null; moved=true; el.classList.add('ghost'); }
+    if(!moved) return;
+    const wb = wrap.getBoundingClientRect();
+    let best=S.seq.length, bx=null;
+    [...strip.children].forEach((c,i) => {
+      if(c.dataset.i===undefined) return;
+      const b=c.getBoundingClientRect();
+      if(e.clientX < b.left + b.width/2){ if(best===S.seq.length){ best=i; bx=b.left; } }
+    });
+    if(bx===null){ const lastEl=[...strip.children].filter(c=>c.dataset.i!==undefined).pop();
+      if(lastEl){ const b=lastEl.getBoundingClientRect(); bx=b.right; } }
+    target = best;
+    caret.style.display='block';
+    caret.style.left = ((bx===null?0:bx) - wb.left - 1) + 'px';
+    // auto-scroll near the edges
+    if(e.clientX < wb.left+40) scroller.scrollLeft -= 12;
+    else if(e.clientX > wb.right-40) scroller.scrollLeft += 12;
+  });
+  const end = e => {
+    if(src2 < 0) return;
+    clearTimeout(lp); lp=null;
+    caret.style.display='none';
+    const f=src2, didMove=moved, tgt=target;
+    src2=-1; target=-1; if(el) el.classList.remove('ghost'); el=null;
+    if(!didMove){
+      if(e.shiftKey && S.sel>=0){ S.rangeA=Math.min(S.sel,f); S.rangeB=Math.max(S.sel,f); }
+      else { S.sel=f; S.rangeA=S.rangeB=-1; }
+      S.cur=f; renderAll(); return;
+    }
+    if(tgt>=0 && tgt!==f && tgt!==f+1){
+      act(()=>{ const m=S.seq.splice(f,1)[0];
+        S.seq.splice(tgt > f ? tgt-1 : tgt, 0, m);
+        S.cur = tgt > f ? tgt-1 : tgt; S.sel=S.cur; S.rangeA=S.rangeB=-1; });
+    }
+    renderAll();
+  };
+  strip.addEventListener('pointerup', end);
+  strip.addEventListener('pointercancel', () => { clearTimeout(lp); src2=-1;
+    caret.style.display='none'; if(el) el.classList.remove('ghost'); el=null; });
+})();
+
+/**
+ * Drag the sprockets to pull the reel. A scrollbar is a mouse affordance; on a
+ * tablet with no pointer there was no way to move a long take at all. Grabbing
+ * anywhere on the film that is NOT a frame pans it - the perforations doing the
+ * job perforations were invented to do.
+ */
+(function(){
+  const wrap=$('stripWrap'), sc=$('strip');
+  let panning=false, sx=0, base=0, id=null;
+  wrap.addEventListener('pointerdown', e => {
+    if(e.target.closest('.chip')) return;          // frames are for dragging frames
+    panning=true; id=e.pointerId; sx=e.clientX; base=sc.scrollLeft;
+    wrap.setPointerCapture(id); wrap.classList.add('panning');
+  });
+  wrap.addEventListener('pointermove', e => {
+    if(!panning || e.pointerId!==id) return;
+    sc.scrollLeft = base - (e.clientX - sx);
+  });
+  const end = e => { if(!panning || (e && e.pointerId!==id)) return;
+    panning=false; id=null; wrap.classList.remove('panning'); };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  // A wheel over the film scrolls it sideways too, for trackpads and mice.
+  wrap.addEventListener('wheel', e => {
+    if(sc.scrollWidth <= sc.clientWidth) return;
+    e.preventDefault();
+    sc.scrollLeft += (Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY);
+  }, {passive:false});
+})();
+
+/* ══════════ cell editor (name / tags / viseme) ══════════ */
+let edId = null;
+function openCellEditor(id, x, y){
+  edId = id;
+  const ed = $('cellEd');
+  const tags = S.tags[id] || [];
+  const pool = [...new Set([].concat(...Object.values(S.tags)))].filter(t=>!tags.includes(t));
+  ed.innerHTML = `
+    <h3><svg class="i"><use href="#i-tag"/></svg>Cell ${slotOfId(id)}<span class="sp"></span>
+      <button id="edClose" style="min-height:22px;padding:1px 7px">Done</button></h3>
+    <label class="hint">Name</label>
+    <input type="text" id="edName" list="edNameList"
+      value="${(S.names[id]||'').replace(/"/g,'&quot;')}" placeholder="surprise, wide_smile, shrug…">
+    <datalist id="edNameList">${allNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    <label class="hint" style="margin-top:8px;display:block">Tags</label>
+    <div id="tagBox">${tags.map(t=>`<span class="tag on" data-t="${t}">${t}</span>`).join('')}
+      ${pool.map(t=>`<span class="tag" data-t="${t}">${t}</span>`).join('')}
+      <span class="tag" data-new="1">+ add</span></div>
+    <label class="hint" style="margin-top:8px;display:block">Viseme — one drawing can answer twice</label>
+    <div class="vis">${VIS.map(v=>`<button data-v="${v}" class="${S.visemes[id]===v?'on':''}">${v}</button>`).join('')}</div>
+    <div class="hint" style="margin-top:8px">A named cell is one an AI can direct.
+      <b>wide_smile</b> also works as the “E” mouth shape.</div>`;
+  ed.style.display='block';
+  const w = 280, h = ed.offsetHeight;
+  ed.style.left = clamp(x-w/2, 8, innerWidth-w-8)+'px';
+  ed.style.top  = clamp(y+14, 8, innerHeight-h-8)+'px';
+  $('edName').focus(); $('edName').select();
+  $('edName').onchange = e => act(()=>{ const v=e.target.value.trim();
+    if(v) S.names[id]=v; else delete S.names[id]; renderAll(); });
+  $('edClose').onclick = closeCellEditor;
+  ed.querySelectorAll('.tag').forEach(t => t.onclick = () => {
+    if(t.dataset.new){ const v=prompt('New tag:'); if(!v) return;
+      act(()=>{ S.tags[id]=[...(S.tags[id]||[]), v.trim()]; }); openCellEditor(id,x,y); return; }
+    act(()=>{ const cur=S.tags[id]||[]; const k=t.dataset.t;
+      S.tags[id] = cur.includes(k) ? cur.filter(z=>z!==k) : [...cur,k];
+      if(!S.tags[id].length) delete S.tags[id]; });
+    openCellEditor(id,x,y);
+  });
+  ed.querySelectorAll('.vis button').forEach(b => b.onclick = () => {
+    act(()=>{ if(S.visemes[id]===b.dataset.v) delete S.visemes[id]; else S.visemes[id]=b.dataset.v; });
+    openCellEditor(id,x,y); renderAll();
+  });
+}
+function closeCellEditor(){ $('cellEd').style.display='none'; edId=null; renderAll(); }
+document.addEventListener('pointerdown', e => {
+  if(edId && !e.target.closest('#cellEd') && !e.target.closest('#sheetOv')) closeCellEditor();
+}, true);
+
+/* ══════════ preview background ══════════ */
+const BGS = [['bg-checker','Checker'],['bg-dots','Dotted grid'],['bg-black','Black'],
+             ['bg-white','White'],['bg-zinc','Zinc'],['bg-cyan','Cyan'],
+             ['bg-magenta','Magenta'],['bg-green','Green']];
+function setBg(k){
+  S.bg = k;
+  $('pvWrap').className = k;
+  $('bBg').className = 'sw ' + k;
+  saveMeta();
+}
+(function(){
+  const btn = $('bBg'), menu = $('bgMenu');
+  let lp=null, held=false;
+  const openMenu = () => {
+    menu.innerHTML = BGS.map(([k,n])=>
+      `<button data-k="${k}"><span class="dot ${k}"></span>${n}</button>`).join('');
+    menu.style.display='block';
+    const b = btn.getBoundingClientRect(), h = menu.offsetHeight;
+    menu.style.left = clamp(b.left-90, 8, innerWidth-190)+'px';
+    menu.style.top  = clamp(b.bottom+6, 8, innerHeight-h-8)+'px';
+    menu.querySelectorAll('button').forEach(x => x.onclick = () => {
+      setBg(x.dataset.k); drawPreview(); menu.style.display='none'; });
+  };
+  btn.addEventListener('pointerdown', () => { held=false;
+    lp = setTimeout(()=>{ held=true; openMenu(); }, 420); });
+  const up = () => { clearTimeout(lp); lp=null;
+    if(!held){ const i = BGS.findIndex(x=>x[0]===S.bg);
+      setBg(BGS[(i+1) % BGS.length][0]); drawPreview(); } };
+  btn.addEventListener('pointerup', up);
+  btn.addEventListener('pointercancel', ()=>{ clearTimeout(lp); lp=null; });
+  document.addEventListener('pointerdown', e => {
+    if(menu.style.display==='block' && !e.target.closest('#bgMenu') && e.target!==btn)
+      menu.style.display='none';
+  }, true);
+})();
+
+/* ══════════ dialogs ══════════ */
+/** One scrim, one card, Esc and click-outside both cancel. */
+function dialog(bodyHtml, onMount){
+  const sc = document.createElement('div'); sc.id='scrim';
+  sc.innerHTML = `<div class="dlg">${bodyHtml}</div>`;
+  document.body.appendChild(sc);
+  const close = () => { sc.remove(); document.removeEventListener('keydown', key); };
+  const key = e => { if(e.key==='Escape'){ e.preventDefault(); close(); } };
+  document.addEventListener('keydown', key);
+  sc.addEventListener('pointerdown', e => { if(e.target===sc) close(); });
+  onMount(sc.querySelector('.dlg'), close);
+  return close;
+}
+const WRAPS = [['loop','i-loop','Loop'],['pingpong','i-ping','Ping-pong'],['once','i-once','Play once']];
+/**
+ * Name, cadence and wrap in ONE place. Renaming a clip and retiming it are the
+ * same thought, and three stacked browser prompts made it three.
+ */
+function clipDialog(opts, done){
+  dialog(`
+    <h3><svg class="i c-violet"><use href="#i-clips"/></svg>${opts.heading}</h3>
+    <label class="hint">Name</label>
+    <input type="text" id="dName" value="${esc(opts.name)}" placeholder="run, idle, thinking…">
+    <label class="hint">Playback</label>
+    <div class="seg icons" id="dWrap" style="width:100%">
+      ${WRAPS.map(([k,i,t])=>`<button data-l="${k==='pingpong'?'ping':k}" data-w="${k}" title="${t}"
+         style="flex:1;justify-content:center"><svg class="i"><use href="#${i}"/></svg></button>`).join('')}
+    </div>
+    <label class="hint">Frames per second</label>
+    <div id="dFps"></div>
+    <div class="foot">
+      <button id="dCancel">Cancel</button>
+      <button id="dOk" class="live">${opts.ok}</button>
+    </div>`, (dlg, close) => {
+    let type = opts.type, fps = opts.fps;
+    const paint = () => dlg.querySelectorAll('#dWrap button')
+      .forEach(b => b.classList.toggle('on', b.dataset.w===type));
+    paint();
+    dlg.querySelector('#dWrap').onclick = e => {
+      const b = e.target.closest('button'); if(!b) return; type=b.dataset.w; paint(); };
+    mkNum(dlg.querySelector('#dFps'), {label:'FPS', title:'How fast this clip plays',
+      get:()=>fps, set:v=>fps=v, step:1, min:1, max:120, tx:false});
+    const nm = dlg.querySelector('#dName');
+    nm.focus(); nm.select();
+    const ok = () => { const n=nm.value.trim(); close(); done({name:n||opts.name, type, fps}); };
+    dlg.querySelector('#dOk').onclick = ok;
+    dlg.querySelector('#dCancel').onclick = close;
+    nm.onkeydown = e => { if(e.key==='Enter'){ e.preventDefault(); ok(); } };
+  });
+}
+function confirmDialog(text, okLabel, done){
+  dialog(`<h3>${esc(text)}</h3>
+    <div class="foot"><button id="dCancel">Cancel</button>
+    <button id="dOk" class="live">${esc(okLabel)}</button></div>`, (dlg, close) => {
+      dlg.querySelector('#dCancel').onclick = close;
+      dlg.querySelector('#dOk').onclick = () => { close(); done(); };
+    });
+}
+
+/**
+ * Naming is the thing that makes a sheet legible to an AI, and doing it one
+ * long-press at a time on a thirty-face mascot sheet is exactly the friction
+ * that makes people skip it. These three do it in one gesture.
+ */
+function allNames(){ return [...new Set(Object.values(S.names).filter(Boolean))].sort(); }
+function nameFrames(ids, base){
+  const pad = ids.length > 9 ? 2 : 1;
+  ids.forEach((id,i) => S.names[id] = ids.length===1 ? base
+    : `${base}_${String(i+1).padStart(pad,'0')}`);
+}
+function bulkNameDialog(){
+  if(!S.sources.length){ toast('Load a sheet first.'); return; }
+  const {a,b} = range();
+  const sel = [...new Set(S.seq.slice(a,b+1).map(f=>f.id))];
+  dialog(`
+    <h3><svg class="i c-cyan"><use href="#i-tag"/></svg>Name frames</h3>
+    <label class="hint">Base name</label>
+    <input type="text" id="bnBase" list="bnList" value="talk" placeholder="talk, walk, blink…">
+    <datalist id="bnList">${allNames().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+    <div class="hint" style="margin-top:10px">Numbers are added automatically —
+      <b>talk</b> becomes <b>talk_01</b>, <b>talk_02</b>…</div>
+    <div style="display:flex;flex-direction:column;gap:6px;margin-top:12px">
+      <button id="bnSeq" ${sel.length?'':'disabled'}>Name the ${sel.length} selected frame(s)</button>
+      <button id="bnClips" ${S.clips.length?'':'disabled'}>Name every clip's frames after the clip</button>
+      <button id="bnCopy" ${S.sources.length>1?'':'disabled'}>Copy these names to the other sheets</button>
+    </div>
+    <div class="foot"><button id="dCancel">Close</button></div>`, (dlg, close) => {
+    const base = () => (dlg.querySelector('#bnBase').value.trim() || 'cell');
+    dlg.querySelector('#dCancel').onclick = close;
+    dlg.querySelector('#bnSeq').onclick = () => {
+      act(()=>nameFrames(sel, base())); close(); renderAll();
+      toast(`Named ${sel.length} frames.`);
+    };
+    dlg.querySelector('#bnClips').onclick = () => {
+      let n=0;
+      act(()=>S.clips.forEach(c => {
+        const ids=[...new Set(c.frames.map(f=>f.id))];
+        nameFrames(ids, slug(c.name).replace(/-/g,'_')); n+=ids.length; }));
+      close(); renderAll(); toast(`Named ${n} frames from ${S.clips.length} clip(s).`);
+    };
+    dlg.querySelector('#bnCopy').onclick = () => {
+      // Same character drawn twice: cell 7 of one sheet is cell 7 of the other.
+      let n=0;
+      act(()=>{
+        Object.keys(S.names).forEach(id => {
+          const [si,ci] = parseId(id);
+          S.sources.forEach((s2,j) => {
+            if(j===si || ci >= nCells(s2)) return;
+            const t = sidOf(j,ci);
+            if(!S.names[t]){ S.names[t] = S.names[id]; n++; }
+          });
+        });
+      });
+      close(); renderAll(); toast(n ? `Carried ${n} names across.` : 'Nothing to carry.');
+    };
+  });
+}
+
+/* ══════════ clips ══════════ */
+function saveClip(){
+  if(!S.seq.length){ toast('Build a sequence first.'); return; }
+  const {a,b}=range();
+  const frames = S.seq.slice(a,b+1).map(f=>({id:f.id, hold:f.hold||1}));
+  clipDialog({heading:`Save ${frames.length} frames as a clip`, ok:'Save clip',
+    name:'clip'+(S.clips.length+1), fps:S.fps,
+    type: S.loopMode==='ping'?'pingpong':(S.loopMode==='once'?'once':'loop')},
+   r => {
+    act(()=>{ S.clips.push({id:uid(), name:r.name, type:r.type, fps:r.fps, frames}); });
+    drawClips(); toast(`Saved “${esc(r.name)}” — ${frames.length} frames.`);
+  });
+}
+const clipTimers=[];
+function drawClips(){
+  clipTimers.forEach(clearInterval); clipTimers.length=0;
+  const host=$('clipList');
+  if(!S.clips.length){ host.innerHTML='<span class="hint">Build a sequence, then <b>Save clip</b>.</span>'; return; }
+  host.innerHTML='';
+  S.clips.forEach((clip, ci) => {
+    const d=document.createElement('div'); d.className='clip';
+    const c=document.createElement('canvas'); c.width=c.height=54;
+    const cx=c.getContext('2d');
+    let k=0, pd=1;
+    const tick = () => {
+      const f = clip.frames[clamp(k,0,clip.frames.length-1)];
+      cx.clearRect(0,0,54,54); if(f) drawArt(cx, f.id, 54, 54, 1);
+      if(clip.type==='pingpong'){ k+=pd;
+        if(k>=clip.frames.length-1){k=clip.frames.length-1;pd=-1;} if(k<=0){k=0;pd=1;} }
+      else k=(k+1)%clip.frames.length;
+    };
+    tick(); clipTimers.push(setInterval(tick, 1000/Math.max(1,clip.fps)));
+    d.appendChild(c);
+    const badge = clip.type==='pingpong' ? '<span class="badge">⇄</span>'
+                : clip.type==='loop' ? '<span class="badge cy">∞</span>' : '<span class="badge">1×</span>';
+    const m=document.createElement('div'); m.className='meta';
+    m.innerHTML = `<div class="nm">${esc(clip.name)} ${badge}</div>
+      <div class="sub">${clip.frames.length} frames · ${clip.fps} fps</div>`;
+    d.appendChild(m);
+    const acts=document.createElement('div'); acts.className='acts';
+    acts.appendChild(mkBtn('⤒','Load into the sequence', ()=>{
+      act(()=>{ S.seq = clip.frames.map(f=>({id:f.id, hold:f.hold||1}));
+        S.fps=clip.fps; S.loopMode = clip.type==='pingpong'?'ping':(clip.type==='once'?'once':'loop');
+        S.cur=0; S.sel=-1; S.rangeA=S.rangeB=-1; });
+      syncAll(); renderAll();
+    }));
+    acts.appendChild(mkBtn('✎','Rename, retime and set playback', ()=>{
+      clipDialog({heading:'Edit clip', ok:'Save', name:clip.name, fps:clip.fps, type:clip.type},
+        r => { act(()=>{ clip.name=r.name; clip.fps=r.fps; clip.type=r.type; }); drawClips(); });
+    }));
+    acts.appendChild(mkBtn('×','Delete this clip', ()=>{
+      confirmDialog(`Delete “${clip.name}”?`, 'Delete',
+        ()=>{ act(()=>S.clips.splice(ci,1)); drawClips(); });
+    }));
+    d.appendChild(acts);
+    host.appendChild(d);
+  });
+}
+function mkBtn(t,title,fn){ const b=document.createElement('button');
+  b.textContent=t; b.title=title; b.onclick=fn; return b; }
+const esc = s => String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+/* ══════════ ink measurement, centring, suspects ══════════ */
+/** Ink box of a frame WITH its transform applied, in cell-space around the pivot. */
+function inkBox(id){
+  const s = srcOfId(id); if(!s) return null;
+  const cw=cellW(s), ch=cellH(s);
+  const W=cw*3|0, H=ch*3|0;
+  const c=document.createElement('canvas'); c.width=W; c.height=H;
+  const cx=c.getContext('2d',{willReadFrequently:true});
+  cx.translate(cw,ch);
+  drawArt(cx, id, cw, ch, 1);
+  const d=cx.getImageData(0,0,W,H).data;
+  let x0=W,y0=H,x1=-1,y1=-1;
+  for(let y=0;y<H;y++) for(let x=0;x<W;x++){
+    if(d[(y*W+x)*4+3] > 16){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y; } }
+  if(x1<0) return null;
+  // relative to the nominal cell origin
+  return {x:x0-cw, y:y0-ch, w:x1-x0+1, h:y1-y0+1, cw, ch};
+}
+function centreAll(mode){
+  if(!S.seq.length){ toast('Nothing to centre.'); return; }
+  const ids = [...new Set(S.seq.map(f=>f.id))];
+  act(() => {
+    let ref = null;
+    if(mode==='match'){ const f=S.seq[S.cur]; ref = f ? inkBox(f.id) : null;
+      if(!ref){ toast('Current frame has no art to match.'); return; } }
+    ids.forEach(id => {
+      const b = inkBox(id); if(!b) return;
+      const t = {...xfOf(id)};
+      const tx0 = S.pivotX*b.cw, ty0 = S.pivotY*b.ch;
+      if(mode==='match'){
+        t.dx = Math.round(t.dx + ((ref.x + ref.w/2) - (b.x + b.w/2)));
+        t.dy = Math.round(t.dy + ((ref.y + ref.h/2) - (b.y + b.h/2)));
+      } else {
+        t.dx = Math.round(t.dx + (tx0 - (b.x + b.w/2)));
+        t.dy = Math.round(t.dy + (mode==='feet' ? (b.ch - b.y - b.h) : (ty0 - (b.y + b.h/2))));
+      }
+      setXfRaw(id, t);
+    });
+  });
+  renderAll();
+  toast(mode==='feet' ? 'Bottom edges aligned.' : mode==='match' ? 'Matched to the current frame.' : 'Centred.');
+}
+/**
+ * The drift, as numbers. Onion skin and difference show you THAT a frame moved;
+ * this says by how much, which is what you need when the answer is "type -6".
+ */
+function trimReport(){
+  if(!S.seq.length){ toast('Build a sequence first.'); return; }
+  const ids = [...new Set(S.seq.map(f=>f.id))];
+  const rows = ids.map(id => {
+    const b = inkBox(id);
+    return {id, slot:slotOfId(id), name:S.names[id]||'', b};
+  });
+  const live = rows.filter(r=>r.b);
+  const cxs = live.map(r=>r.b.x + r.b.w/2), bys = live.map(r=>r.b.y + r.b.h);
+  const avgCx = cxs.reduce((a,b)=>a+b,0)/Math.max(1,cxs.length);
+  const avgBy = bys.reduce((a,b)=>a+b,0)/Math.max(1,bys.length);
+  const body = rows.map(r => {
+    if(!r.b) return `<tr><td>${r.slot}</td><td colspan="4" style="color:var(--warn)">empty</td></tr>`;
+    const dx = Math.round(r.b.x + r.b.w/2 - avgCx);
+    const dy = Math.round(r.b.y + r.b.h - avgBy);
+    const hot = v => Math.abs(v)>6 ? ' style="color:var(--warn);font-weight:700"' : '';
+    return `<tr><td>${r.slot}</td><td style="color:var(--cyan)">${esc(r.name)}</td>` +
+      `<td>${r.b.w}×${r.b.h}</td><td${hot(dx)}>${dx>0?'+':''}${dx}</td>` +
+      `<td${hot(dy)}>${dy>0?'+':''}${dy}</td></tr>`;
+  }).join('');
+  dialog(`<h3><svg class="i c-cyan"><use href="#i-target"/></svg>Frame drift</h3>
+    <div class="hint">How far each frame's art sits from the average of the set.
+      Centre offset across, bottom-edge offset down. Anything past ±6px is flagged.</div>
+    <div style="max-height:260px;overflow:auto;margin-top:10px">
+    <table style="width:100%;border-collapse:collapse;font:11px/1.7 Consolas,monospace">
+      <tr style="color:var(--dimmer);text-align:left"><th>cell</th><th>name</th><th>ink</th><th>↔</th><th>↕</th></tr>
+      ${body}</table></div>
+    <div class="foot"><button id="dCancel">Close</button></div>`,
+    (dlg, close) => { dlg.querySelector('#dCancel').onclick = close; });
+}
+function findSuspects(){
+  const s = src(); if(!s) return;
+  const sig = [], flags = {};
+  for(let slot=0; slot<nCells(s); slot++){
+    const id = idAtSlot(slot);
+    const c = cellCanvas(id);
+    const k = document.createElement('canvas'); k.width=k.height=16;
+    const kx = k.getContext('2d',{willReadFrequently:true});
+    kx.drawImage(c,0,0,16,16);
+    const d = kx.getImageData(0,0,16,16).data;
+    let ink=0; const v=[];
+    for(let i=0;i<d.length;i+=4){ const a=d[i+3]/255; ink+=a;
+      v.push(a*(0.2126*d[i]+0.7152*d[i+1]+0.0722*d[i+2])); }
+    sig.push({id, v, ink: ink/256});
+    if(ink/256 < 0.012) flags[id] = 'empty';
+  }
+  for(let i=1;i<sig.length;i++){
+    if(flags[sig[i].id]) continue;
+    let dsum=0; for(let k=0;k<256;k++) dsum += Math.abs(sig[i].v[k]-sig[i-1].v[k]);
+    if(dsum/256 < 1.2) flags[sig[i].id] = 'dup';
+  }
+  S.suspect = flags;
+  const n = Object.keys(flags).length;
+  drawSheet();
+  toast(n ? `${n} suspect cell(s) flagged — empty or near-duplicate.` : 'No suspect cells found.');
+}
+
+/* ══════════ export ══════════ */
+function bakeList(){
+  const seen = new Map(), out = [];
+  const source = S.clips.length ? S.clips.flatMap(c=>c.frames) : S.seq;
+  source.forEach(f => {
+    const s0 = srcOfId(f.id);
+    if(!s0 || s0.gone) return;           // nothing to bake from a removed sheet
+    if(!seen.has(f.id)){ seen.set(f.id, out.length); out.push(f.id); }
+  });
+  return {ids: out, map: seen};
+}
+function goneFrameCount(){
+  const src2 = S.clips.length ? S.clips.flatMap(c=>c.frames) : S.seq;
+  return src2.filter(f => { const s0=srcOfId(f.id); return !s0 || s0.gone; }).length;
+}
+function bake(){
+  const {ids} = bakeList();
+  if(!ids.length) return null;
+  const s0 = srcOfId(ids[0]); if(!s0) return null;
+  const cw = cellW(s0), ch = cellH(s0);
+  let box;
+  if(S.fitMode === 'content'){
+    // Measure every frame's real ink, so rotation never clips and dead margin goes.
+    let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9, any=false;
+    ids.forEach(id => { const b=inkBox(id); if(!b) return; any=true;
+      x0=Math.min(x0,b.x); y0=Math.min(y0,b.y); x1=Math.max(x1,b.x+b.w); y1=Math.max(y1,b.y+b.h); });
+    box = any ? {x:x0-S.bakePad, y:y0-S.bakePad, w:(x1-x0)+S.bakePad*2, h:(y1-y0)+S.bakePad*2}
+              : {x:0,y:0,w:cw,h:ch};
+  } else box = {x:0, y:0, w:cw, h:ch};
+  const bw = Math.max(1, Math.round(box.w)), bh = Math.max(1, Math.round(box.h));
+  const cols = clamp(S.bakeCols, 1, ids.length), rows = Math.ceil(ids.length/cols);
+  const c = document.createElement('canvas'); c.width=cols*bw; c.height=rows*bh;
+  const cx = c.getContext('2d');
+  if(S.fmt==='jpg'){ cx.fillStyle='#fff'; cx.fillRect(0,0,c.width,c.height); }
+  ids.forEach((id,i) => {
+    const x=(i%cols)*bw, y=((i/cols)|0)*bh;
+    cx.save(); cx.beginPath(); cx.rect(x,y,bw,bh); cx.clip();
+    cx.translate(x - box.x, y - box.y);
+    drawArt(cx, id, cw, ch, 1);
+    cx.restore();
+  });
+  return {canvas:c, cols, rows, cw:bw, ch:bh, ids, map:bakeList().map};
+}
+/** Field-for-field what SpriteSheet.fromJson() reads, plus additive extras. */
+function buildJson(b){
+  const base = ($('iBase').value.trim() || 'sprite');
+  const clips = S.clips.length ? S.clips : (S.seq.length ? [{
+    id:uid(), name:base, fps:S.fps,
+    type: S.loopMode==='ping'?'pingpong':(S.loopMode==='once'?'once':'loop'), frames:S.seq }] : []);
+  const s0 = src();
+  const idx = id => b ? b.map.get(id) : slotOfId(id);
+
+  const j = {
+    spriteSchemaVersion: 1,
+    id: uid(),
+    name: base,
+    sheetUri: base + '.' + (b ? S.fmt : (s0 ? (s0.name.split('.').pop()||'png') : 'png')),
+    cols: b ? b.cols : (s0?s0.cols:1),
+    rows: b ? b.rows : (s0?s0.rows:1),
+    fps: S.fps,
+    pivotX: +S.pivotX.toFixed(4), pivotY: +S.pivotY.toFixed(4)
+  };
+  if(!b && s0){
+    if(s0.mgX) j.marginX=s0.mgX; if(s0.mgY) j.marginY=s0.mgY;
+    if(s0.spX) j.spacingX=s0.spX; if(s0.spY) j.spacingY=s0.spY;
+    if(s0.keyColor){
+      j.bgKeyColor = ((0xff<<24)|(s0.keyColor[0]<<16)|(s0.keyColor[1]<<8)|s0.keyColor[2])|0;
+      j.keyTolerance = s0.keyTol;
+    }
+  }
+  // Names FIRST, before the animations: a person reading this file needs the
+  // vocabulary before the sentences. Written even when sparse.
+  const names = {}, cells = [];
+  Object.keys(S.names).forEach(id => { const k = idx(id); if(k===undefined) return;
+    names[k] = S.names[id]; });
+  Object.keys(S.tags).forEach(id => { const k = idx(id); if(k===undefined) return;
+    cells.push({index:k, name:S.names[id]||'', tags:S.tags[id]}); });
+  if(Object.keys(names).length) j.cellNames = names;
+  if(cells.length) j.cells = cells.sort((a,z)=>a.index-z.index);
+  const vm = {};
+  Object.keys(S.visemes).forEach(id => { const k = idx(id); if(k===undefined) return;
+    vm[S.visemes[id]] = k; });
+  if(Object.keys(vm).length) j.visemeMap = vm;
+
+  j.presets = clips.map(c => {
+    const frames=[], weights=[];
+    c.frames.forEach(f => { const k = idx(f.id); if(k===undefined) return;
+      frames.push(k); weights.push(Math.max(1, f.hold||1)); });
+    const p = {id:c.id, name:c.name, type:c.type, fps:c.fps, frames};
+    if(weights.some(w=>w>1)) p.weights = weights;
+    return p;
+  }).filter(p => p.frames.length);
+
+  j.x_spritelab = {
+    version: 2, baked: !!b,
+    sources: S.sources.map(s=>({name:s.name, w:s.w, h:s.h, cols:s.cols, rows:s.rows,
+      marginX:s.mgX, marginY:s.mgY, spacingX:s.spX, spacingY:s.spY, order:s.order})),
+    transforms: Object.keys(S.xf).length ? S.xf : undefined,
+    bakedFrom: b ? b.ids : undefined
+  };
+  return j;
+}
+function refreshJson(){
+  if(!S.sources.length){ $('jsonOut').value=''; return; }
+  $('jsonOut').value = JSON.stringify(buildJson(null), null, 2);
+}
+function dl(blob,name){ const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},5000); }
+const dlText=(t,n)=>dl(new Blob([t],{type:'application/json'}),n);
+
+function exportBake(){
+  const b = bake();
+  if(!b){ toast('Nothing to bake — build a sequence or save a clip.'); return; }
+  const missing = goneFrameCount();
+  if(missing) toast(`${missing} frame(s) come from a removed sheet and were left out.`, 4200);
+  const base = $('iBase').value.trim()||'sprite';
+  b.canvas.toBlob(blob => {
+    dl(blob, `${base}.${S.fmt}`);
+    setTimeout(()=>dlText(JSON.stringify(buildJson(b),null,2), `${base}.sprite.json`), 450);
+  }, S.fmt==='jpg'?'image/jpeg':'image/png', 0.95);
+  $('jsonOut').value = JSON.stringify(buildJson(b),null,2);
+  toast(`Baked ${b.ids.length} cells · ${b.cols}×${b.rows} · ${b.cw}×${b.ch} per cell.`);
+}
+function exportJsonOnly(){
+  if(S.sources.length > 1){ toast('JSON-only needs one sheet. Bake to merge several.', 3400); return; }
+  if(Object.keys(S.xf).length)
+    toast('Alignment lives only in baked pixels — this file will not carry it.', 3800);
+  dlText(JSON.stringify(buildJson(null),null,2), ($('iBase').value.trim()||'sprite')+'.sprite.json');
+}
+async function exportFrames(){
+  const base=$('iBase').value.trim()||'sprite';
+  const clips = S.clips.length ? S.clips : [{name:'frames', frames:S.seq}];
+  const b = bake(); if(!b){ toast('Nothing to export.'); return; }
+  let n=0;
+  for(const clip of clips){
+    for(let i=0;i<clip.frames.length;i++){
+      const c=document.createElement('canvas'); c.width=b.cw; c.height=b.ch;
+      const cx=c.getContext('2d');
+      if(S.fmt==='jpg'){ cx.fillStyle='#fff'; cx.fillRect(0,0,c.width,c.height); }
+      const k = b.map.get(clip.frames[i].id);
+      if(k!==undefined) cx.drawImage(b.canvas, (k%b.cols)*b.cw, ((k/b.cols)|0)*b.ch, b.cw, b.ch, 0,0,b.cw,b.ch);
+      const blob = await new Promise(r=>c.toBlob(r, S.fmt==='jpg'?'image/jpeg':'image/png', 0.95));
+      dl(blob, `${base}-${slug(clip.name)}-${String(i+1).padStart(2,'0')}.${S.fmt}`);
+      n++; await new Promise(r=>setTimeout(r,150));
+    }
+  }
+  toast(n?`Exported ${n} frames. Your browser may ask to allow multiple downloads.`:'Nothing to export.', 4200);
+}
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'clip';
+
+/* ══════════ project save / restore ══════════ */
+function metaBlob(){
+  return {v:2, sources:S.sources.map(s=>({name:s.name,w:s.w,h:s.h,cols:s.cols,rows:s.rows,
+      mgX:s.mgX,mgY:s.mgY,spX:s.spX,spY:s.spY,keyColor:s.keyColor,keyTol:s.keyTol,order:s.order})),
+    fps:S.fps, seq:S.seq, clips:S.clips, xf:S.xf, names:S.names, tags:S.tags, visemes:S.visemes,
+    pivotX:S.pivotX, pivotY:S.pivotY, onColB:S.onColB, onColA:S.onColA, bg:S.bg,
+    base:$('iBase').value};
+}
+function applyMeta(m){
+  if(m.v === 1){   // v1 was slot-keyed and single-source; slot == srcId for it
+    const conv = o => { const r={}; Object.keys(o||{}).forEach(k => r['s0:'+k]=o[k]); return r; };
+    m = {...m, sources:[{name:m.image,w:m.w,h:m.h,cols:m.cols,rows:m.rows,mgX:m.mgX,mgY:m.mgY,
+          spX:m.spX,spY:m.spY,keyColor:m.keyColor,keyTol:m.keyTol,order:m.cellOrder||[]}],
+      xf: conv(m.xf), names:{}, tags:{}, visemes:{}, pivotX:0.5, pivotY:0.5,
+      seq:(m.seq||[]).map(f=>({id:'s0:'+f.slot, hold:f.hold||1})),
+      clips:(m.clips||[]).map(c=>({...c, frames:c.frames.map(f=>({id:'s0:'+f.slot, hold:f.hold||1}))}))};
+  }
+  (m.sources||[]).forEach((o,i) => { const s=S.sources[i]; if(!s) return;
+    Object.assign(s, {cols:o.cols,rows:o.rows,mgX:o.mgX,mgY:o.mgY,spX:o.spX,spY:o.spY,
+      keyColor:o.keyColor,keyTol:o.keyTol});
+    s.order = (o.order&&o.order.length===nCells(s)) ? o.order : Array.from({length:nCells(s)},(_,k)=>k);
+    rebuildSource(s);
+    if(s.keyColor) $('tolRow').classList.remove('hide'); });
+  S.fps=m.fps??12; S.seq=m.seq||[]; S.clips=m.clips||[]; S.xf=m.xf||{};
+  S.names=m.names||{}; S.tags=m.tags||{}; S.visemes=m.visemes||{};
+  S.pivotX=m.pivotX??0.5; S.pivotY=m.pivotY??0.5;
+  S.onColB=m.onColB||'#f43f8e'; S.onColA=m.onColA||'#22d3ee';
+  setBg(m.bg||'bg-checker');
+  S.cur=0; S.sel=-1; S.rangeA=S.rangeB=-1;
+  if(m.base) $('iBase').value=m.base;
+  cellCache.clear(); onionCache.clear();
+}
+const metaKey = () => 'spritelab2:' + S.sources.map(s=>s.name+':'+s.w+'x'+s.h).join('|');
+function saveMeta(){ if(!S.sources.length) return;
+  try{ localStorage.setItem(metaKey(), JSON.stringify(metaBlob())); }catch(e){} }
+function restoreMeta(){
+  try{ const raw = localStorage.getItem(metaKey()); if(!raw) return false;
+    applyMeta(JSON.parse(raw)); toast('Restored your last session for this sheet.'); return true;
+  }catch(e){ return false; }
+}
+
+/* ══════════ sync + render ══════════ */
+function buildNums(){
+  const g = $('gridNums'); g.innerHTML=''; NUMS.length=0;
+  mkNum(g, {icon:'cols', label:'Cols', title:'Columns', get:()=>src()?src().cols:1, set:v=>setGrid('cols',v), step:1, min:1, max:64});
+  mkNum(g, {icon:'rows', label:'Rows', title:'Rows', get:()=>src()?src().rows:1, set:v=>setGrid('rows',v), step:1, min:1, max:64});
+  mkNum(g, {icon:'zoom', label:'Zoom', title:'Zoom the sheet view', get:()=>S.zoom*100,
+    set:v=>{S.zoom=clamp(v/100,.05,8);applyZoom();}, step:5, min:5, max:800, fmt:v=>Math.round(v)+'%'});
+  mkNum(g, {icon:'mgx', label:'Margin X', title:'Margin — empty border on the left and right of the whole sheet',
+    get:()=>src()?src().mgX:0, set:v=>setGrid('mgX',v), step:1, min:0, max:512});
+  mkNum(g, {icon:'mgy', label:'Margin Y', title:'Margin — empty border at the top and bottom of the whole sheet',
+    get:()=>src()?src().mgY:0, set:v=>setGrid('mgY',v), step:1, min:0, max:512});
+  mkNum(g, {icon:'spx', label:'Space X', title:'Spacing — the gap between one cell and the next, across',
+    get:()=>src()?src().spX:0, set:v=>setGrid('spX',v), step:1, min:0, max:512});
+  mkNum(g, {icon:'spy', label:'Space Y', title:'Spacing — the gap between one row of cells and the next',
+    get:()=>src()?src().spY:0, set:v=>setGrid('spY',v), step:1, min:0, max:512});
+
+  const t=$('tolRow'); t.innerHTML='';
+  mkNum(t, {label:'KEY TOLERANCE', get:()=>src()?src().keyTol*100:10,
+    set:v=>{ const s=src(); if(s){s.keyTol=v/100; rebuildSource(s);} }, step:1, min:0, max:60,
+    fmt:v=>Math.round(v)+'%'});
+
+  const f=$('fpsNum'); f.innerHTML='';
+  mkNum(f, {label:'FPS', title:'Frames per second', get:()=>S.fps, set:v=>S.fps=v, step:1, min:1, max:120});
+
+  // Preview zoom belongs BESIDE the preview, not buried in Export — it changes
+  // how big the art looks, not what gets written out, and those are different
+  // questions asked at different moments.
+  const pz=$('pvZoomNum'); pz.innerHTML='';
+  mkNum(pz, {icon:'zoom', title:'Zoom the preview — step back and see how it reads small',
+    get:()=>S.pvZoom, set:v=>{S.pvZoom=v;drawPreview();}, step:5, min:25, max:800,
+    fmt:v=>Math.round(v)+'%', tx:false});
+
+  const o=$('onBNum'); o.innerHTML='';
+  mkNum(o, {label:'Past', title:'How many earlier frames ghost behind this one',
+    get:()=>S.onB, set:v=>{S.onB=v;drawPreview();}, step:1, min:0, max:4});
+  const o2=$('onANum'); o2.innerHTML='';
+  mkNum(o2, {label:'Future', title:'How many later frames ghost ahead of this one',
+    get:()=>S.onA, set:v=>{S.onA=v;drawPreview();}, step:1, min:0, max:4});
+  const o3=$('onSNum'); o3.innerHTML='';
+  mkNum(o3, {label:'Strength', title:'How strongly the ghosts show',
+    get:()=>S.onS, set:v=>{S.onS=v;drawPreview();}, step:1, min:5, max:95, fmt:v=>Math.round(v)+'%'});
+
+  const x=$('xfNums'); x.innerHTML='';
+  const cf = () => S.seq[S.cur];
+  const put = (k,v) => { const f2=cf(); if(f2) setXf(f2.id, {...xfOf(f2.id), [k]:v}); };
+  mkNum(x, {icon:'movex', title:'Move this frame left and right',
+    get:()=>cf()?xfOf(cf().id).dx:0, set:v=>put('dx',Math.round(v)), step:1, min:-4096, max:4096});
+  mkNum(x, {icon:'movey', title:'Move this frame up and down',
+    get:()=>cf()?xfOf(cf().id).dy:0, set:v=>put('dy',Math.round(v)), step:1, min:-4096, max:4096});
+  mkNum(x, {icon:'scale', title:'Scale this frame',
+    get:()=>cf()?xfOf(cf().id).sc:1, set:v=>put('sc',v), step:0.01, min:0.05, max:8});
+  mkNum(x, {icon:'rotate', title:'Rotate this frame',
+    get:()=>cf()?xfOf(cf().id).rot:0, set:v=>put('rot',v), step:1, min:-180, max:180,
+    fmt:v=>v.toFixed(0)+'°'});
+
+  const pv=$('pivotNums'); pv.innerHTML='';
+  mkNum(pv, {icon:'movex', label:'PIVOT', title:'Pivot across — what the frame scales and rotates around',
+    get:()=>S.pivotX*100, set:v=>{S.pivotX=v/100;drawPreview();}, step:1, min:0, max:100, fmt:v=>Math.round(v)+'%'});
+  mkNum(pv, {icon:'movey', label:'PIVOT', title:'Pivot down — put it at the feet to keep a walk planted',
+    get:()=>S.pivotY*100, set:v=>{S.pivotY=v/100;drawPreview();}, step:1, min:0, max:100, fmt:v=>Math.round(v)+'%'});
+
+  const bk=$('bakeNums'); bk.innerHTML='';
+  mkNum(bk, {icon:'cols', label:'BAKE', title:'How many columns the baked sheet gets',
+    get:()=>S.bakeCols, set:v=>S.bakeCols=v, step:1, min:1, max:64});
+  mkNum(bk, {icon:'mgx', label:'PAD', title:'Empty pixels left around the art in each baked cell',
+    get:()=>S.bakePad, set:v=>S.bakePad=v, step:1, min:0, max:64});
+}
+/**
+ * Cell indices are the currency of every preset, so reshaping the grid renumbers
+ * them all. The sequence cannot survive it — but the loss is ONE undo step, which
+ * is the difference between a mistake and a disaster.
+ */
+function setGrid(k, v){
+  const s = src(); if(!s) return;
+  s[k] = Math.round(v);
+  s.order = Array.from({length:nCells(s)}, (_,i)=>i);
+  const mine = f => parseId(f.id)[0] === S.active;
+  const had = S.seq.some(mine) || S.clips.some(c=>c.frames.some(mine));
+  S.seq = S.seq.filter(f => !mine(f) || parseId(f.id)[1] < nCells(s));
+  Object.keys(S.xf).forEach(id => { if(parseId(id)[0]===S.active && parseId(id)[1]>=nCells(s)) delete S.xf[id]; });
+  if(had && (k==='cols'||k==='rows')){ S.seq = S.seq.filter(f=>!mine(f)); fixCur();
+    toast('Grid changed — cell numbers moved, so those frames were cleared. Undo restores them.', 3600); }
+  cellCache.clear(); onionCache.clear(); S.suspect=null;
+  fitPreview();
+  renderAll();
+}
+function drawSrcRail(){
+  const r=$('srcRail'); r.innerHTML='';
+  S.sources.forEach((s,i) => {
+    const d=document.createElement('div');
+    d.className='src'+(i===S.active?' on':'');
+    d.innerHTML=`<span class="dot" style="background:${s.gone?'#3f3f46':s.color}"></span>${esc(s.name.slice(0,20))}`;
+    if(s.gone) d.style.opacity='.45';
+    d.onclick = () => { S.active=i; fitZoom(); syncAll(); renderAll(); };
+    if(S.sources.length>1){
+      const x=document.createElement('span'); x.className='x'; x.textContent = s.gone ? '↺' : '×';
+      x.title = s.gone ? 'Bring this sheet back' : 'Remove this sheet (frames grey out, nothing is deleted)';
+      x.onclick = ev => { ev.stopPropagation();
+        confirmDialog(s.gone ? `Bring ${s.name} back?` : `Remove ${s.name}?`,
+          s.gone ? 'Restore' : 'Remove', ()=>{
+          // Frames are NOT deleted. They grey out, so you can see what you broke
+          // and either put the sheet back or remove them deliberately.
+          act(()=>{ s.gone = !s.gone; });
+          cellCache.clear(); onionCache.clear(); syncAll(); renderAll(); }); };
+      d.appendChild(x);
+    }
+    r.appendChild(d);
+  });
+  const add=document.createElement('div'); add.className='src';
+  add.innerHTML='<svg class="i"><use href="#i-plus"/></svg>merge sheet';
+  add.title = 'Add another sheet of the same character and merge them on bake';
+  add.onclick = () => $('fPick').click();
+  r.appendChild(add);
+}
+/** The swatch IS the control: tap toggles that side, hold recolours it. */
+function syncSwatches(){
+  const b=$('swB'), a2=$('swA');
+  if(!b||!a2) return;
+  b.style.background=S.onColB; a2.style.background=S.onColA;
+  b.classList.toggle('off', S.onB===0); a2.classList.toggle('off', S.onA===0);
+}
+function wireSwatch(el, getCol, setCol, getN, setN){
+  let lp=null, held=false;
+  el.addEventListener('pointerdown', e => {
+    held=false;
+    lp = setTimeout(() => { held=true;
+      // In Joy Creator this opens the app-wide colour helper instead.
+      const inp=document.createElement('input');
+      inp.type='color'; inp.value=getCol();
+      inp.style.cssText='position:fixed;left:-9999px';
+      document.body.appendChild(inp);
+      inp.addEventListener('input',()=>{ setCol(inp.value); onionCache.clear();
+        syncSwatches(); drawPreview(); saveMeta(); });
+      inp.addEventListener('change',()=>setTimeout(()=>inp.remove(),100));
+      inp.click();
+    }, 420);
+  });
+  const up = () => { clearTimeout(lp); lp=null;
+    if(!held){ setN(getN() ? 0 : 1); syncSwatches(); drawPreview(); syncNums(); } };
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', ()=>{ clearTimeout(lp); lp=null; });
+}
+function syncAll(){
+  const s=src();
+  $('info').textContent = s ? `${s.name} · ${s.w}×${s.h}` : '';
+  $('cellInfo').textContent = s ? `${cellW(s)}×${cellH(s)} px per cell · ${nCells(s)} cells` : '';
+  $('xfTitle').textContent = S.seq[S.cur] ? `frame ${S.cur+1} · cell ${slotOfId(S.seq[S.cur].id)}` : 'no frame';
+  $('segLoop').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.l===S.loopMode));
+  $('segMode').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.m===S.dragMode));
+  $('segFit').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.f===S.fitMode));
+  $('segFmt').querySelectorAll('button').forEach(b=>b.classList.toggle('on', b.dataset.x===S.fmt));
+  $('bOnion').classList.toggle('on', S.onion);
+  $('bDiff').classList.toggle('on', S.diff);
+  $('bRev').classList.toggle('on', S.rev);
+  $('bGrid').classList.toggle('on', S.showGrid);
+  syncPlay(); syncNums(); syncUndo(); syncSwatches();
+}
+function renderAll(){
+  S.cur = clamp(S.cur, 0, Math.max(0, S.seq.length-1));
+  drawSrcRail(); drawSheet(); drawChips(); drawPreview(); drawScrub(); drawClips();
+  syncAll(); refreshJson(); saveMeta();
+}
+
+/* ══════════ wiring ══════════ */
+$('bLoad').onclick = () => $('fPick').click();
+$('drop').onclick = () => $('fPick').click();
+$('fPick').onchange = e => { [...e.target.files].forEach(addSource); e.target.value=''; };
+$('bUndo').onclick = undo; $('bRedo').onclick = redo;
+$('bDetect').onclick = () => { const s=src(); if(!s) return; act(()=>detectGrid(s,false)); renderAll(); };
+$('bFit').onclick = () => { fitZoom(); syncNums(); };
+$('bGrid').onclick = () => { S.showGrid=!S.showGrid; drawSheet(); syncAll(); };
+$('bKey').onclick = e => { S.pickKey=!S.pickKey; e.currentTarget.classList.toggle('on',S.pickKey);
+  if(S.pickKey) toast('Click the background colour on the sheet.'); };
+$('bKeyClear').onclick = () => { const s=src(); if(!s) return;
+  act(()=>{ s.keyColor=null; rebuildSource(s); }); $('tolRow').classList.add('hide'); renderAll(); };
+$('bOrderReset').onclick = () => { const s=src(); if(!s) return;
+  act(()=>{ s.order=Array.from({length:nCells(s)},(_,i)=>i); cellCache.clear(); onionCache.clear(); });
+  renderAll(); };
+$('bNames').onclick = () => { S.showNames=!S.showNames;
+  $('bNames').classList.toggle('on',S.showNames); renderAll(); };
+$('bSuspect').onclick = findSuspects;
+$('segMode').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  S.dragMode=b.dataset.m; syncAll(); };
+$('segLoop').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  S.loopMode=b.dataset.l; dir=1; syncAll(); };
+$('segFit').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  S.fitMode=b.dataset.f;
+  if(S.fitMode==='fill') toast('Fill crops to cover the cell — check nothing important is cut off.', 3600);
+  cellCache.clear(); onionCache.clear(); syncAll(); renderAll(); };
+$('segFmt').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  S.fmt=b.dataset.x; syncAll(); };
+$('bPlay').onclick = togglePlay;
+$('bPrev').onclick = () => { const{a,b}=range(); S.cur = S.cur<=a?b:S.cur-1; onCurChanged(); };
+$('bNext').onclick = () => { const{a,b}=range(); S.cur = S.cur>=b?a:S.cur+1; onCurChanged(); };
+$('bRev').onclick = () => { S.rev=!S.rev; syncAll(); };
+$('bOnion').onclick = () => { S.onion=!S.onion; if(S.onion) S.diff=false;
+  $('onionRow').classList.toggle('hide',!S.onion); syncAll(); drawPreview(); };
+$('bPvFit').onclick = () => { fitPreview(); drawPreview(); };
+$('bDiff').onclick = () => { S.diff=!S.diff; if(S.diff){ S.onion=false; $('onionRow').classList.add('hide'); }
+  syncAll(); drawPreview(); };
+$('bClear').onclick = () => { act(()=>{ S.seq=[]; fixCur(); }); renderAll(); };
+$('bAll').onclick = () => { const s=src(); if(!s) return;
+  act(()=>{ for(let i=0;i<nCells(s);i++) S.seq.push({id:idAtSlot(i), hold:1}); S.cur=0; }); renderAll(); };
+$('bHoldUp').onclick = () => holdDelta(1);
+$('bHoldDn').onclick = () => holdDelta(-1);
+function holdDelta(d){
+  const {a,b} = S.rangeA>=0 ? {a:S.rangeA,b:S.rangeB} : {a:S.cur,b:S.cur};
+  act(()=>{ for(let i=a;i<=b;i++) if(S.seq[i]) S.seq[i].hold=clamp((S.seq[i].hold||1)+d,1,16); });
+  renderAll();
+}
+$('bName').onclick = bulkNameDialog;
+$('bRangeClr').onclick = () => { S.rangeA=S.rangeB=-1; S.sel=-1; renderAll(); };
+$('bSaveClip').onclick = saveClip;
+$('bXfReset').onclick = () => { const f=S.seq[S.cur]; if(!f) return;
+  act(()=>setXfRaw(f.id,{dx:0,dy:0,sc:1,rot:0})); renderAll(); };
+$('bCenter').onclick = () => centreAll('centre');
+$('bFeet').onclick = () => centreAll('feet');
+$('bMatch').onclick = () => centreAll('match');
+$('bTrim').onclick = trimReport;
+$('bXfAll').onclick = () => { const f=S.seq[S.cur]; if(!f) return;
+  act(()=>{ const t=xfOf(f.id); new Set(S.seq.map(x=>x.id)).forEach(id=>setXfRaw(id,{...t})); });
+  renderAll(); toast('Alignment copied to every frame.'); };
+$('bXfClear').onclick = () => { act(()=>S.xf={}); renderAll(); };
+$('bBake').onclick = exportBake;
+$('bJson').onclick = exportJsonOnly;
+$('bFrames').onclick = exportFrames;
+$('bCopy').onclick = () => navigator.clipboard.writeText($('jsonOut').value)
+  .then(()=>toast('JSON copied.')).catch(()=>toast('Copy failed — select it by hand.'));
+$('iBase').onchange = () => { refreshJson(); saveMeta(); };
+
+function syncRails(){
+  const l = !S.hideL, r = !S.hideR;
+  $('app').style.gridTemplateColumns =
+    `${l?'minmax(360px,1.15fr)':'0px'} minmax(320px,1fr) ${r?'320px':'0px'}`;
+  $('left').classList.toggle('collapsed', !l);
+  $('right').classList.toggle('collapsed', !r);
+  $('bRailL').classList.toggle('on', l);
+  $('bRailR').classList.toggle('on', r);
+  // Canvases are sized in pixels, so remeasure AFTER the slide finishes too.
+  const settle = () => { if(S.sources.length){ fitZoom(); fitPreview(); drawPreview();
+    drawScrub(); centreStrip(); drawSheet(); } };
+  settle(); setTimeout(settle, 300);
+}
+$('bRailL').onclick = () => { S.hideL=!S.hideL; syncRails(); };
+$('bRailR').onclick = () => { S.hideR=!S.hideR; syncRails(); };
+$('bProjSave').onclick = () => { if(!S.sources.length){ toast('Load a sheet first.'); return; }
+  dlText(JSON.stringify(metaBlob(),null,2), ($('iBase').value.trim()||'sprite')+'.spritelab.json'); };
+$('bProjOpen').onclick = () => $('pPick').click();
+$('pPick').onchange = e => { if(e.target.files[0]) openProject(e.target.files[0]); e.target.value=''; };
+function openProject(f){
+  if(!S.sources.length){ toast('Load the sheet image first, then open the project.'); return; }
+  const r=new FileReader();
+  r.onload = () => { try{
+      const m=JSON.parse(r.result);
+      if(m.v!==1 && m.v!==2) throw 0;
+      act(()=>applyMeta(m)); syncAll(); renderAll(); toast('Project loaded.');
+    }catch(err){ toast('That is not a SpriteLab project file.'); } };
+  r.readAsText(f);
+}
+
+['dragenter','dragover'].forEach(t=>document.addEventListener(t, e=>{
+  e.preventDefault(); if(!S.sources.length) $('drop').classList.add('hot'); }));
+document.addEventListener('dragleave', ()=>$('drop').classList.remove('hot'));
+document.addEventListener('drop', e => {
+  e.preventDefault(); $('drop').classList.remove('hot');
+  [...(e.dataTransfer.files||[])].forEach(f => {
+    if(/\.json$/i.test(f.name)) openProject(f);
+    else if(f.type.startsWith('image/')) addSource(f);
+  });
+});
+
+document.addEventListener('keydown', e => {
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const mod = e.ctrlKey||e.metaKey;
+  if(mod && e.key.toLowerCase()==='z'){ e.preventDefault(); e.shiftKey?redo():undo(); return; }
+  if(mod && e.key.toLowerCase()==='y'){ e.preventDefault(); redo(); return; }
+  const f = S.seq[S.cur], step = e.shiftKey?10:1;
+  switch(e.key){
+    case ' ': e.preventDefault(); togglePlay(); break;
+    case 'ArrowLeft':  e.preventDefault();
+      if(f&&e.altKey) act(()=>setXfRaw(f.id,{...xfOf(f.id),dx:xfOf(f.id).dx-step})), renderAll();
+      else $('bPrev').click(); break;
+    case 'ArrowRight': e.preventDefault();
+      if(f&&e.altKey) act(()=>setXfRaw(f.id,{...xfOf(f.id),dx:xfOf(f.id).dx+step})), renderAll();
+      else $('bNext').click(); break;
+    case 'ArrowUp': if(f){ e.preventDefault();
+      act(()=>setXfRaw(f.id,{...xfOf(f.id),dy:xfOf(f.id).dy-step})); renderAll(); } break;
+    case 'ArrowDown': if(f){ e.preventDefault();
+      act(()=>setXfRaw(f.id,{...xfOf(f.id),dy:xfOf(f.id).dy+step})); renderAll(); } break;
+    case 'n': if(f){ e.preventDefault(); const b=$('preview').getBoundingClientRect();
+      openCellEditor(f.id, b.left+b.width/2, b.top); } break;
+    case 'Delete': case 'Backspace':
+      if(S.seq.length){ act(()=>{S.seq.splice(S.cur,1); fixCur();}); renderAll(); } break;
+  }
+});
+let rT; window.addEventListener('resize', () => { clearTimeout(rT);
+  rT = setTimeout(()=>{ if(S.sources.length){ fitPreview(); drawPreview(); drawScrub(); } }, 120); });
+
+buildNums();
+setBg(S.bg);
+wireSwatch($('swB'), ()=>S.onColB, v=>S.onColB=v, ()=>S.onB, v=>S.onB=v);
+wireSwatch($('swA'), ()=>S.onColA, v=>S.onColA=v, ()=>S.onA, v=>S.onA=v);
+syncAll();
+drawChips();   // an empty bench starts with no reel on it
+</script>
+</body>
+</html>

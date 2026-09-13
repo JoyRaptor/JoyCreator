@@ -101,6 +101,14 @@ Ordered by current thinking. Reorder freely.
 
 ## Soon after
 
+- **Sprite read-back — the three missing doors.** Saved animations as tappable chips in the
+  palette (the resolver already plays them — STATE §5), cell names on chips and on the tape,
+  and a sheet library outside the project so a character is reusable across projects.
+  Small, and it is what makes SpriteLab's output usable. SPEC_20260910_SEMANTIC_CELLS §5.
+- **Semantic cells in the AI toolkit** — `infer_sprite_semantics`,
+  `sync_sprite_to_transcript`, `author_sprite_variant`, and teaching
+  `describe_sprite_sheet` to lead with names. Turns a named sheet into a character the
+  model can direct. SPEC_20260910_SEMANTIC_CELLS §6.
 - Pack manager UI — install, enable, disable, share as a zip
 - Theme packs (also the natural Supporter unlock)
 - Template gallery
@@ -112,6 +120,13 @@ Ordered by current thinking. Reorder freely.
 
 ## Later
 
+- **Automatic lip sync** — `SpectralVisemeAnalyzer` (6 classes, built) + `AvatarRig.visemeMap`
+  (name-keyed, built) + a sheet whose cells carry viseme assignments (SpriteLab authors them).
+  Every link of that chain exists except the map, and the map is six taps.
+- **Live-performance polish** — punch-in/punch-out on a keyframe pass, and snapping dropped
+  keys to `BeatDetector`'s onsets. Protects the one-pass tap workflow instead of replacing it.
+- **Bend on sprites** — squash and stretch as a layer over a sprite. Real work:
+  `CornerPinTransformHost` is image-only today and `SpriteOverlayItem` has no transform host.
 - Community pack index — a static file on GitHub Pages, zero infrastructure
 - Composed-frame vision — the AI sees what you see, overlays included
 - Lecture mode — one confirmation card runs the whole edit

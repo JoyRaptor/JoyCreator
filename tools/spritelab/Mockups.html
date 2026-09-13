@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SpriteLab Mobile — full feature merge, four layouts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#050507; --panel:#111114; --ctl:#1c1c22; --ctl2:#262630; --line:#2c2c35;
+  --ink:#e4e4e7; --dim:#a1a1aa; --dimmer:#71717a;
+  --cyan:#22d3ee; --pink:#f43f8e; --amber:#fbbf24; --green:#34d399;
+  --blue:#60a5fa; --violet:#a78bfa;
+  --r:14px; --r2:11px; --pill:999px;
+  --disp:"Outfit",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --drawer:rgba(17,17,20,.88);      /* translucent ON PURPOSE — the video shows through */
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;background:#08080b;color:var(--ink);
+  font:13px/1.45 ui-sans-serif,system-ui,"Segoe UI",sans-serif}
+button{font:inherit;color:inherit;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:4px 11px;cursor:pointer;min-height:29px;
+  display:inline-flex;align-items:center;gap:5px;user-select:none;white-space:nowrap}
+button:hover{background:var(--ctl2)}
+button.on{background:var(--cyan);border-color:var(--cyan);color:#09090b;font-weight:600}
+button.pk{background:var(--pink);border-color:var(--pink);color:#fff;font-weight:600}
+button.sm{min-height:25px;padding:2px 9px;font-size:11px}
+button.ic{padding:4px;min-width:29px;justify-content:center}
+.seg{display:inline-flex;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:2px;gap:1px;flex:0 0 auto}
+.seg button{border:0;background:transparent;min-height:24px;padding:2px 9px;
+  color:var(--dimmer);font-size:11px}
+.seg button.on{background:var(--cyan);color:#09090b}
+.seg button.on.a{background:var(--amber)} .seg button.on.v{background:var(--violet)}
+.seg button.on.p{background:var(--pink);color:#fff}
+input[type=text]{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--pill);
+  padding:5px 11px;width:100%;color:inherit;font:inherit;font-size:11.5px}
+
+/* page chrome */
+header{position:sticky;top:0;z-index:30;background:#08080b;border-bottom:1px solid var(--line);
+  padding:11px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.brand{font:800 16px/1 var(--disp);letter-spacing:-.02em}
+.brand b{color:var(--cyan)} .brand i{color:var(--pink);font-style:normal}
+.brand u{color:var(--amber);text-decoration:none}
+.lbl{font:600 9.5px/1 var(--disp);letter-spacing:.11em;text-transform:uppercase;color:var(--dimmer)}
+main{padding:20px 18px 70px;display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;
+  justify-content:center}
+.slot{display:flex;flex-direction:column;align-items:center;gap:9px}
+.cap{max-width:392px}
+.cap h4{margin:0 0 4px;font:600 14px/1.2 var(--disp)}
+.cap p{margin:0 0 7px;font-size:11.5px;color:var(--dimmer);line-height:1.55}
+.tally{display:flex;gap:5px;flex-wrap:wrap}
+.pip2{font:600 9.5px/1.8 var(--disp);letter-spacing:.05em;text-transform:uppercase;
+  padding:0 9px;border-radius:var(--pill)}
+.g{background:#34d39922;color:var(--green)} .y{background:#fbbf2422;color:var(--amber)}
+.r{background:#f43f8e22;color:var(--pink)} .c{background:#22d3ee1f;color:var(--cyan)}
+.hint{font-size:10px;color:var(--dimmer);line-height:1.5}
+
+/* phone */
+.phone{width:392px;height:790px;background:var(--bg);border:9px solid #17171c;
+  border-radius:38px;position:relative;overflow:hidden;flex:0 0 auto;box-shadow:0 20px 60px #000a}
+.phone.sm{transform:scale(.58);transform-origin:top center;margin-bottom:-330px}
+.sbar{height:24px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 16px;font-size:9.5px;color:var(--dimmer)}
+.scr{position:absolute;inset:24px 0 0 0;display:flex;flex-direction:column;overflow:hidden}
+.tbar{height:40px;display:flex;align-items:center;gap:6px;padding:0 10px;flex:0 0 auto}
+.tbar .t{font:600 14px/1 var(--disp);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+
+/* modules */
+.mod{display:flex;flex-direction:column;gap:5px;flex:0 0 auto}
+.band{display:flex;gap:4px;align-items:center;flex-wrap:wrap;flex:0 0 auto}
+.band.nw{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.band.nw::-webkit-scrollbar{display:none}
+.sp{flex:1}
+.h3{font:600 10px/1 var(--disp);letter-spacing:.09em;text-transform:uppercase;
+  display:flex;align-items:center;gap:6px;color:#fff;padding:1px 0}
+.h3 em{font-style:normal;color:var(--dimmer);font-size:9.5px;letter-spacing:0;text-transform:none}
+.ico{font-size:12px}
+.num{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--pill);
+  padding:3px 9px;display:flex;gap:5px;align-items:center;font-size:11px;cursor:ew-resize;
+  flex:0 0 auto}
+.num .k{color:var(--dimmer);font-size:9.5px} .num .v{font-weight:700;font-variant-numeric:tabular-nums}
+.sw{width:24px;height:24px;min-width:24px;border-radius:var(--pill);border:2px solid var(--line);
+  padding:0;cursor:pointer}
+
+/* sources */
+.srcs{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.srcs::-webkit-scrollbar{display:none}
+.src{flex:0 0 auto;border:2px solid var(--line);border-radius:var(--pill);padding:2px 9px;
+  font-size:10.5px;display:flex;align-items:center;gap:5px;background:var(--ctl);cursor:pointer}
+.src.on{border-color:var(--cyan)} .src .d{width:7px;height:7px;border-radius:50%}
+
+/* grid */
+.grid{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);
+  border-radius:8px;overflow:hidden}
+.cell{background:#0c0c10;aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  position:relative;font-size:25px;cursor:pointer;user-select:none}
+.cell .n{position:absolute;left:3px;bottom:1px;font-size:8.5px;color:var(--dimmer)}
+.cell .nm{position:absolute;right:3px;bottom:1px;font-size:8px;color:var(--cyan)}
+.cell .vi{position:absolute;left:3px;top:2px;font-size:8px;color:var(--violet)}
+.cell .sus{position:absolute;right:4px;top:4px;width:6px;height:6px;border-radius:50%;
+  background:var(--amber)}
+.cell.sel{outline:2px solid var(--cyan);outline-offset:-2px}
+.cell.now{outline:2.5px solid var(--pink);outline-offset:-2px}
+.cell .ord{position:absolute;top:2px;left:50%;transform:translateX(-50%);background:var(--cyan);
+  color:#09090b;font:700 9.5px/1.5 system-ui;border-radius:4px;padding:0 5px}
+.cell.now .ord{background:var(--pink);color:#fff}
+
+/* preview */
+.pv{background:repeating-conic-gradient(#3a3a45 0 25%,#212128 0 50%) 0 0/15px 15px;
+  border-radius:8px;display:flex;align-items:center;justify-content:center;position:relative;
+  overflow:hidden;flex:0 0 auto}
+.pv .art{font-size:58px;filter:drop-shadow(0 0 9px #0008);position:relative;z-index:2}
+.pv .hud{position:absolute;left:5px;bottom:4px;background:#000b;border-radius:5px;
+  padding:2px 6px;font:600 9.5px/1 system-ui;z-index:3}
+.pv .tag{position:absolute;left:5px;top:4px;background:var(--cyan);color:#09090b;
+  border-radius:5px;padding:2px 7px;font:600 9.5px/1 system-ui;z-index:3}
+.ghost{position:absolute;font-size:58px;opacity:.4;z-index:1}
+.ghost.p{filter:sepia(1) saturate(7) hue-rotate(300deg);transform:translateX(-12px)}
+.ghost.f{filter:sepia(1) saturate(7) hue-rotate(140deg);transform:translateX(12px)}
+.pv .box{position:absolute;border:1.5px dashed var(--cyan);z-index:4;pointer-events:none}
+.pv .hdl{position:absolute;width:8px;height:8px;border-radius:50%;background:var(--cyan);z-index:5}
+.pv .rot{position:absolute;width:9px;height:9px;border-radius:50%;background:var(--amber);z-index:5}
+.pv .piv{position:absolute;z-index:5;color:var(--pink);font-size:13px;line-height:1}
+
+/* scrub + film */
+.scrub{height:20px;border:1px solid var(--line);border-radius:3px;background:#0b0b0e;
+  display:flex;gap:1px;padding:2px;flex:0 0 auto;margin:0 7px}
+.scrub i{border-radius:1px;background:#33333d}
+.scrub i.on{background:var(--pink)}
+.filmw{padding:5px 7px;display:flex;overflow-x:auto;scrollbar-width:none;flex:0 0 auto}
+.filmw::-webkit-scrollbar{display:none}
+.filmw.mid{justify-content:center}
+.film{background:#1a1a1f;border-radius:3px;display:inline-flex;flex-direction:column;flex:0 0 auto}
+.sprock{height:9px;background:repeating-linear-gradient(90deg,#1a1a1f 0 6px,var(--bg) 6px 13px,#1a1a1f 13px 19px)}
+.frames{display:flex;gap:4px;padding:3px}
+.chip{width:42px;border:2px solid transparent;border-radius:7px;background:var(--ctl);
+  padding:2px;text-align:center;cursor:pointer;flex:0 0 auto;position:relative}
+.chip .im{font-size:21px;line-height:1.2} .chip .lb{font-size:7.5px;color:var(--dimmer)}
+.chip .n2{font-size:7.5px;color:var(--cyan);overflow:hidden;white-space:nowrap}
+.chip .hd{position:absolute;left:-2px;top:-3px;font-size:7.5px;color:#09090b;font-weight:700;
+  background:var(--amber);border-radius:3px;padding:0 3px}
+.chip.sel{border-color:var(--cyan)} .chip.now{background:var(--pink)}
+.chip.now .lb{color:#3b0322}
+
+/* clips */
+.clip{background:var(--ctl);border:1px solid var(--line);border-radius:var(--r);padding:5px 7px;
+  display:flex;gap:7px;align-items:center}
+.clip .th{font-size:24px} .clip .mt{flex:1;min-width:0}
+.clip .nm3{font:600 12px/1.2 var(--disp);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bdg{display:inline-block;font:700 8px/1.6 system-ui;padding:0 5px;border-radius:3px;
+  background:var(--violet);color:#09090b;vertical-align:1px}
+.bdg.l{background:var(--cyan)} .bdg.o{background:var(--pink);color:#fff}
+
+/* preset chips — the read-back door the phone never had */
+.pchip{background:var(--violet);color:#09090b;border-radius:var(--pill);padding:3px 10px;
+  font:700 11px/1.3 system-ui;display:inline-flex;align-items:center;gap:4px;cursor:pointer;
+  flex:0 0 auto}
+.pchip.l{background:var(--cyan)} .pchip.o{background:var(--pink);color:#fff}
+
+/* json */
+.json{background:#0b0b0e;border:1px solid var(--line);border-radius:var(--r2);
+  font:9.5px/1.5 Consolas,monospace;color:var(--dim);padding:6px;height:92px;overflow:auto}
+.json b{color:var(--cyan);font-weight:400} .json u{color:var(--amber);text-decoration:none}
+
+/* panes / tabs / sheets */
+.panes{flex:1;overflow:hidden;position:relative}
+.track{display:flex;height:100%;transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.pane{width:100%;flex:0 0 100%;padding:7px 9px;overflow-y:auto;display:flex;
+  flex-direction:column;gap:7px;scrollbar-width:none}
+.pane::-webkit-scrollbar{display:none}
+.ptabs{display:flex;gap:3px;padding:4px 9px;flex:0 0 auto}
+.ptabs button{flex:1;justify-content:center;font-size:10.5px;padding:2px 4px;min-height:25px}
+.dots{display:flex;gap:5px;justify-content:center;padding:3px;flex:0 0 auto}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--line)}
+.dot.on{background:var(--cyan);width:16px;border-radius:var(--pill)}
+.sheetover{position:absolute;left:0;right:0;bottom:0;height:76%;background:var(--panel);
+  border-top:1px solid var(--cyan);border-radius:var(--r) var(--r) 0 0;z-index:14;
+  transform:translateY(101%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;gap:6px;padding:9px}
+.sheetover.open{transform:none}
+.scrim{position:absolute;inset:0;background:#0009;z-index:13;opacity:0;pointer-events:none;
+  transition:opacity .25s}
+.scrim.open{opacity:1;pointer-events:auto}
+
+/* B — floating preview */
+.pip{position:absolute;width:158px;background:var(--panel);border:1px solid var(--cyan);
+  border-radius:var(--r);padding:5px;z-index:9;box-shadow:0 12px 34px #000c;touch-action:none}
+.pip .pv{height:106px}
+.pip .bar{display:flex;align-items:center;gap:4px;padding:1px 1px 4px;cursor:grab}
+.pip .bar .gg{flex:1;height:3px;background:var(--line);border-radius:2px}
+.pip .rz{position:absolute;right:1px;bottom:1px;width:16px;height:16px;cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 45%,var(--cyan) 45%,var(--cyan) 60%,transparent 60%)}
+
+/* C — split */
+.split{flex:1;display:grid;grid-template-rows:1fr 6px 300px;overflow:hidden}
+.divider{background:var(--line);cursor:ns-resize;position:relative;touch-action:none}
+.divider::after{content:'';position:absolute;left:50%;top:-5px;transform:translateX(-50%);
+  width:46px;height:16px;border-radius:var(--pill);background:var(--ctl2);border:1px solid var(--line)}
+
+/* D — inspector */
+.insp{position:absolute;right:0;top:40px;bottom:0;width:62%;background:var(--panel);
+  border-left:1px solid var(--cyan);transform:translateX(101%);z-index:11;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;
+  gap:6px;padding:8px;overflow-y:auto;scrollbar-width:none}
+.insp.open{transform:none}
+.insp::-webkit-scrollbar{display:none}
+.insp .grab{position:absolute;left:-9px;top:0;bottom:0;width:18px;cursor:ew-resize;touch-action:none}
+
+/* editor mock + drawers */
+.vid{flex:1;background:linear-gradient(155deg,#1b2740,#0d1220);display:flex;align-items:center;
+  justify-content:center;font-size:66px;position:relative}
+.tl{height:76px;background:#0a0a0d;border-top:1px solid var(--line);padding:5px 7px;
+  display:flex;flex-direction:column;gap:4px;flex:0 0 auto}
+.tape{height:21px;border-radius:6px;background:linear-gradient(90deg,#1f3350,#2a4468);
+  display:flex;align-items:center;padding:0 7px;font-size:9px;color:#9fc4ee;position:relative}
+.tape.s{background:linear-gradient(90deg,#3a2350,#53306e);color:#d6b8f2}
+.ph{position:absolute;left:44%;top:0;bottom:0;width:2px;background:var(--pink);z-index:3}
+.drawer{position:absolute;left:0;right:0;bottom:0;background:var(--drawer);
+  backdrop-filter:blur(13px);border-top:1px solid var(--line);z-index:10;
+  border-radius:var(--r) var(--r) 0 0;transition:height .26s cubic-bezier(.4,0,.2,1);
+  display:flex;flex-direction:column;overflow:hidden}
+.grip{height:14px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  cursor:ns-resize;touch-action:none}
+.grip i{width:36px;height:4px;border-radius:2px;background:#52525b;display:block}
+.drow{display:flex;align-items:center;gap:5px;padding:0 8px 4px;flex:0 0 auto}
+.drow.nw{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.drow.nw::-webkit-scrollbar{display:none}
+.kf{display:inline-flex;align-items:center;gap:1px;background:var(--ctl);border:1px solid var(--line);
+  border-radius:var(--pill);padding:1px;flex:0 0 auto}
+.kf span{padding:2px 7px;font-size:11px;color:var(--dim);cursor:pointer;border-radius:var(--pill)}
+.kf span.armed{color:#fff;background:var(--pink)}
+.mini{font-size:10px;color:var(--dim);white-space:nowrap}
+.inst{background:var(--violet);color:#09090b;font-weight:700;border-radius:var(--pill);
+  padding:2px 10px;font-size:10.5px;flex:0 0 auto}
+.rail{display:flex;flex-direction:column;gap:3px;padding:0 6px 5px 2px;flex:0 0 auto}
+.rail button{min-height:23px;padding:1px 7px;font-size:10.5px;justify-content:center}
+.dtabs{display:flex;gap:3px;padding:0 8px 4px;flex:0 0 auto}
+.dtabs button{flex:1;justify-content:center;font-size:10.5px;min-height:24px;padding:1px}
+.more{position:absolute;right:8px;bottom:44px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);padding:6px;display:none;flex-direction:column;gap:3px;z-index:16;
+  box-shadow:0 14px 40px #000c;min-width:180px}
+.more.open{display:flex}
+.more button{justify-content:flex-start;font-size:11px;min-height:26px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Sprite<b>L</b><i>a</i><u>b</u> · full merge</div>
+  <div style="display:flex;align-items:center;gap:7px">
+    <span class="lbl">Lab</span>
+    <div class="seg" id="labSeg">
+      <button data-v="A" class="on">A panes</button><button data-v="B">B float</button>
+      <button data-v="C">C split</button><button data-v="D">D inspector</button></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:7px">
+    <span class="lbl">Drawer</span>
+    <div class="seg" id="drwSeg">
+      <button data-v="1" class="on">1 rows</button><button data-v="2">2 rail</button>
+      <button data-v="3">3 tabs</button><button data-v="4">4 minimal</button></div>
+  </div>
+  <button id="bCompare">Compare all</button>
+  <span class="hint" id="invCount"></span>
+</header>
+
+<main id="stage"></main>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const q = (s,r=document) => r.querySelector(s);
+const qa = (s,r=document) => [...r.querySelectorAll(s)];
+
+/* ══════════════════════════════════════════════════════════════════════
+   ONE INVENTORY, FOUR ARRANGEMENTS.
+   Every control from the SpriteLab web app AND from the phone's sprite
+   drawer + sheet editor is defined once, as a module. Each layout only
+   decides WHERE a module goes — never whether it exists. The tally under
+   each phone counts what that arrangement had to put behind a tap.
+   ══════════════════════════════════════════════════════════════════════ */
+
+const FACES = ['😀','😉','😮','😢','😠','😐','😍','😴','🤔','😅','😳','🤩','😝','🥺','😎','🙃'];
+const NAMES = {1:'smile',3:'surprised',4:'angry',6:'love',11:'excited',13:'plead'};
+const VIS   = {1:'EE',3:'OO',5:'REST'};
+const SUSPECT = {9:1};
+const st = {
+  sel:3, now:2, seq:[0,1,3,6,3,11], holds:{2:3}, detent:1,
+  clips:[{n:'idle',t:'loop',f:4,fps:8,i:0},{n:'talk',t:'pingpong',f:6,fps:12,i:1},
+         {n:'surprise',t:'once',f:3,fps:10,i:3}],
+  paneIdx:0, dTab:0, iTab:0
+};
+const curCell = () => st.seq[st.now] ?? 0;
+
+/* ── modules ─────────────────────────────────────────────────────────── */
+const M = {};
+
+M.history = () => `<button class="ic sm" title="Undo">↶</button><button class="ic sm" title="Redo">↷</button>`;
+M.project = () => `<div class="mod"><div class="h3"><span class="ico">💾</span>Project</div>
+  <div class="band"><button class="sm">⊞ Load sheet</button><button class="sm">Save project</button>
+  <button class="sm">Open project</button></div></div>`;
+
+M.sources = () => `<div class="srcs">
+  <div class="src on"><span class="d" style="background:var(--cyan)"></span>starguy.png<span style="color:var(--dimmer)">✕</span></div>
+  <div class="src"><span class="d" style="background:var(--violet)"></span>starguy_b.png<span style="color:var(--dimmer)">✕</span></div>
+  <div class="src" style="opacity:.45"><span class="d" style="background:#3f3f46"></span>old.png<span style="color:var(--dimmer)">↺</span></div>
+  <div class="src">＋ merge sheet</div></div>`;
+
+M.grid = (cols=4,n=16) => `<div class="grid" style="grid-template-columns:repeat(${cols},1fr)">
+  ${Array.from({length:n},(_,i)=>{
+    const ords = st.seq.map((c,k)=>c===i?k+1:0).filter(Boolean);
+    const isNow = curCell()===i;
+    return `<div class="cell ${st.sel===i?'sel':''} ${isNow?'now':''}" data-c="${i}">${FACES[i]}
+      <span class="n">${i}</span>
+      ${NAMES[i]?`<span class="nm">${NAMES[i]}</span>`:''}
+      ${VIS[i]?`<span class="vi">${VIS[i]}</span>`:''}
+      ${SUSPECT[i]?`<span class="sus" title="suspect"></span>`:''}
+      ${ords.length?`<span class="ord">${ords.join(',')}</span>`:''}
+    </div>`;}).join('')}</div>`;
+
+M.slice = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--amber)">▦</span>Grid &amp; slicing
+    <em>103×103 px · 16 cells</em></div>
+  <div class="band">
+    <div class="num"><span class="k">cols</span><span class="v">4</span></div>
+    <div class="num"><span class="k">rows</span><span class="v">4</span></div>
+    <div class="num"><span class="k">zoom</span><span class="v">86%</span></div>
+    <div class="num"><span class="k">mg x</span><span class="v">0</span></div>
+    <div class="num"><span class="k">mg y</span><span class="v">0</span></div>
+    <div class="num"><span class="k">sp x</span><span class="v">0</span></div>
+    <div class="num"><span class="k">sp y</span><span class="v">0</span></div>
+  </div>
+  <div class="band">
+    <button class="sm">⌕ Detect</button><button class="sm on">Grid</button>
+    <button class="sm on">🏷 Names</button><button class="sm">Key</button>
+    <button class="ic sm">✕</button><button class="sm">Fit</button>
+    <div class="num"><span class="k">tol</span><span class="v">10%</span></div>
+  </div>
+  <div class="band">
+    <span class="hint">Cell drag</span>
+    <span class="seg"><button class="on">Swap</button><button>Ripple</button></span>
+    <button class="ic sm" title="Reset arrangement">⇄</button>
+    <button class="sm">Suspect</button><span class="sp"></span><button class="sm">Name…</button>
+  </div></div>`;
+
+M.preview = (h=176, handles=true) => {
+  const prev = st.seq[st.now-1], next = st.seq[st.now+1], c = curCell();
+  return `<div class="pv" style="height:${h}px">
+    ${prev!=null?`<span class="ghost p">${FACES[prev]}</span>`:''}
+    ${next!=null?`<span class="ghost f">${FACES[next]}</span>`:''}
+    <span class="art">${FACES[c]}</span>
+    ${NAMES[c]?`<span class="tag">${NAMES[c]}${VIS[c]?' · '+VIS[c]:''}</span>`:''}
+    ${handles?`
+      <span class="box" style="left:31%;top:20%;right:31%;bottom:20%"></span>
+      <span class="hdl" style="left:30%;top:19%"></span><span class="hdl" style="right:30%;top:19%"></span>
+      <span class="hdl" style="left:30%;bottom:19%"></span><span class="hdl" style="right:30%;bottom:19%"></span>
+      <span class="rot" style="left:49%;top:9%"></span>
+      <span class="piv" style="left:47.5%;top:46%">✛</span>`:''}
+    <span class="hud">${st.now+1}/${st.seq.length} · cell ${c} · x0 y0 1.00× 0°</span></div>`;
+};
+
+M.transport = () => `<div class="band nw">
+  <button class="ic">▶</button><button class="ic sm">◀</button><button class="ic sm">▶|</button>
+  <span class="seg"><button class="on a" title="Loop">∞</button>
+    <button class="v" title="Ping-pong">⇄</button><button class="p" title="Once">▸|</button></span>
+  <button class="ic sm" title="Reverse">←</button>
+  <div class="num"><span class="k">fps</span><span class="v">12</span></div>
+  <div class="num"><span class="k">zoom</span><span class="v">170%</span></div>
+  <button class="ic sm" title="Fit preview">⤢</button>
+  <button class="sw" title="Background"
+    style="background:repeating-conic-gradient(#3a3a45 0 25%,#212128 0 50%) 0 0/8px 8px"></button>
+  <button class="ic sm on" title="Onion skin">◍</button>
+  <button class="ic sm" title="Difference">Δ</button></div>`;
+
+M.onion = () => `<div class="band nw">
+  <button class="sw" style="background:var(--pink)" title="Past ghosts"></button>
+  <div class="num"><span class="k">past</span><span class="v">1</span></div>
+  <button class="sw" style="background:var(--cyan)" title="Future ghosts"></button>
+  <div class="num"><span class="k">future</span><span class="v">1</span></div>
+  <div class="num"><span class="k">strength</span><span class="v">40%</span></div></div>`;
+
+M.scrub = () => `<div class="scrub">${st.seq.map((c,i)=>
+  `<i class="${i===st.now?'on':''}" style="flex:${st.holds[i]||1}"></i>`).join('')}</div>`;
+
+M.film = (centre=true) => `<div class="filmw ${centre?'mid':''}"><div class="film">
+  <div class="sprock"></div>
+  <div class="frames">${st.seq.map((c,i)=>`
+    <div class="chip ${i===st.now?'now':''} ${i===st.sel?'sel':''}" data-f="${i}">
+      ${st.holds[i]?`<span class="hd">×${st.holds[i]}</span>`:''}
+      <div class="im">${FACES[c]}</div><div class="lb">${i+1}·c${c}</div>
+      ${NAMES[c]?`<div class="n2">${NAMES[c]}</div>`:''}</div>`).join('')}</div>
+  <div class="sprock"></div></div></div>`;
+
+M.sequence = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--pink)">≣</span>Sequence
+    <em>${st.seq.length} frames · range 1–6</em></div>
+  <div class="band">
+    <button class="sm">Clear</button><button class="sm">Add all</button>
+    <button class="sm">Hold +</button><button class="sm">Hold −</button>
+    <button class="sm">Play all</button><button class="sm">Name…</button>
+    <button class="sm pk">🎬 Save clip</button></div></div>`;
+
+M.align = (wide=true) => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--cyan)">✛</span>Alignment
+    <em>frame ${st.now+1} · cell ${curCell()}</em></div>
+  <div class="band">
+    <div class="num"><span class="k">↔</span><span class="v">0</span></div>
+    <div class="num"><span class="k">↕</span><span class="v">0</span></div>
+    <div class="num"><span class="k">⤢</span><span class="v">1.00</span></div>
+    <div class="num"><span class="k">⟳</span><span class="v">0°</span></div>
+    ${wide?`<div class="num"><span class="k">piv x</span><span class="v">50%</span></div>
+    <div class="num"><span class="k">piv y</span><span class="v">50%</span></div>`:''}
+  </div>
+  <div class="band">
+    <button class="sm">Reset</button><button class="sm">Auto-centre</button>
+    <button class="sm">Plant feet</button><button class="sm">Match</button>
+    <button class="sm">Drift…</button><button class="sm">Copy to all</button>
+    <button class="sm">Reset all</button></div></div>`;
+
+M.presets = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--violet)">🎬</span>Saved animations
+    <em>tap to drop one at the playhead</em></div>
+  <div class="band nw">${st.clips.map(c=>`<span class="pchip ${c.t==='loop'?'l':c.t==='once'?'o':''}">
+    ${c.t==='loop'?'∞':c.t==='once'?'▸|':'⇄'} ${c.n}</span>`).join('')}</div></div>`;
+
+M.clips = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--violet)">🎞</span>Animation clips</div>
+  ${st.clips.map(c=>`<div class="clip"><span class="th">${FACES[c.i]}</span>
+    <div class="mt"><div class="nm3">${c.n}
+      <span class="bdg ${c.t==='loop'?'l':c.t==='once'?'o':''}">${c.t==='loop'?'∞':c.t==='once'?'1×':'⇄'}</span></div>
+      <div class="hint">${c.f} frames · ${c.fps} fps</div></div>
+    <button class="ic sm" title="Load">⤒</button><button class="ic sm" title="Edit">✎</button>
+    <button class="ic sm" title="Delete">✕</button></div>`).join('')}</div>`;
+
+M.cellEd = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--cyan)">🏷</span>Cell ${st.sel}
+    <em>${NAMES[st.sel]||'unnamed'}</em></div>
+  <input type="text" value="${NAMES[st.sel]||''}" placeholder="surprise, wide_smile…">
+  <div class="band"><span class="pchip l">face</span><span class="pchip l">mouth</span>
+    <span class="pchip" style="background:var(--ctl);color:var(--dim)">＋ tag</span></div>
+  <div class="h3">Viseme <em>one drawing can answer twice</em></div>
+  <div class="band">${['REST','AA','EE','OO','CL','FR'].map(v=>
+    `<button class="sm ${VIS[st.sel]===v?'on':''}">${v}</button>`).join('')}</div></div>`;
+
+M.export = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--green)">⭱</span>Export</div>
+  <input type="text" value="starguy">
+  <div class="band">
+    <div class="num"><span class="k">bake cols</span><span class="v">8</span></div>
+    <div class="num"><span class="k">pad</span><span class="v">2</span></div>
+    <span class="seg"><button class="on">Fit to art</button><button>Fill</button><button>Keep</button></span>
+    <span class="seg"><button class="on">PNG</button><button>JPG</button></span></div>
+  <div class="band">
+    <button class="sm pk" style="flex:1;justify-content:center">⭱ Bake sheet + JSON</button>
+    <button class="sm">{ } JSON</button><button class="sm">Frames</button></div></div>`;
+
+M.json = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--amber)">{ }</span>JSON
+    <span class="sp"></span><button class="sm">Copy</button></div>
+  <div class="json">{<br>&nbsp;"name": <b>"starguy"</b>,<br>&nbsp;"cols": 4, "rows": 4, "fps": 12,<br>
+    &nbsp;<u>"cellNames"</u>: { "1": <b>"smile"</b>, "3": <b>"surprised"</b>, "4": <b>"angry"</b> },<br>
+    &nbsp;<u>"visemeMap"</u>: { "EE": 1, "OO": 3, "REST": 5 },<br>
+    &nbsp;<u>"presets"</u>: [<br>
+    &nbsp;&nbsp;{ "name": <b>"talk"</b>, "type": "pingpong",<br>
+    &nbsp;&nbsp;&nbsp;"frames": [0,1,3,6,3,11], "weights": [1,1,3,1,1,1] }<br>&nbsp;]<br>}</div></div>`;
+
+M.dope = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--amber)">▤</span>Dope sheet
+    <em>weights · reorder · make preset</em></div>
+  <div class="band nw" style="align-items:flex-end">${st.seq.map((c,i)=>`
+    <div style="width:34px;text-align:center;flex:0 0 auto">
+      <div style="height:${16+(st.holds[i]||1)*10}px;border-radius:4px 4px 0 0;
+        background:${i===st.now?'var(--pink)':'var(--ctl2)'}"></div>
+      <div style="font-size:8px;color:var(--dimmer)">${st.holds[i]||1}</div></div>`).join('')}</div>
+  <div class="band">
+    <button class="sm">÷2</button><button class="sm">×2</button>
+    <button class="sm">Reverse</button><button class="sm">Shuffle</button>
+    <button class="sm">Make preset</button>
+    <span class="seg"><button class="on">Relative</button><button>Absolute</button></span></div></div>`;
+
+M.rig = () => `<div class="mod">
+  <div class="h3"><span class="ico" style="color:var(--blue)">☻</span>Rig, sequence &amp; repair</div>
+  <div class="band">
+    <button class="sm">● Record performance</button><button class="sm">🎬 From video</button>
+    <button class="sm">Relink art</button><button class="sm">Sequence → sheet</button>
+    <span class="seg"><button class="on">Relative</button><button>Absolute</button></span></div></div>`;
+
+/* ── layouts ─────────────────────────────────────────────────────────── */
+const topbar = extra => `<div class="tbar">
+  <button class="ic sm">←</button><div class="t">Starguy</div>
+  ${M.history()}${extra||''}<button class="sm pk">Save</button></div>`;
+
+const overlay = (id,title,body) => `
+  <div class="scrim" data-scrim="${id}"></div>
+  <div class="sheetover" id="${id}">
+    <div class="band"><b style="font:600 13px var(--disp)">${title}</b>
+      <span class="sp"></span><button class="ic sm" data-close="${id}">✕</button></div>
+    <div style="overflow-y:auto;display:flex;flex-direction:column;gap:9px;scrollbar-width:none">
+      ${body}</div></div>`;
+
+function labA(){ return `<div class="scr">
+  ${topbar()}
+  <div class="ptabs" id="ptabs">
+    <button class="${st.paneIdx===0?'on':''}">Sheet</button>
+    <button class="${st.paneIdx===1?'on':''}">Align</button>
+    <button class="${st.paneIdx===2?'on':''}">Clips</button>
+    <button class="${st.paneIdx===3?'on':''}">Export</button></div>
+  <div class="panes"><div class="track" id="track" style="transform:translateX(${-st.paneIdx*100}%)">
+    <div class="pane">${M.sources()}${M.grid()}${M.slice()}${M.cellEd()}</div>
+    <div class="pane">${M.preview(196)}${M.transport()}${M.onion()}${M.align()}</div>
+    <div class="pane">${M.sequence()}${M.presets()}${M.clips()}${M.dope()}</div>
+    <div class="pane">${M.export()}${M.json()}${M.rig()}${M.project()}</div>
+  </div></div>
+  <div class="dots">${[0,1,2,3].map(i=>`<span class="dot ${i===st.paneIdx?'on':''}"></span>`).join('')}</div>
+  ${M.scrub()}${M.film()}</div>`; }
+
+function labB(){ return `<div class="scr">
+  ${topbar(`<button class="ic sm" id="pipToggle" title="Preview">◳</button>
+            <button class="ic sm" data-open="bClips" title="Clips">🎞</button>
+            <button class="ic sm" data-open="bExport" title="Export">⭱</button>`)}
+  <div style="flex:1;overflow-y:auto;padding:7px 9px;display:flex;flex-direction:column;
+    gap:7px;scrollbar-width:none">
+    ${M.sources()}${M.grid()}${M.slice()}${M.sequence()}${M.presets()}</div>
+  <div class="pip" id="pip" style="left:198px;top:296px">
+    <div class="bar"><span class="gg"></span>
+      <span style="font-size:9px;color:var(--dimmer)">drag</span></div>
+    ${M.preview(106)}
+    <div class="band" style="gap:3px;margin-top:4px">
+      <div class="num" style="padding:2px 7px"><span class="k">↔</span><span class="v">0</span></div>
+      <div class="num" style="padding:2px 7px"><span class="k">↕</span><span class="v">0</span></div>
+      <button class="ic sm">▶</button></div>
+    <div class="rz"></div></div>
+  ${M.scrub()}${M.film()}
+  ${overlay('bClips','Frames, clips &amp; alignment',
+      M.clips()+M.align()+M.onion()+M.dope()+M.cellEd()+M.rig())}
+  ${overlay('bExport','Export', M.export()+M.json()+M.project())}</div>`; }
+
+function labC(){
+  const tabs = ['Align','Onion','Slice','Clips'];
+  const body = [
+    `<div style="display:flex;gap:7px;overflow:hidden">
+      <div style="flex:0 0 auto;width:130px">${M.preview(130,false)}</div>
+      <div style="flex:1;min-width:0">${M.align(false)}</div></div>${M.transport()}`,
+    `${M.onion()}${M.preview(112,false)}${M.transport()}`,
+    `${M.sources()}${M.slice()}${M.cellEd()}`,
+    `${M.sequence()}${M.presets()}${M.clips()}`
+  ][st.dTab];
+  return `<div class="scr">
+  ${topbar(`<button class="ic sm" data-open="cMore" title="More">⋯</button>`)}
+  <div class="split" id="split">
+    <div style="overflow-y:auto;padding:7px 9px;scrollbar-width:none">${M.grid()}</div>
+    <div class="divider" id="divider"></div>
+    <div style="padding:6px 9px 0;display:flex;flex-direction:column;gap:6px;overflow:hidden">
+      <div class="ptabs" id="ctabs" style="padding:0">
+        ${tabs.map((t,i)=>`<button class="${i===st.dTab?'on':''}">${t}</button>`).join('')}</div>
+      <div style="overflow-y:auto;display:flex;flex-direction:column;gap:6px;
+        scrollbar-width:none;padding-bottom:6px">${body}</div>
+    </div></div>
+  ${M.scrub()}${M.film()}
+  ${overlay('cMore','Export, frames &amp; rig', M.export()+M.json()+M.dope()+M.rig()+M.project())}
+  </div>`; }
+
+function labD(){
+  const tabs = ['Frame','Cell','Clips'];
+  const body = [
+    `${M.preview(140)}${M.transport()}${M.onion()}${M.align(false)}`,
+    `${M.cellEd()}${M.slice()}`,
+    `${M.sequence()}${M.presets()}${M.clips()}`
+  ][st.iTab];
+  return `<div class="scr">
+  ${topbar(`<button class="ic sm" id="inspToggle" title="Inspector">▸</button>
+            <button class="ic sm" data-open="dMore" title="More">⋯</button>`)}
+  <div style="flex:1;overflow-y:auto;padding:7px 9px;display:flex;flex-direction:column;
+    gap:7px;scrollbar-width:none">${M.sources()}${M.grid()}</div>
+  ${M.scrub()}${M.film()}
+  <div class="insp" id="insp">
+    <div class="grab" id="inspGrab"></div>
+    <div class="ptabs" id="itabs" style="padding:0">
+      ${tabs.map((t,i)=>`<button class="${i===st.iTab?'on':''}">${t}</button>`).join('')}
+      <button class="ic sm" id="inspClose">✕</button></div>
+    ${body}</div>
+  ${overlay('dMore','Export, frames &amp; rig', M.export()+M.json()+M.dope()+M.rig()+M.project())}
+  </div>`; }
+
+const LABS = {A:labA,B:labB,C:labC,D:labD};
+const LABMETA = {
+  A:{h:'A · Four swipe panes',
+     p:'Sheet / Align / Clips / Export as full-width pages, with the film strip and scrub pinned across all four. Every module gets a whole page — nothing is squeezed and nothing hides in a menu.',
+     direct:['sources','grid','slice','cell editor','preview','transport','onion','align',
+             'sequence','presets','clips','dope','export','json','rig','project','film','scrub'],
+     one:[], two:[], flag:'Grid not visible while aligning'},
+  B:{h:'B · Grid + floating preview',
+     p:'The grid keeps the screen; the preview floats where the sheet has dead space — drag it, resize it, hide it. Clips, alignment and export move into two bottom sheets.',
+     direct:['sources','grid','slice','sequence','presets','preview','film','scrub'],
+     one:['clips','align','onion','dope','cell editor','rig','export','json','project'],
+     two:[], flag:'Both visible · no wasted width'},
+  C:{h:'C · Split + tabbed workbench',
+     p:'Grid above a draggable divider; below it a workbench tabbing between Align / Onion / Slice / Clips, with the preview beside the fields so the width next to a square preview is never wasted.',
+     direct:['grid','preview','align','transport','film','scrub'],
+     one:['onion','slice','cell editor','sources','sequence','presets','clips'],
+     two:['export','json','dope','rig','project'], flag:'Both visible · fixed proportions'},
+  D:{h:'D · Inspector slides over',
+     p:'The grid is always the screen. The inspector tabs between Frame / Cell / Clips and resizes by its edge, so naming, tags and visemes get a real surface instead of a cramped dialog.',
+     direct:['sources','grid','film','scrub'],
+     one:['preview','transport','onion','align','cell editor','slice','sequence','presets','clips'],
+     two:['export','json','dope','rig','project'], flag:'Both visible · grid partly covered'}
+};
+
+/* ── drawers, full inventory ─────────────────────────────────────────── */
+const DH = {1:[212,274,336], 2:[176,238,300], 3:[202,264,326], 4:[156,218,280]};
+const chips = rows => `<div class="filmw" style="${rows>1?'flex-wrap:wrap;overflow-y:auto':''}">
+  <div class="film" style="${rows>1?'width:100%':''}"><div class="sprock"></div>
+  <div class="frames" style="${rows>1?'flex-wrap:wrap':''}">
+  ${Array.from({length:rows>1?16:10},(_,i)=>`
+    <div class="chip ${i===3?'now':''}" data-f="${i}"><div class="im">${FACES[i]}</div>
+      <div class="lb">${i}</div>${NAMES[i]?`<div class="n2">${NAMES[i]}</div>`:''}</div>`).join('')}
+  </div><div class="sprock"></div></div></div>`;
+const kf = () => `<span class="kf"><span title="Previous keyframe — or swipe">◂K</span>
+  <span class="armed" title="Delete the keyframe under the playhead">🗑</span>
+  <span title="Next keyframe — or swipe">K▸</span></span>`;
+const presetRow = () => `<div class="drow nw">
+  ${st.clips.map(c=>`<span class="pchip ${c.t==='loop'?'l':c.t==='once'?'o':''}">
+    ${c.t==='loop'?'∞':c.t==='once'?'▸|':'⇄'} ${c.n}</span>`).join('')}
+  <span class="pchip" style="background:var(--ctl);color:var(--dim)">＋</span></div>`;
+const behaviours = () => `<button class="ic sm" title="Flip H">⇅</button>
+  <button class="ic sm" title="Flip V">⇄</button>
+  <span class="seg"><button class="on a">∞</button><button class="v">⇄</button>
+  <button class="p">▸|</button></span>`;
+
+const DRWS = {
+1: rows => `<div class="grip"><i></i></div>
+  <div class="drow nw"><span class="inst">Starguy 1</span>
+    <span class="mini">cell 3 · surprised</span><span class="sp"></span>
+    ${kf()}<button class="ic sm" title="Open Sprite Lab">⊞</button>
+    <button class="ic sm">✕</button></div>
+  ${chips(rows)}${presetRow()}
+  <div class="drow nw">${behaviours()}<span class="sp"></span>
+    <button class="sm">▤ Dope</button><button class="ic sm">⚙</button></div>`,
+2: rows => `<div class="grip"><i></i></div>
+  <div class="drow nw"><span class="inst">Starguy 1</span>
+    <span class="mini">cell 3 · surprised</span><span class="sp"></span>
+    ${kf()}<button class="ic sm">▤</button><button class="ic sm">⊞</button>
+    <button class="ic sm">✕</button></div>
+  <div style="display:flex;flex:1;min-height:0">
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column">${chips(rows)}${presetRow()}</div>
+    <div class="rail"><button class="ic">⇅</button><button class="ic">⇄</button>
+      <button class="ic on">∞</button><button class="ic">⚙</button></div></div>`,
+3: rows => `<div class="grip"><i></i></div>
+  <div class="drow nw"><span class="inst">Starguy 1</span>
+    <span class="mini">cell 3 · surprised</span><span class="sp"></span>${kf()}
+    <button class="ic sm">✕</button></div>
+  <div class="dtabs" id="dtabs">
+    <button class="on">Cells</button><button>Clips</button><button>Frames</button>
+    <button>Adjust</button></div>
+  ${chips(rows)}${presetRow()}`,
+4: rows => `<div class="grip"><i></i></div>
+  ${chips(rows)}
+  <div class="drow nw"><span class="mini">cell 3 · surprised</span><span class="sp"></span>
+    ${kf()}<button class="ic sm" id="moreBtn">⋯</button><button class="ic sm">✕</button></div>
+  <div class="more" id="moreMenu">
+    <button>🎬 Saved animations…</button><button>⇅ Flip H</button><button>⇄ Flip V</button>
+    <button>∞ End behaviour</button><button>▤ Dope sheet</button>
+    <button>⊞ Open Sprite Lab</button><button>⚙ Manage sheets</button>
+    <button>● Record performance</button></div>`
+};
+const DRWMETA = {
+ 1:{h:'1 · Four compact rows', p:'Header, chips, saved animations, behaviours. Everything the drawer owns is on screen at once — including the named animations the phone has never shown.',
+    direct:['instance','status','keyframes','chips','saved animations','flip','end behaviour','dope','manage','lab'], one:[], two:[]},
+ 2:{h:'2 · Rows + edge rail', p:'Behaviours move to a vertical rail, so chips and saved animations take the full width and the drawer stays shorter.',
+    direct:['instance','status','keyframes','chips','saved animations','flip','end behaviour','manage','dope','lab'], one:[], two:[]},
+ 3:{h:'3 · Tabbed body', p:'One tab strip, one body. Cells / Clips / Frames / Adjust share the same height, so adding a feature never grows the drawer.',
+    direct:['instance','status','keyframes','chips','saved animations'],
+    one:['flip','end behaviour','dope','rig','manage'], two:[]},
+ 4:{h:'4 · Minimal + ⋯', p:'Chips and a status line. Everything secondary lives behind ⋯. Smallest footprint, most taps — and the saved animations lose their glanceability.',
+    direct:['status','keyframes','chips'],
+    one:['saved animations','flip','end behaviour','dope','lab','manage','rig'], two:[]}
+};
+
+function editorMock(rows){
+  return `<div class="scr">
+    <div class="vid">${FACES[curCell()]}
+      <div style="position:absolute;left:10px;top:9px;font-size:10px;color:#7da3d0">preview</div></div>
+    <div class="tl"><div class="tape">clip.mp4<span class="ph"></span></div>
+      <div class="tape s">Starguy · sprite</div></div>
+    <div class="drawer" id="drawer" style="height:${DH[DRW][rows-1]}px">${DRWS[DRW](rows)}</div>
+  </div>`;
+}
+
+/* ── render ──────────────────────────────────────────────────────────── */
+let LAB='A', DRW='1', compare=false;
+const phone = (inner,cls='') =>
+  `<div class="phone ${cls}"><div class="sbar"><span>7:43</span><span>▮▮▮</span></div>${inner}</div>`;
+function capOf(m, px){
+  return `<div class="cap"><h4>${m.h}</h4><p>${m.p}</p><div class="tally">
+    <span class="pip2 g">${m.direct.length} on screen</span>
+    ${m.one.length?`<span class="pip2 y">${m.one.length} one tap</span>`:''}
+    ${m.two.length?`<span class="pip2 r">${m.two.length} two taps</span>`:''}
+    ${m.flag?`<span class="pip2 c">${m.flag}</span>`:''}
+    ${px?`<span class="pip2 c">${px}px tall</span>`:''}</div></div>`;
+}
+function render(){
+  const s = $('stage');
+  if(compare){
+    s.innerHTML = Object.keys(LABS).map(k=>{const o=LAB;LAB=k;
+        const h=`<div class="slot">${phone(LABS[k](),'sm')}${capOf(LABMETA[k])}</div>`;LAB=o;return h;}).join('')
+      + Object.keys(DRWS).map(k=>{const o=DRW;DRW=k;
+        const h=`<div class="slot">${phone(editorMock(1),'sm')}${capOf(DRWMETA[k],DH[k][0])}</div>`;
+        DRW=o;return h;}).join('');
+  } else {
+    s.innerHTML = `<div class="slot">${phone(LABS[LAB]())}${capOf(LABMETA[LAB])}</div>`
+      + `<div class="slot">${phone(editorMock(st.detent))}${capOf(DRWMETA[DRW],DH[DRW][st.detent-1])}</div>`;
+  }
+  wire();
+  const m = LABMETA[LAB];
+  $('invCount').textContent =
+    `${m.direct.length + m.one.length + m.two.length} modules · the same set in every layout`;
+}
+
+function wire(){
+  qa('.cell').forEach(c => c.onclick = () => { st.sel=+c.dataset.c;
+    const i=st.seq.indexOf(st.sel); if(i>=0) st.now=i;
+    if(LAB==='D'){ st.iTab=1; render(); q('#insp').classList.add('open'); return; } render(); });
+  qa('.chip[data-f]').forEach(c => c.onclick = () => { const i=+c.dataset.f;
+    if(i<st.seq.length){ st.now=i; st.sel=st.seq[i]; render(); } });
+
+  qa('[data-open]').forEach(b => b.onclick = () => { const id=b.dataset.open;
+    q('#'+id).classList.add('open'); q(`[data-scrim="${id}"]`).classList.add('open'); });
+  qa('[data-close]').forEach(b => b.onclick = () => { const id=b.dataset.close;
+    q('#'+id).classList.remove('open'); q(`[data-scrim="${id}"]`).classList.remove('open'); });
+  qa('.scrim').forEach(s2 => s2.onclick = () => { s2.classList.remove('open');
+    q('#'+s2.dataset.scrim).classList.remove('open'); });
+
+  const track = $('track');
+  if(track){
+    const go = i => { st.paneIdx = Math.max(0,Math.min(3,i)); render(); };
+    qa('button',$('ptabs')).forEach((b,k)=> b.onclick = () => go(k));
+    let sx=null;
+    track.parentElement.addEventListener('pointerdown', e => {
+      if(e.target.closest('.cell,.chip,button,.num,.src,.pchip,input')) return; sx=e.clientX; });
+    track.parentElement.addEventListener('pointerup', e => {
+      if(sx===null) return; const d=e.clientX-sx; sx=null;
+      if(Math.abs(d)>45) go(st.paneIdx + (d<0?1:-1)); });
+  }
+  const pip = $('pip');
+  if(pip){
+    const bar=q('.bar',pip), rz=q('.rz',pip); let m=null,r=null;
+    bar.addEventListener('pointerdown',e=>{ m={x:e.clientX,y:e.clientY,l:pip.offsetLeft,t:pip.offsetTop};
+      bar.setPointerCapture(e.pointerId); });
+    bar.addEventListener('pointermove',e=>{ if(!m) return;
+      pip.style.left=(m.l+e.clientX-m.x)+'px'; pip.style.top=(m.t+e.clientY-m.y)+'px'; });
+    bar.addEventListener('pointerup',()=>m=null);
+    rz.addEventListener('pointerdown',e=>{ r={x:e.clientX,w:pip.offsetWidth};
+      rz.setPointerCapture(e.pointerId); e.stopPropagation(); });
+    rz.addEventListener('pointermove',e=>{ if(!r) return;
+      const w=Math.max(118,Math.min(340,r.w+e.clientX-r.x));
+      pip.style.width=w+'px'; q('.pv',pip).style.height=Math.round(w*.7)+'px'; });
+    rz.addEventListener('pointerup',()=>r=null);
+    $('pipToggle').onclick = e => { const on = pip.style.display!=='none';
+      pip.style.display = on?'none':'block'; e.currentTarget.classList.toggle('on',!on); };
+  }
+  const div = $('divider');
+  if(div){
+    const split=$('split');
+    const set = px => split.style.gridTemplateRows = `1fr 6px ${Math.max(150,Math.min(500,px))}px`;
+    let dy=null,h0=0;
+    div.addEventListener('pointerdown',e=>{ dy=e.clientY; h0=split.lastElementChild.offsetHeight;
+      div.setPointerCapture(e.pointerId); });
+    div.addEventListener('pointermove',e=>{ if(dy===null) return; set(h0-(e.clientY-dy)); });
+    div.addEventListener('pointerup',()=>dy=null);
+    qa('button',$('ctabs')).forEach((b,i)=> b.onclick = () => { st.dTab=i; render(); });
+  }
+  const insp = $('insp');
+  if(insp){
+    $('inspToggle').onclick = () => insp.classList.toggle('open');
+    $('inspClose').onclick = () => insp.classList.remove('open');
+    qa('#itabs button').slice(0,3).forEach((b,i)=> b.onclick = () => { st.iTab=i; render();
+      q('#insp').classList.add('open'); });
+    const grab=$('inspGrab'); let gx=null,w0=0;
+    grab.addEventListener('pointerdown',e=>{ gx=e.clientX; w0=insp.offsetWidth;
+      grab.setPointerCapture(e.pointerId); });
+    grab.addEventListener('pointermove',e=>{ if(gx===null) return;
+      insp.style.width=Math.max(170,Math.min(370,w0-(e.clientX-gx)))+'px'; });
+    grab.addEventListener('pointerup',()=>gx=null);
+  }
+  const grip = q('.drawer .grip');
+  if(grip){
+    let gy=null;
+    grip.addEventListener('pointerdown',e=>{ gy=e.clientY; grip.setPointerCapture(e.pointerId); });
+    grip.addEventListener('pointerup',e=>{ if(gy===null) return; const d=gy-e.clientY; gy=null;
+      if(d>22) st.detent=Math.min(3,st.detent+1);
+      else if(d<-22) st.detent=Math.max(1,st.detent-1); else return; render(); });
+  }
+  const mb = $('moreBtn'); if(mb) mb.onclick = () => $('moreMenu').classList.toggle('open');
+  const dt = $('dtabs'); if(dt) qa('button',dt).forEach(b => b.onclick = () => {
+    qa('button',dt).forEach(x=>x.classList.remove('on')); b.classList.add('on'); });
+}
+
+$('labSeg').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  LAB=b.dataset.v; qa('button',$('labSeg')).forEach(x=>x.classList.toggle('on',x===b));
+  compare=false; $('bCompare').classList.remove('on'); st.paneIdx=0; st.dTab=0; st.iTab=0; render(); };
+$('drwSeg').onclick = e => { const b=e.target.closest('button'); if(!b) return;
+  DRW=b.dataset.v; qa('button',$('drwSeg')).forEach(x=>x.classList.toggle('on',x===b));
+  compare=false; $('bCompare').classList.remove('on'); render(); };
+$('bCompare').onclick = e => { compare=!compare;
+  e.currentTarget.classList.toggle('on',compare); render(); };
+render();
+</script>
+</body>
+</html>

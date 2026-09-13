@@ -14,7 +14,7 @@ and compares preview vs export at COMPARE_WIDTH=480, mean<=3.0 p95<=12.0 (codec 
 | 02_mask_on_NORMAL | mask + NORMAL blend (mask-only, must cut without GL) |
 | 03_fx_plus_blend | FxStack invert + MULTIPLY |
 | 04_adjustment_plus_mask | AdjustmentLayer invert masked to region |
-| 05_track_matte_still | luma matte from still peer (4323e8db fallback path) |
+| 05_track_matte_still | luma matte from still peer (986a2b36 fallback path) |
 | 06_crop_plus_blend | effectiveCropFractions + MULTIPLY |
 | 07_two_images_blending | two image overlays both blending (MULTIPLY + SCREEN) |
 | 08_z_mixed_gl_canvas | z: video GL bottom, text Canvas middle, image GL top |

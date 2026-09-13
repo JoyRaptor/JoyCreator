@@ -110,3 +110,112 @@ turns out it already exists), or gets deleted. Deleting is fine. That is what an
   rather than one project's folder, so a sprite is reusable across projects. That is the
   same question the vault answers — do not design a separate home for it.
 - **Sprite sheet adjustment work** in the app is in flight alongside this.
+
+## Captured 2026-09-11 (SpriteLab parity ruling)
+
+- **SpriteLab reaches full parity on device.** JoyRaptor's ruling: the web app is a PILOT,
+  not a permanent tier. Phones and tablets both. The only durable reason for a desktop tool
+  is interop with desktop software, never capability. Any proposal that splits features
+  "heavy on desktop / light on phone" has already been rejected once — do not re-propose it.
+- **Consequence: `SpriteSheet` needs an additive per-cell transform** (dx, dy, scale,
+  rotation). Today alignment can only exist as baked pixels because the format has nowhere
+  to put it; with the Lab on the phone that becomes wrong, and alignment should be
+  non-destructive data that survives a round trip. Tags and viseme assignments likewise —
+  `Cell.tags[]` already exists and has never been written; `visemeMap` currently rides on
+  `AvatarRig`, not on the sheet.
+- **Treat SpriteLab's state model as the reference implementation** the phone converges on:
+  stable art identity (`srcId`), arrangement (`cellOrder`), per-cell transforms, names, tags,
+  visemes, clips. `.spritelab.json` and `.sprite.json` should converge, not drift — divergence
+  silently loses work on a round trip.
+- **The simplicity question, not a gesture rule.** A proposed "every gesture needs a
+  one-thumb path" rule was **rejected** by JoyRaptor 2026-09-12: *"a rule might get in the
+  way of the best option."* The app is very feature-dense, so the standing question for
+  every surface is **"can this be done more simply, with less UI, more intuitively?"** —
+  judgement, asked every time, not a checklist item. Applies well beyond sprites.
+- **Swipeable panes for the phone Lab** — his own suggestion for fitting everything on a
+  small screen. Tablets get more room; the phone gets panes. Design session of its own.
+
+## Captured 2026-09-12 (SpriteLab UI pass)
+
+- **PRINCIPLE — every button carries a hover label.** JoyRaptor, 2026-09-12: every control
+  should say what it does on hover, so anyone can learn the app by pointing at it. On Android
+  this is invisible *most* of the time, which costs nothing — but it is **not** dead weight:
+  a Galaxy Note stylus produces real hover, and so does a plugged-in mouse or a keyboard-and-
+  trackpad tablet setup. So it helps exactly the people trying hardest to learn.
+  Two consequences: (1) **anything built from now on ships with hover labels**, and (2) there
+  is a **systematic sweep owed** over every existing button in the app. The sweep is NOT
+  scheduled and was deliberately kept out of the SpriteLab sessions to protect their context.
+  Whoever picks it up should treat it as its own lane. SpriteLab itself is already complete —
+  zero untitled buttons, verified.
+- **Sprockets should do what sprockets do.** A scrollbar is a mouse affordance; on a tablet
+  with no pointer a long filmstrip could not be moved at all. Dragging the perforated margin
+  now pans the reel. Generalises: wherever the app draws a physical metaphor, the metaphor
+  should be grabbable — the timeline spine included.
+
+## Captured 2026-09-12 (theming, measured)
+
+- **The editor never joined the theming system that already ships.** Measured, not guessed:
+  the app has **7 alternate palettes** (`colors_amoled / gold / pookiepink / red /
+  shadowalloy / silentforest / snowveil`, 33 colours each) driven by theme attrs
+  (`colorButton`, `colorTopBar`, `colorDialog`, `colorHeading`, …). Recorder and Forensics
+  resolve them properly. The editor does not: **1,092 hardcoded `0xFF…` literals live under
+  `ui/faditor`** out of 1,447 app-wide, and exactly **one** editor file has ever called
+  `resolveThemeColor`. `FaditorEditorActivity` alone holds 363.
+  So the job is not "build theming" — it is **"make the editor use the theming that already
+  exists"**, plus widening the token set (8 attrs is too few for an editor; it needs roughly
+  20: surface, panel, line, ink, dim, accent, plus state colours).
+- **The green JoyRaptor wants to replace is `0xFF4CAF50`** — Material Green 500, used **143
+  times in the editor** (197 app-wide), the single most common literal in the codebase. He
+  prefers SpriteLab's emerald `#34d399`. That one swap is a sed; the other 949 literals are
+  the actual work. 170 distinct colours in the editor is itself the finding — a designed
+  palette is 15 to 20.
+- **Two-layer colour, and the layers must not mix.** SpriteLab demonstrates the shape: a
+  neutral base plus accents. Proposal — (1) a **theme** the user picks, app-wide; (2) a
+  **section accent** so the room tells you where you are (Sprite Lab, Avatar Studio, Capture,
+  Editor). **Hard rule: STATE colours are global and constant** (in SpriteLab, cyan = selected,
+  pink = showing now). A section accent must never be a colour that already means a state, or
+  "pink" means "playing" in one room and "you are in Sprite Lab" in another. That collision is
+  the whole risk in the section-colour idea and it is cheap to avoid by choosing accents from
+  outside the state set.
+- **Not a spec yet, deliberately.** Per this repo's own rule, a spec is what an idea becomes
+  *after* it is scheduled. This is a lane of its own — mechanical, large, and dangerous to do
+  blind, because a wrong token makes text invisible rather than throwing. It wants a
+  screenshot-diff pass, not a compile.
+- **The restyle is a DE-BRANDING, not a re-skin.** JoyRaptor, 2026-09-12: FadCam's ethos is
+  hacker / privacy / surveillance; Joy Creator is meant to be a fun, colourful, art-first
+  application. The inherited defaults carry the old ethos — the default dingy red especially.
+  Pure black is a deliberate art choice: it makes the colours of *the user's project* pop.
+  So the target is not "tidy the palette", it is "stop looking like the app it was forked
+  from". SpritePop is the closest reference point.
+- **Scalpel, not hammer — the translucent drawers are load-bearing.** The editor's drawers are
+  semi-transparent ON PURPOSE so you can see the video playing underneath while you noodle
+  with options. That is a compromise this feature-dense editor needs and a flat SpritePop-style
+  opaque panel would destroy it. Any theming lane must treat drawer surfaces as their own token
+  with alpha, not fold them into the panel colour. Expect more cases like this; the restyle
+  goes in waves, checking each surface's purpose before restyling it.
+
+## Captured 2026-09-12 (Joybot, and the sprite entry point)
+
+- **Name a whole sheet by talking to Joybot.** "This is a dinosaur. Left to right, top to
+  bottom: happy, sad, surprised…" and he fills every `cellNames` entry in one go. With a key
+  connected an LLM infers better (and can propose the cells you did not describe); **with no
+  key it should still work** as an offline skill that parses a spoken/typed list in an
+  understood format and populates positionally. This is the thing that makes naming cheap
+  enough that people actually do it — see SPEC_20260910_SEMANTIC_CELLS for why naming matters
+  at all. SpriteLab now has the typed equivalent (bulk naming, base + auto-numbering); the
+  voice/LLM version is the mobile counterpart.
+- **Tap Joybot for voice, hold or swipe for chat.** Today tapping the corner mascot opens the
+  chat. Proposal: **tap = quick audio input** for one-shot asks ("name these cells", "make a
+  run cycle"), **hold / swipe-down = the full chat** for longer work. JoyRaptor thinking
+  aloud, not decided.
+- **Per-project chat log.** Keep the assistant's history with the project so there is context
+  and a record of what was done to it. Unresolved: whether that is genuinely useful or just
+  clutter. Worth a small trial before building.
+- **🔴 The sprite entry point is effectively undiscoverable.** JoyRaptor went looking for
+  sprites under **Add asset** and could not find them — he assumed the feature had been lost.
+  It has not: `Sprites` is its own tool, **26th of 29** in the horizontal toolbar (between
+  Loop and Adjust), and importing a sheet is then **two more levels down** — the drawer's ⚙
+  chip opens the sheet manager, where "＋ New sprite sheet" finally reaches the import.
+  Two cheap fixes: put **Sprites / sprite sheet** in the **Add asset** menu where people look
+  for assets, and surface an import affordance in the drawer's empty state. The deeper fix is
+  the planned top-level Sprite Lab entry.

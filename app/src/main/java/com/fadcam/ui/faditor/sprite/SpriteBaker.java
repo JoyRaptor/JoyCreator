@@ -249,10 +249,11 @@ public final class SpriteBaker {
     public static SpriteSheet describe(@NonNull List<Source> sources, @NonNull Result baked,
                                        @NonNull String name, @NonNull String uri) {
         SpriteSheet s = SpriteSheet.create(name, uri);
+        java.util.Set<String> seenSources = new java.util.LinkedHashSet<>();
         for (Source src : sources) {
-            if (!s.getBakedFrom().contains(src.sheet.getName())) {
-                s.getBakedFrom().add(src.sheet.getName());
-            }
+            // By ID, not by name: two sheets can share a name (copyAsNew and relink both make
+            // near-duplicates), and dropping one from the record defeats the point of it.
+            if (seenSources.add(src.sheet.getId())) s.getBakedFrom().add(src.sheet.getName());
         }
         s.setGrid(baked.cols, baked.rows);
         s.setPivot(baked.pivotX, baked.pivotY);

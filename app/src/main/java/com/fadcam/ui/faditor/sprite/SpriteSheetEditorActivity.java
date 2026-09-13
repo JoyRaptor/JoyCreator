@@ -792,7 +792,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         dragBtns.clear();
         clipShelf = null;
         clipDragFrom = -1;
-        if (!"out".equals(id)) pickedSheet = null;
+        if (!"out".equals(id)) { pickedSheet = null; removedSheet = null; }
         // Arranging is a thing you do in Slice. Leaving with it still armed means the next
         // drag on the sheet silently rearranges your work, in a section that does not even
         // show you the control that did it.
@@ -1924,6 +1924,45 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     /** Which sheet the Sheets group has selected, or null for none. */
     @Nullable private String pickedSheet;
+    /** The last sheet removed on this screen, kept so it can be put back. */
+    @Nullable private SpriteSheet removedSheet;
+    private int removedAt;
+
+    /**
+     * A row in the Sheets group: name, one line of truth, no picture.
+     *
+     * <p>Deliberately not {@link #spriteChip} — see the comment at its only call site.</p>
+     */
+    @NonNull
+    private View sheetChip(@NonNull String name, @NonNull String sub, boolean open, boolean sel) {
+        float d = density();
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        int pad = (int) (7 * d);
+        box.setPadding(pad, (int) (5 * d), pad, (int) (5 * d));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(open ? SpriteTheme.LIVE : SpriteTheme.CONTROL);
+        bg.setCornerRadius(9 * d);
+        bg.setStroke((int) (2 * d), sel ? SpriteTheme.SELECTED : 0x00000000);
+        box.setBackground(bg);
+
+        TextView t = new TextView(this);
+        t.setText(name);
+        t.setTextSize(11f);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setTextColor(0xFFFFFFFF);
+        t.setMaxLines(1);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        box.addView(t);
+
+        TextView s2 = new TextView(this);
+        s2.setText(sub);
+        s2.setTextSize(8.5f);
+        s2.setTextColor(open ? 0xFF3B0322 : SpriteTheme.DIMMER);
+        s2.setMaxLines(1);
+        box.addView(s2);
+        return box;
+    }
 
     /**
      * Every sprite sheet in this project, and what you can do to one.
@@ -1934,8 +1973,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      * the outside-the-app edit that has silently destroyed work in this repo before.</p>
      */
     private void buildSheetsGroup() {
-        float d = density();
-        java.util.List<SpriteSheet> all = project.getSpriteSheets();
+        java.util.List<SpriteSheet> all = new java.util.ArrayList<>(project.getSpriteSheets());
+        // A brand-new sheet is not in the project list until it is first saved, and leaving it
+        // out made the panel claim "1 sheet" while you were editing a second one.
+        if (project.spriteSheetById(sheet.getId()) == null) all.add(sheet);
         View g = group("sheets", SpriteTheme.ACCENT_CELL, "layers", "Sheets in this project",
                 count(all.size(), "sheet"));
         FlowLayout b = bodyOf(g);
@@ -1950,14 +1991,32 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (!o.getBakedFrom().isEmpty()) {
                 sub = "baked \u00b7 " + android.text.TextUtils.join(" + ", o.getBakedFrom());
             }
-            View chip = spriteChip(0, null, o.getName(), sub, 0, isOpen, sel);
-            // A chip for a sheet that is NOT the open one has to draw from that sheet's own
-            // art, which this activity has no renderer for; the name and the sub-line carry it.
+            // NO thumbnail. spriteChip draws through THIS activity's renderer, so every row
+            // would show cell 0 of the sheet you already have open — you would be choosing
+            // which sheet to delete from a list where all the pictures are the same and none
+            // of them is the sheet in question. A name and a sub-line that are true beat a
+            // picture that is false.
+            View chip = sheetChip(o.getName(), sub, isOpen, sel);
             chip.setOnClickListener(v -> {
                 pickedSheet = id.equals(pickedSheet) ? null : id;
                 showSection("out");
             });
             b.addView(chip);
+        }
+
+        if (removedSheet != null) {
+            TextView undo = ichip("undo", "Put \u201c" + removedSheet.getName() + "\u201d back");
+            tintToggle(undo, true, SpriteTheme.WARN);
+            undo.setOnClickListener(v -> {
+                java.util.List<SpriteSheet> list = project.getSpriteSheets();
+                int at = Math.max(0, Math.min(list.size(), removedAt));
+                list.add(at, removedSheet);
+                removedSheet = null;
+                markDirty();
+                save(true);
+                showSection("out");
+            });
+            b.addView(undo);
         }
 
         final SpriteSheet picked = pickedSheet == null ? null
@@ -1984,15 +2043,16 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         rename.setOnClickListener(v -> renameSheet(picked));
         b.addView(rename);
 
-        int uses = spritesUsing(picked.getId());
+        String why = sheetInUseReason(picked.getId());
         TextView del = ichip("trash", isOpen ? "Cannot remove the open sheet"
-                : uses > 0 ? "In use by " + count(uses, "sprite") : "Remove");
-        if (isOpen || uses > 0) {
+                : why != null ? "In use by " + why : "Remove");
+        if (isOpen || why != null) {
             // Present but plainly refusing, with the reason ON the button. A control that is
             // simply missing makes you wonder whether you looked in the wrong place.
+            final String reason = why;
             del.setOnClickListener(v -> Toast.makeText(this, isOpen
                     ? "Open a different sheet first, then remove this one."
-                    : "Delete those sprites from the timeline first \u2014 removing the sheet "
+                    : "Used by " + reason + ". Remove those first \u2014 taking the sheet away "
                       + "would leave them with nothing to draw.", Toast.LENGTH_LONG).show());
         } else {
             tintToggle(del, true, SpriteTheme.LIVE);
@@ -2003,17 +2063,43 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         benchBody.addView(g);
     }
 
-    /** How many sprites on the timeline draw from this sheet. Read-only. */
-    private int spritesUsing(@NonNull String sheetId) {
-        int n = 0;
+    /**
+     * Why this sheet cannot be removed, or null when nothing depends on it.
+     *
+     * <p><b>There are TWO stores of sheet ids, not one.</b> Sprites on the timeline carry one;
+     * every PART of an avatar rig carries another, and the two never overlap — placing an
+     * avatar copies each part's sheet into the project and places a single sprite pointing at
+     * the neutral bake, so a part sheet has exactly zero timeline references. Counting only
+     * sprites armed Remove on precisely the sheets a puppet is built from, and removing one
+     * takes that body part out of the export with no error anywhere.</p>
+     */
+    @Nullable
+    private String sheetInUseReason(@NonNull String sheetId) {
+        int sprites = 0, parts = 0;
+        java.util.Set<String> rigs = new java.util.LinkedHashSet<>();
         try {
             for (SpriteOverlayItem o : project.getTimeline().getSpriteOverlays()) {
-                if (sheetId.equals(o.getSheetId())) n++;
+                if (sheetId.equals(o.getSheetId())) sprites++;
             }
         } catch (RuntimeException ignored) {
             // A project with no timeline is not a reason to refuse to draw the panel.
         }
-        return n;
+        try {
+            for (com.fadcam.ui.faditor.avatar.AvatarRig r : project.getAvatarRigs()) {
+                for (com.fadcam.ui.faditor.avatar.AvatarRig.Part p : r.getParts()) {
+                    if (sheetId.equals(p.sheetId)) { parts++; rigs.add(r.getName()); }
+                }
+            }
+        } catch (RuntimeException ignored) {
+            // Same: an older project with no rigs still gets a working panel.
+        }
+        if (parts > 0) {
+            return count(parts, "part") + " of "
+                    + (rigs.size() == 1 ? "\u201c" + rigs.iterator().next() + "\u201d"
+                                        : count(rigs.size(), "rig"));
+        }
+        if (sprites > 0) return count(sprites, "sprite") + " on the timeline";
+        return null;
     }
 
     private void renameSheet(@NonNull SpriteSheet target) {
@@ -2042,17 +2128,22 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Remove \u201c" + target.getName() + "\u201d?")
                 .setMessage("It leaves this project's sheet list. The image file stays on disk, "
-                        + "so nothing is destroyed \u2014 but the slicing, the names, the "
-                        + "alignment and the animations on it go.")
+                        + "but the slicing, the names, the alignment and the animations on it "
+                        + "go with it.\n\nYou can put it back while you are still on this "
+                        + "screen. After that, only by re-importing and doing the work again.")
                 .setPositiveButton("Remove", (dl, w) -> {
-                    noteChange();
-                    project.getSpriteSheets().remove(target);
+                    // NOT noteChange(). The undo snapshot holds the open sheet only, so an
+                    // undo step here would light the button and then do nothing about the
+                    // thing you actually asked to undo. Recovery is the chip below instead,
+                    // which is visible and honest about how long it lasts.
+                    java.util.List<SpriteSheet> all = project.getSpriteSheets();
+                    removedAt = all.indexOf(target);
+                    removedSheet = target;
+                    all.remove(target);
                     pickedSheet = null;
                     markDirty();
                     save(true);
                     showSection("out");
-                    Toast.makeText(this, "\u201c" + target.getName() + "\u201d removed",
-                            Toast.LENGTH_SHORT).show();
                 })
                 .setNegativeButton("Keep", null)
                 .show();
@@ -2065,12 +2156,16 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private boolean bakeContentFit = true;
     private boolean bakeJpeg = false;
     /**
-     * Sheets EXCLUDED from the bake. Everything with art is in by default except the ones
-     * here, so a fresh project bakes the sheet you are looking at and nothing surprising.
+     * Sheets ADDED to the bake, beyond the one you are looking at.
+     *
+     * <p>Opt in, not opt out. The first cut excluded-by-exception, and in a four-sheet project
+     * pressing Bake without touching anything merged all four — including, if one happened to
+     * be an imported image sequence, several hundred frames. "Bake" must mean "bake this",
+     * and merging must be something you asked for.</p>
      */
-    private final java.util.Set<String> bakeExcluded = new java.util.HashSet<>();
+    private final java.util.Set<String> bakeInclude = new java.util.HashSet<>();
 
-    /** Every sheet that could contribute frames: has art, and is not excluded. */
+    /** The sheet you are looking at, plus whatever you added to it. */
     @NonNull
     private java.util.List<SpriteSheet> bakeSources() {
         java.util.List<SpriteSheet> out = new java.util.ArrayList<>();
@@ -2078,8 +2173,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         for (SpriteSheet o : project.getSpriteSheets()) {
             if (o.getId().equals(sheet.getId())) continue;
             if (o.getSheetUri().isEmpty()) continue;
-            if (bakeExcluded.contains(o.getId())) continue;
-            out.add(o);
+            if (bakeInclude.contains(o.getId())) out.add(o);
         }
         return out;
     }
@@ -2105,24 +2199,24 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // The rail: every sheet with art, lit when it is going into the bake. On the desktop
         // this is a load/unload/restore affair because loading costs a file picker; here the
         // sheets are already in the project, so include-or-not is the whole of it.
-        java.util.List<SpriteSheet> withArt = new java.util.ArrayList<>();
+        java.util.List<SpriteSheet> others = new java.util.ArrayList<>();
         for (SpriteSheet o : project.getSpriteSheets()) {
-            if (!o.getSheetUri().isEmpty()) withArt.add(o);
+            if (o.getId().equals(sheet.getId())) continue;
+            if (!o.getSheetUri().isEmpty()) others.add(o);
         }
-        if (withArt.size() > 1) {
-            for (SpriteSheet o : withArt) {
+        if (!others.isEmpty()) {
+            TextView lbl = new TextView(this);
+            lbl.setText("merge in");
+            lbl.setTextSize(9.5f);
+            lbl.setTextColor(SpriteTheme.DIMMER);
+            b.addView(lbl);
+            for (SpriteSheet o : others) {
                 final String id = o.getId();
-                boolean isOpen = id.equals(sheet.getId());
-                boolean on = isOpen || !bakeExcluded.contains(id);
-                TextView c = chip(o.getName());
-                tintToggle(c, on, isOpen ? SpriteTheme.ACCENT_OUT : SpriteTheme.ACCENT_CELL);
+                TextView c = chip(o.getName() + "  "
+                        + SpriteBaker.framesToBake(o).size() + "f");
+                tintToggle(c, bakeInclude.contains(id), SpriteTheme.ACCENT_CELL);
                 c.setOnClickListener(v -> {
-                    if (isOpen) {
-                        Toast.makeText(this, "The sheet you are looking at always goes in",
-                                Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    if (!bakeExcluded.remove(id)) bakeExcluded.add(id);
+                    if (!bakeInclude.remove(id)) bakeInclude.add(id);
                     showSection("out");
                 });
                 b.addView(c);

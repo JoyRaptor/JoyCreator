@@ -530,6 +530,8 @@ public class SpriteSheet {
         c.bgKeyColor = bgKeyColor; c.keyTolerance = keyTolerance;
         c.pivotX = pivotX; c.pivotY = pivotY;
         c.cellNames.putAll(cellNames);
+        c.cellOrder.addAll(cellOrder);
+        c.bakedFrom.addAll(bakedFrom);
         c.visemeMap.putAll(visemeMap);
         for (java.util.Map.Entry<Integer, CellXf> e : cellXf.entrySet()) {
             c.cellXf.put(e.getKey(), e.getValue().copy());

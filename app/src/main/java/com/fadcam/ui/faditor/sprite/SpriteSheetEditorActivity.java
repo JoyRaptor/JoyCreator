@@ -237,6 +237,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private ScrollView benchScroll;
     private LinearLayout benchBody;
     private LinearLayout filmRow;
+    private TextView rollHint;
+    private HorizontalScrollView filmScroll;
     private ScrubBar scrubBar;
     private TextView saveBtn;
     private final java.util.Map<String, TextView> navBtns = new java.util.LinkedHashMap<>();
@@ -326,6 +328,17 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         filmRow.setOrientation(LinearLayout.HORIZONTAL);
         filmRow.setPadding(pad, 0, pad, (int) (6 * d));
         filmScroll.addView(filmRow);
+        this.filmScroll = filmScroll;
+
+        rollHint = chip("Drag sideways to reorder \u00b7 up to remove");
+        // INVISIBLE, never GONE: showing it must not re-lay-out the strip underneath, or the
+        // lifted chip jumps a hint-height away from the finger the moment you pick it up.
+        rollHint.setVisibility(View.INVISIBLE);
+        LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        hLp.leftMargin = pad;
+        hLp.bottomMargin = (int) (4 * d);
+        root.addView(rollHint, hLp);
         root.addView(filmScroll);
 
         // Kept for the cell editor, which now lives inside the Slice section.
@@ -1802,7 +1815,301 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         note.setTextSize(10.5f);
         benchBody.addView(note);
 
+        buildBakeGroup();
         buildJsonGroup();
+    }
+
+    // ── bake ─────────────────────────────────────────────────────────────
+
+    private int bakeCols = 8;
+    private int bakePad = 2;
+    private boolean bakeContentFit = true;
+    private boolean bakeJpeg = false;
+    /** Other sheets in this project whose frames join the bake. */
+    private final java.util.List<String> mergeIds = new java.util.ArrayList<>();
+
+    /**
+     * Flatten to a new sheet.
+     *
+     * <p>Alignment already travels as data, so this is NOT how you move work to the phone. It
+     * is for the two things data cannot do: hand a finished sheet to something that is not Joy
+     * Creator, and MERGE several sheets into one, which a single image URI cannot express.</p>
+     */
+    private void buildBakeGroup() {
+        float d = density();
+        java.util.List<Integer> frames = SpriteBaker.framesToBake(sheet);
+        int extra = 0;
+        for (String id : mergeIds) {
+            SpriteSheet o = project.spriteSheetById(id);
+            if (o != null) extra += SpriteBaker.framesToBake(o).size();
+        }
+        final int totalFrames = frames.size() + extra;
+
+        View g = group("bake", SpriteTheme.ACCENT_OUT, "grid", "Bake a new sheet",
+                count(totalFrames, "frame") + (mergeIds.isEmpty() ? ""
+                        : " \u00b7 " + count(mergeIds.size() + 1, "sheet")));
+        FlowLayout b = bodyOf(g);
+
+        b.addView(num("cols", null, () -> bakeCols,
+                v -> bakeCols = Math.max(1, Math.min(32, Math.round(v))), 1f, true, ""));
+        b.addView(num("pad", null, () -> bakePad,
+                v -> bakePad = Math.max(0, Math.min(64, Math.round(v))), 1f, true, "px"));
+
+        LinearLayout fitSeg = seg();
+        TextView fitArt = segText("Fit to art");
+        TextView fitCell = segText("Keep cell size");
+        Runnable syncFit = () -> {
+            tintSeg(fitArt, bakeContentFit, SpriteTheme.ACCENT_OUT);
+            tintSeg(fitCell, !bakeContentFit, SpriteTheme.ACCENT_OUT);
+        };
+        fitArt.setOnClickListener(v -> { bakeContentFit = true; syncFit.run(); });
+        fitCell.setOnClickListener(v -> { bakeContentFit = false; syncFit.run(); });
+        fitSeg.addView(fitArt); fitSeg.addView(fitCell);
+        space(fitSeg, d, 1);
+        syncFit.run();
+        b.addView(fitSeg);
+
+        LinearLayout fmtSeg = seg();
+        TextView png = segText("PNG");
+        TextView jpg = segText("JPG");
+        Runnable syncFmt = () -> {
+            tintSeg(png, !bakeJpeg, SpriteTheme.ACCENT_OUT);
+            tintSeg(jpg, bakeJpeg, SpriteTheme.ACCENT_OUT);
+        };
+        png.setOnClickListener(v -> { bakeJpeg = false; syncFmt.run(); });
+        jpg.setOnClickListener(v -> {
+            bakeJpeg = true;
+            syncFmt.run();
+            Toast.makeText(this, "JPG has no transparency \u2014 the sheet bakes onto white",
+                    Toast.LENGTH_LONG).show();
+        });
+        fmtSeg.addView(png); fmtSeg.addView(jpg);
+        space(fmtSeg, d, 1);
+        syncFmt.run();
+        b.addView(fmtSeg);
+
+        for (String id : new java.util.ArrayList<>(mergeIds)) {
+            SpriteSheet o = project.spriteSheetById(id);
+            TextView chip = ichip("x", o == null ? "missing sheet" : o.getName());
+            tintToggle(chip, true, SpriteTheme.ACCENT_CELL);
+            chip.setOnClickListener(v -> { mergeIds.remove(id); showSection("out"); });
+            b.addView(chip);
+        }
+        TextView merge = ichip("plus", "Merge sheet\u2026");
+        merge.setOnClickListener(v -> pickMergeSheet());
+        b.addView(merge);
+
+        TextView go = ichip("out", "Bake sheet + JSON");
+        tintToggle(go, true, SpriteTheme.ACCENT_OUT);
+        go.setOnClickListener(v -> doBake(false));
+        b.addView(go);
+
+        TextView frames2 = ichip("film", "Frames");
+        frames2.setOnClickListener(v -> doBake(true));
+        b.addView(frames2);
+
+        benchBody.addView(g);
+    }
+
+    /** A plain text button for inside a {@link #seg}. */
+    @NonNull
+    private TextView segText(@NonNull String label) {
+        float d = density();
+        TextView t = new TextView(this);
+        t.setText(label);
+        t.setTextSize(11f);
+        t.setGravity(Gravity.CENTER);
+        t.setMinHeight((int) (24 * d));
+        t.setPadding((int) (9 * d), (int) (2 * d), (int) (9 * d), (int) (2 * d));
+        return t;
+    }
+
+    private void pickMergeSheet() {
+        final java.util.List<SpriteSheet> others = new java.util.ArrayList<>();
+        for (SpriteSheet o : project.getSpriteSheets()) {
+            if (o.getId().equals(sheet.getId()) || mergeIds.contains(o.getId())) continue;
+            if (o.getSheetUri().isEmpty()) continue;
+            others.add(o);
+        }
+        if (others.isEmpty()) {
+            Toast.makeText(this, "This project has no other sprite sheet to merge in",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        String[] names = new String[others.size()];
+        for (int i = 0; i < others.size(); i++) {
+            names[i] = others.get(i).getName() + "  \u00b7  "
+                    + count(SpriteBaker.framesToBake(others.get(i)).size(), "frame");
+        }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Merge which sheet?")
+                .setItems(names, (dl, which) -> {
+                    mergeIds.add(others.get(which).getId());
+                    showSection("out");
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Do the bake, on a background thread because it decodes every merged sheet and touches
+     * every pixel twice.
+     *
+     * @param framesOnly write one numbered PNG per frame instead of one sheet.
+     */
+    private void doBake(boolean framesOnly) {
+        if (renderer == null) {
+            Toast.makeText(this, "No art loaded", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final SpriteBaker.Options opt = new SpriteBaker.Options();
+        opt.cols = bakeCols;
+        opt.pad = bakePad;
+        opt.fit = bakeContentFit ? SpriteBaker.Fit.CONTENT : SpriteBaker.Fit.CELL;
+        opt.jpeg = bakeJpeg && !framesOnly;   // numbered frames are always PNG
+
+        final String base = safeBase(sheet.getName());
+
+        // Snapshot on the MAIN thread. framesToBake walks the live preset list and
+        // spriteSheetById walks the live sheet list; doing either from the worker races every
+        // edit and every autosave, and a ConcurrentModificationException there is an uncaught
+        // exception on a non-UI thread, which is process death rather than a message.
+        final java.util.List<SpriteSheet> sheets = new java.util.ArrayList<>();
+        final java.util.List<java.util.List<Integer>> cellLists = new java.util.ArrayList<>();
+        sheets.add(sheet);
+        cellLists.add(new java.util.ArrayList<>(SpriteBaker.framesToBake(sheet)));
+        for (String id : new java.util.ArrayList<>(mergeIds)) {
+            SpriteSheet o = project.spriteSheetById(id);
+            if (o == null) continue;
+            sheets.add(o);
+            cellLists.add(new java.util.ArrayList<>(SpriteBaker.framesToBake(o)));
+        }
+        final File assets = new File(storage.projectDir(project.getId()), "assets");
+
+        // A modal while it runs. It is a second or two of work on every pixel twice, and the
+        // alternative is letting the sheet be edited underneath the thread reading it.
+        final android.app.Dialog busy = busyDialog(framesOnly ? "Writing frames\u2026" : "Baking\u2026");
+        busy.show();
+
+        new Thread(() -> {
+            java.util.List<SpriteBaker.Source> sources = new java.util.ArrayList<>();
+            java.util.List<SpriteSheetRenderer> opened = new java.util.ArrayList<>();
+            String message;
+            SpriteBaker.Result result = null;
+            File written = null;
+            try {
+                sources.add(new SpriteBaker.Source(sheets.get(0), renderer, cellLists.get(0)));
+                for (int i = 1; i < sheets.size(); i++) {
+                    SpriteSheetRenderer r = SpriteSheetRenderer.load(this, sheets.get(i));
+                    if (r == null) continue;
+                    opened.add(r);
+                    sources.add(new SpriteBaker.Source(sheets.get(i), r, cellLists.get(i)));
+                }
+                if (!assets.exists() && !assets.mkdirs()) {
+                    message = "Could not create the project's assets folder";
+                } else if (framesOnly) {
+                    File dir = new File(assets, base + "_frames");
+                    if (!dir.exists() && !dir.mkdirs()) {
+                        message = "Could not create " + dir.getName();
+                    } else {
+                        int n = SpriteBaker.writeFrames(sources, opt, dir, base);
+                        message = n == 0 ? "Nothing to write"
+                                : n + " frames written to " + dir.getName();
+                    }
+                } else {
+                    result = SpriteBaker.bake(sources, opt);
+                    if (result == null) {
+                        message = "Nothing to bake";
+                    } else {
+                        File img = new File(assets, base + "-baked-" + System.currentTimeMillis()
+                                + (opt.jpeg ? ".jpg" : ".png"));
+                        written = SpriteBaker.write(result.bitmap, img, opt.jpeg, opt.jpegQuality);
+                        message = written == null ? "Could not write the image"
+                                : result.cols + "\u00d7" + result.rows + " \u00b7 "
+                                  + result.bitmap.getWidth() + "\u00d7"
+                                  + result.bitmap.getHeight() + " px";
+                    }
+                }
+            } catch (Throwable t) {
+                message = "Bake failed: " + t.getClass().getSimpleName();
+            }
+            for (SpriteSheetRenderer r : opened) r.recycle();
+
+            final String msg = message;
+            final SpriteBaker.Result baked = result;
+            final File file = written;
+            runOnUiThread(() -> {
+                // The Activity can be gone: Back during a bake finishes it, and a dialog or a
+                // save from here would either crash on a dead window or write this Activity's
+                // stale project over whatever the editor has since saved.
+                if (isFinishing() || isDestroyed()) {
+                    if (baked != null) baked.bitmap.recycle();
+                    return;
+                }
+                try { busy.dismiss(); } catch (RuntimeException ignored) { }
+                if (baked == null || file == null) {
+                    if (baked != null) baked.bitmap.recycle();
+                    Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                // The model is only ever touched here, on the main thread.
+                SpriteSheet made = SpriteBaker.describe(sources, baked,
+                        sheet.getName() + " baked", android.net.Uri.fromFile(file).toString());
+                int wanted = 0;
+                for (SpriteBaker.Source src : sources) wanted += src.sheet.getPresets().size();
+                int lost = wanted - made.getPresets().size();
+                baked.bitmap.recycle();
+                project.getSpriteSheets().add(made);
+                labDirty = true;
+                save(true);
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle("Baked")
+                        .setMessage(msg + " \u00b7 "
+                                + count(made.getPresets().size(), "animation")
+                                + (lost > 0 ? "\n\n" + count(lost, "animation")
+                                    + " could not be carried across: they refer to frames this "
+                                    + "bake does not contain." : "")
+                                + "\n\nThe original is untouched \u2014 this is a new sheet in "
+                                + "the same project.")
+                        .setPositiveButton("Open it", (dl, w) -> openSheet(made.getId()))
+                        .setNegativeButton("Stay here", null)
+                        .show();
+            });
+        }, "sprite-bake").start();
+    }
+
+    /** A modal that says what is happening and cannot be dismissed by accident. */
+    @NonNull
+    private android.app.Dialog busyDialog(@NonNull String text) {
+        float d = density();
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(14f);
+        t.setTextColor(SpriteTheme.INK);
+        int pad = (int) (26 * d);
+        t.setPadding(pad, pad, pad, pad);
+        android.app.Dialog dl = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setView(t)
+                .setCancelable(false)
+                .create();
+        return dl;
+    }
+
+    /** Letters, digits and dashes only: this becomes a file name. */
+    @NonNull
+    private static String safeBase(@NonNull String name) {
+        String s2 = name.trim().replaceAll("[^A-Za-z0-9._-]+", "-");
+        if (s2.startsWith("-")) s2 = s2.substring(1);
+        return s2.isEmpty() ? "sprite" : s2;
+    }
+
+    private void openSheet(@NonNull String sheetId) {
+        save(true);
+        android.content.Intent i = new android.content.Intent(this, SpriteSheetEditorActivity.class);
+        i.putExtra(EXTRA_PROJECT_ID, project.getId());
+        i.putExtra(EXTRA_SHEET_ID, sheetId);
+        startActivity(i);
+        finish();
     }
 
     /**
@@ -1914,13 +2221,22 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 syncFilmCursor();
                 if ("play".equals(labSection)) showSection("play");
             });
-            chip.setOnLongClickListener(v -> {
-                noteChange();
-                labSeq.remove(idx);
-                if (labCur >= labSeq.size()) labCur = Math.max(0, labSeq.size() - 1);
-                rebuildFilm();
-                if ("play".equals(labSection)) showSection("play");
-                return true;
+            chip.setOnLongClickListener(v -> { beginRollDrag(idx, chip); return true; });
+            chip.setOnTouchListener((v, e) -> {
+                if (rollDragFrom != idx) return false;   // not lifted: tap and long-press as usual
+                switch (e.getActionMasked()) {
+                    case MotionEvent.ACTION_MOVE:
+                        moveRollDrag(e.getRawX(), e.getRawY());
+                        return true;
+                    case MotionEvent.ACTION_UP:
+                        endRollDrag(true);
+                        return true;
+                    case MotionEvent.ACTION_CANCEL:
+                        endRollDrag(false);
+                        return true;
+                    default:
+                        return false;
+                }
             });
             LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -1929,7 +2245,132 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             filmBoxes.add(chip);
         }
         filmRow.addView(strip);
+        filmFrames = strip.frames();
         if (scrubBar != null) scrubBar.invalidate();
+    }
+
+    // ── rearranging the roll by hand ─────────────────────────────────────
+    //
+    // Long-press LIFTS; then sideways reorders and up-and-out removes. Starting the drag on
+    // movement alone would have taken horizontal scrolling away from a long roll, which is the
+    // only way to reach the far end of one.
+
+    @Nullable private FilmStrip.DropRow filmFrames;
+    private int rollDragFrom = -1;
+    private int rollDropAt = -1;
+    @Nullable private View rollDragView;
+    private float rollDragStartX, rollDragStartY;
+    private boolean rollWillRemove;
+
+    private void beginRollDrag(int index, @NonNull View chip) {
+        rollDragFrom = index;
+        rollDropAt = index;
+        rollDragView = chip;
+        rollWillRemove = false;
+        int[] at = new int[2];
+        chip.getLocationOnScreen(at);
+        rollDragStartX = at[0] + chip.getWidth() / 2f;
+        rollDragStartY = at[1] + chip.getHeight() / 2f;
+        chip.setScaleX(1.12f);
+        chip.setScaleY(1.12f);
+        chip.setElevation(12 * density());
+        if (chip.getParent() != null) chip.getParent().requestDisallowInterceptTouchEvent(true);
+        if (filmFrames != null) filmFrames.setDropAt(index);
+        chip.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        if (rollHint != null) rollHint.setVisibility(View.VISIBLE);
+        if (filmScroll != null) filmScroll.requestDisallowInterceptTouchEvent(true);
+    }
+
+    private void moveRollDrag(float rawX, float rawY) {
+        View chip = rollDragView;
+        if (chip == null || filmFrames == null) return;
+        chip.setTranslationX(rawX - rollDragStartX);
+        chip.setTranslationY(rawY - rollDragStartY);
+
+        // Far enough above the strip and it is a removal, not a move.
+        rollWillRemove = rawY < rollDragStartY - chip.getHeight();
+        chip.setAlpha(rollWillRemove ? 0.55f : 1f);
+        if (rollWillRemove) {
+            rollDropAt = -1;
+            filmFrames.setDropAt(-1);
+        } else {
+            // Keep it, do not merely draw it. Passing the gap straight to the view and never
+            // storing it made the drop line perfect and the reorder a no-op every time.
+            rollDropAt = dropIndexFor(rawX);
+            filmFrames.setDropAt(rollDropAt);
+        }
+        autoScrollFilm(rawX);
+        if (rollHint != null) {
+            rollHint.setText(rollWillRemove ? "Release to remove this frame"
+                    : "Drag sideways to reorder \u00b7 up to remove");
+            tintToggle(rollHint, rollWillRemove, SpriteTheme.LIVE);
+        }
+    }
+
+    /**
+     * Nudge the strip when the finger reaches its edge.
+     *
+     * <p>Without this, a roll longer than the screen cannot have a frame moved past the visible
+     * window at all — you would have to drop it, scroll, and pick it up again.</p>
+     */
+    private void autoScrollFilm(float rawX) {
+        if (filmScroll == null) return;
+        int[] at = new int[2];
+        filmScroll.getLocationOnScreen(at);
+        float edge = 44 * density();
+        float left = at[0], right = at[0] + filmScroll.getWidth();
+        if (rawX < left + edge) filmScroll.scrollBy((int) (-12 * density()), 0);
+        else if (rawX > right - edge) filmScroll.scrollBy((int) (12 * density()), 0);
+    }
+
+    /** Which gap a finger at {@code rawX} is over: 0..size, where size means "past the end". */
+    private int dropIndexFor(float rawX) {
+        if (filmFrames == null) return rollDragFrom;
+        int[] at = new int[2];
+        for (int i = 0; i < filmFrames.getChildCount(); i++) {
+            View c = filmFrames.getChildAt(i);
+            c.getLocationOnScreen(at);
+            if (rawX < at[0] + c.getWidth() / 2f) return i;
+        }
+        return filmFrames.getChildCount();
+    }
+
+    private void endRollDrag(boolean commit) {
+        View chip = rollDragView;
+        int from = rollDragFrom;
+        boolean remove = rollWillRemove;
+        int to = rollDropAt;
+        rollDragFrom = -1;
+        rollDropAt = -1;
+        rollDragView = null;
+        rollWillRemove = false;
+        if (filmFrames != null) filmFrames.setDropAt(-1);
+        if (rollHint != null) rollHint.setVisibility(View.INVISIBLE);
+        if (chip != null) {
+            chip.setScaleX(1f); chip.setScaleY(1f);
+            chip.setTranslationX(0); chip.setTranslationY(0);
+            chip.setAlpha(1f);
+            chip.setElevation(0f);
+        }
+        if (!commit || from < 0 || from >= labSeq.size()) return;
+        if (!remove && to < 0) return;
+
+        if (remove) {
+            noteChange();
+            labSeq.remove(from);
+            if (labCur >= labSeq.size()) labCur = Math.max(0, labSeq.size() - 1);
+        } else {
+            // A gap index past the removal point shifts down by one once the frame is out.
+            int dest = to > from ? to - 1 : to;
+            if (dest < 0 || dest == from) return;
+            noteChange();
+            int[] moved = labSeq.remove(from);
+            labSeq.add(Math.min(dest, labSeq.size()), moved);
+            labCur = Math.min(dest, labSeq.size() - 1);
+        }
+        labHold = 0;
+        rebuildFilm();
+        if ("play".equals(labSection)) showSection("play");
     }
 
     /**
@@ -2217,21 +2658,60 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      * crenellations rather than sprockets.
      */
     private static class FilmStrip extends LinearLayout {
-        private final LinearLayout frames;
+        private final DropRow frames;
         FilmStrip(Context c) {
             super(c);
             setOrientation(VERTICAL);
             setBackgroundColor(0xFF1A1A1F);
             float d = c.getResources().getDisplayMetrics().density;
             addView(new Perf(c), new LayoutParams(LayoutParams.MATCH_PARENT, (int) (9 * d)));
-            frames = new LinearLayout(c);
+            frames = new DropRow(c);
             frames.setOrientation(HORIZONTAL);
             int pad = (int) (3 * d);
             frames.setPadding(pad, pad, pad, pad);
             addView(frames);
             addView(new Perf(c), new LayoutParams(LayoutParams.MATCH_PARENT, (int) (9 * d)));
         }
-        LinearLayout frames() { return frames; }
+        DropRow frames() { return frames; }
+
+        /**
+         * The row of frames, which also draws where a dragged one would land.
+         *
+         * <p>A lifted chip with no drop line tells you something is moving but not where it is
+         * going, and on a roll of twenty frames that is the only question you have.</p>
+         */
+        static class DropRow extends LinearLayout {
+            private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
+            private final float d;
+            private int dropAt = -1;
+
+            DropRow(Context c) {
+                super(c);
+                d = c.getResources().getDisplayMetrics().density;
+                line.setColor(SpriteTheme.LIVE);
+                setWillNotDraw(false);
+            }
+
+            void setDropAt(int index) {
+                if (dropAt == index) return;
+                dropAt = index;
+                invalidate();
+            }
+
+            @Override protected void dispatchDraw(Canvas canvas) {
+                super.dispatchDraw(canvas);
+                if (dropAt < 0) return;
+                float x;
+                if (dropAt >= getChildCount()) {
+                    View last = getChildCount() == 0 ? null : getChildAt(getChildCount() - 1);
+                    x = last == null ? getPaddingLeft() : last.getRight() + 2 * d;
+                } else {
+                    x = getChildAt(dropAt).getLeft() - 2 * d;
+                }
+                canvas.drawRoundRect(x - 1.5f * d, getPaddingTop(), x + 1.5f * d,
+                        getHeight() - getPaddingBottom(), 1.5f * d, 1.5f * d, line);
+            }
+        }
 
         private static class Perf extends View {
             private final Paint hole = new Paint();
@@ -2643,7 +3123,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private SpriteSheet.Cell ensureCell(int index) {
         SpriteSheet.Cell meta = sheet.cellAt(index);
         if (meta == null) {
-            meta = new SpriteSheet.Cell(index, "");
+            // cellAt maps display -> source; the record has to be created under the SOURCE, or
+            // it answers for a different slot the moment the sheet is rearranged.
+            meta = new SpriteSheet.Cell(sheet.sourceCell(index), "");
             sheet.getCells().add(meta);
         }
         return meta;
@@ -2768,7 +3250,13 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
     }
 
-    /** Import slicing metadata from a sidecar JSON file (grid, fps, pivot, bgKey, cell names). */
+    /**
+     * Import slicing metadata from a sidecar JSON file.
+     *
+     * <p>Whatever {@code exportSidecar} writes, this has to read, or the round trip quietly
+     * destroys work — and since 2026-09-13 the exporter writes per-cell ALIGNMENT, which is the
+     * single most laborious thing on the sheet to recreate.</p>
+     */
     private void importSidecar(@NonNull android.net.Uri uri) {
         try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
             if (in == null) { throw new Exception("null stream"); }
@@ -2800,6 +3288,22 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             // rather than merge: the file is a description of this sheet, not an addition to it.
             sheet.getCellNames().clear();
             sheet.getCellNames().putAll(imported.getCellNames());
+
+            // ALIGNMENT, visemes and the arrangement. The exporter writes all three; a hand
+            // written importer that copies "the fields I remembered" silently destroys them,
+            // and per-cell alignment is the most laborious thing on a sheet to recreate. If
+            // SpriteSheet grows another per-cell map, it belongs in this block too.
+            sheet.getCellTransforms().clear();
+            for (java.util.Map.Entry<Integer, com.fadcam.ui.faditor.sprite.SpriteSheet.CellXf> e
+                    : imported.getCellTransforms().entrySet()) {
+                sheet.getCellTransforms().put(e.getKey(), e.getValue().copy());
+            }
+            sheet.getVisemeMap().clear();
+            sheet.getVisemeMap().putAll(imported.getVisemeMap());
+            // The incoming file describes its own arrangement; keeping ours would apply this
+            // sheet's permutation to somebody else's numbering.
+            sheet.adoptOrder(imported);
+
             sheet.getPresets().clear();
             for (com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p : imported.getPresets()) {
                 com.fadcam.ui.faditor.sprite.SpriteSheet.Preset np =

@@ -223,9 +223,19 @@ public class SpriteSheet {
     public void setSheetUri(@NonNull String sheetUri) { this.sheetUri = sheetUri; }
     public int getCols() { return cols; }
     public int getRows() { return rows; }
+    /**
+     * Re-slicing renumbers every cell, so an arrangement made against the old grid is
+     * meaningless against the new one — and left in place it points slots at drawings that no
+     * longer exist, which renders blank and reads as corruption.
+     */
+    private void dropOrderIfGridChanged() {
+        if (!cellOrder.isEmpty() && cellOrder.size() != cellCount()) cellOrder.clear();
+    }
+
     public void setGrid(int cols, int rows) {
         this.cols = Math.max(1, cols);
         this.rows = Math.max(1, rows);
+        dropOrderIfGridChanged();
     }
     public int getMarginX() { return marginX; }
     public int getMarginY() { return marginY; }
@@ -284,6 +294,19 @@ public class SpriteSheet {
     }
 
     public boolean hasCustomOrder() { return !cellOrder.isEmpty(); }
+
+    /**
+     * Adopt another sheet's arrangement wholesale — what the sidecar importer needs.
+     *
+     * <p>Refused when the grids differ, because a permutation of sixteen slots says nothing
+     * about a sheet of twenty.</p>
+     */
+    public void adoptOrder(@NonNull SpriteSheet other) {
+        cellOrder.clear();
+        if (other.cellOrder.isEmpty() || other.cellOrder.size() != cellCount()) return;
+        cellOrder.addAll(other.cellOrder);
+        normaliseOrder();
+    }
 
     /** Put every drawing back where it was drawn. Nothing else has to change. */
     public void resetOrder() { cellOrder.clear(); }

@@ -1238,38 +1238,90 @@ public class TextOverlayItem {
      * @param canvasW/H canvas size in same units (e.g. preview content rect)
      * @param imgW/H intrinsic image size
      */
+    /**
+     * Size the image so it FITS inside the canvas (no cropping), centred.
+     *
+     * <p>JoyRaptor, 2026-09-13: <i>"fit and fill buttons in transform drawer do NOT work."</i> They
+     * wrote the STATIC {@code sizeFraction} and nothing else. But the renderer reads
+     * {@link #animatedSizeFraction(long)}, which returns the SCALE keyframe track's value whenever
+     * that track holds keys and only falls back to the static field when it is empty — so on any
+     * animated image the button changed a number nothing was reading. On JoyRaptor's own project
+     * 62 of 80 image overlays carry a scale track, which is both why it looked completely broken to
+     * him and why it was never caught: the 18 without keys worked perfectly.
+     *
+     * <p><b>What an animated Fit means.</b> Rescaling a moving image to "fit" is ambiguous, so the
+     * rule is the one the words already imply: after Fit the image is never LARGER than the frame,
+     * and after Fill never SMALLER than covering it. The whole track is multiplied by a single
+     * ratio, so the animation keeps its exact shape and timing and only its overall size changes.
+     * Flattening the track to one value would have been easier and would have silently deleted
+     * work.
+     *
+     * <p>Position is left alone when x/y tracks hold keys: those are a motion path the user
+     * authored, and re-centring would destroy it. A still image still centres, as before.
+     */
     public void applyFit(float canvasW, float canvasH, float imgW, float imgH) {
-        if (canvasW <= 0 || canvasH <= 0 || imgW <= 0 || imgH <= 0) return;
-        float canvasAspect = canvasW / canvasH;
-        float imgAspect = imgW / imgH;
-        // sizeFraction is height-fraction; width = sizeFraction * (canvasH/canvasW?) Actually TextOverlayItem draws with sizeFraction * videoHeight as font baseline; for images, sizeFraction scales both axes via scaleX/Y. Simpler: adjust sizeFraction so longer axis fits.
-        // If image is wider than canvas (imgAspect > canvasAspect), width is constraining -> fit by width.
-        // Use current sizeFraction as reference; compute scale factor to just-fit.
-        // We recompute target height fraction: fitHeight = min(1, canvasAspect/imgAspect?) For image to fit inside canvas, its rendered height = sizeFraction * canvasH * scaleY, width = sizeFraction * canvasH * aspect * scaleX (approx). Simpler heuristic: set sizeFraction to cover the smaller dimension.
-        // Since exact preview mapping is via TextOverlayRenderer/Image drawing with canvas rect + sizeFraction, we approximate by setting sizeFraction = min(1f * canvasAspect/imgAspect, 1f) etc. But to keep it safe, we set sizeFraction to 0.5 * minFit and center.
-        float fitScale = Math.min(canvasW / imgW, canvasH / imgH);
-        float coverScale = Math.max(canvasW / imgW, canvasH / imgH);
-        // Avoid division by zero
-        if (fitScale <= 0 || coverScale <= 0) return;
-        // Normalize to current sizeFraction semantics: we want rendered image at fitScale relative to coverScale?
-        // If current sizeFraction corresponds to current rendered scale, we adjust proportionally: new = old * (fitScale / currentScale)
-        // Without knowing currentScale, we set absolute: use canvasH as reference: image height on canvas = imgH * fitScale. sizeFraction is that height / videoHeight. Approx videoHeight≈canvasH.
-        float targetSizeFraction = (imgH * fitScale) / canvasH;
-        targetSizeFraction = Math.max(0.02f, Math.min(10f, targetSizeFraction));
-        setSizeFraction(targetSizeFraction);
-        setScaleX(1f); setScaleY(1f); setScaleLinked(true);
-        setCenter(0.5f, 0.5f);
-        // Clear preset: Fit is static, not animated — keep it simple, remove amber ownership.
-        if (hasActiveImagePreset()) { clearImagePresetOwnership(); }
+        applyFitOrFill(canvasW, canvasH, imgW, imgH, true);
     }
+
+    /** Size the image so it COVERS the canvas (cropping the overflow), centred. See {@link #applyFit}. */
     public void applyFill(float canvasW, float canvasH, float imgW, float imgH) {
+        applyFitOrFill(canvasW, canvasH, imgW, imgH, false);
+    }
+
+    private void applyFitOrFill(float canvasW, float canvasH, float imgW, float imgH, boolean fit) {
         if (canvasW <= 0 || canvasH <= 0 || imgW <= 0 || imgH <= 0) return;
-        float fillScale = Math.max(canvasW / imgW, canvasH / imgH);
-        float targetSizeFraction = (imgH * fillScale) / canvasH;
-        targetSizeFraction = Math.max(0.02f, Math.min(10f, targetSizeFraction));
-        setSizeFraction(targetSizeFraction);
-        setScaleX(1f); setScaleY(1f); setScaleLinked(true);
-        setCenter(0.5f, 0.5f);
+        // The drawn size is sizeFraction * canvasH for height and sizeFraction * canvasH * aspect
+        // for width (TextOverlayLayer.imageHeightPx / imageWidthPx), so the fraction that makes
+        // the image exactly touch the frame is the ratio of the two aspects, clamped by which
+        // axis binds. Fit takes the smaller, Fill the larger — the two differ only there.
+        float scale = fit
+                ? Math.min(canvasW / imgW, canvasH / imgH)
+                : Math.max(canvasW / imgW, canvasH / imgH);
+        if (!(scale > 0f)) return;
+        float target = (imgH * scale) / canvasH;
+        target = Math.max(0.02f, Math.min(10f, target));
+
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack scaleTrack =
+                keyframes.get(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
+        boolean animatedScale = scaleTrack != null && !scaleTrack.keyframes.isEmpty();
+
+        if (animatedScale) {
+            // Reference = the extreme the rule speaks about: Fit bounds the LARGEST the image
+            // ever gets, Fill bounds the SMALLEST. Using the static field as the reference would
+            // be meaningless here — it is precisely the value nothing reads.
+            float ref = fit ? Float.NEGATIVE_INFINITY : Float.POSITIVE_INFINITY;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : scaleTrack.keyframes) {
+                ref = fit ? Math.max(ref, k.value) : Math.min(ref, k.value);
+            }
+            if (!(ref > 0f) || Float.isInfinite(ref)) return;
+            float ratio = target / ref;
+            if (!(ratio > 0f) || Float.isNaN(ratio)) return;
+            for (com.fadcam.ui.faditor.keyframe.Keyframe k : scaleTrack.keyframes) {
+                k.value = Math.max(0.02f, Math.min(10f, k.value * ratio));
+            }
+            // Keep the static field consistent with the track it shadows, so a later edit that
+            // deletes every key does not resurrect a stale size.
+            setSizeFraction(sizeFraction * ratio);
+        } else {
+            setSizeFraction(target);
+        }
+
+        // Per-axis multipliers: only meaningful to reset when nothing is animating them.
+        if (!keyframes.hasProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X)
+                && !keyframes.hasProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y)) {
+            setScaleX(1f);
+            setScaleY(1f);
+            setScaleLinked(true);
+        }
+
+        // A motion path is deliberate work — centre only a still image.
+        if (!keyframes.hasProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.X)
+                && !keyframes.hasProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y)) {
+            setCenter(0.5f, 0.5f);
+        }
+
+        // Fit/Fill are static framing decisions, not animations — an amber preset would fight
+        // the size that was just chosen.
         if (hasActiveImagePreset()) { clearImagePresetOwnership(); }
     }
 

@@ -571,7 +571,11 @@ progress:
 since: 2026-09-13T10:25
 
 ## SPRITELAB OUTPUT — bake, merge, frames, reorder, SHEET MANAGEMENT (2026-09-13)
-status: ACTIVE again (2026-09-13T11:45 — Claude/Opus). Round 2: a Sheets group in the Lab's
+status: DONE (2026-09-13T14:05 — Claude/Opus). Round 2 landed and device-proved: Sheets panel
+        (open/rename/remove with a guard over BOTH id stores), the opt-in merge rail, and bake
+        provenance. Two test sheets were removed through the new UI and project.json re-read to
+        confirm the project is as JoyRaptor left it. Files below are FREE.
+prior:  ACTIVE (2026-09-13T11:45 — Claude/Opus). Round 2: a Sheets group in the Lab's
         Out section (open / rename / delete, with an in-use guard), the merge Sources rail,
         and bake provenance. Sheet management deliberately lives in the LAB, not in the
         editor drawer's "manage sheets" — that callback is in FaditorEditorActivity, which

@@ -70,6 +70,24 @@ public class SpriteGridEditorView extends View {
      */
     private final java.util.Map<Integer, String> orders = new java.util.HashMap<>();
 
+    /** What the overlay draws. On a dense sheet the lettering can be the clutter. */
+    private boolean showGrid = true;
+    private boolean showLabels = true;
+    /** Cells whose art runs into the cell edge, i.e. the slice is probably wrong. */
+    @Nullable private java.util.Set<Integer> suspect;
+
+    public void setShowGrid(boolean on) { showGrid = on; invalidate(); }
+    public boolean isShowGrid() { return showGrid; }
+    public void setShowLabels(boolean on) { showLabels = on; invalidate(); }
+    public boolean isShowLabels() { return showLabels; }
+
+    /** Flag these cells with an amber dot, or pass null to stop flagging. */
+    public void setSuspect(@Nullable java.util.Set<Integer> cells) {
+        suspect = cells;
+        invalidate();
+    }
+    public boolean isShowingSuspect() { return suspect != null; }
+
     private final ScaleGestureDetector scaleDetector;
     private boolean scaling = false;
     private float lastX, lastY, downX, downY;
@@ -217,7 +235,7 @@ public class SpriteGridEditorView extends View {
             RectF rf = new RectF(r);
             SpriteSheet.Cell meta = sheet.cellAt(i);
             if (meta != null && !meta.enabled) canvas.drawRect(rf, shadePaint);
-            canvas.drawRect(rf, gridPaint);
+            if (showGrid) canvas.drawRect(rf, gridPaint);
             // A cell the roll uses is lit cyan too: while a sequence is being built, the
             // question the grid has to answer is "which of these am I using?"
             if (i == selectedCell || orders.containsKey(i)) canvas.drawRect(rf, selPaint);
@@ -236,6 +254,14 @@ public class SpriteGridEditorView extends View {
             br[0] = r.right; br[1] = r.bottom;
             viewMatrix.mapPoints(tl);
             viewMatrix.mapPoints(br);
+            if (suspect != null && suspect.contains(i)) {
+                // Amber, top-right, the same mark the web design uses. Drawn even when the
+                // lettering is off: it is a warning, not a label.
+                badgePaint.setColor(SpriteTheme.WARN);
+                canvas.drawCircle(br[0] - 7f * density, tl[1] + 7f * density,
+                        3.5f * density, badgePaint);
+            }
+            if (!showLabels) continue;
             if (br[0] - tl[0] < 26f * density) continue;   // too small to letter
 
             canvas.drawText(String.valueOf(i), tl[0] + 3f * density,

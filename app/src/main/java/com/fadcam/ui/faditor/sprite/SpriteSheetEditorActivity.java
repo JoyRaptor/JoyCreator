@@ -846,6 +846,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         tintToggle(detect, true, SpriteTheme.ACCENT_GRID);
         detect.setOnClickListener(v -> { autoDetectGrid(); markDirty(); showSection("slice"); });
         b.addView(detect);
+        detectRow(b);
 
         keyBtn = chip(sheet.getBgKeyColor() != 0
                 ? getString(R.string.sprite_editor_key_clear) : getString(R.string.sprite_editor_key));
@@ -921,6 +922,148 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             cb.addView(vb);
         }
         benchBody.addView(cg);
+    }
+
+    /**
+     * What the grid DRAWS, and what looks wrong.
+     *
+     * <p>On a 6x8 sheet the lettering is most of the picture, so it comes off. Suspect is the
+     * cheap version of the question "did I slice this right": a cell whose ink runs into its
+     * own edge is either clipped or the grid is off by a row.</p>
+     */
+    private void detectRow(@NonNull FlowLayout b) {
+        TextView grid = chip("Grid");
+        tintToggle(grid, gridView.isShowGrid(), SpriteTheme.ACCENT_GRID);
+        grid.setOnClickListener(v -> {
+            gridView.setShowGrid(!gridView.isShowGrid());
+            tintToggle(grid, gridView.isShowGrid(), SpriteTheme.ACCENT_GRID);
+        });
+        b.addView(grid);
+
+        TextView names = ichip("tag", "Names");
+        tintToggle(names, gridView.isShowLabels(), SpriteTheme.ACCENT_GRID);
+        names.setOnClickListener(v -> {
+            gridView.setShowLabels(!gridView.isShowLabels());
+            tintToggle(names, gridView.isShowLabels(), SpriteTheme.ACCENT_GRID);
+        });
+        b.addView(names);
+
+        TextView sus = chip("Suspect");
+        tintToggle(sus, gridView.isShowingSuspect(), SpriteTheme.WARN);
+        sus.setOnClickListener(v -> {
+            if (gridView.isShowingSuspect()) {
+                gridView.setSuspect(null);
+            } else {
+                java.util.Set<Integer> bad = findSuspectCells();
+                gridView.setSuspect(bad);
+                Toast.makeText(this, bad.isEmpty()
+                        ? "Every cell fits inside its own box"
+                        : bad.size() + (bad.size() == 1 ? " cell looks clipped"
+                                                        : " cells look clipped"),
+                        Toast.LENGTH_SHORT).show();
+            }
+            tintToggle(sus, gridView.isShowingSuspect(), SpriteTheme.WARN);
+        });
+        b.addView(sus);
+
+        TextView many = ichip("tag", "Name many\u2026");
+        many.setOnClickListener(v -> nameMany(Math.max(0, gridView.getSelectedCell())));
+        b.addView(many);
+    }
+
+    /**
+     * Cells whose ink touches their own edge, or that are empty.
+     *
+     * <p>Both mean the same thing in practice: the grid is wrong, or the art was rendered off
+     * its tile. Either way you want to know BEFORE you spend an hour aligning.</p>
+     */
+    @NonNull
+    private java.util.Set<Integer> findSuspectCells() {
+        java.util.Set<Integer> bad = new java.util.LinkedHashSet<>();
+        if (renderer == null) return bad;
+        android.graphics.Bitmap bmp = renderer.getBitmap();
+        if (bmp == null || bmp.isRecycled()) return bad;
+        for (int i = 0; i < sheet.cellCount(); i++) {
+            SpriteSheet.Cell m = sheet.cellAt(i);
+            if (m != null && !m.enabled) continue;
+            android.graphics.Rect cr = renderer.cellRectBitmap(i);
+            float[] box = inkBox(bmp, i);
+            if (box == null) { bad.add(i); continue; }   // nothing drawn here at all
+            float w = Math.max(1, cr.width()), h = Math.max(1, cr.height());
+            if (box[0] <= 1f || box[1] <= 1f || box[2] >= w - 1f || box[3] >= h - 1f) {
+                bad.add(i);
+            }
+        }
+        return bad;
+    }
+
+    /**
+     * Name every cell in one sitting, with the art in front of you.
+     *
+     * <p>Going back to the grid, tapping a cell, scrolling to the field and typing is four
+     * moves per name; on a sixteen-cell sheet that is sixty-four moves, which is why sheets
+     * stay unnamed and the assistant stays blind.</p>
+     */
+    private void nameMany(int startCell) {
+        if (sheet.cellCount() == 0) return;
+        final float d = density();
+        final int[] at = {Math.max(0, Math.min(sheet.cellCount() - 1, startCell))};
+
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+        int pad = (int) (16 * d);
+        box.setPadding(pad, pad, pad, 0);
+
+        final PresetThumb art = new PresetThumb(this, renderer, null);
+        box.addView(art, new LinearLayout.LayoutParams((int) (120 * d), (int) (120 * d)));
+
+        final TextView caption = new TextView(this);
+        caption.setTextColor(SpriteTheme.DIMMER);
+        caption.setTextSize(11f);
+        box.addView(caption);
+
+        final EditText field = new EditText(this);
+        field.setSingleLine(true);
+        field.setHint(R.string.sprite_editor_cell_name_hint);
+        field.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_NEXT);
+        box.addView(field, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        final Runnable show = () -> {
+            art.setStill(at[0]);
+            String nm = sheet.cellName(at[0]);
+            field.setText(nm == null ? "" : nm);
+            field.setSelection(field.getText().length());
+            caption.setText("Cell " + at[0] + " of " + (sheet.cellCount() - 1));
+        };
+        final Runnable commit = () -> {
+            ensureCell(at[0]);
+            sheet.setCellName(at[0], field.getText().toString());
+            markDirty();
+        };
+        final Runnable step = () -> {
+            commit.run();
+            at[0] = (at[0] + 1) % sheet.cellCount();
+            show.run();
+        };
+        show.run();
+        field.setOnEditorActionListener((v, action, e) -> { step.run(); return true; });
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Name the cells")
+                .setView(box)
+                // "Next" keeps the dialog open by design — that is the whole point of it.
+                .setNeutralButton("Next \u203a", null)
+                .setPositiveButton("Done", (dl, w) -> {
+                    commit.run();
+                    gridView.refresh();
+                    showSection("slice");
+                })
+                .setNegativeButton("Cancel", null)
+                .show()
+                .getButton(android.content.DialogInterface.BUTTON_NEUTRAL)
+                .setOnClickListener(v -> step.run());
     }
 
     @NonNull
@@ -1557,7 +1700,13 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         box.setTextSize(9.5f);
         box.setTypeface(Typeface.MONOSPACE);
         box.setTextColor(SpriteTheme.DIM);
-        box.setBackground(pillBg(0xFF0B0B0E, SpriteTheme.LINE, d));
+        // A card, not a pill: the design rounds a block of text by RADIUS_CARD, and a
+        // fully-rounded pill eats the first and last character of every line.
+        GradientDrawable panel = new GradientDrawable();
+        panel.setColor(0xFF0B0B0E);
+        panel.setCornerRadius(SpriteTheme.RADIUS_CARD * d);
+        panel.setStroke(Math.max(1, (int) d), SpriteTheme.LINE);
+        box.setBackground(panel);
         int p = (int) (8 * d);
         box.setPadding(p, p, p, p);
         box.setMaxLines(14);

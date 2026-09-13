@@ -188,5 +188,8 @@ alignment and viseme travel with it, which is JoyRaptor's ruling — so Reset or
 everything, because none of it was ever attached to the slot.
 
 Alignment travels as **data** now — `cellXf` on the sheet — so nothing has to be baked to move
-work from here to the phone or back. The rest of that list is owed, because the standing rule
-is that no capability may be desktop-only.
+work from here to the phone or back; baking is for handing a sheet to something that is not Joy
+Creator, and for merging, which one image URI cannot express.
+
+The standing rule is that no capability may be desktop-only, and as of 2026-09-13 the Sources
+rail is the only one left.

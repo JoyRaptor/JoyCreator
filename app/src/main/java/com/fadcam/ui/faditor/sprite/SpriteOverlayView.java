@@ -79,6 +79,8 @@ public class SpriteOverlayView extends View {
     private final RectF workRect = new RectF();
 
     private final ScaleGestureDetector scaleDetector;
+    /** Scratch for the sprite corner pin — allocated once, never inside a draw. */
+    private final android.graphics.Matrix pinMatrix = new android.graphics.Matrix();
     private float downRawX, downRawY, startCenterX, startCenterY;
     private boolean moved;
     @Nullable private SpriteOverlayItem.TransformSnapshot beforeGesture;
@@ -216,6 +218,19 @@ public class SpriteOverlayView extends View {
         canvas.rotate(rot, cx, cy);
         if (o.isFlipH() || o.isFlipV()) {
             canvas.scale(o.isFlipH() ? -1f : 1f, o.isFlipV() ? -1f : 1f, cx, cy);
+        }
+        // SPEC Z slice 1 — the SPRITE's own corner pin, concat-ed INNERMOST: inside the rotate
+        // and the flip, immediately around whatever draws next. That placement is the design, not
+        // an implementation detail. The cell and the rig both draw into workRect, so distorting
+        // here distorts the COMPOSED result — a bend authored on a head is inherited by every
+        // cell and every rig pose, and the mouth follows underneath, which is the entire reason
+        // the pin lives on the sprite and not on a cell.
+        //
+        // Same matrix the export builds, from the same method, so the two cannot transcribe it
+        // differently. An undistorted sprite takes the byte-identical path it always did.
+        if (o.cornerPinMatrix(pinMatrix, currentTimeMs,
+                workRect.left, workRect.top, workRect.width(), workRect.height())) {
+            canvas.concat(pinMatrix);
         }
         com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppet = puppetFor(o);
         if (puppet != null && o.getAvatarTrack() != null) {

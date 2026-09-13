@@ -480,6 +480,30 @@ public class SpriteOverlayItem {
         }
     }
 
+    /**
+     * The corner-pin matrix for this sprite at {@code timelineMs}, over the untransformed drawn
+     * rect {@code (left, top, w, h)} in the CALLER's pixel space.
+     *
+     * <p>The ONE method the preview and the export both call, so the arithmetic has no second
+     * transcription to drift from — the same discipline {@code TextOverlayItem.cornerPinMatrix}
+     * already carries for images, and literally the same {@code CornerPin.buildMatrix} underneath.
+     *
+     * <p>Concat it INNERMOST, immediately around the cell draw and INSIDE the existing
+     * rotate/flip. That placement is what makes the warp a property of the SPRITE rather than of
+     * a cell: whatever is showing at that instant — a cell, a rig's composed parts — is drawn into
+     * the same rect, so the pin distorts the composed result and every cell inherits it.
+     *
+     * @return true when {@code out} must be concat-ed; false when the sprite is undistorted at
+     *         this time and the caller should draw exactly as it always did
+     */
+    public boolean cornerPinMatrix(@NonNull android.graphics.Matrix out, long timelineMs,
+                                   float left, float top, float w, float h) {
+        if (!hasCornerPin()) { out.reset(); return false; }
+        float[] off = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+        animatedCornerPin(timelineMs, off);
+        return com.fadcam.ui.faditor.model.CornerPin.buildMatrix(out, left, top, w, h, off);
+    }
+
     /** True when a bend is authored. Checked before any GL object exists, so no bend costs zero. */
     public boolean hasMesh() {
         return mesh != null && mesh.hasWarp();

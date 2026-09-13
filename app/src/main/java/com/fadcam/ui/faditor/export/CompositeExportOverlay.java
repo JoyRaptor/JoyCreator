@@ -246,6 +246,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
     /** Second scratch buffer — see the ping-pong note in {@link #getBitmap}. */
     @Nullable private Bitmap bitmapB;
     @Nullable private Canvas canvasB;
+    /** Scratch for the sprite corner pin — allocated once, never per frame. */
+    private final android.graphics.Matrix spritePinMatrix = new android.graphics.Matrix();
     /** EXPORT COST INSTRUMENTATION: how much of an export this clip's overlay pass actually is. */
     /** Identity-stable, never drawn into; see the empty-frame branch in getBitmap. */
     @Nullable private Bitmap emptyBitmap;
@@ -669,6 +671,17 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 }
                 android.graphics.RectF dest = new android.graphics.RectF(
                         cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+                // SPEC Z slice 1 — the sprite's corner pin, built by the SAME method the preview
+                // calls (SpriteOverlayItem.cornerPinMatrix) and concat-ed at the SAME point:
+                // inside the rotate and the flip, immediately around the draw below. Both
+                // branches under it — a rig puppet and a plain cell — draw into `dest`, so the
+                // pin distorts the composed result either way and a bend authored on a head is
+                // inherited by every cell. An undistorted sprite takes the byte-identical path
+                // it always did, because the method returns false and nothing is concat-ed.
+                if (o.cornerPinMatrix(spritePinMatrix, timelineMs,
+                        dest.left, dest.top, dest.width(), dest.height())) {
+                    canvas.concat(spritePinMatrix);
+                }
                 if (puppet != null && o.getAvatarTrack() != null) {
                     // Bake-to-keyframes replay: live puppet in the SAME dest box
                     // the neutral cell occupied (preview parity by construction —

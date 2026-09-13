@@ -24942,11 +24942,63 @@ public class FaditorEditorActivity extends AppCompatActivity {
         v.refresh();
     }
 
+    /**
+     * Reset policy for TEXT — see {@code AffineTransformHost.ResetPolicy}.
+     *
+     * <p>KEEPS SIZE, deliberately and in agreement with the image host: a text size is authored
+     * work with no canonical default, so there is nothing honest to reset it TO.
+     */
+    private void resetTextGeometry(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet ks = o.getKeyframes();
+        ks.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.X);
+        ks.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y);
+        ks.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION);
+        o.setCenter(0.5f, 0.5f);
+        o.setRotationDeg(0f);
+        // Defensive: text should never carry a pin, but a stale one would survive a reset that
+        // only cleared position and rotation.
+        o.clearCornerPin();
+        for (String tr : com.fadcam.ui.faditor.model.CornerPin.tracks()) {
+            ks.removeProperty(tr);
+        }
+        refreshTextAfterHandleWrite();
+    }
+
+    /**
+     * Reset policy for PiP — see {@code AffineTransformHost.ResetPolicy}.
+     *
+     * <p>RESETS SIZE, unlike text and images. A PiP has a creation pose that IS its canonical
+     * default, so "reset" can return it somewhere meaningful. That divergence was previously
+     * silent — the PiP host simply reset scale while both of its siblings documented the opposite
+     * convention — and it is written down here because a difference nobody stated is a difference
+     * nobody can check.
+     */
+    private void resetPipGeometry(@NonNull Clip clip) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet kf = clip.getOverlayTransform();
+        if (kf == null) {
+            kf = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+            clip.setOverlayTransform(kf);
+        }
+        kf.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.X);
+        kf.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y);
+        kf.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE);
+        kf.removeProperty(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION);
+        com.fadcam.ui.faditor.keyframe.Easing lin = com.fadcam.ui.faditor.keyframe.Easing.LINEAR;
+        kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).put(0L,
+                com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X, lin);
+        kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y).put(0L,
+                com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y, lin);
+        kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE).put(0L,
+                com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_SCALE, lin);
+        kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION).put(0L, 0f, lin);
+        refreshPipAfterHandleWrite();
+    }
+
     // ── SPEC D: TEXT (non-image) TRANSFORM — affine-only (no pin path in either surface)
     private void enterTextTransformMode(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (transformItemId != null && transformItemId.equals(o.getId())
                 && transformOverlay != null && transformOverlay.host() != null
-                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.TextAffineTransformHost) {
+                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.AffineTransformHost) {
             transformOverlay.refresh();
             return;
         }
@@ -24965,11 +25017,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = textHandlesTarget(o);
-        v.setHost(new com.fadcam.ui.faditor.transform.TextAffineTransformHost(
-                o, t,
+        v.setHost(new com.fadcam.ui.faditor.transform.AffineTransformHost(
+                t,
                 // SPEC J — corrected overlay clock; see the image host above for why.
                 () -> overlayClockMs(lastPlayheadAbsoluteMs),
-                this::refreshTextAfterHandleWrite), roles);
+                this::refreshTextAfterHandleWrite,
+                // SPEC Y: the floor is a parameter because it was NOT the same across the old
+                // hosts — 0.02 here and in PiP, 0.01 for images. Collapsing them to one constant
+                // would have silently changed somebody's minimum by 2x.
+                0.02f,
+                () -> resetTextGeometry(o)), roles);
         v.setAffineOnly(true);
         // SPEC H — text stays bend-free: no pin/mesh render path in either surface.
         v.setBendAvailable(false);
@@ -24983,7 +25040,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void enterPipTransformMode(@NonNull Clip clip) {
         if (transformPipClipId != null && transformPipClipId.equals(clip.getId())
                 && transformOverlay != null && transformOverlay.host() != null
-                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.PipAffineTransformHost) {
+                && transformOverlay.host() instanceof com.fadcam.ui.faditor.transform.AffineTransformHost) {
             transformOverlay.refresh();
             return;
         }
@@ -25002,11 +25059,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target t = pipHandlesTarget(clip);
-        v.setHost(new com.fadcam.ui.faditor.transform.PipAffineTransformHost(
-                clip, t,
+        v.setHost(new com.fadcam.ui.faditor.transform.AffineTransformHost(
+                t,
                 // SPEC J — corrected overlay clock; see the image host above for why.
                 () -> overlayClockMs(lastPlayheadAbsoluteMs),
-                this::refreshPipAfterHandleWrite), roles);
+                this::refreshPipAfterHandleWrite,
+                0.02f,
+                () -> resetPipGeometry(clip)), roles);
         v.setAffineOnly(true);
         // SPEC H — PiP stays bend-free: no pin/mesh render path in either surface.
         v.setBendAvailable(false);

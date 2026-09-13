@@ -131,7 +131,12 @@ no money.** Nothing else on Android does the two-engine merge.
 | Feature | Level | Notes |
 |---|---|---|
 | Sprite sheets + grid detection | 🟢 ~ | sprite/; road_map says S1–S7 complete |
-| Sprite sidecar .sprite.json | 🟢 ✔ | Code comment: *"the sharing format, the plugin contract"* |
+| Sprite sidecar .sprite.json | 🟢 ✔ | Export and import both exist in SpriteSheetEditorActivity. The importer dropped every preset and cell name until 2026-09-10; fixed then, **device-proved 2026-09-13** — the Export panel now prints the JSON on screen with a Copy button, so what the assistant will read is visible before it is written. |
+| Saved animations — the ENGINE | 🟢 ✔ | SpriteFrameResolver expands a preset key at the playhead and runs it, wrapping per loop/pingpong/once-then-hold **until the next key**, honouring weights, with `endBehavior` overriding after the last key. One evaluator for preview, export and tape. |
+| Saved animations — picking one | 🟢 ✔ | **Two screens list `sheet.getPresets()` now.** The drawer shows them as chips alongside the still cells (animations first, one chip design, a mode dot the only difference); the Lab's Clips section is a shelf of the same chip, and picking one lights its frames on the sheet **in its own order** before you decide to load it. Device-proved 2026-09-13. |
+| Cell names | 🟢 ✔ | The grid letters each cell in four corners — index, name, viseme, order badge — and the film and drawer chips carry the name. **Two stores held a cell's name and nothing reconciled them**, so a sheet with named cells exported "0 named" to the assistant; `cellNames` is now the one truth, reading falls back to `Cell.name`, writing updates both, loading migrates. Device-proved 2026-09-13. `Cell.tags[]` is still written by nothing. |
+| Live keyframing while playing | 🟢 ✔ | `onCellChipTapped` keys **at the playhead** by design, so tapping during playback records a performance. Position/scale/rotation arm the same way (`faditor_kf_hint_armed`). Sprites carry a `KeyframeSet` *and* a `FrameTrack` — two independent tracks, which is what makes the two-pass workflow work. **JoyRaptor's favourite thing in the app. Do not add an arming step.** |
+| Bend / squash-and-stretch on sprites | 🔵 ✔ | Not built. `CornerPinTransformHost` is the only host with a mesh path and it is image-only; `SpriteOverlayItem` has no transform host at all. |
 | Dope sheet | 🟢 ~ | |
 | Avatar rigs (biped, head yaw/pitch, limbs) | 🟡 ~ | road_map claims the full loop is done; **JoyRaptor has not driven it** |
 | MediaPipe face tracking | 🟡 ✔ | face_landmarker.task in assets, MediaPipeTrackingSource |
@@ -140,6 +145,54 @@ no money.** Nothing else on Android does the two-engine merge.
 | Bake rig to keyframes | 🟢 ~ | LEDGER: device-verified |
 | Point-at-video | 🟢 ~ | |
 | Puppet architecture | 🟡 ✔ | SPEC_20260904_PUPPET_ARCHITECTURE — recent, in flight |
+
+### SpriteLab — the desktop companion (`tools/spritelab/SpriteLab.html`)
+
+**A pilot, not a tier.** JoyRaptor's ruling, 2026-09-11: *everything* SpriteLab does is
+destined to land in Joy Creator itself, on phones and tablets. He works in fragments around
+childcare — often one-handed, often outside the house with only a phone — so "wait until you
+are at a computer" is the failure this app exists to remove. The web tool's durable purpose
+is interop with desktop software (Photoshop round-trips) and being a fast place to try an
+interaction before paying Android's build cycle. **No capability may be desktop-only.**
+Consequence: `SpriteSheet` must grow an additive per-cell transform, so alignment becomes
+data rather than baked pixels. See INBOX 2026-09-11.
+
+A single-file, zero-dependency web tool for repairing an AI-rendered
+sheet before it ever reaches the phone: slice, reorder by tapping, rearrange cells, align
+each frame, name clips, bake a clean sheet and write a `.sprite.json` the phone reads
+field-for-field. Its cell geometry is a deliberate port of
+`SpriteSheetRenderer.cellRectSource()`, so anything it can express the phone slices
+identically. 🟢 — JoyRaptor is using it to animate the Joybot mascot, 2026-09-10.
+
+Specs: SPEC_20260910_SPRITELAB_UI / _MODEL / _SEMANTIC_CELLS.
+
+### SpriteLab ON THE PHONE — `SpriteSheetEditorActivity` (2026-09-13)
+
+The pilot has landed. `tools/spritelab/SpriteLabMobile.html` is the approved design and the
+Android screen is built to it, not merely inspired by it: **the icons are the same path data,
+generated out of the HTML by `tools/spritelab/genicons.py` into `SpriteIcons.java`.** Edit the
+mockup, re-run the script, and the phone follows — which is the only way two surfaces are still
+the same a month later.
+
+What is device-proved on the Note 9, 2026-09-13:
+
+| | |
+|---|---|
+| Top bar | back · name · undo · redo · four-section segmented nav (amber grid, cyan align, violet clips, green out) · save, pink while dirty |
+| Grid | cyan outline for a cell the roll uses, pink for the one showing now, order badge top-centre (`4,5` when a cell is used twice), index, name, viseme |
+| Alignment | four scrubbable number pills — **drag to change, tap to type** — auto-centre, plant feet, reset, reset all |
+| Onion | a toggle, a past pill and a future pill you SLIDE for count and TAP for colour, a strength number, and one swatch for the ground behind the art (tap cycles eight, hold lists them) |
+| Sequence | tap cells to build the roll, holds, save as a named animation |
+| Transport | play/pause · step · loop-pingpong-once segment · reverse · fps — and **play plays the ROLL**, holds honoured, ping-pong turning at the ends, once stopping on the last frame |
+| Clips | a shelf of the one chip design; picking one lights its frames on the sheet in order |
+| Export | writes `.sprite.json`, and SHOWS it, with a Copy button |
+| Undo | snapshot-based, one press one step, a whole drag folded into one |
+
+What is **not** on the phone yet, and is therefore still desktop-only in violation of the rule
+above: multi-sheet merge and the source chips, Swap / Ripple / Reset order, "Name many…", the
+suspect-cell flag, bake-to-a-new-sheet with its fit/fill/keep and PNG/JPG options, numbered
+frame export, and drag-to-reorder on the film strip and the clips shelf. Alignment-as-data
+removes the NEED to bake on the phone, but the rest are owed.
 
 > ⚠️ **Avatar Studio is the largest 🟡 block in the app.** Substantial, sophisticated, and
 > never exercised by a human. Recommendation: **present in the launch build, not reachable
@@ -231,6 +284,9 @@ strangers install.**
 | 8 | remove_silence is report-only for audio clips | Low | |
 | 9 | Stranded drag-latch, second path — self-heals, fires occasionally | Low, watch only | LEDGER 2b |
 | 10 | No automated tests at all — app/src/test does not exist | Structural risk | ✔ |
+| 11 | **Saved sprite animations are write-only.** The resolver plays them; no screen lists them. A sheet imported with ten named animations shows zero. | High — makes the whole SpriteLab pipeline dead-end | ✔ 2026-09-10 |
+| 12 | **Cell names are write-only**, and `Cell.tags[]` has never been written at all. Blocks every AI capability that would reason about what is drawn on a sheet. | Medium — blocks SPEC_20260910_SEMANTIC_CELLS | ✔ 2026-09-10 |
+| 13 | **Sprite sheets live inside `project.json`**, so a character perfected in one project does not exist in the next. Same wound as THE VAULT: an asset trapped in composition scope. The B-roll bucket and `AvatarLibrary` already show the right pattern. | Medium — reuse, and it gets worse with users | ✔ 2026-09-10 |
 
 ---
 

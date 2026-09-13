@@ -3038,3 +3038,58 @@ the read-and-ignore path working as designed, not data loss.
   been done. Flagged rather than guessed.
 - **Caption-style chooser auto-hide** shipped option (a) (appears when a captioned clip is under
   the playhead); the user leaned (b) (appears after tapping a CC bar). One question, not a rebuild.
+
+---
+
+## 2026-09-13 — SpriteLab on the phone, built to the approved mockup
+
+Overnight session. JoyRaptor: *"now build EXACTLY this, fully functional on the phone."*
+"This" is `tools/spritelab/SpriteLabMobile.html`, layout C, refined over several rounds.
+
+**Device: Note 9, five install/verify cycles.** Build green at every commit
+(`tools/phone.ps1 build`); no gradle run by hand.
+
+### What was proved on the device, not merely compiled
+
+| Proved | Evidence |
+|---|---|
+| Roll building with order badges | tapped cells 0,1,2,3 — grid showed cyan `1 2 3` and pink `4`, film chips `#1 c0` … `#4 c3` |
+| Playback follows the ROLL | pressed play: preview showed c2, film chip c2 pink, grid badge 3 pink, scrub segment 3 pink — all four in lockstep |
+| Number pill drag | swiped the `x` pill 200px: 2 → 13, preview AND grid art both moved (preview and export agree by construction — one `drawCell`) |
+| Undo is one press for one gesture | that whole drag reverted in a single press; redo lit, undo greyed |
+| Save clip → Clips shelf | "clip2" appeared beside "winkclip1", both `4f · 8fps` with a cyan loop dot |
+| Picking a clip | cyan border, its frames lit on the sheet, action row appeared (Load / Rename-retime / Delete) |
+| Drawer at detent 2 | two balanced rows, animations first, 9 + 8 chips |
+| Drawer overflow | Cycle all · Ping-pong all · Hold this cell · ★ Save these 5 keys as an animation |
+| Sprites tool icon | now a running figure in the toolbox |
+
+### The defect the screenshots found that the build could not
+
+**A named cell the assistant cannot see is not a named cell.** The Export panel read
+"0 named" over a sheet whose cell 3 is called "surprised". Two stores held that name —
+`cellNames`, which is what the sidecar JSON and therefore the AI read, and `Cell.name`, which
+is what sheets written by the older palette carry — and nothing reconciled them. The entire
+reason JoyRaptor wants cell naming is that it "super powers the LLM side", so a name landing
+in the store the AI never reads is *worse* than no name: it looks done. `cellNames` is the one
+truth now; reading falls back, writing updates both, loading migrates.
+
+### Three things a drag would have made unbearable, found by audit, not by eye
+
+- The tolerance pill called `reloadRenderer()`, which rebuilds the section containing the pill
+  under your finger. The gesture died on tick one.
+- An alignment nudge REBUILT the film strip chip by chip, per tick. So did the scrub bar, on
+  every move event.
+- Every keystroke and drag tick serialised the whole sheet for an undo snapshot.
+
+Also: the grid kept throwing away your zoom and your selection on every re-decode (undo, a
+tolerance change, a relink) — which is how you lose the close-up you were aligning in.
+
+### One process note worth keeping
+
+`tools/phone.sh launch` force-stops the app and fires `monkey`; when that silently fails the
+PREVIOUS foreground app stays, and the next blind tap lands in it. Twice this session that was
+JoyRaptor's personal Gmail. **Screenshot, or check
+`adb shell dumpsys window | grep mCurrentFocus`, before every tap batch.** The screenshots
+were deleted unread.
+
+Commits: 28b03c0e · 1561af46 · 6657cffd · 73330444

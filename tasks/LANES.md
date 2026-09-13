@@ -514,7 +514,10 @@ files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/Audi
 since: 2026-08-24
 
 ## SPRITELAB MOBILE — build the web design on the phone (SpriteLabMobile.html)
-status: ACTIVE (2026-09-13, overnight autonomous session — Claude/Opus)
+status: DONE (2026-09-13, overnight autonomous session — Claude/Opus).
+        Device-proved on the Note 9; see LEDGER 2026-09-13 for the evidence table and for
+        what is still desktop-only (merge, swap/ripple, name-many, bake, frame export,
+        drag-to-reorder). Files below are FREE.
 files:
   app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheet.java            (per-cell CellXf, visemeMap)
   app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetRenderer.java    (apply CellXf in drawCell — the single blit)
@@ -522,5 +525,11 @@ files:
   app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java (grow into the Lab)
   app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java         (drawer callbacks: preset drop, cell xf, close-on-tap fix)
   app/src/main/res/values/attrs.xml, colors.xml                              (sprite colour tokens)
-reference: tools/spritelab/SpriteLabMobile.html — the approved design, build it exactly
-since: 2026-09-13T02:00
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteIcons.java            (GENERATED — do not hand-edit)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteGridEditorView.java   (order badges, state colours)
+  app/src/main/java/com/fadcam/ui/faditor/tools/FaditorToolRegistry.java     (sprite tool = running figure)
+  tools/spritelab/genicons.py                                               (HTML symbols -> SpriteIcons.java)
+reference: tools/spritelab/SpriteLabMobile.html — the approved design, build it exactly.
+           The icons are GENERATED from its <symbol> block: edit the HTML, re-run
+           `python tools/spritelab/genicons.py`, never hand-edit SpriteIcons.java.
+since: 2026-09-13T02:00  ended: 2026-09-13T06:10

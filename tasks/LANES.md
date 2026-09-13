@@ -553,6 +553,20 @@ sheet that is not the open one is lost the same way.
 Suggested fix, yours to judge: gate on the project being non-null rather than on the timeline
 having video clips, or check a modified-token instead of inferring from content.
 
+## DISPATCH BOARD — three sheets ready for other agents (2026-09-13)
+status: UNCLAIMED. Each is independent; they touch no shared file and may run in parallel.
+        Every one requires tasks/specs/_DISPATCH_RULES_20260913.md FIRST.
+  SPEC_ZA_sprite_gl_export.md   ← FIRST OUT: closes a LIVE preview/export gap. A bent sprite
+                                   previews in GL and exports via Canvas today, so a blend above
+                                   it composites against the video in the file and against the
+                                   sprite on screen.
+  SPEC_ZB_clip_warp_model.md    ← pin + mesh on Clip. Adds NO behaviour; the foundation PiP and
+                                   spine shaders need. Mirrors the sprite model exactly.
+  SPEC_ZC_text_pinned_view.md   ← CornerPinTextView + the layout inflation. Mirrors
+                                   CornerPinImageView.
+HELD, do not dispatch: tasks/specs/_HELD_BY_OPUS_20260913.md names three and says why each one's
+  failure mode is a confident wrong answer that compiles.
+
 ## TRANSFORM SURFACE — SPEC X, Y, Z (2026-09-13 day session)
 status: ACTIVE (2026-09-13T10:25 — Claude/Opus, autonomous, parallel with the SpriteLab agent)
 specs: tasks/specs/SPEC_X_preview_stack_elevation.md, SPEC_Y_one_transform_surface.md,

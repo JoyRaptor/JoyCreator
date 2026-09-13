@@ -363,18 +363,6 @@ public class TextOverlayItem {
     @Nullable
     private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
 
-    /** Single easing authority for mesh tracks: the app's Easing, not a second copy. */
-    static final com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Curve MESH_CURVE =
-            new com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack.Curve() {
-                @Override public float apply(String name, float t) {
-                    try {
-                        return com.fadcam.ui.faditor.keyframe.Easing.fromName(name).apply(t);
-                    } catch (Exception ignored) {
-                        return t;
-                    }
-                }
-            };
-
     /** Clockwise rotation in degrees. */
     private float rotationDeg;
 
@@ -1146,11 +1134,16 @@ public class TextOverlayItem {
         installMeshCurve();
     }
 
-    /** Ensure the pose track eases via the app's single Easing implementation (no second copy). */
+    /**
+     * Ensure the pose track eases via the app's single Easing implementation (no second copy).
+     *
+     * <p>The curve itself moved to {@link com.fadcam.ui.faditor.transform.mesh.MeshCurves} when
+     * SPEC Z gave sprites, PiP and the spine a mesh of their own: an easing shared by four object
+     * types is not a property of the text/image model, and leaving it here would have meant three
+     * other types reaching into this class to find out how a bend eases.
+     */
     public void installMeshCurve() {
-        if (mesh != null && mesh.track() != null) {
-            try { mesh.track().setCurve(MESH_CURVE); } catch (Exception ignored) { }
-        }
+        com.fadcam.ui.faditor.transform.mesh.MeshCurves.install(mesh);
     }
 
     /** Mesh time base is LOCAL like every other animated property (see {@code localTime}). */

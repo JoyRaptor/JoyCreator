@@ -129,6 +129,26 @@ public class SpriteOverlayItem {
     /** Eased whole-unit transform animation (x/y/scale/rotation/opacity), item-local times. */
     @NonNull private final KeyframeSet keyframes = new KeyframeSet();
 
+    // ── SPEC Z slice 1: the sprite's own distortion ───────────────────────────────────────────
+    //
+    // JoyRaptor, 2026-09-13: "The distortion should be on the sprite itself — NOT the cells living
+    // inside, which are transient. If I'm animating squash and stretch, bend to the head, I want
+    // the mouth or facial expressions to follow underneath."
+    //
+    // So it lives HERE, on the sprite instance, and not on FrameTrack, not on a cell, and not on
+    // the rig. The render order is: the FrameTrack picks a cell, the rig composes its parts, the
+    // per-cell transform places them — and only then does this warp the composed raster. Authored
+    // once, inherited by every cell and every pose.
+    //
+    // Shaped EXACTLY like TextOverlayItem's, down to the units (offsets are fractions of the
+    // item's own untransformed size) and the accessor names, because two shapes is how two
+    // behaviours start. If you are about to add a sprite-only convenience here, add it there too
+    // or do not add it.
+    private final float[] cornerPin =
+            new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+
+    @Nullable private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
+
     /**
      * A DEEP copy under a NEW id — what "duplicate this object" needs.
      *
@@ -171,6 +191,12 @@ public class SpriteOverlayItem {
             c.frameTrack.put(nk);
         }
         c.keyframes.copyFrom(keyframes);
+        System.arraycopy(cornerPin, 0, c.cornerPin, 0,
+                com.fadcam.ui.faditor.model.CornerPin.SIZE);
+        // A copy gets its OWN bend, not a shared reference — aliasing one would make bending the
+        // copy silently bend the original, the same trap the avatar track note below describes.
+        c.mesh = mesh != null ? mesh.copy() : null;
+        c.installMeshCurve();
         // The avatar param track has no copy() of its own; sharing it would alias a rig's pose
         // animation across two puppets. Dropped rather than shared -- a copy that quietly moves
         // with the original is worse than one that starts un-posed, and the rig id is kept so
@@ -375,13 +401,124 @@ public class SpriteOverlayItem {
     // ── Undo snapshot (one undo step per preview gesture, house rule) ─────
 
     /** Immutable static-transform + keyframe snapshot for gesture undo. */
+    // ── Corner pin + mesh: the same API TextOverlayItem exposes, deliberately ────────────────
+
+    private static int pinIndex(int corner, int axis) {
+        if (corner < 0 || corner > com.fadcam.ui.faditor.model.CornerPin.BL) return -1;
+        if (axis != com.fadcam.ui.faditor.model.CornerPin.DX
+                && axis != com.fadcam.ui.faditor.model.CornerPin.DY) return -1;
+        return corner * 2 + axis;
+    }
+
+    /** One corner component's STATIC value. */
+    public float getCornerPin(int corner, int axis) {
+        int i = pinIndex(corner, axis);
+        return i < 0 ? 0f : cornerPin[i];
+    }
+
+    /** Set one corner component, clamped to {@code CornerPin.MAX_OFFSET}. */
+    public void setCornerPin(int corner, int axis, float value) {
+        int i = pinIndex(corner, axis);
+        if (i >= 0) cornerPin[i] = com.fadcam.ui.faditor.model.CornerPin.clamp(value);
+    }
+
+    /** Set all four corners at once from a packed array; shorter/null input is ignored. */
+    public void setCornerPin(@Nullable float[] off8) {
+        int n = com.fadcam.ui.faditor.model.CornerPin.SIZE;
+        if (off8 == null || off8.length < n) return;
+        for (int i = 0; i < n; i++) {
+            cornerPin[i] = com.fadcam.ui.faditor.model.CornerPin.clamp(off8[i]);
+        }
+    }
+
+    /** Copy the STATIC offsets into {@code out8}. */
+    public void copyCornerPinInto(@NonNull float[] out8) {
+        int n = com.fadcam.ui.faditor.model.CornerPin.SIZE;
+        if (out8.length < n) return;
+        System.arraycopy(cornerPin, 0, out8, 0, n);
+    }
+
+    /** Back to undistorted — the state every sprite starts in. */
+    public void clearCornerPin() {
+        java.util.Arrays.fill(cornerPin, 0f);
+    }
+
+    /**
+     * Is this sprite distorted AT ALL — statically or by any keyframe?
+     *
+     * <p>The skip gate every render path checks first, and it reads the TRACKS rather than
+     * sampling a time, for the same reason the image one does: the answer must not flicker between
+     * frames of an animation, or the preview would swap how it draws the sprite mid-playback.
+     */
+    public boolean hasCornerPin() {
+        if (!com.fadcam.ui.faditor.model.CornerPin.isFlat(cornerPin)) return true;
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack t =
+                        keyframes.get(com.fadcam.ui.faditor.model.CornerPin.trackFor(c, a));
+                if (t == null || t.isEmpty()) continue;
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                    if (Math.abs(k.value)
+                            > com.fadcam.ui.faditor.model.CornerPin.EPSILON) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** The offsets at {@code timelineMs}, on this sprite's own local time base. */
+    public void animatedCornerPin(long timelineMs, @NonNull float[] out8) {
+        int n = com.fadcam.ui.faditor.model.CornerPin.SIZE;
+        if (out8.length < n) return;
+        long t = Math.max(0, timelineMs - startMs);
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                int i = c * 2 + a;
+                out8[i] = com.fadcam.ui.faditor.model.CornerPin.clamp(keyframes.valueAt(
+                        com.fadcam.ui.faditor.model.CornerPin.trackFor(c, a), t, cornerPin[i]));
+            }
+        }
+    }
+
+    /** True when a bend is authored. Checked before any GL object exists, so no bend costs zero. */
+    public boolean hasMesh() {
+        return mesh != null && mesh.hasWarp();
+    }
+
+    /** The bend spec, or null. Renderers copy it per-frame; never hand the live one out. */
+    @Nullable
+    public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec getMesh() { return mesh; }
+
+    /** Set/replace the bend (null clears). Installs the shared easing curve on its track. */
+    public void setMesh(@Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
+        this.mesh = m;
+        installMeshCurve();
+    }
+
+    /** One easing authority for every warpable type — see {@code MeshCurves}. */
+    public void installMeshCurve() {
+        com.fadcam.ui.faditor.transform.mesh.MeshCurves.install(mesh);
+    }
+
+    /** Mesh time base is LOCAL, like every other animated property here. */
+    public long meshLocalTime(long timelineMs) {
+        return Math.max(0, timelineMs - startMs);
+    }
+
     public static class TransformSnapshot {
         public final float centerX, centerY, sizeFraction, rotationDeg, opacity;
         public final boolean flipH, flipV;
         public final long fadeInMs, fadeOutMs;
         @NonNull public final KeyframeSet keyframes;
+        /** SPEC Z: the distortion is part of the pose, so one undo returns it with everything else. */
+        @NonNull public final float[] cornerPin;
+        @Nullable public final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
 
         TransformSnapshot(@NonNull SpriteOverlayItem o) {
+            this.cornerPin = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+            System.arraycopy(o.cornerPin, 0, this.cornerPin, 0, this.cornerPin.length);
+            // A snapshot holding the LIVE spec would move with the object it exists to restore.
+            this.mesh = o.mesh != null ? o.mesh.copy() : null;
             this.centerX = o.centerX;
             this.centerY = o.centerY;
             this.sizeFraction = o.sizeFraction;
@@ -400,7 +537,31 @@ public class SpriteOverlayItem {
                     && rotationDeg == other.rotationDeg && opacity == other.opacity
                     && flipH == other.flipH && flipV == other.flipV
                     && fadeInMs == other.fadeInMs && fadeOutMs == other.fadeOutMs
+                    && java.util.Arrays.equals(cornerPin, other.cornerPin)
+                    && meshEqual(mesh, other.mesh)
                     && keyframesEqual(keyframes, other.keyframes);
+        }
+
+        /**
+         * Two bends are equal when they serialise the same. Comparing specs field by field would
+         * be a second definition of "same bend" that could disagree with the one the file format
+         * already uses.
+         */
+        private static boolean meshEqual(
+                @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec a,
+                @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec b) {
+            if (a == b) return true;
+            boolean aWarp = a != null && a.hasWarp();
+            boolean bWarp = b != null && b.hasWarp();
+            if (!aWarp && !bWarp) return true;
+            if (aWarp != bWarp) return false;
+            try {
+                com.google.gson.JsonObject ja = a.toJson();
+                com.google.gson.JsonObject jb = b.toJson();
+                return ja == null ? jb == null : ja.equals(jb);
+            } catch (Exception ignored) {
+                return false;   // cannot prove equal -> treat as changed, never as unchanged
+            }
         }
 
         /** Structural equality, mirroring TextOverlayItem.TransformSnapshot. */

@@ -2006,6 +2006,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         canvasFrame = findViewById(R.id.canvas_frame);
         safeZoneOverlay = findViewById(R.id.safe_zone_overlay);
+        // SPEC X: every preview-stack field above is now bound, so this is the first call that
+        // can actually place the whole stack. The earlier one (from ensurePreviewHandlesOverlay,
+        // a few lines up) ran with most of them still null and set almost nothing — which the
+        // STACKZ probe reported on the device as "NO elevation" for ten layers at once.
+        applyPreviewStackElevations();
         controlsSection = findViewById(R.id.controls_section);
         cropToolbar = findViewById(R.id.crop_toolbar);
         editorTimeline = findViewById(R.id.editor_timeline_view);
@@ -3545,6 +3550,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         playerContainer.addView(overlay);
         missingOverlayView = overlay;
+        applyPreviewStackElevations();
     }
 
     /**
@@ -10546,11 +10552,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (slidePreview.getVisibility() != View.VISIBLE) {
             slidePreview.setVisibility(View.VISIBLE);
             slidePreview.bringToFront();
-            // Keep editable overlays (and their touch targets) above the slide — then put the
-            // whole stack back in its declared order, because bringToFront raised this layer
-            // above the CAPTIONS as well, which is not what "above the slide" meant.
+            // Keep editable overlays (and their touch targets) above the SLIDE. This is a
+            // reorder WITHIN fx_below_group's siblings and it is legitimate; SPEC X's elevations
+            // mean it can no longer disturb the captions as a side effect.
             if (overlayLayer != null) overlayLayer.bringToFront();
-            restorePreviewStackOrder();
         }
         // Stretch/freeze mapping (JoyRaptor 2026-07-16): clip-local time → authored
         // animation time, mirroring exactly what the baked render does.
@@ -11398,31 +11403,64 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
 
+    // ── SPEC X: the preview stack's z order, stated once ─────────────────────────────
+    //
+    // JoyRaptor, 2026-09-13: "How do we stop being ad-hoc and build properly?"
+    //
+    // It used to be child order, which bringToFront() can rewrite from anywhere — and did:
+    // two slide paths raised overlayLayer meaning "above the slide" and silently put every image
+    // above the CAPTIONS as well. The first fix was restorePreviewStackOrder(), a method that
+    // re-applied the XML order afterwards. That worked, and it was still a convention: it held
+    // only while every future bringToFront() remembered to call it, which is the same fragility
+    // one level up.
+    //
+    // Android composites by Z (elevation + translationZ) and falls back to child order only for
+    // TIES. Give every member a distinct elevation and bringToFront() becomes INCAPABLE of
+    // reordering the stack — it still changes child order, and child order no longer decides.
+    // Touch dispatch follows the same ordering, so "who is on top" and "who gets this touch"
+    // stop being two questions that can disagree.
+    //
+    // THE NUMBERS ARE NOT ARBITRARY. Three of these views already carry an elevation AND a
+    // background, so they already cast a shadow today: the keyframe ribbon (10), the transcript
+    // tab (11) and the transcript panel (12). Those three keep their exact values, because
+    // changing an elevation changes a shadow and this pass must be invisible. Everything below
+    // them is packed in half-dp steps, which is sub-pixel as a shadow, and the run from 5.5 to 8
+    // is deliberately left empty for whatever needs inserting next.
+    //
+    // Derived by reading the CURRENT order out of the layout and the addView sites rather than
+    // assuming it: missingOverlayView sits at the top of the elevation-0 group (it calls
+    // bringToFront), and the keyframe ribbon sits BELOW the transcript panel, not above it.
+    // Both would have been guessed wrong.
+    private static final float[] PREVIEW_STACK_DP = {
+            0.5f,   // waveform_overlay
+            1.0f,   // layer_image_overlay
+            1.5f,   // sprite_overlay_layer
+            2.0f,   // overlay_layer            (text AND image overlays)
+            2.5f,   // audio_caption_overlay
+            3.0f,   // caption_overlay
+            3.5f,   // captionMultiContainer
+            4.0f,   // caption_style_bar        — has a background; outline nulled below
+            4.5f,   // crop_overlay
+            5.0f,   // safe_zone_overlay
+            5.5f,   // missingOverlayView
+            8.0f,   // previewHandlesOverlay
+            9.0f,   // transformOverlay
+            10.0f,  // keyframeRibbon           — unchanged, keeps its shadow
+            11.0f,  // transcript_reopen_tab    — unchanged, keeps its shadow
+            12.0f,  // transcript_panel         — unchanged, keeps its shadow
+    };
+
     /**
-     * Re-assert the preview stack's documented order after anything has called
-     * {@link View#bringToFront()} on one of its members.
+     * Apply {@link #PREVIEW_STACK_DP}. Cheap, idempotent, and safe to call before the lazily-added
+     * members exist — a null entry is skipped and picks up its elevation when its own creator
+     * calls this again.
      *
-     * <p>JoyRaptor, 2026-09-13: <i>"closed captions... are currently coverable by image objects,
-     * that used to not be the case."</i>
-     *
-     * <p>The order lives in the layout: {@code caption_overlay} is declared AFTER
-     * {@code overlay_layer}, so captions sit above images by construction. But
-     * {@code bringToFront()} raises a child above ALL of its siblings, not just the one the
-     * caller had in mind, and two slide paths call it on {@code overlayLayer} to keep editable
-     * overlays above a generated SLIDE. Each of those silently promoted every image overlay above
-     * the captions too, and nothing put them back: the one call that re-raised the caption layers
-     * was gated on the project having waveform visualizers, so a project without one never
-     * recovered.
-     *
-     * <p>So the fix is to stop treating child order as something each call site may adjust on its
-     * own and give the stack one place that states it. This lists the layers bottom-to-top, in the
-     * layout's own order, and raising each in turn leaves exactly the XML arrangement — whatever
-     * order they were in when it was called.
-     *
-     * <p>Cheap and idempotent: {@code bringToFront} on a child already in position is a no-op
-     * reorder, and the list is nine views.
+     * <p>If you ever find yourself needing to call this to FIX an order, something is setting
+     * translationZ or a second elevation behind its back. That is the bug to report, not a reason
+     * to call this more often.
      */
-    private void restorePreviewStackOrder() {
+    private void applyPreviewStackElevations() {
+        final float d = getResources().getDisplayMetrics().density;
         View[] bottomToTop = {
                 waveformOverlayView,
                 layerImageOverlay,
@@ -11430,19 +11468,130 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 overlayLayer,
                 audioCaptionOverlay,
                 captionOverlay,
+                captionMultiContainer,
                 captionStyleBar,
                 cropOverlay,
                 safeZoneOverlay,
+                missingOverlayView,
+                previewHandlesOverlay,
+                transformOverlay,
+                keyframeRibbon,
+                findViewById(R.id.transcript_reopen_tab),
+                findViewById(R.id.transcript_panel),
         };
-        for (View v : bottomToTop) {
-            if (v != null && v.getParent() != null) v.bringToFront();
+        for (int i = 0; i < bottomToTop.length && i < PREVIEW_STACK_DP.length; i++) {
+            View v = bottomToTop[i];
+            if (v == null) continue;
+            v.setElevation(PREVIEW_STACK_DP[i] * d);
+            // A view with a background and an elevation casts a shadow. The three that already
+            // did keep theirs (their values are unchanged); nothing else may GAIN one, and
+            // caption_style_bar is the only newly-elevated member with a background.
+            if (PREVIEW_STACK_DP[i] < 10f) v.setOutlineProvider(null);
         }
-        // The handle surfaces are added programmatically and belong above everything listed
-        // above; they carry their own elevation, but keeping child order in agreement with it
-        // means the two can never disagree about who receives a touch.
-        if (previewHandlesOverlay != null && previewHandlesOverlay.getParent() != null) {
-            previewHandlesOverlay.bringToFront();
+        // Audit the SETTLED state. applyPreviewStackElevations is called from every attach point,
+        // and the early ones legitimately run before later fields are bound (the first fires from
+        // ensurePreviewHandlesOverlay inside initViews, before the findViewById block below it).
+        // Auditing each call would report those half-built states as faults. Coalesce instead:
+        // the last call in a burst is the one that describes reality.
+        View host = findViewById(R.id.player_container);
+        if (host != null) {
+            host.removeCallbacks(stackZAudit);
+            host.postDelayed(stackZAudit, 500L);
         }
+    }
+
+    private final Runnable stackZAudit = this::auditPreviewStackZ;
+
+    /**
+     * DEBUG PROBE — every child of {@code player_container} must carry a distinct elevation.
+     *
+     * <p>Android composites by Z and falls back to child order only for TIES, which is the whole
+     * mechanism SPEC X relies on. So the Android guarantee is not the risk; the risk is a child
+     * that is not in {@link #PREVIEW_STACK_DP} at all. Such a view keeps elevation 0, silently
+     * sinks beneath every member that was elevated, and its order goes back to being decided by
+     * {@code bringToFront()} — the exact bug this was meant to end, reintroduced by omission.
+     *
+     * <p>A tie is equally worth naming: two members at the same elevation are ordered by child
+     * index again, which is how {@code previewHandlesOverlay} and {@code transformOverlay} were
+     * BOTH sitting at 8dp before this pass.
+     *
+     * <p>Debug builds only. Same intent as {@code assertAnchorsConsistent} — a structural claim
+     * nobody can verify by reading gets a probe that fails out loud on a real device instead.
+     */
+    private void auditPreviewStackZ() {
+        if (!com.fadcam.BuildConfig.DEBUG) return;
+        android.widget.FrameLayout pc = findViewById(R.id.player_container);
+        if (pc == null) return;
+        java.util.Map<Integer, String> byZ = new java.util.HashMap<>();
+        // POSITIVE CONTROL. A silent probe is indistinguishable from a probe that never ran —
+        // the trap this repo has been caught by before. So it always says what it saw, and the
+        // order it prints IS the evidence for SPEC X acceptance 2.
+        StringBuilder order = new StringBuilder("STACKZ order (bottom->top):");
+        java.util.List<View> kids = new java.util.ArrayList<>();
+        for (int i = 0; i < pc.getChildCount(); i++) kids.add(pc.getChildAt(i));
+        java.util.Collections.sort(kids, (a, b) -> Float.compare(a.getZ(), b.getZ()));
+        for (View k : kids) {
+            if (k == null) continue;
+            order.append(' ').append(k.getId() == View.NO_ID
+                    ? k.getClass().getSimpleName()
+                    : getResources().getResourceEntryName(k.getId()))
+                 .append('=').append(Math.round(k.getZ()));
+        }
+        FLog.i(TAG, order.toString());
+        for (int i = 0; i < pc.getChildCount(); i++) {
+            View c = pc.getChildAt(i);
+            if (c == null) continue;
+            String name = c.getId() == View.NO_ID
+                    ? c.getClass().getSimpleName()
+                    : getResources().getResourceEntryName(c.getId());
+            // fx_below_group IS the base plane and is meant to sit at 0.
+            if (c.getId() == R.id.fx_below_group) continue;
+            int z = Math.round(c.getZ());
+            if (z == 0) {
+                FLog.w(TAG, "STACKZ: '" + name + "' is a child of player_container with NO"
+                        + " elevation — it will sink below every elevated layer and its order is"
+                        + " back to being whatever bringToFront last decided. Add it to"
+                        + " PREVIEW_STACK_DP.");
+            }
+            String prior = byZ.put(z, name);
+            if (prior != null) {
+                FLog.w(TAG, "STACKZ: '" + name + "' and '" + prior + "' share z=" + z
+                        + " — a tie falls back to child order, so these two can still swap.");
+            }
+        }
+        proveBringToFrontCannotReorder(pc);
+    }
+
+    /**
+     * SPEC X acceptance 2, as a test rather than an argument: <i>"call bringToFront() on
+     * overlayLayer deliberately and show the captions still above the images."</i>
+     *
+     * <p>Does exactly that. {@code overlayLayer} is the layer the two slide paths raise, and
+     * raising it is what used to put every image above the captions. Here it is raised on purpose
+     * and the caption's z is compared against it afterwards. A PASS means child order no longer
+     * decides; a FAIL means some member lost its elevation and the old bug is back.
+     *
+     * <p>Harmless in production terms even though it really does reorder children: that is the
+     * whole point — after SPEC X the child order is not what the compositor reads. Debug builds
+     * only, and once per settled stack.
+     */
+    private void proveBringToFrontCannotReorder(@NonNull android.widget.FrameLayout pc) {
+        if (overlayLayer == null || captionOverlay == null) return;
+        int beforeIdx = pc.indexOfChild(overlayLayer);
+        float capZ = captionOverlay.getZ();
+        float imgZ = overlayLayer.getZ();
+        overlayLayer.bringToFront();
+        int afterIdx = pc.indexOfChild(overlayLayer);
+        boolean childOrderMoved = afterIdx != beforeIdx;
+        boolean captionsStillAbove = captionOverlay.getZ() > overlayLayer.getZ();
+        FLog.i(TAG, "STACKZ bringToFront probe: overlay_layer child index "
+                + beforeIdx + "->" + afterIdx + " (moved=" + childOrderMoved + "), "
+                + "caption z=" + capZ + " vs overlay z=" + imgZ + " — captions still above: "
+                + captionsStillAbove
+                + (captionsStillAbove && childOrderMoved
+                        ? "  PASS: child order changed and the drawing order did not."
+                        : childOrderMoved ? "  FAIL: bringToFront reordered the stack."
+                        : "  INCONCLUSIVE: bringToFront did not move the child at all."));
     }
 
     /** Restore the slide WebView (and editable overlays) above the transition layers. */
@@ -11450,7 +11599,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (slidePreview != null && slidePreview.getVisibility() == View.VISIBLE) {
             slidePreview.bringToFront();
             if (overlayLayer != null) overlayLayer.bringToFront();
-            restorePreviewStackOrder();
         }
     }
 
@@ -13666,14 +13814,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         showVisualizerStylePicker(overlay);
                     }
                 });
-        // Was gated on `!overlays.isEmpty()`, which made the caption layers' z depend on whether
-        // the project happened to have a visualizer. The stack order is not a visualizer concern.
-        restorePreviewStackOrder();
-        if (!overlays.isEmpty()) {
-            waveformOverlayView.bringToFront(); // sit above other layers so it receives touches
-            if (audioCaptionOverlay != null) audioCaptionOverlay.bringToFront();
-            if (captionOverlay != null) captionOverlay.bringToFront();
-        }
+        // The z juggling that used to live here is gone. It raised the waveform overlay "so it
+        // receives touches" and then put the caption layers back, gated on the project having a
+        // visualizer at all — which made the captions' z depend on something unrelated to them.
+        // SPEC X's elevations decide both drawing and touch order now, for every member, always.
         if (overlays.isEmpty()) return;
         // Refresh each overlay's source-time mapping from its driving clip (trim in-point + speed)
         // so the visualizer reads the correct part of the waveform for trimmed/sped clips.
@@ -24512,7 +24656,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         keyframeRibbon.setBackground(bg);
         int padH = (int) (10 * d);
         keyframeRibbon.setPadding(padH, (int) (2 * d), padH, (int) (2 * d));
-        keyframeRibbon.setElevation(10 * d);
+        // Elevation comes from PREVIEW_STACK_DP (SPEC X), applied once the view is attached.
 
         ribbonLabel = new TextView(this);
         ribbonLabel.setTextColor(0xFF999999);
@@ -24570,6 +24714,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Clear of the caption-style strip that also rides the preview bottom.
         lp.bottomMargin = (int) (58 * d);
         playerContainer.addView(keyframeRibbon, lp);
+        applyPreviewStackElevations();
         keyframeRibbon.setVisibility(View.GONE);
     }
 
@@ -24616,12 +24761,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     new com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay(this);
             // Above the text/sprite/caption layers (XML, elevation 0), below the
             // keyframe ribbon (10dp) so the ribbon stays tappable during a drag.
-            previewHandlesOverlay.setElevation(8 * d);
+            // Elevation comes from PREVIEW_STACK_DP (SPEC X), applied once the view is attached.
             android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
             playerContainer.addView(previewHandlesOverlay,
                     new android.widget.FrameLayout.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            applyPreviewStackElevations();
             previewHandlesOverlay.setSelectionSource(previewSelectionSource());
             // Both caption layers get a say: the clip-transcript one and the audio-caption one
             // draw independently and either may be the thing under the finger.
@@ -24688,12 +24834,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // The same 8dp plane the ordinary handles sit on: above the text/sprite/caption
             // layers, below the keyframe ribbon. They are never both visible, so they never
             // contend for it.
-            transformOverlay.setElevation(8 * d);
+            // Elevation comes from PREVIEW_STACK_DP (SPEC X), applied once the view is attached.
             android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
             playerContainer.addView(transformOverlay,
                     new android.widget.FrameLayout.LayoutParams(
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
                             android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            applyPreviewStackElevations();
             // NO "Done" PILL. It made sense while transform was a mode reached from a menu; it
             // is wrong now that these ARE the handles of a selected image -- pressing it would
             // leave the image selected with no handles at all, which reads as the tool breaking.
@@ -33726,6 +33873,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         captionOverlay = findViewById(R.id.caption_overlay);
         audioCaptionOverlay = findViewById(R.id.audio_caption_overlay);
         captionStyleBar = findViewById(R.id.caption_style_bar);
+        applyPreviewStackElevations();   // SPEC X — these three were null at initViews time
         wireCaptionKfArmShortcut();
         rebuildCaptionStyleChips();
     }
@@ -34471,6 +34619,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int idx = styleBar != null ? playerContainer.indexOfChild(styleBar) : -1;
         if (idx >= 0) playerContainer.addView(captionMultiContainer, idx);
         else playerContainer.addView(captionMultiContainer);
+        applyPreviewStackElevations();
         // Pinch → sizeFraction of the active binding (SPEC_20260829_CAPTION_LAYERS §3.5).
         captionScaleDetector = new android.view.ScaleGestureDetector(this, new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
             @Override public boolean onScaleBegin(android.view.ScaleGestureDetector d) {

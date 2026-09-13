@@ -513,8 +513,11 @@ files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/Audi
        FaditorEditorActivity.java
 since: 2026-08-24
 
-## ⚠ FOR THE TRANSFORM LANE — a reload gate in FaditorEditorActivity now guards destructive work
-Found 2026-09-13 by the SpriteLab lane's reviewer. Not fixed here: the file is yours.
+## ⚠ FIXED 2026-09-13T14:20 BY THE SPRITELAB LANE, WITH JOYRAPTOR'S SAY-SO — read this before
+##   you touch FaditorEditorActivity.onResume again
+JoyRaptor paused the transform lane and asked for the things held back on account of it. ONE
+method changed in your file, `onResume`'s AI-reload gate, ~line 1790. Nothing else in it was
+touched. The change and the reasoning are below; the original note follows it.
 
 `FaditorEditorActivity.onResume` reloads the project after another screen signals a change,
 but the reload is gated on `!reloaded.getTimeline().isEmpty()` (~line 1790), and

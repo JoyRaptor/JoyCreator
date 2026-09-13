@@ -179,19 +179,40 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         onCellSelected(gridView.getSelectedCell());
     }
 
-    private void save() {
+    private void save() { save(false); }
+
+    /**
+     * @param quiet true for an autosave — no toast, and never the "picker was cancelled"
+     *              finish(), because the user did not ask for anything to close.
+     */
+    private void save(boolean quiet) {
         sheet.setName(nameField.getText().toString().trim().isEmpty()
                 ? getString(R.string.sprite_editor_default_name)
                 : nameField.getText().toString().trim());
-        if (isNewSheet && sheet.getSheetUri().isEmpty()) { finish(); return; } // picker cancelled
+        if (isNewSheet && sheet.getSheetUri().isEmpty()) {
+            if (!quiet) finish();   // picker cancelled
+            return;
+        }
         if (isNewSheet && project.spriteSheetById(sheet.getId()) == null) {
             project.getSpriteSheets().add(sheet);
             isNewSheet = false;
         }
         boolean ok = storage.save(project);
         if (ok) AIChatState.signalModified(project.getId());
-        Toast.makeText(this, ok ? R.string.sprite_editor_saved : R.string.sprite_editor_save_failed,
-                Toast.LENGTH_SHORT).show();
+        if (ok) { labDirty = false; syncSaveBtn(); }
+        if (!quiet) {
+            Toast.makeText(this, ok ? R.string.sprite_editor_saved : R.string.sprite_editor_save_failed,
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // The rest of the editor autosaves on pause; this screen only saved on Back, so
+        // switching apps in the middle of naming a sheet threw the naming away — and naming
+        // is the slow, valuable part.
+        if (labDirty) save(true);
     }
 
     @Override

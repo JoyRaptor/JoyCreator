@@ -513,6 +513,20 @@ files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/Audi
        FaditorEditorActivity.java
 since: 2026-08-24
 
+## SPRITELAB OUTPUT — bake, merge, frame export, roll reorder (2026-09-13 day session)
+status: ACTIVE (2026-09-13T10:20 — Claude/Opus, autonomous, parallel with the SPEC X/Y/Z agent)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteBaker.java              (NEW — bake/merge/frames)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java (Out section, film reorder)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheet.java              (source list for merge)
+NOT MINE, do not edit — the other agent owns the transform surface:
+  TransformOverlayView.java, *TransformHost.java, MeshStampGl, TransformQuad, MeshWarpSpec,
+  OverlayTextureCache, FxPreviewTextureView, ImageBlendGlEffect, FaditorEditorActivity.java,
+  SpriteOverlayItem.java, SpriteOverlayView.java
+SHARED, READ-ONLY FOR ME: SpriteSheetRenderer.java — the baker CALLS drawCell/cellRectBitmap and
+  must not modify them. If a change there turns out to be unavoidable, STOP and coordinate.
+since: 2026-09-13T10:20
+
 ## SPRITELAB MOBILE — build the web design on the phone (SpriteLabMobile.html)
 status: DONE (2026-09-13, overnight autonomous session — Claude/Opus).
         Device-proved on the Note 9; see LEDGER 2026-09-13 for the evidence table and for

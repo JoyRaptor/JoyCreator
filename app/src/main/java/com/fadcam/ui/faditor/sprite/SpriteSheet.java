@@ -347,6 +347,17 @@ public class SpriteSheet {
         cellOrder.clear();
     }
 
+    /**
+     * The sheets a bake was made from, by name, in merge order. Empty for hand-made sheets.
+     *
+     * <p>Names rather than ids on purpose: this exists to be READ by a person six weeks later
+     * wondering what "Starguy baked baked" is, and an id tells them nothing. It is a record,
+     * not a reference — nothing resolves it, so a renamed or removed source does not break it.</p>
+     */
+    @NonNull private final List<String> bakedFrom = new java.util.ArrayList<>();
+
+    @NonNull public List<String> getBakedFrom() { return bakedFrom; }
+
     @NonNull public List<Cell> getCells() { return cells; }
     @NonNull public List<Preset> getPresets() { return presets; }
 
@@ -659,6 +670,11 @@ public class SpriteSheet {
             }
             if (vm.size() > 0) j.add("visemeMap", vm);
         }
+        if (!bakedFrom.isEmpty()) {
+            JsonArray bf = new JsonArray();
+            for (String n : bakedFrom) bf.add(n);
+            j.add("bakedFrom", bf);
+        }
         if (!cellOrder.isEmpty()) {
             JsonArray ord = new JsonArray();
             for (Integer c : cellOrder) ord.add(c == null ? 0 : c);
@@ -712,6 +728,12 @@ public class SpriteSheet {
                 }
                 if (cj.has("enabled")) c.enabled = cj.get("enabled").getAsBoolean();
                 s.cells.add(c);
+            }
+        }
+        if (j.has("bakedFrom") && j.get("bakedFrom").isJsonArray()) {
+            JsonArray bf = j.getAsJsonArray("bakedFrom");
+            for (int i = 0; i < bf.size(); i++) {
+                try { s.bakedFrom.add(bf.get(i).getAsString()); } catch (RuntimeException ignored) { }
             }
         }
         if (j.has("cellOrder") && j.get("cellOrder").isJsonArray()) {

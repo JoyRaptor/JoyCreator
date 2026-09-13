@@ -249,6 +249,11 @@ public final class SpriteBaker {
     public static SpriteSheet describe(@NonNull List<Source> sources, @NonNull Result baked,
                                        @NonNull String name, @NonNull String uri) {
         SpriteSheet s = SpriteSheet.create(name, uri);
+        for (Source src : sources) {
+            if (!s.getBakedFrom().contains(src.sheet.getName())) {
+                s.getBakedFrom().add(src.sheet.getName());
+            }
+        }
         s.setGrid(baked.cols, baked.rows);
         s.setPivot(baked.pivotX, baked.pivotY);
         s.setFps(sources.get(0).sheet.getFps());

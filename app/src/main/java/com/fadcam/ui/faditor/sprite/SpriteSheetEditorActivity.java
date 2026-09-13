@@ -792,6 +792,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         dragBtns.clear();
         clipShelf = null;
         clipDragFrom = -1;
+        if (!"out".equals(id)) pickedSheet = null;
         // Arranging is a thing you do in Slice. Leaving with it still armed means the next
         // drag on the sheet silently rearranges your work, in a section that does not even
         // show you the control that did it.
@@ -1916,6 +1917,145 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         buildBakeGroup();
         buildJsonGroup();
+        buildSheetsGroup();
+    }
+
+    // ── the project's sheets ─────────────────────────────────────────────
+
+    /** Which sheet the Sheets group has selected, or null for none. */
+    @Nullable private String pickedSheet;
+
+    /**
+     * Every sprite sheet in this project, and what you can do to one.
+     *
+     * <p>Until now a sheet could be created — imported, baked, relinked — and never removed,
+     * so a project accumulated them with no way to tidy up from inside the app. That is not a
+     * tidiness nit: the only alternative was editing project.json by hand, which is exactly
+     * the outside-the-app edit that has silently destroyed work in this repo before.</p>
+     */
+    private void buildSheetsGroup() {
+        float d = density();
+        java.util.List<SpriteSheet> all = project.getSpriteSheets();
+        View g = group("sheets", SpriteTheme.ACCENT_CELL, "layers", "Sheets in this project",
+                count(all.size(), "sheet"));
+        FlowLayout b = bodyOf(g);
+
+        for (SpriteSheet o : all) {
+            final String id = o.getId();
+            boolean isOpen = id.equals(sheet.getId());
+            boolean sel = id.equals(pickedSheet);
+            String sub = isOpen ? "open now"
+                    : o.getSheetUri().isEmpty() ? "no art"
+                    : o.cellCount() + " cells";
+            if (!o.getBakedFrom().isEmpty()) {
+                sub = "baked \u00b7 " + android.text.TextUtils.join(" + ", o.getBakedFrom());
+            }
+            View chip = spriteChip(0, null, o.getName(), sub, 0, isOpen, sel);
+            // A chip for a sheet that is NOT the open one has to draw from that sheet's own
+            // art, which this activity has no renderer for; the name and the sub-line carry it.
+            chip.setOnClickListener(v -> {
+                pickedSheet = id.equals(pickedSheet) ? null : id;
+                showSection("out");
+            });
+            b.addView(chip);
+        }
+
+        final SpriteSheet picked = pickedSheet == null ? null
+                : project.spriteSheetById(pickedSheet);
+        if (picked == null) {
+            TextView hint = new TextView(this);
+            hint.setText("Tap a sheet to open, rename or remove it.");
+            hint.setTextColor(SpriteTheme.DIMMER);
+            hint.setTextSize(10f);
+            b.addView(hint);
+            benchBody.addView(g);
+            return;
+        }
+
+        boolean isOpen = picked.getId().equals(sheet.getId());
+        if (!isOpen) {
+            TextView open = ichip("grid", "Open");
+            tintToggle(open, true, SpriteTheme.ACCENT_CELL);
+            open.setOnClickListener(v -> openSheet(picked.getId()));
+            b.addView(open);
+        }
+
+        TextView rename = ichip("tag", "Rename");
+        rename.setOnClickListener(v -> renameSheet(picked));
+        b.addView(rename);
+
+        int uses = spritesUsing(picked.getId());
+        TextView del = ichip("trash", isOpen ? "Cannot remove the open sheet"
+                : uses > 0 ? "In use by " + count(uses, "sprite") : "Remove");
+        if (isOpen || uses > 0) {
+            // Present but plainly refusing, with the reason ON the button. A control that is
+            // simply missing makes you wonder whether you looked in the wrong place.
+            del.setOnClickListener(v -> Toast.makeText(this, isOpen
+                    ? "Open a different sheet first, then remove this one."
+                    : "Delete those sprites from the timeline first \u2014 removing the sheet "
+                      + "would leave them with nothing to draw.", Toast.LENGTH_LONG).show());
+        } else {
+            tintToggle(del, true, SpriteTheme.LIVE);
+            del.setOnClickListener(v -> confirmRemoveSheet(picked));
+        }
+        b.addView(del);
+
+        benchBody.addView(g);
+    }
+
+    /** How many sprites on the timeline draw from this sheet. Read-only. */
+    private int spritesUsing(@NonNull String sheetId) {
+        int n = 0;
+        try {
+            for (SpriteOverlayItem o : project.getTimeline().getSpriteOverlays()) {
+                if (sheetId.equals(o.getSheetId())) n++;
+            }
+        } catch (RuntimeException ignored) {
+            // A project with no timeline is not a reason to refuse to draw the panel.
+        }
+        return n;
+    }
+
+    private void renameSheet(@NonNull SpriteSheet target) {
+        final EditText in = new EditText(this);
+        in.setSingleLine(true);
+        in.setText(target.getName());
+        in.setSelectAllOnFocus(true);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Rename sheet")
+                .setView(in)
+                .setPositiveButton("Rename", (dl, w) -> {
+                    String n = in.getText().toString().trim();
+                    if (n.isEmpty()) return;
+                    target.setName(n);
+                    // The open sheet's name also lives in the top bar's field, which is what
+                    // save() reads back — miss this and the rename is undone on the next save.
+                    if (target.getId().equals(sheet.getId())) nameField.setText(n);
+                    markDirty();
+                    showSection("out");
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void confirmRemoveSheet(@NonNull SpriteSheet target) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Remove \u201c" + target.getName() + "\u201d?")
+                .setMessage("It leaves this project's sheet list. The image file stays on disk, "
+                        + "so nothing is destroyed \u2014 but the slicing, the names, the "
+                        + "alignment and the animations on it go.")
+                .setPositiveButton("Remove", (dl, w) -> {
+                    noteChange();
+                    project.getSpriteSheets().remove(target);
+                    pickedSheet = null;
+                    markDirty();
+                    save(true);
+                    showSection("out");
+                    Toast.makeText(this, "\u201c" + target.getName() + "\u201d removed",
+                            Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton("Keep", null)
+                .show();
     }
 
     // ── bake ─────────────────────────────────────────────────────────────
@@ -1924,8 +2064,25 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private int bakePad = 2;
     private boolean bakeContentFit = true;
     private boolean bakeJpeg = false;
-    /** Other sheets in this project whose frames join the bake. */
-    private final java.util.List<String> mergeIds = new java.util.ArrayList<>();
+    /**
+     * Sheets EXCLUDED from the bake. Everything with art is in by default except the ones
+     * here, so a fresh project bakes the sheet you are looking at and nothing surprising.
+     */
+    private final java.util.Set<String> bakeExcluded = new java.util.HashSet<>();
+
+    /** Every sheet that could contribute frames: has art, and is not excluded. */
+    @NonNull
+    private java.util.List<SpriteSheet> bakeSources() {
+        java.util.List<SpriteSheet> out = new java.util.ArrayList<>();
+        out.add(sheet);                                   // the open one always leads
+        for (SpriteSheet o : project.getSpriteSheets()) {
+            if (o.getId().equals(sheet.getId())) continue;
+            if (o.getSheetUri().isEmpty()) continue;
+            if (bakeExcluded.contains(o.getId())) continue;
+            out.add(o);
+        }
+        return out;
+    }
 
     /**
      * Flatten to a new sheet.
@@ -1936,18 +2093,41 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      */
     private void buildBakeGroup() {
         float d = density();
-        java.util.List<Integer> frames = SpriteBaker.framesToBake(sheet);
-        int extra = 0;
-        for (String id : mergeIds) {
-            SpriteSheet o = project.spriteSheetById(id);
-            if (o != null) extra += SpriteBaker.framesToBake(o).size();
-        }
-        final int totalFrames = frames.size() + extra;
+        java.util.List<SpriteSheet> srcs = bakeSources();
+        int totalFrames = 0;
+        for (SpriteSheet o : srcs) totalFrames += SpriteBaker.framesToBake(o).size();
 
         View g = group("bake", SpriteTheme.ACCENT_OUT, "grid", "Bake a new sheet",
-                count(totalFrames, "frame") + (mergeIds.isEmpty() ? ""
-                        : " \u00b7 " + count(mergeIds.size() + 1, "sheet")));
+                count(totalFrames, "frame") + (srcs.size() > 1
+                        ? " \u00b7 " + count(srcs.size(), "sheet") : ""));
         FlowLayout b = bodyOf(g);
+
+        // The rail: every sheet with art, lit when it is going into the bake. On the desktop
+        // this is a load/unload/restore affair because loading costs a file picker; here the
+        // sheets are already in the project, so include-or-not is the whole of it.
+        java.util.List<SpriteSheet> withArt = new java.util.ArrayList<>();
+        for (SpriteSheet o : project.getSpriteSheets()) {
+            if (!o.getSheetUri().isEmpty()) withArt.add(o);
+        }
+        if (withArt.size() > 1) {
+            for (SpriteSheet o : withArt) {
+                final String id = o.getId();
+                boolean isOpen = id.equals(sheet.getId());
+                boolean on = isOpen || !bakeExcluded.contains(id);
+                TextView c = chip(o.getName());
+                tintToggle(c, on, isOpen ? SpriteTheme.ACCENT_OUT : SpriteTheme.ACCENT_CELL);
+                c.setOnClickListener(v -> {
+                    if (isOpen) {
+                        Toast.makeText(this, "The sheet you are looking at always goes in",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    if (!bakeExcluded.remove(id)) bakeExcluded.add(id);
+                    showSection("out");
+                });
+                b.addView(c);
+            }
+        }
 
         b.addView(num("cols", null, () -> bakeCols,
                 v -> bakeCols = Math.max(1, Math.min(32, Math.round(v))), 1f, true, ""));
@@ -1987,17 +2167,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         syncFmt.run();
         b.addView(fmtSeg);
 
-        for (String id : new java.util.ArrayList<>(mergeIds)) {
-            SpriteSheet o = project.spriteSheetById(id);
-            TextView chip = ichip("x", o == null ? "missing sheet" : o.getName());
-            tintToggle(chip, true, SpriteTheme.ACCENT_CELL);
-            chip.setOnClickListener(v -> { mergeIds.remove(id); showSection("out"); });
-            b.addView(chip);
-        }
-        TextView merge = ichip("plus", "Merge sheet\u2026");
-        merge.setOnClickListener(v -> pickMergeSheet());
-        b.addView(merge);
-
         TextView go = ichip("out", "Bake sheet + JSON");
         tintToggle(go, true, SpriteTheme.ACCENT_OUT);
         go.setOnClickListener(v -> doBake(false));
@@ -2023,33 +2192,6 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         return t;
     }
 
-    private void pickMergeSheet() {
-        final java.util.List<SpriteSheet> others = new java.util.ArrayList<>();
-        for (SpriteSheet o : project.getSpriteSheets()) {
-            if (o.getId().equals(sheet.getId()) || mergeIds.contains(o.getId())) continue;
-            if (o.getSheetUri().isEmpty()) continue;
-            others.add(o);
-        }
-        if (others.isEmpty()) {
-            Toast.makeText(this, "This project has no other sprite sheet to merge in",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-        String[] names = new String[others.size()];
-        for (int i = 0; i < others.size(); i++) {
-            names[i] = others.get(i).getName() + "  \u00b7  "
-                    + count(SpriteBaker.framesToBake(others.get(i)).size(), "frame");
-        }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Merge which sheet?")
-                .setItems(names, (dl, which) -> {
-                    mergeIds.add(others.get(which).getId());
-                    showSection("out");
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-    }
-
     /**
      * Do the bake, on a background thread because it decodes every merged sheet and touches
      * every pixel twice.
@@ -2073,14 +2215,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // spriteSheetById walks the live sheet list; doing either from the worker races every
         // edit and every autosave, and a ConcurrentModificationException there is an uncaught
         // exception on a non-UI thread, which is process death rather than a message.
-        final java.util.List<SpriteSheet> sheets = new java.util.ArrayList<>();
+        final java.util.List<SpriteSheet> sheets = new java.util.ArrayList<>(bakeSources());
         final java.util.List<java.util.List<Integer>> cellLists = new java.util.ArrayList<>();
-        sheets.add(sheet);
-        cellLists.add(new java.util.ArrayList<>(SpriteBaker.framesToBake(sheet)));
-        for (String id : new java.util.ArrayList<>(mergeIds)) {
-            SpriteSheet o = project.spriteSheetById(id);
-            if (o == null) continue;
-            sheets.add(o);
+        for (SpriteSheet o : sheets) {
             cellLists.add(new java.util.ArrayList<>(SpriteBaker.framesToBake(o)));
         }
         final File assets = new File(storage.projectDir(project.getId()), "assets");

@@ -329,7 +329,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         addNav(top, "slice", "▦", SpriteTheme.ACCENT_GRID);
         addNav(top, "play",  "✛", SpriteTheme.ACCENT_ALIGN);
         addNav(top, "clips", "🎞", SpriteTheme.ACCENT_CLIPS);
-        addNav(top, "out",   "⭱", SpriteTheme.ACCENT_OUT);
+        addNav(top, "out",   "↑", SpriteTheme.ACCENT_OUT);
 
         saveBtn = chip("💾");
         saveBtn.setOnClickListener(v -> { save(); labDirty = false; syncSaveBtn(); });
@@ -981,10 +981,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     // ── EXPORT ───────────────────────────────────────────────────────────
     private void buildOutSection() {
-        View g = group("exp", SpriteTheme.ACCENT_OUT, "⭱", "Export",
+        View g = group("exp", SpriteTheme.ACCENT_OUT, "↑", "Export",
                 "sheet + .sprite.json");
         FlowLayout b = bodyOf(g);
-        TextView ex = gchip("⭱ Write .sprite.json", true, SpriteTheme.ACCENT_OUT);
+        TextView ex = gchip("↑ Write .sprite.json", true, SpriteTheme.ACCENT_OUT);
         ex.setOnClickListener(v -> exportSidecar());
         b.addView(ex);
         TextView im = chip("Import .sprite.json");

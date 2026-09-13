@@ -199,8 +199,10 @@ clips shelf all landed and were device-proved that day. `SpriteBaker` draws ever
 with what was on screen; sources whose cells are a different shape letterbox rather than squash.
 A bake never touches the original — it adds a new sheet beside it.
 
-What is NOT there: a way to DELETE a sprite sheet. Testing the bake left two sheets in a real
-project with no way to remove them from inside the app. See INBOX 2026-09-13.
+Sheet management landed the same day: Export carries a Sheets panel — open, rename, remove —
+and the remove guard reads BOTH stores of sheet ids, timeline sprites and avatar-rig parts,
+because those never overlap and counting only the first armed Remove on precisely the sheets a
+puppet is built from.
 
 **Arranging the sheet LANDED 2026-09-13.** JoyRaptor ruled that a drawing's name and alignment
 travel with it, so `SpriteSheet` grew `cellOrder` (display -> source) and every per-cell lookup

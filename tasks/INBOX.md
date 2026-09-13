@@ -263,7 +263,19 @@ Suspect, Name many…). Still owed after this ruling: multi-sheet merge and the 
 bake-to-a-new-sheet, numbered frame export, and drag-to-reorder on the film strip and clips
 shelf.
 
-## 2026-09-13 — a sprite sheet cannot be deleted from inside the app
+## 2026-09-13 — RESOLVED: a sprite sheet can now be removed from inside the app
+
+Built the same day. Export -> "Sheets in this project": tap a sheet to open, rename or remove
+it. Remove refuses on the open sheet and on any sheet still used by timeline sprites OR by the
+parts of an avatar rig, and says which on the button. It can be put back while you are still on
+that screen, and the dialog says so rather than implying a general undo.
+
+The two test sheets named below were removed through that UI, and project.json re-read to
+confirm the project is back to ['Starguy', 'Sprite pang'].
+
+---
+
+## (original, 2026-09-13) — a sprite sheet cannot be deleted from inside the app
 
 Found by using the new bake: it adds a sheet to the project, which is right, and there is then
 no way to remove one. Testing left two ("Starguy baked", "Starguy baked baked") in JoyRaptor's

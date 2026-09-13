@@ -3239,3 +3239,64 @@ added at ca52d34a is the right mitigation for a shared phone, and now it has a r
 than a shrug. Two lanes, one device, is a hazard worth the line they added.
 
 Commits: d4ff2b6e - 00d15220
+
+---
+
+## 2026-09-13 (afternoon) — sheet management, and a review that found two criticals
+
+JoyRaptor: *"keep building out all the features and adversarily audit your work both in code
+and quality of UI and ux."*
+
+### Built
+
+- **Sheets in this project** — Export gained a panel listing every sheet: open, rename, remove.
+  This closes the gap the morning's bake testing exposed, where a sheet could be created and
+  never removed, and the only way back was editing project.json by hand.
+- **The merge rail** replaced the picker. Rethinking it for a phone made it SIMPLER than the
+  desktop original: the desktop greys a source out rather than dropping it because reloading
+  costs a file picker, but here every sheet is already in the project, so the whole
+  load/unload/restore dance collapses into "tap to include".
+- **Provenance**: a baked sheet records what it was baked from, by name, and the panel shows
+  "baked · Starguy + Sprite pang".
+
+### The two criticals, both the same shape: right about what it checked, wrong about what
+### there was to check
+
+**There are TWO stores of sheet ids.** Sprites on the timeline carry one; every PART of an
+avatar rig carries another. They never overlap — placing an avatar copies each part sheet into
+the project and places ONE sprite pointing at the neutral bake — so a part sheet has exactly
+zero timeline references. The in-use guard counted zero and armed Remove on precisely the
+sheets a puppet is built from. Removing one drops that body part out of the exported video with
+no error anywhere, and those copies look exactly like the clutter the new panel invites you to
+tidy. Verified in the code before fixing: `AvatarRig.Part.sheetId`, persisted by ProjectStorage.
+
+**Remove claimed to be undoable and was not.** It called `noteChange()`, but the undo snapshot
+holds the OPEN sheet only — so the button lit, the user pressed it, and the deletion stayed
+while `save(true)` had already committed it. Rather than serialise the whole project on every
+keystroke to make the claim true, removal stopped touching undo and offers "Put <name> back"
+in the panel instead, with the dialog saying how long that lasts.
+
+### What the UI audit caught that code review would not
+
+- The bake header read **"15 frames · 4 sheets"** on a sheet with 3 frames. The rail was
+  exclude-by-default, so Bake meant "bake every sheet in the project" — and an imported image
+  sequence counts as a sheet with art, so a few hundred frames could join in and surface only
+  as "Bake failed: OutOfMemoryError". Opt-in now.
+- Every row in the Sheets panel drew its thumbnail through THIS activity's renderer, so all
+  four showed cell 0 of the sheet already open. You were choosing what to delete from a list of
+  identical pictures, none of which was the sheet in question. Name-and-sub rows now: a true
+  line beats a false picture.
+
+### Left for the other lane
+
+`FaditorEditorActivity.onResume` gates its reload on `!timeline.isEmpty()`, which is VIDEO
+clips only. In a sprite-only project the reload is skipped and the editor's next autosave
+writes a stale project back — which now means a sheet removal or a rename can silently revert.
+Their file; posted at the top of their lane on the board rather than edited.
+
+### Housekeeping
+
+Both test sheets removed through the new UI, and project.json re-read: back to
+['Starguy', 'Sprite pang'] with winkclip1 and "surprised" intact. No hand-editing.
+
+Commits: f6b50304 · f567b65e

@@ -513,6 +513,22 @@ files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/Audi
        FaditorEditorActivity.java
 since: 2026-08-24
 
+## ⚠ FOR THE TRANSFORM LANE — a reload gate in FaditorEditorActivity now guards destructive work
+Found 2026-09-13 by the SpriteLab lane's reviewer. Not fixed here: the file is yours.
+
+`FaditorEditorActivity.onResume` reloads the project after another screen signals a change,
+but the reload is gated on `!reloaded.getTimeline().isEmpty()` (~line 1790), and
+`Timeline.isEmpty()` is `clips.isEmpty()` — VIDEO clips only. In a project with no video clips
+(sprite- or sequence-only work, which is exactly what the Lab is for) the reload is skipped
+silently, `project` stays stale, and the editor's next autosave writes the stale copy back.
+
+That was survivable when the sprite editor only made additive edits. It is not now: the Lab
+can REMOVE a sheet, and a removal reverted this way comes back with no message. A rename of a
+sheet that is not the open one is lost the same way.
+
+Suggested fix, yours to judge: gate on the project being non-null rather than on the timeline
+having video clips, or check a modified-token instead of inferring from content.
+
 ## TRANSFORM SURFACE — SPEC X, Y, Z (2026-09-13 day session)
 status: ACTIVE (2026-09-13T10:25 — Claude/Opus, autonomous, parallel with the SpriteLab agent)
 specs: tasks/specs/SPEC_X_preview_stack_elevation.md, SPEC_Y_one_transform_surface.md,

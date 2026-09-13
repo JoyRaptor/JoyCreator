@@ -1087,7 +1087,7 @@ public class SpritePalettePanel extends FrameLayout {
                 Integer f = preset.frames.get(Math.max(0, Math.min(n - 1, i)));
                 cell = f == null ? 0 : f;
             }
-            renderer.drawCell(canvas, cell, dest, null);
+            renderer.drawCellFitted(canvas, cell, dest, null);
 
             if (preset != null) {
                 // The one visual difference: a mode dot saying how this animation wraps.

@@ -770,15 +770,49 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (scrubBar != null) scrubBar.invalidate();
     }
 
+    /**
+     * THE current frame: the one the preview is showing and the one the controls edit.
+     *
+     * <p>Before this existed the preview followed the playhead and the alignment panel followed
+     * the grid selection, and six things moved one without the other. You would nudge x and
+     * watch a different drawing move.</p>
+     */
+    private int currentCell() {
+        if (!labSeq.isEmpty()) {
+            int i = Math.max(0, Math.min(labSeq.size() - 1, labCur));
+            return labSeq.get(i)[0];
+        }
+        return Math.max(0, gridView.getSelectedCell());
+    }
+
+    /**
+     * Point EVERYTHING at one cell: the grid's highlight, the preview, the alignment panel.
+     *
+     * <p>Every path that moves the playhead calls this. That is the whole fix — not a repair to
+     * any one of them, but a single door they all have to go through.</p>
+     */
+    private void focusCell(int cell, boolean rebuild) {
+        if (cell < 0 || sheet == null || sheet.cellCount() == 0) return;
+        cell = Math.min(cell, sheet.cellCount() - 1);
+        labSelected = cell;
+        gridView.setSelectedCell(cell);
+        gridView.setPlayingCell(cell);
+        if (preview != null) preview.setCursor(cell);
+        if (rebuild && benchBody != null) showSection(labSection);
+    }
+
+    /** Move the playhead to a frame of the roll, and point everything at what it lands on. */
+    private void focusRoll(int index, boolean rebuild) {
+        if (labSeq.isEmpty()) return;
+        labCur = Math.max(0, Math.min(labSeq.size() - 1, index));
+        labHold = 0;
+        syncFilmCursor();
+        focusCell(labSeq.get(labCur)[0], rebuild);
+    }
+
     private void stepLab(int dir) {
         if (labSeq.isEmpty()) return;
-        labCur = ((labCur + dir) % labSeq.size() + labSeq.size()) % labSeq.size();
-        int cell = labSeq.get(labCur)[0];
-        preview.setCursor(cell);
-        gridView.setPlayingCell(cell);
-        rebuildFilm();
-        if (scrubBar != null) scrubBar.invalidate();
-        if ("play".equals(labSection)) showSection(labSection);
+        focusRoll(((labCur + dir) % labSeq.size() + labSeq.size()) % labSeq.size(), true);
     }
 
     // ── sections ─────────────────────────────────────────────────────────
@@ -960,7 +994,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         syncControls();
 
         // ── the cell's own identity: name, tags, viseme ──
-        int cell = Math.max(0, gridView.getSelectedCell());
+        int cell = currentCell();
         String nm = sheet.cellName(cell);
         View cg = group("cellEd", SpriteTheme.ACCENT_CELL, "tag",
                 "Cell " + cell, nm == null || nm.isEmpty() ? "unnamed" : nm);
@@ -1242,7 +1276,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         LinearLayout right = new LinearLayout(this);
         right.setOrientation(LinearLayout.VERTICAL);
-        int cell = Math.max(0, gridView.getSelectedCell());
+        int cell = currentCell();
         right.addView(buildAlignGroup(cell));
         // Sequence spans beneath both ONLY while Alignment is open; collapse Alignment and it
         // moves up into the space that just freed, instead of leaving a black rectangle.
@@ -1547,6 +1581,40 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         return g;
     }
 
+    /**
+     * Move the current frame by a drag on the preview.
+     *
+     * <p>Live and cheap: the art follows the finger and nothing rebuilds. The number pills catch
+     * up in {@link #alignGestureEnded}, once, when the hand comes off.</p>
+     */
+    void nudgeCurrentCell(float ddx, float ddy) {
+        int cell = currentCell();
+        SpriteSheet.CellXf t = sheet.cellTransform(cell);
+        SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
+        xf.dx += ddx;
+        xf.dy += ddy;
+        sheet.setCellTransform(cell, xf);
+        markDirty();
+        refreshArt();
+    }
+
+    /** Pinch the current frame. */
+    void scaleCurrentCell(float factor) {
+        if (factor <= 0f || Math.abs(factor - 1f) < 1e-4f) return;
+        int cell = currentCell();
+        SpriteSheet.CellXf t = sheet.cellTransform(cell);
+        SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
+        xf.scale = Math.max(0.05f, Math.min(8f, xf.scale * factor));
+        sheet.setCellTransform(cell, xf);
+        markDirty();
+        refreshArt();
+    }
+
+    /** The hand came off the preview: let the numbers show what the drag did. */
+    void alignGestureEnded() {
+        if ("play".equals(labSection)) showSection("play");
+    }
+
     private void applyXf(int cell, @NonNull SpriteSheet.CellXf xf) {
         sheet.setCellTransform(cell, xf);
         markDirty();
@@ -1808,13 +1876,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 noteChange();
                 labSeq.clear();
                 labSeq.addAll(asRoll);
-                labCur = 0;
-                labHold = 0;
                 labWrap = pick.type == null ? "loop" : pick.type;
                 syncWrap();
                 pickedClip = null;
                 rebuildFilm();
-                showSection("play");
+                labSection = "play";
+                focusRoll(0, true);
             });
             acts.addView(load);
 
@@ -2570,14 +2637,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             int[] f = labSeq.get(i);
             View chip = spriteChip(f[0], null, cellLabel(f[0]),
                     "#" + (i + 1) + " \u00b7 c" + f[0], f[1], i == labCur, false);
-            chip.setOnClickListener(v -> {
-                labCur = idx;
-                labHold = 0;
-                preview.setCursor(labSeq.get(idx)[0]);
-                gridView.setPlayingCell(labSeq.get(idx)[0]);
-                syncFilmCursor();
-                if ("play".equals(labSection)) showSection("play");
-            });
+            chip.setOnClickListener(v -> focusRoll(idx, true));
             chip.setOnLongClickListener(v -> { beginRollDrag(idx, chip); return true; });
             chip.setOnTouchListener((v, e) -> {
                 if (rollDragFrom != idx) return false;   // not lifted: tap and long-press as usual
@@ -2725,9 +2785,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             labSeq.add(Math.min(dest, labSeq.size()), moved);
             labCur = Math.min(dest, labSeq.size() - 1);
         }
-        labHold = 0;
         rebuildFilm();
-        if ("play".equals(labSection)) showSection("play");
+        focusRoll(labCur, "play".equals(labSection));
     }
 
     /**
@@ -2997,13 +3056,15 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     acc += Math.max(1, labSeq.get(i)[1]);
                     if (t < acc) { labCur = i; break; }
                 }
-                labHold = 0;
-                preview.setCursor(labSeq.get(labCur)[0]);
-                gridView.setPlayingCell(labSeq.get(labCur)[0]);
-                // Retint the roll rather than rebuilding it: this fires on every move event.
-                syncFilmCursor();
+                // Rebuilding the bench on every move event would be unusable, so the panel
+                // is retargeted once, on the way up, by onTouchEvent's ACTION_UP below.
+                focusRoll(labCur, false);
                 invalidate();
                 return true;
+            }
+            if (e.getActionMasked() == MotionEvent.ACTION_UP
+                    || e.getActionMasked() == MotionEvent.ACTION_CANCEL) {
+                focusRoll(labCur, true);
             }
             return true;
         }
@@ -3136,7 +3197,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 Integer f = preset.frames.get(Math.max(0, Math.min(n - 1, i)));
                 cell = f == null ? 0 : f;
             }
-            renderer.drawCell(canvas, cell, dest, null);
+            renderer.drawCellFitted(canvas, cell, dest, null);
             if (preset != null) {
                 float r = Math.min(getWidth(), getHeight()) * 0.17f;
                 float cx = getWidth() - r - 1, cy = getHeight() - r - 1;
@@ -3428,12 +3489,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (mode == SpriteGridEditorView.Reorder.SWAP) sheet.swapCells(from, to);
         else sheet.moveCell(from, to);
         markDirty();
-        gridView.setSelectedCell(to);
-        labSelected = to;
         refreshArt();
         gridView.refresh();
-        if (preview != null) preview.setCursor(to);
-        showSection(labSection);
+        focusCell(to, true);
     }
 
     /**
@@ -3738,11 +3796,15 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         };
 
         private final RectF bgRect = new RectF();
+        private final RectF hudBg = new RectF();
+        private final Paint hudInk = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final android.graphics.Path bgClip = new android.graphics.Path();
 
         CellCyclePreview(Context ctx) {
             super(ctx);
+            hudInk.setColor(0xFFFFFFFF);
+            hudInk.setFakeBoldText(true);
             if (ctx instanceof SpriteSheetEditorActivity) activity = (SpriteSheetEditorActivity) ctx;
         }
 
@@ -3766,7 +3828,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (p) {
                 post(tick);
             } else if (activity != null) {
-                activity.gridView.setPlayingCell(-1);
+                // Whatever frame it stopped on is now THE current frame. Without this the
+                // panel still pointed at wherever the playhead was before you pressed play.
+                if (!activity.labSeq.isEmpty()) activity.focusRoll(activity.labCur, true);
+                else activity.gridView.setPlayingCell(-1);
             }
         }
 
@@ -3803,7 +3868,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             bgClip.addRoundRect(bgRect, 8 * d, 8 * d, android.graphics.Path.Direction.CW);
             canvas.clipPath(bgClip);
             drawBg(canvas, bgRect, activity != null ? activity.previewBg : 0, d, bgPaint);
-            dest.set(2, 2, getWidth() - 2, getHeight() - 2);
+            // Fit, do not fill. The preview spans the whole width when the bench is tall, and
+            // stretching a square character into that box made him look fat.
+            dest.set(renderer.fitCell(Math.max(0, Math.min(cursor, sheet.cellCount() - 1)),
+                    new RectF(2, 2, getWidth() - 2, getHeight() - 2)));
             int showCell = Math.min(cursor, sheet.cellCount() - 1);
             // S2b onion skin: ghost the previous AND next enabled cell (by index) at
             // ~30% alpha under/over the selected cell — the classic run-cycle flow check.
@@ -3814,20 +3882,102 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 for (int k = activity.onionPast; k >= 1; k--) {
                     int c = activity.neighbourCell(showCell, -k);
                     if (c >= 0 && c != showCell) {
-                        renderer.drawCell(canvas, c, dest, ghostPaint(
+                        renderer.drawCell(canvas, c, renderer.fitCell(c, bgRect), ghostPaint(
                                 activity.onionPastColour, alphaFor(k, activity.onionStrength)));
                     }
                 }
                 for (int k = activity.onionFuture; k >= 1; k--) {
                     int c = activity.neighbourCell(showCell, k);
                     if (c >= 0 && c != showCell) {
-                        renderer.drawCell(canvas, c, dest, ghostPaint(
+                        renderer.drawCell(canvas, c, renderer.fitCell(c, bgRect), ghostPaint(
                                 activity.onionFutureColour, alphaFor(k, activity.onionStrength)));
                     }
                 }
             }
             renderer.drawCell(canvas, showCell, dest, null);
+
+            // The HUD: what frame this is and where it sits. It is also the only thing that
+            // says the preview is a CONTROL and not a picture.
+            if (activity != null) {
+                SpriteSheet.CellXf t = sheet.cellTransform(showCell);
+                String hud = "c" + showCell
+                        + "  x" + Math.round(t == null ? 0 : t.dx)
+                        + " y" + Math.round(t == null ? 0 : t.dy)
+                        + "  " + String.format(java.util.Locale.US, "%.2f",
+                                t == null ? 1f : t.scale) + "\u00d7"
+                        + "  " + Math.round(t == null ? 0 : t.rot) + "\u00b0";
+                hudInk.setTextSize(9.5f * d);
+                float pad = 4 * d;
+                float tw = hudInk.measureText(hud);
+                hudBg.set(pad, getHeight() - pad - 15 * d, pad + tw + 2 * pad,
+                        getHeight() - pad);
+                bgPaint.setColorFilter(null);
+                bgPaint.setStyle(Paint.Style.FILL);
+                bgPaint.setColor(0xB0000000);
+                canvas.drawRoundRect(hudBg, 4 * d, 4 * d, bgPaint);
+                canvas.drawText(hud, pad * 2, getHeight() - pad - 4.5f * d, hudInk);
+            }
             canvas.restoreToCount(outer);
+        }
+
+        // ── the preview is a control ─────────────────────────────────────
+        //
+        // JoyRaptor, of the web app: "I can't just straight manipulate it from the preview
+        // window, which is something that I could do before." Dragging the art is the whole
+        // reason the alignment numbers exist; typing them is the fallback, not the method.
+
+        private float lastX, lastY;
+        private boolean dragging;
+        private android.view.ScaleGestureDetector pinch;
+
+        private void ensureGestures() {
+            if (pinch != null || activity == null) return;
+            pinch = new android.view.ScaleGestureDetector(getContext(),
+                    new android.view.ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                        @Override public boolean onScale(android.view.ScaleGestureDetector g) {
+                            if (activity != null) activity.scaleCurrentCell(g.getScaleFactor());
+                            return true;
+                        }
+                    });
+        }
+
+        @Override public boolean onTouchEvent(MotionEvent e) {
+            if (activity == null || renderer == null || sheet == null) return false;
+            ensureGestures();
+            if (pinch != null) pinch.onTouchEvent(e);
+            switch (e.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    lastX = e.getX(); lastY = e.getY();
+                    dragging = true;
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    if (dragging && e.getPointerCount() == 1) {
+                        // View pixels into SOURCE pixels, so a nudge means the same thing here
+                        // as it does in the number pill.
+                        float k = srcPerView();
+                        activity.nudgeCurrentCell((e.getX() - lastX) * k,
+                                (e.getY() - lastY) * k);
+                        lastX = e.getX(); lastY = e.getY();
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                case MotionEvent.ACTION_CANCEL:
+                    if (dragging) { dragging = false; activity.alignGestureEnded(); }
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        /** How many source pixels one view pixel is worth in this preview. */
+        private float srcPerView() {
+            if (renderer == null || sheet == null) return 1f;
+            int cell = Math.max(0, Math.min(cursor, sheet.cellCount() - 1));
+            android.graphics.Rect cr = renderer.cellRectBitmap(cell);
+            float dw = Math.max(1f, dest.width());
+            return Math.max(1, cr.width()) / dw;
         }
     }
 }

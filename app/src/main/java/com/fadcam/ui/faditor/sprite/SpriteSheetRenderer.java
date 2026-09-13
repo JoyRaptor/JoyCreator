@@ -284,6 +284,39 @@ public final class SpriteSheetRenderer {
     }
 
     /**
+     * The biggest rect inside {@code box} that has this cell's own shape, centred.
+     *
+     * <p>{@link #drawCell} stretches a cell to fill whatever rect it is given, which is exactly
+     * right on the grid — there the rect IS the cell — and exactly wrong everywhere else. A
+     * square character in a wide preview came out fat. Any surface whose box is not already the
+     * cell's shape should fit first and draw into the result.</p>
+     */
+    @NonNull
+    public RectF fitCell(int cellIndex, @NonNull RectF box) {
+        float cw, ch;
+        if (frames != null) {
+            Bitmap b = frames.frame(cellIndex);
+            if (b == null || b.isRecycled()) b = bitmap;
+            cw = Math.max(1, b.getWidth());
+            ch = Math.max(1, b.getHeight());
+        } else {
+            Rect r = cellRectBitmap(cellIndex);
+            cw = Math.max(1, r.width());
+            ch = Math.max(1, r.height());
+        }
+        float k = Math.min(box.width() / cw, box.height() / ch);
+        float w = cw * k, h = ch * k;
+        float cx = box.centerX(), cy = box.centerY();
+        return new RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
+    }
+
+    /** {@link #drawCell} into the fitted rect rather than the whole box. */
+    public void drawCellFitted(@NonNull Canvas canvas, int cellIndex, @NonNull RectF box,
+                               @Nullable Paint overridePaint) {
+        drawCell(canvas, cellIndex, fitCell(cellIndex, box), overridePaint);
+    }
+
+    /**
      * The aligned path. Deliberately built ON TOP of the untransformed geometry rather than
      * replacing it: with an identity transform this produces exactly the rect the old code drew,
      * so adding the feature cannot move a single existing sprite. Offsets are cell-source

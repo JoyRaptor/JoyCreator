@@ -25095,8 +25095,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // Matches the sprite model's own floor (setSizeFraction clamps at 0.01), so the
                 // handle cannot author a size the model would silently clamp behind it.
                 0.01f,
-                () -> resetSpriteGeometry(sp)), roles);
-        v.setAffineOnly(true);
+                () -> resetSpriteGeometry(sp),
+                // SPEC Z slice 1: the pin channel, supplied because BOTH renderers now draw a
+                // pinned sprite — SpriteOverlayView and CompositeExportOverlay, from the one
+                // cornerPinMatrix. The gate opens here and nowhere else.
+                new com.fadcam.ui.faditor.transform.AffineTransformHost.PinChannel() {
+                    @Override
+                    public void readPins(long t, @NonNull float[] out8) {
+                        sp.animatedCornerPin(t, out8);
+                    }
+
+                    @Override
+                    public boolean writePins(@NonNull float[] pin8, long t) {
+                        sp.setCornerPin(pin8);
+                        return true;
+                    }
+
+                    @Override
+                    public boolean mirrored() { return sp.isFlipH() || sp.isFlipV(); }
+                }), roles);
+        // NOT affine-only any more: the ring may offer Tilt and Free, because a distortion
+        // authored here has somewhere to be drawn.
+        v.setAffineOnly(false);
+        // Bend still off — the MESH has no renderer on either surface yet. The pin does.
         v.setBendAvailable(false);
         v.setBendVisible(false);
         v.setOnDoubleTap(() -> showObjectMenuSheetForSprite(sp));

@@ -3,6 +3,7 @@ package com.fadcam.ui.faditor.transform;
 import android.graphics.RectF;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay;
 
@@ -60,11 +61,42 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
      */
     public interface ResetPolicy { void reset(); }
 
+    /**
+     * OPTIONAL: a type whose renderers can draw a corner pin.
+     *
+     * <p>Null means affine-only, which is what text, PiP and the spine still are. A type supplies
+     * this ONLY once both its preview and its export draw a pinned picture — the rule stated at
+     * {@code FaditorEditorActivity} ~25544 and the reason text and PiP do not have one. Handing a
+     * channel to a type whose renderers cannot draw the result would author a distortion that
+     * looks right in the handles and vanishes in the file.
+     *
+     * <p>Deliberately narrow. It is the eight offsets and nothing else: no keyframes, no bake, no
+     * mirror, no pivot. Those belong to the image host's much larger seam, and a type that needs
+     * them needs that host, not this one.
+     */
+    public interface PinChannel {
+        /** The object's pin at {@code t}, into {@code out8} (CornerPin order). */
+        void readPins(long t, @NonNull float[] out8);
+
+        /** Store eight offsets. Return false to refuse — the view then rolls the gesture back. */
+        boolean writePins(@NonNull float[] pin8, long t);
+
+        /**
+         * Is the object currently mirrored? Asked HERE rather than of the Target because mirroring
+         * is a model fact and the Target has no notion of one. See {@code writePinned} for why a
+         * mirrored object refuses a distortion instead of guessing at one.
+         */
+        default boolean mirrored() { return false; }
+    }
+
     @NonNull private final PreviewHandlesOverlay.Target target;
     @NonNull private final Playhead playhead;
     @NonNull private final Runnable onChanged;
     private final float minSizeFraction;
     @NonNull private final ResetPolicy resetPolicy;
+    @Nullable private final PinChannel pin;
+
+    private final float[] pinScratch = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
 
     private final RectF box = new RectF();
     private final float[] tmp = new float[2];
@@ -73,17 +105,32 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
     private float startCx, startCy, startSize, startRot;
     private float startW, startH;
 
+    /** Affine-only. */
     public AffineTransformHost(@NonNull PreviewHandlesOverlay.Target target,
                                @NonNull Playhead playhead,
                                @NonNull Runnable onChanged,
                                float minSizeFraction,
                                @NonNull ResetPolicy resetPolicy) {
+        this(target, playhead, onChanged, minSizeFraction, resetPolicy, null);
+    }
+
+    /** With a pin channel, for a type whose BOTH renderers draw one. */
+    public AffineTransformHost(@NonNull PreviewHandlesOverlay.Target target,
+                               @NonNull Playhead playhead,
+                               @NonNull Runnable onChanged,
+                               float minSizeFraction,
+                               @NonNull ResetPolicy resetPolicy,
+                               @Nullable PinChannel pin) {
         this.target = target;
         this.playhead = playhead;
         this.onChanged = onChanged;
         this.minSizeFraction = minSizeFraction;
         this.resetPolicy = resetPolicy;
+        this.pin = pin;
     }
+
+    /** True when this host can author a distortion — the ring reads it to offer Tilt and Free. */
+    public boolean supportsPin() { return pin != null; }
 
     private long now() { return playhead.timelineMs(); }
 
@@ -108,6 +155,18 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
         float c = (float) Math.cos(th), s = (float) Math.sin(th);
         float[] xs = {box.left, box.right, box.right, box.left};
         float[] ys = {box.top, box.top, box.bottom, box.bottom};
+        // With a pin, the handles must hug the DISTORTED picture — the corners the renderers
+        // actually draw — or every gesture would be measured from a rectangle the user cannot
+        // see. Offsets are fractions of the item's own size, in CornerPin's TL,TR,BR,BL order,
+        // which is the order xs/ys are built in.
+        if (pin != null) {
+            pin.readPins(t, pinScratch);
+            float bw = box.width(), bh = box.height();
+            for (int i = 0; i < 4; i++) {
+                xs[i] += pinScratch[i * 2] * bw;
+                ys[i] += pinScratch[i * 2 + 1] * bh;
+            }
+        }
         for (int i = 0; i < 4; i++) {
             float dx = xs[i] - cx, dy = ys[i] - cy;
             outQuad8[i * 2] = cx + dx * c - dy * s;
@@ -185,17 +244,17 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
         float span = Math.max(1e-4f, Math.max(Math.abs(trx - blx), Math.abs(try_ - bly)));
         if (Math.abs(expBrX - brx) > span * 0.02f || Math.abs(expBrY - bry) > span * 0.02f) {
             if (Math.abs(topX + bottomX) > span * 0.02f
-                    || Math.abs(topY + bottomY) > span * 0.02f) return false;
+                    || Math.abs(topY + bottomY) > span * 0.02f) return writePinned(quad8, t);
             if (Math.abs(rightX + leftX) > span * 0.02f
-                    || Math.abs(rightY + leftY) > span * 0.02f) return false;
+                    || Math.abs(rightY + leftY) > span * 0.02f) return writePinned(quad8, t);
         }
         // Then perpendicularity: adjacent edges must still meet at a right angle, or the shape
-        // is a shear and there is no renderer for it.
+        // is a shear.
         float lenTop = (float) Math.hypot(topX, topY);
         float lenRight = (float) Math.hypot(rightX, rightY);
         if (lenTop < 1f || lenRight < 1f) return false;
         float dot = (topX * rightX + topY * rightY) / (lenTop * lenRight);
-        if (Math.abs(dot) > 0.02f) return false;
+        if (Math.abs(dot) > 0.02f) return writePinned(quad8, t);
 
         float[] cen = tmp;
         TransformQuad.centroid(quad8, cen);
@@ -231,6 +290,48 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
         float normCx = TransformQuad.clamp((cx - v.left) / v.width(), -2f, 3f);
         float normCy = TransformQuad.clamp((cy - v.top) / v.height(), -2f, 3f);
         target.moveTo(normCx, normCy, t);
+        onChanged.run();
+        return true;
+    }
+
+    /**
+     * A NON-AFFINE quad, stored as eight corner offsets — the distortion branch.
+     *
+     * <p>Reached only when the shape is not a rotated rectangle. Without a {@link PinChannel} that
+     * is a refusal and the view rolls the drag back, which is what text, PiP and the spine still
+     * do. With one, the same {@code TransformQuad.solvePinForQuad} the image host uses inverts the
+     * render equation into offsets — one solver, so a sprite's distortion and an image's cannot
+     * be computed differently.
+     *
+     * <p>MIRROR IS REFUSED RATHER THAN GUESSED. A flipped sprite applies its flip OUTSIDE the pin
+     * in the canvas stack, so the quad the finger drew is in mirrored screen space while the
+     * offsets would be stored in unmirrored item space. Solving that correctly is the image host's
+     * un-mirror step, which this narrow channel deliberately does not carry. Refusing is honest —
+     * the drag stops and nothing is stored — where guessing would save a distortion that renders
+     * inside out. Unflip, distort, reflip.
+     */
+    private boolean writePinned(@NonNull float[] quad8, long t) {
+        if (pin == null) return false;
+        if (!readBox(t)) return false;
+        if (pin.mirrored()) return false;
+        boolean ok = TransformQuad.solvePinForQuad(
+                quad8,
+                box.centerX(), box.centerY(),
+                box.width(), box.height(),
+                target.rotationDeg(t),
+                1f, 1f,
+                // Centre pivot: this channel carries no stored rotation pivot, and 0.5/0.5 is
+                // what "no pivot" means to the solver.
+                0.5f, 0.5f,
+                pinScratch);
+        if (!ok) return false;
+        for (float v : pinScratch) {
+            if (Float.isNaN(v) || Float.isInfinite(v)
+                    || Math.abs(v) > com.fadcam.ui.faditor.model.CornerPin.MAX_OFFSET) {
+                return false;   // out of the model's range: refuse, do not clamp into a lie
+            }
+        }
+        if (!pin.writePins(pinScratch, t)) return false;
         onChanged.run();
         return true;
     }

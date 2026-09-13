@@ -23276,6 +23276,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         R.string.sprite_palette_swap_dropped, Toast.LENGTH_SHORT).show();
             }
 
+            /**
+             * Drop a SAVED ANIMATION at the playhead. The resolver has always known how to run
+             * a preset key — start at the key, advance at the preset's fps, wrap by its type,
+             * carry on until the next key. Nothing ever offered one, so every named animation
+             * the AI or "Make preset" ever wrote was unreachable. This is that offer.
+             */
+            @Override
+            public void onPresetChipTapped(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                    @NonNull String presetId) {
+                if (project == null) return;
+                com.fadcam.ui.faditor.sprite.SpriteSheet sheet =
+                        project.spriteSheetById(item.getSheetId());
+                if (sheet == null || sheet.presetById(presetId) == null) return;
+                final long localMs = Math.max(0, item.toLocalMs(lastPlayheadAbsoluteMs));
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> before =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                item.getFrameTrack().put(
+                        com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofPreset(localMs, presetId));
+                final java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> after =
+                        new java.util.ArrayList<>(item.getFrameTrack().keys());
+                undoManager.recordAction(new EditActions.LambdaAction("Drop animation",
+                        () -> restoreFrameKeys(item, after),
+                        () -> restoreFrameKeys(item, before)));
+                scheduleAutoSave();
+                if (spriteOverlayView != null) spriteOverlayView.invalidate();
+                if (spritePalettePanel != null) spritePalettePanel.setPlayheadMs(lastPlayheadAbsoluteMs);
+                com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p = sheet.presetById(presetId);
+                android.widget.Toast.makeText(FaditorEditorActivity.this,
+                        (p != null ? p.name : "Animation") + " → playhead",
+                        android.widget.Toast.LENGTH_SHORT).show();
+            }
+
+            /** Straight into the Lab on this item's sheet. */
+            @Override
+            public void onOpenLab(
+                    @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                launchSpriteSheetEditor(item.getSheetId());
+            }
+
             @Override
             public void onInstanceSelected(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {

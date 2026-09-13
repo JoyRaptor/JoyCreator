@@ -2,6 +2,7 @@ package com.fadcam.ui.faditor.sprite;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Paint;
 import android.graphics.Color;
 import android.graphics.RectF;
 import android.view.Gravity;
@@ -50,6 +51,16 @@ public class SpritePalettePanel extends FrameLayout {
         void onDeleteInstance(@NonNull SpriteOverlayItem item);
         /** Open the sheet manager (load a new sheet / place another sprite). */
         void onManageSheets();
+
+        /**
+         * Drop a SAVED ANIMATION at the playhead — the read-back door the phone never had.
+         * The resolver has always been able to play a preset key; nothing ever offered one.
+         * @param presetId {@link SpriteSheet.Preset#id}
+         */
+        default void onPresetChipTapped(@NonNull SpriteOverlayItem item, @NonNull String presetId) {}
+
+        /** Open the full-screen Sprite Lab on this item's sheet. */
+        default void onOpenLab(@NonNull SpriteOverlayItem item) {}
         /** Step the REAL timeline playhead by one sheet-fps frame. */
         void onFrameStep(int direction);
         void onPanelCollapsed();
@@ -128,7 +139,15 @@ public class SpritePalettePanel extends FrameLayout {
      * The DOPE-SHEET detent (SPEC_IMAGE_SEQUENCE §5, PLAN_SPRITE_ANIMATION fast-follow A).
      * Owed since 2026-07-06 and built ONCE for sequences and sprites together, per §0.
      */
-    private static final int DETENT_DOPE = 2;
+    private static final int DETENT_DOPE = 2;   // retained: openDopeSheet()'s old contract
+    /** The tallest the drawer opens — three balanced rows of chips. */
+    private static final int DETENT_MAX = 3;
+    /**
+     * The dope sheet is a TOGGLE, not a detent. As a detent it swapped the palette out and
+     * offered no way back except a drag gesture nothing advertises, which is how it came to
+     * feel like a trap.
+     */
+    private boolean dopeOpen = false;
 
     private final float density = getResources().getDisplayMetrics().density;
     private final LinearLayout panel;
@@ -137,6 +156,9 @@ public class SpritePalettePanel extends FrameLayout {
     private final TextView nudgeLeft;
     private final TextView nudgeRight;
     private final TextView deleteKey;
+    private final TextView labBtn;
+    /** Animating chips, stopped and rebuilt with the palette so none are orphaned. */
+    private final java.util.List<AnimChipView> animChips = new java.util.ArrayList<>();
     @Nullable private Callback callback;
 
     private List<SpriteOverlayItem> items = java.util.Collections.emptyList();
@@ -146,8 +168,9 @@ public class SpritePalettePanel extends FrameLayout {
 
     public SpritePalettePanel(@NonNull Context ctx) {
         super(ctx);
-        // Scrim: tap anywhere outside the panel collapses (AssetBrowserPanel idiom).
-        setOnClickListener(v -> collapse());
+        // NO scrim-close. This panel is a working surface you scrub the timeline against,
+        // and a root click listener turned every scrub into a dismiss. ✕ and a drag down are
+        // the two ways out, and both are deliberate.
 
         panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
@@ -180,11 +203,12 @@ public class SpritePalettePanel extends FrameLayout {
                         float dy = downY - e.getRawY(); // up = positive
                         if (dy > 30 * density) {
                             // micro → palette → dope, the three detents S3 designed.
-                            if (detent == DETENT_MICRO) setDetent(DETENT_PALETTE);
-                            else if (detent == DETENT_PALETTE) setDetent(DETENT_DOPE);
+                            // Dragging up grows the CHIP AREA a row at a time. It used to
+                            // swap in a different panel, which is not what a taller drawer
+                            // means to anyone.
+                            setDetent(Math.min(DETENT_MAX, detent + 1));
                         } else if (dy < -30 * density) {
-                            if (detent == DETENT_DOPE) setDetent(DETENT_PALETTE);
-                            else if (detent == DETENT_PALETTE) setDetent(DETENT_MICRO);
+                            if (detent > DETENT_MICRO) setDetent(detent - 1);
                             else collapse();
                         }
                         return true;
@@ -199,37 +223,47 @@ public class SpritePalettePanel extends FrameLayout {
         transport.setGravity(Gravity.CENTER_VERTICAL);
         int pad = (int) (8 * density);
         transport.setPadding(pad, 0, pad, pad / 2);
-        TextView back = chip("◄");
-        back.setOnClickListener(v -> { if (callback != null) callback.onFrameStep(-1); });
-        TextView fwd = chip("►");
-        fwd.setOnClickListener(v -> { if (callback != null) callback.onFrameStep(+1); });
+        // The frame-step bumpers are gone: the playhead is draggable and scrubbable, which
+        // made them obsolete for everything except precision, and precision now lives on the
+        // keyframe cluster. That buys back the width this row was wasting.
         cellIndicator = new TextView(ctx);
         cellIndicator.setTextColor(0xFFB0BEC5);
         cellIndicator.setTextSize(12f);
         LinearLayout.LayoutParams ciLp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         ciLp.leftMargin = pad;
-        nudgeLeft = chip("◄k");
+        // Keyframe cluster: previous · delete · next. The glyphs are a matched pair now —
+        // the old ◄k / k► were two different arrow shapes AND read as "jump to keyframe"
+        // while actually nudging one.
+        nudgeLeft = chip("◂K");
         nudgeLeft.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onNudgeKey(selected, -1);
         });
-        nudgeRight = chip("k►");
+        nudgeRight = chip("K▸");
         nudgeRight.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onNudgeKey(selected, +1);
         });
-        deleteKey = chip("✕k");
-        deleteKey.setVisibility(GONE);
+        // Always PRESENT, lit only when the playhead is actually on a key. Hiding it made the
+        // row jump; greying it answers "will this delete my object or my keyframe" before the
+        // question is asked.
+        deleteKey = chip("🗑");
         deleteKey.setOnClickListener(v -> {
-            if (callback != null && selected != null) callback.onDeleteKeyAtPlayhead(selected);
+            if (callback != null && selected != null && isOnKey()) {
+                callback.onDeleteKeyAtPlayhead(selected);
+            }
+        });
+        labBtn = chip("▦");
+        labBtn.setTextColor(SpriteTheme.ACCENT_GRID);
+        labBtn.setOnClickListener(v -> {
+            if (callback != null && selected != null) callback.onOpenLab(selected);
         });
         TextView close = chip("✕");
         close.setOnClickListener(v -> collapse());
-        transport.addView(back, chipLp());
-        transport.addView(fwd, chipLp());
         transport.addView(cellIndicator, ciLp);
         transport.addView(nudgeLeft, chipLp());
-        transport.addView(nudgeRight, chipLp());
         transport.addView(deleteKey, chipLp());
+        transport.addView(nudgeRight, chipLp());
+        transport.addView(labBtn, chipLp());
         transport.addView(close, chipLp());
         panel.addView(transport);
 
@@ -270,7 +304,7 @@ public class SpritePalettePanel extends FrameLayout {
         // POSTED, not immediate: this path is reached from the strip's own ACTION_UP (weight
         // commit → activity → sync → here), so rebuilding inline would detach the very view
         // that is still dispatching the touch.
-        if (detent == DETENT_DOPE) post(this::buildDopeSheet);
+        if (dopeOpen) post(this::buildDopeSheet);
     }
 
     @Nullable public SpriteOverlayItem getSelected() { return selected; }
@@ -279,7 +313,7 @@ public class SpritePalettePanel extends FrameLayout {
     public void setPlayheadMs(long timelineMs) {
         this.playheadMs = timelineMs;
         syncIndicator();
-        if (dopeSheet != null && detent == DETENT_DOPE) dopeSheet.setPlayheadMs(timelineMs);
+        if (dopeSheet != null && dopeOpen) dopeSheet.setPlayheadMs(timelineMs);
         if (selected != null) {
             long localMs = selected.toLocalMs(timelineMs);
             boolean onKey = false;
@@ -298,14 +332,17 @@ public class SpritePalettePanel extends FrameLayout {
     }
 
     private void setDetent(int d) {
-        this.detent = d;
-        contentArea.setVisibility(d == DETENT_PALETTE ? VISIBLE : GONE);
-        dopeArea.setVisibility(d == DETENT_DOPE ? VISIBLE : GONE);
-        if (d == DETENT_DOPE) buildDopeSheet();
+        boolean rowsChanged = this.detent != d;
+        this.detent = Math.max(DETENT_MICRO, Math.min(DETENT_MAX, d));
+        boolean open = this.detent > DETENT_MICRO;
+        contentArea.setVisibility(open && !dopeOpen ? VISIBLE : GONE);
+        dopeArea.setVisibility(open && dopeOpen ? VISIBLE : GONE);
+        if (open && dopeOpen) buildDopeSheet();
+        else if (rowsChanged && open) post(this::rebuild);
     }
 
     /** Open straight to the dope sheet (the timeline tape's "edit holds" affordance). */
-    public void openDopeSheet() { setDetent(DETENT_DOPE); }
+    public void openDopeSheet() { dopeOpen = true; setDetent(Math.max(DETENT_PALETTE, detent)); }
 
     // ── The dope sheet (§5) ───────────────────────────────────────────────
 
@@ -571,99 +608,63 @@ public class SpritePalettePanel extends FrameLayout {
             return;
         }
 
-        // Row 1: instance chips + manage + delete.
+        // ── ONE row of controls, then the chips, then the behaviours ──
+        // The old build spent two full rows on a handful of chips each and left most of the
+        // width empty. Instances now share the header's line; the space that buys goes to the
+        // chips, which are the thing you actually tap.
         HorizontalScrollView instScroll = new HorizontalScrollView(getContext());
         instScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout instRow = new LinearLayout(getContext());
         instRow.setOrientation(LinearLayout.HORIZONTAL);
         instRow.setGravity(Gravity.CENTER_VERTICAL);
         instRow.setPadding(pad, 0, pad, pad / 2);
-        for (int i = 0; i < items.size(); i++) {
-            SpriteOverlayItem it = items.get(i);
-            SpriteSheet sheet = callback.lookupSheet(it.getSheetId());
-            String label = (sheet != null ? sheet.getName() : "?") + " " + (i + 1);
-            TextView ic = chip(label);
-            if (it == selected) ic.setBackgroundColor(0xFF4A3B5C);
-            ic.setOnClickListener(v -> {
-                selected = it;
-                callback.onInstanceSelected(it);
-                rebuild();
-            });
-            instRow.addView(ic, chipLp());
+        if (items.size() > 1) {
+            for (int i = 0; i < items.size(); i++) {
+                SpriteOverlayItem it = items.get(i);
+                SpriteSheet sh = callback.lookupSheet(it.getSheetId());
+                TextView ic = chip((sh != null ? sh.getName() : "?") + " " + (i + 1));
+                if (it == selected) {
+                    ic.setBackgroundColor(SpriteTheme.ACCENT_CELL);
+                    ic.setTextColor(SpriteTheme.ON_ACCENT);
+                }
+                ic.setOnClickListener(v -> {
+                    selected = it;
+                    if (callback != null) callback.onInstanceSelected(it);
+                    rebuild();
+                });
+                instRow.addView(ic, chipLp());
+            }
+            instScroll.addView(instRow);
+            contentArea.addView(instScroll);
         }
-        // ▦ FRAMES — the dope sheet's only DISCOVERABLE entry point.
-        // It was previously reachable solely by dragging the grab handle up TWICE, which no
-        // affordance advertises. A flagship feature behind an undocumented double-drag is, for
-        // most users, not a feature. openDopeSheet() already existed and had no callers.
-        TextView frames = chip("▦");
-        frames.setOnClickListener(v -> openDopeSheet());
-        instRow.addView(frames, chipLp());
-        TextView manage = chip("⚙");
-        manage.setOnClickListener(v -> callback.onManageSheets());
-        instRow.addView(manage, chipLp());
-        TextView del = chip("🗑");
-        del.setOnClickListener(v -> { if (selected != null) callback.onDeleteInstance(selected); });
-        instRow.addView(del, chipLp());
-        instScroll.addView(instRow);
-        contentArea.addView(instScroll);
 
-        // Row 2: cell chip carousel for the selected sprite's sheet.
         if (selected != null) {
             SpriteSheet sheet = callback.lookupSheet(selected.getSheetId());
             SpriteSheetRenderer renderer = callback.lookupRenderer(selected.getSheetId());
             if (sheet != null) {
-                HorizontalScrollView cellScroll = new HorizontalScrollView(getContext());
-                cellScroll.setHorizontalScrollBarEnabled(false);
-                LinearLayout cellRow = new LinearLayout(getContext());
-                cellRow.setOrientation(LinearLayout.HORIZONTAL);
-                cellRow.setPadding(pad, pad / 2, pad, pad / 2);
-                int thumb = (int) (56 * density);
-                for (int c = 0; c < sheet.cellCount(); c++) {
-                    SpriteSheet.Cell meta = sheet.cellAt(c);
-                    if (meta != null && !meta.enabled) continue;
-                    LinearLayout box = new LinearLayout(getContext());
-                    box.setOrientation(LinearLayout.VERTICAL);
-                    box.setGravity(Gravity.CENTER_HORIZONTAL);
-                    CellThumbView tv = new CellThumbView(getContext(), renderer, c);
-                    box.addView(tv, new LinearLayout.LayoutParams(thumb, thumb));
-                    TextView name = new TextView(getContext());
-                    name.setTextColor(0xCCFFFFFF);
-                    name.setTextSize(10f);
-                    name.setGravity(Gravity.CENTER);
-                    name.setText(meta != null && !meta.name.isEmpty()
-                            ? c + " " + meta.name : String.valueOf(c));
-                    box.addView(name, new LinearLayout.LayoutParams(
-                            thumb, ViewGroup.LayoutParams.WRAP_CONTENT));
-                    final int cellIndex = c;
-                    box.setOnClickListener(v -> callback.onCellChipTapped(selected, cellIndex));
-                    LinearLayout.LayoutParams bl = new LinearLayout.LayoutParams(
-                            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-                    bl.rightMargin = (int) (6 * density);
-                    cellRow.addView(box, bl);
-                }
-                cellScroll.addView(cellRow);
-                contentArea.addView(cellScroll);
+                contentArea.addView(buildChipRows(sheet, renderer, pad));
             }
 
-            // Row 3: flips + end-behavior.
+            // Behaviours. The object trash is GONE — the timeline tape carries a delete badge
+            // now, and a bin sitting next to a keyframe control could only ever be ambiguous
+            // about which of the two it meant.
             LinearLayout toggles = new LinearLayout(getContext());
             toggles.setOrientation(LinearLayout.HORIZONTAL);
             toggles.setGravity(Gravity.CENTER_VERTICAL);
             toggles.setPadding(pad, pad / 2, pad, pad);
             TextView fh = chip(getContext().getString(R.string.avatar_studio_flip_h));
-            if (selected.isFlipH()) fh.setBackgroundColor(0xFF4A3B5C);
+            if (selected.isFlipH()) tint(fh, SpriteTheme.SELECTED);
             fh.setOnClickListener(v -> callback.onFlipH(selected));
             TextView fv = chip(getContext().getString(R.string.avatar_studio_flip_v));
-            if (selected.isFlipV()) fv.setBackgroundColor(0xFF4A3B5C);
+            if (selected.isFlipV()) tint(fv, SpriteTheme.SELECTED);
             fv.setOnClickListener(v -> callback.onFlipV(selected));
-            TextView eb = chip(getContext().getString(R.string.sprite_palette_end_prefix)
-                    + " " + selected.getEndBehavior());
+            TextView eb = chip(endGlyph(selected.getEndBehavior()));
+            tint(eb, endColour(selected.getEndBehavior()));
             eb.setOnClickListener(v -> callback.onEndBehaviorCycled(selected));
             toggles.addView(fh, chipLp());
             toggles.addView(fv, chipLp());
             toggles.addView(eb, chipLp());
-            // Avatar item: record-performance chip (bake-to-keyframes). Inline
-            // literals on purpose — strings.xml is another agent's live file.
+
             if (selected.getAvatarRigId() != null) {
                 boolean rec = callback.isRecordingPerformance(selected);
                 TextView perf = chip(rec ? "⏺ Stop" : "🎯 Record");
@@ -671,33 +672,168 @@ public class SpritePalettePanel extends FrameLayout {
                 else if (selected.hasAvatarPerformance()) perf.setBackgroundColor(0xFF1B4A3B);
                 perf.setOnClickListener(v -> callback.onRecordPerformance(selected));
                 toggles.addView(perf, chipLp());
-                // Point-at-video: bake a performance from the clip under the item.
                 TextView sweep = chip("🎬 From video");
                 sweep.setOnClickListener(v -> callback.onSweepFromVideo(selected));
                 toggles.addView(sweep, chipLp());
-            } else {
-                // Plain sprite: dope-sheet preset chips. Each stamps a whole
-                // FrameTrack at the playhead in one undo step (fast-follow A).
-                // Inline literals on purpose — strings.xml is another agent's file.
-                TextView cyc = chip("Cycle");
-                cyc.setOnClickListener(v -> callback.onPresetStamp(
-                        selected, SpritePresetStamper.Kind.CYCLE_ALL));
-                TextView pp = chip("Ping-pong");
-                pp.setOnClickListener(v -> callback.onPresetStamp(
-                        selected, SpritePresetStamper.Kind.PINGPONG));
-                TextView hold = chip("Hold");
-                hold.setOnClickListener(v -> callback.onPresetStamp(
-                        selected, SpritePresetStamper.Kind.HOLD_CURRENT));
-                toggles.addView(cyc, chipLp());
-                toggles.addView(pp, chipLp());
-                toggles.addView(hold, chipLp());
             }
+
+            View spacer = new View(getContext());
+            toggles.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
+            // A TOGGLE, not a one-way door. It used to swap the palette out for the dope sheet
+            // with no way back except a drag gesture nothing advertises.
+            TextView dope = chip("▤");
+            if (dopeOpen) tint(dope, SpriteTheme.ACCENT_GRID);
+            dope.setOnClickListener(v -> { dopeOpen = !dopeOpen; setDetent(detent); rebuild(); });
+            toggles.addView(dope, chipLp());
+            TextView manage = chip("⚙");
+            manage.setOnClickListener(v -> callback.onManageSheets());
+            toggles.addView(manage, chipLp());
             contentArea.addView(toggles);
         }
     }
 
+    // ── chips ────────────────────────────────────────────────────────────
+
+    /**
+     * Saved animations and still cells, as ONE list of identical chips split into equal rows.
+     *
+     * <p>No headings: an animation is plainly an animation, because it plays and wears a mode
+     * dot. Balanced rather than "animations row, cells row", so three clips over seventeen
+     * cells is two rows of ten instead of a stub above a long one. Sprockets are deliberately
+     * absent — in the drawer these are tap-to-key buttons, not a reel; the sprockets belong in
+     * the Lab, where the strip really is film you are cutting.</p>
+     */
+    @NonNull
+    private View buildChipRows(@NonNull SpriteSheet sheet,
+                               @Nullable SpriteSheetRenderer renderer, int pad) {
+        for (AnimChipView a : animChips) a.stop();
+        animChips.clear();
+
+        final java.util.List<View> chips = new java.util.ArrayList<>();
+        final int thumb = (int) (52 * density);
+
+        // Animations first — they are the thing you reach for, and they are new here.
+        for (SpriteSheet.Preset preset : sheet.getPresets()) {
+            if (preset.frames.isEmpty()) continue;
+            if (SpriteSheet.SEQUENCE_PRESET_ID.equals(preset.id)) continue; // that IS the sequence
+            chips.add(buildChip(renderer, thumb, preset.name,
+                    preset.frames.size() + "f", preset, -1));
+        }
+        for (int c = 0; c < sheet.cellCount(); c++) {
+            SpriteSheet.Cell meta = sheet.cellAt(c);
+            if (meta != null && !meta.enabled) continue;
+            String name = sheet.cellName(c);
+            if ((name == null || name.isEmpty()) && meta != null && !meta.name.isEmpty()) {
+                name = meta.name;
+            }
+            chips.add(buildChip(renderer, thumb, name, String.valueOf(c), null, c));
+        }
+
+        int rows = Math.max(1, Math.min(3, detent == DETENT_MICRO ? 1 : detent));
+        int per = (int) Math.ceil(chips.size() / (float) rows);
+        LinearLayout stack = new LinearLayout(getContext());
+        stack.setOrientation(LinearLayout.VERTICAL);
+        stack.setPadding(pad, pad / 2, pad, pad / 2);
+        for (int r = 0; r < rows; r++) {
+            LinearLayout row = new LinearLayout(getContext());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            for (int i = r * per; i < Math.min(chips.size(), (r + 1) * per); i++) {
+                LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                lp.rightMargin = (int) (5 * density);
+                row.addView(chips.get(i), lp);
+            }
+            LinearLayout.LayoutParams rl = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            rl.bottomMargin = (int) (4 * density);
+            stack.addView(row, rl);
+        }
+        HorizontalScrollView scroll = new HorizontalScrollView(getContext());
+        scroll.setHorizontalScrollBarEnabled(false);
+        scroll.addView(stack);
+        return scroll;
+    }
+
+    /**
+     * One chip. A still cell and a saved animation differ by exactly two things: an animation
+     * plays, and it carries a mode dot in the corner. Everything else — size, shape, the white
+     * name over small grey detail — is identical, because while animating you are equally
+     * likely to want either and they should sit side by side without a hierarchy.
+     */
+    @NonNull
+    private View buildChip(@Nullable SpriteSheetRenderer renderer, int thumb,
+                           @Nullable String name, @NonNull String sub,
+                           @Nullable SpriteSheet.Preset preset, int cellIndex) {
+        LinearLayout box = new LinearLayout(getContext());
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        AnimChipView art = new AnimChipView(getContext(), renderer, preset, cellIndex);
+        box.addView(art, new LinearLayout.LayoutParams(thumb, thumb));
+        if (preset != null) { animChips.add(art); art.start(); }
+
+        TextView top = new TextView(getContext());
+        top.setTextColor(name != null && !name.isEmpty() ? 0xFFFFFFFF : SpriteTheme.DIM);
+        top.setTextSize(10f);
+        top.setGravity(Gravity.CENTER);
+        top.setMaxLines(1);
+        top.setText(name != null && !name.isEmpty() ? name : sub);
+        box.addView(top, new LinearLayout.LayoutParams(thumb, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        if (name != null && !name.isEmpty()) {
+            TextView bottom = new TextView(getContext());
+            bottom.setTextColor(SpriteTheme.DIMMER);
+            bottom.setTextSize(8.5f);
+            bottom.setGravity(Gravity.CENTER);
+            bottom.setMaxLines(1);
+            bottom.setText(sub);
+            box.addView(bottom, new LinearLayout.LayoutParams(thumb, ViewGroup.LayoutParams.WRAP_CONTENT));
+        }
+
+        box.setOnClickListener(v -> {
+            if (callback == null || selected == null) return;
+            if (preset != null) callback.onPresetChipTapped(selected, preset.id);
+            else callback.onCellChipTapped(selected, cellIndex);
+        });
+        return box;
+    }
+
+    /** Loop / ping-pong / once, as one glyph. */
+    @NonNull
+    private static String endGlyph(@Nullable String behavior) {
+        if ("loop".equals(behavior)) return "∞";
+        if ("pingpong".equals(behavior)) return "⇄";
+        return "▸|";
+    }
+    private static int endColour(@Nullable String behavior) {
+        if ("loop".equals(behavior)) return SpriteTheme.ACCENT_GRID;
+        if ("pingpong".equals(behavior)) return SpriteTheme.ACCENT_CELL;
+        return SpriteTheme.LIVE;
+    }
+    /** Solid accent, dark ink — no half-opaque middle state anywhere in this package. */
+    private static void tint(@NonNull TextView v, int colour) {
+        v.setBackgroundColor(colour);
+        v.setTextColor(colour == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
+    }
+
+    /** True when the playhead sits on one of the selected item's frame keys. */
+    private boolean isOnKey() {
+        if (selected == null) return false;
+        long local = Math.max(0, selected.toLocalMs(playheadMs));
+        for (FrameTrack.Key k : selected.getFrameTrack().keys()) {
+            if (Math.abs(k.timeMs - local) <= 60) return true;
+        }
+        return false;
+    }
+
     /** "cell 3 idle @ 0:04.2" style live readout for the selected sprite. */
     private void syncIndicator() {
+        // Lit only when there is actually a key under the playhead to delete.
+        boolean armed = isOnKey();
+        deleteKey.setAlpha(armed ? 1f : 0.32f);
+        if (armed) { deleteKey.setBackgroundColor(SpriteTheme.LIVE); deleteKey.setTextColor(0xFFFFFFFF); }
+        else { deleteKey.setBackgroundColor(SpriteTheme.CONTROL); deleteKey.setTextColor(SpriteTheme.DIMMER); }
+
         if (selected == null || callback == null) {
             cellIndicator.setText("");
             return;
@@ -738,23 +874,85 @@ public class SpritePalettePanel extends FrameLayout {
     }
 
     /** Tiny live thumbnail of one sheet cell (shared decoded bitmap, no copies). */
-    private static class CellThumbView extends View {
+    /**
+     * The chip's picture. Draws a still cell, or plays a saved animation in place at the
+     * preset's own cadence with a mode dot in the corner.
+     *
+     * <p>Animating here rather than showing frame 0 is the point: a strip of static thumbnails
+     * makes you remember what "talk" looks like, and a strip of moving ones tells you.</p>
+     */
+    private static class AnimChipView extends View {
         @Nullable private final SpriteSheetRenderer renderer;
+        @Nullable private final SpriteSheet.Preset preset;
         private final int cellIndex;
         private final RectF dest = new RectF();
+        private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint dotInk = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private int tick;
+        private boolean running;
 
-        CellThumbView(Context ctx, @Nullable SpriteSheetRenderer renderer, int cellIndex) {
+        AnimChipView(Context ctx, @Nullable SpriteSheetRenderer renderer,
+                     @Nullable SpriteSheet.Preset preset, int cellIndex) {
             super(ctx);
             this.renderer = renderer;
+            this.preset = preset;
             this.cellIndex = cellIndex;
-            setBackgroundColor(0xFF1B1B22);
+            setBackgroundColor(SpriteTheme.CONTROL);
+            dotInk.setColor(SpriteTheme.ON_ACCENT);
+            dotInk.setTextAlign(Paint.Align.CENTER);
+            dotInk.setFakeBoldText(true);
         }
+
+        void start() {
+            if (running || preset == null || preset.frames.isEmpty()) return;
+            running = true;
+            step();
+        }
+        void stop() { running = false; removeCallbacks(null); }
+
+        private void step() {
+            if (!running) return;
+            tick++;
+            invalidate();
+            float fps = preset != null && preset.fps > 0f ? preset.fps : 8f;
+            postDelayed(this::step, (long) (1000f / Math.max(1f, Math.min(60f, fps))));
+        }
+
+        @Override protected void onDetachedFromWindow() { super.onDetachedFromWindow(); stop(); }
 
         @Override
         protected void onDraw(Canvas canvas) {
             if (renderer == null) return;
             dest.set(2, 2, getWidth() - 2, getHeight() - 2);
-            renderer.drawCell(canvas, cellIndex, dest, null);
+            int cell = cellIndex;
+            if (preset != null && !preset.frames.isEmpty()) {
+                int n = preset.frames.size();
+                int i;
+                if ("pingpong".equals(preset.type) && n > 1) {
+                    int period = 2 * n - 2;
+                    int k = tick % period;
+                    i = k < n ? k : period - k;
+                } else {
+                    i = tick % n;
+                }
+                Integer f = preset.frames.get(Math.max(0, Math.min(n - 1, i)));
+                cell = f == null ? 0 : f;
+            }
+            renderer.drawCell(canvas, cell, dest, null);
+
+            if (preset != null) {
+                // The one visual difference: a mode dot saying how this animation wraps.
+                float r = Math.min(getWidth(), getHeight()) * 0.16f;
+                float cx = getWidth() - r - 2, cy = getHeight() - r - 2;
+                dot.setColor("loop".equals(preset.type) ? SpriteTheme.SELECTED
+                        : "once".equals(preset.type) ? SpriteTheme.LIVE : SpriteTheme.ACCENT_CELL);
+                canvas.drawCircle(cx, cy, r, dot);
+                dotInk.setColor("once".equals(preset.type) ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
+                dotInk.setTextSize(r * 1.3f);
+                String g = "loop".equals(preset.type) ? "∞"
+                        : "once".equals(preset.type) ? "1" : "⇄";
+                canvas.drawText(g, cx, cy + r * 0.48f, dotInk);
+            }
         }
     }
 }

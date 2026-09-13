@@ -600,6 +600,31 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 copy.enabled = c.enabled;
                 sheet.getCells().add(copy);
             }
+            // Cell names and ANIMATIONS. The sidecar's whole reason to exist is that a sheet
+            // sliced and choreographed elsewhere can arrive whole; importing the grid but
+            // dropping the presets delivered an empty sheet and called it a success. Replace
+            // rather than merge: the file is a description of this sheet, not an addition to it.
+            sheet.getCellNames().clear();
+            sheet.getCellNames().putAll(imported.getCellNames());
+            sheet.getPresets().clear();
+            for (com.fadcam.ui.faditor.sprite.SpriteSheet.Preset p : imported.getPresets()) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet.Preset np =
+                        new com.fadcam.ui.faditor.sprite.SpriteSheet.Preset(p.id, p.name);
+                np.type = p.type;
+                np.fps = p.fps;
+                // Frames are cell INDICES against the grid we just adopted, so anything the
+                // sidecar's own grid cannot address is a typo, not a frame — drop it here
+                // rather than let the resolver meet it later.
+                int cells = Math.max(0, imported.getCols() * imported.getRows());
+                for (int fi = 0; fi < p.frames.size(); fi++) {
+                    int f = p.frames.get(fi);
+                    if (f < 0 || f >= cells) continue;
+                    np.frames.add(f);
+                    np.weights.add(com.fadcam.ui.faditor.sprite.SequenceTiming
+                            .weightAt(p.weights, fi));
+                }
+                if (!np.frames.isEmpty()) sheet.getPresets().add(np);
+            }
             gridChanged();
             reloadRenderer();
             Toast.makeText(this, R.string.sprite_editor_sidecar_imported, Toast.LENGTH_SHORT).show();

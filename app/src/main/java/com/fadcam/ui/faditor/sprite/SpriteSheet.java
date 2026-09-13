@@ -88,6 +88,22 @@ public class SpriteSheet {
      */
     @NonNull private final java.util.Map<Integer, String> cellNames = new java.util.LinkedHashMap<>();
 
+    /**
+     * Per-cell alignment, sparse. Identity transforms are never stored, so a sheet that has
+     * never been nudged serialises byte-identically to one authored before this existed.
+     * @see CellXf
+     */
+    @NonNull private final java.util.Map<Integer, CellXf> cellXf = new java.util.LinkedHashMap<>();
+
+    /**
+     * Mouth shape → cell, keyed by {@code SpectralVisemeAnalyzer.CLASS_NAMES}
+     * (REST / AA / EE / OO / CLOSURE / FRIC). The same map shape {@code AvatarRig.visemeMap}
+     * already uses, carried on the SHEET so a sheet can arrive lip-sync-ready without a rig
+     * having been built first. A cell is not consumed by an assignment — "surprised" stays a
+     * usable expression and also answers for OO.
+     */
+    @NonNull private final java.util.Map<String, Integer> visemeMap = new java.util.LinkedHashMap<>();
+
     // ── Sequence backing (SPEC_IMAGE_SEQUENCE) ───────────────────────────
     // Additive and inert for every grid sheet that exists: kind defaults to "grid" and
     // frameUris stays empty, so nothing is written and nothing is read differently.
@@ -136,6 +152,32 @@ public class SpriteSheet {
             this.index = index;
             this.name = name;
         }
+    }
+
+    /**
+     * Per-cell ALIGNMENT — the "move the view window on this frame" nudge
+     * (SPEC_20260910_SPRITELAB_MODEL §4). Offsets are in CELL SOURCE PIXELS, scale is a
+     * multiplier and rotation is degrees, all applied about the sheet's pivot.
+     *
+     * <p>This is the field that lets a sheet repaired in SpriteLab arrive with its alignment
+     * intact instead of flattened into baked pixels. It is applied in exactly one place —
+     * {@link SpriteSheetRenderer#drawCell} — which is the single blit every consumer already
+     * goes through, so preview, timeline tape and export cannot disagree about it.</p>
+     */
+    public static class CellXf {
+        public float dx, dy;
+        public float scale = 1f;
+        public float rot;
+
+        public CellXf() {}
+        public CellXf(float dx, float dy, float scale, float rot) {
+            this.dx = dx; this.dy = dy; this.scale = scale; this.rot = rot;
+        }
+        /** Nothing to apply — the draw path takes its original, cheaper branch. */
+        public boolean isIdentity() {
+            return dx == 0f && dy == 0f && rot == 0f && Math.abs(scale - 1f) < 1e-6f;
+        }
+        @NonNull public CellXf copy() { return new CellXf(dx, dy, scale, rot); }
     }
 
     /** A reusable frame sequence (fast-follow A authors these; the model ships now). */
@@ -217,6 +259,25 @@ public class SpriteSheet {
 
     /** @see #cellNames */
     @NonNull public java.util.Map<Integer, String> getCellNames() { return cellNames; }
+
+    /** @see #cellXf */
+    @NonNull public java.util.Map<Integer, CellXf> getCellTransforms() { return cellXf; }
+
+    /** The alignment of {@code cell}, or {@code null} when it has none (the common case). */
+    @Nullable public CellXf cellTransform(int cell) { return cellXf.get(cell); }
+
+    /**
+     * Set or clear a cell's alignment. An identity transform is CLEARED rather than stored, so
+     * "nudge it and put it back" leaves no trace in the file and the fast draw path returns.
+     */
+    public void setCellTransform(int cell, @Nullable CellXf t) {
+        if (cell < 0 || cell >= cellCount()) return;
+        if (t == null || t.isIdentity()) cellXf.remove(cell);
+        else cellXf.put(cell, t.copy());
+    }
+
+    /** @see #visemeMap */
+    @NonNull public java.util.Map<String, Integer> getVisemeMap() { return visemeMap; }
 
     /** The name of {@code cell}, or {@code null} when it has none. */
     @Nullable public String cellName(int cell) { return cellNames.get(cell); }
@@ -326,6 +387,11 @@ public class SpriteSheet {
         c.fps = fps;
         c.bgKeyColor = bgKeyColor; c.keyTolerance = keyTolerance;
         c.pivotX = pivotX; c.pivotY = pivotY;
+        c.cellNames.putAll(cellNames);
+        c.visemeMap.putAll(visemeMap);
+        for (java.util.Map.Entry<Integer, CellXf> e : cellXf.entrySet()) {
+            c.cellXf.put(e.getKey(), e.getValue().copy());
+        }
         for (Cell cell : cells) {
             Cell nc = new Cell(cell.index, cell.name);
             nc.tags.addAll(cell.tags);
@@ -440,6 +506,27 @@ public class SpriteSheet {
             }
             j.add("presets", arr);
         }
+        if (!cellXf.isEmpty()) {
+            JsonObject xf = new JsonObject();
+            for (java.util.Map.Entry<Integer, CellXf> e : cellXf.entrySet()) {
+                CellXf t = e.getValue();
+                if (t == null || t.isIdentity()) continue;
+                JsonObject tj = new JsonObject();
+                if (t.dx != 0f) tj.addProperty("dx", t.dx);
+                if (t.dy != 0f) tj.addProperty("dy", t.dy);
+                if (Math.abs(t.scale - 1f) > 1e-6f) tj.addProperty("scale", t.scale);
+                if (t.rot != 0f) tj.addProperty("rot", t.rot);
+                xf.add(String.valueOf(e.getKey()), tj);
+            }
+            if (xf.size() > 0) j.add("cellXf", xf);
+        }
+        if (!visemeMap.isEmpty()) {
+            JsonObject vm = new JsonObject();
+            for (java.util.Map.Entry<String, Integer> e : visemeMap.entrySet()) {
+                if (e.getValue() != null) vm.addProperty(e.getKey(), e.getValue());
+            }
+            if (vm.size() > 0) j.add("visemeMap", vm);
+        }
         if (!cellNames.isEmpty()) {
             JsonObject names = new JsonObject();
             for (java.util.Map.Entry<Integer, String> e : cellNames.entrySet()) {
@@ -499,6 +586,30 @@ public class SpriteSheet {
                     // Tolerant read: a hand-edited sidecar with a bad key loses that ONE name
                     // rather than the whole sheet.
                 }
+            }
+        }
+        if (j.has("cellXf") && j.get("cellXf").isJsonObject()) {
+            JsonObject xf = j.getAsJsonObject("cellXf");
+            for (String k : xf.keySet()) {
+                try {
+                    JsonObject tj = xf.getAsJsonObject(k);
+                    CellXf t = new CellXf();
+                    if (tj.has("dx")) t.dx = tj.get("dx").getAsFloat();
+                    if (tj.has("dy")) t.dy = tj.get("dy").getAsFloat();
+                    if (tj.has("scale")) t.scale = tj.get("scale").getAsFloat();
+                    if (tj.has("rot")) t.rot = tj.get("rot").getAsFloat();
+                    if (!t.isIdentity()) s.cellXf.put(Integer.parseInt(k), t);
+                } catch (RuntimeException ignored) {
+                    // Tolerant read, same rule as cellNames: one bad entry in a hand-edited
+                    // file costs that ONE alignment, never the whole sheet.
+                }
+            }
+        }
+        if (j.has("visemeMap") && j.get("visemeMap").isJsonObject()) {
+            JsonObject vm = j.getAsJsonObject("visemeMap");
+            for (String k : vm.keySet()) {
+                try { s.visemeMap.put(k, vm.get(k).getAsInt()); }
+                catch (RuntimeException ignored) { }
             }
         }
         if (j.has("presets")) {

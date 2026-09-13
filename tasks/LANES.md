@@ -512,3 +512,15 @@ files: timeline/EditorTimelineView.java, layers/ (no changes needed), tools/Audi
        {MasterPlaybackEngine,AudioClipPreviewPlayer}.java (preview parity only),
        FaditorEditorActivity.java
 since: 2026-08-24
+
+## SPRITELAB MOBILE — build the web design on the phone (SpriteLabMobile.html)
+status: ACTIVE (2026-09-13, overnight autonomous session — Claude/Opus)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheet.java            (per-cell CellXf, visemeMap)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetRenderer.java    (apply CellXf in drawCell — the single blit)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpritePalettePanel.java     (drawer redesign: one chip design, preset chips, names)
+  app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java (grow into the Lab)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java         (drawer callbacks: preset drop, cell xf, close-on-tap fix)
+  app/src/main/res/values/attrs.xml, colors.xml                              (sprite colour tokens)
+reference: tools/spritelab/SpriteLabMobile.html — the approved design, build it exactly
+since: 2026-09-13T02:00

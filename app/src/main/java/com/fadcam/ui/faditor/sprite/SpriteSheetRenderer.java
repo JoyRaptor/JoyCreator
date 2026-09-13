@@ -251,10 +251,19 @@ public final class SpriteSheetRenderer {
         if (frames != null) frames.clearFailures();
     }
 
-    /** Blit one cell into {@code dest}. No-op for out-of-range indices. */
+    /**
+     * Blit one cell into {@code dest}. No-op for out-of-range indices.
+     *
+     * <p>THE single blit. Preview, timeline tape, dope sheet, palette, puppet and export all
+     * come through here, which is why the per-cell alignment is applied here and nowhere else:
+     * the "preview and export must agree" rule holds by construction rather than by
+     * everyone remembering.</p>
+     */
     public void drawCell(@NonNull Canvas canvas, int cellIndex, @NonNull RectF dest,
                          @Nullable Paint overridePaint) {
         if (cellIndex < 0 || cellIndex >= sheet.cellCount()) return;
+        SpriteSheet.CellXf xf = sheet.cellTransform(cellIndex);
+        if (xf != null && !xf.isIdentity()) { drawCellTransformed(canvas, cellIndex, dest, overridePaint, xf); return; }
         Paint p = overridePaint != null ? overridePaint : drawPaint;
         if (frames != null) {
             Bitmap b = frames.frame(cellIndex);
@@ -269,6 +278,42 @@ public final class SpriteSheetRenderer {
             return;
         }
         canvas.drawBitmap(bitmap, cellRectBitmap(cellIndex), dest, p);
+    }
+
+    /**
+     * The aligned path. Deliberately built ON TOP of the untransformed geometry rather than
+     * replacing it: with an identity transform this produces exactly the rect the old code drew,
+     * so adding the feature cannot move a single existing sprite. Offsets are cell-source
+     * pixels, converted into destination units; scale and rotation act about the sheet pivot;
+     * everything is clipped to {@code dest} so a nudged frame can never bleed into its
+     * neighbour on a packed sheet.
+     */
+    private void drawCellTransformed(@NonNull Canvas canvas, int cellIndex, @NonNull RectF dest,
+                                     @Nullable Paint overridePaint,
+                                     @NonNull SpriteSheet.CellXf xf) {
+        Paint p = overridePaint != null ? overridePaint : drawPaint;
+        final float dw = dest.width(), dh = dest.height();
+        if (dw <= 0f || dh <= 0f) return;
+        Rect srcCell = frames != null ? null : cellRectSource(sheet, cellIndex, sourceWidth(), sourceHeight());
+        final float cw = srcCell != null ? Math.max(1, srcCell.width()) : dw;
+        final float ch = srcCell != null ? Math.max(1, srcCell.height()) : dh;
+        final float px = sheet.getPivotX(), py = sheet.getPivotY();
+
+        int save = canvas.save();
+        canvas.clipRect(dest);
+        canvas.translate(dest.left + px * dw + xf.dx * (dw / cw),
+                         dest.top  + py * dh + xf.dy * (dh / ch));
+        if (xf.rot != 0f) canvas.rotate(xf.rot);
+        if (xf.scale != 1f) canvas.scale(xf.scale, xf.scale);
+        RectF r = new RectF(-px * dw, -py * dh, (1f - px) * dw, (1f - py) * dh);
+        if (frames != null) {
+            Bitmap b = frames.frame(cellIndex);
+            if (b == null || b.isRecycled()) { canvas.restoreToCount(save); drawMissingCell(canvas, dest); return; }
+            canvas.drawBitmap(b, null, r, p);
+        } else {
+            canvas.drawBitmap(bitmap, cellRectBitmap(cellIndex), r, p);
+        }
+        canvas.restoreToCount(save);
     }
 
     /** Paints for the MISSING placeholder — lazily built, since most sheets never need them. */

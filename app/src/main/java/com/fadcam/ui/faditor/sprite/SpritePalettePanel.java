@@ -314,16 +314,9 @@ public class SpritePalettePanel extends FrameLayout {
         this.playheadMs = timelineMs;
         syncIndicator();
         if (dopeSheet != null && dopeOpen) dopeSheet.setPlayheadMs(timelineMs);
-        if (selected != null) {
-            long localMs = selected.toLocalMs(timelineMs);
-            boolean onKey = false;
-            for (FrameTrack.Key k : selected.getFrameTrack().keys()) {
-                if (Math.abs(k.timeMs - localMs) <= 120) { onKey = true; break; }
-            }
-            deleteKey.setVisibility(onKey ? VISIBLE : GONE);
-        } else {
-            deleteKey.setVisibility(GONE);
-        }
+        // The chip stays PRESENT and goes dim; hiding it made the row's width jump every time
+        // the playhead crossed a key, which is the opposite of a stable place to aim at.
+        // syncIndicator() above owns the lit/dim state.
     }
 
     public void collapse() {
@@ -677,6 +670,13 @@ public class SpritePalettePanel extends FrameLayout {
                 toggles.addView(sweep, chipLp());
             }
 
+            // Overflow. The whole-track stampers used to sit on this row as three words;
+            // they are rare and they were crowding out the chips, but dropping a working
+            // feature to tidy a row is not a trade anyone asked for.
+            TextView more = chip("⋯");
+            more.setOnClickListener(v -> showTrackMenu(more));
+            toggles.addView(more, chipLp());
+
             View spacer = new View(getContext());
             toggles.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
             // A TOGGLE, not a one-way door. It used to swap the palette out for the dope sheet
@@ -798,6 +798,45 @@ public class SpritePalettePanel extends FrameLayout {
         return box;
     }
 
+    /**
+     * Whole-track actions, and the one that closes the loop.
+     *
+     * <p>You could always drop keys by tapping chips while the playhead ran — that live pass is
+     * the best thing about animating here. What you could never do was keep the take: the
+     * performance stayed a loose run of keys on one object, unnamed and unreusable. "Save as
+     * animation" turns it into a named preset on the sheet, which is what the animation chips
+     * read back. Perform it, save it, drop it again anywhere.</p>
+     */
+    private void showTrackMenu(@NonNull View anchor) {
+        if (callback == null || selected == null) return;
+        final SpriteOverlayItem item = selected;
+        final int keyCount = item.getFrameTrack().keys().size();
+        android.widget.PopupMenu menu = new android.widget.PopupMenu(getContext(), anchor);
+        menu.getMenu().add(0, 1, 0, "Cycle all cells");
+        menu.getMenu().add(0, 2, 1, "Ping-pong all cells");
+        menu.getMenu().add(0, 3, 2, "Hold this cell");
+        menu.getMenu().add(0, 4, 3, keyCount >= 2
+                ? "★ Save these " + keyCount + " keys as an animation"
+                : "Save as animation (needs 2+ keys)").setEnabled(keyCount >= 2);
+        menu.setOnMenuItemClickListener(mi -> {
+            if (callback == null) return false;
+            switch (mi.getItemId()) {
+                case 1: callback.onPresetStamp(item, SpritePresetStamper.Kind.CYCLE_ALL); return true;
+                case 2: callback.onPresetStamp(item, SpritePresetStamper.Kind.PINGPONG); return true;
+                case 3: callback.onPresetStamp(item, SpritePresetStamper.Kind.HOLD_CURRENT); return true;
+                case 4: {
+                    java.util.List<Integer> all = new java.util.ArrayList<>();
+                    for (int i = 0; i < item.getFrameTrack().keys().size(); i++) all.add(i);
+                    callback.onMakePresetFromKeys(item, all);
+                    post(this::rebuild);
+                    return true;
+                }
+            }
+            return false;
+        });
+        menu.show();
+    }
+
     /** Loop / ping-pong / once, as one glyph. */
     @NonNull
     private static String endGlyph(@Nullable String behavior) {
@@ -816,12 +855,21 @@ public class SpritePalettePanel extends FrameLayout {
         v.setTextColor(colour == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
     }
 
-    /** True when the playhead sits on one of the selected item's frame keys. */
+    /**
+     * True when the playhead sits on one of the selected item's frame keys.
+     *
+     * <p>The visibility check is not belt-and-braces. Driving this on a phone lit the bin at
+     * 0:00 on an object whose tape starts later: {@code toLocalMs} clamps outside the span, so
+     * the clamped value landed on the first key and armed a delete for a keyframe that was not
+     * on screen. The 120ms window is the same one {@code onDeleteKeyAtPlayhead} searches with —
+     * arming on a wider tolerance than the action uses would light a button that then does
+     * nothing.</p>
+     */
     private boolean isOnKey() {
-        if (selected == null) return false;
+        if (selected == null || !selected.isVisibleAt(playheadMs)) return false;
         long local = Math.max(0, selected.toLocalMs(playheadMs));
         for (FrameTrack.Key k : selected.getFrameTrack().keys()) {
-            if (Math.abs(k.timeMs - local) <= 60) return true;
+            if (Math.abs(k.timeMs - local) <= 120) return true;
         }
         return false;
     }

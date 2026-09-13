@@ -516,8 +516,29 @@ since: 2026-08-24
 ## ⚠ FIXED 2026-09-13T14:20 BY THE SPRITELAB LANE, WITH JOYRAPTOR'S SAY-SO — read this before
 ##   you touch FaditorEditorActivity.onResume again
 JoyRaptor paused the transform lane and asked for the things held back on account of it. ONE
-method changed in your file, `onResume`'s AI-reload gate, ~line 1790. Nothing else in it was
-touched. The change and the reasoning are below; the original note follows it.
+method changed in your file, plus one new private helper next to onPause. Nothing else in it
+was touched — `git show 26bdf18c -- .../FaditorEditorActivity.java` is the whole of it.
+
+WHAT CHANGED
+  - `onResume`'s reload gate: `reloaded != null && !reloaded.getTimeline().isEmpty()`
+    became `reloadLooksReal(reloaded)`.
+  - NEW `private boolean reloadLooksReal(FaditorProject)` immediately above `onPause`.
+    True when the reload has ANY content: clips, sprite overlays, text overlays, audio clips
+    or sprite sheets. Still false for null, for a null timeline, and for a project that is
+    empty everywhere — which is what a failed load looks like, and was the original intent.
+  - The refusal branch is no longer silent: an FLog.w and a Toast. The modified-signal is
+    consumed BEFORE the reload is attempted, so a silent refusal loses the change on disk.
+
+WHY, in one line: `Timeline.isEmpty()` is clips-only, so every sprite-only or sequence-only
+project skipped the reload, kept a stale project, and wrote it back on the next autosave.
+
+Device-proved: renamed a non-open sheet in the Lab, returned to the editor, backgrounded the
+app so the editor autosaved, and read project.json off the phone. The rename survived.
+
+If you would rather this were a modified-token check than a content sniff, change it freely —
+the bug is the clips-only test, not the shape of the replacement.
+
+The original note follows.
 
 `FaditorEditorActivity.onResume` reloads the project after another screen signals a change,
 but the reload is gated on `!reloaded.getTimeline().isEmpty()` (~line 1790), and

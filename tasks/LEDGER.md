@@ -3300,3 +3300,35 @@ Both test sheets removed through the new UI, and project.json re-read: back to
 ['Starguy', 'Sprite pang'] with winkclip1 and "surprised" intact. No hand-editing.
 
 Commits: f6b50304 · f567b65e
+
+---
+
+## 2026-09-13 (late) — the held-back fix, taken while the other lane was paused
+
+JoyRaptor: *"Anything you needed to do that you were afraid to because someone else is working,
+go ahead and do that right now."* There was exactly one.
+
+**`FaditorEditorActivity.onResume`'s reload gate asked "does this project have VIDEO".**
+`Timeline.isEmpty()` is `clips.isEmpty()`. A sprite-only or sequence-only project legitimately
+has none, so the reload after an external save was skipped, the editor kept a stale project,
+and its next autosave wrote that stale copy back. The modified-signal is consumed BEFORE the
+reload is attempted, so the refusal was also permanent and silent.
+
+Harmless while the sprite editor only made additive edits. Not harmless once the Lab could
+REMOVE a sheet: a removal or a rename could be silently undone by the editor sitting behind it.
+
+Fixed as narrowly as possible — one gate swapped for a `reloadLooksReal` predicate, one new
+private helper, a log line and a message where there was silence. Nothing else in their file
+touched, the whole change is one `git show`, and the lane note on the board now says exactly
+what moved and invites them to reshape it.
+
+**Proved rather than argued:** renamed a non-open sheet in the Lab, returned to the editor,
+backgrounded the app so the editor autosaved, and read project.json off the device. The rename
+survived. Renamed it back and re-read: ['Starguy', 'Sprite pang'], winkclip1 and "surprised"
+intact — JoyRaptor's project exactly as he left it.
+
+Also closed a loose end in my own panel: it invited you to manage sheets without saying which
+one was broken. Missing art now reads "⚠ art is missing", and only when a path can actually be
+resolved and checked — a false alarm would send someone relinking art that never broke.
+
+Commit: 26bdf18c

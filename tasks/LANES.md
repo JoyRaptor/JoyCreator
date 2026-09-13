@@ -541,6 +541,17 @@ SHARED, READ-ONLY FOR ME: sprite/SpriteSheetRenderer.java.
   Use `bash tools/build-verify.sh <symbol>` — it greps the packaged dex for a symbol you just
   wrote and fails loudly if it is missing. "Unable to delete directory" means contention, not a
   code error: wait for the other build and retry. Do not `clean`; it is not your build dir alone.
+  ⚠ WE ALSO SHARE THE SANDBOX PHONE. An `adb install` from one lane kills the app the other lane
+  has open, and the logcat then says "app died, no saved state" — which reads exactly like a crash
+  and is not one. Check for a PackageUpdatedTask line right after before you go hunting a stack
+  trace that does not exist. This lane hit it twice.
+progress:
+  SPEC X   DONE, device-proved on the sandbox phone (bringToFront provably cannot reorder the stack)
+  SPEC Y   stage 1 DONE — TextAffine + PipAffine collapsed into one AffineTransformHost.
+           Remaining: the spine (needs per-axis scale on the adapter) and the image host
+           (pin + mesh as an optional channel).
+  SPEC Z   sprite model layer DONE — pin + mesh on SpriteOverlayItem, persisted, undo-snapshotted,
+           and the persistence lint now watches the sprite model. Renderers not started.
 since: 2026-09-13T10:25
 
 ## SPRITELAB OUTPUT — bake, merge, frame export, roll reorder (2026-09-13 day session)

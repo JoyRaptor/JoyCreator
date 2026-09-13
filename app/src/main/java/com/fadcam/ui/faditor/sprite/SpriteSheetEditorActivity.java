@@ -867,9 +867,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             @Override public void beforeTextChanged(CharSequence c, int a2, int b2, int c2) {}
             @Override public void onTextChanged(CharSequence c, int a2, int b2, int c2) {}
             @Override public void afterTextChanged(Editable e) {
+                ensureCell(cell);              // so the name has somewhere to live
                 sheet.setCellName(cell, e.toString());
-                SpriteSheet.Cell meta = ensureCell(cell);
-                meta.name = e.toString().trim();
                 markDirty();
                 gridView.refresh();
             }
@@ -994,7 +993,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             preview.invalidate();
         });
         bgSwatch.setOnLongClickListener(v -> {
-            new android.app.AlertDialog.Builder(this)
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle("Preview background")
                     .setItems(BG_NAMES, (dl, which) -> {
                         previewBg = which;
@@ -1087,7 +1086,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         row.setGravity(Gravity.CENTER);
         int pad = (int) (16 * d);
         row.setPadding(pad, pad, pad, pad);
-        final android.app.AlertDialog dlg = new android.app.AlertDialog.Builder(this)
+        final androidx.appcompat.app.AlertDialog dlg = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle(past ? "Past ghosts" : "Future ghosts")
                 .setView(row)
                 .setNegativeButton("Close", null)
@@ -1315,7 +1314,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         final EditText input = new EditText(this);
         input.setSingleLine(true);
         input.setText("clip" + (sheet.getPresets().size() + 1));
-        new android.app.AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Name this animation")
                 .setView(input)
                 .setPositiveButton("Save", (dl, w) -> {
@@ -1412,7 +1411,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             acts.addView(edit);
 
             TextView del = ichip("x", "Delete");
-            del.setOnClickListener(v -> new android.app.AlertDialog.Builder(this)
+            del.setOnClickListener(v -> new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                     .setTitle("Delete \u201c" + pick.name + "\u201d?")
                     .setPositiveButton("Delete", (dl, w) -> {
                         sheet.getPresets().remove(pick);
@@ -1462,7 +1461,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         fps.setText(String.valueOf((int) (pr.fps > 0 ? pr.fps : sheet.getFps())));
         box.addView(fps);
 
-        new android.app.AlertDialog.Builder(this)
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Edit clip")
                 .setView(box)
                 .setPositiveButton("Save", (dl, w) -> {
@@ -1498,11 +1497,86 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         benchBody.addView(g);
 
         TextView note = new TextView(this);
-        note.setText("Alignment is stored with the sheet, so nothing has to be baked here — "
+        note.setText("Alignment is stored with the sheet, so nothing has to be baked here \u2014 "
                 + "a nudge you make now travels into every project that uses this sheet.");
         note.setTextColor(SpriteTheme.DIMMER);
         note.setTextSize(10.5f);
         benchBody.addView(note);
+
+        buildJsonGroup();
+    }
+
+    /**
+     * What Joy Creator's assistant actually reads.
+     *
+     * <p>Naming a cell "surprised" is not a labelling nicety: it is the sentence the AI gets
+     * to use. Showing the JSON here is how the person doing the naming can SEE that the
+     * names, the visemes and the clips made it into the contract.</p>
+     */
+    private void buildJsonGroup() {
+        float d = density();
+        int named = sheet.getCellNames().size();
+        View g = group("json", SpriteTheme.ACCENT_GRID, "braces", "JSON",
+                count(named, "named cell") + " \u00b7 "
+                        + count(sheet.getVisemeMap().size(), "viseme") + " \u00b7 "
+                        + count(sheet.getPresets().size(), "animation"));
+        FlowLayout b = bodyOf(g);
+
+        final String json = prettyJson();
+        TextView box = new TextView(this);
+        box.setText(json);
+        box.setTextSize(9.5f);
+        box.setTypeface(Typeface.MONOSPACE);
+        box.setTextColor(SpriteTheme.DIM);
+        box.setBackground(pillBg(0xFF0B0B0E, SpriteTheme.LINE, d));
+        int p = (int) (8 * d);
+        box.setPadding(p, p, p, p);
+        box.setMaxLines(14);
+        box.setVerticalScrollBarEnabled(true);
+        box.setMovementMethod(new android.text.method.ScrollingMovementMethod());
+        b.addView(box, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (150 * d)));
+
+        TextView copy = ichip("braces", "Copy");
+        tintToggle(copy, true, SpriteTheme.ACCENT_GRID);
+        copy.setOnClickListener(v -> {
+            android.content.ClipboardManager cb =
+                    (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+            if (cb != null) {
+                cb.setPrimaryClip(android.content.ClipData.newPlainText("sprite.json", json));
+                Toast.makeText(this, "JSON copied", Toast.LENGTH_SHORT).show();
+            }
+        });
+        b.addView(copy);
+
+        benchBody.addView(g);
+
+        if (named == 0) {
+            TextView nudge = new TextView(this);
+            nudge.setText("No cell is named yet. A named cell is something the assistant can "
+                    + "ask for by name \u2014 \u201cmake him look surprised\u201d instead of "
+                    + "\u201cuse frame 3\u201d. Name them in Slice.");
+            nudge.setTextColor(SpriteTheme.DIMMER);
+            nudge.setTextSize(10.5f);
+            benchBody.addView(nudge);
+        }
+    }
+
+    /** "1 animation", not "1 animations". */
+    @NonNull
+    private static String count(int n, @NonNull String noun) {
+        return n + " " + noun + (n == 1 ? "" : "s");
+    }
+
+    /** Gson writes one long line; a human reading it on a phone needs the newlines. */
+    @NonNull
+    private String prettyJson() {
+        try {
+            return new com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                    .toJson(sheet.toJson());
+        } catch (RuntimeException e) {
+            return sheet.toJson().toString();
+        }
     }
 
     // ── the roll ─────────────────────────────────────────────────────────
@@ -1642,11 +1716,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     /** The name to put under a cell's chip: what it is called, or what number it is. */
     @NonNull
     private String cellLabel(int cell) {
-        String nm = sheet.cellName(cell);
-        if (nm == null || nm.isEmpty()) {
-            SpriteSheet.Cell m = sheet.cellAt(cell);
-            nm = m == null ? null : m.name;
-        }
+        String nm = sheet.cellName(cell);   // reconciles both name stores for us
         return nm == null || nm.isEmpty() ? ("cell " + cell) : nm;
     }
 
@@ -2154,7 +2224,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             in.setText(integral ? String.valueOf(Math.round(get.get()))
                                 : String.format(java.util.Locale.US, "%.2f", get.get()));
             in.setSelectAllOnFocus(true);
-            new android.app.AlertDialog.Builder(SpriteSheetEditorActivity.this)
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(SpriteSheetEditorActivity.this)
                     .setTitle(key.isEmpty() ? "Value" : key)
                     .setView(in)
                     .setPositiveButton("Set", (dl, w) -> {

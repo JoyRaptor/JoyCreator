@@ -117,8 +117,10 @@ public final class FaditorToolRegistry {
         add(t, "loop", R.id.tool_loop, R.id.tool_loop_icon, R.id.tool_loop_label,
                 ctx.getString(R.string.faditor_tool_loop), "loop",
                 FaditorTool.BindMode.CLICK, false);
+        // A running figure, not the overlapping-circles "animation" mark: JoyRaptor could not
+        // tell what that tool was from its icon, and sprite sheets are how a character MOVES.
         add(t, "sprites", R.id.tool_sprites, R.id.tool_sprites_icon, R.id.tool_sprites_label,
-                ctx.getString(R.string.faditor_tool_sprites), "animation",
+                ctx.getString(R.string.faditor_tool_sprites), "directions_run",
                 FaditorTool.BindMode.CLICK, false);
         // Adjust — open the effect stack for whatever is selected. The mark is the WORD "FX",
         // not a glyph: the icon font has nothing for the idea, and every near-miss borrowed

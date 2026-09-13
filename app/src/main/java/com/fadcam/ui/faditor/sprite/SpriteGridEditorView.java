@@ -226,13 +226,7 @@ public class SpriteGridEditorView extends View {
             canvas.drawText(String.valueOf(i), tl[0] + 3f * density,
                     br[1] - 3f * density, numPaint);
 
-            // Two stores, one meaning: the map is authoritative, the per-cell record is
-            // what older sheets carry. Reading only one left named cells looking unnamed.
-            String nm = sheet.cellName(i);
-            if (nm == null || nm.isEmpty()) {
-                SpriteSheet.Cell cm = sheet.cellAt(i);
-                nm = cm == null ? null : cm.name;
-            }
+            String nm = sheet.cellName(i);   // reconciles both name stores for us
             if (nm != null && !nm.isEmpty()) {
                 canvas.drawText(nm, br[0] - 3f * density, br[1] - 3f * density, namePaint);
             }

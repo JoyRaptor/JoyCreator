@@ -252,12 +252,11 @@ public class SpritePalettePanel extends FrameLayout {
                 callback.onDeleteKeyAtPlayhead(selected);
             }
         });
-        labBtn = chip("▦");
-        labBtn.setTextColor(SpriteTheme.ACCENT_GRID);
+        labBtn = ichip("grid", SpriteTheme.ACCENT_GRID);
         labBtn.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onOpenLab(selected);
         });
-        TextView close = chip("✕");
+        TextView close = ichip("x", SpriteTheme.DIM);
         close.setOnClickListener(v -> collapse());
         transport.addView(cellIndicator, ciLp);
         transport.addView(nudgeLeft, chipLp());
@@ -681,11 +680,11 @@ public class SpritePalettePanel extends FrameLayout {
             toggles.addView(spacer, new LinearLayout.LayoutParams(0, 1, 1f));
             // A TOGGLE, not a one-way door. It used to swap the palette out for the dope sheet
             // with no way back except a drag gesture nothing advertises.
-            TextView dope = chip("▤");
+            TextView dope = ichip("layers", SpriteTheme.DIM);
             if (dopeOpen) tint(dope, SpriteTheme.ACCENT_GRID);
             dope.setOnClickListener(v -> { dopeOpen = !dopeOpen; setDetent(detent); rebuild(); });
             toggles.addView(dope, chipLp());
-            TextView manage = chip("⚙");
+            TextView manage = ichip("gear", SpriteTheme.DIM);
             manage.setOnClickListener(v -> callback.onManageSheets());
             toggles.addView(manage, chipLp());
             contentArea.addView(toggles);
@@ -850,9 +849,15 @@ public class SpritePalettePanel extends FrameLayout {
         return SpriteTheme.LIVE;
     }
     /** Solid accent, dark ink — no half-opaque middle state anywhere in this package. */
-    private static void tint(@NonNull TextView v, int colour) {
-        v.setBackgroundColor(colour);
-        v.setTextColor(colour == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
+    private void tint(@NonNull TextView v, int colour) {
+        int ink = colour == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT;
+        v.setBackground(pill(colour, colour));
+        v.setTextColor(ink);
+        for (android.graphics.drawable.Drawable dr : v.getCompoundDrawables()) {
+            if (dr instanceof SpriteIcons.IconDrawable) {
+                ((SpriteIcons.IconDrawable) dr).setColour(ink);
+            }
+        }
     }
 
     /**
@@ -907,10 +912,40 @@ public class SpritePalettePanel extends FrameLayout {
     private TextView chip(@NonNull String text) {
         TextView t = new TextView(getContext());
         t.setText(text);
-        t.setTextColor(Color.WHITE);
-        t.setBackgroundColor(0xFF26262E);
+        t.setTextSize(11.5f);
+        t.setTextColor(SpriteTheme.INK);
+        t.setGravity(android.view.Gravity.CENTER);
+        t.setBackground(pill(SpriteTheme.CONTROL, SpriteTheme.LINE));
         int p = (int) (10 * density);
         t.setPadding(p, p / 2 + 2, p, p / 2 + 2);
+        t.setMinHeight((int) (28 * density));
+        return t;
+    }
+
+    /** The same pill the Lab uses, so a control means the same thing in both rooms. */
+    @NonNull
+    private android.graphics.drawable.GradientDrawable pill(int fill, int stroke) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setColor(fill);
+        g.setCornerRadius(SpriteTheme.RADIUS_PILL * density);
+        g.setStroke(Math.max(1, (int) density), stroke);
+        return g;
+    }
+
+    /**
+     * A chip whose face is one of the web design's icons.
+     *
+     * <p>Equal left and right padding with no minimum width, so the icon centres itself.</p>
+     */
+    @NonNull
+    private TextView ichip(@NonNull String icon, int colour) {
+        TextView t = chip("");
+        t.setCompoundDrawables(SpriteIcons.of(icon, colour, (int) (16 * density)),
+                null, null, null);
+        t.setCompoundDrawablePadding(0);
+        int p = (int) (8 * density);
+        t.setPadding(p, (int) (5 * density), p, (int) (5 * density));
         return t;
     }
 

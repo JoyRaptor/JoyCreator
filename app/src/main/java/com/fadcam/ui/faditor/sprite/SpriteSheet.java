@@ -280,7 +280,21 @@ public class SpriteSheet {
     @NonNull public java.util.Map<String, Integer> getVisemeMap() { return visemeMap; }
 
     /** The name of {@code cell}, or {@code null} when it has none. */
-    @Nullable public String cellName(int cell) { return cellNames.get(cell); }
+    /**
+     * What this cell is CALLED.
+     *
+     * <p>Two places can hold that: {@link #cellNames}, which is what the sidecar JSON and so
+     * the assistant read, and {@link Cell#name}, which is what sheets written by the older
+     * palette carry. The map wins, but a name that only exists on the cell still answers —
+     * a name the AI cannot see is the same as no name at all, and silently having one store
+     * disagree with the other is how "0 named" appeared over a sheet with named cells.</p>
+     */
+    @Nullable public String cellName(int cell) {
+        String n = cellNames.get(cell);
+        if (n != null && !n.isEmpty()) return n;
+        Cell c = cellAt(cell);
+        return c == null || c.name.isEmpty() ? null : c.name;
+    }
 
     /**
      * Name a cell, or clear the name with a null/blank value.
@@ -293,8 +307,14 @@ public class SpriteSheet {
         int count = Math.max(0, getCols() * getRows());
         if (isSequence()) count = frameUris.size();
         if (cell < 0 || cell >= count) return false;
-        if (name == null || name.trim().isEmpty()) cellNames.remove(cell);
-        else cellNames.put(cell, name.trim());
+        String trimmed = name == null ? "" : name.trim();
+        if (trimmed.isEmpty()) cellNames.remove(cell);
+        else cellNames.put(cell, trimmed);
+        // Keep the per-cell record in step. One call, both stores: a caller that updates only
+        // one of them is the bug this method exists to make impossible.
+        for (Cell c : cells) {
+            if (c.index == cell) { c.name = trimmed; break; }
+        }
         return true;
     }
 
@@ -586,6 +606,14 @@ public class SpriteSheet {
                     // Tolerant read: a hand-edited sidecar with a bad key loses that ONE name
                     // rather than the whole sheet.
                 }
+            }
+        }
+        // Sheets named by the older palette carry the name on the cell and nothing in the map,
+        // so the sidecar the assistant reads came out with no names at all. Migrate on load;
+        // the map wins where both exist.
+        for (Cell c : s.cells) {
+            if (!c.name.isEmpty() && !s.cellNames.containsKey(c.index)) {
+                s.cellNames.put(c.index, c.name);
             }
         }
         if (j.has("cellXf") && j.get("cellXf").isJsonObject()) {

@@ -3230,4 +3230,12 @@ to write", and dropped animations never counted.
 exactly as found. Two baked sheets could NOT be removed — there is no delete-a-sheet
 affordance anywhere in the app. Logged in INBOX; it is a real gap, not a tidying nit.
 
+**The morning's open question is answered, by the other lane.** Their LANES note (b670a8c7):
+an `adb install` from one lane kills the app the other has open, and logcat then says "app
+died, no saved state", which reads exactly like a crash. That is the unexplained process death
+I chased this morning and could not reproduce, and it is almost certainly where the cell name
+went: the Lab was holding unsaved work when the other lane installed. The debounced autosave
+added at ca52d34a is the right mitigation for a shared phone, and now it has a reason rather
+than a shrug. Two lanes, one device, is a hazard worth the line they added.
+
 Commits: d4ff2b6e - 00d15220

@@ -254,6 +254,76 @@ public class SpriteSheet {
         this.pivotX = clamp01(x);
         this.pivotY = clamp01(y);
     }
+    /**
+     * Display slot -> source cell. Empty means identity, which is every untouched sheet.
+     *
+     * <p><b>The one invariant in this class.</b> Everything a person attaches to a cell — its
+     * name, its alignment, its viseme, whether it is enabled — is keyed by the SOURCE cell,
+     * and every public accessor below takes a DISPLAY slot and maps through here. So moving a
+     * drawing moves all of that with it, which is what JoyRaptor asked for, and "Reset order"
+     * puts everything back because none of it was ever attached to the slot.</p>
+     *
+     * <p>What does NOT follow: a saved animation's frame list, and a FrameTrack key. Those are
+     * slot numbers, and that is the point of reordering — you rearrange the sheet so that
+     * playing 0,1,2,3 is the animation you meant.</p>
+     */
+    @NonNull private final List<Integer> cellOrder = new java.util.ArrayList<>();
+
+    /** The drawing shown in display slot {@code display}. */
+    public int sourceCell(int display) {
+        if (cellOrder.isEmpty() || display < 0 || display >= cellOrder.size()) return display;
+        Integer src = cellOrder.get(display);
+        return src == null ? display : src;
+    }
+
+    /** Which slot a drawing currently sits in. The inverse of {@link #sourceCell}. */
+    public int displaySlotOf(int source) {
+        if (cellOrder.isEmpty()) return source;
+        int at = cellOrder.indexOf(source);
+        return at < 0 ? source : at;
+    }
+
+    public boolean hasCustomOrder() { return !cellOrder.isEmpty(); }
+
+    /** Put every drawing back where it was drawn. Nothing else has to change. */
+    public void resetOrder() { cellOrder.clear(); }
+
+    /** Exchange two slots: A shows what B showed, and vice versa. */
+    public void swapCells(int a, int b) {
+        if (a == b) return;
+        ensureOrder();
+        if (a < 0 || b < 0 || a >= cellOrder.size() || b >= cellOrder.size()) return;
+        java.util.Collections.swap(cellOrder, a, b);
+        normaliseOrder();
+    }
+
+    /** Pull a drawing out and drop it in at {@code to}; everything between shuffles up. */
+    public void moveCell(int from, int to) {
+        if (from == to) return;
+        ensureOrder();
+        if (from < 0 || to < 0 || from >= cellOrder.size() || to >= cellOrder.size()) return;
+        cellOrder.add(to, cellOrder.remove(from));
+        normaliseOrder();
+    }
+
+    /** Materialise the identity order so it can be permuted. */
+    private void ensureOrder() {
+        int n = cellCount();
+        if (cellOrder.size() == n) return;
+        // A re-slice renumbers everything anyway, so an order for a different grid is noise.
+        cellOrder.clear();
+        for (int i = 0; i < n; i++) cellOrder.add(i);
+    }
+
+    /** An order that turned out to be identity is dropped, so the file round-trips unchanged. */
+    private void normaliseOrder() {
+        for (int i = 0; i < cellOrder.size(); i++) {
+            Integer v = cellOrder.get(i);
+            if (v == null || v != i) return;
+        }
+        cellOrder.clear();
+    }
+
     @NonNull public List<Cell> getCells() { return cells; }
     @NonNull public List<Preset> getPresets() { return presets; }
 
@@ -263,8 +333,8 @@ public class SpriteSheet {
     /** @see #cellXf */
     @NonNull public java.util.Map<Integer, CellXf> getCellTransforms() { return cellXf; }
 
-    /** The alignment of {@code cell}, or {@code null} when it has none (the common case). */
-    @Nullable public CellXf cellTransform(int cell) { return cellXf.get(cell); }
+    /** The alignment of the drawing in slot {@code cell}, or null when it has none. */
+    @Nullable public CellXf cellTransform(int cell) { return cellXf.get(sourceCell(cell)); }
 
     /**
      * Set or clear a cell's alignment. An identity transform is CLEARED rather than stored, so
@@ -272,8 +342,9 @@ public class SpriteSheet {
      */
     public void setCellTransform(int cell, @Nullable CellXf t) {
         if (cell < 0 || cell >= cellCount()) return;
-        if (t == null || t.isIdentity()) cellXf.remove(cell);
-        else cellXf.put(cell, t.copy());
+        int src = sourceCell(cell);
+        if (t == null || t.isIdentity()) cellXf.remove(src);
+        else cellXf.put(src, t.copy());
     }
 
     /** @see #visemeMap */
@@ -290,10 +361,26 @@ public class SpriteSheet {
      * disagree with the other is how "0 named" appeared over a sheet with named cells.</p>
      */
     @Nullable public String cellName(int cell) {
-        String n = cellNames.get(cell);
+        int src = sourceCell(cell);
+        String n = cellNames.get(src);
         if (n != null && !n.isEmpty()) return n;
         Cell c = cellAt(cell);
         return c == null || c.name.isEmpty() ? null : c.name;
+    }
+
+    /** The viseme the drawing in slot {@code cell} answers for, or null. */
+    @Nullable public String visemeOfCell(int cell) {
+        int src = sourceCell(cell);
+        for (java.util.Map.Entry<String, Integer> e : visemeMap.entrySet()) {
+            if (e.getValue() != null && e.getValue() == src) return e.getKey();
+        }
+        return null;
+    }
+
+    /** Point a viseme at the drawing in slot {@code cell}, or clear it with a negative cell. */
+    public void assignViseme(@NonNull String viseme, int cell) {
+        if (cell < 0) visemeMap.remove(viseme);
+        else visemeMap.put(viseme, sourceCell(cell));
     }
 
     /**
@@ -307,13 +394,14 @@ public class SpriteSheet {
         int count = Math.max(0, getCols() * getRows());
         if (isSequence()) count = frameUris.size();
         if (cell < 0 || cell >= count) return false;
+        int src = sourceCell(cell);
         String trimmed = name == null ? "" : name.trim();
-        if (trimmed.isEmpty()) cellNames.remove(cell);
-        else cellNames.put(cell, trimmed);
+        if (trimmed.isEmpty()) cellNames.remove(src);
+        else cellNames.put(src, trimmed);
         // Keep the per-cell record in step. One call, both stores: a caller that updates only
         // one of them is the bug this method exists to make impossible.
         for (Cell c : cells) {
-            if (c.index == cell) { c.name = trimmed; break; }
+            if (c.index == src) { c.name = trimmed; break; }
         }
         return true;
     }
@@ -435,7 +523,8 @@ public class SpriteSheet {
 
     @Nullable
     public Cell cellAt(int index) {
-        for (Cell c : cells) if (c.index == index) return c;
+        int src = sourceCell(index);
+        for (Cell c : cells) if (c.index == src) return c;
         return null;
     }
 
@@ -547,6 +636,11 @@ public class SpriteSheet {
             }
             if (vm.size() > 0) j.add("visemeMap", vm);
         }
+        if (!cellOrder.isEmpty()) {
+            JsonArray ord = new JsonArray();
+            for (Integer c : cellOrder) ord.add(c == null ? 0 : c);
+            j.add("cellOrder", ord);
+        }
         if (!cellNames.isEmpty()) {
             JsonObject names = new JsonObject();
             for (java.util.Map.Entry<Integer, String> e : cellNames.entrySet()) {
@@ -596,6 +690,17 @@ public class SpriteSheet {
                 if (cj.has("enabled")) c.enabled = cj.get("enabled").getAsBoolean();
                 s.cells.add(c);
             }
+        }
+        if (j.has("cellOrder") && j.get("cellOrder").isJsonArray()) {
+            JsonArray ord = j.getAsJsonArray("cellOrder");
+            for (int i = 0; i < ord.size(); i++) {
+                try {
+                    s.cellOrder.add(ord.get(i).getAsInt());
+                } catch (RuntimeException ignored) {
+                    // Tolerant read, same rule as the rest: one bad entry is not a dead sheet.
+                }
+            }
+            if (s.cellOrder.size() != s.cellCount()) s.cellOrder.clear();
         }
         if (j.has("cellNames") && j.get("cellNames").isJsonObject()) {
             JsonObject names = j.getAsJsonObject("cellNames");

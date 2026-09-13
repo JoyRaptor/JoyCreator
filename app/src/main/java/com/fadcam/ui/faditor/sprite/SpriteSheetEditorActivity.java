@@ -269,6 +269,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             @Override public void onCellTapped(int index) { onCellTappedInLab(index); }
             @Override public void onPivotChanged(float px, float py) { markDirty(); }
             @Override public void onColorPicked(int argb) { applyBgKey(argb); }
+            @Override public void onCellDragged(int from, int to) { reorderCells(from, to); }
         });
         root.addView(gridView, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -584,9 +585,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         playBtn.setOnClickListener(v -> togglePlay());
         row.addView(playBtn);
 
-        TextView prev = chip("◀");
+        TextView prev = ichip("prev");
         prev.setOnClickListener(v -> stepLab(-1));
-        TextView next = chip("▶");
+        TextView next = ichip("next");
         next.setOnClickListener(v -> stepLab(+1));
         row.addView(prev);
         row.addView(next);
@@ -747,6 +748,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // Every number pill belongs to the section that built it; keeping stale ones alive
         // would have syncControls poking at views that are no longer on screen.
         stepperSyncs.clear();
+        reorderBtns.clear();
+        // Arranging is a thing you do in Slice. Leaving with it still armed means the next
+        // drag on the sheet silently rearranges your work.
+        if (!"slice".equals(id) && gridView.getReorderMode() != SpriteGridEditorView.Reorder.OFF) {
+            gridView.setReorderMode(SpriteGridEditorView.Reorder.OFF);
+        }
         benchBody.removeAllViews();
         switch (id) {
             case "slice": buildSliceSection(); break;
@@ -931,12 +938,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         vLabel.setTextSize(10f);
         cb.addView(vLabel);
         for (String v : VISEMES) {
-            Integer assigned = sheet.getVisemeMap().get(v);
-            boolean on = assigned != null && assigned == cell;
+            boolean on = v.equals(sheet.visemeOfCell(cell));
             TextView vb = gchip(v, on, SpriteTheme.ACCENT_CELL);
             vb.setOnClickListener(x -> {
-                if (on) sheet.getVisemeMap().remove(v);
-                else sheet.getVisemeMap().put(v, cell);
+                sheet.assignViseme(v, on ? -1 : cell);
                 markDirty();
                 showSection("slice");
             });
@@ -990,6 +995,60 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         TextView many = ichip("tag", "Name many\u2026");
         many.setOnClickListener(v -> nameMany(Math.max(0, gridView.getSelectedCell())));
         b.addView(many);
+
+        // Arranging the sheet. While either is lit, dragging a cell moves the DRAWING rather
+        // than the view — and the name, the nudge and the viseme go with it.
+        LinearLayout modes = seg();
+        addReorder(modes, SpriteGridEditorView.Reorder.SWAP, "Swap");
+        addReorder(modes, SpriteGridEditorView.Reorder.RIPPLE, "Ripple");
+        space(modes, density(), 1);
+        syncReorder();
+        b.addView(modes);
+
+        if (sheet.hasCustomOrder()) {
+            TextView reset = ichip("undo", "Reset order");
+            reset.setOnClickListener(v -> {
+                sheet.resetOrder();
+                markDirty();
+                refreshArt();
+                showSection("slice");
+                Toast.makeText(this, "Every drawing is back where it started",
+                        Toast.LENGTH_SHORT).show();
+            });
+            b.addView(reset);
+        }
+    }
+
+    private final java.util.Map<SpriteGridEditorView.Reorder, TextView> reorderBtns =
+            new java.util.LinkedHashMap<>();
+
+    private void addReorder(@NonNull LinearLayout parent,
+                            @NonNull SpriteGridEditorView.Reorder mode, @NonNull String label) {
+        float d = density();
+        TextView b = new TextView(this);
+        b.setText(label);
+        b.setTextSize(11f);
+        b.setGravity(Gravity.CENTER);
+        b.setMinHeight((int) (24 * d));
+        b.setPadding((int) (10 * d), (int) (2 * d), (int) (10 * d), (int) (2 * d));
+        b.setOnClickListener(v -> {
+            gridView.setReorderMode(gridView.getReorderMode() == mode
+                    ? SpriteGridEditorView.Reorder.OFF : mode);
+            syncReorder();
+            if (gridView.getReorderMode() != SpriteGridEditorView.Reorder.OFF) {
+                Toast.makeText(this, "Drag a cell onto another one", Toast.LENGTH_SHORT).show();
+            }
+        });
+        reorderBtns.put(mode, b);
+        parent.addView(b);
+    }
+
+    private void syncReorder() {
+        for (java.util.Map.Entry<SpriteGridEditorView.Reorder, TextView> e
+                : reorderBtns.entrySet()) {
+            tintSeg(e.getValue(), gridView.getReorderMode() == e.getKey(),
+                    SpriteTheme.ACCENT_GRID);
+        }
     }
 
     /**
@@ -1456,7 +1515,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         View g = group("seq", SpriteTheme.ACCENT_SEQ, "layers", "Sequence",
                 labSeq.size() + " frames");
         FlowLayout b = bodyOf(g);
-        TextView add = chip("+ this cell");
+        TextView add = ichip("plus", "this cell");
         add.setOnClickListener(v -> {
             labSeq.add(new int[]{Math.max(0, gridView.getSelectedCell()), 1});
             labCur = labSeq.size() - 1;
@@ -2200,10 +2259,13 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 dot.setColor("loop".equals(preset.type) ? SpriteTheme.SELECTED
                         : "once".equals(preset.type) ? SpriteTheme.LIVE : SpriteTheme.ACCENT_CELL);
                 canvas.drawCircle(cx, cy, r, dot);
-                ink.setColor("once".equals(preset.type) ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
-                ink.setTextSize(r * 1.35f);
-                canvas.drawText("loop".equals(preset.type) ? "∞"
-                        : "once".equals(preset.type) ? "1" : "⇄", cx, cy + r * 0.5f, ink);
+                SpriteIcons.IconDrawable mark = SpriteIcons.of(
+                        SpritePalettePanel.endIcon(preset.type),
+                        "once".equals(preset.type) ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT,
+                        Math.round(r * 1.5f));
+                mark.setBounds(Math.round(cx - r * 0.75f), Math.round(cy - r * 0.75f),
+                        Math.round(cx + r * 0.75f), Math.round(cy + r * 0.75f));
+                mark.draw(canvas);
             }
         }
     }
@@ -2463,6 +2525,31 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         markDirty();
         gridView.refresh();
         if (preview != null) preview.invalidate();
+    }
+
+    /**
+     * A drawing was dragged to another slot.
+     *
+     * <p>Swap exchanges the two. Ripple pulls the drawing out and drops it in, shuffling
+     * everything between — which is what you want when a sheet is right except that one frame
+     * is in the wrong place.</p>
+     *
+     * <p>The name, the alignment, the viseme and the enabled flag travel with the drawing;
+     * that is JoyRaptor's ruling and it is why {@code SpriteSheet} keys them by the source
+     * cell and looks them up through the order.</p>
+     */
+    private void reorderCells(int from, int to) {
+        SpriteGridEditorView.Reorder mode = gridView.getReorderMode();
+        if (mode == SpriteGridEditorView.Reorder.OFF) return;
+        if (mode == SpriteGridEditorView.Reorder.SWAP) sheet.swapCells(from, to);
+        else sheet.moveCell(from, to);
+        markDirty();
+        gridView.setSelectedCell(to);
+        labSelected = to;
+        refreshArt();
+        gridView.refresh();
+        if (preview != null) preview.setCursor(to);
+        showSection(labSection);
     }
 
     /**

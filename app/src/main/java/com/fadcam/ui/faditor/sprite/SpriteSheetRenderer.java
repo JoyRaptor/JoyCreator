@@ -206,7 +206,10 @@ public final class SpriteSheetRenderer {
             if (b == null) b = bitmap;
             return new Rect(0, 0, b.getWidth(), b.getHeight());
         }
-        Rect src = cellRectSource(sheet, index, sourceWidth(), sourceHeight());
+        // The ONE place a display slot becomes a piece of art. Putting the order map here
+        // means preview, export, grid, film strip and drawer all reorder together, by
+        // construction, rather than by five call sites remembering to.
+        Rect src = cellRectSource(sheet, sheet.sourceCell(index), sourceWidth(), sourceHeight());
         return new Rect(Math.round(src.left / sample), Math.round(src.top / sample),
                 Math.round(src.right / sample), Math.round(src.bottom / sample));
     }

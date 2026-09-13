@@ -175,6 +175,38 @@ public final class SpriteIcons {
                 "M19 12H5",
                 "m11 6-6 6 6 6",
         });
+        STROKED.put("prev", new String[]{
+                "m14 6-6 6 6 6",
+        });
+        STROKED.put("next", new String[]{
+                "m10 6 6 6-6 6",
+        });
+        STROKED.put("trash", new String[]{
+                "M4 7h16",
+                "M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2",
+                "m6 7 1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13",
+                "M10 11v6M14 11v6",
+        });
+        STROKED.put("key", new String[]{
+                "m12 4 5 8-5 8-5-8Z",
+        });
+        STROKED.put("plus", new String[]{
+                "M12 5v14M5 12h14",
+        });
+        STROKED.put("dots", new String[]{
+                "M3.6 12A1.4 1.4 0 1 0 6.4 12A1.4 1.4 0 1 0 3.6 12Z",
+                "M10.6 12A1.4 1.4 0 1 0 13.4 12A1.4 1.4 0 1 0 10.6 12Z",
+                "M17.6 12A1.4 1.4 0 1 0 20.4 12A1.4 1.4 0 1 0 17.6 12Z",
+        });
+        STROKED.put("record", new String[]{
+                "M4 12A8 8 0 1 0 20 12A8 8 0 1 0 4 12Z",
+        });
+        FILLED.put("record", new String[]{
+                "M8.4 12A3.6 3.6 0 1 0 15.6 12A3.6 3.6 0 1 0 8.4 12Z",
+        });
+        STROKED.put("stop", new String[]{
+                "M8 6H16A2 2 0 0 1 18 8V16A2 2 0 0 1 16 18H8A2 2 0 0 1 6 16V8A2 2 0 0 1 8 6Z",
+        });
         STROKED.put("run", new String[]{
                 "M13 4.5A2 2 0 1 0 17 4.5A2 2 0 1 0 13 4.5Z",
                 "M13.5 21l1.5-5-3-2.5 1-5.5 3.5 2 2.5 1",

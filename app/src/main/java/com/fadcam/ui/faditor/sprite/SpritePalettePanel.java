@@ -174,7 +174,14 @@ public class SpritePalettePanel extends FrameLayout {
 
         panel = new LinearLayout(ctx);
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(0xF2141419);
+        // The design's drawer: rounded at the top only, on the scrim token — translucent on
+        // purpose so the video keeps playing underneath while you noodle (SpriteTheme rule 2).
+        android.graphics.drawable.GradientDrawable panelBg =
+                new android.graphics.drawable.GradientDrawable();
+        panelBg.setColor(SpriteTheme.DRAWER_SCRIM);
+        float r = SpriteTheme.RADIUS_CARD * density;
+        panelBg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        panel.setBackground(panelBg);
         panel.setOnClickListener(v -> { /* consume — don't scrim-close */ });
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -186,9 +193,13 @@ public class SpritePalettePanel extends FrameLayout {
         grip.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int) (18 * density)));
         View gripLine = new View(ctx);
-        gripLine.setBackgroundColor(0xFF666666);
+        android.graphics.drawable.GradientDrawable gripBg =
+                new android.graphics.drawable.GradientDrawable();
+        gripBg.setColor(0xFF52525B);
+        gripBg.setCornerRadius(2 * density);
+        gripLine.setBackground(gripBg);
         FrameLayout.LayoutParams gl = new FrameLayout.LayoutParams(
-                (int) (40 * density), (int) (4 * density));
+                (int) (36 * density), (int) (4 * density));
         gl.gravity = Gravity.CENTER;
         grip.addView(gripLine, gl);
         panel.addView(grip);
@@ -235,23 +246,36 @@ public class SpritePalettePanel extends FrameLayout {
         // Keyframe cluster: previous · delete · next. The glyphs are a matched pair now —
         // the old ◄k / k► were two different arrow shapes AND read as "jump to keyframe"
         // while actually nudging one.
-        nudgeLeft = chip("◂K");
+        // One pill holding three buttons, the design's `.kf`: step back, the key itself,
+        // step forward. Three separate pills read as three unrelated controls.
+        LinearLayout kf = new LinearLayout(ctx);
+        kf.setOrientation(LinearLayout.HORIZONTAL);
+        kf.setGravity(Gravity.CENTER_VERTICAL);
+        kf.setBackground(pill(SpriteTheme.CONTROL, SpriteTheme.LINE));
+        int kfp = (int) (2 * density);
+        kf.setPadding(kfp, kfp, kfp, kfp);
+
+        nudgeLeft = segIcon("prev");
         nudgeLeft.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onNudgeKey(selected, -1);
         });
-        nudgeRight = chip("K▸");
+        nudgeRight = segIcon("next");
         nudgeRight.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onNudgeKey(selected, +1);
         });
         // Always PRESENT, lit only when the playhead is actually on a key. Hiding it made the
         // row jump; greying it answers "will this delete my object or my keyframe" before the
         // question is asked.
-        deleteKey = chip("🗑");
+        deleteKey = segIcon("trash");
         deleteKey.setOnClickListener(v -> {
             if (callback != null && selected != null && isOnKey()) {
                 callback.onDeleteKeyAtPlayhead(selected);
             }
         });
+        kf.addView(nudgeLeft);
+        kf.addView(deleteKey);
+        kf.addView(nudgeRight);
+
         labBtn = ichip("grid", SpriteTheme.ACCENT_GRID);
         labBtn.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onOpenLab(selected);
@@ -259,9 +283,7 @@ public class SpritePalettePanel extends FrameLayout {
         TextView close = ichip("x", SpriteTheme.DIM);
         close.setOnClickListener(v -> collapse());
         transport.addView(cellIndicator, ciLp);
-        transport.addView(nudgeLeft, chipLp());
-        transport.addView(deleteKey, chipLp());
-        transport.addView(nudgeRight, chipLp());
+        transport.addView(kf, chipLp());
         transport.addView(labBtn, chipLp());
         transport.addView(close, chipLp());
         panel.addView(transport);
@@ -615,10 +637,7 @@ public class SpritePalettePanel extends FrameLayout {
                 SpriteOverlayItem it = items.get(i);
                 SpriteSheet sh = callback.lookupSheet(it.getSheetId());
                 TextView ic = chip((sh != null ? sh.getName() : "?") + " " + (i + 1));
-                if (it == selected) {
-                    ic.setBackgroundColor(SpriteTheme.ACCENT_CELL);
-                    ic.setTextColor(SpriteTheme.ON_ACCENT);
-                }
+                if (it == selected) tint(ic, SpriteTheme.ACCENT_CELL);
                 ic.setOnClickListener(v -> {
                     selected = it;
                     if (callback != null) callback.onInstanceSelected(it);
@@ -644,13 +663,15 @@ public class SpritePalettePanel extends FrameLayout {
             toggles.setOrientation(LinearLayout.HORIZONTAL);
             toggles.setGravity(Gravity.CENTER_VERTICAL);
             toggles.setPadding(pad, pad / 2, pad, pad);
-            TextView fh = chip(getContext().getString(R.string.avatar_studio_flip_h));
+            // Icon-only, as the design draws them: the words cost a third of the row and the
+            // mark says it faster than "Flip H" does.
+            TextView fh = ichip("fliph", SpriteTheme.DIM);
             if (selected.isFlipH()) tint(fh, SpriteTheme.SELECTED);
             fh.setOnClickListener(v -> callback.onFlipH(selected));
-            TextView fv = chip(getContext().getString(R.string.avatar_studio_flip_v));
+            TextView fv = ichip("flipv", SpriteTheme.DIM);
             if (selected.isFlipV()) tint(fv, SpriteTheme.SELECTED);
             fv.setOnClickListener(v -> callback.onFlipV(selected));
-            TextView eb = chip(endGlyph(selected.getEndBehavior()));
+            TextView eb = ichip(endIcon(selected.getEndBehavior()), SpriteTheme.DIM);
             tint(eb, endColour(selected.getEndBehavior()));
             eb.setOnClickListener(v -> callback.onEndBehaviorCycled(selected));
             toggles.addView(fh, chipLp());
@@ -659,12 +680,14 @@ public class SpritePalettePanel extends FrameLayout {
 
             if (selected.getAvatarRigId() != null) {
                 boolean rec = callback.isRecordingPerformance(selected);
-                TextView perf = chip(rec ? "⏺ Stop" : "🎯 Record");
-                if (rec) perf.setBackgroundColor(0xFF5C1B1B);
-                else if (selected.hasAvatarPerformance()) perf.setBackgroundColor(0xFF1B4A3B);
+                TextView perf = ichip(rec ? "stop" : "record", SpriteTheme.DIM);
+                // setBackgroundColor would flatten the pill back into a square. Recording is
+                // pink because it IS the live state; a performance already on tape is green.
+                if (rec) tint(perf, SpriteTheme.LIVE);
+                else if (selected.hasAvatarPerformance()) tint(perf, SpriteTheme.ACCENT_OUT);
                 perf.setOnClickListener(v -> callback.onRecordPerformance(selected));
                 toggles.addView(perf, chipLp());
-                TextView sweep = chip("🎬 From video");
+                TextView sweep = ichip("film", SpriteTheme.DIM);
                 sweep.setOnClickListener(v -> callback.onSweepFromVideo(selected));
                 toggles.addView(sweep, chipLp());
             }
@@ -672,7 +695,7 @@ public class SpritePalettePanel extends FrameLayout {
             // Overflow. The whole-track stampers used to sit on this row as three words;
             // they are rare and they were crowding out the chips, but dropping a working
             // feature to tidy a row is not a trade anyone asked for.
-            TextView more = chip("⋯");
+            TextView more = ichip("dots", SpriteTheme.DIM);
             more.setOnClickListener(v -> showTrackMenu(more));
             toggles.addView(more, chipLp());
 
@@ -766,28 +789,39 @@ public class SpritePalettePanel extends FrameLayout {
         LinearLayout box = new LinearLayout(getContext());
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER_HORIZONTAL);
+        // A CARD, the design's `.ch`: the art sits on a surface with a name and a sub-line
+        // under it. Floating art on the drawer's own background is the whole reason this
+        // panel read as unfinished next to the mockup.
+        android.graphics.drawable.GradientDrawable card =
+                new android.graphics.drawable.GradientDrawable();
+        card.setColor(SpriteTheme.CONTROL);
+        card.setCornerRadius(9 * density);
+        card.setStroke((int) (2 * density), 0x00000000);
+        box.setBackground(card);
+        int cp = (int) (2 * density);
+        box.setPadding(cp, cp, cp, cp);
 
         AnimChipView art = new AnimChipView(getContext(), renderer, preset, cellIndex);
-        box.addView(art, new LinearLayout.LayoutParams(thumb, thumb));
+        box.addView(art, new LinearLayout.LayoutParams(thumb, (int) (thumb * 0.72f)));
         if (preset != null) { animChips.add(art); art.start(); }
 
         TextView top = new TextView(getContext());
         top.setTextColor(name != null && !name.isEmpty() ? 0xFFFFFFFF : SpriteTheme.DIM);
-        top.setTextSize(10f);
+        top.setTextSize(8.5f);
+        top.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         top.setGravity(Gravity.CENTER);
         top.setMaxLines(1);
+        top.setEllipsize(android.text.TextUtils.TruncateAt.END);
         top.setText(name != null && !name.isEmpty() ? name : sub);
         box.addView(top, new LinearLayout.LayoutParams(thumb, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        if (name != null && !name.isEmpty()) {
-            TextView bottom = new TextView(getContext());
-            bottom.setTextColor(SpriteTheme.DIMMER);
-            bottom.setTextSize(8.5f);
-            bottom.setGravity(Gravity.CENTER);
-            bottom.setMaxLines(1);
-            bottom.setText(sub);
-            box.addView(bottom, new LinearLayout.LayoutParams(thumb, ViewGroup.LayoutParams.WRAP_CONTENT));
-        }
+        TextView bottom = new TextView(getContext());
+        bottom.setTextColor(SpriteTheme.DIMMER);
+        bottom.setTextSize(7.5f);
+        bottom.setGravity(Gravity.CENTER);
+        bottom.setMaxLines(1);
+        bottom.setText(name != null && !name.isEmpty() ? sub : " ");
+        box.addView(bottom, new LinearLayout.LayoutParams(thumb, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         box.setOnClickListener(v -> {
             if (callback == null || selected == null) return;
@@ -815,7 +849,7 @@ public class SpritePalettePanel extends FrameLayout {
         menu.getMenu().add(0, 2, 1, "Ping-pong all cells");
         menu.getMenu().add(0, 3, 2, "Hold this cell");
         menu.getMenu().add(0, 4, 3, keyCount >= 2
-                ? "★ Save these " + keyCount + " keys as an animation"
+                ? "Save these " + keyCount + " keys as an animation"
                 : "Save as animation (needs 2+ keys)").setEnabled(keyCount >= 2);
         menu.setOnMenuItemClickListener(mi -> {
             if (callback == null) return false;
@@ -836,7 +870,15 @@ public class SpritePalettePanel extends FrameLayout {
         menu.show();
     }
 
-    /** Loop / ping-pong / once, as one glyph. */
+    /** Loop / ping-pong / once, as the design's own mark. */
+    @NonNull
+    static String endIcon(@Nullable String behavior) {
+        if ("loop".equals(behavior)) return "loop";
+        if ("pingpong".equals(behavior)) return "ping";
+        return "once";
+    }
+
+    /** Loop / ping-pong / once, as one glyph. Kept for menu text, which cannot take a path. */
     @NonNull
     private static String endGlyph(@Nullable String behavior) {
         if ("loop".equals(behavior)) return "∞";
@@ -882,10 +924,17 @@ public class SpritePalettePanel extends FrameLayout {
     /** "cell 3 idle @ 0:04.2" style live readout for the selected sprite. */
     private void syncIndicator() {
         // Lit only when there is actually a key under the playhead to delete.
+        // Pink when there IS a key under the playhead to delete, plain grey when there is
+        // not. No half-opacity: a faded control does not tell you whether it will do anything.
         boolean armed = isOnKey();
-        deleteKey.setAlpha(armed ? 1f : 0.32f);
-        if (armed) { deleteKey.setBackgroundColor(SpriteTheme.LIVE); deleteKey.setTextColor(0xFFFFFFFF); }
-        else { deleteKey.setBackgroundColor(SpriteTheme.CONTROL); deleteKey.setTextColor(SpriteTheme.DIMMER); }
+        deleteKey.setBackground(pill(armed ? SpriteTheme.LIVE : 0x00000000, 0x00000000));
+        int keyInk = armed ? 0xFFFFFFFF : SpriteTheme.DIMMER;
+        deleteKey.setTextColor(keyInk);
+        for (android.graphics.drawable.Drawable dr : deleteKey.getCompoundDrawables()) {
+            if (dr instanceof SpriteIcons.IconDrawable) {
+                ((SpriteIcons.IconDrawable) dr).setColour(keyInk);
+            }
+        }
 
         if (selected == null || callback == null) {
             cellIndicator.setText("");
@@ -949,6 +998,21 @@ public class SpritePalettePanel extends FrameLayout {
         return t;
     }
 
+    /** A borderless button that lives inside a segmented pill. */
+    @NonNull
+    private TextView segIcon(@NonNull String icon) {
+        TextView t = new TextView(getContext());
+        t.setGravity(android.view.Gravity.CENTER);
+        t.setMinHeight((int) (24 * density));
+        t.setCompoundDrawables(SpriteIcons.of(icon, SpriteTheme.DIM, (int) (15 * density)),
+                null, null, null);
+        t.setCompoundDrawablePadding(0);
+        int p = (int) (9 * density);
+        t.setPadding(p, (int) (2 * density), p, (int) (2 * density));
+        t.setBackground(pill(0x00000000, 0x00000000));
+        return t;
+    }
+
     private LinearLayout.LayoutParams chipLp() {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -980,7 +1044,6 @@ public class SpritePalettePanel extends FrameLayout {
             this.renderer = renderer;
             this.preset = preset;
             this.cellIndex = cellIndex;
-            setBackgroundColor(SpriteTheme.CONTROL);
             dotInk.setColor(SpriteTheme.ON_ACCENT);
             dotInk.setTextAlign(Paint.Align.CENTER);
             dotInk.setFakeBoldText(true);
@@ -1027,14 +1090,16 @@ public class SpritePalettePanel extends FrameLayout {
                 // The one visual difference: a mode dot saying how this animation wraps.
                 float r = Math.min(getWidth(), getHeight()) * 0.16f;
                 float cx = getWidth() - r - 2, cy = getHeight() - r - 2;
-                dot.setColor("loop".equals(preset.type) ? SpriteTheme.SELECTED
-                        : "once".equals(preset.type) ? SpriteTheme.LIVE : SpriteTheme.ACCENT_CELL);
+                int face = "loop".equals(preset.type) ? SpriteTheme.SELECTED
+                        : "once".equals(preset.type) ? SpriteTheme.LIVE : SpriteTheme.ACCENT_CELL;
+                dot.setColor(face);
                 canvas.drawCircle(cx, cy, r, dot);
-                dotInk.setColor("once".equals(preset.type) ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
-                dotInk.setTextSize(r * 1.3f);
-                String g = "loop".equals(preset.type) ? "∞"
-                        : "once".equals(preset.type) ? "1" : "⇄";
-                canvas.drawText(g, cx, cy + r * 0.48f, dotInk);
+                SpriteIcons.IconDrawable mark = SpriteIcons.of(endIcon(preset.type),
+                        face == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT,
+                        Math.round(r * 1.5f));
+                mark.setBounds(Math.round(cx - r * 0.75f), Math.round(cy - r * 0.75f),
+                        Math.round(cx + r * 0.75f), Math.round(cy + r * 0.75f));
+                mark.draw(canvas);
             }
         }
     }

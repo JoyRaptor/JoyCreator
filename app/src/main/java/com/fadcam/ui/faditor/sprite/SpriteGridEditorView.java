@@ -31,7 +31,12 @@ public class SpriteGridEditorView extends View {
         void onPivotChanged(float pivotX, float pivotY);
         /** S2b: a tap while color-pick mode is armed sampled this sheet pixel. */
         default void onColorPicked(int argb) {}
+        /** A drawing was dragged from one slot to another while a reorder mode was on. */
+        default void onCellDragged(int from, int to) {}
     }
+
+    /** How a drag rearranges the sheet, or {@link #OFF} for pan and tap as usual. */
+    public enum Reorder { OFF, SWAP, RIPPLE }
 
     @Nullable private SpriteSheet sheet;
     @Nullable private SpriteSheetRenderer renderer;
@@ -59,6 +64,7 @@ public class SpriteGridEditorView extends View {
     private final Paint visPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint badgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint badgeInk = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint dropPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF badgeBox = new RectF();
     private final float density = getResources().getDisplayMetrics().density;
 
@@ -80,6 +86,18 @@ public class SpriteGridEditorView extends View {
     public boolean isShowGrid() { return showGrid; }
     public void setShowLabels(boolean on) { showLabels = on; invalidate(); }
     public boolean isShowLabels() { return showLabels; }
+
+    @NonNull private Reorder reorder = Reorder.OFF;
+    private int dragFrom = -1, dragOver = -1;
+    private float dragX, dragY;
+
+    public void setReorderMode(@NonNull Reorder m) {
+        reorder = m;
+        dragFrom = dragOver = -1;
+        invalidate();
+    }
+
+    @NonNull public Reorder getReorderMode() { return reorder; }
 
     /** Flag these cells with an amber dot, or pass null to stop flagging. */
     public void setSuspect(@Nullable java.util.Set<Integer> cells) {
@@ -109,6 +127,8 @@ public class SpriteGridEditorView extends View {
         visPaint.setColor(SpriteTheme.ACCENT_CELL);
         visPaint.setTextSize(8.5f * density);
         visPaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        dropPaint.setStyle(Paint.Style.STROKE);
+        dropPaint.setStrokeWidth(3f * density);
         badgeInk.setTextSize(9.5f * density);
         badgeInk.setTextAlign(Paint.Align.CENTER);
         badgeInk.setFakeBoldText(true);
@@ -271,7 +291,7 @@ public class SpriteGridEditorView extends View {
             if (nm != null && !nm.isEmpty()) {
                 canvas.drawText(nm, br[0] - 3f * density, br[1] - 3f * density, namePaint);
             }
-            String vis = visemeOf(i);
+            String vis = sheet.visemeOfCell(i);
             if (vis != null) {
                 canvas.drawText(vis, tl[0] + 3f * density, tl[1] + 10f * density, visPaint);
             }
@@ -289,6 +309,28 @@ public class SpriteGridEditorView extends View {
             }
         }
 
+        // The drag: the slot you are over lights amber, and the drawing itself rides the
+        // finger. Without the drawing under your thumb this is a guess, not a drag.
+        if (dragFrom >= 0 && dragOver >= 0) {
+            Rect tr = SpriteSheetRenderer.cellRectSource(
+                    sheet, dragOver, renderer.sourceWidth(), renderer.sourceHeight());
+            RectF trf = new RectF(tr);
+            viewMatrix.mapRect(trf);
+            dropPaint.setColor(SpriteTheme.WARN);
+            canvas.drawRect(trf, dropPaint);
+        }
+        if (dragFrom >= 0) {
+            Rect fr = SpriteSheetRenderer.cellRectSource(
+                    sheet, dragFrom, renderer.sourceWidth(), renderer.sourceHeight());
+            RectF ff = new RectF(fr);
+            viewMatrix.mapRect(ff);
+            float half = Math.min(ff.width(), ff.height()) * 0.5f;
+            RectF at = new RectF(dragX - half, dragY - half, dragX + half, dragY + half);
+            renderer.drawCell(canvas, dragFrom, at, bmpPaint);
+            dropPaint.setColor(SpriteTheme.WARN);
+            canvas.drawRect(at, dropPaint);
+        }
+
         // Pivot crosshair inside the selected cell (sheet-level pivot, 0..1 of a cell).
         float[] pt = new float[2];
         if (selectedCell >= 0) {
@@ -301,16 +343,6 @@ public class SpriteGridEditorView extends View {
             canvas.drawLine(pt[0] - rad * 1.4f, pt[1], pt[0] + rad * 1.4f, pt[1], pivotPaint);
             canvas.drawLine(pt[0], pt[1] - rad * 1.4f, pt[0], pt[1] + rad * 1.4f, pivotPaint);
         }
-    }
-
-    /** The viseme this cell answers for, if any. A cell may hold an expression AND a mouth. */
-    @Nullable
-    private String visemeOf(int cell) {
-        if (sheet == null) return null;
-        for (java.util.Map.Entry<String, Integer> e : sheet.getVisemeMap().entrySet()) {
-            if (e.getValue() != null && e.getValue() == cell) return e.getKey();
-        }
-        return null;
     }
 
     private void fitToView() {
@@ -336,11 +368,21 @@ public class SpriteGridEditorView extends View {
                 lastY = downY = y;
                 maybeTap = true;
                 draggingPivot = pivotMode && selectedCell >= 0 && isInSelectedCell(x, y);
+                dragFrom = reorder == Reorder.OFF ? -1 : cellAtPoint(x, y);
+                dragOver = -1;
+                dragX = x; dragY = y;
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
             case MotionEvent.ACTION_MOVE:
                 if (Math.abs(x - downX) > touchSlop || Math.abs(y - downY) > touchSlop) maybeTap = false;
-                if (draggingPivot) {
+                if (dragFrom >= 0) {
+                    // Panning is off while a reorder mode is armed. The mode is explicit and
+                    // temporary, and a drag that sometimes moves art and sometimes moves the
+                    // view is the kind of control you stop trusting.
+                    dragX = x; dragY = y;
+                    dragOver = cellAtPoint(x, y);
+                    invalidate();
+                } else if (draggingPivot) {
                     updatePivotFromTouch(x, y);
                 } else if (!maybeTap) {
                     viewMatrix.postTranslate(x - lastX, y - lastY);
@@ -349,11 +391,20 @@ public class SpriteGridEditorView extends View {
                 lastX = x; lastY = y;
                 return true;
             case MotionEvent.ACTION_UP:
-                if (maybeTap) handleTap(x, y);
+                if (dragFrom >= 0 && !maybeTap && dragOver >= 0 && dragOver != dragFrom
+                        && listener != null) {
+                    listener.onCellDragged(dragFrom, dragOver);
+                } else if (maybeTap) {
+                    handleTap(x, y);
+                }
+                dragFrom = dragOver = -1;
                 draggingPivot = false;
+                invalidate();
                 return true;
             case MotionEvent.ACTION_CANCEL:
+                dragFrom = dragOver = -1;
                 draggingPivot = false;
+                invalidate();
                 return true;
         }
         return super.onTouchEvent(e);
@@ -384,6 +435,19 @@ public class SpriteGridEditorView extends View {
         sheet.setPivot(px, py);
         if (listener != null) listener.onPivotChanged(sheet.getPivotX(), sheet.getPivotY());
         invalidate();
+    }
+
+    /** The display slot under a view-space point, or -1. */
+    private int cellAtPoint(float vx, float vy) {
+        if (renderer == null || sheet == null) return -1;
+        float[] p = new float[2];
+        if (!toSource(vx, vy, p)) return -1;
+        for (int i = 0; i < sheet.cellCount(); i++) {
+            Rect r = SpriteSheetRenderer.cellRectSource(
+                    sheet, i, renderer.sourceWidth(), renderer.sourceHeight());
+            if (r.contains(Math.round(p[0]), Math.round(p[1]))) return i;
+        }
+        return -1;
     }
 
     private void handleTap(float vx, float vy) {

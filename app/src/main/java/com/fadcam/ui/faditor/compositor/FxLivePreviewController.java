@@ -772,34 +772,39 @@ public final class FxLivePreviewController {
         // frame. ImageBlendGlEffect states the same z caveat from the other side, and it is why
         // going through GL is opt-in rather than the path every image takes.
         java.util.Set<String> glOwned = new java.util.HashSet<>();
-        for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) {
-            FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
-            if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
-            // SPEC E mesh: enrich the flat Pip with a stamp snapshot (deep spec copy + unfolded
-            // animated placement). wantsGlExport already routes bent images here via hasMesh; the
-            // GL thread then stamps via the shared MeshStampGl and composites as identity, so
-            // blend/mask/key/FX/adjustment ride unchanged. Null keeps the flat path (identity,
-            // undecoded, or non-image) — byte-identical for every project without a bend.
-            FxPreviewTextureView.Pip mp = withMeshInputs(o, p, playheadMs, size, timeline);
-            if (mp != null) p = mp;
-            rungs.add(FxPreviewTextureView.Rung.pip(p));
-            glOwned.add(o.getId());
-        }
-        // ── SPRITES THAT BELONG TO THE COMPOSITE ────────────────────────────────────────────
-        // JoyRaptor, 2026-09-13: "We need sprites to be GL so that they interact with the other
-        // layers properly for blending modes, masks, and adjustment layers."
-        //
-        // A sprite painted by its Canvas view sits OVER this surface, so a blend above it samples
-        // the video instead of the sprite, a mask cannot cut it and an adjustment layer cannot
-        // grade it. Drawn here it is INSIDE the composite and all three work — which is why the
-        // answer was never a nicer Canvas warp.
-        //
-        // The comment a few hundred lines up says text and sprites "have no preview rasterizer".
-        // That was true when it was written and is not now: OverlayTextureCache.rasterizeSprite
-        // exists, and the same cache the below-blend path already uses serves this one.
         java.util.Set<String> glSprites = new java.util.HashSet<>();
+        // ONE WALK, IN LANE ORDER — images and sprites interleaved, not one type after the other.
+        //
+        // These were two loops: every GL image, then every GL sprite. That is TYPE order, and it
+        // disagreed with the export, which emits both at true lane z (ZA lane, finding 2). The
+        // visible cost was a blend above a bent sprite sampling the sprite in the FILE and the
+        // video on SCREEN — the same class of preview/export split as the blue-rect bug, still
+        // live. Membership is by id because glImages is asked of the PROJECT rather than of the
+        // playhead (see its doc); the per-frame "is it visible" answer stays where it was, in
+        // imagePipFor/spritePip returning null.
+        java.util.Set<String> glImageIds = new java.util.HashSet<>();
+        for (com.fadcam.ui.faditor.model.TextOverlayItem o : glImages) glImageIds.add(o.getId());
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
+            com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
+            if (o != null && glImageIds.contains(o.getId())) {
+                FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
+                if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
+                // SPEC E mesh: enrich the flat Pip with a stamp snapshot (deep spec copy +
+                // unfolded animated placement). wantsGlExport already routes bent images here via
+                // hasMesh; the GL thread then stamps via the shared MeshStampGl and composites as
+                // identity, so blend/mask/key/FX/adjustment ride unchanged. Null keeps the flat
+                // path — byte-identical for every project without a bend.
+                FxPreviewTextureView.Pip mp = withMeshInputs(o, p, playheadMs, size, timeline);
+                if (mp != null) p = mp;
+                rungs.add(FxPreviewTextureView.Rung.pip(p));
+                glOwned.add(o.getId());
+                continue;
+            }
+            // SPRITES THAT BELONG TO THE COMPOSITE. A sprite painted by its Canvas view sits OVER
+            // this surface, so a blend above it samples the video instead of the sprite, a mask
+            // cannot cut it and an adjustment layer cannot grade it. Drawn here it is INSIDE the
+            // composite and all three work.
             com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp = v.item.getSprite();
             if (sp == null || !sp.wantsGl() || !sp.isVisibleAt(playheadMs)) continue;
             FxPreviewTextureView.Pip p = spritePip(sp, playheadMs, size);

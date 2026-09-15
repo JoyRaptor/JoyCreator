@@ -261,6 +261,25 @@ public final class ObjectDrawer extends LinearLayout {
     public void setOnClose(@Nullable Runnable r) { this.onClose = r; }
 
     /**
+     * Called after the visible tab changes — on {@link #show} and on every switch.
+     *
+     * <p>Added for puppeteering, which is the first tab whose content lives OUTSIDE the drawer:
+     * the pins are on the picture, so something has to know when to put them up and when to take
+     * them down. Without it the pins would survive a switch to Mask and contend for touch with
+     * the handle overlays, which is exactly the several-views-one-hit-test bug this project has
+     * already paid for once.
+     */
+    public void setOnTabChanged(@Nullable Runnable r) { this.onTabChanged = r; }
+
+    @Nullable private Runnable onTabChanged;
+
+    /** The title of the tab showing right now, or null when the drawer is empty. */
+    @Nullable
+    public String currentTabTitle() {
+        return (activeTab >= 0 && activeTab < tabs.size()) ? tabs.get(activeTab).title : null;
+    }
+
+    /**
      * Told the height this drawer occupies, so the host can move the picture out from under it.
      *
      * <p>The drawer is an overlay on the root {@code FrameLayout}: nothing reflows when it
@@ -380,6 +399,7 @@ public final class ObjectDrawer extends LinearLayout {
         contentHost.addView(wrap(tabs.get(0).content.build(getContext())));
         titleView.setText(tabs.get(0).title);
         refreshIcons();
+        if (onTabChanged != null) onTabChanged.run();
         if (getVisibility() != VISIBLE) {
             setVisibility(VISIBLE);
             // Slide down from above its own height — the drawer arrives from off-screen top,
@@ -445,6 +465,10 @@ public final class ObjectDrawer extends LinearLayout {
     }
 
     public void hide() {
+        // Announce first: a tab-driven overlay (the puppet pins) has to come
+        // down with the drawer, not linger over the picture with nothing to
+        // explain it.
+        if (onTabChanged != null) onTabChanged.run();
         if (getVisibility() != VISIBLE) return;
         // Give the picture back its space on the way out, not after — the two animations run
         // together so the video rises as the drawer leaves rather than jumping when it lands.
@@ -599,6 +623,7 @@ public final class ObjectDrawer extends LinearLayout {
                 .withEndAction(() -> {
                     animating = false;
                     activeTab = target;
+                    if (onTabChanged != null) onTabChanged.run();
                     refreshIcons();
                     // The one report for this tab switch — reportHeight stays silent for the
                     // whole animation so the preview makes a single move, not sixty.

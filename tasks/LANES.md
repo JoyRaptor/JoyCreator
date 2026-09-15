@@ -719,7 +719,11 @@ files: tasks/SPEC_20260915_PUPPET_UI.md
        app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java     (2 lines: a rig field)
        app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java    (2 sites: write/read "puppet")
        app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java     (1 site: showImageOverlayDrawer)
-NOT touching: transform/mesh/** (the other lane), ObjectDrawer.java (not needed at all —
+       app/src/main/java/com/fadcam/ui/faditor/tools/ObjectDrawer.java (5 additive lines:
+               a tab-changed listener + currentTabTitle — the pins live on the PICTURE, so
+               something has to know when to put them up and take them down)
+NOT touching: transform/mesh/** (the other lane). (Earlier note said ObjectDrawer needed no
+       change at all —
        the Puppet tab is supplied BY the activity as an ObjectDrawer.Tab, so the drawer
        chrome needs no change). The three shared files above take ADDITIVE edits only —
        a new field, a new JSON member written only when non-null, one new Tab appended.

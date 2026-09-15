@@ -30714,6 +30714,141 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
     }
 
+    @Nullable private com.fadcam.ui.faditor.puppet.PuppetOverlayView puppetOverlay;
+    /** The overlay the pins are currently drawn over, so the view can be handed the right rect. */
+    @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem puppetItem;
+
+    /**
+     * Put the pins up while the PUPPET tab is showing, and take them down otherwise.
+     *
+     * <p>Mutual exclusion is the whole point. {@code TransformOverlayView}'s doc records what
+     * happens when several sibling overlays each hit-test: the topmost claims every touch and the
+     * things underneath become ungrabbable. So while the pins are up the ordinary handle surfaces
+     * are hidden, and they come straight back when the tab changes or the drawer closes.
+     */
+    private void syncPuppetOverlay(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        boolean want = o != null && objectDrawer != null && objectDrawer.isShowing()
+                && "Puppet".equals(objectDrawer.currentTabTitle());
+        if (!want) {
+            if (puppetOverlay != null) puppetOverlay.setVisibility(View.GONE);
+            puppetItem = null;
+            if (previewHandlesOverlay != null) previewHandlesOverlay.setVisibility(View.VISIBLE);
+            return;
+        }
+        puppetItem = o;
+        com.fadcam.ui.faditor.puppet.PuppetOverlayView v = ensurePuppetOverlay();
+        v.setVisibility(View.VISIBLE);
+        v.bringToFront();
+        v.refresh();
+        // One reader of MotionEvent at a time.
+        if (previewHandlesOverlay != null) previewHandlesOverlay.setVisibility(View.GONE);
+        if (transformOverlay != null) transformOverlay.setVisibility(View.GONE);
+    }
+
+    @NonNull
+    private com.fadcam.ui.faditor.puppet.PuppetOverlayView ensurePuppetOverlay() {
+        if (puppetOverlay == null) {
+            puppetOverlay = new com.fadcam.ui.faditor.puppet.PuppetOverlayView(this);
+            android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+            playerContainer.addView(puppetOverlay,
+                    new android.widget.FrameLayout.LayoutParams(
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                            android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            // The same 9dp plane the transform surface sits on. They are never both visible, so
+            // they never contend for it -- the rule PREVIEW_STACK_DP already relies on.
+            float dd = getResources().getDisplayMetrics().density;
+            puppetOverlay.setElevation(9.0f * dd);
+            puppetOverlay.setOutlineProvider(null);
+            puppetOverlay.setHost(new com.fadcam.ui.faditor.puppet.PuppetOverlayView.Host() {
+                @NonNull @Override
+                public com.fadcam.ui.faditor.puppet.PuppetRig rig() {
+                    com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+                    return it != null ? it.getOrCreatePuppet()
+                            : new com.fadcam.ui.faditor.puppet.PuppetRig();
+                }
+
+                @Override public boolean readRect(@NonNull android.graphics.RectF out) {
+                    return readPuppetItemRect(puppetItem, out);
+                }
+
+                @Override public int selectedPin() { return puppetSelectedPin; }
+                @Override public void setSelectedPin(int index) { puppetSelectedPin = index; }
+
+                @NonNull @Override
+                public com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool tool() {
+                    switch (puppetTool) {
+                        case PIN: return com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool.PIN;
+                        case STIFF: return com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool.STIFF;
+                        case DANGLE: return com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool.DANGLE;
+                        case FREE: return com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool.FREE;
+                        case BONE: return com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool.BONE;
+                        default: return com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool.GRAB;
+                    }
+                }
+
+                @Override public void onRigChanged() {
+                    // The drawer's rows depend on the selection and the pin count, and row 1
+                    // APPEARS on the first pin -- so a placement has to rebuild them.
+                    if (objectDrawer != null && objectDrawer.isShowing()) {
+                        objectDrawer.refreshCurrentTab();
+                    }
+                    scheduleAutoSave();
+                }
+
+                @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                                 @NonNull Runnable undo) {
+                    undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+                }
+
+                @Override public boolean previewIsSmall() {
+                    // The badge would dominate the popped-out shell, so it hides there. Checked
+                    // rather than assumed: PreviewPipController promotes the whole preview into
+                    // a pipW-wide floating window.
+                    return previewPip != null && previewPip.isPromoted();
+                }
+            });
+            applyPreviewStackElevations();
+        }
+        return puppetOverlay;
+    }
+
+    /**
+     * The overlay item's box, in the puppet overlay's own pixels.
+     *
+     * <p>Found by the tag the overlay layer already puts on each child ({@code getTag() == o}),
+     * then mapped through window coordinates so it does not matter which container the view
+     * happens to live in.
+     *
+     * <p><b>Axis-aligned for now.</b> A rotated image reports its upright bounding box, so pins on
+     * a rotated overlay will sit slightly off. The honest fix is the object's QUAD, which
+     * {@code TransformQuad} already computes -- worth doing before anyone rigs a rotated picture,
+     * and called out here rather than discovered on a phone.
+     */
+    private boolean readPuppetItemRect(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                       @NonNull android.graphics.RectF out) {
+        if (o == null || puppetOverlay == null) return false;
+        View found = null;
+        com.fadcam.ui.faditor.overlay.TextOverlayLayer[] layers = {overlayLayer, overlayLayerBelow};
+        for (com.fadcam.ui.faditor.overlay.TextOverlayLayer layer : layers) {
+            if (layer == null) continue;
+            for (int i = 0; i < layer.getChildCount(); i++) {
+                if (layer.getChildAt(i).getTag() == o) { found = layer.getChildAt(i); break; }
+            }
+            if (found != null) break;
+        }
+        if (found == null || found.getWidth() <= 0 || found.getHeight() <= 0) return false;
+
+        int[] a = new int[2], b = new int[2];
+        found.getLocationInWindow(a);
+        puppetOverlay.getLocationInWindow(b);
+        float w = found.getWidth() * found.getScaleX();
+        float h = found.getHeight() * found.getScaleY();
+        // getLocationInWindow reports the SCALED top-left, so the box is that corner plus the
+        // scaled size -- no second scale correction, which is the easy mistake here.
+        out.set(a[0] - b[0], a[1] - b[1], a[0] - b[0] + w, a[1] - b[1] + h);
+        return out.width() > 1f && out.height() > 1f;
+    }
+
     // ── SPEC_20260915_PUPPET_UI: the Puppet tab's UI state ───────────────────────────────
     // Selection, armed tool and open scope live HERE rather than in PuppetDrawerTabs because the
     // drawer rebuilds its content on every change; a field inside the tab would throw the user
@@ -30857,6 +30992,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Puppet", R.drawable.ic_person_24,                        // TODO(strings)
                 ctx -> com.fadcam.ui.faditor.tools.PuppetDrawerTabs.build(
                         ctx, puppetHostFor(o, applyComp))));
+
+        // The pins live on the PICTURE, so the drawer has to say when its tab comes and goes.
+        // Posted because the drawer announces the change before its own layout settles, and the
+        // pin rect is read from the overlay view's laid-out bounds.
+        objectDrawer.setOnTabChanged(() -> objectDrawer.post(() -> syncPuppetOverlay(o)));
 
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();

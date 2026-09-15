@@ -54,6 +54,20 @@ public final class PuppetPin {
         FREE
     }
 
+    // ── where it sits ────────────────────────────────────────────────────
+
+    /**
+     * REST POSITION in the object's own unit space — origin top-left, 1 at the far edge, the
+     * space every mesh handle already lives in.
+     *
+     * <p>This is the AUTHORED position, not the animated one. The pose track holds the offsets
+     * that move a pin over time; this is where it sits when nothing is animating it, and it is
+     * what {@code PuppetTopology} is built from. Dragging a pin with no recording in progress
+     * moves THIS — which is rigging. Dragging while recording moves the track — which is
+     * performing. Two different things, deliberately stored apart.
+     */
+    public float restX, restY;
+
     // ── identity ─────────────────────────────────────────────────────────
 
     public String name;
@@ -120,6 +134,8 @@ public final class PuppetPin {
     
     public PuppetPin copy() {
         PuppetPin p = new PuppetPin(name, type);
+        p.restX = restX;
+        p.restY = restY;
         p.nameIsMine = nameIsMine;
         p.muted = muted;
         p.stiffArea = stiffArea;

@@ -197,6 +197,8 @@ public final class PuppetRig {
      */
     public int addPin(PuppetPin.Type type, float ux, float uy) {
         PuppetPin p = new PuppetPin(PuppetPin.suggestName(ux, uy, takenNames()), type);
+        p.restX = ux;
+        p.restY = uy;
         pins.add(p);
         return pins.size() - 1;
     }

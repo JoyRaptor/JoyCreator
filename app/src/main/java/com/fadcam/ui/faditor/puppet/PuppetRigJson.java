@@ -62,6 +62,9 @@ public final class PuppetRigJson {
             JsonObject pj = new JsonObject();
             pj.addProperty(K_NAME, p.name);
             pj.addProperty(K_TYPE, p.type.name());
+            // Always written, never omitted: a pin without a position is not a pin.
+            pj.addProperty("x", p.restX);
+            pj.addProperty("y", p.restY);
             if (p.nameIsMine) pj.addProperty(K_MINE, true);
             if (p.muted) pj.addProperty(K_MUTED, true);
             if (!p.weightIsAuto()) pj.addProperty(K_WEIGHT, p.weight);
@@ -142,7 +145,7 @@ public final class PuppetRigJson {
             PuppetPin.Type type = typeOf(str(pj, K_TYPE, "FREE"));
             // addPin names by region; the stored name overwrites it straight after, so a file
             // that somehow lost a name still opens with a sensible one rather than a blank.
-            int idx = rig.addPin(type, 0.5f, 0.5f);
+            int idx = rig.addPin(type, num(pj, "x", 0.5f), num(pj, "y", 0.5f));
             PuppetPin p = rig.pin(idx);
             String n = str(pj, K_NAME, null);
             if (n != null && !n.trim().isEmpty()) p.name = n;

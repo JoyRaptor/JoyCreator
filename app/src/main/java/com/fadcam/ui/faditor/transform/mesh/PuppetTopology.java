@@ -44,6 +44,9 @@ public final class PuppetTopology implements MeshTopology {
     private final int contourCount;    // derived
     private final int stamp;
 
+    /** Lazily derived; see {@link #weights()} for why a plain volatile is enough here. */
+    private volatile PuppetWeights weights;
+
     /**
      * @param ring     the simplified contour from {@link AlphaContour}
      * @param interior interior seeding density (see {@link PuppetTriangulator#triangulate})
@@ -151,6 +154,27 @@ public final class PuppetTopology implements MeshTopology {
     @Override
     public float handleRestY(int i) {
         return (i < 0 || i * 2 + 1 >= pins.length) ? 0f : pins[i * 2 + 1];
+    }
+
+    /**
+     * The bind-time weight table — which pin moves which vertex, measured ACROSS THE BODY.
+     *
+     * <p>Built on first ask and then held forever, which is safe precisely because a topology is
+     * immutable: the pins are structure, so <b>moving a pin builds a new topology</b> and this
+     * never goes stale. A pose, which is not structure, cannot touch it.
+     *
+     * <p>The race between two threads asking at once is benign — both compute the same table from
+     * the same immutable inputs and one wins — so this costs no lock on the render path.
+     *
+     * @return null when there are no pins; the deformer is then the identity anyway
+     */
+    public PuppetWeights weights() {
+        PuppetWeights w = weights;
+        if (w == null && pins.length >= 2) {
+            w = PuppetWeights.build(verts, indices, pins);
+            weights = w;
+        }
+        return w;
     }
 
     /** How many vertices came from the contour; the rest are interior. Diagnostics and tests. */

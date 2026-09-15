@@ -22,9 +22,17 @@ import java.util.List;
  *
  * <p>So the guard is structural rather than a rule someone has to remember:</p>
  * <ul>
- *   <li><b>The only write is {@link #put}, and it takes the whole pose.</b> There is no API here
- *       that can address a single handle at a single time. Fifty separate writes are not
- *       discouraged, they are <i>unrepresentable</i>.</li>
+ *   <li><b>Every write stores a whole pose.</b> {@link #put} takes one; {@link #putComponents} and
+ *       {@link #putHandle} name a few components and fill the rest from the value the track was
+ *       already producing at that instant. Either way the unit of storage is the pose, so fifty
+ *       independently-timed per-handle key lists are not discouraged, they are
+ *       <i>unrepresentable</i>.
+ *       <p><i>Amended 2026-09-15.</i> This file used to say there was no API that could address a
+ *       single handle — true, and right for a lattice dot, but wrong for a puppet pin, which is
+ *       named, selectable and individually performable. Without a per-pin write, live overdub is
+ *       impossible: recording pin B erases pin A. The guard that actually mattered was never
+ *       "one write per gesture", it was "one pose per instant", and that one still holds
+ *       absolutely.</p></li>
  *   <li><b>One pose is one diamond.</b> {@link #times} returns one entry per pose — the single
  *       "Shape" diamond the design promised, at every level and for every topology.</li>
  *   <li><b>Every pose shares the track's arity.</b> {@link #put} refuses an array of the wrong
@@ -140,6 +148,149 @@ public final class MeshPoseTrack {
         poses.add(new Pose(timeMs, values.clone(), easingName));
         sort();
         return true;
+    }
+
+    /**
+     * Write SOME components at {@code timeMs}, leaving every other handle exactly as the animation
+     * already had it. This is what makes live overdub possible.
+     *
+     * <h3>Why this does not break the one-diamond rule above</h3>
+     * <p>It still writes a whole pose — it just fills the components nobody named from
+     * {@link #valueAt}, the value the track was already producing at that instant. So:
+     * <ul>
+     *   <li><b>Recording pin B does not erase pin A.</b> Pin A keeps the value it was interpolating
+     *       to, rather than snapping to zero, which is the bug a naive whole-pose write causes and
+     *       the reason section 5.1 of the UI spec asked for this.</li>
+     *   <li><b>One pose is still one diamond and one undo.</b> There is no per-handle storage and
+     *       therefore no per-handle key times to fall out of step — see {@link #simplifyRange}.</li>
+     *   <li><b>A chain is written atomically</b> by naming all of its components in one call. The
+     *       limb cannot tear between two half-written pins because there is no instant at which it
+     *       is half-written.</li>
+     * </ul>
+     *
+     * <p>Seeding from the interpolated value is also section 5.5's "anchor in": a punch-in inherits
+     * the existing animated value, so the in-point never jumps.
+     *
+     * @param componentIndices indices into the pose — for a topology with two components per handle
+     *                         that is {@code handle*2} and {@code handle*2+1}
+     * @param values           one value per named index, in the same order
+     * @return false when the arrays disagree or an index is out of range; nothing is written
+     */
+    public boolean putComponents(long timeMs, int[] componentIndices, float[] values,
+                                 String easingName) {
+        if (componentIndices == null || values == null) return false;
+        if (componentIndices.length != values.length) return false;
+        for (int idx : componentIndices) {
+            if (idx < 0 || idx >= arity) return false;
+        }
+        float[] pose = new float[arity];
+        // An empty track seeds zeros, which is the identity pose for every deformer in the family.
+        valueAt(timeMs, pose);
+        for (int k = 0; k < componentIndices.length; k++) pose[componentIndices[k]] = values[k];
+        return put(timeMs, pose, easingName);
+    }
+
+    /**
+     * One handle, at one time. Thin wrapper over {@link #putComponents} — the caller supplies
+     * {@code MeshTopology.handleComponents()} because this file deliberately knows nothing about
+     * topologies.
+     */
+    public boolean putHandle(long timeMs, int handleIndex, int componentsPerHandle,
+                             float[] handleValues, String easingName) {
+        if (handleValues == null || componentsPerHandle <= 0) return false;
+        if (handleValues.length != componentsPerHandle) return false;
+        int[] idx = new int[componentsPerHandle];
+        for (int c = 0; c < componentsPerHandle; c++) idx[c] = handleIndex * componentsPerHandle + c;
+        return putComponents(timeMs, idx, handleValues, easingName);
+    }
+
+    /**
+     * The instants at which the named components actually carry information — the tape for one pin,
+     * or for one chain.
+     *
+     * <p>Derived, never stored. A pose counts for these components when dropping it would move
+     * them by more than {@code tolerance}; a pose written while recording a different pin
+     * therefore does NOT show up as a key on this pin's tape, even though it is a real pose.
+     *
+     * <p>The ends always count: they are where a value starts and stops being held.
+     */
+    public long[] componentTimes(int[] componentIndices, float tolerance) {
+        if (componentIndices == null || componentIndices.length == 0 || poses.size() == 0) {
+            return new long[0];
+        }
+        int n = poses.size();
+        if (n <= 2) return times();
+        java.util.ArrayList<Long> out = new java.util.ArrayList<>();
+        out.add(poses.get(0).timeMs);
+        for (int i = 1; i < n - 1; i++) {
+            if (componentError(i - 1, i, i + 1, componentIndices) > tolerance) {
+                out.add(poses.get(i).timeMs);
+            }
+        }
+        out.add(poses.get(n - 1).timeMs);
+        long[] t = new long[out.size()];
+        for (int i = 0; i < t.length; i++) t[i] = out.get(i);
+        return t;
+    }
+
+    /**
+     * Thin the poses in {@code [fromMs, toMs]}, greedily dropping the least-informative one until
+     * dropping another would move some component by more than {@code tolerance}.
+     *
+     * <h3>A chain simplifies on ONE set of key times, and this is why</h3>
+     * <p>Section 5.2 of the UI spec warns that thinning each pin of an arm independently lands its
+     * keys at different instants, after which the chain solves to a different shape between them
+     * and the limb wobbles. That failure is <b>unrepresentable</b> here: the unit of storage is the
+     * pose, so a pose is either kept for everyone or dropped for everyone. The error test below is
+     * a MAXIMUM over every component, so a pose that matters to the wrist is kept for the elbow
+     * too, at the same instant, by construction rather than by discipline.
+     *
+     * <p>Poses outside the range are never touched — a take covers part of a timeline.
+     *
+     * @return how many poses were removed
+     */
+    public int simplifyRange(long fromMs, long toMs, float tolerance) {
+        if (tolerance < 0f || poses.size() <= 2) return 0;
+        int[] all = new int[arity];
+        for (int i = 0; i < arity; i++) all[i] = i;
+        int removed = 0;
+        while (true) {
+            int best = -1;
+            float bestErr = Float.MAX_VALUE;
+            for (int i = 1; i < poses.size() - 1; i++) {
+                long t = poses.get(i).timeMs;
+                if (t < fromMs || t > toMs) continue;
+                // A pose that an animation preset owns is not ours to thin away.
+                if (poses.get(i).presetOwned) continue;
+                float err = componentError(i - 1, i, i + 1, all);
+                if (err < bestErr) { bestErr = err; best = i; }
+            }
+            if (best < 0 || bestErr > tolerance) break;
+            poses.remove(best);
+            removed++;
+            if (poses.size() <= 2) break;
+        }
+        return removed;
+    }
+
+    /**
+     * How far the named components would move if pose {@code mid} were dropped and the span
+     * {@code left..right} interpolated straight through. The easing is deliberately ignored here:
+     * this asks about the SHAPE of the data, and a hold curve would otherwise report every pose as
+     * indispensable.
+     */
+    private float componentError(int left, int mid, int right, int[] componentIndices) {
+        Pose a = poses.get(left), m = poses.get(mid), b = poses.get(right);
+        long span = b.timeMs - a.timeMs;
+        float t = span <= 0 ? 0f : (m.timeMs - a.timeMs) / (float) span;
+        float worst = 0f;
+        for (int idx : componentIndices) {
+            if (idx < 0 || idx >= arity) continue;
+            float lerped = a.values[idx] + (b.values[idx] - a.values[idx]) * t;
+            float err = Math.abs(m.values[idx] - lerped);
+            if (err > worst) worst = err;
+        }
+        return worst;
     }
 
     public void removeAt(long timeMs) {

@@ -50,6 +50,21 @@ public final class MeshTopologies {
                 new DeformerFactory() {
                     @Override public MeshDeformer create() { return new LatticeDeformer(); }
                 });
+
+        // Puppeteering, and it really is the two lines this file's own doc promised. Nothing above
+        // or below changed: the spec serialises a puppet, the pose track keyframes its pins, the
+        // guard refuses its folded triangles and the engine drives it, all without knowing what a
+        // puppet is. A malformed params array returns null rather than throwing, so a project
+        // written by a newer build opens with that one object un-deformed.
+        register(PuppetTopology.KIND,
+                new Factory() {
+                    @Override public MeshTopology create(float[] params) {
+                        return PuppetTopology.fromParams(params);
+                    }
+                },
+                new DeformerFactory() {
+                    @Override public MeshDeformer create() { return new PuppetDeformer(); }
+                });
     }
 
     public static void register(String kind, Factory topology, DeformerFactory deformer) {

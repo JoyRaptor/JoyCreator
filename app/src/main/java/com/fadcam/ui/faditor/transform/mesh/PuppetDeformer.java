@@ -19,6 +19,13 @@ package com.fadcam.ui.faditor.transform.mesh;
  * Similarity is kept as the fallback for the one degenerate case where rigid has no answer (see
  * {@link #solve}), because falling back to a slightly-wrong pose beats refusing to draw.
  *
+ * <h3>Where the weights come from</h3>
+ * <p>{@link PuppetWeights}, when the topology has a table — distance measured ALONG THE MESH, so a
+ * pin cannot pull a body part it is merely touching. Straight-line {@code 1/d^2} remains the
+ * fallback and is what runs for a topology with no table. Swapping the two changes no pose maths:
+ * rigid MLS is invariant to a global scaling of the weights, so a normalised table and an
+ * unnormalised falloff produce the same answer wherever the distances agree.
+ *
  * <h3>Cost, which is the thing the spec asked to be measured</h3>
  * <p>O(vertices x pins) per solve, no matrix inversion, no iteration — that is the whole reason
  * MLS was chosen over ARAP, which needs a sparse linear solve per frame. Roughly 30 floating-point
@@ -41,6 +48,20 @@ public final class PuppetDeformer implements MeshDeformer {
 
     /** Nearer than this to a pin and the vertex simply IS the pin — avoids dividing by zero. */
     private static final float SNAP = 1e-8f;
+
+    private final boolean geodesicWeights;
+
+    /** The shipping solver: distance measured across the body. */
+    public PuppetDeformer() { this(true); }
+
+    /**
+     * @param geodesicWeights false forces the straight-line falloff this file shipped with. It
+     *                        exists so the A/B in {@code PuppetWeightsTest} can MEASURE the
+     *                        difference section 4 of the UI spec claims, rather than assert it —
+     *                        and so there is a one-word escape hatch if a table ever misbehaves on
+     *                        a shape nobody anticipated.
+     */
+    public PuppetDeformer(boolean geodesicWeights) { this.geodesicWeights = geodesicWeights; }
 
     @Override
     public boolean supports(MeshTopology topology) {
@@ -120,21 +141,39 @@ public final class PuppetDeformer implements MeshDeformer {
 
         float[] w = new float[pinCount];
 
+        // The bind-time table, when the topology has one. It measures distance ACROSS THE BODY
+        // rather than through the air, which is the difference between an arm that bends and two
+        // hands that drag each other because they happen to be touching (SPEC_20260915 §4).
+        // Null is legal and means straight-line, which is the behaviour this file shipped with.
+        final PuppetWeights table = geodesicWeights ? topo.weights() : null;
+        final boolean useTable = table != null
+                && table.vertexCount() == n && table.pinCount() == pinCount;
+
         for (int v = 0; v < n; v++) {
             final float vx = rest[v * 2], vy = rest[v * 2 + 1];
 
             // ── weights, with the coincident-pin escape ────────────────────────────────────
             int snapped = -1;
             float wsum = 0f;
-            for (int i = 0; i < pinCount; i++) {
-                float dx = px[i] - vx, dy = py[i] - vy;
-                float d2 = dx * dx + dy * dy;
-                if (d2 < SNAP) { snapped = i; break; }
-                // w = 1/d^(2a); with a=1 that is simply 1/d2, which avoids a pow per pin per
-                // vertex — the inner loop of the whole feature.
-                float wi = ALPHA == 1.0f ? 1f / d2 : (float) (1.0 / Math.pow(d2, ALPHA));
-                w[i] = wi;
-                wsum += wi;
+            if (useTable) {
+                table.row(v, w);
+                // The table is already normalised, and a one-hot row is exactly the case the
+                // straight-line path calls "snapped": the vertex sits on that pin.
+                for (int i = 0; i < pinCount; i++) {
+                    wsum += w[i];
+                    if (w[i] >= 1f) snapped = i;
+                }
+            } else {
+                for (int i = 0; i < pinCount; i++) {
+                    float dx = px[i] - vx, dy = py[i] - vy;
+                    float d2 = dx * dx + dy * dy;
+                    if (d2 < SNAP) { snapped = i; break; }
+                    // w = 1/d^(2a); with a=1 that is simply 1/d2, which avoids a pow per pin per
+                    // vertex — the inner loop of the whole feature.
+                    float wi = ALPHA == 1.0f ? 1f / d2 : (float) (1.0 / Math.pow(d2, ALPHA));
+                    w[i] = wi;
+                    wsum += wi;
+                }
             }
             if (snapped >= 0) {
                 // The vertex sits exactly on a pin: it goes exactly where that pin went. Any

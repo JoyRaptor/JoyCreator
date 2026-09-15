@@ -799,18 +799,49 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     // this type, not about the seam. Same rule as everywhere else: a capability is offered only
     // when both surfaces can draw it.
 
+    /**
+     * ONE MESH FIELD, TWO SYSTEMS — and Bend must only ever see its own.
+     *
+     * <p>An item has a single {@code mesh}, and two different features write it: the lattice BEND
+     * authored here, and a PUPPET rig built from the artwork's own outline. They are not
+     * variations of each other. A lattice is a regular grid of nudges over the whole picture; a
+     * puppet is a triangulation of the silhouette driven by named pins.
+     *
+     * <p>Forwarding {@code getMesh()} blindly meant that rigging a picture switched the BEND tool
+     * on: the ring lit up, the entry point said "Bend on", and the net drew the PUPPET's pins as
+     * bend dots — the same circles, in slightly the wrong places, because a lattice handle is
+     * inset from the edge and a puppet pin is wherever the user put it. JoyRaptor, 2026-09-15:
+     * <i>"I find it strange that it seems to be reusing the same circles from one to another."</i>
+     * It was not a resemblance. They were literally the same handles.
+     *
+     * <p>So this seam is blind to a puppet mesh, and {@link #supportsBend} turns Bend OFF for a
+     * rigged picture rather than letting one tool quietly overwrite the other's work. A picture
+     * is bent by hand OR rigged as a puppet; the storage only has room for one answer, and
+     * pretending otherwise is how a user loses a rig to a stray tap on a ring.
+     */
+    private boolean meshIsPuppet() {
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m = item.getMesh();
+        return m != null && m.topology()
+                instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology;
+    }
+
     @NonNull
     private final MeshBendSeam bend = new MeshBendSeam(new MeshBendSeam.Owner() {
         @Override public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec getMesh() {
-            return item.getMesh();
+            return meshIsPuppet() ? null : item.getMesh();
         }
         @Override public void setMesh(
-                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) { item.setMesh(m); }
+                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
+            // Refuse rather than clobber: a bend written over a rig would throw away every pin,
+            // bone and name with no warning and no undo entry that mentions it.
+            if (meshIsPuppet()) return;
+            item.setMesh(m);
+        }
         @Override public void installMeshCurve() { item.installMeshCurve(); }
         @Override public long meshLocalTime(long timelineMs) {
             return item.meshLocalTime(timelineMs);
         }
-        @Override public boolean hasMesh() { return item.hasMesh(); }
+        @Override public boolean hasMesh() { return !meshIsPuppet() && item.hasMesh(); }
         @Override public boolean isArmed() { return item.isArmed(); }
     }, this::now, this::onChangedRun);
 
@@ -818,7 +849,7 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     private void onChangedRun() { onChanged.run(); }
 
     @Override
-    public boolean supportsBend() { return item.isImage(); }
+    public boolean supportsBend() { return item.isImage() && !meshIsPuppet(); }
 
     @Override
     public boolean hasBend() { return bend.hasBend(); }

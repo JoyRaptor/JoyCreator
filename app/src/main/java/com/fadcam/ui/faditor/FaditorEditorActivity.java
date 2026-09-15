@@ -30755,6 +30755,85 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (puppetWorkingRig.pinCount() == 0) return;
         it.setPuppet(puppetWorkingRig);
         puppetWorkingRig = null;
+        // The rig only becomes a MESH once it belongs to the item — before that there is nothing
+        // to hang the triangles on.
+        rebuildPuppetMesh(it);
+    }
+
+    /** The pose a bend gesture started from — the ONE snapshot it will undo to. */
+    @Nullable private float[] puppetPoseBefore;
+
+    /**
+     * The live handle array of the puppet item's mesh, or null when it has none.
+     *
+     * <p>Handed out LIVE and written in place on purpose: the spec, the preview renderer and the
+     * exporter all read this same array, so replacing it would leave two of them pointing at the
+     * old one and the picture would bend in the editor and not in the file.
+     */
+    @Nullable
+    private float[] puppetHandles() {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (it == null || it.getMesh() == null) return null;
+        if (!(it.getMesh().topology()
+                instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) {
+            return null;
+        }
+        return it.getMesh().handles();
+    }
+
+    private static float clampPuppetComponent(float v) {
+        if (Float.isNaN(v)) return 0f;
+        return Math.max(-8f, Math.min(8f, v));
+    }
+
+    /** Re-run the compositing the same way the image drawer's own applyComp does. */
+    private void repaintPuppetPicture() {
+        refreshAfterMarqueeBatchDelete();
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+        if (puppetOverlay != null) puppetOverlay.refresh();
+    }
+
+    /**
+     * TURN THE RIG INTO SOMETHING THAT BENDS.
+     *
+     * <p>Called when pins are added, removed or re-placed — never while one is being POSED, which
+     * is the whole reason the rest position and the offset are stored apart. Tracing and
+     * triangulating a picture is not something to do sixty times a second under a finger.
+     *
+     * <p>Below two pins there is nothing to solve, so the mesh is cleared rather than left stale:
+     * a picture bent by a rig that no longer exists is worse than a straight one.
+     */
+    private void rebuildPuppetMesh(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem it) {
+        if (it == null) return;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
+        if (rig == null) return;
+
+        if (rig.pinCount() < com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.MIN_PINS) {
+            if (it.getMesh() != null && it.getMesh().topology()
+                    instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology) {
+                it.setMesh(null);
+                repaintPuppetPicture();
+            }
+            return;
+        }
+
+        android.graphics.Bitmap bmp =
+                overlayLayer != null ? overlayLayer.decodedImageFor(it) : null;
+        if (bmp == null && overlayLayerBelow != null) {
+            bmp = overlayLayerBelow.decodedImageFor(it);
+        }
+        if (bmp == null) return;      // not decoded yet; the next change will catch it
+
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec old =
+                (it.getMesh() != null && it.getMesh().topology()
+                        instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)
+                        ? it.getMesh() : null;
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec fresh =
+                com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.rebuild(bmp, rig, old);
+        if (fresh == null) return;    // nothing opaque to trace — leave the picture alone
+        it.setMesh(fresh);
+        repaintPuppetPicture();
+        scheduleAutoSave();
     }
 
     /** True while the pins are up and THIS lane is the one that hid the handle overlays. */
@@ -30863,6 +30942,68 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // rather than assumed: PreviewPipController promotes the whole preview into
                     // a pipW-wide floating window.
                     return previewPip != null && previewPip.isPromoted();
+                }
+
+                @Override public float drawerBottomPx() {
+                    if (objectDrawer == null || !objectDrawer.isShowing()
+                            || puppetOverlay == null) {
+                        return 0f;
+                    }
+                    int[] dloc = new int[2], oloc = new int[2];
+                    objectDrawer.getLocationInWindow(dloc);
+                    puppetOverlay.getLocationInWindow(oloc);
+                    return (dloc[1] + objectDrawer.getHeight()) - oloc[1];
+                }
+
+                @Override public boolean readOffset(int pin, @NonNull float[] outXY) {
+                    float[] h = puppetHandles();
+                    if (h == null || pin < 0 || pin * 2 + 1 >= h.length) {
+                        outXY[0] = 0f; outXY[1] = 0f;
+                        return false;
+                    }
+                    outXY[0] = h[pin * 2];
+                    outXY[1] = h[pin * 2 + 1];
+                    return true;
+                }
+
+                @Override public void writeOffset(int pin, float dx, float dy) {
+                    float[] h = puppetHandles();
+                    if (h == null || pin < 0 || pin * 2 + 1 >= h.length) return;
+                    // Clamped by the deformer's own rail, not by a second opinion invented here:
+                    // a pose well outside the picture is legitimate, NaN is not.
+                    h[pin * 2] = clampPuppetComponent(dx);
+                    h[pin * 2 + 1] = clampPuppetComponent(dy);
+                    repaintPuppetPicture();
+                }
+
+                @Override public void beginPose() {
+                    float[] h = puppetHandles();
+                    puppetPoseBefore = h == null ? null : h.clone();
+                }
+
+                @Override public void commitPose(@NonNull String label) {
+                    final float[] before = puppetPoseBefore;
+                    final float[] h = puppetHandles();
+                    puppetPoseBefore = null;
+                    if (before == null || h == null || before.length != h.length) return;
+                    final float[] after = h.clone();
+                    // ONE step for the whole drag, and it writes into the LIVE array rather than
+                    // replacing it, because the spec and both renderers hold that same array.
+                    undoManager.recordAction(new EditActions.LambdaAction(label,
+                            () -> { float[] cur = puppetHandles();
+                                    if (cur != null && cur.length == after.length) {
+                                        System.arraycopy(after, 0, cur, 0, after.length);
+                                        repaintPuppetPicture();
+                                    } },
+                            () -> { float[] cur = puppetHandles();
+                                    if (cur != null && cur.length == before.length) {
+                                        System.arraycopy(before, 0, cur, 0, before.length);
+                                        repaintPuppetPicture();
+                                    } }));
+                }
+
+                @Override public void onRigStructureChanged() {
+                    rebuildPuppetMesh(puppetItem);
                 }
             });
             applyPreviewStackElevations();

@@ -28,11 +28,18 @@ import com.fadcam.ui.faditor.transform.HandleModel;
  * {@code previewHandlesOverlay}, {@code transformOverlay} and this, so at any instant there is
  * still one thing in the preview reading a {@link MotionEvent}.
  *
- * <h3>Rigging and performing are different gestures on the same dot</h3>
- * <p>Dragging a pin here moves its REST POSITION — where it sits when nothing animates it. That
- * is rigging, and it is what this view does. Dragging while a recording is running moves the pose
- * TRACK instead, which is performing. Two different stores, deliberately, and this view only ever
- * touches the first: it cannot key anything, which is why it needs no playhead.
+ * <h3>Two stores, two gestures, one dot</h3>
+ * <p>A pin has a REST POSITION — where it was placed, and what the triangles are built around —
+ * and an OFFSET from it, which is what bends the picture. They are edited by different gestures
+ * on purpose:
+ * <ul>
+ *   <li><b>Grab, drag a pin</b> → moves the OFFSET. The picture bends. Nothing re-triangulates,
+ *       which is why an arm can be dragged smoothly instead of rebuilding the mesh per frame.</li>
+ *   <li><b>A placement tool armed, drag an existing pin</b> → moves the REST position. That is
+ *       re-rigging, so the mesh IS rebuilt, once, on release.</li>
+ * </ul>
+ * <p>The view still cannot key anything — recording a performance writes the pose TRACK, which is
+ * a third store and a later stage. That is why it needs no playhead.
  *
  * <h3>Seeing the pins is the gate</h3>
  * <p>There is no hidden mode and no tab state to remember. If the pins are drawn they answer to
@@ -73,6 +80,35 @@ public class PuppetOverlayView extends View {
          * then — at that size a 38dp control would dominate the picture it sits on.
          */
         boolean previewIsSmall();
+
+        // ── the POSE: what actually bends the picture ────────────────────────────
+
+        /**
+         * This pin's offset from its rest position, in unit space. False = no mesh yet, which is
+         * every rig with fewer than two pins.
+         */
+        boolean readOffset(int pin, @NonNull float[] outXY);
+
+        /** Move this pin's offset. Bends the picture; does NOT re-triangulate. */
+        void writeOffset(int pin, float dx, float dy);
+
+        /** A pose gesture is starting — take the ONE snapshot it will undo to. */
+        void beginPose();
+
+        /** The pose gesture ended and changed something: record ONE undo step. */
+        void commitPose(@NonNull String label);
+
+        /** The pins were ADDED, REMOVED or RE-PLACED — the mesh has to be rebuilt. */
+        void onRigStructureChanged();
+
+        /**
+         * The bottom edge of the open drawer in this view's pixels, or 0.
+         *
+         * <p>The drawer comes down from the TOP over the preview, so its grip sits on top of the
+         * picture. Touches above this line are not ours: swallowing one would stop the drawer
+         * being resized, and a tool that jams another tool is worse than a tool that is missing.
+         */
+        float drawerBottomPx();
     }
 
     /**
@@ -99,6 +135,7 @@ public class PuppetOverlayView extends View {
     private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF rect = new RectF();
+    private final float[] off = new float[2];
     private final RectF badgeRect = new RectF();
     private final RectF arc = new RectF();
     private final Path path = new Path();
@@ -110,7 +147,10 @@ public class PuppetOverlayView extends View {
     private int boneFrom = -1;
     private float downX, downY, boneX, boneY;
     private boolean moved;
+    private boolean posing;
     private float grabDX, grabDY;
+    private float downRestX, downRestY;
+    private final float[] downOff = new float[2];
 
     public PuppetOverlayView(@NonNull Context ctx) {
         super(ctx);
@@ -150,6 +190,15 @@ public class PuppetOverlayView extends View {
         if (rig.pinCount() > 0 && !host.previewIsSmall()) drawBadge(c, locked);
     }
 
+    /** Where a pin actually IS right now: its rest position plus whatever the pose moved it by. */
+    private float posedX(int i, @NonNull PuppetPin p) {
+        return px(p.restX + (host != null && host.readOffset(i, off) ? off[0] : 0f));
+    }
+
+    private float posedY(int i, @NonNull PuppetPin p) {
+        return py(p.restY + (host != null && host.readOffset(i, off) ? off[1] : 0f));
+    }
+
     private void drawBones(@NonNull Canvas c, @NonNull PuppetRig rig, boolean locked) {
         stroke.setStrokeWidth(2f * d);
         for (int i = 0; i < rig.boneCount(); i++) {
@@ -158,7 +207,8 @@ public class PuppetOverlayView extends View {
             PuppetPin a = rig.pin(b.rootPin), z = rig.pin(b.tipPin);
             stroke.setColor(locked ? PuppetPalette.LOCKED : PuppetPalette.BONE);
             stroke.setAlpha(locked ? 110 : 210);
-            c.drawLine(px(a.restX), py(a.restY), px(z.restX), py(z.restY), stroke);
+            c.drawLine(posedX(b.rootPin, a), posedY(b.rootPin, a),
+                    posedX(b.tipPin, z), posedY(b.tipPin, z), stroke);
         }
         stroke.setAlpha(255);
 
@@ -169,7 +219,7 @@ public class PuppetOverlayView extends View {
             stroke.setStrokeWidth(2f * d);
             stroke.setPathEffect(new android.graphics.DashPathEffect(
                     new float[]{5f * d, 4f * d}, 0f));
-            c.drawLine(px(a.restX), py(a.restY), boneX, boneY, stroke);
+            c.drawLine(posedX(boneFrom, a), posedY(boneFrom, a), boneX, boneY, stroke);
             stroke.setPathEffect(null);
         }
     }
@@ -179,7 +229,7 @@ public class PuppetOverlayView extends View {
 
         for (int i = 0; i < rig.pinCount(); i++) {
             PuppetPin p = rig.pin(i);
-            float cx = px(p.restX), cy = py(p.restY);
+            float cx = posedX(i, p), cy = posedY(i, p);
             int hue = PuppetPalette.of(p.type, locked);
             boolean isSel = i == sel && !locked;
 
@@ -303,7 +353,12 @@ public class PuppetOverlayView extends View {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 downX = x; downY = y; moved = false;
-                dragPin = -1; boneFrom = -1;
+                dragPin = -1; boneFrom = -1; posing = false;
+
+                // NOT OURS. The drawer comes down from the top OVER the picture, so its resize
+                // grip sits on the same pixels the pins do. Claiming a touch up there is how you
+                // jam the drawer shut at whatever height it happened to be.
+                if (y < host.drawerBottomPx()) return false;
 
                 // The badge first, always: it has to stay reachable even when a pin sits under
                 // it, and it is the only control that still works on a locked rig.
@@ -324,8 +379,18 @@ public class PuppetOverlayView extends View {
                 if (hit >= 0) {
                     host.setSelectedPin(hit);
                     dragPin = hit;
-                    grabDX = px(rig.pin(hit).restX) - x;
-                    grabDY = py(rig.pin(hit).restY) - y;
+                    // GRAB poses; a placement tool re-places. Either way the grab point is the
+                    // pin's CURRENT on-screen position, so it does not jump under the finger.
+                    posing = host.tool() == PuppetDrawerTool.GRAB;
+                    grabDX = posedX(hit, rig.pin(hit)) - x;
+                    grabDY = posedY(hit, rig.pin(hit)) - y;
+                    if (posing) {
+                        host.beginPose();
+                        host.readOffset(hit, downOff);
+                    } else {
+                        downRestX = rig.pin(hit).restX;
+                        downRestY = rig.pin(hit).restY;
+                    }
                     host.onRigChanged();
                     invalidate();
                     return true;
@@ -339,8 +404,17 @@ public class PuppetOverlayView extends View {
                 if (boneFrom >= 0) { boneX = x; boneY = y; invalidate(); return true; }
                 if (dragPin >= 0 && moved) {
                     PuppetPin p = rig.pin(dragPin);
-                    p.restX = clamp01((x + grabDX - rect.left) / rect.width());
-                    p.restY = clamp01((y + grabDY - rect.top) / rect.height());
+                    float ux = (x + grabDX - rect.left) / rect.width();
+                    float uy = (y + grabDY - rect.top) / rect.height();
+                    if (posing) {
+                        // The offset is measured from REST, and is deliberately NOT clamped to
+                        // the picture: an arm reaching out of frame is a legitimate pose, which
+                        // is the same call PuppetDeformer.clampComponent already makes.
+                        host.writeOffset(dragPin, ux - p.restX, uy - p.restY);
+                    } else {
+                        p.restX = clamp01(ux);
+                        p.restY = clamp01(uy);
+                    }
                     invalidate();
                     return true;
                 }
@@ -363,16 +437,26 @@ public class PuppetOverlayView extends View {
                 }
                 if (dragPin >= 0) {
                     if (moved) {
-                        // ONE undo for the whole drag — the standing ruling. Recorded here and
-                        // not per MOVE, and skipped when the pin came back to where it started.
-                        final PuppetPin p = rig.pin(dragPin);
-                        final float ax = p.restX, ay = p.restY;
-                        final float bx = clamp01((downX + grabDX - rect.left) / rect.width());
-                        final float by = clamp01((downY + grabDY - rect.top) / rect.height());
-                        if (Math.abs(ax - bx) > 1e-4f || Math.abs(ay - by) > 1e-4f) {
-                            host.recordUndo("Move pin",
-                                    () -> { p.restX = ax; p.restY = ay; hostChanged(); },
-                                    () -> { p.restX = bx; p.restY = by; hostChanged(); });
+                        // ONE undo for the whole drag — the standing ruling. Recorded on release,
+                        // never per MOVE, and skipped entirely when the pin ended where it began.
+                        if (posing) {
+                            host.readOffset(dragPin, off);
+                            if (Math.abs(off[0] - downOff[0]) > 1e-5f
+                                    || Math.abs(off[1] - downOff[1]) > 1e-5f) {
+                                host.commitPose("Bend");
+                            }
+                        } else {
+                            final PuppetPin p = rig.pin(dragPin);
+                            final float ax = p.restX, ay = p.restY;
+                            final float bx = downRestX, by = downRestY;
+                            if (Math.abs(ax - bx) > 1e-4f || Math.abs(ay - by) > 1e-4f) {
+                                host.recordUndo("Move pin",
+                                        () -> { p.restX = ax; p.restY = ay; structureChanged(); },
+                                        () -> { p.restX = bx; p.restY = by; structureChanged(); });
+                                // A pin that moved is a DIFFERENT rig: the triangles were built
+                                // around where it used to be.
+                                host.onRigStructureChanged();
+                            }
                         }
                         host.onRigChanged();
                     }
@@ -386,7 +470,8 @@ public class PuppetOverlayView extends View {
                         final int idx = made;
                         host.recordUndo("Add pin",
                                 () -> { },     // redo re-runs through the drawer's own rebuild
-                                () -> { rig.removePin(idx); hostChanged(); });
+                                () -> { rig.removePin(idx); structureChanged(); });
+                        host.onRigStructureChanged();
                         host.onRigChanged();
                     }
                     invalidate();
@@ -411,7 +496,12 @@ public class PuppetOverlayView extends View {
         invalidate();
     }
 
-    private void reset() { dragPin = -1; boneFrom = -1; moved = false; }
+    private void reset() { dragPin = -1; boneFrom = -1; moved = false; posing = false; }
+
+    private void structureChanged() {
+        if (host != null) { host.onRigStructureChanged(); host.onRigChanged(); }
+        invalidate();
+    }
 
     /**
      * Land a bone on whatever is under the finger — an existing pin, or a new one planted there.
@@ -435,7 +525,7 @@ public class PuppetOverlayView extends View {
         final int made = rig.addBone(boneFrom, to, len);
         if (made < 0) return;
         host.recordUndo("Add bone", () -> { }, () -> { rig.removeBone(made); hostChanged(); });
-        host.onRigChanged();
+        host.onRigChanged();     // a bone adds no handle, so the mesh is unchanged
     }
 
     private int placePin(@NonNull PuppetRig rig, @NonNull PuppetPin.Type type, float x, float y) {
@@ -451,7 +541,7 @@ public class PuppetOverlayView extends View {
         float bestD = HIT_R * d;
         for (int i = 0; i < rig.pinCount(); i++) {
             PuppetPin p = rig.pin(i);
-            float dist = (float) Math.hypot(px(p.restX) - x, py(p.restY) - y);
+            float dist = (float) Math.hypot(posedX(i, p) - x, posedY(i, p) - y);
             if (dist <= bestD) { bestD = dist; best = i; }
         }
         return best;

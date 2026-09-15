@@ -25158,12 +25158,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     @Override
                     public boolean mirrored() { return sp.isFlipH() || sp.isFlipV(); }
-                }), roles);
+                },
+                // THE BEND, through the seam the image host uses — one copy, not a sprite-shaped
+                // second one. The comment below used to say the mesh "has no renderer on either
+                // surface yet"; both now do. The preview stamps it via
+                // FxLivePreviewController.spritePip -> MeshStampGl (device-proved 2026-09-14 on
+                // a hand-written lattice with the pin removed, so only the mesh could be visible),
+                // and the export via SpriteBlendGlEffect through the SAME stamp.
+                new com.fadcam.ui.faditor.transform.MeshBendSeam(
+                        new com.fadcam.ui.faditor.transform.MeshBendSeam.Owner() {
+                            @Override public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec
+                                    getMesh() { return sp.getMesh(); }
+                            @Override public void setMesh(
+                                    com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
+                                sp.setMesh(m);
+                            }
+                            @Override public void installMeshCurve() { sp.installMeshCurve(); }
+                            @Override public long meshLocalTime(long timelineMs) {
+                                return sp.meshLocalTime(timelineMs);
+                            }
+                            @Override public boolean hasMesh() { return sp.hasMesh(); }
+                            @Override public boolean isArmed() { return sp.isArmed(); }
+                        },
+                        () -> overlayClockMs(lastPlayheadAbsoluteMs),
+                        this::refreshSpriteAfterHandleWrite)), roles);
         // NOT affine-only any more: the ring may offer Tilt and Free, because a distortion
         // authored here has somewhere to be drawn.
         v.setAffineOnly(false);
-        // Bend still off — the MESH has no renderer on either surface yet. The pin does.
-        v.setBendAvailable(false);
+        // And the bend is offered too, on the same rule: both surfaces draw it.
+        v.setBendAvailable(true);
         v.setBendVisible(false);
         v.setOnDoubleTap(() -> showObjectMenuSheetForSprite(sp));
         v.bringToFront();

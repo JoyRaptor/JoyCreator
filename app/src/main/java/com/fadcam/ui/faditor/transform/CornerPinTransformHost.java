@@ -788,291 +788,66 @@ public final class CornerPinTransformHost implements TransformOverlayView.Host {
     /** Does this item carry any distortion right now? Drives the entry point's on/off look. */
     public boolean isDistorted() { return item.hasCornerPin() || item.hasMirror(); }
 
-    // ── SPEC H: bend (mesh) edit seam ─────────────────────────────────────
+    // ── SPEC H: bend (mesh) edit seam — NOW SHARED ────────────────────────────
     //
-    // The net's dots live in the picture's OWN unit space and are re-projected through the
-    // CURRENT quad every frame (MeshProjection), so a structural edit carries the bend instead
-    // of wiping it. One finger drags one dot; the guard refuses folds; commit writes ONCE.
+    // The ~285 lines that used to live here moved to MeshBendSeam so sprites (and, as SPEC Z
+    // lands, PiP, text and the spine) edit a bend through the SAME code rather than a second
+    // copy. What was image-specific turned out to be six mesh accessors; they are the whole of
+    // MeshBendSeam.Owner, implemented below by forwarding to the item.
     //
-    // Undo: beginBendGesture snapshots (TransformSnapshot already deep-copies the mesh), and
-    // commitBendGesture records ONE step through the same target.commit every other gesture
-    // uses. Unarmed the pose lives in the static handles (no track, no drawer diamond for a
-    // static bend); armed it is put ONCE to the pose track at the local clock. Either way one
-    // drag is one undo press.
-    //
-    // All scratch here is UI-thread only (the GL threads keep their own engine/scratch inside
-    // MeshStampGl); nothing here is ever shared across threads.
+    // supportsBend stays HERE because it is a statement about what the RENDERERS can draw for
+    // this type, not about the seam. Same rule as everywhere else: a capability is offered only
+    // when both surfaces can draw it.
 
-    /** UI-thread guard scratch. Bound to the spec's topology before every check. */
     @NonNull
-    private final com.fadcam.ui.faditor.transform.mesh.MeshBuffers bendScratch =
-            new com.fadcam.ui.faditor.transform.mesh.MeshBuffers();
-    /** UI-thread deformer, built lazily per kind (never shared with the GL threads). */
-    @androidx.annotation.Nullable
-    private com.fadcam.ui.faditor.transform.mesh.MeshDeformer bendDeformer;
-    /**
-     * UI-thread pose working space, sized EXACTLY to the topology's arity. Never shared.
-     *
-     * <p>SPEC O — these used to be fixed {@code float[50]} buffers (the largest lattice's arity),
-     * which silently disabled the whole tool: {@link
-     * com.fadcam.ui.faditor.transform.mesh.MeshDeformer#solve} takes a pose whose length IS the
-     * arity — {@code MeshEngine} resizes to {@code topo.handleArity()} for exactly that reason —
-     * so a 50-float candidate handed to a 3x3 (18-float) lattice made {@code LatticeDeformer.solve}
-     * return false, {@code MeshGuard.accepts} refuse, and every drag frame do nothing at all.
-     * Sized on the arity, so it allocates once per topology and never per frame.</p>
-     */
-    @NonNull
-    private float[] bendPose = new float[0];
-    /** UI-thread candidate pose (guard-checked before commit to the live handles). */
-    @NonNull
-    private float[] bendCand = new float[0];
-    @NonNull
-    private final float[] bendOut2 = new float[2];
-    /**
-     * The refusal already reported for the gesture in flight, so a refused drag says WHY once
-     * instead of once per frame (TransformDiag is a discrete-gesture recorder, never a spammer).
-     */
-    @androidx.annotation.Nullable
-    private String bendSaid;
-    /** Whether this gesture already recorded its one "bend applied" line. */
-    private boolean bendAppliedSaid;
-
-    /** Largest pose any registered topology may ask for. A sanity bound, not a lattice fact. */
-    private static final int BEND_MAX_ARITY = 4096;
-
-    /** Grow/shrink a pose buffer to exactly {@code arity}. Allocation-free when it already is. */
-    @NonNull
-    private static float[] bendFit(@NonNull float[] a, int arity) {
-        return a.length == arity ? a : new float[arity];
-    }
-
-    /**
-     * SPEC O — no silent refusal survives in the bend path. Records the reason ONCE per gesture
-     * (the same frame-by-frame reason is not news) and returns false so callers stay one-liners.
-     */
-    private boolean bendRefuse(@NonNull String why) {
-        if (!why.equals(bendSaid)) {
-            bendSaid = why;
-            TransformDiag.log("bend refused: " + why);
+    private final MeshBendSeam bend = new MeshBendSeam(new MeshBendSeam.Owner() {
+        @Override public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec getMesh() {
+            return item.getMesh();
         }
-        return false;
-    }
+        @Override public void setMesh(
+                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) { item.setMesh(m); }
+        @Override public void installMeshCurve() { item.installMeshCurve(); }
+        @Override public long meshLocalTime(long timelineMs) {
+            return item.meshLocalTime(timelineMs);
+        }
+        @Override public boolean hasMesh() { return item.hasMesh(); }
+        @Override public boolean isArmed() { return item.isArmed(); }
+    }, this::now, this::onChangedRun);
+
+    /** Method reference target — {@code onChanged} is a field, not a method. */
+    private void onChangedRun() { onChanged.run(); }
 
     @Override
     public boolean supportsBend() { return item.isImage(); }
 
     @Override
-    public boolean hasBend() { return item.hasMesh(); }
-
-    /**
-     * The net the tool WOULD edit: the stored topology, or the L2 default before the first
-     * drag. Reporting the default keeps the rest grid drawable and grabbable with no model
-     * change — opening the tool writes nothing (toJson stays null for identity).
-     */
-    @NonNull
-    private static final com.fadcam.ui.faditor.transform.mesh.LatticeTopology BEND_DEFAULT =
-            new com.fadcam.ui.faditor.transform.mesh.LatticeTopology(
-                    com.fadcam.ui.faditor.transform.mesh.LatticeTopology.L2);
+    public boolean hasBend() { return bend.hasBend(); }
 
     @Override
-    public int bendHandleCount() {
-        try {
-            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
-            if (s == null || s.topology() == null) return BEND_DEFAULT.handleCount();
-            return Math.max(0, s.topology().handleCount());
-        } catch (Exception ignored) {
-            return 0;
-        }
-    }
+    public int bendHandleCount() { return bend.handleCount(); }
 
     @Override
-    public int bendGridSide() {
-        try {
-            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
-            com.fadcam.ui.faditor.transform.mesh.MeshTopology t =
-                    (s == null || s.topology() == null) ? BEND_DEFAULT : s.topology();
-            if (t instanceof com.fadcam.ui.faditor.transform.mesh.LatticeTopology) {
-                return ((com.fadcam.ui.faditor.transform.mesh.LatticeTopology) t).side();
-            }
-        } catch (Exception ignored) { }
-        return 0;
-    }
-
-    /**
-     * Ensure a bend spec exists (L2 3x3 lattice — the approved net), creating it when the
-     * tool is opened on an unbent picture. Creating here (not on selection) keeps opening
-     * the tool byte-identical: MeshWarpSpec.toJson writes nothing for an identity pose.
-     */
-    @androidx.annotation.Nullable
-    private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec bendEnsureSpec() {
-        try {
-            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
-            if (s == null || s.topology() == null) {
-                s = com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.lattice(
-                        com.fadcam.ui.faditor.transform.mesh.LatticeTopology.L2);
-                item.setMesh(s);
-            }
-            item.installMeshCurve();
-            return item.getMesh();
-        } catch (Exception e) {
-            TransformDiag.log("bend ensureSpec threw " + e.getClass().getSimpleName());
-            return null;
-        }
-    }
-
-    /**
-     * The pose to draw/drag: the track value at the playhead when present, else static.
-     * Writes directly into {@code out} (caller-owned, at least arity long) — no allocation.
-     */
-    private int bendCurrentPose(
-            @NonNull com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s,
-            @NonNull float[] out) {
-        try {
-            int arity = s.arity();
-            if (arity <= 0 || out.length < arity) return 0;
-            long localMs = item.meshLocalTime(now());
-            if (s.handlesAt(localMs, out)) return arity;
-            float[] h = s.handles();
-            if (h != null && h.length >= arity) {
-                System.arraycopy(h, 0, out, 0, arity);
-                return arity;
-            }
-        } catch (Exception ignored) { }
-        return 0;
-    }
-
-    @androidx.annotation.Nullable
-    private com.fadcam.ui.faditor.transform.mesh.MeshDeformer bendDeformerFor(
-            @NonNull com.fadcam.ui.faditor.transform.mesh.MeshTopology topo) {
-        com.fadcam.ui.faditor.transform.mesh.MeshDeformer d = bendDeformer;
-        if (d == null || !d.supports(topo)) {
-            d = com.fadcam.ui.faditor.transform.mesh.MeshTopologies.deformerFor(topo);
-            if (d != null) bendDeformer = d;
-        }
-        return bendDeformer;
-    }
+    public int bendGridSide() { return bend.gridSide(); }
 
     @Override
     public boolean bendHandlePosition(int i, @NonNull float[] h, @NonNull float[] out2) {
-        try {
-            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
-            com.fadcam.ui.faditor.transform.mesh.MeshTopology topo =
-                    (s == null || s.topology() == null) ? BEND_DEFAULT : s.topology();
-            if (i < 0 || i >= topo.handleCount()) return false;
-            int arity = topo.handleArity();
-            if (arity <= 0 || arity > BEND_MAX_ARITY) return false;
-            bendPose = bendFit(bendPose, arity);
-            if (s != null && bendCurrentPose(s, bendPose) == arity) {
-                return com.fadcam.ui.faditor.transform.mesh.MeshProjection.projectHandle(
-                        topo, bendPose, i, h, out2);
-            }
-            // No spec yet (tool opened, nothing dragged): rest grid, zero nudges.
-            java.util.Arrays.fill(bendPose, 0, arity, 0f);
-            return com.fadcam.ui.faditor.transform.mesh.MeshProjection.projectHandle(
-                    topo, bendPose, i, h, out2);
-        } catch (Exception ignored) {
-            return false;
-        }
+        return bend.handlePosition(i, h, out2);
     }
 
     @Override
     public boolean bendDragTo(int i, @NonNull float[] hInv, float stageX, float stageY) {
-        try {
-            if (!Float.isFinite(stageX) || !Float.isFinite(stageY)) {
-                return bendRefuse("stage point not finite");
-            }
-            com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = bendEnsureSpec();
-            if (s == null || s.topology() == null) return bendRefuse("no spec/topology");
-            com.fadcam.ui.faditor.transform.mesh.MeshTopology topo = s.topology();
-            if (i < 0 || i >= topo.handleCount()) {
-                return bendRefuse("handle " + i + " outside 0.." + (topo.handleCount() - 1));
-            }
-            com.fadcam.ui.faditor.transform.mesh.MeshDeformer deformer =
-                    bendDeformerFor(topo);
-            if (deformer == null) return bendRefuse("no deformer for kind " + topo.kind());
-            if (!deformer.supports(topo)) {
-                return bendRefuse("deformer rejects kind " + topo.kind());
-            }
-            int arity = s.arity();
-            if (arity <= 0 || arity > BEND_MAX_ARITY) return bendRefuse("arity " + arity);
-            // EXACTLY the arity, never merely big enough — see the field note above; a longer
-            // pose is what made this whole tool a no-op.
-            bendPose = bendFit(bendPose, arity);
-            bendCand = bendFit(bendCand, arity);
-            if (bendCurrentPose(s, bendPose) != arity) {
-                java.util.Arrays.fill(bendPose, 0, arity, 0f);
-            }
-            if (!com.fadcam.ui.faditor.transform.mesh.MeshProjection.dragToHandle(
-                    topo, deformer, i, hInv, stageX, stageY, bendOut2)) {
-                return bendRefuse("degenerate inverse homography");
-            }
-            System.arraycopy(bendPose, 0, bendCand, 0, arity);
-            bendCand[i * 2] = bendOut2[0];
-            bendCand[i * 2 + 1] = bendOut2[1];
-            // The guard measures the SOLVED triangles, not the handles: bind first, or the
-            // scratch has no rest shape and every fold would pass. Refusal simply stops the
-            // drag — always recoverable, unlike rendering through a fold.
-            bendScratch.bind(topo);
-            if (!com.fadcam.ui.faditor.transform.mesh.MeshGuard.accepts(
-                    topo, deformer, bendScratch, bendCand)) {
-                return bendRefuse("guard: fold/crush at handle " + i);
-            }
-            float[] live = s.handles();
-            if (live == null || live.length != arity) {
-                return bendRefuse("live pose " + (live == null ? "null" : live.length)
-                        + " != arity " + arity);
-            }
-            System.arraycopy(bendCand, 0, live, 0, arity);
-            if (!bendAppliedSaid) {
-                // One line per gesture, on the FIRST frame that actually deformed anything.
-                bendAppliedSaid = true;
-                TransformDiag.log("bend applied i=" + i + " du=" + bendOut2[0]
-                        + " dv=" + bendOut2[1] + " arity=" + arity + " kind=" + topo.kind());
-            }
-            onChanged.run();
-            return true;
-        } catch (Exception e) {
-            return bendRefuse("threw " + e.getClass().getSimpleName() + ": " + e.getMessage());
-        }
+        return bend.dragTo(i, hInv, stageX, stageY);
     }
 
     @Override
     public void beginBendGesture() {
-        // Ensure BEFORE the snapshot: the first bend's undo then restores "no bend at all".
-        bendSaid = null;
-        bendAppliedSaid = false;
-        bendEnsureSpec();
+        bend.begin();
         beginGesture();
     }
 
     @Override
     public void commitBendGesture(@NonNull String what) {
-        try {
-            // Armed: the pose at the playhead becomes ONE track key (local clock, like every
-            // other animated property). Unarmed: the static handles already hold it — no track,
-            // no drawer diamond for a static bend. Either way exactly one write, one undo.
-            if (item.isArmed()) {
-                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec s = item.getMesh();
-                if (s != null && s.topology() != null) {
-                    int arity = s.arity();
-                    float[] live = s.handles();
-                    if (arity > 0 && live != null && live.length == arity) {
-                        long localMs = item.meshLocalTime(now());
-                        s.ensureTrack().put(localMs, live,
-                                com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack
-                                        .DEFAULT_EASING);
-                        item.installMeshCurve();
-                    }
-                }
-            }
-        } catch (Exception e) {
-            TransformDiag.log("bend commit threw " + e.getClass().getSimpleName());
-        }
-        // One line per gesture: did the drag actually leave a warp on the model? This is the
-        // line SPEC O's repro was missing, and it is what "mesh" in project.json is written from.
-        TransformDiag.log("bend commit hasMesh=" + item.hasMesh()
-                + " armed=" + item.isArmed());
+        bend.commit();
         commitGesture(what);
     }
-
 }

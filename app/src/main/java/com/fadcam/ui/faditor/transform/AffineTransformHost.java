@@ -95,6 +95,15 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
     private final float minSizeFraction;
     @NonNull private final ResetPolicy resetPolicy;
     @Nullable private final PinChannel pin;
+    /**
+     * The bend, when this type's BOTH renderers can draw one. Null = affine only, and the ring
+     * never offers the net — the same shape as {@link #pin}, and the same rule behind it.
+     *
+     * <p>Shared with the image host rather than reimplemented: {@link MeshBendSeam} is the one
+     * copy, so a fix to the bend tool reaches every warpable type at once. That is the whole point
+     * of SPEC Y.
+     */
+    @Nullable private final MeshBendSeam bend;
 
     private final float[] pinScratch = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
 
@@ -121,16 +130,64 @@ public final class AffineTransformHost implements TransformOverlayView.Host {
                                float minSizeFraction,
                                @NonNull ResetPolicy resetPolicy,
                                @Nullable PinChannel pin) {
+        this(target, playhead, onChanged, minSizeFraction, resetPolicy, pin, null);
+    }
+
+    /** With a pin channel AND a bend, for a type whose both renderers draw both. */
+    public AffineTransformHost(@NonNull PreviewHandlesOverlay.Target target,
+                               @NonNull Playhead playhead,
+                               @NonNull Runnable onChanged,
+                               float minSizeFraction,
+                               @NonNull ResetPolicy resetPolicy,
+                               @Nullable PinChannel pin,
+                               @Nullable MeshBendSeam bend) {
         this.target = target;
         this.playhead = playhead;
         this.onChanged = onChanged;
         this.minSizeFraction = minSizeFraction;
         this.resetPolicy = resetPolicy;
         this.pin = pin;
+        this.bend = bend;
     }
 
     /** True when this host can author a distortion — the ring reads it to offer Tilt and Free. */
     public boolean supportsPin() { return pin != null; }
+
+    // ── The bend, delegated to the shared seam ───────────────────────────────────────────────
+
+    @Override
+    public boolean supportsBend() { return bend != null; }
+
+    @Override
+    public boolean hasBend() { return bend != null && bend.hasBend(); }
+
+    @Override
+    public int bendHandleCount() { return bend == null ? 0 : bend.handleCount(); }
+
+    @Override
+    public int bendGridSide() { return bend == null ? 0 : bend.gridSide(); }
+
+    @Override
+    public boolean bendHandlePosition(int i, @NonNull float[] h, @NonNull float[] out2) {
+        return bend != null && bend.handlePosition(i, h, out2);
+    }
+
+    @Override
+    public boolean bendDragTo(int i, @NonNull float[] hInv, float stageX, float stageY) {
+        return bend != null && bend.dragTo(i, hInv, stageX, stageY);
+    }
+
+    @Override
+    public void beginBendGesture() {
+        if (bend != null) bend.begin();
+        beginGesture();
+    }
+
+    @Override
+    public void commitBendGesture(@NonNull String what) {
+        if (bend != null) bend.commit();
+        commitGesture(what);
+    }
 
     private long now() { return playhead.timelineMs(); }
 

@@ -41,6 +41,14 @@ public final class PuppetTopology implements MeshTopology {
      */
     private static final float FORMAT_V2 = 2f;
 
+    /**
+     * Carries the authored weight knobs — one softness for the character, an area and a strength
+     * per pin. They belong in here because they are inputs to the WEIGHT TABLE, which this class
+     * owns and caches; a v1 or v2 puppet loads with the neutral values and poses exactly as it
+     * did, because neutral softness is the constant the table used before the slider was wired.
+     */
+    private static final float FORMAT_V3 = 3f;
+
     private final float[][] rings;     // one contour per island, interleaved x,y, unit space
     private final int interior;        // interior seeding density, one axis, for the LARGEST island
     private final float[] pins;        // pin REST positions, interleaved x,y, unit space
@@ -49,6 +57,10 @@ public final class PuppetTopology implements MeshTopology {
     private final short[] indices;     // derived
     private final int contourCount;    // derived
     private final int[] islandStart;   // derived
+
+    private final float softness;      // 0..1, the character's Softness
+    private final float[] stiffArea;   // per pin, reach along the mesh
+    private final float[] stiffStr;    // per pin, 0 = an ordinary pin
     private final int stamp;
 
     /** Lazily derived; see {@link #weights()} for why a plain volatile is enough here. */
@@ -76,6 +88,18 @@ public final class PuppetTopology implements MeshTopology {
      *              Rings that fail to triangulate are dropped; at least one must survive.
      */
     public PuppetTopology(float[][] rings, int interior, float[] pins) {
+        this(rings, interior, pins, PuppetWeights.SOFTNESS_NEUTRAL, null, null);
+    }
+
+    /**
+     * The full constructor: geometry, pins, and the authored knobs that shape the weight table.
+     *
+     * @param softness      0..1 from the character's Softness slider
+     * @param stiffArea     per pin, how far its stiffness reaches along the mesh, or null
+     * @param stiffStrength per pin, 0 for an ordinary pin, or null when nothing is stiff
+     */
+    public PuppetTopology(float[][] rings, int interior, float[] pins, float softness,
+                          float[] stiffArea, float[] stiffStrength) {
         if (rings == null || rings.length == 0) {
             throw new IllegalArgumentException("puppet needs at least one contour");
         }
@@ -89,6 +113,11 @@ public final class PuppetTopology implements MeshTopology {
         this.rings = kept.toArray(new float[kept.size()][]);
         this.interior = Math.max(0, interior);
         this.pins = pins == null ? new float[0] : pins.clone();
+        int pinN = this.pins.length / 2;
+        this.softness = Float.isNaN(softness)
+                ? PuppetWeights.SOFTNESS_NEUTRAL : Math.max(0f, Math.min(1f, softness));
+        this.stiffArea = fitPerPin(stiffArea, pinN, 0.25f);
+        this.stiffStr = fitPerPin(stiffStrength, pinN, 0f);
 
         PuppetTriangulator.Mesh m = PuppetTriangulator.triangulate(this.rings, this.interior);
         if (m == null) throw new IllegalArgumentException("contour did not triangulate");
@@ -104,6 +133,9 @@ public final class PuppetTopology implements MeshTopology {
         h = h * 31 + this.rings.length;
         h = h * 31 + this.interior;
         h = h * 31 + this.pins.length;
+        h = h * 31 + Float.floatToIntBits(this.softness);
+        for (float f : this.stiffArea) h = h * 31 + Float.floatToIntBits(f);
+        for (float f : this.stiffStr) h = h * 31 + Float.floatToIntBits(f);
         h = h * 31 + verts.length;
         h = h * 31 + indices.length;
         for (int i = 0; i < this.pins.length; i++) h = h * 31 + Float.floatToIntBits(this.pins[i]);
@@ -113,7 +145,8 @@ public final class PuppetTopology implements MeshTopology {
     @Override public String kind() { return KIND; }
 
     /**
-     * {@code [FORMAT_V2, interior, pinCount, islandCount, pointsPerIsland..., pins..., rings...]}.
+     * {@code [FORMAT_V3, interior, pinCount, islandCount, softness, pointsPerIsland...,
+     * stiffArea..., stiffStrength..., pins..., rings...]}.
      *
      * <p>Floats throughout because {@link MeshTopology#params()} is float[] — which its own doc
      * explains was chosen precisely because "a puppet's parameters ARE its traced contour".
@@ -123,13 +156,18 @@ public final class PuppetTopology implements MeshTopology {
         int pinN = pins.length / 2;
         int ringFloats = 0;
         for (float[] r : rings) ringFloats += r.length;
-        float[] out = new float[4 + rings.length + pins.length + ringFloats];
-        out[0] = FORMAT_V2;
+        float[] out = new float[5 + rings.length + pinN * 2 + pins.length + ringFloats];
+        out[0] = FORMAT_V3;
         out[1] = interior;
         out[2] = pinN;
         out[3] = rings.length;
-        int at = 4;
+        out[4] = softness;
+        int at = 5;
         for (float[] r : rings) out[at++] = r.length / 2;
+        System.arraycopy(stiffArea, 0, out, at, pinN);
+        at += pinN;
+        System.arraycopy(stiffStr, 0, out, at, pinN);
+        at += pinN;
         System.arraycopy(pins, 0, out, at, pins.length);
         at += pins.length;
         for (float[] r : rings) {
@@ -158,19 +196,32 @@ public final class PuppetTopology implements MeshTopology {
                 System.arraycopy(p, 4 + pins.length, ring, 0, ring.length);
                 return new PuppetTopology(ring, interior, pins);
             }
-            if (format != Math.round(FORMAT_V2)) return null;
+            boolean v3 = format == Math.round(FORMAT_V3);
+            if (!v3 && format != Math.round(FORMAT_V2)) return null;
 
             int islands = Math.round(p[3]);
-            if (islands < 1 || islands > 4096 || p.length < 4 + islands) return null;
+            int head = v3 ? 5 : 4;
+            if (islands < 1 || islands > 4096 || p.length < head + islands) return null;
+            float softness = v3 ? p[4] : PuppetWeights.SOFTNESS_NEUTRAL;
             int[] counts = new int[islands];
             int ringFloats = 0;
             for (int i = 0; i < islands; i++) {
-                counts[i] = Math.round(p[4 + i]);
+                counts[i] = Math.round(p[head + i]);
                 if (counts[i] < 3) return null;
                 ringFloats += counts[i] * 2;
             }
-            int at = 4 + islands;
-            if (p.length < at + pinN * 2 + ringFloats) return null;
+            int at = head + islands;
+            int stiffFloats = v3 ? pinN * 2 : 0;
+            if (p.length < at + stiffFloats + pinN * 2 + ringFloats) return null;
+            float[] area = null, strength = null;
+            if (v3) {
+                area = new float[pinN];
+                strength = new float[pinN];
+                System.arraycopy(p, at, area, 0, pinN);
+                at += pinN;
+                System.arraycopy(p, at, strength, 0, pinN);
+                at += pinN;
+            }
             float[] pins = new float[pinN * 2];
             System.arraycopy(p, at, pins, 0, pins.length);
             at += pins.length;
@@ -180,7 +231,7 @@ public final class PuppetTopology implements MeshTopology {
                 System.arraycopy(p, at, rings[i], 0, rings[i].length);
                 at += rings[i].length;
             }
-            return new PuppetTopology(rings, interior, pins);
+            return new PuppetTopology(rings, interior, pins, softness, area, strength);
         } catch (Exception ignored) {
             return null;
         }
@@ -236,7 +287,7 @@ public final class PuppetTopology implements MeshTopology {
     public PuppetWeights weights() {
         PuppetWeights w = weights;
         if (w == null && pins.length >= 2) {
-            w = PuppetWeights.build(verts, indices, pins, islandStart);
+            w = PuppetWeights.build(verts, indices, pins, islandStart, softness, stiffArea, stiffStr);
             weights = w;
         }
         return w;
@@ -257,6 +308,25 @@ public final class PuppetTopology implements MeshTopology {
         for (int i = 0; i < rings.length; i++) out[i] = rings[i].clone();
         return out;
     }
+
+    /** Trim or pad a per-pin array to exactly the pin count, so no caller can desynchronise it. */
+    private static float[] fitPerPin(float[] src, int pinN, float fallback) {
+        float[] out = new float[pinN];
+        for (int i = 0; i < pinN; i++) {
+            float v = (src != null && i < src.length) ? src[i] : fallback;
+            out[i] = Float.isNaN(v) ? fallback : v;
+        }
+        return out;
+    }
+
+    /** The character's Softness, 0..1. */
+    public float softness() { return softness; }
+
+    /** Per-pin stiffness reach, defensively copied. */
+    public float[] stiffArea() { return stiffArea.clone(); }
+
+    /** Per-pin stiffness strength, defensively copied. 0 means an ordinary pin. */
+    public float[] stiffStrength() { return stiffStr.clone(); }
 
     /** How many separate pieces of artwork this puppet covers. One for ordinary art. */
     public int islandCount() { return rings.length; }

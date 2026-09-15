@@ -42,14 +42,22 @@ package com.fadcam.ui.faditor.transform.mesh;
  * exactly, so a pin can never move a piece of artwork it is not attached to. The one rule this
  * file does add is what happens to a piece with NO pin on it at all — see {@link #build}.
  *
+ * <h3>The two authored knobs live here</h3>
+ * <p>SOFTNESS (one per character) and STIFFNESS (area and strength, per pin) are both properties
+ * of this table rather than of the solve — which is why turning either rebuilds the table and
+ * costs nothing per frame afterwards. Softness moves the falloff exponent; stiffness pulls a
+ * neighbourhood towards moving rigidly with one pin. Everything else about the pipeline is
+ * unchanged by either.
+ *
  * <p>Immutable once built, so it can be shared across GL threads. No Android imports.
  */
 public final class PuppetWeights {
 
     /**
-     * Laplacian passes over the normalised field. Two is the spec's lower bound and is enough to
-     * take the faceting off a coarse traced mesh; more costs nothing at playback and only blurs the
-     * boundary between neighbouring pins further. First number to turn if posing looks angular.
+     * Laplacian passes over the normalised field, at NEUTRAL softness. Two is the spec's lower
+     * bound and is enough to take the faceting off a coarse traced mesh.
+     *
+     * @see #passesFor
      */
     private static final int SMOOTHING_PASSES = 2;
 
@@ -58,6 +66,41 @@ public final class PuppetWeights {
 
     /** Closer than this (in unit space) and a vertex IS the pin. */
     private static final float SNAP = 1e-6f;
+
+    /** Neutral softness — the value that reproduces the plain {@code 1/d^2} this file shipped with. */
+    public static final float SOFTNESS_NEUTRAL = 0.5f;
+
+    /**
+     * Softness (0..1, from the drawer) to the falloff exponent {@code a} in {@code w = 1/d^(2a)}.
+     *
+     * <p>A HIGH exponent means influence dies quickly, so each pin holds a tight neighbourhood and
+     * the picture creases; a LOW one spreads every pin's influence across the whole character and
+     * the picture flows. So softness runs OPPOSITE to the exponent, and the midpoint is 1.0 —
+     * which is the paper's default and exactly what this file did before the slider was wired up,
+     * so a character built yesterday poses identically today.
+     */
+    public static float exponentFor(float softness) {
+        float s = Float.isNaN(softness) ? SOFTNESS_NEUTRAL : Math.max(0f, Math.min(1f, softness));
+        return (float) Math.pow(2.0, 1.0 - 2.0 * s);      // 0 -> 2.0, 0.5 -> 1.0, 1 -> 0.5
+    }
+
+    /**
+     * Softness also decides how many times the field is SMOOTHED, and this is most of what the
+     * slider feels like.
+     *
+     * <p>The exponent alone moves the pose only a little, because normalising means each pin
+     * dominates its own neighbourhood whatever the falloff. Smoothing is the other half of the
+     * same idea — it blurs the boundary BETWEEN pins, which is exactly what "soft" describes — and
+     * together the two give the control enough range to be worth having. Both are bind-time, so
+     * neither costs a frame.
+     *
+     * <p>Neutral is 2, the number this file used before the slider existed, so nothing moves under
+     * a character nobody has touched.
+     */
+    public static int passesFor(float softness) {
+        float s = Float.isNaN(softness) ? SOFTNESS_NEUTRAL : Math.max(0f, Math.min(1f, softness));
+        return Math.max(1, Math.round((float) (SMOOTHING_PASSES * Math.pow(2.0, 2.0 * s - 1.0))));
+    }
 
     private final int vertexCount;
     private final int pinCount;
@@ -117,6 +160,23 @@ public final class PuppetWeights {
      */
     public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
                                       int[] islandStart) {
+        return build(verts, indices, pins, islandStart, SOFTNESS_NEUTRAL, null, null);
+    }
+
+    /**
+     * Build the table with the authored knobs applied.
+     *
+     * @param softness      0..1 from the character's Softness slider; see {@link #exponentFor}
+     * @param stiffArea     per pin, the REACH of its stiffness in unit distance along the mesh, or
+     *                      null. Ignored where the matching strength is 0.
+     * @param stiffStrength per pin, 0 = an ordinary pin, 1 = its reach moves rigidly with it, or
+     *                      null for none. A pin type never reaches this file: the UI turns "this
+     *                      is a Stiff pin" into a strength, so the engine has no enum to keep in
+     *                      step with the drawer.
+     */
+    public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
+                                      int[] islandStart, float softness,
+                                      float[] stiffArea, float[] stiffStrength) {
         if (verts == null || indices == null || pins == null) return null;
         int n = verts.length / 2, p = pins.length / 2;
         if (n <= 0 || p <= 0 || indices.length < 3) return null;
@@ -126,9 +186,21 @@ public final class PuppetWeights {
         float[] table = new float[n * p];
         float[] dist = new float[n];
         boolean[] locked = new boolean[n];
+        final float alpha = exponentFor(softness);
+
+        // Distances are kept ONLY when something will ask for them again. A stiff pin needs to
+        // know how far along the body each vertex is; an ordinary character allocates nothing.
+        boolean anyStiff = false;
+        if (stiffStrength != null) {
+            for (int i = 0; i < p && i < stiffStrength.length; i++) {
+                if (stiffStrength[i] > 0f) anyStiff = true;
+            }
+        }
+        float[][] keptDist = anyStiff ? new float[p][] : null;
 
         for (int i = 0; i < p; i++) {
             geodesic(verts, adj, island, pins[i * 2], pins[i * 2 + 1], dist);
+            if (anyStiff) keptDist[i] = dist.clone();
             for (int v = 0; v < n; v++) {
                 float d = dist[v];
                 if (Float.isInfinite(d)) {
@@ -139,15 +211,68 @@ public final class PuppetWeights {
                     locked[v] = true;
                     table[v * p + i] = Float.POSITIVE_INFINITY;   // resolved in normalise()
                 } else {
-                    table[v * p + i] = 1f / (d * d);
+                    // w = 1/d^(2a). The common case a==1 is simply 1/d2, which avoids a pow per
+                    // pin per vertex — the inner loop of the whole bind.
+                    table[v * p + i] = alpha == 1.0f
+                            ? 1f / (d * d)
+                            : (float) (1.0 / Math.pow(d * d, alpha));
                 }
             }
         }
 
         orphanIslandsRideAlong(table, verts, pins, n, p);
         normalise(table, n, p);
-        for (int pass = 0; pass < SMOOTHING_PASSES; pass++) smooth(table, n, p, adj, locked);
+        int passes = passesFor(softness);
+        for (int pass = 0; pass < passes; pass++) smooth(table, n, p, adj, locked);
+        if (anyStiff) applyStiffness(table, n, p, keptDist, stiffArea, stiffStrength, locked);
         return new PuppetWeights(n, p, table);
+    }
+
+    /**
+     * STIFF PINS: pull a neighbourhood towards moving rigidly with one pin.
+     *
+     * <p>A stiff pin is how you say "this part of the character is a plank, not a rubber sheet" —
+     * a forearm, a jaw, a prop. In this table that is one idea: within its reach, blend the whole
+     * row towards a one-hot row on that pin, so those vertices take that pin's motion and nobody
+     * else's. At full strength the neighbourhood is rigid; at half it merely resists.
+     *
+     * <p><b>After smoothing, deliberately.</b> Smoothing exists to take the faceting off a coarse
+     * mesh; running it over the stiff region afterwards would blur away exactly the authored
+     * number. The taper is squared so the edge of the reach is gentle and there is no visible ring
+     * where stiffness stops.
+     *
+     * <p>Two stiff pins whose reaches overlap are applied in order, each normalised — the later
+     * one wins the contested vertices. That is worth knowing but not worth solving: overlapping
+     * stiff regions are a rig asking for one stiff pin, not two.
+     */
+    private static void applyStiffness(float[] table, int n, int p, float[][] dist,
+                                       float[] area, float[] strength, boolean[] locked) {
+        for (int i = 0; i < p; i++) {
+            float s = (strength != null && i < strength.length) ? strength[i] : 0f;
+            if (!(s > 0f) || dist[i] == null) continue;
+            s = Math.min(1f, s);
+            float reach = (area != null && i < area.length) ? area[i] : 0.25f;
+            if (!(reach > 0f)) continue;
+            for (int v = 0; v < n; v++) {
+                if (locked[v]) continue;              // a vertex ON a pin is already exactly that
+                float d = dist[i][v];
+                if (Float.isInfinite(d) || d >= reach) continue;
+                // PLATEAU then taper. "Strength 1, area 0.3" has to mean that everything within
+                // 0.3 is rigid — not that only the pin itself is, which is what a taper starting
+                // at the pin gives. So the inner half of the reach is at full strength and the
+                // outer half falls off linearly, which keeps the edge soft without spending the
+                // whole area on the fade. A squared taper spent so much of it that a strength of
+                // 1 felt like a third of one.
+                float u = d / reach;
+                float t = s * (u <= 0.5f ? 1f : 2f * (1f - u));
+                if (t <= 0f) continue;
+                int base = v * p;
+                for (int k = 0; k < p; k++) {
+                    float target = (k == i) ? 1f : 0f;
+                    table[base + k] = table[base + k] * (1f - t) + target * t;
+                }
+            }
+        }
     }
 
     /** Expand {@code islandStart} into one island number per vertex. Null means a single island. */

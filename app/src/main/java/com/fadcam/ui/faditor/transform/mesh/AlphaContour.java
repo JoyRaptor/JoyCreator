@@ -285,6 +285,80 @@ public final class AlphaContour {
         return s;
     }
 
+    /**
+     * Push a ring OUTWARD by {@code amount}, in unit space — the Edge expansion control.
+     *
+     * <p>A traced contour follows the last pixel above the alpha threshold, which on any drawing
+     * with a soft or anti-aliased edge is INSIDE the visible edge of the art. The mesh then stops
+     * short, and the outermost sliver of the picture is not carried by any triangle: it stays put
+     * while the rest of the limb bends, and the character appears to shed a hairline of itself.
+     * Expanding the ring a little takes the fringe inside the mesh.
+     *
+     * <p>Each point moves along the bisector of its two edges, so a corner moves further than a
+     * flat run does — which is what keeps a right angle a right angle instead of rounding it off.
+     *
+     * <h3>Direction is measured, not assumed</h3>
+     * <p>Which way is "out" depends on the ring's winding, and a tracer's winding depends on which
+     * way it happened to walk. Rather than reason about it, this offsets one way and checks
+     * whether the enclosed area GREW; if it shrank, the whole thing is redone the other way. That
+     * is two cheap passes and it cannot be silently backwards — an inward expansion would eat the
+     * character's outline, which is the sort of bug that looks like a bad trace.
+     *
+     * @param amount unit distance to grow by. Clamped to a tenth of the shape's smaller side,
+     *               because a large offset on a concave shape self-intersects, and a ring that
+     *               crosses itself triangulates into garbage.
+     * @return the expanded ring, or the input unchanged for a non-positive amount
+     */
+    public static float[] expand(float[] ring, float amount) {
+        if (ring == null || ring.length < 6 || !(amount > 0f)) return ring;
+        int n = ring.length / 2;
+
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
+            minX = Math.min(minX, ring[i * 2]); maxX = Math.max(maxX, ring[i * 2]);
+            minY = Math.min(minY, ring[i * 2 + 1]); maxY = Math.max(maxY, ring[i * 2 + 1]);
+        }
+        float cap = 0.1f * Math.min(maxX - minX, maxY - minY);
+        if (!(cap > 0f)) return ring;
+        float d = Math.min(amount, cap);
+
+        float before = Math.abs(signedArea2(ring));
+        float[] out = offset(ring, d);
+        if (Math.abs(signedArea2(out)) < before) out = offset(ring, -d);
+        // A degenerate result (a ring that collapsed on itself) is worse than no expansion.
+        return Math.abs(signedArea2(out)) >= before ? out : ring;
+    }
+
+    /** One offset pass along each vertex's edge bisector. Sign decides the direction. */
+    private static float[] offset(float[] ring, float d) {
+        int n = ring.length / 2;
+        float[] out = new float[ring.length];
+        for (int i = 0; i < n; i++) {
+            int prev = (i + n - 1) % n, next = (i + 1) % n;
+            float ax = ring[i * 2] - ring[prev * 2], ay = ring[i * 2 + 1] - ring[prev * 2 + 1];
+            float bx = ring[next * 2] - ring[i * 2], by = ring[next * 2 + 1] - ring[i * 2 + 1];
+            // Each edge's normal, then their sum: the bisector, longer at a sharp corner exactly
+            // as a mitre should be.
+            float na = (float) Math.sqrt(ax * ax + ay * ay);
+            float nb = (float) Math.sqrt(bx * bx + by * by);
+            float nx = 0f, ny = 0f;
+            if (na > 1e-9f) { nx += ay / na; ny += -ax / na; }
+            if (nb > 1e-9f) { nx += by / nb; ny += -bx / nb; }
+            float len = (float) Math.sqrt(nx * nx + ny * ny);
+            if (len < 1e-9f) {                       // a spike doubling back: leave it where it is
+                out[i * 2] = ring[i * 2];
+                out[i * 2 + 1] = ring[i * 2 + 1];
+                continue;
+            }
+            // Mitre length, capped: at a needle-sharp corner the true mitre runs away to infinity.
+            float scale = Math.min(2f, 2f / len);
+            out[i * 2] = ring[i * 2] + nx / len * d * scale;
+            out[i * 2 + 1] = ring[i * 2 + 1] + ny / len * d * scale;
+        }
+        return out;
+    }
+
     /** Signed area * 2. Positive = counter-clockwise in a y-down space. Used to fix winding. */
     public static float signedArea2(float[] ring) {
         if (ring == null || ring.length < 6) return 0f;

@@ -30,7 +30,7 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -55,6 +55,7 @@ java @"$RUNARGS" PuppetSolverTest || exit 1
 java @"$RUNARGS" PuppetWeightsTest || exit 1
 java @"$RUNARGS" PuppetIslandTest || exit 1
 java @"$RUNARGS" PuppetKnobsTest || exit 1
+java @"$RUNARGS" PuppetRigSolverTest || exit 1
 # The RIG's bookkeeping (SPEC_20260915_PUPPET_UI): names, chains, and the index renumbering
 # that corrupts a rig silently when a pin is deleted. PuppetPin/PuppetRig import nothing, which
 # is what lets them run here — enforced just below.

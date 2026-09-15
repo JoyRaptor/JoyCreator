@@ -49,6 +49,14 @@ public final class PuppetTopology implements MeshTopology {
      */
     private static final float FORMAT_V3 = 3f;
 
+    /**
+     * Adds the per-pin MUTE. Same argument as softness: a muted pin changes the weight table, so
+     * it is part of what this class is, and a puppet reloaded without it would quietly start
+     * bending from a pin the user had switched off. v1 through v3 load with nothing muted, which
+     * is what they meant.
+     */
+    private static final float FORMAT_V4 = 4f;
+
     private final float[][] rings;     // one contour per island, interleaved x,y, unit space
     private final int interior;        // interior seeding density, one axis, for the LARGEST island
     private final float[] pins;        // pin REST positions, interleaved x,y, unit space
@@ -61,6 +69,7 @@ public final class PuppetTopology implements MeshTopology {
     private final float softness;      // 0..1, the character's Softness
     private final float[] stiffArea;   // per pin, reach along the mesh
     private final float[] stiffStr;    // per pin, 0 = an ordinary pin
+    private final boolean[] muted;     // per pin, true = affects nothing
     private final int stamp;
 
     /** Lazily derived; see {@link #weights()} for why a plain volatile is enough here. */
@@ -100,6 +109,12 @@ public final class PuppetTopology implements MeshTopology {
      */
     public PuppetTopology(float[][] rings, int interior, float[] pins, float softness,
                           float[] stiffArea, float[] stiffStrength) {
+        this(rings, interior, pins, softness, stiffArea, stiffStrength, null);
+    }
+
+    /** @param muted per pin: true stops it moving anything, keeping its animation. */
+    public PuppetTopology(float[][] rings, int interior, float[] pins, float softness,
+                          float[] stiffArea, float[] stiffStrength, boolean[] muted) {
         if (rings == null || rings.length == 0) {
             throw new IllegalArgumentException("puppet needs at least one contour");
         }
@@ -118,6 +133,10 @@ public final class PuppetTopology implements MeshTopology {
                 ? PuppetWeights.SOFTNESS_NEUTRAL : Math.max(0f, Math.min(1f, softness));
         this.stiffArea = fitPerPin(stiffArea, pinN, 0.25f);
         this.stiffStr = fitPerPin(stiffStrength, pinN, 0f);
+        this.muted = new boolean[pinN];
+        for (int i = 0; i < pinN; i++) {
+            this.muted[i] = muted != null && i < muted.length && muted[i];
+        }
 
         PuppetTriangulator.Mesh m = PuppetTriangulator.triangulate(this.rings, this.interior);
         if (m == null) throw new IllegalArgumentException("contour did not triangulate");
@@ -136,6 +155,7 @@ public final class PuppetTopology implements MeshTopology {
         h = h * 31 + Float.floatToIntBits(this.softness);
         for (float f : this.stiffArea) h = h * 31 + Float.floatToIntBits(f);
         for (float f : this.stiffStr) h = h * 31 + Float.floatToIntBits(f);
+        for (boolean b : this.muted) h = h * 31 + (b ? 1 : 0);
         h = h * 31 + verts.length;
         h = h * 31 + indices.length;
         for (int i = 0; i < this.pins.length; i++) h = h * 31 + Float.floatToIntBits(this.pins[i]);
@@ -145,8 +165,8 @@ public final class PuppetTopology implements MeshTopology {
     @Override public String kind() { return KIND; }
 
     /**
-     * {@code [FORMAT_V3, interior, pinCount, islandCount, softness, pointsPerIsland...,
-     * stiffArea..., stiffStrength..., pins..., rings...]}.
+     * {@code [FORMAT_V4, interior, pinCount, islandCount, softness, pointsPerIsland...,
+     * stiffArea..., stiffStrength..., muted..., pins..., rings...]}.
      *
      * <p>Floats throughout because {@link MeshTopology#params()} is float[] — which its own doc
      * explains was chosen precisely because "a puppet's parameters ARE its traced contour".
@@ -156,8 +176,8 @@ public final class PuppetTopology implements MeshTopology {
         int pinN = pins.length / 2;
         int ringFloats = 0;
         for (float[] r : rings) ringFloats += r.length;
-        float[] out = new float[5 + rings.length + pinN * 2 + pins.length + ringFloats];
-        out[0] = FORMAT_V3;
+        float[] out = new float[5 + rings.length + pinN * 3 + pins.length + ringFloats];
+        out[0] = FORMAT_V4;
         out[1] = interior;
         out[2] = pinN;
         out[3] = rings.length;
@@ -167,6 +187,8 @@ public final class PuppetTopology implements MeshTopology {
         System.arraycopy(stiffArea, 0, out, at, pinN);
         at += pinN;
         System.arraycopy(stiffStr, 0, out, at, pinN);
+        at += pinN;
+        for (int i = 0; i < pinN; i++) out[at + i] = muted[i] ? 1f : 0f;
         at += pinN;
         System.arraycopy(pins, 0, out, at, pins.length);
         at += pins.length;
@@ -196,7 +218,8 @@ public final class PuppetTopology implements MeshTopology {
                 System.arraycopy(p, 4 + pins.length, ring, 0, ring.length);
                 return new PuppetTopology(ring, interior, pins);
             }
-            boolean v3 = format == Math.round(FORMAT_V3);
+            boolean v4 = format == Math.round(FORMAT_V4);
+            boolean v3 = v4 || format == Math.round(FORMAT_V3);
             if (!v3 && format != Math.round(FORMAT_V2)) return null;
 
             int islands = Math.round(p[3]);
@@ -211,15 +234,21 @@ public final class PuppetTopology implements MeshTopology {
                 ringFloats += counts[i] * 2;
             }
             int at = head + islands;
-            int stiffFloats = v3 ? pinN * 2 : 0;
-            if (p.length < at + stiffFloats + pinN * 2 + ringFloats) return null;
+            int knobFloats = (v3 ? pinN * 2 : 0) + (v4 ? pinN : 0);
+            if (p.length < at + knobFloats + pinN * 2 + ringFloats) return null;
             float[] area = null, strength = null;
+            boolean[] mute = null;
             if (v3) {
                 area = new float[pinN];
                 strength = new float[pinN];
                 System.arraycopy(p, at, area, 0, pinN);
                 at += pinN;
                 System.arraycopy(p, at, strength, 0, pinN);
+                at += pinN;
+            }
+            if (v4) {
+                mute = new boolean[pinN];
+                for (int i = 0; i < pinN; i++) mute[i] = p[at + i] >= 0.5f;
                 at += pinN;
             }
             float[] pins = new float[pinN * 2];
@@ -231,7 +260,7 @@ public final class PuppetTopology implements MeshTopology {
                 System.arraycopy(p, at, rings[i], 0, rings[i].length);
                 at += rings[i].length;
             }
-            return new PuppetTopology(rings, interior, pins, softness, area, strength);
+            return new PuppetTopology(rings, interior, pins, softness, area, strength, mute);
         } catch (Exception ignored) {
             return null;
         }
@@ -287,7 +316,8 @@ public final class PuppetTopology implements MeshTopology {
     public PuppetWeights weights() {
         PuppetWeights w = weights;
         if (w == null && pins.length >= 2) {
-            w = PuppetWeights.build(verts, indices, pins, islandStart, softness, stiffArea, stiffStr);
+            w = PuppetWeights.build(verts, indices, pins, islandStart, softness, stiffArea,
+                    stiffStr, muted);
             weights = w;
         }
         return w;
@@ -327,6 +357,9 @@ public final class PuppetTopology implements MeshTopology {
 
     /** Per-pin stiffness strength, defensively copied. 0 means an ordinary pin. */
     public float[] stiffStrength() { return stiffStr.clone(); }
+
+    /** Per-pin mute, defensively copied. A muted pin moves nothing and keeps its animation. */
+    public boolean[] muted() { return muted.clone(); }
 
     /** How many separate pieces of artwork this puppet covers. One for ordinary art. */
     public int islandCount() { return rings.length; }

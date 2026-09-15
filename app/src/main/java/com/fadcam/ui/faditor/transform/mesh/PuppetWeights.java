@@ -177,6 +177,24 @@ public final class PuppetWeights {
     public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
                                       int[] islandStart, float softness,
                                       float[] stiffArea, float[] stiffStrength) {
+        return build(verts, indices, pins, islandStart, softness, stiffArea, stiffStrength, null);
+    }
+
+    /**
+     * @param muted per pin: true stops it affecting the picture WITHOUT touching its animation.
+     *
+     * <p>Muting is zero weight everywhere, which is the honest reading of "this pin does not move
+     * anything" and costs nothing: the pose keeps every key it had, the arity never changes, and
+     * un-muting brings the performance straight back. Doing it by deleting the pin instead would
+     * have thrown the animation away, which is exactly what the drawer promises it will not.
+     *
+     * <p>A piece of artwork whose only pin is muted has nothing left to reach it, so it takes the
+     * ride-along fallback and travels with the rest — the same answer as a piece nobody pinned,
+     * for the same reason.
+     */
+    public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
+                                      int[] islandStart, float softness,
+                                      float[] stiffArea, float[] stiffStrength, boolean[] muted) {
         if (verts == null || indices == null || pins == null) return null;
         int n = verts.length / 2, p = pins.length / 2;
         if (n <= 0 || p <= 0 || indices.length < 3) return null;
@@ -199,6 +217,10 @@ public final class PuppetWeights {
         float[][] keptDist = anyStiff ? new float[p][] : null;
 
         for (int i = 0; i < p; i++) {
+            if (muted != null && i < muted.length && muted[i]) {
+                if (anyStiff) keptDist[i] = null;      // a muted pin cannot stiffen anything either
+                continue;                              // leaves this pin's column at zero
+            }
             geodesic(verts, adj, island, pins[i * 2], pins[i * 2 + 1], dist);
             if (anyStiff) keptDist[i] = dist.clone();
             for (int v = 0; v < n; v++) {

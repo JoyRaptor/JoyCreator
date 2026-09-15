@@ -1478,10 +1478,32 @@ public class ProjectStorage {
         if (comp != null && !comp.isEmpty()) {
             clipJson.add("compositing", comp.toJson());
         }
-        // SPEC E mesh ("mesh"): v1 is image overlays only (TextOverlayItem), so a Clip carries
-        // no mesh field and writes nothing here — every pre-mesh clip stays byte-identical. Read
-        // path below drops a stale "mesh" member if one ever arrives, so a newer file can never
-        // break this load.
+        // SPEC ZB — the clip's own distortion, written with EXACTLY the sprite contract
+        // (see the sprite block below): eight sparse keys via CornerPin.jsonKeyFor, each
+        // present only when that corner is off zero, plus a "mesh" object only when a bend
+        // is authored (MeshWarpSpec.toJson returns null for identity). A clip with no warp
+        // adds not one byte and round-trips byte-identically, and a reader that predates
+        // this drops both members without noticing. The eight KEYFRAME tracks need no code
+        // here: KeyframeCodec already writes any track name in overlayTransform or
+        // spineTransform. One set of keys serves PiP and spine alike, because both are Clip.
+        for (int pc = 0; pc < 4; pc++) {
+            for (int pa = 0; pa < 2; pa++) {
+                float pv = clip.getCornerPin(pc, pa);
+                if (pv != 0f) {
+                    clipJson.addProperty(com.fadcam.ui.faditor.model.CornerPin
+                            .jsonKeyFor(pc, pa), pv);
+                }
+            }
+        }
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec clipMesh = clip.getMesh();
+        if (clipMesh != null) {
+            try {
+                JsonObject mj = clipMesh.toJson();
+                if (mj != null) clipJson.add("mesh", mj);
+            } catch (Exception ignored) {
+                // A bend that cannot serialize costs the bend, never the clip.
+            }
+        }
         // Per-object FX (M7). Additive: written only when the clip actually has effects, so
         // every clip authored before them stays byte-identical.
         if (clip.hasActiveFx() || (clip.getFx() != null && !clip.getFx().isEmpty())) {
@@ -1849,14 +1871,31 @@ public class ProjectStorage {
             clip.setCompositing(com.fadcam.ui.faditor.model.CompositingSpec
                     .fromJson(clipObj.getAsJsonObject("compositing")));
         }
-        // SPEC E mesh on a Clip: dropped, clip kept. v1 mesh lives on image overlays only; a
-        // "mesh" member here (hand-edited or newer build) costs the bend, never the clip.
+        // SPEC ZB — corner pin, TOLERANT, and that is the whole contract: an absent key
+        // is zero and zero is undistorted, so every project written before a clip could bend
+        // loads and renders exactly as it always did. Nothing here can fail on old JSON
+        // because nothing here is required. The reverse holds too: a build that predates
+        // this sheet never reads these keys (unknown members are simply never queried) and
+        // its reader already dropped a "mesh" member on a Clip on purpose — so a warped
+        // clip saved by this build loads there with the clip intact, minus the bend.
+        for (int pc = 0; pc < 4; pc++) {
+            for (int pa = 0; pa < 2; pa++) {
+                String pk = com.fadcam.ui.faditor.model.CornerPin.jsonKeyFor(pc, pa);
+                if (hasValue(clipObj, pk)) {
+                    clip.setCornerPin(pc, pa, clipObj.get(pk).getAsFloat());
+                }
+            }
+        }
+        // The bend, same tolerance: a mesh that cannot be parsed costs the bend and never
+        // the clip (MeshWarpSpec.fromJson already enforces per-pose tolerance; null = drop).
         if (hasValue(clipObj, "mesh")) {
             try {
-                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.fromJson(
-                        clipObj.getAsJsonObject("mesh"));
+                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec ms =
+                        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.fromJson(
+                                clipObj.getAsJsonObject("mesh"));
+                if (ms != null) clip.setMesh(ms);
             } catch (Exception ignored) {
-                // Tolerant: lose a bend we would never render, keep the clip.
+                // Tolerant: lose the bend, keep the clip.
             }
         }
         // ── Floating overlay-video fields (M-COMP-2) — absent on master clips. ──

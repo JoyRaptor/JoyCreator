@@ -51,6 +51,13 @@ CUSTOM = {
         r"so\.getCornerPin\(", r"so\.setCornerPin\(",
         "eight runtime keys via CornerPin.jsonKeyFor; proved by the getter+setter pair",
     ),
+    # SPEC ZB 2026-09-13: Clip carries the same pin, in serializeClipObject (clip.) and
+    # deserializeClipObject (clip.). Same CUSTOM form, not an exemption, for the same
+    # reason: an exemption would pass even if the whole block were deleted.
+    ("Clip", "cornerPin"): (
+        r"clip\.getCornerPin\(", r"clip\.setCornerPin\(",
+        "eight runtime keys via CornerPin.jsonKeyFor; proved by the getter+setter pair",
+    ),
 }
 
 # field -> why it needs no key. Keep the reason concrete and checkable.

@@ -721,6 +721,14 @@ public class Clip implements AudioParams {
         this.spineRotationDeg = other.spineRotationDeg;
         this.spineTransform = other.spineTransform != null
                 ? other.spineTransform.copy() : null;
+        // SPEC ZB: the warp rides along, DEEP — beside the spine pose, not inside it. The
+        // eight offsets are array-copied (the array is final and never shared); the bend is
+        // cloned, because aliasing one MeshWarpSpec would make bending the copy bend the
+        // original — the trap the sprite copy's comment describes. Curve reinstalled so the
+        // copy eases exactly like the original.
+        System.arraycopy(other.cornerPin, 0, this.cornerPin, 0, CornerPin.SIZE);
+        this.mesh = other.mesh == null ? null : other.mesh.copy();
+        this.installMeshCurve();
     }
 
     /**
@@ -804,6 +812,11 @@ public class Clip implements AudioParams {
         c.spineScaleY = spineScaleY;
         c.spineRotationDeg = spineRotationDeg;
         c.spineTransform = spineTransform != null ? spineTransform.copy() : null;
+        // SPEC ZB: relinked()'s own javadoc promises to keep "every edit", and the warp is
+        // one. Deep, like the copy constructor above, for the same aliasing reason.
+        System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
+        c.mesh = mesh == null ? null : mesh.copy();
+        if (c.mesh != null) c.installMeshCurve();
         return c;
     }
 
@@ -2009,12 +2022,104 @@ public class Clip implements AudioParams {
     public static final class SpineSnapshot {
         final float cx, cy, sc, sx, sy, rot;
         @Nullable final com.fadcam.ui.faditor.keyframe.KeyframeSet keys;
+        /**
+         * SPEC ZB: the distortion rides the pose snapshot, so one undo returns it with the
+         * framing it rode. The pin array is cloned (the live one is mutated in place) and
+         * the bend is deep-copied — a snapshot holding the LIVE spec would move with the
+         * object it exists to restore.
+         */
+        @NonNull final float[] cornerPin;
+        @Nullable final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
 
         SpineSnapshot(float cx, float cy, float sc, float sx, float sy, float rot,
-                      @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet keys) {
+                      @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet keys,
+                      @NonNull float[] cornerPin,
+                      @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh) {
             this.cx = cx; this.cy = cy; this.sc = sc;
             this.sx = sx; this.sy = sy; this.rot = rot;
             this.keys = keys;
+            this.cornerPin = cornerPin.clone();
+            this.mesh = mesh == null ? null : mesh.copy();
+        }
+
+        /**
+         * True when this snapshot is value-identical to {@code other}.
+         *
+         * <p><b>No production caller yet, and that is recorded, not accidental</b> (audit
+         * 2026-09-13, ZB-1). The spine undo path — {@code commitSpineTransform} in
+         * FaditorEditorActivity, a file this sheet does not own — records undo
+         * UNCONDITIONALLY today. Wiring {@code matches} there (snapshot both ends, record
+         * only when they differ, exactly as the text/sprite menus already do) is the
+         * deliberate follow-up, and it belongs to whoever owns that file next (SPEC ZD /
+         * the transform lane). Until then this is exercised by ClipWarpTest so the
+         * comparison semantics cannot rot silently.
+         */
+        public boolean matches(@NonNull SpineSnapshot other) {
+            return cx == other.cx && cy == other.cy
+                    && sc == other.sc && sx == other.sx && sy == other.sy
+                    && rot == other.rot
+                    && java.util.Arrays.equals(cornerPin, other.cornerPin)
+                    && meshEqual(mesh, other.mesh)
+                    && keysEqual(keys, other.keys);
+        }
+
+        /**
+         * Two bends are equal when they serialise the same. Comparing specs field by field
+         * would be a second definition of "same bend" that could disagree with the one the
+         * file format already uses — see SpriteOverlayItem.TransformSnapshot.meshEqual.
+         */
+        private static boolean meshEqual(
+                @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec a,
+                @Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec b) {
+            if (a == b) return true;
+            boolean aWarp = a != null && a.hasWarp();
+            boolean bWarp = b != null && b.hasWarp();
+            if (!aWarp && !bWarp) return true;
+            if (aWarp != bWarp) return false;
+            try {
+                com.google.gson.JsonObject ja = a.toJson();
+                com.google.gson.JsonObject jb = b.toJson();
+                return ja == null ? jb == null : ja.equals(jb);
+            } catch (Exception ignored) {
+                return false;   // cannot prove equal -> treat as changed, never as unchanged
+            }
+        }
+
+        /**
+         * Null and an empty set both mean "not armed" everywhere they are read
+         * ({@link Clip#isSpineTransformArmed}, {@link Clip#hasSpineTransform}), so they
+         * compare equal here for the same reason meshEqual treats null and identity alike.
+         */
+        private static boolean keysEqual(
+                @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet a,
+                @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet b) {
+            boolean aEmpty = a == null || a.isEmpty();
+            boolean bEmpty = b == null || b.isEmpty();
+            if (aEmpty && bEmpty) return true;
+            if (aEmpty != bEmpty) return false;
+            java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> ta = trackList(a);
+            java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> tb = trackList(b);
+            if (ta.size() != tb.size()) return false;
+            for (int i = 0; i < ta.size(); i++) {
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack x = ta.get(i), y = tb.get(i);
+                if (!x.property.equals(y.property)) return false;
+                if (x.keyframes.size() != y.keyframes.size()) return false;
+                for (int j = 0; j < x.keyframes.size(); j++) {
+                    com.fadcam.ui.faditor.keyframe.Keyframe kx = x.keyframes.get(j);
+                    com.fadcam.ui.faditor.keyframe.Keyframe ky = y.keyframes.get(j);
+                    if (kx.timeMs != ky.timeMs || kx.value != ky.value
+                            || kx.easing != ky.easing) return false;
+                }
+            }
+            return true;
+        }
+
+        private static java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> trackList(
+                @NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet s) {
+            java.util.List<com.fadcam.ui.faditor.keyframe.KeyframeTrack> out =
+                    new java.util.ArrayList<>();
+            for (com.fadcam.ui.faditor.keyframe.KeyframeTrack t : s.tracks()) out.add(t);
+            return out;
         }
     }
 
@@ -2022,7 +2127,8 @@ public class Clip implements AudioParams {
     public SpineSnapshot snapshotSpineTransform() {
         return new SpineSnapshot(spineCenterX, spineCenterY, spineScale,
                 spineScaleX, spineScaleY, spineRotationDeg,
-                spineTransform == null ? null : spineTransform.copy());
+                spineTransform == null ? null : spineTransform.copy(),
+                cornerPin, mesh);
     }
 
     public void restoreSpineTransform(@NonNull SpineSnapshot s) {
@@ -2033,6 +2139,241 @@ public class Clip implements AudioParams {
         spineScaleY = s.sy;
         spineRotationDeg = s.rot;
         spineTransform = s.keys == null ? null : s.keys.copy();
+        // SPEC ZB: the distortion restores with the pose it rode (deep copy; the curve is
+        // reinstalled for easing parity). Nothing authors a clip pin or bend yet, so both
+        // snapshots around any live gesture carry identical values and this writes back
+        // exactly what was there — no behaviour change until SPEC ZD reads these fields.
+        System.arraycopy(s.cornerPin, 0, this.cornerPin, 0, CornerPin.SIZE);
+        this.mesh = s.mesh == null ? null : s.mesh.copy();
+        if (this.mesh != null) installMeshCurve();
+    }
+
+    // ── SPEC ZB: corner pin + mesh — this clip's own distortion ─────────────────────────
+    //
+    // A PiP clip and a spine clip are BOTH Clip — a PiP is a Clip with isOverlayClip(), the
+    // spine is a Clip on getClips() — so ONE pair of fields serves both, and there is
+    // deliberately no second set. Shaped EXACTLY like SpriteOverlayItem's, down to the units
+    // (offsets are fractions of the clip's own untransformed size — CornerPin's class doc
+    // explains why that unit and no other survives preview size vs export resolution) and
+    // the accessor names, because two shapes is how two behaviours start. The warp sits
+    // BESIDE the spine pose above, not inside it.
+    //
+    // TIME BASE: clip-local milliseconds, NOT timeline milliseconds. Every other animated
+    // reader on this class (spinePoseAt, opacityAtClipMs, volumeAt, masterFadeFactorAt)
+    // already speaks clip-local — the export subtracts the item's timeline offset from
+    // presentationTimeUs and the preview does the same — so these do too. A Clip never knows
+    // its own timeline offset (a master clip's position is DERIVED by summation, an overlay's
+    // lives in overlayStartMs), so taking timeline time here would invent a second offset
+    // convention for SPEC ZD to get wrong.
+    //
+    // TRACKS: the eight pin components animate in the two KeyframeSets this class already
+    // owns — overlayTransform and spineTransform — through the same KeyframeCodec that
+    // persists every other track, so animation needed no new persisted state and the tracks
+    // round-trip with no serializer change at all. hasCornerPin reads those TRACKS rather
+    // than sampling a time, so the answer cannot flicker between frames of one animation.
+    //
+    // NO RENDERER READS THIS YET — that is SPEC ZD's job. Nothing on screen can change
+    // because of it, which is the acceptance test.
+    private final float[] cornerPin = new float[CornerPin.SIZE];
+
+    @Nullable
+    private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
+
+    /** Index into {@link #cornerPin}, or -1 for a bad corner/axis. */
+    private static int pinIndex(int corner, int axis) {
+        if (corner < 0 || corner > CornerPin.BL) return -1;
+        if (axis != CornerPin.DX && axis != CornerPin.DY) return -1;
+        return corner * 2 + axis;
+    }
+
+    /** One corner component's STATIC value. See {@link CornerPin#TL}/{@link CornerPin#DX}. */
+    public float getCornerPin(int corner, int axis) {
+        int i = pinIndex(corner, axis);
+        return i < 0 ? 0f : cornerPin[i];
+    }
+
+    /** Set one corner component, clamped to {@link CornerPin#MAX_OFFSET}. */
+    public void setCornerPin(int corner, int axis, float value) {
+        int i = pinIndex(corner, axis);
+        if (i >= 0) cornerPin[i] = CornerPin.clamp(value);
+    }
+
+    /** Set all four corners at once from a packed array; shorter/null input is ignored. */
+    public void setCornerPin(@Nullable float[] off8) {
+        int n = CornerPin.SIZE;
+        if (off8 == null || off8.length < n) return;
+        for (int i = 0; i < n; i++) {
+            cornerPin[i] = CornerPin.clamp(off8[i]);
+        }
+    }
+
+    /** Copy the STATIC offsets into {@code out8}. */
+    public void copyCornerPinInto(@NonNull float[] out8) {
+        int n = CornerPin.SIZE;
+        if (out8.length < n) return;
+        System.arraycopy(cornerPin, 0, out8, 0, n);
+    }
+
+    /** Back to undistorted — the state every clip starts in. */
+    public void clearCornerPin() {
+        java.util.Arrays.fill(cornerPin, 0f);
+    }
+
+    /**
+     * The envelope that owns one pin track, or null when neither names it. The overlay
+     * envelope wins when BOTH do — in practice only one ever does, because each lane
+     * authors into its own set and the other set's keys are inherited/stale from a lane
+     * move (a promoted PiP keeps its overlay keys, a demoted spine keeps its spine keys).
+     *
+     * <p><b>The conservative edge a lane move leaves behind</b> (audit 2026-09-13, ZB-3): a
+     * DEMOTED spine clip with stale NONZERO pin keys in {@code spineTransform} keeps
+     * {@link #hasCornerPin} true even though the visible values come from the overlay
+     * envelope that wins here — and through it ZD's {@code wantsGl()} would promote the clip
+     * to GL. That is the conservative direction (never UNDER-promote a distorted clip), and
+     * it is left as-is on purpose: pruning the loser's keys at promote/demote time would be
+     * a behaviour change this sheet does not make. If ZD wants the promotion exact, the prune
+     * belongs to the lane-move operation, not to this read.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.keyframe.KeyframeSet pinOwner(@NonNull String property) {
+        if (overlayTransform != null && overlayTransform.hasProperty(property)) {
+            return overlayTransform;
+        }
+        if (spineTransform != null && spineTransform.hasProperty(property)) {
+            return spineTransform;
+        }
+        return null;
+    }
+
+    /**
+     * The pin track for one corner component, or null when neither envelope names it —
+     * the track form of {@link #pinOwner}, for the gate below.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.keyframe.KeyframeTrack pinTrack(@NonNull String property) {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet owner = pinOwner(property);
+        return owner == null ? null : owner.get(property);
+    }
+
+    /**
+     * Is this clip distorted AT ALL — statically or by any keyframe?
+     *
+     * <p>The skip gate every future render path checks first, and it reads the TRACKS rather
+     * than sampling a time, for the same reason the sprite and image ones do: the answer must
+     * not flicker between frames of an animation, or the preview would swap how it draws the
+     * clip mid-playback.
+     *
+     * <p><b>Cost, billed to SPEC ZD consciously</b> (audit 2026-09-13, ZB-2): the track half
+     * walks all eight tracks × every keyframe each call, allocation-free. That is fine while
+     * nothing reads it, and cheap per gesture — but a per-frame caller should gate ONCE per
+     * clip (this answer cannot change without an edit, which is the flicker argument in
+     * reverse) rather than every frame. {@link #wantsGl()} exists precisely to be that
+     * once-per-object gate; do not call this per frame when {@code wantsGl()} already
+     * answered.
+     */
+    public boolean hasCornerPin() {
+        if (!CornerPin.isFlat(cornerPin)) return true;
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                com.fadcam.ui.faditor.keyframe.KeyframeTrack t =
+                        pinTrack(CornerPin.trackFor(c, a));
+                if (t == null || t.isEmpty()) continue;
+                for (com.fadcam.ui.faditor.keyframe.Keyframe k : t.keyframes) {
+                    if (Math.abs(k.value) > CornerPin.EPSILON) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The offsets at clip-local {@code clipMs} — each of the eight tracks evaluated on this
+     * clip's own local clock, falling back to the static value exactly like spinePoseAt.
+     */
+    public void animatedCornerPin(long clipMs, @NonNull float[] out8) {
+        int n = CornerPin.SIZE;
+        if (out8.length < n) return;
+        long t = Math.max(0, clipMs);
+        for (int c = 0; c < 4; c++) {
+            for (int a = 0; a < 2; a++) {
+                int i = c * 2 + a;
+                com.fadcam.ui.faditor.keyframe.KeyframeSet owner =
+                        pinOwner(CornerPin.trackFor(c, a));
+                float v = cornerPin[i];
+                if (owner != null) {
+                    v = CornerPin.clamp(owner.valueAt(CornerPin.trackFor(c, a), t, cornerPin[i]));
+                }
+                out8[i] = v;
+            }
+        }
+    }
+
+    /**
+     * The corner-pin matrix for this clip at clip-local {@code clipMs}, over the
+     * untransformed drawn rect {@code (left, top, w, h)} in the CALLER's pixel space.
+     *
+     * <p>The ONE method the preview and the export both call, so the arithmetic has no second
+     * transcription to drift from — the same discipline the sprite and image twins already
+     * carry, and literally the same {@code CornerPin.buildMatrix} underneath.
+     *
+     * <p><b>Cost, billed to SPEC ZD consciously</b> (audit 2026-09-13, ZB-2): the gate +
+     * evaluate here allocate one {@code float[8]} and re-evaluate all eight tracks per call —
+     * parity with the twins, and free while nothing calls it. A per-frame ZD renderer that
+     * already gated on {@link #wantsGl()} should call {@link #animatedCornerPin} into a
+     * REUSED scratch array and {@code CornerPin.buildMatrix} directly instead, which is the
+     * same maths with no per-frame allocation; this convenience stays for gesture-time and
+     * one-off callers.
+     *
+     * @return true when {@code out} must be concat-ed; false when the clip is undistorted at
+     *         this time and the caller should draw exactly as it always did
+     */
+    public boolean cornerPinMatrix(@NonNull android.graphics.Matrix out, long clipMs,
+                                   float left, float top, float w, float h) {
+        if (!hasCornerPin()) { out.reset(); return false; }
+        float[] off = new float[CornerPin.SIZE];
+        animatedCornerPin(clipMs, off);
+        return CornerPin.buildMatrix(out, left, top, w, h, off);
+    }
+
+    /**
+     * Must this clip be drawn by GL rather than by its current path?
+     *
+     * <p>The GL-promotion predicate SPEC ZD will read, mirroring the sprite's: a warped clip
+     * cannot be composited correctly off-GL (no blend above it can sample it, no mask can cut
+     * it). Checked BEFORE any GL object exists, so a project with no warped clip compiles no
+     * program and allocates no framebuffer. Nothing calls it yet.
+     */
+    public boolean wantsGl() {
+        return hasMesh() || hasCornerPin();
+    }
+
+    /** True when a bend is authored. Checked before any GL object exists, so no bend costs zero. */
+    public boolean hasMesh() {
+        return mesh != null && mesh.hasWarp();
+    }
+
+    /** The bend spec, or null. Renderers copy it per-frame; never hand the live one out. */
+    @Nullable
+    public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec getMesh() { return mesh; }
+
+    /** Set/replace the bend (null clears). Installs the shared easing curve on its track. */
+    public void setMesh(@Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
+        this.mesh = m;
+        installMeshCurve();
+    }
+
+    /** One easing authority for every warpable type — see {@code MeshCurves}. */
+    public void installMeshCurve() {
+        com.fadcam.ui.faditor.transform.mesh.MeshCurves.install(mesh);
+    }
+
+    /**
+     * Mesh time base is clip-LOCAL, like every other animated property here. Callers already
+     * hold clip-local time (see the block doc), so this is the identity apart from the floor
+     * — kept so all four warpable types answer the same question with the same name.
+     */
+    public long meshLocalTime(long clipMs) {
+        return Math.max(0, clipMs);
     }
 
     // ── Opacity keyframes (visual fade envelope) ─────────────────────

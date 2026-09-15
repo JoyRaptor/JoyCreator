@@ -30651,6 +30651,79 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // pass-through toggles in the header. The transform tab is tab 0 and carries the chain-split
     // Scale rows that the object sheet cannot (linked = one SCALE slider, split = Scale X/Y).
 
+
+    /**
+     * The Puppet tab's {@link com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Host}.
+     *
+     * <p>Its own method rather than an inline anonymous class because
+     * {@code showImageOverlayDrawer} is already long, and because the KEY-NAVIGATION half of this
+     * interface is going to grow real bodies as soon as pins can be placed on the preview.
+     *
+     * <p><b>Those bodies are honest stubs today, and deliberately so.</b> A pin's keys live in the
+     * pose track's components, and the components only exist once the image has been traced into a
+     * PUPPET topology — which is the preview work, not this. Rather than invent a key count, the
+     * stubs report "no keys", which is exactly true of every rig right now and makes the tab say
+     * so on screen instead of showing a control that lies.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Host puppetHostFor(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull Runnable applyComp) {
+        return new com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Host() {
+            @NonNull @Override
+            public com.fadcam.ui.faditor.puppet.PuppetRig rig() { return o.getOrCreatePuppet(); }
+
+            @Override public int selectedPin() { return puppetSelectedPin; }
+            @Override public void setSelectedPin(int index) { puppetSelectedPin = index; }
+
+            @NonNull @Override
+            public com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool tool() { return puppetTool; }
+            @Override public void setTool(
+                    @NonNull com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool t) {
+                puppetTool = t;
+            }
+
+            @NonNull @Override
+            public com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope scope() { return puppetScope; }
+            @Override public void setScope(
+                    @NonNull com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope s) {
+                puppetScope = s;
+            }
+
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+
+            @Override public void onChanged() { applyComp.run(); }
+
+            @Override public void rebuildRows() {
+                if (objectDrawer != null) objectDrawer.refreshCurrentTab();
+            }
+
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+
+            // ── keys: honest stubs until pins exist on the preview ───────────────────
+            @Override public int keyCount() { return 0; }
+            @Override public int keyIndexAtPlayhead() { return 0; }
+            @Override public boolean playheadIsOnKey() { return false; }
+            @Override public void dropKeyAtPlayhead() { }
+            @Override public void deleteKeyAtPlayhead() { }
+            @Override public void jumpToPrevKey() { }
+            @Override public void jumpToNextKey() { }
+        };
+    }
+
+    // ── SPEC_20260915_PUPPET_UI: the Puppet tab's UI state ───────────────────────────────
+    // Selection, armed tool and open scope live HERE rather than in PuppetDrawerTabs because the
+    // drawer rebuilds its content on every change; a field inside the tab would throw the user
+    // back to the first pin and the Grab tool each time they moved a slider.
+    private int puppetSelectedPin = -1;
+    @NonNull private com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool puppetTool =
+            com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
+    @NonNull private com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope puppetScope =
+            com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
+
     private void showImageOverlayDrawer(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (project == null) return;
@@ -30772,6 +30845,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 "Move", R.drawable.ic_pip_move_24,                        // TODO(strings)
                 ctx -> buildImageMoveTab(o)));
+
+        // SPEC_20260915_PUPPET_UI — PUPPETEERING. Last tab on purpose: it is the deepest tool
+        // here, and the tabs are spatial (ObjectDrawer's own doc), so the order has to mean
+        // something. Blend, mask, key, effects and move are things you do TO a picture; this is
+        // the one that turns the picture into something that performs.
+        //
+        // The rig is created on first use, so an image that never opens this tab still saves
+        // byte-identically — PuppetRigJson.toJson returns null for a rig with no pins.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Puppet", R.drawable.ic_person_24,                        // TODO(strings)
+                ctx -> com.fadcam.ui.faditor.tools.PuppetDrawerTabs.build(
+                        ctx, puppetHostFor(o, applyComp))));
 
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();

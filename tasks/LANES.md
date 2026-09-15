@@ -716,9 +716,13 @@ status: ACTIVE (2026-09-15, Claude/Opus — design settled with JoyRaptor this s
 files: tasks/SPEC_20260915_PUPPET_UI.md
        app/src/main/java/com/fadcam/ui/faditor/puppet/**  (NEW package — mine)
        app/src/main/java/com/fadcam/ui/faditor/tools/PuppetDrawerTabs.java (NEW)
-NOT touching: transform/mesh/** (the other lane), ObjectDrawer.java (not needed yet —
+       app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java     (2 lines: a rig field)
+       app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java    (2 sites: write/read "puppet")
+       app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java     (1 site: showImageOverlayDrawer)
+NOT touching: transform/mesh/** (the other lane), ObjectDrawer.java (not needed at all —
        the Puppet tab is supplied BY the activity as an ObjectDrawer.Tab, so the drawer
-       chrome needs no change at all).
+       chrome needs no change). The three shared files above take ADDITIVE edits only —
+       a new field, a new JSON member written only when non-null, one new Tab appended.
 
 UI ONLY. The back end is the other lane (SPEC_20260904_PUPPET_ARCHITECTURE, stages 1-3
 landed at 71ab51f3). Two contracts cross the boundary and are written up in §5 of the spec:

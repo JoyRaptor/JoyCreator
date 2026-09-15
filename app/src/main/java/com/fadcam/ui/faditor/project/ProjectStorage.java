@@ -2495,6 +2495,18 @@ public class ProjectStorage {
                             // A bend that cannot serialize costs the bend, never the overlay.
                         }
                     }
+                    // SPEC_20260915_PUPPET_UI rig ("puppet"): pin names and types, bones and the
+                    // character settings — everything the deformer does NOT need. Same omit-empty
+                    // discipline: PuppetRigJson.toJson returns null for a rig with no pins, so an
+                    // image that was never rigged saves byte-identically and no schema bump is
+                    // needed to open an old project.
+                    try {
+                        com.google.gson.JsonObject pj =
+                                com.fadcam.ui.faditor.puppet.PuppetRigJson.toJson(o.getPuppet());
+                        if (pj != null) oJson.add("puppet", pj);
+                    } catch (Exception ignored) {
+                        // A rig that cannot serialize costs the rig, never the overlay.
+                    }
                 }
                 serializeTimerSpec(oJson, o.getTimerSpec());
                 // W5-2 rich text spans (§3.8). Sparse: an overlay with no per-selection
@@ -3350,6 +3362,21 @@ public class ProjectStorage {
                                 }
                             } catch (Exception ignored) {
                                 // Tolerant: lose the bend, keep the overlay.
+                            }
+                        }
+                        // The rig rides beside the mesh and is just as tolerant. A bone whose
+                        // ends are not real pins is dropped by PuppetRigJson rather than trusted,
+                        // because a rig missing one bone is recoverable and a crash on open is not.
+                        if (hasValue(oObj, "puppet")) {
+                            try {
+                                if (o.isImage() && oObj.get("puppet").isJsonObject()) {
+                                    com.fadcam.ui.faditor.puppet.PuppetRig pr =
+                                            com.fadcam.ui.faditor.puppet.PuppetRigJson.fromJson(
+                                                    oObj.getAsJsonObject("puppet"));
+                                    if (pr != null) o.setPuppet(pr);
+                                }
+                            } catch (Exception ignored) {
+                                // Tolerant: lose the rig, keep the overlay.
                             }
                         }
                         if (hasValue(oObj, "keyframes")) {

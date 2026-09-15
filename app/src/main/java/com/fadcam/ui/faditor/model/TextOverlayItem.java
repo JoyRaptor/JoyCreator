@@ -363,6 +363,19 @@ public class TextOverlayItem {
     @Nullable
     private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec mesh;
 
+    /**
+     * SPEC_20260915_PUPPET_UI — the puppet rig: pin names and types, bones, and the
+     * character/recording settings. Null = never rigged, which is every overlay written before
+     * this existed, and {@code PuppetRigJson.toJson} returns null for a rig with no pins, so an
+     * un-rigged image still saves byte-identically.
+     *
+     * <p>SEPARATE from {@link #mesh} on purpose. The mesh holds pin POSITIONS because the solver
+     * needs them; this holds everything the solver does not care about. Pin {@code i} here is
+     * handle {@code i} there — see {@code PuppetRig.matchesTopology}.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.puppet.PuppetRig puppet;
+
     /** Clockwise rotation in degrees. */
     private float rotationDeg;
 
@@ -636,6 +649,9 @@ public class TextOverlayItem {
         // pre-mesh duplicate is byte-identical.
         c.mesh = mesh == null ? null : mesh.copy();
         if (c.mesh != null) c.installMeshCurve();
+        // Same rule for the rig: a duplicate that SHARED its pins with the original would let
+        // renaming one rename both, and deleting a pin in one corrupt the other's bone indices.
+        c.puppet = puppet == null ? null : puppet.copy();
         c.overlayBlendMode = overlayBlendMode;
         c.imageAnimPreset = imageAnimPreset == null ? null : imageAnimPreset.copy();
         c.imageFadeInMs = imageFadeInMs;
@@ -1132,6 +1148,20 @@ public class TextOverlayItem {
     public void setMesh(@Nullable com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
         this.mesh = m;
         installMeshCurve();
+    }
+
+    /** The puppet rig, or null when this overlay has never been rigged. */
+    @Nullable
+    public com.fadcam.ui.faditor.puppet.PuppetRig getPuppet() { return puppet; }
+
+    /** Set/replace the rig (null clears every pin, bone and setting). */
+    public void setPuppet(@Nullable com.fadcam.ui.faditor.puppet.PuppetRig r) { this.puppet = r; }
+
+    /** The rig, made on first use — so the drawer never has to null-check before showing rows. */
+    @NonNull
+    public com.fadcam.ui.faditor.puppet.PuppetRig getOrCreatePuppet() {
+        if (puppet == null) puppet = new com.fadcam.ui.faditor.puppet.PuppetRig();
+        return puppet;
     }
 
     /**

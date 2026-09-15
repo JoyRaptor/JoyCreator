@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# PUPPETEERING stage 1: the alpha contour tracer (SPEC_20260904_PUPPET_ARCHITECTURE).
+# The Catmull-Rom lattice, the topology/deformer seam, the pose track, the fold guard, the wire
+# format, and the two properties the whole design rests on:
+#   * subdividing the lattice does not change the picture (measured, not asserted);
+#   * a puppet topology with a completely different deformer slots in without touching the pose
+#     track, the output buffers, the guard or the JSON.
+# Off device, seconds to run.
+#
+# The engine package imports NOTHING but gson — no android.*, no androidx, no FadCam class. That is
+# exactly what makes this script possible, and if it ever needs an Android classpath then a
+# renderer concept has leaked into the maths.
+#
+# Usage:  bash tools/jvm-harness/run-mesh.sh
+set -u
+cd "$(dirname "$0")/../.." || exit 1
+
+GSON=$(find "$HOME/.gradle/caches/modules-2" -name 'gson-2*.jar' 2>/dev/null | head -1 | sed 's|^/c/|C:/|')
+if [ -z "$GSON" ]; then echo "no gson jar in the gradle cache"; exit 1; fi
+
+OUT=tools/jvm-harness/out-puppet
+rm -rf "$OUT"; mkdir -p "$OUT"
+
+# @argfile, not a bare -cp: a semicolon-separated classpath passed as a shell argument gets mangled
+# by MSYS path conversion, and the failure is silent — javac succeeds while java reports
+# NoClassDefFoundError for a jar that is demonstrably present. run-mask.sh was bitten by this.
+ARGS=$(mktemp); RUNARGS=$(mktemp)
+{ echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
+  printf -- '-cp "%s"\n' "$GSON";
+  echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
+printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
+
+javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java || exit 1
+
+# Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
+# grep for "error:" would report as success.
+[ -f "$OUT/PuppetContourTest.class" ] || { echo "no PuppetContourTest class — the compile did not run"; exit 1; }
+
+# The android-free property, enforced rather than trusted. This is what keeps the engine portable
+# and what keeps this harness runnable at all.
+if grep -rn "^import android\|^import androidx" app/src/main/java/com/fadcam/ui/faditor/transform/mesh/; then
+  echo "FAIL: an Android import leaked into the mesh engine"
+  exit 1
+fi
+
+java @"$RUNARGS" PuppetContourTest

@@ -14191,12 +14191,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         grabBar.setOnTouchListener(new View.OnTouchListener() {
             float downRawY;
             float baselineDp;
+            boolean loggedThisDrag;
             @Override
             public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
                         downRawY = e.getRawY();
                         baselineDp = editorTimeline.getLayerBandMaxHeightDp();
+                        loggedThisDrag = false;
                         grabBarDragging = true;
                         v.setPressed(true);
                         return true;
@@ -14215,7 +14217,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // the real ceiling (the space the column has); clamping to content as
                         // well killed the bar outright on any project with only a couple of
                         // lanes, which is every project on its first day.
-                        editorTimeline.setLayerBandMaxHeightDp(targetDp, false);
+                        float appliedDp = editorTimeline.setLayerBandMaxHeightDp(targetDp, false);
+                        // TEMPORARY DIAGNOSTIC (2026-09-15). JoyRaptor reports the grab bar dead:
+                        // it will not grow or shrink, though a track minimising still resizes the
+                        // band. The stored cap was read off his phone and is a perfectly ordinary
+                        // 140dp, so this is not the runaway this code already heals. Rather than
+                        // guess a third time, log what the drag actually computes -- asked for,
+                        // ceiling, applied -- so one drag says which of the three is wrong.
+                        // Throttled to the first move of each gesture; delete once diagnosed.
+                        if (!loggedThisDrag) {
+                            loggedThisDrag = true;
+                            FLog.w(TAG, "GRABBAR baseline=" + baselineDp + "dp delta=" + deltaDp
+                                    + "dp asked=" + targetDp + "dp applied=" + appliedDp
+                                    + "dp ceiling=" + (previewPip != null
+                                        ? previewPip.maxBandDpFor(baselineDp) : Float.NaN));
+                        }
                         return true;
                     }
                     case MotionEvent.ACTION_UP:
@@ -30760,6 +30776,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         rebuildPuppetMesh(it);
     }
 
+    /** Island count already warned about, so the toast fires on a change and not every drag. */
+    private int puppetLastIslandWarning;
+
     /** The pose a bend gesture started from — the ONE snapshot it will undo to. */
     @Nullable private float[] puppetPoseBefore;
 
@@ -30831,6 +30850,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec fresh =
                 com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.rebuild(bmp, rig, old);
         if (fresh == null) return;    // nothing opaque to trace — leave the picture alone
+
+        // SEPARATE PIECES ARE NOT RIGGED. AlphaContour traces the LARGEST connected opaque
+        // region and says so in its own doc; a character drawn as detached limbs therefore gets
+        // triangles around ONE limb and nothing around the rest, so pins on the others move a
+        // dot and no pixels. JoyRaptor hit exactly this — ten pins, each limb on its own island.
+        // Silence was the worst possible answer, so say it out loud once per rebuild.
+        int islands = com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.countIslands(
+                bmp, rig.edgeThreshold);
+        if (islands > 1 && islands != puppetLastIslandWarning) {
+            puppetLastIslandWarning = islands;
+            android.widget.Toast.makeText(this,
+                    "This picture is in " + islands + " separate pieces — only the largest is "
+                            + "rigged. Join them, or rig one piece at a time.",
+                    android.widget.Toast.LENGTH_LONG).show();        // TODO(strings)
+            FLog.w(TAG, "Puppet: " + islands + " opaque islands; only the largest is meshed");
+        } else if (islands <= 1) {
+            puppetLastIslandWarning = 0;
+        }
+
         it.setMesh(fresh);
         repaintPuppetPicture();
         scheduleAutoSave();

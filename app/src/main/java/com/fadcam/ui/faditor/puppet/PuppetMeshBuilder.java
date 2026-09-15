@@ -181,5 +181,84 @@ public final class PuppetMeshBuilder {
         }
     }
 
+    /**
+     * How many SEPARATE opaque pieces the artwork is in.
+     *
+     * <p>{@code AlphaContour.trace} keeps the largest connected region and drops the rest — its
+     * own doc says so under "Multiple blobs". That is a perfectly reasonable engine rule and a
+     * terrible user experience if nobody mentions it: a character drawn as detached limbs gets
+     * triangles around one limb, and every pin on the others moves a dot and no pixels.
+     *
+     * <p>So the UI counts the pieces and says so. Same 4-connectivity and the same threshold the
+     * tracer uses, on the same downsampled copy, so the number reported is the number that
+     * matters rather than a different opinion about what "connected" means.
+     *
+     * @return 0 when nothing is opaque, otherwise the number of connected regions
+     */
+    public static int countIslands(@Nullable Bitmap src, float thresholdUnit) {
+        if (src == null || src.isRecycled()) return 0;
+        Bitmap scan = null;
+        boolean scaled = false;
+        try {
+            int w = src.getWidth(), h = src.getHeight();
+            if (w <= 0 || h <= 0) return 0;
+            int longest = Math.max(w, h);
+            if (longest > SCAN_MAX) {
+                float k = SCAN_MAX / (float) longest;
+                scan = Bitmap.createScaledBitmap(src, Math.max(2, Math.round(w * k)),
+                        Math.max(2, Math.round(h * k)), true);
+                scaled = scan != src;
+            } else {
+                scan = src;
+            }
+            int sw = scan.getWidth(), sh = scan.getHeight();
+            int[] px = new int[sw * sh];
+            scan.getPixels(px, 0, sw, 0, 0, sw, sh);
+            int threshold = Math.max(1, Math.min(254, Math.round(clamp01(thresholdUnit) * 255f)));
+
+            boolean[] seen = new boolean[sw * sh];
+            int[] stack = new int[sw * sh];
+            int islands = 0;
+            for (int start = 0; start < px.length; start++) {
+                if (seen[start]) continue;
+                seen[start] = true;
+                if (((px[start] >>> 24) & 0xFF) < threshold) continue;
+                islands++;
+                // A SPECK IS NOT A LIMB. Regions smaller than this are anti-aliasing crumbs and
+                // stray dots; counting them would report "17 pieces" for a clean two-piece
+                // character and the warning would be noise.
+                int size = 0;
+                int sp = 0;
+                stack[sp++] = start;
+                while (sp > 0) {
+                    int i = stack[--sp];
+                    size++;
+                    int x = i % sw, y = i / sw;
+                    if (x > 0) sp = push(px, seen, stack, sp, i - 1, threshold);
+                    if (x < sw - 1) sp = push(px, seen, stack, sp, i + 1, threshold);
+                    if (y > 0) sp = push(px, seen, stack, sp, i - sw, threshold);
+                    if (y < sh - 1) sp = push(px, seen, stack, sp, i + sw, threshold);
+                }
+                if (size < MIN_ISLAND_PX) islands--;
+            }
+            return Math.max(0, islands);
+        } catch (Exception | OutOfMemoryError e) {
+            return 0;      // a count we could not take is not a warning worth showing
+        } finally {
+            if (scaled && scan != null && scan != src && !scan.isRecycled()) scan.recycle();
+        }
+    }
+
+    /** Pixels below which a connected region is a speck, not a piece of the character. */
+    private static final int MIN_ISLAND_PX = 24;
+
+    private static int push(int[] px, boolean[] seen, int[] stack, int sp, int i, int threshold) {
+        if (seen[i]) return sp;
+        seen[i] = true;
+        if (((px[i] >>> 24) & 0xFF) < threshold) return sp;
+        stack[sp++] = i;
+        return sp;
+    }
+
     private static float clamp01(float v) { return v < 0f ? 0f : (v > 1f ? 1f : v); }
 }

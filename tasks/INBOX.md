@@ -289,3 +289,30 @@ A sheet list with rename/delete belongs somewhere. The drawer's gear button alre
 Wanted alongside it: the bake dialog offers "Open it", but nothing tells you later which sheets
 are bakes of which. A `bakedFrom` field is already in the web tool's JSON and would be one line
 to carry.
+
+---
+
+## 2026-09-15 — snapping across the whole editor is fiddly, and puppeteering will expose it
+
+JoyRaptor, while designing the puppet drawer:
+
+> "Make a note that we need to work on improving snapping system app/editor wide because this
+> has been fiddly when I create so far."
+
+This is a standing complaint about EXISTING work, not a puppet feature. It is filed here
+because puppeteering is about to make it much worse and that is the forcing function:
+
+- Live recording drops a key per frame. Hand-editing afterwards means landing the playhead
+  EXACTLY on a key. Land one frame off and you author a second key beside the first — which
+  reads as a jitter or a jump in the picture, and is very hard to spot in a dense track.
+- So the `‹ ♦ ›` jump-to-key control stops being a convenience and becomes the primary way to
+  move the playhead while editing a performance. It has to be exact and it has to be reachable
+  without hunting — hence its promotion to the top of the puppet drawer.
+
+What "improve snapping" probably means, to be scoped properly before anyone builds:
+beat/onset snapping already exists (`BeatDetector`, `OnsetDetector`, wired), so the gap is
+snapping the PLAYHEAD to keys, clip edges, markers and item boundaries — one shared snap
+authority with one tolerance, rather than per-surface guesses. Worth an audit of who snaps
+what today before specifying.
+
+Nothing here is scheduled. Do not start a SPEC for it.

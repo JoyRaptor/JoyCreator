@@ -710,3 +710,17 @@ reference: tools/spritelab/SpriteLabMobile.html — the approved design, build i
            The icons are GENERATED from its <symbol> block: edit the HTML, re-run
            `python tools/spritelab/genicons.py`, never hand-edit SpriteIcons.java.
 since: 2026-09-13T02:00  ended: 2026-09-13T06:10
+
+## SPEC_20260915_PUPPET_UI — the puppeteering drawer, tape and preview
+status: ACTIVE (2026-09-15, Claude/Opus — design settled with JoyRaptor this session)
+files: tasks/SPEC_20260915_PUPPET_UI.md
+       app/src/main/java/com/fadcam/ui/faditor/puppet/**  (NEW package — mine)
+       app/src/main/java/com/fadcam/ui/faditor/tools/PuppetDrawerTabs.java (NEW)
+NOT touching: transform/mesh/** (the other lane), ObjectDrawer.java (not needed yet —
+       the Puppet tab is supplied BY the activity as an ObjectDrawer.Tab, so the drawer
+       chrome needs no change at all).
+
+UI ONLY. The back end is the other lane (SPEC_20260904_PUPPET_ARCHITECTURE, stages 1-3
+landed at 71ab51f3). Two contracts cross the boundary and are written up in §5 of the spec:
+per-handle key writes (MeshPoseTrack is whole-pose only by design and must not stay that way
+for puppets), and chain-atomic simplify/blend/undo.

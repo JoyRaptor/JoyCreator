@@ -30,7 +30,7 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -42,10 +42,21 @@ if grep -rn "^import android\|^import androidx" app/src/main/java/com/fadcam/ui/
   echo "FAIL: an Android import leaked into the mesh engine"
   exit 1
 fi
+# Same rule for the two RIG MODEL files. PuppetPalette is deliberately exempt: it is the one
+# place a puppet thing gets a colour, it reads HandleModel so the hues cannot drift from the
+# transform tool's, and nothing in this harness touches it.
+if grep -nE "^import (android|androidx|com\.fadcam|com\.google)"         app/src/main/java/com/fadcam/ui/faditor/puppet/PuppetPin.java         app/src/main/java/com/fadcam/ui/faditor/puppet/PuppetRig.java; then
+  echo "FAIL: a platform import leaked into the rig model — it must stay harness-runnable"
+  exit 1
+fi
 
 java @"$RUNARGS" PuppetContourTest || exit 1
 java @"$RUNARGS" PuppetSolverTest || exit 1
 java @"$RUNARGS" PuppetWeightsTest || exit 1
+# The RIG's bookkeeping (SPEC_20260915_PUPPET_UI): names, chains, and the index renumbering
+# that corrupts a rig silently when a pin is deleted. PuppetPin/PuppetRig import nothing, which
+# is what lets them run here — enforced just below.
+java @"$RUNARGS" PuppetRigTest || exit 1
 # The avatar package's OWN proofs. They existed with no runner driving them — orphaned
 # tests prove nothing. Same puppet problem, same suite.
 java @"$RUNARGS" DangleTest || exit 1

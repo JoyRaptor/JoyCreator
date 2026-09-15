@@ -175,6 +175,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         renderer = SpriteSheetRenderer.load(this, sheet);
         gridView.setSheet(sheet, renderer); // null renderer → MISSING affordance (S7 rule)
         preview.bind(sheet, renderer);
+        // The film strip lives outside benchBody, so showSection does not touch it. Its chips
+        // draw through the renderer we just replaced; leaving them alone is how a recycled
+        // bitmap reaches a canvas.
+        rebuildFilm();
         onCellSelected(gridView.getSelectedCell());
     }
 
@@ -495,7 +499,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     @NonNull
     private String snapshot() {
         StringBuilder sb = new StringBuilder(sheet.toJson().toString());
-        sb.append('\0').append(labCur).append('|');
+        sb.append('\0').append(labWrap).append('|').append(labCur).append('|');
         for (int[] f : labSeq) sb.append(f[0]).append(':').append(f[1]).append(',');
         return sb.toString();
     }
@@ -521,6 +525,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         restoring = true;
         labSeq.clear();
         String tail = snap.substring(cut + 1);
+        int wrapBar = tail.indexOf('|');
+        if (wrapBar >= 0) {
+            labWrap = tail.substring(0, wrapBar);
+            tail = tail.substring(wrapBar + 1);
+            syncWrap();
+        }
         int bar = tail.indexOf('|');
         labCur = 0;
         if (bar >= 0) {
@@ -768,6 +778,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (t instanceof ChipTint) ((ChipTint) t).set(i == labCur, false);
         }
         if (scrubBar != null) scrubBar.invalidate();
+        // The playhead moved, so the numbers on screen belong to a different frame now.
+        syncAlign();
     }
 
     /**
@@ -827,6 +839,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         clipShelf = null;
         clipDragFrom = -1;
         if (!"out".equals(id)) { pickedSheet = null; removedSheet = null; }
+        // A picked clip lights its own frames on the grid. Leaving the section without
+        // dropping it left those badges sitting over a roll that had nothing to do with them.
+        if (!"clips".equals(id) && pickedClip != null) {
+            pickedClip = null;
+            gridView.setRoll(labSeq);
+        }
         // Arranging is a thing you do in Slice. Leaving with it still armed means the next
         // drag on the sheet silently rearranges your work, in a section that does not even
         // show you the control that did it.
@@ -1011,8 +1029,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             @Override public void beforeTextChanged(CharSequence c, int a2, int b2, int c2) {}
             @Override public void onTextChanged(CharSequence c, int a2, int b2, int c2) {}
             @Override public void afterTextChanged(Editable e) {
-                ensureCell(cell);              // so the name has somewhere to live
-                sheet.setCellName(cell, e.toString());
+                // currentCell(), not the captured index: a re-slice or a playback frame can
+                // change what that number means while this field is still on screen.
+                int at = currentCell();
+                ensureCell(at);                // so the name has somewhere to live
+                sheet.setCellName(at, e.toString());
                 markDirty();
                 gridView.refresh();
             }
@@ -1027,7 +1048,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         SpriteSheet.Cell meta = sheet.cellAt(cell);
         cellEnabled.setChecked(meta == null || meta.enabled);
         cellEnabled.setOnCheckedChangeListener((bv, on) -> {
-            ensureCell(cell).enabled = on; markDirty(); gridView.refresh();
+            ensureCell(currentCell()).enabled = on; markDirty(); gridView.refresh();
         });
         cb.addView(cellEnabled);
 
@@ -1042,7 +1063,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             boolean on = v.equals(sheet.visemeOfCell(cell));
             TextView vb = gchip(v, on, SpriteTheme.ACCENT_CELL);
             vb.setOnClickListener(x -> {
-                sheet.assignViseme(v, on ? -1 : cell);
+                sheet.assignViseme(v, on ? -1 : currentCell());
                 markDirty();
                 showSection("slice");
             });
@@ -1547,21 +1568,24 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     @NonNull
     private View buildAlignGroup(int cell) {
-        SpriteSheet.CellXf t = sheet.cellTransform(cell);
-        final SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
         String nm = sheet.cellName(cell);
         View g = group("align", SpriteTheme.ACCENT_ALIGN, "target", "Alignment",
                 "cell " + cell + (nm == null || nm.isEmpty() ? "" : " · " + nm));
+        alignSub = lastGroupSub;
         FlowLayout b = bodyOf(g);
 
-        b.addView(num("x", "movex", () -> xf.dx,
-                v -> { xf.dx = v; applyXf(cell, xf); }, 1f, true, ""));
-        b.addView(num("y", "movey", () -> xf.dy,
-                v -> { xf.dy = v; applyXf(cell, xf); }, 1f, true, ""));
-        b.addView(num("scale", "scale", () -> xf.scale,
-                v -> { xf.scale = Math.max(0.05f, v); applyXf(cell, xf); }, 0.05f, false, "×"));
-        b.addView(num("rot", "rot", () -> xf.rot,
-                v -> { xf.rot = v; applyXf(cell, xf); }, 5f, true, "°"));
+        // LIVE, not captured. These used to hold a private copy of ONE cell's transform, taken
+        // when the panel was built. Playback moves the frame without rebuilding anything, so
+        // the slider showed one drawing's numbers and wrote them to another's. Reading the
+        // current frame at the moment of the edit cannot drift.
+        b.addView(num("x", "movex", () -> liveXf().dx,
+                v -> editXf(x -> x.dx = v), 1f, true, ""));
+        b.addView(num("y", "movey", () -> liveXf().dy,
+                v -> editXf(x -> x.dy = v), 1f, true, ""));
+        b.addView(num("scale", "scale", () -> liveXf().scale,
+                v -> editXf(x -> x.scale = Math.max(0.05f, v)), 0.05f, false, "×"));
+        b.addView(num("rot", "rot", () -> liveXf().rot,
+                v -> editXf(x -> x.rot = v), 5f, true, "°"));
 
         TextView centre = ichip("wand", "Auto-centre");
         tintToggle(centre, true, SpriteTheme.ACCENT_ALIGN);
@@ -1571,7 +1595,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         feet.setOnClickListener(v -> { autoCentre(true); showSection("play"); });
         b.addView(feet);
         TextView reset = chip("Reset");
-        reset.setOnClickListener(v -> { sheet.setCellTransform(cell, null); markDirty(); refreshArt(); showSection("play"); });
+        reset.setOnClickListener(v -> {
+            sheet.setCellTransform(currentCell(), null);
+            markDirty(); refreshArt(); showSection("play");
+        });
         b.addView(reset);
         TextView resetAll = chip("Reset all");
         resetAll.setOnClickListener(v -> {
@@ -1615,10 +1642,50 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if ("play".equals(labSection)) showSection("play");
     }
 
-    private void applyXf(int cell, @NonNull SpriteSheet.CellXf xf) {
+    private interface XfEdit { void apply(@NonNull SpriteSheet.CellXf xf); }
+
+    private TextView alignSub;
+
+    /** The CURRENT frame's transform, read fresh, as a copy nobody can mutate behind us. */
+    @NonNull
+    private SpriteSheet.CellXf liveXf() {
+        SpriteSheet.CellXf t = sheet.cellTransform(currentCell());
+        return t == null ? new SpriteSheet.CellXf() : t.copy();
+    }
+
+    /**
+     * Edit the CURRENT frame's transform.
+     *
+     * <p>Both the cell and its values are read at the moment of the edit. A captured copy is
+     * how a slider ends up moving a drawing you stopped looking at three frames ago.</p>
+     */
+    private void editXf(@NonNull XfEdit edit) {
+        int cell = currentCell();
+        SpriteSheet.CellXf t = sheet.cellTransform(cell);
+        SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
+        edit.apply(xf);
         sheet.setCellTransform(cell, xf);
         markDirty();
         refreshArt();
+        syncAlign();
+    }
+
+    /**
+     * Bring the alignment panel up to date WITHOUT rebuilding it.
+     *
+     * <p>Called on every playback frame and every scrub move, so it has to stay cheap: one
+     * label and a handful of setText. Rebuilding the bench thirty times a second is not an
+     * option, and leaving the panel showing the previous frame's numbers is what started all
+     * of this.</p>
+     */
+    private void syncAlign() {
+        if (alignSub != null) {
+            int cell = currentCell();
+            String nm = sheet.cellName(cell);
+            alignSub.setText("  cell " + cell
+                    + (nm == null || nm.isEmpty() ? "" : " - " + nm));
+        }
+        for (Runnable r : stepperSyncs) r.run();
     }
     private void refreshArt() {
         gridView.refresh();
@@ -1648,20 +1715,23 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         FlowLayout b = bodyOf(g);
         TextView add = ichip("plus", "this cell");
         add.setOnClickListener(v -> {
-            labSeq.add(new int[]{Math.max(0, gridView.getSelectedCell()), 1});
-            labCur = labSeq.size() - 1;
-            rebuildFilm(); showSection("play");
+            noteChange();
+            labSeq.add(new int[]{currentCell(), 1});
+            rebuildFilm();
+            focusRoll(labSeq.size() - 1, true);
         });
         b.addView(add);
         TextView all = chip("Add all");
         all.setOnClickListener(v -> {
+            noteChange();
             labSeq.clear();
             for (int i = 0; i < sheet.cellCount(); i++) {
                 SpriteSheet.Cell m = sheet.cellAt(i);
                 if (m != null && !m.enabled) continue;
                 labSeq.add(new int[]{i, 1});
             }
-            labCur = 0; rebuildFilm(); showSection("play");
+            rebuildFilm();
+            focusRoll(0, true);
         });
         b.addView(all);
         TextView holdUp = chip("Hold +");
@@ -1671,7 +1741,16 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         holdDn.setOnClickListener(v -> { bumpHold(-1); });
         b.addView(holdDn);
         TextView clear = chip("Clear");
-        clear.setOnClickListener(v -> { labSeq.clear(); labCur = 0; rebuildFilm(); showSection("play"); });
+        clear.setOnClickListener(v -> {
+            noteChange();
+            labSeq.clear();
+            labCur = 0;
+            labHold = 0;
+            rebuildFilm();
+            // No roll left, so the grid selection is the current frame again. Point everything
+            // at it rather than leaving the preview on a frame that no longer exists anywhere.
+            focusCell(Math.max(0, gridView.getSelectedCell()), true);
+        });
         b.addView(clear);
         TextView saveClip = ichip("clips", "Save clip");
         tintToggle(saveClip, true, SpriteTheme.ACCENT_SEQ);
@@ -3150,8 +3229,17 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     /** One frame, still or playing. A preset animates at its own cadence with a mode dot. */
-    private static class PresetThumb extends View {
-        @Nullable private final SpriteSheetRenderer renderer;
+    /**
+     * One frame, still or playing.
+     *
+     * <p>NON-static, and it reads the activity's CURRENT renderer every draw. It used to hold
+     * the renderer it was built with in a final field, and the film strip lives outside
+     * benchBody so nothing rebuilt it — so relinking the art, clearing the colour key or
+     * dragging the tolerance pill recycled that bitmap while these chips still pointed at it.
+     * The next redraw threw "trying to use a recycled bitmap". That was a crash I could reach
+     * in three taps.</p>
+     */
+    private class PresetThumb extends View {
         @Nullable private final SpriteSheet.Preset preset;
         private final RectF dest = new RectF();
         private final Paint dot = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -3160,9 +3248,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         private int tick;
         private boolean running;
 
-        PresetThumb(Context c, @Nullable SpriteSheetRenderer r, @Nullable SpriteSheet.Preset pr) {
+        PresetThumb(Context c, @Nullable SpriteSheetRenderer ignored,
+                    @Nullable SpriteSheet.Preset pr) {
             super(c);
-            this.renderer = r;
             this.preset = pr;
             ink.setTextAlign(Paint.Align.CENTER);
             ink.setFakeBoldText(true);
@@ -3184,6 +3272,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         @Override protected void onDetachedFromWindow() { super.onDetachedFromWindow(); running = false; }
 
         @Override protected void onDraw(Canvas canvas) {
+            SpriteSheetRenderer renderer = SpriteSheetEditorActivity.this.renderer;
             if (renderer == null) return;
             dest.set(1, 1, getWidth() - 1, getHeight() - 1);
             int cell = still;
@@ -3470,7 +3559,20 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         markDirty();
         gridView.refresh();
         if (preview != null) preview.invalidate();
+        // Re-slicing renumbers every cell, so the cell editor below is now describing a
+        // different drawing. It cannot rebuild mid-drag without destroying the pill under the
+        // finger, so it catches up once, shortly after the numbers stop moving.
+        if (benchBody != null) {
+            benchBody.removeCallbacks(resliceCatchUp);
+            benchBody.postDelayed(resliceCatchUp, 350);
+        }
     }
+
+    private final Runnable resliceCatchUp = new Runnable() {
+        @Override public void run() {
+            if (!isFinishing() && "slice".equals(labSection)) showSection("slice");
+        }
+    };
 
     /**
      * A drawing was dragged to another slot.
@@ -3830,8 +3932,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             } else if (activity != null) {
                 // Whatever frame it stopped on is now THE current frame. Without this the
                 // panel still pointed at wherever the playhead was before you pressed play.
+                // Whatever frame it stopped on is THE current frame, roll or no roll. The
+                // no-roll branch used to leave preview.cursor as a third store of "which
+                // cell", so a drag on the preview then moved whatever the grid had selected.
                 if (!activity.labSeq.isEmpty()) activity.focusRoll(activity.labCur, true);
-                else activity.gridView.setPlayingCell(-1);
+                else activity.focusCell(cursor, true);
             }
         }
 

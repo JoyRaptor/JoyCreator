@@ -53,9 +53,30 @@ public final class PuppetMeshBuilder {
     /** How hard the outline is simplified, in unit space. */
     private static final float SIMPLIFY_EPS = 0.004f;
 
-    /** Interior point budget, mapped from the rig's Mesh detail slider. */
-    private static final int INTERIOR_MIN = 12;
-    private static final int INTERIOR_MAX = 160;
+    /**
+     * Interior seeding density, mapped from the rig's Mesh detail slider.
+     *
+     * <p><b>This is points ALONG ONE AXIS, not a total.</b> {@code PuppetTriangulator} documents
+     * the parameter that way and calls 4-8 "a sensible range". The first version of this file
+     * read it as a total and passed 12..160, so the top of the Mesh detail slider asked for a
+     * 160x160 grid — tens of thousands of candidate points. The resulting mesh sailed past
+     * {@link com.fadcam.ui.faditor.compositor.MeshStampGl#MAX_VERTS}, the stamp refused it in
+     * silence, and the picture simply never bent. That was the whole of "nothing happens".
+     */
+    private static final int INTERIOR_MIN = 3;
+    private static final int INTERIOR_MAX = 10;
+
+    /**
+     * Vertex ceiling this builder will hand the renderer.
+     *
+     * <p>Read from {@code MeshStampGl} rather than copied, because a builder that disagrees with
+     * its renderer about the budget produces meshes that are silently dropped. The margin below
+     * the hard cap is for the triangle count: ear clipping a polygon of V vertices yields roughly
+     * 2V triangles, so indices run out before vertices do.
+     */
+    private static final int VERT_BUDGET = Math.min(
+            com.fadcam.ui.faditor.compositor.MeshStampGl.MAX_VERTS,
+            com.fadcam.ui.faditor.compositor.MeshStampGl.MAX_INDICES / 6);
 
     /**
      * Build a fresh spec for this rig, or null when the picture cannot carry one.
@@ -82,10 +103,35 @@ public final class PuppetMeshBuilder {
             pins[i * 2 + 1] = clamp01(p.restY);
         }
 
+        // BUILD SOMETHING THE RENDERER WILL ACTUALLY DRAW. A mesh over budget is not an error
+        // anywhere — it is accepted by the topology, stored on the item, and then quietly
+        // dropped at draw time. So the check belongs HERE, where there is still something to do
+        // about it: step the density down and try again rather than hand over a mesh that will
+        // be ignored. Three attempts is plenty; the first almost always fits.
         try {
-            PuppetTopology topo = new PuppetTopology(ring, interior, pins);
-            if (topo.vertexCount() < 3 || topo.handleCount() != rig.pinCount()) return null;
-            return new MeshWarpSpec(topo);
+            for (int attempt = 0; attempt < 3; attempt++) {
+                PuppetTopology topo = new PuppetTopology(ring, interior, pins);
+                if (topo.handleCount() != rig.pinCount() || topo.vertexCount() < 3) return null;
+                if (topo.vertexCount() <= VERT_BUDGET
+                        && topo.indexCount() <= com.fadcam.ui.faditor.compositor
+                                .MeshStampGl.MAX_INDICES) {
+                    return new MeshWarpSpec(topo);
+                }
+                if (interior <= 0) break;
+                interior = Math.max(0, interior / 2);
+            }
+            // Contour only, no interior points at all — the last thing that can still bend. A
+            // shape whose OUTLINE alone is over budget is one the simplifier should have thinned,
+            // and returning null leaves the picture straight rather than silently broken.
+            PuppetTopology bare = new PuppetTopology(ring, 0, pins);
+            if (bare.handleCount() == rig.pinCount()
+                    && bare.vertexCount() >= 3
+                    && bare.vertexCount() <= VERT_BUDGET
+                    && bare.indexCount() <= com.fadcam.ui.faditor.compositor
+                            .MeshStampGl.MAX_INDICES) {
+                return new MeshWarpSpec(bare);
+            }
+            return null;
         } catch (Exception e) {
             // A picture that cannot be triangulated costs the RIG, never the overlay. The pins
             // stay, the drawer stays, and the user sees an un-bent picture rather than a crash.

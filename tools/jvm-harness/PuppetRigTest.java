@@ -58,6 +58,10 @@ public class PuppetRigTest {
         deletingTheRootOfAChainDoesNotStrandTheTip();
 
         System.out.println();
+        System.out.println("-- the mesh has to FIT THE RENDERER --");
+        everyDetailSettingFitsTheDrawBudget();
+
+        System.out.println();
         System.out.println("-- rig: undo, and duplicating an overlay --");
         copyIsDeepEnoughToUndoAChainDrag();
         aDuplicateSharesNothingWithItsOriginal();
@@ -287,6 +291,61 @@ public class PuppetRigTest {
                     b.rootPin >= 0 && b.rootPin < original.pinCount()
                             && b.tipPin >= 0 && b.tipPin < original.pinCount());
         }
+    }
+
+    /**
+     * The check whose absence cost a whole day of "nothing bends".
+     *
+     * <p>{@code MeshStampGl} refuses any mesh larger than the coarsest lattice and returns 0 —
+     * silently, at draw time, long after the mesh was accepted by the topology and stored on the
+     * item. So a builder that asks for too many points produces a picture that simply never
+     * bends, with nothing anywhere saying why. PuppetMeshBuilder passed an interior density of
+     * 12..160 where the triangulator documents 4-8; at the top of the Mesh detail slider that is
+     * a 160x160 grid.
+     *
+     * <p>This walks the whole slider against a realistic traced outline and asserts every setting
+     * lands inside the budget. It cannot import MeshStampGl (Android), so the two numbers are
+     * restated here with the reason — and the builder itself reads them from the renderer.
+     */
+    private static void everyDetailSettingFitsTheDrawBudget() {
+        final int MAX_VERTS = 25 * 25;          // MeshStampGl.MAX_VERTS (L3 lattice)
+        final int MAX_INDICES = 24 * 24 * 6;    // MeshStampGl.MAX_INDICES
+        final int INTERIOR_MIN = 3, INTERIOR_MAX = 10;   // PuppetMeshBuilder's range
+
+        float[] ring = blobRing(96);
+        float[] pins = {0.5f, 0.62f, 0.72f, 0.40f, 0.30f, 0.40f};
+
+        for (int step = 0; step <= 10; step++) {
+            int interior = INTERIOR_MIN
+                    + Math.round((step / 10f) * (INTERIOR_MAX - INTERIOR_MIN));
+            com.fadcam.ui.faditor.transform.mesh.PuppetTopology topo =
+                    new com.fadcam.ui.faditor.transform.mesh.PuppetTopology(ring, interior, pins);
+            checkTrue("detail " + step + "/10 (interior " + interior + "): "
+                            + topo.vertexCount() + " verts <= " + MAX_VERTS,
+                    topo.vertexCount() <= MAX_VERTS);
+            checkTrue("detail " + step + "/10 (interior " + interior + "): "
+                            + topo.indexCount() + " indices <= " + MAX_INDICES,
+                    topo.indexCount() <= MAX_INDICES);
+        }
+
+        // And the setting that broke it, so the regression cannot come back unnoticed.
+        com.fadcam.ui.faditor.transform.mesh.PuppetTopology huge =
+                new com.fadcam.ui.faditor.transform.mesh.PuppetTopology(ring, 160, pins);
+        checkTrue("interior 160 really would have been refused ("
+                        + huge.vertexCount() + " verts)",
+                huge.vertexCount() > MAX_VERTS || huge.indexCount() > MAX_INDICES);
+    }
+
+    /** A rough character-sized blob: a circle with a wobble, which is what a traced PNG looks like. */
+    private static float[] blobRing(int n) {
+        float[] r = new float[n * 2];
+        for (int i = 0; i < n; i++) {
+            double t = (i / (double) n) * Math.PI * 2;
+            double rad = 0.34 + 0.06 * Math.sin(3 * t) + 0.03 * Math.cos(5 * t);
+            r[i * 2] = (float) (0.5 + rad * Math.cos(t));
+            r[i * 2 + 1] = (float) (0.5 + rad * Math.sin(t));
+        }
+        return r;
     }
 
     // ── tiny assert kit ──────────────────────────────────────────────────

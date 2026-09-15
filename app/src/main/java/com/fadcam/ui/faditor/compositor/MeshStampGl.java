@@ -58,10 +58,19 @@ public final class MeshStampGl {
 
     private static final String TAG = "MeshStamp";
 
-    /** Coarsest lattice this wrapper can draw without reallocating (L3: 25 handles, 24x24 quads). */
-    private static final int MAX_VERTS = (LatticeTopology.tessellationFor(LatticeTopology.L3) + 1)
+    /**
+     * Coarsest lattice this wrapper can draw without reallocating (L3: 25 handles, 24x24 quads).
+     *
+     * <p>PUBLIC because it is a REAL LIMIT, not an implementation detail: a mesh bigger than this
+     * is refused below and simply does not draw, silently. Anything that BUILDS a mesh has to be
+     * able to size itself against the same numbers, or it produces something the renderer will
+     * not accept and the picture just never bends. That is exactly what happened to the first
+     * puppet meshes (2026-09-15), which were built with an interior density two orders of
+     * magnitude past what the triangulator documents.
+     */
+    public static final int MAX_VERTS = (LatticeTopology.tessellationFor(LatticeTopology.L3) + 1)
             * (LatticeTopology.tessellationFor(LatticeTopology.L3) + 1);
-    private static final int MAX_INDICES = LatticeTopology.tessellationFor(LatticeTopology.L3)
+    public static final int MAX_INDICES = LatticeTopology.tessellationFor(LatticeTopology.L3)
             * LatticeTopology.tessellationFor(LatticeTopology.L3) * 6;
 
     private final MeshEngine engine = new MeshEngine();
@@ -173,7 +182,14 @@ public final class MeshStampGl {
         if (b.topologyStamp() != lastTopologyStamp) {
             int vc = b.vertexCount() * 2;
             int ic = b.indexCount();
-            if (vc > MAX_VERTS * 2 || ic > MAX_INDICES) return 0; // larger than a lattice: refuse
+            if (vc > MAX_VERTS * 2 || ic > MAX_INDICES) {
+                // REFUSED, and it used to be refused in silence — which reads to the user as
+                // "bending does nothing" with nothing anywhere to say why. One line costs
+                // nothing (topology changes are rare) and turns a mystery into a number.
+                android.util.Log.w(TAG, "mesh too big to draw: " + (vc / 2) + " verts / "
+                        + ic + " indices (max " + MAX_VERTS + " / " + MAX_INDICES + ")");
+                return 0;
+            }
             uvBuf.position(0);
             uvBuf.put(b.uvs, 0, vc);
             uvBuf.position(0);

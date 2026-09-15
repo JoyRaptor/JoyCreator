@@ -24992,6 +24992,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ensurePreviewHandlesOverlay().setTarget(null);
         previewHandlesOverlay.setPointHandles(null);
         previewHandlesOverlay.setVisibility(View.VISIBLE);
+        // A RIGGED PICTURE SAYS SO. Selecting one is the moment the marionette appears in the
+        // corner -- no drawer, no double tap, just a way in that is visible from where you are.
+        syncPuppetBadge(o);
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         v.setHost(new com.fadcam.ui.faditor.transform.CornerPinTransformHost(
                 o, textHandlesTarget(o),
@@ -30776,6 +30779,71 @@ public class FaditorEditorActivity extends AppCompatActivity {
         rebuildPuppetMesh(it);
     }
 
+    @Nullable private com.fadcam.ui.faditor.puppet.PuppetBadgeView puppetBadge;
+
+    /**
+     * Show the way-in badge on the ordinary transform surface when a picture is rigged.
+     *
+     * <p>JoyRaptor asked for this so a rigged picture can be posed WITHOUT double-tapping into
+     * the drawer: tap the image, the marionette is there in the corner, tap him and the pins go
+     * live with Grab armed. The badge is grey until then, which is the honest reading — the pins
+     * exist and are not answering to touch.
+     *
+     * <p>It hides while the pin surface itself is up, because that surface draws its own badge
+     * doing the opposite job (locking). Two of the same glyph on screen at once, one waking the
+     * rig and one sleeping it, would be nonsense.
+     */
+    private void syncPuppetBadge(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        boolean pinsUp = puppetOverlay != null && puppetOverlay.getVisibility() == View.VISIBLE;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = (o == null) ? null : o.getPuppet();
+        int pins = (rig == null || pinsUp) ? 0 : rig.pinCount();
+
+        if (pins <= 0) {
+            if (puppetBadge != null) puppetBadge.setPinCount(0);
+            puppetBadgeItem = null;
+            return;
+        }
+        puppetBadgeItem = o;
+        ensurePuppetBadge().setPinCount(pins);
+        ensurePuppetBadge().bringToFront();
+    }
+
+    @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem puppetBadgeItem;
+
+    @NonNull
+    private com.fadcam.ui.faditor.puppet.PuppetBadgeView ensurePuppetBadge() {
+        if (puppetBadge == null) {
+            puppetBadge = new com.fadcam.ui.faditor.puppet.PuppetBadgeView(this);
+            android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+            int size = puppetBadge.sizePx();
+            float dd = getResources().getDisplayMetrics().density;
+            android.widget.FrameLayout.LayoutParams lp =
+                    new android.widget.FrameLayout.LayoutParams(size, size,
+                            android.view.Gravity.TOP | android.view.Gravity.END);
+            // Below the Bend / rotate furniture the transform surface puts along the top, so the
+            // two do not sit on each other. JoyRaptor: "where bend is, or a little bit below it".
+            lp.topMargin = Math.round(52f * dd);
+            lp.setMarginEnd(Math.round(9f * dd));
+            playerContainer.addView(puppetBadge, lp);
+            // ABOVE the transform surface, which is the only way a 38dp square can be tapped
+            // while that surface owns every other pixel. It takes no touch outside its own box.
+            puppetBadge.setElevation(9.5f * dd);
+            puppetBadge.setOutlineProvider(null);
+            puppetBadge.setHost(() -> {
+                com.fadcam.ui.faditor.model.TextOverlayItem it = puppetBadgeItem;
+                if (it == null) return;
+                // GRAB FIRST, always. Coming in through the badge means "I want to move these",
+                // never "I want to place more" -- and a placement tool armed from a previous
+                // session would drop a pin on the first tap of the picture.
+                puppetTool = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
+                puppetScope = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
+                showImageOverlayDrawer(it);
+                if (objectDrawer != null) objectDrawer.showTabTitled("Puppet");
+            });
+        }
+        return puppetBadge;
+    }
+
     /** Island count already warned about, so the toast fires on a change and not every drag. */
     private int puppetLastIslandWarning;
 
@@ -30908,6 +30976,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (transformOverlay != null) transformOverlay.setVisibility(View.VISIBLE);
                 puppetHidHandles = false;
             }
+            syncPuppetBadge(o);      // the way back IN, now that the pins are down
             return;
         }
         puppetItem = o;
@@ -30919,6 +30988,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (previewHandlesOverlay != null) previewHandlesOverlay.setVisibility(View.GONE);
         if (transformOverlay != null) transformOverlay.setVisibility(View.GONE);
         puppetHidHandles = true;
+        syncPuppetBadge(o);          // hides it: the pin surface draws its own
     }
 
     @NonNull

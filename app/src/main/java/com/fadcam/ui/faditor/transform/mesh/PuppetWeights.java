@@ -35,6 +35,13 @@ package com.fadcam.ui.faditor.transform.mesh;
  * vertices are given the one-hot row and then <b>held out of smoothing</b>, so the pin still lands
  * exactly under the finger.
  *
+ * <h3>Detached limbs get this for free</h3>
+ * <p>JoyRaptor draws characters as SEPARATE PIECES, and the pieces share no mesh edge — so the
+ * distance from a pin on one arm to a vertex on the other is not merely large, it is INFINITE.
+ * That is the right answer and it needs no special case: an unreachable pin gets weight zero
+ * exactly, so a pin can never move a piece of artwork it is not attached to. The one rule this
+ * file does add is what happens to a piece with NO pin on it at all — see {@link #build}.
+ *
  * <p>Immutable once built, so it can be shared across GL threads. No Android imports.
  */
 public final class PuppetWeights {
@@ -90,27 +97,45 @@ public final class PuppetWeights {
      *         falls back to straight-line distance rather than refusing to draw
      */
     public static PuppetWeights build(float[] verts, short[] indices, float[] pins) {
+        return build(verts, indices, pins, null);
+    }
+
+    /**
+     * Build the table for a mesh that may be several disconnected pieces.
+     *
+     * @param islandStart where each island's vertices begin plus a final total, as
+     *                    {@code PuppetTriangulator.Mesh.islandStart} gives it. Null means one
+     *                    island, which is what ordinary artwork is.
+     *
+     * <h3>The one rule islands need: a piece with no pin on it</h3>
+     * <p>Every vertex of such a piece is infinitely far from every pin, so the honest weighting is
+     * "no influence" — and a piece with no influence never moves, which reads as a head that stays
+     * behind when the body walks away. So a piece nobody pinned falls back to STRAIGHT-LINE
+     * weights and rides along with whatever is nearest. It is the only place in this file that
+     * measures through the air, it applies to a whole piece rather than a vertex, and it stops the
+     * moment someone puts one pin on it.
+     */
+    public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
+                                      int[] islandStart) {
         if (verts == null || indices == null || pins == null) return null;
         int n = verts.length / 2, p = pins.length / 2;
         if (n <= 0 || p <= 0 || indices.length < 3) return null;
 
+        int[] island = islandOfVertex(n, islandStart);
         int[][] adj = adjacency(n, indices);
         float[] table = new float[n * p];
         float[] dist = new float[n];
         boolean[] locked = new boolean[n];
 
         for (int i = 0; i < p; i++) {
-            geodesic(verts, adj, pins[i * 2], pins[i * 2 + 1], dist);
+            geodesic(verts, adj, island, pins[i * 2], pins[i * 2 + 1], dist);
             for (int v = 0; v < n; v++) {
                 float d = dist[v];
-                // Unreachable (a disconnected island in the trace) falls back to straight-line
-                // rather than to zero: a vertex with no influence at all from any pin would simply
-                // never move, which reads as a hole in the character.
                 if (Float.isInfinite(d)) {
-                    float dx = verts[v * 2] - pins[i * 2], dy = verts[v * 2 + 1] - pins[i * 2 + 1];
-                    d = (float) Math.sqrt(dx * dx + dy * dy);
-                }
-                if (d < SNAP) {
+                    // A pin on another piece of the artwork. Zero, exactly — this is the whole
+                    // point of measuring along the mesh, and it costs nothing to get right.
+                    table[v * p + i] = 0f;
+                } else if (d < SNAP) {
                     locked[v] = true;
                     table[v * p + i] = Float.POSITIVE_INFINITY;   // resolved in normalise()
                 } else {
@@ -119,9 +144,40 @@ public final class PuppetWeights {
             }
         }
 
+        orphanIslandsRideAlong(table, verts, pins, n, p);
         normalise(table, n, p);
         for (int pass = 0; pass < SMOOTHING_PASSES; pass++) smooth(table, n, p, adj, locked);
         return new PuppetWeights(n, p, table);
+    }
+
+    /** Expand {@code islandStart} into one island number per vertex. Null means a single island. */
+    private static int[] islandOfVertex(int n, int[] islandStart) {
+        int[] island = new int[n];
+        if (islandStart == null || islandStart.length < 2) return island;
+        for (int i = 0; i + 1 < islandStart.length; i++) {
+            int lo = Math.max(0, islandStart[i]), hi = Math.min(n, islandStart[i + 1]);
+            for (int v = lo; v < hi; v++) island[v] = i;
+        }
+        return island;
+    }
+
+    /**
+     * Vertices no pin could reach get straight-line weights, so an unpinned piece of artwork rides
+     * with the rest instead of being left behind. See {@link #build}'s note.
+     */
+    private static void orphanIslandsRideAlong(float[] table, float[] verts, float[] pins,
+                                               int n, int p) {
+        for (int v = 0; v < n; v++) {
+            int base = v * p;
+            boolean reached = false;
+            for (int i = 0; i < p && !reached; i++) reached = table[base + i] != 0f;
+            if (reached) continue;
+            for (int i = 0; i < p; i++) {
+                float dx = verts[v * 2] - pins[i * 2], dy = verts[v * 2 + 1] - pins[i * 2 + 1];
+                float d2 = dx * dx + dy * dy;
+                table[base + i] = d2 < SNAP * SNAP ? Float.POSITIVE_INFINITY : 1f / d2;
+            }
+        }
     }
 
     /**
@@ -141,7 +197,7 @@ public final class PuppetWeights {
         if (verts == null || indices == null || outDist == null) return false;
         int n = verts.length / 2;
         if (n <= 0 || outDist.length < n || indices.length < 3) return false;
-        geodesic(verts, adjacency(n, indices), x, y, outDist);
+        geodesic(verts, adjacency(n, indices), new int[n], x, y, outDist);
         return true;
     }
 
@@ -181,7 +237,8 @@ public final class PuppetWeights {
      * one triangle straight-line and along-the-surface are the same thing. A pin dropped outside
      * the shape still gets a sane field instead of no reach at all.
      */
-    private static void geodesic(float[] verts, int[][] adj, float pinX, float pinY, float[] dist) {
+    private static void geodesic(float[] verts, int[][] adj, int[] island,
+                                 float pinX, float pinY, float[] dist) {
         int n = dist.length;
         java.util.Arrays.fill(dist, Float.POSITIVE_INFINITY);
 
@@ -194,11 +251,15 @@ public final class PuppetWeights {
             else if (d < db) { c = b; dc = db; b = v; db = d; }
             else if (d < dc) { c = v; dc = d; }
         }
-        int seeded = 0;
-        if (a >= 0) { dist[a] = da; seeded++; }
-        if (b >= 0) { dist[b] = db; seeded++; }
-        if (c >= 0) { dist[c] = dc; seeded++; }
-        if (seeded == 0) return;
+        if (a < 0) return;
+        // A PIN BELONGS TO ONE PIECE. Dropped in the gap between two limbs, its three nearest
+        // vertices can straddle both — and seeding both would bridge them, which is the exact bug
+        // measuring along the mesh exists to prevent. The nearest vertex decides, and the other
+        // seeds join only if they agree.
+        int home = island[a];
+        dist[a] = da;
+        if (b >= 0 && island[b] == home) dist[b] = db;
+        if (c >= 0 && island[c] == home) dist[c] = dc;
 
         // Dijkstra with a binary heap. Meshes here are 50-200 vertices, so the heap is a formality
         // — but an O(n^2) scan would become the thing that made a denser mesh feel slow, and this

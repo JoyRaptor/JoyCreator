@@ -30,21 +30,146 @@ public final class PuppetTriangulator {
         public final float[] verts;
         /** Triangle list, three indices per triangle, referring to {@link #verts}. */
         public final short[] indices;
-        /** How many of {@link #verts} came from the contour (the rest are interior). */
+        /** How many of {@link #verts} came from a contour (the rest are interior). */
         public final int contourCount;
 
+        /**
+         * Where each ISLAND's vertices start, plus a final entry holding the total — so island
+         * {@code i} owns vertices {@code [islandStart[i], islandStart[i+1])}.
+         *
+         * <p>A character drawn as detached limbs is several islands, and they are contiguous
+         * blocks rather than interleaved because each is triangulated on its own and appended.
+         * That contiguity is what lets {@link PuppetWeights} keep a pin's influence inside its own
+         * piece without storing an island number per vertex.
+         *
+         * <p>Always at least two entries: a single-island mesh is {@code {0, vertexCount}}.
+         */
+        public final int[] islandStart;
+
         Mesh(float[] verts, short[] indices, int contourCount) {
+            this(verts, indices, contourCount, new int[]{0, verts.length / 2});
+        }
+
+        Mesh(float[] verts, short[] indices, int contourCount, int[] islandStart) {
             this.verts = verts;
             this.indices = indices;
             this.contourCount = contourCount;
+            this.islandStart = islandStart;
         }
 
         public int vertexCount() { return verts.length / 2; }
 
         public int triangleCount() { return indices.length / 3; }
+
+        /** How many separate pieces of artwork this mesh covers. */
+        public int islandCount() { return islandStart.length - 1; }
+
+        /** Which island a vertex belongs to, or -1. Linear over a handful of islands. */
+        public int islandOf(int vertex) {
+            for (int i = 0; i + 1 < islandStart.length; i++) {
+                if (vertex >= islandStart[i] && vertex < islandStart[i + 1]) return i;
+            }
+            return -1;
+        }
     }
 
     private PuppetTriangulator() { }
+
+    /**
+     * The most vertices a mesh may carry, and the matching index count.
+     *
+     * <p>Computed from {@link LatticeTopology} rather than copied as a literal, because these are
+     * the same two numbers {@code MeshStampGl.MAX_VERTS} and {@code MAX_INDICES} are computed
+     * from — and a builder that disagrees with its renderer about the budget produces meshes that
+     * are silently dropped at draw time. This package cannot import the stamp (it would drag GL
+     * in and the harness would stop running), so it derives the numbers the same way instead.
+     */
+    public static final int VERT_BUDGET =
+            (LatticeTopology.tessellationFor(LatticeTopology.L3) + 1)
+                    * (LatticeTopology.tessellationFor(LatticeTopology.L3) + 1);
+
+    /** @see #VERT_BUDGET */
+    public static final int INDEX_BUDGET = LatticeTopology.tessellationFor(LatticeTopology.L3)
+            * LatticeTopology.tessellationFor(LatticeTopology.L3) * 6;
+
+    /**
+     * Triangulate SEVERAL rings into one mesh — the detached-limbs case.
+     *
+     * <p>JoyRaptor's artwork is a character drawn as separate pieces, so this is the ordinary path
+     * and not an exotic one. Each ring is triangulated on its own and the results are appended:
+     * vertices, UVs and indices all concatenate cleanly, the indices of the second island simply
+     * starting where the first island's vertices ended. There is no stitching and no shared
+     * vertex between islands, which is the point — two pieces of art that do not touch must not
+     * end up joined by a triangle.
+     *
+     * <h3>Density is scaled per island, not copied</h3>
+     * <p>{@code interior} is points along one axis of an island's own bounding box, so handing a
+     * hand-sized island the body's number would pack it far more densely than the body — more
+     * vertices to solve, and, worse, geodesic distances measured on two different scales. Each
+     * island's density is scaled by the square root of its share of the largest island's area,
+     * which keeps triangles roughly the same SIZE everywhere. Every island keeps at least one
+     * interior point when any were asked for, or it cannot bend at all.
+     *
+     * @param rings    one closed ring per island, largest first as {@link AlphaContour#traceAll}
+     *                 returns them
+     * @param interior interior density for the LARGEST island; see above
+     * @return the concatenated mesh, or null when no ring triangulated
+     */
+    public static Mesh triangulate(float[][] rings, int interior) {
+        if (rings == null || rings.length == 0) return null;
+        if (rings.length == 1) return triangulate(rings[0], interior);
+
+        float biggest = 0f;
+        float[] areas = new float[rings.length];
+        for (int i = 0; i < rings.length; i++) {
+            areas[i] = Math.abs(AlphaContour.signedArea2(rings[i])) * 0.5f;
+            biggest = Math.max(biggest, areas[i]);
+        }
+
+        java.util.List<Mesh> parts = new java.util.ArrayList<>(rings.length);
+        java.util.List<Integer> starts = new java.util.ArrayList<>(rings.length + 1);
+        int verts = 0, indices = 0, contour = 0;
+        for (int i = 0; i < rings.length; i++) {
+            int dens = interior;
+            if (interior > 0 && biggest > 0f && areas[i] < biggest) {
+                dens = Math.max(1, Math.round(interior * (float) Math.sqrt(areas[i] / biggest)));
+            }
+            Mesh m = triangulate(rings[i], dens);
+            if (m == null || m.vertexCount() == 0) continue;   // a degenerate piece is skipped
+            // THE RENDERER'S BUDGET, not a number invented here. A mesh over it is not an error
+            // anywhere — the topology accepts it, the item stores it, and the GL stamp then
+            // drops it in silence and the picture never bends. Stopping at the budget costs the
+            // smallest pieces; going past it costs the whole character.
+            if (verts + m.vertexCount() > VERT_BUDGET
+                    || indices + m.indices.length > INDEX_BUDGET) {
+                break;
+            }
+            starts.add(verts);
+            parts.add(m);
+            verts += m.vertexCount();
+            indices += m.indices.length;
+            contour += m.contourCount;
+        }
+        if (parts.isEmpty()) return null;
+        starts.add(verts);
+
+        float[] outV = new float[verts * 2];
+        short[] outI = new short[indices];
+        int vo = 0, io = 0;
+        for (int i = 0; i < parts.size(); i++) {
+            Mesh m = parts.get(i);
+            System.arraycopy(m.verts, 0, outV, vo * 2, m.verts.length);
+            int base = vo;
+            for (int k = 0; k < m.indices.length; k++) {
+                outI[io + k] = (short) (base + (m.indices[k] & 0xFFFF));
+            }
+            vo += m.vertexCount();
+            io += m.indices.length;
+        }
+        int[] islandStart = new int[starts.size()];
+        for (int i = 0; i < islandStart.length; i++) islandStart[i] = starts.get(i);
+        return new Mesh(outV, outI, contour, islandStart);
+    }
 
     /**
      * Triangulate a simple polygon, optionally seeding interior points.
@@ -162,14 +287,34 @@ public final class PuppetTriangulator {
             tris.add(c); tris.add(a); tris.add(p);
         }
 
-        float[] verts = new float[pts.size() * 2];
+        // ── Drop vertices no triangle uses ────────────────────────────────────────────────
+        // Both `continue`s above leave a point in the list that nothing references: one for an
+        // interior point that landed in a concavity, one for a point sitting on an edge. An
+        // unreferenced vertex is invisible — nothing draws it — but it is NOT harmless:
+        //   * it is solved every frame for a pixel that does not exist;
+        //   * PuppetWeights sees a vertex the mesh graph cannot reach, so it looks exactly like
+        //     a detached island and gets the ride-along fallback meant for real ones.
+        // The second one cost an afternoon: a three-piece character reported its far arm moving
+        // when the only things moving were two phantom vertices behind it.
+        boolean[] used = new boolean[pts.size()];
+        for (int i : tris) used[i] = true;
+        int[] remap = new int[pts.size()];
+        int kept = 0, keptContour = 0;
         for (int i = 0; i < pts.size(); i++) {
-            verts[i * 2] = pts.get(i)[0];
-            verts[i * 2 + 1] = pts.get(i)[1];
+            if (!used[i]) { remap[i] = -1; continue; }
+            remap[i] = kept++;
+            if (i < nc) keptContour++;
+        }
+
+        float[] verts = new float[kept * 2];
+        for (int i = 0; i < pts.size(); i++) {
+            if (remap[i] < 0) continue;
+            verts[remap[i] * 2] = pts.get(i)[0];
+            verts[remap[i] * 2 + 1] = pts.get(i)[1];
         }
         short[] indices = new short[tris.size()];
-        for (int i = 0; i < tris.size(); i++) indices[i] = (short) (int) tris.get(i);
-        return new Mesh(verts, indices, nc);
+        for (int i = 0; i < tris.size(); i++) indices[i] = (short) remap[tris.get(i)];
+        return new Mesh(verts, indices, keptContour);
     }
 
     /**

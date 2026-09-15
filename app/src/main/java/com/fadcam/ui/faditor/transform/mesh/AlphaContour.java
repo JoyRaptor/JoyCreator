@@ -24,10 +24,17 @@ package com.fadcam.ui.faditor.transform.mesh;
  *   <li><b>Holes.</b> Only the outer boundary is traced. A donut gives a disc. Holes need the inner
  *       rings AND a constrained triangulation that honours them, and half of that is worthless —
  *       so it is one decision, later, not a half-feature now.</li>
- *   <li><b>Multiple blobs.</b> The LARGEST connected region wins. A character with a detached
- *       accessory loses the accessory rather than producing two puppets that cannot be posed as
- *       one. Said out loud because it will look like a bug the first time it happens.</li>
  * </ul>
+ *
+ * <h3>Multiple blobs: {@link #traceAll}</h3>
+ * <p>This file used to keep only the largest connected region and say so. That was wrong for the
+ * artwork it was built for — JoyRaptor draws characters as DETACHED LIMBS, so "largest region
+ * wins" gave triangles around one arm and nothing around the rest, and every pin on the others
+ * moved a dot and no pixels. {@link #traceAll} returns every region worth keeping, largest first,
+ * and {@link PuppetTriangulator} concatenates them into one mesh.
+ *
+ * <p>{@link #trace} is kept and still returns the largest region alone, because a caller that
+ * genuinely wants one outline should not have to say "give me all of them and take the first".
  */
 public final class AlphaContour {
 
@@ -49,15 +56,35 @@ public final class AlphaContour {
      *         would be the one thing that had to be rescaled when the picture is resized.
      */
     public static float[] trace(int[] alpha, int w, int h, int threshold) {
-        if (alpha == null || w <= 0 || h <= 0 || alpha.length < w * h) return null;
+        float[][] all = traceAll(alpha, w, h, threshold, 1);
+        return (all.length == 0) ? null : all[0];
+    }
 
-        // ── Largest connected opaque region ─────────────────────────────────────────────────
-        // A flood fill rather than "first opaque pixel wins": the first pixel in scan order can
-        // easily belong to a stray speck (a JPEG-ish fringe, a stray dot), and tracing the speck
-        // would produce a puppet the size of a speck with no hint as to why.
+    /**
+     * Trace the outer boundary of EVERY opaque region worth keeping.
+     *
+     * <p>This is the one a puppet wants. A character drawn as a body plus two detached arms is
+     * three regions, and a mesh around only the body cannot be posed by the arms' pins.
+     *
+     * <p><b>Largest first.</b> A caller that cares about the main body — interior seeding density,
+     * a "which piece is this" label — gets it at index 0 without sorting.
+     *
+     * @param minAreaPx regions smaller than this are dropped as specks: anti-aliasing crumbs and
+     *                  stray dots. Pass 1 to keep everything. The UI counts islands with the same
+     *                  rule, so the number it warns about is the number that gets traced.
+     * @return one closed ring per region, interleaved x,y in UNIT space; never null but possibly
+     *         empty. A region whose walk degenerates is dropped rather than returned malformed.
+     */
+    public static float[][] traceAll(int[] alpha, int w, int h, int threshold, int minAreaPx) {
+        if (alpha == null || w <= 0 || h <= 0 || alpha.length < w * h) return new float[0][];
+
+        // -- Label every connected opaque region --------------------------------------------
+        // A flood fill rather than "first opaque pixel wins": scan order says nothing about which
+        // region matters, and the sizes are needed anyway to drop specks and to sort.
         int[] label = new int[w * h];
-        int best = 0, bestSize = 0, next = 0;
         int[] stack = new int[w * h];
+        java.util.List<int[]> regions = new java.util.ArrayList<>();   // {label, size, startIndex}
+        int next = 0;
         for (int i = 0; i < w * h; i++) {
             if (label[i] != 0 || alpha[i] < threshold) continue;
             next++;
@@ -75,26 +102,46 @@ public final class AlphaContour {
                 if (py > 0) sp = push(stack, sp, p - w, alpha, label, threshold, next);
                 if (py < h - 1) sp = push(stack, sp, p + w, alpha, label, threshold, next);
             }
-            if (size > bestSize) { bestSize = size; best = next; }
+            if (size >= Math.max(1, minAreaPx)) regions.add(new int[]{next, size, i});
         }
-        if (bestSize == 0) return null;
+        if (regions.isEmpty()) return new float[0][];
 
-        // ── Start pixel: first of the winning region in scan order ─────────────────────────
-        int start = -1;
-        for (int i = 0; i < w * h; i++) {
-            if (label[i] == best) { start = i; break; }
+        java.util.Collections.sort(regions, new java.util.Comparator<int[]>() {
+            @Override public int compare(int[] a, int[] b) { return Integer.compare(b[1], a[1]); }
+        });
+
+        java.util.List<float[]> rings = new java.util.ArrayList<>(regions.size());
+        for (int[] r : regions) {
+            float[] ring = traceRegion(label, w, h, r[0], r[1], r[2]);
+            if (ring != null) rings.add(ring);
         }
-        if (start < 0) return null;
+        return rings.toArray(new float[rings.size()][]);
+    }
 
+    /** {@link #traceAll} with the default threshold and the default speck floor. */
+    public static float[][] traceAll(int[] alpha, int w, int h) {
+        return traceAll(alpha, w, h, DEFAULT_THRESHOLD, MIN_REGION_PX);
+    }
+
+    /**
+     * Pixels below which a connected region is a speck rather than a piece of the character.
+     *
+     * <p>Matches {@code PuppetMeshBuilder.MIN_ISLAND_PX} deliberately: the UI warns "this artwork
+     * is in 3 pieces" using its own count, and a tracer that disagreed would build a mesh with a
+     * different number of islands than the warning named.
+     */
+    public static final int MIN_REGION_PX = 24;
+
+    /** Moore-neighbour walk around ONE labelled region. */
+    private static float[] traceRegion(int[] label, int w, int h, int target, int size, int start) {
         // A single opaque pixel has no ring to walk. Emit its own square so downstream code gets
         // a valid (if tiny) polygon rather than null, which would read as "nothing opaque".
-        if (bestSize == 1) {
+        if (size == 1) {
             float x0 = (start % w) / (float) w, y0 = (start / w) / (float) h;
             float x1 = (start % w + 1) / (float) w, y1 = (start / w + 1) / (float) h;
             return new float[]{x0, y0, x1, y0, x1, y1, x0, y1};
         }
 
-        // ── Moore-neighbour trace ───────────────────────────────────────────────────────────
         // Eight neighbours clockwise from WEST. Starting at WEST is what makes the first step
         // leave the start pixel along the boundary rather than into the interior.
         final int[] dx = {-1, -1, 0, 1, 1, 1, 0, -1};
@@ -117,7 +164,7 @@ public final class AlphaContour {
                 int d = (backDir + k) & 7;
                 int nx = cx + dx[d], ny = cy + dy[d];
                 if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-                if (label[ny * w + nx] != best) continue;
+                if (label[ny * w + nx] != target) continue;
                 found = d;
                 break;
             }

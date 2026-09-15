@@ -157,12 +157,16 @@ public final class PuppetDeformer implements MeshDeformer {
             float wsum = 0f;
             if (useTable) {
                 table.row(v, w);
-                // The table is already normalised, and a one-hot row is exactly the case the
-                // straight-line path calls "snapped": the vertex sits on that pin.
-                for (int i = 0; i < pinCount; i++) {
-                    wsum += w[i];
-                    if (w[i] >= 1f) snapped = i;
-                }
+                for (int i = 0; i < pinCount; i++) wsum += w[i];
+                // NO SNAP TEST HERE, deliberately. A one-hot row means "this pin owns this
+                // vertex entirely", and that happens for TWO different reasons: the vertex sits
+                // on the pin, or the vertex is on a detached piece of artwork that only that pin
+                // can reach. Treating the second as the first collapsed a whole arm onto its own
+                // pin — the arm visibly teleported. Both cases fall through to the accumulation
+                // below, whose degenerate branch resolves a one-hot row to a rigid TRANSLATION by
+                // that pin's offset: correct for a lone limb, and still exact for a vertex that
+                // really is on the pin, because translating it by the pin's offset lands it
+                // precisely where the pin went.
             } else {
                 for (int i = 0; i < pinCount; i++) {
                     float dx = px[i] - vx, dy = py[i] - vy;

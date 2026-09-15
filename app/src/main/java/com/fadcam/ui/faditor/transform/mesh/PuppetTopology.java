@@ -35,13 +35,20 @@ public final class PuppetTopology implements MeshTopology {
     /** Bumped only if {@link #params()}'s LAYOUT changes, never when the triangulator improves. */
     private static final float FORMAT_V1 = 1f;
 
-    private final float[] ring;        // contour, interleaved x,y, unit space
-    private final int interior;        // interior seeding density, one axis
+    /**
+     * Several contours instead of one. A v1 puppet still loads — it is simply a v2 with one
+     * island — because a project saved before detached limbs existed must open unchanged.
+     */
+    private static final float FORMAT_V2 = 2f;
+
+    private final float[][] rings;     // one contour per island, interleaved x,y, unit space
+    private final int interior;        // interior seeding density, one axis, for the LARGEST island
     private final float[] pins;        // pin REST positions, interleaved x,y, unit space
 
     private final float[] verts;       // derived
     private final short[] indices;     // derived
     private final int contourCount;    // derived
+    private final int[] islandStart;   // derived
     private final int stamp;
 
     /** Lazily derived; see {@link #weights()} for why a plain volatile is enough here. */
@@ -55,23 +62,46 @@ public final class PuppetTopology implements MeshTopology {
      *                 is in between "traced" and "the user placed a pin".
      */
     public PuppetTopology(float[] ring, int interior, float[] pins) {
-        if (ring == null || ring.length < 6) {
+        this(new float[][]{ring}, interior, pins);
+    }
+
+    /**
+     * The DETACHED-LIMBS constructor: one ring per opaque piece of the artwork.
+     *
+     * <p>This is the ordinary case for the art this feature was built for. The pieces become one
+     * topology with one pose and one set of pins — a character, not several puppets — while
+     * staying separate in the mesh, so no triangle ever spans the gap between two limbs.
+     *
+     * @param rings one closed contour per island, as {@link AlphaContour#traceAll} returns them.
+     *              Rings that fail to triangulate are dropped; at least one must survive.
+     */
+    public PuppetTopology(float[][] rings, int interior, float[] pins) {
+        if (rings == null || rings.length == 0) {
+            throw new IllegalArgumentException("puppet needs at least one contour");
+        }
+        java.util.List<float[]> kept = new java.util.ArrayList<>(rings.length);
+        for (float[] r : rings) {
+            if (r != null && r.length >= 6) kept.add(r.clone());
+        }
+        if (kept.isEmpty()) {
             throw new IllegalArgumentException("puppet needs a contour of at least 3 points");
         }
-        this.ring = ring.clone();
+        this.rings = kept.toArray(new float[kept.size()][]);
         this.interior = Math.max(0, interior);
         this.pins = pins == null ? new float[0] : pins.clone();
 
-        PuppetTriangulator.Mesh m = PuppetTriangulator.triangulate(this.ring, this.interior);
+        PuppetTriangulator.Mesh m = PuppetTriangulator.triangulate(this.rings, this.interior);
         if (m == null) throw new IllegalArgumentException("contour did not triangulate");
         this.verts = m.verts;
         this.indices = m.indices;
         this.contourCount = m.contourCount;
+        this.islandStart = m.islandStart;
 
         // Structure only — the pin POSITIONS are structure (they change the solve), but a pin's
         // POSE is not, and no pose is in here.
         int h = 17;
-        h = h * 31 + this.ring.length;
+        for (float[] r : this.rings) h = h * 31 + r.length;
+        h = h * 31 + this.rings.length;
         h = h * 31 + this.interior;
         h = h * 31 + this.pins.length;
         h = h * 31 + verts.length;
@@ -83,21 +113,29 @@ public final class PuppetTopology implements MeshTopology {
     @Override public String kind() { return KIND; }
 
     /**
-     * {@code [FORMAT, interior, pinCount, ringPointCount, pins..., ring...]}.
+     * {@code [FORMAT_V2, interior, pinCount, islandCount, pointsPerIsland..., pins..., rings...]}.
      *
      * <p>Floats throughout because {@link MeshTopology#params()} is float[] — which its own doc
      * explains was chosen precisely because "a puppet's parameters ARE its traced contour".
      */
     @Override
     public float[] params() {
-        int pinN = pins.length / 2, ringN = ring.length / 2;
-        float[] out = new float[4 + pins.length + ring.length];
-        out[0] = FORMAT_V1;
+        int pinN = pins.length / 2;
+        int ringFloats = 0;
+        for (float[] r : rings) ringFloats += r.length;
+        float[] out = new float[4 + rings.length + pins.length + ringFloats];
+        out[0] = FORMAT_V2;
         out[1] = interior;
         out[2] = pinN;
-        out[3] = ringN;
-        System.arraycopy(pins, 0, out, 4, pins.length);
-        System.arraycopy(ring, 0, out, 4 + pins.length, ring.length);
+        out[3] = rings.length;
+        int at = 4;
+        for (float[] r : rings) out[at++] = r.length / 2;
+        System.arraycopy(pins, 0, out, at, pins.length);
+        at += pins.length;
+        for (float[] r : rings) {
+            System.arraycopy(r, 0, out, at, r.length);
+            at += r.length;
+        }
         return out;
     }
 
@@ -105,17 +143,44 @@ public final class PuppetTopology implements MeshTopology {
     public static PuppetTopology fromParams(float[] p) {
         try {
             if (p == null || p.length < 4) return null;
-            if (Math.round(p[0]) != Math.round(FORMAT_V1)) return null;
+            int format = Math.round(p[0]);
             int interior = Math.round(p[1]);
             int pinN = Math.round(p[2]);
-            int ringN = Math.round(p[3]);
-            if (pinN < 0 || ringN < 3) return null;
-            if (p.length < 4 + pinN * 2 + ringN * 2) return null;
+            if (pinN < 0) return null;
+
+            if (format == Math.round(FORMAT_V1)) {
+                // A puppet saved before detached limbs existed: one ring, no per-island table.
+                int ringN = Math.round(p[3]);
+                if (ringN < 3 || p.length < 4 + pinN * 2 + ringN * 2) return null;
+                float[] pins = new float[pinN * 2];
+                float[] ring = new float[ringN * 2];
+                System.arraycopy(p, 4, pins, 0, pins.length);
+                System.arraycopy(p, 4 + pins.length, ring, 0, ring.length);
+                return new PuppetTopology(ring, interior, pins);
+            }
+            if (format != Math.round(FORMAT_V2)) return null;
+
+            int islands = Math.round(p[3]);
+            if (islands < 1 || islands > 4096 || p.length < 4 + islands) return null;
+            int[] counts = new int[islands];
+            int ringFloats = 0;
+            for (int i = 0; i < islands; i++) {
+                counts[i] = Math.round(p[4 + i]);
+                if (counts[i] < 3) return null;
+                ringFloats += counts[i] * 2;
+            }
+            int at = 4 + islands;
+            if (p.length < at + pinN * 2 + ringFloats) return null;
             float[] pins = new float[pinN * 2];
-            float[] ring = new float[ringN * 2];
-            System.arraycopy(p, 4, pins, 0, pins.length);
-            System.arraycopy(p, 4 + pins.length, ring, 0, ring.length);
-            return new PuppetTopology(ring, interior, pins);
+            System.arraycopy(p, at, pins, 0, pins.length);
+            at += pins.length;
+            float[][] rings = new float[islands][];
+            for (int i = 0; i < islands; i++) {
+                rings[i] = new float[counts[i] * 2];
+                System.arraycopy(p, at, rings[i], 0, rings[i].length);
+                at += rings[i].length;
+            }
+            return new PuppetTopology(rings, interior, pins);
         } catch (Exception ignored) {
             return null;
         }
@@ -171,7 +236,7 @@ public final class PuppetTopology implements MeshTopology {
     public PuppetWeights weights() {
         PuppetWeights w = weights;
         if (w == null && pins.length >= 2) {
-            w = PuppetWeights.build(verts, indices, pins);
+            w = PuppetWeights.build(verts, indices, pins, islandStart);
             weights = w;
         }
         return w;
@@ -180,6 +245,22 @@ public final class PuppetTopology implements MeshTopology {
     /** How many vertices came from the contour; the rest are interior. Diagnostics and tests. */
     public int contourCount() { return contourCount; }
 
-    /** The contour, defensively copied. */
-    public float[] ring() { return ring.clone(); }
+    /**
+     * The FIRST island's contour, defensively copied — the largest piece, since
+     * {@link AlphaContour#traceAll} returns them largest first.
+     */
+    public float[] ring() { return rings[0].clone(); }
+
+    /** Every island's contour, defensively copied. */
+    public float[][] rings() {
+        float[][] out = new float[rings.length][];
+        for (int i = 0; i < rings.length; i++) out[i] = rings[i].clone();
+        return out;
+    }
+
+    /** How many separate pieces of artwork this puppet covers. One for ordinary art. */
+    public int islandCount() { return rings.length; }
+
+    /** Where island {@code i}'s vertices begin; the last entry is the total vertex count. */
+    public int[] islandStart() { return islandStart.clone(); }
 }

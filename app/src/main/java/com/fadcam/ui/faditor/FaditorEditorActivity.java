@@ -30714,6 +30714,52 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
     }
 
+    /**
+     * The rig being EDITED but not yet owned by any overlay.
+     *
+     * <p>JoyRaptor, 2026-09-15: <i>"opening the tab should not change it. It should only be
+     * changed if pins go on it."</i> Quite right, and the old code reached for
+     * {@code getOrCreatePuppet()} the instant the tab drew a row — which attached an empty rig to
+     * his picture just for looking at it. The saved bytes never actually differed (the codec
+     * writes nothing for a rig with no pins), but "it happens to serialise to the same thing" is
+     * not the same promise as "we did not touch your project", and only the second one is worth
+     * making.
+     *
+     * <p>So the tab edits THIS until a pin lands, and {@link #adoptPuppetRigIfRigged} hands it to
+     * the overlay at that moment. Cleared whenever a different overlay's drawer opens, so one
+     * picture's half-made rig can never appear on another.
+     */
+    @Nullable private com.fadcam.ui.faditor.puppet.PuppetRig puppetWorkingRig;
+
+    /** The rig the puppet tab and overlay should read — the item's own, or the scratch one. */
+    @NonNull
+    private com.fadcam.ui.faditor.puppet.PuppetRig puppetRigFor(
+            @Nullable com.fadcam.ui.faditor.model.TextOverlayItem it) {
+        if (it != null && it.getPuppet() != null) return it.getPuppet();
+        if (puppetWorkingRig == null) {
+            puppetWorkingRig = new com.fadcam.ui.faditor.puppet.PuppetRig();
+        }
+        return puppetWorkingRig;
+    }
+
+    /**
+     * Give the scratch rig to the overlay the moment it actually holds a pin.
+     *
+     * <p>One direction only: a rig is never taken back off an item here. Deleting the last pin
+     * leaves an attached rig that serialises to nothing, which is the same as not having one.
+     */
+    private void adoptPuppetRigIfRigged(
+            @Nullable com.fadcam.ui.faditor.model.TextOverlayItem it) {
+        if (it == null || puppetWorkingRig == null) return;
+        if (it.getPuppet() != null) { puppetWorkingRig = null; return; }
+        if (puppetWorkingRig.pinCount() == 0) return;
+        it.setPuppet(puppetWorkingRig);
+        puppetWorkingRig = null;
+    }
+
+    /** True while the pins are up and THIS lane is the one that hid the handle overlays. */
+    private boolean puppetHidHandles;
+
     @Nullable private com.fadcam.ui.faditor.puppet.PuppetOverlayView puppetOverlay;
     /** The overlay the pins are currently drawn over, so the view can be handed the right rect. */
     @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem puppetItem;
@@ -30732,7 +30778,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!want) {
             if (puppetOverlay != null) puppetOverlay.setVisibility(View.GONE);
             puppetItem = null;
-            if (previewHandlesOverlay != null) previewHandlesOverlay.setVisibility(View.VISIBLE);
+            // RESTORE ONLY WHAT WE HID. The listener is not cleared when another object's
+            // drawer opens, so this runs for PiPs and adjustment layers too — and an
+            // unconditional setVisibility(VISIBLE) would put the ordinary handles back up in a
+            // context that had deliberately taken them down. Restoring exactly what we took is
+            // the difference between a tool that cleans up after itself and one that reaches
+            // into someone else's state.
+            if (puppetHidHandles) {
+                if (previewHandlesOverlay != null) {
+                    previewHandlesOverlay.setVisibility(View.VISIBLE);
+                }
+                if (transformOverlay != null) transformOverlay.setVisibility(View.VISIBLE);
+                puppetHidHandles = false;
+            }
             return;
         }
         puppetItem = o;
@@ -30743,6 +30801,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // One reader of MotionEvent at a time.
         if (previewHandlesOverlay != null) previewHandlesOverlay.setVisibility(View.GONE);
         if (transformOverlay != null) transformOverlay.setVisibility(View.GONE);
+        puppetHidHandles = true;
     }
 
     @NonNull
@@ -30762,9 +30821,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             puppetOverlay.setHost(new com.fadcam.ui.faditor.puppet.PuppetOverlayView.Host() {
                 @NonNull @Override
                 public com.fadcam.ui.faditor.puppet.PuppetRig rig() {
-                    com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
-                    return it != null ? it.getOrCreatePuppet()
-                            : new com.fadcam.ui.faditor.puppet.PuppetRig();
+                    return puppetRigFor(puppetItem);
                 }
 
                 @Override public boolean readRect(@NonNull android.graphics.RectF out) {
@@ -30787,6 +30844,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
 
                 @Override public void onRigChanged() {
+                    adoptPuppetRigIfRigged(puppetItem);
                     // The drawer's rows depend on the selection and the pin count, and row 1
                     // APPEARS on the first pin -- so a placement has to rebuild them.
                     if (objectDrawer != null && objectDrawer.isShowing()) {
@@ -30993,11 +31051,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ctx -> com.fadcam.ui.faditor.tools.PuppetDrawerTabs.build(
                         ctx, puppetHostFor(o, applyComp))));
 
-        // The pins live on the PICTURE, so the drawer has to say when its tab comes and goes.
-        // Posted because the drawer announces the change before its own layout settles, and the
-        // pin rect is read from the overlay view's laid-out bounds.
-        objectDrawer.setOnTabChanged(() -> objectDrawer.post(() -> syncPuppetOverlay(o)));
-
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
@@ -31047,9 +31100,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> { spec.copyFrom(redoState); applyComp.run(); },
                     () -> { spec.copyFrom(undoState); applyComp.run(); }));
         };
+        // The pins live on the PICTURE, so the drawer has to say when its tab comes and goes.
+        // ensureObjectDrawer() is what CREATES it -- reaching for the field before this line is
+        // a null dereference, and it crashed the editor on every double-tap of an image until
+        // the logcat said so. Set the listener where the drawer is guaranteed to exist.
+        //
+        // Posted because show() announces the change before its own layout settles, and the pin
+        // rect is read from the overlay view's laid-out bounds.
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
-
-        ensureObjectDrawer().show(tabs, toggles, true);
+        final com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        drawer.setOnTabChanged(() -> drawer.post(() -> syncPuppetOverlay(o)));
+        // A fresh item starts with no working rig: the scratch below belongs to whichever
+        // overlay is open, and carrying one across items would put another picture's pins on
+        // this one.
+        puppetWorkingRig = null;
+        puppetSelectedPin = -1;
+        drawer.show(tabs, toggles, true);
     }
 
     /**

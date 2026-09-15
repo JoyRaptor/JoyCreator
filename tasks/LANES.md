@@ -133,8 +133,12 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: SPEC_ZB (2026-09-13 — install + launch smoke + crash scan for the clip warp model;
-        token released immediately after the batch)
+DEVICE: SPEC_20260915_PUPPET_UI (2026-09-15 — install + launch smoke + crash scan after the
+        setOnTabChanged NPE. READ-ONLY on the phone: logcat and a launch. JoyRaptor's Note 20
+        is attached and holds real projects, so no project is opened, nothing is tapped
+        through, and adb uninstall is never run. RELEASED 2026-09-15 — launch smoke clean,
+        zero FATAL EXCEPTION after the fix.)
+DEVICE: free
 
 ## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST
 JoyRaptor: "export failed twice in a row on my most recent project."

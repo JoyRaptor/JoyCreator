@@ -58,8 +58,10 @@ public class PuppetRigTest {
         deletingTheRootOfAChainDoesNotStrandTheTip();
 
         System.out.println();
-        System.out.println("-- rig: undo --");
+        System.out.println("-- rig: undo, and duplicating an overlay --");
         copyIsDeepEnoughToUndoAChainDrag();
+        aDuplicateSharesNothingWithItsOriginal();
+        deletingAPinInADuplicateLeavesTheOriginalWhole();
 
         System.out.println();
         System.out.println(failed == 0
@@ -230,6 +232,61 @@ public class PuppetRigTest {
         check("the snapshot kept the bone",   true,  snapshot.bone(0).stretchy);
         check("the snapshot kept the name",   "R.Shoulder", snapshot.pin(1).name);
         check("and the lock travels",         r.locked, snapshot.locked);
+    }
+
+    /**
+     * JoyRaptor, 2026-09-15, on the duplicate path: <i>"this needs to be figured out so it's not
+     * something that will break on a user."</i>
+     *
+     * <p>Duplicating an overlay copies its rig. If that copy SHARED pin objects, renaming one
+     * picture's hand would rename the other's, and neither would look wrong until a user noticed
+     * weeks later. There is no exception to catch and no pixel to inspect — which is exactly the
+     * class of bug that needs a test rather than a careful reading.
+     */
+    private static void aDuplicateSharesNothingWithItsOriginal() {
+        PuppetRig original = arm();
+        PuppetRig dupe = original.copy();
+
+        dupe.renamePin(3, "Other hand");
+        dupe.pin(3).scale = 0.25f;
+        dupe.pin(0).type = PuppetPin.Type.FREE;
+        dupe.bone(0).stretchy = true;
+        dupe.bone(0).bendSign = -1;
+        dupe.softness = 0.9f;
+        dupe.locked = true;
+
+        check("the original's name is untouched", "R.Hand", original.pin(3).name);
+        check("the original's scale is untouched", 1.0f, original.pin(3).scale);
+        check("the original's type is untouched", "PIN", original.pin(0).type.name());
+        check("the original's bone is untouched", false, original.bone(0).stretchy);
+        check("the original's bend sign is untouched", 1, original.bone(0).bendSign);
+        check("the original's softness is untouched", 0.5f, original.softness);
+        check("the original is not locked", false, original.locked);
+
+        // And the other way, because a one-directional check would pass on a shallow copy that
+        // happened to be written to in only one order.
+        original.renamePin(1, "Original shoulder");
+        check("the duplicate's name is untouched", "R.Shoulder", dupe.pin(1).name);
+    }
+
+    /** The specific corruption: index renumbering must not reach across a duplicate. */
+    private static void deletingAPinInADuplicateLeavesTheOriginalWhole() {
+        PuppetRig original = arm();
+        PuppetRig dupe = original.copy();
+
+        dupe.removePin(1);                       // takes two of the duplicate's bones with it
+
+        check("the duplicate lost a pin", 3, dupe.pinCount());
+        check("the original kept all four", 4, original.pinCount());
+        check("the original kept all three bones", 3, original.boneCount());
+        check("the original's chain still walks to its root",
+                new int[]{3, 2, 1, 0}, original.chainToRoot(3));
+        for (int i = 0; i < original.boneCount(); i++) {
+            PuppetRig.Bone b = original.bone(i);
+            checkTrue("original bone " + i + " still in range",
+                    b.rootPin >= 0 && b.rootPin < original.pinCount()
+                            && b.tipPin >= 0 && b.tipPin < original.pinCount());
+        }
     }
 
     // ── tiny assert kit ──────────────────────────────────────────────────

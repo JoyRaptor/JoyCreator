@@ -183,18 +183,28 @@ public final class PuppetPin {
         boolean left = ux < 0.42f;
         boolean right = ux > 0.58f;
 
+        // SIX bands, not five. With five, a rig of an ARM — the commonest thing anyone builds —
+        // produced "R.Shoulder", "R.Hand" and "R.Hand 2", because the elbow had nowhere of its
+        // own to land. A joint named after the wrong joint is worse than no suggestion at all:
+        // the name is what the assistant reads, so a wrong one actively misleads it.
+        // Caught by PuppetRigTest, which is why the naming has a test.
         if (uy < 0.20f) return "Head";
-        if (uy < 0.36f) {
+        if (uy < 0.34f) {
             if (left) return "L.Shoulder";
             if (right) return "R.Shoulder";
             return "Neck";
         }
-        if (uy < 0.56f) {
-            if (left) return "L.Hand";
-            if (right) return "R.Hand";
+        if (uy < 0.47f) {
+            if (left) return "L.Elbow";
+            if (right) return "R.Elbow";
             return "Chest";
         }
-        if (uy < 0.74f) {
+        if (uy < 0.60f) {
+            if (left) return "L.Hand";
+            if (right) return "R.Hand";
+            return "Waist";
+        }
+        if (uy < 0.76f) {
             if (left) return "L.Knee";
             if (right) return "R.Knee";
             return "Hip";

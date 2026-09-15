@@ -30,11 +30,11 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
-[ -f "$OUT/PuppetContourTest.class" ] || { echo "no PuppetContourTest class — the compile did not run"; exit 1; }
+[ -f "$OUT/PuppetSolverTest.class" ] || { echo "no PuppetContourTest class — the compile did not run"; exit 1; }
 
 # The android-free property, enforced rather than trusted. This is what keeps the engine portable
 # and what keeps this harness runnable at all.
@@ -43,4 +43,9 @@ if grep -rn "^import android\|^import androidx" app/src/main/java/com/fadcam/ui/
   exit 1
 fi
 
-java @"$RUNARGS" PuppetContourTest
+java @"$RUNARGS" PuppetContourTest || exit 1
+java @"$RUNARGS" PuppetSolverTest || exit 1
+# The avatar package's OWN proofs. They existed with no runner driving them — orphaned
+# tests prove nothing. Same puppet problem, same suite.
+java @"$RUNARGS" DangleTest || exit 1
+java @"$RUNARGS" PinWarpTest

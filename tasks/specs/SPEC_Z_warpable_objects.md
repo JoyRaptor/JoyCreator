@@ -221,3 +221,35 @@ Per slice: the model change, the preview file, the export file, the proof they s
 device evidence. For slice 1, the cell/rig composition answer and the survives-a-cell-change test.
 For slice 3, the two text screenshots. Build verdict; compile-verified vs device-verified, per
 slice.
+
+---
+
+## SLICE 1 — SPRITES: DONE, END TO END, DEVICE-PROVED 2026-09-15
+
+Authored on the Note 20 (sandbox project `A8 E4 overlap proof`, all projects backed up first:
+528MB + 229MB, both extract-verified).
+
+| | evidence |
+|---|---|
+| Sprite reaches the transform surface | four corner handles, four edge handles, the rotation stalk — it had NONE of these before, it was on the legacy handle overlay |
+| Bend is offered | the "Bend" button appears on a sprite; tapping it reads "Bend · on" and draws the 3x3 net with the corner dots inset from the structural handles (SPEC M's rule) |
+| A drag AUTHORS a bend | dragged the centre dot down; `project.json` gained `{"k":"lattice","tp":[2.0],"h":[...]}` with index 9 — the centre knot's `dv` — at 0.3585 and every other float zero. The one float I dragged is the one float that moved. |
+| ONE drag is ONE undo | `UndoManager: Recorded: Bend sprite (undo=5, redo=0, before=true)` |
+| It renders bent | the sprite card is visibly curved in the preview, in GL, inside the composite |
+| It loads from file and renders | proved 2026-09-14 on ZA_VERIFY with a hand-written lattice and the corner pin REMOVED, so only the mesh could account for what was visible |
+
+**The warp is on the SPRITE, not the cells** — enforced structurally, not by convention: the content
+is rasterised before the warp is applied, so there is nowhere for a per-cell warp to exist. Swap the
+cell or pose the rig and the same bend applies.
+
+**One bend seam.** `MeshBendSeam` is the single copy, shared by the image host and the affine host.
+What was image-specific turned out to be six mesh accessors. CornerPinTransformHost went 1078 -> 853
+lines; all eleven bend/pin harnesses stayed green across the move, which is the evidence it was
+faithful rather than merely plausible.
+
+### Still owed on slice 1
+- **Export of an AUTHORED bend has not been rendered and compared.** The path exists
+  (`SpriteBlendGlEffect`, same `MeshStampGl`) and the preview/export split was closed for z, but no
+  one has exported a frame with a bent sprite and diffed it against the preview. That is acceptance
+  4 and it is the last thing between slice 1 and "done".
+- The sprite PIN channel is open for authoring; its export pairing has not been device-proved.

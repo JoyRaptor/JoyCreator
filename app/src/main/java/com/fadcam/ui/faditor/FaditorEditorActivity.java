@@ -30844,6 +30844,68 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return puppetBadge;
     }
 
+    /**
+     * DRAG A LIMB, NOT A DOT — run the bone chain this pin belongs to.
+     *
+     * <p>Everything the rig authored comes to bear here: rest lengths from the bones, stretch so
+     * a hand dragged past the arm's reach does not make the shoulder snap, joint limits so a knee
+     * will not fold backwards, and the bend sign so an elbow folds the way the artwork does.
+     * {@code PuppetRigSolver} does the maths; this only assembles the chain out of the model.
+     *
+     * <p>Returns false for a pin with no bones, which is not a failure — it is the ordinary case,
+     * and the caller then simply moves that one pin.
+     */
+    private boolean puppetSolveChain(int pin, float ux, float uy) {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (it == null) return false;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
+        float[] offsets = puppetHandles();
+        if (rig == null || offsets == null) return false;
+
+        // chainToRoot walks TIP FIRST; the solver wants ROOT first, and getting that backwards
+        // anchors the hand and swings the shoulder.
+        int[] tipFirst = rig.chainToRoot(pin);
+        if (tipFirst.length < 2) return false;
+        int n = tipFirst.length;
+        int[] pins = new int[n];
+        for (int i = 0; i < n; i++) pins[i] = tipFirst[n - 1 - i];
+
+        com.fadcam.ui.faditor.avatar.PuppetRigSolver.Chain chain =
+                new com.fadcam.ui.faditor.avatar.PuppetRigSolver.Chain();
+        chain.pins = pins;
+        chain.restLength = new float[n - 1];
+        chain.stretchy = new boolean[n - 1];
+        chain.maxStretch = new float[n - 1];
+        chain.jointLimits = new boolean[n];
+        chain.minAngleDeg = new float[n];
+        chain.maxAngleDeg = new float[n];
+
+        for (int link = 0; link < n - 1; link++) {
+            int b = rig.parentBoneOf(pins[link + 1]);
+            if (b < 0) continue;
+            com.fadcam.ui.faditor.puppet.PuppetRig.Bone bone = rig.bone(b);
+            chain.restLength[link] = bone.restLength;
+            chain.stretchy[link] = bone.stretchy;
+            chain.maxStretch[link] = bone.maxStretch;
+            // Joint limits belong to the pin the bone arrives AT.
+            chain.jointLimits[link + 1] = bone.jointLimits;
+            chain.minAngleDeg[link + 1] = bone.minAngleDeg;
+            chain.maxAngleDeg[link + 1] = bone.maxAngleDeg;
+        }
+
+        float[] rest = new float[rig.pinCount() * 2];
+        for (int i = 0; i < rig.pinCount(); i++) {
+            rest[i * 2] = rig.pin(i).restX;
+            rest[i * 2 + 1] = rig.pin(i).restY;
+        }
+        if (rest.length != offsets.length) return false;
+
+        boolean solved = com.fadcam.ui.faditor.avatar.PuppetRigSolver
+                .solveChain(chain, rest, offsets, ux, uy);
+        if (solved) repaintPuppetPicture();
+        return solved;
+    }
+
     /** Island count already warned about, so the toast fires on a change and not every drag. */
     private int puppetLastIslandWarning;
 
@@ -30891,6 +30953,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * a picture bent by a rig that no longer exists is worse than a straight one.
      */
     private void rebuildPuppetMesh(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem it) {
+        rebuildPuppetMesh(it, -1);
+    }
+
+    private void rebuildPuppetMesh(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem it,
+                                   int removedPin) {
         if (it == null) return;
         com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
         if (rig == null) return;
@@ -30916,7 +30983,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)
                         ? it.getMesh() : null;
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec fresh =
-                com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.rebuild(bmp, rig, old);
+                com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.rebuild(bmp, rig, old, removedPin);
         if (fresh == null) return;    // nothing opaque to trace — leave the picture alone
 
         // SEPARATE PIECES ARE NOT RIGGED. AlphaContour traces the LARGEST connected opaque
@@ -31111,7 +31178,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
 
                 @Override public void onRigStructureChanged() {
-                    rebuildPuppetMesh(puppetItem);
+                    rebuildPuppetMesh(puppetItem, -1);
+                }
+
+                @Override public void onPinRemoved(int index) {
+                    rebuildPuppetMesh(puppetItem, index);
+                }
+
+                @Override public boolean solveChainTo(int pin, float ux, float uy) {
+                    return puppetSolveChain(pin, ux, uy);
                 }
             });
             applyPreviewStackElevations();

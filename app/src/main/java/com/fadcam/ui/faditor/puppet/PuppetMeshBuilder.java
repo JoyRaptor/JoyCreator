@@ -6,6 +6,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.transform.mesh.AlphaContour;
+import com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack;
+import com.fadcam.ui.faditor.transform.mesh.PuppetPoseRemap;
 import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
 import com.fadcam.ui.faditor.transform.mesh.PuppetTopology;
 
@@ -90,17 +92,31 @@ public final class PuppetMeshBuilder {
         if (bmp == null || bmp.isRecycled() || rig == null) return null;
         if (rig.pinCount() < MIN_PINS) return null;
 
-        float[] ring = outline(bmp, rig.edgeThreshold);
-        if (ring == null || ring.length < 6) return null;
+        float[][] rings = outlines(bmp, rig.edgeThreshold, rig.edgeExpansion);
+        if (rings == null || rings.length == 0) return null;
 
         int interior = INTERIOR_MIN
                 + Math.round(clamp01(rig.meshDetail) * (INTERIOR_MAX - INTERIOR_MIN));
 
-        float[] pins = new float[rig.pinCount() * 2];
-        for (int i = 0; i < rig.pinCount(); i++) {
+        // EVERY AUTHORED KNOB, not just the positions. Softness, each pin's stiff patch and
+        // each pin's mute all shape the weight table rather than the triangles, so they belong
+        // here at build time — a slider that only reaches the model is a dead knob, which is
+        // precisely what the engine lane found five of.
+        int n = rig.pinCount();
+        float[] pins = new float[n * 2];
+        float[] stiffArea = new float[n];
+        float[] stiffStrength = new float[n];
+        boolean[] muted = new boolean[n];
+        for (int i = 0; i < n; i++) {
             PuppetPin p = rig.pin(i);
             pins[i * 2] = clamp01(p.restX);
             pins[i * 2 + 1] = clamp01(p.restY);
+            // Only a Stiff pin has a stiff patch. Sending a Free pin's defaults would starch
+            // the whole character, which is the opposite of what Free means.
+            boolean stiff = p.type == PuppetPin.Type.STIFF;
+            stiffArea[i] = stiff ? clamp01(p.stiffArea) : 0f;
+            stiffStrength[i] = stiff ? clamp01(p.stiffStrength) : 0f;
+            muted[i] = p.muted;
         }
 
         // BUILD SOMETHING THE RENDERER WILL ACTUALLY DRAW. A mesh over budget is not an error
@@ -110,7 +126,8 @@ public final class PuppetMeshBuilder {
         // be ignored. Three attempts is plenty; the first almost always fits.
         try {
             for (int attempt = 0; attempt < 3; attempt++) {
-                PuppetTopology topo = new PuppetTopology(ring, interior, pins);
+                PuppetTopology topo = new PuppetTopology(
+                        rings, interior, pins, rig.softness, stiffArea, stiffStrength, muted);
                 if (topo.handleCount() != rig.pinCount() || topo.vertexCount() < 3) return null;
                 if (topo.vertexCount() <= VERT_BUDGET
                         && topo.indexCount() <= com.fadcam.ui.faditor.compositor
@@ -123,7 +140,8 @@ public final class PuppetMeshBuilder {
             // Contour only, no interior points at all — the last thing that can still bend. A
             // shape whose OUTLINE alone is over budget is one the simplifier should have thinned,
             // and returning null leaves the picture straight rather than silently broken.
-            PuppetTopology bare = new PuppetTopology(ring, 0, pins);
+            PuppetTopology bare = new PuppetTopology(
+                        rings, 0, pins, rig.softness, stiffArea, stiffStrength, muted);
             if (bare.handleCount() == rig.pinCount()
                     && bare.vertexCount() >= 3
                     && bare.vertexCount() <= VERT_BUDGET
@@ -147,19 +165,95 @@ public final class PuppetMeshBuilder {
     @Nullable
     public static MeshWarpSpec rebuild(@Nullable Bitmap bmp, @Nullable PuppetRig rig,
                                        @Nullable MeshWarpSpec old) {
-        MeshWarpSpec fresh = build(bmp, rig);
-        if (fresh == null || old == null) return fresh;
+        return rebuild(bmp, rig, old, -1);
+    }
 
-        float[] before = old.handles();
-        float[] after = fresh.handles();
-        if (before == null || after == null) return fresh;
-        // Copy by index, up to whichever is shorter. Adding a pin appends, so every existing
-        // pin keeps its offset; removing one has already renumbered the rig, and the pose that
-        // belonged to the deleted pin is the one thing that should not survive.
-        int n = Math.min(before.length, after.length);
-        System.arraycopy(before, 0, after, 0, n);
+    /**
+     * Rebuild after the pins CHANGED, carrying the existing pose AND its keyframes across.
+     *
+     * @param removedPin the index that was just deleted, or -1 when nothing was. It matters:
+     *                   after a deletion every pin above it shifted down by one, so copying the
+     *                   pose straight across would give each surviving pin its NEIGHBOUR's
+     *                   offset — every limb subtly wrong, with nothing to point at.
+     */
+    @Nullable
+    public static MeshWarpSpec rebuild(@Nullable Bitmap bmp, @Nullable PuppetRig rig,
+                                       @Nullable MeshWarpSpec old, int removedPin) {
+        MeshWarpSpec fresh = build(bmp, rig);
+        if (fresh == null || rig == null) return fresh;
+        if (old != null) carryPose(old, fresh, rig.pinCount(), removedPin);
+        rig.meshSignature = signatureOf(rig);
         return fresh;
     }
+
+    /**
+     * Move the old pose onto the new topology — the STATIC handles and every KEYFRAME.
+     *
+     * <p>The old code copied the handle array and stopped there, which lost a whole animation the
+     * moment a pin was added to a rig that had one. {@code MeshWarpSpec.retopologize} rewrites
+     * every pose in the track through one remapper, which is what that method exists for.
+     */
+    private static void carryPose(@NonNull MeshWarpSpec old, @NonNull MeshWarpSpec fresh,
+                                  int newPinCount, int removedPin) {
+        int oldPins = old.topology() == null ? 0 : old.topology().handleCount();
+        int[] newToOld = new int[Math.max(0, newPinCount)];
+        for (int i = 0; i < newToOld.length; i++) {
+            if (removedPin >= 0 && i >= removedPin) newToOld[i] = i + 1;   // everything shifted
+            else newToOld[i] = i;
+            if (newToOld[i] >= oldPins) newToOld[i] = -1;                  // a brand new pin
+        }
+        try {
+            MeshPoseTrack.Remapper remap = PuppetPoseRemap.byPinIndex(newToOld, 2);
+            // Static handles first, then the track, both through the SAME map so a bent rig and
+            // an animated one survive a pin change identically.
+            float[] before = old.handles();
+            float[] after = fresh.handles();
+            if (before != null && after != null) {
+                float[] moved = remap.remap(before);
+                if (moved != null && moved.length == after.length) {
+                    System.arraycopy(moved, 0, after, 0, after.length);
+                }
+            }
+            MeshPoseTrack track = old.track();
+            if (track != null && !track.isEmpty()) {
+                fresh.setTrack(track);
+                fresh.retopologize(fresh.topology(), remap);
+            }
+        } catch (Exception ignored) {
+            // A pose that cannot be carried costs the POSE, never the rig.
+        }
+    }
+
+    /**
+     * Everything about a rig that changes what the mesh looks like.
+     *
+     * <p>Pin count alone is not enough, and that is the whole point: softness, a stiff patch and
+     * a mute all change the WEIGHT TABLE without changing a single triangle, so a rig compared by
+     * count goes on bending the old way while the slider insists otherwise.
+     */
+    public static long signatureOf(@Nullable PuppetRig rig) {
+        if (rig == null) return 0L;
+        long h = 1469598103934665603L;
+        h = mix(h, rig.pinCount());
+        h = mix(h, Math.round(rig.softness * 1000f));
+        h = mix(h, Math.round(rig.meshDetail * 1000f));
+        h = mix(h, Math.round(rig.edgeThreshold * 1000f));
+        h = mix(h, Math.round(rig.edgeExpansion * 1000f));
+        for (int i = 0; i < rig.pinCount(); i++) {
+            PuppetPin p = rig.pin(i);
+            h = mix(h, p.type.ordinal());
+            h = mix(h, p.muted ? 1 : 0);
+            h = mix(h, Math.round(p.restX * 4096f));
+            h = mix(h, Math.round(p.restY * 4096f));
+            if (p.type == PuppetPin.Type.STIFF) {
+                h = mix(h, Math.round(p.stiffArea * 1000f));
+                h = mix(h, Math.round(p.stiffStrength * 1000f));
+            }
+        }
+        return h;
+    }
+
+    private static long mix(long h, int v) { return (h ^ v) * 1099511628211L; }
 
     /**
      * True when the spec no longer matches the rig and must be rebuilt before it is drawn.
@@ -172,7 +266,11 @@ public final class PuppetMeshBuilder {
         if (rig == null || rig.pinCount() < MIN_PINS) return false;
         if (spec == null || spec.topology() == null) return true;
         if (!(spec.topology() instanceof PuppetTopology)) return true;
-        return spec.topology().handleCount() != rig.pinCount();
+        if (spec.topology().handleCount() != rig.pinCount()) return true;
+        // THE KNOBS TOO. Softness, a stiff patch and a mute change the weight table and not one
+        // triangle, so a count-only comparison reports "nothing to do" for exactly the edits a
+        // user is most likely to be watching for.
+        return rig.meshSignature != signatureOf(rig);
     }
 
     // ── the outline ──────────────────────────────────────────────────────
@@ -184,6 +282,31 @@ public final class PuppetMeshBuilder {
      * all still traces: every pixel reads as opaque, so the ring is the picture's own rectangle,
      * which is the correct answer for a photo and lets a JPEG be bent like any other image.
      */
+    @Nullable
+    private static float[][] outlines(@NonNull Bitmap src, float thresholdUnit, float expandUnit) {
+        float[] one = outline(src, thresholdUnit);      // kept for the single-piece fast path
+        float[][] all = lastTraceAll;
+        lastTraceAll = null;
+        if (all == null || all.length == 0) {
+            if (one == null) return null;
+            all = new float[][]{one};
+        }
+        if (expandUnit <= 0f) return all;
+        // GROW EACH PIECE by the authored amount, separately. Expanding a merged outline would
+        // close the gap between two limbs and fuse them into one blob — which is exactly the
+        // thing the detached-limbs work exists to avoid.
+        float[][] grown = new float[all.length][];
+        for (int i = 0; i < all.length; i++) {
+            float[] g = null;
+            try { g = AlphaContour.expand(all[i], expandUnit); } catch (Exception ignored) { }
+            grown[i] = (g != null && g.length >= 6) ? g : all[i];
+        }
+        return grown;
+    }
+
+    /** Set by {@link #outline} on its way through, so the trace is walked once and not twice. */
+    @Nullable private static float[][] lastTraceAll;
+
     @Nullable
     private static float[] outline(@NonNull Bitmap src, float thresholdUnit) {
         Bitmap scan = null;
@@ -210,6 +333,11 @@ public final class PuppetMeshBuilder {
             for (int i = 0; i < px.length; i++) px[i] = (px[i] >>> 24) & 0xFF;
 
             int threshold = Math.max(1, Math.min(254, Math.round(clamp01(thresholdUnit) * 255f)));
+            // EVERY PIECE, not just the biggest. A character drawn as detached limbs is one
+            // puppet; traceAll is what the engine lane built for exactly that, and stashing the
+            // result here means the alpha is scanned once rather than once per question.
+            lastTraceAll = AlphaContour.traceAll(px, sw, sh, threshold, AlphaContour.MIN_REGION_PX);
+            if (lastTraceAll != null && lastTraceAll.length == 0) lastTraceAll = null;
             float[] ring = AlphaContour.trace(px, sw, sh, threshold);
             if (ring == null) {
                 // Nothing survived the threshold. Try the engine's own default once before

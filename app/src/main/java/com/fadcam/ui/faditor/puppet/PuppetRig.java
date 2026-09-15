@@ -179,6 +179,17 @@ public final class PuppetRig {
     /** Snap the playhead to keys while editing. See INBOX 2026-09-15 on app-wide snapping. */
     public boolean snapToKeys = true;
 
+    /**
+     * What the current mesh was built from — see {@code PuppetMeshBuilder.signatureOf}.
+     *
+     * <p>NOT saved. Every knob below shapes the WEIGHT TABLE, not just the triangles: softness,
+     * a pin's stiff area, a pin's mute. Comparing pin COUNT alone therefore misses the case that
+     * matters most — the same pins with a different feel — and the picture goes on bending the
+     * old way while the slider says otherwise. Left at 0 after a load so the first change
+     * rebuilds, which is cheap and always correct.
+     */
+    public long meshSignature;
+
     // ── pins ─────────────────────────────────────────────────────────────
 
     public int pinCount() { return pins.size(); }
@@ -373,6 +384,7 @@ public final class PuppetRig {
         r.detail = detail;
         r.blendOutMs = blendOutMs;
         r.snapToKeys = snapToKeys;
+        r.meshSignature = meshSignature;
         return r;
     }
 

@@ -98,8 +98,25 @@ public class PuppetOverlayView extends View {
         /** The pose gesture ended and changed something: record ONE undo step. */
         void commitPose(@NonNull String label);
 
-        /** The pins were ADDED, REMOVED or RE-PLACED — the mesh has to be rebuilt. */
+        /** The pins were ADDED or RE-PLACED — the mesh has to be rebuilt. */
         void onRigStructureChanged();
+
+        /**
+         * A pin was REMOVED, and which one.
+         *
+         * <p>Separate from {@link #onRigStructureChanged} because the index matters: after a
+         * deletion every pin above it shifted down by one, and a pose carried across without
+         * knowing that gives each surviving pin its neighbour's offset.
+         */
+        void onPinRemoved(int index);
+
+        /**
+         * Drag the whole CHAIN this pin belongs to, so the limb follows the finger.
+         *
+         * @return true when a chain was solved. False means this pin is on its own and the
+         *         caller should just move it — which is the common case and not a failure.
+         */
+        boolean solveChainTo(int pin, float ux, float uy);
 
         /**
          * The bottom edge of the open drawer in this view's pixels, or 0.
@@ -407,10 +424,17 @@ public class PuppetOverlayView extends View {
                     float ux = (x + grabDX - rect.left) / rect.width();
                     float uy = (y + grabDY - rect.top) / rect.height();
                     if (posing) {
-                        // The offset is measured from REST, and is deliberately NOT clamped to
-                        // the picture: an arm reaching out of frame is a legitimate pose, which
-                        // is the same call PuppetDeformer.clampComponent already makes.
-                        host.writeOffset(dragPin, ux - p.restX, uy - p.restY);
+                        // A PIN ON A CHAIN DRAGS THE LIMB. solveChainTo runs the bones back to
+                        // their root, honouring joint limits and stretch, and writes every pin on
+                        // the way — which is what makes dragging a wrist move the arm instead of
+                        // tearing the hand off it. A lone pin says false and moves by itself.
+                        //
+                        // The offset is measured from REST and is deliberately NOT clamped to the
+                        // picture: an arm reaching out of frame is a legitimate pose, the same
+                        // call PuppetDeformer.clampComponent already makes.
+                        if (!host.solveChainTo(dragPin, ux, uy)) {
+                            host.writeOffset(dragPin, ux - p.restX, uy - p.restY);
+                        }
                     } else {
                         p.restX = clamp01(ux);
                         p.restY = clamp01(uy);
@@ -470,7 +494,7 @@ public class PuppetOverlayView extends View {
                         final int idx = made;
                         host.recordUndo("Add pin",
                                 () -> { },     // redo re-runs through the drawer's own rebuild
-                                () -> { rig.removePin(idx); structureChanged(); });
+                                () -> { rig.removePin(idx); onPinRemoved(idx); });
                         host.onRigStructureChanged();
                         host.onRigChanged();
                     }
@@ -500,6 +524,11 @@ public class PuppetOverlayView extends View {
 
     private void structureChanged() {
         if (host != null) { host.onRigStructureChanged(); host.onRigChanged(); }
+        invalidate();
+    }
+
+    private void onPinRemoved(int index) {
+        if (host != null) { host.onPinRemoved(index); host.onRigChanged(); }
         invalidate();
     }
 

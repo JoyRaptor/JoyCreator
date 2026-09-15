@@ -3332,3 +3332,86 @@ one was broken. Missing art now reads "⚠ art is missing", and only when a path
 resolved and checked — a false alarm would send someone relinking art that never broke.
 
 Commit: 26bdf18c
+
+---
+
+## 2026-09-13 — SPEC ZC: a text box that can be corner-pinned (compile-verified, device pass owed)
+
+Text carried a pin in the model but neither surface could draw it — text goes through child
+Views, and there was no view applying the matrix and no layout room for a pulled corner.
+Mirrored the image path: new `overlay/CornerPinTextView` (a TextBoxView whose unpinned
+`onDraw` is literally `super.onDraw`), layout inflation in the text branch of
+`TextOverlayLayer.position` (the pin margin rides INSIDE `boxInsetPx()`, so the box stays
+centred and the caret follows), and the same `TextOverlayItem.cornerPinMatrix` concat-ed
+inside the rotate in `CompositeExportOverlay`'s text branch — one method, both surfaces.
+The pin is a matrix on glyph outlines, so the box stays vector-sharp on both.
+
+Two findings that changed the sheet: the pin write/read blocks in `ProjectStorage` were
+already ungated (only the mesh is image-gated, and stays so) — no change needed there; and
+the sheet's named export file, `TextOverlayRenderer`, no longer sits on any live export
+path (its `CompositeExportOverlay` caller is unreachable dead code — both branches above it
+`continue` — and its only live caller rebuilds a pin-less item), so the export half went
+where the export actually happens. Known follow-ups for the transform lane, not this sheet:
+text with effects via `TextFxGlEffect`, and plain text under a GL-routed image, rasterise
+without the pin; the transform surface still offers text no pin channel (gate shut, untouched).
+
+Proved: `bash tools/build-verify.sh CornerPinTextView` → VERIFIED in the packaged dex, plus
+`textPinMatrix` in the dex and the new `excursionFraction` call in the layer's bytecode;
+`typecheck.sh` 717 sources OK; preview-parity, persist-lint, pinbudget, flip and mesh
+harnesses green (matte + copy-lint were already red, untouched). Unpinned fast path and
+zero per-frame allocation hold by construction (same funnel as the image view). NOT proved:
+no phone was attached, so the pinned preview/export screenshots, the sharpness photographs
+and the project.json round-trip are owed — the JSON to paste is `"pinTLdx":0.2` (and
+siblings per `CornerPin.jsonKeyFor`) on a text overlay.
+
+Addendum: the ZA lane's bare commit `6d03b418` swept this sheet's two staged
+`CompositeExportOverlay` hunks (the `textPinMatrix` field + the text-branch concat) into its
+own commit — the exact bare-commit corollary in `LANES.md`, this time with this sheet on the
+receiving end. Content intact in HEAD (verified via `git show`), history misattributed.
+Left as-is: the commit also carries ZA's whole feature and no mid-flight history rewrite is
+worth the risk. The remaining ZC work (new view, layer, LANES, this entry) is staged,
+uncommitted, and NOT in that commit.
+
+**Post-audit fix (2026-09-13):** the auditor flagged caret misalignment on a pinned box
+being edited — `updateEditorInsets()` read the overridden `boxInsetPx()` (now including
+`pinInsetPx`), so the EditText sat over the box rect but drawn glyphs were distorted while
+the editor rendered undistorted. Fixed by suppressing the pin while the editor is attached
+(`usesMatrix()` returns false when `hasEditor()` is true). This keeps caret/selection
+aligned with undistorted editor glyphs; the pin re-engages automatically when the drawer
+closes. `TextBoxView.hasEditor()` added as protected getter; doc updated.
+
+---
+
+## 2026-09-13 — SPEC ZB: a clip that can hold a warp (model only, nothing draws it yet)
+
+PiP and spine are both `Clip`, so one pair of fields serves both: a `cornerPin` (eight
+offsets, fractions of the clip's own size) and a `MeshWarpSpec`, with the sprite's
+accessor names down the line — `get/set/copyInto/clear/has/animated/cornerPinMatrix`,
+`hasMesh/get/set/installMeshCurve/meshLocalTime`, `wantsGl`. Put beside the spine pose,
+not inside it. No renderer reads any of it (that is SPEC ZD); nothing on screen changes.
+
+Two judgements the mirror forced. A clip has TWO keyframe sets where a sprite has one
+(spine vs overlay envelope), so the pin tracks live in the existing sets — no new
+persisted state, `KeyframeCodec` already round-trips any track name — with the overlay
+envelope winning when both name a track. And a clip speaks clip-local ms everywhere
+(`spinePoseAt`, `opacityAtClipMs`), so `animatedCornerPin`/`cornerPinMatrix` take
+clip-local too; `meshLocalTime` is the floor-to-zero identity, kept so all four types
+answer the same question with the same name. `SpineSnapshot` carries both, restores both,
+compares bends by serialised form, and treats null keys and empty keys as the same
+"not armed" every reader already treats them as.
+
+Persistence extends the deliberate exclusion rather than working around it: eight sparse
+keys via `CornerPin.jsonKeyFor` plus a `mesh` object only when authored, so an unwarped
+clip adds not one byte. The lint gained a `("Clip", "cornerPin")` CUSTOM entry (getter +
+setter with the `clip.` prefix — an exemption would pass with the block deleted).
+
+Proved: new `run-clipwarp.sh`, 40/40 off-device through the REAL serialiser — copy bends
+independently, unwarped saves byte-stable with zero warp keys, pre-sheet JSON loads
+undistorted, unknown keys/unknown topology/malformed mesh/explicit-null pin all keep the
+clip. The lint's negative control: writer deleted → red on `Clip.cornerPin`, restored →
+green. `bash tools/build-verify.sh pinOwner` (a symbol only this change introduces) →
+VERIFIED, APK newer than the edit. persist/envelope/mesh/pinbudget/speck/mask/splitcopy
+green; copy-lint unchanged (its 2 masterFade fails pre-date this sheet, another lane).
+NOT proved on a phone: no save/diff on device, no pre-sheet build install for the
+forward-compat half (argued from the old reader's explicit mesh-drop plus unknown keys
+never being queried). Nothing committed — staged only, per the sheet rules.

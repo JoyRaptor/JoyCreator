@@ -91,6 +91,11 @@ public class TextBoxView extends FrameLayout {
      */
     @Nullable private EditText editor;
 
+    /** Whether the in-canvas editor is currently attached (drawer open). */
+    protected boolean hasEditor() {
+        return editor != null;
+    }
+
     public TextBoxView(@NonNull Context ctx, @NonNull TextOverlayItem o) {
         super(ctx);
         this.item = o;

@@ -133,7 +133,8 @@ files: (none)
 since: 2026-08-29
 
 ## DEVICE TOKEN
-DEVICE: free  (claude released 2026-09-01 - JoyRaptor is hands-on testing the phone himself)
+DEVICE: SPEC_ZB (2026-09-13 — install + launch smoke + crash scan for the clip warp model;
+        token released immediately after the batch)
 
 ## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST
 JoyRaptor: "export failed twice in a row on my most recent project."
@@ -553,6 +554,53 @@ sheet that is not the open one is lost the same way.
 Suggested fix, yours to judge: gate on the project being non-null rather than on the timeline
 having video clips, or check a modified-token instead of inferring from content.
 
+## SPEC_ZA — sprite GL export (2026-09-13 autonomous session)
+status: IDLE (LANDED 6d03b418, pushed. Compile+dex+harness verified. DEVICE VERIFY BLOCKED,
+         phone contested — read this before retrying)
+files: (none — released)
+test projects ON THE PHONE (untouched since 17:00, clearly named, safe to reuse or delete):
+  8ffc3424-191c-4678-ad2c-79334ba5bd81 = ZA_VERIFY (sprite pinTLdx .15/pinTLdy .12,
+    start 0; image 3dfa9d32 SCREEN) — ground-truthed via run-as cat
+  942c9ec8-f4e8-478e-b423-9fb9e6cef121 = ZA_CONTROL (same, no pin — Canvas path control)
+  manifests fixed (title was stale-BundlingFontTest on first open).
+report: see session report; findings for transform lane: (1) OverlayTextureCache.rasterizeSprite
+         is still a blue-rect placeholder, so GL-owned warped sprites preview as blue rects while
+         the new export rasterises real cells — preview/export pixel-agree only once the preview
+         raster lands; (2) buildPlan appends sprite rungs after image rungs (type order), while
+         the export now emits at true lane z — a blend above a bent sprite samples the sprite in
+         the file; preview shows it sampling video with the sprite painted over; (3) preview
+         double-draws a GL sprite below a blend (below-blend bitmap has no wantsGl check).
+         None of these were touched — transform lane files throughout.
+DEVICE BATCH LOG 17:00-17:20 (for the retry — lessons, not just history):
+ - Row taps landed ONE ROW LOW repeatedly (uiautomator-exact title center still opened the
+   wrong project). Suspect tap-space vs override mismatch; NEXT TIME calibrate first (tap X,
+   verify dialog) and verify EVERY tap landed before the next — the tapmap rule I broke.
+ - An Export sheet with single-frame PNG checked appeared with no tap from me (default name
+   stamped 17:16:42, ~40s after my last tap) — someone else is driving the phone (fits ZC's
+   owed single-frame pin screenshots on the original). Do NOT tap while that batch runs.
+ - My viewing autosaved the ORIGINAL BundlingFontTest at 17:08 (40286 -> 20138 bytes, sparse
+   rewrite). ZC: project.json.zc-bak (16:57) still in that dir if you want to diff.
+ - Retry plan when idle: force-stop, open ZA_VERIFY by uiautomator bounds, confirm title reads
+   ZA_VERIFY, pause at 00:00, preview screenshot, then EXPORT SHEET single-frame PNG at the
+   same playhead (seconds, exact timestamp) for ZA vs ZA_CONTROL; compare via frame_parity.py.
+
+## SPEC_ZC — text corner-pin view (2026-09-13 autonomous session)
+status: IDLE (2026-09-13 — opencode/muse-spark done all that is doable with no phone attached:
+         CornerPinTextView + layer inflation + export concat landed, staged, dex-verified;
+         harnesses green. OWED on a sandbox phone: pinned preview/export screenshots,
+         sharpness photos, project.json pin round-trip. See LEDGER 2026-09-13 SPEC ZC.)
+spec: tasks/specs/SPEC_ZC_text_pinned_view.md (read _DISPATCH_RULES_20260913.md first)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/overlay/CornerPinTextView.java (NEW)
+  app/src/main/java/com/fadcam/ui/faditor/overlay/TextOverlayLayer.java (text branch only)
+  app/src/main/java/com/fadcam/ui/faditor/overlay/TextOverlayRenderer.java
+  app/src/main/java/com/fadcam/ui/faditor/export/CompositeExportOverlay.java (text branch pin concat only)
+NOT MINE, do not edit — transform lane owns hosts/model, ZA owns SpriteBlendGlEffect:
+  overlay/CornerPinImageView.java, transform/**, transform/mesh/**,
+  export/TextFxGlEffect.java, export/ImageOverlayDraw.java,
+  model/TextOverlayItem.java, project/ProjectStorage.java (read-only verify)
+since: 2026-09-13
+
 ## DISPATCH BOARD — three sheets ready for other agents (2026-09-13)
 status: UNCLAIMED. Each is independent; they touch no shared file and may run in parallel.
         Every one requires tasks/specs/_DISPATCH_RULES_20260913.md FIRST.
@@ -634,6 +682,13 @@ NOT MINE, do not edit — the other agent owns the transform surface:
 SHARED, READ-ONLY FOR ME: SpriteSheetRenderer.java — the baker CALLS drawCell/cellRectBitmap and
   must not modify them. If a change there turns out to be unavoidable, STOP and coordinate.
 since: 2026-09-13T10:20
+
+## SPEC_ZB_clip_warp_model — pin + mesh on Clip (dispatch 2026-09-13)
+status: IDLE (2026-09-13 — muse-spark DONE: Clip carries pin+mesh, persisted, undo-snapshotted,
+         run-clipwarp.sh 40/40, persist-lint green with negative control, dex VERIFIED via
+         pinOwner. Staged only, uncommitted. Files below free.)
+files: (none)
+since: 2026-09-13
 
 ## SPRITELAB MOBILE — build the web design on the phone (SpriteLabMobile.html)
 status: DONE (2026-09-13, overnight autonomous session — Claude/Opus).

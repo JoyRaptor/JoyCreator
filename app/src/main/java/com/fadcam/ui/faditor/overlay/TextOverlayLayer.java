@@ -1071,13 +1071,19 @@ public class TextOverlayLayer extends FrameLayout {
             }
             view = iv;
         } else {
-            // A TextBoxView, not a TextView: one view holding one string cannot move individual
-            // characters, which is the whole reason text boxes were BLOCK-only. Every visual
-            // property that used to be set here now lives in TextBoxRenderer, which the EXPORT
-            // calls too — so "the preview styles it slightly differently" is no longer possible.
-            // It previously was: this branch set no glow and no background pill at all, and set
-            // the FILL colour to the stroke colour instead of stroking.
-            view = new TextBoxView(getContext(), o);
+            // A CornerPinTextView, not a bare TextBoxView: it IS a TextBoxView (so every
+            // instanceof branch, the editor hosting, the selection highlight and the bind below
+            // are untouched) and it falls through to TextBoxView's own onDraw whenever the item
+            // has no corner pin — which is every text box in every existing project. The matrix
+            // path exists only for the pinned case; see its class doc.
+            //
+            // Why a TextBoxView underneath and not a TextView: one view holding one string cannot
+            // move individual characters, which is the whole reason text boxes were BLOCK-only.
+            // Every visual property that used to be set here now lives in TextBoxRenderer, which
+            // the EXPORT calls too — so "the preview styles it slightly differently" is no longer
+            // possible. It previously was: this branch set no glow and no background pill at all,
+            // and set the FILL colour to the stroke colour instead of stroking.
+            view = new CornerPinTextView(getContext(), o);
         }
         view.setLayoutParams(new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
@@ -1204,6 +1210,44 @@ public class TextOverlayLayer extends FrameLayout {
             w = Math.max(1, Math.round(size[0]));
             h = Math.max(1, Math.round(size[1]));
             boxInset = tb.boxInsetPx();
+            // CORNER PIN (SPEC ZC) — the same excursion-margin trick as the image branch: a
+            // pulled corner is drawn outside the box's own rectangle, and a child View's drawing
+            // is clipped by its parent, so the view is inflated by the largest excursion on every
+            // side and the box is drawn into the inset. This reuses boxInset — CornerPinTextView
+            // carries the pin margin INSIDE boxInsetPx(), and the layout below already subtracts
+            // it — so it is the BOX that ends up centred on cx/cy, not the view plus its margin.
+            //
+            // padPx is 0 and setCornerPin is a no-op for an unpinned item, so w/h/boxInset and
+            // therefore the entire layout stay bit-for-bit what they were. The box is stripped
+            // back out of the first measure (which carries last frame's inset) so the pad is
+            // exact on the first pinned frame, not one frame late. The second measure runs only
+            // when the total actually moved — steady pins (and every unpinned box) keep the
+            // single measure they always had.
+            if (tb instanceof CornerPinTextView && !o.isImage()) {
+                CornerPinTextView cpt = (CornerPinTextView) tb;
+                if (o.hasCornerPin()) {
+                    // Live = the finger is down, so read the static pose, exactly as the size,
+                    // centre and rotation above do.
+                    if (live) o.copyCornerPinInto(pinScratch);
+                    else o.animatedCornerPin(currentTimeMs, pinScratch);
+                    float pinBoxW = size[0] - boxInset * 2f;
+                    float pinBoxH = size[1] - boxInset * 2f;
+                    float[] ex = com.fadcam.ui.faditor.model.CornerPin
+                            .excursionFraction(pinScratch);
+                    float padPx = (pinBoxW > 0f && pinBoxH > 0f)
+                            ? Math.max(ex[0] * pinBoxW, ex[1] * pinBoxH) : 0f;
+                    cpt.setCornerPin(pinScratch, padPx);
+                } else {
+                    cpt.setCornerPin(null, 0f);
+                }
+                float total = cpt.boxInsetPx();
+                if (total != boxInset) {
+                    cpt.measureView(size);
+                    w = Math.max(1, Math.round(size[0]));
+                    h = Math.max(1, Math.round(size[1]));
+                    boxInset = total;
+                }
+            }
         } else if (o.isImage() && view instanceof ImageView) {
             // THE ZOOM ARRIVED AFTER THE DECODE. Pinch-zoom multiplies sizeFraction, and the
             // pixels this view is holding were decoded for whatever zoom the item had when it

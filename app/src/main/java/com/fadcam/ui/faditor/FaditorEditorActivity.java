@@ -30984,7 +30984,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (bmp == null && overlayLayerBelow != null) {
             bmp = overlayLayerBelow.decodedImageFor(it);
         }
-        if (bmp == null) return;      // not decoded yet; the next change will catch it
+        if (bmp == null) {
+            FLog.w(TAG, "Puppet: no decoded bitmap yet — mesh not built");
+            return;      // the next change will catch it
+        }
 
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec old =
                 (it.getMesh() != null && it.getMesh().topology()
@@ -30992,7 +30995,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ? it.getMesh() : null;
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec fresh =
                 com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.rebuild(bmp, rig, old, removedPin);
-        if (fresh == null) return;    // nothing opaque to trace — leave the picture alone
+        if (fresh == null) {
+            // NOT SILENT. A null here means the artwork could not be turned into anything the
+            // renderer will draw, and the user's only clue would otherwise be a picture that
+            // does not bend -- which is indistinguishable from the feature being broken.
+            FLog.w(TAG, "Puppet: no mesh built for " + rig.pinCount() + " pins"
+                    + " (threshold=" + rig.edgeThreshold + " detail=" + rig.meshDetail + ")");
+            return;
+        }
+        FLog.w(TAG, "Puppet: mesh rebuilt — " + rig.pinCount() + " pins, "
+                + (fresh.topology() == null ? 0 : fresh.topology().vertexCount()) + " verts, "
+                + (fresh.topology() == null ? 0 : fresh.topology().indexCount()) + " indices");
 
         // SEPARATE PIECES ARE NOT RIGGED. AlphaContour traces the LARGEST connected opaque
         // region and says so in its own doc; a character drawn as detached limbs therefore gets
@@ -31068,6 +31081,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         puppetItem = o;
+        // REBUILD A STALE MESH ON THE WAY IN.
+        //
+        // The mesh is SAVED -- topology, ring and all -- so a rig built by an older version of
+        // this code comes back exactly as it was written, including one the renderer refuses to
+        // draw. JoyRaptor's dinosaur did precisely that: the build that fixed the size shipped,
+        // installed, relaunched, and went on logging "mesh too big to draw: 3548 verts" with the
+        // identical numbers, because nothing ever asked the builder to make a new one. A fix
+        // that only runs when a pin is added does not reach a rig that already exists.
+        //
+        // needsRebuild compares the whole signature -- pin count, softness, every stiff patch,
+        // every mute -- against what the current mesh was built from, and a rig loaded from disk
+        // has no signature at all, so it always rebuilds once. That is cheap and always correct.
+        if (com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.needsRebuild(o.getMesh(),
+                o.getPuppet())) {
+            rebuildPuppetMesh(o, -1);
+        }
         com.fadcam.ui.faditor.puppet.PuppetOverlayView v = ensurePuppetOverlay();
         v.setVisibility(View.VISIBLE);
         v.bringToFront();

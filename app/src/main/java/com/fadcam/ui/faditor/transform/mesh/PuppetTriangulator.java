@@ -46,15 +46,29 @@ public final class PuppetTriangulator {
          */
         public final int[] islandStart;
 
+        /**
+         * Where each island's TRIANGLES start in {@link #indices}, plus a final total — so island
+         * {@code i} owns indices {@code [indexStart[i], indexStart[i+1])}.
+         *
+         * <p>Vertices alone are not enough to draw the pieces separately, which is what they have
+         * to be: one draw call for the whole mesh composites every island against the same flat
+         * sample, and an overlapping limb then punches its own transparent border through the limb
+         * behind it.
+         */
+        public final int[] indexStart;
+
         Mesh(float[] verts, short[] indices, int contourCount) {
-            this(verts, indices, contourCount, new int[]{0, verts.length / 2});
+            this(verts, indices, contourCount, new int[]{0, verts.length / 2},
+                    new int[]{0, indices.length});
         }
 
-        Mesh(float[] verts, short[] indices, int contourCount, int[] islandStart) {
+        Mesh(float[] verts, short[] indices, int contourCount, int[] islandStart,
+             int[] indexStart) {
             this.verts = verts;
             this.indices = indices;
             this.contourCount = contourCount;
             this.islandStart = islandStart;
+            this.indexStart = indexStart;
         }
 
         public int vertexCount() { return verts.length / 2; }
@@ -128,6 +142,7 @@ public final class PuppetTriangulator {
 
         java.util.List<Mesh> parts = new java.util.ArrayList<>(rings.length);
         java.util.List<Integer> starts = new java.util.ArrayList<>(rings.length + 1);
+        java.util.List<Integer> idxStarts = new java.util.ArrayList<>(rings.length + 1);
         int verts = 0, indices = 0, contour = 0;
         for (int i = 0; i < rings.length; i++) {
             int dens = interior;
@@ -145,6 +160,7 @@ public final class PuppetTriangulator {
                 break;
             }
             starts.add(verts);
+            idxStarts.add(indices);
             parts.add(m);
             verts += m.vertexCount();
             indices += m.indices.length;
@@ -152,6 +168,7 @@ public final class PuppetTriangulator {
         }
         if (parts.isEmpty()) return null;
         starts.add(verts);
+        idxStarts.add(indices);
 
         float[] outV = new float[verts * 2];
         short[] outI = new short[indices];
@@ -168,7 +185,9 @@ public final class PuppetTriangulator {
         }
         int[] islandStart = new int[starts.size()];
         for (int i = 0; i < islandStart.length; i++) islandStart[i] = starts.get(i);
-        return new Mesh(outV, outI, contour, islandStart);
+        int[] indexStart = new int[idxStarts.size()];
+        for (int i = 0; i < indexStart.length; i++) indexStart[i] = idxStarts.get(i);
+        return new Mesh(outV, outI, contour, islandStart, indexStart);
     }
 
     /**

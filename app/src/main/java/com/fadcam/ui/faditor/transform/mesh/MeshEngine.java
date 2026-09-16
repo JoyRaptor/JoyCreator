@@ -71,8 +71,22 @@ public final class MeshEngine {
         int arity = topo.handleArity();
         if (pose.length != arity) pose = new float[arity];
         if (!spec.handlesAt(timeMs, pose)) return false;
-        if (deformer.isIdentity(pose)) return false;
-        if (!deformer.solve(topo, buffers, pose)) return false;
+        boolean identity = deformer.isIdentity(pose);
+        // AN UNBENT PUPPET STILL NEEDS THIS PATH when its pieces are ordered. Bailing on an
+        // identity pose is what keeps "a project with no deformation costs exactly zero" true, and
+        // that stays true for everything with one draw group. But a character whose arm has been
+        // put behind its body is a different picture from the flat texture even at rest, and the
+        // only place that reordering happens is here.
+        if (identity && !(spec.groupCount() > 1 && spec.hasGroupDepth())) return false;
+        if (identity) {
+            buffers.resetToRest();
+        } else if (!deformer.solve(topo, buffers, pose)) {
+            return false;
+        }
+        if (buffers.groupOrder.length < buffers.groupCount()) {
+            buffers.groupOrder = new int[buffers.groupCount()];
+        }
+        spec.groupOrderAt(timeMs, buffers.groupOrder);
         live = true;
         return true;
     }

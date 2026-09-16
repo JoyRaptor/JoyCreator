@@ -112,6 +112,16 @@ public final class LatticeTopology implements MeshTopology {
 
     @Override public float[] params() { return new float[]{level}; }
 
+    /** A grid is one piece and cannot overlap itself, so it is always a single draw group. */
+    @Override public int groupCount() { return 1; }
+
+    @Override
+    public void groupIndexStart(int[] out) {
+        if (out == null || out.length < 2) return;
+        out[0] = 0;
+        out[1] = indexCount();
+    }
+
     @Override public int topologyId() { return 0x1A77_0000 | level; }
 
     @Override public int vertexCount() { return (gridN + 1) * (gridN + 1); }

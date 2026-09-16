@@ -222,7 +222,22 @@ public final class MeshStampGl {
             GLES20.glUseProgram(program);
             GLES20.glDisable(GLES20.GL_CULL_FACE);
             GLES20.glDisable(GLES20.GL_DEPTH_TEST);
-            GLES20.glDisable(GLES20.GL_BLEND);
+            // BLENDING ON, and this is the halo fix.
+            //
+            // With blending off, every triangle REPLACES what is under it — including its
+            // transparent pixels. One mesh drawn in one pass is fine for a lattice, which cannot
+            // overlap itself, but a puppet traced from detached limbs overlaps constantly: an arm
+            // crossing the body wrote its own transparent border straight over the body and cut a
+            // hole the shape of the arm's outline. Edge expansion widened that border, so the
+            // better the fringe was covered the worse the halo got.
+            //
+            // Separate functions for colour and alpha, because the shader emits STRAIGHT alpha
+            // (rgb is not premultiplied). Colour blends by the source's coverage; alpha
+            // ACCUMULATES, so two half-covered pieces stacking read as more opaque rather than
+            // less — which is what compositing into a transparent target means.
+            GLES20.glEnable(GLES20.GL_BLEND);
+            GLES20.glBlendFuncSeparate(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA,
+                    GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA);
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, sourceTexId);
             if (uImageLoc >= 0) GLES20.glUniform1i(uImageLoc, 0);
@@ -254,11 +269,37 @@ public final class MeshStampGl {
                 GLES20.glVertexAttribPointer(aUvLoc, 2, GLES20.GL_FLOAT, false, 0, uvBuf);
             }
             probeGl("setup");
-            GLES20.glDrawElements(GLES20.GL_TRIANGLES, b.indexCount(),
-                    GLES20.GL_UNSIGNED_SHORT, idxBuf);
+            // ONE DRAW PER GROUP, back to front. The engine put the order in the buffers; this
+            // class does not know and must not know what a group IS — for a lattice there is
+            // exactly one and this loop runs once, which is the old behaviour to the instruction.
+            int groups = b.groupCount();
+            int[] starts = b.groupIndexStart;
+            int[] order = b.groupOrder;
+            boolean usable = starts != null && starts.length > groups
+                    && order != null && order.length >= groups;
+            if (!usable || groups <= 1) {
+                GLES20.glDrawElements(GLES20.GL_TRIANGLES, b.indexCount(),
+                        GLES20.GL_UNSIGNED_SHORT, idxBuf);
+            } else {
+                for (int k = 0; k < groups; k++) {
+                    int g = order[k];
+                    if (g < 0 || g >= groups) continue;          // a corrupt order costs the ORDER
+                    int from = starts[g], to = starts[g + 1];    // never the picture
+                    int count = to - from;
+                    if (count <= 0 || from < 0 || to > b.indexCount()) continue;
+                    idxBuf.position(from);
+                    GLES20.glDrawElements(GLES20.GL_TRIANGLES, count,
+                            GLES20.GL_UNSIGNED_SHORT, idxBuf);
+                }
+                idxBuf.position(0);
+            }
             probeGl("draw");
             if (aLocalLoc >= 0) GLES20.glDisableVertexAttribArray(aLocalLoc);
             if (aUvLoc >= 0) GLES20.glDisableVertexAttribArray(aUvLoc);
+            // Put the blend state back. media3's effect thread and the preview's composite both
+            // set their own, but leaving a mode enabled that the caller did not ask for is the
+            // kind of thing that shows up two features away as an unexplained fade.
+            GLES20.glDisable(GLES20.GL_BLEND);
             probeGl("teardown");
         } catch (Exception e) {
             if (!loggedInitFailure) {

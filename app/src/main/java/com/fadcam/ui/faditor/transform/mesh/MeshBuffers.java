@@ -46,6 +46,25 @@ public final class MeshBuffers {
     /** Triangle indices. Uploaded on topology change. */
     public short[] indices = new short[0];
 
+    /**
+     * Where each DRAW GROUP's triangles start, plus a final total. Always at least
+     * {@code {0, indexCount}} — a one-group mesh, which is what a lattice always is.
+     *
+     * <p>Here rather than asked of the topology at draw time because the renderer holds buffers,
+     * not topologies, and because it must never need to know which KIND of topology filled them.
+     */
+    public int[] groupIndexStart = new int[]{0, 0};
+
+    /**
+     * Which order to composite the groups in, BACK TO FRONT. Group {@code groupOrder[0]} is drawn
+     * first and therefore sits furthest behind.
+     *
+     * <p>Identity until something says otherwise, so a mesh nobody ordered draws in the order its
+     * pieces were traced — which for a puppet is largest first, a sane default for a character
+     * whose body is its biggest piece.
+     */
+    public int[] groupOrder = new int[]{0};
+
     private int vertexCount;
     private int indexCount;
     private int topologyId = Integer.MIN_VALUE;
@@ -57,11 +76,16 @@ public final class MeshBuffers {
     /** Indices actually in use. Pass this to {@code glDrawElements}. */
     public int indexCount() { return indexCount; }
 
+    /** How many groups {@link #groupIndexStart} describes. */
+    public int groupCount() { return Math.max(1, groupCount); }
+
     /**
      * Bumped whenever {@link #rest}, {@link #uvs} or {@link #indices} were rebuilt. A renderer
      * re-uploads those three only when this changes, and {@link #positions} every frame.
      */
     public int topologyStamp() { return topologyStamp; }
+
+    private int groupCount = 1;
 
     /** True once a topology has been bound and there is geometry to draw. */
     public boolean hasGeometry() { return indexCount > 0; }
@@ -93,6 +117,18 @@ public final class MeshBuffers {
         if (rest.length < coords) rest = new float[coords];
         if (uvs.length < coords) uvs = new float[coords];
         if (indices.length < indexCount) indices = new short[indexCount];
+        int groups = Math.max(1, topology.groupCount());
+        if (groupIndexStart.length < groups + 1) groupIndexStart = new int[groups + 1];
+        topology.groupIndexStart(groupIndexStart);
+        // A topology that declined to fill it (a short array, an older implementation) still gets
+        // a valid single group rather than a mesh that draws nothing.
+        if (groupIndexStart[groups] <= 0) {
+            groupIndexStart[0] = 0;
+            groupIndexStart[groups] = indexCount;
+        }
+        groupCount = groups;
+        if (groupOrder.length < groups) groupOrder = new int[groups];
+        for (int i = 0; i < groups; i++) groupOrder[i] = i;
         topology.buildRest(rest, uvs, indices);
         System.arraycopy(rest, 0, positions, 0, coords);
         topologyStamp++;

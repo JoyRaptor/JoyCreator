@@ -65,6 +65,7 @@ public final class PuppetTopology implements MeshTopology {
     private final short[] indices;     // derived
     private final int contourCount;    // derived
     private final int[] islandStart;   // derived
+    private final int[] indexStart;    // derived
 
     private final float softness;      // 0..1, the character's Softness
     private final float[] stiffArea;   // per pin, reach along the mesh
@@ -144,6 +145,7 @@ public final class PuppetTopology implements MeshTopology {
         this.indices = m.indices;
         this.contourCount = m.contourCount;
         this.islandStart = m.islandStart;
+        this.indexStart = m.indexStart;
 
         // Structure only — the pin POSITIONS are structure (they change the solve), but a pin's
         // POSE is not, and no pose is in here.
@@ -363,6 +365,15 @@ public final class PuppetTopology implements MeshTopology {
 
     /** How many separate pieces of artwork this puppet covers. One for ordinary art. */
     public int islandCount() { return rings.length; }
+
+    /** One draw group per island: the pieces composite in an order, not as one flat sample. */
+    @Override public int groupCount() { return indexStart.length - 1; }
+
+    @Override
+    public void groupIndexStart(int[] out) {
+        if (out == null || out.length < indexStart.length) return;
+        System.arraycopy(indexStart, 0, out, 0, indexStart.length);
+    }
 
     /** Where island {@code i}'s vertices begin; the last entry is the total vertex count. */
     public int[] islandStart() { return islandStart.clone(); }

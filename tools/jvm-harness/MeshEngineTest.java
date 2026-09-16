@@ -554,6 +554,13 @@ public class MeshEngineTest {
         @Override public String kind() { return KIND; }
         @Override public float[] params() { return new float[]{0.35f}; }
         @Override public int topologyId() { return 0x9E11_0001; }
+        // One triangle, so one draw group — the same answer a lattice gives. Added when draw
+        // groups landed: the compiler caught this fake the moment the interface grew, which is
+        // the interface doing its job.
+        @Override public int groupCount() { return 1; }
+        @Override public void groupIndexStart(int[] out) {
+            if (out != null && out.length >= 2) { out[0] = 0; out[1] = indexCount(); }
+        }
         @Override public int vertexCount() { return 3; }
         @Override public int indexCount() { return 3; }
         @Override public int handleCount() { return 3; }

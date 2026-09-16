@@ -38,6 +38,27 @@ package com.fadcam.ui.faditor.transform.mesh;
  */
 public interface MeshTopology {
 
+    /**
+     * How many separately-composited pieces this mesh is in. One for anything ordinary.
+     *
+     * <p>A DRAW GROUP is a run of triangles that has to be composited as a unit, in a chosen
+     * order, against what is already there. A lattice is one group and always will be: a grid
+     * cannot overlap itself. A puppet traced from artwork drawn as detached limbs is one group per
+     * limb, and they must be drawn separately or an arm passing in front of the body punches its
+     * own transparent border straight through it.
+     *
+     * <p>Deliberately generic. The renderer draws N groups in the order it is handed and never
+     * learns what a limb is, exactly as it never learned what a pin was.
+     */
+    int groupCount();
+
+    /**
+     * Where each group's triangles start in the index list, plus a final entry holding the total.
+     *
+     * @param out at least {@code groupCount() + 1} long; shorter is ignored
+     */
+    void groupIndexStart(int[] out);
+
     /** Stable wire name, e.g. {@code "lattice"}. Used by {@link MeshTopologies} on read. */
     String kind();
 

@@ -930,7 +930,13 @@ public final class ObjectMenuSheet extends LinearLayout {
             hint.setVisibility(GONE);
             view.addView(hint);
 
-            bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            // NULL ON THE ROTATE ROW. `bar` is declared @Nullable a hundred lines up — SPEC F
+            // replaced that row's slider with a dial — and the dial has its own listener above.
+            // This attach was left unconditional, so every sheet that contains a Rotate row
+            // crashed on open with a NullPointerException; JoyRaptor hit it twice tapping a
+            // sprite on 2026-09-16. refresh() below already branches on dialView correctly,
+            // which is what makes this the single unguarded site rather than a pattern.
+            if (bar != null) bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 @Override
                 public void onProgressChanged(SeekBar sb, int progress, boolean fromUser) {
                     if (!fromUser) return;

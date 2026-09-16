@@ -262,6 +262,27 @@ nothing is removed, and it reads as "you have made something."
 | Shapes per pin type | 🟡 | Pushpin / square / teardrop / circle |
 | Loupe, shared with the transform tool | 🟡 | **The migration could have broken the transform tool's own loupe and nobody has checked.** |
 
+### The tape is DRAWN, not yet DRAGGABLE
+
+§01 promised three gestures on a bar: drag the body to slide the performance, drag a cap to
+stretch it, drag a key inside to retime one moment. **None of them are built.** The tape draws
+performances and keys correctly and reads as the design intended; it does not yet accept a
+touch.
+
+Not an oversight — a scope call, made deliberately and recorded rather than quietly skipped:
+
+- `MeshPoseTrack` offers `shiftAll` and nothing ranged. Sliding one take needs a shift over a
+  range and stretching needs a time re-map, both of which are new engine API in the OTHER lane's
+  files.
+- The gesture side is `LayerGestureController`, which already arbitrates clip drags, keyframe
+  drags, marquee and fades on the same surface. Adding a fourth claimant to that hit-test
+  unattended, at night, on top of a feature no human has used once, is the kind of change that
+  looks fine and breaks clip dragging.
+
+**Do this only after somebody has recorded a take and watched it play.** If takes turn out to
+need retiming constantly it is worth the engine work; if they are re-recorded rather than
+retimed — which is what "rewind and go again" suggests — it may never be worth it.
+
 ### What is deliberately NOT built
 
 - **Sprites, PiP, text and the spine.** Puppets are image overlays only. The model would carry

@@ -31036,15 +31036,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return it == null ? abs : it.meshLocalTime(abs);
     }
 
-    /** The pose to draw pins at: the gesture's working copy, or whatever the spec says now. */
+    /** Scratch for {@link #puppetPoseNow}, and the inputs it was last evaluated against. */
+    @Nullable private float[] puppetPoseScratch;
+    private long puppetPoseAtMs = Long.MIN_VALUE;
+    private int puppetPoseStamp = -1;
+
+    /**
+     * The pose to draw pins at: the gesture's working copy, or whatever the spec says now.
+     *
+     * <p>CACHED, because the overlay asks for it once PER PIN PER FRAME. Evaluating a track and
+     * allocating an arity-sized array ten times a frame is the kind of garbage that never shows
+     * up as one slow thing and shows up as a stutter while scrubbing. Re-read when the clock
+     * moves or the track changes — which between them cover every way the answer can differ.
+     */
     @Nullable
     private float[] puppetPoseNow() {
         if (puppetWorkPose != null) return puppetWorkPose;
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
         if (spec == null || spec.arity() <= 0) return null;
-        float[] pose = new float[spec.arity()];
-        return com.fadcam.ui.faditor.puppet.PuppetKeys.readPose(spec, puppetClockMs(), pose)
-                ? pose : null;
+        long now = puppetClockMs();
+        int stamp = (spec.track() == null ? 0 : spec.track().size()) * 31 + spec.arity();
+        if (puppetPoseScratch != null && puppetPoseScratch.length == spec.arity()
+                && puppetPoseAtMs == now && puppetPoseStamp == stamp) {
+            return puppetPoseScratch;
+        }
+        float[] pose = (puppetPoseScratch != null && puppetPoseScratch.length == spec.arity())
+                ? puppetPoseScratch : new float[spec.arity()];
+        if (!com.fadcam.ui.faditor.puppet.PuppetKeys.readPose(spec, now, pose)) return null;
+        puppetPoseScratch = pose;
+        puppetPoseAtMs = now;
+        puppetPoseStamp = stamp;
+        return pose;
+    }
+
+    /** Anything that edits the pose outside a gesture must drop the cache. */
+    private void puppetInvalidatePose() {
+        puppetPoseAtMs = Long.MIN_VALUE;
+        puppetPoseStamp = -1;
     }
 
     /** Start a pose gesture: snapshot for undo, and decide whether this one is a take. */
@@ -31479,6 +31507,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Re-run the compositing the same way the image drawer's own applyComp does. */
     private void repaintPuppetPicture() {
+        puppetInvalidatePose();
         refreshAfterMarqueeBatchDelete();
         syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
         if (puppetOverlay != null) puppetOverlay.refresh();

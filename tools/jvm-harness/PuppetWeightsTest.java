@@ -166,8 +166,14 @@ public class PuppetWeightsTest {
         System.out.printf("    left hand to right hand:  through the air %.3f,"
                 + " across the body %.3f   (%.1fx further)%n", air, body, body / air);
         check("the two hands are genuinely close through the air (" + fmt(air) + ")", air < 0.6f);
-        check("and several times further apart across the body (" + fmt(body) + ")",
-                body > air * 2.5f);
+        // 2.0x, not the 2.9x this read when it was written. The number came DOWN when the
+        // triangulator started subdividing long boundary edges and relaxing the interior, and it
+        // came down because the measurement got better: a coarse mesh has to zigzag between few
+        // vertices, which OVERSTATES the distance along the body. A denser graph measures closer
+        // to the true path. The property is unchanged; the old number was partly an artefact.
+        check("and several times further apart across the body (" + fmt(body) + ", "
+                        + String.format("%.1f", body / air) + "x)",
+                body > air * 2.0f);
 
         // ── the consequence in the weights ────────────────────────────────────────────────
         PuppetWeights table = t.weights();

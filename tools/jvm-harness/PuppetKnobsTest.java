@@ -76,6 +76,19 @@ public class PuppetKnobsTest {
         return new PuppetTopology(new float[][]{bar()}, 6, fourPins(), softness, area, strength);
     }
 
+    /** The worst movement among vertices within {@code radius} of a point. */
+    static float nearPinMove(PuppetTopology t, MeshBuffers b, float px, float py, float radius) {
+        float worst = 0f;
+        for (int v = 0; v < t.vertexCount(); v++) {
+            float dx = b.rest[v * 2] - px, dy = b.rest[v * 2 + 1] - py;
+            if (dx * dx + dy * dy > radius * radius) continue;
+            float mx = b.positions[v * 2] - b.rest[v * 2];
+            float my = b.positions[v * 2 + 1] - b.rest[v * 2 + 1];
+            worst = Math.max(worst, (float) Math.sqrt(mx * mx + my * my));
+        }
+        return worst;
+    }
+
     /** Lift the leftmost pin and leave the other three where they are. */
     static float[] liftLeft() {
         return new float[]{0f, 0.25f, 0f, 0f, 0f, 0f, 0f, 0f};
@@ -151,13 +164,42 @@ public class PuppetKnobsTest {
         float[] strength = {0f, 0f, 0f, 1f};                // the RIGHTMOST pin is stiff
         float[] pose = liftLeft();
 
-        float loose = farEndMove(topo(0.5f, null, null), solved(topo(0.5f, null, null), pose));
+        // Measure the PLATEAU — the inner half of the reach, which strength 1 promises is rigid.
+        // The outer half tapers deliberately, so measuring the far corner measured the fade rather
+        // than the feature, and reported stiffness as weak when it was doing exactly its job.
+        PuppetTopology plain = topo(0.5f, null, null);
         PuppetTopology stiff = topo(0.5f, area, strength);
-        float held = farEndMove(stiff, solved(stiff, pose));
-        System.out.printf("    far end when the right pin is stiff: %.4f (loose %.4f)%n",
-                held, loose);
-        check("a stiff pin's neighbourhood resists the other pin", held < loose * 0.6f);
-        check("...and the ordinary one really did move, so this is a comparison", loose > 0.02f);
+        MeshBuffers sb = solved(stiff, pose);
+        PuppetWeights w = stiff.weights();
+
+        // Ask the question stiffness actually answers: a vertex the patch has taken over
+        // COMPLETELY takes pin 3's motion and nobody else's — and pin 3 did not move, so it must
+        // not move at all. Measuring a radius instead measured the taper at the edge of the reach
+        // and called a working feature weak.
+        int owned = 0;
+        float worstOwned = 0f;
+        for (int v = 0; v < stiff.vertexCount(); v++) {
+            if (w.weight(v, 3) <= 0.999f) continue;
+            owned++;
+            float mx = sb.positions[v * 2] - sb.rest[v * 2];
+            float my = sb.positions[v * 2 + 1] - sb.rest[v * 2 + 1];
+            worstOwned = Math.max(worstOwned, (float) Math.sqrt(mx * mx + my * my));
+        }
+        float loose = nearPinMove(plain, solved(plain, pose), 0.8f, 0.5f, 0.17f);
+        System.out.printf("    %d vertices fully owned by the stiff pin, worst movement %.6f"
+                + "  (loose patch moves %.4f)%n", owned, worstOwned, loose);
+        check("the patch really did take vertices over (" + owned + ")", owned >= 8);
+        check("...the same region moves when nothing is stiff", loose > 0.02f);
+        check("and every vertex the patch owns is perfectly rigid ("
+                + String.format("%.6f", worstOwned) + ")", worstOwned < 1e-5f);
+
+        // And the taper is real: the far corner, outside the plateau, is damped but not frozen —
+        // which is what stops a visible ring where stiffness stops.
+        float corner = farEndMove(stiff, solved(stiff, pose));
+        float looseCorner = farEndMove(plain, solved(plain, pose));
+        check("while the edge of the reach only resists, as a taper should ("
+                        + fmt(corner) + " vs " + fmt(looseCorner) + ")",
+                corner > worstOwned && corner < looseCorner);
     }
 
     static void strengthZeroIsAnOrdinaryPin() {

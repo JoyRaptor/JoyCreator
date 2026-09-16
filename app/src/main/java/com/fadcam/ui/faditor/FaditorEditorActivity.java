@@ -31122,6 +31122,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float dd = getResources().getDisplayMetrics().density;
             puppetOverlay.setElevation(9.0f * dd);
             puppetOverlay.setOutlineProvider(null);
+            // THE MAGNIFIER SHOWS THE REAL PICTURE. Same container the transform surface points
+            // its own loupe at, so the two magnify the identical stack.
+            puppetOverlay.setLoupeContentSource(playerContainer);
             puppetOverlay.setHost(new com.fadcam.ui.faditor.puppet.PuppetOverlayView.Host() {
                 @NonNull @Override
                 public com.fadcam.ui.faditor.puppet.PuppetRig rig() {

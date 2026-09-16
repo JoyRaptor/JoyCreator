@@ -138,7 +138,12 @@ public class PuppetOverlayView extends View {
 
     // ── sizes, in dp ─────────────────────────────────────────────────────
 
-    private static final float DOT_R = 6.5f;
+    /**
+     * An UNSELECTED pin is half the selected one. JoyRaptor asked for exactly that, and it earns
+     * its keep on a rigged character: ten dots at full size read as a crowd, and the one you are
+     * working on has to win without being hunted for.
+     */
+    private static final float DOT_R = 4.5f;
     private static final float DOT_R_SEL = 9f;
     private static final float HIT_R = 22f;          // generous: a finger is not a mouse
     private static final float BADGE = 38f;
@@ -156,6 +161,8 @@ public class PuppetOverlayView extends View {
     private final RectF badgeRect = new RectF();
     private final RectF arc = new RectF();
     private final Path path = new Path();
+    private final PreviewLoupe loupe = new PreviewLoupe();
+    @Nullable private android.view.ViewGroup loupeRoot;
 
     @Nullable private Host host;
 
@@ -184,6 +191,15 @@ public class PuppetOverlayView extends View {
 
     public void setHost(@Nullable Host h) { this.host = h; invalidate(); }
 
+    /**
+     * Point the magnifier at the real picture — the container that parents the video surface and
+     * every overlay plane, exactly as the transform surface is wired.
+     */
+    public void setLoupeContentSource(@Nullable android.view.ViewGroup root) {
+        loupeRoot = root;
+        invalidate();
+    }
+
     @Nullable public Host host() { return host; }
 
     /** Re-read and repaint. Cheap; call it from anywhere that changes the rig. */
@@ -193,6 +209,9 @@ public class PuppetOverlayView extends View {
 
     @Override
     protected void onDraw(@NonNull Canvas c) {
+        // RE-ENTRANCY. The loupe draws the preview stack and this view is one of its children;
+        // without this the magnifier would draw itself, magnified, forever.
+        if (loupe.isDrawingContent()) return;
         if (host == null) return;
         PuppetRig rig = host.rig();
         if (!host.readRect(rect) || rect.width() <= 1f || rect.height() <= 1f) return;
@@ -205,6 +224,47 @@ public class PuppetOverlayView extends View {
         // The badge is the LAST thing drawn and the first thing hit-tested: it must stay
         // reachable even when a pin happens to sit under it.
         if (rig.pinCount() > 0 && !host.previewIsSmall()) drawBadge(c, locked);
+
+        // THE MAGNIFIER, last, over everything. Only while a pin is actually being moved: a
+        // finger is parked on top of the very thing it is dragging, and on a puppet that thing
+        // is in the middle of the artwork rather than out on a corner.
+        if (dragPin >= 0 && moved && !locked) {
+            PuppetPin dp = rig.pin(dragPin);
+            loupe.draw(c, this, loupeRoot, posedX(dragPin, dp), posedY(dragPin, dp), d,
+                    fill, stroke, (lc, invZoom) -> drawLoupeDecor(lc, rig, invZoom));
+        }
+    }
+
+    /**
+     * What the magnifier shows ON TOP of the picture: the bones, and every pin, with the one
+     * being dragged filled. Drawn at {@code invZoom} so a line inside the circle is the same
+     * thickness on screen as the same line outside it.
+     */
+    private void drawLoupeDecor(@NonNull Canvas c, @NonNull PuppetRig rig, float invZoom) {
+        stroke.setStyle(Paint.Style.STROKE);
+        for (int i = 0; i < rig.boneCount(); i++) {
+            PuppetRig.Bone b = rig.bone(i);
+            if (b.rootPin >= rig.pinCount() || b.tipPin >= rig.pinCount()) continue;
+            PuppetPin a = rig.pin(b.rootPin), z = rig.pin(b.tipPin);
+            stroke.setColor(PuppetPalette.BONE);
+            stroke.setStrokeWidth(2f * d * invZoom);
+            c.drawLine(posedX(b.rootPin, a), posedY(b.rootPin, a),
+                    posedX(b.tipPin, z), posedY(b.tipPin, z), stroke);
+        }
+        for (int i = 0; i < rig.pinCount(); i++) {
+            PuppetPin p = rig.pin(i);
+            boolean on = i == dragPin;
+            float rr = (on ? 4.2f : 2.6f) * d * invZoom;
+            int hue = PuppetPalette.of(p.type, false);
+            if (on) {
+                fill.setStyle(Paint.Style.FILL);
+                fill.setColor(hue);
+                c.drawCircle(posedX(i, p), posedY(i, p), rr, fill);
+            }
+            stroke.setColor(hue);
+            stroke.setStrokeWidth((on ? 1.6f : 1.1f) * d * invZoom);
+            c.drawCircle(posedX(i, p), posedY(i, p), rr, stroke);
+        }
     }
 
     /** Where a pin actually IS right now: its rest position plus whatever the pose moved it by. */

@@ -316,3 +316,37 @@ authority with one tolerance, rather than per-surface guesses. Worth an audit of
 what today before specifying.
 
 Nothing here is scheduled. Do not start a SPEC for it.
+
+---
+
+## 2026-09-15 — two magnifiers now, and they will drift
+
+`PuppetOverlayView` needed the transform tool's loupe ("we need that exact same helper here" —
+JoyRaptor). The chrome — corner placement, circular clip, the walk that draws the preview stack
+magnified, the crosshair and rim — is now in `puppet/PreviewLoupe.java`, with the per-tool
+decoration supplied by the caller.
+
+**`TransformOverlayView` still has its own copy.** It works, it was not touched, and the new
+class copies its placement rule, its 2.2x zoom and its rim colours deliberately so the two look
+identical today. They will not stay identical: the next person to tune one will not know about
+the other.
+
+The migration is ~40 lines — `drawLoupe` keeps finding the handle and hands its position plus a
+`Decor` that draws the quad and handle dots. Not done in the same session that introduced it,
+because that file is 2,169 lines and owns every touch on the picture, and the puppet lane had
+already edited its sibling twice that day.
+
+Also filed here rather than fixed silently because the repo's own rule is that a second copy of
+anything is how preview and export start disagreeing — the same reasoning, one level up.
+
+## 2026-09-15 — a gradle install kills the wireless adb connection
+
+`:app:installDefaultDebug` restarts the adb server, which drops `adb connect`'s wireless
+session; the next command reports "device not found" and `adb connect` to the same port is
+"actively refused" because the phone's listener has moved. With JoyRaptor's USB connector
+damaged (WIRELESS_ADB_CONNECT.md), the watcher's auto-install and wireless adb are mutually
+exclusive in practice.
+
+Worth deciding: either the watcher stops running `installDefaultDebug` and an agent installs
+with `adb -s <ip:port> install -r -d`, or every wireless session re-runs `mdns services` after
+each build. The second is what happens today, by accident, several times an hour.

@@ -721,16 +721,31 @@ reference: tools/spritelab/SpriteLabMobile.html — the approved design, build i
 since: 2026-09-13T02:00  ended: 2026-09-13T06:10
 
 ## SPEC_20260915_PUPPET_UI — the puppeteering drawer, tape, preview and helper
-status: IDLE (2026-09-16 — overnight run complete and pushed. Animation, the tape, the helper
-        strip, shapes, the shared loupe and four audit passes all landed. What is left is in
-        the spec's section 7: nothing beyond the bend itself is device-verified, the tape draws
-        but does not drag, and the grab bar has a diagnostic waiting for the editor to open.)
+status: IDLE (2026-09-16 evening — the full sweep JoyRaptor asked for is done and pushed.
+        Every function designed, mocked up or discussed was traced to the code that reads it:
+        NINE dead knobs found and either wired or removed, twenty-one designed-and-missing
+        items built (the tape now drags — slide, stretch, retime), and seven things left open
+        with a written reason each. The live list is tasks/PUPPET_FINISH_LEDGER.md; the spec's
+        section 7 is honest again. Fourteen suites, ~530 assertions.
+        WHAT IS STILL OWED: device verification. Almost nothing here is 🟢 — he has driven the
+        preview and the strip, and nobody has keyed a pin, dragged a bar, tapped a bone or
+        rotated a rigged picture on a phone. Three open items need HIM, not more code: a
+        screenshot of the overlapping corner widget, one press of the timeline grab bar (the
+        diagnostic is now conclusive), and a verdict on whether the "Everything" chip is missed.)
 files: tasks/SPEC_20260915_PUPPET_UI.md
        app/src/main/java/com/fadcam/ui/faditor/puppet/**  (NEW package — mine)
        app/src/main/java/com/fadcam/ui/faditor/tools/PuppetDrawerTabs.java (NEW)
        app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java     (2 lines: a rig field)
        app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java    (2 sites: write/read "puppet")
        app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java     (1 site: showImageOverlayDrawer)
+       app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java   (tape hit-test)
+       app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java (tape drag)
+       app/src/main/java/com/fadcam/ui/faditor/transform/mesh/MeshPoseTrack.java (ranged edits)
+       app/src/main/java/com/fadcam/ui/faditor/transform/mesh/MeshEasingFit.java (NEW)
+       app/src/main/java/com/fadcam/ui/faditor/transform/mesh/PuppetWeights.java (weight override)
+       app/src/main/java/com/fadcam/ui/faditor/transform/mesh/PuppetTopology.java (wire format V5)
+       app/src/main/java/com/fadcam/ui/faditor/keyframe/Easing.java (2 annotations removed, so
+               MeshCurves' claim that this file is android-free is finally true)
        app/src/main/java/com/fadcam/ui/faditor/tools/ObjectDrawer.java (5 additive lines:
                a tab-changed listener + currentTabTitle — the pins live on the PICTURE, so
                something has to know when to put them up and take them down)

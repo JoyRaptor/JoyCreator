@@ -31099,9 +31099,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (snapped == puppetLastTakeStepMs) {
                 // Same frame as the last sample: overwrite it rather than adding another, so the
                 // key holds the LATEST position in that frame instead of the earliest.
+                //
+                // AND DO NOT REPAINT. repaintPuppetPicture re-runs the whole composite — every
+                // overlay view, the adjustment stack, the GL pass. Doing that for a sample that
+                // lands in a frame already drawn is work whose entire output is thrown away
+                // before anything reaches the screen.
                 com.fadcam.ui.faditor.puppet.PuppetKeys.writeOffsets(spec, components, vals,
                         snapped, true);
-                repaintPuppetPicture();
                 return;
             }
             puppetLastTakeStepMs = snapped;

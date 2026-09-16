@@ -2426,6 +2426,13 @@ public final class LayerRowRenderer {
 
     /** SPEC_20260915_PUPPET_UI: the long-diamond bar and its surviving keys. */
     private final Path puppetBarPath = new Path();
+
+    // One row's worth of cache. A tape draws one puppet at a time, so one slot is the whole
+    // working set — and a miss costs exactly what the uncached version cost every frame.
+    @Nullable private Object puppetCacheTrack;
+    private int puppetCacheSize = -1;
+    @Nullable private long[] puppetTimesCache;
+    @Nullable private com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] puppetMarksCache;
     private final Paint puppetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     /**
@@ -2450,12 +2457,30 @@ public final class LayerRowRenderer {
         if (spec == null || spec.track() == null || spec.track().isEmpty()) return;
         if (!(spec.topology() instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) return;
 
-        long[] times = spec.track().times();
-        if (times == null || times.length == 0) return;
-
-        com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] marks =
-                com.fadcam.ui.faditor.puppet.PuppetTapeMarks.group(times);
-        if (marks.length == 0) return;
+        // CACHED. times() builds a new long[] on every call and group() walks it — and this runs
+        // per row, per frame, for the whole length of a timeline scroll. A take is hundreds of
+        // poses, so that is hundreds of longs allocated sixty times a second to draw the same
+        // picture as last frame. Keyed on the track identity and its size, which between them
+        // change whenever the marks could have.
+        long[] times = puppetTimesCache;
+        com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] marks = puppetMarksCache;
+        int size = spec.track().size();
+        if (puppetCacheTrack != spec.track() || puppetCacheSize != size || marks == null) {
+            times = spec.track().times();
+            if (times == null || times.length == 0) {
+                puppetCacheTrack = spec.track();
+                puppetCacheSize = size;
+                puppetTimesCache = null;
+                puppetMarksCache = null;
+                return;
+            }
+            marks = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.group(times);
+            puppetCacheTrack = spec.track();
+            puppetCacheSize = size;
+            puppetTimesCache = times;
+            puppetMarksCache = marks;
+        }
+        if (times == null || marks == null || marks.length == 0) return;
 
         // ABOVE the row midline: the green property diamonds already took just below it, and two
         // families of glyph on the same line is how a tape becomes unreadable.

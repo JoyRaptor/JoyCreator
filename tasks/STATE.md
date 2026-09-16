@@ -147,7 +147,12 @@ no money.** Nothing else on Android does the two-engine merge.
 | IK solver, dangle physics, motion smoothing | 🟡 ✔ | FabrikSolver, DangleSim, OneEuroFilter |
 | Bake rig to keyframes | 🟢 ~ | LEDGER: device-verified |
 | Point-at-video | 🟢 ~ | |
-| Puppet architecture | 🟡 ✔ | SPEC_20260904_PUPPET_ARCHITECTURE — recent, in flight |
+| Puppet architecture | 🟡 ✔ | SPEC_20260904_PUPPET_ARCHITECTURE — engine complete through stage 11 |
+| **Puppeteering — a PNG bends** | 🟢 | Trace → triangulate → weights → MLS solve. JoyRaptor confirmed a rigged dinosaur bending on 2026-09-15, including limbs drawn as detached islands and the overlap halo fixed. |
+| Puppet pins, bones, IK, dangle | 🟡 | Place, bone, drag-a-limb, simulated hair. Engine proved off device; gestures barely driven. |
+| **Puppet KEYFRAMES and live takes** | 🟡 | SPEC_20260915_PUPPET_UI. Per-pin keys, record-on-touch, thinning, anchor-in/blend-out, and a tape that draws performances as long diamonds. **Unit-proved, never keyed on a phone.** |
+| Puppet helper strip (on-preview) | 🟡 | Four controls so mesh editing never needs the drawer: type swatch (drag OUT to place, drag a pin IN to delete), pose/place, key/arm/jump, depth scrub. Never touched by a human. |
+| Puppet UI — badge, drawer tab, loupe, shapes | 🟡 | On the phone; lightly used. The loupe is now shared with the transform tool, whose own magnifier is therefore **unverified since the migration.** |
 
 ### SpriteLab — the desktop companion (`tools/spritelab/SpriteLab.html`)
 

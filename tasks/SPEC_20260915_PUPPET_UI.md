@@ -242,6 +242,40 @@ nothing is removed, and it reads as "you have made something."
 
 ---
 
-## 7. Status
+## 7. Status — 2026-09-16, after the overnight run
 
-🔵 SPECCED. Nothing built. Back-end stages 1–3 are landed by the other lane.
+**Grade honestly: 🟢 means JoyRaptor used it on a phone. Almost nothing here is 🟢 yet.**
+
+| | Level | Notes |
+|---|---|---|
+| Trace → triangulate → weights → solve | 🟢 | He confirmed a rigged dinosaur bends, 2026-09-15 |
+| Detached limbs as one puppet | 🟢 | Same session |
+| Halo / depth ordering | 🟢 | "halo fix appears fixed" |
+| Pins, bones, IK drag, dangle bake | 🟡 | Engine proved; the gestures have only been driven by him briefly |
+| Puppet badge, drawer tab, persistence | 🟡 | On the phone, lightly used |
+| **Keyframes — drop, delete, jump, per-pin** | 🟡 | Built and unit-proved; **nobody has keyed a pin on a phone** |
+| **Live takes — record on touch, thin, blend out** | 🟡 | Same. The headline interaction is unexercised. |
+| **The tape — bars and diamonds** | 🟡 | Drawn from key density; never seen |
+| **The helper strip** | 🟡 | Four controls, drag-out, drag-in-to-delete, Z scrub. Never touched. |
+| Shapes per pin type | 🟡 | Pushpin / square / teardrop / circle |
+| Loupe, shared with the transform tool | 🟡 | **The migration could have broken the transform tool's own loupe and nobody has checked.** |
+
+### What is deliberately NOT built
+
+- **Sprites, PiP, text and the spine.** Puppets are image overlays only. The model would carry
+  it (`MeshBendSeam.Owner` is six methods every type already has) but nothing is wired.
+- **A take as a stored object.** Bars are inferred from key DENSITY — see `PuppetTapeMarks`.
+  Thin a take hard enough and it correctly stops being a bar.
+- **Per-pin easing.** Keys are written with the track's default curve.
+
+### Owed, and known
+
+1. **Nothing here is device-verified beyond the bend itself.** Twelve suites and ~390
+   assertions run off device; that is not the same claim.
+2. **The timeline grab bar is still dead** and is not this feature's doing — a diagnostic now
+   logs on the editor opening (`GRABBAR setup ok` / `SKIPPED`) rather than needing a drag.
+3. **One corner widget is still unidentified** ("the audio clipping widget"). Three of the four
+   things that were colliding are accounted for; a screenshot settles the rest.
+4. **`componentTimes` counts the two ends of a held value as keys**, which is honest about
+   storage and a lie on screen — hence `PuppetKeys.displayKeyCount`. Any new surface reading key
+   counts must use the display one.

@@ -2,20 +2,25 @@
 
 ## 2026-09-16 — one command for the phone, wired or wireless
 
-`tools/deploy.sh` exists now, because the sequence was being re-derived every session and got
-wrong three ways: running gradle's install task (which restarts the adb server and drops every
-wireless session), assuming wireless when a cable was attached, or giving up when USB was empty
-instead of trying the other transport.
+    bash tools/phone.sh deploy --build
 
-    bash tools/deploy.sh --build --launch
+`phone.sh deploy` already existed (added earlier the same day) and already did the hard parts:
+USB or wireless, a staleness warning when the APK is older than the watcher's last build, plain
+`adb install` so the adb server is never restarted, and a read-back of the phone's own
+lastUpdateTime so a "Success" that went to another device cannot pass.
 
-Prefers USB, falls back to `wifi-adb.sh`, refuses outright if the only phone attached is the one
-holding real projects, installs with plain `adb install` so the adb server is never restarted,
-and then asks the PHONE which package landed and when. That last part caught a real trap: the
-`default` flavour installs as **com.fadcam.beta**, not `com.fadcam.debug` — every helper that
-hard-codes the debug name reports "not installed" for a package that is sitting right there.
+Two things were added to it rather than beside it:
 
-The watcher stays on `assembleDefaultDebug`. It should not install; deploy.sh should.
+* `--build`, which assembles first — `assembleDefaultDebug` only, never `installDefaultDebug`,
+  because gradle's install task is the thing that restarts the adb server and drops wireless on
+  every build. The watcher stays on assemble for the same reason.
+* `pick_serial` now refuses to volunteer REAL_SERIAL. It preferred the sandbox when it could see
+  one, but with only the real phone attached it would have picked it. `PHONE=` still overrides,
+  so a deliberate read-only session on the real phone is unaffected.
+
+**A near-duplicate was written and deleted the same hour.** I built `tools/deploy.sh` without
+checking whether phone.sh had grown a deploy verb — it had. Two scripts that both install is
+precisely the drift this file keeps recording; one entry point, as phone.sh's own header says.
 
 ## 2026-09-16 — sprites still have no way in from Add Asset
 

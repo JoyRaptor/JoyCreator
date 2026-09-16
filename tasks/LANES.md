@@ -132,6 +132,27 @@ status: IDLE (2026-08-29 — NEVER RAN. Claim released as stale: the tree was cl
 files: (none)
 since: 2026-08-29
 
+## ENGINE + AUDIT CLOSE-OUT - 2026-09-16 (Claude/Opus)
+status: IDLE (finished 2026-09-16). Files below are FREE.
+files:
+  ui/faditor/transform/mesh/**        (holes, Delaunay flipping, the depth field)
+  ui/faditor/avatar/**                (rig solver, dangle params)
+  ui/faditor/export/TextFxGlEffect.java
+  ui/faditor/compositor/FxLivePreviewController.java
+  tools/phone.sh                      (--build, and pick_serial refusing the real phone)
+did: mesh quality (81-91% slivers -> 10-16%, worst angle 0.1 -> 7.3 deg), enclosed holes,
+     per-triangle depth ordering, the dangle bake wired up at last, a per-pin Depth control,
+     and the real defects two adversarial audits found against SPEC_20260915_PUPPET_UI.
+NOTE FOR THE UI LANE: I edited puppet/** and tools/PuppetDrawerTabs.java, which your sheet
+     lists as yours. JoyRaptor confirmed the other agents were stopped before I did. Every
+     edit is additive and they are in commits 498128d8 and 1b15f803 - a Depth slider, a Reach
+     row, a row-1 selection guard, tape colour and per-pin filtering, bendSign measured at
+     bind time, and one line in onChanged so a knob that changes the mesh rebuilds it.
+     Nothing was removed.
+MISTAKE WORTH KNOWING: I wrote tools/deploy.sh before noticing phone.sh had grown a deploy
+     verb hours earlier. Deleted the same hour; the two useful bits were folded into phone.sh.
+     Check the verb list before adding a script.
+
 ## DEVICE TOKEN
 DEVICE: SPEC_20260915_PUPPET_UI (2026-09-15 — install + launch smoke + crash scan after the
         setOnTabChanged NPE. READ-ONLY on the phone: logcat and a launch. JoyRaptor's Note 20

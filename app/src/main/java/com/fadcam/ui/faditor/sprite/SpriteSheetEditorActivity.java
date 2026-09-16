@@ -563,7 +563,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (settled == null) { settled = snapshot(); burstAt = now; return; }
         if (now - burstAt > burstMs) {
             undoStack.push(settled);
-            while (undoStack.size() > 40) undoStack.removeLast();
+            // SPEC_20260910_SPRITELAB_UI §10 asks for 100. A snapshot is one serialised
+            // sheet, so the whole stack weighs less than a single decoded frame of the art.
+            while (undoStack.size() > 100) undoStack.removeLast();
             redoStack.clear();
         }
         burstAt = now;
@@ -1233,7 +1235,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             String nm = sheet.cellName(at[0]);
             field.setText(nm == null ? "" : nm);
             field.setSelection(field.getText().length());
-            caption.setText("Cell " + at[0] + " of " + (sheet.cellCount() - 1));
+            // "Cell 0 of 31" on a 32-cell sheet: the number was right and the idiom was
+            // not, because "N of M" counts and that M was a maximum index. Say both plainly.
+            caption.setText("Cell " + at[0] + "  \u00b7  " + (at[0] + 1)
+                    + " of " + sheet.cellCount());
         };
         final Runnable commit = () -> {
             ensureCell(at[0]);
@@ -1605,7 +1610,180 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             sheet.getCellTransforms().clear(); markDirty(); refreshArt(); showSection("play");
         });
         b.addView(resetAll);
+
+        // Line every frame up against THIS one, rather than against the pivot. Auto-centre is
+        // right when the sheet has no reference frame; this is right when it has one and you
+        // have already got that frame where you want it.
+        TextView match = chip("Match");
+        match.setOnClickListener(v -> matchToCurrent());
+        b.addView(match);
+
+        // The same nudge on every frame. Useful the moment you discover the whole sheet sits
+        // six pixels left, which is most AI-generated sheets.
+        TextView copyAll = chip("Copy to all");
+        copyAll.setOnClickListener(v -> copyXfToAll());
+        b.addView(copyAll);
+
+        // Numbers, not an automatic fix. Sometimes the drift IS the animation.
+        TextView drift = chip("Drift\u2026");
+        drift.setOnClickListener(v -> showDrift());
+        b.addView(drift);
+
+        // The pivot everything else measures against: auto-centre, rotation and the bake all
+        // use it, so it belongs beside them rather than buried in the slicing controls.
+        b.addView(num("piv x", null, () -> sheet.getPivotX() * 100f,
+                v -> { sheet.setPivot(v / 100f, sheet.getPivotY()); markDirty(); refreshArt(); },
+                5f, true, "%"));
+        b.addView(num("piv y", null, () -> sheet.getPivotY() * 100f,
+                v -> { sheet.setPivot(sheet.getPivotX(), v / 100f); markDirty(); refreshArt(); },
+                5f, true, "%"));
         return g;
+    }
+
+    /**
+     * The frames these bulk tools act on: the roll if there is one, otherwise the whole sheet.
+     *
+     * <p>Shared so auto-centre, match, copy-to-all and drift can never disagree about what
+     * "every frame" means — which they would, written four times.</p>
+     */
+    @NonNull
+    private java.util.List<Integer> alignTargets() {
+        java.util.List<Integer> cells = new java.util.ArrayList<>();
+        if (!labSeq.isEmpty()) { for (int[] f : labSeq) if (!cells.contains(f[0])) cells.add(f[0]); }
+        else for (int i = 0; i < sheet.cellCount(); i++) cells.add(i);
+        return cells;
+    }
+
+    /** Every frame's ink box, measured once, keyed by cell. Empty cells are simply absent. */
+    @NonNull
+    private java.util.Map<Integer, float[]> inkBoxes(@NonNull java.util.List<Integer> cells) {
+        java.util.Map<Integer, float[]> boxes = new java.util.LinkedHashMap<>();
+        if (renderer == null) return boxes;
+        android.graphics.Bitmap bmp = renderer.getBitmap();
+        if (bmp == null || bmp.isRecycled()) return boxes;
+        for (int c : cells) {
+            float[] box = inkBox(bmp, c);
+            if (box != null) boxes.put(c, box);
+        }
+        return boxes;
+    }
+
+    /**
+     * Align every frame's ink to the CURRENT frame's ink.
+     *
+     * <p>The current frame is left exactly as it is — it is the reference, and a tool that
+     * moved its own reference would be impossible to reason about.</p>
+     */
+    private void matchToCurrent() {
+        if (renderer == null) { Toast.makeText(this, "No art loaded", Toast.LENGTH_SHORT).show(); return; }
+        android.graphics.Bitmap bmp = renderer.getBitmap();
+        if (bmp == null || bmp.isRecycled()) return;
+        float toSource = renderer.sourceWidth() / (float) Math.max(1, bmp.getWidth());
+        final int ref = currentCell();
+        float[] target = inkBox(bmp, ref);
+        if (target == null) {
+            Toast.makeText(this, "This frame is empty \u2014 nothing to match to",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
+        float tx = (target[0] + target[2]) * 0.5f, ty = (target[1] + target[3]) * 0.5f;
+        java.util.Map<Integer, float[]> boxes = inkBoxes(alignTargets());
+        int n = 0;
+        for (java.util.Map.Entry<Integer, float[]> e : boxes.entrySet()) {
+            int c = e.getKey();
+            if (c == ref) continue;
+            float[] box = e.getValue();
+            SpriteSheet.CellXf t = sheet.cellTransform(c);
+            SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
+            xf.dx += (tx - (box[0] + box[2]) * 0.5f) * toSource;
+            xf.dy += (ty - (box[1] + box[3]) * 0.5f) * toSource;
+            sheet.setCellTransform(c, xf);
+            n++;
+        }
+        markDirty();
+        refreshArt();
+        syncAlign();
+        Toast.makeText(this, n == 0 ? "Nothing else to match"
+                : n + " frames matched to cell " + ref, Toast.LENGTH_SHORT).show();
+    }
+
+    /** Put THIS frame's alignment on every frame. One press, one undo step. */
+    private void copyXfToAll() {
+        final int from = currentCell();
+        SpriteSheet.CellXf src = sheet.cellTransform(from);
+        int n = 0;
+        for (int c : alignTargets()) {
+            if (c == from) continue;
+            sheet.setCellTransform(c, src == null ? null : src.copy());
+            n++;
+        }
+        markDirty();
+        refreshArt();
+        syncAlign();
+        Toast.makeText(this, src == null
+                ? "Cleared the alignment on " + n + " frames"
+                : "Copied cell " + from + " alignment to " + n + " frames",
+                Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Show the drift as NUMBERS rather than fixing it.
+     *
+     * <p>Auto-centre is the right answer when a sheet wobbles by accident. Sometimes the wobble
+     * IS the animation, and then what you want is to see how far each frame sits from the rest
+     * and decide yourself. This reports and changes nothing — with auto-centre one tap away for
+     * when the numbers tell you it was an accident after all.</p>
+     */
+    private void showDrift() {
+        java.util.List<Integer> cells = alignTargets();
+        java.util.Map<Integer, float[]> boxes = inkBoxes(cells);
+        if (boxes.isEmpty()) {
+            Toast.makeText(this, "No ink to measure", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        float sx = 0, sy = 0;
+        for (float[] b : boxes.values()) {
+            sx += (b[0] + b[2]) * 0.5f;
+            sy += (b[1] + b[3]) * 0.5f;
+        }
+        float ax = sx / boxes.size(), ay = sy / boxes.size();
+        StringBuilder sb = new StringBuilder();
+        sb.append("How far each frame sits from the average, in cell pixels.\n")
+          .append("Positive x is right, positive y is down.\n\n");
+        float worst = 0; int worstCell = -1;
+        for (java.util.Map.Entry<Integer, float[]> e : boxes.entrySet()) {
+            float[] b = e.getValue();
+            float dx = (b[0] + b[2]) * 0.5f - ax, dy = (b[1] + b[3]) * 0.5f - ay;
+            float mag = (float) Math.hypot(dx, dy);
+            if (mag > worst) { worst = mag; worstCell = e.getKey(); }
+            String nm = sheet.cellName(e.getKey());
+            sb.append(String.format(java.util.Locale.US, "cell %-3d  x %+5.0f  y %+5.0f",
+                    e.getKey(), dx, dy));
+            if (nm != null && !nm.isEmpty()) sb.append("   ").append(nm);
+            sb.append('\n');
+        }
+        for (int c : cells) {
+            if (!boxes.containsKey(c)) sb.append("cell ").append(c).append("   empty\n");
+        }
+        if (worstCell >= 0) {
+            sb.append("\nFurthest out: cell ").append(worstCell)
+              .append(", about ").append(Math.round(worst)).append(" px from the average.");
+        }
+        TextView t = new TextView(this);
+        t.setText(sb.toString());
+        t.setTextSize(12f);
+        t.setTypeface(Typeface.MONOSPACE);
+        t.setTextColor(SpriteTheme.INK);
+        int pad = (int) (18 * density());
+        t.setPadding(pad, pad, pad, pad);
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(t);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Drift")
+                .setView(sv)
+                .setPositiveButton("Close", null)
+                .setNeutralButton("Auto-centre it", (d, w) -> autoCentre(false))
+                .show();
     }
 
     /**

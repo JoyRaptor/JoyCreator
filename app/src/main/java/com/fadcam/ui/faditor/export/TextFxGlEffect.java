@@ -73,6 +73,8 @@ public final class TextFxGlEffect implements GlEffect {
         @NonNull private final TextOverlayItem item;
         private final long editorTimeOffsetMs;
         private int outW = 1, outH = 1;
+        /** Scratch for the corner pin. Allocated once; getBitmap runs every exported frame. */
+        @Nullable private android.graphics.Matrix textFxPinMatrix;
 
         TextFrame(@NonNull TextOverlayItem item, long editorTimeOffsetMs) {
             this.item = item;
@@ -124,6 +126,7 @@ public final class TextFxGlEffect implements GlEffect {
             // rather than by reading, because both paths call the same renderer and the bug
             // was in what happens AFTER it.
             Bitmap full = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888);
+            if (textFxPinMatrix == null) textFxPinMatrix = new android.graphics.Matrix();
             if (textBmp != null && !textBmp.isRecycled()) {
                 android.graphics.Canvas c = new android.graphics.Canvas(full);
                 float cx = frameItem.getCenterX() * outW;
@@ -131,8 +134,25 @@ public final class TextFxGlEffect implements GlEffect {
                 float rot = frameItem.getRotationDeg();
                 c.save();
                 if (rot != 0f) c.rotate(rot, cx, cy);
-                c.drawBitmap(textBmp, cx - textBmp.getWidth() / 2f,
-                        cy - textBmp.getHeight() / 2f, null);
+                // SPEC ZC — THE CORNER PIN, on the FX path too. Acceptance 1 held only for PLAIN
+                // text: this path rebuilds a frameItem property by property and the pin was never
+                // among the properties, so a pinned box with any effect on it exported UNPINNED
+                // while the preview showed it pinned. A preview/export disagreement, which is the
+                // bug class this project has paid for most.
+                //
+                // Built by the SAME TextOverlayItem.cornerPinMatrix the preview and the plain
+                // export call, concat-ed at the same point — inside the rotate, immediately around
+                // the draw. An undistorted box concats nothing and takes the byte-identical path
+                // it always did.
+                //
+                // Asked of the ORIGINAL item, not frameItem: the pin lives on the authored
+                // overlay, and frameItem is a per-frame copy of the things the rasteriser needs.
+                float tw = textBmp.getWidth(), th = textBmp.getHeight();
+                if (item.cornerPinMatrix(textFxPinMatrix, timelineMs,
+                        cx - tw / 2f, cy - th / 2f, tw, th)) {
+                    c.concat(textFxPinMatrix);
+                }
+                c.drawBitmap(textBmp, cx - tw / 2f, cy - th / 2f, null);
                 c.restore();
                 textBmp.recycle();
             }

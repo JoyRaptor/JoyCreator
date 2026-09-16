@@ -159,7 +159,13 @@ while the offsets are stored in item space — reconciling that is the image hos
 which this narrow channel does not carry), and an out-of-range offset refuses rather than clamping
 into a shape the user did not draw.
 
-### Slice 1 — SPRITES: the MESH half is NOT done
+### Slice 1 — SPRITES: the MESH half is DONE (2026-09-13, f8a0c4df)
+
+*The section below was written before it landed and is kept for the reasoning. What it
+says is needed is what was built: sprites go onto the GL texture path when warped and
+through the existing MeshStampGl. No second warp was written.*
+
+### (superseded) Slice 1 — the MESH half, as it stood on 2026-09-13
 
 The model holds a `MeshWarpSpec` and nothing draws it. `setBendAvailable(false)` stands. What it
 needs: sprites onto the GL texture path when warped (extend `OverlayTextureCache.canUseTexture`,

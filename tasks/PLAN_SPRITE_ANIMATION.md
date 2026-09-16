@@ -4,8 +4,13 @@
 #   frames and edits their weights; a grid sprite strips its frame-track KEYS and can turn a
 #   selection into a preset ("Make preset"). Read tasks/HANDOFF_20260806_IMAGE_SEQUENCES.md.
 #   FF-B is partly there too: describe_sprite_sheet already existed; describe_sequence and
-#   edit_sequence landed beside it. STILL MISSING from FF-B: set_sprite_grid, label_sprite_cells,
-#   author_sprite_animation, apply_sprite_proposal.
+#   edit_sequence landed beside it.
+#   ⚠ CORRECTED 2026-09-16: FF-B is COMPLETE. set_sprite_grid, label_sprite_cells,
+#   author_sprite_animation and apply_sprite_proposal are all dispatched in
+#   AIToolExecutor (~lines 135-138) with real bodies of 49-69 lines apiece, not stubs.
+#   The "STILL MISSING" list below was written on 2026-08-06 and the tools landed after it.
+#   SPEC_20260910_SEMANTIC_CELLS §1 already said label_sprite_cells was built; that entry
+#   was right and this one was a month out of date.
 #   ⚠ The "REMAINING" line further down this file is STALE about FF-A. Trust the code.
 #
 # 📊 BUILD-1 STATUS 2026-07-06 ~13:20 (Fable — DEVICE-VERIFIED this session, watcher live/green):
@@ -44,8 +49,8 @@
 #   ALREADY BUILT AND REACHABLE: S7 relink UI (sheet manager → Relink, red-tinted when missing);
 #   S2b auto-detect grid, bg-key UI, onion skin, sidecar import/export, filmstrip (all in
 #   SpriteSheetEditorActivity); FF-A dope sheet (sprite palette → ▦ chip).
-#   GENUINELY STILL MISSING: FF-B's set_sprite_grid / label_sprite_cells /
-#   author_sprite_animation / apply_sprite_proposal; the palette's per-track arm toggles (arming
+#   GENUINELY STILL MISSING (re-audited 2026-09-16 — the four FF-B tools came OFF this list,
+#   they are all in AIToolExecutor): the palette's per-track arm toggles (arming
 #   exists, but in ObjectMenuSheet); FF-A's dope-sheet TRANSFORM rows + per-key easing
 #   (DopeSheetView is frames-only; that capability lives in ObjectMenuSheet); sw600dp two-pane
 #   (no values-sw600dp resource dir exists at all).

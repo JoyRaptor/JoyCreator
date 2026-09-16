@@ -3585,3 +3585,29 @@ Two smaller notes from the same pass, neither fixed:
 - The name-many dialog reads **"Cell 0 of 31"**. The Lab is 0-based everywhere, so the number is
   right, but "N of M" is a counting idiom and this M is a maximum index — it invites reading the
   sheet as 31 cells when it has 32.
+
+### Both fixes compiled and checked, and the watcher stopped fighting the phone
+
+The watcher change proved itself first: a full `:app:assembleDefaultDebug` ran to
+`BUILD SUCCESSFUL`, and `adb devices` still listed `192.168.1.151:36485` afterwards. Under the
+old command that build would have restarted the adb server and dropped the connection. Install
+is now one explicit command and took a few seconds.
+
+**The pill width.** On the 25-cell Joybot sheet, dragged `tol` from 0% to 6% and compared the
+control rows pixel for pixel before and after: `Detect`, `Grid`, `Names`, `Suspect`,
+`Name many…`, `Bg key` and the whole drag-mode pill are all in identical positions. Only the
+number changed. The row costs no extra height either — the chips flow the same way, `Detect`
+simply starts the second row instead of ending the first.
+
+**The swap label.** The baked sheet still carried the previous session's history: swap 0↔5, then
+a ripple of slot 0 to slot 3, and cell "ALPHA". That makes a falsifiable prediction for what the
+grid must draw once it stops taking the raw-bitmap shortcut — slot 0 = source 1, slot 3 =
+source 5, slot 5 = source 0, and ALPHA on source 0.
+
+All four hold. Slot 0 draws the DES PATTERN page, slot 3 draws JACOB'S HOUSE, and ALPHA now sits
+on the TWO BRIDES cover — the drawing that is actually called ALPHA. Before the fix that same
+label sat on JACOB'S HOUSE, a picture it had nothing to do with.
+
+Nothing in the Lab is now known-broken, and nothing in it is claimed as working on the strength
+of reading the code alone, except the two items already listed as unproved: pinch-to-scale, and
+the in-use branch of the remove guard.

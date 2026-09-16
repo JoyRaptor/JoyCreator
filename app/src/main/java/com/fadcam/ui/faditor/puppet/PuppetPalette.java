@@ -26,19 +26,27 @@ public final class PuppetPalette {
 
     private PuppetPalette() {}
 
-    /** Anchor. Amber-gold, distinct from the transform tool's structural amber. */
-    public static final int PIN = 0xFFF2B138;
+    /**
+     * Anchor. The house amber — and the SAME amber the transform tool uses for structure
+     * ({@link HandleModel#COLOR_SCALE}) and SpriteLab uses for its amber accent. Three surfaces,
+     * one value: JoyRaptor, 2026-09-15, <i>"we will be moving towards the UI of the new
+     * transformation tool design as well as the theme implemented in SpriteLab"</i>.
+     */
+    public static final int PIN = 0xFFFBBF24;
 
-    /** Resists deformation. Rose — a warning hue, because a stiff patch refuses to move. */
-    public static final int STIFF = 0xFFE5556B;
+    /** Resists deformation. SpriteLab's pink — a warning hue, because a stiff patch refuses. */
+    public static final int STIFF = 0xFFF43F8E;
 
-    /** Simulated. Cyan, and the only type whose tape shows no keys at all. */
-    public static final int DANGLE = 0xFF39C5D8;
+    /** Simulated. SpriteLab's cyan, and the only type whose tape shows no keys at all. */
+    public static final int DANGLE = 0xFF22D3EE;
 
     /** Move, turn, scale — the app's existing guide violet. */
     public static final int FREE = HandleModel.COLOR_GUIDE;
 
-    /** A bone. The app's existing bend blue: structural, but fluid. */
+    /**
+     * A bone. The app's existing bend blue — which is also SpriteLab's blue to within a shade,
+     * so nothing here fights the rest of the app.
+     */
     public static final int BONE = HandleModel.COLOR_BEND;
 
     /**

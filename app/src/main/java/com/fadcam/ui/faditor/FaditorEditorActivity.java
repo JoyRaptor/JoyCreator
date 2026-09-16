@@ -31052,6 +31052,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean rolling = playerManager != null
                 && (playerManager.isPlaying() || playerManager.getPlayWhenReady());
         puppetRecording = rolling && rig != null && rig.recordOnTouch;
+        // FADE WHEN THE TAKE FIRES, not when it was armed. Armed is a state you want to SEE —
+        // that is what the pulsing ring is for. The moment to get out of the way is when the
+        // playhead is rolling and a finger is on the puppet.
+        if (puppetHelper != null) puppetHelper.setFaded(puppetRecording);
         puppetTakeStartMs = puppetClockMs();
         puppetTakeEndMs = puppetTakeStartMs;
         puppetTakeComponents = null;
@@ -31133,6 +31137,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         puppetSpecBefore = null;
         puppetRecording = false;
         puppetTakeComponents = null;
+        if (puppetHelper != null) puppetHelper.setFaded(false);
 
         if (spec == null || before == null) return;
 
@@ -31207,6 +31212,201 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // would land wherever the user happened to be scrubbing.
         long abs = it.getStartMs() + target;
         if (editorTimeline != null) editorTimeline.seekToTimelineMs(Math.max(0, abs));
+    }
+
+    @Nullable private com.fadcam.ui.faditor.puppet.PuppetHelperView puppetHelper;
+
+    /**
+     * THE ON-PICTURE HELPER — four controls, so mesh editing never needs the drawer open.
+     *
+     * <p>Shown and hidden with the pin surface, because it is only ever about pins. It is a
+     * SIBLING of the overlay rather than something the overlay draws: the overlay reads every
+     * touch on the picture, and a control drawn inside it would have to carve exceptions out of
+     * that hit-test — which is the several-views-one-hit-test trap from the other direction.
+     */
+    @NonNull
+    private com.fadcam.ui.faditor.puppet.PuppetHelperView ensurePuppetHelper() {
+        if (puppetHelper == null) {
+            puppetHelper = new com.fadcam.ui.faditor.puppet.PuppetHelperView(this);
+            android.widget.FrameLayout playerContainer = findViewById(R.id.player_container);
+            playerContainer.addView(puppetHelper, new android.widget.FrameLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+            float dd = getResources().getDisplayMetrics().density;
+            // ABOVE the pin surface: it is a small box and the pins must not steal its touches.
+            puppetHelper.setElevation(9.4f * dd);
+            puppetHelper.setOutlineProvider(null);
+            puppetHelper.setHost(new com.fadcam.ui.faditor.puppet.PuppetHelperView.Host() {
+                @Nullable @Override public com.fadcam.ui.faditor.puppet.PuppetRig rig() {
+                    return puppetItem == null ? null : puppetItem.getPuppet();
+                }
+
+                @Override public int selectedPin() { return puppetSelectedPin; }
+
+                @Override public void cycleType() {
+                    com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
+                    if (p == null) return;
+                    com.fadcam.ui.faditor.puppet.PuppetPin.Type[] all =
+                            com.fadcam.ui.faditor.puppet.PuppetPin.Type.values();
+                    setType(all[(p.type.ordinal() + 1) % all.length]);
+                }
+
+                @Override public void setType(
+                        @NonNull com.fadcam.ui.faditor.puppet.PuppetPin.Type type) {
+                    final com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
+                    final com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+                    if (p == null || it == null || p.type == type) return;
+                    final com.fadcam.ui.faditor.puppet.PuppetPin.Type was = p.type;
+                    // THE KEYS SURVIVE. JoyRaptor's condition for letting Dangle into the cycle:
+                    // "so long as it only disables keys and not erases or overwrites them." A
+                    // type is a property of the pin; the pose track is untouched by this, and a
+                    // Dangle pin's bake simply takes over while it wears that type.
+                    p.type = type;
+                    undoManager.recordAction(new EditActions.LambdaAction("Pin type",
+                            () -> { p.type = type; rebuildPuppetMesh(it, -1); repaintPuppetPicture(); },
+                            () -> { p.type = was; rebuildPuppetMesh(it, -1); repaintPuppetPicture(); }));
+                    rebuildPuppetMesh(it, -1);
+                    repaintPuppetPicture();
+                }
+
+                @Override public boolean isPlaceMode() {
+                    return puppetTool != com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
+                }
+
+                @Override public void togglePlaceMode() {
+                    puppetTool = isPlaceMode()
+                            ? com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB
+                            : com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.FREE;
+                }
+
+                @Override public void toggleLockAll() {
+                    com.fadcam.ui.faditor.puppet.PuppetRig r = rig();
+                    if (r == null) return;
+                    r.locked = !r.locked;
+                }
+
+                @Override public void toggleKeyAtPlayhead() {
+                    if (playheadIsOnKey()) puppetKeyEdit("Delete key", false);
+                    else puppetKeyEdit("Key pin", true);
+                }
+
+                @Override public boolean playheadIsOnKey() {
+                    return com.fadcam.ui.faditor.puppet.PuppetKeys.isOnKey(
+                            puppetSpec(), puppetSelectedPin, puppetClockMs());
+                }
+
+                @Override public boolean isArmed() {
+                    com.fadcam.ui.faditor.puppet.PuppetRig r = rig();
+                    return r != null && r.recordOnTouch;
+                }
+
+                @Override public void toggleArmed() {
+                    com.fadcam.ui.faditor.puppet.PuppetRig r = rig();
+                    if (r != null) r.recordOnTouch = !r.recordOnTouch;
+                }
+
+                @Override public void jumpKey(boolean forward) { puppetJumpKey(forward); }
+
+                @Override public float depth() {
+                    com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
+                    return p == null ? 0.5f : p.depth;
+                }
+
+                @Override public void setDepth(float v) {
+                    com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
+                    if (p == null) return;
+                    p.depth = v;
+                    rebuildPuppetMesh(puppetItem, -1);
+                }
+
+                @Override public void placePinAt(float parentX, float parentY,
+                        @NonNull com.fadcam.ui.faditor.puppet.PuppetPin.Type type) {
+                    puppetPlacePin(parentX, parentY, type);
+                }
+
+                @Override public void onPlaceDragMove(float parentX, float parentY,
+                        @Nullable com.fadcam.ui.faditor.puppet.PuppetPin.Type type) {
+                    if (puppetOverlay != null) {
+                        puppetOverlay.setPlaceGhost(type, parentX, parentY);
+                    }
+                }
+
+                @Override public void onChanged() {
+                    if (puppetOverlay != null) puppetOverlay.refresh();
+                    if (objectDrawer != null && objectDrawer.isShowing()) {
+                        objectDrawer.refreshCurrentTab();
+                    }
+                    if (puppetHelper != null) puppetHelper.refresh();
+                    scheduleAutoSave();
+                }
+            });
+            playerContainer.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, orr, ob) -> {
+                if (puppetHelper != null && puppetHelper.getVisibility() == View.VISIBLE) {
+                    parkPuppetHelper();
+                }
+            });
+        }
+        return puppetHelper;
+    }
+
+    @Nullable
+    private com.fadcam.ui.faditor.puppet.PuppetPin puppetSelectedPinOrNull() {
+        com.fadcam.ui.faditor.puppet.PuppetRig r =
+                puppetItem == null ? null : puppetItem.getPuppet();
+        if (r == null || puppetSelectedPin < 0 || puppetSelectedPin >= r.pinCount()) return null;
+        return r.pin(puppetSelectedPin);
+    }
+
+    /** Put the strip in whichever corner it currently wants. */
+    private void parkPuppetHelper() {
+        if (puppetHelper == null) return;
+        android.widget.FrameLayout pc = findViewById(R.id.player_container);
+        if (pc == null || pc.getWidth() <= 0) return;
+        float[] at = puppetHelper.parkAt(pc.getWidth(), pc.getHeight());
+        puppetHelper.setX(at[0]);
+        puppetHelper.setY(at[1]);
+    }
+
+    /** Place a pin dragged out of the strip, in the OVERLAY's pixels. */
+    private void puppetPlacePin(float x, float y,
+            @NonNull com.fadcam.ui.faditor.puppet.PuppetPin.Type type) {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (it == null || puppetOverlay == null) return;
+        android.graphics.RectF r = new android.graphics.RectF();
+        if (!readPuppetItemRect(it, r) || r.width() <= 1f) return;
+        if (!r.contains(x, y)) return;      // dropped off the picture: nothing made
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = puppetRigFor(it);
+        final int made = rig.addPin(type, (x - r.left) / r.width(), (y - r.top) / r.height());
+        if (made < 0) return;
+        puppetSelectedPin = made;
+        adoptPuppetRigIfRigged(it);
+        undoManager.recordAction(new EditActions.LambdaAction("Add pin",
+                () -> { },
+                () -> { rig.removePin(made); rebuildPuppetMesh(it, made); repaintPuppetPicture(); }));
+        rebuildPuppetMesh(it, -1);
+        repaintPuppetPicture();
+        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
+    }
+
+    /** Remove a pin, as ONE undo step, with its mesh rebuilt around what is left. */
+    private void puppetDeletePin(int index) {
+        final com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = it == null ? null : it.getPuppet();
+        if (it == null || rig == null || index < 0 || index >= rig.pinCount()) return;
+        final com.fadcam.ui.faditor.puppet.PuppetRig before = rig.copy();
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec meshBefore =
+                it.getMesh() == null ? null : it.getMesh().copy();
+        rig.removePin(index);
+        if (puppetSelectedPin >= rig.pinCount()) puppetSelectedPin = rig.pinCount() - 1;
+        rebuildPuppetMesh(it, index);
+        repaintPuppetPicture();
+        undoManager.recordAction(new EditActions.LambdaAction("Remove pin",
+                () -> { }, () -> {
+                    it.setPuppet(before.copy());
+                    it.setMesh(meshBefore == null ? null : meshBefore.copy());
+                    repaintPuppetPicture();
+                }));
+        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
     }
 
     /** The pose a bend gesture started from — the ONE snapshot it will undo to. */
@@ -31365,6 +31565,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean want = o != null && (viaDrawer || puppetPinsForced);
         if (!want) {
             if (puppetOverlay != null) puppetOverlay.setVisibility(View.GONE);
+            if (puppetHelper != null) puppetHelper.setVisibility(View.GONE);
             puppetItem = null;
             // RESTORE ONLY WHAT WE HID. The listener is not cleared when another object's
             // drawer opens, so this runs for PiPs and adjustment layers too — and an
@@ -31408,6 +31609,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (previewHandlesOverlay != null) previewHandlesOverlay.setVisibility(View.GONE);
         if (transformOverlay != null) transformOverlay.setVisibility(View.GONE);
         puppetHidHandles = true;
+        com.fadcam.ui.faditor.puppet.PuppetHelperView strip = ensurePuppetHelper();
+        strip.setVisibility(View.VISIBLE);
+        strip.bringToFront();
+        strip.refresh();
+        strip.post(this::parkPuppetHelper);
         syncPuppetBadge(o);          // hides it: the pin surface draws its own
     }
 
@@ -31466,6 +31672,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
                                                  @NonNull Runnable undo) {
                     undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+                }
+
+                @Override public boolean pointInHelper(float x, float y) {
+                    if (puppetHelper == null || puppetHelper.getVisibility() != View.VISIBLE) {
+                        return false;
+                    }
+                    float pad = 20f * getResources().getDisplayMetrics().density;
+                    return x > puppetHelper.getLeft() - pad && x < puppetHelper.getRight() + pad
+                            && y > puppetHelper.getTop() - pad && y < puppetHelper.getBottom() + pad;
+                }
+
+                @Override public void helperDodge(float x, float y, boolean isTarget) {
+                    if (puppetHelper == null || puppetOverlay == null) return;
+                    puppetHelper.dodge(x, y, puppetOverlay.getWidth(), puppetOverlay.getHeight(),
+                            isTarget);
+                    parkPuppetHelper();
+                }
+
+                @Override public void deletePin(int index) {
+                    puppetDeletePin(index);
                 }
 
                 @Override public boolean previewIsSmall() {

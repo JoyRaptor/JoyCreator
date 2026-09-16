@@ -118,6 +118,15 @@ public class PuppetOverlayView extends View {
          */
         boolean solveChainTo(int pin, float ux, float uy);
 
+        /** True when this point is over the helper strip — the place pins go to be deleted. */
+        boolean pointInHelper(float x, float y);
+
+        /** A finger is at this point: let the strip get out of its way, unless it is the target. */
+        void helperDodge(float x, float y, boolean isTarget);
+
+        /** Remove this pin, as ONE undo step. */
+        void deletePin(int index);
+
         /**
          * The bottom edge of the open drawer in this view's pixels, or 0.
          *
@@ -172,6 +181,8 @@ public class PuppetOverlayView extends View {
     private float downX, downY, boneX, boneY;
     private boolean moved;
     private boolean posing;
+    /** True while the dragged pin is over the strip, so the pin can show it is about to go. */
+    private boolean wasOverStrip;
     private float grabDX, grabDY;
     private float downRestX, downRestY;
     private final float[] downOff = new float[2];
@@ -205,6 +216,24 @@ public class PuppetOverlayView extends View {
     /** Re-read and repaint. Cheap; call it from anywhere that changes the rig. */
     public void refresh() { invalidate(); }
 
+    // ── the ghost a drag out of the helper leaves under the finger ───────
+    @Nullable private PuppetPin.Type ghostType;
+    private float ghostX, ghostY;
+
+    /**
+     * Show (or with a null type, hide) the pin being dragged out of the helper strip.
+     *
+     * <p>Drawn HERE rather than by the strip because the strip is 58dp square and the finger is
+     * out over the picture — and because putting a second full-screen view up to follow it would
+     * be the several-views-one-hit-test bug this class already avoids.
+     */
+    public void setPlaceGhost(@Nullable PuppetPin.Type type, float x, float y) {
+        ghostType = type;
+        ghostX = x;
+        ghostY = y;
+        invalidate();
+    }
+
     // ── drawing ──────────────────────────────────────────────────────────
 
     @Override
@@ -224,6 +253,16 @@ public class PuppetOverlayView extends View {
         // The badge is the LAST thing drawn and the first thing hit-tested: it must stay
         // reachable even when a pin happens to sit under it.
         if (rig.pinCount() > 0 && !host.previewIsSmall()) drawBadge(c, locked);
+
+        // The pin being dragged out of the helper, under the finger, at full size so its SHAPE
+        // is readable before it lands — which is the whole point of showing it at all.
+        if (ghostType != null) {
+            fill.setStyle(Paint.Style.FILL);
+            fill.setColor(0x33000000);
+            c.drawCircle(ghostX, ghostY, 17f * d, fill);
+            PuppetShapes.draw(c, ghostType, ghostX, ghostY, DOT_R_SEL * d,
+                    PuppetPalette.of(ghostType), fill, stroke, d);
+        }
 
         // THE MAGNIFIER, last, over everything. Only while a pin is actually being moved: a
         // finger is parked on top of the very thing it is dragging, and on a puppet that thing
@@ -256,14 +295,8 @@ public class PuppetOverlayView extends View {
             boolean on = i == dragPin;
             float rr = (on ? 4.2f : 2.6f) * d * invZoom;
             int hue = PuppetPalette.of(p.type, false);
-            if (on) {
-                fill.setStyle(Paint.Style.FILL);
-                fill.setColor(hue);
-                c.drawCircle(posedX(i, p), posedY(i, p), rr, fill);
-            }
-            stroke.setColor(hue);
-            stroke.setStrokeWidth((on ? 1.6f : 1.1f) * d * invZoom);
-            c.drawCircle(posedX(i, p), posedY(i, p), rr, stroke);
+            PuppetShapes.draw(c, p.type, posedX(i, p), posedY(i, p), rr, hue, fill, stroke,
+                    d * invZoom);
         }
     }
 
@@ -320,19 +353,21 @@ public class PuppetOverlayView extends View {
                 fill.setAlpha(255);
             }
 
-            // A dark ring first so a pin stays visible on artwork of its own colour.
-            stroke.setColor(0xD9090B0E);
-            stroke.setStrokeWidth(2.6f * d);
-            c.drawCircle(cx, cy, (isSel ? DOT_R_SEL : DOT_R) * d, stroke);
-
-            fill.setColor(hue);
-            fill.setStyle(Paint.Style.FILL);
-            c.drawCircle(cx, cy, (isSel ? DOT_R_SEL : DOT_R) * d, fill);
-
-            // A muted pin is hollow — it is still there, it just does nothing.
+            // SHAPE AS WELL AS COLOUR — a pushpin anchors, a square resists, a teardrop hangs,
+            // a circle goes anywhere. One drawer shared with the helper's swatch, so the button
+            // that changes a type and the pin it changed cannot end up disagreeing.
+            float rr = (isSel ? DOT_R_SEL : DOT_R) * d;
+            if (isSel && wasOverStrip && i == dragPin) {
+                // About to be removed: a ring the colour of a warning, drawn before the pin so
+                // the pin still reads on top of it.
+                stroke.setColor(PuppetPalette.STIFF);
+                stroke.setStrokeWidth(2f * d);
+                c.drawCircle(cx, cy, rr + 7f * d, stroke);
+            }
             if (p.muted) {
-                fill.setColor(0xFF090B0E);
-                c.drawCircle(cx, cy, (isSel ? DOT_R_SEL : DOT_R) * d - 2.4f * d, fill);
+                PuppetShapes.drawMuted(c, p.type, cx, cy, rr, hue, fill, stroke, d);
+            } else {
+                PuppetShapes.draw(c, p.type, cx, cy, rr, hue, fill, stroke, d);
             }
 
             if (isSel) {
@@ -481,6 +516,12 @@ public class PuppetOverlayView extends View {
                 if (boneFrom >= 0) { boneX = x; boneY = y; invalidate(); return true; }
                 if (dragPin >= 0 && moved) {
                     PuppetPin p = rig.pin(dragPin);
+                    // THE STRIP IS A SINK AS WELL AS A SOURCE. Drag a pin into it and it goes;
+                    // drag the swatch out of it and one arrives. One place, two directions, and
+                    // nothing to teach — the bin is not somewhere else.
+                    boolean overStrip = host.pointInHelper(x, y);
+                    host.helperDodge(x, y, overStrip);
+                    if (overStrip != wasOverStrip) { wasOverStrip = overStrip; invalidate(); }
                     float ux = (x + grabDX - rect.left) / rect.width();
                     float uy = (y + grabDY - rect.top) / rect.height();
                     if (posing) {
@@ -520,6 +561,17 @@ public class PuppetOverlayView extends View {
                     return true;
                 }
                 if (dragPin >= 0) {
+                    if (moved && host.pointInHelper(x, y)) {
+                        // Released over the strip: the pin puffs away. Undoable, always — an
+                        // animation that meant "gone forever" would make people stop trusting
+                        // the gesture, and a gesture people fear is worse than a menu.
+                        int gone = dragPin;
+                        wasOverStrip = false;
+                        reset();
+                        host.deletePin(gone);
+                        invalidate();
+                        return true;
+                    }
                     if (moved) {
                         // ONE undo for the whole drag — the standing ruling. Recorded on release,
                         // never per MOVE, and skipped entirely when the pin ended where it began.
@@ -580,7 +632,9 @@ public class PuppetOverlayView extends View {
         invalidate();
     }
 
-    private void reset() { dragPin = -1; boneFrom = -1; moved = false; posing = false; }
+    private void reset() {
+        dragPin = -1; boneFrom = -1; moved = false; posing = false; wasOverStrip = false;
+    }
 
     private void structureChanged() {
         if (host != null) { host.onRigStructureChanged(); host.onRigChanged(); }

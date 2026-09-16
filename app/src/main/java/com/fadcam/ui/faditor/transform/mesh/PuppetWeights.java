@@ -195,6 +195,30 @@ public final class PuppetWeights {
     public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
                                       int[] islandStart, float softness,
                                       float[] stiffArea, float[] stiffStrength, boolean[] muted) {
+        return build(verts, indices, pins, islandStart, softness,
+                stiffArea, stiffStrength, muted, null);
+    }
+
+    /**
+     * As above, plus a per-pin WEIGHT OVERRIDE.
+     *
+     * <p>{@code weightScale[i]} multiplies pin {@code i}’s whole column before normalisation, so
+     * 1 is the automatic behaviour, 2 makes that pin about twice as persuasive as the density
+     * alone would have it, and 0 takes it out of the argument without muting it. Because the
+     * scale is applied BEFORE normalisation the rows still sum to one and no vertex is left
+     * partly undriven — an override changes who wins, never whether there is an answer.
+     *
+     * <p>It should almost always stay automatic. The falloff is already density-adaptive: put a
+     * second pin beside the first and their influence splits with nothing to set. This is for the
+     * case that rule gets wrong.
+     *
+     * <p>Until 2026-09-16 {@code PuppetPin.weight} was persisted, round-tripped through JSON and
+     * read by nothing whatsoever. This is the other end of it.
+     */
+    public static PuppetWeights build(float[] verts, short[] indices, float[] pins,
+                                      int[] islandStart, float softness,
+                                      float[] stiffArea, float[] stiffStrength, boolean[] muted,
+                                      float[] weightScale) {
         if (verts == null || indices == null || pins == null) return null;
         int n = verts.length / 2, p = pins.length / 2;
         if (n <= 0 || p <= 0 || indices.length < 3) return null;
@@ -238,6 +262,23 @@ public final class PuppetWeights {
                     table[v * p + i] = alpha == 1.0f
                             ? 1f / (d * d)
                             : (float) (1.0 / Math.pow(d * d, alpha));
+                }
+            }
+        }
+
+        // THE OVERRIDE, before normalisation — see this method’s doc for why that is the only
+        // place it can go and still leave every row summing to one.
+        if (weightScale != null) {
+            for (int i = 0; i < p && i < weightScale.length; i++) {
+                float k = weightScale[i];
+                if (Float.isNaN(k) || k < 0f) continue;        // automatic, or nonsense: leave it
+                if (Math.abs(k - 1f) < 1e-4f) continue;
+                for (int v = 0; v < n; v++) {
+                    float w = table[v * p + i];
+                    // A vertex sitting ON a pin is stored as infinity and resolved by normalise;
+                    // scaling it would turn a zero override into NaN and blank the character.
+                    if (Float.isInfinite(w) || w == 0f) continue;
+                    table[v * p + i] = w * k;
                 }
             }
         }

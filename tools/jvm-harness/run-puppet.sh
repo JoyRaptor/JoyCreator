@@ -30,7 +30,7 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetDrawOrderTest.java tools/jvm-harness/PuppetDepthFieldTest.java tools/jvm-harness/PuppetDangleBakeTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/PuppetTapeTest.java tools/jvm-harness/PuppetKeysTest.java tools/jvm-harness/PuppetRetimeTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetDrawOrderTest.java tools/jvm-harness/PuppetDepthFieldTest.java tools/jvm-harness/PuppetDangleBakeTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/PuppetTapeTest.java tools/jvm-harness/PuppetKeysTest.java tools/jvm-harness/PuppetRetimeTest.java tools/jvm-harness/MeshEasingFitTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -69,6 +69,8 @@ java @"$RUNARGS" PuppetTapeTest || exit 1
 # A pin KEYS on its own components, and deleting one must not take the rest with it.
 java @"$RUNARGS" PuppetKeysTest || exit 1
 java @"$RUNARGS" PuppetRetimeTest || exit 1
+# Thinning a take must not flatten the performance into a glide.
+java @"$RUNARGS" MeshEasingFitTest || exit 1
 # The avatar package's OWN proofs. They existed with no runner driving them — orphaned
 # tests prove nothing. Same puppet problem, same suite.
 java @"$RUNARGS" DangleTest || exit 1

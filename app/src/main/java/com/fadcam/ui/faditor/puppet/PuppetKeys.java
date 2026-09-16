@@ -1,6 +1,8 @@
 package com.fadcam.ui.faditor.puppet;
 
 
+import com.fadcam.ui.faditor.transform.mesh.MeshCurves;
+import com.fadcam.ui.faditor.transform.mesh.MeshEasingFit;
 import com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack;
 import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
 
@@ -343,6 +345,26 @@ public final class PuppetKeys {
      * higher means fewer keys, which is the direction that reads as "less detail".
      */
     public static int simplify(MeshWarpSpec spec, long fromMs, long toMs, float detail) {
+        return simplify(spec, fromMs, toMs, detail, null);
+    }
+
+    /**
+     * As above, and then give each surviving key the CURVE the performance actually had.
+     *
+     * <p>Thinning throws away the shape between two survivors and leaves the default easing in
+     * its place, so a hand that whipped out and settled plays back as a hand that glides — the
+     * user’s performance quietly replaced by an average of it. JoyRaptor asked for the fix by
+     * name: <i>"we already have a lot of different types of easing that it could look at and
+     * identify what it’s closest to."</i>
+     *
+     * <p>The copy is taken BEFORE thinning because the evidence is the samples that are about to
+     * be discarded. It is one array per pose for the length of one take, freed as soon as the fit
+     * is done, and it only happens on release — never per move.
+     *
+     * @param components the chain being recorded, so a limb is judged as one thing; null = all
+     */
+    public static int simplify(MeshWarpSpec spec, long fromMs, long toMs, float detail,
+                               int[] components) {
         if (spec == null || spec.track() == null) return 0;
         if (detail <= 0.02f) return 0;          // keep every sample
         // Unit space, so this is a FRACTION OF THE PICTURE, not pixels. 0.02 sounded modest and
@@ -352,7 +374,13 @@ public final class PuppetKeys {
         // make simplifyRange's own epsilon comparisons meaningless.
         float tolerance = 0.0006f + detail * 0.008f;
         try {
-            return spec.track().simplifyRange(fromMs, toMs, tolerance);
+            MeshPoseTrack dense = spec.track().copy();
+            int removed = spec.track().simplifyRange(fromMs, toMs, tolerance);
+            if (removed > 0) {
+                MeshEasingFit.fit(spec.track(), dense, components, fromMs, toMs,
+                        MeshCurves.APP_EASING);
+            }
+            return removed;
         } catch (Exception e) {
             return 0;
         }

@@ -271,30 +271,39 @@ nothing is removed, and it reads as "you have made something."
 | **Keyframes — drop, delete, jump, per-pin** | 🟡 | Built and unit-proved; **nobody has keyed a pin on a phone** |
 | **Live takes — record on touch, thin, blend out** | 🟡 | Same. The headline interaction is unexercised. |
 | **The tape — bars and diamonds** | 🟡 | Drawn from key density; never seen |
-| **The helper strip** | 🟡 | Four controls, drag-out, drag-in-to-delete, Z scrub. Never touched. |
+| **The helper strip** | 🟡 | Four controls, drag-out, drag-in-to-delete, Z scrub, captions, depth stack. He has driven it once and reported six defects, all fixed. |
+| **The tape — dragging** | 🟡 | Slide / stretch / retime, 26 assertions. Never dragged on a phone. |
+| **Bones as a selectable thing** | 🟡 | Tap a shaft; the whole bone scope hangs off it. Never tapped. |
+| **Reach ring, mesh wireframe, weight override** | 🟡 | Three former dead knobs, now driving real output. Never seen. |
 | Shapes per pin type | 🟡 | Pushpin / square / teardrop / circle |
-| Loupe, shared with the transform tool | 🟡 | **The migration could have broken the transform tool's own loupe and nobody has checked.** |
+| Loupe, shared with the transform tool | 🟡 | **Still unchecked on the transform tool's own surface.** The puppet side has been used; the tool the code was MOVED from has not been opened since. |
+| Pins on a rotated picture | 🟡 | The map now carries the angle. Nobody has rotated a rigged picture since. |
 
-### The tape is DRAWN, not yet DRAGGABLE
+### The tape DRAGS — 2026-09-16
 
-§01 promised three gestures on a bar: drag the body to slide the performance, drag a cap to
-stretch it, drag a key inside to retime one moment. **None of them are built.** The tape draws
-performances and keys correctly and reads as the design intended; it does not yet accept a
-touch.
+§01 promised three gestures on a bar and §7 recorded all three as deferred, for two stated
+reasons. Both are now answered rather than worked around.
 
-Not an oversight — a scope call, made deliberately and recorded rather than quietly skipped:
+- **"`MeshPoseTrack` offers `shiftAll` and nothing ranged."** It now offers `shiftRange`,
+  `scaleRange` and `moveKey`. The rule all three share is that **a time edit never destroys a
+  key**: each clamps at the nearest key outside what is moving, the way a clip on a timeline stops
+  at its neighbour, and each returns the delta it ACTUALLY applied so the drag draws the
+  performance where it really went rather than where the finger is. The alternative — letting a
+  moved key land on a stationary one and dropping the loser — is a data loss with no undo
+  affordance and no visible cause.
+- **"A fourth claimant on `LayerGestureController`'s hit-test is how you break clip dragging."**
+  It turned out the DRAWING had already solved this: puppet marks are drawn ABOVE the row midline
+  and the property diamonds BELOW. `hitTestPuppetMark` refuses anything at or under the midline,
+  so the two hit-tests are disjoint by construction rather than by luck, and the gesture routes
+  through the same ARMED-on-DOWN path the keyframe time-shift already uses.
 
-- `MeshPoseTrack` offers `shiftAll` and nothing ranged. Sliding one take needs a shift over a
-  range and stretching needs a time re-map, both of which are new engine API in the OTHER lane's
-  files.
-- The gesture side is `LayerGestureController`, which already arbitrates clip drags, keyframe
-  drags, marquee and fades on the same surface. Adding a fourth claimant to that hit-test
-  unattended, at night, on top of a feature no human has used once, is the kind of change that
-  looks fine and breaks clip dragging.
+The caps own the outer 11dp, exactly as the study quoted; a survivor inside the bar beats the body
+because retiming one moment is the finer gesture. One undo press for the whole drag.
 
-**Do this only after somebody has recorded a take and watched it play.** If takes turn out to
-need retiming constantly it is worth the engine work; if they are re-recorded rather than
-retimed — which is what "rewind and go again" suggests — it may never be worth it.
+`PuppetRetimeTest` pins the arithmetic with 26 checks, including forty rounds of mixed
+slide/stretch/retime that must end with every key present and in ascending order — the clamping is
+the interesting half, and it is exactly what a human dragging a bar hits by accident and never
+thinks to check on purpose.
 
 ### What is deliberately NOT built
 
@@ -302,16 +311,24 @@ retimed — which is what "rewind and go again" suggests — it may never be wor
   it (`MeshBendSeam.Owner` is six methods every type already has) but nothing is wired.
 - **A take as a stored object.** Bars are inferred from key DENSITY — see `PuppetTapeMarks`.
   Thin a take hard enough and it correctly stops being a bar.
-- **Per-pin easing.** Keys are written with the track's default curve.
+- **Hand-editing a key's easing.** The curve is FITTED from the recording now
+  (`MeshEasingFit`), which is what JoyRaptor asked for — *"identify what it's closest to"* — but
+  there is no control to override the fit on one key afterwards. Worth adding only if the fit is
+  found to guess wrong; a per-key curve picker on a dense take is a lot of surface for a rare fix.
 
 ### Owed, and known
 
-1. **Nothing here is device-verified beyond the bend itself.** Twelve suites and ~390
-   assertions run off device; that is not the same claim.
-2. **The timeline grab bar is still dead** and is not this feature's doing — a diagnostic now
-   logs on the editor opening (`GRABBAR setup ok` / `SKIPPED`) rather than needing a drag.
-3. **One corner widget is still unidentified** ("the audio clipping widget"). Three of the four
-   things that were colliding are accounted for; a screenshot settles the rest.
-4. **`componentTimes` counts the two ends of a held value as keys**, which is honest about
-   storage and a lie on screen — hence `PuppetKeys.displayKeyCount`. Any new surface reading key
-   counts must use the display one.
+The live list is **`tasks/PUPPET_FINISH_LEDGER.md`**, which sweeps the whole design conversation,
+both HTML studies and this spec control by control. It holds seven dead knobs found and resolved,
+twenty-one designed-and-missing items now built, and seven things still open — each with the
+reason it is open rather than a silence.
+
+1. **Device verification is still the honest gap.** Fourteen suites and ~520 assertions run off
+   device; that is not the same claim as "he used it".
+2. **The timeline grab bar** is not this feature's doing and cannot be reproduced from here — that
+   phone holds his real projects. The likeliest cause is now defended against and the diagnostic is
+   conclusive on the next press. See ledger C1.
+3. **One corner widget is still unidentified.** A screenshot settles it.
+4. **`componentTimes` counts the two ends of a held value as keys**, which is honest about storage
+   and a lie on screen — hence `PuppetKeys.displayKeyCount`. Any new surface reading key counts
+   must use the display one; the chip row's dots do.

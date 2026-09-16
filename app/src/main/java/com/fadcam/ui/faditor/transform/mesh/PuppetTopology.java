@@ -57,6 +57,14 @@ public final class PuppetTopology implements MeshTopology {
      */
     private static final float FORMAT_V4 = 4f;
 
+    /**
+     * Adds the per-pin WEIGHT OVERRIDE. Same argument again: an override changes the weight
+     * table, so it is part of what this class is, and a puppet reloaded without it would bend
+     * differently from the one the user authored. v1 through v4 load with every pin automatic,
+     * which is what they meant.
+     */
+    private static final float FORMAT_V5 = 5f;
+
     private final float[][] rings;     // one contour per island, interleaved x,y, unit space
     private final int interior;        // interior seeding density, one axis, for the LARGEST island
     private final float[] pins;        // pin REST positions, interleaved x,y, unit space
@@ -68,6 +76,13 @@ public final class PuppetTopology implements MeshTopology {
     private final int[] indexStart;    // derived
 
     private final float softness;      // 0..1, the character's Softness
+    /**
+     * Per pin, a multiplier on its influence before normalisation. 1 is automatic.
+     *
+     * <p>Wire format V5. A V4 file loads with every entry at 1, which is exactly what those files
+     * meant, so there is nothing to migrate and no version of this app reads a file wrong.
+     */
+    private final float[] weightScale;
     private final float[] stiffArea;   // per pin, reach along the mesh
     private final float[] stiffStr;    // per pin, 0 = an ordinary pin
     private final boolean[] muted;     // per pin, true = affects nothing
@@ -116,6 +131,13 @@ public final class PuppetTopology implements MeshTopology {
     /** @param muted per pin: true stops it moving anything, keeping its animation. */
     public PuppetTopology(float[][] rings, int interior, float[] pins, float softness,
                           float[] stiffArea, float[] stiffStrength, boolean[] muted) {
+        this(rings, interior, pins, softness, stiffArea, stiffStrength, muted, null);
+    }
+
+    /** @param weightScale per pin, a multiplier on its influence; null or 1 is automatic. */
+    public PuppetTopology(float[][] rings, int interior, float[] pins, float softness,
+                          float[] stiffArea, float[] stiffStrength, boolean[] muted,
+                          float[] weightScale) {
         if (rings == null || rings.length == 0) {
             throw new IllegalArgumentException("puppet needs at least one contour");
         }
@@ -132,6 +154,7 @@ public final class PuppetTopology implements MeshTopology {
         int pinN = this.pins.length / 2;
         this.softness = Float.isNaN(softness)
                 ? PuppetWeights.SOFTNESS_NEUTRAL : Math.max(0f, Math.min(1f, softness));
+        this.weightScale = fitPerPin(weightScale, pinN, 1f);
         this.stiffArea = fitPerPin(stiffArea, pinN, 0.25f);
         this.stiffStr = fitPerPin(stiffStrength, pinN, 0f);
         this.muted = new boolean[pinN];
@@ -155,6 +178,7 @@ public final class PuppetTopology implements MeshTopology {
         h = h * 31 + this.interior;
         h = h * 31 + this.pins.length;
         h = h * 31 + Float.floatToIntBits(this.softness);
+        for (float f : this.weightScale) h = h * 31 + Float.floatToIntBits(f);
         for (float f : this.stiffArea) h = h * 31 + Float.floatToIntBits(f);
         for (float f : this.stiffStr) h = h * 31 + Float.floatToIntBits(f);
         for (boolean b : this.muted) h = h * 31 + (b ? 1 : 0);
@@ -167,8 +191,8 @@ public final class PuppetTopology implements MeshTopology {
     @Override public String kind() { return KIND; }
 
     /**
-     * {@code [FORMAT_V4, interior, pinCount, islandCount, softness, pointsPerIsland...,
-     * stiffArea..., stiffStrength..., muted..., pins..., rings...]}.
+     * {@code [FORMAT_V5, interior, pinCount, islandCount, softness, pointsPerIsland...,
+     * stiffArea..., stiffStrength..., muted..., weightScale..., pins..., rings...]}.
      *
      * <p>Floats throughout because {@link MeshTopology#params()} is float[] — which its own doc
      * explains was chosen precisely because "a puppet's parameters ARE its traced contour".
@@ -178,8 +202,8 @@ public final class PuppetTopology implements MeshTopology {
         int pinN = pins.length / 2;
         int ringFloats = 0;
         for (float[] r : rings) ringFloats += r.length;
-        float[] out = new float[5 + rings.length + pinN * 3 + pins.length + ringFloats];
-        out[0] = FORMAT_V4;
+        float[] out = new float[5 + rings.length + pinN * 4 + pins.length + ringFloats];
+        out[0] = FORMAT_V5;
         out[1] = interior;
         out[2] = pinN;
         out[3] = rings.length;
@@ -191,6 +215,8 @@ public final class PuppetTopology implements MeshTopology {
         System.arraycopy(stiffStr, 0, out, at, pinN);
         at += pinN;
         for (int i = 0; i < pinN; i++) out[at + i] = muted[i] ? 1f : 0f;
+        at += pinN;
+        System.arraycopy(weightScale, 0, out, at, pinN);
         at += pinN;
         System.arraycopy(pins, 0, out, at, pins.length);
         at += pins.length;
@@ -220,7 +246,8 @@ public final class PuppetTopology implements MeshTopology {
                 System.arraycopy(p, 4 + pins.length, ring, 0, ring.length);
                 return new PuppetTopology(ring, interior, pins);
             }
-            boolean v4 = format == Math.round(FORMAT_V4);
+            boolean v5 = format == Math.round(FORMAT_V5);
+            boolean v4 = v5 || format == Math.round(FORMAT_V4);
             boolean v3 = v4 || format == Math.round(FORMAT_V3);
             if (!v3 && format != Math.round(FORMAT_V2)) return null;
 
@@ -236,7 +263,7 @@ public final class PuppetTopology implements MeshTopology {
                 ringFloats += counts[i] * 2;
             }
             int at = head + islands;
-            int knobFloats = (v3 ? pinN * 2 : 0) + (v4 ? pinN : 0);
+            int knobFloats = (v3 ? pinN * 2 : 0) + (v4 ? pinN : 0) + (v5 ? pinN : 0);
             if (p.length < at + knobFloats + pinN * 2 + ringFloats) return null;
             float[] area = null, strength = null;
             boolean[] mute = null;
@@ -253,6 +280,12 @@ public final class PuppetTopology implements MeshTopology {
                 for (int i = 0; i < pinN; i++) mute[i] = p[at + i] >= 0.5f;
                 at += pinN;
             }
+            float[] wscale = null;
+            if (v5) {
+                wscale = new float[pinN];
+                System.arraycopy(p, at, wscale, 0, pinN);
+                at += pinN;
+            }
             float[] pins = new float[pinN * 2];
             System.arraycopy(p, at, pins, 0, pins.length);
             at += pins.length;
@@ -262,7 +295,8 @@ public final class PuppetTopology implements MeshTopology {
                 System.arraycopy(p, at, rings[i], 0, rings[i].length);
                 at += rings[i].length;
             }
-            return new PuppetTopology(rings, interior, pins, softness, area, strength, mute);
+            return new PuppetTopology(rings, interior, pins, softness, area, strength, mute,
+                    wscale);
         } catch (Exception ignored) {
             return null;
         }
@@ -318,8 +352,8 @@ public final class PuppetTopology implements MeshTopology {
     public PuppetWeights weights() {
         PuppetWeights w = weights;
         if (w == null && pins.length >= 2) {
-            w = PuppetWeights.build(verts, indices, pins, islandStart, softness, stiffArea,
-                    stiffStr, muted);
+            w = PuppetWeights.build(verts, indices, pins, islandStart, softness,
+                    stiffArea, stiffStr, muted, weightScale);
             weights = w;
         }
         return w;
@@ -362,6 +396,9 @@ public final class PuppetTopology implements MeshTopology {
 
     /** Per-pin mute, defensively copied. A muted pin moves nothing and keeps its animation. */
     public boolean[] muted() { return muted.clone(); }
+
+    /** Per pin, the authored influence multiplier. 1 is automatic. */
+    public float[] weightScale() { return weightScale.clone(); }
 
     /**
      * The DEPTH FIELD: each pin's depth spread across the mesh by the weights that bend it.

@@ -106,6 +106,9 @@ public final class PuppetMeshBuilder {
         float[] pins = new float[n * 2];
         float[] stiffArea = new float[n];
         float[] stiffStrength = new float[n];
+        // 1 is automatic — the density-adaptive falloff, untouched. PuppetPin.weight stores -1
+        // for "auto", which is the value the model has always used and nothing has ever read.
+        float[] weightScale = new float[n];
         boolean[] muted = new boolean[n];
         for (int i = 0; i < n; i++) {
             PuppetPin p = rig.pin(i);
@@ -117,6 +120,7 @@ public final class PuppetMeshBuilder {
             stiffArea[i] = stiff ? clamp01(p.stiffArea) : 0f;
             stiffStrength[i] = stiff ? clamp01(p.stiffStrength) : 0f;
             muted[i] = p.muted;
+            weightScale[i] = p.weightIsAuto() ? 1f : Math.max(0f, p.weight);
         }
 
         // BUILD SOMETHING THE RENDERER WILL ACTUALLY DRAW. A mesh over budget is not an error
@@ -133,7 +137,8 @@ public final class PuppetMeshBuilder {
         try {
             for (int attempt = 0; attempt < 7; attempt++) {
                 PuppetTopology topo = new PuppetTopology(
-                        rings, interior, pins, rig.softness, stiffArea, stiffStrength, muted);
+                        rings, interior, pins, rig.softness, stiffArea, stiffStrength, muted,
+                        weightScale);
                 if (topo.handleCount() != rig.pinCount() || topo.vertexCount() < 3) return null;
                 if (topo.vertexCount() <= VERT_BUDGET
                         && topo.indexCount() <= com.fadcam.ui.faditor.compositor
@@ -281,6 +286,9 @@ public final class PuppetMeshBuilder {
             PuppetPin p = rig.pin(i);
             h = mix(h, p.type.ordinal());
             h = mix(h, p.muted ? 1 : 0);
+            // The override is part of what the mesh IS, so a change to one must invalidate the
+            // cached topology — otherwise the slider moves and nothing bends any differently.
+            h = mix(h, Math.round((p.weightIsAuto() ? 1f : p.weight) * 1000f));
             h = mix(h, Math.round(p.restX * 4096f));
             h = mix(h, Math.round(p.restY * 4096f));
             if (p.type == PuppetPin.Type.STIFF) {

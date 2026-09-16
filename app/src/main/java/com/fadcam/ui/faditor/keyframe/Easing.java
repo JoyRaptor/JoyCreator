@@ -1,6 +1,5 @@
 package com.fadcam.ui.faditor.keyframe;
 
-import androidx.annotation.NonNull;
 
 /**
  * Interpolation curve used between one keyframe and the next. Kept as a small
@@ -120,8 +119,19 @@ public enum Easing {
         }
     }
 
-    @NonNull
-    public static Easing fromName(@NonNull String name) {
+    /**
+     * The curve of that name, or {@link #EASE_IN_OUT} for anything unrecognised.
+     *
+     * <p><b>No androidx annotations in this file, deliberately.</b> {@code MeshCurves} states that
+     * this class is android-free so the mesh package stays harness-testable, and until 2026-09-16
+     * that was not true: two {@code @NonNull}s pulled in {@code androidx.annotation} and the JVM
+     * harness could not compile anything that reached easing. The annotations carried no
+     * behaviour, so the null they documented is now CHECKED instead of merely asserted — which
+     * is strictly better, since {@code valueOf(null)} throws NullPointerException rather than the
+     * IllegalArgumentException the catch below was written for.
+     */
+    public static Easing fromName(String name) {
+        if (name == null) return EASE_IN_OUT;
         try {
             return Easing.valueOf(name);
         } catch (IllegalArgumentException e) {

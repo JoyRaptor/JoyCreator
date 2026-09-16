@@ -14204,6 +14204,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float downRawY;
             float baselineDp;
             boolean loggedThisDrag;
+            int movesThisDrag;
             @Override
             public boolean onTouch(View v, MotionEvent e) {
                 switch (e.getActionMasked()) {
@@ -14211,10 +14212,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         downRawY = e.getRawY();
                         baselineDp = editorTimeline.getLayerBandMaxHeightDp();
                         loggedThisDrag = false;
+                        movesThisDrag = 0;
                         grabBarDragging = true;
                         v.setPressed(true);
+                        // NOBODY ELSE TAKES THIS GESTURE. Returning true from DOWN claims the
+                        // sequence only until an ancestor decides to intercept, and an ancestor
+                        // that intercepts on the first MOVE produces EXACTLY the symptom
+                        // JoyRaptor reported twice: the bar lights up under the finger, and then
+                        // neither grows nor shrinks, while minimising a track still resizes the
+                        // band because that path never goes through a touch at all.
+                        //
+                        // This is the standard contract for any drag handle and costs nothing if
+                        // interception was never the problem, which is why it is worth doing
+                        // ahead of a reproduction rather than after one.
+                        if (v.getParent() != null) {
+                            v.getParent().requestDisallowInterceptTouchEvent(true);
+                        }
                         return true;
                     case MotionEvent.ACTION_MOVE: {
+                        movesThisDrag++;
                         // Drag UP (rawY decreases) grows the timeline; DOWN shrinks it.
                         float deltaDp = (downRawY - e.getRawY()) / density;
                         float targetDp = baselineDp + deltaDp;
@@ -14248,6 +14264,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
+                        // THE CONCLUSIVE LINE. The MOVE diagnostic below could only ever report a
+                        // drag that arrived; if the bar is dead because the moves never reach it,
+                        // that diagnostic stays silent and looks like the feature was never used.
+                        // This one fires on every touch of the bar, so one press answers which of
+                        // the three it is: no line at all = the touch never reached the view;
+                        // moves=0 = something upstream is eating the drag; moves>0 with the MOVE
+                        // line showing applied==baseline = the clamp is refusing the size.
+                        FLog.w(TAG, "GRABBAR gesture ended \u2014 moves=" + movesThisDrag
+                                + " baseline=" + baselineDp + "dp now="
+                                + editorTimeline.getLayerBandMaxHeightDp() + "dp"
+                                + (e.getActionMasked() == MotionEvent.ACTION_CANCEL
+                                    ? " (CANCELLED by an ancestor)" : ""));
                         grabBarDragging = false;
                         v.setPressed(false);
                         // G6.2 (contract §5): snap the released split to the nearest sensible detent
@@ -30969,64 +30997,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Returns false for a pin with no bones, which is not a failure — it is the ordinary case,
      * and the caller then simply moves that one pin.
      */
-    /**
-     * The deformed triangles for the Character scope’s Show · Mesh toggle, or null.
-     *
-     * <p>Returns null the moment the toggle is off, so the solve never runs for the people who
-     * never asked for it — which is nearly everybody, since the spec is explicit that the
-     * triangles are a debug view rather than a workflow.
-     */
-    @Nullable
-    private com.fadcam.ui.faditor.puppet.PuppetMeshWire puppetMeshWire() {
-        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
-        if (it == null) return null;
-        com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
-        if (rig == null || !rig.showMesh) return null;
-
-        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
-        if (spec == null
-                || !(spec.topology()
-                        instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) {
-            return null;
-        }
-        if (puppetWire == null) puppetWire = new com.fadcam.ui.faditor.puppet.PuppetMeshWire();
-        puppetWire.update(
-                (com.fadcam.ui.faditor.transform.mesh.PuppetTopology) spec.topology(),
-                puppetPoseNow());
-        return puppetWire;
-    }
-
-    /**
-     * Join two pins with a bone, as ONE undo step.
-     *
-     * <p>Shares the rig-snapshot shape of {@code puppetPlacePin} for the same reason: a bone
-     * renumbers nothing, but an empty redo would still lose it, and a user who presses redo and
-     * sees nothing happen concludes that undo ate their work.
-     */
-    private void puppetMakeBone(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem it,
-                                @NonNull com.fadcam.ui.faditor.puppet.PuppetRig rig,
-                                int rootPin, int tipPin) {
-        float dx = rig.pin(tipPin).restX - rig.pin(rootPin).restX;
-        float dy = rig.pin(tipPin).restY - rig.pin(rootPin).restY;
-        int made = rig.addBone(rootPin, tipPin, (float) Math.hypot(dx, dy));
-        if (made < 0) return;
-
-        final com.fadcam.ui.faditor.puppet.PuppetRig withBone = rig.copy();
-        final com.fadcam.ui.faditor.puppet.PuppetRig withoutBone = rig.copy();
-        withoutBone.removeBone(made);
-        undoManager.recordAction(new EditActions.LambdaAction("Add bone",
-                () -> { it.setPuppet(withBone.copy()); repaintPuppetPicture(); },
-                () -> { it.setPuppet(withoutBone.copy()); repaintPuppetPicture(); }));
-
-        puppetSelectedBone = made;
-        puppetSelectedPin = -1;
-        if (puppetHelper != null) {
-            puppetHelper.say(rig.pin(rootPin).name + " \u2192 " + rig.pin(tipPin).name);
-        }
-        repaintPuppetPicture();
-        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
-    }
-
     private boolean puppetSolveChain(int pin, float ux, float uy) {
         com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
         if (it == null) return false;
@@ -31088,6 +31058,84 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (solved) puppetCommitWorkPose(com.fadcam.ui.faditor.puppet.PuppetKeys
                 .componentsForDrag(rig, pin));
         return solved;
+    }
+
+    /**
+     * The deformed triangles for the Character scope’s Show · Mesh toggle, or null.
+     *
+     * <p>Returns null the moment the toggle is off, so the solve never runs for the people who
+     * never asked for it — which is nearly everybody, since the spec is explicit that the
+     * triangles are a debug view rather than a workflow.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.puppet.PuppetMeshWire puppetMeshWire() {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (it == null) return null;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
+        if (rig == null || !rig.showMesh) return null;
+
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        if (spec == null
+                || !(spec.topology()
+                        instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) {
+            return null;
+        }
+        if (puppetWire == null) puppetWire = new com.fadcam.ui.faditor.puppet.PuppetMeshWire();
+        puppetWire.update(
+                (com.fadcam.ui.faditor.transform.mesh.PuppetTopology) spec.topology(),
+                puppetPoseNow());
+        return puppetWire;
+    }
+
+    /**
+     * Join two pins with a bone, as ONE undo step.
+     *
+     * <p>Shares the rig-snapshot shape of {@code puppetPlacePin} for the same reason: a bone
+     * renumbers nothing, but an empty redo would still lose it, and a user who presses redo and
+     * sees nothing happen concludes that undo ate their work.
+     */
+    private void puppetMakeBone(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem it,
+                                @NonNull com.fadcam.ui.faditor.puppet.PuppetRig rig,
+                                int rootPin, int tipPin) {
+        float dx = rig.pin(tipPin).restX - rig.pin(rootPin).restX;
+        float dy = rig.pin(tipPin).restY - rig.pin(rootPin).restY;
+        int made = rig.addBone(rootPin, tipPin, (float) Math.hypot(dx, dy));
+        if (made < 0) return;
+
+        final com.fadcam.ui.faditor.puppet.PuppetRig withBone = rig.copy();
+        final com.fadcam.ui.faditor.puppet.PuppetRig withoutBone = rig.copy();
+        withoutBone.removeBone(made);
+        undoManager.recordAction(new EditActions.LambdaAction("Add bone",
+                () -> { it.setPuppet(withBone.copy()); repaintPuppetPicture(); },
+                () -> { it.setPuppet(withoutBone.copy()); repaintPuppetPicture(); }));
+
+        puppetSelectedBone = made;
+        puppetSelectedPin = -1;
+        if (puppetHelper != null) {
+            puppetHelper.say(rig.pin(rootPin).name + " \u2192 " + rig.pin(tipPin).name);
+        }
+        repaintPuppetPicture();
+        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
+    }
+
+    /**
+     * The VIEW drawing this overlay item, or null.
+     *
+     * <p>Found by the tag the overlay layer already puts on each child ({@code getTag() == o}).
+     * Split out so the box and the angle are read off the same view rather than two searches that
+     * could in principle disagree.
+     */
+    @Nullable
+    private View puppetItemView(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (o == null) return null;
+        com.fadcam.ui.faditor.overlay.TextOverlayLayer[] layers = {overlayLayer, overlayLayerBelow};
+        for (com.fadcam.ui.faditor.overlay.TextOverlayLayer layer : layers) {
+            if (layer == null) continue;
+            for (int i = 0; i < layer.getChildCount(); i++) {
+                if (layer.getChildAt(i).getTag() == o) return layer.getChildAt(i);
+            }
+        }
+        return null;
     }
 
     /** Island count already warned about, so the toast fires on a change and not every drag. */
@@ -31317,10 +31365,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
             float detail = rig == null ? 0.78f : rig.detail;
+            // comps is the CHAIN that was dragged, so the easing is fitted to the limb as one
+            // thing rather than to whichever pin happened to be touched. A limb that eases as a
+            // unit is what a limb does.
+            int recorded = before.track() == null ? 0 : before.track().size();
             int dropped = com.fadcam.ui.faditor.puppet.PuppetKeys.simplify(
-                    spec, from, to + blend, detail);
+                    spec, from, to + blend, detail, comps);
             FLog.w(TAG, "Puppet take " + from + ".." + to + "ms — thinned " + dropped
                     + " poses at detail " + detail);
+            // SAY WHAT WAS THROWN AWAY. The design study's counter read "13 of 103 keys" and the
+            // point of it was honesty: simplification is on by default and load-bearing — the
+            // tape's bars are only legible because the keys got thinned — so a user who is never
+            // told it happened will eventually find a take with fewer keys than they made and
+            // conclude the app lost their work.
+            if (dropped > 0 && recorded > 0 && puppetHelper != null) {
+                puppetHelper.say("Kept " + Math.max(0, recorded - dropped)
+                        + " of " + recorded + " keys");
+            }
         }
 
         // ONE step for the whole gesture, take or not. The snapshot already holds the entire
@@ -31968,6 +32029,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 @Override public boolean reachPreview() { return puppetReachPreview; }
 
+                @Override public float itemRotationDeg() {
+                    View v = puppetItemView(puppetItem);
+                    return v == null ? 0f : v.getRotation();
+                }
+
                 @Override public void deletePin(int index) {
                     puppetDeletePin(index);
                 }
@@ -32037,33 +32103,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * then mapped through window coordinates so it does not matter which container the view
      * happens to live in.
      *
-     * <p><b>Axis-aligned for now.</b> A rotated image reports its upright bounding box, so pins on
-     * a rotated overlay will sit slightly off. The honest fix is the object's QUAD, which
-     * {@code TransformQuad} already computes -- worth doing before anyone rigs a rotated picture,
-     * and called out here rather than discovered on a phone.
+     * <p><b>UPRIGHT, and deliberately so.</b> This returns the box the item would occupy at zero
+     * degrees; {@code PuppetOverlayView} applies the rotation itself, through one map and one
+     * inverse. Before 2026-09-16 this returned {@code getLocationInWindow}'s transformed bounds,
+     * which are the AXIS-ALIGNED BOUNDS of a rotated view rather than the view -- so pins on a
+     * rotated picture sat off the artwork, and they visibly scattered and snapped back during a
+     * rotate gesture (JoyRaptor: "sloppy, and I'd like to kill it properly") because those bounds
+     * grow and shrink as the angle sweeps.
      */
     private boolean readPuppetItemRect(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o,
                                        @NonNull android.graphics.RectF out) {
-        if (o == null || puppetOverlay == null) return false;
-        View found = null;
-        com.fadcam.ui.faditor.overlay.TextOverlayLayer[] layers = {overlayLayer, overlayLayerBelow};
-        for (com.fadcam.ui.faditor.overlay.TextOverlayLayer layer : layers) {
-            if (layer == null) continue;
-            for (int i = 0; i < layer.getChildCount(); i++) {
-                if (layer.getChildAt(i).getTag() == o) { found = layer.getChildAt(i); break; }
-            }
-            if (found != null) break;
-        }
+        if (puppetOverlay == null) return false;
+        View found = puppetItemView(o);
         if (found == null || found.getWidth() <= 0 || found.getHeight() <= 0) return false;
 
-        int[] a = new int[2], b = new int[2];
-        found.getLocationInWindow(a);
-        puppetOverlay.getLocationInWindow(b);
-        float w = found.getWidth() * found.getScaleX();
-        float h = found.getHeight() * found.getScaleY();
-        // getLocationInWindow reports the SCALED top-left, so the box is that corner plus the
-        // scaled size -- no second scale correction, which is the easy mistake here.
-        out.set(a[0] - b[0], a[1] - b[1], a[0] - b[0] + w, a[1] - b[1] + h);
+        // THE CENTRE, not a corner. A rotated view's corners move; its centre does not, so the
+        // centre is the one point that survives the transform and can be measured straight.
+        View parent = (View) found.getParent();
+        if (parent == null) return false;
+        int[] pw = new int[2], ow = new int[2];
+        parent.getLocationInWindow(pw);
+        puppetOverlay.getLocationInWindow(ow);
+
+        float[] c = {found.getWidth() / 2f, found.getHeight() / 2f};
+        // getMatrix carries scale, rotation and translation about the view's own pivot, in its
+        // PARENT's coordinates and relative to the view's left/top -- which is why both are added.
+        found.getMatrix().mapPoints(c);
+        float cx = (pw[0] - ow[0]) + found.getLeft() + c[0];
+        float cy = (pw[1] - ow[1]) + found.getTop() + c[1];
+
+        float w = found.getWidth() * Math.abs(found.getScaleX());
+        float h = found.getHeight() * Math.abs(found.getScaleY());
+        out.set(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f);
         return out.width() > 1f && out.height() > 1f;
     }
 
@@ -32210,6 +32281,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Puppet", R.drawable.ic_person_24,                        // TODO(strings)
                 ctx -> com.fadcam.ui.faditor.tools.PuppetDrawerTabs.build(
                         ctx, puppetHostFor(o, applyComp))));
+
+        // A RIGGED PICTURE OPENS ON PUPPET. Once somebody has put pins in a character, that is
+        // what they came back for; landing on the first tab every time means finding the last
+        // tab every time. An unrigged picture is untouched by this and still opens on the first.
+        com.fadcam.ui.faditor.puppet.PuppetRig openRig = o.getPuppet();
+        if (openRig != null && openRig.pinCount() > 0) {
+            ensureObjectDrawer().openOnTab(tabs.size() - 1);
+        }
 
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();

@@ -519,6 +519,22 @@ public final class PuppetDrawerTabs {
         root.addView(pinToggles);
         gap(ctx, root, d, 7);
 
+        // THE WEIGHT OVERRIDE, and it starts as a toggle rather than a slider because the honest
+        // default is "do not touch this". The falloff is already density-adaptive: put a second
+        // pin beside the first and their influence splits with nothing to set. The slider only
+        // appears once somebody has decided the automatic answer is wrong for this pin.
+        LinearLayout weightRow = row(ctx);
+        addToggle(ctx, host, weightRow, d, "Automatic pull", pin.weightIsAuto(),
+                v -> { pin.weight = v ? PuppetPin.WEIGHT_AUTO : 1f;
+                       host.onRigStructureChanged(); });
+        root.addView(weightRow);
+        gap(ctx, root, d, 7);
+        if (!pin.weightIsAuto()) {
+            rangeSlider(ctx, root, host, d, "How hard this pin pulls", hue,
+                    pin.weight, 0f, 3f, "\u00d7",
+                    v -> { pin.weight = v; host.onRigStructureChanged(); });
+        }
+
         switch (pin.type) {
             case DANGLE:
                 // The tape has nothing to show for a dangling pin and must say so rather than

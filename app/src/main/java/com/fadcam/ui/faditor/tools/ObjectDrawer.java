@@ -113,6 +113,20 @@ public final class ObjectDrawer extends LinearLayout {
     private final List<ImageView> toggleIcons = new ArrayList<>();
 
     private int activeTab = 0;
+
+    /** Which tab the NEXT {@link #show} opens on. Reset to 0 as soon as it is used. */
+    private int openOnTab = 0;
+
+    /**
+     * Ask the next {@code show} to open on this tab index instead of the first.
+     *
+     * <p>Deliberately a one-shot rather than a remembered preference. A drawer that remembers its
+     * tab across objects opens on Mask for a picture because the last thing you touched was a
+     * different picture's mask, which is a worse guess than "the first tab" — and the case that
+     * actually matters is not memory at all but relevance: a rigged picture opens on Puppet
+     * because it is rigged.
+     */
+    public void openOnTab(int index) { openOnTab = Math.max(0, index); }
     private boolean animating;
     @Nullable private Runnable onClose;
 
@@ -394,10 +408,16 @@ public final class ObjectDrawer extends LinearLayout {
             header.addView(middleView, header.indexOfChild(titleView) + 1, mlp);
         }
         buildIconRow();
-        activeTab = 0;
+        // WHICH TAB OPENS. Zero unless a caller asked for another one, and the request is
+        // consumed here so it can never leak into the next drawer. This exists because a picture
+        // that has been RIGGED should open on Puppet: its owner is not coming back to the drawer
+        // to change a blend mode, and making them find the last tab every time is the kind of
+        // small tax that adds up to a tool feeling slow.
+        activeTab = (openOnTab > 0 && openOnTab < tabs.size()) ? openOnTab : 0;
+        openOnTab = 0;
         contentHost.removeAllViews();
-        contentHost.addView(wrap(tabs.get(0).content.build(getContext())));
-        titleView.setText(tabs.get(0).title);
+        contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext())));
+        titleView.setText(tabs.get(activeTab).title);
         refreshIcons();
         if (onTabChanged != null) onTabChanged.run();
         if (getVisibility() != VISIBLE) {

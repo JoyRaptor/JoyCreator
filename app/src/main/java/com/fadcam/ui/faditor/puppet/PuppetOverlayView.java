@@ -161,6 +161,15 @@ public class PuppetOverlayView extends View {
         /** True while a slider that changes reach is being dragged — show the ring regardless. */
         boolean reachPreview();
 
+        /**
+         * The item’s rotation in degrees, clockwise.
+         *
+         * <p>Without it {@link #readRect} describes the axis-aligned BOUNDS of a rotated picture
+         * rather than the picture, so pins land off the artwork and shuffle about as the angle
+         * sweeps during a rotate gesture.
+         */
+        float itemRotationDeg();
+
         /** Remove this pin, as ONE undo step. */
         void deletePin(int index);
 
@@ -208,6 +217,11 @@ public class PuppetOverlayView extends View {
 
     /** Reused line buffer for the wireframe — one drawLines call, no per-frame allocation. */
     @Nullable private float[] meshLines;
+
+    /** The item’s rotation in degrees, read once per draw and once per gesture. */
+    private float rotDeg;
+    /** Scratch for {@link #toUnit} — a touch handler must not allocate. */
+    private final float[] unit = new float[2];
 
     /** How near a finger has to be to a bone’s shaft to select it. */
     private static final float BONE_HIT_DP = 16f;
@@ -318,6 +332,7 @@ public class PuppetOverlayView extends View {
         if (host == null) return;
         PuppetRig rig = host.rig();
         if (!host.readRect(rect) || rect.width() <= 1f || rect.height() <= 1f) return;
+        rotDeg = host.itemRotationDeg();
 
         boolean locked = rig.locked;
 
@@ -388,11 +403,13 @@ public class PuppetOverlayView extends View {
 
     /** Where a pin actually IS right now: its rest position plus whatever the pose moved it by. */
     private float posedX(int i, @NonNull PuppetPin p) {
-        return px(p.restX + (host != null && host.readOffset(i, off) ? off[0] : 0f));
+        boolean got = host != null && host.readOffset(i, off);
+        return px(p.restX + (got ? off[0] : 0f), p.restY + (got ? off[1] : 0f));
     }
 
     private float posedY(int i, @NonNull PuppetPin p) {
-        return py(p.restY + (host != null && host.readOffset(i, off) ? off[1] : 0f));
+        boolean got = host != null && host.readOffset(i, off);
+        return py(p.restX + (got ? off[0] : 0f), p.restY + (got ? off[1] : 0f));
     }
 
     /**
@@ -627,6 +644,7 @@ public class PuppetOverlayView extends View {
         if (host == null) return false;
         PuppetRig rig = host.rig();
         if (!host.readRect(rect) || rect.width() <= 1f) return false;
+        rotDeg = host.itemRotationDeg();
 
         float x = e.getX(), y = e.getY();
 
@@ -686,7 +704,7 @@ public class PuppetOverlayView extends View {
                 }
                 // Empty art with a placement tool armed: drop one on the UP, not here, so a
                 // scroll that happens to start on the picture does not leave a pin behind.
-                return toolPlaces(host.tool()) && rect.contains(x, y);
+                return toolPlaces(host.tool()) && onPicture(x, y);
 
             case MotionEvent.ACTION_MOVE:
                 if (Math.hypot(x - downX, y - downY) > DRAG_SLOP * d) moved = true;
@@ -700,8 +718,8 @@ public class PuppetOverlayView extends View {
                     boolean overStrip = host.pointInHelper(x, y);
                     host.helperDodge(x, y, overStrip);
                     if (overStrip != wasOverStrip) { wasOverStrip = overStrip; invalidate(); }
-                    float ux = (x + grabDX - rect.left) / rect.width();
-                    float uy = (y + grabDY - rect.top) / rect.height();
+                    toUnit(x + grabDX, y + grabDY);
+                    float ux = unit[0], uy = unit[1];
                     if (posing) {
                         // A PIN ON A CHAIN DRAGS THE LIMB. solveChainTo runs the bones back to
                         // their root, honouring joint limits and stretch, and writes every pin on
@@ -798,7 +816,7 @@ public class PuppetOverlayView extends View {
                     reset();
                     return true;
                 }
-                if (!moved && toolPlaces(host.tool()) && rect.contains(x, y)) {
+                if (!moved && toolPlaces(host.tool()) && onPicture(x, y)) {
                     // NOT WHILE IT IS PLAYING. Adding a pin is authoring and dragging one is
                     // performing; only the second belongs in a moving picture, and a pin dropped
                     // onto a frame that has already gone lands somewhere nobody chose.
@@ -905,7 +923,7 @@ public class PuppetOverlayView extends View {
         int to = pinAt(rig, x, y);
         if (to == boneFrom) return;
         if (to < 0) {
-            if (!rect.contains(x, y)) return;
+            if (!onPicture(x, y)) return;
             to = placePin(rig, PuppetPin.Type.FREE, x, y);
         }
         if (to < 0) return;
@@ -918,10 +936,9 @@ public class PuppetOverlayView extends View {
     }
 
     private int placePin(@NonNull PuppetRig rig, @NonNull PuppetPin.Type type, float x, float y) {
-        if (!rect.contains(x, y)) return -1;
-        return rig.addPin(type,
-                clamp01((x - rect.left) / rect.width()),
-                clamp01((y - rect.top) / rect.height()));
+        if (!onPicture(x, y)) return -1;
+        toUnit(x, y);
+        return rig.addPin(type, clamp01(unit[0]), clamp01(unit[1]));
     }
 
     /** The nearest pin within a finger's reach, or -1. Nearest, so overlapping pins are pickable. */
@@ -1000,8 +1017,60 @@ public class PuppetOverlayView extends View {
         }
     }
 
-    private float px(float ux) { return rect.left + ux * rect.width(); }
-    private float py(float uy) { return rect.top + uy * rect.height(); }
+    // ══ UNIT SPACE ↔ SCREEN, THROUGH THE ITEM’S OWN ROTATION ═══════════════
+    //
+    // {@code rect} is the item’s box as if it were UPRIGHT. Until 2026-09-16 that was the whole
+    // map, and it had two visible consequences on a rotated picture:
+    //
+    //   * every pin sat somewhere other than where it was placed, because the box being measured
+    //     was the AXIS-ALIGNED BOUNDS of a rotated view rather than the view;
+    //   * pins scattered and snapped back DURING a rotate — JoyRaptor saw this and called it
+    //     sloppy — because those bounds grow and shrink as the angle sweeps, so the same unit
+    //     coordinate mapped to a different pixel on every frame of the gesture.
+    //
+    // Both are one bug. The item has an angle; the map has to use it. Everything is expressed
+    // through these four methods so there is exactly one place the rotation is applied and
+    // exactly one place it is undone.
+
+    private float px(float ux) { return px(ux, 0.5f); }
+    private float py(float uy) { return py(0.5f, uy); }
+
+    private float px(float ux, float uy) {
+        float x = rect.left + ux * rect.width();
+        if (rotDeg == 0f) return x;
+        float y = rect.top + uy * rect.height();
+        double r = Math.toRadians(rotDeg);
+        float cx = rect.centerX(), cy = rect.centerY();
+        return cx + (float) ((x - cx) * Math.cos(r) - (y - cy) * Math.sin(r));
+    }
+
+    private float py(float ux, float uy) {
+        float y = rect.top + uy * rect.height();
+        if (rotDeg == 0f) return y;
+        float x = rect.left + ux * rect.width();
+        double r = Math.toRadians(rotDeg);
+        float cx = rect.centerX(), cy = rect.centerY();
+        return cy + (float) ((x - cx) * Math.sin(r) + (y - cy) * Math.cos(r));
+    }
+
+    /** Screen pixels back to unit space, written into {@link #unit}. Exactly inverts the pair above. */
+    private void toUnit(float x, float y) {
+        float lx = x, ly = y;
+        if (rotDeg != 0f) {
+            double r = Math.toRadians(-rotDeg);
+            float cx = rect.centerX(), cy = rect.centerY();
+            lx = cx + (float) ((x - cx) * Math.cos(r) - (y - cy) * Math.sin(r));
+            ly = cy + (float) ((x - cx) * Math.sin(r) + (y - cy) * Math.cos(r));
+        }
+        unit[0] = rect.width() <= 0f ? 0f : (lx - rect.left) / rect.width();
+        unit[1] = rect.height() <= 0f ? 0f : (ly - rect.top) / rect.height();
+    }
+
+    /** True when this screen point is on the picture — the ROTATED picture, not its bounds. */
+    private boolean onPicture(float x, float y) {
+        toUnit(x, y);
+        return unit[0] >= 0f && unit[0] <= 1f && unit[1] >= 0f && unit[1] <= 1f;
+    }
 
     private static float clamp01(float v) { return v < 0f ? 0f : (v > 1f ? 1f : v); }
 }

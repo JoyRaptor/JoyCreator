@@ -31,6 +31,8 @@ public class PuppetWeightsTest {
         twoPinsCannotLocaliseAtAll();
         weightsArePartitionOfUnity();
         weightsAreDeterministic();
+        weightOverrideShiftsInfluenceAndKeepsUnity();
+        weightOverrideSurvivesTheWireFormat();
         aVertexOnAPinFollowsItExactly();
         noNaNInTheTable();
         buildCost();
@@ -261,6 +263,91 @@ public class PuppetWeightsTest {
             worst = Math.max(worst, Math.abs(1f - sum));
         }
         check("every vertex's weights sum to 1 (worst drift " + fmt(worst) + ")", worst < 1e-4f);
+    }
+
+    /**
+     * The per-pin WEIGHT OVERRIDE, both halves of it.
+     *
+     * <p>Until 2026-09-16 {@code PuppetPin.weight} was saved, round-tripped through JSON and read
+     * by nothing. Two things have to be true now that it is wired: turning one pin up really does
+     * take influence from its neighbour, and doing so leaves every row still summing to one —
+     * because the scale is applied BEFORE normalisation precisely so that no vertex is left
+     * partly undriven.
+     */
+    static void weightOverrideShiftsInfluenceAndKeepsUnity() {
+        float[] ring = horseshoeRing(), pins = tipPins();
+        PuppetWeights auto = new PuppetTopology(ring, 7, pins).weights();
+
+        float[] louder = new float[pins.length / 2];
+        java.util.Arrays.fill(louder, 1f);
+        louder[0] = 3f;
+        PuppetWeights over = new PuppetTopology(new float[][]{ring}, 7, pins,
+                PuppetWeights.SOFTNESS_NEUTRAL, null, null, null, louder).weights();
+
+        check("an overridden puppet still has a table", auto != null && over != null);
+        if (auto == null || over == null) return;
+
+        // Partition of unity survives the override. This is the property a naive "multiply after
+        // normalising" would have destroyed, and it would have shown up as a character that
+        // shrinks towards its pins rather than one that bends.
+        float worst = 0f;
+        for (int v = 0; v < over.vertexCount(); v++) {
+            float sum = 0f;
+            for (int i = 0; i < over.pinCount(); i++) sum += over.weight(v, i);
+            worst = Math.max(worst, Math.abs(1f - sum));
+        }
+        check("an override leaves every vertex summing to 1 (worst drift " + fmt(worst) + ")",
+                worst < 1e-4f);
+
+        // And it actually did something: pin 0 owns strictly more of the mesh than it did.
+        float before = 0f, after = 0f;
+        for (int v = 0; v < auto.vertexCount(); v++) {
+            before += auto.weight(v, 0);
+            after += over.weight(v, 0);
+        }
+        check("turning a pin up gives it more of the character ("
+                + fmt(before) + " -> " + fmt(after) + ")", after > before * 1.05f);
+
+        // Zero is not mute: the pin keeps its keys and its place, it just stops arguing.
+        float[] quiet = new float[pins.length / 2];
+        java.util.Arrays.fill(quiet, 1f);
+        quiet[0] = 0f;
+        PuppetWeights off = new PuppetTopology(new float[][]{ring}, 7, pins,
+                PuppetWeights.SOFTNESS_NEUTRAL, null, null, null, quiet).weights();
+        boolean clean = off != null;
+        if (off != null) {
+            for (int v = 0; v < off.vertexCount() && clean; v++) {
+                float sum = 0f;
+                for (int i = 0; i < off.pinCount(); i++) {
+                    float x = off.weight(v, i);
+                    if (Float.isNaN(x) || Float.isInfinite(x)) { clean = false; break; }
+                    sum += x;
+                }
+                if (Math.abs(1f - sum) > 1e-3f) clean = false;
+            }
+        }
+        check("an override of zero is finite and still sums to 1", clean);
+    }
+
+    /** V5 carries the override through the wire format a reloaded project rebuilds from. */
+    static void weightOverrideSurvivesTheWireFormat() {
+        float[] ring = horseshoeRing(), pins = tipPins();
+        float[] scale = new float[pins.length / 2];
+        java.util.Arrays.fill(scale, 1f);
+        if (scale.length > 1) scale[1] = 2.5f;
+        PuppetTopology t = new PuppetTopology(new float[][]{ring}, 7, pins,
+                PuppetWeights.SOFTNESS_NEUTRAL, null, null, null, scale);
+        MeshTopology back = MeshTopologies.create("puppet", t.params());
+        check("a V5 puppet reloads", back instanceof PuppetTopology);
+        if (!(back instanceof PuppetTopology)) return;
+        float[] got = ((PuppetTopology) back).weightScale();
+        boolean same = got.length == scale.length;
+        for (int i = 0; same && i < got.length; i++) same = Math.abs(got[i] - scale[i]) < 1e-5f;
+        check("with its overrides intact", same);
+        // The stamp is what decides whether a cached mesh is reused; two puppets that bend
+        // differently must never share one.
+        check("and a different override is a different topology",
+                t.topologyId() != new PuppetTopology(ring, 7, pins).topologyId());
     }
 
     static void weightsAreDeterministic() {

@@ -3498,3 +3498,32 @@ first crossing costs nothing.
 connection) and this repo does not run Gradle by hand, so it has been parse-checked only —
 see `tools/javacheck.sh`, added for exactly this gap. It needs a real build before it is
 believed.
+
+### The same session, continued — the rest of the Lab, on the phone
+
+Having the device in hand, everything else that had only ever been reasoned about got run.
+All of it on the Note 20 against the A8 sandbox, on the 28-page sheet.
+
+| surface | what was done | result |
+|---|---|---|
+| undo, one press one step | dragged `tol` across ten digits in one gesture, pressed undo once | 12% → 2% in a single press |
+| undo, preview drag | dragged the art in the preview, pressed undo once | x61 y42 → x0 y0, art and pills both back |
+| Clear | cleared a 28-frame roll | ALIGNMENT and preview fell back to the grid's cell; nothing stale left pointing at a frame that no longer exists |
+| drag to reorder | long-pressed a film chip and dragged it | chip lifts, floats, drops and commits; `#1 · c1`, `#2 · c0`, `#3 · c2` — the slot number changes, the source cell travels with the drawing, which is the ruling |
+| save a clip | named it and saved | shelf card with thumbnail, `28f · 8fps` and the loop badge |
+| load it back | cleared the roll, tapped the card, tapped Load into sequence | 28 frames restored IN THE REORDERED ORDER, playhead on frame 0, header/preview/HUD/film all reading `cell 1` |
+| direct manipulation | dragged inside the preview | art moved, HUD read `c1 x61 y42`, and the x and y pills followed live without a rebuild |
+| bake | baked 28 frames at cols 8 | `8×4 · 1760×1056`, which is 216×260 art plus 2px pad, exactly; no crash; opened the result and it is a real sheet with 28 filled slots, four empty, frames in ROLL order; project went 3 sheets to 4; original untouched |
+| sheets list | opened it | name-and-sub rows, open sheet marked "open now", Open / Rename / Remove |
+| remove guard | pressed Remove, read it, pressed Keep | honest about what is lost and about the recovery window; nothing removed |
+
+**Still not proved, and worth saying so rather than implying otherwise:**
+
+- **Pinch to scale.** Two-pointer gestures cannot be injected reliably through `adb input`, and
+  faking the evidence is worse than the gap. Scaling by the pill is proved; the pinch is not.
+- **The in-use branch of the remove guard.** No sheet in the sandbox is referenced by a
+  timeline sprite or an `AvatarRig.Part`, so the dialog correctly showed its not-in-use form.
+  The branch that reads BOTH id stores has still only been read, not run.
+- Merge-into-bake, Frames export, Detect, Name many, Suspect, Bg key, and the Swap/Ripple grid
+  drag modes.
+- The number-pill width fix from this session, which is parse-checked only.

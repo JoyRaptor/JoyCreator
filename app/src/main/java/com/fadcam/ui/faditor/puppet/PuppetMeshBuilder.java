@@ -367,13 +367,14 @@ public final class PuppetMeshBuilder {
         // GROW EACH PIECE by the authored amount, separately. Expanding a merged outline would
         // close the gap between two limbs and fuse them into one blob — which is exactly the
         // thing the detached-limbs work exists to avoid.
-        float[][] grown = new float[all.length][];
-        for (int i = 0; i < all.length; i++) {
-            float[] g = null;
-            try { g = AlphaContour.expand(all[i], expandUnit); } catch (Exception ignored) { }
-            grown[i] = (g != null && g.length >= 6) ? g : all[i];
-        }
-        return grown;
+        // expandAll, not expand per ring: a HOLE has to shrink when the artwork grows. Expanding
+        // a hole outward eats the drawing from the inside, and the wider the Edge expansion the
+        // more of the character disappears.
+        try {
+            float[][] grown = AlphaContour.expandAll(all, expandUnit);
+            if (grown != null && grown.length == all.length) return grown;
+        } catch (Exception ignored) { }
+        return all;
     }
 
     /** Set by {@link #outline} on its way through, so the trace is walked once and not twice. */

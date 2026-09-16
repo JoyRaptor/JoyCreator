@@ -401,6 +401,85 @@ public final class PuppetKeys {
      *                 take overwrote anything, or this blends towards what it just wrote
      * @return true when a blend was written
      */
+    /**
+     * REPLACE IN RANGE — clear what the old performance left between the new take's samples.
+     *
+     * <p>SPEC section 0 settled overdub as "replace in range, anchor in, blend out", and the first
+     * third was the one that only half-held. A take writes samples on the frame grid at whatever
+     * instants the playhead passed through; any key the OLD animation had at a time BETWEEN two of
+     * them survived untouched. The pin then flicks between the new performance and the old one,
+     * every few frames, for the length of the overdub — and it looks like the recording glitched
+     * rather than like a key that should not be there.
+     *
+     * <p>A pose inside the range is part of the take when this pin's values CHANGED; one whose
+     * values still match the snapshot was never written and is stale. Those get the value the take
+     * itself would have at that instant — a straight line between the samples either side — so the
+     * curve reads as one continuous move.
+     *
+     * <p>Poses are not deleted: a pose belongs to every pin, and dropping one would take the other
+     * pins' keys with it. Made redundant instead, which is exactly what the simplifier then
+     * removes.
+     *
+     * @param before the spec as it was before the take started
+     * @return how many stale poses were rewritten
+     */
+    public static int replaceInRange(MeshWarpSpec spec, MeshWarpSpec before, int[] components,
+                                     long fromMs, long toMs) {
+        if (spec == null || before == null || components == null || components.length == 0) return 0;
+        if (spec.track() == null || toMs <= fromMs) return 0;
+        if (before.arity() != spec.arity()) return 0;
+        try {
+            java.util.List<MeshPoseTrack.Pose> poses = spec.track().poses();
+            int n = poses.size();
+            long[] times = new long[n];
+            boolean[] stale = new boolean[n];
+            float[] old = new float[before.arity()];
+            int found = 0;
+            for (int i = 0; i < n; i++) {
+                MeshPoseTrack.Pose p = poses.get(i);
+                times[i] = p.timeMs;
+                if (p.timeMs <= fromMs || p.timeMs >= toMs) continue;
+                if (!readPose(before, p.timeMs, old)) continue;
+                boolean same = true;
+                for (int c : components) {
+                    if (c < 0 || c >= old.length) continue;
+                    if (Math.abs(p.values[c] - old[c]) > 1e-6f) { same = false; break; }
+                }
+                if (same) { stale[i] = true; found++; }
+            }
+            if (found == 0) return 0;
+
+            // Collected first, applied second: writing while walking would make a stale pose look
+            // like a take sample to the pose after it.
+            float[][] fixed = new float[n][];
+            for (int i = 0; i < n; i++) {
+                if (!stale[i]) continue;
+                int lo = i - 1, hi = i + 1;
+                while (lo >= 0 && stale[lo]) lo--;
+                while (hi < n && stale[hi]) hi++;
+                if (lo < 0 || hi >= n) continue;              // no take sample on one side
+                MeshPoseTrack.Pose a = poses.get(lo), b = poses.get(hi);
+                long span = b.timeMs - a.timeMs;
+                float t = span <= 0 ? 0f : (times[i] - a.timeMs) / (float) span;
+                float[] v = new float[components.length];
+                for (int k = 0; k < components.length; k++) {
+                    int c = components[k];
+                    if (c < 0 || c >= a.values.length) continue;
+                    v[k] = a.values[c] + (b.values[c] - a.values[c]) * t;
+                }
+                fixed[i] = v;
+            }
+            int done = 0;
+            for (int i = 0; i < n; i++) {
+                if (fixed[i] == null) continue;
+                if (spec.track().putComponents(times[i], components, fixed[i], null)) done++;
+            }
+            return done;
+        } catch (RuntimeException e) {
+            return 0;                       // a take that cannot be tidied is still a take
+        }
+    }
+
     public static boolean blendOut(MeshWarpSpec spec, int[] components,
                                    long takeEndMs, int blendMs, float[] resumeAt) {
         if (spec == null || resumeAt == null || blendMs <= 0) return false;

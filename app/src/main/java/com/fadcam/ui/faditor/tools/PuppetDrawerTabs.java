@@ -189,6 +189,16 @@ public final class PuppetDrawerTabs {
 
         final List<Runnable> refreshers = new ArrayList<>();
 
+        // A RIGGED PICTURE OPENS WITH A PIN SELECTED. The spec's rule is "row 1 exists iff the
+        // item has at least one pin" — but the row names a pin, so with nothing selected it had
+        // nothing to draw and vanished. Since the drawer clears the selection every time it opens,
+        // that meant a fully rigged character opened with no identity row, no key controls and no
+        // record button until the user happened to tap a pin. Selecting the first one costs
+        // nothing and makes the rule the spec states true.
+        if (rig.pinCount() > 0 && (host.selectedPin() < 0 || host.selectedPin() >= rig.pinCount())) {
+            host.setSelectedPin(0);
+        }
+
         // 1 · identity + keys + record. Only once something exists to name.
         if (rig.pinCount() > 0 && host.selectedPin() >= 0
                 && host.selectedPin() < rig.pinCount()) {
@@ -774,6 +784,16 @@ public final class PuppetDrawerTabs {
                 v -> bone.bendSign = v ? -1 : 1);
         root.addView(bits);
         gap(ctx, root, d, 7);
+
+        // REACH — how far past its own length a stretchy bone may go. SPEC section 2 lists it in
+        // the Bone scope and it was the one row never built; the value was authored nowhere and
+        // FabrikSolver fell back to a hard-coded 0.35 for every bone. Only shown when Stretchy is
+        // on, because a rigid bone has no reach beyond its length and a slider that does nothing
+        // is worse than no slider.
+        if (bone.stretchy) {
+            slider(ctx, root, host, d, "Reach", PuppetPalette.BONE, bone.maxStretch, false,
+                    v -> bone.maxStretch = v);
+        }
 
         if (bone.stretchy) {
             slider(ctx, root, host, d, "How far it may stretch", hue, bone.maxStretch, false,

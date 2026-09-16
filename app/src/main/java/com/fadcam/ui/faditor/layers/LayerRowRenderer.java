@@ -2429,8 +2429,26 @@ public final class LayerRowRenderer {
 
     // One row's worth of cache. A tape draws one puppet at a time, so one slot is the whole
     // working set — and a miss costs exactly what the uncached version cost every frame.
+    /**
+     * WHICH PIN'S KEYS THE TAPE IS SHOWING, or -1 for none selected.
+     *
+     * <p>Static because the tape is drawn by whichever row renderer the timeline happens to be
+     * using and the selection lives in the editor, and because there is exactly one selected pin
+     * in the app at a time — a second copy of that fact is a second thing to keep in step.
+     *
+     * <p>The spec was explicit that the tape shows ONE pin: "Other pins' keys — NOT ghosted on the
+     * tape. Pin-type colour + 'tap another to see its keys'." Drawing the union of every pin's
+     * instants says the wrong thing twice over: it shows keys on a pin that has none, and it makes
+     * every pin's tape look identical.
+     */
+    private static int puppetTapePin = -1;
+
+    /** Set from the editor when the selected pin changes. */
+    public static void setPuppetTapePin(int pin) { puppetTapePin = pin; }
+
     @Nullable private Object puppetCacheTrack;
     private int puppetCacheSize = -1;
+    private int puppetCachePin = Integer.MIN_VALUE;
     @Nullable private long[] puppetTimesCache;
     @Nullable private com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] puppetMarksCache;
     private final Paint puppetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -2584,14 +2602,29 @@ public final class LayerRowRenderer {
         // poses, so that is hundreds of longs allocated sixty times a second to draw the same
         // picture as last frame. Keyed on the track identity and its size, which between them
         // change whenever the marks could have.
+        // ONE PIN'S KEYS, not the union. A pose is shared by every pin, so times() is every
+        // instant anybody was keyed at — which would put marks on a pin that has never moved.
+        // componentTimes asks the narrower question: where does THIS pin actually carry
+        // information? A pose written while recording a different pin is not a key on this tape.
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = o.getPuppet();
+        int sel = puppetTapePin;
+        if (rig == null || sel < 0 || sel >= rig.pinCount()
+                || sel * 2 + 1 >= spec.track().arity()) {
+            sel = -1;
+        }
+
         long[] times = puppetTimesCache;
         com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] marks = puppetMarksCache;
         int size = spec.track().size();
-        if (puppetCacheTrack != spec.track() || puppetCacheSize != size || marks == null) {
-            times = spec.track().times();
+        if (puppetCacheTrack != spec.track() || puppetCacheSize != size
+                || puppetCachePin != sel || marks == null) {
+            times = sel < 0
+                    ? spec.track().times()
+                    : spec.track().componentTimes(new int[]{sel * 2, sel * 2 + 1}, 1e-4f);
             if (times == null || times.length == 0) {
                 puppetCacheTrack = spec.track();
                 puppetCacheSize = size;
+                puppetCachePin = sel;
                 puppetTimesCache = null;
                 puppetMarksCache = null;
                 return;
@@ -2599,6 +2632,7 @@ public final class LayerRowRenderer {
             marks = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.group(times);
             puppetCacheTrack = spec.track();
             puppetCacheSize = size;
+            puppetCachePin = sel;
             puppetTimesCache = times;
             puppetMarksCache = marks;
         }
@@ -2608,7 +2642,15 @@ public final class LayerRowRenderer {
         // families of glyph on the same line is how a tape becomes unreadable.
         float cy = Math.max(top + 5f * density, centerY - 5f * density);
         float half = 3.6f * density;
-        int violet = ghosted ? 0x66A78BFA : 0xFFA78BFA;
+        // THE PIN'S OWN COLOUR. The spec's whole reason for colouring the tape is so the strip
+        // says what KIND of thing is being edited without showing every pin at once — a violet
+        // mark on a Dangle pin's tape says Free, which is worse than saying nothing. Falls back to
+        // the guide violet when no pin is selected, which is what the union view is.
+        int hue = 0xFFA78BFA;
+        if (sel >= 0) {
+            hue = com.fadcam.ui.faditor.puppet.PuppetPalette.of(rig.pin(sel).type, rig.locked);
+        }
+        int violet = ghosted ? (hue & 0x66FFFFFF) : hue;
 
         puppetPaint.setStyle(Paint.Style.FILL);
         for (com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark m : marks) {
@@ -2653,7 +2695,7 @@ public final class LayerRowRenderer {
             // The survivors inside, at half strength: present and reachable, not shouting.
             long[] inside = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.insideOf(times, m);
             if (inside.length == 0 || inside.length > 400) continue;
-            puppetPaint.setColor(ghosted ? 0x33FFFFFF : 0x80FFFFFF);
+            puppetPaint.setColor(ghosted ? 0x33FFFFFF : (violet & 0x00FFFFFF) | 0x80000000);
             for (long t : inside) {
                 float dx = timeToX.map(keyTimeToTimelineMs(item, t));
                 if (dx < lo + 2f || dx > hi - 2f) continue;

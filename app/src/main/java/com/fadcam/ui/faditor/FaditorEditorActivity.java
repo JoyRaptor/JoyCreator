@@ -30773,6 +30773,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public int selectedPin() { return puppetSelectedPin; }
             @Override public void setSelectedPin(int index) {
                 puppetSelectedPin = index;
+                // The tape shows ONE pin, so it has to be told which.
+                com.fadcam.ui.faditor.layers.LayerRowRenderer.setPuppetTapePin(index);
                 if (index >= 0) puppetSelectedBone = -1;
             }
 
@@ -30934,8 +30936,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void syncPuppetBadge(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o) {
         boolean pinsUp = puppetOverlay != null && puppetOverlay.getVisibility() == View.VISIBLE;
+        // AND IT HIDES WHEN THE PREVIEW IS POPPED OUT. The pin surface already refuses to draw
+        // over a shrunken preview (previewIsSmall) for the obvious reason — a 38dp badge over a
+        // thumbnail covers a quarter of the picture — but the grey ENTRY badge was never given the
+        // same rule, so it sat there at full size over the PiP.
+        boolean popped = previewPip != null && previewPip.isPromoted();
         com.fadcam.ui.faditor.puppet.PuppetRig rig = (o == null) ? null : o.getPuppet();
-        int pins = (rig == null || pinsUp) ? 0 : rig.pinCount();
+        int pins = (rig == null || pinsUp || popped) ? 0 : rig.pinCount();
 
         if (pins <= 0) {
             if (puppetBadge != null) puppetBadge.setPinCount(0);
@@ -31539,6 +31546,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (wasTake && comps != null && to > from) {
             com.fadcam.ui.faditor.puppet.PuppetRig rig =
                     puppetItem == null ? null : puppetItem.getPuppet();
+            // REPLACE IN RANGE, before anything else touches the take. The old animation's keys
+            // between this take's samples are not part of the new performance, and leaving them
+            // makes the pin flick between the two for the length of the overdub.
+            com.fadcam.ui.faditor.puppet.PuppetKeys.replaceInRange(spec, before, comps, from, to);
             int blend = rig == null ? 200 : Math.max(0, rig.blendOutMs);
             if (blend > 0 && before.arity() == spec.arity()) {
                 float[] resume = new float[before.arity()];
@@ -31760,6 +31771,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.puppet.PuppetRig r = rig();
                     if (r == null) return;
                     r.locked = !r.locked;
+                    // IT HAS TO SHOW, AND IT HAS TO STICK. Flipping the flag alone left the pins
+                    // drawn in their live colours while refusing every touch — a rig that looks
+                    // armed and is not — and the state was gone on reload because nothing marked
+                    // the project dirty. The grey-and-padlock paths were already written and were
+                    // simply never reached.
+                    if (puppetOverlay != null) puppetOverlay.refresh();
+                    syncPuppetBadge(puppetItem);
+                    if (objectDrawer != null) objectDrawer.refreshCurrentTab();
+                    scheduleAutoSave();
                 }
 
                 @Override public void toggleKeyAtPlayhead() {

@@ -282,8 +282,38 @@ public final class PuppetRig {
         if (parentBoneOf(tipPin) >= 0) return -1;          // a pin has at most one parent
         if (wouldCycle(rootPin, tipPin)) return -1;
         String name = pins.get(rootPin).name + "→" + pins.get(tipPin).name;
-        bones.add(new Bone(rootPin, tipPin, name, restLength));
+        Bone made = new Bone(rootPin, tipPin, name, restLength);
+        made.bendSign = restBendSign(rootPin, tipPin);
+        bones.add(made);
         return bones.size() - 1;
+    }
+
+    /**
+     * WHICH WAY THE ARTWORK IS ALREADY BENT, read at the moment the bone is made.
+     *
+     * <p>SPEC section 3: <i>"The rest pose decides it: store the sign at bind time from how the
+     * artwork is already bent."</i> Until now {@code bendSign} was a constant +1, so an elbow drawn
+     * folding the other way started inverted and the user had to find the Flip elbow toggle to
+     * undo a guess the rig could have made itself.
+     *
+     * <p>Needs three pins to have an opinion — you cannot tell which way a single bone bends. With
+     * no parent bone there is nothing to measure against and +1 stands, which is the old behaviour
+     * for the first bone of every chain and correct: the first bone has no fold.
+     *
+     * @return +1 or -1
+     */
+    private int restBendSign(int rootPin, int tipPin) {
+        int parent = parentBoneOf(rootPin);
+        if (parent < 0) return 1;
+        int grand = bones.get(parent).rootPin;
+        if (grand < 0 || grand >= pins.size()) return 1;
+        PuppetPin g = pins.get(grand), r = pins.get(rootPin), t = pins.get(tipPin);
+        float inX = r.restX - g.restX, inY = r.restY - g.restY;
+        float outX = t.restX - r.restX, outY = t.restY - r.restY;
+        float cross = inX * outY - inY * outX;
+        // Dead straight: no fold to read, so leave the default rather than let float noise pick.
+        if (Math.abs(cross) < 1e-6f) return 1;
+        return cross > 0f ? 1 : -1;
     }
 
     public void removeBone(int index) {

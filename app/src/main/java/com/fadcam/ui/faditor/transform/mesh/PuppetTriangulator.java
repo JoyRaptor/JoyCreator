@@ -131,6 +131,14 @@ public final class PuppetTriangulator {
      */
     public static Mesh triangulate(float[][] rings, int interior) {
         if (rings == null || rings.length == 0) return null;
+
+        // HOLES FIRST. The tracer hands back enclosed transparent regions in the same list, and
+        // which ones they are is worked out here by NESTING — a ring inside an odd number of other
+        // rings is a hole. Deciding it here rather than agreeing a winding convention with the
+        // tracer means neither side can get it silently backwards, and it needed no new field in
+        // the stored format.
+        rings = bridgeHoles(rings);
+        if (rings.length == 0) return null;
         if (rings.length == 1) return triangulate(rings[0], interior);
 
         float biggest = 0f;
@@ -514,6 +522,152 @@ public final class PuppetTriangulator {
                 p[1] = ny;
             }
         }
+    }
+
+    /**
+     * Fold every hole into the outer ring that contains it, producing one simple polygon per piece.
+     *
+     * <h3>Why a bridge and not a constrained triangulation</h3>
+     * <p>Ear clipping only knows how to eat a simple polygon. The standard trick is to cut a
+     * channel from the hole out to the outline and walk around it — the polygon then has a
+     * zero-width slit in it, which is topologically simple and triangulates normally. The two
+     * triangles either side of the slit are degenerate-thin, and the Delaunay pass that runs
+     * afterwards flips them away.
+     *
+     * <p>The alternative, a full constrained Delaunay triangulation, is a much larger piece of code
+     * for a result this reaches by a shorter road.
+     *
+     * <h3>What this buys, which is not what it sounds like</h3>
+     * <p>Not that a donut looks like a donut — the pixels inside a hole are transparent either way.
+     * It is that the MESH no longer spans the gap, so the weights cannot measure across it. A hand
+     * resting on a hip encloses a gap; before this, dragging the hand dragged the hip straight
+     * through it.
+     *
+     * @return one ring per piece of artwork, holes already folded in
+     */
+    private static float[][] bridgeHoles(float[][] rings) {
+        int n = rings.length;
+        if (n < 2) return rings;
+
+        // Nesting depth: how many OTHER rings contain this one's first point.
+        int[] depth = new int[n];
+        int[] parent = new int[n];
+        java.util.Arrays.fill(parent, -1);
+        for (int i = 0; i < n; i++) {
+            if (rings[i] == null || rings[i].length < 6) continue;
+            float px = rings[i][0], py = rings[i][1];
+            float bestArea = Float.MAX_VALUE;
+            for (int j = 0; j < n; j++) {
+                if (i == j || rings[j] == null || rings[j].length < 6) continue;
+                if (!contains(rings[j], px, py)) continue;
+                depth[i]++;
+                // The parent is the SMALLEST ring that contains it, so a hole inside a shape
+                // inside a hole attaches to the right one.
+                float area = Math.abs(AlphaContour.signedArea2(rings[j]));
+                if (area < bestArea) { bestArea = area; parent[i] = j; }
+            }
+        }
+
+        java.util.List<float[]> out = new java.util.ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            if (rings[i] == null || rings[i].length < 6) continue;
+            if ((depth[i] & 1) == 1) continue;                  // odd nesting: this IS a hole
+            float[] outer = rings[i].clone();
+            if (AlphaContour.signedArea2(outer) < 0f) AlphaContour.reverse(outer);
+            for (int j = 0; j < n; j++) {
+                if (parent[j] != i || (depth[j] & 1) == 0) continue;
+                float[] hole = rings[j].clone();
+                // OPPOSITE winding to the outer, or the bridged polygon crosses itself.
+                if (AlphaContour.signedArea2(hole) > 0f) AlphaContour.reverse(hole);
+                float[] merged = bridgeOne(outer, hole);
+                if (merged != null) outer = merged;
+            }
+            out.add(outer);
+        }
+        return out.isEmpty() ? rings : out.toArray(new float[out.size()][]);
+    }
+
+    /**
+     * Cut the channel: find the shortest pair of points, one on each ring, whose join crosses
+     * nothing, then walk out along it, round the hole, and back.
+     *
+     * <p>Brute force over every pair. A traced hole is tens of points and an outline is a hundred,
+     * so this is thousands of segment tests at BIND time — invisible next to the trace itself, and
+     * far easier to get right than the ray-casting version, which has a nest of special cases
+     * exactly where artwork is most awkward.
+     */
+    private static float[] bridgeOne(float[] outer, float[] hole) {
+        int no = outer.length / 2, nh = hole.length / 2;
+        if (no < 3 || nh < 3) return null;
+        int bestO = -1, bestH = -1;
+        float bestD = Float.MAX_VALUE;
+        for (int i = 0; i < no; i++) {
+            for (int j = 0; j < nh; j++) {
+                float dx = outer[i * 2] - hole[j * 2], dy = outer[i * 2 + 1] - hole[j * 2 + 1];
+                float d = dx * dx + dy * dy;
+                if (d >= bestD) continue;
+                if (crossesAny(outer, i, hole, j)) continue;
+                bestD = d;
+                bestO = i;
+                bestH = j;
+            }
+        }
+        if (bestO < 0) return null;                             // no clear line: leave it filled
+
+        float[] merged = new float[(no + nh + 2) * 2];
+        int at = 0;
+        for (int k = 0; k <= bestO; k++) {                      // outline up to the channel
+            merged[at++] = outer[k * 2];
+            merged[at++] = outer[k * 2 + 1];
+        }
+        for (int k = 0; k < nh; k++) {                          // all the way round the hole
+            int idx = (bestH + k) % nh;
+            merged[at++] = hole[idx * 2];
+            merged[at++] = hole[idx * 2 + 1];
+        }
+        merged[at++] = hole[bestH * 2];                         // close the hole
+        merged[at++] = hole[bestH * 2 + 1];
+        merged[at++] = outer[bestO * 2];                        // and come back out
+        merged[at++] = outer[bestO * 2 + 1];
+        for (int k = bestO + 1; k < no; k++) {
+            merged[at++] = outer[k * 2];
+            merged[at++] = outer[k * 2 + 1];
+        }
+        return merged;
+    }
+
+    /** Does the proposed channel cross either ring? Endpoints touching their own ring are fine. */
+    private static boolean crossesAny(float[] outer, int oi, float[] hole, int hi) {
+        float ax = outer[oi * 2], ay = outer[oi * 2 + 1];
+        float bx = hole[hi * 2], by = hole[hi * 2 + 1];
+        int no = outer.length / 2, nh = hole.length / 2;
+        for (int k = 0; k < no; k++) {
+            int k2 = (k + 1) % no;
+            if (k == oi || k2 == oi) continue;                  // shares the endpoint
+            if (segmentsCross(ax, ay, bx, by, outer[k * 2], outer[k * 2 + 1],
+                    outer[k2 * 2], outer[k2 * 2 + 1])) return true;
+        }
+        for (int k = 0; k < nh; k++) {
+            int k2 = (k + 1) % nh;
+            if (k == hi || k2 == hi) continue;
+            if (segmentsCross(ax, ay, bx, by, hole[k * 2], hole[k * 2 + 1],
+                    hole[k2 * 2], hole[k2 * 2 + 1])) return true;
+        }
+        return false;
+    }
+
+    private static boolean segmentsCross(float ax, float ay, float bx, float by,
+                                         float cx, float cy, float dx, float dy) {
+        float d1 = side(cx, cy, dx, dy, ax, ay);
+        float d2 = side(cx, cy, dx, dy, bx, by);
+        float d3 = side(ax, ay, bx, by, cx, cy);
+        float d4 = side(ax, ay, bx, by, dx, dy);
+        return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0))
+                && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+    }
+
+    private static float side(float ax, float ay, float bx, float by, float px, float py) {
+        return (bx - ax) * (py - ay) - (by - ay) * (px - ax);
     }
 
     private static long edgeKey(int a, int b) {

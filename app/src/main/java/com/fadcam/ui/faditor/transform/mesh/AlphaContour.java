@@ -19,11 +19,21 @@ package com.fadcam.ui.faditor.transform.mesh;
  * construction, so the output is a closed ring with no stitching step and no chance of emitting a
  * figure-of-eight. It needs a start pixel and a consistent turn direction, both of which are cheap.
  *
+ * <h3>Holes</h3>
+ * <p>Traced as well, since 2026-09-16, and the reason was not that a donut looked wrong. An
+ * enclosed gap — a hand resting on a hip, an arm against a torso, the inside of a ring — was being
+ * FILLED with mesh, and the geodesic weights then measured straight across it. Measured on a
+ * frame: 0.718 through the hole against 1.02 around, so dragging the hand dragged the hip through
+ * the gap. That is exactly the "through the air" bug the across-the-body measure exists to stop,
+ * reintroduced by a hole.
+ *
+ * <p>A hole comes back as another ring in the same list. Nothing about the shape of the output
+ * changed: {@link PuppetTriangulator} works out which rings are holes by NESTING — a ring inside an
+ * odd number of others is a hole — so no winding convention has to be agreed with the tracer and
+ * the stored format did not need a new field.
+ *
  * <h3>What this deliberately does NOT do yet</h3>
  * <ul>
- *   <li><b>Holes.</b> Only the outer boundary is traced. A donut gives a disc. Holes need the inner
- *       rings AND a constrained triangulation that honours them, and half of that is worthless —
- *       so it is one decision, later, not a half-feature now.</li>
  * </ul>
  *
  * <h3>Multiple blobs: {@link #traceAll}</h3>
@@ -115,7 +125,57 @@ public final class AlphaContour {
             float[] ring = traceRegion(label, w, h, r[0], r[1], r[2]);
             if (ring != null) rings.add(ring);
         }
+        traceHoles(alpha, w, h, threshold, Math.max(1, minAreaPx), rings);
         return rings.toArray(new float[rings.size()][]);
+    }
+
+    /**
+     * Find the ENCLOSED transparent regions and trace them too.
+     *
+     * <p>A transparent region that reaches the edge of the picture is the background. One that does
+     * not is a hole in the artwork, and it must be a hole in the mesh as well or the weights
+     * measure across it.
+     *
+     * <p>Appended to the same list the outer contours went into. Which of them are holes is worked
+     * out downstream by nesting, so nothing here has to agree with anything about winding.
+     */
+    private static void traceHoles(int[] alpha, int w, int h, int threshold, int minAreaPx,
+                                   java.util.List<float[]> into) {
+        int[] label = new int[w * h];
+        int[] stack = new int[w * h];
+        int next = 0;
+        for (int i = 0; i < w * h; i++) {
+            if (label[i] != 0 || alpha[i] >= threshold) continue;
+            next++;
+            int size = 0, sp = 0, start = i;
+            boolean touchesEdge = false;
+            stack[sp++] = i;
+            label[i] = next;
+            while (sp > 0) {
+                int p = stack[--sp];
+                size++;
+                int px = p % w, py = p / w;
+                if (px == 0 || py == 0 || px == w - 1 || py == h - 1) touchesEdge = true;
+                if (px > 0) sp = pushClear(stack, sp, p - 1, alpha, label, threshold, next);
+                if (px < w - 1) sp = pushClear(stack, sp, p + 1, alpha, label, threshold, next);
+                if (py > 0) sp = pushClear(stack, sp, p - w, alpha, label, threshold, next);
+                if (py < h - 1) sp = pushClear(stack, sp, p + w, alpha, label, threshold, next);
+            }
+            // The background is not a hole, and neither is a speck of transparency inside a soft
+            // edge — that one would put a pinprick in the mesh for every stray pixel.
+            if (touchesEdge || size < minAreaPx) continue;
+            float[] ring = traceRegion(label, w, h, next, size, start);
+            if (ring != null) into.add(ring);
+        }
+    }
+
+    private static int pushClear(int[] stack, int sp, int p, int[] alpha, int[] label,
+                                 int threshold, int lab) {
+        if (label[p] == 0 && alpha[p] < threshold) {
+            label[p] = lab;
+            stack[sp++] = p;
+        }
+        return sp;
     }
 
     /** {@link #traceAll} with the default threshold and the default speck floor. */
@@ -328,6 +388,63 @@ public final class AlphaContour {
         if (Math.abs(signedArea2(out)) < before) out = offset(ring, -d);
         // A degenerate result (a ring that collapsed on itself) is worse than no expansion.
         return Math.abs(signedArea2(out)) >= before ? out : ring;
+    }
+
+    /**
+     * Expand a whole SET of rings, growing the artwork — which means a HOLE has to shrink.
+     *
+     * <p>{@link #expand} grows whatever ring it is handed, and for an enclosed gap that is exactly
+     * backwards: growing the hole eats the drawing from the inside, and the wider the Edge
+     * expansion the more of the character disappears. Which rings are holes is the same nesting
+     * rule the triangulator uses — inside an odd number of others — so the two cannot disagree.
+     *
+     * @return a new array; rings that cannot be expanded are passed through unchanged
+     */
+    public static float[][] expandAll(float[][] rings, float amount) {
+        if (rings == null || rings.length == 0 || !(amount > 0f)) return rings;
+        float[][] out = new float[rings.length][];
+        for (int i = 0; i < rings.length; i++) {
+            float[] r = rings[i];
+            if (r == null || r.length < 6) { out[i] = r; continue; }
+            int depth = 0;
+            for (int j = 0; j < rings.length; j++) {
+                if (i == j || rings[j] == null || rings[j].length < 6) continue;
+                if (contains(rings[j], r[0], r[1])) depth++;
+            }
+            // A hole shrinks by the same amount the outline grows, so the ring of artwork between
+            // them thickens evenly rather than drifting to one side.
+            out[i] = ((depth & 1) == 1) ? shrink(r, amount) : expand(r, amount);
+        }
+        return out;
+    }
+
+    /** {@link #expand} inward: the enclosed area gets SMALLER. Used for holes. */
+    private static float[] shrink(float[] ring, float amount) {
+        if (ring == null || ring.length < 6 || !(amount > 0f)) return ring;
+        float before = Math.abs(signedArea2(ring));
+        float[] a = offset(ring, amount);
+        float[] b = offset(ring, -amount);
+        float aa = Math.abs(signedArea2(a)), ab = Math.abs(signedArea2(b));
+        float[] smaller = aa < ab ? a : b;
+        // A hole small enough that shrinking would turn it inside out simply closes up, which is
+        // the honest answer: at that expansion the gap is not there any more.
+        return Math.abs(signedArea2(smaller)) < before ? smaller : ring;
+    }
+
+    /** Ray-cast point-in-polygon. Shared by the expander and the nesting test. */
+    static boolean contains(float[] ring, float x, float y) {
+        if (ring == null || ring.length < 6) return false;
+        int n = ring.length / 2;
+        boolean in = false;
+        for (int i = 0, j = n - 1; i < n; j = i++) {
+            float xi = ring[i * 2], yi = ring[i * 2 + 1];
+            float xj = ring[j * 2], yj = ring[j * 2 + 1];
+            if (((yi > y) != (yj > y))
+                    && (x < (xj - xi) * (y - yi) / (yj - yi + 1e-12f) + xi)) {
+                in = !in;
+            }
+        }
+        return in;
     }
 
     /** One offset pass along each vertex's edge bisector. Sign decides the direction. */

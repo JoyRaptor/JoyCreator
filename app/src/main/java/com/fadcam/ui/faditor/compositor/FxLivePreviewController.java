@@ -1153,13 +1153,21 @@ public final class FxLivePreviewController {
                 if (!OverlayTextureCache.canUseTexture(sso)) continue;
                 float alpha = sso.animatedOpacity(playheadMs);
                 if (alpha < 0.005f) continue;
-                android.graphics.Bitmap tex = overlayTextureCache.getOrCreate(sso, videoW, videoH);
-                if (tex == null || tex.isRecycled()) continue;
+                // THE REAL CELLS, exactly as the GL path above takes them. This branch still went
+                // through OverlayTextureCache, whose rasterizeSprite fills a solid blue rectangle
+                // — so a PLAIN sprite sitting below a blend previewed as a blue box while the
+                // export drew the artwork. Same bug the ZA lane caught on the GL path, left behind
+                // on this one because only the GL path was rerouted.
+                android.graphics.Bitmap tex = host.spriteRasterFor(sso, videoW, videoH);
+                if (tex == null || tex.isRecycled() || tex.getHeight() <= 0) continue;
                 float authored = sso.getSizeFraction();
                 float animated = sso.animatedSizeFraction(playheadMs);
                 float scale = authored > 0.001f ? animated / authored : 1f;
                 float hAuth = authored * videoH;
-                float wAuth = hAuth; // placeholder square
+                // The cell's OWN aspect, not a square. The placeholder was square because a blue
+                // rectangle has no aspect to respect; real pixels do, and a square box would
+                // stretch every non-square sprite on this path.
+                float wAuth = hAuth * (tex.getWidth() / (float) tex.getHeight());
                 float boxW = wAuth * scale;
                 float boxH = hAuth * scale;
                 float halfW = (boxW / videoW) / 2f;

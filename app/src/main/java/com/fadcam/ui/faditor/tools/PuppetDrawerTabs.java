@@ -133,6 +133,14 @@ public final class PuppetDrawerTabs {
         void onRigStructureChanged();
 
         /**
+         * START OVER: every pin, every bone and every key, gone — after the user confirms.
+         *
+         * <p>The confirmation is the HOST's, not this class's, because it is a dialog and this
+         * class builds rows. The host must not act until the user has said yes.
+         */
+        void confirmResetRig();
+
+        /**
          * Show the reach ring for the duration of a drag on a slider that changes it.
          *
          * <p>Separate from the persisted {@code showReach} so that letting go of the slider puts
@@ -585,6 +593,39 @@ public final class PuppetDrawerTabs {
         }
     }
 
+    /**
+     * The one destructive control on this tab, dressed as one.
+     *
+     * <p>Red-edged and sunk rather than a filled red button: a filled one reads as the primary
+     * action of the panel, which is the opposite of what this is. It says WHAT it will destroy in
+     * its own subtitle, because "Start over" alone gives no sense of scale — and the confirmation
+     * that follows is the host's.
+     */
+    @NonNull
+    private static View dangerRow(@NonNull Context ctx, @NonNull Host host, float d,
+                                  @NonNull String title, @NonNull String detail) {
+        LinearLayout cell = column(ctx);
+        cell.setBackground(rowBg(d, SUNK_BG, mix(REC, 0x99), d));
+        cell.setPadding(pad(d, 11), pad(d, 9), pad(d, 11), pad(d, 9));
+
+        TextView t = new TextView(ctx);
+        t.setText(title);
+        t.setTextSize(11.5f);
+        t.setTextColor(REC);
+        t.setTypeface(Typeface.DEFAULT_BOLD);
+        cell.addView(t);
+
+        TextView sub = new TextView(ctx);
+        sub.setText("Removes " + detail + " and every keyframe");
+        sub.setTextSize(10f);
+        sub.setTextColor(TXT_FAINT);
+        sub.setPadding(0, pad(d, 2), 0, 0);
+        cell.addView(sub);
+
+        cell.setOnClickListener(v -> host.confirmResetRig());
+        return cell;
+    }
+
     // ── the chips ────────────────────────────────────────
 
     /**
@@ -803,7 +844,25 @@ public final class PuppetDrawerTabs {
         // preview, because the accident it prevents — knocking a pin on a sprite that happens to
         // have them — happens while this drawer is SHUT.
         root.addView(hint(ctx, d,
-                "Lock the pins from the puppet badge on the picture"));
+                "Tap the puppet on the picture to put the pins away"));
+
+        // START OVER. JoyRaptor asked for this in as many words: somebody who gets overwhelmed
+        // needs a way back to a blank picture without deleting the picture.
+        //
+        // LAST, and only once there is something to destroy. It is the one control here that
+        // cannot be undone by doing the opposite of it, so it does not belong anywhere a thumb
+        // travels past on the way to something else — and a Start over on a rig with no pins
+        // would be a button that does nothing, dressed up in a warning.
+        if (rig.pinCount() > 0) {
+            gap(ctx, root, d, 10);
+            root.addView(dangerRow(ctx, host, d,
+                    "Start over",
+                    rig.pinCount() + (rig.pinCount() == 1 ? " pin" : " pins")
+                            + (rig.boneCount() > 0
+                                ? ", " + rig.boneCount()
+                                    + (rig.boneCount() == 1 ? " bone" : " bones")
+                                : "")));
+        }
     }
 
     // ── scope: RECORDING ─────────────────────────────────────────────────

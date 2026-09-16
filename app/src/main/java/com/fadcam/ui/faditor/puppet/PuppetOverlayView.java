@@ -135,6 +135,24 @@ public class PuppetOverlayView extends View {
         /** The gesture on the picture is over — the strip may start dodging again. */
         void helperGestureEnded();
 
+        /**
+         * PUT THE PINS AWAY and give the picture its transform box back.
+         *
+         * <p>JoyRaptor, 2026-09-16: <i>"when he has all the keys locked, there’s nothing I can
+         * do with the object — I can’t move it or scale it, even though it’s selected. It
+         * kind of behaves like it’s not selected."</i> Which it did: greying the pins took the
+         * puppet out of play and gave nothing back, so a rigged picture became the one kind of
+         * picture you could not move.
+         *
+         * <p>So the badge is a TOGGLE BETWEEN TWO TOOLS rather than an on/off for one. Pins away
+         * means the ordinary transform box returns and the picture behaves like any other
+         * selected object; the grey marionette appears on that surface as the way back.
+         */
+        void putPinsAway();
+
+        /** Open the drawer on the Puppet tab, with the pins up. */
+        void openPuppetDrawer();
+
         /** Say what just happened, in words, beside the strip. */
         void say(@Nullable String what);
 
@@ -228,6 +246,9 @@ public class PuppetOverlayView extends View {
 
     /** Scratch for {@link #pinsUnder} — a finger cannot plausibly be over more than a few. */
     private final int[] under = new int[12];
+
+    /** When the finger went down on the badge, so a hold can be told from a tap on release. */
+    private long badgeDownAt;
 
     // The long press. Posted on DOWN over a pin, cancelled by movement or release.
     private static final long HOLD_MS = 420L;
@@ -617,7 +638,12 @@ public class PuppetOverlayView extends View {
         }
     }
 
-    /** The marionette, with a padlock in front of him when the rig is shut off. */
+    /**
+     * The marionette — the way OUT of the pins and back to the transform box.
+     *
+     * <p>He is drawn live (green) here because the pins are up: this surface does not exist
+     * otherwise. The padlock he used to wear is gone with the state it described.
+     */
     private void drawBadge(@NonNull Canvas c, boolean locked) {
         badgeRect.set(getWidth() - (BADGE + BADGE_INSET) * d, BADGE_INSET * d,
                 getWidth() - BADGE_INSET * d, (BADGE + BADGE_INSET) * d);
@@ -672,6 +698,7 @@ public class PuppetOverlayView extends View {
                 // The badge first, always: it has to stay reachable even when a pin sits under
                 // it, and it is the only control that still works on a locked rig.
                 if (rig.pinCount() > 0 && !host.previewIsSmall() && badgeRect.contains(x, y)) {
+                    badgeDownAt = System.currentTimeMillis();
                     return true;
                 }
                 if (rig.locked) return false;    // fall through to whatever is beneath
@@ -771,10 +798,14 @@ public class PuppetOverlayView extends View {
             case MotionEvent.ACTION_UP:
                 if (rig.pinCount() > 0 && !host.previewIsSmall()
                         && badgeRect.contains(x, y) && badgeRect.contains(downX, downY)) {
-                    rig.locked = !rig.locked;
-                    host.say(rig.locked ? "Pins locked" : "Pins live");
-                    host.onRigChanged();
-                    invalidate();
+                    // HELD on him: the drawer, where the deeper controls are. TAPPED: the pins go
+                    // away and the transform box comes back. One control, two depths, and the
+                    // shallow one is the one you will want ninety times out of a hundred.
+                    if (System.currentTimeMillis() - badgeDownAt > HOLD_MS) {
+                        host.openPuppetDrawer();
+                    } else {
+                        host.putPinsAway();
+                    }
                     return true;
                 }
                 if (rig.locked) { reset(); return false; }

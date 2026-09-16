@@ -37,9 +37,22 @@ public class PuppetBadgeView extends View {
     public interface Host {
         /** Turn the pins on: open the puppet surface with Grab armed. */
         void onEnterPuppet();
+
+        /**
+         * Held rather than tapped: the pins AND the drawer.
+         *
+         * <p>JoyRaptor, 2026-09-16: <i>"perhaps a long press on him brings up the drawer and
+         * enables pins."</i> The tap is for posing — you want the picture uncovered. The hold is
+         * for when you came to change what a touch MEANS, which is what the drawer is for.
+         */
+        default void onEnterPuppetWithDrawer() { onEnterPuppet(); }
     }
 
     private static final float SIZE_DP = 38f;
+
+    /** Held this long and he brings the drawer with him. Matches the preview's own long press. */
+    private static final long HOLD_MS = 420L;
+    private long downAt;
 
     private final float d;
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -115,6 +128,7 @@ public class PuppetBadgeView extends View {
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 pressed = true;
+                downAt = System.currentTimeMillis();
                 invalidate();
                 return true;
             case MotionEvent.ACTION_UP:
@@ -122,9 +136,13 @@ public class PuppetBadgeView extends View {
                         && e.getX() <= getWidth() && e.getY() <= getHeight();
                 pressed = false;
                 invalidate();
-                if (inside) {
+                if (inside && host != null) {
                     performClick();
-                    if (host != null) host.onEnterPuppet();
+                    if (System.currentTimeMillis() - downAt > HOLD_MS) {
+                        host.onEnterPuppetWithDrawer();
+                    } else {
+                        host.onEnterPuppet();
+                    }
                 }
                 return true;
             case MotionEvent.ACTION_CANCEL:

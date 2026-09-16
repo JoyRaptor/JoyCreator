@@ -30784,6 +30784,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 repaintPuppetPicture();
             }
 
+            @Override public void confirmResetRig() { puppetConfirmReset(o); }
+
             @Override public void setReachPreview(boolean on) {
                 puppetReachPreview = on;
                 if (puppetOverlay != null) puppetOverlay.refresh();
@@ -30966,24 +30968,60 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // while that surface owns every other pixel. It takes no touch outside its own box.
             puppetBadge.setElevation(9.5f * dd);
             puppetBadge.setOutlineProvider(null);
-            puppetBadge.setHost(() -> {
-                com.fadcam.ui.faditor.model.TextOverlayItem it = puppetBadgeItem;
-                if (it == null) return;
-                // GRAB FIRST, always. Coming in through the badge means "I want to move these",
-                // never "I want to place more" -- and a placement tool armed from a previous
-                // session would drop a pin on the first tap of the picture.
-                puppetTool = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
-                puppetScope = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
-                // AND NO DRAWER. JoyRaptor asked for this badge so you could "go right into it
-                // without double tapping on the image itself and bringing up the drawer" -- and
-                // opening one here would cover the very picture he is about to pose. The drawer
-                // is where you change what a touch MEANS; the badge means "let me move these,
-                // now". Double-tapping the picture still opens it for everything else.
-                puppetPinsForced = true;
-                syncPuppetOverlay(it);
+            puppetBadge.setHost(new com.fadcam.ui.faditor.puppet.PuppetBadgeView.Host() {
+                @Override public void onEnterPuppet() { puppetEnterFromBadge(false); }
+                @Override public void onEnterPuppetWithDrawer() { puppetEnterFromBadge(true); }
             });
         }
         return puppetBadge;
+    }
+
+    /**
+     * The way IN, from the grey marionette on the transform surface.
+     *
+     * <p>TAPPED he brings the pins up and nothing else. JoyRaptor asked for this badge so you
+     * could "go right into it without double tapping on the image itself and bringing up the
+     * drawer" — and a drawer here would cover the very picture he is about to pose.
+     *
+     * <p>HELD he brings the drawer too: <i>"perhaps a long press on him brings up the drawer and
+     * enables pins."</i> The tap is for posing; the hold is for when you came to change what a
+     * touch MEANS, which is the whole job of the drawer.
+     *
+     * <p>Either way he CLEARS the put-away state, because once the pins are away he is the only
+     * way back to them.
+     */
+    private void puppetEnterFromBadge(boolean withDrawer) {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetBadgeItem;
+        if (it == null) return;
+        if (withDrawer) { puppetOpenDrawerOn(it); return; }
+        if (it.getPuppet() != null) it.getPuppet().locked = false;
+        // GRAB FIRST, always. Coming in through the badge means "I want to move these", never
+        // "I want to place more" -- and a placement tool armed from a previous session would
+        // drop a pin on the first tap of the picture.
+        puppetTool = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
+        puppetScope = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
+        puppetPinsForced = true;
+        syncPuppetOverlay(it);
+        scheduleAutoSave();
+    }
+
+    /**
+     * Put the pins up AND open the drawer on the Puppet tab.
+     *
+     * <p>Reached by holding the marionette in either place — on the transform surface it means
+     * "I am going to set something up", and on the preview it means the same thing from the other
+     * side, which is why both land here rather than in two arrangements of the same four calls.
+     */
+    private void puppetOpenDrawerOn(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem it) {
+        if (it.getPuppet() != null) it.getPuppet().locked = false;
+        puppetPinsForced = true;
+        puppetTool = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
+        puppetScope = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
+        // showImageOverlayDrawer already asks the drawer to open on Puppet for a rigged picture,
+        // so this is one call rather than a tab index this method would have to keep in step.
+        showImageOverlayDrawer(it);
+        syncPuppetOverlay(it);
+        scheduleAutoSave();
     }
 
     /**
@@ -31238,6 +31276,110 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return pose;
     }
 
+    /**
+     * START OVER, after the user says so.
+     *
+     * <p>JoyRaptor asked for exactly this: <i>"the option to reset all, which would basically
+     * delete all pins and keyframes, so that the user, if they get overwhelmed, can start over —
+     * and it should probably be a confirmation."</i>
+     *
+     * <p>It is ONE undo press, like everything else, and the dialog says so. That is not a
+     * softening: undo genuinely restores the whole rig AND the whole pose track here, because
+     * both are snapshotted together — and a user who has just been told "this deletes
+     * everything" needs to know the door swings both ways before they will use the feature the
+     * spec built it for, which is getting unstuck.
+     */
+    private void puppetConfirmReset(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = o.getPuppet();
+        if (rig == null || rig.pinCount() == 0) return;
+
+        int pins = rig.pinCount(), bones = rig.boneCount();
+        int keys = 0;
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec had = o.getMesh();
+        if (had != null && had.track() != null) keys = had.track().size();
+
+        StringBuilder msg = new StringBuilder();
+        msg.append("This removes ").append(pins).append(pins == 1 ? " pin" : " pins");
+        if (bones > 0) msg.append(", ").append(bones).append(bones == 1 ? " bone" : " bones");
+        // Say the key count only when there ARE keys: "and 0 keyframes" reads as a bug, and a
+        // rig that was never animated should not be described as losing an animation.
+        if (keys > 0) {
+            msg.append(" and ").append(keys).append(keys == 1 ? " keyframe" : " keyframes");
+        }
+        msg.append(" from this picture, and puts it back the way it was before you rigged it.")
+           .append("\n\nThe picture itself is not touched. One undo press brings it all back.");
+
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Start over?")                               // TODO(strings)
+                .setMessage(msg.toString())
+                .setPositiveButton("Delete it all", (d, w) -> puppetResetRig(o))
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    /** The reset itself, as ONE undo step covering the rig AND the mesh together. */
+    private void puppetResetRig(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        final com.fadcam.ui.faditor.puppet.PuppetRig hadRig =
+                o.getPuppet() == null ? null : o.getPuppet().copy();
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec hadMesh =
+                o.getMesh() == null ? null : o.getMesh().copy();
+
+        undoManager.recordAction(new EditActions.LambdaAction("Start over",
+                () -> { o.setPuppet(null); o.setMesh(null); puppetAfterReset(); },
+                () -> { o.setPuppet(hadRig == null ? null : hadRig.copy());
+                        o.setMesh(hadMesh == null ? null : hadMesh.copy());
+                        puppetAfterReset(); }));
+
+        o.setPuppet(null);
+        // THE MESH GOES WITH IT. A rig cleared while its triangles stayed would leave the picture
+        // bent by a rig that no longer exists, with nothing on screen to un-bend it — which is
+        // the exact opposite of what somebody pressing "start over" is asking for.
+        o.setMesh(null);
+        puppetAfterReset();
+        scheduleAutoSave();
+    }
+
+    /** Put every puppet surface back to "this picture has nothing on it". */
+    private void puppetAfterReset() {
+        puppetSelectedPin = -1;
+        puppetSelectedBone = -1;
+        puppetWorkPose = null;
+        puppetSpecBefore = null;
+        puppetRecording = false;
+        puppetArmed = false;
+        if (puppetWire != null) puppetWire.invalidate();
+        repaintPuppetPicture();
+        syncPuppetBadge(puppetItem);
+        if (puppetHelper != null) puppetHelper.say("Back to a plain picture");
+        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
+        syncTimelineOverlays();
+    }
+
+    /** Is the timeline moving, by any of the three mechanisms that can move it? */
+    private boolean puppetTransportRolling() {
+        return (playerManager != null
+                    && (playerManager.isPlaying() || playerManager.getPlayWhenReady()))
+                || imagePlaybackActive || audioTailActive;
+    }
+
+    /**
+     * Roll the transport, the way the play button rolls it.
+     *
+     * <p>Deliberately {@code performClick()} on the actual button rather than a second copy of
+     * its logic. That path handles a missing source, the audio tail, a legacy image clip on its
+     * own timer, the gapless engine, and the audio players that have to be synced alongside —
+     * five branches which a "just call play()" shortcut would get wrong in at least two ways, and
+     * would then keep getting wrong separately from the real one forever.
+     *
+     * @return true when this call is what started it
+     */
+    private boolean puppetStartRolling() {
+        if (puppetTransportRolling()) return false;
+        if (btnPlayPause == null) return false;
+        btnPlayPause.performClick();
+        return puppetTransportRolling();
+    }
+
     /** Anything that edits the pose outside a gesture must drop the cache. */
     private void puppetInvalidatePose() {
         puppetPoseAtMs = Long.MIN_VALUE;
@@ -31258,9 +31400,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // getPlayWhenReady, not isPlaying: isPlaying drops through a buffering blip and a take
         // must not stop recording because the decoder paused for a frame. The comment at the
         // top of this file's playback block already settled which of the two is honest.
-        boolean rolling = playerManager != null
-                && (playerManager.isPlaying() || playerManager.getPlayWhenReady());
-        puppetRecording = rolling && rig != null && rig.recordOnTouch;
+        // ARMED and RECORDING are two different things, and conflating them is what made
+        // "record on touch" do nothing at all.
+        //
+        // JoyRaptor, 2026-09-16: <i>"Recording mode doesn't work when I arm it and then I move
+        // something — playhead doesn't move."</i> Exactly so. This line used to require the
+        // transport to ALREADY be rolling before a touch could record, which means arming it and
+        // touching a pin was a no-op unless you had separately pressed play first. But the
+        // control says "record when I touch a pin", and the pulsing red ring promises something
+        // is about to happen. If touching has to be the SECOND thing you do, the arming was
+        // decoration.
+        //
+        // So: arming is remembered here, and the take FIRES on the first real movement — which
+        // is where SPEC §6B always said it fires ("movement gates recording") and which is also
+        // the only place we know a tap was not just a tap.
+        puppetArmed = rig != null && rig.recordOnTouch;
+        puppetRecording = puppetArmed && puppetTransportRolling();
+        puppetRolledForTake = false;
         // FADE WHEN THE TAKE FIRES, not when it was armed. Armed is a state you want to SEE —
         // that is what the pulsing ring is for. The moment to get out of the way is when the
         // playhead is rolling and a finger is on the puppet.
@@ -31285,6 +31441,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int c = components[i];
             vals[i] = (c >= 0 && c < pose.length) ? pose[c] : 0f;
         }
+        // THE TAKE FIRES HERE. This method is only reached once the finger has passed the drag
+        // slop, so reaching it at all IS the movement that gates recording — a tap that only
+        // selects never gets here and never rolls the timeline.
+        if (puppetArmed && !puppetRecording) {
+            puppetRecording = true;
+            puppetRolledForTake = puppetStartRolling();
+            if (puppetHelper != null) {
+                puppetHelper.setFaded(true);
+                puppetHelper.say("Recording \u2014 let go to stop");
+            }
+            // The take starts WHERE THE FINGER WENT DOWN, not where the transport happened to be
+            // a few milliseconds later, so the first key is the pose the user actually grabbed.
+            puppetLastTakeStepMs = Long.MIN_VALUE;
+        }
+
         long t = puppetClockMs();
         if (puppetRecording) {
             // QUANTISE THE TAKE TO A FRAME GRID. A move event arrives per touch sample — 120 or
@@ -31349,8 +31520,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         puppetWorkPose = null;
         puppetSpecBefore = null;
         puppetRecording = false;
+        puppetArmed = false;
         puppetTakeComponents = null;
         if (puppetHelper != null) puppetHelper.setFaded(false);
+
+        // STOP WHAT THIS TAKE STARTED. A punch-in that leaves the timeline running walks the
+        // playhead away from the moment you need to be at to watch what you just performed, and
+        // "rewind and go again" is the workflow this whole design assumes. Only OUR roll is
+        // stopped: playback somebody started with the play button is theirs, and taking it over
+        // because a pin happened to be dragged would be worse than leaving it.
+        if (puppetRolledForTake) {
+            puppetRolledForTake = false;
+            if (puppetTransportRolling() && btnPlayPause != null) btnPlayPause.performClick();
+        }
 
         if (spec == null || before == null) return;
 
@@ -31497,6 +31679,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** The pose track as it was when a tape drag started — the one thing undo has to put back. */
     @Nullable private com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack puppetTapeBefore;
+
+    /** True for the whole of a gesture that began with "record on touch" switched on. */
+    private boolean puppetArmed;
+
+    /**
+     * True when THIS take started the transport, so the same take can stop it again.
+     *
+     * <p>A punch-in that leaves the timeline running walks the playhead away from the moment the
+     * user needs to be at to watch what they just performed, and "rewind and go again" is the
+     * workflow the whole design assumes. A take that was performed against playback somebody else
+     * started is left alone — stopping that would be taking over their transport.
+     */
+    private boolean puppetRolledForTake;
 
     /**
      * THE ON-PICTURE HELPER — four controls, so mesh editing never needs the drawer open.
@@ -31888,7 +32083,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // to pose, right now, with nothing covering the picture. Either is enough.
         boolean viaDrawer = objectDrawer != null && objectDrawer.isShowing()
                 && "Puppet".equals(objectDrawer.currentTabTitle());
-        boolean want = o != null && (viaDrawer || puppetPinsForced);
+        // PUT AWAY beats both ways in. `rig.locked` used to mean "the pins are grey and inert",
+        // which left a rigged picture as the one kind of picture you could not move — JoyRaptor
+        // reported exactly that: <i>"it kind of behaves like it’s not selected."</i> It now means
+        // "the pins are put away", so this whole surface stands down and the ordinary transform
+        // box comes back. Persisted, deliberately: a picture you put the pins away on should
+        // still have them away tomorrow, because that is the state you work in most of the time.
+        com.fadcam.ui.faditor.puppet.PuppetRig awayRig = (o == null) ? null : o.getPuppet();
+        boolean away = awayRig != null && awayRig.locked;
+        boolean want = o != null && !away && (viaDrawer || puppetPinsForced);
         if (!want) {
             if (puppetOverlay != null) puppetOverlay.setVisibility(View.GONE);
             if (puppetHelper != null) puppetHelper.setVisibility(View.GONE);
@@ -32043,6 +32246,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 @Override public void helperGestureEnded() {
                     if (puppetHelper != null) puppetHelper.releaseDodge();
+                }
+
+                @Override public void putPinsAway() {
+                    com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+                    if (it == null || it.getPuppet() == null) return;
+                    it.getPuppet().locked = true;
+                    puppetPinsForced = false;
+                    // The drawer is the OTHER way the pins are up. Leaving it open on the Puppet
+                    // tab would put them straight back and the tap would look like it failed.
+                    if (objectDrawer != null && objectDrawer.isShowing()
+                            && "Puppet".equals(objectDrawer.currentTabTitle())) {
+                        objectDrawer.hide();
+                    }
+                    syncPuppetOverlay(it);
+                    scheduleAutoSave();
+                }
+
+                @Override public void openPuppetDrawer() {
+                    if (puppetItem != null) puppetOpenDrawerOn(puppetItem);
                 }
 
                 @Override public void say(@Nullable String what) {
@@ -32394,7 +32616,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // rect is read from the overlay view's laid-out bounds.
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
         final com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
-        drawer.setOnTabChanged(() -> drawer.post(() -> syncPuppetOverlay(o)));
+        drawer.setOnTabChanged(() -> drawer.post(() -> {
+            // LANDING ON THE PUPPET TAB BRINGS THE PINS BACK. Otherwise a picture whose pins had
+            // been put away would show the whole puppet drawer over a picture with nothing on it
+            // — every control present, referring to something invisible. Changing tabs is a
+            // deliberate act, so it is a fair place to clear a state the user set deliberately.
+            if ("Puppet".equals(drawer.currentTabTitle())
+                    && o.getPuppet() != null && o.getPuppet().locked) {
+                o.getPuppet().locked = false;
+                scheduleAutoSave();
+            }
+            syncPuppetOverlay(o);
+        }));
         // A fresh item starts with no working rig: the scratch below belongs to whichever
         // overlay is open, and carrying one across items would put another picture's pins on
         // this one.

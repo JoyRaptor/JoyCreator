@@ -468,6 +468,20 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * Changed, saved, but NOT its own undo step.
+     *
+     * <p>For work that is a consequence of an edit rather than an edit: the pruning below
+     * happens a third of a second after you stop dragging the grid, by which time the burst
+     * that coalesced the drag has closed. Calling {@link #markDirty} there would make undo take
+     * two presses to get back across one gesture, which is the rule this app is built on.</p>
+     */
+    private void markDirtyQuiet() {
+        labDirty = true;
+        syncSaveBtn();
+        scheduleSave();
+    }
+
+    /**
      * Write the sheet a moment after you stop changing it.
      *
      * <p>Saving only on pause and on Back means anything between the last pause and a crash,
@@ -4022,7 +4036,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     private final Runnable resliceCatchUp = new Runnable() {
         @Override public void run() {
-            if (!isFinishing() && "slice".equals(labSection)) showSection("slice");
+            if (isFinishing()) return;
+            // Order matters: prune first, because it rebuilds the film strip and may move the
+            // playhead, and the section below should be drawn from what is left.
+            pruneAndReport();
+            if ("slice".equals(labSection)) showSection("slice");
         }
     };
 
@@ -4106,6 +4124,63 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (preview != null) preview.invalidate();
     }
 
+    /**
+     * Drop anything that points at a cell this sheet no longer has.
+     *
+     * <p>Take a 4x7 sheet down to 2x2 and the roll still held frames 4..27 — indices into a
+     * grid that had stopped existing. Nothing crashed, because the renderer bounds-checks and
+     * draws nothing, which is the worst of both worlds: an animation with invisible frames in
+     * it and no explanation anywhere on screen.</p>
+     *
+     * <p>The model spec wanted the whole sequence cleared on a grid change. Dropping only the
+     * frames that actually died is strictly kinder and satisfies the same requirement — nothing
+     * silently broken — because a cell that still exists still means the same thing. Saved
+     * animations get the same treatment, and one that loses every frame is removed rather than
+     * left as an empty entry that plays nothing.</p>
+     *
+     * @return how many frames, across the roll and every saved animation, were dropped
+     */
+    private int pruneDeadFrames() {
+        int n = sheet.cellCount();
+        int dropped = 0;
+        for (int i = labSeq.size() - 1; i >= 0; i--) {
+            if (labSeq.get(i)[0] >= n) { labSeq.remove(i); dropped++; }
+        }
+        for (int p = sheet.getPresets().size() - 1; p >= 0; p--) {
+            SpriteSheet.Preset pr = sheet.getPresets().get(p);
+            for (int i = pr.frames.size() - 1; i >= 0; i--) {
+                if (pr.frames.get(i) >= n) {
+                    pr.frames.remove(i);
+                    if (i < pr.weights.size()) pr.weights.remove(i);
+                    dropped++;
+                }
+            }
+            if (pr.frames.isEmpty()) sheet.getPresets().remove(p);
+        }
+        if (dropped == 0) return 0;
+        if (labCur >= labSeq.size()) labCur = Math.max(0, labSeq.size() - 1);
+        labHold = 0;
+        rebuildFilm();
+        return dropped;
+    }
+
+    /** Prune, and say so. Silence here is how an animation quietly loses half its frames. */
+    private void pruneAndReport() {
+        int dropped = pruneDeadFrames();
+        if (dropped == 0) return;
+        markDirtyQuiet();
+        refreshArt();
+        if (labSeq.isEmpty()) {
+            focusCell(Math.max(0, Math.min(gridView.getSelectedCell(), sheet.cellCount() - 1)), true);
+        } else {
+            focusRoll(labCur, true);
+        }
+        Toast.makeText(this, count(dropped, "frame") + " dropped \u2014 "
+                + (dropped == 1 ? "it pointed" : "they pointed")
+                + " at cells this grid no longer has. Undo brings the grid and the frames back.",
+                Toast.LENGTH_LONG).show();
+    }
+
     private void gridChanged() {
         // Geometry-only change: rects derive from the sheet each draw; the selected
         // index may now be out of range.
@@ -4114,6 +4189,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         syncControls();
         onCellSelected(gridView.getSelectedCell());
+        pruneAndReport();
     }
 
     private void syncControls() {

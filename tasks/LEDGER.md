@@ -3415,3 +3415,55 @@ green; copy-lint unchanged (its 2 masterFade fails pre-date this sheet, another 
 NOT proved on a phone: no save/diff on device, no pre-sheet build install for the
 forward-compat half (argued from the old reader's explicit mesh-drop plus unknown keys
 never being queried). Nothing committed — staged only, per the sheet rules.
+
+---
+
+## 2026-09-15 (night) — the stranded batch lands, and two tools that stop the next hour being wasted
+
+### Landed
+
+The six-finding staleness sweep that the stalled watcher stranded on 2026-09-13 compiled green
+first try and is committed (`4e8fe08b`). It included a crash three taps away: the film chips
+held the renderer they were built with in a final field, and the strip lives outside the panel
+that rebuilds, so relinking art or dragging the tolerance pill recycled that bitmap and the next
+redraw threw. Also: "Add all" / "+ this cell" / "Clear" had skipped the currentCell funnel; the
+alignment pills held a frozen copy of one cell's transform so dragging during playback wrote to
+the wrong frame; the Slice cell editor had the same fault across a re-slice; clip badges
+outlived the Clips section; stopping playback with an empty roll left the preview somewhere
+nothing else knew about.
+
+### Verified on the Note 20 (A8 E4 sandbox only)
+
+The drawer — carded chips, the lit key diamond, no emoji — and the whole Lab on the Joybot 5x5
+sheet: number pills, the Grid/Names/Suspect/Name-many row, the `drag [Pan|Pivot|Swap|Ripple]`
+segment, the cell editor, the transport. The Sprites tool shows the running figure here too.
+
+### The hour I lost, and what I did about it
+
+The watcher also runs `installDefaultDebug`. With no phone attached that task FAILS, so **every
+build prints "BUILD FAILED" even when the compile is clean** — and `phone.sh build` only ever
+echoed that last line. I read it, believed the tree was red, and chased a phantom
+`cannot find symbol: isStratified()` through the stale-intermediates remedy, the Gradle
+configuration cache and the incremental-compile state. The real last compile task in the log
+was clean; the failure was `:app:installDefaultDebug — No connected devices!`. The giveaway I
+should have caught sooner: the error's reported line (Timeline.java:1646) did not match the
+source (3252), because it was an old block in a 185MB log, not the current run.
+
+Two tools came out of it:
+
+- **`tools/phone.sh build`** now prints `COMPILE: clean|FAILED` on its own line, and when the
+  build failed only at install it says so and points at the reconnect script.
+- **`tools/wifi-adb.sh`** does the whole wireless reconnect in one command — drop stale entries,
+  scan mDNS, try EVERY advertised endpoint (records outlive the listener, newest wins), restart
+  the adb server and re-scan, print the ip:port. When it truly cannot reach the phone it names
+  the two usual causes rather than shrugging, and it never suggests USB, because the connector
+  is damaged. This is the half of INBOX 2026-09-15 that could be tooled; the other half —
+  dropping the install from the watcher — is JoyRaptor's call and is recommended there.
+
+### Still owed
+
+Device proof of the six fixes in `4e8fe08b`, above all the tolerance-pill crash, which needs a
+roll built and then that pill dragged. The phone stopped advertising mid-session (the Wireless
+Debugging toggle turns itself off, a known field lesson) and could not be reached again.
+
+Commits: 4e8fe08b - 5f41cc97 - fe01e03c

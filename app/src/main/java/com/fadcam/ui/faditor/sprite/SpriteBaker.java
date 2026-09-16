@@ -41,7 +41,19 @@ public final class SpriteBaker {
          *  dead margin. The default, and the only one that makes a merged sheet look level. */
         CONTENT,
         /** Keep the source cell size, so the bake drops into an existing pipeline unchanged. */
-        CELL
+        CELL,
+        /**
+         * Fill the cell edge to edge, cropping whatever will not fit.
+         *
+         * <p>The dangerous one, and specified as such: "fill crops, and cropping a character
+         * costs it a head" (SPEC_20260910_SPRITELAB_MODEL §6). It exists because matching an
+         * existing sheet's framing exactly is sometimes worth a crop. It is never the default
+         * and the UI says what it will do before it does it.</p>
+         *
+         * <p>Safe by construction here: {@link #bake} clips each cell to its own box before
+         * drawing, so an overflowing frame can never bleed into its neighbour.</p>
+         */
+        FILL
     }
 
     /** One sheet contributing frames to a bake. */
@@ -136,10 +148,13 @@ public final class SpriteBaker {
      * a different shape gets letterboxed into the box rather than stretched across it.</p>
      */
     @NonNull
-    private static RectF destFor(@NonNull Source s, int cell, int cw, int ch) {
+    private static RectF destFor(@NonNull Source s, int cell, int cw, int ch, boolean fill) {
         Rect r = s.renderer.cellRectBitmap(cell);
         int sw = Math.max(1, r.width()), sh = Math.max(1, r.height());
-        float k = Math.min(cw / (float) sw, ch / (float) sh);
+        // min letterboxes and never crops; max fills and crops the overflow. Same arithmetic,
+        // one operator, which is why they cannot drift apart.
+        float k = fill ? Math.max(cw / (float) sw, ch / (float) sh)
+                       : Math.min(cw / (float) sw, ch / (float) sh);
         float w = sw * k, h = sh * k;
         float x = (cw - w) / 2f, y = (ch - h) / 2f;
         return new RectF(x, y, x + w, y + h);
@@ -158,7 +173,9 @@ public final class SpriteBaker {
         for (Source s : sources) {
             for (int cell : s.cells) {
                 scratch.eraseColor(0);
-                s.renderer.drawCell(c, cell, destFor(s, cell, cw, ch), null);
+                // Measuring is the CONTENT path by definition, so it measures the
+                // letterboxed art. FILL sizes its cell from the source, not from the ink.
+                s.renderer.drawCell(c, cell, destFor(s, cell, cw, ch, false), null);
                 for (int y = 0; y < ch; y++) {
                     scratch.getPixels(row, 0, cw, 0, y, cw, 1);
                     for (int x = 0; x < cw; x++) {
@@ -223,7 +240,8 @@ public final class SpriteBaker {
                 int save = canvas.save();
                 canvas.clipRect(x, y, x + bw, y + bh);
                 canvas.translate(x - boxL, y - boxT);
-                s.renderer.drawCell(canvas, cell, destFor(s, cell, cw, ch), null);
+                s.renderer.drawCell(canvas, cell, destFor(s, cell, cw, ch,
+                        opt.fit == Fit.FILL), null);
                 canvas.restoreToCount(save);
                 map.put(key(s.sheet, cell), i);
                 i++;

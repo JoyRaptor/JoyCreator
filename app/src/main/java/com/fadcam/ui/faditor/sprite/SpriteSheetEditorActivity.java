@@ -275,6 +275,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             @Override public void onCellTapped(int index) { onCellTappedInLab(index); }
             @Override public void onPivotChanged(float px, float py) { markDirty(); }
             @Override public void onColorPicked(int argb) { applyBgKey(argb); }
+            @Override public void onBadgeTapped(int index) { unAddCell(index, false); }
+
+            @Override public void onBadgeHeld(int index) { unAddCell(index, true); }
+
             @Override public void onCellDragged(int from, int to) { reorderCells(from, to); }
         });
         root.addView(gridView, new LinearLayout.LayoutParams(
@@ -1899,6 +1903,48 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             focusRoll(labSeq.size() - 1, true);
         });
         b.addView(add);
+
+        // "Add all, and go." The mockup drew this button and never said what it did; beside
+        // Add all, with a transport right below, this is the only reading that is not just one
+        // of the other two buttons. One press, one undo step, and the toast says what happened.
+        TextView playAll = chip("Play all");
+        playAll.setOnClickListener(v -> {
+            noteChange();
+            labSeq.clear();
+            for (int i = 0; i < sheet.cellCount(); i++) {
+                SpriteSheet.Cell m = sheet.cellAt(i);
+                if (m != null && !m.enabled) continue;
+                labSeq.add(new int[]{i, 1});
+            }
+            rebuildFilm();
+            focusRoll(0, true);
+            if (preview != null && !preview.isPlaying()) togglePlay();
+            Toast.makeText(this, "Playing all " + labSeq.size() + " frames",
+                    Toast.LENGTH_SHORT).show();
+        });
+        b.addView(playAll);
+
+        // Name the roll BEFORE saving it, so Save clip has something to offer and you are not
+        // naming an animation in a dialog that has already hidden it.
+        TextView nameRoll = ichip("tag", rollName == null || rollName.isEmpty()
+                ? "Name\u2026" : rollName);
+        nameRoll.setOnClickListener(v -> {
+            final EditText in = new EditText(this);
+            in.setSingleLine(true);
+            in.setText(rollName == null ? "" : rollName);
+            in.setSelectAllOnFocus(true);
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("Name this sequence")
+                    .setView(in)
+                    .setPositiveButton("Set", (dl, w) -> {
+                        rollName = in.getText().toString().trim();
+                        showSection("play");
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+        b.addView(nameRoll);
+
         TextView all = chip("Add all");
         all.setOnClickListener(v -> {
             noteChange();
@@ -1953,7 +1999,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         final EditText input = new EditText(this);
         input.setSingleLine(true);
-        input.setText("clip" + (sheet.getPresets().size() + 1));
+        input.setText(rollName == null || rollName.isEmpty()
+                ? "clip" + (sheet.getPresets().size() + 1) : rollName);
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Name this animation")
                 .setView(input)
@@ -2222,7 +2269,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         FlowLayout b = bodyOf(g);
         TextView ex = ichip("out", "Write .sprite.json");
         tintToggle(ex, true, SpriteTheme.ACCENT_OUT);
-        ex.setOnClickListener(v -> exportSidecar());
+        ex.setOnClickListener(v -> confirmSidecar());
         b.addView(ex);
         TextView im = chip("Import .sprite.json");
         im.setOnClickListener(v -> sidecarImportLauncher.launch(new String[]{"application/json"}));
@@ -2504,7 +2551,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     private int bakeCols = 8;
     private int bakePad = 2;
-    private boolean bakeContentFit = true;
+    /** How a source frame is fitted into a baked cell. Content-fit is the safe default. */
+    @NonNull private SpriteBaker.Fit bakeFit = SpriteBaker.Fit.CONTENT;
+
+    /** What this roll is called, if anything. Offered to Save clip so you name it once. */
+    @Nullable private String rollName;
     private boolean bakeJpeg = false;
     /**
      * Sheets ADDED to the bake, beyond the one you are looking at.
@@ -2582,13 +2633,23 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         LinearLayout fitSeg = seg();
         TextView fitArt = segText("Fit to art");
         TextView fitCell = segText("Keep cell size");
+        TextView fitFill = segText("Fill");
         Runnable syncFit = () -> {
-            tintSeg(fitArt, bakeContentFit, SpriteTheme.ACCENT_OUT);
-            tintSeg(fitCell, !bakeContentFit, SpriteTheme.ACCENT_OUT);
+            tintSeg(fitArt, bakeFit == SpriteBaker.Fit.CONTENT, SpriteTheme.ACCENT_OUT);
+            tintSeg(fitCell, bakeFit == SpriteBaker.Fit.CELL, SpriteTheme.ACCENT_OUT);
+            tintSeg(fitFill, bakeFit == SpriteBaker.Fit.FILL, SpriteTheme.ACCENT_OUT);
         };
-        fitArt.setOnClickListener(v -> { bakeContentFit = true; syncFit.run(); });
-        fitCell.setOnClickListener(v -> { bakeContentFit = false; syncFit.run(); });
-        fitSeg.addView(fitArt); fitSeg.addView(fitCell);
+        fitArt.setOnClickListener(v -> { bakeFit = SpriteBaker.Fit.CONTENT; syncFit.run(); });
+        fitCell.setOnClickListener(v -> { bakeFit = SpriteBaker.Fit.CELL; syncFit.run(); });
+        // Fill is the one that can lose part of the drawing, so it says so the first time you
+        // arm it rather than after the bake, when the head is already gone.
+        fitFill.setOnClickListener(v -> {
+            bakeFit = SpriteBaker.Fit.FILL;
+            syncFit.run();
+            Toast.makeText(this, "Fill crops whatever does not fit the cell",
+                    Toast.LENGTH_LONG).show();
+        });
+        fitSeg.addView(fitArt); fitSeg.addView(fitCell); fitSeg.addView(fitFill);
         space(fitSeg, d, 1);
         syncFit.run();
         b.addView(fitSeg);
@@ -2651,7 +2712,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         final SpriteBaker.Options opt = new SpriteBaker.Options();
         opt.cols = bakeCols;
         opt.pad = bakePad;
-        opt.fit = bakeContentFit ? SpriteBaker.Fit.CONTENT : SpriteBaker.Fit.CELL;
+        opt.fit = bakeFit;
         opt.jpeg = bakeJpeg && !framesOnly;   // numbered frames are always PNG
 
         final String base = safeBase(sheet.getName());
@@ -3777,6 +3838,41 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     };
 
     /**
+     * Take a cell back out of the roll, from the grid, without going near the film strip.
+     *
+     * <p>Tapping a cell adds it; tapping its badge takes the LAST one back; holding the badge
+     * clears every use of it. That pairing is the whole point — building a roll is a rhythm of
+     * taps on the sheet, and having to break off and hunt down the wrong chip on a strip that
+     * has scrolled somewhere else breaks it (SPEC_20260910_SPRITELAB_UI §6).</p>
+     */
+    private void unAddCell(int cell, boolean all) {
+        if (labSeq.isEmpty()) return;
+        int removed = 0;
+        if (all) {
+            for (int i = labSeq.size() - 1; i >= 0; i--) {
+                if (labSeq.get(i)[0] == cell) { labSeq.remove(i); removed++; }
+            }
+        } else {
+            for (int i = labSeq.size() - 1; i >= 0; i--) {
+                if (labSeq.get(i)[0] == cell) { labSeq.remove(i); removed = 1; break; }
+            }
+        }
+        if (removed == 0) return;
+        noteChange();
+        if (labCur >= labSeq.size()) labCur = Math.max(0, labSeq.size() - 1);
+        rebuildFilm();
+        if (labSeq.isEmpty()) {
+            labCur = 0;
+            labHold = 0;
+            focusCell(cell, true);
+        } else {
+            focusRoll(labCur, true);
+        }
+        Toast.makeText(this, all ? "Removed every use of cell " + cell
+                : "Removed one use of cell " + cell, Toast.LENGTH_SHORT).show();
+    }
+
+    /**
      * A drawing was dragged to another slot.
      *
      * <p>Swap exchanges the two. Ripple pulls the drawing out and drops it in, shuffling
@@ -3941,6 +4037,37 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         keyBtn.setText(keyed ? "Clear bg key"
                 : gridView.isColorPickMode() ? "Tap the colour" : "Bg key");
         tintToggle(keyBtn, keyed || gridView.isColorPickMode(), SpriteTheme.ACCENT_CELL);
+    }
+
+    /**
+     * The sidecar describes the sheet; it does not REDRAW it.
+     *
+     * <p>So a frame that has been nudged, scaled or rotated exports as a slice of the original
+     * image with the nudge recorded alongside — which anything reading the sidecar honours, and
+     * anything reading only the PNG does not. That is fine and it is the point, but it is not
+     * what "export" sounds like, so a sheet carrying alignment says so once before writing, and
+     * offers the bake, which is the one that draws the alignment into the pixels
+     * (SPEC_20260910_SPRITELAB_MODEL §8: JSON-only "refuses to silently lose transforms").</p>
+     */
+    private void confirmSidecar() {
+        int moved = 0;
+        for (SpriteSheet.CellXf t : sheet.getCellTransforms().values()) {
+            if (t != null && !t.isIdentity()) moved++;
+        }
+        if (moved == 0) { exportSidecar(); return; }
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Alignment travels as numbers")
+                .setMessage(count(moved, "frame") + " on this sheet " + (moved == 1 ? "has" : "have")
+                        + " alignment on "
+                        + (moved == 1 ? "it" : "them") + ".\n\nThe .sprite.json records that "
+                        + "alignment, and Joy Creator applies it. The image file itself is "
+                        + "untouched, so anything that reads the PNG on its own will show the "
+                        + "art where it originally sat.\n\nBake instead if you want the "
+                        + "alignment drawn into the pixels.")
+                .setPositiveButton("Write the JSON", (d, w) -> exportSidecar())
+                .setNeutralButton("Take me to Bake", (d, w) -> showSection("out"))
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     /** Write the standalone sidecar (<image>.sprite.json, same JSON as the

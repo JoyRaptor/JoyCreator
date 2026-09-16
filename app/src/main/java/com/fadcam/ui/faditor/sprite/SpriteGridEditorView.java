@@ -33,6 +33,10 @@ public class SpriteGridEditorView extends View {
         default void onColorPicked(int argb) {}
         /** A drawing was dragged from one slot to another while a reorder mode was on. */
         default void onCellDragged(int from, int to) {}
+        /** The order badge was tapped: take the LAST use of this cell back out of the roll. */
+        default void onBadgeTapped(int index) {}
+        /** The order badge was held: take EVERY use of this cell out of the roll. */
+        default void onBadgeHeld(int index) {}
     }
 
     /** How a drag rearranges the sheet, or {@link #OFF} for pan and tap as usual. */
@@ -75,6 +79,16 @@ public class SpriteGridEditorView extends View {
      * you tapped lives in the film strip, and you cannot see it while looking at the art.</p>
      */
     private final java.util.Map<Integer, String> orders = new java.util.HashMap<>();
+
+    /**
+     * Where each order badge ended up ON SCREEN, so it can be tapped.
+     *
+     * <p>Filled during the draw because that is the only place that knows: the badge is
+     * lettered in view space so it stays legible at any zoom, which means its position is not
+     * derivable from the cell rect without redoing the same arithmetic. Recording what was
+     * actually drawn cannot disagree with what was drawn.</p>
+     */
+    private final java.util.Map<Integer, RectF> badgeHit = new java.util.HashMap<>();
 
     /** What the overlay draws. On a dense sheet the lettering can be the clutter. */
     private boolean showGrid = true;
@@ -277,6 +291,7 @@ public class SpriteGridEditorView extends View {
         // order badge top-centre. Stacking them in one string made none of them readable.
         float[] tl = new float[2];
         float[] br = new float[2];
+        badgeHit.clear();
         for (int i = 0; i < count; i++) {
             Rect r = SpriteSheetRenderer.cellRectSource(sheet, i, renderer.sourceWidth(), renderer.sourceHeight());
             tl[0] = r.left; tl[1] = r.top;
@@ -310,6 +325,16 @@ public class SpriteGridEditorView extends View {
                 float w = badgeInk.measureText(ord) + 9f * density;
                 badgeBox.set(cx - w / 2f, tl[1] + 2f * density,
                         cx + w / 2f, tl[1] + 15f * density);
+                // A 40dp minimum target, expanding outside the cell on a small one, per
+                // SPEC_20260910_SPRITELAB_UI §6. A badge you cannot reliably hit is a badge
+                // whose two gestures may as well not exist.
+                float minHalf = 20f * density;
+                float bcx = badgeBox.centerX(), bcy = badgeBox.centerY();
+                badgeHit.put(i, new RectF(
+                        Math.min(badgeBox.left, bcx - minHalf),
+                        Math.min(badgeBox.top, bcy - minHalf),
+                        Math.max(badgeBox.right, bcx + minHalf),
+                        Math.max(badgeBox.bottom, bcy + minHalf)));
                 boolean now = i == playingCell;
                 badgePaint.setColor(now ? SpriteTheme.LIVE : SpriteTheme.SELECTED);
                 canvas.drawRoundRect(badgeBox, 4f * density, 4f * density, badgePaint);
@@ -366,10 +391,36 @@ public class SpriteGridEditorView extends View {
         viewMatrix.postTranslate((getWidth() - sw * scale) / 2f, (getHeight() - sh * scale) / 2f);
     }
 
+    /** Which order badge is under this point, or -1. */
+    private int badgeAt(float x, float y) {
+        for (java.util.Map.Entry<Integer, RectF> en : badgeHit.entrySet()) {
+            if (en.getValue().contains(x, y)) return en.getKey();
+        }
+        return -1;
+    }
+
+    private int badgeDown = -1;
+    private boolean badgeHeld;
+
+    private final Runnable badgeLongPress = new Runnable() {
+        @Override public void run() {
+            if (badgeDown < 0) return;
+            badgeHeld = true;
+            if (listener != null) listener.onBadgeHeld(badgeDown);
+            performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        }
+    };
+
+    private void cancelBadge() {
+        removeCallbacks(badgeLongPress);
+        badgeDown = -1;
+        badgeHeld = false;
+    }
+
     @Override
     public boolean onTouchEvent(MotionEvent e) {
         scaleDetector.onTouchEvent(e);
-        if (scaling) { maybeTap = false; draggingPivot = false; return true; }
+        if (scaling) { maybeTap = false; draggingPivot = false; cancelBadge(); return true; }
         float x = e.getX(), y = e.getY();
         switch (e.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
@@ -380,10 +431,20 @@ public class SpriteGridEditorView extends View {
                 dragFrom = reorder == Reorder.OFF ? -1 : cellAtPoint(x, y);
                 dragOver = -1;
                 dragX = x; dragY = y;
+                // The badge is only a control while a reorder is NOT armed: on a sheet you are
+                // rearranging, a press on a cell means "pick this drawing up", and having that
+                // sometimes mean "edit the roll" instead is the kind of overload that makes a
+                // tool feel haunted.
+                badgeHeld = false;
+                badgeDown = reorder == Reorder.OFF ? badgeAt(x, y) : -1;
+                if (badgeDown >= 0) postDelayed(badgeLongPress, 400);
                 getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
             case MotionEvent.ACTION_MOVE:
-                if (Math.abs(x - downX) > touchSlop || Math.abs(y - downY) > touchSlop) maybeTap = false;
+                if (Math.abs(x - downX) > touchSlop || Math.abs(y - downY) > touchSlop) {
+                    maybeTap = false;
+                    cancelBadge();   // a drag that started on a badge is a pan, not a press
+                }
                 if (dragFrom >= 0) {
                     // Panning is off while a reorder mode is armed. The mode is explicit and
                     // temporary, and a drag that sometimes moves art and sometimes moves the
@@ -400,7 +461,17 @@ public class SpriteGridEditorView extends View {
                 lastX = x; lastY = y;
                 return true;
             case MotionEvent.ACTION_UP:
-                if (dragFrom >= 0 && !maybeTap && dragOver >= 0 && dragOver != dragFrom
+                boolean onBadge = badgeDown >= 0;
+                boolean held = badgeHeld;
+                int badge = badgeDown;
+                removeCallbacks(badgeLongPress);
+                badgeDown = -1;
+                badgeHeld = false;
+                if (held) {
+                    // The long-press already fired and already did the work.
+                } else if (onBadge && maybeTap) {
+                    if (listener != null) listener.onBadgeTapped(badge);
+                } else if (dragFrom >= 0 && !maybeTap && dragOver >= 0 && dragOver != dragFrom
                         && listener != null) {
                     listener.onCellDragged(dragFrom, dragOver);
                 } else if (maybeTap) {
@@ -411,6 +482,7 @@ public class SpriteGridEditorView extends View {
                 invalidate();
                 return true;
             case MotionEvent.ACTION_CANCEL:
+                cancelBadge();
                 dragFrom = dragOver = -1;
                 draggingPivot = false;
                 invalidate();

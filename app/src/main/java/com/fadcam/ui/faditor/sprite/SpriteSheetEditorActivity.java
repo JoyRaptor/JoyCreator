@@ -1124,7 +1124,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         tLabel.setTextSize(10f);
         cb.addView(tLabel);
         for (String tag : tagVocabulary()) {
-            boolean on = ensureCell(currentCell()).tags.contains(tag);
+            // cellAt, not ensureCell: LOOKING at a cell must not create a record for it.
+            // ensureCell here would have written an empty Cell for every cell you merely
+            // scrolled past, and every one of them would then be serialised into the project.
+            SpriteSheet.Cell tc = sheet.cellAt(currentCell());
+            boolean on = tc != null && tc.tags.contains(tag);
             TextView tb = gchip(tag, on, SpriteTheme.ACCENT_CELL);
             tb.setOnClickListener(x -> {
                 java.util.List<String> tl = ensureCell(currentCell()).tags;

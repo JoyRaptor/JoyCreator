@@ -3427,6 +3427,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         private final String key;
         private float downX;
         private boolean dragged;
+        /** Widest the number has ever been, in pixels. The pill never gives this space back. */
+        private int valueFloor;
 
         NumPill(@NonNull String key, @Nullable String icon, @NonNull FloatGet get,
                 @NonNull FloatSet set, float step, boolean integral, @NonNull String suffix) {
@@ -3463,9 +3465,31 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             valueView.setTypeface(Typeface.DEFAULT_BOLD);
             addView(valueView);
             sync();
+            // A digit of headroom up front, so the common 0 -> 12 crossing costs no re-flow at
+            // all. Without it the very first drag still jostles the row once.
+            reserve(valueView.getText() + "0");
         }
 
-        void sync() { valueView.setText(text()); }
+        void sync() {
+            valueView.setText(text());
+            reserve(valueView.getText().toString());
+        }
+
+        /**
+         * A pill may GROW to fit a longer number. It never shrinks back.
+         *
+         * <p>These pills sit in a flow layout beside real buttons. Dragging {@code tol} from 0%
+         * to 12% widened the pill by a digit, which pushed {@code Detect} onto the next row —
+         * the primary action hopping out from under your finger while you were still setting up
+         * the thing it acts on. Reserving the high-water mark keeps the row still.</p>
+         */
+        private void reserve(@NonNull String probe) {
+            int w = (int) Math.ceil(valueView.getPaint().measureText(probe));
+            if (w > valueFloor) {
+                valueFloor = w;
+                valueView.setMinWidth(w);
+            }
+        }
 
         @NonNull
         private String text() {

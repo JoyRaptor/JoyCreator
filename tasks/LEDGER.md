@@ -3467,3 +3467,34 @@ roll built and then that pill dragged. The phone stopped advertising mid-session
 Debugging toggle turns itself off, a known field lesson) and could not be reached again.
 
 Commits: 4e8fe08b - 5f41cc97 - fe01e03c
+
+## 2026-09-15 — the Lab, verified on the phone rather than argued about
+
+Three fixes from `4e8fe08b` were code-reviewed but never exercised on a device. All three were
+run on the Note 20 against the A8 sandbox project, on the sheet with the 28 book pages.
+
+| what was claimed | how it was actually checked | result |
+|---|---|---|
+| dragging the `tol` pill no longer dies on a recycled bitmap | built a 3-frame roll, went to Slice, dragged `tol` four times in both directions | no crash; `mCurrentFocus` still the Lab; value moved 0% → 12% → 2%, so the pill is live and not merely silent |
+| "Add all" lands grid, preview, HUD and panel on the same frame | tapped Add all with the playhead sitting on cell 3 | all four moved to cell 0 together: pink badge on grid cell 1-of-28, preview art, HUD `c0`, ALIGNMENT header `cell 0`, film chip `#1 · c0` |
+| the alignment panel retargets during playback | pressed play at 8fps and sampled the header three times | header read `cell 10`, then `cell 4`, and the preview art matched the header each time |
+
+The third is the one JoyRaptor reported as "Starguy four, the crying one, starting to jiggle,
+but that wasn't the one it showed I had selected." The panel now names the frame you are
+looking at, frame by frame, with no rebuild.
+
+Also confirmed by eye, since it was the other half of that report: the preview letterboxes with
+a checkerboard at full width instead of stretching, and the film chips do the same. No
+distortion at any width.
+
+**One new defect, found by the verification itself and fixed.** Dragging `tol` from 0% to 12%
+made the pill one digit wider, which re-flowed the row and pushed **Detect** onto the next line
+— the primary action hopping out from under your finger while you are still setting up the
+thing it acts on. Number pills now reserve their high-water width: they grow to fit a longer
+number and never give the space back, with a digit of headroom reserved at build time so the
+first crossing costs nothing.
+
+**That fix is NOT compiled.** The watcher is off (it kept dropping the wireless debugging
+connection) and this repo does not run Gradle by hand, so it has been parse-checked only —
+see `tools/javacheck.sh`, added for exactly this gap. It needs a real build before it is
+believed.

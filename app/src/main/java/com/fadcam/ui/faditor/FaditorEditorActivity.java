@@ -30738,7 +30738,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             // ── keys ─────────────────────────────────────────────────────────────────
             @Override public int keyCount() {
-                return com.fadcam.ui.faditor.puppet.PuppetKeys.keyCount(
+                // displayKeyCount, not keyCount: the engine counts the two ends of a held value
+                // as keys, which is true of the storage and false to a user who never animated
+                // this pin.
+                return com.fadcam.ui.faditor.puppet.PuppetKeys.displayKeyCount(
                         puppetSpec(), puppetSelectedPin);
             }
 

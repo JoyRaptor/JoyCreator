@@ -1,7 +1,5 @@
 package com.fadcam.ui.faditor.puppet;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack;
 import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
@@ -53,7 +51,6 @@ public final class PuppetKeys {
     // ── what a pin owns ──────────────────────────────────────────────────
 
     /** The components of ONE pin. */
-    @NonNull
     public static int[] componentsOf(int pin) {
         return new int[]{pin * COMPONENTS_PER_PIN, pin * COMPONENTS_PER_PIN + 1};
     }
@@ -64,8 +61,7 @@ public final class PuppetKeys {
      * <p>Falls back to the pin alone when there is no rig or no chain, which is the ordinary case
      * for a loose pin and not a failure.
      */
-    @NonNull
-    public static int[] componentsForDrag(@Nullable PuppetRig rig, int pin) {
+    public static int[] componentsForDrag(PuppetRig rig, int pin) {
         if (rig == null || pin < 0 || pin >= rig.pinCount()) return componentsOf(pin);
         return rig.chainComponents(pin);
     }
@@ -73,8 +69,7 @@ public final class PuppetKeys {
     // ── reading ──────────────────────────────────────────────────────────
 
     /** The instants this pin has a key at, ascending. Empty when it has none. */
-    @NonNull
-    public static long[] keyTimes(@Nullable MeshWarpSpec spec, int pin) {
+    public static long[] keyTimes(MeshWarpSpec spec, int pin) {
         if (spec == null || spec.track() == null || spec.track().isEmpty()) return new long[0];
         try {
             long[] t = spec.track().componentTimes(componentsOf(pin), 1e-5f);
@@ -84,12 +79,42 @@ public final class PuppetKeys {
         }
     }
 
-    public static int keyCount(@Nullable MeshWarpSpec spec, int pin) {
+    public static int keyCount(MeshWarpSpec spec, int pin) {
         return keyTimes(spec, pin).length;
     }
 
+    /**
+     * What a HUMAN should be told this pin's key count is.
+     *
+     * <p>{@code componentTimes} always includes the first and last pose — "where a value starts
+     * and stops being held" — so a pin nobody has ever animated reports TWO. That is honest about
+     * storage and a lie to the user: the drawer would say "2 keys" about a pin they never
+     * touched, and the {@code ‹ ♦ ›} would offer to jump between them.
+     *
+     * <p>So a pin whose value never actually changes reports zero. Caught by
+     * {@code PuppetKeysTest}, which expected zero, got two, and was wrong about the engine but
+     * right about the person reading the screen.
+     */
+    public static int displayKeyCount(MeshWarpSpec spec, int pin) {
+        long[] t = keyTimes(spec, pin);
+        if (t.length == 0) return 0;
+        int arity = spec == null ? 0 : spec.arity();
+        if (arity <= 0) return 0;
+        int[] comps = componentsOf(pin);
+        float[] first = new float[arity];
+        if (!readPose(spec, t[0], first)) return t.length;
+        for (int i = 1; i < t.length; i++) {
+            float[] here = new float[arity];
+            if (!readPose(spec, t[i], here)) continue;
+            for (int c : comps) {
+                if (c >= 0 && c < arity && Math.abs(here[c] - first[c]) > 1e-5f) return t.length;
+            }
+        }
+        return 0;       // held at one value for its whole life: not an animation
+    }
+
     /** 1-based position of the key at {@code timeMs}, or 0 when the playhead is between keys. */
-    public static int keyIndexAt(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+    public static int keyIndexAt(MeshWarpSpec spec, int pin, long timeMs) {
         long[] t = keyTimes(spec, pin);
         for (int i = 0; i < t.length; i++) {
             if (Math.abs(t[i] - timeMs) <= TIME_TOLERANCE_MS) return i + 1;
@@ -97,12 +122,12 @@ public final class PuppetKeys {
         return 0;
     }
 
-    public static boolean isOnKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+    public static boolean isOnKey(MeshWarpSpec spec, int pin, long timeMs) {
         return keyIndexAt(spec, pin, timeMs) > 0;
     }
 
     /** The key strictly before {@code timeMs}, or {@code Long.MIN_VALUE} when there is none. */
-    public static long prevKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+    public static long prevKey(MeshWarpSpec spec, int pin, long timeMs) {
         long[] t = keyTimes(spec, pin);
         long best = Long.MIN_VALUE;
         for (long k : t) {
@@ -112,7 +137,7 @@ public final class PuppetKeys {
     }
 
     /** The key strictly after {@code timeMs}, or {@code Long.MIN_VALUE} when there is none. */
-    public static long nextKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+    public static long nextKey(MeshWarpSpec spec, int pin, long timeMs) {
         long[] t = keyTimes(spec, pin);
         long best = Long.MIN_VALUE;
         for (long k : t) {
@@ -122,7 +147,7 @@ public final class PuppetKeys {
     }
 
     /** True when this spec is animated at all, as opposed to carrying one static bend. */
-    public static boolean isAnimated(@Nullable MeshWarpSpec spec) {
+    public static boolean isAnimated(MeshWarpSpec spec) {
         return spec != null && spec.track() != null && !spec.track().isEmpty();
     }
 
@@ -138,7 +163,7 @@ public final class PuppetKeys {
      *
      * @return false when there is no pose to read
      */
-    public static boolean readPose(@Nullable MeshWarpSpec spec, long timeMs, @NonNull float[] out) {
+    public static boolean readPose(MeshWarpSpec spec, long timeMs, float[] out) {
         if (spec == null) return false;
         try {
             if (isAnimated(spec)) return spec.handlesAt(timeMs, out);
@@ -161,8 +186,8 @@ public final class PuppetKeys {
      * @param values two floats per component index, in the same order
      * @return true when something was written
      */
-    public static boolean writeOffsets(@Nullable MeshWarpSpec spec, @NonNull int[] components,
-                                       @NonNull float[] values, long timeMs, boolean forceKey) {
+    public static boolean writeOffsets(MeshWarpSpec spec, int[] components,
+                                       float[] values, long timeMs, boolean forceKey) {
         if (spec == null || components.length != values.length) return false;
         try {
             if (forceKey || isAnimated(spec)) {
@@ -189,7 +214,7 @@ public final class PuppetKeys {
      *
      * @return true when a key landed
      */
-    public static boolean dropKey(@Nullable MeshWarpSpec spec, @Nullable PuppetRig rig,
+    public static boolean dropKey(MeshWarpSpec spec, PuppetRig rig,
                                   int pin, long timeMs) {
         if (spec == null) return false;
         int arity = spec.arity();
@@ -223,7 +248,7 @@ public final class PuppetKeys {
      *
      * @return true when a key was there to remove
      */
-    public static boolean deleteKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+    public static boolean deleteKey(MeshWarpSpec spec, int pin, long timeMs) {
         if (spec == null || spec.track() == null) return false;
         MeshPoseTrack track = spec.track();
         long at = Long.MIN_VALUE;
@@ -264,12 +289,30 @@ public final class PuppetKeys {
         // what the neighbouring poses would interpolate to, the pose is dead weight — and a
         // track full of them would make every later simplify and every tape row slower for
         // nothing.
-        if (poseIsRedundant(spec, at)) track.removeAt(at);
+        if (poseIsRedundant(spec, at)) {
+            track.removeAt(at);
+        } else if (trackIsOneIdentityPose(track, spec.arity())) {
+            // THE LAST KEY. A single pose that is all zeros is not an animation, it is the rest
+            // shape written down — and leaving it would mean a rig still reported as animated
+            // after its only key was deleted, so every later drag would key instead of editing
+            // the static pose. The user would never find their way back.
+            track.removeAt(at);
+        }
+        return true;
+    }
+
+    /** True when the whole track is one pose and that pose moves nothing. */
+    private static boolean trackIsOneIdentityPose(MeshPoseTrack track, int arity) {
+        long[] all = track == null ? null : track.times();
+        if (all == null || all.length != 1 || arity <= 0) return false;
+        float[] only = new float[arity];
+        if (!track.valueAt(all[0], only)) return false;
+        for (float v : only) if (Math.abs(v) > 1e-6f) return false;
         return true;
     }
 
     /** True when the pose at {@code timeMs} is exactly what its neighbours already imply. */
-    private static boolean poseIsRedundant(@NonNull MeshWarpSpec spec, long timeMs) {
+    private static boolean poseIsRedundant(MeshWarpSpec spec, long timeMs) {
         MeshPoseTrack track = spec.track();
         if (track == null) return false;
         long[] all = track.times();
@@ -299,7 +342,7 @@ public final class PuppetKeys {
      * cannot be drawn inside a bar or hit with a finger. {@code detail} is the rig's 0..1 slider;
      * higher means fewer keys, which is the direction that reads as "less detail".
      */
-    public static int simplify(@Nullable MeshWarpSpec spec, long fromMs, long toMs, float detail) {
+    public static int simplify(MeshWarpSpec spec, long fromMs, long toMs, float detail) {
         if (spec == null || spec.track() == null) return 0;
         if (detail <= 0.02f) return 0;          // keep every sample
         // Unit space, so this is a FRACTION OF THE PICTURE, not pixels. 0.02 sounded modest and
@@ -330,8 +373,8 @@ public final class PuppetKeys {
      *                 take overwrote anything, or this blends towards what it just wrote
      * @return true when a blend was written
      */
-    public static boolean blendOut(@Nullable MeshWarpSpec spec, @NonNull int[] components,
-                                   long takeEndMs, int blendMs, @Nullable float[] resumeAt) {
+    public static boolean blendOut(MeshWarpSpec spec, int[] components,
+                                   long takeEndMs, int blendMs, float[] resumeAt) {
         if (spec == null || resumeAt == null || blendMs <= 0) return false;
         if (!isAnimated(spec)) return false;
         int arity = spec.arity();

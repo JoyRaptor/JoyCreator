@@ -138,7 +138,7 @@ public final class PuppetMeshBuilder {
                 if (topo.vertexCount() <= VERT_BUDGET
                         && topo.indexCount() <= com.fadcam.ui.faditor.compositor
                                 .MeshStampGl.MAX_INDICES) {
-                    return new MeshWarpSpec(topo);
+                    return withDepth(new MeshWarpSpec(topo), rig);
                 }
                 // Coarsen and go again. Interior first while there is any left -- it costs the
                 // least -- then the outlines, which is where the vertices actually are.
@@ -157,6 +157,21 @@ public final class PuppetMeshBuilder {
             // stay, the drawer stays, and the user sees an un-bent picture rather than a crash.
             return null;
         }
+    }
+
+    /**
+     * Copy each pin's DEPTH onto the spec, mapping the drawer's 0..1 onto the engine's -1..+1.
+     *
+     * <p>One place where a slider becomes a z, so the mapping is argued about here rather than
+     * rediscovered in three files. 0.5 is flat, which is what every rig made before depth existed
+     * carries — so nothing already drawn moves.
+     */
+    @NonNull
+    private static MeshWarpSpec withDepth(@NonNull MeshWarpSpec spec, @NonNull PuppetRig rig) {
+        for (int i = 0; i < rig.pinCount(); i++) {
+            spec.setHandleZ(i, (clamp01(rig.pin(i).depth) - 0.5f) * 2f);
+        }
+        return spec;
     }
 
     /**
@@ -245,6 +260,7 @@ public final class PuppetMeshBuilder {
             PuppetPin p = rig.pin(i);
             h = mix(h, p.type.ordinal());
             h = mix(h, p.muted ? 1 : 0);
+            h = mix(h, Math.round(p.depth * 1000f));
             h = mix(h, Math.round(p.restX * 4096f));
             h = mix(h, Math.round(p.restY * 4096f));
             if (p.type == PuppetPin.Type.STIFF) {

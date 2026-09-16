@@ -71,6 +71,7 @@ public final class PuppetRigJson {
             switch (p.type) {
                 case STIFF:
                     put(pj, "sa", p.stiffArea, 0.44f);
+                    put(pj, "dz", p.depth, 0.5f);
                     put(pj, "ss", p.stiffStrength, 0.70f);
                     break;
                 case DANGLE:
@@ -153,6 +154,7 @@ public final class PuppetRigJson {
             p.muted = bool(pj, K_MUTED, false);
             p.weight = num(pj, K_WEIGHT, PuppetPin.WEIGHT_AUTO);
             p.stiffArea = num(pj, "sa", 0.44f);
+            p.depth = num(pj, "dz", 0.5f);
             p.stiffStrength = num(pj, "ss", 0.70f);
             p.spring = num(pj, "sp", 0.62f);
             p.settle = num(pj, "se", 0.38f);

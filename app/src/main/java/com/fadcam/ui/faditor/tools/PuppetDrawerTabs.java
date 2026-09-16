@@ -441,6 +441,12 @@ public final class PuppetDrawerTabs {
         PuppetPin pin = rig.pin(i);
         int hue = PuppetPalette.of(pin.type, rig.locked);
 
+        // DEPTH IS FIRST, and on every type. A shoulder behind the body with the hand in front of
+        // it is one arm, so this cannot live on a piece or a layer — it has to be per pin, and the
+        // engine blends the pins into a field so the limb hands over halfway along.
+        slider(ctx, root, host, d, "Depth — behind / in front", hue, pin.depth, false,
+                v -> pin.depth = v);
+
         switch (pin.type) {
             case DANGLE:
                 slider(ctx, root, host, d, "Springiness", hue, pin.spring, false,
@@ -464,9 +470,9 @@ public final class PuppetDrawerTabs {
                 root.addView(hint(ctx, d, "Turn and scale it on the picture — arc and square"));
                 break;
             default:
-                // An anchor has no settings. Say so rather than showing an empty scope: an
-                // empty panel reads as a bug, a sentence reads as a decision.
-                root.addView(hint(ctx, d, "An anchor has no settings — that is the point"));
+                // An anchor has no settings of its OWN. It still has a depth, because every part
+                // of a character is on some side of it.
+                root.addView(hint(ctx, d, "An anchor has nothing else to set — that is the point"));
                 break;
         }
     }

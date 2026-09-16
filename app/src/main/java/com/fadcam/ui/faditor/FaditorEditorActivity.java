@@ -30714,7 +30714,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
 
-            @Override public void onChanged() { applyComp.run(); }
+            @Override public void onChanged() {
+                // A KNOB THAT CHANGES THE MESH HAS TO REBUILD IT. Softness, Mesh detail, a stiff
+                // patch, a mute and now a depth are all part of what the mesh was built FROM, and
+                // needsRebuild compares exactly that — but nothing was asking it here, so dragging
+                // Softness changed the stored number and the picture only caught up the next time
+                // the drawer was opened. That reads as a slider that does nothing.
+                if (com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.needsRebuild(
+                        o.getMesh(), o.getPuppet())) {
+                    rebuildPuppetMesh(o, -1);
+                }
+                applyComp.run();
+            }
 
             @Override public void rebuildRows() {
                 if (objectDrawer != null) objectDrawer.refreshCurrentTab();
@@ -31026,6 +31037,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         it.setMesh(fresh);
+
+        // RUN THE DANGLE PINS. A verlet chain cannot be scrubbed, so it is baked to keyframes over
+        // the item's own span the moment the mesh is built — after which hair and a tail scrub,
+        // export and undo like anything else that was keyed by hand. Idempotent: the same rig and
+        // the same sliders write the same keys at the same instants, so a rebuild on every slider
+        // drag re-states the take rather than piling a second one on top of it.
+        long span = Math.max(0L, it.getEndMs() - it.getStartMs());
+        int dangled = com.fadcam.ui.faditor.puppet.PuppetDangleBake.bakeAll(fresh, rig, span);
+        if (dangled > 0) {
+            FLog.w(TAG, "Puppet: baked " + dangled + " dangle chain(s) over " + span + "ms");
+        }
         repaintPuppetPicture();
         scheduleAutoSave();
     }

@@ -99,6 +99,21 @@ public final class PuppetPin {
     /** Cap on stretch, so a tail cannot become spaghetti. 0..1 over rest length. */
     public float maxStretch = 0.25f;
 
+    // ── DEPTH (every type) ───────────────────────────────────────────────
+
+    /**
+     * WHICH SIDE OF THE CHARACTER THIS PART IS ON. 0 = behind, 0.5 = flat, 1 = in front.
+     *
+     * <p>On every type, not just one, because a 3/4 stance needs a shoulder behind the body and a
+     * hand in front of it ON THE SAME ARM. The engine blends these into a field across the mesh
+     * using the same weights that bend it, so the picture hands over somewhere ALONG the limb
+     * rather than at the edge of a piece — which is the thing a per-layer order cannot do.
+     *
+     * <p>Stored 0..1 like every other slider and mapped to the engine's -1..+1 at the seam. 0.5 is
+     * neutral and is what every existing rig has, so nothing already drawn changes.
+     */
+    public float depth = 0.5f;
+
     // ── FREE ─────────────────────────────────────────────────────────────
 
     /**
@@ -138,6 +153,7 @@ public final class PuppetPin {
         p.restY = restY;
         p.nameIsMine = nameIsMine;
         p.muted = muted;
+        p.depth = depth;
         p.stiffArea = stiffArea;
         p.stiffStrength = stiffStrength;
         p.spring = spring;

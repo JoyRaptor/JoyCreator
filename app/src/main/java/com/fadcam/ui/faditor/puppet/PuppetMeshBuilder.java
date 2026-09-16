@@ -248,6 +248,27 @@ public final class PuppetMeshBuilder {
      * a mute all change the WEIGHT TABLE without changing a single triangle, so a rig compared by
      * count goes on bending the old way while the slider insists otherwise.
      */
+    /**
+     * Push every pin's depth onto the spec WITHOUT rebuilding anything.
+     *
+     * <p>Depth changes which triangles draw in front of which. It moves no vertex, changes no
+     * weight and alters no outline — so re-tracing and re-triangulating the artwork to apply it
+     * is pure waste, and it was waste on a scale that mattered: the depth control sends a touch
+     * sample every few milliseconds, and each one was tracing the PNG and ear-clipping hundreds
+     * of contour points. The picture would have crawled under a finger.
+     *
+     * <p>Depth is therefore NOT part of {@link #signatureOf} either — a rig whose only change is
+     * depth does not need a new mesh, and saying otherwise made every caller rebuild for nothing,
+     * including the drawer's own slider.
+     */
+    public static void applyDepth(@Nullable MeshWarpSpec spec, @Nullable PuppetRig rig) {
+        if (spec == null || rig == null || spec.topology() == null) return;
+        int n = Math.min(rig.pinCount(), spec.topology().handleCount());
+        for (int i = 0; i < n; i++) {
+            spec.setHandleZ(i, (clamp01(rig.pin(i).depth) - 0.5f) * 2f);
+        }
+    }
+
     public static long signatureOf(@Nullable PuppetRig rig) {
         if (rig == null) return 0L;
         long h = 1469598103934665603L;
@@ -260,7 +281,6 @@ public final class PuppetMeshBuilder {
             PuppetPin p = rig.pin(i);
             h = mix(h, p.type.ordinal());
             h = mix(h, p.muted ? 1 : 0);
-            h = mix(h, Math.round(p.depth * 1000f));
             h = mix(h, Math.round(p.restX * 4096f));
             h = mix(h, Math.round(p.restY * 4096f));
             if (p.type == PuppetPin.Type.STIFF) {

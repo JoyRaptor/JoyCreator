@@ -31316,7 +31316,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
                     if (p == null) return;
                     p.depth = v;
-                    rebuildPuppetMesh(puppetItem, -1);
+                    // NOT a rebuild. Depth reorders triangles; it moves no vertex and changes no
+                    // weight, so applying it is a handful of floats rather than a re-trace of the
+                    // artwork per touch sample.
+                    com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.applyDepth(
+                            puppetSpec(), puppetItem == null ? null : puppetItem.getPuppet());
+                    repaintPuppetPicture();
                 }
 
                 @Override public void placePinAt(float parentX, float parentY,
@@ -31360,8 +31365,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Put the strip in whichever corner it currently wants. */
     private void parkPuppetHelper() {
         if (puppetHelper == null) return;
-        android.widget.FrameLayout pc = findViewById(R.id.player_container);
-        if (pc == null || pc.getWidth() <= 0) return;
+        // The PARENT, not a findViewById: this runs on every MOVE of every pin drag, and a
+        // resource lookup per touch sample is the kind of cost that never shows up in a profile
+        // as one thing and shows up everywhere as jank.
+        android.view.ViewParent vp = puppetHelper.getParent();
+        if (!(vp instanceof android.view.View)) return;
+        android.view.View pc = (android.view.View) vp;
+        if (pc.getWidth() <= 0) return;
         float[] at = puppetHelper.parkAt(pc.getWidth(), pc.getHeight());
         puppetHelper.setX(at[0]);
         puppetHelper.setY(at[1]);
@@ -31380,9 +31390,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (made < 0) return;
         puppetSelectedPin = made;
         adoptPuppetRigIfRigged(it);
+        // REDO HAS TO PUT IT BACK. An empty redo means undo-then-redo silently loses the pin —
+        // the user presses redo, nothing happens, and they conclude undo ate their work. The rig
+        // snapshot either side is the only thing that survives a renumbering.
+        final com.fadcam.ui.faditor.puppet.PuppetRig withPin = rig.copy();
+        final com.fadcam.ui.faditor.puppet.PuppetRig withoutPin = rig.copy();
+        withoutPin.removePin(made);
         undoManager.recordAction(new EditActions.LambdaAction("Add pin",
-                () -> { },
-                () -> { rig.removePin(made); rebuildPuppetMesh(it, made); repaintPuppetPicture(); }));
+                () -> { it.setPuppet(withPin.copy()); rebuildPuppetMesh(it, -1);
+                        repaintPuppetPicture(); },
+                () -> { it.setPuppet(withoutPin.copy()); rebuildPuppetMesh(it, made);
+                        repaintPuppetPicture(); }));
         rebuildPuppetMesh(it, -1);
         repaintPuppetPicture();
         if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
@@ -31400,8 +31418,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (puppetSelectedPin >= rig.pinCount()) puppetSelectedPin = rig.pinCount() - 1;
         rebuildPuppetMesh(it, index);
         repaintPuppetPicture();
+        final com.fadcam.ui.faditor.puppet.PuppetRig after = rig.copy();
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec meshAfter =
+                it.getMesh() == null ? null : it.getMesh().copy();
         undoManager.recordAction(new EditActions.LambdaAction("Remove pin",
-                () -> { }, () -> {
+                () -> {
+                    it.setPuppet(after.copy());
+                    it.setMesh(meshAfter == null ? null : meshAfter.copy());
+                    repaintPuppetPicture();
+                },
+                () -> {
                     it.setPuppet(before.copy());
                     it.setMesh(meshBefore == null ? null : meshBefore.copy());
                     repaintPuppetPicture();

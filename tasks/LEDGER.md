@@ -3562,3 +3562,26 @@ Parse-checked only; the watcher is still off.
 Sprite-baked_frames`), the merge-in rail lists every other sheet in the project and leaves them
 all opt-in, and Swap itself is correct in the model — the name travelled with the drawing, which
 is the ruling.
+
+### The Slice tools, each against a known answer
+
+The baked sheet is a good test subject because its correct answers are known in advance: 32
+slots, 28 of them drawn, 216×260 art laid out with a 2px pad.
+
+| tool | known answer | what it said |
+|---|---|---|
+| Suspect | exactly four empty slots, 28–31 | amber dots on 28, 29, 30 and 31 and nowhere else — no false positives on any of the 28 drawings |
+| Detect | 8×4, and the 2px pad should read back as margin 2 / spacing 4 | `Grid detected: 8×4`, then `216×260 px`, mg 2, sp 4 — the original cell size recovered exactly. 8×216 + 2×2 + 7×4 = 1760, 4×260 + 2×2 + 3×4 = 1056 |
+| Name many | should show the drawing that is IN slot 0, which after the swap is source 5 | showed source 5's art, so the walkthrough goes through the order map like everything else |
+| Swap | exchange two slots | slot 0 and slot 5 exchanged drawings; the name went with the drawing |
+| Ripple | remove and reinsert, shifting the slots in between | after moving slot 0 to slot 3, slot 0 rendered source 1 — a swap would have left source 5 there |
+| Reset order | should appear only once an order exists | appeared after the first swap, and survived a Detect, which is right: the cell count did not change, so the mapping is still meaningful |
+
+Two smaller notes from the same pass, neither fixed:
+
+- The drag mode falls back to **Pan** after a Swap commits. Swapping several cells in a row means
+  re-arming the mode each time. Whether that is a guard rail or an irritation is JoyRaptor's
+  call, so it is not being changed on a guess.
+- The name-many dialog reads **"Cell 0 of 31"**. The Lab is 0-based everywhere, so the number is
+  right, but "N of M" is a counting idiom and this M is a maximum index — it invites reading the
+  sheet as 31 cells when it has 32.

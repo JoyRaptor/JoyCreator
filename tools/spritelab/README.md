@@ -193,3 +193,33 @@ Creator, and for merging, which one image URI cannot express.
 
 The standing rule is that no capability may be desktop-only, and as of 2026-09-13 the Sources
 rail is the only one left.
+
+### 2026-09-16 — the sweep against this file and the two specs
+
+Everything the mobile mockup draws now exists on the phone, including the things the mockup
+itself drew and wired to nothing. Added in this pass:
+
+- **Alignment**: `Match` (line every frame up against the current one), `Copy to all`,
+  `Drift…` (report the per-frame ink boxes as numbers and change nothing), and the **pivot**,
+  which auto-centre, rotation and the bake all measure against and which nothing could set.
+- **Δ**, the difference view, beside `fps`. Agreement between this frame and the last goes
+  black. Needs Android 10 or newer — `BlendMode.DIFFERENCE` is API 29 and every substitute
+  available below that draws something that looks like a difference and is not one.
+- **Twist to rotate** in the preview, alongside the pinch that was already there.
+- **Fill**, the third bake fit. It warns when you arm it rather than after.
+- **Tags** on a cell. The model has carried a tag list since S1 and nothing could ever set one.
+  The vocabulary offered is whatever the sheet already uses, not a fixed list.
+- **The order badge is a control**: tap it to take the last use of that cell back out of the
+  roll, hold it to clear every use.
+- **Suspect** grew its other two detectors — an ink box wildly unlike the rest of the sheet,
+  and a frame that is a near-duplicate of its neighbour.
+- `Play all`, `Name…`, `Fit`, and a hover label on every icon-only button.
+
+Writing the `.sprite.json` on a sheet that carries alignment now says what that means before it
+writes: the sidecar records the nudge as numbers, it does not draw it into the pixels, and bake
+is the one that does.
+
+**Still desktop-only, and now deliberately so:** the Sources rail (unchanged from above), and
+**range shading** — dimming the chips outside a play range. There is no range selection in the
+mobile design at all; it is a shift-click affordance, and inventing a phone gesture for it would
+be designing rather than finishing. It wants a ruling before it wants code.

@@ -319,6 +319,20 @@ Nothing here is scheduled. Do not start a SPEC for it.
 
 ---
 
+## 2026-09-16 — RESOLVED: the two magnifiers are one
+
+Migrated the same night it was filed. `PreviewLoupe` moved to `transform/` (both surfaces use
+it, and the dependency has to point one way — puppet may lean on transform, never the reverse),
+and `TransformOverlayView.drawLoupe` now keeps only what is specific to that tool: which handle
+is held, and the quad and handles drawn over the magnified picture. `drawLoupeContent` and the
+`drawingLoupeContent` guard are gone; re-entrancy is the loupe's business now.
+
+Compile clean. NOT device-verified: nobody has dragged a transform handle since, so the one
+thing this could have broken — the magnifier on the tool that already shipped — is unproven.
+Worth a look before trusting it.
+
+---
+
 ## 2026-09-15 — two magnifiers now, and they will drift
 
 `PuppetOverlayView` needed the transform tool's loupe ("we need that exact same helper here" —

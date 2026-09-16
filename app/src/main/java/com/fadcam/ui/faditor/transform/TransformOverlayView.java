@@ -450,7 +450,7 @@ public class TransformOverlayView extends View {
         // stack. We skip ourselves by name when we walk the children (see drawLoupeContent), but
         // a nested group could still route back here, and a stack overflow on the first drag is
         // not a bug worth risking for one boolean.
-        if (drawingLoupeContent) return;
+        if (loupe.isDrawingContent()) return;
         if (host == null) return;
         if (!haveQuad) syncFromHost();
         if (!haveQuad) return;
@@ -954,9 +954,6 @@ public class TransformOverlayView extends View {
     /** The preview container whose children ARE the picture. Null = geometry-only loupe. */
     @Nullable private android.view.ViewGroup loupeContentRoot;
 
-    /** True while we are drawing that container's children, to make this view's onDraw inert. */
-    private boolean drawingLoupeContent;
-
     /**
      * Point the loupe at the real picture: the container that parents the video surface and every
      * overlay plane. It must be an ancestor-or-parent of this view, and this view must be one of
@@ -977,129 +974,57 @@ public class TransformOverlayView extends View {
 
     private static final float LOUPE_ZOOM = 2.2f;
 
+    /**
+     * The magnifier, over the handle being dragged.
+     *
+     * <p>The CHROME — where the circle goes, the clip, walking the preview stack to draw the real
+     * picture magnified, the crosshair and the rim — moved to {@link PreviewLoupe} when the
+     * puppet surface needed the same thing. This method keeps only what is specific to THIS
+     * tool: which handle is being held, and what to draw over the magnified picture.
+     *
+     * <p>Two copies of that chrome existed for a day and were filed as debt the same day. They
+     * were identical by construction and would not have stayed identical: the first person to
+     * tune a zoom or a rim colour would have tuned one of them.
+     */
     private void drawLoupe(@NonNull Canvas c) {
         if (!loupeShowing || !loupeEnabled || dragKind == null) return;
-        HandleModel.Handle h = findHandle(dragKind, dragIndex);
+        final HandleModel.Handle h = findHandle(dragKind, dragIndex);
         if (h == null) return;
-        float dia = dp(118f), r = dia / 2f, m = dp(10f);
-
-        // Furthest corner from the finger.
-        float bestX = m, bestY = m, bestD = -1f;
-        float[][] cand = {{m, m}, {getWidth() - dia - m, m},
-                {m, getHeight() - dia - m}, {getWidth() - dia - m, getHeight() - dia - m}};
-        for (float[] p : cand) {
-            float dd = (float) Math.hypot(p[0] + r - h.x, p[1] + r - h.y);
-            if (dd > bestD) { bestD = dd; bestX = p[0]; bestY = p[1]; }
-        }
-
-        int save = c.save();
-        path.reset();
-        path.addCircle(bestX + r, bestY + r, r, Path.Direction.CW);
-        c.clipPath(path);
-        fill.setColor(0xF008080B);
-        c.drawCircle(bestX + r, bestY + r, r, fill);
-
-        c.translate(bestX + r, bestY + r);
-        c.scale(LOUPE_ZOOM, LOUPE_ZOOM);
-        c.translate(-h.x, -h.y);
-
-        // THE PICTURE ITSELF, first, so every line below lands on top of it.
-        drawLoupeContent(c);
-
-        // The same guide, magnified, plus a dot for every handle and a ring on the one held.
-        path.reset();
-        path.moveTo(quad[0], quad[1]);
-        for (int i = 1; i < 4; i++) path.lineTo(quad[i * 2], quad[i * 2 + 1]);
-        path.close();
-        stroke.setColor(withAlpha(snapTintNow(), 0xE6));
-        stroke.setStrokeWidth(dp(1.1f) / LOUPE_ZOOM);
-        c.drawPath(path, stroke);
-        for (int i = 0; i < handleCount; i++) {
-            HandleModel.Handle g = handleBuf[i];
-            boolean on = g == h;
-            stroke.setColor(g.color);
-            stroke.setStrokeWidth((on ? dp(1.6f) : dp(1.1f)) / LOUPE_ZOOM);
-            float rr = (on ? dp(4.2f) : dp(2.6f)) / LOUPE_ZOOM;
-            if (on) {
-                fill.setColor(g.color);
-                c.drawCircle(g.x, g.y, rr, fill);
-            }
-            c.drawCircle(g.x, g.y, rr, stroke);
-        }
-        c.restoreToCount(save);
-
-        stroke.setColor(0x47A78BFA);
-        stroke.setStrokeWidth(dp(1f));
-        c.drawCircle(bestX + r, bestY + r, r - dp(1f), stroke);
-        stroke.setColor(0xD94FD1C5);
-        float a = dp(5f), b = dp(13f);
-        c.drawLine(bestX + r, bestY + r - b, bestX + r, bestY + r - a, stroke);
-        c.drawLine(bestX + r, bestY + r + a, bestX + r, bestY + r + b, stroke);
-        c.drawLine(bestX + r - b, bestY + r, bestX + r - a, bestY + r, stroke);
-        c.drawLine(bestX + r + a, bestY + r, bestX + r + b, bestY + r, stroke);
+        loupe.draw(c, this, loupeContentRoot, h.x, h.y, density(), fill, stroke,
+                (lc, invZoom) -> {
+                    // The object's outline, then every handle — the held one filled.
+                    path.reset();
+                    path.moveTo(quad[0], quad[1]);
+                    for (int i = 1; i < 4; i++) path.lineTo(quad[i * 2], quad[i * 2 + 1]);
+                    path.close();
+                    stroke.setStyle(Paint.Style.STROKE);
+                    stroke.setColor(withAlpha(snapTintNow(), 0xE6));
+                    stroke.setStrokeWidth(dp(1.1f) * invZoom);
+                    lc.drawPath(path, stroke);
+                    for (int i = 0; i < handleCount; i++) {
+                        HandleModel.Handle g = handleBuf[i];
+                        boolean on = g == h;
+                        float rr = (on ? dp(4.2f) : dp(2.6f)) * invZoom;
+                        if (on) {
+                            fill.setStyle(Paint.Style.FILL);
+                            fill.setColor(g.color);
+                            lc.drawCircle(g.x, g.y, rr, fill);
+                        }
+                        stroke.setColor(g.color);
+                        stroke.setStrokeWidth((on ? dp(1.6f) : dp(1.1f)) * invZoom);
+                        lc.drawCircle(g.x, g.y, rr, stroke);
+                    }
+                });
     }
 
-    /**
-     * Draw the live preview into the canvas as it stands — already translated and scaled to the
-     * loupe, already clipped to its circle by the caller.
-     *
-     * <p>Every child of the content root is drawn the way its parent would draw it (offset by its
-     * layout position, through its own matrix, honouring its alpha) EXCEPT this view, which is
-     * skipped so the loupe cannot contain a picture of itself. Nothing is allocated: no bitmap, no
-     * matrix, no path — the ops are recorded straight into the display list that is already being
-     * built for this frame.</p>
-     */
-    private void drawLoupeContent(@NonNull Canvas c) {
-        android.view.ViewGroup root = loupeContentRoot;
-        if (root == null || drawingLoupeContent) return;
-        if (root.getWidth() <= 0 || root.getHeight() <= 0) return;
+    /** The shared magnifier. Re-entrancy is its business, not this view's. */
+    private final PreviewLoupe loupe = new PreviewLoupe();
 
-        // This view's origin expressed in the root's space. Normally (0,0) — the overlay is a
-        // match_parent child of the container — but computed rather than assumed so that a future
-        // layout that insets or nests it does not silently shift the magnified picture.
-        float ox = 0f, oy = 0f;
-        for (View v = this; v != null && v != root; ) {
-            ox += v.getLeft();
-            oy += v.getTop();
-            android.view.ViewParent p = v.getParent();
-            if (!(p instanceof View)) return;   // not under this root: refuse rather than guess
-            v = (View) p;
-            ox -= v.getScrollX();
-            oy -= v.getScrollY();
-        }
-
-        drawingLoupeContent = true;
-        int outer = c.save();
-        try {
-            // Root space → this view's space.
-            c.translate(-ox, -oy);
-            int n = root.getChildCount();
-            for (int i = 0; i < n; i++) {
-                View ch = root.getChildAt(i);
-                if (ch == this) continue;                       // never draw ourselves
-                if (ch.getVisibility() != VISIBLE) continue;
-                if (ch.getWidth() <= 0 || ch.getHeight() <= 0) continue;
-                float a = ch.getAlpha();
-                if (a <= 0.01f) continue;
-                int s = c.save();
-                c.translate(ch.getLeft() - root.getScrollX(), ch.getTop() - root.getScrollY());
-                android.graphics.Matrix m = ch.getMatrix();
-                if (m != null && !m.isIdentity()) c.concat(m);
-                if (a < 1f) {
-                    c.saveLayerAlpha(0f, 0f, ch.getWidth(), ch.getHeight(), (int) (a * 255f));
-                }
-                try {
-                    ch.draw(c);
-                } catch (RuntimeException ignored) {
-                    // A layer that cannot draw itself out of turn must not take the gesture down.
-                }
-                c.restoreToCount(s);
-            }
-        } finally {
-            c.restoreToCount(outer);
-            drawingLoupeContent = false;
-        }
+    /** Density, for the shared loupe — this view speaks dp everywhere else. */
+    private float density() {
+        return getResources().getDisplayMetrics().density;
     }
+
 
     @Nullable
     private HandleModel.Handle findHandle(HandleModel.Kind kind, int index) {

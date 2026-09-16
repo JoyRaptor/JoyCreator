@@ -14158,7 +14158,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void setupTimelineResizeGrabBar() {
         final View grabBar = findViewById(R.id.timeline_grab_bar);
-        if (grabBar == null || editorTimeline == null) return;
+        // TEMPORARY DIAGNOSTIC (2026-09-16). JoyRaptor reports the grab bar completely dead —
+        // it will neither grow nor shrink, though minimising a track still resizes the band. The
+        // stored cap was read off his phone and is an ordinary 140dp with a floor of 40, so
+        // shrinking SHOULD work, which means the likeliest explanation is that this method
+        // returned early and the listener was never attached at all. That is one line to find
+        // out and it answers on app start rather than needing him to drag anything.
+        if (grabBar == null || editorTimeline == null) {
+            FLog.w(TAG, "GRABBAR setup SKIPPED — grabBar=" + (grabBar != null)
+                    + " timeline=" + (editorTimeline != null)
+                    + "; the bar will be dead for this whole session");
+            return;
+        }
+        FLog.w(TAG, "GRABBAR setup ok — listener attached");
         final android.content.SharedPreferences ui =
                 getSharedPreferences("faditor_ui", MODE_PRIVATE);
         // Restore the persisted band cap (default = the view's built-in default).

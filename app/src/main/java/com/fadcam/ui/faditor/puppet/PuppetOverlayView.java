@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.transform.HandleModel;
+import com.fadcam.ui.faditor.transform.PreviewLoupe;
 
 /**
  * THE PINS, ON THE PICTURE — SPEC_20260915_PUPPET_UI §1.

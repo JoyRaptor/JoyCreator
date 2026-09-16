@@ -24994,6 +24994,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         previewHandlesOverlay.setVisibility(View.VISIBLE);
         // A RIGGED PICTURE SAYS SO. Selecting one is the moment the marionette appears in the
         // corner -- no drawer, no double tap, just a way in that is visible from where you are.
+        // The forced state belongs to the picture you were posing, not to this one.
+        puppetPinsForced = false;
+        syncPuppetOverlay(null);
         syncPuppetBadge(o);
         com.fadcam.ui.faditor.transform.TransformOverlayView v = ensureTransformOverlay();
         v.setHost(new com.fadcam.ui.faditor.transform.CornerPinTransformHost(
@@ -30837,8 +30840,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // session would drop a pin on the first tap of the picture.
                 puppetTool = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool.GRAB;
                 puppetScope = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
-                showImageOverlayDrawer(it);
-                if (objectDrawer != null) objectDrawer.showTabTitled("Puppet");
+                // AND NO DRAWER. JoyRaptor asked for this badge so you could "go right into it
+                // without double tapping on the image itself and bringing up the drawer" -- and
+                // opening one here would cover the very picture he is about to pose. The drawer
+                // is where you change what a touch MEANS; the badge means "let me move these,
+                // now". Double-tapping the picture still opens it for everything else.
+                puppetPinsForced = true;
+                syncPuppetOverlay(it);
             });
         }
         return puppetBadge;
@@ -31009,6 +31017,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
     }
 
+    /**
+     * The pins were put up by the CORNER BADGE rather than by the drawer's tab.
+     *
+     * <p>Cleared whenever the selection changes or the pins come down, so it can never leak onto
+     * the next picture — a stale "yes" here would show one object's pin surface over another's.
+     */
+    private boolean puppetPinsForced;
+
     /** True while the pins are up and THIS lane is the one that hid the handle overlays. */
     private boolean puppetHidHandles;
 
@@ -31025,8 +31041,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * are hidden, and they come straight back when the tab changes or the drawer closes.
      */
     private void syncPuppetOverlay(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem o) {
-        boolean want = o != null && objectDrawer != null && objectDrawer.isShowing()
+        // TWO WAYS IN, and they are not the same gesture. The drawer's Puppet tab puts the pins
+        // up because you went looking for them; the corner badge puts them up because you want
+        // to pose, right now, with nothing covering the picture. Either is enough.
+        boolean viaDrawer = objectDrawer != null && objectDrawer.isShowing()
                 && "Puppet".equals(objectDrawer.currentTabTitle());
+        boolean want = o != null && (viaDrawer || puppetPinsForced);
         if (!want) {
             if (puppetOverlay != null) puppetOverlay.setVisibility(View.GONE);
             puppetItem = null;
@@ -31043,6 +31063,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (transformOverlay != null) transformOverlay.setVisibility(View.VISIBLE);
                 puppetHidHandles = false;
             }
+            puppetPinsForced = false;
             syncPuppetBadge(o);      // the way back IN, now that the pins are down
             return;
         }

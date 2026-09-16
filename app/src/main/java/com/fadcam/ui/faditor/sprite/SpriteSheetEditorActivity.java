@@ -701,6 +701,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // they do not — so a duplicate frame reads as an empty box rather than as something
         // you have to squint at two ghosts to be sure about.
         diffBtn = chip("\u0394");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(diffBtn,
+                "Difference against the previous frame");
         diffBtn.setOnClickListener(v -> {
             diffMode = !diffMode;
             syncDiff();
@@ -756,6 +758,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         playBtn.setCompoundDrawables(
                 SpriteIcons.of(on ? "pause" : "play", on ? inkOn(SpriteTheme.SELECTED)
                         : SpriteTheme.INK, (int) (16 * d)), null, null, null);
+        hint(playBtn, on ? "pause" : "play");
         tintToggle(playBtn, on, SpriteTheme.SELECTED);
     }
 
@@ -3791,7 +3794,56 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 null, null, null);
         t.setCompoundDrawablePadding(0);
         t.setPadding((int) (8 * d), (int) (5 * d), (int) (8 * d), (int) (5 * d));
+        hint(t, icon);
         return t;
+    }
+
+    /**
+     * What each icon-only button is called, for the hover label.
+     *
+     * <p>JoyRaptor works with a stylus and sometimes a mouse, which makes hover labels real on
+     * Android rather than decorative, and a row of bare glyphs is otherwise something you learn
+     * by pressing things. Kept as ONE map rather than a string at each call site so a button
+     * cannot be added without a label — {@link #ichip(String)} looks it up for every caller.</p>
+     *
+     * <p>Labels say what the button DOES, not what the picture is: "Step back one frame", not
+     * "left arrow".</p>
+     */
+    @NonNull
+    private static String hintFor(@NonNull String icon) {
+        switch (icon) {
+            case "back":  return "Back to the editor";
+            case "undo":  return "Undo";
+            case "redo":  return "Redo";
+            case "save":  return "Save this sheet";
+            case "play":  return "Play the sequence";
+            case "pause": return "Pause";
+            case "prev":  return "Step back one frame";
+            case "next":  return "Step forward one frame";
+            case "rev":   return "Reverse the order of the sequence";
+            case "onion": return "Onion skin \u2014 ghost the frames either side";
+            case "loop":  return "Loop: start again at the end";
+            case "ping":  return "Ping-pong: run back down the sequence";
+            case "once":  return "Once: stop on the last frame";
+            case "grid":  return "Slice \u2014 the grid, names and arrangement";
+            case "target": return "Play \u2014 preview, alignment and the sequence";
+            case "clips": return "Clips \u2014 animations you have saved";
+            case "out":   return "Out \u2014 export, bake and the sheets in this project";
+            case "film":  return "Export the frames as numbered files";
+            case "tag":   return "Names";
+            case "layers": return "Layers";
+            case "wand":  return "Work it out for me";
+            case "drop":  return "Background key";
+            case "plus":  return "Add";
+            case "x":     return "Remove";
+            case "braces": return "Copy the JSON";
+            default:      return icon;
+        }
+    }
+
+    /** Attach the hover label. Works for a stylus hover and for a press-and-hold. */
+    private static void hint(@NonNull View v, @NonNull String icon) {
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(v, hintFor(icon));
     }
 
     /** Icon then label, the way every labelled button in the design is built. */
@@ -3840,6 +3892,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         t.setCompoundDrawablePadding(0);
         t.setPadding((int) (9 * d), (int) (2 * d), (int) (9 * d), (int) (2 * d));
         t.setBackground(pillBg(0x00000000, 0x00000000, d));
+        hint(t, icon);
         return t;
     }
 

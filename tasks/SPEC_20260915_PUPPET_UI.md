@@ -42,12 +42,25 @@ showing every pin at once.
 Free and Bone deliberately reuse the transform tool's existing colours. A puppet handle and a
 transform handle must look like the same family.
 
-**A selected Free pin wears transform helpers**, drawn from the same vocabulary
-`HandleModel` already defines:
-- a dashed **circle** — the shape that file already assigns to a FREE corner
-- an **amber arc** outside the top for rotate — `COLOR_SCALE` `#FBBF24`, the same amber and the
-  same gesture as the existing spin arc
-- an **amber square** for scale — the existing structural handle
+**A selected Free pin USED to wear transform helpers** — a dashed circle, an amber rotate arc
+and an amber scale square. **They were removed on 2026-09-16 because the engine cannot express
+what they promised.**
+
+`PuppetTopology.handleComponents()` returns 2: a pin is x and y, and nothing else. Rigid MLS
+derives rotation from where the pins collectively are, so a single pin has no rotation or scale
+of its own to set. The handles drew, JoyRaptor tried to use them, and nothing happened — a dead
+knob, which is precisely the class of defect the engine lane spent stage 11 removing.
+
+**ENGINE CONTRACT if these come back.** Per-pin rotation and scale need
+`handleComponents()` to grow (4 with a rotation and a uniform scale, 6 with non-uniform), the
+deformer to consume them, and `PuppetPoseRemap` plus every `componentsOf(pin)` caller — which is
+all of `PuppetKeys` — to stop assuming two. That is a real engine feature, not a UI gesture, and
+it should be specced as one rather than faked in the overlay.
+
+*Considered and rejected as a substitute:* making the arc orbit a pin's CHAIN around its root
+and the square stretch it. Both are expressible today because they only move pin positions — but
+they would mean something different from what the shapes say, and a control that lies about
+which thing it affects is no better than one that does nothing.
 
 **The puppet badge.** Top-right of the preview. A stick puppet on strings.
 - Appears **only when the item has at least one pin.** Never clutter on anything else.

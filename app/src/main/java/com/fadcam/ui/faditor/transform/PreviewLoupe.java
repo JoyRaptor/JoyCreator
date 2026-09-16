@@ -63,6 +63,22 @@ public final class PreviewLoupe {
     public boolean draw(@NonNull Canvas c, @NonNull View host, @Nullable ViewGroup contentRoot,
                         float fx, float fy, float density,
                         @NonNull Paint fill, @NonNull Paint stroke, @Nullable Decor decor) {
+        return draw(c, host, contentRoot, fx, fy, density, fill, stroke, decor, null);
+    }
+
+    /**
+     * As above, but never landing on {@code avoid} — a rect in {@code host}’s own pixels.
+     *
+     * <p>JoyRaptor, on device: <i>"loupe sometimes hides on top of magnifier."</i> The magnifier
+     * and the puppet helper strip both park in the corner FURTHEST from the finger, so during a
+     * drag they reason their way to the same corner and stack; whichever draws second wins and
+     * the other is simply gone. Telling the loupe what is already taken is cheaper than inventing
+     * a layout manager for two floating things that never otherwise meet.
+     */
+    public boolean draw(@NonNull Canvas c, @NonNull View host, @Nullable ViewGroup contentRoot,
+                        float fx, float fy, float density,
+                        @NonNull Paint fill, @NonNull Paint stroke, @Nullable Decor decor,
+                        @Nullable android.graphics.RectF avoid) {
         if (drawingContent) return false;
         if (host.getWidth() <= 0 || host.getHeight() <= 0) return false;
 
@@ -74,9 +90,18 @@ public final class PreviewLoupe {
         float[][] cand = {{m, m}, {host.getWidth() - dia - m, m},
                 {m, host.getHeight() - dia - m},
                 {host.getWidth() - dia - m, host.getHeight() - dia - m}};
-        for (float[] p : cand) {
-            float dd = (float) Math.hypot(p[0] + r - fx, p[1] + r - fy);
-            if (dd > bestD) { bestD = dd; bestX = p[0]; bestY = p[1]; }
+        // Two passes. The first ignores any corner something else is already sitting in; the
+        // second drops that condition, because on a preview small enough that all four corners
+        // are covered a magnifier which overlaps beats no magnifier at all.
+        for (int pass = 0; pass < 2 && bestD < 0f; pass++) {
+            for (float[] p : cand) {
+                if (pass == 0 && avoid != null
+                        && avoid.intersects(p[0], p[1], p[0] + dia, p[1] + dia)) {
+                    continue;
+                }
+                float dd = (float) Math.hypot(p[0] + r - fx, p[1] + r - fy);
+                if (dd > bestD) { bestD = dd; bestX = p[0]; bestY = p[1]; }
+            }
         }
 
         int save = c.save();

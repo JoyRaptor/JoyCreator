@@ -125,6 +125,19 @@ public class PuppetOverlayView extends View {
         /** A finger is at this point: let the strip get out of its way, unless it is the target. */
         void helperDodge(float x, float y, boolean isTarget);
 
+        /**
+         * The helper strip’s box in THIS view’s pixels; false when the strip is not up.
+         *
+         * <p>Only the magnifier asks, and only so that it can park somewhere else.
+         */
+        boolean readHelperRect(@NonNull RectF out);
+
+        /** The gesture on the picture is over — the strip may start dodging again. */
+        void helperGestureEnded();
+
+        /** Say what just happened, in words, beside the strip. */
+        void say(@Nullable String what);
+
         /** Remove this pin, as ONE undo step. */
         void deletePin(int index);
 
@@ -158,7 +171,6 @@ public class PuppetOverlayView extends View {
     private static final float HIT_R = 22f;          // generous: a finger is not a mouse
     private static final float BADGE = 38f;
     private static final float BADGE_INSET = 9f;
-    private static final float HELPER_R = 30f;
     private static final float LABEL_SP = 9.5f;
     private static final float DRAG_SLOP = 6f;
 
@@ -169,6 +181,7 @@ public class PuppetOverlayView extends View {
     private final RectF rect = new RectF();
     private final float[] off = new float[2];
     private final RectF badgeRect = new RectF();
+    private final RectF helperRect = new RectF();
     private final RectF arc = new RectF();
     private final Path path = new Path();
     private final PreviewLoupe loupe = new PreviewLoupe();
@@ -270,8 +283,10 @@ public class PuppetOverlayView extends View {
         // is in the middle of the artwork rather than out on a corner.
         if (dragPin >= 0 && moved && !locked) {
             PuppetPin dp = rig.pin(dragPin);
+            // Hand it the strip box so the two floating things stop choosing the same corner.
+            RectF avoid = host.readHelperRect(helperRect) ? helperRect : null;
             loupe.draw(c, this, loupeRoot, posedX(dragPin, dp), posedY(dragPin, dp), d,
-                    fill, stroke, (lc, invZoom) -> drawLoupeDecor(lc, rig, invZoom));
+                    fill, stroke, (lc, invZoom) -> drawLoupeDecor(lc, rig, invZoom), avoid);
         }
     }
 
@@ -344,8 +359,9 @@ public class PuppetOverlayView extends View {
             int hue = PuppetPalette.of(p.type, locked);
             boolean isSel = i == sel && !locked;
 
-            // The selected FREE pin wears the transform tool's own vocabulary — see §1.
-            if (isSel && p.type == PuppetPin.Type.FREE) drawFreeHelper(c, cx, cy);
+            // (A Free pin wore a rotate arc and scale square here until 2026-09-16. The engine
+            // stores x and y per pin and nothing else, so they promised something no renderer
+            // could draw — see the spec section 1.)
 
             if (isSel) {
                 fill.setColor(hue);
@@ -376,50 +392,6 @@ public class PuppetOverlayView extends View {
                 c.drawText(p.name, cx, cy + DOT_R_SEL * d + 13f * d, text);
             }
         }
-    }
-
-    /**
-     * The rotate arc and scale square from {@code HandleModel}, on a circle.
-     *
-     * <p>Not a lookalike: the amber is {@link HandleModel#COLOR_SCALE}, the arc is the same
-     * gesture the transform tool's spin arc reads, and the circle is the shape that file already
-     * assigns to a FREE corner. A Free pin behaves like a transform handle, so it has to look
-     * like one.
-     */
-    private void drawFreeHelper(@NonNull Canvas c, float cx, float cy) {
-        float r = HELPER_R * d;
-
-        stroke.setColor(PuppetPalette.FREE);
-        stroke.setStrokeWidth(1.3f * d);
-        stroke.setPathEffect(new android.graphics.DashPathEffect(
-                new float[]{3f * d, 4f * d}, 0f));
-        c.drawCircle(cx, cy, r, stroke);
-        stroke.setPathEffect(null);
-
-        // the amber spin arc, floating outside the top edge
-        arc.set(cx - r * 0.86f, cy - r * 0.86f, cx + r * 0.86f, cy + r * 0.86f);
-        stroke.setColor(HandleModel.COLOR_SCALE);
-        stroke.setStrokeWidth(2.4f * d);
-        c.drawArc(arc, -142f, 104f, false, stroke);
-
-        // its arrowhead, at the arc's clockwise end
-        double end = Math.toRadians(-38);
-        float ax = cx + (float) Math.cos(end) * r * 0.86f;
-        float ay = cy + (float) Math.sin(end) * r * 0.86f;
-        path.reset();
-        path.moveTo(ax, ay);
-        path.lineTo(ax - 5.5f * d, ay - 3.4f * d);
-        path.lineTo(ax + 1.4f * d, ay - 6.4f * d);
-        path.close();
-        fill.setColor(HandleModel.COLOR_SCALE);
-        c.drawPath(path, fill);
-
-        // the amber scale square, on the right
-        float s = 5.4f * d;
-        fill.setColor(0xFF12161C);
-        c.drawRect(cx + r - s, cy - s, cx + r + s, cy + s, fill);
-        stroke.setStrokeWidth(2f * d);
-        c.drawRect(cx + r - s, cy - s, cx + r + s, cy + s, stroke);
     }
 
     /** The marionette, with a padlock in front of him when the rig is shut off. */
@@ -491,6 +463,7 @@ public class PuppetOverlayView extends View {
                 }
                 if (hit >= 0) {
                     host.setSelectedPin(hit);
+                    host.say(rig.pin(hit).name + " \u00b7 " + rig.pin(hit).typeLabel());
                     dragPin = hit;
                     // GRAB poses; a placement tool re-places. Either way the grab point is the
                     // pin's CURRENT on-screen position, so it does not jump under the finger.
@@ -550,6 +523,7 @@ public class PuppetOverlayView extends View {
                 if (rig.pinCount() > 0 && !host.previewIsSmall()
                         && badgeRect.contains(x, y) && badgeRect.contains(downX, downY)) {
                     rig.locked = !rig.locked;
+                    host.say(rig.locked ? "Pins locked" : "Pins live");
                     host.onRigChanged();
                     invalidate();
                     return true;
@@ -567,6 +541,7 @@ public class PuppetOverlayView extends View {
                         // animation that meant "gone forever" would make people stop trusting
                         // the gesture, and a gesture people fear is worse than a menu.
                         int gone = dragPin;
+                        host.say("Removed " + rig.pin(gone).name + " \u2014 undo brings it back");
                         wasOverStrip = false;
                         reset();
                         host.deletePin(gone);
@@ -604,6 +579,7 @@ public class PuppetOverlayView extends View {
                     int made = placePin(rig, typeOf(host.tool()), x, y);
                     if (made >= 0) {
                         host.setSelectedPin(made);
+                        host.say("Placed " + rig.pin(made).name);
                         final int idx = made;
                         host.recordUndo("Add pin",
                                 () -> { },     // redo re-runs through the drawer's own rebuild
@@ -635,6 +611,10 @@ public class PuppetOverlayView extends View {
 
     private void reset() {
         dragPin = -1; boneFrom = -1; moved = false; posing = false; wasOverStrip = false;
+        // The strip latches in place once a finger comes near it, so that it cannot flee the
+        // very thing being dragged towards it. Every way out of a gesture is through here,
+        // which makes this the one place that latch can be honestly cleared.
+        if (host != null) host.helperGestureEnded();
     }
 
     private void structureChanged() {

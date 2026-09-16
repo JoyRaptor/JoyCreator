@@ -31769,6 +31769,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     parkPuppetHelper();
                 }
 
+                @Override public boolean readHelperRect(@NonNull android.graphics.RectF out) {
+                    if (puppetHelper == null || puppetHelper.getVisibility() != View.VISIBLE
+                            || puppetHelper.getWidth() <= 0) {
+                        return false;
+                    }
+                    // The strip and the overlay are siblings in the same parent, which is why
+                    // pointInHelper above can compare raw child coordinates \u2014 same frame.
+                    out.set(puppetHelper.getLeft(), puppetHelper.getTop(),
+                            puppetHelper.getRight(), puppetHelper.getBottom());
+                    return true;
+                }
+
+                @Override public void helperGestureEnded() {
+                    if (puppetHelper != null) puppetHelper.releaseDodge();
+                }
+
+                @Override public void say(@Nullable String what) {
+                    if (puppetHelper != null) puppetHelper.say(what);
+                }
+
                 @Override public void deletePin(int index) {
                     puppetDeletePin(index);
                 }

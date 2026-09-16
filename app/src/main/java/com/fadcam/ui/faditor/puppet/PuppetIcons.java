@@ -47,6 +47,7 @@ public final class PuppetIcons {
     public static final String EYE    = "eye";
     public static final String PUPPET = "puppet";
     public static final String LOCK   = "lock";
+    public static final String CURSOR = "cursor";
 
     private static final Map<String, String[]> STROKED = new HashMap<>();
     private static final Map<String, String[]> FILLED = new HashMap<>();
@@ -98,6 +99,15 @@ public final class PuppetIcons {
                 "M12 7.2v6.2M12 13.4 9 19M12 13.4 15 19M8.4 9.6h7.2",
                 "M6 2.4v2.2M18 2.4v2.2M6 2.4h12",
                 "M8.4 9.6 6 4.6M15.6 9.6 18 4.6",
+        });
+        // A CURSOR THAT LOOKS LIKE A CURSOR. Place mode used the pin glyph tinted amber, and
+        // JoyRaptor said it plainly: "the cursor doesn't look at all like a cursor." An arrow is
+        // the one shape everybody already reads as "you are pointing at things".
+        FILLED.put(CURSOR, new String[]{
+                "M6 3.2 18.4 12.2 12.6 13.1 15.4 18.6 13 19.8 10.2 14.3 6 18.1Z",
+        });
+        STROKED.put(CURSOR, new String[]{
+                "M6 3.2 18.4 12.2 12.6 13.1 15.4 18.6 13 19.8 10.2 14.3 6 18.1Z",
         });
         // Shown in front of the puppet when the rig is locked.
         STROKED.put(LOCK, new String[]{

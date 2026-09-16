@@ -31687,7 +31687,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
 
                 @Override public int selectedPin() { return puppetSelectedPin; }
-                @Override public void setSelectedPin(int index) { puppetSelectedPin = index; }
+
+                @Override public void setSelectedPin(int index) {
+                    puppetSelectedPin = index;
+                    // SNAP THE SCOPE BACK. Tapping a pin while the drawer sits on Character or
+                    // Recording changed the selection and nothing visible below the switcher —
+                    // the tap read as ignored. Flagged as open in the spec on the day it was
+                    // written; this is it closed.
+                    puppetScope = com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
+                }
 
                 @NonNull @Override
                 public com.fadcam.ui.faditor.puppet.PuppetOverlayView.PuppetDrawerTool tool() {

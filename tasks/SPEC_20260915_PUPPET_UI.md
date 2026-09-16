@@ -85,7 +85,8 @@ the seventh pin on day nine.
   beside the first — a jitter nobody can find afterwards. See INBOX 2026-09-15 on snapping.
 
 **Row 2** is six equal tools. Approved at ~58px each on a 390px screen.
-⚠️ The 8px labels under them are below legible — either the row gets taller or the labels go.
+✅ Labels are 10sp, not the 8sp the study used — below that they are not legible under a 58px
+target, and dropping them was rejected because five pin types are not self-evident as glyphs.
 
 **Sliders** carry a grey eye on the left and stop short of the right edge. Eye on = the reach
 ring stays visible; eye off = it shows only while dragging.
@@ -100,8 +101,9 @@ ring stays visible; eye off = it shows only while dragging.
 | Free: Scale (turn/scale are gestures) | Show pins · bones · mesh | |
 | Bone: Parent, Length, Rest angle, Reach, Stretchy, Joint limits | Edge threshold · expansion | |
 
-⚠️ **Open:** tapping a pin while the scope is Character or Recording must snap the scope back to
-Selected, or the tap appears to do nothing in the drawer.
+✅ **Closed 2026-09-16:** tapping a pin snaps the scope back to Selected. Without it the tap
+changed the selection and nothing below the switcher moved, which reads as the tap being
+ignored.
 
 ---
 

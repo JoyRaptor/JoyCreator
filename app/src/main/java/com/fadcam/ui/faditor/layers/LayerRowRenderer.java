@@ -2035,6 +2035,9 @@ public final class LayerRowRenderer {
         // C4 §1: consolidated property-keyframe diamonds (green, below the row midline) —
         // drawn AFTER the white frame-swap diamonds so both stay distinct on a sprite row.
         drawItemKeyframeDiamonds(canvas, item, x0, x1, top, bottom, centerY, timeToX, ghosted);
+        // SPEC_20260915_PUPPET_UI §01 — a puppet's performance, on the same tape and BELOW the
+        // ordinary diamonds so a rigged image that also has position keys still reads.
+        drawPuppetMarks(canvas, item, x0, x1, top, bottom, centerY, timeToX, ghosted);
         // Caption style keyframe diamonds (layers-UX Slice B) — mirrors the sprite block above so
         // caption style keys stay visible in the consolidated renderer.
         if (item.getCaptionSpan() != null) {
@@ -2418,6 +2421,97 @@ public final class LayerRowRenderer {
             // §4 white 1px stroke behind fill — independent of fill colour so amber on amber and green on green both read
             canvas.drawPath(spriteDiamondPath, kfDiamondStrokePaint);
             canvas.drawPath(spriteDiamondPath, kfDiamondPaint);
+        }
+    }
+
+    /** SPEC_20260915_PUPPET_UI: the long-diamond bar and its surviving keys. */
+    private final Path puppetBarPath = new Path();
+    private final Paint puppetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /**
+     * Draw a puppet's animation: PERFORMANCES as long diamonds, hand-made keys as diamonds.
+     *
+     * <p>The two are told apart by DENSITY rather than by a stored take — see
+     * {@link com.fadcam.ui.faditor.puppet.PuppetTapeMarks}. A bar's pointed caps ARE its first and
+     * last key, so those two are never drawn again; the ones between sit inside it at half
+     * strength, present and reachable without shouting.
+     *
+     * <p>Violet, because that is the app's guide hue and a rigged image's ordinary property keys
+     * are green — one glance separates "this arm was performed" from "this image fades at 2s".
+     */
+    private void drawPuppetMarks(@NonNull Canvas canvas, @NonNull TimedItem item,
+                                 float x0, float x1, float top, float bottom,
+                                 float centerY, @NonNull TimeToX timeToX, boolean ghosted) {
+        // TimedItem WRAPS an overlay rather than being one — ofTextOverlay/getTextOverlay is the
+        // relationship, and a cast is not.
+        com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+        if (o == null) return;
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = o.getMesh();
+        if (spec == null || spec.track() == null || spec.track().isEmpty()) return;
+        if (!(spec.topology() instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) return;
+
+        long[] times = spec.track().times();
+        if (times == null || times.length == 0) return;
+
+        com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] marks =
+                com.fadcam.ui.faditor.puppet.PuppetTapeMarks.group(times);
+        if (marks.length == 0) return;
+
+        // ABOVE the row midline: the green property diamonds already took just below it, and two
+        // families of glyph on the same line is how a tape becomes unreadable.
+        float cy = Math.max(top + 5f * density, centerY - 5f * density);
+        float half = 3.6f * density;
+        int violet = ghosted ? 0x66A78BFA : 0xFFA78BFA;
+
+        puppetPaint.setStyle(Paint.Style.FILL);
+        for (com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark m : marks) {
+            float ax = timeToX.map(keyTimeToTimelineMs(item, m.fromMs));
+            float bx = timeToX.map(keyTimeToTimelineMs(item, m.toMs));
+            if (bx < x0 - 4f || ax > x1 + 4f) continue;
+
+            if (!m.bar) {
+                if (ax < x0 + 3f || ax > x1 - 3f) continue;
+                puppetPaint.setColor(violet);
+                puppetBarPath.rewind();
+                puppetBarPath.moveTo(ax, cy - half);
+                puppetBarPath.lineTo(ax + half, cy);
+                puppetBarPath.lineTo(ax, cy + half);
+                puppetBarPath.lineTo(ax - half, cy);
+                puppetBarPath.close();
+                canvas.drawPath(puppetBarPath, puppetPaint);
+                continue;
+            }
+
+            // THE LONG DIAMOND. Clamped to the visible run so a performance that starts off
+            // screen still draws a cap at the edge rather than vanishing.
+            float lo = Math.max(ax, x0 + 1f), hi = Math.min(bx, x1 - 1f);
+            if (hi - lo < 1f) continue;
+            float cap = Math.min(half, (hi - lo) / 2f);
+            puppetPaint.setColor(ghosted ? 0x44A78BFA : 0x8CA78BFA);
+            puppetBarPath.rewind();
+            puppetBarPath.moveTo(lo, cy);
+            puppetBarPath.lineTo(lo + cap, cy - half);
+            puppetBarPath.lineTo(hi - cap, cy - half);
+            puppetBarPath.lineTo(hi, cy);
+            puppetBarPath.lineTo(hi - cap, cy + half);
+            puppetBarPath.lineTo(lo + cap, cy + half);
+            puppetBarPath.close();
+            canvas.drawPath(puppetBarPath, puppetPaint);
+
+            // Its two ends, solid — these ARE keys, and the cap is their glyph.
+            puppetPaint.setColor(violet);
+            if (ax >= x0 + 2f && ax <= x1 - 2f) canvas.drawCircle(lo, cy, 1.6f * density, puppetPaint);
+            if (bx >= x0 + 2f && bx <= x1 - 2f) canvas.drawCircle(hi, cy, 1.6f * density, puppetPaint);
+
+            // The survivors inside, at half strength: present and reachable, not shouting.
+            long[] inside = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.insideOf(times, m);
+            if (inside.length == 0 || inside.length > 400) continue;
+            puppetPaint.setColor(ghosted ? 0x33FFFFFF : 0x80FFFFFF);
+            for (long t : inside) {
+                float dx = timeToX.map(keyTimeToTimelineMs(item, t));
+                if (dx < lo + 2f || dx > hi - 2f) continue;
+                canvas.drawCircle(dx, cy, 1.25f * density, puppetPaint);
+            }
         }
     }
 

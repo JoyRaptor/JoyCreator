@@ -30,7 +30,7 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "app/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetDrawOrderTest.java tools/jvm-harness/PuppetDepthFieldTest.java tools/jvm-harness/PuppetDangleBakeTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetDrawOrderTest.java tools/jvm-harness/PuppetDepthFieldTest.java tools/jvm-harness/PuppetDangleBakeTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/PuppetTapeTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -63,6 +63,9 @@ java @"$RUNARGS" PuppetDangleBakeTest || exit 1
 # that corrupts a rig silently when a pin is deleted. PuppetPin/PuppetRig import nothing, which
 # is what lets them run here — enforced just below.
 java @"$RUNARGS" PuppetRigTest || exit 1
+# The tape's Option C: bars and diamonds inferred from key DENSITY, so the
+# boundaries are the whole correctness story.
+java @"$RUNARGS" PuppetTapeTest || exit 1
 # The avatar package's OWN proofs. They existed with no runner driving them — orphaned
 # tests prove nothing. Same puppet problem, same suite.
 java @"$RUNARGS" DangleTest || exit 1

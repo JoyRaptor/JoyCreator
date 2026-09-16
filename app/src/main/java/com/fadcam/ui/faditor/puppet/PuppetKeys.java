@@ -1,0 +1,361 @@
+package com.fadcam.ui.faditor.puppet;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack;
+import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
+
+/**
+ * THE ONE AUTHORITY on a puppet pin's keyframes.
+ *
+ * <p>Every surface that asks "does this pin have a key here", "drop one", "jump to the next" goes
+ * through this file — the drawer's {@code ‹ ♦ ›}, the tape, the live recorder and the overlay. The
+ * alternative is four places that each compute a pin's component indices, and the first one to
+ * get {@code 2i, 2i+1} backwards moves the wrong limb with nothing to point at.
+ *
+ * <h3>The pose lives in two places and that is deliberate</h3>
+ * <ul>
+ *   <li>{@link MeshWarpSpec#handles()} — the STATIC pose. A bend with no animation: one shape,
+ *       every frame. Every rig starts here.</li>
+ *   <li>{@link MeshWarpSpec#track()} — the ANIMATION. Once a rig has one key, this is the truth
+ *       and the static pose is only the fallback the renderer uses before the first key.</li>
+ * </ul>
+ *
+ * <p><b>So dragging a pin means different things, and the rule is the one every editor uses:</b>
+ * with no track a drag edits the static pose, and once a track exists a drag also keys at the
+ * playhead. Without that second half a drag would silently vanish the moment you scrubbed —
+ * the user moved an arm, the track said otherwise, and the track wins.
+ *
+ * <h3>A chain keys together, always</h3>
+ * <p>SPEC_20260915_PUPPET_UI §5.2. Dragging a wrist solves the elbow and shoulder too, so all
+ * three must land on the SAME instant: thinned onto different key times, the chain no longer
+ * solves to the same shape between them and the limb wobbles. {@code putComponents} writes one
+ * pose per instant, so passing the whole chain's components in one call makes that structural
+ * rather than a rule somebody has to remember.
+ */
+public final class PuppetKeys {
+
+    private PuppetKeys() {}
+
+    /** Two components per pin, x then y — the layout {@code PuppetTopology} publishes. */
+    public static final int COMPONENTS_PER_PIN = 2;
+
+    /**
+     * How close two key times count as the same one, in ms.
+     *
+     * <p>A frame at 30fps is 33ms, so half a frame is the most generous value that can never
+     * merge two keys a user deliberately placed on neighbouring frames. It is also what stops
+     * "is the playhead on a key" flickering while a scrub drifts by a millisecond.
+     */
+    public static final long TIME_TOLERANCE_MS = 16L;
+
+    // ── what a pin owns ──────────────────────────────────────────────────
+
+    /** The components of ONE pin. */
+    @NonNull
+    public static int[] componentsOf(int pin) {
+        return new int[]{pin * COMPONENTS_PER_PIN, pin * COMPONENTS_PER_PIN + 1};
+    }
+
+    /**
+     * The components a DRAG of this pin writes — the whole chain when it has bones.
+     *
+     * <p>Falls back to the pin alone when there is no rig or no chain, which is the ordinary case
+     * for a loose pin and not a failure.
+     */
+    @NonNull
+    public static int[] componentsForDrag(@Nullable PuppetRig rig, int pin) {
+        if (rig == null || pin < 0 || pin >= rig.pinCount()) return componentsOf(pin);
+        return rig.chainComponents(pin);
+    }
+
+    // ── reading ──────────────────────────────────────────────────────────
+
+    /** The instants this pin has a key at, ascending. Empty when it has none. */
+    @NonNull
+    public static long[] keyTimes(@Nullable MeshWarpSpec spec, int pin) {
+        if (spec == null || spec.track() == null || spec.track().isEmpty()) return new long[0];
+        try {
+            long[] t = spec.track().componentTimes(componentsOf(pin), 1e-5f);
+            return t == null ? new long[0] : t;
+        } catch (Exception e) {
+            return new long[0];
+        }
+    }
+
+    public static int keyCount(@Nullable MeshWarpSpec spec, int pin) {
+        return keyTimes(spec, pin).length;
+    }
+
+    /** 1-based position of the key at {@code timeMs}, or 0 when the playhead is between keys. */
+    public static int keyIndexAt(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+        long[] t = keyTimes(spec, pin);
+        for (int i = 0; i < t.length; i++) {
+            if (Math.abs(t[i] - timeMs) <= TIME_TOLERANCE_MS) return i + 1;
+        }
+        return 0;
+    }
+
+    public static boolean isOnKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+        return keyIndexAt(spec, pin, timeMs) > 0;
+    }
+
+    /** The key strictly before {@code timeMs}, or {@code Long.MIN_VALUE} when there is none. */
+    public static long prevKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+        long[] t = keyTimes(spec, pin);
+        long best = Long.MIN_VALUE;
+        for (long k : t) {
+            if (k < timeMs - TIME_TOLERANCE_MS && k > best) best = k;
+        }
+        return best;
+    }
+
+    /** The key strictly after {@code timeMs}, or {@code Long.MIN_VALUE} when there is none. */
+    public static long nextKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+        long[] t = keyTimes(spec, pin);
+        long best = Long.MIN_VALUE;
+        for (long k : t) {
+            if (k > timeMs + TIME_TOLERANCE_MS && (best == Long.MIN_VALUE || k < best)) best = k;
+        }
+        return best;
+    }
+
+    /** True when this spec is animated at all, as opposed to carrying one static bend. */
+    public static boolean isAnimated(@Nullable MeshWarpSpec spec) {
+        return spec != null && spec.track() != null && !spec.track().isEmpty();
+    }
+
+    // ── writing ──────────────────────────────────────────────────────────
+
+    /**
+     * The pose to edit right now: the animated value at {@code timeMs}, or the static one.
+     *
+     * <p>This is what makes a punch-in start where the old move already was — SPEC §5.5's
+     * "anchor in". The finger grabs the pin at the value the track is producing, so the first
+     * sample of a new take equals the last value of the old one and there is nothing to jump
+     * from.
+     *
+     * @return false when there is no pose to read
+     */
+    public static boolean readPose(@Nullable MeshWarpSpec spec, long timeMs, @NonNull float[] out) {
+        if (spec == null) return false;
+        try {
+            if (isAnimated(spec)) return spec.handlesAt(timeMs, out);
+            float[] h = spec.handles();
+            if (h == null || h.length != out.length) return false;
+            System.arraycopy(h, 0, out, 0, out.length);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Write a pin's (or its chain's) offsets at {@code timeMs}.
+     *
+     * <p>Keys when the spec is already animated or {@code forceKey} says so; otherwise edits the
+     * static pose. That single branch is the whole "a drag means different things" rule, in one
+     * place, so no caller has to decide it.
+     *
+     * @param values two floats per component index, in the same order
+     * @return true when something was written
+     */
+    public static boolean writeOffsets(@Nullable MeshWarpSpec spec, @NonNull int[] components,
+                                       @NonNull float[] values, long timeMs, boolean forceKey) {
+        if (spec == null || components.length != values.length) return false;
+        try {
+            if (forceKey || isAnimated(spec)) {
+                MeshPoseTrack track = spec.ensureTrack();
+                return track.putComponents(timeMs, components, values, null);
+            }
+            float[] h = spec.handles();
+            if (h == null) return false;
+            for (int i = 0; i < components.length; i++) {
+                int c = components[i];
+                if (c >= 0 && c < h.length) h[c] = values[i];
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Drop a key for this pin's chain at {@code timeMs}, holding whatever the pose is there.
+     *
+     * <p>Keying the CURRENT value rather than zero is the point: a key that changed the picture
+     * the moment you made it would make the control feel like a mistake.
+     *
+     * @return true when a key landed
+     */
+    public static boolean dropKey(@Nullable MeshWarpSpec spec, @Nullable PuppetRig rig,
+                                  int pin, long timeMs) {
+        if (spec == null) return false;
+        int arity = spec.arity();
+        if (arity <= 0) return false;
+        float[] pose = new float[arity];
+        if (!readPose(spec, timeMs, pose)) return false;
+        int[] comps = componentsForDrag(rig, pin);
+        float[] vals = new float[comps.length];
+        for (int i = 0; i < comps.length; i++) {
+            vals[i] = (comps[i] >= 0 && comps[i] < arity) ? pose[comps[i]] : 0f;
+        }
+        return writeOffsets(spec, comps, vals, timeMs, true);
+    }
+
+    /**
+     * Remove THIS PIN's key at {@code timeMs}, leaving every other pin's alone.
+     *
+     * <p><b>This is not {@code track.removeAt}, and the difference is a bug I nearly shipped.</b>
+     * A pose is the unit of storage: one instant holds every pin's value. So dropping the pose
+     * would delete the whole character's key — press "delete key" on a hand and the head, the hip
+     * and the tail lose theirs too, silently, with one undo press that looks like it did one
+     * thing.
+     *
+     * <p>What "this pin has no key here" actually means is that its components do not CHANGE at
+     * this instant — which is what {@code componentTimes} reports on. So the pin's values are set
+     * to what they would have been had nobody keyed them: the interpolation of its own
+     * neighbouring keys. The pose survives for everyone else; this pin stops having a key.
+     *
+     * <p>If the pose then carries nothing for anybody it is removed, so deleting the last key of
+     * the last pin does not leave an invisible pose behind forever.
+     *
+     * @return true when a key was there to remove
+     */
+    public static boolean deleteKey(@Nullable MeshWarpSpec spec, int pin, long timeMs) {
+        if (spec == null || spec.track() == null) return false;
+        MeshPoseTrack track = spec.track();
+        long at = Long.MIN_VALUE;
+        for (long k : keyTimes(spec, pin)) {
+            if (Math.abs(k - timeMs) <= TIME_TOLERANCE_MS) { at = k; break; }
+        }
+        if (at == Long.MIN_VALUE) return false;
+
+        int arity = spec.arity();
+        if (arity <= 0) return false;
+        int[] comps = componentsOf(pin);
+
+        // What this pin would read had it never been keyed here: straight-line between the keys
+        // either side. With only one side, hold that value; with neither, this was the pin's only
+        // key and the honest answer is its rest position, which is zero offset.
+        long before = prevKey(spec, pin, at), after = nextKey(spec, pin, at);
+        float[] vals = new float[comps.length];
+        float[] a = new float[arity], b = new float[arity];
+        boolean hasA = before != Long.MIN_VALUE && readPose(spec, before, a);
+        boolean hasB = after != Long.MIN_VALUE && readPose(spec, after, b);
+        for (int i = 0; i < comps.length; i++) {
+            int c = comps[i];
+            if (hasA && hasB) {
+                float span = (float) (after - before);
+                float u = span <= 0f ? 0f : (at - before) / span;
+                vals[i] = a[c] + (b[c] - a[c]) * u;
+            } else if (hasA) {
+                vals[i] = a[c];
+            } else if (hasB) {
+                vals[i] = b[c];
+            } else {
+                vals[i] = 0f;
+            }
+        }
+        if (!track.putComponents(at, comps, vals, null)) return false;
+
+        // CLEAN UP A POSE THAT NOW SAYS NOTHING. If no component at this instant differs from
+        // what the neighbouring poses would interpolate to, the pose is dead weight — and a
+        // track full of them would make every later simplify and every tape row slower for
+        // nothing.
+        if (poseIsRedundant(spec, at)) track.removeAt(at);
+        return true;
+    }
+
+    /** True when the pose at {@code timeMs} is exactly what its neighbours already imply. */
+    private static boolean poseIsRedundant(@NonNull MeshWarpSpec spec, long timeMs) {
+        MeshPoseTrack track = spec.track();
+        if (track == null) return false;
+        long[] all = track.times();
+        if (all == null || all.length <= 1) return false;
+        int idx = -1;
+        for (int i = 0; i < all.length; i++) if (all[i] == timeMs) { idx = i; break; }
+        if (idx <= 0 || idx >= all.length - 1) return false;   // the ends always carry meaning
+
+        int arity = spec.arity();
+        float[] here = new float[arity], a = new float[arity], b = new float[arity];
+        if (!readPose(spec, timeMs, here)) return false;
+        if (!readPose(spec, all[idx - 1], a) || !readPose(spec, all[idx + 1], b)) return false;
+        float span = (float) (all[idx + 1] - all[idx - 1]);
+        if (span <= 0f) return false;
+        float u = (timeMs - all[idx - 1]) / span;
+        for (int c = 0; c < arity; c++) {
+            float lerp = a[c] + (b[c] - a[c]) * u;
+            if (Math.abs(here[c] - lerp) > 1e-5f) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Thin a recorded range, and say how many poses went.
+     *
+     * <p>A live take drops a key per frame, so this is not polish — without it the surviving keys
+     * cannot be drawn inside a bar or hit with a finger. {@code detail} is the rig's 0..1 slider;
+     * higher means fewer keys, which is the direction that reads as "less detail".
+     */
+    public static int simplify(@Nullable MeshWarpSpec spec, long fromMs, long toMs, float detail) {
+        if (spec == null || spec.track() == null) return 0;
+        if (detail <= 0.02f) return 0;          // keep every sample
+        // Unit space, so this is a FRACTION OF THE PICTURE, not pixels. 0.02 sounded modest and
+        // is not: on a 1000px-wide character it allows 20px of error, which is a knuckle. 0.008
+        // is about 8px there — below what reads as a change of pose and above a held hand's
+        // tremor. The floor keeps a "no thinning" setting from being exactly zero, which would
+        // make simplifyRange's own epsilon comparisons meaningless.
+        float tolerance = 0.0006f + detail * 0.008f;
+        try {
+            return spec.track().simplifyRange(fromMs, toMs, tolerance);
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /**
+     * Ease the last {@code blendMs} of a take back onto whatever it interrupted.
+     *
+     * <p>SPEC §5.5's "blend out", and the asymmetry is the whole point: the IN point never jumps
+     * because the finger grabbed the pin where the animation already had it, while the OUT point
+     * lands wherever the finger stopped and the old motion resumes from somewhere else. Only one
+     * end needs help.
+     *
+     * <p>Applies to the WHOLE chain, not the dragged pin: blending one pin of a limb while its
+     * neighbours snap would tear it.
+     *
+     * @param resumeAt the pose the old animation produces just after the take — read BEFORE the
+     *                 take overwrote anything, or this blends towards what it just wrote
+     * @return true when a blend was written
+     */
+    public static boolean blendOut(@Nullable MeshWarpSpec spec, @NonNull int[] components,
+                                   long takeEndMs, int blendMs, @Nullable float[] resumeAt) {
+        if (spec == null || resumeAt == null || blendMs <= 0) return false;
+        if (!isAnimated(spec)) return false;
+        int arity = spec.arity();
+        if (arity <= 0 || resumeAt.length != arity) return false;
+
+        float[] atEnd = new float[arity];
+        if (!readPose(spec, takeEndMs, atEnd)) return false;
+
+        // Three steps is enough for an ease over a fifth of a second and cheap enough to be
+        // invisible; more would just be keys nobody asked for.
+        final int STEPS = 3;
+        boolean wrote = false;
+        for (int s = 1; s <= STEPS; s++) {
+            float u = s / (float) STEPS;
+            float e = u * u * (3f - 2f * u);           // smoothstep, the shape of a settle
+            long t = takeEndMs + Math.round(blendMs * u);
+            float[] vals = new float[components.length];
+            for (int i = 0; i < components.length; i++) {
+                int c = components[i];
+                if (c < 0 || c >= arity) continue;
+                vals[i] = atEnd[c] + (resumeAt[c] - atEnd[c]) * e;
+            }
+            wrote |= writeOffsets(spec, components, vals, t, true);
+        }
+        return wrote;
+    }
+}

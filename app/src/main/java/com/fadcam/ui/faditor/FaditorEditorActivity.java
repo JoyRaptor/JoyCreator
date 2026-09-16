@@ -30736,14 +30736,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
             }
 
-            // ── keys: honest stubs until pins exist on the preview ───────────────────
-            @Override public int keyCount() { return 0; }
-            @Override public int keyIndexAtPlayhead() { return 0; }
-            @Override public boolean playheadIsOnKey() { return false; }
-            @Override public void dropKeyAtPlayhead() { }
-            @Override public void deleteKeyAtPlayhead() { }
-            @Override public void jumpToPrevKey() { }
-            @Override public void jumpToNextKey() { }
+            // ── keys ─────────────────────────────────────────────────────────────────
+            @Override public int keyCount() {
+                return com.fadcam.ui.faditor.puppet.PuppetKeys.keyCount(
+                        puppetSpec(), puppetSelectedPin);
+            }
+
+            @Override public int keyIndexAtPlayhead() {
+                return com.fadcam.ui.faditor.puppet.PuppetKeys.keyIndexAt(
+                        puppetSpec(), puppetSelectedPin, puppetClockMs());
+            }
+
+            @Override public boolean playheadIsOnKey() {
+                return com.fadcam.ui.faditor.puppet.PuppetKeys.isOnKey(
+                        puppetSpec(), puppetSelectedPin, puppetClockMs());
+            }
+
+            @Override public void dropKeyAtPlayhead() {
+                puppetKeyEdit("Key pin", true);
+            }
+
+            @Override public void deleteKeyAtPlayhead() {
+                puppetKeyEdit("Delete key", false);
+            }
+
+            @Override public void jumpToPrevKey() {
+                puppetJumpKey(false);
+            }
+
+            @Override public void jumpToNextKey() {
+                puppetJumpKey(true);
+            }
         };
     }
 
@@ -30878,7 +30901,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
         if (it == null) return false;
         com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
-        float[] offsets = puppetHandles();
+        // THE GESTURE'S POSE, not the static array: with a track the static handles are only a
+        // fallback, and solving into them would move a limb the renderer is not reading.
+        float[] offsets = puppetWorkPose;
         if (rig == null || offsets == null) return false;
 
         // chainToRoot walks TIP FIRST; the solver wants ROOT first, and getting that backwards
@@ -30921,12 +30946,265 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         boolean solved = com.fadcam.ui.faditor.avatar.PuppetRigSolver
                 .solveChain(chain, rest, offsets, ux, uy);
-        if (solved) repaintPuppetPicture();
+        // The solve moved EVERY pin on the way to the root, so every one of them has to be
+        // written — and written in ONE call, at ONE instant, or the chain thins onto different
+        // key times and the limb wobbles between them (SPEC section 5.2).
+        if (solved) puppetCommitWorkPose(com.fadcam.ui.faditor.puppet.PuppetKeys
+                .componentsForDrag(rig, pin));
         return solved;
     }
 
     /** Island count already warned about, so the toast fires on a change and not every drag. */
     private int puppetLastIslandWarning;
+
+    // ══ PUPPET ANIMATION ════════════════════════════════════════════════════════════════
+    //
+    // A puppet's pose lives in two places and the difference is the whole feature: the spec's
+    // STATIC handles are one shape for every frame, and its TRACK is a performance. Everything
+    // below exists to make one drag mean the right one of those without the user choosing.
+    //
+    //   no track            -> the drag edits the static pose. A permanent bend.
+    //   a track exists      -> the drag ALSO keys at the playhead, because otherwise the move
+    //                          would vanish the moment you scrubbed and the track won.
+    //   armed AND rolling   -> every move keys. That is a take.
+    //
+    // The pose being edited is held here for the length of a gesture rather than read back out
+    // of the spec each move: with a track, "the current pose" is an evaluation, and evaluating,
+    // mutating and re-writing thirty times a second would quantise the drag to whatever the
+    // track happened to interpolate.
+
+    /** The pose under the finger for the length of one gesture. Null when nothing is dragging. */
+    @Nullable private float[] puppetWorkPose;
+
+    /** The whole spec as it was before the gesture — undo, and the blend-out's "resume" value. */
+    @Nullable private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec puppetSpecBefore;
+
+    /**
+     * The frame grid a take is quantised to, in ms — 30fps.
+     *
+     * <p>Not the display refresh: a key that lands between two frames is a key the picture can
+     * never show, and a 120Hz touch stream would otherwise write four of them per frame.
+     */
+    private static final long TAKE_STEP_MS = 33L;
+
+    /** True for the length of a gesture that is writing a take. */
+    private boolean puppetRecording;
+
+    /** The last frame-grid instant this take wrote, so a second sample in it overwrites. */
+    private long puppetLastTakeStepMs = Long.MIN_VALUE;
+    private long puppetTakeStartMs;
+    private long puppetTakeEndMs;
+
+    /** Every component this gesture has touched, so the blend and the thin cover the chain. */
+    @Nullable private int[] puppetTakeComponents;
+
+    /** The puppet item's spec, or null when it has no puppet mesh. */
+    @Nullable
+    private com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec puppetSpec() {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (it == null || it.getMesh() == null) return null;
+        return (it.getMesh().topology()
+                instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)
+                ? it.getMesh() : null;
+    }
+
+    /**
+     * The clock a puppet key is written against.
+     *
+     * <p>ITEM-LOCAL, not timeline-absolute — the same base every other overlay property uses, so
+     * trimming or moving the item carries its performance with it instead of stranding the keys
+     * where the item used to be.
+     */
+    private long puppetClockMs() {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        long abs = Math.max(0, lastPlayheadAbsoluteMs);
+        return it == null ? abs : it.meshLocalTime(abs);
+    }
+
+    /** The pose to draw pins at: the gesture's working copy, or whatever the spec says now. */
+    @Nullable
+    private float[] puppetPoseNow() {
+        if (puppetWorkPose != null) return puppetWorkPose;
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        if (spec == null || spec.arity() <= 0) return null;
+        float[] pose = new float[spec.arity()];
+        return com.fadcam.ui.faditor.puppet.PuppetKeys.readPose(spec, puppetClockMs(), pose)
+                ? pose : null;
+    }
+
+    /** Start a pose gesture: snapshot for undo, and decide whether this one is a take. */
+    private void puppetBeginPose() {
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        if (spec == null || spec.arity() <= 0) { puppetWorkPose = null; return; }
+        puppetSpecBefore = spec.copy();
+        puppetWorkPose = new float[spec.arity()];
+        if (!com.fadcam.ui.faditor.puppet.PuppetKeys.readPose(spec, puppetClockMs(), puppetWorkPose)) {
+            java.util.Arrays.fill(puppetWorkPose, 0f);
+        }
+        com.fadcam.ui.faditor.puppet.PuppetRig rig =
+                puppetItem == null ? null : puppetItem.getPuppet();
+        // getPlayWhenReady, not isPlaying: isPlaying drops through a buffering blip and a take
+        // must not stop recording because the decoder paused for a frame. The comment at the
+        // top of this file's playback block already settled which of the two is honest.
+        boolean rolling = playerManager != null
+                && (playerManager.isPlaying() || playerManager.getPlayWhenReady());
+        puppetRecording = rolling && rig != null && rig.recordOnTouch;
+        puppetTakeStartMs = puppetClockMs();
+        puppetTakeEndMs = puppetTakeStartMs;
+        puppetTakeComponents = null;
+        puppetLastTakeStepMs = Long.MIN_VALUE;
+    }
+
+    /**
+     * Push the working pose into the spec — as a key, or as the static bend.
+     *
+     * <p>Called on every move, so it stays free of allocation beyond the small value array.
+     */
+    private void puppetCommitWorkPose(@NonNull int[] components) {
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        float[] pose = puppetWorkPose;
+        if (spec == null || pose == null) return;
+        float[] vals = new float[components.length];
+        for (int i = 0; i < components.length; i++) {
+            int c = components[i];
+            vals[i] = (c >= 0 && c < pose.length) ? pose[c] : 0f;
+        }
+        long t = puppetClockMs();
+        if (puppetRecording) {
+            // QUANTISE THE TAKE TO A FRAME GRID. A move event arrives per touch sample — 120 or
+            // 240 a second on this phone — and keying every one of them writes several keys per
+            // FRAME: keys nothing can ever display, that make every later simplify and every
+            // tape row slower, and that a thinning pass then has to undo. One key per frame is
+            // the most a performance can possibly mean.
+            long snapped = (t / TAKE_STEP_MS) * TAKE_STEP_MS;
+            if (snapped == puppetLastTakeStepMs) {
+                // Same frame as the last sample: overwrite it rather than adding another, so the
+                // key holds the LATEST position in that frame instead of the earliest.
+                com.fadcam.ui.faditor.puppet.PuppetKeys.writeOffsets(spec, components, vals,
+                        snapped, true);
+                repaintPuppetPicture();
+                return;
+            }
+            puppetLastTakeStepMs = snapped;
+            t = snapped;
+        }
+        com.fadcam.ui.faditor.puppet.PuppetKeys.writeOffsets(spec, components, vals, t,
+                puppetRecording);
+        if (puppetRecording) {
+            puppetTakeEndMs = Math.max(puppetTakeEndMs, t);
+            puppetTakeComponents = puppetMergeComponents(puppetTakeComponents, components);
+        }
+        repaintPuppetPicture();
+    }
+
+    /** Union of two component lists — a take may cross chains if the user re-grabs mid-roll. */
+    @NonNull
+    private int[] puppetMergeComponents(@Nullable int[] a, @NonNull int[] b) {
+        if (a == null) return b.clone();
+        java.util.TreeSet<Integer> set = new java.util.TreeSet<>();
+        for (int v : a) set.add(v);
+        for (int v : b) set.add(v);
+        int[] out = new int[set.size()];
+        int i = 0;
+        for (int v : set) out[i++] = v;
+        return out;
+    }
+
+    /**
+     * End a pose gesture: thin the take, ease it back onto what it interrupted, record ONE undo.
+     *
+     * <p>The order matters. Blend FIRST, against the pose the old animation produced — which is
+     * why the snapshot is kept: by now the take has overwritten the track, so asking the live
+     * spec what the old motion did would return the take's own last value and blend to nowhere.
+     * Then thin, so the blend's own keys are part of what gets simplified rather than survivors
+     * bolted onto the end of a cleaned range.
+     */
+    private void puppetCommitPose(@NonNull String label) {
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec before = puppetSpecBefore;
+        final boolean wasTake = puppetRecording;
+        final int[] comps = puppetTakeComponents;
+        final long from = puppetTakeStartMs, to = puppetTakeEndMs;
+
+        puppetWorkPose = null;
+        puppetSpecBefore = null;
+        puppetRecording = false;
+        puppetTakeComponents = null;
+
+        if (spec == null || before == null) return;
+
+        if (wasTake && comps != null && to > from) {
+            com.fadcam.ui.faditor.puppet.PuppetRig rig =
+                    puppetItem == null ? null : puppetItem.getPuppet();
+            int blend = rig == null ? 200 : Math.max(0, rig.blendOutMs);
+            if (blend > 0 && before.arity() == spec.arity()) {
+                float[] resume = new float[before.arity()];
+                if (com.fadcam.ui.faditor.puppet.PuppetKeys.readPose(before, to + blend, resume)) {
+                    com.fadcam.ui.faditor.puppet.PuppetKeys.blendOut(spec, comps, to, blend, resume);
+                }
+            }
+            float detail = rig == null ? 0.78f : rig.detail;
+            int dropped = com.fadcam.ui.faditor.puppet.PuppetKeys.simplify(
+                    spec, from, to + blend, detail);
+            FLog.w(TAG, "Puppet take " + from + ".." + to + "ms — thinned " + dropped
+                    + " poses at detail " + detail);
+        }
+
+        // ONE step for the whole gesture, take or not. The snapshot already holds the entire
+        // spec, so this restores the static pose AND every key the take wrote, together.
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec after = spec.copy();
+        final com.fadcam.ui.faditor.model.TextOverlayItem target = puppetItem;
+        if (target == null) return;
+        undoManager.recordAction(new EditActions.LambdaAction(
+                wasTake ? "Record " + label : label,
+                () -> { target.setMesh(after.copy()); repaintPuppetPicture(); },
+                () -> { target.setMesh(before.copy()); repaintPuppetPicture(); }));
+        scheduleAutoSave();
+    }
+
+    /** Drop or delete a key for the selected pin, as one undo step. */
+    private void puppetKeyEdit(@NonNull String label, boolean drop) {
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        com.fadcam.ui.faditor.model.TextOverlayItem target = puppetItem;
+        if (spec == null || target == null) return;
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec before = spec.copy();
+        long t = puppetClockMs();
+        boolean changed = drop
+                ? com.fadcam.ui.faditor.puppet.PuppetKeys.dropKey(spec, target.getPuppet(),
+                        puppetSelectedPin, t)
+                : com.fadcam.ui.faditor.puppet.PuppetKeys.deleteKey(spec, puppetSelectedPin, t);
+        if (!changed) return;
+        final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec after = spec.copy();
+        undoManager.recordAction(new EditActions.LambdaAction(label,
+                () -> { target.setMesh(after.copy()); repaintPuppetPicture(); },
+                () -> { target.setMesh(before.copy()); repaintPuppetPicture(); }));
+        repaintPuppetPicture();
+        scheduleAutoSave();
+    }
+
+    /**
+     * Move the playhead to the selected pin's next or previous key.
+     *
+     * <p>EXACT, not near: landing a frame off a key and then keying again authors a second key
+     * beside the first, which reads as a jitter nobody can find. This is the reason the
+     * {@code ‹ ♦ ›} sits at the top of the puppet drawer at all.
+     */
+    private void puppetJumpKey(boolean forward) {
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (spec == null || it == null) return;
+        long local = puppetClockMs();
+        long target = forward
+                ? com.fadcam.ui.faditor.puppet.PuppetKeys.nextKey(spec, puppetSelectedPin, local)
+                : com.fadcam.ui.faditor.puppet.PuppetKeys.prevKey(spec, puppetSelectedPin, local);
+        if (target == Long.MIN_VALUE) return;
+        // Back to absolute by ADDING THE ITEM'S START, not by offsetting the current playhead.
+        // meshLocalTime clamps at zero, so with the playhead before the item the local clock is
+        // 0 for a whole range of absolute times and the difference is meaningless — the jump
+        // would land wherever the user happened to be scrubbing.
+        long abs = it.getStartMs() + target;
+        if (editorTimeline != null) editorTimeline.seekToTimelineMs(Math.max(0, abs));
+    }
 
     /** The pose a bend gesture started from — the ONE snapshot it will undo to. */
     @Nullable private float[] puppetPoseBefore;
@@ -31206,51 +31484,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
 
                 @Override public boolean readOffset(int pin, @NonNull float[] outXY) {
-                    float[] h = puppetHandles();
-                    if (h == null || pin < 0 || pin * 2 + 1 >= h.length) {
-                        outXY[0] = 0f; outXY[1] = 0f;
-                        return false;
-                    }
-                    outXY[0] = h[pin * 2];
-                    outXY[1] = h[pin * 2 + 1];
+                    outXY[0] = 0f; outXY[1] = 0f;
+                    float[] pose = puppetPoseNow();
+                    if (pose == null || pin < 0 || pin * 2 + 1 >= pose.length) return false;
+                    outXY[0] = pose[pin * 2];
+                    outXY[1] = pose[pin * 2 + 1];
                     return true;
                 }
 
                 @Override public void writeOffset(int pin, float dx, float dy) {
-                    float[] h = puppetHandles();
-                    if (h == null || pin < 0 || pin * 2 + 1 >= h.length) return;
+                    float[] pose = puppetWorkPose;
+                    if (pose == null || pin < 0 || pin * 2 + 1 >= pose.length) return;
                     // Clamped by the deformer's own rail, not by a second opinion invented here:
                     // a pose well outside the picture is legitimate, NaN is not.
-                    h[pin * 2] = clampPuppetComponent(dx);
-                    h[pin * 2 + 1] = clampPuppetComponent(dy);
-                    repaintPuppetPicture();
+                    pose[pin * 2] = clampPuppetComponent(dx);
+                    pose[pin * 2 + 1] = clampPuppetComponent(dy);
+                    puppetCommitWorkPose(com.fadcam.ui.faditor.puppet.PuppetKeys.componentsOf(pin));
                 }
 
-                @Override public void beginPose() {
-                    float[] h = puppetHandles();
-                    puppetPoseBefore = h == null ? null : h.clone();
-                }
+                @Override public void beginPose() { puppetBeginPose(); }
 
-                @Override public void commitPose(@NonNull String label) {
-                    final float[] before = puppetPoseBefore;
-                    final float[] h = puppetHandles();
-                    puppetPoseBefore = null;
-                    if (before == null || h == null || before.length != h.length) return;
-                    final float[] after = h.clone();
-                    // ONE step for the whole drag, and it writes into the LIVE array rather than
-                    // replacing it, because the spec and both renderers hold that same array.
-                    undoManager.recordAction(new EditActions.LambdaAction(label,
-                            () -> { float[] cur = puppetHandles();
-                                    if (cur != null && cur.length == after.length) {
-                                        System.arraycopy(after, 0, cur, 0, after.length);
-                                        repaintPuppetPicture();
-                                    } },
-                            () -> { float[] cur = puppetHandles();
-                                    if (cur != null && cur.length == before.length) {
-                                        System.arraycopy(before, 0, cur, 0, before.length);
-                                        repaintPuppetPicture();
-                                    } }));
-                }
+                @Override public void commitPose(@NonNull String label) { puppetCommitPose(label); }
 
                 @Override public void onRigStructureChanged() {
                     rebuildPuppetMesh(puppetItem, -1);

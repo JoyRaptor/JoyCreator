@@ -2446,6 +2446,128 @@ public final class LayerRowRenderer {
      * <p>Violet, because that is the app's guide hue and a rigged image's ordinary property keys
      * are green — one glance separates "this arm was performed" from "this image fades at 2s".
      */
+    // ══ the tape, as something you can GRAB ════════════════════════════
+
+    /** What the finger landed on, on a puppet’s tape. */
+    public enum PuppetZone {
+        /** The middle of a performance — drag it to slide the whole thing in time. */
+        BODY,
+        /** Its first cap — drag to stretch or squeeze from the far end. */
+        CAP_LEFT,
+        /** Its last cap — same, anchored at the start. */
+        CAP_RIGHT,
+        /** A single key, or one of the survivors inside a bar — drag to retime that moment. */
+        KEY
+    }
+
+    /** One grab on the puppet tape, resolved. */
+    public static final class PuppetHit {
+        public final PuppetZone zone;
+        /** The performance’s span, in the item’s OWN local ms. Both equal {@code keyMs} for a key. */
+        public final long fromMs, toMs;
+        /** The key under the finger, for {@link PuppetZone#KEY}. */
+        public final long keyMs;
+
+        PuppetHit(PuppetZone zone, long fromMs, long toMs, long keyMs) {
+            this.zone = zone; this.fromMs = fromMs; this.toMs = toMs; this.keyMs = keyMs;
+        }
+    }
+
+    /** How much of each end of a bar belongs to its cap rather than its body, in dp. */
+    public static final float PUPPET_CAP_DP = 11f;
+
+    /**
+     * What a touch at {@code (x, y)} grabs on this item’s puppet tape, or null.
+     *
+     * <p><b>Why this can exist without fighting anything.</b> The spec deferred these gestures
+     * partly because {@code LayerGestureController} already arbitrates clip drags, keyframe
+     * drags, marquee and fades on one surface, and a fourth claimant looked like the kind of
+     * change that quietly breaks clip dragging. It turned out the drawing had already solved it:
+     * puppet marks are drawn ABOVE the row midline and the ordinary property diamonds BELOW, so
+     * the two never share a pixel. This refuses anything at or under the midline, which is what
+     * keeps the existing hit-test untouched rather than merely unlikely to collide.
+     *
+     * <p>The cap zones are {@value #PUPPET_CAP_DP}dp, exactly the figure the design study quoted:
+     * <i>"the points own the outer 11px, the body owns the rest."</i>
+     */
+    @Nullable
+    public PuppetHit hitTestPuppetMark(@NonNull TimedItem item, float x, float y, float topPx,
+                                       @NonNull TimeToX timeToX) {
+        // Resolve the row this item lives on, the same way every other hit-test does, so a
+        // scrolled or floating band is handled once rather than twice.
+        RowLayout row = null;
+        for (RowLayout r : rows) {
+            if (r.track.getItems().contains(item)) { row = r; break; }
+        }
+        if (row == null) return null;
+        float localY = bandLocalY(row, y, topPx);
+        if (Float.isNaN(localY)) return null;
+
+        float top = row.bodyRect.top;
+        float centerY = (top + row.itemsBottom()) / 2f;
+        // ABOVE THE MIDLINE ONLY — see above. Two lines, and they are the whole reason this is
+        // safe to add to a hit-test that already arbitrates four other things.
+        if (localY >= centerY - 1f * density || localY < top) return null;
+
+        com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+        if (o == null) return null;
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = o.getMesh();
+        if (spec == null || spec.track() == null || spec.track().isEmpty()) return null;
+        if (!(spec.topology()
+                instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) return null;
+
+        long[] times = spec.track().times();
+        if (times == null || times.length == 0) return null;
+        com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark[] marks =
+                com.fadcam.ui.faditor.puppet.PuppetTapeMarks.group(times);
+
+        float grab = 9f * density;
+        float cap = PUPPET_CAP_DP * density;
+
+        for (com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark m : marks) {
+            float ax = timeToX.map(keyTimeToTimelineMs(item, m.fromMs));
+            float bx = timeToX.map(keyTimeToTimelineMs(item, m.toMs));
+
+            if (!m.bar) {
+                if (Math.abs(x - ax) <= grab) {
+                    return new PuppetHit(PuppetZone.KEY, m.fromMs, m.fromMs, m.fromMs);
+                }
+                continue;
+            }
+            if (x < ax - grab || x > bx + grab) continue;
+
+            // CAPS FIRST. They are the smaller target and the more specific intent, and a body
+            // drag is always available a few pixels inward.
+            if (x <= ax + cap) return new PuppetHit(PuppetZone.CAP_LEFT, m.fromMs, m.toMs, m.fromMs);
+            if (x >= bx - cap) return new PuppetHit(PuppetZone.CAP_RIGHT, m.fromMs, m.toMs, m.toMs);
+
+            // A SURVIVOR INSIDE takes priority over the body, because retiming one moment is the
+            // finer gesture and the body is everywhere else along the bar.
+            long[] inside = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.insideOf(times, m);
+            long nearest = Long.MIN_VALUE;
+            float nearestD = grab;
+            for (long t : inside) {
+                float dx = Math.abs(timeToX.map(keyTimeToTimelineMs(item, t)) - x);
+                if (dx < nearestD) { nearestD = dx; nearest = t; }
+            }
+            if (nearest != Long.MIN_VALUE) {
+                return new PuppetHit(PuppetZone.KEY, m.fromMs, m.toMs, nearest);
+            }
+            return new PuppetHit(PuppetZone.BODY, m.fromMs, m.toMs, m.fromMs);
+        }
+        return null;
+    }
+
+    /**
+     * Item-local ms for a timeline ms — the exact inverse of {@code keyTimeToTimelineMs}.
+     *
+     * <p>Derived from that method rather than restating its rule, so a PiP’s absolute time base
+     * cannot end up handled one way going in and another coming out.
+     */
+    public static long timelineMsToKeyTime(@NonNull TimedItem item, long timelineMs) {
+        return timelineMs - keyTimeToTimelineMs(item, 0L);
+    }
+
     private void drawPuppetMarks(@NonNull Canvas canvas, @NonNull TimedItem item,
                                  float x0, float x1, float top, float bottom,
                                  float centerY, @NonNull TimeToX timeToX, boolean ghosted) {

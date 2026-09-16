@@ -138,6 +138,29 @@ public class PuppetOverlayView extends View {
         /** Say what just happened, in words, beside the strip. */
         void say(@Nullable String what);
 
+        /** Which bone is selected, or -1. A bone is a thing you can select; see the drawer. */
+        int selectedBone();
+        void setSelectedBone(int index);
+
+        /**
+         * True while the timeline is running.
+         *
+         * <p>Placing pins during playback is refused: <i>"we definitely cannot have people adding
+         * pins while it is playing — that is a moving target"</i> (JoyRaptor, 2026-09-15).
+         * Adding a pin is AUTHORING; dragging one is PERFORMING, and only the second belongs in
+         * a moving picture.
+         */
+        boolean isPlaying();
+
+        /**
+         * The deformed triangles, for the Character scope's Show · Mesh toggle. Null when the
+         * item has no mesh yet.
+         */
+        @Nullable PuppetMeshWire meshWire();
+
+        /** True while a slider that changes reach is being dragged — show the ring regardless. */
+        boolean reachPreview();
+
         /** Remove this pin, as ONE undo step. */
         void deletePin(int index);
 
@@ -182,6 +205,29 @@ public class PuppetOverlayView extends View {
     private final float[] off = new float[2];
     private final RectF badgeRect = new RectF();
     private final RectF helperRect = new RectF();
+
+    /** Reused line buffer for the wireframe — one drawLines call, no per-frame allocation. */
+    @Nullable private float[] meshLines;
+
+    /** How near a finger has to be to a bone’s shaft to select it. */
+    private static final float BONE_HIT_DP = 16f;
+
+    /** Scratch for {@link #pinsUnder} — a finger cannot plausibly be over more than a few. */
+    private final int[] under = new int[12];
+
+    // The long press. Posted on DOWN over a pin, cancelled by movement or release.
+    private static final long HOLD_MS = 420L;
+    @Nullable private Runnable holdTask;
+
+    private void cancelHold() {
+        if (holdTask != null) { removeCallbacks(holdTask); holdTask = null; }
+    }
+
+    // The poof: where, what colour, and when it started.
+    private static final long POOF_MS = 260L;
+    private long poofAt;
+    private float poofX, poofY;
+    private int poofHue = 0xFFFFFFFF;
     private final RectF arc = new RectF();
     private final Path path = new Path();
     private final PreviewLoupe loupe = new PreviewLoupe();
@@ -235,6 +281,20 @@ public class PuppetOverlayView extends View {
     private float ghostX, ghostY;
 
     /**
+     * The pin at this point in THIS view’s pixels, or -1 for bare artwork.
+     *
+     * <p>Public because a drag out of the helper strip means two different things depending on
+     * what it lands on, and the strip cannot hit-test pins — it is 58dp square and the pins are
+     * out on the picture.
+     */
+    public int pinUnder(float x, float y) {
+        if (host == null) return -1;
+        PuppetRig rig = host.rig();
+        if (!host.readRect(rect)) return -1;
+        return pinAt(rig, x, y);
+    }
+
+    /**
      * Show (or with a null type, hide) the pin being dragged out of the helper strip.
      *
      * <p>Drawn HERE rather than by the strip because the strip is 58dp square and the finger is
@@ -261,8 +321,18 @@ public class PuppetOverlayView extends View {
 
         boolean locked = rig.locked;
 
+        // THE TRIANGLES, first and faintest — they are the floor everything else stands on.
+        if (rig.showMesh) drawMesh(c);
+
+        // THE REACH RING. What the grey eye beside a slider has always named and never drawn.
+        if ((rig.showReach || host.reachPreview()) && !locked) drawReach(c, rig);
+
         if (rig.showBones) drawBones(c, rig, locked);
         if (rig.showPins) drawPins(c, rig, locked);
+
+        // THE POOF — a pin that was dragged into the strip, going. Drawn after the pins so it
+        // is not occluded by the ones that remain.
+        drawPoof(c);
 
         // The badge is the LAST thing drawn and the first thing hit-tested: it must stay
         // reachable even when a pin happens to sit under it.
@@ -325,14 +395,139 @@ public class PuppetOverlayView extends View {
         return py(p.restY + (host != null && host.readOffset(i, off) ? off[1] : 0f));
     }
 
+    /**
+     * The mesh, as a faint wireframe.
+     *
+     * <p>Every edge is drawn twice — once per triangle that shares it — and that is deliberate:
+     * de-duplicating edges costs a hash per frame to save alpha that is already at 10%, and a
+     * shared edge reading very slightly stronger is if anything the more useful picture.
+     */
+    private void drawMesh(@NonNull Canvas c) {
+        PuppetMeshWire w = host == null ? null : host.meshWire();
+        if (w == null || !w.has()) return;
+        float[] xy = w.xy;
+        short[] idx = w.idx;
+        if (xy == null || idx == null) return;
+
+        int need = w.indexCount * 2;
+        if (meshLines == null || meshLines.length < need * 2) meshLines = new float[need * 2];
+        int at = 0;
+        for (int t = 0; t + 2 < w.indexCount; t += 3) {
+            int a = (idx[t] & 0xFFFF) * 2, b = (idx[t + 1] & 0xFFFF) * 2;
+            int cc = (idx[t + 2] & 0xFFFF) * 2;
+            if (a + 1 >= xy.length || b + 1 >= xy.length || cc + 1 >= xy.length) continue;
+            at = edge(meshLines, at, xy, a, b);
+            at = edge(meshLines, at, xy, b, cc);
+            at = edge(meshLines, at, xy, cc, a);
+        }
+        if (at == 0) return;
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setColor(PuppetPalette.MESH);
+        stroke.setStrokeWidth(Math.max(1f, 0.8f * d));
+        // ONE drawLines call for the whole wireframe. A per-triangle drawLine loop on a 600
+        // triangle mesh is 1800 calls a frame, which is visible as a stutter while scrubbing.
+        c.drawLines(meshLines, 0, at, stroke);
+    }
+
+    private int edge(@NonNull float[] out, int at, @NonNull float[] xy, int a, int b) {
+        if (at + 4 > out.length) return at;
+        out[at] = px(xy[a]);
+        out[at + 1] = py(xy[a + 1]);
+        out[at + 2] = px(xy[b]);
+        out[at + 3] = py(xy[b + 1]);
+        return at + 4;
+    }
+
+    /**
+     * How far the selected pin reaches.
+     *
+     * <p>The radius is the thing the slider beside the eye actually changes: a Stiff pin’s patch
+     * is its own Area, and every other pin is governed by the character’s Softness. It is a
+     * READING of the falloff rather than a hard boundary — MLS has no edge — so it is drawn
+     * dashed, which is the conventional way to say "about here" rather than "exactly here".
+     */
+    private void drawReach(@NonNull Canvas c, @NonNull PuppetRig rig) {
+        int sel = host == null ? -1 : host.selectedPin();
+        if (sel < 0 || sel >= rig.pinCount()) return;
+        PuppetPin p = rig.pin(sel);
+        float unit = p.type == PuppetPin.Type.STIFF
+                ? Math.max(0.03f, p.stiffArea * 0.5f)
+                : 0.10f + rig.softness * 0.42f;
+        float r = unit * Math.min(rect.width(), rect.height());
+        if (r < 4f * d) return;
+
+        stroke.setStyle(Paint.Style.STROKE);
+        stroke.setColor(PuppetPalette.of(p.type, false));
+        stroke.setAlpha(120);
+        stroke.setStrokeWidth(1.4f * d);
+        stroke.setPathEffect(new android.graphics.DashPathEffect(
+                new float[]{6f * d, 5f * d}, 0f));
+        c.drawCircle(posedX(sel, p), posedY(sel, p), r, stroke);
+        stroke.setPathEffect(null);
+        stroke.setAlpha(255);
+    }
+
+    /**
+     * A pin going.
+     *
+     * <p>JoyRaptor asked for this by name: <i>"dragging a keyframe off any island causes it to
+     * delete with a poof animation. This is the sort of innovation I am wanting."</i> Three rings
+     * expanding and fading over 260ms, in the pin’s own colour, so the eye follows the thing
+     * that left rather than noticing that something is now absent.
+     *
+     * <p>It is NOT a warning and it is not a confirmation — one undo press brings the pin back.
+     * An animation that meant "gone forever" would make people afraid of the gesture, and a
+     * gesture people fear is worse than a menu.
+     */
+    private void drawPoof(@NonNull Canvas c) {
+        if (poofAt == 0L) return;
+        long age = android.os.SystemClock.uptimeMillis() - poofAt;
+        if (age > POOF_MS) { poofAt = 0L; return; }
+        float t = age / (float) POOF_MS;
+        float ease = 1f - (1f - t) * (1f - t);
+
+        fill.setStyle(Paint.Style.FILL);
+        stroke.setStyle(Paint.Style.STROKE);
+        for (int i = 0; i < 3; i++) {
+            float phase = clamp01(ease - i * 0.14f);
+            if (phase <= 0f) continue;
+            float r = (7f + phase * 26f + i * 3f) * d;
+            int a = Math.round((1f - phase) * 190f);
+            stroke.setColor(poofHue);
+            stroke.setAlpha(a);
+            stroke.setStrokeWidth((2.2f - i * 0.5f) * d);
+            c.drawCircle(poofX, poofY, r, stroke);
+        }
+        stroke.setAlpha(255);
+        postInvalidateOnAnimation();
+    }
+
+    /** Start the poof at a pin’s last on-screen position. */
+    private void poof(float x, float y, int hue) {
+        poofX = x; poofY = y; poofHue = hue;
+        poofAt = android.os.SystemClock.uptimeMillis();
+        invalidate();
+    }
+
     private void drawBones(@NonNull Canvas c, @NonNull PuppetRig rig, boolean locked) {
         stroke.setStrokeWidth(2f * d);
         for (int i = 0; i < rig.boneCount(); i++) {
             PuppetRig.Bone b = rig.bone(i);
             if (b.rootPin >= rig.pinCount() || b.tipPin >= rig.pinCount()) continue;
             PuppetPin a = rig.pin(b.rootPin), z = rig.pin(b.tipPin);
+            boolean selBone = !locked && host != null && host.selectedBone() == i;
             stroke.setColor(locked ? PuppetPalette.LOCKED : PuppetPalette.BONE);
-            stroke.setAlpha(locked ? 110 : 210);
+            stroke.setAlpha(locked ? 110 : (selBone ? 255 : 210));
+            // A selected bone gets a HALO rather than a different colour: colour already means
+            // "this is a bone", and overloading it would make a selected bone read as a new type.
+            if (selBone) {
+                stroke.setStrokeWidth(6f * d);
+                stroke.setAlpha(70);
+                c.drawLine(posedX(b.rootPin, a), posedY(b.rootPin, a),
+                        posedX(b.tipPin, z), posedY(b.tipPin, z), stroke);
+                stroke.setStrokeWidth(2f * d);
+                stroke.setAlpha(255);
+            }
             c.drawLine(posedX(b.rootPin, a), posedY(b.rootPin, a),
                     posedX(b.tipPin, z), posedY(b.tipPin, z), stroke);
         }
@@ -463,7 +658,15 @@ public class PuppetOverlayView extends View {
                 }
                 if (hit >= 0) {
                     host.setSelectedPin(hit);
+                    host.setSelectedBone(-1);
                     host.say(rig.pin(hit).name + " \u00b7 " + rig.pin(hit).typeLabel());
+                    // LONG PRESS takes whatever is under this one. Armed on every pin, because
+                    // whether a pin has a neighbour underneath is not something you can tell by
+                    // looking, so the gesture has to be available wherever it might be needed.
+                    final float hx = x, hy = y;
+                    cancelHold();
+                    holdTask = () -> { holdTask = null; if (!moved) cycleUnder(rig, hx, hy); };
+                    postDelayed(holdTask, HOLD_MS);
                     dragPin = hit;
                     // GRAB poses; a placement tool re-places. Either way the grab point is the
                     // pin's CURRENT on-screen position, so it does not jump under the finger.
@@ -493,6 +696,7 @@ public class PuppetOverlayView extends View {
                     // THE STRIP IS A SINK AS WELL AS A SOURCE. Drag a pin into it and it goes;
                     // drag the swatch out of it and one arrives. One place, two directions, and
                     // nothing to teach — the bin is not somewhere else.
+                    cancelHold();
                     boolean overStrip = host.pointInHelper(x, y);
                     host.helperDodge(x, y, overStrip);
                     if (overStrip != wasOverStrip) { wasOverStrip = overStrip; invalidate(); }
@@ -516,6 +720,22 @@ public class PuppetOverlayView extends View {
                     }
                     invalidate();
                     return true;
+                }
+
+                // NO PIN. A bone’s shaft is the next thing worth hitting: a bone is a thing you
+                // can select, and until now there was no way to reach one — so every control the
+                // drawer holds for a bone was unreachable, which is why none of them existed.
+                if (host.tool() == PuppetDrawerTool.GRAB) {
+                    int hb = boneAt(rig, x, y);
+                    if (hb >= 0) {
+                        host.setSelectedBone(hb);
+                        PuppetRig.Bone hbb = rig.bone(hb);
+                        host.say(rig.pin(hbb.rootPin).name + " \u2192 "
+                                + rig.pin(hbb.tipPin).name);
+                        host.onRigChanged();
+                        invalidate();
+                        return true;
+                    }
                 }
                 return dragPin >= 0 || boneFrom >= 0;
 
@@ -541,7 +761,10 @@ public class PuppetOverlayView extends View {
                         // animation that meant "gone forever" would make people stop trusting
                         // the gesture, and a gesture people fear is worse than a menu.
                         int gone = dragPin;
-                        host.say("Removed " + rig.pin(gone).name + " \u2014 undo brings it back");
+                        PuppetPin gp = rig.pin(gone);
+                        poof(posedX(gone, gp), posedY(gone, gp),
+                                PuppetPalette.of(gp.type, false));
+                        host.say("Removed " + gp.name + " \u2014 undo brings it back");
                         wasOverStrip = false;
                         reset();
                         host.deletePin(gone);
@@ -576,6 +799,14 @@ public class PuppetOverlayView extends View {
                     return true;
                 }
                 if (!moved && toolPlaces(host.tool()) && rect.contains(x, y)) {
+                    // NOT WHILE IT IS PLAYING. Adding a pin is authoring and dragging one is
+                    // performing; only the second belongs in a moving picture, and a pin dropped
+                    // onto a frame that has already gone lands somewhere nobody chose.
+                    if (host.isPlaying()) {
+                        host.say("Pause to add pins \u2014 dragging them still records");
+                        reset();
+                        return true;
+                    }
                     int made = placePin(rig, typeOf(host.tool()), x, y);
                     if (made >= 0) {
                         host.setSelectedPin(made);
@@ -609,7 +840,41 @@ public class PuppetOverlayView extends View {
         invalidate();
     }
 
+    /**
+     * Long press on a pin: take the NEXT pin underneath the same finger.
+     *
+     * <p>The preview deliberately does not open a fourth copy of the type ring here. That ring
+     * already lives on the helper strip’s swatch and on the drawer’s, both a thumb away, and a
+     * third would be three places to keep in step. Cycling what is underneath has no other home,
+     * and without it a pin behind another is simply unreachable.
+     *
+     * <p>It NAMES what it landed on — "L.Elbow · 2 of 3" — because blind cycling is a guess.
+     */
+    private void cycleUnder(@NonNull PuppetRig rig, float x, float y) {
+        int n = pinsUnder(rig, x, y, under);
+        if (n == 0 || host == null) return;
+        if (n == 1) {
+            host.setSelectedPin(under[0]);
+            host.setSelectedBone(-1);
+            host.say(rig.pin(under[0]).name + " \u00b7 nothing underneath it");
+            host.onRigChanged();
+            invalidate();
+            return;
+        }
+        int cur = host.selectedPin();
+        int at = 0;
+        for (int i = 0; i < n; i++) if (under[i] == cur) { at = i + 1; break; }
+        int pick = under[at % n];
+        host.setSelectedPin(pick);
+        host.setSelectedBone(-1);
+        host.say(rig.pin(pick).name + " \u00b7 " + (at % n + 1) + " of " + n);
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        host.onRigChanged();
+        invalidate();
+    }
+
     private void reset() {
+        cancelHold();
         dragPin = -1; boneFrom = -1; moved = false; posing = false; wasOverStrip = false;
         // The strip latches in place once a finger comes near it, so that it cannot flee the
         // very thing being dragged towards it. Every way out of a gesture is through here,
@@ -669,6 +934,55 @@ public class PuppetOverlayView extends View {
             if (dist <= bestD) { bestD = dist; best = i; }
         }
         return best;
+    }
+
+    /**
+     * Every pin under the finger, nearest first.
+     *
+     * <p>Overlapping pins are the normal case on a character — a shoulder and the top of an arm
+     * are drawn on top of each other — and {@link #pinAt} can only ever return the nearest, which
+     * makes the one behind unreachable. This is what long-press cycles through.
+     */
+    private int pinsUnder(@NonNull PuppetRig rig, float x, float y, @NonNull int[] out) {
+        int n = 0;
+        float reach = HIT_R * d;
+        for (int i = 0; i < rig.pinCount() && n < out.length; i++) {
+            PuppetPin p = rig.pin(i);
+            if (Math.hypot(posedX(i, p) - x, posedY(i, p) - y) <= reach) out[n++] = i;
+        }
+        return n;
+    }
+
+    /**
+     * The bone whose shaft the finger is on, or -1.
+     *
+     * <p>Only consulted once no PIN was hit, so a joint always wins over the bones that meet at
+     * it — the pin is the smaller target and the one that does more.
+     */
+    private int boneAt(@NonNull PuppetRig rig, float x, float y) {
+        int best = -1;
+        float bestD = BONE_HIT_DP * d;
+        for (int i = 0; i < rig.boneCount(); i++) {
+            PuppetRig.Bone b = rig.bone(i);
+            if (b.rootPin < 0 || b.tipPin < 0
+                    || b.rootPin >= rig.pinCount() || b.tipPin >= rig.pinCount()) continue;
+            PuppetPin a = rig.pin(b.rootPin), z = rig.pin(b.tipPin);
+            float dist = pointToSegment(x, y,
+                    posedX(b.rootPin, a), posedY(b.rootPin, a),
+                    posedX(b.tipPin, z), posedY(b.tipPin, z));
+            if (dist <= bestD) { bestD = dist; best = i; }
+        }
+        return best;
+    }
+
+    private static float pointToSegment(float px, float py,
+                                        float ax, float ay, float bx, float by) {
+        float vx = bx - ax, vy = by - ay;
+        float len2 = vx * vx + vy * vy;
+        if (len2 < 1e-6f) return (float) Math.hypot(px - ax, py - ay);
+        float t = ((px - ax) * vx + (py - ay) * vy) / len2;
+        t = t < 0f ? 0f : (t > 1f ? 1f : t);
+        return (float) Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
     }
 
     private static boolean toolPlaces(@NonNull PuppetDrawerTool t) {

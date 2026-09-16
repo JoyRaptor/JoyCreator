@@ -16495,6 +16495,41 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPuppetTapeBegin(
+                    @NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
+                // SPEC_20260915_PUPPET_UI \u00a701. One copy of the track, taken once per gesture.
+                // A ranged time edit rewrites many poses at once, so nothing smaller than the
+                // whole track can put it back \u2014 and the standing ruling is one undo press for
+                // one gesture, however many keys it moved.
+                puppetTapeBefore = null;
+                com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+                if (o != null && o.getMesh() != null && o.getMesh().track() != null) {
+                    puppetTapeBefore = o.getMesh().track().copy();
+                }
+            }
+
+            @Override
+            public void onPuppetTapeCommitted(
+                    @NonNull com.fadcam.ui.faditor.layers.TimedItem item, boolean changed) {
+                final com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+                final com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack before = puppetTapeBefore;
+                puppetTapeBefore = null;
+                if (o == null || o.getMesh() == null) return;
+                if (changed && before != null) {
+                    final com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack after =
+                            o.getMesh().track() == null ? null : o.getMesh().track().copy();
+                    undoManager.recordAction(new EditActions.LambdaAction("Retime performance",
+                            () -> { o.getMesh().setTrack(after == null ? null : after.copy());
+                                    repaintPuppetPicture(); syncTimelineOverlays(); },
+                            () -> { o.getMesh().setTrack(before.copy());
+                                    repaintPuppetPicture(); syncTimelineOverlays(); }));
+                    scheduleAutoSave();
+                }
+                repaintPuppetPicture();
+                syncTimelineOverlays();
+            }
+
+            @Override
             public void onItemKeyframeShiftBegin(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 // C4 §2: snapshot BEFORE the row-diamond time-shift (mirrors the drawer
                 // sliders' onSliderStart) — the transform snapshots deep-copy the KeyframeSet,
@@ -30708,7 +30743,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public com.fadcam.ui.faditor.puppet.PuppetRig rig() { return o.getOrCreatePuppet(); }
 
             @Override public int selectedPin() { return puppetSelectedPin; }
-            @Override public void setSelectedPin(int index) { puppetSelectedPin = index; }
+            @Override public void setSelectedPin(int index) {
+                puppetSelectedPin = index;
+                if (index >= 0) puppetSelectedBone = -1;
+            }
+
+            @Override public int selectedBone() { return puppetSelectedBone; }
+            @Override public void setSelectedBone(int index) { puppetSelectedBone = index; }
+
+            @Override public void onRigStructureChanged() {
+                rebuildPuppetMesh(o, -1);
+                repaintPuppetPicture();
+            }
+
+            @Override public void setReachPreview(boolean on) {
+                puppetReachPreview = on;
+                if (puppetOverlay != null) puppetOverlay.refresh();
+            }
 
             @NonNull @Override
             public com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Tool tool() { return puppetTool; }
@@ -30755,6 +30806,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // this pin.
                 return com.fadcam.ui.faditor.puppet.PuppetKeys.displayKeyCount(
                         puppetSpec(), puppetSelectedPin);
+            }
+
+            @Override public int keyCountOf(int pin) {
+                // Same display rule as above, asked about a pin that is NOT the selected one.
+                return com.fadcam.ui.faditor.puppet.PuppetKeys.displayKeyCount(
+                        puppetSpec(), pin);
             }
 
             @Override public int keyIndexAtPlayhead() {
@@ -30912,6 +30969,64 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>Returns false for a pin with no bones, which is not a failure — it is the ordinary case,
      * and the caller then simply moves that one pin.
      */
+    /**
+     * The deformed triangles for the Character scope’s Show · Mesh toggle, or null.
+     *
+     * <p>Returns null the moment the toggle is off, so the solve never runs for the people who
+     * never asked for it — which is nearly everybody, since the spec is explicit that the
+     * triangles are a debug view rather than a workflow.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.puppet.PuppetMeshWire puppetMeshWire() {
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        if (it == null) return null;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = it.getPuppet();
+        if (rig == null || !rig.showMesh) return null;
+
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        if (spec == null
+                || !(spec.topology()
+                        instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology)) {
+            return null;
+        }
+        if (puppetWire == null) puppetWire = new com.fadcam.ui.faditor.puppet.PuppetMeshWire();
+        puppetWire.update(
+                (com.fadcam.ui.faditor.transform.mesh.PuppetTopology) spec.topology(),
+                puppetPoseNow());
+        return puppetWire;
+    }
+
+    /**
+     * Join two pins with a bone, as ONE undo step.
+     *
+     * <p>Shares the rig-snapshot shape of {@code puppetPlacePin} for the same reason: a bone
+     * renumbers nothing, but an empty redo would still lose it, and a user who presses redo and
+     * sees nothing happen concludes that undo ate their work.
+     */
+    private void puppetMakeBone(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem it,
+                                @NonNull com.fadcam.ui.faditor.puppet.PuppetRig rig,
+                                int rootPin, int tipPin) {
+        float dx = rig.pin(tipPin).restX - rig.pin(rootPin).restX;
+        float dy = rig.pin(tipPin).restY - rig.pin(rootPin).restY;
+        int made = rig.addBone(rootPin, tipPin, (float) Math.hypot(dx, dy));
+        if (made < 0) return;
+
+        final com.fadcam.ui.faditor.puppet.PuppetRig withBone = rig.copy();
+        final com.fadcam.ui.faditor.puppet.PuppetRig withoutBone = rig.copy();
+        withoutBone.removeBone(made);
+        undoManager.recordAction(new EditActions.LambdaAction("Add bone",
+                () -> { it.setPuppet(withBone.copy()); repaintPuppetPicture(); },
+                () -> { it.setPuppet(withoutBone.copy()); repaintPuppetPicture(); }));
+
+        puppetSelectedBone = made;
+        puppetSelectedPin = -1;
+        if (puppetHelper != null) {
+            puppetHelper.say(rig.pin(rootPin).name + " \u2192 " + rig.pin(tipPin).name);
+        }
+        repaintPuppetPicture();
+        if (objectDrawer != null && objectDrawer.isShowing()) objectDrawer.refreshCurrentTab();
+    }
+
     private boolean puppetSolveChain(int pin, float ux, float uy) {
         com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
         if (it == null) return false;
@@ -30950,6 +31065,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             chain.jointLimits[link + 1] = bone.jointLimits;
             chain.minAngleDeg[link + 1] = bone.minAngleDeg;
             chain.maxAngleDeg[link + 1] = bone.maxAngleDeg;
+            // WHICH WAY THE ELBOW FOLDS. FabrikSolver has honoured this since it was written and
+            // every bone has stored it since the rig did \u2014 but nothing ever copied it across, so
+            // the solver saw the Chain default of +1 forever and "Flip elbow" would have been born
+            // dead. It is one sign for the whole chain, so the FIRST bone with a preference wins:
+            // the root-most joint is the one whose fold the eye actually reads.
+            if (link == 0 || chain.bendSign == 0) chain.bendSign = bone.bendSign;
         }
 
         float[] rest = new float[rig.pinCount() * 2];
@@ -31260,6 +31381,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Nullable private com.fadcam.ui.faditor.puppet.PuppetHelperView puppetHelper;
 
+    /** Which BONE is selected, or -1. A bone is a thing you can select; see PuppetDrawerTabs. */
+    private int puppetSelectedBone = -1;
+
+    /** True only while a slider that changes reach is under a finger. Never persisted. */
+    private boolean puppetReachPreview;
+
+    /**
+     * The deformed triangles for the Show · Mesh toggle. Built lazily and cached inside itself,
+     * so a rig whose owner never turns the toggle on never pays for one.
+     */
+    @Nullable private com.fadcam.ui.faditor.puppet.PuppetMeshWire puppetWire;
+
+    /** The pose track as it was when a tape drag started — the one thing undo has to put back. */
+    @Nullable private com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack puppetTapeBefore;
+
     /**
      * THE ON-PICTURE HELPER — four controls, so mesh editing never needs the drawer open.
      *
@@ -31430,6 +31566,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (!readPuppetItemRect(it, r) || r.width() <= 1f) return;
         if (!r.contains(x, y)) return;      // dropped off the picture: nothing made
         com.fadcam.ui.faditor.puppet.PuppetRig rig = puppetRigFor(it);
+
+        // ONE GESTURE, TWO OUTCOMES. Dropped on bare artwork it makes a pin; dropped ON an
+        // existing pin it makes a BONE from the selected pin to that one. The design has said so
+        // since the helper strip was drawn — "drop on the body for a pin, drop ON a pin for a
+        // bone" — and it is what lets the strip rig a limb without arming the Bone tool.
+        int onto = puppetOverlay.pinUnder(x, y);
+        if (onto >= 0 && puppetSelectedPin >= 0 && onto != puppetSelectedPin
+                && puppetSelectedPin < rig.pinCount()) {
+            puppetMakeBone(it, rig, puppetSelectedPin, onto);
+            return;
+        }
+        if (onto >= 0) {
+            // Dropped on a pin with nothing selected to join it to. Say so rather than quietly
+            // stacking a second pin on top of the first, which is invisible and confusing.
+            if (puppetHelper != null) puppetHelper.say("Select a pin first, then drop on another");
+            return;
+        }
         final int made = rig.addPin(type, (x - r.left) / r.width(), (y - r.top) / r.height());
         if (made < 0) return;
         puppetSelectedPin = made;
@@ -31788,6 +31941,32 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 @Override public void say(@Nullable String what) {
                     if (puppetHelper != null) puppetHelper.say(what);
                 }
+
+                @Override public int selectedBone() { return puppetSelectedBone; }
+
+                @Override public void setSelectedBone(int index) {
+                    puppetSelectedBone = index;
+                    // Selecting a bone DESELECTS the pin, because the Selected scope shows one
+                    // thing and two selections would make it show whichever was checked first.
+                    if (index >= 0) {
+                        puppetSelectedPin = -1;
+                        puppetScope =
+                                com.fadcam.ui.faditor.tools.PuppetDrawerTabs.Scope.SELECTED;
+                    }
+                }
+
+                @Override public boolean isPlaying() {
+                    return (playerManager != null && playerManager.isPlaying())
+                            || imagePlaybackActive || audioTailActive;
+                }
+
+                @Override
+                @Nullable
+                public com.fadcam.ui.faditor.puppet.PuppetMeshWire meshWire() {
+                    return puppetMeshWire();
+                }
+
+                @Override public boolean reachPreview() { return puppetReachPreview; }
 
                 @Override public void deletePin(int index) {
                     puppetDeletePin(index);

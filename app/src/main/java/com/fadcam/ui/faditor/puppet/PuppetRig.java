@@ -138,6 +138,16 @@ public final class PuppetRig {
     public boolean showMesh = false;
 
     /**
+     * Keep the selected pin’s REACH RING on the picture, rather than only while a slider that
+     * changes it is being dragged.
+     *
+     * <p>This is what the grey eye beside a slider means. Until 2026-09-16 that eye toggled
+     * {@link #showPins} — a second switch for something the Character row already switched,
+     * while the thing it claimed to control was never drawn at all.
+     */
+    public boolean showReach = false;
+
+    /**
      * THE GATE. When true every pin greys and stops answering to touch.
      *
      * <p>It lives on the RIG, not in the drawer and not in a preference, because it is a property
@@ -379,6 +389,7 @@ public final class PuppetRig {
         r.showPins = showPins;
         r.showBones = showBones;
         r.showMesh = showMesh;
+        r.showReach = showReach;
         r.locked = locked;
         r.recordOnTouch = recordOnTouch;
         r.detail = detail;

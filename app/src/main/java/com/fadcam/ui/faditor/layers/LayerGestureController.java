@@ -170,6 +170,15 @@ public final class LayerGestureController {
          * or a fully-clamped drag). Always paired with a prior begin.
          */
         default void onItemKeyframeShiftCommitted(@NonNull TimedItem item) {}
+
+        /**
+         * SPEC_20260915_PUPPET_UI §01: a drag on a puppet’s TAPE is starting — slide, stretch
+         * or retime. Snapshot whatever one undo press has to put back.
+         */
+        default void onPuppetTapeBegin(@NonNull TimedItem item) {}
+
+        /** The tape drag ended. Record ONE undo step; a no-op when nothing actually moved. */
+        default void onPuppetTapeCommitted(@NonNull TimedItem item, boolean changed) {}
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT, FADE_IN, FADE_OUT }
@@ -346,6 +355,31 @@ public final class LayerGestureController {
             this.deltaMin = deltaMin; this.deltaMax = deltaMax; this.curTime = origTime;
         }
     }
+
+    // ── SPEC_20260915_PUPPET_UI §01: slide / stretch / retime on a puppet’s tape ────
+    //
+    // Routed exactly like the keyframe time-shift above — ARMED on DOWN, drag through
+    // onRowBodyMove, commit through onRowBodyUp — and for the same reason: that path is already
+    // proven not to fight pickup, scrub or row-scroll.
+    //
+    // It cannot fight the keyframe shift either, and not by luck: puppet marks are drawn ABOVE
+    // the row midline and property diamonds BELOW, so hitTestPuppetMark refuses anything at or
+    // under the midline and the two hit-tests are disjoint by construction.
+    private boolean puppetTapeActive = false;
+    private TimedItem puppetTapeItem;
+    private LayerRowRenderer.PuppetHit puppetTapeHit;
+    private com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack puppetTapeBefore;
+    private float puppetTapeDownX;
+    private long puppetTapeStartLocalMs = Long.MIN_VALUE;
+    private boolean puppetTapeMoved = false;
+    /** How much of the requested edit has actually been applied, after every clamp so far. */
+    private long puppetTapeAppliedDelta;
+    private float puppetTapeAppliedFactor = 1f;
+    /** The span as it stands NOW, which slides and stretches as the drag goes on. */
+    private long puppetTapeFromMs, puppetTapeToMs, puppetTapeKeyMs;
+
+    /** True while a puppet tape drag owns the gesture. */
+    public boolean isPuppetTapeActive() { return puppetTapeActive; }
 
     // ── FOLLOW-UP 1 (user spec 2026-07-03): occupied-row bookend snap ─────────────
     /**
@@ -550,6 +584,14 @@ public final class LayerGestureController {
         // below), so a first touch on an unselected item keeps plain select/pickup/scrub.
         // Routes like a trim (ARMED_TRIM → view drives onRowBodyMove/onRowBodyUp here); the
         // diamond-only hit means it never competes with body pickup/scrub.
+        // SPEC_20260915_PUPPET_UI §01: a drag on a puppet’s performance — body slides it, a cap
+        // stretches it, a key inside retimes that one moment. Same ALREADY-SELECTED rule as the
+        // keyframe shift below, so a first touch on an unselected item is still plain select.
+        if (!objectLocked && hit.item.getId().equals(selectedItemId)
+                && tryArmPuppetTape(hit, x, y, topPx, timeToX)) {
+            return DownResult.ARMED_TRIM;
+        }
+
         if (!objectLocked && hit.item.getId().equals(selectedItemId)
                 && tryArmKeyframeShift(hit, x, timeToX)) {
             return DownResult.ARMED_TRIM;
@@ -895,6 +937,148 @@ public final class LayerGestureController {
      * neighbors (strictly between them; never below 0 item-local). Returns false (leaving the
      * normal select/pickup path) unless a real bucket was grabbed.
      */
+    /**
+     * Arm a slide / stretch / retime on a puppet’s tape, if that is what the finger is on.
+     *
+     * <p>The whole track is copied first. It is the only snapshot that can put a ranged time
+     * edit back, and it costs one array per pose — paid once per gesture, never per move.
+     */
+    private boolean tryArmPuppetTape(@NonNull LayerRowRenderer.ItemHit hit, float x, float y,
+                                     float topPx, @NonNull LayerRowRenderer.TimeToX timeToX) {
+        if (hit.zone != LayerRowRenderer.ItemZone.BODY) return false;
+        com.fadcam.ui.faditor.model.TextOverlayItem o = hit.item.getTextOverlay();
+        if (o == null || o.getMesh() == null || o.getMesh().track() == null) return false;
+
+        LayerRowRenderer.PuppetHit ph =
+                rowRenderer.hitTestPuppetMark(hit.item, x, y, topPx, timeToX);
+        if (ph == null) return false;
+
+        puppetTapeActive = true;
+        puppetTapeItem = hit.item;
+        puppetTapeHit = ph;
+        puppetTapeBefore = o.getMesh().track().copy();
+        puppetTapeDownX = x;
+        puppetTapeStartLocalMs = Long.MIN_VALUE;
+        puppetTapeMoved = false;
+        puppetTapeAppliedDelta = 0L;
+        puppetTapeAppliedFactor = 1f;
+        puppetTapeFromMs = ph.fromMs;
+        puppetTapeToMs = ph.toMs;
+        puppetTapeKeyMs = ph.keyMs;
+
+        active = true;
+        activeItem = hit.item;
+        activeTrack = hit.track;
+        callback.onPuppetTapeBegin(hit.item);
+        return true;
+    }
+
+    /**
+     * The drag itself.
+     *
+     * <p>Every edit is expressed as "how much of what I asked for is still outstanding", because
+     * {@link com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack} CLAMPS at the neighbouring key
+     * rather than running through it. Asking for the full delta again on every move would fight
+     * that clamp — the performance would creep past its neighbour a frame at a time. Tracking
+     * what was actually applied means a bar pressed against a stop simply stays there, and
+     * resumes the moment the finger comes back.
+     */
+    private void doPuppetTapeMove(float x, @NonNull XToTime xToTime) {
+        if (puppetTapeItem == null || puppetTapeHit == null) return;
+        com.fadcam.ui.faditor.model.TextOverlayItem o = puppetTapeItem.getTextOverlay();
+        if (o == null || o.getMesh() == null || o.getMesh().track() == null) return;
+        com.fadcam.ui.faditor.transform.mesh.MeshPoseTrack track = o.getMesh().track();
+
+        if (puppetTapeStartLocalMs == Long.MIN_VALUE) {
+            puppetTapeStartLocalMs = LayerRowRenderer.timelineMsToKeyTime(
+                    puppetTapeItem, xToTime.map(puppetTapeDownX));
+        }
+        long nowLocal = LayerRowRenderer.timelineMsToKeyTime(
+                puppetTapeItem, xToTime.map(x));
+        long wantDelta = nowLocal - puppetTapeStartLocalMs;
+        boolean any = false;
+
+        switch (puppetTapeHit.zone) {
+            case BODY: {
+                long outstanding = wantDelta - puppetTapeAppliedDelta;
+                if (outstanding == 0L) break;
+                long applied = track.shiftRange(puppetTapeFromMs, puppetTapeToMs, outstanding);
+                if (applied != 0L) {
+                    puppetTapeAppliedDelta += applied;
+                    puppetTapeFromMs += applied;
+                    puppetTapeToMs += applied;
+                    any = true;
+                }
+                break;
+            }
+            case CAP_LEFT:
+            case CAP_RIGHT: {
+                boolean left = puppetTapeHit.zone == LayerRowRenderer.PuppetZone.CAP_LEFT;
+                // The anchor is the cap that is NOT under the finger, so the performance grows
+                // away from where it already starts rather than sliding as it stretches.
+                long anchor = left ? puppetTapeToMs : puppetTapeFromMs;
+                long moving = left ? puppetTapeFromMs : puppetTapeToMs;
+                long armNow = (moving + wantDelta) - anchor;
+                long armWas = moving - anchor;
+                if (armWas == 0L) break;
+                float wantFactor = armNow / (float) armWas;
+                // A cap dragged THROUGH its anchor would invert the performance. Refuse rather
+                // than reverse: a backwards take is not a thing this format can express.
+                if (wantFactor <= 0f) break;
+                float outstanding = wantFactor / puppetTapeAppliedFactor;
+                if (Math.abs(outstanding - 1f) < 1e-4f) break;
+                float applied = track.scaleRange(puppetTapeFromMs, puppetTapeToMs,
+                        anchor, outstanding);
+                if (Math.abs(applied - 1f) > 1e-5f) {
+                    puppetTapeAppliedFactor *= applied;
+                    if (left) {
+                        puppetTapeFromMs = anchor
+                                + Math.round((puppetTapeFromMs - anchor) * (double) applied);
+                    } else {
+                        puppetTapeToMs = anchor
+                                + Math.round((puppetTapeToMs - anchor) * (double) applied);
+                    }
+                    any = true;
+                }
+                break;
+            }
+            default: {
+                long target = puppetTapeHit.keyMs + wantDelta;
+                long landed = track.moveKey(puppetTapeKeyMs, target);
+                if (landed != puppetTapeKeyMs) { puppetTapeKeyMs = landed; any = true; }
+                break;
+            }
+        }
+
+        if (any) {
+            puppetTapeMoved = true;
+            callback.onGestureLive(puppetTapeItem);
+        }
+    }
+
+    /** On a real UP the caller records ONE undo step; on CANCEL the copied track goes back. */
+    private boolean finishPuppetTape(boolean committed) {
+        TimedItem item = puppetTapeItem;
+        if (!committed && puppetTapeMoved && item != null
+                && item.getTextOverlay() != null && item.getTextOverlay().getMesh() != null) {
+            item.getTextOverlay().getMesh().setTrack(puppetTapeBefore);
+        }
+        boolean changed = puppetTapeMoved && committed;
+        puppetTapeActive = false;
+        puppetTapeItem = null;
+        puppetTapeHit = null;
+        puppetTapeBefore = null;
+        puppetTapeStartLocalMs = Long.MIN_VALUE;
+        puppetTapeMoved = false;
+        puppetTapeAppliedDelta = 0L;
+        puppetTapeAppliedFactor = 1f;
+        active = false;
+        activeItem = null;
+        activeTrack = null;
+        if (item != null) callback.onPuppetTapeCommitted(item, changed);
+        return true;
+    }
+
     private boolean tryArmKeyframeShift(@NonNull LayerRowRenderer.ItemHit hit, float x,
                                         @NonNull LayerRowRenderer.TimeToX timeToX) {
         if (hit.zone != LayerRowRenderer.ItemZone.BODY) return false;
@@ -1031,6 +1215,7 @@ public final class LayerGestureController {
             return;
         }
         lastTotalMs = totalMs;
+        if (puppetTapeActive) { doPuppetTapeMove(x, xToTime); return; }
         if (kfShiftActive) { doKeyframeShiftMove(x, xToTime); return; }
         if (!active || activeItem == null) return;
         // Redesign gate (PLAN TARGET CONTRACT): a MOVE only happens AFTER a pick-up
@@ -2272,6 +2457,7 @@ public final class LayerGestureController {
     public com.fadcam.ui.faditor.model.AudioCrossfade getActiveCrossfade() { return activeXfade; }
 
     public boolean onRowBodyUp(boolean committed) {
+        if (puppetTapeActive) return finishPuppetTape(committed);
         if (kfShiftActive) return finishKeyframeShift(committed);
         if (!active) return false;
         // A real committed change only happened if we actually moved (trim, or a

@@ -118,6 +118,7 @@ public final class PuppetRigJson {
         put(o, "det", rig.meshDetail, 0.55f);
         put(o, "grav", rig.gravity, 0.60f);
         put(o, "wind", rig.wind, 0f);
+        if (rig.showReach) o.addProperty("reach", true);
         put(o, "wdir", rig.windDirDeg, 0f);
         put(o, "eth", rig.edgeThreshold, 0.12f);
         put(o, "eex", rig.edgeExpansion, 0.02f);
@@ -190,6 +191,7 @@ public final class PuppetRigJson {
         rig.meshDetail = num(o, "det", 0.55f);
         rig.gravity = num(o, "grav", 0.60f);
         rig.wind = num(o, "wind", 0f);
+        rig.showReach = bool(o, "reach", false);
         rig.windDirDeg = num(o, "wdir", 0f);
         rig.edgeThreshold = num(o, "eth", 0.12f);
         rig.edgeExpansion = num(o, "eex", 0.02f);

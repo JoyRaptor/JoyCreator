@@ -58,6 +58,14 @@ public final class PuppetPalette {
     /** Everything greys to this when the rig is locked from the puppet badge. */
     public static final int LOCKED = 0xFF5A616B;
 
+    /**
+     * The wireframe, for the Character scope's Show - Mesh toggle.
+     *
+     * <p>Deliberately colourless and very quiet. The triangles are a debug view sitting UNDER
+     * somebody's artwork, and anything with a hue there would read as part of the character.
+     */
+    public static final int MESH = 0x2EFFFFFF;
+
     /** The colour for a pin of this type, or {@link #LOCKED} when the rig is shut off. */
     public static int of(PuppetPin.Type type, boolean locked) {
         if (locked) return LOCKED;

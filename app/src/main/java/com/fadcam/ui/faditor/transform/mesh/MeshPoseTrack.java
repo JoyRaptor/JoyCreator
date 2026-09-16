@@ -365,6 +365,161 @@ public final class MeshPoseTrack {
         for (Pose p : poses) p.timeMs += deltaMs;
     }
 
+    // ══ RANGED TIME EDITS — sliding, stretching and retiming a performance ════════
+    //
+    // SPEC_20260915_PUPPET_UI §01 promised three gestures on a recorded bar: drag its body to
+    // slide the performance, drag a cap to stretch it, drag a key inside it to retime one moment.
+    // Until 2026-09-16 this file offered shiftAll and nothing ranged, so none of the three could
+    // be built and all three were deferred in the spec's own section 7.
+    //
+    // THE RULE ALL THREE SHARE: a time edit NEVER destroys a key. Every one of them CLAMPS at the
+    // nearest key outside what is moving, the way a clip on a timeline stops at its neighbour
+    // rather than sliding through it. The alternative — letting a moved key land on a stationary
+    // one and silently dropping the loser — is a data loss with no undo affordance and no visible
+    // cause, which is exactly the class of bug that makes people stop trusting a gesture.
+    // Each method therefore returns the delta it ACTUALLY applied, so the caller can draw the
+    // performance where it really went rather than where the finger is.
+
+    /**
+     * Slide every pose in {@code [fromMs, toMs]} by {@code deltaMs}, clamped at its neighbours.
+     *
+     * @return the delta actually applied, which is 0 when the block is already against a stop
+     */
+    public long shiftRange(long fromMs, long toMs, long deltaMs) {
+        if (deltaMs == 0 || poses.isEmpty() || toMs < fromMs) return 0L;
+
+        long first = Long.MAX_VALUE, last = Long.MIN_VALUE;
+        long roomBefore = Long.MIN_VALUE, roomAfter = Long.MAX_VALUE;
+        int moving = 0;
+        for (Pose p : poses) {
+            if (p.timeMs >= fromMs && p.timeMs <= toMs) {
+                moving++;
+                if (p.timeMs < first) first = p.timeMs;
+                if (p.timeMs > last) last = p.timeMs;
+            } else if (p.timeMs < fromMs) {
+                if (p.timeMs > roomBefore) roomBefore = p.timeMs;
+            } else {
+                if (p.timeMs < roomAfter) roomAfter = p.timeMs;
+            }
+        }
+        if (moving == 0) return 0L;
+
+        // One frame of daylight either side, so a slid performance never ends up sharing an
+        // instant with the key it stopped against.
+        long applied = deltaMs;
+        if (roomBefore != Long.MIN_VALUE) applied = Math.max(applied, roomBefore + 1 - first);
+        if (roomAfter != Long.MAX_VALUE) applied = Math.min(applied, roomAfter - 1 - last);
+        if (applied == 0L) return 0L;
+        // A clamp must never flip the direction of the drag: if there is no room at all, refuse.
+        if ((applied > 0) != (deltaMs > 0)) return 0L;
+
+        for (Pose p : poses) {
+            if (p.timeMs >= fromMs && p.timeMs <= toMs) p.timeMs += applied;
+        }
+        sort();
+        return applied;
+    }
+
+    /**
+     * Stretch or squeeze {@code [fromMs, toMs]} about {@code anchorMs}, clamped at its neighbours.
+     *
+     * <p>The anchor is the cap that is NOT being dragged, so the end under the finger moves and
+     * the other end stays exactly where the performance already started.
+     *
+     * @param factor how much longer the span becomes; 1 is unchanged, 0.5 half as long
+     * @return the factor actually applied, which may be smaller than asked
+     */
+    public float scaleRange(long fromMs, long toMs, long anchorMs, float factor) {
+        if (poses.isEmpty() || toMs < fromMs || factor <= 0f || Float.isNaN(factor)) return 1f;
+
+        long first = Long.MAX_VALUE, last = Long.MIN_VALUE;
+        long roomBefore = Long.MIN_VALUE, roomAfter = Long.MAX_VALUE;
+        int moving = 0;
+        for (Pose p : poses) {
+            if (p.timeMs >= fromMs && p.timeMs <= toMs) {
+                moving++;
+                if (p.timeMs < first) first = p.timeMs;
+                if (p.timeMs > last) last = p.timeMs;
+            } else if (p.timeMs < fromMs) {
+                if (p.timeMs > roomBefore) roomBefore = p.timeMs;
+            } else {
+                if (p.timeMs < roomAfter) roomAfter = p.timeMs;
+            }
+        }
+        // Fewer than three keys has no inside to stretch, and a zero-length span cannot be
+        // scaled at all — multiplying nothing by anything is still nothing.
+        if (moving < 3 || last <= first) return 1f;
+
+        float applied = factor;
+        // Never squeeze a performance below MIN_SPAN_MS: past that the keys quantise onto the
+        // same millisecond and the gesture becomes irreversible.
+        float minFactor = MIN_SPAN_MS / (float) (last - first);
+        if (applied < minFactor) applied = minFactor;
+        if (applied > 1f) {
+            // Growing: whichever end moves must stop short of its neighbour.
+            if (anchorMs <= first && roomAfter != Long.MAX_VALUE) {
+                long room = roomAfter - 1 - anchorMs;
+                if (room > 0) applied = Math.min(applied, room / (float) (last - anchorMs));
+            } else if (anchorMs >= last && roomBefore != Long.MIN_VALUE) {
+                long room = anchorMs - (roomBefore + 1);
+                if (room > 0) applied = Math.min(applied, room / (float) (anchorMs - first));
+            }
+            if (applied < 1f) applied = 1f;      // a clamp may shrink the growth, never invert it
+        }
+        if (Math.abs(applied - 1f) < 1e-4f) return 1f;
+
+        for (Pose p : poses) {
+            if (p.timeMs >= fromMs && p.timeMs <= toMs) {
+                p.timeMs = anchorMs + Math.round((p.timeMs - anchorMs) * (double) applied);
+            }
+        }
+        // Scaling rounds, and rounding can put two keys on one instant at the squeezed end.
+        // Nudging is lossless; dropping one would not be.
+        spreadCollisions(fromMs, toMs);
+        sort();
+        return applied;
+    }
+
+    /**
+     * Retime ONE key, clamped between the keys either side of it.
+     *
+     * @return the time it ended up at, which equals {@code fromMs} when it could not move
+     */
+    public long moveKey(long fromMs, long toMs) {
+        int at = -1;
+        for (int i = 0; i < poses.size(); i++) {
+            if (poses.get(i).timeMs == fromMs) { at = i; break; }
+        }
+        if (at < 0 || fromMs == toMs) return fromMs;
+
+        long lo = at > 0 ? poses.get(at - 1).timeMs + 1 : Long.MIN_VALUE;
+        long hi = at < poses.size() - 1 ? poses.get(at + 1).timeMs - 1 : Long.MAX_VALUE;
+        long landed = Math.max(lo, Math.min(hi, toMs));
+        if (landed == fromMs) return fromMs;
+        poses.get(at).timeMs = landed;
+        sort();
+        return landed;
+    }
+
+    /** The shortest a performance may be squeezed to. Below this, keys collide on one frame. */
+    public static final long MIN_SPAN_MS = 100L;
+
+    /**
+     * Push apart any two poses in the range that rounding landed on the same millisecond.
+     *
+     * <p>Lossless by construction: it only ever moves the later of a colliding pair forward by
+     * one, which cannot pass the pose after it without that one being pushed too.
+     */
+    private void spreadCollisions(long fromMs, long toMs) {
+        sort();
+        for (int i = 1; i < poses.size(); i++) {
+            Pose prev = poses.get(i - 1), cur = poses.get(i);
+            if (cur.timeMs > prev.timeMs) continue;
+            if (cur.timeMs < fromMs - 1 || cur.timeMs > toMs + 1) continue;
+            cur.timeMs = prev.timeMs + 1;
+        }
+    }
+
     /**
      * Rewrite every pose for a new topology, all at once.
      *

@@ -350,3 +350,17 @@ exclusive in practice.
 Worth deciding: either the watcher stops running `installDefaultDebug` and an agent installs
 with `adb -s <ip:port> install -r -d`, or every wireless session re-runs `mdns services` after
 each build. The second is what happens today, by accident, several times an hour.
+
+**Half of this is now tooled (2026-09-15):** `bash tools/wifi-adb.sh` does the whole reconnect
+— stale-entry cleanup, mDNS scan, try every endpoint, server restart and re-scan, and a message
+naming the two usual causes when it genuinely cannot reach the phone. Re-running it after a
+build is one command instead of four.
+
+**The other half is still JoyRaptor's call, and it is worth making.** With no device attached
+the watcher's `installDefaultDebug` FAILS, which makes every build report `BUILD FAILED` even
+when the compile succeeded — an agent reading the tail of build.log then believes the tree is
+red and starts hunting a phantom. That cost this session about an hour: the real state was
+`> Task :app:compileDefaultDebugJavaWithJavac` clean, failing only at install with
+"No connected devices!". Recommendation: drop `installDefaultDebug` from the watcher command
+and let agents install explicitly. A build that says FAILED when the code is fine is worse than
+no signal at all.

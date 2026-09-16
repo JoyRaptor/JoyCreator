@@ -10,7 +10,20 @@
 - Already paired with this PC — but pairing persists while the **connection does not**.
   The IP:port changes whenever wireless debugging restarts, so re-discover it each session.
 
-## Reconnect (PowerShell tool is reliable for adb — see runbook §7e)
+## Reconnect: run the script
+
+```bash
+bash tools/wifi-adb.sh
+```
+
+It drops stale/offline entries, scans mDNS, tries EVERY advertised endpoint (records go stale
+and the newest wins), restarts the adb server and re-scans if the first pass fails, and prints
+the `ip:port` — which IS the adb serial afterwards. If it cannot connect it tells you which of
+the two usual causes to check. It never asks for USB.
+
+Everything below is what the script does, kept for when you need to do it by hand.
+
+## Reconnect by hand (PowerShell tool is reliable for adb — see runbook §7e)
 ```powershell
 $adb = "C:\Users\JoyRaptor\AppData\Local\Android\Sdk\platform-tools\adb.exe"
 & $adb mdns services                     # discovers phone on the LAN, e.g.:

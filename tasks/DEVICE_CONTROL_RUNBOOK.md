@@ -124,21 +124,63 @@ If more than one device is connected, target one explicitly with `-s <serial>` o
 
 ## 2. Install / update the app
 
-### 2a. The normal path (the user runs a file-watcher)
-In day-to-day work the **user runs a PowerShell watcher** that rebuilds every time a source file is saved.
-It **builds only — it does NOT install** (changed 2026-09-16: installing restarted the adb server and
-dropped the wireless connection on every single save). So you don't *build*, but you do still **install**,
-which is one command and breaks nothing:
+### 2a. The normal path — ONE COMMAND
+
 ```bash
-bash tools/phone.sh install
+bash tools/phone.sh deploy
 ```
-After saving, confirm the rebuild finished by checking the build log:
+
+That is the whole thing. It checks the build is fresh, finds the phone over either transport,
+installs, and then **proves the APK on the phone is the one that was just built** by comparing the
+package's `lastUpdateTime` against the APK's own mtime.
+
+When it does not work, ask why in one command:
+
 ```bash
-tr -d '\000' < build.log | tail -n 40
+bash tools/phone.sh doctor
 ```
-The watcher rebuilds **mid-edit**, so intermediate `BUILD FAILED` lines are normal. **Only trust the FINAL
-tail line.** Wait until it says `BUILD SUCCESSFUL`, then the new APK is already on the phone — proceed to
-verify. **Do not start your own Gradle build while the watcher is running** (two builds collide on the lock).
+
+which prints adb, every phone it can see and which one it would pick, whether the serial file is
+present, when the watcher last wrote `build.log`, and how old the APK is.
+
+**Why `deploy` exists rather than just `install`.** Three separate things can silently leave an OLD
+build on the phone, and all three have cost this project time:
+
+1. **the watcher is dead** — `build.log` still ends in `BUILD SUCCESSFUL`, from hours ago;
+2. **the watcher builds but does not install** — true since 2026-09-16, deliberately: installing
+   from the watcher restarted the adb server and dropped the wireless connection on *every save*;
+3. **install ran against a phone that had dropped off, or the wrong one** — wireless debugging
+   switches itself off, and `adb` will happily report `Success` against whichever device it picked.
+
+Each ends the same way: an agent testing a build that is not the build, and then reporting a
+"fix" that was never on the phone. `deploy` checks all three and REFUSES rather than claiming a
+success it cannot support.
+
+> ⚠️ **`bash tools/phone.sh install` still exists and is still fine** — it now auto-reconnects
+> too — but it does not prove freshness. If you are about to write down a result, use `deploy`.
+
+**The watcher itself.** JoyRaptor runs a PowerShell watcher that rebuilds on every save. It builds
+ONLY. It rebuilds **mid-edit**, so intermediate `BUILD FAILED` lines are normal: **only trust the
+final tail line**, which `bash tools/phone.sh build` extracts for you along with the separate
+question of whether the COMPILE (rather than the install step) failed.
+
+**Do not start your own Gradle build while the watcher is running** — two builds collide on the
+lock, and the resource merge corrupts in a way that reports as "100 class R errors".
+
+### 2a-bis. Which phone, and how it is chosen
+
+`phone.sh` no longer takes "the first device adb lists", which was wrong in the two situations that
+actually occur: both phones attached (the Note 20 holds real projects, the Note 9 is the sandbox),
+and one phone listed twice under a USB serial and a wireless `ip:port`. The order is now:
+
+1. an explicit `PHONE=<serial>` always wins;
+2. then the **sandbox** phone, if it is attached — the one it is safe to install onto;
+3. then **USB over wireless**, because USB does not switch itself off mid-session;
+4. then whatever is left.
+
+Serials live in `tools/devices.local.sh`, which is gitignored so they never reach GitHub. Without
+that file the two phones cannot be told apart — `doctor` says so, and `build-install.sh` refuses
+outright.
 
 ### 2b. Manual build + install (no watcher, or you need a clean install)
 > NOTE: In some sandboxes Gradle fails with a network/loopback error when run by the agent. If

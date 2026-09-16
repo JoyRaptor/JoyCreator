@@ -28,6 +28,15 @@ physical size misses by 25%.
 
 ---
 
+> ⚠️ **STALE AS OF 2026-09-16.** The project-list row centres below no longer match: the list
+> gained a header and the rows moved. A tap at the documented row-1 y opened *Start New Project*
+> instead, and a later one landed on the bottom nav. The route into the **editor** (step 2) is
+> still good. Re-derive the row y from a screenshot every time — which is what the warning above
+> already said, and which is why this file is a starting point rather than a script.
+>
+> Measured 2026-09-16 on the 5-project list: row 1 y≈706, row 2 y≈897, row 3 y≈1088, rows ~191
+> apart, and **tap the project's TITLE text (x≈294), not the row centre** — that is what worked.
+
 ## Route into a project
 
 | Step | Command | Then |

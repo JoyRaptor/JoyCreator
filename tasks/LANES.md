@@ -164,11 +164,19 @@ DEVICE: SPEC_20260915_PUPPET_UI (2026-09-15 evening — WIRELESS, 192.168.1.151.
         connector is damaged (WIRELESS_ADB_CONNECT.md field lessons), which is why every USB
         attempt today reported `offline`. No project is edited; adb uninstall never run.
         RELEASED 2026-09-15 21:02 — installed, relaunched clean, logcat read.)
-DEVICE: SPEC_20260915_PUPPET_UI (2026-09-16 14:10 - NOTE 9 over USB, the SANDBOX phone, which
-        JoyRaptor confirmed plugged in and free. Full feature testing: install, launch, open a
-        project, rig a picture, drive the puppet surface. The Note 20 is NOT the target and
-        adb uninstall is never run. Also repairing tools/phone.sh so install works over either
-        transport - see the `deploy` and `doctor` commands.)
+DEVICE: SPEC_20260915_PUPPET_UI (2026-09-16 - NOTE 9 over USB, the sandbox phone. RELEASED.
+        WHAT WAS PROVED: `phone.sh deploy` installs and verifies freshness end to end; the app
+        launches clean; an image overlay selects and shows the transform box, with NO marionette
+        badge when it has no pins (correct); and the ObjectMenuSheet crash is GONE - the sheet
+        with its Rotate row opened on the exact path that threw a NullPointerException twice
+        earlier the same day, with zero FATAL EXCEPTION after.
+        WHAT WAS NOT: the puppet surface itself. Reaching it means placing pins, and driving that
+        by screenshot-and-tap cost far more than it returned - several taps landed on the wrong
+        control because TAPMAP_NOTE9's row coordinates are stale (now flagged in that file).
+        JoyRaptor can do in thirty seconds what took twenty turns here, so the puppet checks are
+        written up for him instead of half-done by me.
+        NOTE: a blank project called "Untitled audio" was created on the sandbox by a stray tap.
+        Harmless, sandbox only, delete whenever.)
 DEVICE: free
 
 ## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST

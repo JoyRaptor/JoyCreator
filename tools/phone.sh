@@ -169,9 +169,13 @@ case "$cmd" in
            echo "APK built $((apk_age / 60)) min ago   |   $overall"
            # Not a hard stop: a run that only changed a comment legitimately leaves the APK
            # untouched, and refusing that would be its own kind of wrong. Say it loudly instead.
-           if [ "$apk_age" -gt 1800 ]; then
-             echo "  WARNING: that APK is over 30 minutes old. If you just changed code, the"
-             echo "  watcher is probably dead - check build.log's timestamp before trusting this."
+           # Only shout when a SOURCE file is newer than the APK. Age alone is meaningless:
+           # a run that changed only docs legitimately leaves yesterday's APK in place.
+           newest=$(find app/src -name '*.java' -o -name '*.xml' 2>/dev/null \
+                    | xargs stat -c %Y 2>/dev/null | sort -n | tail -1)
+           if [ -n "$newest" ] && [ "$newest" -gt "$(stat -c %Y "$APK")" ]; then
+             echo "  WARNING: a source file is NEWER than this APK. The watcher has not caught"
+             echo "  up, so what lands on the phone will NOT include your latest change."
            fi
 
            ensure_device || {
@@ -229,8 +233,19 @@ case "$cmd" in
              echo "  build.log last written $(date -r build.log '+%Y-%m-%d %H:%M:%S')"
              log="$(build_log_tail)"
              printf '%s' "$log" | grep -aE "^BUILD (SUCCESSFUL|FAILED)" | tail -1 | sed 's/^/  /'
-             age=$(( $(date +%s) - $(stat -c %Y build.log) ))
-             [ "$age" -gt 900 ] && echo "  -> no build in $((age / 60)) min. The watcher may be dead."
+             # IS IT DEAD, OR WAS THERE NOTHING TO DO? A bare "no build in N minutes" fires
+             # on any session that only touched docs, and a warning that cries wolf is one
+             # people learn to scroll past. Compare against the newest SOURCE file instead:
+             # the watcher is only late if something it should have rebuilt is newer than it.
+             newest=$(find app/src -name '*.java' -o -name '*.xml' 2>/dev/null \
+                      | xargs stat -c %Y 2>/dev/null | sort -n | tail -1)
+             blog=$(stat -c %Y build.log)
+             if [ -n "$newest" ] && [ "$newest" -gt "$blog" ]; then
+               echo "  -> a source file is NEWER than the last build ($(( (newest - blog) / 60 )) min)."
+               echo "     The watcher is not keeping up. Restart it, or: bash tools/build-install.sh"
+             else
+               echo "  -> up to date with the source (nothing has changed since the last build)."
+             fi
            else
              echo "  no build.log at all - the watcher has never run here."
            fi

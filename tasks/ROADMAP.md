@@ -13,14 +13,25 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 
 # PART ONE — BEFORE LAUNCH
 
-> **2026-09-16 — puppeteering is code-complete and almost entirely unproven on a phone.**
-> The engine, the drawer, recording, IK, dangle, holes and depth ordering all landed across
-> stages 1–12 with ~490 harness assertions behind them. JoyRaptor has confirmed exactly three
-> things on a device: a rigged dinosaur bends, the overlap halo is gone, and the mesh is smooth.
-> **Everything else in that feature is 🟡.** Nobody has keyed a pin, recorded a take, tapped a
-> bone, watched a tail swing or turned a Depth slider on hardware. That gap is the single
-> largest before-launch risk in the animation wing, and it is a morning with a phone, not a
-> sprint of code.
+> **2026-09-16 evening — puppeteering is FINISHED as designed, and still almost entirely
+> unproven on a phone.** The UI sweep is done: every function that was designed, mocked up or
+> discussed has been traced to the code that reads it. Nine dead knobs were found and either
+> wired or removed, the tape drags (slide / stretch / retime), easing is fitted from the
+> recording, and three defects JoyRaptor reported on device are fixed. The list, with the seven
+> things still open and the reason each is open, is `tasks/PUPPET_FINISH_LEDGER.md`.
+>
+> **The risk has not moved.** JoyRaptor has confirmed four things on a device: a rigged dinosaur
+> bends, the overlap halo is gone, the mesh is smooth, and the helper strip works well enough to
+> report six specific defects against. Nobody has keyed a pin, recorded a take, dragged a
+> performance, tapped a bone, watched a tail swing or rotated a rigged picture on hardware.
+> **That is still the single largest before-launch risk in the animation wing, and it is a
+> morning with a phone, not a sprint of code.** Fourteen harness suites and ~530 assertions are
+> not the same claim and must never be reported as one.
+>
+> Three of the open items need HIM rather than more code: a screenshot of the overlapping corner
+> widget, one press of the timeline grab bar (the diagnostic is now conclusive — it prints
+> `moves=`, which separates "the touch never arrived" from "something ate the drag" from "the
+> clamp refused the size"), and a verdict on whether the "Everything" chip is missed.
 
 ## Lane 0 — Pure waiting. Start these first, they cost only calendar.
 

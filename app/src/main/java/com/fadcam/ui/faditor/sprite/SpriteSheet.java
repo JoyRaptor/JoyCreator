@@ -372,7 +372,12 @@ public class SpriteSheet {
 
     /**
      * Set or clear a cell's alignment. An identity transform is CLEARED rather than stored, so
-     * "nudge it and put it back" leaves no trace in the file and the fast draw path returns.
+     * "nudge it and put it back" leaves no trace in the file.
+     *
+     * <p>It used to say the fast draw path returns too. It does, but only on a sheet that has
+     * also never been reordered — {@link SpriteGridEditorView} checks both, because a single
+     * blit of the whole bitmap can no more show a moved drawing than a nudged one. Stating half
+     * a condition in a comment is how the reorder half got missed for a fortnight.</p>
      */
     public void setCellTransform(int cell, @Nullable CellXf t) {
         if (cell < 0 || cell >= cellCount()) return;

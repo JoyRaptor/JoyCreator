@@ -364,3 +364,23 @@ red and starts hunting a phantom. That cost this session about an hour: the real
 "No connected devices!". Recommendation: drop `installDefaultDebug` from the watcher command
 and let agents install explicitly. A build that says FAILED when the code is fine is worse than
 no signal at all.
+
+## 2026-09-16 — the Bg-key picker samples the pixel that is THERE, not the one you see
+
+`SpriteGridEditorView.handleTap` in colour-pick mode maps the tap into source space and reads
+`bmp.getPixel` directly. On a sheet that has been reordered or nudged, the grid now draws each
+display slot's own drawing — so the pixel under the finger on screen is not the pixel that gets
+read. Pick a background colour after a swap and you sample the neighbour.
+
+Not fixed here, deliberately:
+
+- It is the same approximation the picker has always made for per-cell transforms, so it is
+  pre-existing rather than something the reorder work introduced.
+- In practice the key colour is the flat background, which is the same everywhere on the sheet,
+  so the wrong pixel is usually the right colour anyway.
+- The fix is fiddly — map the tap to its display slot, then to the source cell, then offset
+  within the cell — and there is no way to compile or test it while the watcher is off.
+
+Worth doing when someone is next in that file with a working build. The correct shape is the one
+`cellRectBitmap` already has: go through `sheet.sourceCell(slot)` rather than assuming the slot
+and the art share an index.

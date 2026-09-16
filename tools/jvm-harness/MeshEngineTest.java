@@ -561,6 +561,12 @@ public class MeshEngineTest {
         @Override public void groupIndexStart(int[] out) {
             if (out != null && out.length >= 2) { out[0] = 0; out[1] = indexCount(); }
         }
+        // Flat: one triangle has nothing to order against itself.
+        @Override public boolean vertexField(float[] h, float[] g, float[] out) {
+            if (out == null || out.length < vertexCount()) return false;
+            java.util.Arrays.fill(out, 0, vertexCount(), 0f);
+            return true;
+        }
         @Override public int vertexCount() { return 3; }
         @Override public int indexCount() { return 3; }
         @Override public int handleCount() { return 3; }

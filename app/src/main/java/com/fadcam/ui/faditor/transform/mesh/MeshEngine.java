@@ -77,7 +77,7 @@ public final class MeshEngine {
         // that stays true for everything with one draw group. But a character whose arm has been
         // put behind its body is a different picture from the flat texture even at rest, and the
         // only place that reordering happens is here.
-        if (identity && !(spec.groupCount() > 1 && spec.hasGroupDepth())) return false;
+        if (identity && !spec.hasGroupDepth()) return false;
         if (identity) {
             buffers.resetToRest();
         } else if (!deformer.solve(topo, buffers, pose)) {
@@ -87,9 +87,69 @@ public final class MeshEngine {
             buffers.groupOrder = new int[buffers.groupCount()];
         }
         spec.groupOrderAt(timeMs, buffers.groupOrder);
+        orderTriangles(spec, topo, timeMs);
         live = true;
         return true;
     }
+
+    /**
+     * Sort the triangles back to front when the picture has a depth, and leave them alone when it
+     * does not — which is every project that existed before depth did.
+     *
+     * <p>Re-sorted only when the DEPTHS change. The field comes from the weights and the authored
+     * numbers, never from the pose, so bending a character does not re-order it: a z-order that
+     * shifted as a limb moved would pop the character inside out mid-gesture for no reason the
+     * animator could see.
+     */
+    private void orderTriangles(MeshWarpSpec spec, MeshTopology topo, long timeMs) {
+        int tris = buffers.indexCount() / 3;
+        if (tris <= 0) return;
+        if (!spec.hasGroupDepth()) {
+            if (depthStamp != 0) {                     // depth was removed: back to built order
+                System.arraycopy(buffers.indices, 0, buffers.drawIndices, 0,
+                        buffers.indexCount());
+                buffers.drawOrderStamp++;
+                depthStamp = 0;
+            }
+            return;
+        }
+        int handles = topo.handleCount();
+        int groups = Math.max(1, topo.groupCount());
+        if (handleZ.length != handles) handleZ = new float[handles];
+        if (groupZ.length != groups) groupZ = new float[groups];
+        spec.handleZAt(timeMs, handleZ);
+        spec.groupZAt(timeMs, groupZ);
+
+        int stamp = MeshDepth.stampOf(handleZ, groupZ) * 31 + buffers.topologyStamp();
+        if (stamp == depthStamp) return;
+
+        int verts = buffers.vertexCount();
+        if (vertexDepth.length < verts) vertexDepth = new float[verts];
+        if (triOrder.length < tris) {
+            triOrder = new int[tris];
+            triScratch = new int[tris];
+            triKeys = new float[tris];
+        }
+        if (!topo.vertexField(handleZ, groupZ, vertexDepth)) return;
+        int n = MeshDepth.sortTriangles(buffers.indices, buffers.indexCount(), vertexDepth,
+                triOrder, triScratch, triKeys);
+        if (n <= 0) return;
+        if (buffers.drawIndices.length < buffers.indexCount()) {
+            buffers.drawIndices = new short[buffers.indexCount()];
+        }
+        if (MeshDepth.applyOrder(buffers.indices, triOrder, n, buffers.drawIndices)) {
+            buffers.drawOrderStamp++;
+            depthStamp = stamp;
+        }
+    }
+
+    private int depthStamp = 0;
+    private float[] handleZ = new float[0];
+    private float[] groupZ = new float[0];
+    private float[] vertexDepth = new float[0];
+    private int[] triOrder = new int[0];
+    private int[] triScratch = new int[0];
+    private float[] triKeys = new float[0];
 
     /**
      * Drive the engine from a bare pose, bypassing the spec — what the handle overlay uses while a

@@ -59,6 +59,24 @@ public interface MeshTopology {
      */
     void groupIndexStart(int[] out);
 
+    /**
+     * Spread a per-HANDLE value and a per-GROUP value across every vertex — the depth field.
+     *
+     * <p>This is the topology's own question, not the renderer's: only the topology knows how much
+     * each handle owns each vertex. A puppet blends by the same weight table that decides how much
+     * each pin MOVES a vertex, which is what makes a shoulder at the back and a wrist at the front
+     * hand the picture over somewhere along the forearm without anyone choosing where. A lattice
+     * has no such notion and says so by handing back its group's value everywhere, which orders
+     * nothing.
+     *
+     * @param handleValues one per handle, or null
+     * @param groupValues  one per group, or null
+     * @param out          one per vertex; untouched when this returns false
+     * @return false when the inputs do not fit, in which case the caller draws in the order the
+     *         triangles were built — which is what every mesh did before depth existed
+     */
+    boolean vertexField(float[] handleValues, float[] groupValues, float[] out);
+
     /** Stable wire name, e.g. {@code "lattice"}. Used by {@link MeshTopologies} on read. */
     String kind();
 

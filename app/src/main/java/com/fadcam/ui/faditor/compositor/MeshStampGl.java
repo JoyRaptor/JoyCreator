@@ -95,6 +95,7 @@ public final class MeshStampGl {
     private FloatBuffer uvBuf;
     private ShortBuffer idxBuf;
     private int lastTopologyStamp = Integer.MIN_VALUE;
+    private int lastDrawOrderStamp = Integer.MIN_VALUE;
 
     private final float[] folded4 = new float[4];
     private final float[] placeCol9 = new float[9];
@@ -179,7 +180,7 @@ public final class MeshStampGl {
 
         // Static arrays only on topology change; positions every frame. No allocation: reused
         // direct buffers, sized once to the coarsest lattice.
-        if (b.topologyStamp() != lastTopologyStamp) {
+        if (b.topologyStamp() != lastTopologyStamp || b.drawOrderStamp != lastDrawOrderStamp) {
             int vc = b.vertexCount() * 2;
             int ic = b.indexCount();
             if (vc > MAX_VERTS * 2 || ic > MAX_INDICES) {
@@ -194,9 +195,15 @@ public final class MeshStampGl {
             uvBuf.put(b.uvs, 0, vc);
             uvBuf.position(0);
             idxBuf.position(0);
-            for (int i = 0; i < ic; i++) idxBuf.put(b.indices[i]);
+            // THE DRAW LIST, not the topology's own index list — they differ whenever the
+            // picture has a depth, because the triangles are then sorted back to front. A memcpy
+            // of a few hundred shorts, and only when the ordering actually moved.
+            short[] drawList = (b.drawIndices != null && b.drawIndices.length >= ic)
+                    ? b.drawIndices : b.indices;
+            for (int i = 0; i < ic; i++) idxBuf.put(drawList[i]);
             idxBuf.position(0);
             lastTopologyStamp = b.topologyStamp();
+            lastDrawOrderStamp = b.drawOrderStamp;
         }
         int vc = b.vertexCount() * 2;
         posBuf.position(0);
@@ -269,30 +276,13 @@ public final class MeshStampGl {
                 GLES20.glVertexAttribPointer(aUvLoc, 2, GLES20.GL_FLOAT, false, 0, uvBuf);
             }
             probeGl("setup");
-            // ONE DRAW PER GROUP, back to front. The engine put the order in the buffers; this
-            // class does not know and must not know what a group IS — for a lattice there is
-            // exactly one and this loop runs once, which is the old behaviour to the instruction.
-            int groups = b.groupCount();
-            int[] starts = b.groupIndexStart;
-            int[] order = b.groupOrder;
-            boolean usable = starts != null && starts.length > groups
-                    && order != null && order.length >= groups;
-            if (!usable || groups <= 1) {
-                GLES20.glDrawElements(GLES20.GL_TRIANGLES, b.indexCount(),
-                        GLES20.GL_UNSIGNED_SHORT, idxBuf);
-            } else {
-                for (int k = 0; k < groups; k++) {
-                    int g = order[k];
-                    if (g < 0 || g >= groups) continue;          // a corrupt order costs the ORDER
-                    int from = starts[g], to = starts[g + 1];    // never the picture
-                    int count = to - from;
-                    if (count <= 0 || from < 0 || to > b.indexCount()) continue;
-                    idxBuf.position(from);
-                    GLES20.glDrawElements(GLES20.GL_TRIANGLES, count,
-                            GLES20.GL_UNSIGNED_SHORT, idxBuf);
-                }
-                idxBuf.position(0);
-            }
+            // ONE CALL, and the ORDER IS IN THE LIST. GL blends primitives in submission order,
+            // so a list sorted back to front composites correctly with no state changes and no
+            // batching — and it subsumes the per-island loop this replaced, which could only put a
+            // WHOLE limb in front or behind. A 3/4 stance needs the forearm to change hands
+            // halfway along, which is a per-triangle question.
+            GLES20.glDrawElements(GLES20.GL_TRIANGLES, b.indexCount(),
+                    GLES20.GL_UNSIGNED_SHORT, idxBuf);
             probeGl("draw");
             if (aLocalLoc >= 0) GLES20.glDisableVertexAttribArray(aLocalLoc);
             if (aUvLoc >= 0) GLES20.glDisableVertexAttribArray(aUvLoc);

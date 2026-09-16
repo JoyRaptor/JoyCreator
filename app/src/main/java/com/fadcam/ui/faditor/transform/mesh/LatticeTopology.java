@@ -122,6 +122,18 @@ public final class LatticeTopology implements MeshTopology {
         out[1] = indexCount();
     }
 
+    /**
+     * A grid is one flat plane: every vertex takes the single group's value, so nothing reorders.
+     * A lattice has no pins whose influence could carry a depth across it.
+     */
+    @Override
+    public boolean vertexField(float[] handleValues, float[] groupValues, float[] out) {
+        if (out == null || out.length < vertexCount()) return false;
+        float z = (groupValues != null && groupValues.length > 0) ? groupValues[0] : 0f;
+        java.util.Arrays.fill(out, 0, vertexCount(), z);
+        return true;
+    }
+
     @Override public int topologyId() { return 0x1A77_0000 | level; }
 
     @Override public int vertexCount() { return (gridN + 1) * (gridN + 1); }

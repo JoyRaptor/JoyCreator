@@ -65,6 +65,19 @@ public final class MeshBuffers {
      */
     public int[] groupOrder = new int[]{0};
 
+    /**
+     * The triangles in the order they must be DRAWN, back to front. Identical to {@link #indices}
+     * until something orders them.
+     *
+     * <p>A separate list rather than sorting {@link #indices} in place, because the indices are the
+     * topology's and the order is the moment's: a depth that animates would otherwise permanently
+     * scramble the mesh it was sorting.
+     */
+    public short[] drawIndices = new short[0];
+
+    /** Changes whenever {@link #drawIndices} does, so the renderer can skip a re-upload. */
+    public int drawOrderStamp = 0;
+
     private int vertexCount;
     private int indexCount;
     private int topologyId = Integer.MIN_VALUE;
@@ -130,6 +143,9 @@ public final class MeshBuffers {
         if (groupOrder.length < groups) groupOrder = new int[groups];
         for (int i = 0; i < groups; i++) groupOrder[i] = i;
         topology.buildRest(rest, uvs, indices);
+        if (drawIndices.length < indexCount) drawIndices = new short[indexCount];
+        System.arraycopy(indices, 0, drawIndices, 0, indexCount);
+        drawOrderStamp++;
         System.arraycopy(rest, 0, positions, 0, coords);
         topologyStamp++;
         return true;

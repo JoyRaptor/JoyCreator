@@ -363,6 +363,50 @@ public final class PuppetTopology implements MeshTopology {
     /** Per-pin mute, defensively copied. A muted pin moves nothing and keeps its animation. */
     public boolean[] muted() { return muted.clone(); }
 
+    /**
+     * The DEPTH FIELD: each pin's depth spread across the mesh by the weights that bend it.
+     *
+     * <p>A vertex takes the weighted average of the pins that reach it, plus its own island's
+     * depth. Two consequences worth being explicit about:
+     * <ul>
+     *   <li>a limb whose pins run from behind to in front hands over somewhere ALONG the limb,
+     *       which is what a 3/4 stance needs and what a per-piece order cannot express;</li>
+     *   <li>a pin on another island contributes exactly nothing, because its weight there is
+     *       exactly zero — so an arm's depth cannot leak into the body it is crossing.</li>
+     * </ul>
+     *
+     * <p>Falls back to the island's depth alone when there is no weight table (no pins yet), which
+     * is the per-piece behaviour and the correct answer for a puppet nobody has rigged.
+     */
+    @Override
+    public boolean vertexField(float[] handleValues, float[] groupValues, float[] out) {
+        int n = vertexCount();
+        if (out == null || out.length < n) return false;
+        int pinN = handleCount();
+        PuppetWeights w = (handleValues != null && handleValues.length >= pinN && pinN > 0)
+                ? weights() : null;
+        for (int v = 0; v < n; v++) {
+            float z = 0f;
+            if (groupValues != null) {
+                int g = islandOfVertex(v);
+                if (g >= 0 && g < groupValues.length) z = groupValues[g];
+            }
+            if (w != null && w.vertexCount() == n && w.pinCount() == pinN) {
+                for (int i = 0; i < pinN; i++) z += w.weight(v, i) * handleValues[i];
+            }
+            out[v] = z;
+        }
+        return true;
+    }
+
+    /** Which island a vertex sits in, or -1. Linear over a handful of islands. */
+    public int islandOfVertex(int vertex) {
+        for (int i = 0; i + 1 < islandStart.length; i++) {
+            if (vertex >= islandStart[i] && vertex < islandStart[i + 1]) return i;
+        }
+        return -1;
+    }
+
     /** How many separate pieces of artwork this puppet covers. One for ordinary art. */
     public int islandCount() { return rings.length; }
 

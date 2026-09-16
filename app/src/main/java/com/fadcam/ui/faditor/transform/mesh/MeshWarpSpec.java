@@ -79,6 +79,9 @@ public final class MeshWarpSpec {
     /** Per-group depth, and its keyframes. Absent means every piece sits at zero. */
     public static final String KEY_GROUP_Z = "gz";
     public static final String KEY_GROUP_Z_KEYS = "gzk";
+    /** Per-handle depth, and its keyframes. Absent means a flat picture. */
+    public static final String KEY_HANDLE_Z = "hz";
+    public static final String KEY_HANDLE_Z_KEYS = "hzk";
 
     private MeshTopology topology;
     private float[] handles;
@@ -87,6 +90,10 @@ public final class MeshWarpSpec {
     private float[] groupZ;
     /** Keyframed depth, arity == groupCount, one component per group. Null when nothing animates. */
     private MeshPoseTrack groupZTrack;
+    /** One depth per HANDLE. Blended across the mesh to make a field — see {@link #handleZ()}. */
+    private float[] handleZ;
+    /** Keyframed per-handle depth, arity == handleCount. */
+    private MeshPoseTrack handleZTrack;
     private MeshDeformer probe;      // lazily made, only to answer isIdentity
 
     public MeshWarpSpec(MeshTopology topology) {
@@ -132,6 +139,67 @@ public final class MeshWarpSpec {
 
     public int groupCount() { return topology == null ? 1 : Math.max(1, topology.groupCount()); }
 
+    /**
+     * DEPTH PER HANDLE, blended into a field across the picture.
+     *
+     * <p>The finer half of the ordering, and the one a 3/4 stance needs: a shoulder behind the body
+     * and a hand in front of it, with the change happening somewhere along the arm rather than at
+     * the edge of the whole limb. {@link #groupZ()} moves a whole piece; this shapes the depth
+     * INSIDE one.
+     *
+     * <p>They add. A piece can be sent behind wholesale and still have a hand reaching forward out
+     * of it, which is exactly what the pose asks for.
+     */
+    public float[] handleZ() {
+        int n = topology == null ? 0 : topology.handleCount();
+        if (handleZ == null || handleZ.length != n) {
+            float[] grown = new float[n];
+            if (handleZ != null) System.arraycopy(handleZ, 0, grown, 0, Math.min(n, handleZ.length));
+            handleZ = grown;
+        }
+        return handleZ;
+    }
+
+    public void setHandleZ(int handle, float z) {
+        float[] h = handleZ();
+        if (handle >= 0 && handle < h.length && !Float.isNaN(z)) h[handle] = z;
+    }
+
+    /** The keyframed per-handle depth, made on first ask. One float per handle. */
+    public MeshPoseTrack handleZTrack() {
+        int n = topology == null ? 0 : topology.handleCount();
+        if (handleZTrack == null || handleZTrack.arity() != n) handleZTrack = new MeshPoseTrack(n);
+        return handleZTrack;
+    }
+
+    public MeshPoseTrack handleZTrackOrNull() { return handleZTrack; }
+
+    public void setHandleZTrack(MeshPoseTrack t) { this.handleZTrack = t; }
+
+    /** The per-handle depth at an instant, animated where it is keyed. */
+    public boolean handleZAt(long timeMs, float[] out) {
+        float[] h = handleZ();
+        if (out == null || out.length < h.length) return false;
+        if (handleZTrack != null && !handleZTrack.isEmpty()
+                && handleZTrack.arity() == h.length && handleZTrack.valueAt(timeMs, out)) {
+            return true;
+        }
+        System.arraycopy(h, 0, out, 0, h.length);
+        return true;
+    }
+
+    /** The per-group depth at an instant, animated where it is keyed. */
+    public boolean groupZAt(long timeMs, float[] out) {
+        float[] g = groupZ();
+        if (out == null || out.length < g.length) return false;
+        if (groupZTrack != null && !groupZTrack.isEmpty()
+                && groupZTrack.arity() == g.length && groupZTrack.valueAt(timeMs, out)) {
+            return true;
+        }
+        System.arraycopy(g, 0, out, 0, g.length);
+        return true;
+    }
+
     public void setGroupZ(int group, float z) {
         float[] g = groupZ();
         if (group >= 0 && group < g.length && !Float.isNaN(z)) g[group] = z;
@@ -150,10 +218,28 @@ public final class MeshWarpSpec {
     public void setGroupZTrack(MeshPoseTrack t) { this.groupZTrack = t; }
 
     /** True when the pieces do not all sit at the same depth, statically or over time. */
+    /**
+     * True when the depths would actually REORDER something.
+     *
+     * <p>Not "is a depth set" — a depth that is the same everywhere sorts the picture into the
+     * order it was already in, and claiming that as a warp would drag every flat character onto
+     * the mesh path for nothing. What matters is whether two depths DIFFER:
+     * <ul>
+     *   <li>per-handle depths that differ reorder within a piece, which is what a 3/4 stance
+     *       needs and what one piece folding over itself needs too — so this does not require
+     *       more than one island;</li>
+     *   <li>per-group depths only matter when there is more than one group to put in an order.</li>
+     * </ul>
+     */
     public boolean hasGroupDepth() {
         if (groupZTrack != null && !groupZTrack.isEmpty()) return true;
-        if (groupZ == null) return false;
-        for (float z : groupZ) if (z != 0f) return true;
+        if (handleZTrack != null && !handleZTrack.isEmpty()) return true;
+        if (handleZ != null && handleZ.length > 1) {
+            for (int i = 1; i < handleZ.length; i++) if (handleZ[i] != handleZ[0]) return true;
+        }
+        if (groupCount() > 1 && groupZ != null && groupZ.length > 1) {
+            for (int i = 1; i < groupZ.length; i++) if (groupZ[i] != groupZ[0]) return true;
+        }
         return false;
     }
 
@@ -209,7 +295,7 @@ public final class MeshWarpSpec {
         // behind its body is not the flat texture any more, and the reordering happens nowhere
         // else. Only ever true for a mesh with more than one piece, so "no deformation costs
         // exactly zero" still holds for every lattice and every ordinary picture.
-        if (groupCount() > 1 && hasGroupDepth()) return true;
+        if (hasGroupDepth()) return true;
         return !identityProbe().isIdentity(handles);
     }
 
@@ -241,9 +327,30 @@ public final class MeshWarpSpec {
         if (newHandles == null || newHandles.length != newArity) return false;
         if (track != null && !track.remap(newArity, remapper)) return false;
         int oldGroups = groupCount();
+        int oldHandles = topology == null ? 0 : topology.handleCount();
         topology = to;
         handles = newHandles;
         probe = null;
+        int handleN = to.handleCount();
+        if (handleZ != null && handleZ.length != handleN) {
+            // A depth per pin follows the pin, so it is remapped by the same rule as the pose:
+            // kept where the pins line up, dropped where they do not.
+            float[] fit = new float[handleN];
+            System.arraycopy(handleZ, 0, fit, 0, Math.min(handleN, handleZ.length));
+            handleZ = fit;
+        }
+        if (handleZTrack != null && handleZTrack.arity() != handleN) {
+            final int keep = Math.min(handleN, oldHandles);
+            final int nh = handleN;
+            boolean ok = handleZTrack.remap(nh, new MeshPoseTrack.Remapper() {
+                @Override public float[] remap(float[] pose) {
+                    float[] o = new float[nh];
+                    if (pose != null) System.arraycopy(pose, 0, o, 0, Math.min(keep, pose.length));
+                    return o;
+                }
+            });
+            if (!ok) handleZTrack = null;
+        }
         int newGroups = groupCount();
         if (newGroups != oldGroups) {
             // The pieces changed, so a depth indexed by the old ones means nothing. Kept where the
@@ -275,6 +382,8 @@ public final class MeshWarpSpec {
         s.track = track == null ? null : track.copy();
         s.groupZ = groupZ == null ? null : groupZ.clone();
         s.groupZTrack = groupZTrack == null ? null : groupZTrack.copy();
+        s.handleZ = handleZ == null ? null : handleZ.clone();
+        s.handleZTrack = handleZTrack == null ? null : handleZTrack.copy();
         return s;
     }
 
@@ -329,6 +438,22 @@ public final class MeshWarpSpec {
                 keys.add(k);
             }
             o.add(KEY_GROUP_Z_KEYS, keys);
+        }
+        if (handleZ != null) {
+            boolean any = false;
+            for (float z : handleZ) if (z != 0f) any = true;
+            if (any) o.add(KEY_HANDLE_Z, floats(handleZ));
+        }
+        if (handleZTrack != null && !handleZTrack.isEmpty()) {
+            JsonArray keys = new JsonArray();
+            for (MeshPoseTrack.Pose p : handleZTrack.poses()) {
+                JsonObject k = new JsonObject();
+                k.addProperty(KEY_TIME, p.timeMs);
+                k.addProperty(KEY_EASING, p.easing);
+                k.add(KEY_HANDLES, floats(p.values));
+                keys.add(k);
+            }
+            o.add(KEY_HANDLE_Z_KEYS, keys);
         }
         return o;
     }
@@ -388,6 +513,32 @@ public final class MeshWarpSpec {
                     }
                 }
                 if (!zt.isEmpty()) s.groupZTrack = zt;
+            }
+            int handles = topo.handleCount();
+            if (o.has(KEY_HANDLE_Z)) {
+                float[] hz = readFloats(o.get(KEY_HANDLE_Z));
+                if (hz != null) {
+                    float[] fit = new float[handles];
+                    System.arraycopy(hz, 0, fit, 0, Math.min(handles, hz.length));
+                    s.handleZ = fit;
+                }
+            }
+            if (o.has(KEY_HANDLE_Z_KEYS) && o.get(KEY_HANDLE_Z_KEYS).isJsonArray()) {
+                JsonArray keys = o.getAsJsonArray(KEY_HANDLE_Z_KEYS);
+                MeshPoseTrack ht = new MeshPoseTrack(handles);
+                for (int i = 0; i < keys.size(); i++) {
+                    try {
+                        JsonObject k = keys.get(i).getAsJsonObject();
+                        float[] hv = readFloats(k.get(KEY_HANDLES));
+                        if (hv == null || hv.length != handles) continue;
+                        String e = k.has(KEY_EASING) && !k.get(KEY_EASING).isJsonNull()
+                                ? k.get(KEY_EASING).getAsString() : MeshPoseTrack.DEFAULT_EASING;
+                        ht.put(k.get(KEY_TIME).getAsLong(), hv, e);
+                    } catch (RuntimeException ignored) {
+                        // one bad depth key does not cost the others
+                    }
+                }
+                if (!ht.isEmpty()) s.handleZTrack = ht;
             }
             return s;
         } catch (RuntimeException e) {

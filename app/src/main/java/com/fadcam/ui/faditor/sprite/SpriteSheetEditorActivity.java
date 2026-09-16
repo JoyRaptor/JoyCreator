@@ -81,6 +81,15 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     /** Ghost colours. Past is a state colour by default, but the artist gets to say. */
     private int onionPastColour = SpriteTheme.LIVE;
     private int onionFutureColour = SpriteTheme.SELECTED;
+    /**
+     * Draw this frame against the previous one as a difference, instead of as ghosts.
+     *
+     * <p>Onion skin answers "how far did it move"; this answers "did ANYTHING move", which is
+     * the question when you suspect a generated sheet has quietly repeated a drawing
+     * (SPEC_20260910_SPRITELAB_MODEL §5).</p>
+     */
+    boolean diffMode;
+
     /** How loud the nearest ghost is. Distant ones fall off from here. */
     private float onionStrength = 0.40f;
     /** Which of {@link #BG_NAMES} the preview sits on. */
@@ -674,11 +683,33 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 1f, true, "");
         row.addView(fpsPill);
 
+        // The difference view. Black where this frame and the one before it agree, lit where
+        // they do not — so a duplicate frame reads as an empty box rather than as something
+        // you have to squint at two ghosts to be sure about.
+        diffBtn = chip("\u0394");
+        diffBtn.setOnClickListener(v -> {
+            diffMode = !diffMode;
+            syncDiff();
+            if (preview != null) preview.invalidate();
+            if (diffMode) {
+                Toast.makeText(this, "Difference against the previous frame \u2014 "
+                        + "black means identical", Toast.LENGTH_LONG).show();
+            }
+        });
+        syncDiff();
+        row.addView(diffBtn);
+
         space(row, d, 4);
         HorizontalScrollView scroll = new HorizontalScrollView(this);
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.addView(row);
         return scroll;
+    }
+
+    @Nullable private TextView diffBtn;
+
+    private void syncDiff() {
+        if (diffBtn != null) tintToggle(diffBtn, diffMode, SpriteTheme.ACCENT_VIEW);
     }
 
     private void addWrap(@NonNull LinearLayout parent, @NonNull String type,
@@ -1058,6 +1089,47 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         });
         cb.addView(cellEnabled);
 
+        // Tags. A name says WHICH drawing this is; a tag says what KIND it is, and the
+        // difference matters the moment you have forty cells and want every mouth shape.
+        // The model has carried tags since S1 and nothing has ever been able to set one.
+        TextView tLabel = new TextView(this);
+        tLabel.setText("Tags");
+        tLabel.setTextColor(SpriteTheme.DIMMER);
+        tLabel.setTextSize(10f);
+        cb.addView(tLabel);
+        for (String tag : tagVocabulary()) {
+            boolean on = ensureCell(currentCell()).tags.contains(tag);
+            TextView tb = gchip(tag, on, SpriteTheme.ACCENT_CELL);
+            tb.setOnClickListener(x -> {
+                java.util.List<String> tl = ensureCell(currentCell()).tags;
+                if (!tl.remove(tag)) tl.add(tag);
+                markDirty();
+                gridView.refresh();
+                showSection("slice");
+            });
+            cb.addView(tb);
+        }
+        TextView addTag = gchip("\uff0b tag", false, SpriteTheme.ACCENT_CELL);
+        addTag.setOnClickListener(x -> {
+            final EditText in = new EditText(this);
+            in.setSingleLine(true);
+            in.setHint("mouth, hand, blink\u2026");
+            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    .setTitle("New tag")
+                    .setView(in)
+                    .setPositiveButton("Add", (dl, w) -> {
+                        String t = in.getText().toString().trim().toLowerCase(java.util.Locale.US);
+                        if (t.isEmpty()) return;
+                        java.util.List<String> tl = ensureCell(currentCell()).tags;
+                        if (!tl.contains(t)) tl.add(t);
+                        markDirty();
+                        showSection("slice");
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+        cb.addView(addTag);
+
         // Visemes. A cell is not consumed by an assignment: "surprised" stays an expression
         // AND answers for OO, which is the whole economy of a small hand-made sheet.
         TextView vLabel = new TextView(this);
@@ -1079,6 +1151,26 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * Every tag already used on this sheet, plus the two the design starts you with.
+     *
+     * <p>Offering a fixed list would be wrong — the useful tags on a puppet sheet are not the
+     * useful tags on a set of mouth shapes — but offering NOTHING means typing "mouth" forty
+     * times. So the vocabulary is whatever this sheet already says, in first-seen order.</p>
+     */
+    @NonNull
+    private java.util.List<String> tagVocabulary() {
+        java.util.List<String> out = new java.util.ArrayList<>();
+        out.add("face");
+        out.add("mouth");
+        for (int i = 0; i < sheet.cellCount(); i++) {
+            SpriteSheet.Cell c = sheet.cellAt(i);
+            if (c == null) continue;
+            for (String t : c.tags) if (!out.contains(t)) out.add(t);
+        }
+        return out;
+    }
+
+    /**
      * What the grid DRAWS, and what looks wrong.
      *
      * <p>On a 6x8 sheet the lettering is most of the picture, so it comes off. Suspect is the
@@ -1093,6 +1185,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             tintToggle(grid, gridView.isShowGrid(), SpriteTheme.ACCENT_GRID);
         });
         b.addView(grid);
+
+        // Zoom and pan have no edges, so it is entirely possible to end up looking at the
+        // gap beside a sheet with no idea which way is back. One tap returns.
+        TextView fit = chip("Fit");
+        fit.setOnClickListener(v -> gridView.fitBack());
+        b.addView(fit);
 
         TextView names = ichip("tag", "Names");
         tintToggle(names, gridView.isShowLabels(), SpriteTheme.ACCENT_GRID);
@@ -1187,6 +1285,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         if (renderer == null) return bad;
         android.graphics.Bitmap bmp = renderer.getBitmap();
         if (bmp == null || bmp.isRecycled()) return bad;
+        java.util.Map<Integer, float[]> boxes = new java.util.LinkedHashMap<>();
+        java.util.List<Float> areas = new java.util.ArrayList<>();
         for (int i = 0; i < sheet.cellCount(); i++) {
             SpriteSheet.Cell m = sheet.cellAt(i);
             if (m != null && !m.enabled) continue;
@@ -1196,9 +1296,77 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float w = Math.max(1, cr.width()), h = Math.max(1, cr.height());
             if (box[0] <= 1f || box[1] <= 1f || box[2] >= w - 1f || box[3] >= h - 1f) {
                 bad.add(i);
+                continue;
+            }
+            boxes.put(i, box);
+            areas.add((box[2] - box[0]) * (box[3] - box[1]));
+        }
+
+        // An ink box wildly unlike the rest of the sheet. Usually a cell that caught half of
+        // its neighbour, or a stray mark the generator left in an otherwise empty tile. The
+        // MEDIAN, not the mean, precisely because the outliers are what we are looking for and
+        // they would drag a mean towards themselves and hide.
+        if (areas.size() >= 4) {
+            java.util.Collections.sort(areas);
+            float median = areas.get(areas.size() / 2);
+            if (median > 0) {
+                for (java.util.Map.Entry<Integer, float[]> e : boxes.entrySet()) {
+                    float[] b = e.getValue();
+                    float a = (b[2] - b[0]) * (b[3] - b[1]);
+                    if (a < median * 0.25f || a > median * 4f) bad.add(e.getKey());
+                }
             }
         }
+
+        // Near-duplicates of the NEIGHBOUR, which on a generated sheet usually means the model
+        // repeated itself and you are about to animate a hold you did not ask for. Compared on
+        // a coarse signature rather than pixel for pixel: identical art is rare, and art that
+        // differs by a few pixels of anti-aliasing is the case worth catching.
+        java.util.Map<Integer, long[]> sigs = new java.util.LinkedHashMap<>();
+        for (int i : boxes.keySet()) {
+            long[] sig = signature(bmp, i);
+            if (sig != null) sigs.put(i, sig);
+        }
+        Integer prev = null;
+        for (java.util.Map.Entry<Integer, long[]> e : sigs.entrySet()) {
+            if (prev != null && sigs.containsKey(prev) && nearlyEqual(sigs.get(prev), e.getValue())) {
+                bad.add(e.getKey());
+            }
+            prev = e.getKey();
+        }
         return bad;
+    }
+
+    /**
+     * A coarse 8x8 brightness-and-alpha signature of a cell, for spotting repeats.
+     *
+     * <p>Sampled rather than scanned: sixty-four probes per cell is nothing, and it is enough
+     * to tell "the same drawing again" from "the next drawing in the walk".</p>
+     */
+    @Nullable
+    private long[] signature(@NonNull android.graphics.Bitmap bmp, int cell) {
+        android.graphics.Rect r = renderer.cellRectBitmap(cell);
+        if (r.width() < 8 || r.height() < 8) return null;
+        long[] sig = new long[64];
+        for (int gy = 0; gy < 8; gy++) {
+            for (int gx = 0; gx < 8; gx++) {
+                int px = r.left + (int) ((gx + 0.5f) * r.width() / 8f);
+                int py = r.top + (int) ((gy + 0.5f) * r.height() / 8f);
+                if (px < 0 || py < 0 || px >= bmp.getWidth() || py >= bmp.getHeight()) return null;
+                int c = bmp.getPixel(px, py);
+                int a = (c >>> 24) & 0xFF;
+                int lum = (((c >> 16) & 0xFF) * 77 + ((c >> 8) & 0xFF) * 150 + (c & 0xFF) * 29) >> 8;
+                sig[gy * 8 + gx] = (a << 8) | (a == 0 ? 0 : lum);
+            }
+        }
+        return sig;
+    }
+
+    /** Two signatures close enough that the drawings are, for practical purposes, the same. */
+    private static boolean nearlyEqual(@NonNull long[] a, @NonNull long[] b) {
+        long diff = 0;
+        for (int i = 0; i < a.length && i < b.length; i++) diff += Math.abs(a[i] - b[i]);
+        return diff < 64L * 12L;   // about 12 levels of average difference per probe
     }
 
     /**
@@ -1802,6 +1970,27 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
         xf.dx += ddx;
         xf.dy += ddy;
+        sheet.setCellTransform(cell, xf);
+        markDirty();
+        refreshArt();
+    }
+
+    /**
+     * Twist the current frame.
+     *
+     * <p>The sibling of the pinch, and specified beside it (SPEC_20260910_SPRITELAB_UI §4).
+     * Rotation is snapped to whole degrees because the readout shows whole degrees, and a HUD
+     * that says 8° while the data says 8.4013° is a HUD you stop believing.</p>
+     */
+    void rotateCurrentCell(float degrees) {
+        if (Math.abs(degrees) < 0.01f) return;
+        int cell = currentCell();
+        SpriteSheet.CellXf t = sheet.cellTransform(cell);
+        SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
+        float r = xf.rot + degrees;
+        while (r >= 360f) r -= 360f;
+        while (r < 0f) r += 360f;
+        xf.rot = Math.round(r);
         sheet.setCellTransform(cell, xf);
         markDirty();
         refreshArt();
@@ -4292,6 +4481,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             return -1;
         }
 
+        @Nullable private Paint diffPaint;
+
         @Override
         protected void onDraw(Canvas canvas) {
             if (renderer == null || sheet == null) return;
@@ -4328,7 +4519,28 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     }
                 }
             }
-            renderer.drawCell(canvas, showCell, dest, null);
+            if (activity != null && activity.diffMode) {
+                // Two draws and a blend. Where the frames agree the result goes black; where
+                // they differ it lights up, so a frame that is a duplicate of its neighbour
+                // shows as a flat empty box and there is nothing to argue about.
+                int prev = activity.neighbourCell(showCell, -1);
+                if (prev >= 0 && prev != showCell) {
+                    int layer = canvas.saveLayer(bgRect, null);
+                    canvas.drawColor(0xFF000000);
+                    renderer.drawCell(canvas, prev, renderer.fitCell(prev, bgRect), null);
+                    if (diffPaint == null) {
+                        diffPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                    }
+                    diffPaint.setXfermode(new android.graphics.PorterDuffXfermode(
+                            android.graphics.PorterDuff.Mode.XOR));
+                    renderer.drawCell(canvas, showCell, dest, diffPaint);
+                    canvas.restoreToCount(layer);
+                } else {
+                    renderer.drawCell(canvas, showCell, dest, null);
+                }
+            } else {
+                renderer.drawCell(canvas, showCell, dest, null);
+            }
 
             // The HUD: what frame this is and where it sits. It is also the only thing that
             // says the preview is a CONTROL and not a picture.
@@ -4375,6 +4587,15 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     });
         }
 
+        /** Angle of the line between the first two fingers, in degrees. */
+        private static float twistAngle(@NonNull MotionEvent e) {
+            return (float) Math.toDegrees(Math.atan2(e.getY(1) - e.getY(0),
+                    e.getX(1) - e.getX(0)));
+        }
+
+        private float lastTwist;
+        private boolean twisting;
+
         @Override public boolean onTouchEvent(MotionEvent e) {
             if (activity == null || renderer == null || sheet == null) return false;
             ensureGestures();
@@ -4383,9 +4604,42 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 case MotionEvent.ACTION_DOWN:
                     lastX = e.getX(); lastY = e.getY();
                     dragging = true;
+                    twisting = false;
                     getParent().requestDisallowInterceptTouchEvent(true);
                     return true;
+                case MotionEvent.ACTION_POINTER_DOWN:
+                    // A second finger means scale and rotation, not translation. Carrying the
+                    // drag on as well makes the art bolt sideways the instant the second finger
+                    // lands, because its "last position" is the first finger's.
+                    if (e.getPointerCount() >= 2) {
+                        lastTwist = twistAngle(e);
+                        twisting = true;
+                        dragging = false;
+                    }
+                    return true;
+                case MotionEvent.ACTION_POINTER_UP:
+                    if (e.getPointerCount() <= 2) {
+                        twisting = false;
+                        // Hand the drag back to whichever finger is left, from where it IS.
+                        int rest = e.getActionIndex() == 0 ? 1 : 0;
+                        lastX = e.getX(rest); lastY = e.getY(rest);
+                        dragging = true;
+                    }
+                    return true;
                 case MotionEvent.ACTION_MOVE:
+                    if (twisting && e.getPointerCount() >= 2) {
+                        float now = twistAngle(e);
+                        float delta = now - lastTwist;
+                        while (delta > 180f) delta -= 360f;
+                        while (delta < -180f) delta += 360f;
+                        // A deadband, because two fingers that mean "pinch" always wobble a
+                        // degree or two and nobody wants a 3 degree tilt they did not ask for.
+                        if (Math.abs(delta) >= 1.5f) {
+                            activity.rotateCurrentCell(delta);
+                            lastTwist = now;
+                        }
+                        return true;
+                    }
                     if (dragging && e.getPointerCount() == 1) {
                         // View pixels into SOURCE pixels, so a nudge means the same thing here
                         // as it does in the number pill.

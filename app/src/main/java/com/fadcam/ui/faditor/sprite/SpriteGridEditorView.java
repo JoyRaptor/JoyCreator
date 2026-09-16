@@ -379,6 +379,12 @@ public class SpriteGridEditorView extends View {
         }
     }
 
+    /** Put the whole sheet back on screen, from wherever the pan and zoom have wandered. */
+    public void fitBack() {
+        fitToView();
+        invalidate();
+    }
+
     private void fitToView() {
         if (renderer == null) return;
         fittedW = renderer.sourceWidth();

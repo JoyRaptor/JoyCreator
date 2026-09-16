@@ -125,9 +125,14 @@ If more than one device is connected, target one explicitly with `-s <serial>` o
 ## 2. Install / update the app
 
 ### 2a. The normal path (the user runs a file-watcher)
-In day-to-day work the **user runs a PowerShell watcher** that rebuilds and reinstalls automatically every time
-a source file is saved. So usually **you don't build or install at all** — you just edit code and wait. After
-saving, confirm the rebuild finished by checking the build log:
+In day-to-day work the **user runs a PowerShell watcher** that rebuilds every time a source file is saved.
+It **builds only — it does NOT install** (changed 2026-09-16: installing restarted the adb server and
+dropped the wireless connection on every single save). So you don't *build*, but you do still **install**,
+which is one command and breaks nothing:
+```bash
+bash tools/phone.sh install
+```
+After saving, confirm the rebuild finished by checking the build log:
 ```bash
 tr -d '\000' < build.log | tail -n 40
 ```
@@ -425,7 +430,8 @@ both). The user's watcher can die silently while `build.log` keeps showing an ol
 For each change you make:
 1. **Edit source** (keep the tree compiling — always-green).
 2. **Wait for the build** — `tr -d '\000' < build.log | tail -n 40` until the FINAL line is `BUILD SUCCESSFUL`
-   (the watcher already installed it). If no watcher, build+install per §2b.
+   — then install it: `bash tools/phone.sh install` (the watcher builds but does NOT install).
+   If there is no watcher at all, build+install per §2b.
 3. **Get on screen** — `am start` the app, wake/unlock if needed (§3), navigate to the feature (§6).
 4. **Look** — screenshot (§4a), and for non-visual state use logcat (§4c) / dumpsys audio (§4d) / front
    activity (§4b).

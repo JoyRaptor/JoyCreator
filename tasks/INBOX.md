@@ -356,7 +356,15 @@ each build. The second is what happens today, by accident, several times an hour
 naming the two usual causes when it genuinely cannot reach the phone. Re-running it after a
 build is one command instead of four.
 
-**The other half is still JoyRaptor's call, and it is worth making.** With no device attached
+**RESOLVED 2026-09-16.** `watch-build.ps1` now runs `:app:assembleDefaultDebug` instead of
+`installDefaultDebug`. The watcher builds and packages; nothing in it touches adb, so a save can
+no longer drop the phone connection, and a clean compile can no longer be reported as
+`BUILD FAILED` because no phone was attached. Installing is now explicit and takes one command,
+`bash tools/phone.sh install`. `_RULES_READ_FIRST.md` and `DEVICE_CONTROL_RUNBOOK.md` §2a and §9
+were updated in the same commit, because three documents telling agents "the watcher already
+installed it" would have been worse than the original problem.
+
+The reasoning that led there, kept for the record: With no device attached
 the watcher's `installDefaultDebug` FAILS, which makes every build report `BUILD FAILED` even
 when the compile succeeded — an agent reading the tail of build.log then believes the tree is
 red and starts hunting a phantom. That cost this session about an hour: the real state was

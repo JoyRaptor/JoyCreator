@@ -4,8 +4,11 @@ Android video editor, Java. Repo root: `C:\+Projects\Screenrecorder\FadCam`.
 Owner is JoyRaptor — an ARTIST, not a programmer. Report in plain language.
 
 ## Build
-- A file-watcher rebuilds on save. Its chain ENDS in `installDefaultDebug`, so when the phone is
-  unplugged it can never print a SUCCESSFUL line even when the code compiled fine.
+- A file-watcher rebuilds on save. It BUILDS ONLY — it does not install (changed 2026-09-16;
+  it used to end in `installDefaultDebug`, which restarted the adb server and killed the
+  wireless connection on every save, and reported BUILD FAILED with no phone attached even
+  though the compile was clean). A SUCCESSFUL line now means compiled AND packaged, nothing
+  more. To get it onto the phone: `bash tools/phone.sh install`.
 - For an unambiguous verdict run, from the repo root:
       export JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=C:\Windows\Temp"
       ./gradlew assembleDefaultDebug --console=plain

@@ -81,7 +81,6 @@ public final class PuppetRigJson {
                     put(pj, "mx", p.maxStretch, 0.25f);
                     break;
                 case FREE:
-                    put(pj, "sc", p.scale, 1f);
                     break;
                 default:
                     break;      // an anchor has nothing to write
@@ -161,7 +160,9 @@ public final class PuppetRigJson {
             p.settle = num(pj, "se", 0.38f);
             p.mass = num(pj, "ms", 0.45f);
             p.maxStretch = num(pj, "mx", 0.25f);
-            p.scale = num(pj, "sc", 1f);
+            // "sc" was a per-pin scale that nothing ever read — see PuppetPin. A file that
+            // still carries one is not an error and is not migrated: the key is simply ignored,
+            // which is what every reader of it did anyway.
         }
         if (rig.pinCount() == 0) return null;
 

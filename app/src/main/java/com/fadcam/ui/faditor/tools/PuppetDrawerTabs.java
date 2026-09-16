@@ -684,6 +684,13 @@ public final class PuppetDrawerTabs {
 
         // WHAT IT JOINS. Read-only, and two to a line, because this is how you tell which bone
         // you have got hold of when several cross in a shoulder.
+        // The bone’s own name first — PuppetRig keeps them unique, and without it on screen the
+        // only way to tell two bones apart was which pins they happened to join.
+        LinearLayout title = row(ctx);
+        addReadout(ctx, title, d, "Bone", bone.name == null ? "Bone" : bone.name);
+        root.addView(title);
+        gap(ctx, root, d, 7);
+
         LinearLayout ends = row(ctx);
         addReadout(ctx, ends, d, "From", rootName);
         addReadout(ctx, ends, d, "To", tipName);

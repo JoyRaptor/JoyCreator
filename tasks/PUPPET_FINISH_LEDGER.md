@@ -8,7 +8,7 @@ This file is the list. Every row is **DONE** or **OPEN WITH A REASON**. Nothing 
 in a third state, and "built" is not the same as done: a row earns DONE when the code exists
 **and drives something real**. A control whose value no renderer or solver reads is the dead-knob
 defect — it teaches the user the feature is broken rather than missing, which is worse than an
-absence — and five of them were found by this audit.
+absence — and **nine** of them were found by this audit.
 
 Sources swept: the whole design conversation of 2026-09-15/16 (both HTML studies, control by
 control), `SPEC_20260915_PUPPET_UI.md` including its own §7 gap list, and the code itself.
@@ -25,7 +25,9 @@ control), `SPEC_20260915_PUPPET_UI.md` including its own §7 gap list, and the c
 | A4 | Per-bone `bendSign` | Stored by every bone, honoured by `FabrikSolver`, never copied into the `Chain` | ✅ **Plumbed** — "Flip elbow" would have been born dead |
 | A5 | `PuppetPin.muted` | Honoured by the mesh builder AND drawn hollow by the overlay, with no way to set it | ✅ **Given its switch** |
 | A6 | `PuppetPin.weight` | Saved, round-tripped through JSON, read by nothing | ✅ **Wired** — scale applied before normalisation, wire format V5, 7 new assertions |
-| A7 | `MeshCurves` claiming `Easing` is android-free | It was not: two `@NonNull`s pulled in androidx, so nothing touching easing could compile in the harness | ✅ **Made true** — annotations removed, the null they documented now actually checked |
+| A7 | "Snap to keys" (Recording scope) | Written, saved, read by NOWHERE. The one whose absence does real damage: it is the guard against the exact failure the `‹ ♦ ›` exists for — after a take the keys are dense, the playhead lands a frame off one, and dropping a key there authors a second beside the first. | ✅ **Wired** — applied to key EDITS, not to the playhead itself, because a playhead that jumps while you scrub is a worse feature |
+| A8 | `PuppetPin.scale`, the FIELD | Removing the slider was not enough: a persisted field nothing reads is the same lie one level down, and the next person to add a scale control would have found a number waiting and shipped the dead knob again | ✅ **Field and its JSON removed**; `PuppetRigTest`'s deep-copy check re-pinned to `weight`, which still means something |
+| A9 | `MeshCurves` claiming `Easing` is android-free | It was not: two `@NonNull`s pulled in androidx, so nothing touching easing could compile in the harness | ✅ **Made true** — annotations removed, the null they documented now actually checked |
 
 ## B. Designed, specced, and never built
 

@@ -50,7 +50,13 @@ public final class PuppetPin {
         /** Simulated, not keyed. Hair, ears, tails. Driven by {@code DangleSim}. */
         DANGLE,
 
-        /** Move, turn and scale. The only type that wears transform helpers. */
+        /**
+         * Moves in any direction, with no anchoring and no simulation.
+         *
+         * <p>It wore a rotate arc and a scale square until 2026-09-16. Turning and scaling a
+         * single pin needs per-pin rotation in the deformer, which the engine does not have —
+         * see SPEC_20260915_PUPPET_UI §1 for what it would take.
+         */
         FREE
     }
 
@@ -116,12 +122,16 @@ public final class PuppetPin {
 
     // ── FREE ─────────────────────────────────────────────────────────────
 
-    /**
-     * Scale at this point. Rotation is NOT stored here — it is a gesture on the picture that
-     * lands in the pose track like position does, because a value that animates belongs in the
-     * track and a value that does not belongs here.
-     */
-    public float scale = 1f;
+    // A `scale` field lived here, with a slider on the Free pin’s settings and a scale square
+    // on the preview. All three are gone as of 2026-09-16, and the reason is one line of the
+    // engine: PuppetTopology.handleComponents() returns 2. A pin is an x and a y. There is
+    // nothing for a per-pin scale to drive, so the value was authored, saved, reloaded and
+    // ignored — and the user was left believing the feature was broken rather than absent.
+    //
+    // Keeping the field "for later" would have been the same lie one level down: the next person
+    // to add a scale control would have found somewhere to put the number and shipped the same
+    // dead knob again. SPEC_20260915_PUPPET_UI §1 states exactly what the engine would have to
+    // grow for this to come back, which is where it belongs until it does.
 
     // ── weighting ────────────────────────────────────────────────────────
 
@@ -160,7 +170,6 @@ public final class PuppetPin {
         p.settle = settle;
         p.mass = mass;
         p.maxStretch = maxStretch;
-        p.scale = scale;
         p.weight = weight;
         return p;
     }

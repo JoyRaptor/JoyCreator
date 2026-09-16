@@ -237,6 +237,14 @@ public class PuppetOverlayView extends View {
         if (holdTask != null) { removeCallbacks(holdTask); holdTask = null; }
     }
 
+    @Override
+    protected void onDetachedFromWindow() {
+        // A posted long-press outlives the view otherwise, and fires into a host that may have
+        // moved on to a different item — which would select a pin on the wrong character.
+        cancelHold();
+        super.onDetachedFromWindow();
+    }
+
     // The poof: where, what colour, and when it started.
     private static final long POOF_MS = 260L;
     private long poofAt;
@@ -448,10 +456,13 @@ public class PuppetOverlayView extends View {
 
     private int edge(@NonNull float[] out, int at, @NonNull float[] xy, int a, int b) {
         if (at + 4 > out.length) return at;
-        out[at] = px(xy[a]);
-        out[at + 1] = py(xy[a + 1]);
-        out[at + 2] = px(xy[b]);
-        out[at + 3] = py(xy[b + 1]);
+        // BOTH coordinates through both maps. A rotation mixes the axes, so a mapper that is
+        // handed one of them has to invent the other — which drew the wireframe sheared across
+        // the picture while every pin sat correctly, because the pins passed both.
+        out[at] = px(xy[a], xy[a + 1]);
+        out[at + 1] = py(xy[a], xy[a + 1]);
+        out[at + 2] = px(xy[b], xy[b + 1]);
+        out[at + 3] = py(xy[b], xy[b + 1]);
         return at + 4;
     }
 
@@ -869,8 +880,9 @@ public class PuppetOverlayView extends View {
      * <p>It NAMES what it landed on — "L.Elbow · 2 of 3" — because blind cycling is a guess.
      */
     private void cycleUnder(@NonNull PuppetRig rig, float x, float y) {
+        if (host == null || rig.locked) return;
         int n = pinsUnder(rig, x, y, under);
-        if (n == 0 || host == null) return;
+        if (n == 0) return;
         if (n == 1) {
             host.setSelectedPin(under[0]);
             host.setSelectedBone(-1);
@@ -1031,9 +1043,6 @@ public class PuppetOverlayView extends View {
     // Both are one bug. The item has an angle; the map has to use it. Everything is expressed
     // through these four methods so there is exactly one place the rotation is applied and
     // exactly one place it is undone.
-
-    private float px(float ux) { return px(ux, 0.5f); }
-    private float py(float uy) { return py(0.5f, uy); }
 
     private float px(float ux, float uy) {
         float x = rect.left + ux * rect.width();

@@ -222,17 +222,19 @@ public class PuppetRigTest {
 
     private static void copyIsDeepEnoughToUndoAChainDrag() {
         PuppetRig r = arm();
-        r.pin(3).scale = 0.5f;
+        r.pin(3).weight = 0.5f;
         r.bone(0).stretchy = true;
         PuppetRig snapshot = r.copy();
 
         // A chain drag mutates several pins. An undo that restored references would restore nothing.
-        r.pin(3).scale = 9f;
+        r.pin(3).weight = 9f;
         r.pin(2).muted = true;
         r.bone(0).stretchy = false;
         r.renamePin(1, "changed");
 
-        check("the snapshot kept the scale",  0.5f, snapshot.pin(3).scale);
+        // weight, not the removed `scale`: a deep-copy test should be pinned to a field that
+        // still MEANS something, or it quietly stops proving anything the day that field goes.
+        check("the snapshot kept the weight", 0.5f, snapshot.pin(3).weight);
         check("the snapshot kept the mute",   false, snapshot.pin(2).muted);
         check("the snapshot kept the bone",   true,  snapshot.bone(0).stretchy);
         check("the snapshot kept the name",   "R.Shoulder", snapshot.pin(1).name);
@@ -253,7 +255,7 @@ public class PuppetRigTest {
         PuppetRig dupe = original.copy();
 
         dupe.renamePin(3, "Other hand");
-        dupe.pin(3).scale = 0.25f;
+        dupe.pin(3).weight = 0.25f;
         dupe.pin(0).type = PuppetPin.Type.FREE;
         dupe.bone(0).stretchy = true;
         dupe.bone(0).bendSign = -1;
@@ -261,7 +263,8 @@ public class PuppetRigTest {
         dupe.locked = true;
 
         check("the original's name is untouched", "R.Hand", original.pin(3).name);
-        check("the original's scale is untouched", 1.0f, original.pin(3).scale);
+        check("the original's weight is untouched", PuppetPin.WEIGHT_AUTO,
+                original.pin(3).weight);
         check("the original's type is untouched", "PIN", original.pin(0).type.name());
         check("the original's bone is untouched", false, original.bone(0).stretchy);
         check("the original's bend sign is untouched", 1, original.bone(0).bendSign);

@@ -30844,12 +30844,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override public int keyIndexAtPlayhead() {
                 return com.fadcam.ui.faditor.puppet.PuppetKeys.keyIndexAt(
-                        puppetSpec(), puppetSelectedPin, puppetClockMs());
+                        puppetSpec(), puppetSelectedPin, puppetKeyTimeNow());
             }
 
             @Override public boolean playheadIsOnKey() {
                 return com.fadcam.ui.faditor.puppet.PuppetKeys.isOnKey(
-                        puppetSpec(), puppetSelectedPin, puppetClockMs());
+                        puppetSpec(), puppetSelectedPin, puppetKeyTimeNow());
             }
 
             @Override public void dropKeyAtPlayhead() {
@@ -31396,13 +31396,54 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
     }
 
+    /**
+     * The playhead’s time for a KEY EDIT, snapped onto a nearby key when the rig asks for it.
+     *
+     * <p><b>This is what "Snap to keys" means, and until 2026-09-16 it meant nothing at all</b> —
+     * the toggle was written, saved and read by no code anywhere. The sixth dead knob this sweep
+     * found, and the one whose absence does real damage, because the thing it prevents is the
+     * failure the {@code ‹ ♦ ›} control exists for: after a live take the keys are dense, the
+     * playhead lands a frame or two off one, and dropping a key there authors a SECOND key beside
+     * the first. On the picture that reads as a jitter; on the tape it is one violet dot among
+     * hundreds. Nobody finds it.
+     *
+     * <p>Snapping is applied to key EDITS rather than to the playhead itself. Moving the playhead
+     * is how you scrub and how you watch, and a playhead that jumps while you drag it would be a
+     * different and much worse feature; this only decides which instant a tap on the diamond is
+     * talking about.
+     *
+     * <p>The window is two frames at 30fps. Wide enough to catch the miss, narrow enough that two
+     * keys a user deliberately placed close together stay two keys.
+     */
+    private long puppetKeyTimeNow() {
+        long t = puppetClockMs();
+        com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = it == null ? null : it.getPuppet();
+        if (rig == null || !rig.snapToKeys) return t;
+
+        com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
+        if (spec == null) return t;
+        long[] keys = com.fadcam.ui.faditor.puppet.PuppetKeys.keyTimes(spec, puppetSelectedPin);
+        if (keys == null || keys.length == 0) return t;
+
+        long best = t, bestGap = SNAP_TO_KEY_MS + 1;
+        for (long k : keys) {
+            long gap = Math.abs(k - t);
+            if (gap < bestGap) { bestGap = gap; best = k; }
+        }
+        return bestGap <= SNAP_TO_KEY_MS ? best : t;
+    }
+
+    /** How near a key has to be for a key edit to mean THAT key. Two frames at 30fps. */
+    private static final long SNAP_TO_KEY_MS = 66L;
+
     /** Drop or delete a key for the selected pin, as one undo step. */
     private void puppetKeyEdit(@NonNull String label, boolean drop) {
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
         com.fadcam.ui.faditor.model.TextOverlayItem target = puppetItem;
         if (spec == null || target == null) return;
         final com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec before = spec.copy();
-        long t = puppetClockMs();
+        long t = puppetKeyTimeNow();
         boolean changed = drop
                 ? com.fadcam.ui.faditor.puppet.PuppetKeys.dropKey(spec, target.getPuppet(),
                         puppetSelectedPin, t)
@@ -31533,7 +31574,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 @Override public boolean playheadIsOnKey() {
                     return com.fadcam.ui.faditor.puppet.PuppetKeys.isOnKey(
-                            puppetSpec(), puppetSelectedPin, puppetClockMs());
+                            puppetSpec(), puppetSelectedPin, puppetKeyTimeNow());
                 }
 
                 @Override public boolean isArmed() {
@@ -31933,6 +31974,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                 @Override public void setSelectedPin(int index) {
                     puppetSelectedPin = index;
+                    // ONE SELECTION. A pin and a bone cannot both be "the selected thing" — the
+                    // Selected scope shows one of them, and two would make it show whichever was
+                    // checked first. Cleared HERE rather than at every call site so a path that
+                    // forgets (placing a pin, dropping one out of the strip) cannot get it wrong.
+                    if (index >= 0) puppetSelectedBone = -1;
                     // SNAP THE SCOPE BACK. Tapping a pin while the drawer sits on Character or
                     // Recording changed the selection and nothing visible below the switcher —
                     // the tap read as ignored. Flagged as open in the spec on the day it was

@@ -230,13 +230,22 @@ public class SpriteGridEditorView extends View {
         // Bitmap drawn in SOURCE-pixel space (scale decoded bitmap up to source dims
         // so all grid geometry is in one space).
         //
-        // ONE blit while nothing is aligned; cell by cell the moment anything is. A single
-        // drawBitmap of the whole sheet cannot show a per-cell nudge, so the grid would have
-        // sat there showing raw art while the preview showed the aligned frame — and lining
-        // cells up AGAINST EACH OTHER on the grid is precisely what this screen is for. The
-        // fast path keeps every sheet that has never been nudged exactly as cheap as before.
+        // ONE blit while nothing is aligned AND nothing is reordered; cell by cell the moment
+        // either is true. A single drawBitmap of the whole sheet can only ever show the raw
+        // pixel layout: it cannot show a per-cell nudge, and it cannot show a drawing that has
+        // moved to another slot.
+        //
+        // The reorder half of that was missed the first time, and it did not merely hide the
+        // swap — it MISLABELLED it. Every label below asks the sheet, so `cellName(i)` follows
+        // a drawing into its new slot, while the fast path left the art where the pixels are.
+        // Swap two cells on a sheet with no alignment on it and the name landed on the wrong
+        // picture, with the preview showing the right one. Found on the phone, 2026-09-16:
+        // named cell 0 "ALPHA", swapped it with cell 5, and the grid put ALPHA over cell 5's
+        // original art.
+        //
+        // The fast path still keeps every untouched sheet exactly as cheap as it was.
         RectF srcSpace = new RectF(0, 0, renderer.sourceWidth(), renderer.sourceHeight());
-        if (sheet.getCellTransforms().isEmpty()) {
+        if (sheet.getCellTransforms().isEmpty() && !sheet.hasCustomOrder()) {
             canvas.drawBitmap(renderer.getBitmap(), null, srcSpace, bmpPaint);
         } else {
             int n = sheet.cellCount();

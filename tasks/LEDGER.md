@@ -3527,3 +3527,38 @@ All of it on the Note 20 against the A8 sandbox, on the 28-page sheet.
 - Merge-into-bake, Frames export, Detect, Name many, Suspect, Bg key, and the Swap/Ripple grid
   drag modes.
 - The number-pill width fix from this session, which is parse-checked only.
+
+### The swap that put the right name on the wrong picture
+
+Testing Swap on the phone turned up a real one, and it needed the device to find.
+
+Named cell 0 "ALPHA", switched drag mode to Swap, dragged cell 0 onto cell 5. The preview was
+right: slot 0 showed cell 5's drawing afterwards. The grid was not — the art did not move, but
+the label ALPHA did, so the grid showed ALPHA sitting on top of the drawing that is no longer
+called ALPHA.
+
+`SpriteSheetRenderer.cellRectBitmap` calls itself "the ONE place a display slot becomes a piece
+of art", and it is: preview, export, film strip and drawer all reorder together because they
+all go through `drawCell`. But `SpriteGridEditorView` has a fast path that blits the whole sheet
+bitmap in one call when no cell has a transform on it — bypassing that door completely. The
+labels beside it ask the sheet (`sheet.cellName(i)`), so THEY reordered. Art from one model,
+lettering from another, on the same pixels.
+
+The fast path now also requires the order to be untouched:
+
+    if (sheet.getCellTransforms().isEmpty() && !sheet.hasCustomOrder())
+
+Only sheets that have been neither nudged nor reordered take it, which is the same set that
+took it before anyone could reorder at all, so nothing gets slower that was fast before.
+
+The lesson is narrower than "one door": a single-door design still fails if someone cuts a
+second door for speed. The transform half of this exact bug was found and fixed earlier, and the
+comment above the branch describes it — the reorder half was added afterwards and nobody
+re-read the condition.
+
+Parse-checked only; the watcher is still off.
+
+**Also proved in the same pass:** frames export writes (`28 frames written to
+Sprite-baked_frames`), the merge-in rail lists every other sheet in the project and leaves them
+all opt-in, and Swap itself is correct in the model — the name travelled with the drawing, which
+is the ruling.

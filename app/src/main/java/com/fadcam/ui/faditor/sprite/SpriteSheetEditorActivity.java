@@ -704,6 +704,15 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         androidx.appcompat.widget.TooltipCompat.setTooltipText(diffBtn,
                 "Difference against the previous frame");
         diffBtn.setOnClickListener(v -> {
+            // PorterDuff has no difference mode; BlendMode does, and it arrived in API 29.
+            // Below that the honest answer is "this one is not available", because every
+            // approximation available here draws something that LOOKS like a difference and
+            // is not one, and a tool you cannot trust is worse than a tool you cannot open.
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+                Toast.makeText(this, "The difference view needs Android 10 or newer",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
             diffMode = !diffMode;
             syncDiff();
             if (preview != null) preview.invalidate();
@@ -4648,20 +4657,28 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     }
                 }
             }
-            if (activity != null && activity.diffMode) {
+            // minSdk is 24 and BlendMode.DIFFERENCE is 29. The toggle already refuses below
+            // that, but the invariant is repeated HERE so the draw cannot be broken by someone
+            // later setting diffMode from somewhere that forgot.
+            if (activity != null && activity.diffMode
+                    && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
                 // Two draws and a blend. Where the frames agree the result goes black; where
                 // they differ it lights up, so a frame that is a duplicate of its neighbour
                 // shows as a flat empty box and there is nothing to argue about.
                 int prev = activity.neighbourCell(showCell, -1);
                 if (prev >= 0 && prev != showCell) {
+                    // Both frames go onto an opaque black layer, the second one with a
+                    // DIFFERENCE blend: |a - b| per channel, so identical pixels cancel to
+                    // black and anything that moved lights up. It has to be an offscreen layer
+                    // with a known floor, because differencing against the checkerboard would
+                    // light up the checkerboard.
                     int layer = canvas.saveLayer(bgRect, null);
                     canvas.drawColor(0xFF000000);
                     renderer.drawCell(canvas, prev, renderer.fitCell(prev, bgRect), null);
                     if (diffPaint == null) {
                         diffPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
                     }
-                    diffPaint.setXfermode(new android.graphics.PorterDuffXfermode(
-                            android.graphics.PorterDuff.Mode.XOR));
+                    diffPaint.setBlendMode(android.graphics.BlendMode.DIFFERENCE);
                     renderer.drawCell(canvas, showCell, dest, diffPaint);
                     canvas.restoreToCount(layer);
                 } else {

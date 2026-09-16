@@ -720,8 +720,11 @@ reference: tools/spritelab/SpriteLabMobile.html — the approved design, build i
            `python tools/spritelab/genicons.py`, never hand-edit SpriteIcons.java.
 since: 2026-09-13T02:00  ended: 2026-09-13T06:10
 
-## SPEC_20260915_PUPPET_UI — the puppeteering drawer, tape and preview
-status: ACTIVE (2026-09-15, Claude/Opus — design settled with JoyRaptor this session)
+## SPEC_20260915_PUPPET_UI — the puppeteering drawer, tape, preview and helper
+status: IDLE (2026-09-16 — overnight run complete and pushed. Animation, the tape, the helper
+        strip, shapes, the shared loupe and four audit passes all landed. What is left is in
+        the spec's section 7: nothing beyond the bend itself is device-verified, the tape draws
+        but does not drag, and the grab bar has a diagnostic waiting for the editor to open.)
 files: tasks/SPEC_20260915_PUPPET_UI.md
        app/src/main/java/com/fadcam/ui/faditor/puppet/**  (NEW package — mine)
        app/src/main/java/com/fadcam/ui/faditor/tools/PuppetDrawerTabs.java (NEW)

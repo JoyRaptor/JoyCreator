@@ -33,6 +33,11 @@ public class PuppetKeysTest {
         anchorInReadsWhatTheAnimationWasAlreadyDoing();
 
         System.out.println();
+        System.out.println("-- keys: a live take, thinned --");
+        thinningKeepsTheShapeOfAPerformance();
+        thinningIsOptional();
+
+        System.out.println();
         System.out.println("-- keys: the blend out --");
         blendEasesBackOntoWhatItInterrupted();
 
@@ -159,6 +164,58 @@ public class PuppetKeysTest {
         check("reads mid-animation", true, PuppetKeys.readPose(s, 500L, pose));
         checkNear("halfway is halfway, so a punch-in here has nothing to jump from",
                 0.5f, pose[0], 0.06f);
+    }
+
+    /**
+     * THE LIVE-TAKE PROMISE, measured: a take drops a key per frame, thinning removes most of
+     * them, and the motion that survives still passes through where the finger actually was.
+     *
+     * <p>Without this the whole design of the tape is unfounded — bars are only usable BECAUSE
+     * the keys inside were thinned enough to draw and to hit, and thinning is only acceptable
+     * because it does not change the performance.
+     */
+    private static void thinningKeepsTheShapeOfAPerformance() {
+        MeshWarpSpec s = rig3();
+        int[] comps = PuppetKeys.componentsOf(0);
+        // Two seconds at 30fps of a smooth arc — what recording a wave actually produces.
+        int frames = 60;
+        float[] wanted = new float[frames];
+        for (int i = 0; i < frames; i++) {
+            float u = i / (float) (frames - 1);
+            wanted[i] = (float) Math.sin(u * Math.PI) * 0.6f;
+            PuppetKeys.writeOffsets(s, comps, new float[]{wanted[i], 0f}, i * 33L, true);
+        }
+        int before = PuppetKeys.keyCount(s, 0);
+        checkTrue("the take recorded a key per frame (" + before + ")", before >= 50);
+
+        int dropped = PuppetKeys.simplify(s, 0L, (frames - 1) * 33L, 0.78f);
+        int after = PuppetKeys.keyCount(s, 0);
+        checkTrue("thinning removed most of them (" + dropped + " dropped, " + after + " left)",
+                after < before / 2);
+        checkTrue("but kept enough to be a performance (" + after + ")", after >= 3);
+
+        // And the curve still goes where the finger went.
+        float worst = 0f;
+        float[] pose = new float[s.arity()];
+        for (int i = 0; i < frames; i++) {
+            PuppetKeys.readPose(s, i * 33L, pose);
+            worst = Math.max(worst, Math.abs(pose[0] - wanted[i]));
+        }
+        checkTrue("and the motion still passes through the performance (worst " + worst + ")",
+                worst < 0.05f);
+    }
+
+    private static void thinningIsOptional() {
+        MeshWarpSpec s = rig3();
+        int[] comps = PuppetKeys.componentsOf(0);
+        for (int i = 0; i < 20; i++) {
+            PuppetKeys.writeOffsets(s, comps,
+                    new float[]{(float) Math.sin(i * 0.4) * 0.5f, 0f}, i * 33L, true);
+        }
+        int before = PuppetKeys.keyCount(s, 0);
+        int dropped = PuppetKeys.simplify(s, 0L, 19 * 33L, 0f);
+        check("detail at zero keeps every sample", 0, dropped);
+        check("and the count is untouched", before, PuppetKeys.keyCount(s, 0));
     }
 
     private static void blendEasesBackOntoWhatItInterrupted() {

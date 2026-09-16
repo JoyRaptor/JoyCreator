@@ -143,6 +143,11 @@ DEVICE: SPEC_20260915_PUPPET_UI (2026-09-15 evening — WIRELESS, 192.168.1.151.
         connector is damaged (WIRELESS_ADB_CONNECT.md field lessons), which is why every USB
         attempt today reported `offline`. No project is edited; adb uninstall never run.
         RELEASED 2026-09-15 21:02 — installed, relaunched clean, logcat read.)
+DEVICE: SPEC_20260915_PUPPET_UI (2026-09-16 14:10 - NOTE 9 over USB, the SANDBOX phone, which
+        JoyRaptor confirmed plugged in and free. Full feature testing: install, launch, open a
+        project, rig a picture, drive the puppet surface. The Note 20 is NOT the target and
+        adb uninstall is never run. Also repairing tools/phone.sh so install works over either
+        transport - see the `deploy` and `doctor` commands.)
 DEVICE: free
 
 ## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST

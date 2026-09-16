@@ -1,4 +1,30 @@
-# INBOX — ideas, one line each, no ceremony
+# INBOX
+
+## 2026-09-16 — one command for the phone, wired or wireless
+
+`tools/deploy.sh` exists now, because the sequence was being re-derived every session and got
+wrong three ways: running gradle's install task (which restarts the adb server and drops every
+wireless session), assuming wireless when a cable was attached, or giving up when USB was empty
+instead of trying the other transport.
+
+    bash tools/deploy.sh --build --launch
+
+Prefers USB, falls back to `wifi-adb.sh`, refuses outright if the only phone attached is the one
+holding real projects, installs with plain `adb install` so the adb server is never restarted,
+and then asks the PHONE which package landed and when. That last part caught a real trap: the
+`default` flavour installs as **com.fadcam.beta**, not `com.fadcam.debug` — every helper that
+hard-codes the debug name reports "not installed" for a package that is sitting right there.
+
+The watcher stays on `assembleDefaultDebug`. It should not install; deploy.sh should.
+
+## 2026-09-16 — sprites still have no way in from Add Asset
+
+Confirmed on the sandbox by opening the sheet: Video clip, Image as new layer, Black clip, Video
+overlay (PiP), Audio, Record voiceover, AI slide, FX Adjustment Layer, Image-as-clip. **No sprite
+entry.** This was filed on 2026-09-12 and is still open — sprites remain reachable only from the
+toolbar, two levels down. One row in AddAssetBottomSheet.
+
+— ideas, one line each, no ceremony
 
 Anything that comes to mind goes here. No format. No commitment. Nothing here is a plan
 until it moves to `ROADMAP.md`.

@@ -5,6 +5,7 @@ Every agent reads it first. Every promotional claim comes from it. The help doc 
 Joybot's knowledge are generated from it.
 
 **Last full pass:** 2026-09-09 (Claude/Opus, launch-planning session)
+**Last touched:** 2026-09-16 — puppeteering stages 9–12, mesh quality, holes, depth ordering, and the defects two audits found against SPEC_20260915_PUPPET_UI.
 **Scale:** 710 Java files, ~349,000 lines, schema v13
 
 ---
@@ -87,6 +88,7 @@ All of these **stay in the website / F-Droid build.** Decision already made and 
 | Adjustment layers / FX | 🟡 ✔ | Shell is 🟢 — add/select/own-lane/fx+trash badges device-proved on the sandbox phone 2026-09-10. **Whether an effect actually applies to the layers beneath is still unproved.** SPEC_ADJUSTMENT_LAYERS_FX.md |
 | Timeline lane allocation (no two objects stacked) | 🟢 ✔ | SPEC W — three adjustment layers took three lanes, device-proved 2026-09-10. Same rule now guards text/image/sprite/PiP adds. |
 | Mesh warp / Bend (IMAGES) | 🟢 | **Complete and device-verified 2026-09-10.** SPEC A through T. |
+| Corner-pinned TEXT, with effects | 🟡 | 2026-09-16: a pinned box with ANY effect on it exported UNPINNED while the preview showed it pinned — TextFxGlEffect rebuilt a per-frame item and the pin was never among the copied properties. Now concat-ed from the same cornerPinMatrix the preview and the plain export use. Not yet re-exported on a phone. |
 | Corner pin on SPRITES | 🟡 ✔ | SPEC Z slice 1, 2026-09-13. Model, persistence, undo, transform surface, authoring and BOTH renderers — one shared matrix method. Compile- and harness-verified; **no one has dragged a sprite corner on a phone yet.** |
 | Mesh bend on sprites / PiP / text / spine | 🔵 | SPEC Z. Sprites hold a MeshWarpSpec that nothing draws; PiP and spine need the Clip model work; text needs a pinned view. |
 | Sprites on the transform surface | 🟡 ✔ | SPEC Z slice 1 step 2, 2026-09-13. They used the legacy handle overlay until now. |
@@ -147,9 +149,12 @@ no money.** Nothing else on Android does the two-engine merge.
 | IK solver, dangle physics, motion smoothing | 🟡 ✔ | FabrikSolver, DangleSim, OneEuroFilter |
 | Bake rig to keyframes | 🟢 ~ | LEDGER: device-verified |
 | Point-at-video | 🟢 ~ | |
-| Puppet architecture | 🟡 ✔ | SPEC_20260904_PUPPET_ARCHITECTURE — engine complete through stage 11 |
-| **Puppeteering — a PNG bends** | 🟢 | Trace → triangulate → weights → MLS solve. JoyRaptor confirmed a rigged dinosaur bending on 2026-09-15, including limbs drawn as detached islands and the overlap halo fixed. |
-| Puppet pins, bones, IK, dangle | 🟡 | Place, bone, drag-a-limb, simulated hair. Engine proved off device; gestures barely driven. |
+| Puppet architecture | 🟡 ✔ | SPEC_20260904_PUPPET_ARCHITECTURE — engine complete through stage 12. 15 harness suites, ~490 assertions. |
+| **Puppeteering — a PNG bends** | 🟢 | Trace → triangulate → weights → MLS solve. JoyRaptor confirmed a rigged dinosaur bending on 2026-09-15, including limbs drawn as detached islands and the overlap halo fixed. Mesh smoothness confirmed 2026-09-16. |
+| **Mesh quality — no more shattered glass** | 🟢 | 2026-09-16. Measured 81–91% of triangles under 20° (worst 0.1°), and it got WORSE as Mesh detail went up. Delaunay edge flipping + long boundary edges split + Lloyd relaxation took it to 10–16%, worst 7.3°, and reversed the trend so more detail now means fewer slivers. JoyRaptor: *"mesh much smoother!"* **Heat/biharmonic weights would NOT have fixed this** — the faceting was tessellation, not weighting; that reasoning is recorded in PuppetWeights. |
+| **Enclosed holes** | 🟡 | 2026-09-16. A gap enclosed by the artwork (a hand on a hip) was filled with mesh, so the weights measured straight across it — 0.718 through against 1.02 around. Now traced, bridged and excluded; edge expansion shrinks holes instead of growing them. Harness-proved, not yet seen on a phone. |
+| **Per-triangle depth (3/4 stance)** | 🟡 | 2026-09-16. Each pin carries a depth and the weights blend them into a field, so a shoulder can be behind the body with the hand in front and the handover lands ALONG the forearm. One sorted draw call; bending never re-sorts. Slider shipped, never turned on a phone. |
+| Puppet pins, bones, IK, dangle | 🟡 | Place, bone, drag-a-limb, simulated hair. Engine proved off device; gestures barely driven. Dangle chains BAKE to keyframes on rebuild as of 2026-09-16 — before that the type, its four sliders and DangleSim all existed and nothing ever called them. |
 | **Puppet KEYFRAMES and live takes** | 🟡 | SPEC_20260915_PUPPET_UI. Per-pin keys, record-on-touch, thinning, anchor-in/blend-out, and a tape that draws performances as long diamonds. **Unit-proved, never keyed on a phone.** |
 | Puppet helper strip (on-preview) | 🟡 | Four controls so mesh editing never needs the drawer: type swatch (drag OUT to place, drag a pin IN to delete), pose/place, key/arm/jump, depth scrub. Never touched by a human. |
 | Puppet UI — badge, drawer tab, loupe, shapes | 🟡 | On the phone; lightly used. The loupe is now shared with the transform tool, whose own magnifier is therefore **unverified since the migration.** |

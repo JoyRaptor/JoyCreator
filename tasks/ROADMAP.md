@@ -13,6 +13,15 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 
 # PART ONE — BEFORE LAUNCH
 
+> **2026-09-16 — puppeteering is code-complete and almost entirely unproven on a phone.**
+> The engine, the drawer, recording, IK, dangle, holes and depth ordering all landed across
+> stages 1–12 with ~490 harness assertions behind them. JoyRaptor has confirmed exactly three
+> things on a device: a rigged dinosaur bends, the overlap halo is gone, and the mesh is smooth.
+> **Everything else in that feature is 🟡.** Nobody has keyed a pin, recorded a take, tapped a
+> bone, watched a tail swing or turned a Depth slider on hardware. That gap is the single
+> largest before-launch risk in the animation wing, and it is a morning with a phone, not a
+> sprint of code.
+
 ## Lane 0 — Pure waiting. Start these first, they cost only calendar.
 
 | # | Item | Who | Notes |

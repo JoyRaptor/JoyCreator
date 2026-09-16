@@ -3611,3 +3611,83 @@ label sat on JACOB'S HOUSE, a picture it had nothing to do with.
 Nothing in the Lab is now known-broken, and nothing in it is claimed as working on the strength
 of reading the code alone, except the two items already listed as unproved: pinch-to-scale, and
 the in-use branch of the remove guard.
+
+## 2026-09-16 — the systematic sweep: the mockup and the specs, item by item
+
+JoyRaptor: *"go through all the functions that were previously designed, that we talked about,
+that we mocked up in the web thing… bring everything to a finished state."*
+
+So this was not driven by defect reports. Three audits ran first — an exhaustive inventory of
+`SpriteLabMobile.html` (every section, control, gesture and stub), a checklist of every promise
+in `SPEC_20260910_SPRITELAB_MODEL`, `SPEC_20260910_SPRITELAB_UI` and `PLAN_SPRITE_ANIMATION`,
+and a sweep of the conversation. The third hit a usage limit and did not finish; the LEDGER and
+the two specs already carried its substance, so it was not re-run.
+
+### What was missing, and is not any more
+
+| From | What | Now |
+|---|---|---|
+| MODEL §5 | **Match to current** — line every frame up against this one | built; the reference frame is deliberately left alone |
+| MODEL §5 | **Trim/Drift** — report the per-frame ink boxes as numbers | built as **Drift…**, reports and changes nothing, with auto-centre one tap away |
+| mockup | **Copy to all** — this frame's alignment on every frame | built, one undo step |
+| UI §8 | **Pivot** — everything measures against it and nothing could set it | two pills in Alignment |
+| MODEL §5 | **Difference view** — is this frame actually different from the last | built as **Δ** beside fps; agreement goes black |
+| UI §4 | **Twist to rotate** | built; a second finger now stops the drag, which it did not before |
+| MODEL §6 | **Fill** — the third bake fit | built, and it warns when you arm it, not after |
+| MODEL §8 | JSON-only must not lose transforms silently | writing the sidecar on an aligned sheet now explains and offers the bake |
+| UI §6 | **Tap the order badge** to un-add, **hold** it to clear every use | built, 40dp target, off while a reorder is armed |
+| S1 model | **Per-cell tags** — the field existed since S1 and nothing could set one | built, with the sheet's own vocabulary rather than a fixed list |
+| MODEL §5 | Suspect's other two detectors | ink-box outlier (against the median) and near-duplicate-of-neighbour (8×8 signature) |
+| mockup | **Play all**, **Name…**, **Fit** | built; the first two were unwired in the mockup too, so the reading is documented at the call site |
+| UI §10 | Undo depth 100 | was 40 |
+| memory | Every button gets a hover label | every icon-only button now has one, from a single map |
+
+### One real bug the sweep found
+
+Shrinking the grid left the roll holding frames that pointed at cells the sheet no longer had.
+Take a 4×7 down to 2×2 and frames 4..27 survived as indices into a grid that had stopped
+existing. Nothing crashed — the renderer bounds-checks and draws nothing — which is the worst of
+both worlds: an animation with invisible frames in it and no explanation on screen. Saved
+animations had the same hole.
+
+Dead frames are now dropped and said out loud. Two details mattered more than the fix:
+
+- It prunes on the **settle** after a cols/rows drag, not per tick, so dragging 4 → 2 → 4 costs
+  nothing.
+- It marks the sheet dirty **without opening a new undo step**. The burst that coalesces a drag
+  has closed by the time the prune runs, so the obvious `markDirty()` would have made undo take
+  two presses to cross one gesture — against the rule the whole app is built on.
+
+### Two things that turned out to be fine
+
+- **The near-lossless export guard.** `PLAN` §correctness warns that `isSimpleTrim` must exclude
+  sprite overlays or a trimmed clip exports with its sprite silently missing. It does, through
+  `usesLayerFeaturesAffectingExport` — `hasSpriteOverlays()` is checked there. Verified, not
+  changed.
+- **Pinch to scale** was never missing. It has been wired in the preview all along; it was only
+  ever unverifiable, because two-finger gestures cannot be injected through `adb input`. The
+  earlier note calling it a gap was wrong and the ledger said "missing" on the strength of the
+  spec rather than the code.
+
+### Two stale documents corrected
+
+`PLAN_SPRITE_ANIMATION` has told every reader since 2026-08-06 that four FF-B AI tools are still
+to be written. `set_sprite_grid`, `label_sprite_cells`, `author_sprite_animation` and
+`apply_sprite_proposal` are all dispatched in `AIToolExecutor` with real bodies of 49–69 lines.
+`SPEC_20260910_SEMANTIC_CELLS` already contradicted it on one of them and was right.
+
+And the comment on `setCellTransform` claimed that clearing an identity transform brings the
+fast draw path back. It does, but only on a sheet that has also never been reordered — which is
+exactly the half that went unstated and exactly the half that was then missed.
+
+### Deliberately NOT built, with reasons
+
+- **Range shading** (UI §9): chips outside a play range desaturate. There is no range selection
+  in the mobile design at all — it is a shift-click affordance from the desktop tool — and
+  inventing a phone gesture for it would be designing, not finishing. Wants a ruling.
+- **The tablet two-pane** (`values-sw600dp`, PLAN C22): genuinely specced and genuinely absent.
+  Left alone because building a layout for a device class that cannot be tested here, for
+  someone who works one-handed on a phone, is the definition of low-value guessing.
+- **The desktop three-column layout, the Sources load/unload rail, Escape-to-cancel**: superseded
+  on purpose. The phone build is `SpriteLabMobile.html` layout C, and the rail became
+  tap-to-include over sheets already in the project.

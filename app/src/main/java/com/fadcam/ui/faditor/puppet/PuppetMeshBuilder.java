@@ -92,7 +92,7 @@ public final class PuppetMeshBuilder {
         if (bmp == null || bmp.isRecycled() || rig == null) return null;
         if (rig.pinCount() < MIN_PINS) return null;
 
-        float[][] rings = outlines(bmp, rig.edgeThreshold, rig.edgeExpansion);
+        float[][] rings = outlines(bmp, rig.edgeThreshold, rig.edgeExpansion, SIMPLIFY_EPS);
         if (rings == null || rings.length == 0) return null;
 
         int interior = INTERIOR_MIN
@@ -124,8 +124,14 @@ public final class PuppetMeshBuilder {
         // dropped at draw time. So the check belongs HERE, where there is still something to do
         // about it: step the density down and try again rather than hand over a mesh that will
         // be ignored. Three attempts is plenty; the first almost always fits.
+        // BUILD SOMETHING THE RENDERER WILL ACTUALLY DRAW. A mesh over budget is not an error
+        // anywhere -- the topology accepts it, the item stores it, and MeshStampGl then drops it
+        // at draw time. So the whole check belongs here, where there is still something to do
+        // about it. Two dials, in the order that matters: thin the OUTLINES first, because with
+        // several islands they are most of the count, then the interior density.
+        float eps = SIMPLIFY_EPS;
         try {
-            for (int attempt = 0; attempt < 3; attempt++) {
+            for (int attempt = 0; attempt < 7; attempt++) {
                 PuppetTopology topo = new PuppetTopology(
                         rings, interior, pins, rig.softness, stiffArea, stiffStrength, muted);
                 if (topo.handleCount() != rig.pinCount() || topo.vertexCount() < 3) return null;
@@ -134,22 +140,18 @@ public final class PuppetMeshBuilder {
                                 .MeshStampGl.MAX_INDICES) {
                     return new MeshWarpSpec(topo);
                 }
-                if (interior <= 0) break;
-                interior = Math.max(0, interior / 2);
+                // Coarsen and go again. Interior first while there is any left -- it costs the
+                // least -- then the outlines, which is where the vertices actually are.
+                if (interior > 2) {
+                    interior = Math.max(2, interior / 2);
+                } else {
+                    eps *= 2f;
+                    float[][] coarser = outlines(bmp, rig.edgeThreshold, rig.edgeExpansion, eps);
+                    if (coarser == null || coarser.length == 0) break;
+                    rings = coarser;
+                }
             }
-            // Contour only, no interior points at all — the last thing that can still bend. A
-            // shape whose OUTLINE alone is over budget is one the simplifier should have thinned,
-            // and returning null leaves the picture straight rather than silently broken.
-            PuppetTopology bare = new PuppetTopology(
-                        rings, 0, pins, rig.softness, stiffArea, stiffStrength, muted);
-            if (bare.handleCount() == rig.pinCount()
-                    && bare.vertexCount() >= 3
-                    && bare.vertexCount() <= VERT_BUDGET
-                    && bare.indexCount() <= com.fadcam.ui.faditor.compositor
-                            .MeshStampGl.MAX_INDICES) {
-                return new MeshWarpSpec(bare);
-            }
-            return null;
+            return null;    // a picture this busy stays straight rather than silently broken
         } catch (Exception e) {
             // A picture that cannot be triangulated costs the RIG, never the overlay. The pins
             // stay, the drawer stays, and the user sees an un-bent picture rather than a crash.
@@ -282,8 +284,18 @@ public final class PuppetMeshBuilder {
      * all still traces: every pixel reads as opaque, so the ring is the picture's own rectangle,
      * which is the correct answer for a photo and lets a JPEG be bent like any other image.
      */
+    /**
+     * Every opaque piece, simplified and grown — the geometry the topology is built from.
+     *
+     * <p>{@code eps} is the simplification tolerance and the caller RAISES IT when the mesh comes
+     * out over budget. That is the whole reason it is a parameter: with ten islands the CONTOURS
+     * dominate the vertex count, so reducing interior density alone cannot save a mesh that is
+     * five times too big. Measured on JoyRaptor's dinosaur: 3,548 vertices against a limit of
+     * 625, with interior already at its minimum.
+     */
     @Nullable
-    private static float[][] outlines(@NonNull Bitmap src, float thresholdUnit, float expandUnit) {
+    private static float[][] outlines(@NonNull Bitmap src, float thresholdUnit, float expandUnit,
+                                      float eps) {
         float[] one = outline(src, thresholdUnit);      // kept for the single-piece fast path
         float[][] all = lastTraceAll;
         lastTraceAll = null;
@@ -291,6 +303,22 @@ public final class PuppetMeshBuilder {
             if (one == null) return null;
             all = new float[][]{one};
         }
+
+        // SIMPLIFY EVERY RING. The single-piece path did this and the multi-piece one did not,
+        // so a detached-limb character went to the triangulator at full traced resolution --
+        // every staircase pixel of every outline, on every island. That alone put it past the
+        // renderer's budget before a single interior point was added.
+        float[][] thin = new float[all.length][];
+        for (int i = 0; i < all.length; i++) {
+            float[] r = all[i];
+            try {
+                float[] t = AlphaContour.simplify(r, eps);
+                if (t != null && t.length >= 6) r = t;
+            } catch (Exception ignored) { }
+            thin[i] = r;
+        }
+        all = thin;
+
         if (expandUnit <= 0f) return all;
         // GROW EACH PIECE by the authored amount, separately. Expanding a merged outline would
         // close the gap between two limbs and fuse them into one blob — which is exactly the

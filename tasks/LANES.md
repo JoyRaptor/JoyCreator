@@ -138,6 +138,11 @@ DEVICE: SPEC_20260915_PUPPET_UI (2026-09-15 — install + launch smoke + crash s
         is attached and holds real projects, so no project is opened, nothing is tapped
         through, and adb uninstall is never run. RELEASED 2026-09-15 — launch smoke clean,
         zero FATAL EXCEPTION after the fix.)
+DEVICE: SPEC_20260915_PUPPET_UI (2026-09-15 evening — WIRELESS, 192.168.1.151. Install +
+        launch smoke + screenshots of the preview's top-right corner. USB is dead: JoyRaptor's
+        connector is damaged (WIRELESS_ADB_CONNECT.md field lessons), which is why every USB
+        attempt today reported `offline`. No project is edited; adb uninstall never run.
+        RELEASED 2026-09-15 21:02 — installed, relaunched clean, logcat read.)
 DEVICE: free
 
 ## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST

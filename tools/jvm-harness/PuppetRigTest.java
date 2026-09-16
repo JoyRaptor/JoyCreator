@@ -60,6 +60,7 @@ public class PuppetRigTest {
         System.out.println();
         System.out.println("-- the mesh has to FIT THE RENDERER --");
         everyDetailSettingFitsTheDrawBudget();
+        manyIslandsAtFullResolutionBlowTheBudget();
 
         System.out.println();
         System.out.println("-- rig: undo, and duplicating an overlay --");
@@ -334,6 +335,55 @@ public class PuppetRigTest {
         checkTrue("interior 160 really would have been refused ("
                         + huge.vertexCount() + " verts)",
                 huge.vertexCount() > MAX_VERTS || huge.indexCount() > MAX_INDICES);
+    }
+
+    /**
+     * The shape that actually broke it: TEN islands, traced at full pixel resolution.
+     *
+     * <p>Read off JoyRaptor's dinosaur on 2026-09-15 -- "mesh too big to draw: 3548 verts / 21186
+     * indices (max 625 / 3456)" -- with the interior density ALREADY at its minimum. With several
+     * limbs the CONTOURS are most of the vertex count, so thinning the interior cannot rescue it;
+     * the outlines themselves have to be simplified, and the multi-island path was not
+     * simplifying them at all.
+     *
+     * <p>This asserts the untreated case really is over budget (so the regression is detectable)
+     * and that simplification is what brings it back.
+     */
+    private static void manyIslandsAtFullResolutionBlowTheBudget() {
+        float[][] raw = new float[10][];
+        for (int i = 0; i < raw.length; i++) raw[i] = staircaseRing(0.08f + i * 0.02f, 220);
+
+        int rawVerts = 0;
+        for (float[] r : raw) rawVerts += r.length / 2;
+        checkTrue("ten traced islands really are over budget (" + rawVerts + " contour pts)",
+                rawVerts > 625);
+
+        float[][] thin = new float[raw.length][];
+        int thinVerts = 0;
+        for (int i = 0; i < raw.length; i++) {
+            thin[i] = com.fadcam.ui.faditor.transform.mesh.AlphaContour.simplify(raw[i], 0.016f);
+            thinVerts += thin[i].length / 2;
+        }
+        checkTrue("simplifying brings them back (" + thinVerts + " pts)", thinVerts <= 625);
+
+        com.fadcam.ui.faditor.transform.mesh.PuppetTopology topo =
+                new com.fadcam.ui.faditor.transform.mesh.PuppetTopology(
+                        thin, 2, new float[]{0.2f, 0.2f, 0.8f, 0.8f});
+        checkTrue("and the mesh fits: " + topo.vertexCount() + " verts / "
+                        + topo.indexCount() + " indices",
+                topo.vertexCount() <= 625 && topo.indexCount() <= 24 * 24 * 6);
+    }
+
+    /** A small ring with pixel-staircase detail — what a tracer emits before simplification. */
+    private static float[] staircaseRing(float cy, int n) {
+        float[] r = new float[n * 2];
+        for (int i = 0; i < n; i++) {
+            double t = (i / (double) n) * Math.PI * 2;
+            double rad = 0.05 + ((i % 2 == 0) ? 0.0015 : 0.0);   // the staircase
+            r[i * 2] = (float) (0.5 + rad * Math.cos(t));
+            r[i * 2 + 1] = (float) (cy + rad * Math.sin(t));
+        }
+        return r;
     }
 
     /** A rough character-sized blob: a circle with a wobble, which is what a traced PNG looks like. */

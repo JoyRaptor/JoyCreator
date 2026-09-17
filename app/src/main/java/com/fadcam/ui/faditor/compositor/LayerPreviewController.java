@@ -719,6 +719,41 @@ public final class LayerPreviewController {
      * in {@code FaditorEditorActivity} that already compute
      * {@code ac.isMuted() ? 0f : ac.getVolumeLevel()}.
      */
+    /**
+     * Whether the lane holding a MAIN/PiP video {@code clip} is muted.
+     *
+     * <p>JoyRaptor, 2026-09-16: <i>"Muted lane didn't mute but it shows a red speaker icon."</i>
+     * The PiP half of that was fixed the same day. This is the half that was left: the master
+     * player's volume was decided by {@code clip.isAudioMuted()} alone at all nine sites that set
+     * it, so muting the lane a video sits in drew the glyph and changed nothing. A control that
+     * reports a state it did not apply is worse than one that is missing.
+     *
+     * <p>Walks {@link Timeline#getLayers()} because that is the view the ROW came from — the same
+     * list {@link #isOverlayClipLaneMuted} walks, so a lane cannot be muted for a PiP and live for
+     * the video beside it.
+     */
+    public static boolean isVideoClipTrackMuted(@NonNull Timeline timeline,
+            @NonNull com.fadcam.ui.faditor.model.Clip clip) {
+        return isOverlayClipLaneMuted(clip, timeline.getLayers());
+    }
+
+    /**
+     * Effective master-player volume: 0 when the clip is muted OR its lane is, else {@code level}.
+     * Lane mute MULTIPLIES over the clip's own setting and never replaces it — the same rule
+     * {@link #effectivePreviewVolume} follows for audio clips.
+     */
+    public static float effectiveMasterVolume(@NonNull Timeline timeline,
+            @NonNull com.fadcam.ui.faditor.model.Clip clip, float level) {
+        if (clip.isAudioMuted() || isVideoClipTrackMuted(timeline, clip)) return 0f;
+        return level;
+    }
+
+    /** {@link #effectiveMasterVolume} at the clip's own authored level. */
+    public static float effectiveMasterVolume(@NonNull Timeline timeline,
+            @NonNull com.fadcam.ui.faditor.model.Clip clip) {
+        return effectiveMasterVolume(timeline, clip, clip.getVolumeLevel());
+    }
+
     public static float effectivePreviewVolume(@NonNull Timeline timeline, @NonNull AudioClip clip) {
         if (clip.isMuted() || isAudioClipTrackMuted(timeline, clip)) return 0f;
         return clip.getVolumeLevel();

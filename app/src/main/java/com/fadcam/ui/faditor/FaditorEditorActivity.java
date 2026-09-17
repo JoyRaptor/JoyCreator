@@ -1137,7 +1137,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // is used to clamp trim points for this clip (critical for
                 // relinked clips whose stored duration may be stale).
                 durationCorrectionPending = true;
-                playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+                playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
                 playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
                 updatePreviewTransforms();
             }
@@ -2404,7 +2405,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             // The costly half: a decoder load per dragged pixel would be far
                             // worse than the stale frame this fixes.
                             loadClipForPlayback(clip);
-                            playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+                            playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
                             playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
                             updatePreviewTransforms();
                         }
@@ -2565,7 +2567,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 hideSlidePreview();
                                 if (playerManager != null) {
                                     loadClipForPlayback(clip);
-                                    playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+                                    playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
                                 playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
                                 updatePreviewTransforms();
 
@@ -4892,7 +4895,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
 
         // Sync initial volume and speed from clip state
-        playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+        playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
         playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
     }
 
@@ -4952,7 +4956,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         applyPreviewColorGrade(nextClip);
         // Per-clip volume + speed follow the new window (engine sets speed too, but keep the
         // UI + LoudnessEnhancer path here identical to advanceToSegment's non-player half).
-        playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
+        playerManager.setVolume(project == null ? (nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), nextClip));
         playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier(), nextClip.isPitchCompensationEnabled());
         updatePreviewTransforms();
         // Re-home the playhead to the new clip's start ONLY when playback auto-advanced across the
@@ -6331,7 +6336,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 clip.setVolumeLevel(volume);
                 if (volume > 0f) clip.setAudioMuted(false);
             }
-            playerManager.setVolume(clip.isAudioMuted() ? 0f : volume);
+            playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : volume)
+                    : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip, volume));
             updateVolumeUI(volume, clip.isAudioMuted());
         }
     }
@@ -6426,7 +6432,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else {
                     Clip clip = getSelectedClip();
                     clip.setAudioMuted(!clip.isAudioMuted());
-                    playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+                    playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
                 }
                 refreshVolumeDrawer();
                 scheduleAutoSave();
@@ -12315,7 +12322,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // video-clip load goes through — see the comment there for why the call site is the
             // wrong place to fix it.)
             loadClipForPlayback(nextClip);
-            playerManager.setVolume(nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel());
+            playerManager.setVolume(project == null ? (nextClip.isAudioMuted() ? 0f : nextClip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), nextClip));
             playerManager.setPlaybackSpeed(nextClip.getSpeedMultiplier(), nextClip.isPitchCompensationEnabled());
             updatePreviewTransforms();
             if (autoPlay) {
@@ -13688,7 +13696,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // 10's head at 9:45.361. Not seeking is the whole fix — the player is already on the
             // correct frame, so leaving it alone keeps the preview honest.
             playerManager.updateTrimBoundsSilently(clip);
-            playerManager.setVolume(clip.isAudioMuted() ? 0f : clip.getVolumeLevel());
+            playerManager.setVolume(project == null ? (clip.isAudioMuted() ? 0f : clip.getVolumeLevel())
+                        : com.fadcam.ui.faditor.compositor.LayerPreviewController.effectiveMasterVolume(project.getTimeline(), clip));
             playerManager.setPlaybackSpeed(clip.getSpeedMultiplier(), clip.isPitchCompensationEnabled());
         }
 
@@ -16014,6 +16023,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Only the live push was missing, so the mute took effect at the next re-bind — a seek,
         // a scrub, a reopen — which is indistinguishable from "it did not work".
         if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+
+        // AND THE MAIN VIDEO. Same report, the other half: the master player's volume was decided
+        // by clip.isAudioMuted() alone at all nine sites that set it, so muting the lane a video
+        // sits in drew the red glyph and silenced nothing. Pushed here as well as at those sites,
+        // or the mute would only take hold at the next seek — which reads as "it did not work".
+        if (project != null && playerManager != null) {
+            com.fadcam.ui.faditor.model.Clip cur = currentClipForVolume();
+            if (cur != null) {
+                playerManager.setVolume(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .effectiveMasterVolume(project.getTimeline(), cur));
+            }
+        }
+    }
+
+    /**
+     * The clip whose audio the master player is currently carrying, or null.
+     *
+     * <p>Its own method because {@link #applyAudioTrackMuteLive} needs it and the nine volume
+     * sites each already have a clip in hand — this is only for the live push, where there is no
+     * clip in scope.
+     */
+    @Nullable
+    private com.fadcam.ui.faditor.model.Clip currentClipForVolume() {
+        try {
+            // clipUnderPlayhead is the existing authority for "which clip is the player on".
+            // Asking it rather than tracking a second index is the whole reason this is three
+            // lines: two answers to that question would eventually disagree.
+            return project == null ? null : clipUnderPlayhead();
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     /**

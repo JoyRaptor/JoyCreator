@@ -82,9 +82,18 @@ JoyRaptor checks, and a wrong claim costs him a test cycle.
   directly; you must navigate to it through the UI.
 - **Gradle flavor/buildtype:** flavor `default`, type `debug` → tasks `assembleDefaultDebug` /
   `app:installDefaultDebug`. minSdk 24.
-- **Installable APK (after a build):** `app/build/outputs/apk/default/debug/app-default-universal-debug.apk`
-  (also per-ABI `app-default-arm64-v8a-debug.apk`; **use the `universal` one** for `adb install` so you don't
-  have to match the device ABI).
+- **Installable APK (after a build):** `app/build/outputs/apk/default/debug/app-default-arm64-v8a-debug.apk`
+  — which is what `tools/phone.sh` installs, and what both test phones need.
+
+  > ⚠️ **The `universal` APK is NOT universal.** Measured 2026-09-16: `app-default-universal-debug.apk`
+  > is **byte-identical** to the arm64 one (same md5) and contains only `lib/arm64-v8a/`. The advice
+  > that used to sit here — "use the universal one so you don't have to match the device ABI" — was
+  > therefore false, and would fail on a 32-bit phone in a way that looks like a corrupt download.
+  > A real 32-bit build exists separately as `app-default-armeabi-v7a-debug.apk`.
+  >
+  > Every phone from roughly 2017 on is arm64, so the arm64 build is the right default and the one
+  > to hand to a beta tester. Reach for the `armeabi-v7a` file only when an install is refused on an
+  > old or budget device.
 - **Build log:** `build.log` at the project root, **UTF-16 encoded** — read it with
   `tr -d '\000' < build.log | tail -n 40` (the `tr` strips the null bytes so normal tools can read it).
 - **Known devices:** work phone `<note20-serial>` (SM-N986U, screen **1440×3088**); backup `<note9-serial>`

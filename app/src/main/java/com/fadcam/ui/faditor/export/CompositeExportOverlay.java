@@ -251,6 +251,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
     /** Scratch for the text corner pin (SPEC ZC) — allocated once, never per frame. */
     private final android.graphics.Matrix textPinMatrix = new android.graphics.Matrix();
     /** The bend, shared with the preview — see SpriteMeshDraw. */
+    /** The text bend, shared with the preview — see CornerPinTextView.meshBend. */
+    private final com.fadcam.ui.faditor.sprite.SpriteMeshDraw textMeshDraw =
+            new com.fadcam.ui.faditor.sprite.SpriteMeshDraw();
+    private final android.graphics.RectF textMeshRect = new android.graphics.RectF();
+
     private final com.fadcam.ui.faditor.sprite.SpriteMeshDraw spriteMeshDraw =
             new com.fadcam.ui.faditor.sprite.SpriteMeshDraw();
     /** EXPORT COST INSTRUMENTATION: how much of an export this clip's overlay pass actually is. */
@@ -785,6 +790,33 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 com.fadcam.ui.faditor.overlay.TextBoxRenderer.measure(o, shown, fontPx, size);
                 canvas.save();
                 canvas.rotate(rot, cx, cy);
+                // BEND, through the SAME SpriteMeshDraw the preview's CornerPinTextView calls —
+                // one rasterise-and-warp for every type that bends on a Canvas, so a bent text box
+                // here cannot disagree with the one on screen. The pin goes INSIDE the bend on
+                // both surfaces; a box can be pinned and bent at once.
+                if (o.hasMesh()) {
+                    textMeshRect.set(cx - size[0] / 2f, cy - size[1] / 2f,
+                            cx + size[0] / 2f, cy + size[1] / 2f);
+                    final float fpx = fontPx;
+                    boolean bent = textMeshDraw.draw(canvas, o.getMesh(),
+                            o.meshLocalTime(timelineMs), textMeshRect,
+                            (c, into) -> {
+                                c.save();
+                                if (o.cornerPinMatrix(textPinMatrix, timelineMs,
+                                        into.left, into.top, into.width(), into.height())) {
+                                    c.concat(textPinMatrix);
+                                }
+                                com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(c, o, shown,
+                                        into.left, into.top, fpx, timelineMs,
+                                        projectDurationMs, true, opacity);
+                                c.restore();
+                            }, null);
+                    if (bent) {
+                        canvas.restore();
+                        drawnText++;
+                        continue;
+                    }
+                }
                 // SPEC ZC — the text corner pin, built by the SAME method the preview calls
                 // (TextOverlayItem.cornerPinMatrix) and concat-ed at the SAME point: inside the
                 // rotate, immediately around the draw below. An undistorted box takes the

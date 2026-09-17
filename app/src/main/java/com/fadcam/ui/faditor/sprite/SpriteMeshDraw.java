@@ -92,8 +92,24 @@ public final class SpriteMeshDraw {
      */
     public boolean draw(@NonNull Canvas canvas, @NonNull SpriteOverlayItem o, long timelineMs,
                         @NonNull RectF dest, @NonNull Content content, @Nullable Paint paint) {
-        if (!o.hasMesh()) return false;
-        MeshWarpSpec spec = o.getMesh();
+        return o.hasMesh() && draw(canvas, o.getMesh(), o.meshLocalTime(timelineMs),
+                dest, content, paint);
+    }
+
+    /**
+     * The same bend, for anything that can draw itself onto a Canvas.
+     *
+     * <p>Generalised 2026-09-16 so TEXT could bend without a second implementation. The sprite
+     * overload above is now a two-line adapter, and both types — plus anything that follows —
+     * share ONE rasterise-and-warp, which is what keeps a bent text box in the preview identical
+     * to the one in the export: both surfaces call this method.
+     *
+     * @param spec    the item's mesh, or null for nothing to do
+     * @param localMs the item's OWN clock, already resolved by the caller. Passed rather than
+     *                derived, because only the caller knows which item's clock applies.
+     */
+    public boolean draw(@NonNull Canvas canvas, @Nullable MeshWarpSpec spec, long localMs,
+                        @NonNull RectF dest, @NonNull Content content, @Nullable Paint paint) {
         if (spec == null) return false;
         MeshTopology topo = spec.topology();
         // Only a LATTICE exposes a continuous map to sample. A puppet solve has solved VERTICES
@@ -105,7 +121,7 @@ public final class SpriteMeshDraw {
 
         int arity = topo.handleArity();
         if (pose.length != arity) pose = new float[arity];
-        if (!spec.handlesAt(o.meshLocalTime(timelineMs), pose)) return false;
+        if (!spec.handlesAt(localMs, pose)) return false;
         if (LatticeDeformer.isIdentityPose(pose)) return false;
 
         float dw = dest.width(), dh = dest.height();

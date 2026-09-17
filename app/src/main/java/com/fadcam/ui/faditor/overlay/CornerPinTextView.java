@@ -150,6 +150,14 @@ public class CornerPinTextView extends TextBoxView {
 
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
+        // BEND FIRST, if there is one. A mesh is a warp of the drawn PICTURE, so unlike the pin it
+        // cannot stay on glyph outlines — the box is rasterised once and the lattice moves the
+        // raster. That costs the vector sharpness the pin deliberately keeps, which is why the two
+        // are separate features and why an unbent box never touches this path.
+        //
+        // The editor is suppressed here for the same reason the pin is: a caret drawn through a
+        // warp does not land where the finger is.
+        if (!hasEditor() && meshBend(canvas)) return;
         if (!usesMatrix()) {
             // THE FAST PATH — unchanged TextBoxView behaviour for every text box that has never
             // been pinned. Same renderer, same arguments, same inset.
@@ -176,5 +184,39 @@ public class CornerPinTextView extends TextBoxView {
         TextBoxRenderer.draw(canvas, snapItem, snapText, inset, inset, snapFontPx, snapMediaMs,
                 snapProjectDurationMs, snapAnimate, snapObjectAlpha, snapSelStart, snapSelEnd);
         canvas.restore();
+    }
+
+    /** Shared with the export — see {@code CompositeExportOverlay}'s text branch. */
+    private final com.fadcam.ui.faditor.sprite.SpriteMeshDraw meshDraw =
+            new com.fadcam.ui.faditor.sprite.SpriteMeshDraw();
+    private final android.graphics.RectF meshRect = new android.graphics.RectF();
+
+    /**
+     * Draw this box BENT, or return false and let the ordinary path run.
+     *
+     * <p>The pin is applied INSIDE the bend, exactly as it is on the unbent path and exactly as
+     * the export does it: a box can be pinned and bent at once, and the order has to be the same
+     * on both surfaces or the two disagree the moment anyone uses both.
+     */
+    private boolean meshBend(@NonNull Canvas canvas) {
+        if (snapItem == null || !snapItem.hasMesh()) return false;
+        final float inset = boxInsetPx();
+        final float w = getWidth() - inset * 2f;
+        final float h = getHeight() - inset * 2f;
+        if (!(w > 1f) || !(h > 1f)) return false;
+        meshRect.set(inset, inset, inset + w, inset + h);
+        return meshDraw.draw(canvas, snapItem.getMesh(),
+                snapItem.meshLocalTime(snapMediaMs), meshRect,
+                (c, into) -> {
+                    c.save();
+                    if (snapItem.cornerPinMatrix(pinMatrix, snapMediaMs,
+                            into.left, into.top, into.width(), into.height())) {
+                        c.concat(pinMatrix);
+                    }
+                    TextBoxRenderer.draw(c, snapItem, snapText, into.left, into.top, snapFontPx,
+                            snapMediaMs, snapProjectDurationMs, snapAnimate, snapObjectAlpha,
+                            snapSelStart, snapSelEnd);
+                    c.restore();
+                }, null);
     }
 }

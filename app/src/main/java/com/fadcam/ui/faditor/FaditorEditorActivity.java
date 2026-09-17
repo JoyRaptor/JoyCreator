@@ -25264,10 +25264,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // would have silently changed somebody's minimum by 2x.
                 0.02f,
                 () -> resetTextGeometry(o)), roles);
-        v.setAffineOnly(true);
-        // SPEC H — text stays bend-free: no pin/mesh render path in either surface.
-        v.setBendAvailable(false);
-        v.setBendVisible(false);
+        // TEXT BENDS, 2026-09-16. SPEC H's note above said "no pin/mesh render path in either
+        // surface" and both halves of that have since been built: SPEC ZC gave text the corner
+        // pin, and the mesh now goes through the SAME SpriteMeshDraw the sprite uses, called by
+        // CornerPinTextView in the preview and CompositeExportOverlay in the export.
+        //
+        // affineOnly stays OFF now, or the bend handles have nothing to attach to.
+        v.setAffineOnly(false);
+        v.setBendAvailable(true);
+        v.setBendVisible(true);
         v.setOnDoubleTap(() -> showTextOverlayEditor(o));
         v.bringToFront();
         v.refresh();

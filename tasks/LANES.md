@@ -793,3 +793,24 @@ UI ONLY. The back end is the other lane (SPEC_20260904_PUPPET_ARCHITECTURE, stag
 landed at 71ab51f3). Two contracts cross the boundary and are written up in §5 of the spec:
 per-handle key writes (MeshPoseTrack is whole-pose only by design and must not stay that way
 for puppets), and chain-atomic simplify/blend/undo.
+
+---
+
+## LANE: STUDIO VISUAL REDESIGN — state colours, ground, drawer scrim
+**CLAIMED 2026-09-17T19:15 (Claude/Opus 5, joy-creator)**
+Design records 01–06 (artifacts). Backup: tag `pre-studio-redesign-20260917`,
+branch `backup/pre-studio-redesign-20260917`.
+
+FILES LOCKED:
+- `app/src/main/java/com/fadcam/ui/faditor/timeline/EditorTimelineView.java` (colour constants only)
+- `app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java` (lane band values only)
+- `app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteTheme.java` (BG constant)
+- `app/src/main/res/layout/activity_faditor_editor.xml` (tool cell width, transport)
+
+RULE ADOPTED THIS LANE: selected = CYAN ring, live = PINK, careful = AMBER,
+destroys = RED. Object colour is a FILL and never a ring; a state colour is a
+RING and never a fill. Settles the sprite-amber / warn-amber collision by form.
+
+NOT DOING: the playhead does NOT become flat pink. `resolvePlayheadContextColor()`
+already tints it by the selected object's kind, which is better than the design
+record proposed. Pink replaces WHITE as the neutral default only.

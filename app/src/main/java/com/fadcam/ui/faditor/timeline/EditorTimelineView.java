@@ -127,17 +127,25 @@ public class EditorTimelineView extends View {
     /** Sprocket perforations punched along the film rails. */
     private static final int COLOR_FILM_SPROCKET  = 0xFF2A2A32;
     private static final int COLOR_SEGMENT        = 0xFF2D2D2D;
-    private static final int COLOR_SEGMENT_SEL    = 0xFF1B3A20;
-    private static final int COLOR_BORDER_SEL     = 0xFF4CAF50;
-    /** Selected-transition outline — blue, to distinguish from green clip selection. */
+    private static final int COLOR_SEGMENT_SEL    = 0xFF0E333C; // SELECTED fill — cyan family (was green 0xFF1B3A20)
+    /** SELECTED = cyan, everywhere in the app. A state is a RING; an object colour is a FILL. */
+    private static final int COLOR_BORDER_SEL     = 0xFF22D3EE;
+    /** Selected-transition outline — blue, so a selected TRANSITION is still distinct from a
+     *  selected CLIP now that clip selection is cyan. Revisit if the two ever read alike. */
     private static final int COLOR_TRANSITION_SEL = 0xFF2196F3;
-    private static final int COLOR_HANDLE         = 0xFF4CAF50;
-    private static final int COLOR_HANDLE_NOTCH   = 0xBB1B5E20;
-    private static final int COLOR_PLAYHEAD       = 0xFFFFFFFF;
+    private static final int COLOR_HANDLE         = 0xFF22D3EE; // trim handles follow the selection colour
+    private static final int COLOR_HANDLE_NOTCH   = 0xBB0B3A44;
+    /**
+     * NEUTRAL playhead = LIVE pink, matching Sprite Lab's "this is what is showing now".
+     * This is only the fallback: {@link #resolvePlayheadContextColor()} still tints the head
+     * by the SELECTED OBJECT's kind, which is more informative and predates this change.
+     * Do not flatten that away.
+     */
+    private static final int COLOR_PLAYHEAD       = 0xFFF43F8E;
     private static final int COLOR_LABEL          = 0xBBFFFFFF;
-    private static final int COLOR_DRAG_GHOST     = 0x664CAF50;
+    private static final int COLOR_DRAG_GHOST     = 0x6622D3EE;
     private static final int COLOR_AUDIO_BG       = 0xFF1E2A1E;
-    private static final int COLOR_AUDIO_BG_SEL   = 0xFF1B3A20;
+    private static final int COLOR_AUDIO_BG_SEL   = 0xFF0E333C; // selected audio fill — cyan family
     private static final int COLOR_AUDIO_WAVE     = 0xFF4CAF50;
     private static final int COLOR_AUDIO_WAVE_MUTED = 0xFF555555;
     private static final int COLOR_AUDIO_WAVE_DIM = 0x404CAF50; // Faded version for mirror half

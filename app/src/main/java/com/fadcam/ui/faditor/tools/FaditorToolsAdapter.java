@@ -804,8 +804,11 @@ public class FaditorToolsAdapter {
 
         TextView label = new TextView(context);
         label.setId(tool.labelViewId);
+        // Autosize is IGNORED when the autosized dimension is WRAP_CONTENT (documented
+        // AppCompat behaviour), so "Transcript" was clipped mid-word rather than shrunk.
+        // A bounded height is what makes the 7-11sp range actually engage.
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                dp(64), ViewGroup.LayoutParams.WRAP_CONTENT);
+                dp(68), dp(14));
         labelLp.topMargin = dp(2);
         label.setLayoutParams(labelLp);
         label.setText(tool.label);

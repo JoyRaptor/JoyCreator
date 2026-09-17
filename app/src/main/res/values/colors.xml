@@ -88,4 +88,22 @@
     <!-- The in-canvas text editor's caret, selection handles and selection wash. One value so
          the native chrome and the renderer-drawn band cannot drift to two different purples. -->
     <color name="faditor_text_selection_accent">#B388FF</color>
+
+    <!-- ============================================================
+         STUDIO SCRIM (design record 06, 2026-09-17)
+         Drawers float over the user's footage, so they are TINTED, never solid.
+         Measured to WCAG 2.1 against a blown-out frame (#FFD07A):
+             black 64%  ->  body ink 6.63:1, dim 5.12:1, 8dp label 4.86:1
+             the previous #F0121212 was effectively opaque; a WHITE tint,
+             which is what "frosted" looks like in a mockup, measured 1.09:1
+             and would have been invisible outdoors.
+         True backdrop blur is RenderEffect, API 31+. minSdk here is 24 and the
+         test phone is API 29, so TINT is the universal baseline; blur can be
+         layered on later where the API exists.
+         ============================================================ -->
+    <color name="faditor_drawer_scrim">#A3000000</color>
+    <!-- Ink measured against the scrim above. Do not darken these without re-measuring. -->
+    <color name="faditor_drawer_ink">#F2F2F5</color>
+    <color name="faditor_drawer_dim">#C9C9D3</color>
+    <color name="faditor_drawer_label">#C4C4CE</color>
 </resources>

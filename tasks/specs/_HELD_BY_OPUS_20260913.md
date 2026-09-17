@@ -43,6 +43,37 @@ Two known traps recorded on 2026-09-13:
 
 ## 3. SPEC ZD — wire PiP and spine warps into the shaders
 
+### 2026-09-16 — the finding that makes this tractable, and the trap it avoids
+
+**Do NOT route video through `MeshStampGl`.** Its shader samples a `sampler2D`, and the two
+surfaces do not agree on the texture target:
+
+* PREVIEW binds `GL_TEXTURE_EXTERNAL_OES` for a live PiP — `FxPreviewTextureView:2672`.
+* EXPORT receives a plain `GL_TEXTURE_2D` from media3.
+
+Serving both through the stamp means an OES variant of the mesh shader, the decoder's texture
+transform threaded into it, and two shaders that must agree forever. That is precisely the
+"looks finished while the two disagree by a y-flip" failure this sheet was written about.
+
+**The cheap way in: bend the GEOMETRY, not the sampler.** Both surfaces already draw the PiP as a
+QUAD through their own shader. A lattice bend is a displacement of vertex POSITIONS; the UVs are
+unchanged, because a warp moves where a texel lands, not which texel is read. So:
+
+* emit a grid of vertices instead of four corners,
+* displace each position by `LatticeDeformer.eval` (the same authority `SpriteMeshDraw` samples),
+* leave the UVs, the sampler, and both shaders **completely untouched**.
+
+Neither surface needs a shader edit, so neither can drift from the other in the way this sheet
+fears — and it works for OES and 2D identically because it never touches sampling. The shared
+piece is one vertex generator; both draws call it, the way both text surfaces now call
+`SpriteMeshDraw`.
+
+Still requires both draw paths edited together and a device pass. It is no longer a shader
+problem, which is what made it a held item.
+
+### (original)
+
+
 **Why held: preview/export parity is the top-severity bug class in this repo, and this is the one
 place both sides must be edited at once.**
 

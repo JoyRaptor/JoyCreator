@@ -1,5 +1,27 @@
 # INBOX
 
+## 2026-09-16 — the grab bar was never broken, and what that should teach us
+
+JoyRaptor: *"my ability to adjust the size of the timeline to preview ratio has been broken... I
+can't grab the handle."* Two earlier sessions guessed at causes and defended against them. The
+third left a diagnostic instead, and one press answered it: 71 moves arrived, every one applied
+what it asked for, the drag ended at 126.6dp — and the next gesture started at 140.
+
+A 32dp snap radius around a 140dp detent is a **64dp dead zone around the position the timeline
+normally sits at.** Every smaller adjustment was applied, felt, then undone on release.
+
+The lesson is the diagnostic, not the fix. Two guesses cost two sessions; the instrumented
+version cost one press. When a report is "it does nothing", log what the code actually computed
+before theorising about why.
+
+## 2026-09-16 — ZA_CONTROL's timestamp was disturbed
+
+Opening the project list on the sandbox and tapping a row by coordinate, I landed on ZA_CONTROL
+instead of ZA_VERIFY and opened it (22:04). Content was not edited and nothing was saved
+deliberately, but it is a CONTROL project for the ZA lane and its recents timestamp has moved.
+Flagging rather than tidying — if that lane needs a pristine control, check it.
+
+
 ## 2026-09-16 — one command for the phone, wired or wireless
 
     bash tools/phone.sh deploy --build

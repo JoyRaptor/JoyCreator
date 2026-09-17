@@ -14134,10 +14134,36 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Snap radius (dp): within this of a detent on release → snap; further out keeps the free-drag split. */
     private static final float TIMELINE_BAND_SNAP_RADIUS_DP = 32f;
 
-    /** G6.2: nearest detent to {@code dp} within {@link #TIMELINE_BAND_SNAP_RADIUS_DP}, else {@code dp} unchanged. */
-    private float snapTimelineBandToDetent(float dp) {
+    /**
+     * Movement below this is jitter, not a drag — a finger resting on the bar. Snapping back to
+     * where it started is the right answer there, and only there.
+     */
+    private static final float TIMELINE_BAND_NUDGE_DP = 4f;
+
+    /**
+     * G6.2: nearest detent to {@code dp} within {@link #TIMELINE_BAND_SNAP_RADIUS_DP}, else
+     * {@code dp} unchanged — EXCEPT the detent the drag started on.
+     *
+     * <p>JoyRaptor, 2026-09-16: <i>"my ability to adjust the size of the timeline to preview ratio
+     * has been broken... I can't grab the handle."</i> The bar was never dead. Its own diagnostic
+     * proved that on his phone: 71 moves, baseline 40dp, ended at 126.6dp, applied exactly what was
+     * asked with no clamp refusing it. Then the next gesture began at 140.
+     *
+     * <p>140 is a detent and the snap radius is 32dp, so there was a <b>64dp-wide dead zone around
+     * the very position the timeline normally sits at</b>. Every adjustment smaller than that was
+     * applied, felt, and then silently undone on release — which is indistinguishable from a
+     * handle that does not work, and is worse, because the picture moves under the finger first.
+     *
+     * <p>So a detent no longer catches a drag that LEFT it. Crossing to a different detent still
+     * snaps, which is what detents are for; returning to the one you deliberately dragged away
+     * from is just cancelling the gesture. A nudge below {@link #TIMELINE_BAND_NUDGE_DP} is still
+     * snapped, because that one really is a resting finger.
+     */
+    private float snapTimelineBandToDetent(float dp, float fromDp) {
+        boolean deliberate = Math.abs(dp - fromDp) > TIMELINE_BAND_NUDGE_DP;
         float best = dp, bestDist = TIMELINE_BAND_SNAP_RADIUS_DP;
         for (float d : TIMELINE_BAND_DETENTS_DP) {
+            if (deliberate && Math.abs(fromDp - d) < 0.5f) continue;   // the one it started on
             float dist = Math.abs(dp - d);
             if (dist < bestDist) { bestDist = dist; best = d; }
         }
@@ -14281,7 +14307,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // G6.2 (contract §5): snap the released split to the nearest sensible detent
                         // (video-dominant / balanced / timeline-dominant) when close; free-drag
                         // positions further from any detent are kept as-is.
-                        float snapped = snapTimelineBandToDetent(editorTimeline.getLayerBandMaxHeightDp());
+                        float snapped = snapTimelineBandToDetent(
+                                editorTimeline.getLayerBandMaxHeightDp(), baselineDp);
                         if (snapped != editorTimeline.getLayerBandMaxHeightDp()) {
                             editorTimeline.setLayerBandMaxHeightDp(snapped, false);
                             v.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
@@ -15976,6 +16003,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     .effectivePreviewVolume(timeline, ac);
             try { audioPlayers.get(ai).setVolume(v, v); } catch (Exception ignored) { }
         }
+        // AND THE PiPs. JoyRaptor, 2026-09-16: "muted lane didn't mute."
+        //
+        // A lane can hold a picture-in-picture video as well as audio clips, and this method
+        // only ever walked the audio clips — so muting a lane holding a PiP silenced nothing
+        // and the row's mute glyph became a straight lie. The VALUE was already right:
+        // LayerPreviewController.effectiveOverlayVolume has consulted isOverlayClipLaneMuted
+        // since SPEC_PIP_AUDIO, and that method's own doc says it exists precisely so that
+        // "a muted lane would silence its audio clips but NOT its PiPs" could stop being true.
+        // Only the live push was missing, so the mute took effect at the next re-bind — a seek,
+        // a scrub, a reopen — which is indistinguishable from "it did not work".
+        if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
     }
 
     /**

@@ -23,8 +23,14 @@ QUIET=0
 [ "${1:-}" = "--quiet" ] && QUIET=1
 say() { [ "$QUIET" = "1" ] || echo "$@"; }
 
-# Already good? An offline entry is worse than none — drop it first.
-online="$("$ADB" devices | awk '/\tdevice$/{print $1; exit}')"
+# Already good? Only a WIRELESS entry counts - one with a colon in it, because a wireless
+# adb serial is ip:port while a USB one is the hardware serial.
+#
+# This used to accept ANY ready device, which is wrong the moment both phones are attached:
+# asking for a wireless connection with the sandbox phone on USB answered "already connected:
+# <usb serial>" and exited 0, so the caller went on to talk to the wrong phone. Found
+# 2026-09-16 trying to read the Note 20's logs while the Note 9 sat on the cable.
+online="$("$ADB" devices | awk '/	device$/{print $1}' | grep ':' | head -1)"
 if [ -n "$online" ]; then
   say "already connected: $online"
   [ "$QUIET" = "1" ] && echo "$online"

@@ -73,9 +73,10 @@ Audit of the editor, 2026-09-18:
 - [x] Film spine reads as film on near-black (rail lifted, holes darkened, cut edge)
 - [x] Image + sprite blocks: no header glyph, the image IS the badge
 - [x] Canvas selection box cyan over a dark halo; handle role colours untouched
-- [ ] Contextual tool row — NOT blocked technically. It conflicts with the existing
-      user-owned pin + usage-recency order. Resolution: contextual tools insert at
-      the FRONT, pinned tools hold position, recency absorbs the shuffle
+- [x] Contextual tool row — built. Context sorts ONLY the unpinned section, so pinned
+      tools never move. Device-verified: selecting an audio object left everything to
+      the left of the divider byte-identical and swapped the right-hand section to
+      Extract audio / Sound / Clean.
 
 ## C. Lobby
 
@@ -105,8 +106,9 @@ Owner, 2026-09-18: his icon is white, but at large sizes and in chat he becomes 
 intended entrance: *he greets you as claymation, then flies up into the corner and
 flattens into the white icon.*
 
-- [ ] `JoybotView` must be able to host a FRAME SEQUENCE, not just the two stills,
-      without the call sites changing
+- [x] `JoybotView` hosts a FRAME SEQUENCE via `JoybotFilm` + `playThenFlatten`, with
+      every existing call site unchanged. Awaiting the real spritesheets — the cell
+      grid and the authored fps are constructor arguments, not guesses.
 - [x] Two stills registered on his HANDS — scaled to a common hand span the smiling
       head is 246×295 vs the neutral's 231×319, wider and shorter at the same area,
       which is squash and stretch. Anchoring the crown destroys that

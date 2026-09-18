@@ -2,6 +2,7 @@ package com.fadcam.ui.faditor.tools;
 
 import android.content.Context;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.NonNull;
 
 import com.fadcam.Constants;
@@ -175,7 +176,25 @@ public final class FaditorToolPrefs {
      * adapter and never counted for the divider.</p>
      */
     @NonNull
+    /**
+     * The row, ordered, with no selection context. Keeps the old signature working.
+     */
     public List<FaditorTool> resolveOrder(@NonNull List<FaditorTool> canonical) {
+        return resolveOrder(canonical, null);
+    }
+
+    /**
+     * The row, ordered, with the selected object's kind taken into account.
+     *
+     * <p>Context touches ONLY the unpinned section. See {@link ToolContext} for why: the
+     * pinned half is the half the user arranged, and a contextual row that moves it trades a
+     * small convenience for the thing they actually own.
+     *
+     * @param context tool ids relevant to the current selection, most relevant first, or
+     *                null when nothing is selected
+     */
+    public List<FaditorTool> resolveOrder(@NonNull List<FaditorTool> canonical,
+                                          @Nullable List<String> context) {
         Map<String, FaditorTool> byId = new HashMap<>();
         List<String> visibleIds = new ArrayList<>();
         List<FaditorTool> hidden = new ArrayList<>();
@@ -200,7 +219,22 @@ public final class FaditorToolPrefs {
         for (String id : visibleIds) {
             if (!result.contains(id)) body.add(id);
         }
+        // Relevance first, then recency, then the canonical order.
+        //
+        // Three keys rather than two, and the order of the keys is the whole design. A tool
+        // the current selection can act on sorts ahead of one it cannot; WITHIN each of
+        // those groups the existing recency order is untouched, so a user who has trained
+        // the row by using it keeps that training and simply sees the applicable end of it
+        // first. Nothing is hidden — an irrelevant tool is further along, never gone.
+        final Map<String, Integer> rank = new HashMap<>();
+        if (context != null) {
+            for (int i = 0; i < context.size(); i++) rank.put(context.get(i), i);
+        }
+        final int unranked = Integer.MAX_VALUE;
         body.sort((a, b) -> {
+            int ra = rank.getOrDefault(a, unranked);
+            int rb = rank.getOrDefault(b, unranked);
+            if (ra != rb) return Integer.compare(ra, rb);
             long ta = recency.getOrDefault(a, 0L);
             long tb = recency.getOrDefault(b, 0L);
             if (ta != tb) return Long.compare(tb, ta); // most recent first

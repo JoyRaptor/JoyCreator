@@ -1198,11 +1198,43 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * NOT install any handlers itself (that stays in the existing code paths
      * to preserve behaviour 1:1, including the mute/opacity touch listeners).
      */
+    /** The registry's list, kept so the row can be re-ordered without rebuilding it. */
+    private java.util.List<com.fadcam.ui.faditor.tools.FaditorTool> toolCanonical;
+    /** The kind the row is currently ordered for, so an unchanged selection costs nothing. */
+    @Nullable private com.fadcam.ui.faditor.layers.TrackKind toolContextKind;
+
+    /**
+     * Re-order the tool row for what is selected.
+     *
+     * <p>JoyRaptor: <i>"Not sure what the blocker is on contextual tool row is."</i> There
+     * wasn't one — I had used "pins" for two different things. His are the mesh-warp and
+     * puppet control points; the ones I meant are TOOL pins, which is the existing feature
+     * that lets him pin a tool to the front of this row and drag to reorder.
+     *
+     * <p>The real conflict was ownership, and it is resolved by where the sort applies:
+     * context re-orders ONLY the unpinned section. Pinned tools never move. The unpinned
+     * section already re-orders itself by recency as he works, so re-ordering there is
+     * behaviour the row has, not behaviour he has to learn. See {@link
+     * com.fadcam.ui.faditor.tools.ToolContext}.
+     *
+     * <p>Guarded on the kind rather than on the selected id: selecting a second text object
+     * does not change which tools are relevant, and rebuilding the row on every tap would
+     * make the thing flicker for no information gain.
+     */
+    private void applyToolContext(@Nullable com.fadcam.ui.faditor.layers.TrackKind kind) {
+        if (toolsAdapter == null || toolPrefs == null || toolCanonical == null) return;
+        if (kind == toolContextKind) return;
+        toolContextKind = kind;
+        toolsAdapter.setTools(toolPrefs.resolveOrder(
+                toolCanonical, com.fadcam.ui.faditor.tools.ToolContext.relevantTo(kind)));
+    }
+
     private void buildToolsCarousel() {
         LinearLayout row = findViewById(R.id.faditor_tools_row);
         if (row == null) return;
         java.util.List<com.fadcam.ui.faditor.tools.FaditorTool> canonical =
                 com.fadcam.ui.faditor.tools.FaditorToolRegistry.defaultTools(this);
+        toolCanonical = canonical;
         toolPrefs = new com.fadcam.ui.faditor.tools.FaditorToolPrefs(this);
         // Stage 3: resolve the persisted order (pins + manual/recent) up front.
         java.util.List<com.fadcam.ui.faditor.tools.FaditorTool> ordered =
@@ -16539,6 +16571,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // in the preview; deselect (or selecting a type without a handles
                 // target yet) hides them.
                 updatePreviewHandlesForSelection(item);
+                // The tool row follows the selection. This is the right place for it and
+                // the FX-drawer sites were not: opening a drawer is DOWNSTREAM of selecting,
+                // so hooking it would only reorder the row once you had already navigated to
+                // the thing the reorder exists to help you reach.
+                applyToolContext(item == null ? null
+                        : com.fadcam.ui.faditor.layers.ObjectPalette.payloadKindOf(
+                                item, track != null ? track.getKind()
+                                        : com.fadcam.ui.faditor.layers.TrackKind.VIDEO));
                 // G7 (contract §6/§7): first-ever selection teaches the invisible
                 // per-item gestures (double-tap / hold / drag) once.
                 if (item != null) maybeShowGestureCoachMark();

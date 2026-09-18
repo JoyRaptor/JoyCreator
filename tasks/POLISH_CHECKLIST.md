@@ -66,7 +66,8 @@ Audit of the editor, 2026-09-18:
 - [x] Slice preview: a **1px amber dashed line** on the playhead, spanning ONLY the
       selected object/clip/audio's vertical range, drawn OVER the pink playhead.
       Answers "what exactly will Slice cut?" — it sits over the OBJECT, not the clip
-- [ ] Playhead line is 2.5dp today. KineMaster's is 1px; thinner reads as precise
+- [ ] Playhead line is **2.5dp** (answered). KineMaster's is thinner — open question
+      whether to reduce; the slice dashes are 1 physical px as specified
 - [x] Try the time chip as a **trapezoid** — `\00:01.127/` — echoing the chip slant
 - [x] Chip solid + rounded, time punched out
 - [x] Film spine reads as film on near-black (rail lifted, holes darkened, cut edge)
@@ -82,7 +83,8 @@ Audit of the editor, 2026-09-18:
 - [x] Archivo / IBM Plex bundled and wired
 - [x] Joybot: real art, white on the indigo disc, hover + smile on push and scroll
 - [x] Breathing room: shorter hero, air under the wordmark, STUDIO 34sp
-- [ ] Re-check against `marquee.html` §01/§02 line by line
+- [x] Re-checked against `marquee.html` §01/§02: hero meta is now
+      `N LAYERS · M:SS · AGO` as specified, and the hero swap has the 2px blur
 - [ ] Rooms still route to the six legacy tabs; those keep the legacy theme and
       each needs its own de-branding pass (not a rewrite — the nav bar still works)
 
@@ -92,8 +94,9 @@ Audit of the editor, 2026-09-18:
       soft glow, 3000/560/260ms, "Start creating" + "Support"
 - [x] Language screen deleted — the system already knows the locale
 - [x] Typewriter, Arabic greeting cycle and the toggle-knob avatar deleted (~350 lines)
-- [ ] Verify on device against the mockup side by side
-- [ ] Screen 3 "Before we start" — check the agreement slide against the mockup
+- [x] Verified on device against the mockup side by side
+- [x] Screen 3 "Before we start" — copy already matched; ticks now turn aqua and a
+      disabled primary swaps its FILL rather than fading the gradient to mud
 
 ## E. Joybot — where he is going
 

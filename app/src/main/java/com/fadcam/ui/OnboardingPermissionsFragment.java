@@ -324,7 +324,10 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
             
             if (isIgnoring) {
                 batteryOptButton.setEnabled(false);
-                batteryOptButton.setAlpha(0.5f);
+                // A quiet control that is also unavailable just loses its ink; it is
+                // already an outline, so there is no fill to take away.
+                batteryOptButton.setAlpha(1f);
+                batteryOptButton.setTextColor(0xFF52525B);
                 // Not permissions_granted: that is the PRIMARY button's text, and reusing
                 // it here put the same sentence on both controls at once.
                 batteryOptButton.setText(R.string.battery_optimization_off);

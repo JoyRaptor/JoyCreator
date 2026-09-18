@@ -33,6 +33,31 @@ public class OnboardingHumanFragment extends Fragment {
     private TextView titleText, descText;
 
     @Nullable
+
+    /**
+     * A ticked box is a STATE, and this app has exactly four state colours.
+     *
+     * <p>Both states were tinted white, so the only difference between agreed and not
+     * agreed was the glyph inside a 24dp square — which is a shape difference the eye has
+     * to go looking for. Ticking now turns the box the Studio's own aqua, which is the same
+     * colour the button below it is waiting to become: the three boxes visibly ADD UP to
+     * the control they unlock.
+     */
+    private static void tickTint(android.widget.ImageView v, boolean on) {
+        if (v == null) return;
+        v.setColorFilter(on ? 0xFF35F6BF : 0xFF52525B);
+    }
+
+    /** Swap a primary button's FILL for its availability, rather than fading it. */
+    private static void primaryState(com.google.android.material.button.MaterialButton b,
+                                     boolean on) {
+        if (b == null) return;
+        b.setAlpha(1f);
+        b.setBackgroundResource(on ? R.drawable.studio_action_pill
+                                   : R.drawable.studio_action_pill_off);
+        b.setTextColor(on ? 0xFF050507 : 0xFF52525B);
+    }
+
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.onboarding_human_slide, container, false);
@@ -57,7 +82,7 @@ public class OnboardingHumanFragment extends Fragment {
 
         // Set initial button state
         continueButton.setEnabled(false);
-        continueButton.setAlpha(0.6f);
+        primaryState(continueButton, false);
 
         // Get the redPastel color
         // A ticked box is a STATE, and this app has exactly four state colours.
@@ -66,13 +91,14 @@ public class OnboardingHumanFragment extends Fragment {
 
         View.OnClickListener update = view -> {
             continueButton.setEnabled(checked1 && checked2 && checked3);
-            continueButton.setAlpha((checked1 && checked2 && checked3) ? 1f : 0.6f);
+            primaryState(continueButton, checked1 && checked2 && checked3);
         };
 
         View.OnClickListener toggle1 = view -> {
             checked1 = !checked1;
             // Set the appropriate checkbox image and apply redPastel tint when checked
             icon1.setImageResource(checked1 ? R.drawable.placeholder_checkbox_checked : R.drawable.placeholder_checkbox_outline);
+            tickTint(icon1, checked1);
             if (checked1) {
                 // Apply redPastel tint to the checked checkbox
                 icon1.setColorFilter(redPastelColor, PorterDuff.Mode.SRC_IN);
@@ -87,6 +113,7 @@ public class OnboardingHumanFragment extends Fragment {
             checked2 = !checked2;
             // Set the appropriate checkbox image and apply redPastel tint when checked
             icon2.setImageResource(checked2 ? R.drawable.placeholder_checkbox_checked : R.drawable.placeholder_checkbox_outline);
+            tickTint(icon2, checked2);
             if (checked2) {
                 // Apply redPastel tint to the checked checkbox
                 icon2.setColorFilter(redPastelColor, PorterDuff.Mode.SRC_IN);
@@ -101,6 +128,7 @@ public class OnboardingHumanFragment extends Fragment {
             checked3 = !checked3;
             // Set the appropriate checkbox image and apply redPastel tint when checked
             icon3.setImageResource(checked3 ? R.drawable.placeholder_checkbox_checked : R.drawable.placeholder_checkbox_outline);
+            tickTint(icon3, checked3);
             if (checked3) {
                 // Apply redPastel tint to the checked checkbox
                 icon3.setColorFilter(redPastelColor, PorterDuff.Mode.SRC_IN);
@@ -188,7 +216,7 @@ public class OnboardingHumanFragment extends Fragment {
             
             // Reset button state to match current checkbox status
             continueButton.setEnabled(checked1 && checked2 && checked3);
-            continueButton.setAlpha((checked1 && checked2 && checked3) ? 1f : 0.6f);
+            primaryState(continueButton, checked1 && checked2 && checked3);
         }
         
         // Force layout refresh to fix any RTL/LTR issues

@@ -148,6 +148,73 @@ public final class Motion {
     }
 
     /**
+     * Swap a PICTURE, softly.
+     *
+     * <p>The lobby mockup specifies this exactly: <i>"the hero cross-fades on the real
+     * curve, with a 2px blur through the swap so two states never read as two states."</i>
+     *
+     * <p>The blur is doing something a plain cross-fade cannot. Halfway through a straight
+     * dissolve both images are at 50% and BOTH are still legible, so for a few frames the
+     * screen is showing two different photographs at once and the eye tries to read them as
+     * one. Taking the detail out through the middle removes anything to read, so the swap
+     * lands as one picture becoming another rather than as two pictures overlapping.
+     *
+     * <h3>Two implementations, because the blur is not available where it is needed most</h3>
+     * {@link android.graphics.RenderEffect} is API 31. This app's minSdk is 24 and the
+     * device this was designed on runs API 29, so on the machine the design was judged
+     * against the real blur does not exist at all.
+     *
+     * <p>The fallback is a scale, not a cheaper blur. Blurring a bitmap by hand — a
+     * downscale-and-upscale, or the old RenderScript path — costs a full-screen allocation
+     * twice per swap on the main thread, for an effect that is on screen for 130ms. A 3%
+     * scale-up through the midpoint achieves the same PURPOSE by a different means: it
+     * makes the outgoing frame stop matching the incoming one geometrically, so the two
+     * cannot be read as a single image even while both are partly visible.
+     */
+    public static void swapPicture(@NonNull View v, long durationMs,
+                                   @NonNull Runnable applyNewContent) {
+        if (reduced(v.getContext())) { applyNewContent.run(); return; }
+        v.animate().cancel();
+        final long half = Math.max(1L, durationMs / 2);
+
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            blur(v, 2f * v.getResources().getDisplayMetrics().density);
+        } else {
+            v.setScaleX(1f);
+            v.setScaleY(1f);
+        }
+
+        v.animate().alpha(0f)
+                .scaleX(1.03f).scaleY(1.03f)
+                .setDuration(half).setInterpolator(EASE_IN_OUT)
+                .withEndAction(() -> {
+                    applyNewContent.run();
+                    v.setAlpha(0f);
+                    v.animate().alpha(1f)
+                            .scaleX(1f).scaleY(1f)
+                            .setDuration(half).setInterpolator(EASE_IN_OUT)
+                            // Clear the effect only when the motion is over. Clearing it at
+                            // the midpoint would snap the incoming frame into focus the
+                            // instant it appeared, which is the hard cut this exists to
+                            // avoid, just moved half a beat later.
+                            .withEndAction(() -> blur(v, 0f))
+                            .start();
+                }).start();
+    }
+
+    private static void blur(@NonNull View v, float radiusPx) {
+        if (android.os.Build.VERSION.SDK_INT < 31) return;
+        try {
+            v.setRenderEffect(radiusPx <= 0f ? null
+                    : android.graphics.RenderEffect.createBlurEffect(
+                            radiusPx, radiusPx, android.graphics.Shader.TileMode.CLAMP));
+        } catch (Throwable ignored) {
+            // A view without a hardware layer cannot take a RenderEffect. The scale still
+            // carries the swap, so there is nothing to fall back to and nothing to report.
+        }
+    }
+
+    /**
      * Fade-and-rise a view in, optionally after a stagger.
      *
      * <p>Rise is 6dp, not 20: a big travel on a list of cards reads as the page assembling

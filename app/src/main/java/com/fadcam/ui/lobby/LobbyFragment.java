@@ -375,7 +375,10 @@ public class LobbyFragment extends BaseFragment {
                 // The hero CROSS-FADES rather than cutting. Movement would imply the old
                 // room's content went somewhere you could scroll back to; a fade says it
                 // simply became something else, which is what actually happened.
-                Motion.swap(hero, Motion.HERO, this::paintHero);
+                // swapPicture, not swap: the hero is a PHOTOGRAPH, and a straight
+                // dissolve leaves both frames legible at the midpoint. See the mockup —
+                // "so two states never read as two states".
+                Motion.swapPicture(hero, Motion.HERO, this::paintHero);
             });
             Motion.press(t);
             marquee.addView(t);
@@ -1220,8 +1223,92 @@ public class LobbyFragment extends BaseFragment {
         }
     }
 
+    /**
+     * The hero's meta line: {@code 6 LAYERS · 0:47 · 2 HOURS AGO}.
+     *
+     * <p>The mockup specifies all three parts and the screen was shipping only the last
+     * one, which made the hero a picture with a timestamp rather than a picture with a
+     * project under it. Layers and duration are the two facts that tell you whether the
+     * thing you are about to reopen is the sketch or the real one.
+     *
+     * <h3>It reads a cache, never the disk</h3>
+     * Getting the first two means parsing the project's JSON, and this is called from
+     * {@code paintHero} — which runs on every marquee tick, so on the main thread several
+     * times a second. So the line renders immediately from whatever is already known and
+     * {@link #warmHeroMeta} fills the rest in from a background thread, repainting once
+     * when it lands. Until then the line is the age alone: thinner, but true.
+     *
+     * <p>That ordering is the point. JoyRaptor's rule for Joybot — "it never invents a
+     * number" — applies just as much here: a placeholder layer count that turns out to be
+     * wrong is worse than no layer count, because the wrong one gets believed.
+     */
     private String projectSub(ProjectStorage.ProjectSummary p) {
-        return ago(p.lastModified).toUpperCase(Locale.US);
+        String cached = heroMeta.get(p.id);
+        String age = ago(p.lastModified).toUpperCase(Locale.US);
+        warmHeroMeta(p);
+        return cached == null ? age : cached + " \u00b7 " + age;
+    }
+
+    /** project id -> "6 LAYERS \u00b7 0:47", once it has been read. */
+    private final java.util.Map<String, String> heroMeta = new java.util.HashMap<>();
+    private final java.util.Set<String> heroMetaInFlight = new java.util.HashSet<>();
+
+    /**
+     * Read one project's layer count and duration off the main thread.
+     *
+     * <p>Guarded by an in-flight set as well as by the cache, because the marquee ticks
+     * faster than a JSON parse completes — without it, four seconds of looking at the
+     * lobby would queue a dozen reads of the same file.
+     */
+    private void warmHeroMeta(ProjectStorage.ProjectSummary p) {
+        if (heroMeta.containsKey(p.id) || !heroMetaInFlight.add(p.id)) return;
+        final String id = p.id;
+        THUMB_IO.execute(() -> {
+            String line = null;
+            try {
+                com.fadcam.ui.faditor.model.FaditorProject proj =
+                        projectStorage.load(id);
+                if (proj != null && proj.getTimeline() != null) {
+                    com.fadcam.ui.faditor.model.Timeline t = proj.getTimeline();
+                    // "Layers" as the user counts them: everything stacked ON the spine.
+                    // The spine's own clips are the movie, not a layer of it.
+                    int layers = t.getOverlayClips().size()
+                            + t.getTextOverlays().size()
+                            + t.getSpriteOverlays().size()
+                            + t.getAudioClips().size()
+                            + t.getAdjustmentLayers().size()
+                            + t.getWaveformOverlays().size();
+                    long ms = t.getTotalDurationMs();
+                    StringBuilder sb = new StringBuilder();
+                    if (layers > 0) {
+                        sb.append(layers).append(layers == 1 ? " LAYER" : " LAYERS");
+                    }
+                    if (ms > 0) {
+                        if (sb.length() > 0) sb.append(" \u00b7 ");
+                        sb.append(mmss(ms));
+                    }
+                    if (sb.length() > 0) line = sb.toString();
+                }
+            } catch (Throwable ignored) {
+                // A project that will not parse still has a name, a picture and an age.
+                // The hero is not the place to report that; the editor is.
+            }
+            final String result = line;
+            ui.post(() -> {
+                heroMetaInFlight.remove(id);
+                if (result == null || !isAdded()) return;
+                heroMeta.put(id, result);
+                paintHero();
+            });
+        });
+    }
+
+    /** m:ss, or h:mm:ss past the hour. */
+    private static String mmss(long ms) {
+        long total = ms / 1000L;
+        long h = total / 3600L, m = (total / 60L) % 60L, sec = total % 60L;
+        return h > 0 ? String.format(Locale.US, "%d:%02d:%02d", h, m, sec)
+                     : String.format(Locale.US, "%d:%02d", m, sec);
     }
 
     private String capturedSummary() {

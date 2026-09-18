@@ -104,7 +104,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_volume_title);
-        title.setTextColor(0xFFF4F4F5);
+        title.setTextColor(Studio.INK);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
@@ -114,7 +114,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
 
         // Volume percentage display
         TextView percentText = new TextView(requireContext());
-        percentText.setTextColor(0xFFC4C4CE);
+        percentText.setTextColor(Studio.INK_DIM);
         percentText.setTextSize(16);
         percentText.setTypeface(null, Typeface.BOLD);
         updatePercentText(percentText, currentVolume, currentMuted);
@@ -157,7 +157,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         // ── Warning text for >100% ───────────────────────────────────
         TextView warningText = new TextView(requireContext());
         warningText.setText(R.string.faditor_volume_warning);
-        warningText.setTextColor(0xFFFF4438);
+        warningText.setTextColor(Studio.DANGER);
         warningText.setTextSize(11);
         warningText.setPadding((int) (44 * dp), (int) (2 * dp), 0, 0);
         warningText.setVisibility(currentVolume > 1.0f && !currentMuted ? View.VISIBLE : View.GONE);
@@ -181,7 +181,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         muteIcon.setTypeface(materialIcons);
         muteIcon.setText("volume_off");
         muteIcon.setTextSize(20);
-        muteIcon.setTextColor(currentMuted ? 0xFFFF4438 : 0xFF8A8A94);
+        muteIcon.setTextColor(currentMuted ? Studio.DANGER : Studio.INK_FAINT);
         LinearLayout.LayoutParams muteIconLp = new LinearLayout.LayoutParams(
                 (int) (28 * dp), (int) (28 * dp));
         muteIconLp.setMarginEnd((int) (16 * dp));
@@ -194,7 +194,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
                 ? R.string.faditor_volume_unmute
                 : R.string.faditor_volume_mute);
         muteLabel.setTextSize(15);
-        muteLabel.setTextColor(currentMuted ? 0xFFFF4438 : 0xFFC4C4CE);
+        muteLabel.setTextColor(currentMuted ? Studio.DANGER : Studio.INK_DIM);
         muteLabel.setTypeface(null, currentMuted ? Typeface.BOLD : Typeface.NORMAL);
         LinearLayout.LayoutParams muteLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -206,7 +206,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
             check.setTypeface(materialIcons);
             check.setText("check");
             check.setTextSize(20);
-            check.setTextColor(0xFFFF4438);
+            check.setTextColor(Studio.DANGER);
             check.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
                     (int) (24 * dp), (int) (24 * dp));
@@ -229,11 +229,11 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
             updateVolumeIcon(volumeIcon, vol, currentMuted);
             updateSliderColors(slider, vol, currentMuted);
             warningText.setVisibility(vol > 1.0f ? View.VISIBLE : View.GONE);
-            muteIcon.setTextColor(currentMuted ? 0xFFFF4438 : 0xFF8A8A94);
+            muteIcon.setTextColor(currentMuted ? Studio.DANGER : Studio.INK_FAINT);
             muteLabel.setText(currentMuted
                     ? R.string.faditor_volume_unmute
                     : R.string.faditor_volume_mute);
-            muteLabel.setTextColor(currentMuted ? 0xFFFF4438 : 0xFFC4C4CE);
+            muteLabel.setTextColor(currentMuted ? Studio.DANGER : Studio.INK_DIM);
             muteLabel.setTypeface(null, currentMuted ? Typeface.BOLD : Typeface.NORMAL);
             if (resetRowRef[0] != null) {
                 boolean show = currentMuted || Math.abs(vol - 1.0f) > 0.01f;
@@ -255,11 +255,11 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
             updateSliderColors(slider, currentVolume, currentMuted);
             warningText.setVisibility(
                     currentVolume > 1.0f && !currentMuted ? View.VISIBLE : View.GONE);
-            muteIcon.setTextColor(currentMuted ? 0xFFFF4438 : 0xFF8A8A94);
+            muteIcon.setTextColor(currentMuted ? Studio.DANGER : Studio.INK_FAINT);
             muteLabel.setText(currentMuted
                     ? R.string.faditor_volume_unmute
                     : R.string.faditor_volume_mute);
-            muteLabel.setTextColor(currentMuted ? 0xFFFF4438 : 0xFFC4C4CE);
+            muteLabel.setTextColor(currentMuted ? Studio.DANGER : Studio.INK_DIM);
             muteLabel.setTypeface(null, currentMuted ? Typeface.BOLD : Typeface.NORMAL);
             if (resetRowRef[0] != null) {
                 boolean show = currentMuted || Math.abs(currentVolume - 1.0f) > 0.01f;
@@ -291,7 +291,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         resetIcon.setTypeface(materialIcons);
         resetIcon.setText("refresh");
         resetIcon.setTextSize(20);
-        resetIcon.setTextColor(0xFFFF4438);
+        resetIcon.setTextColor(Studio.DANGER);
         LinearLayout.LayoutParams resetIconLp = new LinearLayout.LayoutParams(
                 (int) (28 * dp), (int) (28 * dp));
         resetIconLp.setMarginEnd((int) (16 * dp));
@@ -302,7 +302,7 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         TextView resetLabel = new TextView(requireContext());
         resetLabel.setText("Reset");
         resetLabel.setTextSize(15);
-        resetLabel.setTextColor(0xFFFF4438);
+        resetLabel.setTextColor(Studio.DANGER);
         resetLabel.setTypeface(null, Typeface.BOLD);
         LinearLayout.LayoutParams resetLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -317,9 +317,9 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
             updateVolumeIcon(volumeIcon, 1.0f, false);
             updateSliderColors(slider, 1.0f, false);
             warningText.setVisibility(View.GONE);
-            muteIcon.setTextColor(0xFF8A8A94);
+            muteIcon.setTextColor(Studio.INK_FAINT);
             muteLabel.setText(R.string.faditor_volume_mute);
-            muteLabel.setTextColor(0xFFC4C4CE);
+            muteLabel.setTextColor(Studio.INK_DIM);
             muteLabel.setTypeface(null, Typeface.NORMAL);
             resetRow.setVisibility(View.GONE);
             if (callback != null) callback.onVolumeChanged(1.0f, false);
@@ -338,27 +338,27 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
     private void updatePercentText(TextView tv, float volume, boolean muted) {
         if (muted) {
             tv.setText(R.string.faditor_tool_muted);
-            tv.setTextColor(0xFFFF4438);
+            tv.setTextColor(Studio.DANGER);
         } else {
             int percent = Math.round(volume * 100);
             tv.setText(percent + "%");
-            tv.setTextColor(volume > 1.0f ? 0xFFFF4438 : 0xFFC4C4CE);
+            tv.setTextColor(volume > 1.0f ? Studio.DANGER : Studio.INK_DIM);
         }
     }
 
     private void updateVolumeIcon(TextView icon, float volume, boolean muted) {
         if (muted || volume == 0f) {
             icon.setText("volume_off");
-            icon.setTextColor(0xFFFF4438);
+            icon.setTextColor(Studio.DANGER);
         } else if (volume < 0.5f) {
             icon.setText("volume_mute");
-            icon.setTextColor(0xFF8A8A94);
+            icon.setTextColor(Studio.INK_FAINT);
         } else if (volume <= 1.0f) {
             icon.setText("volume_up");
-            icon.setTextColor(0xFF35F6BF);
+            icon.setTextColor(Studio.GO);
         } else {
             icon.setText("volume_up");
-            icon.setTextColor(0xFFFF4438);
+            icon.setTextColor(Studio.DANGER);
         }
     }
 
@@ -366,14 +366,14 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         int trackColor;
         int thumbColor;
         if (muted) {
-            trackColor = 0xFFFF4438;
-            thumbColor = 0xFFFF4438;
+            trackColor = Studio.DANGER;
+            thumbColor = Studio.DANGER;
         } else if (volume > 1.0f) {
-            trackColor = 0xFFFF4438;
-            thumbColor = 0xFFFF4438;
+            trackColor = Studio.DANGER;
+            thumbColor = Studio.DANGER;
         } else {
-            trackColor = 0xFF35F6BF;
-            thumbColor = 0xFF35F6BF;
+            trackColor = Studio.GO;
+            thumbColor = Studio.GO;
         }
 
         slider.setTrackActiveTintList(
@@ -381,6 +381,6 @@ public class VolumeControlBottomSheet extends BottomSheetDialogFragment {
         slider.setThumbTintList(
                 android.content.res.ColorStateList.valueOf(thumbColor));
         slider.setTrackInactiveTintList(
-                android.content.res.ColorStateList.valueOf(0xFF33333C));
+                android.content.res.ColorStateList.valueOf(Studio.OFF));
     }
 }

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.effects;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.widget.LinearLayout;
 
@@ -31,7 +33,7 @@ public class LutLibraryPanel extends LinearLayout {
         for (LutPreset preset : LutManager.builtInPresets()) {
             android.widget.TextView button = new android.widget.TextView(getContext());
             button.setText(preset.displayName);
-            button.setTextColor(0xFFF4F4F5);
+            button.setTextColor(Studio.INK);
             button.setPadding(24, 18, 24, 18);
             button.setOnClickListener(v -> {
                 if (callback != null) callback.onLutSelected(preset);

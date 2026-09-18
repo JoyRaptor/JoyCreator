@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.avatar;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -343,7 +345,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         }
 
         trackingBus.start(source, 20260706L);
-        trackChip.setBackgroundColor(0xFF44444F);
+        trackChip.setBackgroundColor(Studio.FILM_EDGE);
         yawSlider.setEnabled(false);
         pitchSlider.setEnabled(false);
         preview.postOnAnimation(trackTick);
@@ -363,7 +365,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         }
         preview.removeCallbacks(trackTick);
         preview.setTrackedPinTargets(null);
-        trackChip.setBackgroundColor(0xFF1F1F26);
+        trackChip.setBackgroundColor(Studio.RAISED);
         boolean armed = armedCol >= 0;
         yawSlider.setEnabled(!armed);
         pitchSlider.setEnabled(!armed);
@@ -505,7 +507,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         hintLine.setText(armedCol >= 0
                 ? getString(R.string.avatar_studio_armed_hint)
                 : getString(R.string.avatar_studio_disarm_hint));
-        hintLine.setTextColor(armedCol >= 0 ? 0xFFFBBF24 : 0x99FFFFFF);
+        hintLine.setTextColor(armedCol >= 0 ? Studio.CAREFUL : 0x99FFFFFF);
     }
 
     // ── Part management ────────────────────────────────────────────────────
@@ -616,7 +618,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         for (AvatarRig.Part part : rig.getParts()) {
             TextView pc = chip(part.parentId != null ? part.id + " ↳" + part.parentId : part.id);
             if (part.id.equals(selectedPartId)) {
-                pc.setBackgroundColor(0xFF44444F);
+                pc.setBackgroundColor(Studio.FILM_EDGE);
                 pc.setTypeface(Typeface.DEFAULT_BOLD);
             }
             pc.setOnClickListener(v -> {
@@ -660,8 +662,8 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 pose != null ? pose.scale : 1f));
         rotValue.setText(String.format(java.util.Locale.US, "%.0f°",
                 pose != null ? pose.rotationDeg : 0f));
-        flipHChip.setBackgroundColor(pose != null && pose.flipH ? 0xFF44444F : 0xFF1F1F26);
-        flipVChip.setBackgroundColor(pose != null && pose.flipV ? 0xFF44444F : 0xFF1F1F26);
+        flipHChip.setBackgroundColor(pose != null && pose.flipH ? Studio.FILM_EDGE : Studio.RAISED);
+        flipVChip.setBackgroundColor(pose != null && pose.flipV ? Studio.FILM_EDGE : Studio.RAISED);
         // A6 density reflects the SELECTED part (a rig property, not the armed
         // cell): enabled whenever the part actually warps (has a rest chain).
         if (densityValue != null) {
@@ -701,12 +703,12 @@ public class AvatarStudioActivity extends AppCompatActivity {
         if (!pinMode || part == null) {
             pinMode = false;
             preview.setPinEditing(null, null);
-            pinsChip.setBackgroundColor(0xFF1F1F26);
+            pinsChip.setBackgroundColor(Studio.RAISED);
             pinDelChip.setAlpha(0.35f);
             updateHint();
             return;
         }
-        pinsChip.setBackgroundColor(0xFF44444F);
+        pinsChip.setBackgroundColor(Studio.FILM_EDGE);
         java.util.List<float[]> target;
         boolean editingRest = armedCol < 0;
         if (editingRest) {
@@ -880,7 +882,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         int pad = (int) (10 * d);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF0D0D10);
+        root.setBackgroundColor(Studio.SURFACE);
 
         // Top bar
         LinearLayout top = new LinearLayout(this);
@@ -1103,7 +1105,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         TextView t = new TextView(this);
         t.setText(text);
         t.setTextColor(Color.WHITE);
-        t.setBackgroundColor(0xFF1F1F26);
+        t.setBackgroundColor(Studio.RAISED);
         t.setPadding((int) (12 * d), (int) (8 * d), (int) (12 * d), (int) (8 * d));
         return t;
     }

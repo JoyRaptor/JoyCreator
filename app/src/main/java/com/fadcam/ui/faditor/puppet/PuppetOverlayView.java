@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.puppet;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -270,7 +272,7 @@ public class PuppetOverlayView extends View {
     private static final long POOF_MS = 260L;
     private long poofAt;
     private float poofX, poofY;
-    private int poofHue = 0xFFF4F4F5;
+    private int poofHue = Studio.INK;
     private final RectF arc = new RectF();
     private final Path path = new Path();
     private final PreviewLoupe loupe = new PreviewLoupe();
@@ -654,7 +656,7 @@ public class PuppetOverlayView extends View {
         stroke.setStrokeWidth(1f * d);
         c.drawRoundRect(badgeRect, 10f * d, 10f * d, stroke);
 
-        int tint = locked ? 0xFF8A8A94 : 0xFF35F6BF;
+        int tint = locked ? Studio.INK_FAINT : Studio.GO;
         int size = Math.round(21f * d);
         PuppetIcons.IconDrawable man = PuppetIcons.of(PuppetIcons.PUPPET, tint, size);
         int left = Math.round(badgeRect.centerX() - size / 2f);
@@ -665,7 +667,7 @@ public class PuppetOverlayView extends View {
         if (locked) {
             int ls = Math.round(13f * d);
             PuppetIcons.IconDrawable lock =
-                    PuppetIcons.of(PuppetIcons.LOCK, 0xFF8A8A94, ls);
+                    PuppetIcons.of(PuppetIcons.LOCK, Studio.INK_FAINT, ls);
             int ll = Math.round(badgeRect.centerX() - ls * 0.05f);
             int lt = Math.round(badgeRect.centerY() + ls * 0.02f);
             lock.setBounds(ll, lt, ll + ls, lt + ls);

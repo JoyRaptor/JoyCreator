@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -943,7 +945,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         TextView t = new TextView(this);
         t.setText("  " + title.toUpperCase());
-        t.setTextColor(0xFFF4F4F5);
+        t.setTextColor(Studio.INK);
         t.setTextSize(10.5f);
         t.setTypeface(Typeface.DEFAULT_BOLD);
         head.addView(t);
@@ -1639,7 +1641,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private static final int[] SWATCHES = {
             SpriteTheme.LIVE, SpriteTheme.SELECTED, SpriteTheme.ACCENT_GRID,
             SpriteTheme.ACCENT_OUT, SpriteTheme.ACCENT_VIEW, SpriteTheme.ACCENT_CELL,
-            0xFFF4F4F5, 0xFFFF4438};
+            Studio.INK, Studio.DANGER};
 
     private void showGhostSwatch(boolean past) {
         float d = density();
@@ -1677,8 +1679,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     static final String[] BG_NAMES = {"Checker", "Dotted grid", "Black", "White",
             "Zinc", "Cyan", "Magenta", "Green"};
     /** Flat fills for the ones that are just a colour; the first two are patterns. */
-    private static final int[] BG_FLAT = {0, 0, 0xFF000000, 0xFFF4F4F5, 0xFF16161B,
-            0xFF22D3EE, 0xFFFF4438, 0xFF35F6BF};
+    private static final int[] BG_FLAT = {0, 0, Studio.GROUND, Studio.INK, Studio.PANEL,
+            Studio.ARMED, Studio.DANGER, Studio.GO};
 
     /**
      * Paint one of the preview grounds into {@code r}.
@@ -1695,9 +1697,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         c.clipRect(r);
         if (idx == 0) {
             float sq = 7.5f * d;
-            p.setColor(0xFF1F1F26);
+            p.setColor(Studio.RAISED);
             c.drawRect(r, p);
-            p.setColor(0xFF33333C);
+            p.setColor(Studio.OFF);
             int row = 0;
             for (float y = r.top; y < r.bottom; y += sq, row++) {
                 for (int col = row & 1; ; col += 2) {
@@ -1707,9 +1709,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 }
             }
         } else if (idx == 1) {
-            p.setColor(0xFF0D0D10);
+            p.setColor(Studio.SURFACE);
             c.drawRect(r, p);
-            p.setColor(0xFF33333C);
+            p.setColor(Studio.OFF);
             float pitch = 11 * d;
             for (float y = r.top + pitch / 2; y < r.bottom; y += pitch) {
                 for (float x = r.left + pitch / 2; x < r.right; x += pitch) {
@@ -2540,7 +2542,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         t.setText(name);
         t.setTextSize(11f);
         t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setTextColor(0xFFF4F4F5);
+        t.setTextColor(Studio.INK);
         t.setMaxLines(1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         box.addView(t);
@@ -2548,7 +2550,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         TextView s2 = new TextView(this);
         s2.setText(sub);
         s2.setTextSize(8.5f);
-        s2.setTextColor(open ? 0xFF0D0D10 : SpriteTheme.DIMMER);
+        s2.setTextColor(open ? Studio.SURFACE : SpriteTheme.DIMMER);
         s2.setMaxLines(1);
         box.addView(s2);
         return box;
@@ -3098,7 +3100,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // A card, not a pill: the design rounds a block of text by RADIUS_CARD, and a
         // fully-rounded pill eats the first and last character of every line.
         GradientDrawable panel = new GradientDrawable();
-        panel.setColor(0xFF0D0D10);
+        panel.setColor(Studio.SURFACE);
         panel.setCornerRadius(SpriteTheme.RADIUS_CARD * d);
         panel.setStroke(Math.max(1, (int) d), SpriteTheme.LINE);
         box.setBackground(panel);
@@ -3353,7 +3355,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         TextView lb = new TextView(this);
         lb.setText(label == null ? "" : label);
         lb.setTextSize(8f);
-        lb.setTextColor(0xFFF4F4F5);
+        lb.setTextColor(Studio.INK);
         lb.setTypeface(Typeface.DEFAULT_BOLD);
         lb.setMaxLines(1);
         lb.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -3408,7 +3410,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             bg.setCornerRadius(9 * d);
             bg.setStroke((int) (2 * d), sel ? SpriteTheme.SELECTED : 0x00000000);
             body.setBackground(bg);
-            sub.setTextColor(now ? 0xFF0D0D10 : SpriteTheme.DIMMER);
+            sub.setTextColor(now ? Studio.SURFACE : SpriteTheme.DIMMER);
         }
     }
 
@@ -3576,7 +3578,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float x = 0, w = getWidth();
             for (int i = 0; i < labSeq.size(); i++) {
                 float seg = w * Math.max(1, labSeq.get(i)[1]) / (float) total;
-                p.setColor(i == labCur ? SpriteTheme.LIVE : 0xFF33333C);
+                p.setColor(i == labCur ? SpriteTheme.LIVE : Studio.OFF);
                 canvas.drawRect(x + 1, 2, x + seg - 1, getHeight() - 2, p);
                 x += seg;
             }
@@ -3617,7 +3619,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         FilmStrip(Context c) {
             super(c);
             setOrientation(VERTICAL);
-            setBackgroundColor(0xFF16161B);
+            setBackgroundColor(Studio.PANEL);
             float d = c.getResources().getDisplayMetrics().density;
             addView(new Perf(c), new LayoutParams(LayoutParams.MATCH_PARENT, (int) (9 * d)));
             frames = new DropRow(c);
@@ -3753,7 +3755,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 canvas.drawCircle(cx, cy, r, dot);
                 SpriteIcons.IconDrawable mark = SpriteIcons.of(
                         SpritePalettePanel.endIcon(preset.type),
-                        "once".equals(preset.type) ? 0xFFF4F4F5 : SpriteTheme.ON_ACCENT,
+                        "once".equals(preset.type) ? Studio.INK : SpriteTheme.ON_ACCENT,
                         Math.round(r * 1.5f));
                 mark.setBounds(Math.round(cx - r * 0.75f), Math.round(cy - r * 0.75f),
                         Math.round(cx + r * 0.75f), Math.round(cy + r * 0.75f));
@@ -3776,7 +3778,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     /** The ink that reads ON a saturated accent. Pink is dark enough to need white. */
     private static int inkOn(int accent) {
-        return accent == SpriteTheme.LIVE ? 0xFFF4F4F5 : SpriteTheme.ON_ACCENT;
+        return accent == SpriteTheme.LIVE ? Studio.INK : SpriteTheme.ON_ACCENT;
     }
 
     @NonNull
@@ -3946,7 +3948,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float d = density();
             setOrientation(HORIZONTAL);
             setGravity(Gravity.CENTER_VERTICAL);
-            setBackground(pillBg(0xFF0D0D10, SpriteTheme.LINE, d));
+            setBackground(pillBg(Studio.SURFACE, SpriteTheme.LINE, d));
             setPadding((int) (9 * d), (int) (4 * d), (int) (9 * d), (int) (4 * d));
             setMinimumHeight((int) (26 * d));
             setClickable(true);
@@ -4354,7 +4356,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // Opaque key color; keep whatever tolerance the slider already holds (8%
         // default for flat-color bgs when the user hasn't touched the slider yet).
         float tol = sheet.getKeyTolerance() > 0f ? sheet.getKeyTolerance() : 0.08f;
-        sheet.setBgKey(0xFF000000 | (argb & 0x00FFFFFF), tol);
+        sheet.setBgKey(Studio.GROUND | (argb & 0x00FFFFFF), tol);
         reloadRenderer(); // one-time color→alpha at decode (preview==export pixels)
         syncKeyChip();
         syncControls();
@@ -4565,7 +4567,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         CellCyclePreview(Context ctx) {
             super(ctx);
-            hudInk.setColor(0xFFF4F4F5);
+            hudInk.setColor(Studio.INK);
             hudInk.setFakeBoldText(true);
             if (ctx instanceof SpriteSheetEditorActivity) activity = (SpriteSheetEditorActivity) ctx;
         }
@@ -4677,7 +4679,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     // with a known floor, because differencing against the checkerboard would
                     // light up the checkerboard.
                     int layer = canvas.saveLayer(bgRect, null);
-                    canvas.drawColor(0xFF000000);
+                    canvas.drawColor(Studio.GROUND);
                     renderer.drawCell(canvas, prev, renderer.fitCell(prev, bgRect), null);
                     if (diffPaint == null) {
                         diffPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);

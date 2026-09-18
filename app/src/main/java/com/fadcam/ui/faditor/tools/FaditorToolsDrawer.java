@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.util.TypedValue;
@@ -127,7 +129,7 @@ public class FaditorToolsDrawer {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         panelLp.gravity = Gravity.BOTTOM;
         panel.setLayoutParams(panelLp);
-        panel.setBackgroundColor(0xFF16161B);
+        panel.setBackgroundColor(Studio.PANEL);
         panel.setPadding(dp(8), dp(10), dp(8), dp(24));
         panel.setClickable(true);
         // Swipe-down on the panel dismisses.
@@ -140,13 +142,13 @@ public class FaditorToolsDrawer {
         handleLp.gravity = Gravity.CENTER_HORIZONTAL;
         handleLp.bottomMargin = dp(6);
         handle.setLayoutParams(handleLp);
-        handle.setBackgroundColor(0xFF52525B);
+        handle.setBackgroundColor(Studio.INK_OFF);
         panel.addView(handle);
 
         // Title.
         TextView title = new TextView(context);
         title.setText(R.string.faditor_tools_all_title);
-        title.setTextColor(0xFFC4C4CE);
+        title.setTextColor(Studio.INK_DIM);
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         title.setPadding(dp(8), dp(2), dp(8), dp(8));
         panel.addView(title);
@@ -225,7 +227,7 @@ public class FaditorToolsDrawer {
             icon.setText(liveIcon != null ? liveIcon.getText() : tool.icon);
             icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
         }
-        icon.setTextColor(liveIcon != null ? liveIcon.getCurrentTextColor() : 0xFF8A8A94);
+        icon.setTextColor(liveIcon != null ? liveIcon.getCurrentTextColor() : Studio.INK_FAINT);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(30), dp(30));
         iconLp.gravity = Gravity.CENTER_HORIZONTAL;
         icon.setLayoutParams(iconLp);
@@ -234,7 +236,7 @@ public class FaditorToolsDrawer {
         TextView label = new TextView(context);
         label.setGravity(Gravity.CENTER);
         label.setText(liveLabel != null ? liveLabel.getText() : tool.label);
-        label.setTextColor(liveLabel != null ? liveLabel.getCurrentTextColor() : 0xFF8A8A94);
+        label.setTextColor(liveLabel != null ? liveLabel.getCurrentTextColor() : Studio.INK_FAINT);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         label.setMaxLines(2);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(

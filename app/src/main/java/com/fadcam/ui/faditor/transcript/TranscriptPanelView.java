@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.transcript;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -161,15 +163,15 @@ public class TranscriptPanelView extends View {
         density = getResources().getDisplayMetrics().density;
         padX = 14 * density;
         padY = 12 * density;
-        textPaint.setColor(0xFFF4F4F5);
+        textPaint.setColor(Studio.INK);
         textPaint.setTextSize(17 * density);
         textPaint.setTypeface(Typeface.DEFAULT);
-        strikePaint.setColor(0xFF8A8A94);
+        strikePaint.setColor(Studio.INK_FAINT);
         strikePaint.setStrokeWidth(2 * density);
         activePaint.setColor(0x5522D3EE); // soft cyan highlight
         searchPaint.setColor(0x55FBBF24);        // yellow for search matches
         searchCurrentPaint.setColor(0xAAFBBF24); // amber for the current match
-        breakPaint.setColor(0xFF22D3EE);         // cyan break indicator
+        breakPaint.setColor(Studio.ARMED);         // cyan break indicator
         breakPaint.setStrokeWidth(2 * density);
         gutterWidthPx = GUTTER_WIDTH_DP * density;
         gutterGapPx = GUTTER_GAP_DP * density;
@@ -503,7 +505,7 @@ public class TranscriptPanelView extends View {
                         Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
                         outline.setStyle(Paint.Style.STROKE);
                         outline.setStrokeWidth(1.5f * density);
-                        outline.setColor(0xFFF4F4F5);
+                        outline.setColor(Studio.INK);
                         outline.setAlpha(120);
                         canvas.drawRoundRect(r, railR, railR, pp);
                         canvas.drawRoundRect(r, railR, railR, outline);
@@ -515,7 +517,7 @@ public class TranscriptPanelView extends View {
                     if (isSelected) {
                         Paint sel = new Paint(Paint.ANTI_ALIAS_FLAG);
                         sel.setStyle(Paint.Style.FILL);
-                        sel.setColor(0xFF22D3EE);
+                        sel.setColor(Studio.ARMED);
                         sel.setAlpha(210);
                         pp = sel;
                     } else {
@@ -542,7 +544,7 @@ public class TranscriptPanelView extends View {
                         lineY = wordY[r[0]] - scrollY;
                     }
                     Paint lp = new Paint(Paint.ANTI_ALIAS_FLAG);
-                    lp.setColor(0xFF8C3DFA);
+                    lp.setColor(Studio.ROOM_AVATAR_DEEP);
                     lp.setStrokeWidth(3f * density);
                     float left = gutterWidthPx + gutterGapPx;
                     canvas.drawLine(left, lineY, getWidth() - padX, lineY, lp);
@@ -562,7 +564,7 @@ public class TranscriptPanelView extends View {
                 int[] range = paragraphData.paragraphs.get(para);
                 if (i != range[0]) continue;
                 String summary = buildParagraphSummary(para);
-                textPaint.setColor(0xFFC4C4CE);
+                textPaint.setColor(Studio.INK_DIM);
                 float baseY = wy + baselineOffset;
                 float maxW = getWidth() - (gutterWidthPx + gutterGapPx + padX) - padX;
                 String draw = summary;
@@ -591,12 +593,12 @@ public class TranscriptPanelView extends View {
 
             // Outside the current clip's trim = another clip's words: dimmed, still legible
             // and still tappable (a tap there navigates to that clip).
-            textPaint.setColor(outside ? (w.struck ? 0xFF52525B : 0xFF52525B)
-                                       : (w.struck ? 0xFF8A8A94 : 0xFFF4F4F5));
+            textPaint.setColor(outside ? (w.struck ? Studio.INK_OFF : Studio.INK_OFF)
+                                       : (w.struck ? Studio.INK_FAINT : Studio.INK));
             float baseY = wy + baselineOffset;
             canvas.drawText(w.text, wordX[i], baseY, textPaint);
             if (w.struck) {
-                strikePaint.setColor(outside ? 0xFF52525B : 0xFF8A8A94);
+                strikePaint.setColor(outside ? Studio.INK_OFF : Studio.INK_FAINT);
                 float midY = wy + lineHeight / 2f;
                 canvas.drawLine(wordX[i], midY, wordX[i] + wordW[i], midY, strikePaint);
             }
@@ -614,12 +616,12 @@ public class TranscriptPanelView extends View {
                 float py = wy - 2f * density;
                 // Small filled pin dot above the word
                 Paint pinPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                pinPaint.setColor(0xFFFBBF24);
+                pinPaint.setColor(Studio.CAREFUL);
                 pinPaint.setStyle(Paint.Style.FILL);
                 canvas.drawCircle(px, py, 3.5f * density, pinPaint);
                 pinPaint.setStyle(Paint.Style.STROKE);
                 pinPaint.setStrokeWidth(1f * density);
-                pinPaint.setColor(0xFF000000);
+                pinPaint.setColor(Studio.GROUND);
                 pinPaint.setAlpha(90);
                 canvas.drawCircle(px, py, 3.5f * density, pinPaint);
             }

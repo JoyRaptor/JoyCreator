@@ -100,7 +100,7 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         // TODO(strings)
         TextView title = new TextView(requireContext());
         title.setText("Slide code");
-        title.setTextColor(0xFFF4F4F5);
+        title.setTextColor(Studio.INK);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (4 * dp), (int) (8 * dp), (int) (4 * dp), (int) (2 * dp));
@@ -110,7 +110,7 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         TextView subtitle = new TextView(requireContext());
         subtitle.setText("Edit the HTML, or select all and paste a different slide. "
                 + "Apply re-renders the clip.");
-        subtitle.setTextColor(0xFF8A8A94);
+        subtitle.setTextColor(Studio.INK_FAINT);
         subtitle.setTextSize(13);
         subtitle.setPadding((int) (4 * dp), 0, (int) (4 * dp), (int) (10 * dp));
         root.addView(subtitle);
@@ -118,8 +118,8 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         codeBox = new EditText(requireContext());
         codeBox.setTypeface(Typeface.MONOSPACE);
         codeBox.setTextSize(12);
-        codeBox.setTextColor(0xFFC4C4CE);
-        codeBox.setBackgroundColor(0xFF16161B);
+        codeBox.setTextColor(Studio.INK_DIM);
+        codeBox.setBackgroundColor(Studio.PANEL);
         codeBox.setPadding((int) (10 * dp), (int) (10 * dp),
                 (int) (10 * dp), (int) (10 * dp));
         codeBox.setGravity(Gravity.TOP | Gravity.START);
@@ -200,14 +200,14 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         btn.setText(label);
         btn.setTextSize(14);
         btn.setTypeface(null, Typeface.BOLD);
-        btn.setTextColor(primary ? Color.BLACK : 0xFFC4C4CE);
+        btn.setTextColor(primary ? Color.BLACK : Studio.INK_DIM);
         btn.setGravity(Gravity.CENTER);
         btn.setPadding((int) (16 * dp), (int) (10 * dp),
                 (int) (16 * dp), (int) (10 * dp));
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
         bg.setCornerRadius(10 * dp);
-        bg.setColor(primary ? 0xFF35F6BF : 0xFF2C2C35);
+        bg.setColor(primary ? Studio.GO : Studio.LINE);
         btn.setBackground(bg);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,

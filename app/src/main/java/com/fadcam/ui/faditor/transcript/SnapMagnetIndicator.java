@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.transcript;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -45,7 +47,7 @@ public class SnapMagnetIndicator extends View {
         if (w <= 0 || h <= 0) return;
         float d = getResources().getDisplayMetrics().density;
 
-        paint.setColor(snapping ? 0xFFF4F4F5 : 0xFF52525B);
+        paint.setColor(snapping ? Studio.INK : Studio.INK_OFF);
 
         // Geometry for a ~20dp box: a "U" (bottom half-arc, opens upward) with pole caps on
         // the two top ends. The FIRST version computed radius (3.6dp) smaller than the stroke

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.export;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.Image;
@@ -426,7 +428,7 @@ final class SequentialFrameReader {
                 if (sx >= w) sx = w - 1;
                 int yIdx = yLine + sx * yPix;
                 int uvIdx = uvLine + (sx >> 1) * uvPix;
-                if (yIdx >= yLen || uvIdx >= uLen || uvIdx >= vLen) { argb[p++] = 0xFF000000; continue; }
+                if (yIdx >= yLen || uvIdx >= uLen || uvIdx >= vLen) { argb[p++] = Studio.GROUND; continue; }
                 int Y = (yA[yIdx] & 0xFF) - 16;
                 if (Y < 0) Y = 0;
                 int U = (uA[uvIdx] & 0xFF) - 128;
@@ -439,7 +441,7 @@ final class SequentialFrameReader {
                 if (r < 0) r = 0; else if (r > 255) r = 255;
                 if (g < 0) g = 0; else if (g > 255) g = 255;
                 if (b < 0) b = 0; else if (b > 255) b = 255;
-                argb[p++] = 0xFF000000 | (r << 16) | (g << 8) | b;
+                argb[p++] = Studio.GROUND | (r << 16) | (g << 8) | b;
             }
         }
 

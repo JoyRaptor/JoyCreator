@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.overlay;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -290,16 +292,16 @@ public final class PreviewHandlesOverlay extends View {
         boxHalo.setColor(0x99000000);
         boxPaint.setStyle(Paint.Style.STROKE);
         boxPaint.setStrokeWidth(1.5f * density);
-        boxPaint.setColor(0xFF22D3EE);
+        boxPaint.setColor(Studio.ARMED);
         boxPaint.setPathEffect(new DashPathEffect(
                 new float[]{6f * density, 4f * density}, 0f));
         handleFill.setStyle(Paint.Style.FILL);
-        handleFill.setColor(0xFFF4F4F5);
+        handleFill.setColor(Studio.INK);
         handleStroke.setStyle(Paint.Style.STROKE);
         handleStroke.setStrokeWidth(1f * density);
-        handleStroke.setColor(0xFF33333C);
+        handleStroke.setColor(Studio.OFF);
         rotatePaint.setStyle(Paint.Style.FILL);
-        rotatePaint.setColor(0xFFA78BFA); // app purple accent (M10 target family)
+        rotatePaint.setColor(Studio.GUIDE); // app purple accent (M10 target family)
         // W5-5 move affordance: a dim crosshair at the box centre says "you can drag me" — the
         // single most reported "nothing tells me I can move this" gap (JoyRaptor, 2026-08-08).
         movePaint.setStyle(Paint.Style.STROKE);
@@ -311,7 +313,7 @@ public final class PreviewHandlesOverlay extends View {
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setStrokeWidth(2f * density);
         guidePaint.setStrokeCap(Paint.Cap.ROUND);
-        guidePaint.setColor(0xFFA78BFA);
+        guidePaint.setColor(Studio.GUIDE);
         tetherPaint.setStyle(Paint.Style.STROKE);
         tetherPaint.setStrokeWidth(1f * density);
         tetherPaint.setColor(0x99A78BFA);

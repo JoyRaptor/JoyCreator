@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -28,8 +30,8 @@ public final class PivotPickerPopover {
 
     private PivotPickerPopover() {}
 
-    private static final int SHEET_BG = 0xFF1F1F26;
-    private static final int TXT = 0xFFF4F4F5;
+    private static final int SHEET_BG = Studio.RAISED;
+    private static final int TXT = Studio.INK;
 
     /** One pick. Normalized fractions in 0..1, the model's own unit. */
     public interface OnPivotPick {

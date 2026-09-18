@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.transform;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -386,7 +388,7 @@ public class TransformOverlayView extends View {
     private final RectF rectf = new RectF();
 
     /** The dark disc every glyph is drawn on, so thin ink survives a bright picture under it. */
-    private static final int GLYPH_FILL = 0xFF0D0D10;
+    private static final int GLYPH_FILL = Studio.SURFACE;
 
     public TransformOverlayView(@NonNull Context ctx) {
         super(ctx);
@@ -696,10 +698,10 @@ public class TransformOverlayView extends View {
         exitPillRect(rectf);
         fill.setColor(0xE616161B);
         c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
-        stroke.setColor(0xFF44444F);
+        stroke.setColor(Studio.FILM_EDGE);
         stroke.setStrokeWidth(dp(1f));
         c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
-        text.setColor(0xFFF4F4F5);
+        text.setColor(Studio.INK);
         text.setTextSize(dp(12f));
         text.setFakeBoldText(true);
         c.drawText("Done", rectf.centerX(), rectf.centerY() + dp(4f), text);
@@ -740,12 +742,12 @@ public class TransformOverlayView extends View {
         Host h = host;
         boolean bent = h != null && h.hasBend();
         bendPillRect(rectf);
-        fill.setColor(bendMode && bent ? 0xFF2C2C35 : 0xE616161B);
+        fill.setColor(bendMode && bent ? Studio.LINE : 0xE616161B);
         c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
-        stroke.setColor(!bendMode ? 0xFF2C2C35 : (bent ? HandleModel.COLOR_BEND : 0xFF8A8A94));
+        stroke.setColor(!bendMode ? Studio.LINE : (bent ? HandleModel.COLOR_BEND : Studio.INK_FAINT));
         stroke.setStrokeWidth(dp(bendMode ? 1.6f : 1f));
         c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
-        text.setColor(!bendMode ? 0xFF8A8A94 : (bent ? 0xFFF4F4F5 : 0xFFC4C4CE));
+        text.setColor(!bendMode ? Studio.INK_FAINT : (bent ? Studio.INK : Studio.INK_DIM));
         text.setTextSize(dp(12f));
         text.setFakeBoldText(true);
         c.drawText(bendMode ? "Bend · on" : "Bend", rectf.centerX(), rectf.centerY() + dp(4f), text);
@@ -1353,7 +1355,7 @@ public class TransformOverlayView extends View {
         // what you are about to change.
         fill.setColor(0xCC16161B);
         c.drawCircle(ringCx, ringCy, r, fill);
-        stroke.setColor(0xFF44444F);
+        stroke.setColor(Studio.FILM_EDGE);
         stroke.setStrokeWidth(dp(1f));
         c.drawCircle(ringCx, ringCy, r, stroke);
 
@@ -1368,10 +1370,10 @@ public class TransformOverlayView extends View {
             boolean inert = bend ? !ringBendEnabled
                     : (affineOnly && role != HandleModel.Role.SCALE);
             boolean on = !bend && !inert && role == current;
-            int col = inert ? 0xFF52525B
+            int col = inert ? Studio.INK_OFF
                     : (bend ? HandleModel.COLOR_BEND : HandleModel.colorOf(role));
-            int back = on ? (role == HandleModel.Role.SCALE ? 0xFF2C2C35
-                    : role == HandleModel.Role.TILT ? 0xFF2C2C35 : 0xFF17171C) : 0xFF16161B;
+            int back = on ? (role == HandleModel.Role.SCALE ? Studio.LINE
+                    : role == HandleModel.Role.TILT ? Studio.LINE : Studio.LANE_B) : Studio.PANEL;
             HandleModel.Shape shape = bend ? HandleModel.Shape.NET
                     : role == HandleModel.Role.SCALE ? HandleModel.Shape.SQUARE
                     : role == HandleModel.Role.TILT ? HandleModel.Shape.DIAMOND
@@ -1406,12 +1408,12 @@ public class TransformOverlayView extends View {
             // for the same reason Tilt and Free are. Both mirrors and both resets stay live —
             // a mirror is a negative scale and a reset touches no shape at all.
             boolean inert = affineOnly && !ringIsCorner && i == 0;
-            fill.setColor(0xFF16161B);
+            fill.setColor(Studio.PANEL);
             c.drawCircle(scratch2[0], scratch2[1], ds / 2f, fill);
-            stroke.setColor(0xFF33333C);
+            stroke.setColor(Studio.OFF);
             stroke.setStrokeWidth(dp(1f));
             c.drawCircle(scratch2[0], scratch2[1], ds / 2f, stroke);
-            text.setColor(inert ? 0xFF52525B : 0xFF8A8A94);
+            text.setColor(inert ? Studio.INK_OFF : Studio.INK_FAINT);
             text.setTextSize(dp(14f));
             text.setFakeBoldText(false);
             c.drawText(glyphs[i], scratch2[0], scratch2[1] + dp(1f), text);
@@ -1420,7 +1422,7 @@ public class TransformOverlayView extends View {
             c.drawText(subs[i], scratch2[0], scratch2[1] + dp(12f), text);
         }
 
-        text.setColor(0xFF52525B);
+        text.setColor(Studio.INK_OFF);
         text.setTextSize(dp(9f));
         String which = (ringIsCorner ? "corner " : "edge ")
                 + (ringIsCorner ? new String[]{"top-left", "top-right", "bottom-right", "bottom-left"}[ringIndex]

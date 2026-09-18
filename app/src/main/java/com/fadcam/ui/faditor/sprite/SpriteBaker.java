@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Rect;
@@ -230,7 +232,7 @@ public final class SpriteBaker {
 
         Bitmap out = Bitmap.createBitmap(cols * bw, rows * bh, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
-        if (opt.jpeg) canvas.drawColor(0xFFF4F4F5);
+        if (opt.jpeg) canvas.drawColor(Studio.INK);
 
         Map<String, Integer> map = new LinkedHashMap<>();
         int i = 0;

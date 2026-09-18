@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.avatar;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.DashPathEffect;
@@ -46,7 +48,7 @@ public class PoseMatrixView extends View {
         super(ctx);
         solid.setStyle(Paint.Style.STROKE);
         solid.setStrokeWidth(3f);
-        solid.setColor(0xFF52525B);
+        solid.setColor(Studio.INK_OFF);
         dashed.setStyle(Paint.Style.STROKE);
         dashed.setStrokeWidth(2f);
         dashed.setColor(0x66FFFFFF);
@@ -55,9 +57,9 @@ public class PoseMatrixView extends View {
         fill.setColor(0x2E52525B);
         armedPaint.setStyle(Paint.Style.STROKE);
         armedPaint.setStrokeWidth(5f);
-        armedPaint.setColor(0xFFFBBF24);
+        armedPaint.setColor(Studio.CAREFUL);
         marker.setStyle(Paint.Style.FILL);
-        marker.setColor(0xFF22D3EE);
+        marker.setColor(Studio.ARMED);
     }
 
     public void setListener(@Nullable Listener l) { this.listener = l; }

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -71,8 +73,8 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>You can still watch the video through it. You can now also read the labels.</p>
      */
     private static final int SCRIM = 0xA3000000;
-    private static final int TXT = 0xFFF4F4F5;
-    private static final int TXT_DIM = 0xFFC4C4CE;
+    private static final int TXT = Studio.INK;
+    private static final int TXT_DIM = Studio.INK_DIM;
     /**
      * Active tab / engaged toggle. Defaults to the SELECTED state colour rather than green,
      * because green now means Studio. {@link #setAccent(int)} lets the host hand the drawer
@@ -80,8 +82,8 @@ public final class ObjectDrawer extends LinearLayout {
      * drawer is purple — which is what tells you what you are editing without spending a
      * row on a label saying so.
      */
-    private int accent = 0xFF22D3EE;
-    private static final int DANGER = 0xFFFF4438;
+    private int accent = Studio.ARMED;
+    private static final int DANGER = Studio.DANGER;
     private static final int SLIDE_MS = 240;
     /** Cap so the drawer can never swallow the preview; content scrolls inside. */
     private static final float MAX_HEIGHT_FRACTION = 0.55f;

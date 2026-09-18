@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.gltransitions;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -457,12 +459,12 @@ public final class GlTransitionCardBaker {
         Bitmap bmp = Bitmap.createBitmap(FRAME_W, FRAME_H, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int top = first ? 0xFF4397FD : 0xFFFF4438;
-        int bot = first ? 0xFF44444F : 0xFFFF4438;
+        int top = first ? Studio.VIDEO : Studio.DANGER;
+        int bot = first ? Studio.FILM_EDGE : Studio.DANGER;
         p.setShader(new LinearGradient(0, 0, 0, FRAME_H, top, bot, Shader.TileMode.CLAMP));
         c.drawRect(0, 0, FRAME_W, FRAME_H, p);
         p.setShader(null);
-        p.setColor(0xFFF4F4F5);
+        p.setColor(Studio.INK);
         p.setTextSize(FRAME_H * 0.5f);
         p.setTextAlign(Paint.Align.CENTER);
         c.drawText(first ? "A" : "B", FRAME_W * 0.5f, FRAME_H * 0.68f, p);

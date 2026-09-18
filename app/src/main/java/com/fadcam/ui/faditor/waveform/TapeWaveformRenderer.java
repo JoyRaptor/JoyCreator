@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.waveform;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
@@ -151,7 +153,7 @@ public class TapeWaveformRenderer {
 
         // Peak sparks: dots on local maxima (transient onsets / cut cues).
         if (style.fxSparks) {
-            spark.setColor(0xFFF4F4F5);
+            spark.setColor(Studio.INK);
             // 1.6→0.7dp (JoyRaptor 2026-07-16): the dots were "quite large relative to the tape…
             // a little bit obnoxious" — about a third the size reads as accents, not markers.
             float r = 0.7f * density;
@@ -269,7 +271,7 @@ public class TapeWaveformRenderer {
         int r = (int) (((color >> 16) & 0xFF) * f);
         int g = (int) (((color >> 8) & 0xFF) * f);
         int b = (int) ((color & 0xFF) * f);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+        return Studio.GROUND | (r << 16) | (g << 8) | b;
     }
 
     private static int lighten(int color, float f) {
@@ -277,7 +279,7 @@ public class TapeWaveformRenderer {
         r = (int) (r + (255 - r) * f);
         g = (int) (g + (255 - g) * f);
         b = (int) (b + (255 - b) * f);
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+        return Studio.GROUND | (r << 16) | (g << 8) | b;
     }
 
     private static int withAlpha(int color, float a) {

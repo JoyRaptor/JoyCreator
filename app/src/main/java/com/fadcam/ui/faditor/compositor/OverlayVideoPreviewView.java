@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.compositor;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.RectF;
 import android.net.Uri;
@@ -1149,8 +1151,8 @@ public class OverlayVideoPreviewView extends FrameLayout {
      * 2026-08-06, and worth keeping distinct because the two travel independently once a mask
      * is unlinked.
      */
-    private static final int GHOST_OBJECT = 0xFF35F6BF;
-    private static final int GHOST_MASK = 0xFFFBBF24;
+    private static final int GHOST_OBJECT = Studio.GO;
+    private static final int GHOST_MASK = Studio.CAREFUL;
 
     private final android.graphics.Paint ghostPaint = new android.graphics.Paint(
             android.graphics.Paint.ANTI_ALIAS_FLAG);

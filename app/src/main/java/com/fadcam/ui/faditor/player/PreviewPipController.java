@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.player;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Typeface;
@@ -503,7 +505,7 @@ public class PreviewPipController {
             // already put it above the whole editor column; elevation only has to lose to
             // the one overlay that must win (the panel).
             shell.setElevation(8 * density);
-            shell.setBackgroundColor(0xFF16161B);
+            shell.setBackgroundColor(Studio.PANEL);
 
             shell.addView(buildChrome(ctx, chromeH, shell));
 
@@ -616,10 +618,10 @@ public class PreviewPipController {
         FrameLayout chrome = new FrameLayout(ctx);
         chrome.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, chromeH));
-        chrome.setBackgroundColor(0xFF1F1F26);
+        chrome.setBackgroundColor(Studio.RAISED);
 
         View grip = new View(ctx);
-        grip.setBackgroundColor(0xFF52525B);
+        grip.setBackgroundColor(Studio.INK_OFF);
         FrameLayout.LayoutParams gripLp = new FrameLayout.LayoutParams(
                 (int) (34 * density), (int) (4 * density), Gravity.CENTER);
         grip.setLayoutParams(gripLp);
@@ -634,7 +636,7 @@ public class PreviewPipController {
         } catch (Exception ignored) {
             expand.setText("⤢"); // glyph fallback if the icon font is unavailable
         }
-        expand.setTextColor(0xFFC4C4CE);
+        expand.setTextColor(Studio.INK_DIM);
         expand.setTextSize(13);
         expand.setGravity(Gravity.CENTER);
         int pad = (int) (4 * density);
@@ -661,7 +663,7 @@ public class PreviewPipController {
         } catch (Exception ignored) {
             undock.setText("⇲");
         }
-        undock.setTextColor(0xFFC4C4CE);
+        undock.setTextColor(Studio.INK_DIM);
         undock.setTextSize(13);
         undock.setGravity(Gravity.CENTER);
         undock.setPadding(pad, 0, pad, 0);

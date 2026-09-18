@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.text;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.widget.LinearLayout;
 
@@ -31,7 +33,7 @@ public class TextStyleLibraryPanel extends LinearLayout {
         for (TextStyle style : TextStyleIO.loadBuiltIns(getContext())) {
             android.widget.TextView button = new android.widget.TextView(getContext());
             button.setText(style.getName());
-            button.setTextColor(0xFFF4F4F5);
+            button.setTextColor(Studio.INK);
             button.setPadding(24, 18, 24, 18);
             button.setOnClickListener(v -> {
                 if (callback != null) callback.onTextStyleSelected(style);

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.waveform;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -85,11 +87,11 @@ public class WaveformOverlayView extends View {
             styles.put(s.id, s);
         }
         selectionPaint.setStyle(Paint.Style.STROKE);
-        selectionPaint.setColor(0xFF4397FD);
+        selectionPaint.setColor(Studio.VIDEO);
         selectionPaint.setStrokeWidth(2f * density);
         selectionPaint.setPathEffect(new DashPathEffect(new float[]{8f * density, 6f * density}, 0));
         handlePaint.setStyle(Paint.Style.FILL);
-        handlePaint.setColor(0xFF4397FD);
+        handlePaint.setColor(Studio.VIDEO);
         // Software layer: makes drawBitmap copy immediately (so the reused render bitmap is
         // safe across multiple overlays) and lets the glow BlurMaskFilter composite correctly.
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);

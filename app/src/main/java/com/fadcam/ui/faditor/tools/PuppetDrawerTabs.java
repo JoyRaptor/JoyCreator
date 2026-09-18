@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -73,15 +75,15 @@ public final class PuppetDrawerTabs {
     private PuppetDrawerTabs() {}
 
     // Matching PipDrawerTabs so the two drawers read as one app.
-    private static final int TXT = 0xFFF4F4F5;
-    private static final int TXT_DIM = 0xFF8A8A94;
-    private static final int TXT_FAINT = 0xFF8A8A94;
+    private static final int TXT = Studio.INK;
+    private static final int TXT_DIM = Studio.INK_FAINT;
+    private static final int TXT_FAINT = Studio.INK_FAINT;
     private static final int ROW_BG = 0x552C2C35;
     private static final int ROW_LINE = 0x33FFFFFF;
     private static final int SUNK_BG = 0x6616161B;
-    private static final int GO = 0xFF35F6BF;
-    private static final int REC = 0xFFFF4438;
-    private static final int OFF = 0xFF52525B;
+    private static final int GO = Studio.GO;
+    private static final int REC = Studio.DANGER;
+    private static final int OFF = Studio.INK_OFF;
     private static final int SLIDER_STEPS = 1000;
 
     /** What a touch on the picture means. Exactly one is armed at a time. */

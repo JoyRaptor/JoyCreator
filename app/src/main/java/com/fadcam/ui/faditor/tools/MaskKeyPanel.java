@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.app.Activity;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
@@ -146,7 +148,7 @@ public final class MaskKeyPanel {
         rotRow.setOrientation(LinearLayout.HORIZONTAL);
         rotRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView rotLabel = new TextView(activity);
-        rotLabel.setTextColor(0xFF8A8A94);
+        rotLabel.setTextColor(Studio.INK_FAINT);
         rotLabel.setTextSize(12);
         rotLabel.setText(activity.getString(R.string.faditor_mask_rotate)
                 + "  ·  " + Math.round(shape.rotationDeg));
@@ -197,7 +199,7 @@ public final class MaskKeyPanel {
 
         CheckBox invert = new CheckBox(activity);
         invert.setText(R.string.faditor_mask_only_inside);
-        invert.setTextColor(0xFFC4C4CE);
+        invert.setTextColor(Studio.INK_DIM);
         invert.setChecked(spec.invertMasks);
         invert.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
         root.addView(invert);
@@ -208,7 +210,7 @@ public final class MaskKeyPanel {
 
         CheckBox link = new CheckBox(activity);
         link.setText("Move with the object");
-        link.setTextColor(0xFFC4C4CE);
+        link.setTextColor(Studio.INK_DIM);
         link.setChecked(shape.linkedToObject);
         link.setOnCheckedChangeListener((b, on) -> {
             shape.linkedToObject = on;
@@ -232,7 +234,7 @@ public final class MaskKeyPanel {
         TextView linkHint = new TextView(activity);
         linkHint.setText("Off: the mask stays put and the object moves under it. "
                 + "On: the mask travels with the object.");
-        linkHint.setTextColor(0xFF8A8A94);
+        linkHint.setTextColor(Studio.INK_FAINT);
         linkHint.setTextSize(11.5f);
         linkHint.setPadding((int) (8 * density), 0, 0, (int) (6 * density));
         root.addView(linkHint);
@@ -240,7 +242,7 @@ public final class MaskKeyPanel {
         LinearLayout keyRow = new LinearLayout(activity);
         keyRow.setOrientation(LinearLayout.HORIZONTAL);
         final TextView keyState = new TextView(activity);
-        keyState.setTextColor(0xFF8A8A94);
+        keyState.setTextColor(Studio.INK_FAINT);
         keyState.setTextSize(11.5f);
         final Runnable refreshKeyState = () ->
                 keyState.setText(spec.hasMaskKeys() ? "  animated" : "  not animated");
@@ -286,7 +288,7 @@ public final class MaskKeyPanel {
 
         CheckBox keyOn = new CheckBox(activity);
         keyOn.setText(R.string.faditor_key_enable);
-        keyOn.setTextColor(0xFFC4C4CE);
+        keyOn.setTextColor(Studio.INK_DIM);
         keyOn.setChecked(spec.keyEnabled);
         root.addView(keyOn);
 
@@ -298,7 +300,7 @@ public final class MaskKeyPanel {
         root.addView(keyBody);
 
         keyColorLabel = new TextView(activity);
-        keyColorLabel.setTextColor(0xFF8A8A94);
+        keyColorLabel.setTextColor(Studio.INK_FAINT);
         keyColorLabel.setTextSize(12);
         keyBody.addView(keyColorLabel);
         refreshKeyColorLabel();
@@ -354,9 +356,9 @@ public final class MaskKeyPanel {
             View sw = new View(activity);
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
-            bg.setColor(0xFF000000 | rgb);
+            bg.setColor(Studio.GROUND | rgb);
             // A stroke so the black and white swatches are visible on a dark dialog at all.
-            bg.setStroke(Math.max(1, (int) (1.5f * density)), 0xFF8A8A94);
+            bg.setStroke(Math.max(1, (int) (1.5f * density)), Studio.INK_FAINT);
             sw.setBackground(bg);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sz, sz);
             lp.rightMargin = gap;
@@ -371,7 +373,7 @@ public final class MaskKeyPanel {
 
         TextView dropper = new TextView(activity);
         dropper.setText(R.string.faditor_key_eyedropper);
-        dropper.setTextColor(0xFF8C3DFA);
+        dropper.setTextColor(Studio.ROOM_AVATAR_DEEP);
         dropper.setTextSize(14);
         dropper.setPadding(gap, gap / 2, gap, gap / 2);
         dropper.setOnClickListener(v -> {
@@ -475,7 +477,7 @@ public final class MaskKeyPanel {
     private TextView chipButton(@NonNull String label, float density) {
         TextView t = new TextView(activity);
         t.setText(label);
-        t.setTextColor(0xFFF4F4F5);
+        t.setTextColor(Studio.INK);
         t.setTextSize(12.5f);
         int px = (int) (10 * density), py = (int) (6 * density);
         t.setPadding(px, py, px, py);
@@ -490,7 +492,7 @@ public final class MaskKeyPanel {
     private void addHeader(@NonNull LinearLayout parent, int labelRes, float density) {
         TextView t = new TextView(activity);
         t.setText(labelRes);
-        t.setTextColor(0xFFF4F4F5);
+        t.setTextColor(Studio.INK);
         t.setTextSize(13);
         t.setPadding(0, (int) (12 * density), 0, (int) (2 * density));
         t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
@@ -500,7 +502,7 @@ public final class MaskKeyPanel {
     private void slider(@NonNull LinearLayout parent, int labelRes, int max, int initial,
                         @NonNull java.util.function.Consumer<Integer> onChange) {
         TextView label = new TextView(activity);
-        label.setTextColor(0xFF8A8A94);
+        label.setTextColor(Studio.INK_FAINT);
         label.setTextSize(12);
         label.setText(activity.getString(labelRes) + "  ·  " + initial);
         parent.addView(label);

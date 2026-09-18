@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.puppet;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -107,14 +109,14 @@ public class PuppetBadgeView extends View {
         // wears there when the rig is locked. Tapping it is what turns him green.
         int size = Math.round(21f * d);
         PuppetIcons.IconDrawable man = PuppetIcons.of(
-                PuppetIcons.PUPPET, pressed ? 0xFF8A8A94 : 0xFF8A8A94, size);
+                PuppetIcons.PUPPET, pressed ? Studio.INK_FAINT : Studio.INK_FAINT, size);
         int left = Math.round(getWidth() / 2f - size / 2f);
         int top = Math.round(getHeight() / 2f - size / 2f);
         man.setBounds(left, top, left + size, top + size);
         man.draw(c);
 
         // A small count, so "this picture is rigged, and how much" reads without a tap.
-        fill.setColor(0xFF8A8A94);
+        fill.setColor(Studio.INK_FAINT);
         fill.setTextSize(8f * d);
         fill.setTextAlign(Paint.Align.CENTER);
         fill.setFakeBoldText(true);

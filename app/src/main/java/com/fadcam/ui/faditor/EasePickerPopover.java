@@ -39,13 +39,13 @@ public final class EasePickerPopover {
     };
     private static final int COLS = 4;
 
-    private static final int BG = 0xFF1F1F26;
-    private static final int TILE_BG = 0xFF2C2C35;
-    private static final int BASELINE = 0xFF33333C;
-    private static final int CURVE = 0xFFC4C4CE;
-    private static final int ACCENT = 0xFF35F6BF;
+    private static final int BG = Studio.RAISED;
+    private static final int TILE_BG = Studio.LINE;
+    private static final int BASELINE = Studio.OFF;
+    private static final int CURVE = Studio.INK_DIM;
+    private static final int ACCENT = Studio.GO;
     private static final int RING_FILL = 0x1F35F6BF;
-    private static final int TXT_DIM = 0xFF8A8A94;
+    private static final int TXT_DIM = Studio.INK_FAINT;
 
     private EasePickerPopover() {}
 

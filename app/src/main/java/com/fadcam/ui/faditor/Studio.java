@@ -38,19 +38,28 @@ public final class Studio {
     private Studio() { }
 
     // ── GROUND ──────────────────────────────────────────────────────────────
-    // Four surfaces, and a screen should not need a fifth. They step by roughly equal
-    // perceptual amounts, so a panel on a panel is readable without a border.
+    // Sprite Lab's ramp, which the Studio mockup says to take untouched: "Panel · Control
+    // · Pressed · Line — #111114 · #1C1C22 · #26262E · #2C2C35. Sprite Lab's ramp,
+    // untouched. Only the ground moved." The ground is the part that moved: the timeline
+    // draws on true black so a lane can BE the ground rather than a fill over it.
     public static final int GROUND  = 0xFF000000;   // the timeline's own ground
     public static final int SURFACE = 0xFF0D0D10;   // the screen behind panels
-    public static final int PANEL   = 0xFF16161B;   // a panel, a sheet, a drawer
-    public static final int RAISED  = 0xFF1F1F26;   // a control sitting on a panel
+    public static final int PANEL   = 0xFF111114;   // a panel, a sheet, a drawer
+    public static final int RAISED  = 0xFF1C1C22;   // a control sitting on a panel
+    /** A control being held down. The rung the first ladder skipped. */
+    public static final int PRESSED = 0xFF26262E;
     public static final int LINE    = 0xFF2C2C35;   // a divider or a hairline
 
     // ── INK ─────────────────────────────────────────────────────────────────
-    // Measured against PANEL: 15.4:1, 7.1:1, 4.6:1 — all above WCAG AA. The grey this
-    // replaces in the object drawer measured 1.39:1.
-    public static final int INK       = 0xFFF4F4F5;
-    public static final int INK_DIM   = 0xFFC4C4CE;
+    // These are the mockup's own values (design record: "Ink · Dim · Label — #F2F2F5 ·
+    // #C9C9D3 · #C4C4CE"), not values I picked. The first pass drifted off them by a
+    // couple of points per channel, which is invisible on any one control and exactly how
+    // a palette stops being a palette. The Label rung was raised from #A6A6B2 there,
+    // which measured 3.49:1.
+    public static final int INK       = 0xFFF2F2F5;
+    public static final int INK_DIM   = 0xFFC9C9D3;
+    /** A label on a control, per the spec's Ink / Dim / Label triple. */
+    public static final int LABEL     = 0xFFC4C4CE;
     public static final int INK_FAINT = 0xFF8A8A94;
     public static final int INK_OFF   = 0xFF52525B;
 
@@ -96,6 +105,8 @@ public final class Studio {
     public static final int ROOM_CAPTURE = 0xFFFA3D5D;
     public static final int ROOM_SPRITE  = 0xFFFF008C;
     public static final int ROOM_AVATAR  = 0xFFCC27FF;
+    /** The Avatar room's deeper stop, and the object table's TEXT hue. */
+    public static final int ROOM_AVATAR_DEEP = 0xFF8C3DFA;
     public static final int ROOM_VIZ     = 0xFFFAA03D;
 
     // ── FILM ────────────────────────────────────────────────────────────────

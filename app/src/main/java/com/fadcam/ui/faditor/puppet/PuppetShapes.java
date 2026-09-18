@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.puppet;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -149,7 +151,7 @@ public final class PuppetShapes {
                                  @NonNull Paint fill, @NonNull Paint stroke, float d) {
         draw(c, type, cx, cy, r, colour, fill, stroke, d);
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xFF000000);
+        fill.setColor(Studio.GROUND);
         c.drawCircle(cx, cy, Math.max(1f, r * 0.42f), fill);
     }
 }

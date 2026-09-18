@@ -45,9 +45,9 @@ public class VolumeBarView extends View {
     public VolumeBarView(Context c, @Nullable AttributeSet a) {
         super(c, a);
         density = getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF33333C);
-        fillPaint.setColor(0xFF35F6BF);
-        markerPaint.setColor(0xFFF4F4F5);
+        trackPaint.setColor(Studio.OFF);
+        fillPaint.setColor(Studio.GO);
+        markerPaint.setColor(Studio.INK);
         tickPaint.setColor(0x88FFFFFF);
         tickPaint.setStrokeWidth(1.5f * density);
     }
@@ -70,7 +70,7 @@ public class VolumeBarView extends View {
     }
 
     private void updateColor() {
-        fillPaint.setColor(volume > 1.01f ? 0xFFFF4438 : 0xFF35F6BF);
+        fillPaint.setColor(volume > 1.01f ? Studio.DANGER : Studio.GO);
     }
 
     @Override
@@ -111,7 +111,7 @@ public class VolumeBarView extends View {
             diamond.close();
             canvas.drawPath(diamond, markerPaint); // white body
             int saved = fillPaint.getColor();
-            fillPaint.setColor(volume > 1.01f ? 0xFFFF4438 : 0xFF35F6BF);
+            fillPaint.setColor(volume > 1.01f ? Studio.DANGER : Studio.GO);
             float ir = rr * 0.5f;
             Path inner = new Path();
             inner.moveTo(x, cy - ir);
@@ -125,7 +125,7 @@ public class VolumeBarView extends View {
             canvas.drawCircle(x, cy, r, markerPaint);
             float ir = r * 0.5f;
             int saved = fillPaint.getColor();
-            fillPaint.setColor(volume > 1.01f ? 0xFFFF4438 : 0xFF35F6BF);
+            fillPaint.setColor(volume > 1.01f ? Studio.DANGER : Studio.GO);
             canvas.drawCircle(x, cy, ir, fillPaint);
             fillPaint.setColor(saved);
         }

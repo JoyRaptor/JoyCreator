@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.fx;
 
+import com.fadcam.ui.faditor.Studio;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -44,8 +46,8 @@ public final class GradientRamp {
 
     private GradientRamp(boolean seed) {
         if (seed) {
-            colorStops.add(new ColorStop(0f, 0xFF000000));
-            colorStops.add(new ColorStop(1f, 0xFFF4F4F5));
+            colorStops.add(new ColorStop(0f, Studio.GROUND));
+            colorStops.add(new ColorStop(1f, Studio.INK));
             opacityStops.add(new OpacityStop(0f, 1f));
             opacityStops.add(new OpacityStop(1f, 1f));
         }
@@ -159,7 +161,7 @@ public final class GradientRamp {
     public int sampleColor(float t) {
         t = clamp01(t);
         int n = colorStops.size();
-        if (n == 0) return 0xFF000000;
+        if (n == 0) return Studio.GROUND;
         if (t <= colorStops.get(0).pos) return colorStops.get(0).color;
         for (int i = 0; i < n - 1; i++) {
             ColorStop a = colorStops.get(i), b = colorStops.get(i + 1);
@@ -201,7 +203,7 @@ public final class GradientRamp {
         int r = Math.round(ar + (br - ar) * f);
         int g = Math.round(ag + (bg - ag) * f);
         int bl = Math.round(ab + (bb - ab) * f);
-        return 0xFF000000 | (r << 16) | (g << 8) | bl;
+        return Studio.GROUND | (r << 16) | (g << 8) | bl;
     }
 
     // ── Packed float form — what an FxInstance actually stores ────────────────────────────────
@@ -228,7 +230,7 @@ public final class GradientRamp {
         out[2] = solidBands ? 1f : 0f;
 
         int nc = Math.min(colorStops.size(), CAP);
-        int lastColor = nc > 0 ? colorStops.get(nc - 1).color : 0xFF000000;
+        int lastColor = nc > 0 ? colorStops.get(nc - 1).color : Studio.GROUND;
         int cBase = 3;
         for (int i = 0; i < CAP; i++) {
             int o = cBase + i * 4;
@@ -284,11 +286,11 @@ public final class GradientRamp {
             int rr = Math.round(clamp01(a[o + 1]) * 255f);
             int gg = Math.round(clamp01(a[o + 2]) * 255f);
             int bb = Math.round(clamp01(a[o + 3]) * 255f);
-            r.colorStops.add(new ColorStop(pos, 0xFF000000 | (rr << 16) | (gg << 8) | bb));
+            r.colorStops.add(new ColorStop(pos, Studio.GROUND | (rr << 16) | (gg << 8) | bb));
         }
         if (r.colorStops.size() < 2) { r.colorStops.clear();
-            r.colorStops.add(new ColorStop(0f, 0xFF000000));
-            r.colorStops.add(new ColorStop(1f, 0xFFF4F4F5));
+            r.colorStops.add(new ColorStop(0f, Studio.GROUND));
+            r.colorStops.add(new ColorStop(1f, Studio.INK));
         }
         r.sortColorStops();
 
@@ -370,7 +372,7 @@ public final class GradientRamp {
                     JsonObject j = e.getAsJsonObject();
                     r.colorStops.add(new ColorStop(
                             j.has("pos") ? j.get("pos").getAsFloat() : 0f,
-                            j.has("color") ? j.get("color").getAsInt() : 0xFF000000));
+                            j.has("color") ? j.get("color").getAsInt() : Studio.GROUND));
                 }
             }
             if (o.has("opacity") && o.get("opacity").isJsonArray()) {

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.player;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -28,8 +30,8 @@ import androidx.annotation.Nullable;
 public class CanvasFrameView extends View {
 
     private static final int HATCH_DARK = 0x8C33333C;    // stripe (~55% opacity)
-    private static final int HATCH_DARKER = 0xFF16161B;  // background
-    private static final int CANVAS_BLACK = 0xFF000000;
+    private static final int HATCH_DARKER = Studio.PANEL;  // background
+    private static final int CANVAS_BLACK = Studio.GROUND;
 
     private final Paint stripePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint canvasPaint = new Paint(Paint.ANTI_ALIAS_FLAG);

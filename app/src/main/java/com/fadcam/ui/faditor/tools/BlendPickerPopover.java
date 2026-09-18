@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
 import android.util.DisplayMetrics;
@@ -45,11 +47,11 @@ public final class BlendPickerPopover {
 
     public interface OnPick { void onPick(@NonNull String mode); }
 
-    private static final int SHEET_BG = 0xFF1F1F26;
-    private static final int TXT = 0xFFF4F4F5;
-    private static final int TXT_HEADING = 0xFF8A8A94;   // the "small grey text" category label
+    private static final int SHEET_BG = Studio.RAISED;
+    private static final int TXT = Studio.INK;
+    private static final int TXT_HEADING = Studio.INK_FAINT;   // the "small grey text" category label
     private static final int ROW_ON = 0x338C3DFA;
-    private static final int ACCENT = 0xFFA78BFA;
+    private static final int ACCENT = Studio.GUIDE;
     private static final int CHIP_BG = 0x22FFFFFF;
 
     /**

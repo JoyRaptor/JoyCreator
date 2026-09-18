@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -25,8 +27,8 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
 public final class PivotNineView extends View {
 
     /** Grey dots; the selected one white. Matches the drawer's muted icon tints. */
-    static final int DOT = 0xFF8A8A94;
-    static final int DOT_SELECTED = 0xFFF4F4F5;
+    static final int DOT = Studio.INK_FAINT;
+    static final int DOT_SELECTED = Studio.INK;
 
     /** Row/column of the selection, 0..2, top-left origin — (1,1) is the centre. */
     private int selRow = 1;

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -368,7 +370,7 @@ public final class SpriteSheetRenderer {
             missingFill.setColor(0x33FF4438);
             missingStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
             missingStroke.setStyle(Paint.Style.STROKE);
-            missingStroke.setColor(0xFFFF4438);
+            missingStroke.setColor(Studio.DANGER);
             // A Path is required for a dash to render at all on a hardware canvas — a dashed
             // rect primitive is silently ignored (the 2026-08-05 "dashed outlines never dashed"
             // finding). Strokes below go through drawLine/drawPath for the same reason.

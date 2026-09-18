@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.move;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -87,11 +89,11 @@ public final class TimeShuttleView extends View {
     public TimeShuttleView(@NonNull Context ctx) {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF2C2C35);
-        tickPaint.setColor(0xFF52525B);
+        trackPaint.setColor(Studio.LINE);
+        tickPaint.setColor(Studio.INK_OFF);
         tickPaint.setStrokeWidth(1f * density);
-        fillPaint.setColor(0xFF35F6BF);   // green fill grows with deflection (speed cue)
-        thumbPaint.setColor(0xFFF4F4F5);
+        fillPaint.setColor(Studio.GO);   // green fill grows with deflection (speed cue)
+        thumbPaint.setColor(Studio.INK);
         thumbShadow.setColor(0x66000000);
     }
 
@@ -99,22 +101,22 @@ public final class TimeShuttleView extends View {
     public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs) {
         super(ctx, attrs);
         density = ctx.getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF2C2C35);
-        tickPaint.setColor(0xFF52525B);
+        trackPaint.setColor(Studio.LINE);
+        tickPaint.setColor(Studio.INK_OFF);
         tickPaint.setStrokeWidth(1f * density);
-        fillPaint.setColor(0xFF35F6BF);
-        thumbPaint.setColor(0xFFF4F4F5);
+        fillPaint.setColor(Studio.GO);
+        thumbPaint.setColor(Studio.INK);
         thumbShadow.setColor(0x66000000);
     }
 
     public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs, int defStyleAttr) {
         super(ctx, attrs, defStyleAttr);
         density = ctx.getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF2C2C35);
-        tickPaint.setColor(0xFF52525B);
+        trackPaint.setColor(Studio.LINE);
+        tickPaint.setColor(Studio.INK_OFF);
         tickPaint.setStrokeWidth(1f * density);
-        fillPaint.setColor(0xFF35F6BF);
-        thumbPaint.setColor(0xFFF4F4F5);
+        fillPaint.setColor(Studio.GO);
+        thumbPaint.setColor(Studio.INK);
         thumbShadow.setColor(0x66000000);
     }
 

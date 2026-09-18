@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -38,9 +40,9 @@ public final class PipDrawerTabs {
 
     private PipDrawerTabs() {}
 
-    private static final int TXT = 0xFFF4F4F5;
-    private static final int TXT_DIM = 0xFF8A8A94;
-    private static final int ACCENT = 0xFF8C3DFA;
+    private static final int TXT = Studio.INK;
+    private static final int TXT_DIM = Studio.INK_FAINT;
+    private static final int ACCENT = Studio.ROOM_AVATAR_DEEP;
     private static final int SLIDER_STEPS = 1000;
 
     /** Everything the tabs need back from the editor. */
@@ -653,7 +655,7 @@ public final class PipDrawerTabs {
                 shapeGroup.addView(add);
                 TextView none = new TextView(ctx);
                 none.setText("No mask. Add one to show only part of this object.");
-                none.setTextColor(0xFF8A8A94);
+                none.setTextColor(Studio.INK_FAINT);
                 none.setTextSize(11.5f);
                 none.setPadding(Math.round(8 * dp), Math.round(6 * dp),
                         Math.round(8 * dp), Math.round(6 * dp));
@@ -845,7 +847,7 @@ public final class PipDrawerTabs {
             hint = new TextView(ctx);
             hint.setText("Off: the mask stays put and the object moves under it. "
                     + "On: the mask travels with the object.");
-            hint.setTextColor(0xFF8A8A94);
+            hint.setTextColor(Studio.INK_FAINT);
             hint.setTextSize(11.5f);
             hint.setPadding((int) (8 * d), 0, (int) (8 * d), (int) (6 * d));
             root.addView(hint);
@@ -856,7 +858,7 @@ public final class PipDrawerTabs {
         LinearLayout keyRow = new LinearLayout(ctx);
         keyRow.setOrientation(LinearLayout.HORIZONTAL);
         final TextView state = new TextView(ctx);
-        state.setTextColor(0xFF8A8A94);
+        state.setTextColor(Studio.INK_FAINT);
         state.setTextSize(11.5f);
         state.setPadding((int) (8 * d), (int) (8 * d), 0, 0);
         final Runnable refresh = () ->
@@ -922,7 +924,7 @@ public final class PipDrawerTabs {
     private static TextView chip(@NonNull Context ctx, @NonNull String label, float d) {
         TextView t = new TextView(ctx);
         t.setText(label);
-        t.setTextColor(0xFFF4F4F5);
+        t.setTextColor(Studio.INK);
         t.setTextSize(12.5f);
         int px = (int) (10 * d), py = (int) (6 * d);
         t.setPadding(px, py, px, py);
@@ -973,8 +975,8 @@ public final class PipDrawerTabs {
             View sw = new View(ctx);
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
-            bg.setColor(0xFF000000 | rgb);
-            bg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF8A8A94);
+            bg.setColor(Studio.GROUND | rgb);
+            bg.setStroke(Math.max(1, Math.round(1.5f * d)), Studio.INK_FAINT);
             sw.setBackground(bg);
             LinearLayout.LayoutParams lp =
                     new LinearLayout.LayoutParams(Math.round(30 * d), Math.round(30 * d));

@@ -32,16 +32,18 @@
          a border. The audit found 91 distinct near-blacks doing this job. -->
     <color name="s_ground">#FF000000</color>     <!-- true black; the timeline's own ground -->
     <color name="s_surface">#FF0D0D10</color>    <!-- the screen behind panels -->
-    <color name="s_panel">#FF16161B</color>      <!-- a panel, a sheet, a drawer -->
-    <color name="s_raised">#FF1F1F26</color>     <!-- a control sitting on a panel -->
+    <color name="s_panel">#FF111114</color>      <!-- a panel, a sheet, a drawer -->
+    <color name="s_raised">#FF1C1C22</color>     <!-- a control sitting on a panel -->
+    <color name="s_pressed">#FF26262E</color>
     <color name="s_line">#FF2C2C35</color>       <!-- a divider or a hairline -->
 
     <!-- ── INK ────────────────────────────────────────────────────────────────
          Three weights of text and one for a disabled label. Measured against
          s_panel: ink 15.4:1, ink_dim 7.1:1, ink_faint 4.6:1 — all above WCAG AA,
          which the old #FF9A9A9A secondary (1.39:1 in the object drawer) was not. -->
-    <color name="s_ink">#FFF4F4F5</color>
-    <color name="s_ink_dim">#FFC4C4CE</color>
+    <color name="s_ink">#FFF2F2F5</color>
+    <color name="s_ink_dim">#FFC9C9D3</color>
+    <color name="s_label">#FFC4C4CE</color>
     <color name="s_ink_faint">#FF8A8A94</color>
     <color name="s_ink_off">#FF52525B</color>
 

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.effects;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
@@ -63,7 +65,7 @@ public class ColorGradePanel extends LinearLayout {
                            @NonNull SeekValueListener listener) {
         TextView text = new TextView(getContext());
         text.setText(label);
-        text.setTextColor(0xFFF4F4F5);
+        text.setTextColor(Studio.INK);
         addView(text);
         SeekBar seekBar = new SeekBar(getContext());
         seekBar.setMax(max - min);

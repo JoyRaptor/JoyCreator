@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.waveform;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -101,7 +103,7 @@ public class WaveformDebugActivity extends AppCompatActivity {
         ScrollView scroll = new ScrollView(this);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF0D0D10);
+        root.setBackgroundColor(Studio.SURFACE);
         int pad = (int) (12 * density);
         root.setPadding(pad, pad, pad, pad);
         scroll.addView(root);
@@ -164,7 +166,7 @@ public class WaveformDebugActivity extends AppCompatActivity {
                 (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 130,
                         getResources().getDisplayMetrics()));
         iv.setLayoutParams(lp);
-        iv.setBackgroundColor(0xFF000000);
+        iv.setBackgroundColor(Studio.GROUND);
         iv.setScaleType(ImageView.ScaleType.FIT_XY);
         views.add(iv);
         root.addView(iv);

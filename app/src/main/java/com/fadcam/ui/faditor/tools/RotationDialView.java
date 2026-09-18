@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -40,12 +42,12 @@ import androidx.annotation.NonNull;
 public class RotationDialView extends View {
 
     /** Green for positive winding, pink for negative (JoyRaptor's colour language). */
-    private static final int POS_COL = 0xFF35F6BF;
-    private static final int NEG_COL = 0xFFFF4438;
-    private static final int BASE_COL = 0xFF33333C;
-    private static final int NOTCH_COL = 0xFF8A8A94;
+    private static final int POS_COL = Studio.GO;
+    private static final int NEG_COL = Studio.DANGER;
+    private static final int BASE_COL = Studio.OFF;
+    private static final int NOTCH_COL = Studio.INK_FAINT;
     private static final int PLATE_COL = 0x8C000000;
-    private static final int TEXT_COL = 0xFFF4F4F5;
+    private static final int TEXT_COL = Studio.INK;
 
     /** Gesture callbacks. {@link #onDragDelta} fires AFTER the view has applied the
      *  delta to its own value — read {@link #getDegrees()} and write it through. */

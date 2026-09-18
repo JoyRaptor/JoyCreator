@@ -152,7 +152,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         // Title
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_canvas_title);
-        title.setTextColor(0xFFF4F4F5);
+        title.setTextColor(Studio.INK);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (20 * dp), (int) (12 * dp),
@@ -198,7 +198,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             TextView labelView = new TextView(requireContext());
             labelView.setText(label);
             labelView.setTextSize(15);
-            labelView.setTextColor(selected ? 0xFF35F6BF : 0xFFC4C4CE);
+            labelView.setTextColor(selected ? Studio.GO : Studio.INK_DIM);
             labelView.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
             LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -211,7 +211,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
                 check.setTypeface(materialIcons);
                 check.setText("check");
                 check.setTextSize(20);
-                check.setTextColor(0xFF35F6BF);
+                check.setTextColor(Studio.GO);
                 check.setGravity(Gravity.CENTER);
                 LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
                         (int) (24 * dp), (int) (24 * dp));
@@ -249,7 +249,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         customIcon.setTypeface(materialIcons);
         customIcon.setText("aspect_ratio");
         customIcon.setTextSize(20);
-        customIcon.setTextColor(customSelected ? 0xFF35F6BF : 0xFF52525B);
+        customIcon.setTextColor(customSelected ? Studio.GO : Studio.INK_OFF);
         customIcon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams customIconLp = new LinearLayout.LayoutParams(
                 (int) (40 * dp), (int) (40 * dp));
@@ -260,7 +260,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         TextView customLabel = new TextView(requireContext());
         customLabel.setText(customSelected ? displayLabel(currentPreset) : "Custom…");
         customLabel.setTextSize(15);
-        customLabel.setTextColor(customSelected ? 0xFF35F6BF : 0xFFC4C4CE);
+        customLabel.setTextColor(customSelected ? Studio.GO : Studio.INK_DIM);
         customLabel.setTypeface(null, customSelected ? Typeface.BOLD : Typeface.NORMAL);
         LinearLayout.LayoutParams customLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -272,7 +272,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             customCheck.setTypeface(materialIcons);
             customCheck.setText("check");
             customCheck.setTextSize(20);
-            customCheck.setTextColor(0xFF35F6BF);
+            customCheck.setTextColor(Studio.GO);
             customCheck.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
                     (int) (24 * dp), (int) (24 * dp));
@@ -319,7 +319,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         TextView x = new TextView(requireContext());
         x.setText("×");
         x.setTextSize(20);
-        x.setTextColor(0xFFC4C4CE);
+        x.setTextColor(Studio.INK_DIM);
         x.setPadding((int) (12 * dp), 0, (int) (12 * dp), 0);
         rowLayout.addView(x);
 
@@ -369,7 +369,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             {
                 borderPaint.setStyle(Paint.Style.STROKE);
                 borderPaint.setStrokeWidth(1.5f * dp);
-                borderPaint.setColor(selected ? 0xFF35F6BF : 0xFF52525B);
+                borderPaint.setColor(selected ? Studio.GO : Studio.INK_OFF);
 
                 fillPaint.setStyle(Paint.Style.FILL);
                 fillPaint.setColor(selected ? 0x3335F6BF : 0x22FFFFFF);

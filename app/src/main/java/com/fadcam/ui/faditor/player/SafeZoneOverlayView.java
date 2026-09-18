@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.player;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -61,7 +63,7 @@ public class SafeZoneOverlayView extends View {
     private void init() {
         float density = getResources().getDisplayMetrics().density;
         linePaint.setStyle(Paint.Style.STROKE);
-        linePaint.setColor(0xFFFBBF24); // amber-yellow, reads clearly over any footage
+        linePaint.setColor(Studio.CAREFUL); // amber-yellow, reads clearly over any footage
         linePaint.setStrokeWidth(1.5f * density);
         linePaint.setPathEffect(new android.graphics.DashPathEffect(
                 new float[]{8f * density, 6f * density}, 0f));

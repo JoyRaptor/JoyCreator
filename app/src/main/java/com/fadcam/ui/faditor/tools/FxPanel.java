@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.view.Gravity;
 import android.view.View;
@@ -53,8 +55,8 @@ public final class FxPanel {
 
     private FxPanel() {}
 
-    private static final int TXT = 0xFFF4F4F5;
-    private static final int TXT_DIM = 0xFF8A8A94;
+    private static final int TXT = Studio.INK;
+    private static final int TXT_DIM = Studio.INK_FAINT;
     private static final int CARD_BG = 0x1AFFFFFF;
     private static final int CHIP_BG = 0x22FFFFFF;
     private static final int CHIP_ON = 0x66FFFFFF;
@@ -241,7 +243,7 @@ public final class FxPanel {
         col.addView(row);
         TextView warn = new TextView(ctx);
         warn.setText(note);
-        warn.setTextColor(0xFFFBBF24);
+        warn.setTextColor(Studio.CAREFUL);
         warn.setTextSize(11f);
         warn.setPadding(0, 0, 0, Math.round(6 * d));
         col.addView(warn);
@@ -317,7 +319,7 @@ public final class FxPanel {
         if (!note.isEmpty()) {
             TextView warn = new TextView(ctx);
             warn.setText(note);
-            warn.setTextColor(0xFFFBBF24);
+            warn.setTextColor(Studio.CAREFUL);
             warn.setTextSize(9.5f);
             warn.setPadding(0, 0, Math.round(6 * d), 0);
             head.addView(warn);
@@ -622,7 +624,7 @@ public final class FxPanel {
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.addView(row);
         TextView h = new TextView(ctx);
-        h.setTextColor(0xFF8A8A94);
+        h.setTextColor(Studio.INK_FAINT);
         h.setTextSize(10.5f);
         h.setPadding(Math.round(86 * d), 0, 0, 0);
         h.setVisibility(View.GONE);
@@ -691,7 +693,7 @@ public final class FxPanel {
         row.addView(label(ctx, param.label, d));
 
         float[] cur = fx.get(param);
-        int initial = 0xFF000000
+        int initial = Studio.GROUND
                 | (Math.round(cur[0] * 255f) << 16)
                 | (Math.round(cur[1] * 255f) << 8)
                 | Math.round(cur[2] * 255f);
@@ -731,7 +733,7 @@ public final class FxPanel {
     private static void paintSwatch(@NonNull View swatch, int color, float d) {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(0xFF000000 | (color & 0xF4F4F5));
+        bg.setColor(Studio.GROUND | (color & 0xF4F4F5));
         bg.setStroke(Math.round(1 * d), 0x55FFFFFF);
         swatch.setBackground(bg);
     }
@@ -1394,7 +1396,7 @@ public final class FxPanel {
                                        @NonNull Runnable onTap) {
         TextView v = new TextView(ctx);
         v.setText(glyph);
-        v.setTextColor(0xFF8A8A94);
+        v.setTextColor(Studio.INK_FAINT);
         v.setTextSize(15f);
         v.setGravity(Gravity.CENTER);
         v.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
@@ -1422,7 +1424,7 @@ public final class FxPanel {
         final Runnable repaint = () -> {
             boolean on = onKeyAtPlayhead(stack, fx, param, host.playheadMs());
             dg[0].setText(on ? "◆" : "◇");
-            dg[0].setTextColor(on ? 0xFFA78BFA : 0xFF8A8A94);
+            dg[0].setTextColor(on ? Studio.GUIDE : Studio.INK_FAINT);
         };
 
         LinearLayout cluster = new LinearLayout(ctx);
@@ -1538,7 +1540,7 @@ public final class FxPanel {
         rs.entries.add(playheadMs -> {
             boolean on = onKeyAtPlayhead(stack, fx, param, playheadMs);
             dg[0].setText(on ? "◆" : "◇");
-            dg[0].setTextColor(on ? 0xFFA78BFA : 0xFF8A8A94);
+            dg[0].setTextColor(on ? Studio.GUIDE : Studio.INK_FAINT);
         });
         return cluster;
     }

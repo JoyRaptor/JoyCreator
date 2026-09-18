@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.player;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.animation.ValueAnimator;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -146,8 +148,8 @@ public class TransitionPreviewCardView extends View {
         Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int top = first ? 0xFF4397FD : 0xFFFF4438;     // blue vs deep-orange
-        int bot = first ? 0xFF44444F : 0xFFFF4438;
+        int top = first ? Studio.VIDEO : Studio.DANGER;     // blue vs deep-orange
+        int bot = first ? Studio.FILM_EDGE : Studio.DANGER;
         p.setShader(new LinearGradient(0, 0, 0, h, top, bot, Shader.TileMode.CLAMP));
         c.drawRect(0, 0, w, h, p);
         p.setShader(null);
@@ -158,7 +160,7 @@ public class TransitionPreviewCardView extends View {
             float s = h * 0.26f;
             c.drawRect(w * 0.5f - s, h * 0.5f - s, w * 0.5f + s, h * 0.5f + s, p);
         }
-        p.setColor(0xFFF4F4F5);
+        p.setColor(Studio.INK);
         p.setTextSize(h * 0.5f);
         p.setTextAlign(Paint.Align.CENTER);
         c.drawText(first ? "A" : "B", w * 0.5f, h * 0.5f + h * 0.18f, p);
@@ -242,7 +244,7 @@ public class TransitionPreviewCardView extends View {
             badgePaint.setStyle(Paint.Style.FILL);
             badgePaint.setColor(0xCC17171C);
             canvas.drawCircle(cx, cy, rad, badgePaint);
-            badgePaint.setColor(0xFF35F6BF);
+            badgePaint.setColor(Studio.GO);
             badgePaint.setStrokeWidth(1.6f * density);
             float arm = rad * 0.5f;
             canvas.drawLine(cx - arm, cy, cx + arm, cy, badgePaint);

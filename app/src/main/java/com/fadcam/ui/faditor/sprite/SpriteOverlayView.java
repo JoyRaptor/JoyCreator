@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
@@ -125,8 +127,8 @@ public class SpriteOverlayView extends View {
         super(ctx, attrs);
         missingPaint.setStyle(Paint.Style.STROKE);
         missingPaint.setStrokeWidth(3f);
-        missingPaint.setColor(0xFFCC27FF);
-        missingText.setColor(0xFFCC27FF);
+        missingPaint.setColor(Studio.ROOM_AVATAR);
+        missingText.setColor(Studio.ROOM_AVATAR);
         missingText.setTextSize(24f);
         missingText.setTextAlign(Paint.Align.CENTER);
         scaleDetector = new ScaleGestureDetector(ctx,

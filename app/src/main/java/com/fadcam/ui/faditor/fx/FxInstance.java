@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.fx;
 
+import com.fadcam.ui.faditor.Studio;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -248,7 +250,7 @@ public final class FxInstance {
         int r = Math.max(0, Math.min(255, Math.round(rgb[0] * 255f)));
         int g = Math.max(0, Math.min(255, Math.round(rgb[1] * 255f)));
         int b = Math.max(0, Math.min(255, Math.round(rgb[2] * 255f)));
-        return 0xFF000000 | (r << 16) | (g << 8) | b;
+        return Studio.GROUND | (r << 16) | (g << 8) | b;
     }
 
     @NonNull

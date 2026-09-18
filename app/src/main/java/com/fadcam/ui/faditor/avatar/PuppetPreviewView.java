@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.avatar;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -139,23 +141,23 @@ public class PuppetPreviewView extends View {
 
     public PuppetPreviewView(Context ctx) {
         super(ctx);
-        setBackgroundColor(0xFF16161B);
+        setBackgroundColor(Studio.PANEL);
         pinFill.setColor(com.fadcam.ui.faditor.Studio.GO);
         pinRing.setStyle(Paint.Style.STROKE);
         pinRing.setStrokeWidth(3f);
-        pinRing.setColor(0xFF16161B);
+        pinRing.setColor(Studio.PANEL);
         pinLink.setStyle(Paint.Style.STROKE);
         pinLink.setStrokeWidth(2f);
         pinLink.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.GO, 0x99));
         missingPaint.setStyle(Paint.Style.STROKE);
         missingPaint.setStrokeWidth(3f);
-        missingPaint.setColor(0xFFCC27FF);
-        missingText.setColor(0xFFCC27FF);
+        missingPaint.setColor(Studio.ROOM_AVATAR);
+        missingText.setColor(Studio.ROOM_AVATAR);
         missingText.setTextSize(26f);
         missingText.setTextAlign(Paint.Align.CENTER);
         selectPaint.setStyle(Paint.Style.STROKE);
         selectPaint.setStrokeWidth(3f);
-        selectPaint.setColor(0xFFFBBF24);
+        selectPaint.setColor(Studio.CAREFUL);
         bgGrid.setColor(0x14FFFFFF);
         bgGrid.setStrokeWidth(1f);
     }
@@ -499,10 +501,10 @@ public class PuppetPreviewView extends View {
                     m.mapPoints(pt);
                     canvas.drawCircle(pt[0], pt[1], radius, pinFill);
                     canvas.drawCircle(pt[0], pt[1], radius, pinRing);
-                    missingText.setColor(0xFF16161B);
+                    missingText.setColor(Studio.PANEL);
                     canvas.drawText(String.valueOf(i + 1), pt[0],
                             pt[1] + missingText.getTextSize() / 3f, missingText);
-                    missingText.setColor(0xFFCC27FF);
+                    missingText.setColor(Studio.ROOM_AVATAR);
                 }
             }
         }

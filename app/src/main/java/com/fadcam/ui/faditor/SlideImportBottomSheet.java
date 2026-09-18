@@ -84,7 +84,7 @@ public class SlideImportBottomSheet extends BottomSheetDialogFragment {
         // TODO(strings)
         TextView title = new TextView(requireContext());
         title.setText("AI slide");
-        title.setTextColor(0xFFF4F4F5);
+        title.setTextColor(Studio.INK);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (20 * dp), (int) (12 * dp),
@@ -95,7 +95,7 @@ public class SlideImportBottomSheet extends BottomSheetDialogFragment {
         TextView subtitle = new TextView(requireContext());
         subtitle.setText("Have any AI chatbot design an animated slide: copy the "
                 + "prompt, send it, then paste back the HTML it writes.");
-        subtitle.setTextColor(0xFF8A8A94);
+        subtitle.setTextColor(Studio.INK_FAINT);
         subtitle.setTextSize(13);
         subtitle.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (14 * dp));
         root.addView(subtitle);
@@ -142,7 +142,7 @@ public class SlideImportBottomSheet extends BottomSheetDialogFragment {
         iconView.setTypeface(materialIcons);
         iconView.setText(icon);
         iconView.setTextSize(20);
-        iconView.setTextColor(0xFF8A8A94);
+        iconView.setTextColor(Studio.INK_FAINT);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                 (int) (28 * dp), (int) (28 * dp));
         iconLp.setMarginEnd((int) (16 * dp));
@@ -153,7 +153,7 @@ public class SlideImportBottomSheet extends BottomSheetDialogFragment {
         TextView labelView = new TextView(requireContext());
         labelView.setText(label);
         labelView.setTextSize(15);
-        labelView.setTextColor(0xFFC4C4CE);
+        labelView.setTextColor(Studio.INK_DIM);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         labelView.setLayoutParams(labelLp);
@@ -163,7 +163,7 @@ public class SlideImportBottomSheet extends BottomSheetDialogFragment {
         arrow.setTypeface(materialIcons);
         arrow.setText("chevron_right");
         arrow.setTextSize(18);
-        arrow.setTextColor(0xFF52525B);
+        arrow.setTextColor(Studio.INK_OFF);
         arrow.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams arrowLp = new LinearLayout.LayoutParams(
                 (int) (24 * dp), (int) (24 * dp));

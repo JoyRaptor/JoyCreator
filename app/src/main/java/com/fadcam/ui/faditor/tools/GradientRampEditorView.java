@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -90,7 +92,7 @@ public final class GradientRampEditorView extends LinearLayout {
                                      @NonNull String label, float d) {
         CheckBox box = new CheckBox(ctx);
         box.setText(label);
-        box.setTextColor(0xFFC4C4CE);
+        box.setTextColor(Studio.INK_DIM);
         box.setTextSize(11.5f);
         LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         lp.rightMargin = Math.round(10 * d);
@@ -204,7 +206,7 @@ public final class GradientRampEditorView extends LinearLayout {
                 boolean marked = dragMode == MODE_OPACITY && dragIndex == i
                         && Math.abs(dragDy) > DELETE_DP * d;
                 int gray = Math.round(s.alpha * 255f);
-                fillPaint.setColor(0xFF000000 | (gray << 16) | (gray << 8) | gray);
+                fillPaint.setColor(Studio.GROUND | (gray << 16) | (gray << 8) | gray);
                 fillPaint.setAlpha(marked ? 90 : 255);
                 float half = stopR() * 0.72f;
                 RectF sq = new RectF(x - half, y - half, x + half, y + half);
@@ -213,7 +215,7 @@ public final class GradientRampEditorView extends LinearLayout {
                 c.drawRect(new RectF(x - half * 0.72f, y - half * 0.72f,
                         x + half * 0.72f, y + half * 0.72f), fillPaint);
                 c.restore();
-                strokePaint.setColor(0xFFF4F4F5);
+                strokePaint.setColor(Studio.INK);
                 strokePaint.setAlpha(marked ? 90 : 255);
                 c.save();
                 c.rotate(45f, x, y);
@@ -229,10 +231,10 @@ public final class GradientRampEditorView extends LinearLayout {
                 float y = colorY() + (dragMode == MODE_COLOR && dragIndex == i ? dragDy : 0f);
                 boolean marked = dragMode == MODE_COLOR && dragIndex == i
                         && Math.abs(dragDy) > DELETE_DP * d;
-                fillPaint.setColor(0xFF000000 | (s.color & 0xF4F4F5));
+                fillPaint.setColor(Studio.GROUND | (s.color & 0xF4F4F5));
                 fillPaint.setAlpha(marked ? 90 : 255);
                 c.drawCircle(x, y, stopR(), fillPaint);
-                strokePaint.setColor(0xFFF4F4F5);
+                strokePaint.setColor(Studio.INK);
                 strokePaint.setAlpha(marked ? 90 : 255);
                 c.drawCircle(x, y, stopR(), strokePaint);
             }
@@ -245,20 +247,20 @@ public final class GradientRampEditorView extends LinearLayout {
             p.lineTo(cx, cy + rr);
             p.lineTo(cx - rr, cy);
             p.close();
-            fillPaint.setColor(hot ? 0xFFFBBF24 : 0xFF8A8A94);
+            fillPaint.setColor(hot ? Studio.CAREFUL : Studio.INK_FAINT);
             fillPaint.setAlpha(255);
             c.drawPath(p, fillPaint);
-            strokePaint.setColor(0xFF16161B);
+            strokePaint.setColor(Studio.PANEL);
             strokePaint.setAlpha(255);
             c.drawPath(p, strokePaint);
         }
 
         private void drawCheckerboard(@NonNull Canvas c) {
             float cell = 6f * d;
-            checkerPaint.setColor(0xFF33333C);
+            checkerPaint.setColor(Studio.OFF);
             c.save();
             c.clipRect(barRect);
-            c.drawColor(0xFF2C2C35);
+            c.drawColor(Studio.LINE);
             boolean toggle = false;
             for (float x = barRect.left; x < barRect.right; x += cell) {
                 toggle = !toggle;
@@ -386,7 +388,7 @@ public final class GradientRampEditorView extends LinearLayout {
         private void openPicker(int index) {
             if (index < 0 || index >= ramp.colorStops.size()) return;
             GradientRamp.ColorStop stop = ramp.colorStops.get(index);
-            int initial = 0xFF000000 | (stop.color & 0xF4F4F5);
+            int initial = Studio.GROUND | (stop.color & 0xF4F4F5);
             ColorPickerDialog.show(getContext(), "Stop color", initial, false,
                     live -> {
                         if (live != null) { stop.color = live; fire(); }

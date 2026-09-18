@@ -82,7 +82,7 @@ public class FaditorInfoBottomSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_info_title);
-        title.setTextColor(0xFFF4F4F5);
+        title.setTextColor(Studio.INK);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setLayoutParams(new LinearLayout.LayoutParams(
@@ -93,7 +93,7 @@ public class FaditorInfoBottomSheet extends BottomSheetDialogFragment {
         TextView closeBtn = new TextView(requireContext());
         closeBtn.setTypeface(materialIcons);
         closeBtn.setText("close");
-        closeBtn.setTextColor(0xFF8A8A94);
+        closeBtn.setTextColor(Studio.INK_FAINT);
         closeBtn.setTextSize(22);
         closeBtn.setGravity(Gravity.CENTER);
         closeBtn.setPadding((int) (8 * dp), (int) (8 * dp),
@@ -104,7 +104,7 @@ public class FaditorInfoBottomSheet extends BottomSheetDialogFragment {
         // Subtitle
         TextView subtitle = new TextView(requireContext());
         subtitle.setText(R.string.faditor_info_subtitle);
-        subtitle.setTextColor(0xFF8A8A94);
+        subtitle.setTextColor(Studio.INK_FAINT);
         subtitle.setTextSize(13);
         subtitle.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (16 * dp));
         root.addView(subtitle);
@@ -123,27 +123,27 @@ public class FaditorInfoBottomSheet extends BottomSheetDialogFragment {
 
         // ── Info sections ───────────────────────────────────────
         addInfoSection(content, materialIcons, dp,
-                "movie_edit", 0xFF35F6BF,
+                "movie_edit", Studio.GO,
                 R.string.faditor_info_how_title,
                 R.string.faditor_info_how_desc);
 
         addInfoSection(content, materialIcons, dp,
-                "sync", 0xFF4397FD,
+                "sync", Studio.VIDEO,
                 R.string.faditor_info_convert_title,
                 R.string.faditor_info_convert_desc);
 
         addInfoSection(content, materialIcons, dp,
-                "save", 0xFFFBBF24,
+                "save", Studio.CAREFUL,
                 R.string.faditor_info_export_title,
                 R.string.faditor_info_export_desc);
 
         addInfoSection(content, materialIcons, dp,
-                "cached", 0xFF8A8A94,
+                "cached", Studio.INK_FAINT,
                 R.string.faditor_info_temp_title,
                 R.string.faditor_info_temp_desc);
 
         addInfoSection(content, materialIcons, dp,
-                "history", 0xFFCC27FF,
+                "history", Studio.ROOM_AVATAR,
                 R.string.faditor_info_projects_title,
                 R.string.faditor_info_projects_desc);
 
@@ -193,7 +193,7 @@ public class FaditorInfoBottomSheet extends BottomSheetDialogFragment {
 
         TextView titleTv = new TextView(requireContext());
         titleTv.setText(titleRes);
-        titleTv.setTextColor(0xFFF4F4F5);
+        titleTv.setTextColor(Studio.INK);
         titleTv.setTextSize(15);
         titleTv.setTypeface(null, Typeface.BOLD);
         titleRow.addView(titleTv);
@@ -203,7 +203,7 @@ public class FaditorInfoBottomSheet extends BottomSheetDialogFragment {
         // Description text
         TextView desc = new TextView(requireContext());
         desc.setText(descRes);
-        desc.setTextColor(0xFF8A8A94);
+        desc.setTextColor(Studio.INK_FAINT);
         desc.setTextSize(13);
         desc.setLineSpacing(0, 1.3f);
         LinearLayout.LayoutParams descLp = new LinearLayout.LayoutParams(

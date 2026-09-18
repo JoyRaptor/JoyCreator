@@ -139,7 +139,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_relink_catalog_title);
-        title.setTextColor(0xFFF4F4F5);
+        title.setTextColor(Studio.INK);
         title.setTextSize(18);
         title.setTypeface(null, android.graphics.Typeface.BOLD);
         titleRow.addView(title);
@@ -151,7 +151,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         TextView doneBtn = new TextView(requireContext());
         doneBtn.setText(R.string.faditor_relink_done);
-        doneBtn.setTextColor(0xFF35F6BF);
+        doneBtn.setTextColor(Studio.GO);
         doneBtn.setTextSize(14);
         doneBtn.setTypeface(null, android.graphics.Typeface.BOLD);
         doneBtn.setPadding((int) (8 * dp), 0, 0, 0);
@@ -165,7 +165,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         // ── Subtitle (count) ───────────────────────────────────
         subtitleText = new TextView(requireContext());
-        subtitleText.setTextColor(0xFF8A8A94);
+        subtitleText.setTextColor(Studio.INK_FAINT);
         subtitleText.setTextSize(13);
         subtitleText.setPadding((int) (20 * dp), 0,
                 (int) (20 * dp), (int) (12 * dp));
@@ -174,7 +174,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         // ── "Relink All Missing" button ────────────────────────
         relinkAllButton = new TextView(requireContext());
         relinkAllButton.setText(R.string.faditor_relink_all);
-        relinkAllButton.setTextColor(0xFFFBBF24);
+        relinkAllButton.setTextColor(Studio.CAREFUL);
         relinkAllButton.setTextSize(14);
         relinkAllButton.setTypeface(null, android.graphics.Typeface.BOLD);
         relinkAllButton.setPadding((int) (20 * dp), (int) (8 * dp),
@@ -211,7 +211,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
             // Divider
             View div = new View(requireContext());
-            div.setBackgroundColor(0xFF2C2C35);
+            div.setBackgroundColor(Studio.LINE);
             LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
             dlp.setMargins((int) (20 * dp), 0, (int) (20 * dp), 0);
@@ -224,11 +224,11 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
             int repaired = totalCount - missingCount;
             if (missingCount == 0) {
                 subtitleText.setText(R.string.faditor_relink_all_ok);
-                subtitleText.setTextColor(0xFF35F6BF);
+                subtitleText.setTextColor(Studio.GO);
             } else {
                 subtitleText.setText(getString(
                         R.string.faditor_relink_repaired, repaired, totalCount));
-                subtitleText.setTextColor(0xFFFBBF24);
+                subtitleText.setTextColor(Studio.CAREFUL);
             }
         }
 
@@ -252,7 +252,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         TextView typeIcon = new TextView(requireContext());
         typeIcon.setTypeface(ResourcesCompat.getFont(requireContext(), R.font.materialicons));
         typeIcon.setTextSize(16);
-        typeIcon.setTextColor(missing ? 0xFFFBBF24 : 0xFF52525B);
+        typeIcon.setTextColor(missing ? Studio.CAREFUL : Studio.INK_OFF);
         switch (entry.type) {
             case VIDEO: typeIcon.setText("movie"); break;
             case IMAGE: typeIcon.setText("image"); break;
@@ -269,7 +269,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         // Name line
         TextView nameLine = new TextView(requireContext());
         nameLine.setTextSize(14);
-        nameLine.setTextColor(missing ? 0xFFFBBF24 : 0xFFC4C4CE);
+        nameLine.setTextColor(missing ? Studio.CAREFUL : Studio.INK_DIM);
         nameLine.setSingleLine(true);
         nameLine.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
         String name = entry.displayName;
@@ -282,7 +282,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         // Detail line
         TextView detailLine = new TextView(requireContext());
         detailLine.setTextSize(11);
-        detailLine.setTextColor(0xFF8A8A94);
+        detailLine.setTextColor(Studio.INK_FAINT);
         detailLine.setSingleLine(true);
         StringBuilder detail = new StringBuilder();
         detail.append("#").append(entry.timelineIndex + 1);
@@ -300,7 +300,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         if (missing) {
             TextView uriLine = new TextView(requireContext());
             uriLine.setTextSize(10);
-            uriLine.setTextColor(0xFF52525B);
+            uriLine.setTextColor(Studio.INK_OFF);
             uriLine.setSingleLine(true);
             uriLine.setEllipsize(android.text.TextUtils.TruncateAt.END);
             uriLine.setText(shortenUri(entry.uriString));
@@ -316,14 +316,14 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         badge.setPadding((int) (6 * dp), (int) (2 * dp), (int) (6 * dp), (int) (2 * dp));
         if (missing) {
             badge.setText("✗ " + getString(R.string.faditor_relink_missing));
-            badge.setTextColor(0xFFFF4438);
+            badge.setTextColor(Studio.DANGER);
             row.setOnClickListener(v -> {
                 if (callback != null) callback.onRelinkRequested(entry);
             });
             row.setBackgroundResource(android.R.color.transparent);
         } else {
             badge.setText("✓ " + getString(R.string.faditor_relink_ok));
-            badge.setTextColor(0xFF35F6BF);
+            badge.setTextColor(Studio.GO);
         }
         row.addView(badge);
 

@@ -117,7 +117,7 @@ public final class LayerRowRenderer {
     // backgrounds used to carry a measurable blue cast (0x2C2C35 has its blue channel 12
     // points above red and green; 0x16161B is 12 points; 0x16161B is 10). Against the app's
     // established neutrals that reads as a second palette. Every band tint below is now
-    // derived from EditorTimelineView.COLOR_RULER_BG (0xFF16161B) — the app's pure-neutral
+    // derived from EditorTimelineView.COLOR_RULER_BG (Studio.PANEL) — the app's pure-neutral
     // gutter grey, which sits directly above these rows — by keeping R == G == B and moving
     // only the single lightness value. The LOCK variants stay red-shifted on purpose: that is
     // a STATE signal, not neutral chrome.
@@ -168,8 +168,8 @@ public final class LayerRowRenderer {
     private static final int COLOR_ROW_BODY_BG_ALT = Studio.LANE_B;
     private static final int COLOR_HEADER_BG_ALT   = 0x99202027;
     private static final int COLOR_HEADER_BG_LOCK_ALT = 0x99202027;
-    private static final int COLOR_ROW_NAME       = 0xFFF4F4F5;
-    private static final int COLOR_ICON_ON        = 0xFFF4F4F5;
+    private static final int COLOR_ROW_NAME       = Studio.INK;
+    private static final int COLOR_ICON_ON        = Studio.INK;
     private static final int COLOR_ICON_OFF       = 0x66FFFFFF;
     /** Muted lane: dimmed but still clearly PRESENT — it is a state, not a disabled control.
      *  (Nothing draws a disabled mute any more; a lane with no audio has no icon at all.) */
@@ -214,10 +214,10 @@ public final class LayerRowRenderer {
 
     // ── B3/B4 header chrome ─────────────────────────────────────────
     /** Solo ring around the mute glyph — amber, the colour solo reads as in every DAW. */
-    private static final int COLOR_SOLO_RING = 0xFFFBBF24;
+    private static final int COLOR_SOLO_RING = Studio.CAREFUL;
     private static final int COLOR_METER_TRACK = 0x26FFFFFF;
-    private static final int COLOR_METER_FILL = 0xFF35F6BF;
-    private static final int COLOR_METER_CLIP = 0xFFFF4438;
+    private static final int COLOR_METER_FILL = Studio.GO;
+    private static final int COLOR_METER_CLIP = Studio.DANGER;
     /** Width of the per-track level gutter bar (B4). */
     private static final float METER_BAR_W_DP = 3f;
     /** Full-scale for the bar's linear display range; past 1.0 the cap turns clip-red. */
@@ -510,18 +510,18 @@ public final class LayerRowRenderer {
      * moves read neutral WHITE ({@link #COLOR_SAME_ROW_OUTLINE}); snap-home stays
      * gray (home ghost).
      */
-    private static final int COLOR_DROP_TARGET_RING = 0xFF8C3DFA;
+    private static final int COLOR_DROP_TARGET_RING = Studio.ROOM_AVATAR_DEEP;
     private final Paint dropTargetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     /**
      * Same-row (time-only) move outline (dragux_v3 slice-3 #2 audit, C8): NEUTRAL WHITE,
      * item-color-INDEPENDENT. The old item-color-blended-toward-white read purple for
-     * TEXT/STICKER items (base 0xFF8C3DFA blended 22% toward white ≈ 0xFFA78BFA) — nearly
+     * TEXT/STICKER items (base Studio.ROOM_AVATAR_DEEP blended 22% toward white ≈ Studio.GUIDE) — nearly
      * identical to {@link #COLOR_DROP_TARGET_RING} cross-row purple, so same-row and
      * cross-row shared a color for those types (the ambiguity the audit bans). White is
      * the one unambiguous same-row cue for EVERY item kind; purple = cross-row family only.
      */
-    private static final int COLOR_SAME_ROW_OUTLINE = 0xFFF4F4F5;
+    private static final int COLOR_SAME_ROW_OUTLINE = Studio.INK;
 
     // ── Slice 2 (dragux_v3, BINDING 2026-07-04, built 2026-07-17): the GAP is the
     // new-layer target. While an item is picked up, every gap between adjacent
@@ -711,7 +711,7 @@ public final class LayerRowRenderer {
         // The opening slot: light purple dashed = "creates a new layer", the meaning already
         // shipped for the gap-drop insertion line. Same colour, same promise, no new vocabulary.
         pendingLaneSlotPaint.setStyle(Paint.Style.STROKE);
-        pendingLaneSlotPaint.setColor(0xFFC4C4CE);
+        pendingLaneSlotPaint.setColor(Studio.INK_DIM);
         pendingLaneSlotPaint.setStrokeWidth(2f * density);
         pendingLaneSlotPaint.setPathEffect(new android.graphics.DashPathEffect(
                 new float[]{8f * density, 6f * density}, 0f));
@@ -724,7 +724,7 @@ public final class LayerRowRenderer {
         iconPaint.setStrokeWidth(1.6f * density);
         itemPaint.setStyle(Paint.Style.FILL);
         itemLabelPaint.setTextSize(9f * density);
-        itemLabelPaint.setColor(0xFFF4F4F5);
+        itemLabelPaint.setColor(Studio.INK);
         stripPaint.setStyle(Paint.Style.FILL);
         itemSelectionPaint.setStyle(Paint.Style.STROKE);
         itemSelectionPaint.setStrokeWidth(SELECTION_STROKE_DP * density);
@@ -733,7 +733,7 @@ public final class LayerRowRenderer {
         dropTargetPaint.setColor(COLOR_DROP_TARGET_RING);
         // Fade knob + veil paints (SPEC_20260829_FADE_KNOBS §2.1-2.4) — one routine, shared audio+image+caption
         fadeKnobFillPaint.setStyle(Paint.Style.FILL);
-        fadeKnobFillPaint.setColor(0xFF1F1F26);
+        fadeKnobFillPaint.setColor(Studio.RAISED);
         fadeKnobStrokePaint.setStyle(Paint.Style.STROKE);
         fadeKnobStrokePaint.setStrokeWidth(2f * density);
         fadeStemPaint.setStyle(Paint.Style.STROKE);
@@ -744,7 +744,7 @@ public final class LayerRowRenderer {
         fadeEdgePaint.setPathEffect(new android.graphics.DashPathEffect(new float[]{3f * density, 3f * density}, 0f));
         fadeDurationPaint.setTextSize(9f * density);
         fadeDurationPaint.setTypeface(Typeface.DEFAULT_BOLD);
-        fadeDurationPaint.setColor(0xFFF4F4F5);
+        fadeDurationPaint.setColor(Studio.INK);
         fadeDurationPaint.setTextAlign(Paint.Align.CENTER);
         fadeDurationPaint.setShadowLayer(3f * density, 0f, 1f * density, 0xCC000000);
     }
@@ -1811,7 +1811,7 @@ public final class LayerRowRenderer {
         float bottom = row.drawerRect.bottom - 2f * density;
         if (bottom <= top) return;
         int prevBody = itemPaint.getColor();
-        itemPaint.setColor(0xFF0D0D10);
+        itemPaint.setColor(Studio.SURFACE);
         canvas.drawRoundRect(row.drawerRect, 3f * density, 3f * density, itemPaint);
         itemPaint.setColor(prevBody);
         if (laneTapeProvider == null || tapeStyle == null || tapeRenderer == null) return;
@@ -1979,7 +1979,7 @@ public final class LayerRowRenderer {
             int prevBody = itemPaint.getColor();
             android.graphics.Shader prevShader = itemPaint.getShader();
             itemPaint.setShader(null);
-            itemPaint.setColor(0xFF0D0D10);
+            itemPaint.setColor(Studio.SURFACE);
             canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             itemPaint.setColor(prevBody);
             itemPaint.setShader(prevShader);
@@ -2089,7 +2089,7 @@ public final class LayerRowRenderer {
         if (label != null && !label.isEmpty()) {
             canvas.save();
             canvas.clipRect(x0, top, x1, bottom);
-            itemLabelPaint.setColor(ghosted ? 0x88FFFFFF : 0xFFF4F4F5);
+            itemLabelPaint.setColor(ghosted ? 0x88FFFFFF : Studio.INK);
             // §3 pinned-scroll for labels (JoyRaptor 2026-07-18): when the item start scrolls
             // off-screen left, the label RIDES the left viewport edge exactly like the
             // image thumb (drawPinnedThumb) — so a long text item stays identifiable
@@ -2127,7 +2127,7 @@ public final class LayerRowRenderer {
             float r = 3.2f * density;
             float cy = top + 5.5f * density;
             float cx = x1 - 9f * density;
-            linkBadgePaint.setColor(ghosted ? 0x668C3DFA : 0xFF8C3DFA);
+            linkBadgePaint.setColor(ghosted ? 0x668C3DFA : Studio.ROOM_AVATAR_DEEP);
             canvas.drawCircle(cx - r * 0.7f, cy, r, linkBadgePaint);
             canvas.drawCircle(cx + r * 0.7f, cy, r, linkBadgePaint);
         }
@@ -2254,7 +2254,7 @@ public final class LayerRowRenderer {
         canvas.drawCircle(cx, cy, r, itemSelectionPaint);
         if (fxBadgePaint == null) {
             fxBadgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-            fxBadgePaint.setColor(0xFFA78BFA);   // the app's purple accent, as the FX tool uses
+            fxBadgePaint.setColor(Studio.GUIDE);   // the app's purple accent, as the FX tool uses
             fxBadgePaint.setTextAlign(Paint.Align.CENTER);
             fxBadgePaint.setTypeface(android.graphics.Typeface.create(
                     android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
@@ -2304,7 +2304,7 @@ public final class LayerRowRenderer {
         canvas.drawCircle(cx, cy, r, itemSelectionPaint);
         itemSelectionPaint.setStyle(Paint.Style.STROKE);
         itemSelectionPaint.setStrokeWidth(1.2f * density);
-        itemSelectionPaint.setColor(0xFFF4F4F5);
+        itemSelectionPaint.setColor(Studio.INK);
         // A finger pressing a surface: a stem, and the line it stops against.
         canvas.drawLine(cx, cy - 0.55f * r, cx, cy + 0.15f * r, itemSelectionPaint);
         canvas.drawLine(cx - 0.5f * r, cy + 0.45f * r, cx + 0.5f * r, cy + 0.45f * r,
@@ -2334,11 +2334,11 @@ public final class LayerRowRenderer {
                                      float x0, float top, float x1, float bottom) {
         if (!volEnvPaintsInit) {
             volEnvPaintsInit = true;
-            volEnvLinePaint.setColor(0xFF22D3EE); // light blue
+            volEnvLinePaint.setColor(Studio.ARMED); // light blue
             volEnvLinePaint.setStyle(Paint.Style.STROKE);
             volEnvLinePaint.setStrokeWidth(1.6f * density);
             volEnvLinePaint.setStrokeJoin(Paint.Join.ROUND);
-            volEnvDotPaint.setColor(0xFF22D3EE);
+            volEnvDotPaint.setColor(Studio.ARMED);
             volEnvDotPaint.setStyle(Paint.Style.FILL);
         }
         java.util.List<com.fadcam.ui.faditor.model.AudioClip.VolumeKeyframe> kfs =
@@ -2538,13 +2538,13 @@ public final class LayerRowRenderer {
         // §4 — every glyph gets a 1px white stroke so amber/green read on coloured tapes, and interior curve is hidden on timeline (DETAIL_MIN 20dp) to avoid reading as glitch.
         kfDiamondPaint.setStyle(Paint.Style.FILL);
         kfDiamondStrokePaint.setStyle(Paint.Style.STROKE);
-        kfDiamondStrokePaint.setColor(0xFFF4F4F5);
+        kfDiamondStrokePaint.setColor(Studio.INK);
         kfDiamondStrokePaint.setStrokeWidth(1f * density);
         kfDiamondStrokePaint.setStrokeJoin(Paint.Join.ROUND);
         for (ConsolidatedKey b : buckets) {
             float dx = timeToX.map(keyTimeToTimelineMs(item, b.timeMs));
             if (dx < x0 + 3f || dx > x1 - 3f) continue;
-            if (b.presetOwned && !ghosted) kfDiamondPaint.setColor(0xFFFBBF24);
+            if (b.presetOwned && !ghosted) kfDiamondPaint.setColor(Studio.CAREFUL);
             else kfDiamondPaint.setColor(ghosted ? 0x6635F6BF : 0xE635F6BF);
             spriteDiamondPath.rewind();
             KeyframeGlyph.silhouetteFor(b.easing, dx, cy, r, spriteDiamondPath);
@@ -2776,7 +2776,7 @@ public final class LayerRowRenderer {
         // says what KIND of thing is being edited without showing every pin at once — a violet
         // mark on a Dangle pin's tape says Free, which is worse than saying nothing. Falls back to
         // the guide violet when no pin is selected, which is what the union view is.
-        int hue = 0xFFA78BFA;
+        int hue = Studio.GUIDE;
         if (sel >= 0) {
             hue = com.fadcam.ui.faditor.puppet.PuppetPalette.of(rig.pin(sel).type, rig.locked);
         }
@@ -2862,8 +2862,8 @@ public final class LayerRowRenderer {
         boolean anyPreset = false;
         for (Keyframe kk : op.keyframes) if (kk.presetOwned) { anyPreset = true; break; }
         if (anyPreset) {
-            kfEnvLinePaint.setColor(0xFFFBBF24);
-            kfEnvDotPaint.setColor(0xFFFBBF24);
+            kfEnvLinePaint.setColor(Studio.CAREFUL);
+            kfEnvDotPaint.setColor(Studio.CAREFUL);
         } else {
             kfEnvLinePaint.setColor(0xCCFFFFFF);
             kfEnvDotPaint.setColor(0xCCFFFFFF);
@@ -2889,8 +2889,8 @@ public final class LayerRowRenderer {
                 canvas.drawLine(x, y, x1, y, kfEnvLinePaint); // flat hold to block end
             }
             // Dots amber if that specific key is preset-owned
-            if (kf.presetOwned) kfEnvDotPaint.setColor(0xFFFBBF24);
-            else kfEnvDotPaint.setColor(anyPreset ? 0xFFFBBF24 : 0xCCFFFFFF);
+            if (kf.presetOwned) kfEnvDotPaint.setColor(Studio.CAREFUL);
+            else kfEnvDotPaint.setColor(anyPreset ? Studio.CAREFUL : 0xCCFFFFFF);
             canvas.drawCircle(x, y, 2.4f * density, kfEnvDotPaint);
             prevX = x;
             prevY = y;
@@ -3184,7 +3184,7 @@ public final class LayerRowRenderer {
         // short. The spec's requirement is precise — keep the marker, resolve the length, and
         // "show visibly when a neighbour clipped it. Never silently."
         if (sprite.isContinuesUntilBlocked()) {
-            seqTickPaint.setColor(sprite.isClippedByNeighbour() ? 0xFFFF4438 : 0xFFFBBF24);
+            seqTickPaint.setColor(sprite.isClippedByNeighbour() ? Studio.DANGER : Studio.CAREFUL);
             seqTickPaint.setTextSize(10f * density);
             String marker = sprite.isClippedByNeighbour() ? "⊣ clipped" : "continues →";
             float tw = seqTickPaint.measureText(marker);
@@ -3240,7 +3240,7 @@ public final class LayerRowRenderer {
         if (sheet == null || !sheet.isSequence()) return;
         boolean absolute = sheet.getResizeMode()
                 == com.fadcam.ui.faditor.sprite.SequenceTiming.ResizeMode.ABSOLUTE;
-        seqHandlePaint.setColor(absolute ? 0xFFFF4438 : 0xFFFBBF24);
+        seqHandlePaint.setColor(absolute ? Studio.DANGER : Studio.CAREFUL);
         seqHandlePaint.setStyle(android.graphics.Paint.Style.FILL);
         float w = 3.5f * density;
         float h = (bottom - top) * 0.55f;
@@ -3339,14 +3339,14 @@ public final class LayerRowRenderer {
             styleColor = com.fadcam.ui.faditor.transcript.CaptionStyle
                     .byId(ac.getCaptionStyleId()).activeColor;
         } catch (Exception e) {
-            styleColor = 0xFFFBBF24;
+            styleColor = Studio.CAREFUL;
         }
         itemPaint.setColor(0xCC000000 | (styleColor & 0x00FFFFFF));
         canvas.drawRoundRect(x0 + 2f * density, ribbonTop, x1 - 2f * density, bottom - 2f * density,
                 2f * density, 2f * density, itemPaint);
         canvas.save();
         canvas.clipRect(x0 + 2f * density, ribbonTop, x1 - 2f * density, bottom - 2f * density);
-        itemLabelPaint.setColor(0xFFF4F4F5);
+        itemLabelPaint.setColor(Studio.INK);
         canvas.drawText("CC", x0 + 6f * density, bottom - 5f * density, itemLabelPaint);
         canvas.restore();
     }
@@ -3416,7 +3416,7 @@ public final class LayerRowRenderer {
             canvas.drawCircle(cx, cy, r, itemSelectionPaint);
             itemSelectionPaint.setStyle(Paint.Style.STROKE);
             itemSelectionPaint.setStrokeWidth(1.2f * density);
-            itemSelectionPaint.setColor(0xFFF4F4F5);
+            itemSelectionPaint.setColor(Studio.INK);
             // Minimal trash glyph: lid line over a body outline.
             canvas.drawLine(cx - 0.55f * r, cy - 0.45f * r, cx + 0.55f * r, cy - 0.45f * r,
                     itemSelectionPaint);
@@ -3618,7 +3618,7 @@ public final class LayerRowRenderer {
             // stem
             canvas.drawLine(cx, top, cx, cy + knobR - 1f*density, fadeStemPaint);
             // knob disc
-            fadeKnobFillPaint.setColor(0xFF1F1F26);
+            fadeKnobFillPaint.setColor(Studio.RAISED);
             canvas.drawCircle(cx, cy, knobR, fadeKnobFillPaint);
             canvas.drawCircle(cx, cy, knobR, fadeKnobStrokePaint);
             // Inner dot in base colour. Hoisted: this was `new Paint()` per selected item per
@@ -3635,7 +3635,7 @@ public final class LayerRowRenderer {
             float cx = fx;
             float cy = top - offset;
             canvas.drawLine(cx, top, cx, cy + knobR - 1f*density, fadeStemPaint);
-            fadeKnobFillPaint.setColor(0xFF1F1F26);
+            fadeKnobFillPaint.setColor(Studio.RAISED);
             canvas.drawCircle(cx, cy, knobR, fadeKnobFillPaint);
             canvas.drawCircle(cx, cy, knobR, fadeKnobStrokePaint);
             fadeKnobDotPaint.setColor(baseColor);
@@ -3698,14 +3698,14 @@ public final class LayerRowRenderer {
             // The pill.
             boolean sel = x.getId().equals(selectedCrossfadeId);
             xfadePaint.setStyle(Paint.Style.FILL);
-            xfadePaint.setColor(0xFF000000 | rgb);
+            xfadePaint.setColor(Studio.GROUND | rgb);
             xfadePaint.setAlpha(sel ? 255 : 220);
             float r = halfH;
             canvas.drawRoundRect(x0, seamY - halfH, x1, seamY + halfH, r, r, xfadePaint);
             if (sel) {
                 xfadePaint.setStyle(Paint.Style.STROKE);
                 xfadePaint.setStrokeWidth(1.5f * density);
-                xfadePaint.setColor(0xFFF4F4F5);
+                xfadePaint.setColor(Studio.INK);
                 canvas.drawRoundRect(x0, seamY - halfH, x1, seamY + halfH, r, r, xfadePaint);
             }
 
@@ -3713,7 +3713,7 @@ public final class LayerRowRenderer {
             // visible DIRECTION, and a letter pair would need explaining.
             xfadePaint.setStyle(Paint.Style.STROKE);
             xfadePaint.setStrokeWidth(1.6f * density);
-            xfadePaint.setColor(0xFF0D0D10);
+            xfadePaint.setColor(Studio.SURFACE);
             float step = 18f * density;
             float a = 4f * density;
             for (float cx = x0 + step * 0.5f; cx < x1 - a; cx += step) {
@@ -3896,7 +3896,7 @@ public final class LayerRowRenderer {
         if (selfBadging(kind)) return;
         float s = KIND_BADGE_SIZE_DP * density;   // badge box size
         float l = leftX, t = cy - s / 2f, r = leftX + s * 1.25f, b = cy + s / 2f;
-        int color = 0xFFc4c4ce;
+        int color = Studio.INK_DIM;
         Paint.Style prevStyle = iconPaint.getStyle();
         float prevStroke = iconPaint.getStrokeWidth();
         int prevColor = iconPaint.getColor();
@@ -4556,7 +4556,7 @@ public final class LayerRowRenderer {
                     timeToX.map(item.getTimelineStartMs() + dur));
             itemPaint.setColor(0x33FFFFFF);
             canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density, itemPaint);
-            itemSelectionPaint.setColor(0xFFF4F4F5);
+            itemSelectionPaint.setColor(Studio.INK);
             canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density,
                     itemSelectionPaint);
         }
@@ -4772,8 +4772,8 @@ public final class LayerRowRenderer {
     public static final class MasterMeterView extends android.view.View {
 
         private static final int TRACK_COLOR = 0x33000000;
-        private static final int FILL_COLOR = 0xFF35F6BF;
-        private static final int CLIP_COLOR = 0xFFFF4438;
+        private static final int FILL_COLOR = Studio.GO;
+        private static final int CLIP_COLOR = Studio.DANGER;
         private static final float FULL_SCALE = 1.0f;
 
         @Nullable private java.util.List<Track> floatingBand;

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.export;
 
+import com.fadcam.ui.faditor.Studio;
+
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
@@ -2430,7 +2432,7 @@ public class ExportManager {
             if (!f.exists() || f.length() == 0) {
                 android.graphics.Bitmap bmp = android.graphics.Bitmap.createBitmap(
                         16, 16, android.graphics.Bitmap.Config.ARGB_8888);
-                bmp.eraseColor(0xFF000000);
+                bmp.eraseColor(Studio.GROUND);
                 try (java.io.FileOutputStream out = new java.io.FileOutputStream(f)) {
                     bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out);
                 }

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
@@ -54,7 +56,7 @@ public class FineSeekBar extends SeekBar {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
         hintPaint.setTextSize(9f * density);
-        hintPaint.setColor(0xFF8C3DFA);
+        hintPaint.setColor(Studio.ROOM_AVATAR_DEEP);
     }
 
     /** @see #driving */

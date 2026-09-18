@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.Studio;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -2781,7 +2783,7 @@ public class TextOverlayItem {
     public static TextOverlayItem createImage(@NonNull String imageUri,
                                               float centerX, float centerY,
                                               float sizeFraction) {
-        TextOverlayItem item = new TextOverlayItem("", 0xFFF4F4F5,
+        TextOverlayItem item = new TextOverlayItem("", Studio.INK,
                 centerX, centerY, sizeFraction, 0f);
         item.setImageUri(imageUri);
         return item;

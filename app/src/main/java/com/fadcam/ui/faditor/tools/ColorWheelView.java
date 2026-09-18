@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -56,7 +58,7 @@ public class ColorWheelView extends View {
         ringPaint.setStyle(Paint.Style.STROKE);
         markerStroke.setStyle(Paint.Style.STROKE);
         markerStroke.setStrokeWidth(2f * density);
-        markerStroke.setColor(0xFF1F1F26);
+        markerStroke.setColor(Studio.RAISED);
         markerFill.setStyle(Paint.Style.FILL);
     }
 
@@ -138,7 +140,7 @@ public class ColorWheelView extends View {
         canvas.drawPath(triangle, trianglePaint);
         float span = (float) Math.hypot(c[0] - c[4], c[1] - c[5]);
         shadePaint.setShader(new RadialGradient(c[4], c[5], Math.max(1f, span),
-                0xFF000000, 0x00000000, Shader.TileMode.CLAMP));
+                Studio.GROUND, 0x00000000, Shader.TileMode.CLAMP));
         canvas.drawPath(triangle, shadePaint);
         canvas.restore();
 

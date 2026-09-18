@@ -165,6 +165,39 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### Measured state of the colour system, 2026-09-18 04:55
+
+Measured on the screens the goal names, not repo-wide:
+
+| | before | after |
+|---|---|---|
+| `LobbyFragment.java` | 62 literals | **4**, all bit-masks and a javadoc |
+| `activity_faditor_editor.xml` | 34 literals | **0** |
+| `OnboardingWelcomeFragment.java` | 26 literals | 14, all in the documented per-beat table |
+| distinct literals, layouts + drawables | 281 | **233** |
+
+The lobby's own ink ramp was four near-misses of four tokens (`#E4E4E7` vs
+`#F2F2F5`, and so on). Aliased. Verified by sampling the rendered word STUDIO:
+`#E4E4E7` → `#F2F2F5`.
+
+XML gained ten VEIL tokens (`s_line_20`, `s_scrim_80`, `s_ink_33`, …) because
+Java could say `Studio.alpha(TOKEN, a)` and XML could not — `#332C2C35` alone
+appeared eleven times in one layout. `studio_tokens.xml` had also drifted from
+`Studio.java` by six tokens, which is how the literals were getting back in.
+
+### Accessibility, read off the device
+
+| screen | unlabelled controls |
+|---|---|
+| Lobby | 6 of 28 → **0 of 28** |
+| Welcome | 0 of 3 |
+| Permissions | 0 of 5 |
+| Before we start | 3 of 11 → **0 of 11** |
+
+`uiautomator` cannot idle on the lobby because Joybot's hover never stops, which
+is the animation that was asked for and his lifecycle is correct. Read the tree
+with `animator_duration_scale 0`, then set it back to 1.
+
 ### Needs JoyRaptor — found by driving the app, not reading it
 
 1. **The Support button pays the wrong person.** `support_url` was

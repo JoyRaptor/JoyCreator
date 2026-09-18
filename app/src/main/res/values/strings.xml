@@ -1,5 +1,13 @@
 ﻿<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">Joy Creator</string>
+    <!-- The capture mode switcher. These were the literal strings "FadCam", "FadRec" and
+         "FadMic", hardcoded in mode_switcher_segmented.xml — three product names from the
+         app this one was forked from, sitting one tap behind the lobby's first button.
+         They now say what they DO, which is also what a person scanning a row of three
+         tabs needs: the thing being captured. -->
+    <string name="capture_mode_camera">Camera</string>
+    <string name="capture_mode_screen">Screen</string>
+    <string name="capture_mode_mic">Mic</string>
     <string name="app_icon_description">Choose an icon and name for your app. This will change how it appears on your home screen.</string>
     <string name="check_for_updates">Check for Updates</string>
     <string name="accessibility_thumbnail_progress">%1$d%% watched</string>

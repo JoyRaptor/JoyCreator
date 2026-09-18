@@ -1199,8 +1199,18 @@ public class LobbyFragment extends BaseFragment {
                 true,  () -> routeTab(TAB_CAPTURE));
         addNewChip("movie_edit",     0xFF35F6BF, 0xFF97FE8B, getString(R.string.lobby_new_project),
                 false, () -> routeTab(TAB_STUDIO));
+        // Character SELECTS the Sprite Lab and then ENTERS it. It used to only select —
+        // the dial turned, the hero changed, and nothing else happened. Three chips in this
+        // row act and one pointed, which reads as the chip not working; and a chip labelled
+        // "Character" is a promise to take you where characters are made.
+        //
+        // enterRoom() is what handles the awkward part: Sprite Lab lives INSIDE a project,
+        // so with no project to open it falls back to the Studio, which is where you would
+        // make one. Selecting first is what makes that legible — the dial has visibly moved
+        // to Sprite Lab, so the Studio is obviously a step on the way rather than the wrong
+        // door.
         addNewChip("directions_run", 0xFFCC27FF, 0xFF8C3DFA, getString(R.string.lobby_new_character),
-                false, () -> { active = 2; paintMarquee(); paintHero(); });
+                false, () -> { active = 2; paintMarquee(); paintHero(); enterRoom(); });
         addNewChip("folder",         0xFF55E0F9, 0xFF22D3EE, getString(R.string.lobby_new_import),
                 false, () -> routeTab(TAB_LIBRARY));
     }

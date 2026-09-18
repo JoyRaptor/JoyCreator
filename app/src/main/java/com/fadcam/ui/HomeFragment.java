@@ -183,6 +183,19 @@ public class HomeFragment extends BaseFragment {
         "Gold",
         "Pink",
     };
+    /**
+     * The "time left" reading's colour when nobody has chosen one.
+     *
+     * <p>It was #F44336 — FadCam red, and the same red this app uses for danger — on a
+     * number that is almost always fine. A permanent warning colour on a resting value
+     * teaches people to ignore the colour, which is the one thing a warning cannot afford.
+     *
+     * <p>#CCCCCC is the neutral already in the picker below, so the reading now matches the
+     * two stats beside it and anyone who wants it red can still pick red. Greys fade,
+     * colour guides.
+     */
+    private static final String DEFAULT_TIME_LEFT_COLOR = "#CCCCCC";
+
     private static final String[] CLOCK_COLOR_HEX_VALUES = {
         "#673AB7",
         "#2196F3",
@@ -9767,10 +9780,15 @@ public class HomeFragment extends BaseFragment {
             ivAppTitle.setImageResource(resolveHomeDrawable(RES_IDLE));
             startHeaderBlinkLoop();
         } else {
-            // Restore default FadCam text logo.
+            // The Joy Creator wordmark, not FadCam's.
+            //
+            // Only this ImageView changes. R.drawable.menu_icon_unknown is ALSO the
+            // watermark burned into exported video, the icon in Appearance settings and
+            // the stamp on saved photos — replacing the drawable itself would reach into
+            // files people have already made. The header is a header; it gets the header.
             stopHeaderBlinkLoop();
             ivAppTitle.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            ivAppTitle.setImageResource(R.drawable.menu_icon_unknown);
+            ivAppTitle.setImageResource(R.drawable.lobby_banner);
         }
     }
 
@@ -12388,8 +12406,8 @@ public class HomeFragment extends BaseFragment {
         String currentHex = sharedPreferencesManager != null
                 ? sharedPreferencesManager.sharedPreferences.getString(
                         Constants.PREF_HOME_TIME_LEFT_COLOR,
-                        "#F44336")
-                : "#F44336";
+                        DEFAULT_TIME_LEFT_COLOR)
+                : DEFAULT_TIME_LEFT_COLOR;
         String selectedId = currentHex;
         for (int i = 0; i < CLOCK_COLOR_HEX_VALUES.length; i++) {
             items.add(new com.fadcam.ui.picker.OptionItem(
@@ -12407,7 +12425,7 @@ public class HomeFragment extends BaseFragment {
                     if (bundle == null) return;
                     String selected = bundle.getString(
                             com.fadcam.ui.picker.PickerBottomSheetFragment.BUNDLE_SELECTED_ID,
-                            "#F44336");
+                            DEFAULT_TIME_LEFT_COLOR);
                     if (sharedPreferencesManager != null) {
                         sharedPreferencesManager.sharedPreferences.edit()
                                 .putString(Constants.PREF_HOME_TIME_LEFT_COLOR, selected)
@@ -12618,7 +12636,7 @@ public class HomeFragment extends BaseFragment {
         }
         String colorHex = sharedPreferencesManager.sharedPreferences.getString(
                 Constants.PREF_HOME_TIME_LEFT_COLOR,
-                "#F44336");
+                DEFAULT_TIME_LEFT_COLOR);
         int accentColor = Color.parseColor(colorHex);
         if (tvEstimateTitle != null) {
             tvEstimateTitle.setTextColor(accentColor);

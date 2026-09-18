@@ -51,7 +51,7 @@
         </FrameLayout>
 
         <!-- App Title (centered) -->
-        <ImageView android:id="@+id/ivAppTitle" android:layout_width="190dp" android:layout_height="40dp" android:src="@drawable/menu_icon_unknown" android:translationX="1dp" android:focusable="true" android:nextFocusUp="@+id/btnHamburgerMenu" android:nextFocusDown="@+id/btnGetPro" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+        <ImageView android:id="@+id/ivAppTitle" android:layout_width="190dp" android:layout_height="40dp" android:src="@drawable/lobby_banner" android:translationX="1dp" android:focusable="true" android:nextFocusUp="@+id/btnHamburgerMenu" android:nextFocusDown="@+id/btnGetPro" app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
         <!-- Golden Pro Button with Shimmer and Badge -->
         <FrameLayout
@@ -140,7 +140,7 @@
                             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="2dp" android:paddingTop="1dp" android:paddingEnd="2dp" android:paddingBottom="1dp">
 
                                 <FrameLayout android:layout_width="32dp" android:layout_height="28dp" android:layout_marginEnd="6dp">
-                                    <com.fadcam.ui.utils.AnimatedTextView android:id="@+id/ivCameraIcon" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center" android:fontFamily="@font/materialicons" android:text="camera_alt" android:textColor="#4CAF50" android:textSize="20sp" android:gravity="center" />
+                                    <com.fadcam.ui.utils.AnimatedTextView android:id="@+id/ivCameraIcon" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center" android:fontFamily="@font/materialicons" android:text="camera_alt" android:textColor="@color/s_go" android:textSize="20sp" android:gravity="center" />
                                 </FrameLayout>
 
                                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
@@ -182,12 +182,12 @@
                             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingStart="2dp" android:paddingTop="1dp" android:paddingEnd="2dp" android:paddingBottom="1dp">
 
                                 <FrameLayout android:layout_width="32dp" android:layout_height="28dp" android:layout_marginEnd="6dp">
-                                    <ImageView android:id="@+id/ivEstimateIcon" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center" android:padding="4dp" android:src="@drawable/hourglass_top_24px" android:tint="#F44336" android:contentDescription="Time left icon" android:scaleType="centerInside" />
+                                    <ImageView android:id="@+id/ivEstimateIcon" android:layout_width="28dp" android:layout_height="28dp" android:layout_gravity="center" android:padding="4dp" android:src="@drawable/hourglass_top_24px" android:tint="@color/s_ink_faint" android:contentDescription="Time left icon" android:scaleType="centerInside" />
                                 </FrameLayout>
 
                                 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
 
-                                    <com.fadcam.ui.utils.AnimatedTextView android:id="@+id/tvEstimateTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1h 30m" android:textColor="#F44336" android:textSize="13sp" android:textStyle="bold" />
+                                    <com.fadcam.ui.utils.AnimatedTextView android:id="@+id/tvEstimateTitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1h 30m" android:textColor="?attr/homeRailTextPrimary" android:textSize="13sp" android:textStyle="bold" />
 
                                     <TextView android:id="@+id/tvEstimateSubtitle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/recording_time_left" android:textColor="?attr/homeRailTextSecondary" android:textSize="11sp" />
                                 </LinearLayout>

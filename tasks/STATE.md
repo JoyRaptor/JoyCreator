@@ -292,6 +292,34 @@ strangers install.**
 
 ---
 
+## 7.5 THE FRONT DOOR — the lobby, and the visual system (2026-09-17)
+
+Design records 01–07 (artifacts). Backup before any of it: tag
+`pre-studio-redesign-20260917`, branch `backup/pre-studio-redesign-20260917`.
+
+| Feature | Level | Notes |
+|---|---|---|
+| **The lobby** | 🟢 | `ui/lobby/LobbyFragment`. Tab position **6** — deliberately last, so every existing tab keeps its index and nothing switching on a position was touched. A ROUTER over existing screens: it cannot lose a feature and it is one constant from being reverted. The app lands on it; the bottom bar hides there and the house icon is the way back from every room. |
+| Marquee carousel | 🟢 | Wrap-around room titles, heavy white → thin grey. **A new room costs one entry in `buildRooms()`** — that is the whole reason it exists rather than a sixth nav icon. |
+| Hero with real frames | 🟢 | MediaMetadataRetriever at 1s in (frame 0 of a recording is usually black), off-thread, LruCached, tag-guarded against a room switch mid-decode. |
+| Mixed recents + corner cut | 🟢 | Projects, recordings, exports, photos, streams by recency. Sampled on device: project `#73FB9E`, export `#4DBFFB`. Until recordings landed the cut was decoration. |
+| Joybot's line | 🟢 | May only say things it VERIFIED — a count or two timestamps compared. Says nothing on JoyRaptor's phone today, which is the feature working. |
+| Export hairline | 🟢 | Real `ExportService` broadcasts (out-of-process, so a normal receiver). Scales, never resizes. |
+| **The visual system** | 🟢 | Ground `#000000`; lane A is the ground, lane B `#0B0B0D` (4.3%, inside SPEC_N §6). Chrome on `studio_panel`. Selection **cyan**, neutral playhead **pink** (context tint preserved — do not flatten it). Transport recedes by value: one white control. |
+| Drawer transparency | 🟢 | Top drawers at 64% black, coloured chips at 70%. **Measured**: the object drawer's secondary text was at **1.39:1** over a blown-out frame — invisible outdoors. Now 4.86:1. Blur is impossible below API 31; tint is the only lever. |
+| First run | 🟢 | New copy, the promise before the ask, the AI-key card. Red gone: cursor, ticks and button all sampled. |
+| `ui/motion/Motion` | 🟢 | Four curves, seven durations, six rules. **No helper for 100×/day controls** — those get no animation at all. |
+| Object drawer header | 🟡 | One-line title + scrolling tabs, fixing the reported "label stacks vertically and pushes the rows past the minimum drawer" bug. **Compile-verified only** — needs a real double-tap on a phone. |
+
+**Open rulings, JoyRaptor's not mine:** the contextual tool row (would fight the
+existing pins + usage-recency system), the ~50 sites where green means "modified",
+amber transform handles on the canvas, and pink-not-red for voiceover recording.
+
+**Asset-blocked:** empty-room heroes, the first-run slideshow, Joybot's face, the
+demo project, a display typeface. All listed in design record 07 with sizes.
+
+---
+
 ## 8. ONBOARDING AND IDENTITY
 
 | Feature | Level | Notes |

@@ -39,6 +39,10 @@ import com.fadcam.R;
 import com.fadcam.ui.BaseFragment;
 import com.fadcam.ui.faditor.FaditorEditorActivity;
 import com.fadcam.ui.faditor.project.ProjectStorage;
+import com.fadcam.SharedPreferencesManager;
+import com.fadcam.data.VideoIndexRepository;
+import com.fadcam.ui.VideoItem;
+import com.fadcam.ui.motion.Motion;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -139,6 +143,8 @@ public class LobbyFragment extends BaseFragment {
     private TextView heroTag, heroEmpty, heroName, heroSub, heroAction;
     private TextView statIcon, statText, wordmark, botOrb;
     private TextView libraryCount;
+    private View botLine;
+    private TextView botLineText, botLineYes, botLineNo, botLineOrb;
     private Typeface iconFont;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -179,6 +185,17 @@ public class LobbyFragment extends BaseFragment {
         wordmark   = v.findViewById(R.id.lobby_wordmark);
         botOrb     = v.findViewById(R.id.lobby_bot);
         libraryCount = v.findViewById(R.id.lobby_library_count);
+        botLine     = v.findViewById(R.id.lobby_bot_line);
+        botLineText = v.findViewById(R.id.lobby_bot_line_text);
+        botLineYes  = v.findViewById(R.id.lobby_bot_line_yes);
+        botLineNo   = v.findViewById(R.id.lobby_bot_line_no);
+        botLineOrb  = v.findViewById(R.id.lobby_bot_line_orb);
+        botLineOrb.setBackground(circleGradient(0xFFCC27FF, 0xFF5C43FD));
+        botLineYes.setBackground(pill(INK, dp(999)));
+        botLineNo.setOnClickListener(b -> {
+            botDismissed = true;
+            botLine.setVisibility(View.GONE);
+        });
 
         // Display face. Nothing heavier than Ubuntu Regular is bundled, so the marquee
         // borrows Android's own weight family — sans-serif-black / -light give REAL weights
@@ -217,7 +234,7 @@ public class LobbyFragment extends BaseFragment {
         reloadProjects();
         paintMarquee();
         paintHero();
-        paintRecents();
+        loadRecentsAsync();
     }
 
     @Override
@@ -307,7 +324,10 @@ public class LobbyFragment extends BaseFragment {
                 if (offset == 0) { enterRoom(); return; }
                 active = (active + offset) % rooms.size();
                 paintMarquee();
-                paintHero();
+                // The hero CROSS-FADES rather than cutting. Movement would imply the old
+                // room's content went somewhere you could scroll back to; a fade says it
+                // simply became something else, which is what actually happened.
+                Motion.swap(hero, Motion.HERO, this::paintHero);
             });
             marquee.addView(t);
         }
@@ -394,6 +414,7 @@ public class LobbyFragment extends BaseFragment {
         heroAction.setTextColor(r.onGrad);
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
         heroAction.setOnClickListener(v -> enterRoom());
+        Motion.press(heroAction);
         hero.setOnClickListener(v -> enterRoom());
     }
 
@@ -446,9 +467,9 @@ public class LobbyFragment extends BaseFragment {
         if (recentsRow == null) return;
         recentsRow.removeAllViews();
 
-        if (projects.isEmpty()) {
+        if (recents.isEmpty()) {
             TextView none = new TextView(requireContext());
-            none.setText("Nothing yet — make something and it will land here.");
+            none.setText("Nothing yet. Make something and it will land here.");
             none.setTextColor(DIMMER);
             none.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
             none.setPadding(0, dp(16), 0, dp(16));
@@ -457,17 +478,18 @@ public class LobbyFragment extends BaseFragment {
             return;
         }
 
-        libraryCount.setText(String.format(Locale.US, "%d PROJECT%s",
-                projects.size(), projects.size() == 1 ? "" : "S"));
+        libraryCount.setText(String.format(Locale.US, "%d ITEM%s",
+                recents.size(), recents.size() == 1 ? "" : "S"));
 
-        int n = Math.min(projects.size(), 8);
+        int n = Math.min(recents.size(), 10);
         for (int i = 0; i < n; i++) {
-            final ProjectStorage.ProjectSummary p = projects.get(i);
-            recentsRow.addView(recentCard(p, 0xFF35F6BF, 0xFF97FE8B, "PROJECT"));
+            View card = recentCard(recents.get(i));
+            recentsRow.addView(card);
+            Motion.enter(card, i);
         }
     }
 
-    private View recentCard(ProjectStorage.ProjectSummary p, int a, int b, String kind) {
+    private View recentCard(Recent item) {
         LinearLayout card = new LinearLayout(requireContext());
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(pill(PANEL, dp(12)));
@@ -484,7 +506,7 @@ public class LobbyFragment extends BaseFragment {
         ImageView thumb = new ImageView(requireContext());
         thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
         thumb.setBackgroundColor(0xFF17171D);
-        loadThumbInto(thumb, p.videoUri);
+        loadThumbInto(thumb, item.thumbUri);
         thumbWrap.addView(thumb, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -492,14 +514,14 @@ public class LobbyFragment extends BaseFragment {
         // icon: the corner is already dead space, and colour is the fastest thing the eye
         // resolves. Aqua means project; pink-to-violet will mean sheet.
         View cut = new View(requireContext());
-        cut.setBackground(new CornerCut(a, b));
+        cut.setBackground(new CornerCut(item.gradA, item.gradB));
         FrameLayout.LayoutParams cutLp = new FrameLayout.LayoutParams(dp(24), dp(24));
         cutLp.gravity = Gravity.BOTTOM | Gravity.END;
         thumbWrap.addView(cut, cutLp);
         card.addView(thumbWrap);
 
         TextView name = new TextView(requireContext());
-        name.setText(p.name);
+        name.setText(item.name);
         name.setTextColor(INK);
         name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
         name.setTypeface(Typeface.DEFAULT_BOLD);
@@ -510,7 +532,7 @@ public class LobbyFragment extends BaseFragment {
         card.addView(name);
 
         TextView meta = new TextView(requireContext());
-        meta.setText(kind + " · " + ago(p.lastModified));
+        meta.setText(item.kindLabel + " \u00b7 " + ago(item.when));
         meta.setTextColor(DIMMER);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
         meta.setTypeface(Typeface.MONOSPACE);
@@ -519,8 +541,104 @@ public class LobbyFragment extends BaseFragment {
         meta.setPadding(dp(8), dp(1), dp(8), dp(8));
         card.addView(meta);
 
-        card.setOnClickListener(v -> openProject(p.id));
+        card.setOnClickListener(v -> {
+            if (item.projectId != null) { openProject(item.projectId); return; }
+            // A recording is not a project: opening it in the editor would silently CREATE
+            // one. Sending the user to the Library is the honest action until "start a
+            // project from this clip" exists as a deliberate choice.
+            routeTab(TAB_LIBRARY);
+        });
+        Motion.press(card);
         return card;
+    }
+
+
+    /**
+     * ONE ROW, MANY KINDS.
+     *
+     * <p>The recents row is deliberately mixed - a project beside a recording beside an
+     * export, in the order you touched them. That is what makes it fast to use, and it is
+     * also exactly what makes it unreadable without a tell, which is the whole reason the
+     * corner cut exists. A row of nothing but projects would have made the cut decoration;
+     * a mixed row makes it information.</p>
+     */
+    private static final class Recent {
+        final String name, kindLabel, thumbUri;
+        final long when;
+        final int gradA, gradB;
+        @Nullable final String projectId;
+
+        Recent(String name, String kindLabel, String thumbUri, long when,
+               int gradA, int gradB, @Nullable String projectId) {
+            this.name = name; this.kindLabel = kindLabel; this.thumbUri = thumbUri;
+            this.when = when; this.gradA = gradA; this.gradB = gradB;
+            this.projectId = projectId;
+        }
+    }
+
+    private List<Recent> recents = new ArrayList<>();
+
+    /** Room gradients, reused so a card's corner matches the room that made it. */
+    private static final int G_STUDIO_A  = 0xFF35F6BF, G_STUDIO_B  = 0xFF97FE8B;
+    private static final int G_CAPTURE_A = 0xFFFA3D5D, G_CAPTURE_B = 0xFFFF008C;
+    private static final int G_LIBRARY_A = 0xFF4397FD, G_LIBRARY_B = 0xFF55E0F9;
+    private static final int G_SOUND_A   = 0xFFFAA03D, G_SOUND_B   = 0xFFFC6818;
+
+    /**
+     * Merge projects and recordings into one recency-ordered list, off the main thread.
+     *
+     * <p>{@code getVideos} walks the storage tree, so it can take a moment on a full phone.
+     * The lobby paints the projects it already has IMMEDIATELY and folds the recordings in
+     * when they arrive - a front door that waits on a file scan is a front door that feels
+     * broken, however fast the scan usually is.</p>
+     */
+    private void loadRecentsAsync() {
+        List<Recent> immediate = new ArrayList<>();
+        for (ProjectStorage.ProjectSummary p : projects) {
+            immediate.add(new Recent(p.name, "PROJECT", p.videoUri, p.lastModified,
+                    G_STUDIO_A, G_STUDIO_B, p.id));
+        }
+        recents = immediate;
+        paintRecents();
+        paintBotLine();
+
+        THUMB_IO.execute(() -> {
+            final List<Recent> merged = new ArrayList<>(immediate);
+            try {
+                List<VideoItem> vids = VideoIndexRepository.getInstance(requireContext())
+                        .getVideos(SharedPreferencesManager.getInstance(requireContext()));
+                if (vids != null) {
+                    for (VideoItem v : vids) {
+                        if (v == null || v.uri == null) continue;
+                        int a, b;
+                        String label;
+                        switch (v.category) {
+                            case FADITOR:
+                                a = G_LIBRARY_A; b = G_LIBRARY_B; label = "EXPORT"; break;
+                            case SCREEN:
+                                a = G_CAPTURE_A; b = G_CAPTURE_B; label = "SCREEN"; break;
+                            case SHOT:
+                                a = G_LIBRARY_A; b = G_LIBRARY_B; label = "PHOTO"; break;
+                            case STREAM:
+                                a = G_SOUND_A; b = G_SOUND_B; label = "STREAM"; break;
+                            default:
+                                a = G_CAPTURE_A; b = G_CAPTURE_B; label = "RECORDING"; break;
+                        }
+                        merged.add(new Recent(v.displayName, label, v.uri.toString(),
+                                v.lastModified, a, b, null));
+                    }
+                }
+            } catch (Exception e) {
+                FLog.w("Lobby", "recordings scan failed; projects-only recents", e);
+            }
+            java.util.Collections.sort(merged, (x, y) -> Long.compare(y.when, x.when));
+            ui.post(() -> {
+                if (!isAdded()) return;
+                recents = merged;
+                paintRecents();
+                paintBotLine();
+            });
+        });
     }
 
     // ── the New row ─────────────────────────────────────────────────────────
@@ -628,7 +746,70 @@ public class LobbyFragment extends BaseFragment {
         cell.addView(tv);
 
         cell.setOnClickListener(v -> onTap.run());
+        Motion.press(cell);
         floorRow.addView(cell);
+    }
+
+
+    /** Set once the user waves the line away, so it does not nag within a session. */
+    private boolean botDismissed = false;
+
+    /**
+     * JOYBOT'S ONE LINE — the only thing on this screen that changes because of what you
+     * DID rather than what you tapped.
+     *
+     * <p><b>The rule that governs it: it may only say things it has verified.</b> Every
+     * observation below is computed from data already in hand — a count, or a comparison of
+     * two timestamps. There is deliberately no branch that estimates, predicts or rounds a
+     * number up to sound impressive. A front door that invents a statistic is a front door
+     * you stop believing, and then the AI everywhere else in the app inherits that doubt.</p>
+     *
+     * <p>When there is nothing true and useful to say, it says nothing and takes up no
+     * height. Silence is a valid state.</p>
+     */
+    private void paintBotLine() {
+        if (botLine == null) return;
+        if (botDismissed) { botLine.setVisibility(View.GONE); return; }
+
+        String message = null;
+        String yesLabel = null;
+        Runnable onYes = null;
+
+        int captures = 0;
+        long newestCapture = 0L;
+        for (Recent r : recents) {
+            if (r.projectId == null) {
+                captures++;
+                if (r.when > newestCapture) newestCapture = r.when;
+            }
+        }
+        long newestProject = projects.isEmpty() ? 0L : projects.get(0).lastModified;
+
+        if (!projects.isEmpty() && newestCapture > newestProject && captures > 0) {
+            // TRUE BY CONSTRUCTION: the newest thing you captured is more recent than the
+            // newest thing you edited. It does not claim the clip is unused - only that it
+            // arrived after your last edit, which is exactly what the sentence says.
+            message = "Your newest recording landed after your last edit.";
+            yesLabel = "Open Library";
+            onYes = () -> routeTab(TAB_LIBRARY);
+        } else if (projects.isEmpty() && captures > 0) {
+            message = captures + (captures == 1 ? " recording" : " recordings")
+                    + " and no projects yet.";
+            yesLabel = "Start one";
+            onYes = () -> routeTab(TAB_STUDIO);
+        }
+
+        if (message == null) { botLine.setVisibility(View.GONE); return; }
+
+        botLineText.setText(message);
+        botLineYes.setText(yesLabel);
+        final Runnable action = onYes;
+        botLineYes.setOnClickListener(v -> { if (action != null) action.run(); });
+        Motion.press(botLineYes);
+        if (botLine.getVisibility() != View.VISIBLE) {
+            botLine.setVisibility(View.VISIBLE);
+            Motion.enter(botLine, 0);
+        }
     }
 
     // ── the cycling stat ────────────────────────────────────────────────────

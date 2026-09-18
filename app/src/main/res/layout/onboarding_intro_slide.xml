@@ -115,6 +115,48 @@
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
 
+        <!-- ── THE PROMISE, AND THEN THE ASK ──────────────────────────────────
+             Order matters. You are not asking a stranger to fund a hope; you are
+             telling them what they already have, and then letting them decide.
+             The promise is the sharpest thing this project owns and no competitor
+             can say it, so it gets the weight and the studio's colour.
+             ──────────────────────────────────────────────────────────────────── -->
+        <TextView
+            android:id="@+id/tvIntroPromise"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/intro_promise"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:textColor="#FF35F6BF"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginTop="26dp"
+            android:paddingLeft="@dimen/onboarding_margin"
+            android:paddingRight="@dimen/onboarding_margin"
+            android:alpha="0"
+            app:layout_constraintTop_toBottomOf="@id/tvOnboardingDescription"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <!-- "Between naps" does more work than a paragraph of explanation would. -->
+        <TextView
+            android:id="@+id/tvIntroStory"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:text="@string/intro_story"
+            android:textSize="12sp"
+            android:gravity="center"
+            android:textColor="#FFA1A1AA"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginTop="12dp"
+            android:paddingLeft="28dp"
+            android:paddingRight="28dp"
+            android:alpha="0"
+            app:layout_constraintTop_toBottomOf="@id/tvIntroPromise"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <androidx.constraintlayout.widget.Guideline
             android:id="@+id/guidelineArrowBottom"
             android:layout_width="wrap_content"

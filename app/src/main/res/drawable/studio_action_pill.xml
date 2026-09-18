@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE PRIMARY ACTION. One saturated control per screen, in the Studio's own
+  aqua-to-lime. Everything else on a screen recedes so this is unmistakably
+  the thing to press.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="999dp" />
+    <gradient
+        android:type="linear"
+        android:angle="0"
+        android:startColor="#FF35F6BF"
+        android:endColor="#FF97FE8B" />
+</shape>

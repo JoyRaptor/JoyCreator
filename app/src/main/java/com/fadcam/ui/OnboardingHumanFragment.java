@@ -61,7 +61,9 @@ public class OnboardingHumanFragment extends Fragment {
         continueButton.setAlpha(0.6f);
 
         // Get the redPastel color
-        int redPastelColor = ContextCompat.getColor(requireContext(), R.color.redPastel);
+        // A ticked box is a STATE, and this app has exactly four state colours.
+        // Selected/on is cyan everywhere: the timeline, Sprite Lab, the drawers, here.
+        int redPastelColor = 0xFF22D3EE;
 
         View.OnClickListener update = view -> {
             continueButton.setEnabled(checked1 && checked2 && checked3);

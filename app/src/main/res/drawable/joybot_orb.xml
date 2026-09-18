@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  JOYBOT'S ORB — one identity for the assistant, everywhere in the app.
+
+  Violet to indigo: deliberately outside the room palette, because Joybot is not a
+  room. He is present IN every room, so borrowing any room's colour would say he
+  belongs to that one. This is also the only gradient allowed in the app's chrome —
+  he is a character, not a control.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <gradient
+        android:type="linear"
+        android:angle="315"
+        android:startColor="#FFCC27FF"
+        android:endColor="#FF5C43FD" />
+</shape>

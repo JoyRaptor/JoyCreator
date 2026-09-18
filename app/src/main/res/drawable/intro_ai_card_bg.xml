@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The AI card. A panel, not a band: it is one idea inside the screen, not a
+     new section of it, so it gets a radius and stops short of the edges. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="14dp" />
+    <solid android:color="@color/studio_panel" />
+</shape>

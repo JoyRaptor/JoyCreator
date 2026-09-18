@@ -1749,12 +1749,12 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <string name="disable_battery_optimization">Disable Battery Optimization</string>
 
-    <string name="onboarding_human_title">Verify if you are a human</string>
-    <string name="onboarding_human_desc">Hmmmm... alright. These rules are non-negotiable. If you can\'t agree, please uninstall Joy Creator right now.</string>
-    <string name="onboarding_human_checkbox1">I won\'t use Joy Creator to break any laws, invade anyone\'s privacy, or be a creep. The dev\'s out of the picture if I mess up. (That\'s on me.)</string>
-    <string name="onboarding_human_checkbox2">I already love Joy Creator before even using it. (Not optional)</string>
-    <string name="onboarding_human_checkbox3">I agree to the Privacy Policy</string>
-    <string name="onboarding_human_button">Let me in!</string>
+    <string name="onboarding_human_title">Before we start</string>
+    <string name="onboarding_human_desc">Three quick things, and then the app is yours.</string>
+    <string name="onboarding_human_checkbox1">I\'ll use Joy Creator for my own work and respect other people\'s privacy.</string>
+    <string name="onboarding_human_checkbox2">I already love Joy Creator and haven\'t even opened it yet. (Not optional)</string>
+    <string name="onboarding_human_checkbox3">I\'ve read the Privacy Policy — short version: your files stay on your phone.</string>
+    <string name="onboarding_human_button">Let me in</string>
 
 
 
@@ -2079,10 +2079,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="onboarding_or">OR</string>
     <string name="onboarding_and">AND</string>
     <string name="onboarding_open_settings">Open Settings</string>
-    <string name="onboarding_intro_line1">a multimedia recorder—</string>
-    <string name="onboarding_intro_line2">background video, screen &amp; live stream,</string>
-    <string name="onboarding_intro_line3">remote camera control,</string>
-    <string name="onboarding_intro_line4">open-source. ad-free. yours.</string>
+    <string name="onboarding_intro_line1">a creative studio in your pocket —</string>
+    <string name="onboarding_intro_line2">screen capture with your face on it, editing,</string>
+    <string name="onboarding_intro_line3">layers, masks, keyframes, animation,</string>
+    <string name="onboarding_intro_line4">transcription that never leaves your phone.</string>
 
     <!-- Records Options and Empty State Strings -->
     <string name="sort_by">Sort By</string>
@@ -3400,4 +3400,18 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="lobby_act_open">Open</string>
     <string name="lobby_act_record">Record</string>
     <string name="lobby_act_start">Start one</string>
+
+    <!-- ── FIRST RUN (design record 04 §03) ──────────────────────────────── -->
+    <!-- The promise, stated before the ask. You are not asking someone to fund a
+         hope; you are telling them what they already have, then letting them decide. -->
+    <string name="intro_promise">No ads. No subscription.\nNo watermark. No export paywall. Ever.</string>
+    <!-- "Between naps" does more work than a paragraph of explanation would. -->
+    <string name="intro_story">I built this between naps, looking after my three toddlers. It\'s how I support my family. If you get something out of it, you can help keep it free for everyone else.</string>
+    <string name="intro_cta_start">Start creating</string>
+    <string name="intro_cta_support">Support</string>
+    <!-- Said where AI is explained, which is the only moment it makes sense. -->
+    <string name="intro_ai_note">Joy Creator runs no servers. If you connect an AI, your prompts go to the provider you chose — we never see them and we take no cut.</string>
+    <string name="intro_ai_have_key">Already have a key?</string>
+    <string name="intro_ai_add_now">Add it now</string>
+    <string name="intro_ai_later">Later, from chat</string>
 </resources>

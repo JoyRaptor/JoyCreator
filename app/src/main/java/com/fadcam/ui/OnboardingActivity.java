@@ -341,7 +341,10 @@ public class OnboardingActivity extends AppIntro {
                                 final Runnable[] blinkRunnable = new Runnable[1];
                                 final float[] cursorAlpha = { 1f };
                                 final boolean[] fadingOut = { true };
-                                final int cursorColor = 0xFFE43C3C;
+                                // Was FadCam red. The cursor is the first coloured pixel a
+                                // stranger ever sees in this app, so it should be the studio's
+                                // colour rather than the fork's.
+                                final int cursorColor = 0xFF35F6BF;
                                 descView.setText("");
                                 // Define startBlinkingCursor before RowFadeAnimator so it is in scope
                                 final Runnable startBlinkingCursor = new Runnable() {
@@ -459,6 +462,20 @@ public class OnboardingActivity extends AppIntro {
                                     }
                                 }
                                 final RowFadeAnimator rowAnimator = new RowFadeAnimator(startBlinkingCursor);
+                                // The promise and the story arrive AFTER the capability lines
+                                // have finished typing. Showing them together would make the
+                                // screen a wall; showing them in order makes it a sentence:
+                                // here is what it does, here is what it costs you, here is why.
+                                final android.view.View promiseView = v.findViewById(R.id.tvIntroPromise);
+                                final android.view.View storyView = v.findViewById(R.id.tvIntroStory);
+                                if (promiseView != null && storyView != null) {
+                                    handler.postDelayed(() -> {
+                                        promiseView.animate().alpha(1f).setDuration(560)
+                                                .setInterpolator(com.fadcam.ui.motion.Motion.EASE_OUT).start();
+                                        storyView.animate().alpha(1f).setStartDelay(320).setDuration(560)
+                                                .setInterpolator(com.fadcam.ui.motion.Motion.EASE_OUT).start();
+                                    }, 1200L * 4 + 400L);
+                                }
                                             handler.postDelayed(rowAnimator::start, 200);
                                         }; // closes afterWake
                                         // Play wake AVD; call afterWake on completion

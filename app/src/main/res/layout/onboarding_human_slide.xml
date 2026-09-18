@@ -38,7 +38,7 @@
                 android:textSize="@dimen/onboarding_title_size"
                 android:textStyle="bold"
                 android:fontFamily="monospace"
-                android:textColor="@color/redPastel"
+                android:textColor="#FFE4E4E7"
                 android:gravity="center"
                 android:layout_marginLeft="@dimen/onboarding_margin"
                 android:layout_marginRight="@dimen/onboarding_margin"/>
@@ -169,16 +169,91 @@
                     android:focusable="true"/>
             </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
+                            <!-- ── THE KEY, OFFERED ONCE, WHERE IT MAKES SENSE ─────────────────
+                     JoyRaptor, 2026-09-17: "mentioning the ai server provider on the
+                     third screen is a perfect time to say 'have one already? You can
+                     add its api now if you like'."
+
+                     It sits under the privacy line because that is the sentence that
+                     earns the right to ask. Declining costs nothing and SAYS WHERE TO
+                     FIND IT AGAIN, which is the half that stops people worrying they
+                     have missed something.
+                     ──────────────────────────────────────────────────────────────── -->
+                <LinearLayout
+                    android:id="@+id/intro_ai_card"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:background="@drawable/intro_ai_card_bg"
+                    android:padding="14dp"
+                    android:layout_marginTop="18dp"
+                    android:layout_marginBottom="6dp"
+                    android:layout_marginStart="2dp"
+                    android:layout_marginEnd="2dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@string/intro_ai_note"
+                        android:textColor="#FFA1A1AA"
+                        android:textSize="12sp"
+                        android:lineSpacingExtra="2dp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/intro_ai_have_key"
+                        android:textColor="#FFE4E4E7"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:layout_marginTop="10dp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="9dp">
+
+                        <TextView
+                            android:id="@+id/intro_ai_add"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:gravity="center"
+                            android:paddingStart="16dp"
+                            android:paddingEnd="16dp"
+                            android:text="@string/intro_ai_add_now"
+                            android:textColor="#FFFFFFFF"
+                            android:textSize="12sp"
+                            android:textStyle="bold"
+                            android:background="@drawable/joybot_orb_pill" />
+
+                        <TextView
+                            android:id="@+id/intro_ai_later"
+                            android:layout_width="wrap_content"
+                            android:layout_height="36dp"
+                            android:gravity="center"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            android:layout_marginStart="8dp"
+                            android:text="@string/intro_ai_later"
+                            android:textColor="#FFA1A1AA"
+                            android:textSize="12sp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+<com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_human_continue"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/onboarding_human_button"
                 android:fontFamily="monospace"
                 android:textSize="@dimen/onboarding_button_text_size"
-                android:textColor="@color/white"
-                android:backgroundTint="@color/redPastel"
-                app:cornerRadius="12dp"
+                android:textColor="#FF050507"
+                app:backgroundTint="@null"
+                android:background="@drawable/studio_action_pill"
+                app:cornerRadius="0dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="#33050507"
                 android:layout_marginTop="@dimen/onboarding_margin"
                 android:layout_marginLeft="@dimen/onboarding_nav_margin"
                 android:layout_marginRight="@dimen/onboarding_nav_margin"/>

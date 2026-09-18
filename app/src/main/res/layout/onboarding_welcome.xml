@@ -117,7 +117,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/onboarding_intro_line1"
                 android:textSize="13.5sp"
-                android:textColor="#FF8A8A94"
+                android:textColor="@color/s_ink_faint"
                 android:fontFamily="@font/joy_body"
                 android:layout_marginTop="14dp" />
 
@@ -145,8 +145,9 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:id="@+id/welcome_promise"
                 android:text="@string/intro_promise"
-                android:textSize="14sp"
+                android:textSize="14.5sp"
                 android:lineSpacingExtra="3dp"
                 android:textColor="@color/s_ink"
                 android:fontFamily="@font/joy_display"
@@ -159,7 +160,7 @@
                 android:text="@string/intro_story"
                 android:textSize="12sp"
                 android:lineSpacingExtra="3dp"
-                android:textColor="#FF8A8A94"
+                android:textColor="@color/s_ink_faint"
                 android:fontFamily="@font/joy_body"
                 android:layout_marginTop="12dp" />
 
@@ -182,7 +183,7 @@
                     android:gravity="center"
                     android:text="@string/intro_start_creating"
                     android:textSize="14.5sp"
-                    android:textColor="#FF050507"
+                    android:textColor="@color/s_on_go"
                     android:fontFamily="@font/joy_display"
                     android:textStyle="bold"
                     android:textFontWeight="800"
@@ -198,11 +199,11 @@
                     android:layout_marginStart="10dp"
                     android:text="@string/intro_support"
                     android:textSize="14sp"
-                    android:textColor="@color/s_ink_faint"
+                    android:textColor="@color/s_ink_dim"
                     android:fontFamily="@font/joy_display"
                     android:textStyle="bold"
                     android:textFontWeight="600"
-                    android:background="@drawable/intro_ghost_pill" />
+                    android:background="@drawable/intro_secondary_pill" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

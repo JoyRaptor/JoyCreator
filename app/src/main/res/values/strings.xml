@@ -3489,7 +3489,12 @@ For the smoothest playback experience, you can use an external player like VLC. 
          ═══════════════════════════════════════════════════════════════════════════════ -->
     <string name="support_url" translatable="false"></string>
 
-    <string name="intro_promise">No ads. No subscription.\nNo watermark. No export paywall. Ever.</string>
+    <!-- The Marquee §03 draws the last clause in the Studio accent:
+         the Studio accent. It is the one coloured word on the
+         screen, and it is on the promise that costs the most to keep. Split so the
+         accent can be applied without a hardcoded colour in a translated string. -->
+    <string name="intro_promise">No ads. No subscription.\nNo watermark. </string>
+    <string name="intro_promise_ever">No export paywall. Ever.</string>
     <!-- "Between naps" does more work than a paragraph of explanation would. -->
     <string name="intro_story">I built this between naps, looking after my three toddlers. It\'s how I support my family. If you get something out of it, you can help keep it free for everyone else.</string>
     <string name="intro_cta_start">Start creating</string>

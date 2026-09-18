@@ -187,6 +187,9 @@ before changing any of these numbers.
 | 02 | recents thumb 60px | 84dp | ⚠️ see below |
 | 02 | Joybot's one line, one action + dismiss | present | ✅ |
 | 02 | floor: five words, glyph 13 / type 11.5 | present | ✅ |
+| 03 | promise 14.5px, weight 800 | 14.5sp | ✅ |
+| 03 | **last clause in the Studio accent** | was all white — now s_go | ✅ fixed |
+| 03 | Support: filled s_raised, dim ink | was an outline, faint ink | ✅ fixed |
 | 03 | slideshow 560ms ease-out | 560ms | ✅ |
 | 03 | cycle 3000ms, text swap 260ms | 3000 / 260 | ✅ |
 | 04 | nothing from `scale(0)`; no `ease-in` | verified | ✅ |

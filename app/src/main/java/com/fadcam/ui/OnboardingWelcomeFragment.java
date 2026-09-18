@@ -120,6 +120,7 @@ public final class OnboardingWelcomeFragment extends Fragment {
         hairline.setScaleX(1f / 3f);           // one of three screens
 
         if (bot != null) bot.setTint(Studio.INK);
+        paintPromise(v.findViewById(R.id.welcome_promise));
 
         slideA.setBackground(slideFor(BEATS[0]));
         line.setText(getString(BEATS[0].line));
@@ -141,6 +142,27 @@ public final class OnboardingWelcomeFragment extends Fragment {
 
     private GlowSlide slideFor(Beat b) {
         return new GlowSlide(b.glow, b.baseTop, b.baseBottom, b.atX, b.atY);
+    }
+
+    /**
+     * The promise, with its last clause in the Studio accent.
+     *
+     * <p>The Marquee §03: {@code .ipromise s{color:var(--studio-a)}}. It is the only
+     * coloured word on the whole screen, and it sits on the promise that costs the most to
+     * keep — no export paywall. White, it was just one more line of the paragraph.
+     */
+    private void paintPromise(android.widget.TextView t) {
+        if (t == null) return;
+        // The joining space lives HERE, not in the string. Android trims trailing
+        // whitespace out of a string resource unless it is quoted, so "No watermark. "
+        // arrives as "No watermark." and the two clauses run together.
+        String head = getString(R.string.intro_promise) + " ";
+        String ever = getString(R.string.intro_promise_ever);
+        android.text.SpannableString sp = new android.text.SpannableString(head + ever);
+        sp.setSpan(new android.text.style.ForegroundColorSpan(Studio.GO),
+                head.length(), head.length() + ever.length(),
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        t.setText(sp);
     }
 
     private void openSupport() {

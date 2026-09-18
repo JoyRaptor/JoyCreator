@@ -8,6 +8,22 @@
     <!-- He has a name. "AI Assistant" was a category, not a character, and the same face
          appears in the lobby, in the editor's top bar and here. -->
     <string name="assistant_title" translatable="false">Joybot</string>
+    <!-- Spoken, not shown. The lobby builds its chips and cards in code, so without these
+         a screen reader reads each one as its parts: the icon font's glyph NAME, then the
+         label, then the meta line. One control, one sentence. -->
+    <string name="lobby_a11y_new_recording">Start a new recording</string>
+    <string name="lobby_a11y_new_project">Start a new project</string>
+    <string name="lobby_a11y_new_character">Make a new character</string>
+    <!-- Not "start a new import": this one brings in something that already exists. -->
+    <string name="lobby_a11y_new_import">Import a file</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s, nothing in it yet</string>
+    <string name="lobby_a11y_library">Open the library</string>
+    <!-- The three consent rows. Their tick is an ImageView, which reports no state,
+         so the state is part of the sentence instead. -->
+    <string name="onboarding_a11y_checked">%1$s. Ticked.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. Not ticked.</string>
+    <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
     <string name="capture_mode_camera">Camera</string>
     <string name="capture_mode_screen">Screen</string>
     <string name="capture_mode_mic">Mic</string>

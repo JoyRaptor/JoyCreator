@@ -49,6 +49,15 @@ public class OnboardingHumanFragment extends Fragment {
     }
 
     /** Swap a primary button's FILL for its availability, rather than fading it. */
+    /** One consent row, spoken: the promise, then whether it is ticked. */
+    private void sayState(View row, android.widget.TextView label, boolean checked) {
+        if (row == null || label == null || !isAdded()) return;
+        CharSequence text = label.getText();
+        row.setContentDescription(getString(
+                checked ? R.string.onboarding_a11y_checked : R.string.onboarding_a11y_unchecked,
+                text == null ? "" : text.toString()));
+    }
+
     private static void primaryState(com.google.android.material.button.MaterialButton b,
                                      boolean on) {
         if (b == null) return;
@@ -92,7 +101,17 @@ public class OnboardingHumanFragment extends Fragment {
         View.OnClickListener update = view -> {
             continueButton.setEnabled(checked1 && checked2 && checked3);
             primaryState(continueButton, checked1 && checked2 && checked3);
+            // A tick drawn as an ImageView has no checked state to report, so a screen
+            // reader met these three rows as unlabelled boxes — on the screen where somebody
+            // agrees to things. Each row now says its sentence and whether it is ticked, and
+            // says it again on every toggle, because a state announced once goes stale the
+            // first time it changes.
+            sayState(row1, label1, checked1);
+            sayState(row2, label2, checked2);
+            sayState(row3, label3, checked3);
         };
+        // Say it once up front too, so the rows are described before anything is touched.
+        update.onClick(null);
 
         View.OnClickListener toggle1 = view -> {
             checked1 = !checked1;

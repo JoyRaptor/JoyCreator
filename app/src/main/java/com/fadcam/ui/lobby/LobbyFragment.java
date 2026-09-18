@@ -919,6 +919,12 @@ public class LobbyFragment extends BaseFragment {
                     new int[]{ withAlpha(r.gradA, 0x47), withAlpha(r.gradB, 0x2B), Studio.SURFACE }));
         }
 
+        // The biggest control on the screen announced NOTHING: it is a FrameLayout whose
+        // children are pictures and whose text lives in siblings. Everything the eye gets
+        // from it — which room, which item, what pressing it does — now has words.
+        hero.setContentDescription(hasContent
+                ? getString(R.string.lobby_a11y_hero, r.tag, name, r.action)
+                : getString(R.string.lobby_a11y_hero_empty, r.title));
         heroName.setText(name);
         heroName.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
         heroSub.setText(sub);
@@ -1117,6 +1123,10 @@ public class LobbyFragment extends BaseFragment {
         meta.setPadding(dp(8), dp(1), dp(8), dp(8));
         card.addView(meta);
 
+        // The card is one control and its children are its description, not four
+        // separate announcements. Name, what kind of thing it is, and how long ago.
+        card.setContentDescription(getString(R.string.lobby_a11y_recent,
+                item.name, item.kindLabel, ago(item.when)));
         card.setOnClickListener(v -> {
             if (item.projectId != null) { openProject(item.projectId); return; }
             // A recording is not a project: opening it in the editor would silently CREATE
@@ -1236,9 +1246,9 @@ public class LobbyFragment extends BaseFragment {
         // the marquee above it as well as a set of actions. Import has no room of its own --
         // it is a Library action -- so it takes the Library's cyan rather than inventing a
         // fifth identity the rest of the app would never repeat.
-        addNewChip("videocam",       G_CAPTURE_A, G_CAPTURE_B, getString(R.string.lobby_new_recording),
+        addNewChip("videocam",       G_CAPTURE_A, G_CAPTURE_B, getString(R.string.lobby_new_recording), R.string.lobby_a11y_new_recording,
                 true,  () -> routeTab(TAB_CAPTURE));
-        addNewChip("movie_edit",     G_STUDIO_A, G_STUDIO_B, getString(R.string.lobby_new_project),
+        addNewChip("movie_edit",     G_STUDIO_A, G_STUDIO_B, getString(R.string.lobby_new_project), R.string.lobby_a11y_new_project,
                 false, () -> routeTab(TAB_STUDIO));
         // Character SELECTS the Sprite Lab and then ENTERS it. It used to only select —
         // the dial turned, the hero changed, and nothing else happened. Three chips in this
@@ -1250,9 +1260,9 @@ public class LobbyFragment extends BaseFragment {
         // make one. Selecting first is what makes that legible — the dial has visibly moved
         // to Sprite Lab, so the Studio is obviously a step on the way rather than the wrong
         // door.
-        addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character),
+        addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character), R.string.lobby_a11y_new_character,
                 false, () -> { active = 2; paintMarquee(); paintHero(); enterRoom(); });
-        addNewChip("folder",         Studio.ROOM_LIBRARY, Studio.ARMED, getString(R.string.lobby_new_import),
+        addNewChip("folder",         Studio.ROOM_LIBRARY, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
                 false, () -> routeTab(TAB_LIBRARY));
     }
 
@@ -1281,7 +1291,7 @@ public class LobbyFragment extends BaseFragment {
      * each chip's hit rectangle into the padding above and below. That padding was already
      * there as breathing room, so the target costs no height.
      */
-    private void addNewChip(String glyph, int gradA, int gradB, String label,
+    private void addNewChip(String glyph, int gradA, int gradB, String label, int spokenRes,
                             boolean first, Runnable onTap) {
         LinearLayout cell = new LinearLayout(requireContext());
         cell.setOrientation(LinearLayout.HORIZONTAL);
@@ -1309,6 +1319,12 @@ public class LobbyFragment extends BaseFragment {
         TextView ic = new TextView(requireContext());
         ic.setTypeface(iconFont);
         ic.setText(glyph);
+        // An icon-font glyph IS a piece of text, and its text is the glyph's NAME. Left
+        // alone, a screen reader reads this chip as "videocam Recording" — the icon out
+        // loud, then the label. The label beside it already carries the meaning, so the
+        // glyph steps out of the way rather than being given a second name for the same
+        // thing.
+        ic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         ic.setTextColor(Studio.GROUND);
         ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         ic.setIncludeFontPadding(false);
@@ -1332,6 +1348,10 @@ public class LobbyFragment extends BaseFragment {
         tv.setLayoutParams(tlp);
         cell.addView(tv);
 
+        // The chip is ONE control, so it speaks once, as itself. Without this the two
+        // children are announced separately and the row reads as eight items, not four.
+        cell.setContentDescription(getString(spokenRes));
+        cell.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         cell.setOnClickListener(v -> { Motion.press(v); onTap.run(); });
         newRow.addView(cell);
         growTouchTarget(cell, dp(9));
@@ -1450,6 +1470,9 @@ public class LobbyFragment extends BaseFragment {
         TextView ic = new TextView(requireContext());
         ic.setTypeface(iconFont);
         ic.setText(glyph);
+        // Same reason as the New chips: an icon font's text is the glyph's NAME, so this
+        // would be read aloud as "travel_explore Finder".
+        ic.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         ic.setTextColor(DIMMEST);
         ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         ic.setPadding(0, 0, dp(5), 0);
@@ -1468,6 +1491,7 @@ public class LobbyFragment extends BaseFragment {
         tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
         cell.addView(tv);
 
+        cell.setContentDescription(label);
         cell.setOnClickListener(v -> onTap.run());
         Motion.press(cell);
         floorRow.addView(cell);

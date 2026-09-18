@@ -165,6 +165,54 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### The density, and why it matters more than any single measurement
+
+```
+Physical size 1440x2960 @ 420dpi  =  548dp wide
+Override size 1080x2220 @ 315dpi  =  549dp wide      <- how it actually runs
+The design records assume               390dp
+```
+
+**His phone is 40% wider in dp than the records are drawn for.** Anything specified
+in dp lands proportionally smaller on his screen than in the drawing. That is why
+the hero is specified as a SHARE of the window rather than a height: a proportion
+survives the difference and a dp does not.
+
+I got this wrong twice in one night. First by dividing pixel bounds by 2.75 instead
+of 1.969, which reported every transport control at half its real size. Then by
+"correcting" that with a forced `wm density 420` — which gives 411dp, a width this
+phone never runs — measuring a comfortable 30dp gap above the floor, concluding the
+157dp hole was an artifact, and reverting the recents thumbnail to the drawn 60dp.
+The hole is real at 548dp. The thumbnail is back at 84dp with the arithmetic in its
+javadoc. **Restore `wm density 315` after any experiment.**
+
+### Transport row, final — measured at 548dp
+
+| control | hit rect |
+|---|---|
+| time_current | 46.2dp |
+| soft snap | **37.1dp** — the one exception |
+| select mode | 44.2dp |
+| ripple mode | 55.9dp |
+| undo | 50.8dp |
+| play | 55.9dp |
+| redo | 89.9dp |
+| voiceover | 93.0dp |
+| time_total | 51.3dp |
+
+Two further fixes got it here. **Relink now appears only for media that is actually
+missing**, which is what Studio Final §05 says — my first pass showed it for any
+selection, and at 411dp that put five controls back under the minimum. And the
+delegate builder now skips **non-clickable** children: this row separates its groups
+with weighted Spaces, and a Space has real width, so handing one a delegate pointing
+at something untappable left the gap as dead as before. Skipping them took ripple
+from 38.5 to 55.9dp.
+
+Soft snap stays at 37dp because it is the first control in its container and the
+container begins where the 46dp time label ends. Widening it means narrowing a label
+the spec fixes at 46dp. It is the least-pressed control in the row — a preference
+toggle with a long-press menu — so it is the right one to carry the shortfall.
+
 ### The seven records, and where each one stands
 
 All seven exist as published artifacts from this conversation — verified by searching the

@@ -481,12 +481,29 @@ public class LobbyFragment extends BaseFragment {
     private static final int RECENT_CARD_DP = 100;
 
     /**
-     * Thumbnail height. The drawing says 60; this is 84.
+     * Thumbnail height. The Marquee §02 draws 60; this is 84, and the 24 is deliberate.
      *
-     * <p>The extra 24 is the first claim on the height the compact New row gave back, and it
-     * is spent the way this product is supposed to spend height: <i>"old black is great for
-     * letting your art be the centerpiece."</i> A taller card shows more of the thing you
-     * made and nothing else — no new chrome, no new colour.
+     * <p>I nearly reverted this. Having measured a 157dp hole above the floor at the test
+     * device's 549dp viewport, I re-measured at 411dp, found a 30dp gap, concluded the hole
+     * was an artifact of a density override and put the thumbnail back to 60.
+     *
+     * <p>That was wrong, and the device itself says why:
+     *
+     * <pre>
+     *   Physical size 1440x2960 @ 420dpi  =  548dp wide
+     *   Override size 1080x2220 @ 315dpi  =  549dp wide
+     * </pre>
+     *
+     * <p>Both configurations are 548dp. The override reproduces the Note 9's real width
+     * faithfully; the 411dp I forced is a width this phone never has. So the hole is real on
+     * his actual device, and the extra 24dp is spent the way this product is supposed to
+     * spend height — <i>"old black is great for letting your art be the centerpiece"</i> —
+     * rather than left as a gap.
+     *
+     * <p>The wider lesson, which is why this comment is long: the records are drawn for a
+     * 390dp phone and his is 548dp, 40% wider. Anything specified in dp lands proportionally
+     * smaller on his screen than in the drawing. That is why the hero is specified as a SHARE
+     * and not a height — a proportion survives the difference and a dp does not.
      */
     private static final int RECENT_THUMB_DP = 84;
 

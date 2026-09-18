@@ -16581,10 +16581,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // in the preview; deselect (or selecting a type without a handles
                 // target yet) hides them.
                 updatePreviewHandlesForSelection(item);
-                // Link appears with a selection and leaves with it — the difference between
-                // a control that is unavailable and one that is not there.
+                // Link appears for a clip whose media is actually MISSING, and for nothing
+                // else. Studio Final §05: "Relink — the broken clip itself. Moved. Amber ring
+                // plus a chip in the drawer. Freed a transport slot."
+                //
+                // My first pass showed it for any selection, which is wrong twice: it is not
+                // what the drawing says, and measured at a real 411dp phone width it put the
+                // row at 387dp of 411 with five targets back under the 44dp minimum. On the
+                // 549dp sandbox everything fit and the mistake was invisible.
                 if (btnRelinkMedia != null) {
-                    btnRelinkMedia.setVisibility(item == null ? View.GONE : View.VISIBLE);
+                    boolean broken = false;
+                    if (item != null && item.getClip() != null) {
+                        broken = !item.getClip().isGeneratedSlide()
+                                && !isSourceResolvable(item.getClip().getSourceUri());
+                    }
+                    btnRelinkMedia.setVisibility(broken ? View.VISIBLE : View.GONE);
                 }
                 // The tool row follows the selection. This is the right place for it and
                 // the FX-drawer sites were not: opening a drawer is DOWNSTREAM of selecting,
@@ -18973,7 +18984,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             java.util.List<View> kids = new java.util.ArrayList<>();
             for (int i = 0; i < n; i++) {
                 View c = row.getChildAt(i);
-                if (c.getVisibility() == View.VISIBLE && c.getWidth() > 0) kids.add(c);
+                // CLICKABLE children only. This row separates its groups with weighted
+                // Spaces, and a Space has real width — so including them handed the gap a
+                // delegate pointing at something that cannot be tapped, which is the same as
+                // leaving it dead. Measured at 411dp that cost snap and ripple about 6dp
+                // each. Skipping them lets their neighbours split the gap instead.
+                if (c.getVisibility() == View.VISIBLE && c.getWidth() > 0 && c.isClickable()) {
+                    kids.add(c);
+                }
             }
             for (int i = 0; i < kids.size(); i++) {
                 View c = kids.get(i);

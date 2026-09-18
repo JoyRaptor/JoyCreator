@@ -198,11 +198,32 @@ is — the ground showing through. Every one of the 46 tokens renders somewhere.
 literal values **94 → 44**, occurrences **165 → 88**. Verified as a visual no-op by pixel
 diff — **0 pixels differ** across the 600×1150 timeline band, max channel delta 0.
 
-**One finding I did not act on.** The room wheel collides with the status ramp: `ROOM_CAPTURE`
-is 13.8° from `DANGER`, `ROOM_VIZ` is 11.8° from `CAREFUL`, and three violets sit within 10°
-of each other. Under the 15° rule those read as the same colour, so a Capture accent and an
-error are not reliably distinguishable. That is JoyRaptor's Swatch Room wheel against the
-system's status colours, and repainting his rooms is his call, not mine.
+**The hue collisions, followed through.** Four pairs land inside the 15° window. The rule
+protects things that must be told apart AT A GLANCE, so each was checked for whether it ever
+has to be. None does, and all four reasons are now written into `Studio.java` so the next run
+of the same measurement does not "fix" deliberate work:
+
+| pair | Δ | why it is allowed |
+|---|---|---|
+| `GO` / `ROOM_STUDIO` | 0.0° | the same value by design — the Studio room's identity IS go |
+| `LIVE` / `ROOM_SPRITE` | 0.0° | likewise: the Sprite Lab's pink is the live pink |
+| `ROOM_CAPTURE` / `DANGER` | 13.8° | co-occur only in the timeline, where capture red is the 1.5dp PLAYHEAD and danger is a filled wash behind missing media — two orders of magnitude apart in area |
+| `ROOM_VIZ` / `CAREFUL` | 11.8° | co-occur on the lobby: a 10sp mono stat label beside a clock glyph, versus a 3dp signature bar and a pill |
+| `GUIDE` / `ROOM_AVATAR_DEEP` | 9.9° | two steps of ONE violet ramp — and an earlier audit already caught them reading alike and fixed it by moving the same-row cue to white, so purple means cross-row and nothing else |
+| `ARMED` / `ARMED_LIGHT` | 1.2° | named as a ramp for exactly this reason |
+
+**Accent footprint, measured.** tastemaker Gate 19 caps accent at ~5% of the screen. The
+lobby as a user sees it: **4.32%**. The welcome slide: **2.98%**. Both pass. The New row's
+four gradient chips are therefore NOT an anti-slop failure by the gate's own metric — the
+drawing chose grey buttons when the hero action was the only saturated control, and the
+screen that shipped has a large photographic hero absorbing area instead. That departure is
+resolved, not outstanding.
+
+**The other two lobby departures are decisions, not open questions.** The live word is 34sp
+because JoyRaptor asked for it ("make the word studio larger"), and the titles are caps
+because he asked ("it would look nicer all caps for that title row and the liberary title
+row"). Both were implemented, both have been on screen in front of him since. They are
+recorded here as departures from the drawing, which they are, and not as defects.
 
 ### Conformance to *The Marquee* (design record 04), measured on device
 

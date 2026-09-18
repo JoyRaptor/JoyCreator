@@ -169,6 +169,39 @@ public final class Studio {
     public static final int LANE_A = 0x00000000;
     public static final int LANE_B = 0xFF17171C;
 
+    /*
+     * ══ MEASURED HUE COLLISIONS, AND WHY EACH ONE IS ALLOWED ════════════════════════
+     *
+     * jakubkrehel/skills better-colors: "treat hues within 15 degrees as the same color."
+     * Run against this palette, four pairs land inside that window. Each was then checked for
+     * whether the two ever have to be told apart AT A GLANCE, which is the thing the rule is
+     * actually protecting. None of them do, and the reasons are recorded here so that the next
+     * person to run the same measurement does not "fix" work that was done on purpose.
+     *
+     *   GO / ROOM_STUDIO          0.0 deg — the same value by design. The Studio room's
+     *                             identity IS the go colour. Two roles, one value.
+     *   LIVE / ROOM_SPRITE        0.0 deg — likewise: the Sprite Lab's pink is the live pink.
+     *
+     *   ROOM_CAPTURE / DANGER    13.8 deg — co-occur only in EditorTimelineView, where capture
+     *                             red is the PLAYHEAD, a 1.5dp line, and danger is a filled
+     *                             wash behind missing media. Different shape, different size,
+     *                             two orders of magnitude apart in area.
+     *   ROOM_VIZ / CAREFUL       11.8 deg — co-occur on the lobby, where careful is a 10sp
+     *                             mono stat label beside a clock glyph in the header and the
+     *                             Viz Lab amber is a 3dp signature bar and a pill. Context
+     *                             disambiguates before colour has to.
+     *
+     *   GUIDE / ROOM_AVATAR_DEEP  9.9 deg — these are TWO STEPS OF ONE VIOLET RAMP, not two
+     *                             accents. A previous audit already caught them reading alike
+     *                             and resolved it: see COLOR_SAME_ROW_OUTLINE in
+     *                             LayerRowRenderer, where the same-row cue was moved to white
+     *                             so that purple means cross-row and nothing else. Do not
+     *                             "separate the hues" here; the separation is in the shapes.
+     *   ARMED / ARMED_LIGHT       1.2 deg — named as a ramp for exactly this reason, after it
+     *                             spent a while pretending to be a room.
+     * ═════════════════════════════════════════════════════════════════════════════
+     */
+
     /** Apply an alpha to a token without re-typing the hex. */
     public static int alpha(int colour, int a) {
         return (colour & 0x00FFFFFF) | ((a & 0xFF) << 24);

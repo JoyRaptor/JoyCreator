@@ -143,6 +143,7 @@ public class LobbyFragment extends BaseFragment {
     private TextView heroTag, heroEmpty, heroName, heroSub, heroAction;
     private TextView statIcon, statText, wordmark, botOrb;
     private TextView libraryCount;
+    private View hairline, hairlineFill;
     private View botLine;
     private TextView botLineText, botLineYes, botLineNo, botLineOrb;
     private Typeface iconFont;
@@ -185,6 +186,7 @@ public class LobbyFragment extends BaseFragment {
         wordmark   = v.findViewById(R.id.lobby_wordmark);
         botOrb     = v.findViewById(R.id.lobby_bot);
         libraryCount = v.findViewById(R.id.lobby_library_count);
+        hairline    = v.findViewById(R.id.lobby_hairline);
         botLine     = v.findViewById(R.id.lobby_bot_line);
         botLineText = v.findViewById(R.id.lobby_bot_line_text);
         botLineYes  = v.findViewById(R.id.lobby_bot_line_yes);
@@ -212,7 +214,11 @@ public class LobbyFragment extends BaseFragment {
         botOrb.setBackground(circleGradient(0xFFCC27FF, 0xFF5C43FD));
         v.findViewById(R.id.lobby_bot).setOnClickListener(b -> routeTab(TAB_STUDIO));
 
-        v.findViewById(R.id.lobby_library_door).setOnClickListener(b -> routeTab(TAB_LIBRARY));
+        View libraryDoor = v.findViewById(R.id.lobby_library_door);
+        libraryDoor.setOnClickListener(b -> routeTab(TAB_LIBRARY));
+        Motion.press(libraryDoor);
+        Motion.press(botOrb);
+        Motion.press(v.findViewById(R.id.lobby_search));
         v.findViewById(R.id.lobby_search).setOnClickListener(b -> routeTab(TAB_LIBRARY));
 
         buildRooms();
@@ -231,6 +237,7 @@ public class LobbyFragment extends BaseFragment {
             w.setStatusBarColor(0xFF000000);
             w.setNavigationBarColor(0xFF000000);
         } catch (Exception ignored) { }
+        registerExportWatch();
         reloadProjects();
         paintMarquee();
         paintHero();
@@ -238,8 +245,16 @@ public class LobbyFragment extends BaseFragment {
     }
 
     @Override
+    public void onPause() {
+        unregisterExportWatch();
+        super.onPause();
+    }
+
+    @Override
     public void onDestroyView() {
         if (statTick != null) ui.removeCallbacks(statTick);
+        unregisterExportWatch();
+        hairlineFill = null;
         super.onDestroyView();
     }
 
@@ -329,6 +344,7 @@ public class LobbyFragment extends BaseFragment {
                 // simply became something else, which is what actually happened.
                 Motion.swap(hero, Motion.HERO, this::paintHero);
             });
+            Motion.press(t);
             marquee.addView(t);
         }
     }
@@ -416,6 +432,7 @@ public class LobbyFragment extends BaseFragment {
         heroAction.setOnClickListener(v -> enterRoom());
         Motion.press(heroAction);
         hero.setOnClickListener(v -> enterRoom());
+        Motion.press(hero);
     }
 
     /** Where a marquee word actually takes you. */
@@ -864,6 +881,84 @@ public class LobbyFragment extends BaseFragment {
             }
         };
         ui.post(statTick);
+    }
+
+
+    // ── THE EXPORT HAIRLINE ─────────────────────────────────────────────────
+    //
+    // JoyRaptor, on the editor's version of this: "I like that it's out of the way and
+    // it just adds a nice highlight color." It replaced a 58dp frosted strip in the
+    // design, and the height that bought is what the New row and Joybot's line occupy.
+    //
+    // It is wired rather than merely drawn because a control that can never change is a
+    // DEAD KNOB, and a dead knob is worse than a missing one. Export runs OUT OF PROCESS
+    // so this listens to ExportService's broadcasts — LocalBroadcastManager is
+    // in-process-only and would have silently received nothing.
+
+    private final android.content.BroadcastReceiver exportWatch =
+            new android.content.BroadcastReceiver() {
+        @Override
+        public void onReceive(android.content.Context c, android.content.Intent i) {
+            if (i == null || i.getAction() == null || hairline == null) return;
+            switch (i.getAction()) {
+                case com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_STARTED:
+                    showHairline(0);
+                    break;
+                case com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_PROGRESS:
+                    showHairline(i.getIntExtra(
+                            com.fadcam.ui.faditor.export.ExportService.EXTRA_PROGRESS, 0));
+                    break;
+                default:
+                    // completed, error or cancelled — all of them mean "stop showing a bar".
+                    // The RESULT belongs in the recents row, which reloads on resume anyway.
+                    hairline.setVisibility(View.GONE);
+                    break;
+            }
+        }
+    };
+
+    private void showHairline(int percent) {
+        if (hairline == null) return;
+        hairline.setVisibility(View.VISIBLE);
+        if (hairlineFill == null) {
+            // One fill view, created once: a 2dp bar that grows. Animating a WIDTH would
+            // relayout the whole screen every frame, so it scales on the X axis instead,
+            // which is a compositor-only property.
+            hairlineFill = new View(requireContext());
+            hairlineFill.setBackground(linearGradient(0xFF35F6BF, 0xFF97FE8B));
+            ((ViewGroup) hairline.getParent()).addView(hairlineFill,
+                    ((ViewGroup) hairline.getParent()).indexOfChild(hairline) + 1,
+                    new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(2)));
+            hairlineFill.setPivotX(0f);
+        }
+        hairlineFill.setVisibility(View.VISIBLE);
+        float target = Math.max(0f, Math.min(1f, percent / 100f));
+        hairlineFill.animate().cancel();
+        hairlineFill.animate().scaleX(target)
+                .setDuration(Motion.MENU).setInterpolator(Motion.LINEAR).start();
+    }
+
+    private void registerExportWatch() {
+        android.content.IntentFilter f = new android.content.IntentFilter();
+        f.addAction(com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_STARTED);
+        f.addAction(com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_PROGRESS);
+        f.addAction(com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_COMPLETED);
+        f.addAction(com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_ERROR);
+        f.addAction(com.fadcam.ui.faditor.export.ExportService.ACTION_EXPORT_CANCELLED);
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                requireContext().registerReceiver(exportWatch, f,
+                        android.content.Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                requireContext().registerReceiver(exportWatch, f);
+            }
+        } catch (Exception e) {
+            FLog.w("Lobby", "export watch not registered", e);
+        }
+    }
+
+    private void unregisterExportWatch() {
+        try { requireContext().unregisterReceiver(exportWatch); } catch (Exception ignored) { }
     }
 
     // ── data ────────────────────────────────────────────────────────────────

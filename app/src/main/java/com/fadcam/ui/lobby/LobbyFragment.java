@@ -139,6 +139,7 @@ public class LobbyFragment extends BaseFragment {
     private List<ProjectStorage.ProjectSummary> projects = new ArrayList<>();
 
     private LinearLayout marquee, recentsRow, newRow, floorRow;
+    @Nullable private android.widget.HorizontalScrollView marqueeScroll;
     private JoybotView joybot;
     private FrameLayout hero;
     private ImageView heroArt;
@@ -173,6 +174,7 @@ public class LobbyFragment extends BaseFragment {
         projectStorage = new ProjectStorage(requireContext());
 
         marquee    = v.findViewById(R.id.lobby_marquee);
+        marqueeScroll = v.findViewById(R.id.lobby_marquee_scroll);
         recentsRow = v.findViewById(R.id.lobby_recents);
         newRow     = v.findViewById(R.id.lobby_new_row);
         floorRow   = v.findViewById(R.id.lobby_floor);
@@ -185,6 +187,26 @@ public class LobbyFragment extends BaseFragment {
         heroName   = v.findViewById(R.id.lobby_hero_name);
         heroSub    = v.findViewById(R.id.lobby_hero_sub);
         heroAction = v.findViewById(R.id.lobby_hero_action);
+
+        // ── HOW TO START SOMETHING NEW ──────────────────────────────────────
+        // JoyRaptor: "it is unclear to the user how to start a NEW project if theres already
+        // a history project being shown."
+        //
+        // He is right, and it was a hierarchy problem rather than a missing feature. The
+        // New row has always been down past the recents, but the HERO — the largest thing on
+        // the screen — offered only "Carry on". So the loudest thing the lobby said was
+        // always "continue this", and a first-time user with one stray project could
+        // reasonably conclude that was the only thing on offer.
+        //
+        // The fix is a second control in the same row, deliberately quiet: filled means
+        // "the thing you probably came for", a bare label means "also available". One
+        // saturated control per screen still holds, and the question now answers itself
+        // without anyone scrolling to find out.
+        View heroNew = v.findViewById(R.id.lobby_hero_new);
+        Type.display((TextView) heroNew, Type.SEMIBOLD);
+        heroNew.setBackground(strokePill(0x33FFFFFF, dp(999)));
+        Motion.press(heroNew);
+        heroNew.setOnClickListener(b -> startNewInRoom());
         statIcon   = v.findViewById(R.id.lobby_stat_icon);
         statText   = v.findViewById(R.id.lobby_stat_text);
         wordmark   = v.findViewById(R.id.lobby_wordmark);
@@ -249,7 +271,12 @@ public class LobbyFragment extends BaseFragment {
         // Section labels sit at 800 rather than 900. One notch down is enough to
         // rank them under the wordmark while still reading as the same voice — and
         // at 11sp the difference between 800 and 900 is legibility, not decoration.
+        //
+        // Caps to match the carousel: the two are the only headings on the screen, and a
+        // capitalised dial above a mixed-case heading made them look like different systems.
         Type.display(libLabel, Type.EXTRA);
+        libLabel.setAllCaps(true);
+        libLabel.setLetterSpacing(0.01f);
 
         // ── JOYBOT ─────────────────────────────────────────────────────────
         // The orb behind him is gone. It existed to give a flat glyph something to sit on;
@@ -360,58 +387,434 @@ public class LobbyFragment extends BaseFragment {
      * list by three, so the carousel WRAPS rather than scrolling to an end and stopping —
      * which is what makes it feel like a dial rather than a list.
      */
+    /** How many copies of the room list the strip holds, so it can wrap without an end. */
+    private static final int MARQUEE_COPIES = 3;
+    /** Settle delay after the last scroll event before the carousel snaps. */
+    private static final long MARQUEE_SETTLE_MS = 90L;
+    /** How small a word gets when it is far from the gutter. 0.55 x 34sp reads as ~19sp. */
+    private static final float MARQUEE_MIN_SCALE = 0.55f;
+    /** Distance over which a word goes from full size to minimum, in dp. */
+    private static final int MARQUEE_FALLOFF_DP = 190;
+    /** Gap between words. */
+    private static final int MARQUEE_GAP_DP = 10;
+    /**
+     * How much of a word's full-size width its slot reserves.
+     *
+     * <p>JoyRaptor: <i>"move the words closer so that they look more like a list where a lot
+     * of the words are on the screen closer together."</i>
+     *
+     * <p>The slot is fixed — that is what makes each word an island that can thicken without
+     * disturbing its neighbours — but it does not have to be the FULL width. Reserving 100%
+     * of the heaviest rendering meant a shrunken word sat in a box far wider than itself and
+     * the strip read as five things scattered across a line rather than as a list.
+     *
+     * <p>It is 1.0 — the full width — and the tightening is done differently, because
+     * narrowing the slot did not work. At 0.78 the front word grew past its box and the next
+     * word, sitting in its own box right behind it, was drawn straight over its tail: "STUDIO"
+     * rendered as "STUDI" with CAPTURE on top of the O.
+     *
+     * <p>So the boxes stay full width and the PACKING is done with translationX instead, in
+     * {@link #layoutMarquee}. That is not a reflow — nothing is re-measured and no text is
+     * re-shaped — so the islands stay islands; they are simply slid together to take up the
+     * slack that shrinking left behind.
+     */
+    private static final float MARQUEE_SLOT = 1f;
+
+    @Nullable private Runnable marqueeSettle;
+    private boolean marqueeSnapping = false;
+
+    /**
+     * THE CAROUSEL.
+     *
+     * <p>JoyRaptor, on the first version: <i>"the words should be at their [biggest] right as
+     * they are under the left aligned edge and as they move away from being at the left
+     * aligned edge, whether to the left of it or to the right of it ... they should be having
+     * a smooth transition. Right now there's a complete timing lag ... so you have a thick
+     * thing going away and then a popping at the end as the new word that came to rest bulks
+     * up."</i>
+     *
+     * <p>He is describing the exact consequence of how it was built, not a tuning problem.
+     * The first version set text SIZES only when the scroll settled, because changing a text
+     * size forces a relayout and doing that every frame is unaffordable. That decision made
+     * the pop inevitable: the outgoing word stayed at 34sp for the whole fling and the
+     * incoming one jumped to 34sp after it stopped. Nothing about the timing could have
+     * fixed it — size was a step function of a continuous input.
+     *
+     * <h3>Scale, not size</h3>
+     * Every word is laid out ONCE at full size and then scaled. {@code scaleX/scaleY} is a
+     * compositor property: no measure, no layout, no text re-shaping, so it can be recomputed
+     * for every word on every scroll frame and stay smooth under a fling. Size is now a
+     * continuous function of distance from the gutter, which is what was asked for.
+     *
+     * <h3>Weight cross-fades instead of switching</h3>
+     * Weight cannot be interpolated by scaling — a light face scaled up is still light. So
+     * each word is TWO stacked TextViews, one Archivo 200 and one Archivo 900, with their
+     * alphas cross-faded by the same distance value. A word thickens as it approaches the
+     * gutter and thins as it leaves, continuously, because alpha is also compositor-only.
+     *
+     * <h3>Packing</h3>
+     * Scaling does not change a view's layout width, so scaled-down words would leave holes.
+     * Each word is therefore positioned by {@code translationX}, walking outward from
+     * whichever word is nearest the gutter and accumulating SCALED widths. The scroll
+     * container still moves through the unscaled layout, which keeps the snap arithmetic
+     * simple and — unlike the first version — means the layout never shifts underneath the
+     * snap, so the whole class of ordering bugs that produced disappears.
+     */
     private void paintMarquee() {
         if (marquee == null) return;
         marquee.removeAllViews();
-        for (int i = 0; i < rooms.size(); i++) {
-            final int offset = i;
-            Room r = rooms.get((active + i) % rooms.size());
-            TextView t = new TextView(requireContext());
-            t.setText(r.title);
-            t.setIncludeFontPadding(false);
-            t.setMaxLines(1);
-            t.setSingleLine(true);
-            if (i == 0) {
-                // The live word. JoyRaptor asked for "studio" larger; 34sp is where
-                // Archivo 900 stops looking like big text and starts looking like a
-                // sign. The negative tracking is not a flourish — Archivo's sidebearings
-                // are cut for text sizes, and left alone at display size the letters
-                // drift apart and the word loses its shape as a single object.
-                Type.display(t, Type.BLACK);
-                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f);
-                t.setTextColor(INK);
-                t.setLetterSpacing(-0.05f);
-            } else if (i == 1) {
-                // On deck. Medium rather than regular: at 15sp beside a 34sp black,
-                // a 400 weight reads as disabled rather than as next.
-                Type.display(t, Type.MEDIUM);
-                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
-                t.setTextColor(DIMMER);
-            } else {
-                Type.display(t, Type.REGULAR);
-                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
-                t.setTextColor(DIMMEST);
+
+        for (int copy = 0; copy < MARQUEE_COPIES; copy++) {
+            for (int i = 0; i < rooms.size(); i++) {
+                final int roomIndex = i;
+                marquee.addView(marqueeWord(rooms.get(i).title, roomIndex));
             }
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.setMarginEnd(dp(15));
-            lp.bottomMargin = dp(i == 0 ? 6 : 9);
-            t.setLayoutParams(lp);
-            t.setOnClickListener(v -> {
-                if (offset == 0) { enterRoom(); return; }
-                active = (active + offset) % rooms.size();
-                paintMarquee();
-                // The hero CROSS-FADES rather than cutting. Movement would imply the old
-                // room's content went somewhere you could scroll back to; a fade says it
-                // simply became something else, which is what actually happened.
-                // swapPicture, not swap: the hero is a PHOTOGRAPH, and a straight
-                // dissolve leaves both frames legible at the midpoint. See the mockup —
-                // "so two states never read as two states".
-                Motion.swapPicture(hero, Motion.HERO, this::paintHero);
-            });
-            Motion.press(t);
-            marquee.addView(t);
         }
+
+        marquee.post(() -> {
+            centreOnActive();
+            layoutMarquee();
+        });
+
+        if (marqueeScroll != null && marqueeScroll.getTag(R.id.lobby_marquee) == null) {
+            marqueeScroll.setTag(R.id.lobby_marquee, Boolean.TRUE);   // wire listeners once
+            marqueeScroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
+                layoutMarquee();
+                if (marqueeSnapping) return;
+                if (marqueeSettle != null) ui.removeCallbacks(marqueeSettle);
+                marqueeSettle = this::settleMarquee;
+                ui.postDelayed(marqueeSettle, MARQUEE_SETTLE_MS);
+            });
+        }
+    }
+
+    /**
+     * One word: ONE view, in a slot that never changes size.
+     *
+     * <p>JoyRaptor: <i>"if it's having to reformat each time, perhaps rethink your
+     * architecture. Perhaps having them all on one line where they reformat affecting each
+     * other is wrong. Maybe they should be isolated islands so that when they reformat, they
+     * just thicken up in their place."</i>
+     *
+     * <p>That is the right architecture and this is it. The previous version packed the words
+     * by walking along the row accumulating their scaled widths, so every word's position
+     * depended on every word before it — and it stacked TWO faces per word, a thin one and a
+     * black one, cross-fading their alphas to fake a weight change. Both were wrong:
+     *
+     * <ul>
+     *   <li>the packing made the strip one coupled system, so an error anywhere moved
+     *       everything;</li>
+     *   <li>and Archivo 900 is WIDER than Archivo 200, so cross-fading them showed two
+     *       different-width renderings of the same word at once. That is not a word
+     *       thickening, it is a word ghosting — visible in a still and worse in motion.</li>
+     * </ul>
+     *
+     * <p>Now each word owns a fixed slot, measured once at its heaviest, and never moves
+     * relative to its neighbours. Only the scroll moves it.
+     */
+    private View marqueeWord(String title, int roomIndex) {
+        TextView t = new TextView(requireContext());
+        t.setText(title);
+        t.setIncludeFontPadding(false);
+        t.setMaxLines(1);
+        t.setSingleLine(true);
+        // AFTER setSingleLine, and that order is load-bearing. Both are implemented as
+        // TransformationMethods and a TextView holds exactly one, so setting single-line
+        // second silently threw the capitals away — the row had quietly gone back to mixed
+        // case with nothing in the code looking wrong.
+        t.setAllCaps(true);
+        t.setTextColor(INK);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f);
+        t.setLetterSpacing(0f);
+        Type.display(t, Type.BLACK);
+        t.setTag(R.id.lobby_marquee, roomIndex);
+
+        // Measured at BLACK, which is the widest this word will ever be, and then frozen.
+        // A fixed slot is what makes the island idea work: the box cannot change, so the
+        // weight inside it can change freely without disturbing anything outside it.
+        t.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                  View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                Math.round(t.getMeasuredWidth() * MARQUEE_SLOT),
+                ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.setMarginEnd(dp(MARQUEE_GAP_DP));
+        lp.bottomMargin = dp(6);
+        t.setLayoutParams(lp);
+
+        // Scale about the BOTTOM LEFT corner.
+        //
+        // JoyRaptor: "you need to make sure that the words are lined up on the bottom. That
+        // way it seems like it's growing instead of sinking into something."
+        //
+        // He is describing what a centre pivot does to a row of text. Scaled about its
+        // centre, a word shrinks toward its own middle, so its baseline RISES as it leaves
+        // and drops as it arrives — the word looks like it is sinking into the strip rather
+        // than growing out of it, and the row has no common line to read along.
+        //
+        // Pinned at the bottom-left, every word sits on one baseline no matter its size, and
+        // the only thing that changes is how far up it reaches. pivotY is set per frame in
+        // layoutMarquee because the height is not known until the view has been laid out.
+        t.setPivotX(0f);
+
+        t.setOnClickListener(v -> {
+            if (roomIndex == active) { enterRoom(); return; }
+            scrollToWord(v, true);
+        });
+        return t;
+    }
+
+    /** 1 at the gutter, falling to 0 at the far end of the falloff, eased. */
+    private float nearness(float distancePx) {
+        float t = Math.min(1f, Math.abs(distancePx) / dp(MARQUEE_FALLOFF_DP));
+        // Cosine rather than linear: a linear falloff has a corner exactly at the gutter,
+        // and the corner is visible as a hitch precisely where the eye is looking.
+        return (float) ((Math.cos(t * Math.PI) + 1.0) / 2.0);
+    }
+
+    /**
+     * Size and weight for the current scroll position — every word, every frame.
+     *
+     * <p>SIZE is {@code scaleX/scaleY}: a compositor property, so it costs no measure and no
+     * layout and stays smooth under a fling.
+     *
+     * <p>WEIGHT is the variable font's own {@code wght} axis, driven continuously from 200 to
+     * 900. This is what Archivo being a VARIABLE font buys: a real weight at any value, not a
+     * pick from a handful of cut faces. There is nothing to cross-fade, so there is nothing
+     * to ghost — the letterforms genuinely thicken.
+     *
+     * <p>Setting the axis re-shapes the glyphs, which would normally force a relayout. It
+     * does not here, because each word's slot was measured at its heaviest and fixed: the box
+     * is already big enough for anything the axis can produce, so the text simply redraws
+     * inside it. That is the whole reason the fixed slot is worth its extra whitespace.
+     *
+     * <p>Below API 26 the axis does not exist, and the words fall back to two cut weights.
+     * Two steps instead of seven hundred, on a version of Android where nobody is judging
+     * the animation.
+     */
+    private void layoutMarquee() {
+        if (marquee == null || marqueeScroll == null) return;
+        int n = marquee.getChildCount();
+        if (n == 0) return;
+        float p = marqueeScroll.getScrollX() + dp(18);
+
+        float[] sc = new float[n];
+        int front = 0;
+        float bestD = Float.MAX_VALUE;
+        for (int i = 0; i < n; i++) {
+            TextView t = (TextView) marquee.getChildAt(i);
+            // The baseline. Set every frame rather than once, because a view has no height
+            // until it is laid out and the strip is built before that happens.
+            t.setPivotY(t.getHeight());
+            float d = t.getLeft() - p;
+            if (Math.abs(d) < bestD) { bestD = Math.abs(d); front = i; }
+            float near = nearness(d);
+            sc[i] = MARQUEE_MIN_SCALE + (1f - MARQUEE_MIN_SCALE) * near;
+            t.setScaleX(sc[i]);
+            t.setScaleY(sc[i]);
+            t.setTextColor(blend(DIMMEST, INK, near));
+            setWeight(t, Math.round(200 + 700 * near));
+        }
+
+        // ── TAKE UP THE SLACK ───────────────────────────────────────────────
+        // Every word's box is sized for its HEAVIEST, FULL-SIZE rendering, so a shrunken
+        // word leaves (1 - scale) of its box empty. Left alone the strip reads as five things
+        // scattered along a line; JoyRaptor asked for "more like a list ... closer together".
+        //
+        // Each word is slid toward the front word by the slack of everything between them.
+        // Nothing is re-measured and no glyph is re-shaped — the boxes are untouched and only
+        // translationX moves — so the islands stay islands.
+        //
+        // The FRONT word is the anchor and never moves. That matters for more than tidiness:
+        // the snap targets are computed from getLeft(), so if the word in the gutter were
+        // displaced from its own layout position, every settle would land beside itself.
+        float slack = 0f;
+        for (int i = front; i < n; i++) {
+            View t = marquee.getChildAt(i);
+            t.setTranslationX(-slack);
+            slack += t.getWidth() * (1f - sc[i]);
+        }
+        slack = 0f;
+        for (int i = front - 1; i >= 0; i--) {
+            View t = marquee.getChildAt(i);
+            slack += t.getWidth() * (1f - sc[i]);
+            t.setTranslationX(slack);
+        }
+    }
+
+    /** Last weight applied, so the axis is only rewritten when it actually changes. */
+    private static final int WEIGHT_TAG = R.id.lobby_marquee_weight;
+
+    private void setWeight(TextView t, int weight) {
+        // Quantised to 20 units. The axis is imperceptible at finer steps and re-shaping the
+        // glyph run is the one part of this loop that is not free.
+        int q = Math.max(200, Math.min(900, (weight / 20) * 20));
+        Object prev = t.getTag(WEIGHT_TAG);
+        if (prev instanceof Integer && (Integer) prev == q) return;
+        t.setTag(WEIGHT_TAG, q);
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            t.getPaint().setFontVariationSettings("'wght' " + q);
+            t.invalidate();
+        } else {
+            Type.display(t, q >= 550 ? Type.BLACK : Type.EXTRA_LIGHT);
+        }
+    }
+
+    /** The x the strip must be scrolled to for {@code word} to sit in the gutter. */
+    private int scrollTargetFor(View word) {
+        return Math.max(0, word.getLeft() - dp(18));
+    }
+
+    private void scrollToWord(View word, boolean commit) {
+        if (marqueeScroll == null) return;
+        marqueeSnapping = true;
+        marqueeScroll.smoothScrollTo(scrollTargetFor(word), 0);
+        ui.postDelayed(() -> {
+            marqueeSnapping = false;
+            if (commit) commitActive(word);
+            layoutMarquee();
+        }, Motion.MENU);
+    }
+
+    /** Snap to whichever word is nearest the gutter. */
+    private void settleMarquee() {
+        if (marquee == null || marqueeScroll == null || marquee.getChildCount() == 0) return;
+        int x = marqueeScroll.getScrollX();
+        View best = null;
+        int bestD = Integer.MAX_VALUE;
+        for (int i = 0; i < marquee.getChildCount(); i++) {
+            View c = marquee.getChildAt(i);
+            int d = Math.abs(scrollTargetFor(c) - x);
+            if (d < bestD) { bestD = d; best = c; }
+        }
+        if (best != null) scrollToWord(best, true);
+    }
+
+    /** Adopt the room a settled word belongs to, and swap the hero to match. */
+    private void commitActive(View word) {
+        Object tag = word.getTag(R.id.lobby_marquee);
+        if (!(tag instanceof Integer)) return;
+        int idx = (Integer) tag;
+        recentreCopies(word);
+        if (idx == active) return;
+        active = idx;
+        Motion.swapPicture(hero, Motion.HERO, this::paintHero);
+    }
+
+    /**
+     * Jump a whole copy when a settle lands outside the middle one.
+     *
+     * <p>Invisible, because the copies are identical. It is what turns a finite strip into a
+     * dial with no end to hit in either direction.
+     */
+    private void recentreCopies(View word) {
+        if (marqueeScroll == null || marquee.getChildCount() == 0) return;
+        int per = rooms.size();
+        int index = marquee.indexOfChild(word);
+        if (index / per == 1) return;
+        View mid = marquee.getChildAt(index % per + per);
+        if (mid == null) return;
+        marqueeScroll.scrollTo(scrollTargetFor(mid), 0);
+        layoutMarquee();
+    }
+
+    /** Put the active room in the gutter, in the middle copy. */
+    private void centreOnActive() {
+        if (marquee == null || marqueeScroll == null) return;
+        View mid = marquee.getChildAt(rooms.size() + active);
+        if (mid != null) marqueeScroll.scrollTo(scrollTargetFor(mid), 0);
+    }
+
+    private static int blend(int a, int b, float f) {
+        f = Math.max(0f, Math.min(1f, f));
+        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return 0xFF000000
+                | ((int) (ar + (br - ar) * f) << 16)
+                | ((int) (ag + (bg - ag) * f) << 8)
+                | (int) (ab + (bb - ab) * f);
+    }
+
+    /**
+     * Horizontal drags on the hero scroll the carousel; vertical ones are left alone.
+     *
+     * <p>The axis test matters. Without it the hero would swallow every downward drag and
+     * the page underneath could not be scrolled from the largest area on the screen — which
+     * is the classic way a carousel makes a whole page feel stuck.
+     */
+    private View.OnTouchListener heroSwipe() {
+        return new View.OnTouchListener() {
+            float downX, downY, lastX;
+            boolean dragging;
+
+            @Override
+            public boolean onTouch(View v, android.view.MotionEvent e) {
+                if (marqueeScroll == null) return false;
+                switch (e.getActionMasked()) {
+                    case android.view.MotionEvent.ACTION_DOWN:
+                        downX = lastX = e.getRawX();
+                        downY = e.getRawY();
+                        dragging = false;
+                        // The press feedback Motion.press used to give, folded in here so
+                        // there is only ever one listener on this view.
+                        if (!Motion.reduced(v.getContext())) {
+                            v.animate().scaleX(Motion.PRESS_SCALE).scaleY(Motion.PRESS_SCALE)
+                                    .setDuration(Motion.PRESS).setInterpolator(Motion.EASE_OUT).start();
+                        }
+                        // CONSUME the down and perform the click ourselves on up.
+                        //
+                        // Letting it through was the bug: the View starts its own press-and-
+                        // click sequence on ACTION_DOWN, and taking the gesture over halfway
+                        // through a MOVE does not unwind that — so a horizontal drag scrolled
+                        // the carousel AND opened the room when the finger lifted. Owning the
+                        // whole gesture is the only version where the two cannot both fire.
+                        return true;
+                    case android.view.MotionEvent.ACTION_MOVE: {
+                        float dx = e.getRawX() - downX, dy = e.getRawY() - downY;
+                        if (!dragging) {
+                            // Not yet a drag — but STILL return true. Having consumed the
+                            // DOWN, returning false here hands this one event to the View's
+                            // own onTouchEvent, which restarts its press-and-click tracking
+                            // and fires the click on UP. That is why a drag on the hero kept
+                            // opening the room: the gesture was being owned by two things at
+                            // once. Once you take the DOWN you own every event to the UP.
+                            if (Math.abs(dx) < dp(12) || Math.abs(dx) <= Math.abs(dy)) return true;
+                            dragging = true;
+                            // Let go of the press look the moment this becomes a drag: a
+                            // picture that stays shrunk while it is being scrubbed reads as
+                            // stuck rather than as held.
+                            v.animate().scaleX(1f).scaleY(1f)
+                                    .setDuration(Motion.PRESS).setInterpolator(Motion.EASE_OUT).start();
+                            v.getParent().requestDisallowInterceptTouchEvent(true);
+                        }
+                        // 1:1 with the finger. The hero is wide and the strip is narrow, but
+                        // scaling the movement would make the picture and the words disagree
+                        // about how far the dial had turned.
+                        marqueeScroll.scrollBy(Math.round(lastX - e.getRawX()), 0);
+                        lastX = e.getRawX();
+                        return true;
+                    }
+                    case android.view.MotionEvent.ACTION_UP:
+                        v.animate().scaleX(1f).scaleY(1f)
+                                .setDuration(Motion.PRESS).setInterpolator(Motion.EASE_OUT).start();
+                        if (dragging) {
+                            dragging = false;
+                            // No fling: a drag on the hero is a deliberate nudge to the next
+                            // room, not a spin. It settles to the nearest word immediately.
+                            settleMarquee();
+                        } else {
+                            // Never moved far enough to be a drag, so it was a tap.
+                            v.performClick();
+                        }
+                        return true;
+                    case android.view.MotionEvent.ACTION_CANCEL:
+                        v.animate().scaleX(1f).scaleY(1f)
+                                .setDuration(Motion.PRESS).setInterpolator(Motion.EASE_OUT).start();
+                        dragging = false;
+                        return true;
+                }
+                return false;
+            }
+        };
     }
 
     // ── the hero ────────────────────────────────────────────────────────────
@@ -497,10 +900,47 @@ public class LobbyFragment extends BaseFragment {
         heroAction.setOnClickListener(v -> enterRoom());
         Motion.press(heroAction);
         hero.setOnClickListener(v -> enterRoom());
-        Motion.press(hero);
+        // ── THE HERO IS PART OF THE DIAL ────────────────────────────────────
+        // JoyRaptor: "I was trying to drag on the actual hero, and that didn't work."
+        //
+        // Of course he was — the hero IS the room the carousel is pointing at, so it is the
+        // biggest and most obvious thing to push. Only the word strip listened, which made
+        // the picture look like a separate, inert thing that merely reported the dial's
+        // state. Horizontal drags on it are handed to the strip, so the two behave as one
+        // control; a tap still enters, because a tap was never ambiguous.
+        hero.setOnTouchListener(heroSwipe());
+        // Motion.press is NOT called on the hero, and must not be: it installs its own
+        // OnTouchListener, and a View has room for exactly one. It was being set five lines
+        // after heroSwipe() and silently replacing it, which is why dragging the hero kept
+        // opening the room no matter what the drag logic did — the drag logic was never
+        // attached. The press feedback lives inside heroSwipe instead.
     }
 
     /** Where a marquee word actually takes you. */
+    /**
+     * Start something NEW in the room the carousel is pointing at.
+     *
+     * <p>Room-aware rather than a single "new project": the hero is showing a room, and the
+     * new thing a person wants in Sprite Lab is a sheet, not a timeline. Routing to the room
+     * and letting it do its own creation is also the only version that stays correct as
+     * rooms are added.
+     */
+    private void startNewInRoom() {
+        Room r = room();
+        if (r.tab == TAB_CAPTURE) { routeTab(TAB_CAPTURE); return; }
+        routeTab(TAB_STUDIO);
+    }
+
+    /** A pill that is only an outline — available, and clearly not the primary. */
+    private android.graphics.drawable.GradientDrawable strokePill(int stroke, int radiusPx) {
+        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
+        d.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        d.setCornerRadius(radiusPx);
+        d.setColor(0x00000000);
+        d.setStroke(Math.max(1, dp(1)), stroke);
+        return d;
+    }
+
     private void enterRoom() {
         Room r = room();
 

@@ -801,7 +801,19 @@ public class FaditorToolsAdapter {
         // Via applyIcon, so a tool whose mark is a WORD ("text:FX") renders as bold letters
         // rather than as the literal string "text:FX" in the icon font.
         FaditorTool.applyIcon(icon, tool.icon, 22f);
-        icon.setTextColor(Studio.INK_FAINT);
+        // ── A CONTEXTUAL TOOL WEARS WHAT IT ACTS ON ─────────────────────────
+        // The Studio manifest: "Tools 1-15 (act on selection) — Contextual row, filtered by
+        // what is selected. Glyphs take the object colour."
+        //
+        // This is the other half of the contextual row and it is the half that makes the
+        // reorder legible. Without it the row silently rearranges and a user is left
+        // wondering whether they misremembered where something was; with it, the tools that
+        // moved are visibly tied to the thing they just selected — the glyph is the same
+        // colour as the tape.
+        //
+        // Only the tools that ACT on the selection take it. An "add" tool tinted the colour
+        // of the current selection would be claiming a relationship it does not have.
+        icon.setTextColor(contextTintFor(tool.id));
         cell.addView(icon);
 
         TextView label = new TextView(context);
@@ -857,6 +869,39 @@ public class FaditorToolsAdapter {
         context.getTheme().resolveAttribute(
                 android.R.attr.selectableItemBackgroundBorderless, tv, true);
         return tv.resourceId;
+    }
+
+    /** The selected object's colour, or 0 when nothing is selected. */
+    private int contextTint = 0;
+    /** Which tool ids the current selection can act on. */
+    @NonNull private java.util.Set<String> contextIds = java.util.Collections.emptySet();
+
+    /**
+     * Tell the row what is selected, so the tools that act on it can wear its colour.
+     *
+     * <p>Rebinds rather than re-creating the cells: the row is rebuilt whenever the ORDER
+     * changes, and a tint change does not change the order, so re-creating here would throw
+     * away the scroll position for a colour swap.
+     */
+    public void setContextTint(int colour, @NonNull java.util.Set<String> ids) {
+        if (colour == contextTint && ids.equals(contextIds)) return;
+        contextTint = colour;
+        contextIds = ids;
+        retintCells();
+    }
+
+    private int contextTintFor(@NonNull String id) {
+        return (contextTint != 0 && contextIds.contains(id)) ? contextTint : Studio.INK_FAINT;
+    }
+
+    private void retintCells() {
+        if (tools == null) return;
+        for (com.fadcam.ui.faditor.tools.FaditorTool t : tools) {
+            View cell = container.findViewById(t.viewId);
+            if (cell == null) continue;
+            TextView ic = cell.findViewById(t.iconViewId);
+            if (ic != null) ic.setTextColor(contextTintFor(t.id));
+        }
     }
 
     private int dp(int v) {

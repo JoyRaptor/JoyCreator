@@ -174,14 +174,22 @@
             android:overScrollMode="never"
             android:fillViewport="false">
 
+            <!-- paddingEnd is a screen's worth of trailing room, not a typo. Without it the
+                 strip cannot scroll far enough to bring its LAST words to the gutter:
+                 scrollTo clamps at the content edge, the snap lands short, and the word that
+                 was sized 34sp ends up sitting right of the one actually in the gutter. It
+                 is the standard cost of a snapping scroller, and it is invisible — empty
+                 space past the end of a strip that already wraps. -->
             <LinearLayout
                 android:id="@+id/lobby_marquee"
+                android:clipChildren="false"
+                android:clipToPadding="false"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:orientation="horizontal"
                 android:gravity="bottom"
                 android:paddingStart="18dp"
-                android:paddingEnd="44dp" />
+                android:paddingEnd="420dp" />
         </HorizontalScrollView>
 
         <!-- ── HERO. Full bleed: no side gutter, no radius. The one deliberate break
@@ -292,6 +300,20 @@
                     android:ellipsize="end"
                     android:layout_marginTop="1dp" />
             </LinearLayout>
+
+            <TextView
+                android:id="@+id/lobby_hero_new"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:gravity="center"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:layout_marginEnd="8dp"
+                android:text="@string/lobby_hero_new"
+                android:textColor="#FFA1A1AA"
+                android:textSize="12.5sp"
+                android:maxLines="1"
+                android:singleLine="true" />
 
             <TextView
                 android:id="@+id/lobby_hero_action"

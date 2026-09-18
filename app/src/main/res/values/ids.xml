@@ -6,6 +6,10 @@
     <item name="tag_layer_active" type="id"/>
     <item name="tag_page_index" type="id"/>
     <item name="tag_page_active" type="id"/>
+    <!-- The weight last written to a carousel word's variable-font axis. Re-shaping a glyph
+         run is the only part of the carousel's per-frame loop that is not free, so the axis
+         is only rewritten when the quantised weight actually changes. -->
+    <item name="lobby_marquee_weight" type="id"/>
     <!-- Carries a Runnable that re-reads a PiP drawer tab's rows at the live playhead.
          A tag rather than a returned handle so the drawer, which rebuilds tab content on every
          switch, always refreshes whatever is actually on screen. -->

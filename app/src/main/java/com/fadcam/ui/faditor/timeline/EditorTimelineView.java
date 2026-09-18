@@ -84,11 +84,32 @@ public class EditorTimelineView extends View {
      *
      * <p>He is describing an artefact of the order things were built in. This band was the
      * WHOLE minimap once, so 16dp was the right size for it; then the per-layer lines were
-     * added above it and the tape kept a height it had earned as the only thing there. 7dp
-     * is a 56% cut and puts it back in proportion with the lines it now shares the strip
-     * with — the tape is one row among several, not the headline.
+     * added above it and the tape kept a height it had earned as the only thing there.
+     *
+     * <h3>Why 7dp was wrong, and it was not the height that was wrong</h3>
+     * The first cut took the SLOT from 16dp to 7dp and left the insets at 3dp top and
+     * bottom — so the drawn block went from 10dp to ONE. JoyRaptor: "theres one pixel for
+     * the top and another for the bottom, to even have ONE pixel available to show gap you
+     * need a minimum of 3 pixels ... this one looks just like object layers."
+     *
+     * <p>He is right, and the reason is that this band is not decoration. It carries the
+     * thumbnail loading meters, the transcription progress bars, the audio-analysis bar and
+     * the silence gaps — four things stacked inside its height. A band with a 1dp interior
+     * cannot show any of them, so the cut did not shrink a graphic, it deleted a readout.
+     *
+     * <p>11dp with 1.5dp insets gives an 8dp interior: a 31% cut off the slot and only 20%
+     * off the part that has to be legible. Shorter than the original, and still a band
+     * rather than a line.
      */
-    private static final float MINIMAP_HEIGHT_DP = 7f;
+    private static final float MINIMAP_HEIGHT_DP = 11f;
+    /**
+     * Inset above and below the master tape inside its slot.
+     *
+     * <p>Scaled WITH the slot rather than left at a literal 3dp. That is the mistake the
+     * first cut made: a fixed inset takes a fixed bite, so halving the slot did not halve
+     * the block, it very nearly removed it.
+     */
+    private static final float MINIMAP_TAPE_INSET_DP = 1.5f;
     // F-MINIMAP: thin per-layer lines stacked ABOVE the master tape, so a glance at the strip
     // shows WHERE the objects are across the whole project, not just where the clips are.
     /** Thickness of one layer line. */
@@ -4184,8 +4205,8 @@ public class EditorTimelineView extends View {
         // The master tape keeps its original 16dp slot at the BOTTOM of the strip; the
         // per-layer lines (F-MINIMAP) occupy the adaptive band above it, so adding layers
         // pushes the lines upward and never shrinks the tape.
-        float top = 3f * density + minimapLayerBandPx;
-        float bot = minimapHeightPx - 3f * density;
+        float top = MINIMAP_TAPE_INSET_DP * density + minimapLayerBandPx;
+        float bot = minimapHeightPx - MINIMAP_TAPE_INSET_DP * density;
         float stripW = viewW - margin * 2;
         if (stripW <= 0) return;
         drawMinimapLayerLines(canvas, margin, stripW);

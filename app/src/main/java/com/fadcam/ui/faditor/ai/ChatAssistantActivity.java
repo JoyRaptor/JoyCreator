@@ -1285,7 +1285,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         iconLp.setMarginEnd(dp(8));
         titleIcon.setLayoutParams(iconLp);
         titleIcon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        titleIcon.setImageResource(R.drawable.ic_ai_assistant_robot);
+        titleIcon.setImageResource(R.drawable.joybot_neutral);
         titleIcon.setImageTintList(android.content.res.ColorStateList.valueOf(
                 resolveThemeColor(android.R.attr.colorPrimary)));
         titleIcon.setScaleX(0f);

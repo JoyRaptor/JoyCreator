@@ -1227,6 +1227,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         toolContextKind = kind;
         toolsAdapter.setTools(toolPrefs.resolveOrder(
                 toolCanonical, com.fadcam.ui.faditor.tools.ToolContext.relevantTo(kind)));
+        // ...and the tools that act on it wear its colour, per the manifest.
+        toolsAdapter.setContextTint(
+                kind == null ? 0 : com.fadcam.ui.faditor.layers.ObjectPalette.forKind(kind),
+                com.fadcam.ui.faditor.tools.ToolContext.relevantSet(kind));
     }
 
     private void buildToolsCarousel() {

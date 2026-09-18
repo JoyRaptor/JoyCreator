@@ -758,7 +758,20 @@ public class MainActivity extends AppCompatActivity {
                 swipeDownY = ev.getRawY();
                 swipeHandled = false;
                 View touched = findDeepestViewAt(getWindow().getDecorView(), ev.getRawX(), ev.getRawY());
-                swipeCandidate = !isSwipeExcludedTarget(touched);
+                // ── THE LOBBY OWNS ITS OWN HORIZONTAL GESTURES ──────────────
+                // This activity-level handler swallows horizontal swipes to page between
+                // tabs 0-5, and it runs in dispatchTouchEvent — BEFORE any view in the tree
+                // gets a look. The lobby is position 6 and is not part of that sequence, so
+                // on the lobby the gesture could only ever do something wrong: a swipe right
+                // computed target = 6 - 1 = 5 and navigated into a legacy tab.
+                //
+                // That is what was happening when JoyRaptor tried to drag the hero. The hero's
+                // own touch listener was never reached and could not have been — no amount of
+                // fixing it inside the fragment would have helped, because the event never
+                // arrived. The dial and the room carousel are the lobby's horizontal gestures
+                // and they belong to the lobby.
+                swipeCandidate = currentFragmentPosition != TAB_LOBBY
+                        && !isSwipeExcludedTarget(touched);
                 if (previewGestureInProgress && Math.abs(previewGestureZoomRatio - 0.5f) >= 0.01f) {
                     swipeCandidate = false;
                 }
@@ -1101,9 +1114,18 @@ public class MainActivity extends AppCompatActivity {
                     return;
                 }
 
-                // If we're not on the home tab, go to home tab first before exiting
-                if (getCurrentFragmentPosition() != 0) {
-                    switchFragment(0, true); // Enable animation
+                // ── BACK GOES TO THE LOBBY ──────────────────────────────────
+                // This said position 0, which is the LEGACY FADCAM HOME. Since the lobby
+                // became the front door, backing out of any room landed on the old home
+                // screen instead — with its nav bar and its red chrome — while the lobby's
+                // own chrome was still in the tree. JoyRaptor: "now it has some sort of
+                // abominable mix of the old FadCam with our new stuff stacked on top."
+                //
+                // Home is the lobby now, so back is the lobby, and the double-press-to-exit
+                // belongs there rather than on a screen the user can no longer reach any
+                // other way.
+                if (getCurrentFragmentPosition() != TAB_LOBBY) {
+                    switchFragment(TAB_LOBBY, true);
                 } else {
                     // Check if we should skip this back handling
                     if (skipNextBackHandling) {
@@ -1141,9 +1163,9 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // If we're not on the home tab, go to home tab first before exiting
-        if (getCurrentFragmentPosition() != 0) {
-            switchFragment(0, true); // Enable animation
+        // Home is the LOBBY. See the dispatcher callback above for why.
+        if (getCurrentFragmentPosition() != TAB_LOBBY) {
+            switchFragment(TAB_LOBBY, true);
         } else {
             // Check if we should skip this back handling
             if (skipNextBackHandling) {
@@ -1344,9 +1366,10 @@ public class MainActivity extends AppCompatActivity {
                         return; // handled
                     }
 
-                    // If we're not on the home tab, go to home tab first before exiting
-                    if (getCurrentFragmentPosition() != 0) {
-                        switchFragment(0, true); // Enable animation
+                    // Home is the LOBBY. Third copy of this branch in the file; all three
+                    // now agree, which they did not before.
+                    if (getCurrentFragmentPosition() != TAB_LOBBY) {
+                        switchFragment(TAB_LOBBY, true);
                     } else {
                         // Check if we should skip this back handling
                         if (skipNextBackHandling) {

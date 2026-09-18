@@ -41,6 +41,17 @@ public final class Type {
     // ── the weights the design actually uses ────────────────────────────────
     // Named rather than numeric at call sites so a change of mind about, say,
     // what a section label weighs is one edit instead of forty.
+    /**
+     * Archivo's variable axis runs 100 to 900, so the answer to "how thin can that title
+     * font go" is: all the way to a hairline.
+     *
+     * <p>THIN (100) is real but fragile — at anything under about 20sp on a dark ground the
+     * stems drop below one physical pixel and the word starts to shimmer as it scrolls.
+     * EXTRA_LIGHT is the usable floor for the carousel, where the words also MOVE.
+     */
+    public static final int THIN        = 100;
+    public static final int EXTRA_LIGHT = 200;
+    public static final int LIGHT       = 300;
     public static final int REGULAR  = 400;
     public static final int MEDIUM   = 500;
     public static final int SEMIBOLD = 600;

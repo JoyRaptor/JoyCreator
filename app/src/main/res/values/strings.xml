@@ -3387,6 +3387,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="lobby_room_sprites">Sprite Lab</string>
     <string name="lobby_room_avatar">Avatar</string>
     <string name="lobby_room_viz">Viz Lab</string>
+    <!-- JoyRaptor: "it is unclear to the user how to start a NEW project if theres
+         already a history project being shown." The hero's only control was Carry on, so
+         the screen's most prominent offer was always to continue something. -->
+    <string name="lobby_hero_new">New</string>
     <string name="lobby_new_recording">Recording</string>
     <string name="lobby_new_project">Project</string>
     <string name="lobby_new_character">Character</string>

@@ -31,7 +31,9 @@ public final class PivotPickerPopover {
     private PivotPickerPopover() {}
 
     private static final int SHEET_BG = Studio.RAISED;
-    private static final int TXT = Studio.INK;
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
+    private static final int TXT = Studio.DRAWER_INK;
 
     /** One pick. Normalized fractions in 0..1, the model's own unit. */
     public interface OnPivotPick {

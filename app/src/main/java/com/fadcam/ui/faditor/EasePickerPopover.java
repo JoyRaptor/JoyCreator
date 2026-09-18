@@ -45,7 +45,9 @@ public final class EasePickerPopover {
     private static final int CURVE = Studio.INK_DIM;
     private static final int ACCENT = Studio.GO;
     private static final int RING_FILL = Studio.alpha(Studio.GO, 0x1F);
-    private static final int TXT_DIM = Studio.INK_FAINT;
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
+    private static final int TXT_DIM = Studio.DRAWER_LABEL;
 
     private EasePickerPopover() {}
 

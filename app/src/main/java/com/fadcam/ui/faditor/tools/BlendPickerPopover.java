@@ -48,8 +48,10 @@ public final class BlendPickerPopover {
     public interface OnPick { void onPick(@NonNull String mode); }
 
     private static final int SHEET_BG = Studio.RAISED;
-    private static final int TXT = Studio.INK;
-    private static final int TXT_HEADING = Studio.INK_FAINT;   // the "small grey text" category label
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
+    private static final int TXT = Studio.DRAWER_INK;
+    private static final int TXT_HEADING = Studio.DRAWER_LABEL;   // the "small grey text" category label
     private static final int ROW_ON = Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x33);
     private static final int ACCENT = Studio.GUIDE;
     private static final int CHIP_BG = Studio.alpha(Studio.INK, 0x22);

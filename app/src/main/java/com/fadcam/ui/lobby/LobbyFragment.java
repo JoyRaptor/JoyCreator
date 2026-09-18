@@ -87,23 +87,25 @@ import com.fadcam.ui.faditor.Studio;
  */
 public class LobbyFragment extends BaseFragment {
 
-    // ── THE RAMP — ALIASES, NOT VALUES ───────────────────────
+    // -- THE RAMP: ALIASES, NOT VALUES ---------------------------------------
     //
-    // This block used to hold eight numbers under the comment "matching the studio
-    // tokens", and four of them did not match:
+    // This block used to hold eight numbers of its own. I found four of them disagreeing
+    // with Studio and aliased them away, and that was the wrong direction:
     //
-    //     INK      #E4E4E7   vs  Studio.INK        #F2F2F5
-    //     DIM      #A1A1AA   vs  Studio.INK_DIM    #C9C9D3
-    //     DIMMER   #71717A   vs  Studio.INK_FAINT  #8A8A94
-    //     DIMMEST  #4B4B55   vs  Studio.INK_OFF    #52525B
+    //     INK      #E4E4E7   Studio.INK had  #F2F2F5
+    //     DIM      #A1A1AA                   #C9C9D3
+    //     DIMMER   #71717A                   #8A8A94
+    //     DIMMEST  #4B4B55                   #52525B
     //
-    // Four near-misses of four tokens: a parallel ink ramp, on the app's front door, drifting
-    // quietly away from the one the rest of the product uses. That is what "dozens of colours,
-    // not hundreds" is actually aimed at — not a hundred different colours, but eight where
-    // there should be four, none of them wrong enough to notice and all of them wrong.
+    // The left column is right. It is record 04's ink / dim / dimmer / dimmest, and record
+    // 06 declares the identical ramp three weeks later. What Studio held was record 06's
+    // DRAWER ramp -- the brighter one that exists so text stays legible over a blown-out
+    // outdoor frame -- promoted by mistake into the app's general ink. So the lobby had the
+    // specified greys all along, and my tidy-up moved the front door off its own spec.
     //
-    // The short names stay because they read well at the call sites. They are aliases now, so
-    // there is nothing left here to drift.
+    // Studio carries both ramps now and says which is which, so these four aliases resolve
+    // to exactly the values this file started with. The short names stay because they read
+    // well at the call sites; they are aliases, so there is nothing left here to drift.
     private static final int INK      = Studio.INK;
     private static final int DIM      = Studio.INK_DIM;
     private static final int DIMMER   = Studio.INK_FAINT;

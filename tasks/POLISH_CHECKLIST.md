@@ -255,6 +255,62 @@ since it is the least-pressed control in the row. That was wrong: the lever was 
 container but the button. `layout_marginStart="14dp"` on `btn_soft_snap` makes its own
 left gap, and the delegate takes half of it. **51.3dp, no label narrowed.**
 
+### The specs, read rather than remembered — and one real defect they exposed
+
+I had been auditing against my notes about the records instead of the records. Reading
+record 04 (*The Marquee* — the lobby and first run) and record 06 (*Studio Final*) line by
+line turned up something no amount of measuring the app would have found.
+
+**Both records define the same screen ink ramp, three weeks apart, to the digit:**
+
+```
+--ink #e4e4e7   --dim #a1a1aa   --dimmer #71717a   --dimmest #4b4b55   --off #33333c
+```
+
+**Record 06 separately defines a second, brighter ramp** — `--dink #f2f2f5`, `--ddim
+#c9c9d3`, `--dlabel #c4c4ce` — for text sitting **on the frosted drawer, over moving
+video**. It exists because of that record's own CRITICAL 01: *blur softens but never
+darkens*, so a drawer over a bright outdoor frame gets lighter, and the body text measured
+**1.09:1** against a floor of 4.5:1. The scrim went dark and the ink on it went up.
+
+`Studio.java` had taken the **drawer** ramp and made it the app's universal ink. Its own
+comment quotes the triple and the `#A6A6B2 → #C4C4CE` raise — both real, both findings
+about *drawer section labels*, neither of them about the rest of the app. So every label
+in Joy Creator that is not over video has been wearing the brightness that exists to
+survive a blown-out sky.
+
+**The lobby was the clearest casualty, and I made it worse.** `LobbyFragment` held
+`E4E4E7 / A1A1AA / 71717A / 4B4B55` privately — record 04 exactly. I read that as four
+tokens drifting, aliased them to Studio, and moved the front door off its own spec while
+writing a comment congratulating myself for fixing drift. The left column was right the
+whole time.
+
+| | |
+|---|---|
+| `INK` | `#F2F2F5` → **`#E4E4E7`** |
+| `INK_DIM` | `#C9C9D3` → **`#A1A1AA`** |
+| `INK_FAINT` | `#8A8A94` → **`#71717A`** (the old value is in neither record) |
+| `INK_OFF` | `#52525B` → **`#4B4B55`** |
+| `LABEL` | `#C4C4CE`, unchanged |
+| **new** `DRAWER_INK` / `DRAWER_DIM` / `DRAWER_LABEL` | `#F2F2F5` / `#C9C9D3` / `#C4C4CE` |
+
+Eleven over-video surfaces — the object drawer, the audio / PiP / puppet tabs, FxPanel, the
+text drawer and the canvas popovers — already funnelled their text through local `TXT` /
+`TXT_DIM` aliases, so repointing them was surgical. Those surfaces render **exactly the
+values they rendered before**; they simply ask for them by the right name. Everything else
+in the app moves onto the ramp the records specify.
+
+Two of those drawers had a second, smaller version of the same bug: their secondary text
+was `INK_FAINT` at `#8A8A94`, which is *darker* than the `#A6A6B2` record 06 rejected at
+3.49:1. They are `DRAWER_LABEL` now — the rung that record measured at 4.86:1.
+
+The four `s_ink_NN` alpha tokens followed their base, and every one of their users is an
+ordinary surface (records, projects, the torch, the QR scanner), not a drawer.
+
+**Compile-verified only.** This changes text colour across the app and the sandbox is off
+adb. Nothing here was chosen by eye — every value is quoted from a record — but no screen
+has been looked at since.
+
 ### Where the colour actually is now
 
 The goal asked for *"an organized theme system, not hardcoded chaotic slop, dozens of

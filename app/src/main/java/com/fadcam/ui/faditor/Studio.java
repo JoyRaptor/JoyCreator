@@ -51,18 +51,49 @@ public final class Studio {
     public static final int PRESSED = 0xFF26262E;
     public static final int LINE    = 0xFF2C2C35;   // a divider or a hairline
 
-    // ── INK ─────────────────────────────────────────────────────────────────
-    // These are the mockup's own values (design record: "Ink · Dim · Label — #F2F2F5 ·
-    // #C9C9D3 · #C4C4CE"), not values I picked. The first pass drifted off them by a
-    // couple of points per channel, which is invisible on any one control and exactly how
-    // a palette stops being a palette. The Label rung was raised from #A6A6B2 there,
-    // which measured 3.49:1.
-    public static final int INK       = 0xFFF2F2F5;
-    public static final int INK_DIM   = 0xFFC9C9D3;
-    /** A label on a control, per the spec's Ink / Dim / Label triple. */
+    // ══ INK — AND THERE ARE TWO RAMPS, NOT ONE ═════════════════════════════
+    //
+    // This block used to hold ONE ramp, taken from the line "Ink · Dim · Label — #F2F2F5 ·
+    // #C9C9D3 · #C4C4CE". That triple is real, but it is record 06's —dink / —ddim /
+    // —dlabel: the ramp for text sitting on the FROSTED DRAWER, over moving video. Record
+    // 06's own :root defines a different, darker ramp for everything else, and record 04
+    // (the lobby and first run) declares the identical one:
+    //
+    //     --ink #e4e4e7  --dim #a1a1aa  --dimmer #71717a  --dimmest #4b4b55  --off #33333c
+    //
+    // Two records, written three weeks apart, agreeing to the digit. One ramp had been
+    // promoted over the other, so every piece of text in the app that is NOT over video was
+    // wearing the brightness that exists to survive a blown-out outdoor frame. The lobby was
+    // the clearest casualty: it had the correct ramp typed out privately, and a tokenising
+    // pass of mine "fixed" it onto the wrong one.
+    //
+    // The raise the old comment describes is real and stays — #A6A6B2 measured 3.49:1 and
+    // became #C4C4CE at 4.86:1 — but it was a finding about DRAWER SECTION LABELS, and it
+    // belongs to the drawer ramp only.
+
+    /** Screen ink. Records 04 and 06, {@code --ink}. */
+    public static final int INK       = 0xFFE4E4E7;
+    /** {@code --dim}: secondary text on an opaque surface. */
+    public static final int INK_DIM   = 0xFFA1A1AA;
+    /** {@code --dimmer}: tertiary. Was 0xFF8A8A94, which is in neither record. */
+    public static final int INK_FAINT = 0xFF71717A;
+    /** {@code --dimmest}: a label that is present but not available. */
+    public static final int INK_OFF   = 0xFF4B4B55;
+    /** A label on a control. {@code --dlabel}, and the one rung the two ramps share a use for. */
     public static final int LABEL     = 0xFFC4C4CE;
-    public static final int INK_FAINT = 0xFF8A8A94;
-    public static final int INK_OFF   = 0xFF52525B;
+
+    // ── the drawer's own ink — ONLY for content over the scrim ──────────────────
+    // Record 06, CRITICAL 01: blur softens but never darkens, so a drawer over a bright
+    // frame gets LIGHTER. The scrim went dark and the text on it went up. Using these
+    // anywhere else makes ordinary text brighter than the spec, which is how this whole
+    // mistake started; using anything else INSIDE a drawer is the contrast bug the record
+    // measured at 1.09:1.
+    /** {@code --dink}. */
+    public static final int DRAWER_INK   = 0xFFF2F2F5;
+    /** {@code --ddim}. */
+    public static final int DRAWER_DIM   = 0xFFC9C9D3;
+    /** {@code --dlabel}: 4.86:1 over the dark scrim, measured, not estimated. */
+    public static final int DRAWER_LABEL = 0xFFC4C4CE;
 
     // ── STATE ───────────────────────────────────────────────────────────────
     // What a control says about itself. Four, because the Studio has four; a fifth is a

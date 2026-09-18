@@ -38,14 +38,23 @@
     <color name="s_line">#FF2C2C35</color>       <!-- a divider or a hairline -->
 
     <!-- ── INK ────────────────────────────────────────────────────────────────
-         Three weights of text and one for a disabled label. Measured against
-         s_panel: ink 15.4:1, ink_dim 7.1:1, ink_faint 4.6:1 — all above WCAG AA,
-         which the old #FF9A9A9A secondary (1.39:1 in the object drawer) was not. -->
-    <color name="s_ink">#FFF2F2F5</color>
-    <color name="s_ink_dim">#FFC9C9D3</color>
+         Two ramps, and they are not interchangeable. -->
+    <!-- The SCREEN ramp, from records 04 and 06, which agree to the digit. These five
+         had been holding the DRAWER ramp instead — the one raised so text survives a
+         blown-out outdoor frame — which made every ordinary label in the app brighter
+         than its own spec. The reasoning is in Studio.java. -->
+    <color name="s_ink">#FFE4E4E7</color>
+    <color name="s_ink_dim">#FFA1A1AA</color>
+    <color name="s_ink_faint">#FF71717A</color>
+    <color name="s_ink_off">#FF4B4B55</color>
     <color name="s_label">#FFC4C4CE</color>
-    <color name="s_ink_faint">#FF8A8A94</color>
-    <color name="s_ink_off">#FF52525B</color>
+
+    <!-- Content sitting ON the frosted drawer, over moving video. Record 06's CRITICAL 01:
+         blur softens but never darkens, so the scrim went dark and the ink on it went up.
+         Nothing outside a drawer may use these. -->
+    <color name="s_drawer_ink">#FFF2F2F5</color>
+    <color name="s_drawer_dim">#FFC9C9D3</color>
+    <color name="s_drawer_label">#FFC4C4CE</color>
 
     <!-- ── STATE ──────────────────────────────────────────────────────────────
          What a control is saying about itself. These are the four the Studio
@@ -117,10 +126,12 @@
     <color name="s_scrim_20">#33000000</color>
     <color name="s_scrim_60">#99000000</color>
     <color name="s_scrim_80">#CC000000</color>
-    <color name="s_ink_33">#55F2F2F5</color>
-    <color name="s_ink_40">#66F2F2F5</color>
-    <color name="s_ink_50">#80F2F2F5</color>
-    <color name="s_ink_60">#99F2F2F5</color>
+    <!-- These follow s_ink, and s_ink moved. Every one of them is used on an ordinary
+         surface — records, projects, the torch, the QR scanner — not on a drawer. -->
+    <color name="s_ink_33">#55E4E4E7</color>
+    <color name="s_ink_40">#66E4E4E7</color>
+    <color name="s_ink_50">#80E4E4E7</color>
+    <color name="s_ink_60">#99E4E4E7</color>
 
     <!-- ══ MIRROR GAPS ══════════════════════════════════════════════════════
          This file is the XML mirror of Studio.java, and it had drifted: these six existed in

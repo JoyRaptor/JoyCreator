@@ -239,8 +239,10 @@ public final class ObjectMenuSheet extends LinearLayout {
 
     private static final int SLIDER_STEPS = 1000;
     private static final int BG = Studio.RAISED;
-    private static final int TXT_DIM = Studio.INK_FAINT;
-    private static final int TXT = Studio.INK_DIM;
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
+    private static final int TXT_DIM = Studio.DRAWER_LABEL;
+    private static final int TXT = Studio.DRAWER_DIM;
     private static final int ACCENT = Studio.GO;
     private static final int DESTRUCTIVE = Studio.DANGER;
 

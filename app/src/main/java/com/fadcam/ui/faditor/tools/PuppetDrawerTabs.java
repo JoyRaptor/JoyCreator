@@ -75,9 +75,11 @@ public final class PuppetDrawerTabs {
     private PuppetDrawerTabs() {}
 
     // Matching PipDrawerTabs so the two drawers read as one app.
-    private static final int TXT = Studio.INK;
-    private static final int TXT_DIM = Studio.INK_FAINT;
-    private static final int TXT_FAINT = Studio.INK_FAINT;
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
+    private static final int TXT = Studio.DRAWER_INK;
+    private static final int TXT_DIM = Studio.DRAWER_LABEL;
+    private static final int TXT_FAINT = Studio.DRAWER_LABEL;
     private static final int ROW_BG = Studio.alpha(Studio.LINE, 0x55);
     private static final int ROW_LINE = Studio.alpha(Studio.INK, 0x33);
     private static final int SUNK_BG = Studio.alpha(Studio.SUNK, 0x66);

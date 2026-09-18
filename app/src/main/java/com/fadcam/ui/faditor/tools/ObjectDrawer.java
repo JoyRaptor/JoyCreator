@@ -73,8 +73,10 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>You can still watch the video through it. You can now also read the labels.</p>
      */
     private static final int SCRIM = Studio.alpha(Studio.GROUND, 0xA3);
-    private static final int TXT = Studio.INK;
-    private static final int TXT_DIM = Studio.INK_DIM;
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
+    private static final int TXT = Studio.DRAWER_INK;
+    private static final int TXT_DIM = Studio.DRAWER_DIM;
     /**
      * Active tab / engaged toggle. Defaults to the SELECTED state colour rather than green,
      * because green now means Studio. {@link #setAccent(int)} lets the host hand the drawer

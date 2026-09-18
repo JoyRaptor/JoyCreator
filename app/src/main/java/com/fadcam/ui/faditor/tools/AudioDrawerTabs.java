@@ -53,9 +53,11 @@ import java.util.List;
 public final class AudioDrawerTabs {
 
     private AudioDrawerTabs() {}
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
+    // Same value it has always rendered; it simply asks for it by the right name now.
 
-    private static final int TXT = Studio.INK;
-    private static final int TXT_DIM = Studio.INK_FAINT;
+    private static final int TXT = Studio.DRAWER_INK;
+    private static final int TXT_DIM = Studio.DRAWER_LABEL;
     private static final int SLIDER_STEPS = 1000;
     /** Key-match tolerance in clip-ms — the SAME tolerance addOrUpdateVolumeKeyframe uses. */
     private static final int KEY_TOLERANCE_MS = 40;

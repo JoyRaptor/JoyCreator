@@ -37,10 +37,16 @@
              Two layers so a change CROSS-FADES: the outgoing slide holds until the
              incoming one has faded up over it. One view swapping its own background
              flashes the window between frames. ─────────────────────────────────── -->
+        <!-- The mockup gives the slideshow 300 of the phone body's ~660px: 45%. Expressed
+             as a WEIGHT rather than as 300dp so it holds that proportion on a short phone
+             and on a tall one — a fixed height that is 45% of a Note 9 is 58% of a compact
+             device, where it would swallow the copy underneath it. -->
         <FrameLayout
             android:id="@+id/welcome_stage"
             android:layout_width="match_parent"
-            android:layout_height="300dp">
+            android:layout_height="0dp"
+            android:layout_weight="45"
+            android:minHeight="240dp">
 
             <View
                 android:id="@+id/welcome_slide_a"
@@ -77,7 +83,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_weight="55"
             android:orientation="vertical"
             android:layout_marginTop="-84dp"
             android:paddingStart="22dp"

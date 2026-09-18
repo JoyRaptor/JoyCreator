@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE READING FACE — IBM Plex Sans.
+
+  Archivo is a poster face; it is wrong for a sentence. Plex Sans is the
+  counterpart used throughout the mockups: humanist, slightly wide, with
+  unusually open counters that survive being set small on a dark background,
+  which is the condition almost every string in this app is read under.
+
+  Pairing rule being applied here: ONE display face, ONE reading face, ONE
+  mono. A screen that needs a fourth voice has a layout problem, not a font
+  problem.
+-->
+<font-family xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font app:fontStyle="normal" app:fontWeight="400"
+          app:font="@font/plex_sans_variable" app:fontVariationSettings="'wght' 400" />
+    <font app:fontStyle="normal" app:fontWeight="500"
+          app:font="@font/plex_sans_variable" app:fontVariationSettings="'wght' 500" />
+    <font app:fontStyle="normal" app:fontWeight="600"
+          app:font="@font/plex_sans_variable" app:fontVariationSettings="'wght' 600" />
+    <font app:fontStyle="normal" app:fontWeight="700"
+          app:font="@font/plex_sans_variable" app:fontVariationSettings="'wght' 700" />
+</font-family>

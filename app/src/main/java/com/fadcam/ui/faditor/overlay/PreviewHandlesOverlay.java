@@ -237,6 +237,7 @@ public final class PreviewHandlesOverlay extends View {
 
     private final float density;
     private final Paint boxPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint boxHalo = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handleFill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint handleStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint rotatePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -258,9 +259,38 @@ public final class PreviewHandlesOverlay extends View {
     public PreviewHandlesOverlay(@NonNull Context ctx) {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
+        // ── THE SELECTION BOX ───────────────────────────────────────────────
+        // Cyan, JoyRaptor's call: "Amber handles are fine but a Cyan bounding box may be
+        // the right call."
+        //
+        // The reason it is the right call is that it makes selection ONE colour across the
+        // editor. #22D3EE is already what the timeline draws a selected clip's border and
+        // handles in, so picking an object lights it up in the same colour on the canvas
+        // and on the timeline, and the eye connects the two without being told.
+        //
+        // ── and why it is drawn TWICE ────────────────────────────────────────
+        // No single colour survives arbitrary video. Measured against the extremes this
+        // box actually lands on:
+        //
+        //             blown white   white cat   mid grey   black
+        //   white          1.00        1.23       3.95     21.00
+        //   cyan           1.81        1.47       2.19     11.62
+        //
+        // Cyan is not better everywhere — white beats it on mid greys and on darks. What
+        // cyan has is a higher FLOOR: white hits 1.00 over a blown highlight, which is not
+        // "hard to see", it is gone. But cyan's own floor, 1.47 over a near-white subject,
+        // is still too low to call solved.
+        //
+        // So the box is stroked twice: a dark halo slightly wider, then the cyan dashes on
+        // top. The halo guarantees an edge against anything bright and the cyan carries
+        // the meaning. This is what marching ants have always been for, and it costs one
+        // extra drawRect on a view that redraws only while something is selected.
+        boxHalo.setStyle(Paint.Style.STROKE);
+        boxHalo.setStrokeWidth(3.5f * density);
+        boxHalo.setColor(0x99000000);
         boxPaint.setStyle(Paint.Style.STROKE);
         boxPaint.setStrokeWidth(1.5f * density);
-        boxPaint.setColor(0xE6FFFFFF);
+        boxPaint.setColor(0xFF22D3EE);
         boxPaint.setPathEffect(new DashPathEffect(
                 new float[]{6f * density, 4f * density}, 0f));
         handleFill.setStyle(Paint.Style.FILL);
@@ -330,6 +360,10 @@ public final class PreviewHandlesOverlay extends View {
 
         canvas.save();
         canvas.rotate(rot, cx, cy);
+        // Halo under, colour over. The halo is SOLID, not dashed: dashing it would leave
+        // the gaps between the cyan dashes unprotected, which is exactly where a bright
+        // frame shows through.
+        canvas.drawRect(box, boxHalo);
         canvas.drawRect(box, boxPaint);
 
         // Corner SCALE handles (squares, unrotated space — the canvas is rotated).
@@ -341,6 +375,7 @@ public final class PreviewHandlesOverlay extends View {
 
         // ROTATE stalk: line up from top-center to a filled dot.
         float stalkTop = box.top - rotateStalkPx();
+        canvas.drawLine(cx, box.top, cx, stalkTop, boxHalo);
         canvas.drawLine(cx, box.top, cx, stalkTop, boxPaint);
         canvas.drawCircle(cx, stalkTop, 5f * density, rotatePaint);
         canvas.drawCircle(cx, stalkTop, 5f * density, handleStroke);

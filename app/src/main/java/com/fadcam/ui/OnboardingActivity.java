@@ -48,6 +48,28 @@ public class OnboardingActivity extends AppIntro {
     private View backButton;
     private View nextButton;
 
+    /** The one accent the intro is allowed. Matches the Studio's primary action. */
+    private static final int INTRO_ACCENT = 0xFF35F6BF;
+
+    /**
+     * Recolour a Lottie composition in place.
+     *
+     * <p>The intro's animations ship as FadCam assets: a red arrow, a red-and-white
+     * language card, green document stamps. Re-authoring four JSON files to change three
+     * colours is not worth it, and a {@code KeyPath("**")} filter reaches every layer of a
+     * composition without needing to know how it was drawn.
+     *
+     * <p>SRC_ATOP rather than SRC_IN so the animation's own alpha, including its
+     * antialiased edges and any partial fades, survives the recolour.
+     */
+    private static void tintLottie(@Nullable LottieAnimationView v, int colour) {
+        if (v == null) return;
+        v.addValueCallback(new com.airbnb.lottie.model.KeyPath("**"),
+                com.airbnb.lottie.LottieProperty.COLOR_FILTER,
+                f -> new android.graphics.PorterDuffColorFilter(
+                        colour, android.graphics.PorterDuff.Mode.SRC_ATOP));
+    }
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         // Force dark mode for onboarding regardless of system theme
@@ -194,7 +216,13 @@ public class OnboardingActivity extends AppIntro {
                         final TextView swipeInstruction = v.findViewById(R.id.tvSwipeInstruction);
                         if (ivOnboardingAvatar != null && descView != null) {
                             // ===== SLEEP STATE =====
-                            ivOnboardingAvatar.setImageResource(R.drawable.toggle_off);
+                            // Joybot asleep. The art is white line work on transparency, so
+                            // the tint is what gives him a colour at all; it is set once here
+                            // rather than per-frame because setImageResource does not clear a
+                            // colour filter and re-applying it on every blink would be four
+                            // redundant filter allocations a second.
+                            ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
+                            ivOnboardingAvatar.setColorFilter(0xFFE4E4E7);
                             final Handler handler = new Handler();
                             final boolean[] wakeDone = {false};
                             final boolean[] blinkLoopActive = {false};
@@ -236,12 +264,12 @@ public class OnboardingActivity extends AppIntro {
                                 if (tvZ2 != null) tvZ2.animate().alpha(0f).setDuration(200).withEndAction(() -> tvZ2.setVisibility(View.GONE)).start();
                                 if (tvZ3 != null) tvZ3.animate().alpha(0f).setDuration(200).withEndAction(() -> tvZ3.setVisibility(View.GONE)).start();
                                 // Play wake AVD immediately
-                                ivOnboardingAvatar.setImageResource(R.drawable.toggle_on_anim);
+                                ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
                                 ivOnboardingAvatar.post(() -> {
                                         android.graphics.drawable.Drawable wakeDrawable = ivOnboardingAvatar.getDrawable();
                                         // afterWake handles Hi! greeting — no pre-pop needed here
                                         Runnable afterWake = () -> {
-                                            ivOnboardingAvatar.setImageResource(R.drawable.toggle_on_idle);
+                                            ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
                                             // Idle breathing (alpha + scale pulse)
                                             ValueAnimator idleBreath = ValueAnimator.ofFloat(0f, 1f);
                                             idleBreath.setDuration(2600);
@@ -269,7 +297,7 @@ public class OnboardingActivity extends AppIntro {
                                             final Runnable[] blinkRef = {null};
                                             blinkRef[0] = () -> {
                                                 if (!blinkLoopActive[0]) return;
-                                                ivOnboardingAvatar.setImageResource(R.drawable.toggle_on_blink);
+                                                ivOnboardingAvatar.setImageResource(R.drawable.joybot_smile);
                                                 android.graphics.drawable.Drawable bd = ivOnboardingAvatar.getDrawable();
                                                 if (bd instanceof android.graphics.drawable.Animatable2) {
                                                     android.graphics.drawable.Animatable2 blinkAvd = (android.graphics.drawable.Animatable2) bd;
@@ -279,7 +307,7 @@ public class OnboardingActivity extends AppIntro {
                                                         public void onAnimationEnd(android.graphics.drawable.Drawable d2) {
                                                             if (!blinkLoopActive[0]) return;
                                                             ivOnboardingAvatar.post(() -> {
-                                                                ivOnboardingAvatar.setImageResource(R.drawable.toggle_on_idle);
+                                                                ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
                                                                 int nb = 2600 + new java.util.Random().nextInt(2200);
                                                                 handler.postDelayed(blinkRef[0], nb);
                                                             });
@@ -290,9 +318,21 @@ public class OnboardingActivity extends AppIntro {
                                                     ((android.graphics.drawable.Animatable) bd).start();
                                                     handler.postDelayed(() -> {
                                                         if (!blinkLoopActive[0]) return;
-                                                        ivOnboardingAvatar.setImageResource(R.drawable.toggle_on_idle);
+                                                        ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
                                                         handler.postDelayed(blinkRef[0], 3000);
                                                     }, 280);
+                                                } else {
+                                                    // Joybot's expressions are STILL frames, so neither
+                                                    // Animatable branch fires and nothing would ever put
+                                                    // the neutral face back -- he would smile once and
+                                                    // the loop would die holding it. Hold the smile long
+                                                    // enough to read as an expression, then settle.
+                                                    handler.postDelayed(() -> {
+                                                        if (!blinkLoopActive[0]) return;
+                                                        ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
+                                                        handler.postDelayed(blinkRef[0],
+                                                                2600 + new java.util.Random().nextInt(2200));
+                                                    }, 900);
                                                 }
                                             };
                                             handler.postDelayed(blinkRef[0], 2400);
@@ -324,7 +364,16 @@ public class OnboardingActivity extends AppIntro {
                                             tvHiGreeting.setVisibility(View.VISIBLE);
                                             handler.post(greetingCycle[0]);
                                             // ===== TEXT ANIMATION (starts immediately, alongside greeting) =====
-                                            descView.setTypeface(android.graphics.Typeface.MONOSPACE);
+                                            // Monospaced ON PURPOSE -- this text types itself out a
+                                            // character at a time, and in a proportional face every
+                                            // new character re-wraps the line behind it, so the words
+                                            // already on screen twitch as the next one lands.
+                                            //
+                                            // But Typeface.MONOSPACE is whatever the OEM calls mono;
+                                            // on this phone that is Droid Sans Mono. IBM Plex Mono is
+                                            // the face the rest of the app uses for machine output.
+                                            descView.setTypeface(com.fadcam.ui.type.Type.mono(
+                                                    OnboardingActivity.this, com.fadcam.ui.type.Type.REGULAR));
                                 descView.setGravity(android.view.Gravity.START);
                                 descView.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
                                 final String[] lines = {
@@ -413,7 +462,7 @@ public class OnboardingActivity extends AppIntro {
                                             // As the last line animates in, fade in swipe instruction and arrow
                                             if (rowIdx == lines.length - 1 && swipeInstruction != null
                                                     && lottieArrow != null) {
-                                                // Show arrow first
+                                                tintLottie(lottieArrow, INTRO_ACCENT);
                                                 lottieArrow.setVisibility(View.VISIBLE);
                                                 lottieArrow.setSpeed(0.5f);
                                                 lottieArrow.setRepeatCount(0);

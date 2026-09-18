@@ -325,7 +325,9 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
             if (isIgnoring) {
                 batteryOptButton.setEnabled(false);
                 batteryOptButton.setAlpha(0.5f);
-                batteryOptButton.setText(R.string.permissions_granted);
+                // Not permissions_granted: that is the PRIMARY button's text, and reusing
+                // it here put the same sentence on both controls at once.
+                batteryOptButton.setText(R.string.battery_optimization_off);
             } else {
                 batteryOptButton.setEnabled(true);
                 batteryOptButton.setAlpha(1f);

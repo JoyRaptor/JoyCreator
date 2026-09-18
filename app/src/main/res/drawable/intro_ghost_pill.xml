@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE SECOND CONTROL. Available, obviously pressable, and obviously not the point.
+
+  A screen with two filled buttons makes the reader choose before they have been told
+  what the choice is. An outline says "also here" without competing: the stroke is
+  bright enough to read as an edge and the fill is the page itself, so the eye passes
+  over it on the way to the thing that is filled.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="999dp" />
+    <solid android:color="#00000000" />
+    <stroke android:width="1dp" android:color="#33FFFFFF" />
+</shape>

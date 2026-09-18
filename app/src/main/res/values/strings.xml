@@ -1748,6 +1748,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="open_settings">Open Settings</string>
 
     <string name="disable_battery_optimization">Disable Battery Optimization</string>
+    <!-- The battery button used to fall back to permissions_granted, so once
+         optimisation was already off BOTH controls on the screen read "ALL PERMISSIONS
+         GRANTED!" and the second one looked like a duplicate of the first. -->
+    <string name="battery_optimization_off">Battery optimization is off</string>
 
     <string name="onboarding_human_title">Before we start</string>
     <string name="onboarding_human_desc">Three quick things, and then the app is yours.</string>

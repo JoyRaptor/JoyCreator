@@ -1998,7 +1998,10 @@ public final class LayerRowRenderer {
             // under "VIZ", …). When the badge is drawn, the label's LEFT bound clears it
             // instead; the pinned-scroll bound is untouched, because once the item start
             // scrolls off-screen the badge has gone with it and only the label is left.
-            float leftBound = x0 + (kindBadgeVisible(x0, x1) ? KIND_BADGE_LABEL_INSET_DP * density : pad);
+            // With no badge under it, an image or sprite label starts at the normal pad
+            // rather than reserving a badge-width gutter it no longer needs.
+            float leftBound = x0 + (kindBadgeVisible(x0, x1, payloadKindOf(item, rowKind))
+                    ? KIND_BADGE_LABEL_INSET_DP * density : pad);
             float labelW = itemLabelPaint.measureText(label);
             float viewLeft = lastHScrollOffsetPx + HEADER_WIDTH_DP * density;
             float labelX = Math.max(leftBound, Math.min(viewLeft + pad, x1 - labelW - pad));
@@ -2009,9 +2012,10 @@ public final class LayerRowRenderer {
         // JoyRaptor 2026-07-19 (neutral substrate): the KIND badge belongs to the OBJECT,
         // not the lane — small glyph at the item's left inside edge, payload-derived
         // so it stays correct when any-object-on-any-lane lands. Skipped on slivers.
-        if (kindBadgeVisible(x0, x1)) {
-            drawKindBadge(canvas, x0 + KIND_BADGE_INSET_DP * density, (top + bottom) / 2f,
-                    payloadKindOf(item, rowKind));
+        TrackKind badgeKind = payloadKindOf(item, rowKind);
+        if (kindBadgeVisible(x0, x1, badgeKind)) {
+            drawKindBadge(canvas, x0 + KIND_BADGE_INSET_DP * density,
+                    (top + bottom) / 2f, badgeKind);
         }
 
         // G9c: chain badge on linked items (visual only — unlink lives in the object
@@ -3734,13 +3738,48 @@ public final class LayerRowRenderer {
     /** Minimum item width that earns a kind badge — below this the block is a sliver. */
     private static final float KIND_BADGE_MIN_ITEM_DP = 40f;
 
-    /** Whether {@link #drawKindBadge} will paint for an item block spanning {@code [x0, x1]}. */
-    private boolean kindBadgeVisible(float x0, float x1) {
+    /**
+     * Whether {@link #drawKindBadge} will paint for an item block spanning {@code [x0, x1]}.
+     *
+     * <p>This is asked TWICE per item -- once to decide where the label may start and once to
+     * decide whether to draw the badge -- and the two must agree or the label either overlaps
+     * the glyph or leaves a hole where one was never drawn. Keeping the decision in one
+     * predicate is what stops those drifting apart.
+     */
+    private boolean kindBadgeVisible(float x0, float x1, @NonNull TrackKind kind) {
+        if (selfBadging(kind)) return false;
         return x1 - x0 > KIND_BADGE_MIN_ITEM_DP * density;
+    }
+
+    /**
+     * Kinds that ALREADY show what they are, so a glyph would say it twice.
+     *
+     * <p>JoyRaptor, 2026-09-17: "Image and sprites do not need a header glif. The image
+     * itself Is the glif/ badge."
+     *
+     * <p>He is describing something the other kinds cannot do. A text item renders as a
+     * coloured bar and needs a T to be identifiable; an image item renders THE IMAGE
+     * ({@code drawPinnedThumb}) and a sprite renders its actual pose at every keyframe
+     * ({@code drawSpriteKeyframeCells}). Drawing a 12dp mountain-in-a-frame on top of a
+     * photograph is not identification, it is a sticker over the content -- and it was
+     * covering the left edge of the thumbnail, which is the part that stays pinned and
+     * visible while the item scrolls.
+     *
+     * <p>The cost is the one frame where the bitmap cache misses and the block shows only
+     * its body colour. That is already how every preview in this renderer behaves, the
+     * provider invalidates when the load lands, and the object's own colour still
+     * distinguishes it in the meantime.
+     */
+    private static boolean selfBadging(@NonNull TrackKind kind) {
+        return kind == TrackKind.IMAGE || kind == TrackKind.STICKER || kind == TrackKind.SPRITE;
     }
 
     private void drawKindBadge(@NonNull Canvas canvas, float leftX, float cy,
                                @NonNull TrackKind kind) {
+        // Guarded here as well as at the call site. This method is the one that knows what a
+        // badge IS, so the rule about which kinds do not get one belongs where it cannot be
+        // bypassed by a future caller that forgets to ask first.
+        if (selfBadging(kind)) return;
         float s = KIND_BADGE_SIZE_DP * density;   // badge box size
         float l = leftX, t = cy - s / 2f, r = leftX + s * 1.25f, b = cy + s / 2f;
         int color = 0xFFB9BdC4;
@@ -3768,9 +3807,9 @@ public final class LayerRowRenderer {
                 namePaint.setColor(pc);
                 break;
             }
-            // IMAGE fell through to the filmstrip default, so a still on the spine drew the
-            // same badge as video and the two were told apart by HUE ALONE — teal vs blue,
-            // which is the pair deuteranopia flattens. A still is a still on either track.
+            // IMAGE, STICKER and SPRITE never reach this switch -- see selfBadging(). The
+            // arms are kept because the switch must still be exhaustive for the compiler and
+            // because a kind that loses its thumbnail provider would want its glyph back.
             case IMAGE:
             case STICKER: { // image: mountain in a frame + sun
                 iconPaint.setStyle(Paint.Style.STROKE);

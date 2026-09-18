@@ -20,6 +20,7 @@
         android:id="@+id/lobby_root"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipChildren="false"
         android:orientation="vertical">
 
         <!-- ── The export hairline. JoyRaptor: "out of the way and it just adds a nice
@@ -37,6 +38,8 @@
             android:id="@+id/lobby_chrome"
             android:layout_width="match_parent"
             android:layout_height="52dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingStart="18dp"
@@ -99,24 +102,40 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Search everything" />
 
-            <TextView
+            <!-- ── JOYBOT ─────────────────────────────────────────────────────
+                 JoyRaptor's own art, two frames, registered on the head. This slot used to hold
+                 the Material "smart_toy" glyph, which is a generic robot head shipped with
+                 the icon font and used by thousands of apps — the single most borrowed
+                 element on the screen, standing in for the one thing that is entirely this
+                 product's own.
+
+                 40dp rather than the old 34dp: he now has a body and a base below the head,
+                 so the same optical size needs more box. ──────────────────────────── -->
+            <com.fadcam.ui.lobby.JoybotView
                 android:id="@+id/lobby_bot"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
                 android:layout_marginStart="2dp"
-                android:gravity="center"
-                android:fontFamily="@font/materialicons"
-                android:text="smart_toy"
-                android:textColor="#FFFFFFFF"
-                android:textSize="17sp"
                 android:contentDescription="Joybot" />
         </LinearLayout>
 
-        <!-- ── The marquee. Titles grow from thin grey to heavy white as they arrive. ── -->
+        <!-- ── THE MARQUEE ──────────────────────────────────────────────
+             Titles grow from thin grey to heavy white as they arrive.
+
+             JoyRaptor: "make the word studio larger" and leave "more open space up top
+             between the app title and the words carosel". Both are here: the live word went
+             from 27sp to 34sp, which needs 66dp of box rather than 52dp, and the 12dp margin
+             is the gap itself.
+
+             The gap matters more than it looks. The wordmark and the live marquee word are
+             both Archivo Black; set close together they read as one two-line title and the
+             carousel stops looking like something you can touch. Separating them says they
+             are different KINDS of thing. ────────────────────────────────── -->
         <HorizontalScrollView
             android:id="@+id/lobby_marquee_scroll"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="66dp"
+            android:layout_marginTop="12dp"
             android:scrollbars="none"
             android:overScrollMode="never"
             android:fillViewport="false">
@@ -137,9 +156,9 @@
             android:id="@+id/lobby_hero"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="30"
+            android:layout_weight="26"
             android:minHeight="150dp"
-            android:maxHeight="360dp"
+            android:maxHeight="300dp"
             android:clipChildren="true">
 
             <ImageView
@@ -205,8 +224,8 @@
             android:gravity="center_vertical"
             android:paddingStart="18dp"
             android:paddingEnd="18dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="2dp">
+            android:paddingTop="14dp"
+            android:paddingBottom="4dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -265,7 +284,7 @@
             android:gravity="bottom"
             android:paddingStart="18dp"
             android:paddingEnd="18dp"
-            android:paddingTop="16dp"
+            android:paddingTop="30dp"
             android:background="?attr/selectableItemBackground">
 
             <TextView
@@ -327,16 +346,26 @@
                 android:paddingEnd="18dp" />
         </HorizontalScrollView>
 
-        <!-- ── NEW. Grey buttons with full-strength coloured glyphs, so the hero's
-             action stays the only saturated control on the screen. ───────────── -->
+        <!-- ── NEW ────────────────────────────────────────────────────
+             Four sheared chips filled with their room's gradient, glyph punched out in pure
+             black. Built in code — see addNewChip — because the shear is a custom path and
+             not something a shape drawable can describe.
+
+             paddingEnd is 8dp here rather than the screen's usual 18dp ON PURPOSE. The last
+             chip's right edge leans away from the gutter, so measuring it flush leaves a
+             wedge of dead space that reads as a mistake; letting the row run a little wider
+             puts the leaning edge where the eye expects the margin to be. ────────────── -->
         <LinearLayout
             android:id="@+id/lobby_new_row"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:paddingStart="18dp"
-            android:paddingEnd="18dp"
-            android:paddingTop="14dp" />
+            android:paddingEnd="8dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="4dp" />
 
         <!-- ── Joybot's one line: the only thing on the screen that changes because
              of what you DID rather than what you tapped. ───────────────────────── -->
@@ -351,15 +380,10 @@
             android:paddingTop="13dp"
             android:visibility="gone">
 
-            <TextView
+            <com.fadcam.ui.lobby.JoybotView
                 android:id="@+id/lobby_bot_line_orb"
-                android:layout_width="22dp"
-                android:layout_height="22dp"
-                android:gravity="center"
-                android:fontFamily="@font/materialicons"
-                android:text="smart_toy"
-                android:textColor="#FFFFFFFF"
-                android:textSize="12sp" />
+                android:layout_width="26dp"
+                android:layout_height="26dp" />
 
             <TextView
                 android:id="@+id/lobby_bot_line_text"

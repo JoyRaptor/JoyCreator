@@ -20,15 +20,17 @@
             android:paddingTop="@dimen/onboarding_nav_margin"
             android:paddingBottom="@dimen/onboarding_nav_margin">
 
-            <com.airbnb.lottie.LottieAnimationView
-                android:id="@+id/lottieHuman"
-                android:layout_width="180dp"
-                android:layout_height="120dp"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="16dp"
-                app:lottie_fileName="document_rules_green_checkmark.json"
-                app:lottie_autoPlay="true"
-                app:lottie_loop="true" />
+            <TextView
+            android:id="@+id/lottieHuman"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/materialicons"
+            android:text="handshake"
+            android:textSize="46sp"
+            android:textColor="#FF35F6BF"
+            android:includeFontPadding="false"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="16dp" />
 
             <TextView
                 android:id="@+id/tvHumanTitle"
@@ -37,11 +39,12 @@
                 android:text="@string/onboarding_human_title"
                 android:textSize="@dimen/onboarding_title_size"
                 android:textStyle="bold"
-                android:fontFamily="monospace"
+                android:fontFamily="@font/joy_display"
                 android:textColor="#FFE4E4E7"
                 android:gravity="center"
                 android:layout_marginLeft="@dimen/onboarding_margin"
-                android:layout_marginRight="@dimen/onboarding_margin"/>
+                android:layout_marginRight="@dimen/onboarding_margin"
+            android:textFontWeight="900" />
 
             <TextView
                 android:id="@+id/tvHumanDesc"
@@ -49,12 +52,12 @@
                 android:layout_height="wrap_content"
                 android:text="@string/onboarding_human_desc"
                 android:textSize="@dimen/onboarding_desc_size"
-                android:fontFamily="monospace"
+                android:fontFamily="@font/joy_body"
                 android:textColor="@color/white"
                 android:gravity="center"
                 android:layout_marginTop="@dimen/onboarding_margin"
                 android:layout_marginLeft="@dimen/onboarding_margin"
-                android:layout_marginRight="@dimen/onboarding_margin"/>
+                android:layout_marginRight="@dimen/onboarding_margin" />
 
             <!-- Custom Checkbox Row 1 -->
             <LinearLayout
@@ -80,7 +83,7 @@
                     android:contentDescription="@string/onboarding_human_checkbox1"
                     android:layout_marginRight="12dp"
                     android:padding="2dp"
-                    android:tint="@color/white"/>
+                    android:tint="@color/white" />
 
                 <TextView
                     android:id="@+id/checkbox_label_1"
@@ -89,8 +92,8 @@
                     android:layout_weight="1"
                     android:text="@string/onboarding_human_checkbox1"
                     android:textColor="@color/white"
-                    android:fontFamily="monospace"
-                    android:textSize="@dimen/onboarding_desc_size"/>
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="@dimen/onboarding_desc_size" />
             </LinearLayout>
 
             <!-- Custom Checkbox Row 2 -->
@@ -117,7 +120,7 @@
                     android:contentDescription="@string/onboarding_human_checkbox2"
                     android:layout_marginRight="12dp"
                     android:padding="2dp"
-                    android:tint="@color/white"/>
+                    android:tint="@color/white" />
 
                 <TextView
                     android:id="@+id/checkbox_label_2"
@@ -126,8 +129,8 @@
                     android:layout_weight="1"
                     android:text="@string/onboarding_human_checkbox2"
                     android:textColor="@color/white"
-                    android:fontFamily="monospace"
-                    android:textSize="@dimen/onboarding_desc_size"/>
+                    android:fontFamily="@font/joy_body"
+                    android:textSize="@dimen/onboarding_desc_size" />
             </LinearLayout>
 
             <!-- Custom Checkbox Row 3 - Privacy Policy -->
@@ -154,7 +157,7 @@
                     android:contentDescription="@string/onboarding_human_checkbox3"
                     android:layout_marginRight="12dp"
                     android:padding="2dp"
-                    android:tint="@color/white"/>
+                    android:tint="@color/white" />
 
                 <TextView
                     android:id="@+id/checkbox_label_3"
@@ -163,10 +166,10 @@
                     android:layout_weight="1"
                     android:text="@string/onboarding_human_checkbox3"
                     android:textColor="@color/white"
-                    android:fontFamily="monospace"
+                    android:fontFamily="@font/joy_body"
                     android:textSize="@dimen/onboarding_desc_size"
                     android:clickable="true"
-                    android:focusable="true"/>
+                    android:focusable="true" />
             </LinearLayout>
 
                             <!-- ── THE KEY, OFFERED ONCE, WHERE IT MAKES SENSE ─────────────────
@@ -246,17 +249,19 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/onboarding_human_button"
-                android:fontFamily="monospace"
+                android:fontFamily="@font/joy_display"
                 android:textSize="@dimen/onboarding_button_text_size"
                 android:textColor="#FF050507"
-                app:backgroundTint="@null"
                 android:background="@drawable/studio_action_pill"
                 app:cornerRadius="0dp"
                 app:strokeWidth="0dp"
                 app:rippleColor="#33050507"
                 android:layout_marginTop="@dimen/onboarding_margin"
                 android:layout_marginLeft="@dimen/onboarding_nav_margin"
-                android:layout_marginRight="@dimen/onboarding_nav_margin"/>
+                android:layout_marginRight="@dimen/onboarding_nav_margin"
+            android:textStyle="bold"
+            android:textFontWeight="700"
+            app:backgroundTint="@null" />
         </LinearLayout>
     </RelativeLayout>
 </ScrollView> 

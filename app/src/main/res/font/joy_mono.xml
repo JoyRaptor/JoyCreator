@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE MONO — IBM Plex Mono.
+
+  The intro's typewriter lines and every timecode in the editor were set in
+  android:fontFamily="monospace", which on this phone resolves to Droid Sans
+  Mono. That is the same fallback every terminal emulator on the device uses.
+
+  Plex Mono is shipped as STATIC weights rather than a variable axis because
+  timecodes are the single most frequently redrawn text in the editor, and a
+  static face skips the axis interpolation on every Typeface resolution. It
+  also means the mono looks identical on API 24 as it does on API 34, which
+  matters more for a monospaced face than for a display one: uneven weight in
+  a column of numbers reads as a rendering bug.
+-->
+<font-family xmlns:app="http://schemas.android.com/apk/res-auto">
+    <font app:fontStyle="normal" app:fontWeight="400" app:font="@font/plex_mono_regular" />
+    <font app:fontStyle="normal" app:fontWeight="500" app:font="@font/plex_mono_medium" />
+    <font app:fontStyle="normal" app:fontWeight="600" app:font="@font/plex_mono_semibold" />
+</font-family>

@@ -123,9 +123,35 @@ public class EditorTimelineView extends View {
     private static final int COLOR_RULER_TICK     = 0xFF444444;
     private static final int COLOR_TRACK_BG       = 0xFF101014; // deep "film black" — the main track reads as the anchor (Slice E delineation)
     /** Near-black film-border rails framing the master track's top & bottom edges. */
-    private static final int COLOR_FILM_RAIL      = 0xFF050507;
+    // ── THE FILM, NOW THAT THE GROUND IS BLACK ──────────────────────────────────
+    // JoyRaptor: "Now that background is closer to black we will still need the film to
+    // read as film. Make sure the sprocket holes read like holes to whatever the
+    // background is and that the film part shape is readable."
+    //
+    // The old values were built when the timeline sat on #1A1A1A. Against the new
+    // near-black ground the rail at #050507 measured 1.07:1 -- the film's outer edge was
+    // GONE, and the holes at #2A2A32 were LIGHTER than the film they were punched in, so
+    // they read as studs rather than perforations. The relationship was inverted.
+    //
+    // Three values, each with one job:
+    //   RAIL     the film base. One step up from the ground so the band exists at all.
+    //   SPROCKET the hole. DARKER than the rail, because a hole shows the dark behind it.
+    //   EDGE     a hairline on the film's OUTER cut edge. This is the element that
+    //            actually draws the shape: at 1.98:1 over the ground it is the highest
+    //            contrast in the strip, and an edge is detectable at ratios where a
+    //            whole FIELD of the same colour would not be.
+    //
+    // All three are near-black on purpose. Contrast ratio is a poor instrument down here
+    // -- the +0.05 flare term dominates and everything scores between 1.0 and 1.3 -- so
+    // the shape is carried by the hairline and by the RHYTHM of the perforations, not by
+    // making the film lighter until the numbers look respectable. A grey filmstrip would
+    // pass a contrast check and look nothing like film.
+    private static final int COLOR_FILM_RAIL      = 0xFF202027;
+    private static final int COLOR_FILM_EDGE      = 0xFF44444F;
+    /** Highlight on a perforation's lower lip -- the film's thickness catching light. */
+    private static final int COLOR_FILM_HOLE_LIP  = 0x3DFFFFFF;
     /** Sprocket perforations punched along the film rails. */
-    private static final int COLOR_FILM_SPROCKET  = 0xFF2A2A32;
+    private static final int COLOR_FILM_SPROCKET  = 0xFF050508;
     private static final int COLOR_SEGMENT        = 0xFF2D2D2D;
     private static final int COLOR_SEGMENT_SEL    = 0xFF0E333C; // SELECTED fill — cyan family (was green 0xFF1B3A20)
     /** SELECTED = cyan, everywhere in the app. A state is a RING; an object colour is a FILL. */
@@ -165,7 +191,7 @@ public class EditorTimelineView extends View {
 
     private static final float CHIP_TEXT_DP        = 10f;
     private static final float CHIP_TEXT_SCRUB_DP  = 12f;
-    private static final float CHIP_PAD_H_DP        = 6f;
+    private static final float CHIP_PAD_H_DP        = 9f;
     private static final float CHIP_PAD_V_DP        = 3f;
     private static final float CHIP_CORNER_DP       = 4f;
     private static final float GUIDE_DASH_DP        = 4f;
@@ -1880,15 +1906,27 @@ public class EditorTimelineView extends View {
         labelPaint.setTextSize(LABEL_SIZE_DP * density);
         labelPaint.setTextAlign(Paint.Align.CENTER);
         // KineMaster playhead lane paints (JoyRaptor 2026-07-19)
-        chipBgPaint.setColor(0xE6141414);          // dark pill
+        // ── THE TIME CHIP ───────────────────────────────────────────────────────
+        // JoyRaptor: "the playhead currently black with stroke around the time and square
+        // needs to be solid and rounded."
+        //
+        // What was here was an outlined dark box: a 90%-opaque #141414 fill with a 1.25dp
+        // ring of the playhead colour. That is three visual layers -- ring, fill, text --
+        // to say one thing, and at 10sp the ring was thicker than the strokes of the
+        // digits inside it, so the chip read as a frame with numbers trapped in it.
+        //
+        // Now it is ONE layer: the playhead's own colour, filled solid, with the time
+        // punched out of it. The chip and the line below it become a single object that
+        // changes colour together, which is the whole point of the context tinting.
         chipBgPaint.setStyle(Paint.Style.FILL);
-        chipBorderPaint.setStyle(Paint.Style.STROKE);
-        chipBorderPaint.setStrokeWidth(1.25f * density);
-        chipBorderPaint.setColor(COLOR_PLAYHEAD);
-        chipTextPaint.setColor(0xFFFFFFFF);
+        chipBorderPaint.setStyle(Paint.Style.FILL);
         chipTextPaint.setTextAlign(Paint.Align.CENTER);
         chipTextPaint.setTextSize(chipTextPx);
-        chipTextPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        // Plex Mono, the app's own mono. A running timecode redraws on every frame, and in
+        // a proportional face the digits change width as they tick, so the chip visibly
+        // breathes -- which reads as the app being unstable rather than as time passing.
+        chipTextPaint.setTypeface(com.fadcam.ui.type.Type.mono(getContext(),
+                com.fadcam.ui.type.Type.SEMIBOLD));
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setStrokeWidth(1f * density);
         guidePaint.setPathEffect(new android.graphics.DashPathEffect(
@@ -5856,20 +5894,52 @@ if (sd.clip.hasVolumeKeyframes()) {
         float left = scrollOffsetPx;
         float right = scrollOffsetPx + w;
         filmPaint.setStyle(Paint.Style.FILL);
+
+        // The film base.
         filmPaint.setColor(COLOR_FILM_RAIL);
         canvas.drawRect(left, tTop, right, tTop + railH, filmPaint);
         canvas.drawRect(left, tBot - railH, right, tBot, filmPaint);
-        // Perforations at fixed content-X intervals → they scroll with the film like real sprocket holes.
-        filmPaint.setColor(COLOR_FILM_SPROCKET);
+
+        // The CUT EDGE. One hairline along the outside of each rail, which is where the
+        // film meets the ground and therefore the only line that can tell you where the
+        // strip stops. Without it the band just fades out and the master track stops
+        // looking like a physical object.
+        float hair = Math.max(1f, 1.1f * density);
+        filmPaint.setColor(COLOR_FILM_EDGE);
+        canvas.drawRect(left, tTop, right, tTop + hair, filmPaint);
+        canvas.drawRect(left, tBot - hair, right, tBot, filmPaint);
+
+        // Perforations at fixed content-X intervals → they scroll with the film like real
+        // sprocket holes. The hole is drawn DARKER than the rail it sits in, then given a
+        // lit lower lip. That pair is the whole illusion: a dark void plus a bright edge
+        // below it is how the eye is told something is punched THROUGH rather than
+        // printed ON. Reversing the two -- which is what was here -- makes a rivet.
         float holeW = 5f * density, holeH = 3.5f * density, corner = 1f * density;
         float pitch = 14f * density;
         float topCy = tTop + railH / 2f, botCy = tBot - railH / 2f;
         float firstCx = (float) (Math.floor((left - pitch / 2f) / pitch) * pitch) + pitch / 2f;
+
+        // Two passes rather than one, so the paint colour is set twice per FRAME instead
+        // of twice per hole. At 14dp pitch a wide timeline draws ~60 perforations, and
+        // Paint.setColor busts the native paint cache on every call.
+        filmPaint.setColor(COLOR_FILM_SPROCKET);
         for (float cx = firstCx; cx < right + pitch; cx += pitch) {
             canvas.drawRoundRect(cx - holeW / 2f, topCy - holeH / 2f,
                     cx + holeW / 2f, topCy + holeH / 2f, corner, corner, filmPaint);
             canvas.drawRoundRect(cx - holeW / 2f, botCy - holeH / 2f,
                     cx + holeW / 2f, botCy + holeH / 2f, corner, corner, filmPaint);
+        }
+
+        // The lip. Inset horizontally so it reads as a curve catching light rather than as
+        // a second rectangle stacked under the first.
+        float lipInset = corner;
+        float lipH = Math.max(1f, 0.9f * density);
+        filmPaint.setColor(COLOR_FILM_HOLE_LIP);
+        for (float cx = firstCx; cx < right + pitch; cx += pitch) {
+            canvas.drawRect(cx - holeW / 2f + lipInset, topCy + holeH / 2f - lipH,
+                    cx + holeW / 2f - lipInset, topCy + holeH / 2f, filmPaint);
+            canvas.drawRect(cx - holeW / 2f + lipInset, botCy + holeH / 2f - lipH,
+                    cx + holeW / 2f - lipInset, botCy + holeH / 2f, filmPaint);
         }
     }
 
@@ -6056,11 +6126,51 @@ if (sd.clip.hasVolumeKeyframes()) {
         left = Math.max(margin, Math.min(left, getWidth() - boxW - margin));
         chipRect.set(left, top, left + boxW, bottom);
 
-        canvas.drawRoundRect(chipRect, chipCornerPx, chipCornerPx, chipBgPaint);
-        chipBorderPaint.setColor((playheadColorCurrent & 0x00FFFFFF) | 0xCC000000);
-        canvas.drawRoundRect(chipRect, chipCornerPx, chipCornerPx, chipBorderPaint);
+        // SOLID, in the playhead's current context colour, at full opacity. The old fill
+        // was 0xE6 -- 90% -- which let the ruler's tick marks ghost through the numbers.
+        chipBgPaint.setColor(0xFF000000 | (playheadColorCurrent & 0x00FFFFFF));
+
+        // ROUNDED: a true pill. The radius is half the height rather than a fixed 4dp, so
+        // the ends stay perfectly semicircular when the text grows -- the chip gets taller
+        // while scrubbing, and a fixed radius would make it look like a different shape at
+        // each size.
+        float radius = boxH / 2f;
+        canvas.drawRoundRect(chipRect, radius, radius, chipBgPaint);
+
+        // The time is punched OUT of the chip, in whichever of black or white actually
+        // reads on this colour. Hardcoding white was safe on the old near-black fill and
+        // is wrong now: the playhead turns amber while trimming and lime on a master
+        // selection, and white on those measures under 2:1.
+        chipTextPaint.setColor(inkOn(playheadColorCurrent));
         float baseline = top + chipPadVPx - fm.ascent;
         canvas.drawText(text, chipRect.centerX(), baseline, chipTextPaint);
+    }
+
+    /**
+     * Black or white, whichever is legible on {@code bg}.
+     *
+     * <p>Uses the WCAG relative-luminance curve rather than a naive average of the
+     * channels, because the eye is roughly ten times more sensitive to green than to blue.
+     * The naive version gets the studio palette exactly backwards on two colours: pure
+     * magenta and pure blue both average to a mid value and would be handed white text,
+     * when magenta needs black and blue needs white.
+     *
+     * <p>The 0.42 threshold rather than 0.5 is deliberate. White-on-colour and
+     * black-on-colour are not symmetric -- light text on a mid tone blooms and loses its
+     * counters, so the crossover belongs slightly below the midpoint.
+     */
+    private static int inkOn(int bg) {
+        float[] c = new float[3];
+        c[0] = ((bg >> 16) & 0xFF) / 255f;
+        c[1] = ((bg >> 8) & 0xFF) / 255f;
+        c[2] = (bg & 0xFF) / 255f;
+        for (int i = 0; i < 3; i++) {
+            c[i] = c[i] <= 0.04045f
+                    ? c[i] / 12.92f
+                    : (float) Math.pow((c[i] + 0.055f) / 1.055f, 2.4);
+        }
+        float l = 0.2126f * c[0] + 0.7152f * c[1] + 0.0722f * c[2];
+        return l > 0.42f ? 0xFF07070A : 0xFFFFFFFF;
     }
 
     /** mm:ss.mmm, with an h: prefix only past one hour. */
@@ -6532,7 +6642,11 @@ if (sd.clip.hasVolumeKeyframes()) {
             float top = segRects.get(0).top;
             float bot = segRects.get(0).bottom;
             filmPaint.setStyle(Paint.Style.FILL);
-            filmPaint.setColor(COLOR_FILM_RAIL);
+            // COLOR_FILM_EDGE, not COLOR_FILM_RAIL. When the spine is collapsed there is no
+            // room for rails and perforations, so this hairline IS the film; drawing it in
+            // the base colour made it 1.17:1 against the ground and it disappeared for the
+            // same reason the expanded strip did.
+            filmPaint.setColor(COLOR_FILM_EDGE);
             canvas.drawRect(visLeft, top, visRight, top + hair, filmPaint);
             canvas.drawRect(visLeft, bot - hair, visRight, bot, filmPaint);
         }

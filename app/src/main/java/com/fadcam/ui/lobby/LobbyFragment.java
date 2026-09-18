@@ -9,6 +9,8 @@ import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+
+import com.fadcam.ui.type.Type;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -137,15 +139,17 @@ public class LobbyFragment extends BaseFragment {
     private List<ProjectStorage.ProjectSummary> projects = new ArrayList<>();
 
     private LinearLayout marquee, recentsRow, newRow, floorRow;
+    private JoybotView joybot;
     private FrameLayout hero;
     private ImageView heroArt;
     private View heroWash, heroBar;
     private TextView heroTag, heroEmpty, heroName, heroSub, heroAction;
-    private TextView statIcon, statText, wordmark, botOrb;
+    private TextView statIcon, statText, wordmark;
     private TextView libraryCount;
     private View hairline, hairlineFill;
     private View botLine;
-    private TextView botLineText, botLineYes, botLineNo, botLineOrb;
+    private TextView botLineText, botLineYes, botLineNo;
+    private JoybotView botLineOrb;
     private Typeface iconFont;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
@@ -184,7 +188,6 @@ public class LobbyFragment extends BaseFragment {
         statIcon   = v.findViewById(R.id.lobby_stat_icon);
         statText   = v.findViewById(R.id.lobby_stat_text);
         wordmark   = v.findViewById(R.id.lobby_wordmark);
-        botOrb     = v.findViewById(R.id.lobby_bot);
         libraryCount = v.findViewById(R.id.lobby_library_count);
         hairline    = v.findViewById(R.id.lobby_hairline);
         botLine     = v.findViewById(R.id.lobby_bot_line);
@@ -192,34 +195,57 @@ public class LobbyFragment extends BaseFragment {
         botLineYes  = v.findViewById(R.id.lobby_bot_line_yes);
         botLineNo   = v.findViewById(R.id.lobby_bot_line_no);
         botLineOrb  = v.findViewById(R.id.lobby_bot_line_orb);
-        botLineOrb.setBackground(circleGradient(0xFFCC27FF, 0xFF5C43FD));
+        // Same character, same disc, smaller. He is the one speaking this line, so it
+        // gets his face rather than a coloured dot standing in for one.
+        botLineOrb.setOrb(0xFFCC27FF, 0xFF5C43FD);
         botLineYes.setBackground(pill(INK, dp(999)));
         botLineNo.setOnClickListener(b -> {
             botDismissed = true;
             botLine.setVisibility(View.GONE);
         });
 
-        // Display face. Nothing heavier than Ubuntu Regular is bundled, so the marquee
-        // borrows Android's own weight family — sans-serif-black / -light give REAL weights
-        // rather than a synthesised bold, which at 29sp is the difference between a display
-        // face and a smeared one. A bundled display font is on the asset list.
-        wordmark.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
-        heroName.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
+        // ── THE VOICE ───────────────────────────────────────────────────────────
+        // Archivo, the face this screen was actually designed in, is now bundled.
+        // What stood here before was Typeface.create("sans-serif-black"), which is
+        // not a font request — it asks the OEM for whatever IT thinks black is, so
+        // the lobby wore Samsung One on this phone and Roboto on a Pixel.
+        //
+        // The wordmark is the heaviest thing on the screen at 900 because it is the
+        // one word that is never a control: you cannot press it, so it has to earn
+        // its space by being the anchor everything else is measured against.
+        Type.display(wordmark, Type.BLACK);
+        Type.display(heroName, Type.BLACK);
 
         TextView libLabel = v.findViewById(R.id.lobby_library_label);
-        libLabel.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
+        // Section labels sit at 800 rather than 900. One notch down is enough to
+        // rank them under the wordmark while still reading as the same voice — and
+        // at 11sp the difference between 800 and 900 is legibility, not decoration.
+        Type.display(libLabel, Type.EXTRA);
 
-        // Joybot's orb — the one place a gradient is allowed in the chrome, because it is
-        // a character rather than a control.
-        botOrb.setBackground(circleGradient(0xFFCC27FF, 0xFF5C43FD));
-        v.findViewById(R.id.lobby_bot).setOnClickListener(b -> routeTab(TAB_STUDIO));
+        // ── JOYBOT ─────────────────────────────────────────────────────────
+        // The orb behind him is gone. It existed to give a flat glyph something to sit on;
+        // the real art has its own silhouette, and a gradient disc behind it just clipped
+        // his ears and his base off. He is drawn in the Joybot violet instead, which keeps
+        // the identity the orb was carrying without boxing him in.
+        //
+        // He smiles when pushed, and he smiles while the recents strip is being scrolled,
+        // which is JoyRaptor's note that on a scroll "it looks like he's watching and
+        // reacting". The push is not a navigation: tapping him opens the Studio, and the
+        // smile is the acknowledgement that the tap landed.
+        joybot = v.findViewById(R.id.lobby_bot);
+        joybot.setOrb(0xFFCC27FF, 0xFF5C43FD);
+        joybot.setOnClickListener(b -> { joybot.react(); routeTab(TAB_STUDIO); });
 
         View libraryDoor = v.findViewById(R.id.lobby_library_door);
         libraryDoor.setOnClickListener(b -> routeTab(TAB_LIBRARY));
         Motion.press(libraryDoor);
-        Motion.press(botOrb);
         Motion.press(v.findViewById(R.id.lobby_search));
         v.findViewById(R.id.lobby_search).setOnClickListener(b -> routeTab(TAB_LIBRARY));
+
+        // "On scroll gesture in screens it looks like he's watching and reacting."
+        // The recents strip is the only thing on this screen the user scrolls, so it is
+        // the thing he watches.
+        joybot.watch(v.findViewById(R.id.lobby_recents_scroll));
 
         buildRooms();
         buildNewRow();
@@ -317,16 +343,23 @@ public class LobbyFragment extends BaseFragment {
             t.setMaxLines(1);
             t.setSingleLine(true);
             if (i == 0) {
-                t.setTypeface(Typeface.create("sans-serif-black", Typeface.NORMAL));
-                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 27f);
+                // The live word. JoyRaptor asked for "studio" larger; 34sp is where
+                // Archivo 900 stops looking like big text and starts looking like a
+                // sign. The negative tracking is not a flourish — Archivo's sidebearings
+                // are cut for text sizes, and left alone at display size the letters
+                // drift apart and the word loses its shape as a single object.
+                Type.display(t, Type.BLACK);
+                t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f);
                 t.setTextColor(INK);
-                t.setLetterSpacing(-0.045f);
+                t.setLetterSpacing(-0.05f);
             } else if (i == 1) {
-                t.setTypeface(Typeface.create("sans-serif", Typeface.NORMAL));
+                // On deck. Medium rather than regular: at 15sp beside a 34sp black,
+                // a 400 weight reads as disabled rather than as next.
+                Type.display(t, Type.MEDIUM);
                 t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f);
                 t.setTextColor(DIMMER);
             } else {
-                t.setTypeface(Typeface.create("sans-serif-light", Typeface.NORMAL));
+                Type.display(t, Type.REGULAR);
                 t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);
                 t.setTextColor(DIMMEST);
             }
@@ -550,7 +583,9 @@ public class LobbyFragment extends BaseFragment {
         name.setText(item.name);
         name.setTextColor(INK);
         name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
-        name.setTypeface(Typeface.DEFAULT_BOLD);
+        // A project's own name is something you READ, so it is the body face, not the
+        // display one. Archivo down here would make every card shout.
+        Type.body(name, Type.SEMIBOLD);
         name.setMaxLines(1);
         name.setSingleLine(true);
         name.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -561,7 +596,9 @@ public class LobbyFragment extends BaseFragment {
         meta.setText(item.kindLabel + " \u00b7 " + ago(item.when));
         meta.setTextColor(DIMMER);
         meta.setTextSize(TypedValue.COMPLEX_UNIT_SP, 8f);
-        meta.setTypeface(Typeface.MONOSPACE);
+        // Duration and date are machine facts, so they get the mono — and because it is
+        // mono, 2:05 and 12:05 occupy the same column and the cards stop looking ragged.
+        Type.mono(meta, Type.MEDIUM);
         meta.setMaxLines(1);
         meta.setSingleLine(true);
         meta.setPadding(dp(8), dp(1), dp(8), dp(8));
@@ -681,49 +718,163 @@ public class LobbyFragment extends BaseFragment {
     private void buildNewRow() {
         if (newRow == null) return;
         newRow.removeAllViews();
-        addNewButton("videocam",      0xFFFF008C, getString(R.string.lobby_new_recording),
-                () -> routeTab(TAB_CAPTURE));
-        addNewButton("movie_edit",    0xFF35F6BF, getString(R.string.lobby_new_project),
-                () -> routeTab(TAB_STUDIO));
-        addNewButton("directions_run",0xFFCC27FF, getString(R.string.lobby_new_character),
-                () -> { active = 2; paintMarquee(); paintHero(); });
-        addNewButton("folder",        0xFF55E0F9, getString(R.string.lobby_new_import),
-                () -> routeTab(TAB_LIBRARY));
+
+        // Each chip wears the gradient of the room it opens, so the row is a colour key for
+        // the marquee above it as well as a set of actions. Import has no room of its own --
+        // it is a Library action -- so it takes the Library's cyan rather than inventing a
+        // fifth identity the rest of the app would never repeat.
+        addNewChip("videocam",       0xFFFA3D5D, 0xFFFF008C, getString(R.string.lobby_new_recording),
+                true,  () -> routeTab(TAB_CAPTURE));
+        addNewChip("movie_edit",     0xFF35F6BF, 0xFF97FE8B, getString(R.string.lobby_new_project),
+                false, () -> routeTab(TAB_STUDIO));
+        addNewChip("directions_run", 0xFFCC27FF, 0xFF8C3DFA, getString(R.string.lobby_new_character),
+                false, () -> { active = 2; paintMarquee(); paintHero(); });
+        addNewChip("folder",         0xFF55E0F9, 0xFF22D3EE, getString(R.string.lobby_new_import),
+                false, () -> routeTab(TAB_LIBRARY));
     }
 
-    private void addNewButton(String glyph, int glyphColor, String label, Runnable onTap) {
+    /** Visual height of a New chip. Half the old stacked cell, as asked. */
+    private static final int CHIP_H = 34;
+    /** Horizontal run of the shear. At 34dp tall this is roughly a 16 degree lean. */
+    private static final int CHIP_SLANT = 10;
+
+    /**
+     * ONE NEW CHIP.
+     *
+     * <p>Built to JoyRaptor's five instructions: half the old height, filled with the room
+     * gradient, icon punched out in pure black, label to the right of the icon rather than
+     * under it, and much less corner rounding.
+     *
+     * <h3>Pure black, not dark grey</h3>
+     * The punch-out is {@code 0xFF000000} exactly. Against these gradients that is between
+     * 9:1 and 14:1 -- the highest contrast available -- and it is also the only place on the
+     * screen where black sits on TOP of colour rather than underneath it, which is what makes
+     * the glyph read as a hole cut in the chip instead of an icon drawn on it.
+     *
+     * <h3>The touch target is bigger than the chip</h3>
+     * 34dp is below the 48dp minimum a finger needs, and JoyRaptor uses this app one-handed
+     * while holding a baby, so a chip that is merely pretty to hit is a defect. The VIEW stays
+     * 34dp so the layout is what was designed; a {@link android.view.TouchDelegate} extends
+     * each chip's hit rectangle into the padding above and below. That padding was already
+     * there as breathing room, so the target costs no height.
+     */
+    private void addNewChip(String glyph, int gradA, int gradB, String label,
+                            boolean first, Runnable onTap) {
         LinearLayout cell = new LinearLayout(requireContext());
-        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setOrientation(LinearLayout.HORIZONTAL);
+        // CENTRED, both axes. These were left-aligned with a nudge for the shear, which
+        // JoyRaptor called correctly: "too left". A parallelogram's centroid is the same
+        // point as its bounding box's, so content centred in the box IS centred in the
+        // shape -- the nudge was solving a problem that does not exist and created a real
+        // one, because the four chips are different widths and a fixed left inset made the
+        // gap between glyph and left edge look different in every one.
         cell.setGravity(Gravity.CENTER);
-        cell.setBackground(pill(CTL, dp(13)));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
-                ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        lp.setMarginEnd(dp(8));
+
+        // Only the first chip is squared off on the left, so the row starts flush with the
+        // 18dp gutter every other element on this screen starts at. Every edge after it leans.
+        cell.setBackground(new SlantDrawable(gradA, gradB,
+                dp(CHIP_SLANT), dp(3), first, false));
+
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(CHIP_H), 1f);
+        // Gap closed by ~30% (5dp -> 3.5dp) so the four read as one banded object with
+        // divisions rather than as four separate buttons that happen to lean the same way.
+        lp.setMarginEnd(Math.round(3.5f * getResources().getDisplayMetrics().density));
         cell.setLayoutParams(lp);
-        cell.setPadding(0, dp(11), 0, dp(10));
+        // Symmetric padding, just enough to keep the content off the slanted ends.
+        cell.setPadding(dp(6), 0, dp(6), 0);
 
         TextView ic = new TextView(requireContext());
         ic.setTypeface(iconFont);
         ic.setText(glyph);
-        ic.setTextColor(glyphColor);
-        ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f);
+        ic.setTextColor(0xFF000000);
+        ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
+        ic.setIncludeFontPadding(false);
         ic.setGravity(Gravity.CENTER);
         cell.addView(ic);
 
         TextView tv = new TextView(requireContext());
         tv.setText(label);
-        tv.setTextColor(DIM);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f);
-        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        tv.setTextColor(0xFF000000);
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
+        // Display face at 700: these are labels on a coloured field, not prose, and Archivo's
+        // tight apertures hold their shape at this size where the body face starts to close in.
+        Type.display(tv, Type.BOLD);
+        tv.setIncludeFontPadding(false);
         tv.setMaxLines(1);
         tv.setSingleLine(true);
         tv.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        tv.setGravity(Gravity.CENTER);
-        tv.setPadding(dp(2), dp(5), dp(2), 0);
+        LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        tlp.setMarginStart(dp(5));
+        tv.setLayoutParams(tlp);
         cell.addView(tv);
 
-        cell.setOnClickListener(v -> onTap.run());
+        cell.setOnClickListener(v -> { Motion.press(v); onTap.run(); });
         newRow.addView(cell);
+        growTouchTarget(cell, dp(9));
+    }
+
+    /**
+     * Extends a child's hit rectangle vertically without changing its size.
+     *
+     * <p>Posted rather than run inline because a view has no bounds until it has been laid out,
+     * and a TouchDelegate built from a zero-sized rectangle silently swallows every touch it
+     * is given.
+     */
+    private void growTouchTarget(final View child, final int extraPx) {
+        final ViewGroup parent = (ViewGroup) child.getParent();
+        if (parent == null) return;
+        parent.post(() -> {
+            android.graphics.Rect r = new android.graphics.Rect();
+            child.getHitRect(r);
+            r.top -= extraPx;
+            r.bottom += extraPx;
+            android.view.TouchDelegate existing = parent.getTouchDelegate();
+            MultiTouchDelegate d;
+            if (existing instanceof MultiTouchDelegate) {
+                d = (MultiTouchDelegate) existing;
+            } else {
+                d = new MultiTouchDelegate(parent);
+                parent.setTouchDelegate(d);
+            }
+            d.add(r, child);
+        });
+    }
+
+    /**
+     * A ViewGroup holds exactly ONE TouchDelegate. That is the trap in this pattern: four chips
+     * each calling setTouchDelegate in turn leaves only the last one with an enlarged target,
+     * and the bug looks like "the last button is easier to press", which nobody reports.
+     *
+     * <p>This holds several and dispatches to whichever child's expanded rectangle was hit.
+     */
+    private static final class MultiTouchDelegate extends android.view.TouchDelegate {
+        private final java.util.List<android.view.TouchDelegate> parts = new java.util.ArrayList<>();
+        private final java.util.List<android.graphics.Rect> rects = new java.util.ArrayList<>();
+        private android.view.TouchDelegate active;
+
+        MultiTouchDelegate(View host) {
+            super(new android.graphics.Rect(), host);
+        }
+
+        void add(android.graphics.Rect r, View child) {
+            rects.add(new android.graphics.Rect(r));
+            parts.add(new android.view.TouchDelegate(new android.graphics.Rect(r), child));
+        }
+
+        @Override
+        public boolean onTouchEvent(android.view.MotionEvent e) {
+            // Whichever delegate took the DOWN keeps the whole gesture. Re-testing on every
+            // MOVE would hand a drag across the row to a second chip and fire a stray tap.
+            if (e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+                active = null;
+                int x = (int) e.getX(), y = (int) e.getY();
+                for (int i = 0; i < rects.size(); i++) {
+                    if (rects.get(i).contains(x, y)) { active = parts.get(i); break; }
+                }
+            }
+            return active != null && active.onTouchEvent(e);
+        }
     }
 
     // ── the floor ───────────────────────────────────────────────────────────
@@ -765,7 +916,10 @@ public class LobbyFragment extends BaseFragment {
         tv.setText(label);
         tv.setTextColor(DIMMER);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f);
-        tv.setTypeface(Typeface.DEFAULT_BOLD);
+        // The javadoc above has always said "Archivo-weight 600"; until the face was
+        // bundled that was an aspiration and the code quietly used DEFAULT_BOLD. Now it
+        // is simply true -- the floor really is the marquee's instrument played softly.
+        Type.display(tv, Type.SEMIBOLD);
         tv.setMaxLines(1);
         tv.setSingleLine(true);
         tv.setEllipsize(android.text.TextUtils.TruncateAt.END);

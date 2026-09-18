@@ -50,11 +50,10 @@ public class OnboardingHumanFragment extends Fragment {
         titleText = v.findViewById(R.id.tvHumanTitle);
         descText = v.findViewById(R.id.tvHumanDesc);
         
-        // Configure the LottieAnimationView
-        LottieAnimationView lottieHuman = v.findViewById(R.id.lottieHuman);
-        if (lottieHuman != null) {
-            lottieHuman.setSpeed(0.8f);
-        }
+        // R.id.lottieHuman is a TextView carrying an icon-font glyph now, not a Lottie.
+        // The stock "document with a green checkmark" animation it replaced said nothing
+        // this screen was not already saying in words, and it was the last piece of
+        // borrowed art in the sequence.
 
         // Set initial button state
         continueButton.setEnabled(false);

@@ -19042,7 +19042,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (toolsDrawer != null && !toolsDrawer.isShowing()) toolsDrawer.show();
         });
 
+        final View fade = findViewById(R.id.faditor_tools_fade);
+
         final Runnable recount = () -> {
+            // Sit on the ROW, not on the frame. The frame runs to the bottom of the screen
+            // because edit mode floats its drop line and Done control in it.
+            int band = scroll.getHeight();
+            if (fade != null && band > 0 && fade.getHeight() != band) {
+                ViewGroup.LayoutParams fp = fade.getLayoutParams();
+                fp.height = band;
+                fade.setLayoutParams(fp);
+            }
+            if (band > 0 && more.getHeight() > 0) {
+                more.setTranslationY(scroll.getTop() + (band - more.getHeight()) / 2f);
+            }
             int right = scroll.getScrollX() + scroll.getWidth();
             int hidden = 0;
             for (int i = 0; i < row.getChildCount(); i++) {

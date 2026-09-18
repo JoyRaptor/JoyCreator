@@ -1180,11 +1180,20 @@
                  nothing to tell you that undo is a DIFFERENT KIND of control from snap or
                  ripple. It now spans the whole distance from the timecode to play, the
                  tools start at the timecode, and a weighted Space pushes undo up against
-                 play. The gap is the punctuation. ══════════════════════════════ -->
+                 play. The gap is the punctuation.
+
+                 A touch delegate cannot reach outside the view that holds it: an event that
+                 never lands on this container is never offered to it. So the 44dp minimum has
+                 to exist HERE, not only in growTransportTargets — wrap_content around a 30dp
+                 glyph measured 42.2dp on the sandbox, which capped every delegate in the row
+                 at 42.2dp tall no matter how wide it was made. minHeight raises the floor by
+                 4px. Nothing moves: the group is centred in a row the play button already
+                 stretches to 52dp, and its children are centred inside it. ══════════ -->
             <LinearLayout
                 android:id="@+id/transport_left"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="44dp"
                 android:layout_toEndOf="@id/time_current"
                 android:layout_toStartOf="@id/btn_play_pause"
                 android:layout_centerVertical="true"
@@ -1201,6 +1210,7 @@
                     android:textColor="@color/s_go"
                     android:textSize="18sp"
                     android:layout_marginEnd="14dp"
+                    android:layout_marginStart="14dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Soft snap overlays" />
 
@@ -1278,11 +1288,14 @@
             </LinearLayout>
 
             <!-- Transport, right. The mirror of the left: redo hugs play, the tools work
-                 inward from the total-time readout, and the gap falls between them. -->
+                 inward from the total-time readout, and the gap falls between them.
+                 minHeight for the same reason as its mirror: the delegate cannot be taller
+                 than the container it is registered on. -->
             <LinearLayout
                 android:id="@+id/transport_right"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:minHeight="44dp"
                 android:layout_toEndOf="@id/btn_play_pause"
                 android:layout_toStartOf="@id/btn_voiceover"
                 android:layout_centerVertical="true"
@@ -1355,10 +1368,15 @@
                  moved off the play/redo cluster to the far right of the row, just left
                  of the project duration — it sat next to Play and was being hit by
                  accident. Declared after time_total so layout_toStartOf resolves. -->
+            <!-- 44dp, not the 30dp its neighbours are drawn at. It is a direct child of the
+                 RelativeLayout rather than of transport_left or transport_right, so the delegate
+                 builder that grows the rest of the row never saw it: it measured 30dp against a
+                 44dp minimum, the smallest target in the editor. The GLYPH is still 18sp; only
+                 the box around it grew, so it looks the same and the ripple is bigger. -->
             <TextView
                 android:id="@+id/btn_voiceover"
-                android:layout_width="30dp"
-                android:layout_height="30dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
                 android:layout_toStartOf="@id/time_total"
                 android:layout_centerVertical="true"
                 android:layout_marginEnd="10dp"
@@ -1464,10 +1482,16 @@
 
             <!-- Studio Final 01/05, MAJOR: the row scrolls and gives no sign of it.
                  Not clickable, so every tool underneath stays tappable. -->
+            <!-- Both of these are sized and placed in code, against the SCROLL VIEW rather
+                 than against this frame. The frame is deliberately taller than the row — it
+                 hosts edit mode's floating drop line and Done control — so match_parent
+                 painted a 26dp strip down the whole right edge of the screen, and
+                 center_vertical stranded the count 500px below the row it describes. -->
             <View
+                android:id="@+id/faditor_tools_fade"
                 android:layout_width="26dp"
-                android:layout_height="match_parent"
-                android:layout_gravity="end"
+                android:layout_height="1dp"
+                android:layout_gravity="end|top"
                 android:clickable="false"
                 android:focusable="false"
                 android:background="@drawable/faditor_tools_fade" />
@@ -1480,7 +1504,7 @@
                 android:id="@+id/faditor_tools_more"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="end|center_vertical"
+                android:layout_gravity="end|top"
                 android:layout_marginEnd="6dp"
                 android:minHeight="28dp"
                 android:gravity="center"

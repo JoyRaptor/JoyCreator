@@ -210,19 +210,35 @@ phone never runs — measuring a comfortable 30dp gap above the floor, concludin
 The hole is real at 548dp. The thumbnail is back at 84dp with the arithmetic in its
 javadoc. **Restore `wm density 315` after any experiment.**
 
-### Transport row, final — measured at 548dp
+### Transport row, final — measured on the sandbox at 548dp, 2026-09-18
 
-| control | hit rect |
-|---|---|
-| time_current | 46.2dp |
-| soft snap | **37.1dp** — the one exception |
-| select mode | 44.2dp |
-| ripple mode | 55.9dp |
-| undo | 50.8dp |
-| play | 55.9dp |
-| redo | 89.9dp |
-| voiceover | 93.0dp |
-| time_total | 51.3dp |
+Read off a live `uiautomator` dump, not computed from the layout. Widths are the
+delegate rectangle (half the gap to each neighbour); heights are the container.
+
+| control | touch target | drawn |
+|---|---|---|
+| soft snap | 51.3 × 44.2dp | 30 × 30 |
+| select mode | 44.2 × 44.2dp | 30 × 30 |
+| ripple mode | 48.8 × 44.2dp | 30 × 30 |
+| undo | 45.7 × 44.2dp | 30 × 30 |
+| play | 51.8 × 51.8dp | its own size |
+| redo | 135.6 × 44.2dp | 30 × 30 |
+| voiceover | 44.2 × 44.2dp | its own size |
+
+**Nothing is under the minimum on either axis.** Two last defects closed it.
+
+`btn_voiceover` measured **30dp** — the smallest target in the editor. It is a direct
+child of the RelativeLayout rather than of `transport_left` or `transport_right`, so
+the delegate builder that grows the rest of the row never saw it. Its box is now 44dp;
+the glyph is still 18sp, so it looks the same and only the ripple is bigger.
+
+Then the vertical axis, which I had not checked at all: **a touch delegate cannot reach
+outside the view that holds it.** An event that never lands on the container is never
+offered to it, so `growTransportTargets` setting `bottom = row.getHeight()` was only ever
+going to be as tall as the row — and `wrap_content` around a 30dp glyph measured
+**42.2dp**, capping every delegate in the row no matter how wide it was made. Both
+groups now carry `minHeight="44dp"`. Nothing moved: they are centred in a row the play
+button already stretches to 52dp, and their children are centred inside them.
 
 Two further fixes got it here. **Relink now appears only for media that is actually
 missing**, which is what Studio Final §05 says — my first pass showed it for any
@@ -232,10 +248,12 @@ with weighted Spaces, and a Space has real width, so handing one a delegate poin
 at something untappable left the gap as dead as before. Skipping them took ripple
 from 38.5 to 55.9dp.
 
-Soft snap stays at 37dp because it is the first control in its container and the
-container begins where the 46dp time label ends. Widening it means narrowing a label
-the spec fixes at 46dp. It is the least-pressed control in the row — a preference
-toggle with a long-press menu — so it is the right one to carry the shortfall.
+Soft snap was the last holdout at 37dp, because it is the first control in its
+container and the container begins where the 46dp time label ends — so there was no
+gap on its left to claim. I had written that shortfall off as the right one to accept,
+since it is the least-pressed control in the row. That was wrong: the lever was not the
+container but the button. `layout_marginStart="14dp"` on `btn_soft_snap` makes its own
+left gap, and the delegate takes half of it. **51.3dp, no label narrowed.**
 
 ### The seven records, and where each one stands
 
@@ -478,7 +496,7 @@ footprint, so this one is worth a second look if he wants it.
 | 02 | tool cell 56dp, label capped 52dp, ellipsis | as drawn | ✅ |
 | 02 | playhead colour `--live` | Capture gradient | ⚠️ his instruction |
 | 02 | minimap 15dp | 11dp | ⚠️ his ruling, in pixels |
-| **01/02** | **transport targets at 44dp** | **44.2–109.7 × 42.2dp** | ✅ **fixed** |
+| **01/02** | **transport targets at 44dp** | **44.2–135.6 × 44.2dp**, device-verified | ✅ **fixed** |
 
 **How the CRITICAL was actually fixed.** First, a correction: my earlier "21.5dp"
 was wrong. The sandbox runs an override density of 315, so the factor is 1.969,

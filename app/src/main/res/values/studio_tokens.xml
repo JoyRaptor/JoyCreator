@@ -53,6 +53,11 @@
     <color name="s_live">#FFFF008C</color>       <!-- recording, playing, the playhead -->
     <color name="s_careful">#FFFBBF24</color>    <!-- destructive, or a warning -->
     <color name="s_off">#FF33333C</color>        <!-- unavailable; ONE grey, not eleven -->
+    <!-- Destructive, or past a limit. Separate from s_live because magenta means
+         "recording, and that is fine"; this means "something is being lost". -->
+    <color name="s_danger">#FFFF4438</color>
+    <!-- An alignment guide or snap line: a hint about geometry, not a control. -->
+    <color name="s_guide">#FFA78BFA</color>
 
     <!-- ── GO ─────────────────────────────────────────────────────────────────
          The Studio's own aqua-to-lime. "the greens should all be replaced with the

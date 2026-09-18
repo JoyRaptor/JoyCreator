@@ -31,7 +31,7 @@ public class LutLibraryPanel extends LinearLayout {
         for (LutPreset preset : LutManager.builtInPresets()) {
             android.widget.TextView button = new android.widget.TextView(getContext());
             button.setText(preset.displayName);
-            button.setTextColor(0xFFFFFFFF);
+            button.setTextColor(0xFFF4F4F5);
             button.setPadding(24, 18, 24, 18);
             button.setOnClickListener(v -> {
                 if (callback != null) callback.onLutSelected(preset);

@@ -56,7 +56,7 @@ public class ColorWheelView extends View {
         ringPaint.setStyle(Paint.Style.STROKE);
         markerStroke.setStyle(Paint.Style.STROKE);
         markerStroke.setStrokeWidth(2f * density);
-        markerStroke.setColor(0xFF202020);
+        markerStroke.setColor(0xFF1F1F26);
         markerFill.setStyle(Paint.Style.FILL);
     }
 

@@ -343,14 +343,14 @@ public class AvatarStudioActivity extends AppCompatActivity {
         }
 
         trackingBus.start(source, 20260706L);
-        trackChip.setBackgroundColor(0xFF1B4A3B);
+        trackChip.setBackgroundColor(0xFF44444F);
         yawSlider.setEnabled(false);
         pitchSlider.setEnabled(false);
         preview.postOnAnimation(trackTick);
         hintLine.setText(face
                 ? "Tracking (face): move your head — the rig follows"
                 : "Tracking (synthetic): driver bus is puppeting the rig");
-        hintLine.setTextColor(0xFF64FFDA);
+        hintLine.setTextColor(com.fadcam.ui.faditor.Studio.GO);
     }
 
     private void stopTracking() {
@@ -363,7 +363,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         }
         preview.removeCallbacks(trackTick);
         preview.setTrackedPinTargets(null);
-        trackChip.setBackgroundColor(0xFF26262E);
+        trackChip.setBackgroundColor(0xFF1F1F26);
         boolean armed = armedCol >= 0;
         yawSlider.setEnabled(!armed);
         pitchSlider.setEnabled(!armed);
@@ -505,7 +505,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         hintLine.setText(armedCol >= 0
                 ? getString(R.string.avatar_studio_armed_hint)
                 : getString(R.string.avatar_studio_disarm_hint));
-        hintLine.setTextColor(armedCol >= 0 ? 0xFFFFD54F : 0x99FFFFFF);
+        hintLine.setTextColor(armedCol >= 0 ? 0xFFFBBF24 : 0x99FFFFFF);
     }
 
     // ── Part management ────────────────────────────────────────────────────
@@ -616,7 +616,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         for (AvatarRig.Part part : rig.getParts()) {
             TextView pc = chip(part.parentId != null ? part.id + " ↳" + part.parentId : part.id);
             if (part.id.equals(selectedPartId)) {
-                pc.setBackgroundColor(0xFF4A3B5C);
+                pc.setBackgroundColor(0xFF44444F);
                 pc.setTypeface(Typeface.DEFAULT_BOLD);
             }
             pc.setOnClickListener(v -> {
@@ -660,8 +660,8 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 pose != null ? pose.scale : 1f));
         rotValue.setText(String.format(java.util.Locale.US, "%.0f°",
                 pose != null ? pose.rotationDeg : 0f));
-        flipHChip.setBackgroundColor(pose != null && pose.flipH ? 0xFF4A3B5C : 0xFF26262E);
-        flipVChip.setBackgroundColor(pose != null && pose.flipV ? 0xFF4A3B5C : 0xFF26262E);
+        flipHChip.setBackgroundColor(pose != null && pose.flipH ? 0xFF44444F : 0xFF1F1F26);
+        flipVChip.setBackgroundColor(pose != null && pose.flipV ? 0xFF44444F : 0xFF1F1F26);
         // A6 density reflects the SELECTED part (a rig property, not the armed
         // cell): enabled whenever the part actually warps (has a rest chain).
         if (densityValue != null) {
@@ -701,12 +701,12 @@ public class AvatarStudioActivity extends AppCompatActivity {
         if (!pinMode || part == null) {
             pinMode = false;
             preview.setPinEditing(null, null);
-            pinsChip.setBackgroundColor(0xFF26262E);
+            pinsChip.setBackgroundColor(0xFF1F1F26);
             pinDelChip.setAlpha(0.35f);
             updateHint();
             return;
         }
-        pinsChip.setBackgroundColor(0xFF1B4A3B);
+        pinsChip.setBackgroundColor(0xFF44444F);
         java.util.List<float[]> target;
         boolean editingRest = armedCol < 0;
         if (editingRest) {
@@ -880,7 +880,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         int pad = (int) (10 * d);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF101014);
+        root.setBackgroundColor(0xFF0D0D10);
 
         // Top bar
         LinearLayout top = new LinearLayout(this);
@@ -1103,7 +1103,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         TextView t = new TextView(this);
         t.setText(text);
         t.setTextColor(Color.WHITE);
-        t.setBackgroundColor(0xFF26262E);
+        t.setBackgroundColor(0xFF1F1F26);
         t.setPadding((int) (12 * d), (int) (8 * d), (int) (12 * d), (int) (8 * d));
         return t;
     }

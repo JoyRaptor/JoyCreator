@@ -73,15 +73,15 @@ public final class PuppetDrawerTabs {
     private PuppetDrawerTabs() {}
 
     // Matching PipDrawerTabs so the two drawers read as one app.
-    private static final int TXT = 0xFFE8E8E8;
-    private static final int TXT_DIM = 0xFFA0A0A0;
-    private static final int TXT_FAINT = 0xFF7C848F;
-    private static final int ROW_BG = 0x552A3038;
+    private static final int TXT = 0xFFF4F4F5;
+    private static final int TXT_DIM = 0xFF8A8A94;
+    private static final int TXT_FAINT = 0xFF8A8A94;
+    private static final int ROW_BG = 0x552C2C35;
     private static final int ROW_LINE = 0x33FFFFFF;
-    private static final int SUNK_BG = 0x66101318;
-    private static final int GO = 0xFF57B45C;
-    private static final int REC = 0xFFF2727F;
-    private static final int OFF = 0xFF4E5561;
+    private static final int SUNK_BG = 0x6616161B;
+    private static final int GO = 0xFF35F6BF;
+    private static final int REC = 0xFFFF4438;
+    private static final int OFF = 0xFF52525B;
     private static final int SLIDER_STEPS = 1000;
 
     /** What a touch on the picture means. Exactly one is armed at a time. */
@@ -381,7 +381,7 @@ public final class PuppetDrawerTabs {
         PuppetRig rig = host.rig();
         FrameLike wrap = new FrameLike(ctx);
         wrap.setGravity(Gravity.CENTER);
-        wrap.setBackground(rowBg(d, rig.recordOnTouch ? 0x33F2727F : 0x00000000,
+        wrap.setBackground(rowBg(d, rig.recordOnTouch ? 0x33FF4438 : 0x00000000,
                 rig.recordOnTouch ? REC : ROW_LINE, d));
 
         View dotView = new View(ctx);

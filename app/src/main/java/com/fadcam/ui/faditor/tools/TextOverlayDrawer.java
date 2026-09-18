@@ -46,8 +46,8 @@ public final class TextOverlayDrawer extends LinearLayout {
      * keeps it legible over an arbitrary frame.</p>
      */
     private static final int BG = 0x66000000;
-    private static final int TXT = 0xFFEEEEEE;
-    private static final int TXT_DIM = 0xFF9A9A9A;
+    private static final int TXT = 0xFFF4F4F5;
+    private static final int TXT_DIM = 0xFF8A8A94;
     private static final int SLIDE_MS = 220;
     private static final float MAX_HEIGHT_FRACTION = 0.62f;
     private static final int MIN_BODY_DP = 120;
@@ -136,7 +136,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         // content that is already on screen.
         moreHint = new TextView(ctx);
         moreHint.setText("MORE ⌄");                                        // TODO(strings)
-        moreHint.setTextColor(0xFFB388FF);
+        moreHint.setTextColor(0xFFA78BFA);
         moreHint.setTextSize(9f);
         moreHint.setLetterSpacing(0.08f);
         moreHint.setShadowLayer(3f * density, 0f, 1f, 0xCC000000);

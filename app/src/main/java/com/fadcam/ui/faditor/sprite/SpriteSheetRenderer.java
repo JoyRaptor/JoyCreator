@@ -365,10 +365,10 @@ public final class SpriteSheetRenderer {
     private void drawMissingCell(@NonNull Canvas canvas, @NonNull RectF dest) {
         if (missingFill == null) {
             missingFill = new Paint(Paint.ANTI_ALIAS_FLAG);
-            missingFill.setColor(0x33FF7043);
+            missingFill.setColor(0x33FF4438);
             missingStroke = new Paint(Paint.ANTI_ALIAS_FLAG);
             missingStroke.setStyle(Paint.Style.STROKE);
-            missingStroke.setColor(0xFFFF7043);
+            missingStroke.setColor(0xFFFF4438);
             // A Path is required for a dash to render at all on a hardware canvas — a dashed
             // rect primitive is silently ignored (the 2026-08-05 "dashed outlines never dashed"
             // finding). Strokes below go through drawLine/drawPath for the same reason.

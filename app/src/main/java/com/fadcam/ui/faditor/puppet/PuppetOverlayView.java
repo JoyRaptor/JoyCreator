@@ -270,7 +270,7 @@ public class PuppetOverlayView extends View {
     private static final long POOF_MS = 260L;
     private long poofAt;
     private float poofX, poofY;
-    private int poofHue = 0xFFFFFFFF;
+    private int poofHue = 0xFFF4F4F5;
     private final RectF arc = new RectF();
     private final Path path = new Path();
     private final PreviewLoupe loupe = new PreviewLoupe();
@@ -648,13 +648,13 @@ public class PuppetOverlayView extends View {
         badgeRect.set(getWidth() - (BADGE + BADGE_INSET) * d, BADGE_INSET * d,
                 getWidth() - BADGE_INSET * d, (BADGE + BADGE_INSET) * d);
 
-        fill.setColor(0xA8090B0E);
+        fill.setColor(0xA80D0D10);
         c.drawRoundRect(badgeRect, 10f * d, 10f * d, fill);
         stroke.setColor(0x1AFFFFFF);
         stroke.setStrokeWidth(1f * d);
         c.drawRoundRect(badgeRect, 10f * d, 10f * d, stroke);
 
-        int tint = locked ? 0xFF6B7280 : 0xFF57B45C;
+        int tint = locked ? 0xFF8A8A94 : 0xFF35F6BF;
         int size = Math.round(21f * d);
         PuppetIcons.IconDrawable man = PuppetIcons.of(PuppetIcons.PUPPET, tint, size);
         int left = Math.round(badgeRect.centerX() - size / 2f);
@@ -665,7 +665,7 @@ public class PuppetOverlayView extends View {
         if (locked) {
             int ls = Math.round(13f * d);
             PuppetIcons.IconDrawable lock =
-                    PuppetIcons.of(PuppetIcons.LOCK, 0xFF9AA2AE, ls);
+                    PuppetIcons.of(PuppetIcons.LOCK, 0xFF8A8A94, ls);
             int ll = Math.round(badgeRect.centerX() - ls * 0.05f);
             int lt = Math.round(badgeRect.centerY() + ls * 0.02f);
             lock.setBounds(ll, lt, ll + ls, lt + ls);

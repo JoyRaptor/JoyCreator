@@ -141,7 +141,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         title.setText(relinkMode
                 ? getString(R.string.faditor_relink_sheet_title)
                 : getString(R.string.faditor_start_project));
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (20 * dp), (int) (12 * dp),
@@ -152,10 +152,10 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView subtitle = new TextView(requireContext());
         if (relinkMode) {
             subtitle.setText(getString(R.string.faditor_relink_sheet_sub, lookingForName));
-            subtitle.setTextColor(0xFFFFC107);
+            subtitle.setTextColor(0xFFFBBF24);
         } else {
             subtitle.setText(R.string.faditor_source_chooser_desc);
-            subtitle.setTextColor(0xFF888888);
+            subtitle.setTextColor(0xFF8A8A94);
         }
         subtitle.setTextSize(13);
         subtitle.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (16 * dp));
@@ -186,7 +186,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
 
         // ── Divider ─────────────────────────────────────────────
         View divider = new View(requireContext());
-        divider.setBackgroundColor(0xFF2A2A2A);
+        divider.setBackgroundColor(0xFF2C2C35);
         LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
         divLp.setMargins((int) (20 * dp), (int) (8 * dp),
@@ -197,7 +197,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         // ── Section: FadCam Recordings ──────────────────────────
         TextView recordingsHeader = new TextView(requireContext());
         recordingsHeader.setText(R.string.faditor_your_recordings);
-        recordingsHeader.setTextColor(0xFFBBBBBB);
+        recordingsHeader.setTextColor(0xFFC4C4CE);
         recordingsHeader.setTextSize(12);
         recordingsHeader.setTypeface(null, Typeface.BOLD);
         recordingsHeader.setAllCaps(true);
@@ -209,7 +209,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         // Helper subtitle for recordings
         TextView recordingsHelp = new TextView(requireContext());
         recordingsHelp.setText(R.string.faditor_recordings_helper);
-        recordingsHelp.setTextColor(0xFF666666);
+        recordingsHelp.setTextColor(0xFF52525B);
         recordingsHelp.setTextSize(12);
         recordingsHelp.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (10 * dp));
         root.addView(recordingsHelp);
@@ -264,7 +264,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView icon = new TextView(requireContext());
         icon.setTypeface(iconFont);
         icon.setText("graphic_eq");
-        icon.setTextColor(0xFF4CAF50);
+        icon.setTextColor(0xFF35F6BF);
         icon.setTextSize(24);
         icon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
@@ -277,13 +277,13 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         textCol.setOrientation(LinearLayout.VERTICAL);
         TextView title = new TextView(requireContext());
         title.setText("Blank audio project");                              // TODO(strings)
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(15);
         title.setTypeface(null, Typeface.BOLD);
         textCol.addView(title);
         TextView sub = new TextView(requireContext());
         sub.setText("Podcast, voiceover, music — import audio after");     // TODO(strings)
-        sub.setTextColor(0xFF888888);
+        sub.setTextColor(0xFF8A8A94);
         sub.setTextSize(12);
         textCol.addView(sub);
         row.addView(textCol);
@@ -309,7 +309,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView icon = new TextView(requireContext());
         icon.setTypeface(iconFont);
         icon.setText("folder_open");
-        icon.setTextColor(0xFF42A5F5);
+        icon.setTextColor(0xFF4397FD);
         icon.setTextSize(24);
         icon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
@@ -326,14 +326,14 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
 
         TextView label = new TextView(requireContext());
         label.setText(R.string.faditor_browse_device);
-        label.setTextColor(0xFFFFFFFF);
+        label.setTextColor(0xFFF4F4F5);
         label.setTextSize(15);
         label.setTypeface(null, Typeface.BOLD);
         textSection.addView(label);
 
         TextView desc = new TextView(requireContext());
         desc.setText(R.string.faditor_browse_device_desc);
-        desc.setTextColor(0xFF888888);
+        desc.setTextColor(0xFF8A8A94);
         desc.setTextSize(12);
         textSection.addView(desc);
 
@@ -343,7 +343,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView arrow = new TextView(requireContext());
         arrow.setTypeface(iconFont);
         arrow.setText("chevron_right");
-        arrow.setTextColor(0xFF555555);
+        arrow.setTextColor(0xFF52525B);
         arrow.setTextSize(20);
         row.addView(arrow);
 
@@ -657,7 +657,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         // ── Thumbnail (rounded corners via CardView-like clipping) ────
         androidx.cardview.widget.CardView thumbCard = new androidx.cardview.widget.CardView(ctx);
         thumbCard.setCardElevation(0);
-        thumbCard.setCardBackgroundColor(0xFF222222);
+        thumbCard.setCardBackgroundColor(0xFF1F1F26);
         thumbCard.setRadius(8 * dp);
         LinearLayout.LayoutParams thumbCardLp = new LinearLayout.LayoutParams(
                 (int) (80 * dp), (int) (50 * dp));
@@ -704,7 +704,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
             displayName = displayName.substring(0, displayName.length() - 4);
         }
         nameView.setText(displayName);
-        nameView.setTextColor(0xFFFFFFFF);
+        nameView.setTextColor(0xFFF4F4F5);
         nameView.setTextSize(13);
         nameView.setTypeface(null, Typeface.BOLD);
         nameView.setMaxLines(1);
@@ -715,7 +715,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView metaView = new TextView(ctx);
         String meta = formatSize(item.size) + " · " + item.source;
         metaView.setText(meta);
-        metaView.setTextColor(0xFF777777);
+        metaView.setTextColor(0xFF8A8A94);
         metaView.setTextSize(11);
         metaView.setMaxLines(1);
         textSection.addView(metaView);
@@ -736,7 +736,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView editIcon = new TextView(ctx);
         editIcon.setTypeface(iconFont);
         editIcon.setText("edit");
-        editIcon.setTextColor(0xFF4CAF50);
+        editIcon.setTextColor(0xFF35F6BF);
         editIcon.setTextSize(18);
         editIcon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams editLp = new LinearLayout.LayoutParams(
@@ -759,7 +759,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
     private View createLoadingView(float dp) {
         TextView tv = new TextView(requireContext());
         tv.setText(R.string.faditor_scanning);
-        tv.setTextColor(0xFF777777);
+        tv.setTextColor(0xFF8A8A94);
         tv.setTextSize(13);
         tv.setGravity(Gravity.CENTER);
         tv.setPadding(0, (int) (24 * dp), 0, (int) (24 * dp));
@@ -777,14 +777,14 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView icon = new TextView(requireContext());
         icon.setTypeface(iconFont);
         icon.setText("videocam_off");
-        icon.setTextColor(0xFF555555);
+        icon.setTextColor(0xFF52525B);
         icon.setTextSize(32);
         icon.setGravity(Gravity.CENTER);
         layout.addView(icon);
 
         TextView msg = new TextView(requireContext());
         msg.setText(R.string.faditor_no_recordings);
-        msg.setTextColor(0xFF777777);
+        msg.setTextColor(0xFF8A8A94);
         msg.setTextSize(13);
         msg.setGravity(Gravity.CENTER);
         msg.setPadding(0, (int) (8 * dp), 0, 0);

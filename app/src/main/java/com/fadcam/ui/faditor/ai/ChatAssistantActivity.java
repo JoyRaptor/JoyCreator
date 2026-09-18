@@ -283,7 +283,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             for (int i = 0; i < tasks.length; i++) {
                 TextView item = new TextView(this);
                 item.setText("☐ " + tasks[i]);
-                item.setTextColor(0xFFAAAAAA);
+                item.setTextColor(0xFF8A8A94);
                 item.setTextSize(12);
                 item.setPadding(0, 2, 0, 2);
                 item.setTag(i);
@@ -298,7 +298,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (index < checklistContainer.getChildCount()) {
                 TextView item = (TextView) checklistContainer.getChildAt(index);
                 item.setText((done ? "☑ " : "☐ ") + item.getText().subSequence(2, item.getText().length()));
-                item.setTextColor(done ? 0xFF4CAF50 : 0xFFAAAAAA);
+                item.setTextColor(done ? 0xFF35F6BF : 0xFF8A8A94);
             }
         });
     }
@@ -566,7 +566,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         caption.setText(String.format(java.util.Locale.US,
                 "[Frame at %.2fs] %d×%d", playheadMs / 1000f,
                 frame.getWidth(), frame.getHeight()));
-        caption.setTextColor(0xFFAAAAAA);
+        caption.setTextColor(0xFF8A8A94);
         caption.setTextSize(12);
         wrapper.addView(caption);
 
@@ -631,7 +631,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // Caption text
         TextView caption = new TextView(this);
         caption.setText("[Attached image] Describe what you see.");
-        caption.setTextColor(0xFFAAAAAA);
+        caption.setTextColor(0xFF8A8A94);
         caption.setTextSize(12);
         wrapper.addView(caption);
 
@@ -1240,32 +1240,32 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         TextView labelKey = new TextView(this);
         labelKey.setText("API Key (OpenRouter or compatible):");
-        labelKey.setTextColor(0xFFCCCCCC);
+        labelKey.setTextColor(0xFFC4C4CE);
         root.addView(labelKey);
 
         EditText inputKey = new EditText(this);
         inputKey.setText(currentKey);
         inputKey.setHint("sk-or-v1-...");
-        inputKey.setTextColor(0xFFFFFFFF);
+        inputKey.setTextColor(0xFFF4F4F5);
         inputKey.setSingleLine(false);
         root.addView(inputKey);
 
         TextView labelModel = new TextView(this);
         labelModel.setText("Model:");
-        labelModel.setTextColor(0xFFCCCCCC);
+        labelModel.setTextColor(0xFFC4C4CE);
         labelModel.setPadding(0, pad, 0, 0);
         root.addView(labelModel);
 
         EditText inputModel = new EditText(this);
         inputModel.setText(currentModel);
         inputModel.setHint(DEFAULT_MODEL);
-        inputModel.setTextColor(0xFFFFFFFF);
+        inputModel.setTextColor(0xFFF4F4F5);
         root.addView(inputModel);
 
         TextView hint = new TextView(this);
         hint.setText("Free tiers available on OpenRouter for lower-end models.\n"
                 + "Leave empty for offline helper mode.");
-        hint.setTextColor(0xFF888888);
+        hint.setTextColor(0xFF8A8A94);
         hint.setTextSize(12);
         hint.setPadding(0, pad, 0, 0);
         root.addView(hint);
@@ -1292,7 +1292,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         TextView titleText = new TextView(this);
         titleText.setText("AI Assistant Settings");
-        titleText.setTextColor(0xFFFFFFFF);
+        titleText.setTextColor(0xFFF4F4F5);
         titleText.setTextSize(18);
         titleText.setTypeface(null, Typeface.BOLD);
         titleRow.addView(titleText);
@@ -1385,7 +1385,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         TextView tv = new TextView(this);
         tv.setText(text);
         tv.setTextIsSelectable(true);
-        tv.setTextColor(isUser ? 0xFFFFFFFF : 0xFFDDDDDD);
+        tv.setTextColor(isUser ? 0xFFF4F4F5 : 0xFFC4C4CE);
         tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_bot);
         // Tail side (bottom for user, top for bot — see chat_bubble_user/bot.xml) gets extra
         // padding so text clears the reserved tail-nub band baked into the background drawable.
@@ -1405,7 +1405,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         Typeface materialIcons = ResourcesCompat.getFont(this, R.font.materialicons);
         copyBtn.setTypeface(materialIcons);
         copyBtn.setText("content_copy");
-        copyBtn.setTextColor(0x66AAAAAA);
+        copyBtn.setTextColor(0x66C4C4CE);
         copyBtn.setTextSize(13);
         copyBtn.setPadding(dp(6), dp(6), dp(6), dp(6));
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(
@@ -1506,7 +1506,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             cb.setText(formatClock(st) + "–" + formatClock(en)
                     + (summary.isEmpty() ? "" : "  " + summary));
             cb.setChecked(c.optBoolean("keep", true));
-            cb.setTextColor(0xFFDDDDDD);
+            cb.setTextColor(0xFFC4C4CE);
             cb.setPadding(dp(2), dp(4), dp(2), dp(4));
             card.addView(cb);
             boxes.add(cb);
@@ -1550,7 +1550,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             CheckBox cb = new CheckBox(this);
             cb.setText(formatClock(at) + "  " + name + (reason.isEmpty() ? "" : "  — " + reason));
             cb.setChecked(true);
-            cb.setTextColor(0xFFDDDDDD);
+            cb.setTextColor(0xFFC4C4CE);
             cb.setPadding(dp(2), dp(4), dp(2), dp(4));
             card.addView(cb);
             boxes.add(cb);
@@ -1604,7 +1604,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             }
             TextView t = new TextView(this);
             t.setText(sb.toString());
-            t.setTextColor(0xFFAAAAAA);
+            t.setTextColor(0xFF8A8A94);
             t.setTextSize(12);
             t.setPadding(0, 0, 0, dp(4));
             card.addView(t);
@@ -1647,7 +1647,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void addCardTitle(@NonNull LinearLayout card, @NonNull String text) {
         TextView t = new TextView(this);
         t.setText(text);
-        t.setTextColor(0xFFFFFFFF);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(16);
         t.setPadding(0, 0, 0, dp(2));
         card.addView(t);
@@ -1656,7 +1656,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void addCardSubtitle(@NonNull LinearLayout card, @NonNull String text) {
         TextView t = new TextView(this);
         t.setText(text);
-        t.setTextColor(0xFF999999);
+        t.setTextColor(0xFF8A8A94);
         t.setTextSize(12);
         t.setPadding(0, 0, 0, dp(6));
         card.addView(t);
@@ -1759,7 +1759,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         shape.setShape(GradientDrawable.RECTANGLE);
         shape.setCornerRadius(tickWidth / 2f);
         // Colors now match the bubble they represent: user bubble is green, bot bubble is gray.
-        shape.setColor(isUser ? 0xFF4CAF50 : 0xFF666666);
+        shape.setColor(isUser ? 0xFF35F6BF : 0xFF52525B);
         tick.setBackground(shape);
         final int idx = messageViews.size() - 1;
         tick.setOnClickListener(v -> scrollToMessage(idx));

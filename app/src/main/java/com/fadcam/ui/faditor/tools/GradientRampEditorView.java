@@ -90,7 +90,7 @@ public final class GradientRampEditorView extends LinearLayout {
                                      @NonNull String label, float d) {
         CheckBox box = new CheckBox(ctx);
         box.setText(label);
-        box.setTextColor(0xFFCCCCCC);
+        box.setTextColor(0xFFC4C4CE);
         box.setTextSize(11.5f);
         LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         lp.rightMargin = Math.round(10 * d);
@@ -178,7 +178,7 @@ public final class GradientRampEditorView extends LinearLayout {
                 float t = i / (float) n;
                 int rgb = ramp.sampleColor(t);
                 int a = Math.round(ramp.sampleAlpha(t) * 255f);
-                colors[i] = (a << 24) | (rgb & 0xFFFFFF);
+                colors[i] = (a << 24) | (rgb & 0xF4F4F5);
                 pos[i] = t;
             }
             barPaint.setShader(new LinearGradient(barRect.left, 0, barRect.right, 0,
@@ -213,7 +213,7 @@ public final class GradientRampEditorView extends LinearLayout {
                 c.drawRect(new RectF(x - half * 0.72f, y - half * 0.72f,
                         x + half * 0.72f, y + half * 0.72f), fillPaint);
                 c.restore();
-                strokePaint.setColor(0xFFEEEEEE);
+                strokePaint.setColor(0xFFF4F4F5);
                 strokePaint.setAlpha(marked ? 90 : 255);
                 c.save();
                 c.rotate(45f, x, y);
@@ -229,10 +229,10 @@ public final class GradientRampEditorView extends LinearLayout {
                 float y = colorY() + (dragMode == MODE_COLOR && dragIndex == i ? dragDy : 0f);
                 boolean marked = dragMode == MODE_COLOR && dragIndex == i
                         && Math.abs(dragDy) > DELETE_DP * d;
-                fillPaint.setColor(0xFF000000 | (s.color & 0xFFFFFF));
+                fillPaint.setColor(0xFF000000 | (s.color & 0xF4F4F5));
                 fillPaint.setAlpha(marked ? 90 : 255);
                 c.drawCircle(x, y, stopR(), fillPaint);
-                strokePaint.setColor(0xFFEEEEEE);
+                strokePaint.setColor(0xFFF4F4F5);
                 strokePaint.setAlpha(marked ? 90 : 255);
                 c.drawCircle(x, y, stopR(), strokePaint);
             }
@@ -245,20 +245,20 @@ public final class GradientRampEditorView extends LinearLayout {
             p.lineTo(cx, cy + rr);
             p.lineTo(cx - rr, cy);
             p.close();
-            fillPaint.setColor(hot ? 0xFFFFC107 : 0xFF9E9E9E);
+            fillPaint.setColor(hot ? 0xFFFBBF24 : 0xFF8A8A94);
             fillPaint.setAlpha(255);
             c.drawPath(p, fillPaint);
-            strokePaint.setColor(0xFF1A1A1A);
+            strokePaint.setColor(0xFF16161B);
             strokePaint.setAlpha(255);
             c.drawPath(p, strokePaint);
         }
 
         private void drawCheckerboard(@NonNull Canvas c) {
             float cell = 6f * d;
-            checkerPaint.setColor(0xFF3A3A3A);
+            checkerPaint.setColor(0xFF33333C);
             c.save();
             c.clipRect(barRect);
-            c.drawColor(0xFF2A2A2A);
+            c.drawColor(0xFF2C2C35);
             boolean toggle = false;
             for (float x = barRect.left; x < barRect.right; x += cell) {
                 toggle = !toggle;
@@ -386,7 +386,7 @@ public final class GradientRampEditorView extends LinearLayout {
         private void openPicker(int index) {
             if (index < 0 || index >= ramp.colorStops.size()) return;
             GradientRamp.ColorStop stop = ramp.colorStops.get(index);
-            int initial = 0xFF000000 | (stop.color & 0xFFFFFF);
+            int initial = 0xFF000000 | (stop.color & 0xF4F4F5);
             ColorPickerDialog.show(getContext(), "Stop color", initial, false,
                     live -> {
                         if (live != null) { stop.color = live; fire(); }

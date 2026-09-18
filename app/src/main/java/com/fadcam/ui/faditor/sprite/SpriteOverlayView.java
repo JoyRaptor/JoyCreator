@@ -125,8 +125,8 @@ public class SpriteOverlayView extends View {
         super(ctx, attrs);
         missingPaint.setStyle(Paint.Style.STROKE);
         missingPaint.setStrokeWidth(3f);
-        missingPaint.setColor(0xFFE040FB);
-        missingText.setColor(0xFFE040FB);
+        missingPaint.setColor(0xFFCC27FF);
+        missingText.setColor(0xFFCC27FF);
         missingText.setTextSize(24f);
         missingText.setTextAlign(Paint.Align.CENTER);
         scaleDetector = new ScaleGestureDetector(ctx,

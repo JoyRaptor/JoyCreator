@@ -33,8 +33,8 @@ public class VolumeDragFaderView extends View {
         super(c, a);
         density = getResources().getDisplayMetrics().density;
         trackPaint.setColor(0x66000000);
-        fillPaint.setColor(0xFF4CAF50);   // green
-        thumbPaint.setColor(0xFFFFFFFF);
+        fillPaint.setColor(0xFF35F6BF);   // green
+        thumbPaint.setColor(0xFFF4F4F5);
         groovePaint.setColor(0x66FFFFFF);
         groovePaint.setStrokeWidth(1.5f * density);
     }
@@ -69,9 +69,9 @@ public class VolumeDragFaderView extends View {
         // Thumb at the current level
         float thumbY = Math.max(radius, Math.min(h - radius, fillTop));
         canvas.drawCircle(w / 2f, thumbY, trackW * 0.62f, thumbPaint);
-        fillPaint.setColor(0xFF2E7D32);
+        fillPaint.setColor(0xFF35F6BF);
         canvas.drawCircle(w / 2f, thumbY, trackW * 0.34f, fillPaint);
-        fillPaint.setColor(0xFF4CAF50);
+        fillPaint.setColor(0xFF35F6BF);
     }
 }
 

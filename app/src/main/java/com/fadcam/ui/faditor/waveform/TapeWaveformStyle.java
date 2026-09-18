@@ -23,7 +23,7 @@ public final class TapeWaveformStyle {
     public final int[] bandColor = {
             0xFFFF4D42, // bass  — red
             0xFF57A8FF, // voice — sky blue
-            0xFF3EE06E, // presence — green
+            0xFF35F6BF, // presence — green
             0xFFF5D442, // highs — yellow
     };
 

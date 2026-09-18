@@ -45,12 +45,12 @@ public final class TextAnimPickerPopover {
 
     private static final int COLS = 3;
 
-    private static final int BG = 0xFF1C1C1E;
-    private static final int TILE_BG = 0xFF2A2A2E;
-    private static final int GLYPH = 0xFFDDDDDD;
-    private static final int ACCENT = 0xFF4CAF50;
-    private static final int RING_FILL = 0x1F4CAF50;
-    private static final int TXT_DIM = 0xFF888888;
+    private static final int BG = 0xFF1F1F26;
+    private static final int TILE_BG = 0xFF2C2C35;
+    private static final int GLYPH = 0xFFC4C4CE;
+    private static final int ACCENT = 0xFF35F6BF;
+    private static final int RING_FILL = 0x1F35F6BF;
+    private static final int TXT_DIM = 0xFF8A8A94;
 
     /**
      * How many glyphs each tile animates. Three is enough to show a STAGGER — which is half of
@@ -376,7 +376,7 @@ public final class TextAnimPickerPopover {
                 c.save();
                 c.translate(t.dx, t.dy);
                 c.scale(t.scaleX, t.scaleY, cx, baseY - fontPx * 0.35f);
-                paint.setColor(CaptionAnimator.applyAlpha(0xFF000000 | (GLYPH & 0xFFFFFF), t.alpha));
+                paint.setColor(CaptionAnimator.applyAlpha(0xFF000000 | (GLYPH & 0xF4F4F5), t.alpha));
                 // The tile's own FIFTH channel: GHOST's blur, applied only when the TARGET's
                 // renderer actually draws it.
                 //

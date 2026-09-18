@@ -485,7 +485,7 @@ public class CompositingSpec {
         }
         if (keyEnabled) {
             JsonObject kj = new JsonObject();
-            kj.addProperty("color", String.format("#%06X", keyColor & 0xFFFFFF));
+            kj.addProperty("color", String.format("#%06X", keyColor & 0xF4F4F5));
             kj.addProperty("tolerance", keyTolerance);
             kj.addProperty("fuzziness", keyFuzziness);
             if (keyOffset != 0f) kj.addProperty("offset", keyOffset);
@@ -581,7 +581,7 @@ public class CompositingSpec {
         if (s == null) return 0x00FF00;
         String hex = s.startsWith("#") ? s.substring(1) : s;
         try {
-            return (int) (Long.parseLong(hex, 16) & 0xFFFFFF);
+            return (int) (Long.parseLong(hex, 16) & 0xF4F4F5);
         } catch (NumberFormatException e) {
             return 0x00FF00;
         }

@@ -45,7 +45,7 @@ public final class GradientRamp {
     private GradientRamp(boolean seed) {
         if (seed) {
             colorStops.add(new ColorStop(0f, 0xFF000000));
-            colorStops.add(new ColorStop(1f, 0xFFFFFFFF));
+            colorStops.add(new ColorStop(1f, 0xFFF4F4F5));
             opacityStops.add(new OpacityStop(0f, 1f));
             opacityStops.add(new OpacityStop(1f, 1f));
         }
@@ -288,7 +288,7 @@ public final class GradientRamp {
         }
         if (r.colorStops.size() < 2) { r.colorStops.clear();
             r.colorStops.add(new ColorStop(0f, 0xFF000000));
-            r.colorStops.add(new ColorStop(1f, 0xFFFFFFFF));
+            r.colorStops.add(new ColorStop(1f, 0xFFF4F4F5));
         }
         r.sortColorStops();
 

@@ -85,11 +85,11 @@ public class WaveformOverlayView extends View {
             styles.put(s.id, s);
         }
         selectionPaint.setStyle(Paint.Style.STROKE);
-        selectionPaint.setColor(0xFF2196F3);
+        selectionPaint.setColor(0xFF4397FD);
         selectionPaint.setStrokeWidth(2f * density);
         selectionPaint.setPathEffect(new DashPathEffect(new float[]{8f * density, 6f * density}, 0));
         handlePaint.setStyle(Paint.Style.FILL);
-        handlePaint.setColor(0xFF2196F3);
+        handlePaint.setColor(0xFF4397FD);
         // Software layer: makes drawBitmap copy immediately (so the reused render bitmap is
         // safe across multiple overlays) and lets the glow BlurMaskFilter composite correctly.
         setLayerType(View.LAYER_TYPE_SOFTWARE, null);

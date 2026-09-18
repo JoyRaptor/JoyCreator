@@ -45,11 +45,11 @@ public final class BlendPickerPopover {
 
     public interface OnPick { void onPick(@NonNull String mode); }
 
-    private static final int SHEET_BG = 0xFF1C1C1E;
-    private static final int TXT = 0xFFE8E8E8;
-    private static final int TXT_HEADING = 0xFF8A8A8E;   // the "small grey text" category label
+    private static final int SHEET_BG = 0xFF1F1F26;
+    private static final int TXT = 0xFFF4F4F5;
+    private static final int TXT_HEADING = 0xFF8A8A94;   // the "small grey text" category label
     private static final int ROW_ON = 0x338C3DFA;
-    private static final int ACCENT = 0xFFB07CFF;
+    private static final int ACCENT = 0xFFA78BFA;
     private static final int CHIP_BG = 0x22FFFFFF;
 
     /**

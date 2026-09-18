@@ -63,7 +63,7 @@ public class ColorGradePanel extends LinearLayout {
                            @NonNull SeekValueListener listener) {
         TextView text = new TextView(getContext());
         text.setText(label);
-        text.setTextColor(0xFFFFFFFF);
+        text.setTextColor(0xFFF4F4F5);
         addView(text);
         SeekBar seekBar = new SeekBar(getContext());
         seekBar.setMax(max - min);

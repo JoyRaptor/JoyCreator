@@ -28,8 +28,8 @@ public final class PivotPickerPopover {
 
     private PivotPickerPopover() {}
 
-    private static final int SHEET_BG = 0xFF1C1C1E;
-    private static final int TXT = 0xFFE8E8E8;
+    private static final int SHEET_BG = 0xFF1F1F26;
+    private static final int TXT = 0xFFF4F4F5;
 
     /** One pick. Normalized fractions in 0..1, the model's own unit. */
     public interface OnPivotPick {

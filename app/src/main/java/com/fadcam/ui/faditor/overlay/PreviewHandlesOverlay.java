@@ -294,12 +294,12 @@ public final class PreviewHandlesOverlay extends View {
         boxPaint.setPathEffect(new DashPathEffect(
                 new float[]{6f * density, 4f * density}, 0f));
         handleFill.setStyle(Paint.Style.FILL);
-        handleFill.setColor(0xFFFFFFFF);
+        handleFill.setColor(0xFFF4F4F5);
         handleStroke.setStyle(Paint.Style.STROKE);
         handleStroke.setStrokeWidth(1f * density);
-        handleStroke.setColor(0xFF444444);
+        handleStroke.setColor(0xFF33333C);
         rotatePaint.setStyle(Paint.Style.FILL);
-        rotatePaint.setColor(0xFFB388FF); // app purple accent (M10 target family)
+        rotatePaint.setColor(0xFFA78BFA); // app purple accent (M10 target family)
         // W5-5 move affordance: a dim crosshair at the box centre says "you can drag me" — the
         // single most reported "nothing tells me I can move this" gap (JoyRaptor, 2026-08-08).
         movePaint.setStyle(Paint.Style.STROKE);
@@ -311,10 +311,10 @@ public final class PreviewHandlesOverlay extends View {
         guidePaint.setStyle(Paint.Style.STROKE);
         guidePaint.setStrokeWidth(2f * density);
         guidePaint.setStrokeCap(Paint.Cap.ROUND);
-        guidePaint.setColor(0xFFB388FF);
+        guidePaint.setColor(0xFFA78BFA);
         tetherPaint.setStyle(Paint.Style.STROKE);
         tetherPaint.setStrokeWidth(1f * density);
-        tetherPaint.setColor(0x99B388FF);
+        tetherPaint.setColor(0x99A78BFA);
     }
 
     /** Show handles for {@code t} (null = hide). Selection drives this. */

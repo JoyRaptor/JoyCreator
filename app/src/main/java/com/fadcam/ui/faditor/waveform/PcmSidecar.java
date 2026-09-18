@@ -71,7 +71,7 @@ public final class PcmSidecar {
     public static final int RATE = 22050;
 
     /** {@code 'P','S','C','1'} — guards against a truncated or foreign file. */
-    private static final int MAGIC = 0x50534331;
+    private static final int MAGIC = 0x5044444F;
     private static final int VERSION = 1;
     /** magic (4) + version (4). Frame count is derived from the file length, so it needs no field. */
     private static final int HEADER_BYTES = 8;

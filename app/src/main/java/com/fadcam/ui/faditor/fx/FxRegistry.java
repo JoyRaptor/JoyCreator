@@ -379,8 +379,8 @@ public final class FxRegistry {
         GradientRamp r = new GradientRamp();
         r.colorStops.clear();
         r.opacityStops.clear();
-        r.addColorStop(0f, 0x101820);
-        r.addColorStop(1f, 0xF2E9E4);
+        r.addColorStop(0f, 0x16161B);
+        r.addColorStop(1f, 0xF4F4F5);
         r.addOpacityStop(0f, 1f);
         r.addOpacityStop(1f, 1f);
         return r;
@@ -471,8 +471,8 @@ public final class FxRegistry {
         defs.add(new FxEffectDef("duotone", "Duotone",
                 FxEffectDef.Family.COLOR, FxEffectDef.Capability.POINTWISE, 1, 0.5f,
                 BODY_DUOTONE,
-                FxParam.color("shadowColor", "Shadow tone", 0x1A1A66),
-                FxParam.color("highlightColor", "Highlight tone", 0xFFD24D),
+                FxParam.color("shadowColor", "Shadow tone", 0x1F1F26),
+                FxParam.color("highlightColor", "Highlight tone", 0xFBBF24),
                 FxParam.flt("pivot", "Pivot", 0f, 1f, 0.5f),
                 FxParam.flt("contrast", "Contrast", 0.1f, 4f, 1f),
                 FxParam.flt("amount", "Amount", 0f, 1f, 1f)));
@@ -490,7 +490,7 @@ public final class FxRegistry {
         defs.add(new FxEffectDef("solid_color", "Solid Color",
                 FxEffectDef.Family.GENERATE, FxEffectDef.Capability.GENERATOR, 1, 0.2f,
                 BODY_SOLID_COLOR,
-                FxParam.color("color", "Color", 0xFFFFFF),
+                FxParam.color("color", "Color", 0xF4F4F5),
                 FxParam.flt("amount", "Amount", 0f, 1f, 1f)));
 
         defs.add(new FxEffectDef("gradient_fill", "Gradient",

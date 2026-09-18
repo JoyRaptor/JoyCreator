@@ -503,7 +503,7 @@ public class PreviewPipController {
             // already put it above the whole editor column; elevation only has to lose to
             // the one overlay that must win (the panel).
             shell.setElevation(8 * density);
-            shell.setBackgroundColor(0xFF141414);
+            shell.setBackgroundColor(0xFF16161B);
 
             shell.addView(buildChrome(ctx, chromeH, shell));
 
@@ -616,10 +616,10 @@ public class PreviewPipController {
         FrameLayout chrome = new FrameLayout(ctx);
         chrome.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, chromeH));
-        chrome.setBackgroundColor(0xFF232323);
+        chrome.setBackgroundColor(0xFF1F1F26);
 
         View grip = new View(ctx);
-        grip.setBackgroundColor(0xFF5A5A5A);
+        grip.setBackgroundColor(0xFF52525B);
         FrameLayout.LayoutParams gripLp = new FrameLayout.LayoutParams(
                 (int) (34 * density), (int) (4 * density), Gravity.CENTER);
         grip.setLayoutParams(gripLp);
@@ -634,7 +634,7 @@ public class PreviewPipController {
         } catch (Exception ignored) {
             expand.setText("⤢"); // glyph fallback if the icon font is unavailable
         }
-        expand.setTextColor(0xFFCCCCCC);
+        expand.setTextColor(0xFFC4C4CE);
         expand.setTextSize(13);
         expand.setGravity(Gravity.CENTER);
         int pad = (int) (4 * density);
@@ -661,7 +661,7 @@ public class PreviewPipController {
         } catch (Exception ignored) {
             undock.setText("⇲");
         }
-        undock.setTextColor(0xFFCCCCCC);
+        undock.setTextColor(0xFFC4C4CE);
         undock.setTextSize(13);
         undock.setGravity(Gravity.CENTER);
         undock.setPadding(pad, 0, pad, 0);
@@ -910,7 +910,7 @@ public class PreviewPipController {
             // window is about to occupy rather than an overlay on top of it.
             rootFrame.addView(dockHint, rootFrame.indexOfChild(editorRoot) + 1);
         }
-        dockHint.setBackgroundColor(0x3355E0F9);            // the cyan already used for selection
+        dockHint.setBackgroundColor(0x334ADE80);            // the cyan already used for selection
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 w, ViewGroup.LayoutParams.MATCH_PARENT,
                 edge < 0 ? Gravity.START : Gravity.END);

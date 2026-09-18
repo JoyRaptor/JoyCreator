@@ -29,7 +29,7 @@ public final class SlideContract {
     public static final String CONTRACT_MARKER = "faditor-slide-contract v";
 
     /** Default fullscreen background. */
-    public static final String DEFAULT_BG = "#0b0e14";
+    public static final String DEFAULT_BG = "#0d0d10";
 
     /**
      * Builds the per-call system prompt. The user message is just the requested
@@ -285,7 +285,7 @@ public final class SlideContract {
                 + "  #stage{width:" + width + "px;height:" + height + "px;position:relative;overflow:hidden;\n"
                 + "         display:flex;align-items:center;justify-content:center;}\n"
                 + "  #label{font-family:-apple-system,system-ui,Arial,sans-serif;\n"
-                + "         font-size:" + fontSize + "px;color:#f5f5f0;font-weight:600;opacity:0;\n"
+                + "         font-size:" + fontSize + "px;color:#f4f4f5;font-weight:600;opacity:0;\n"
                 + "         text-align:center;padding:0 8%;transform:translateY(30px);}\n"
                 + "</style></head>\n"
                 + "<body>\n"

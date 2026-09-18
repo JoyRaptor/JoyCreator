@@ -45,7 +45,7 @@ public class SnapMagnetIndicator extends View {
         if (w <= 0 || h <= 0) return;
         float d = getResources().getDisplayMetrics().density;
 
-        paint.setColor(snapping ? 0xFFFFFFFF : 0xFF6A6A6A);
+        paint.setColor(snapping ? 0xFFF4F4F5 : 0xFF52525B);
 
         // Geometry for a ~20dp box: a "U" (bottom half-arc, opens upward) with pole caps on
         // the two top ends. The FIRST version computed radius (3.6dp) smaller than the stroke

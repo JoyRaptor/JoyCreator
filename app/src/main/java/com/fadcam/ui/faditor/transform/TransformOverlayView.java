@@ -386,7 +386,7 @@ public class TransformOverlayView extends View {
     private final RectF rectf = new RectF();
 
     /** The dark disc every glyph is drawn on, so thin ink survives a bright picture under it. */
-    private static final int GLYPH_FILL = 0xFF0C0C10;
+    private static final int GLYPH_FILL = 0xFF0D0D10;
 
     public TransformOverlayView(@NonNull Context ctx) {
         super(ctx);
@@ -614,14 +614,14 @@ public class TransformOverlayView extends View {
         path.moveTo(ghostQuad[0], ghostQuad[1]);
         for (int i = 1; i < 4; i++) path.lineTo(ghostQuad[i * 2], ghostQuad[i * 2 + 1]);
         path.close();
-        fill.setColor(0x24ECECF2);
+        fill.setColor(0x24F4F4F5);
         c.drawPath(path, fill);
-        stroke.setColor(0x8CECECF2);
+        stroke.setColor(0x8CF4F4F5);
         stroke.setStrokeWidth(dp(1.2f));
         c.drawPath(path, stroke);
         // A hairline back to where the object actually is, so the ghost says WHICH WAY as well
         // as "here". Clipped by the view like everything else; it just points off the edge.
-        stroke.setColor(0x40ECECF2);
+        stroke.setColor(0x40F4F4F5);
         stroke.setStrokeWidth(dp(0.9f));
         float gcx = (ghostQuad[0] + ghostQuad[2] + ghostQuad[4] + ghostQuad[6]) / 4f;
         float gcy = (ghostQuad[1] + ghostQuad[3] + ghostQuad[5] + ghostQuad[7]) / 4f;
@@ -694,12 +694,12 @@ public class TransformOverlayView extends View {
     private void drawExitPill(@NonNull Canvas c) {
         if (onExit == null) return;
         exitPillRect(rectf);
-        fill.setColor(0xE6131318);
+        fill.setColor(0xE616161B);
         c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
-        stroke.setColor(0xFF4C3F7A);
+        stroke.setColor(0xFF44444F);
         stroke.setStrokeWidth(dp(1f));
         c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
-        text.setColor(0xFFECECF2);
+        text.setColor(0xFFF4F4F5);
         text.setTextSize(dp(12f));
         text.setFakeBoldText(true);
         c.drawText("Done", rectf.centerX(), rectf.centerY() + dp(4f), text);
@@ -740,12 +740,12 @@ public class TransformOverlayView extends View {
         Host h = host;
         boolean bent = h != null && h.hasBend();
         bendPillRect(rectf);
-        fill.setColor(bendMode && bent ? 0xFF14304D : 0xE6131318);
+        fill.setColor(bendMode && bent ? 0xFF2C2C35 : 0xE616161B);
         c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
-        stroke.setColor(!bendMode ? 0xFF2E2E3A : (bent ? HandleModel.COLOR_BEND : 0xFF3F7AB5));
+        stroke.setColor(!bendMode ? 0xFF2C2C35 : (bent ? HandleModel.COLOR_BEND : 0xFF8A8A94));
         stroke.setStrokeWidth(dp(bendMode ? 1.6f : 1f));
         c.drawRoundRect(rectf, dp(17f), dp(17f), stroke);
-        text.setColor(!bendMode ? 0xFF70707F : (bent ? 0xFFDCEDFF : 0xFF8FC2F5));
+        text.setColor(!bendMode ? 0xFF8A8A94 : (bent ? 0xFFF4F4F5 : 0xFFC4C4CE));
         text.setTextSize(dp(12f));
         text.setFakeBoldText(true);
         c.drawText(bendMode ? "Bend · on" : "Bend", rectf.centerX(), rectf.centerY() + dp(4f), text);
@@ -771,10 +771,10 @@ public class TransformOverlayView extends View {
     }
 
     private void drawPinchPivot(@NonNull Canvas c, float mx, float my) {
-        stroke.setColor(0x594FD1C5);
+        stroke.setColor(0x594ADE80);
         stroke.setStrokeWidth(dp(0.8f));
         c.drawLine(pinchAx, pinchAy, pinchBx, pinchBy, stroke);
-        stroke.setColor(0xF04FD1C5);
+        stroke.setColor(0xF04ADE80);
         stroke.setStrokeWidth(dp(1.2f));
         c.drawCircle(mx, my, dp(9f), stroke);
         float r = dp(15f);
@@ -910,12 +910,12 @@ public class TransformOverlayView extends View {
         float top = hudY > dp(52f) ? hudY - dp(44f) : hudY + dp(30f);
         top = TransformQuad.clamp(top, dp(4f), getHeight() - hgt - dp(4f));
         rectf.set(cx - w / 2f, top, cx + w / 2f, top + hgt);
-        fill.setColor(withAlpha(0x0A0A0E, (int) (0xD1 * alpha)));
+        fill.setColor(withAlpha(0x0D0D10, (int) (0xD1 * alpha)));
         c.drawRoundRect(rectf, dp(7f), dp(7f), fill);
-        stroke.setColor(withAlpha(0x8C8CAA, (int) (0x47 * alpha)));
+        stroke.setColor(withAlpha(0x8A8A94, (int) (0x47 * alpha)));
         stroke.setStrokeWidth(dp(1f));
         c.drawRoundRect(rectf, dp(7f), dp(7f), stroke);
-        text.setColor(withAlpha(0xCFD6E6, (int) (0xFF * alpha)));
+        text.setColor(withAlpha(0xC4C4CE, (int) (0xFF * alpha)));
         c.drawText(hudText, cx, top + hgt * 0.5f + dp(4f), text);
         text.setFakeBoldText(false);
     }
@@ -1351,9 +1351,9 @@ public class TransformOverlayView extends View {
         // and the ring read as a modal dialog rather than something floating over the work.
         // 0xCC is 80%: the glyphs still carry their contrast against it, and you can now see
         // what you are about to change.
-        fill.setColor(0xCC13111C);
+        fill.setColor(0xCC16161B);
         c.drawCircle(ringCx, ringCy, r, fill);
-        stroke.setColor(0xFF4C3F7A);
+        stroke.setColor(0xFF44444F);
         stroke.setStrokeWidth(dp(1f));
         c.drawCircle(ringCx, ringCy, r, stroke);
 
@@ -1368,10 +1368,10 @@ public class TransformOverlayView extends View {
             boolean inert = bend ? !ringBendEnabled
                     : (affineOnly && role != HandleModel.Role.SCALE);
             boolean on = !bend && !inert && role == current;
-            int col = inert ? 0xFF5A5A68
+            int col = inert ? 0xFF52525B
                     : (bend ? HandleModel.COLOR_BEND : HandleModel.colorOf(role));
-            int back = on ? (role == HandleModel.Role.SCALE ? 0xFF3A2C0D
-                    : role == HandleModel.Role.TILT ? 0xFF0F2E1E : 0xFF3A0F22) : 0xFF15151D;
+            int back = on ? (role == HandleModel.Role.SCALE ? 0xFF2C2C35
+                    : role == HandleModel.Role.TILT ? 0xFF2C2C35 : 0xFF17171C) : 0xFF16161B;
             HandleModel.Shape shape = bend ? HandleModel.Shape.NET
                     : role == HandleModel.Role.SCALE ? HandleModel.Shape.SQUARE
                     : role == HandleModel.Role.TILT ? HandleModel.Shape.DIAMOND
@@ -1406,12 +1406,12 @@ public class TransformOverlayView extends View {
             // for the same reason Tilt and Free are. Both mirrors and both resets stay live —
             // a mirror is a negative scale and a reset touches no shape at all.
             boolean inert = affineOnly && !ringIsCorner && i == 0;
-            fill.setColor(0xFF171720);
+            fill.setColor(0xFF16161B);
             c.drawCircle(scratch2[0], scratch2[1], ds / 2f, fill);
-            stroke.setColor(0xFF33333F);
+            stroke.setColor(0xFF33333C);
             stroke.setStrokeWidth(dp(1f));
             c.drawCircle(scratch2[0], scratch2[1], ds / 2f, stroke);
-            text.setColor(inert ? 0xFF5A5A68 : 0xFF9A9AAB);
+            text.setColor(inert ? 0xFF52525B : 0xFF8A8A94);
             text.setTextSize(dp(14f));
             text.setFakeBoldText(false);
             c.drawText(glyphs[i], scratch2[0], scratch2[1] + dp(1f), text);
@@ -1420,7 +1420,7 @@ public class TransformOverlayView extends View {
             c.drawText(subs[i], scratch2[0], scratch2[1] + dp(12f), text);
         }
 
-        text.setColor(0xFF6C6C7C);
+        text.setColor(0xFF52525B);
         text.setTextSize(dp(9f));
         String which = (ringIsCorner ? "corner " : "edge ")
                 + (ringIsCorner ? new String[]{"top-left", "top-right", "bottom-right", "bottom-left"}[ringIndex]

@@ -96,7 +96,7 @@ public class PuppetBadgeView extends View {
 
         box.set(0.5f * d, 0.5f * d, getWidth() - 0.5f * d, getHeight() - 0.5f * d);
 
-        fill.setColor(pressed ? 0xCC141922 : 0xA8090B0E);
+        fill.setColor(pressed ? 0xCC17171C : 0xA80D0D10);
         c.drawRoundRect(box, 10f * d, 10f * d, fill);
         stroke.setColor(0x1AFFFFFF);
         stroke.setStrokeWidth(1f * d);
@@ -107,14 +107,14 @@ public class PuppetBadgeView extends View {
         // wears there when the rig is locked. Tapping it is what turns him green.
         int size = Math.round(21f * d);
         PuppetIcons.IconDrawable man = PuppetIcons.of(
-                PuppetIcons.PUPPET, pressed ? 0xFF8FA0B4 : 0xFF6B7280, size);
+                PuppetIcons.PUPPET, pressed ? 0xFF8A8A94 : 0xFF8A8A94, size);
         int left = Math.round(getWidth() / 2f - size / 2f);
         int top = Math.round(getHeight() / 2f - size / 2f);
         man.setBounds(left, top, left + size, top + size);
         man.draw(c);
 
         // A small count, so "this picture is rigged, and how much" reads without a tap.
-        fill.setColor(0xFF6B7280);
+        fill.setColor(0xFF8A8A94);
         fill.setTextSize(8f * d);
         fill.setTextAlign(Paint.Align.CENTER);
         fill.setFakeBoldText(true);

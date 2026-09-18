@@ -67,12 +67,12 @@ public final class ImagePresetPicker {
     }
 
     private static final int COLS = 4;
-    private static final int BG = 0xFF1C1C1E;
-    private static final int TILE_BG = 0xFF2A2A2E;
-    private static final int ACCENT = 0xFF4CAF50;
-    private static final int RING_FILL = 0x1F4CAF50;
-    private static final int CANVAS_SOLID = 0xFF3A3A3E;
-    private static final int IMAGE_DOTTED = 0xFFB0B0B0;
+    private static final int BG = 0xFF1F1F26;
+    private static final int TILE_BG = 0xFF2C2C35;
+    private static final int ACCENT = 0xFF35F6BF;
+    private static final int RING_FILL = 0x1F35F6BF;
+    private static final int CANVAS_SOLID = 0xFF33333C;
+    private static final int IMAGE_DOTTED = 0xFFC4C4CE;
 
     private ImagePresetPicker() {}
 
@@ -93,7 +93,7 @@ public final class ImagePresetPicker {
         // Hint for None
         TextView hint = new TextView(ctx);
         hint.setText("No animation (reset) — centred, cover-scaled, static");
-        hint.setTextColor(0xFF888888);
+        hint.setTextColor(0xFF8A8A94);
         hint.setTextSize(10);
         hint.setPadding(0, 0, 0, (int)(6*d));
         container.addView(hint);
@@ -172,7 +172,7 @@ public final class ImagePresetPicker {
             dottedPaint.setStyle(Paint.Style.STROKE);
             dottedPaint.setStrokeWidth(1.6f * density);
             dottedPaint.setPathEffect(new DashPathEffect(new float[]{4f*density, 3f*density}, 0));
-            textPaint.setColor(0xFFAAAAAA);
+            textPaint.setColor(0xFF8A8A94);
             textPaint.setTextSize(9f * density);
             textPaint.setTextAlign(Paint.Align.CENTER);
 
@@ -184,7 +184,7 @@ public final class ImagePresetPicker {
             else if (k == ImageAnimPreset.Kind.SLIDE_OUT_TOP || k == ImageAnimPreset.Kind.SLIDE_OUT_BOTTOM || k == ImageAnimPreset.Kind.SLIDE_IN_TOP || k == ImageAnimPreset.Kind.SLIDE_IN_BOTTOM) { imgW = 84f; imgH = 84f; }
             else { imgW = 120f; imgH = 90f; }
 
-            probe = new TextOverlayItem("probe", "", 0xFFFFFFFF, 0.5f, 0.5f, 0.5f, 0f);
+            probe = new TextOverlayItem("probe", "", 0xFFF4F4F5, 0.5f, 0.5f, 0.5f, 0f);
             probe.setImageUri("probe://preview");
             if (k != ImageAnimPreset.Kind.NONE) {
                 probe.applyImagePreset(k, canvasW, canvasH, imgW, imgH, probeDur);
@@ -219,8 +219,8 @@ public final class ImagePresetPicker {
             float w = getWidth(), h = getHeight();
             // Background
             Paint bg = new Paint(Paint.ANTI_ALIAS_FLAG);
-            bg.setColor(selected ? RING_FILL : 0xFF2A2A2E);
-            if (selected) { bg.setColor(RING_FILL); } else bg.setColor(0xFF2A2A2E);
+            bg.setColor(selected ? RING_FILL : 0xFF2C2C35);
+            if (selected) { bg.setColor(RING_FILL); } else bg.setColor(0xFF2C2C35);
             float rad = 10*density;
             bg.setStyle(Paint.Style.FILL);
             c.drawRoundRect(0,0,w,h,rad,rad,bg);

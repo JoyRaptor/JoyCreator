@@ -112,7 +112,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // shown as a ring or a tint; an OBJECT's colour is shown as a fill. That split
     // is what keeps sprite-amber and careful-amber from ever being confused.
     /** The thing you are pointing at. */            static final int STUDIO_ARMED   = 0xFF22D3EE;
-    /** What is playing or recording right now. */   static final int STUDIO_LIVE    = 0xFFF43F8E;
+    /** What is playing or recording right now. */   static final int STUDIO_LIVE    = 0xFFFF4438;
     /** Unsaved, degraded, approximate, unusual. */  static final int STUDIO_CAREFUL = 0xFFFBBF24;
     /** Present, but not available right now. */     static final int STUDIO_OFF     = 0xFF33333C;
 
@@ -3164,8 +3164,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // be pressed; STUDIO_OFF = present but not now. Never more than three whites.
             btnUndo.setAlpha(1f);
             btnRedo.setAlpha(1f);
-            btnUndo.setTextColor(canUndo ? 0xFFFFFFFF : STUDIO_OFF);
-            btnRedo.setTextColor(canRedo ? 0xFFFFFFFF : STUDIO_OFF);
+            btnUndo.setTextColor(canUndo ? 0xFFF4F4F5 : STUDIO_OFF);
+            btnRedo.setTextColor(canRedo ? 0xFFF4F4F5 : STUDIO_OFF);
             btnUndo.setEnabled(canUndo);
             btnRedo.setEnabled(canRedo);
 
@@ -3547,7 +3547,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         overlay.setLayoutParams(new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
-        overlay.setBackgroundColor(0xFF1A1A2E);
+        overlay.setBackgroundColor(0xFF1F1F26);
         overlay.setVisibility(View.GONE);
         overlay.setTag("missing_overlay");
 
@@ -3555,7 +3555,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.TextView iconView = new android.widget.TextView(this);
         iconView.setText("\u26A0\uFE0F");
         iconView.setTextSize(48f);
-        iconView.setTextColor(0xFFFF4444);
+        iconView.setTextColor(0xFFFF4438);
         iconView.setGravity(android.view.Gravity.CENTER);
         android.widget.FrameLayout.LayoutParams iconLp =
                 new android.widget.FrameLayout.LayoutParams(
@@ -3567,7 +3567,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Clip name
         android.widget.TextView nameView = new android.widget.TextView(this);
-        nameView.setTextColor(0xFFFFFFFF);
+        nameView.setTextColor(0xFFF4F4F5);
         nameView.setTextSize(16f);
         nameView.setGravity(android.view.Gravity.CENTER);
         nameView.setTag("name");
@@ -3585,7 +3585,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Tap to relink hint
         android.widget.TextView hintView = new android.widget.TextView(this);
         hintView.setText("Tap to relink");
-        hintView.setTextColor(0xFF888888);
+        hintView.setTextColor(0xFF8A8A94);
         hintView.setTextSize(13f);
         hintView.setGravity(android.view.Gravity.CENTER);
         android.widget.FrameLayout.LayoutParams hintLp =
@@ -3598,7 +3598,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Divider line above hint
         android.view.View divider = new android.view.View(this);
-        divider.setBackgroundColor(0xFF444444);
+        divider.setBackgroundColor(0xFF33333C);
         android.widget.FrameLayout.LayoutParams divLp =
                 new android.widget.FrameLayout.LayoutParams(
                         (int)(120 * density), (int)(1 * density));
@@ -4750,7 +4750,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         EditText input = new EditText(this);
         input.setText(currentName);
         input.setSelection(0, currentName.length());
-        input.setTextColor(0xFFFFFFFF);
+        input.setTextColor(0xFFF4F4F5);
         input.setHint("Project name");
         root.addView(input);
 
@@ -5472,7 +5472,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         android.widget.CheckBox remember = new android.widget.CheckBox(this);
         remember.setText(R.string.faditor_orphan_remember);
-        remember.setTextColor(0xFFCCCCCC);
+        remember.setTextColor(0xFFC4C4CE);
         int pad = (int) (20 * getResources().getDisplayMetrics().density);
         remember.setPadding(pad, pad / 2, pad, 0);
 
@@ -6378,7 +6378,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     : volume <= 0.5f ? "volume_down" : "volume_up";
             volumeDragHudIcon.setText(icon);
             // Red tint above 100% (overdrive), green otherwise — matches the toolbar logic.
-            int color = volume > 1.01f ? 0xFFF44336 : 0xFF4CAF50;
+            int color = volume > 1.01f ? 0xFFFF4438 : 0xFF35F6BF;
             volumeDragHudIcon.setTextColor(color);
             if (volumeDragHudValue != null) volumeDragHudValue.setTextColor(color);
             // Subtle "animated" scale with level.
@@ -6575,7 +6575,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Clip _sel6264 = getSelectedClip();
             muted = _sel6264 != null && _sel6264.isAudioMuted();
         }
-        int color = (muted || vol > 1.01f) ? 0xFFF44336 : 0xFF4CAF50;
+        int color = (muted || vol > 1.01f) ? 0xFFFF4438 : 0xFF35F6BF;
         if (volumeDrawerValue != null) {
             volumeDrawerValue.setText(muted ? "Muted" : Math.round(vol * 100f) + "%");
             volumeDrawerValue.setTextColor(color);
@@ -6586,10 +6586,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             volumeDrawerIcon.setTextColor(color);
         }
         if (volumeDrawerKeyframe != null) {
-            volumeDrawerKeyframe.setTextColor(audioVolumeKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E);
+            volumeDrawerKeyframe.setTextColor(audioVolumeKeyframeMode ? 0xFF35F6BF : 0xFF8A8A94);
         }
         if (volumeDrawerMute != null) {
-            volumeDrawerMute.setTextColor(muted ? 0xFFF44336 : 0xFF9E9E9E);
+            volumeDrawerMute.setTextColor(muted ? 0xFFFF4438 : 0xFF8A8A94);
         }
     }
 
@@ -6639,11 +6639,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 && editorTimeline != null && editorTimeline.getSelectedAudioIndex() >= 0) {
             if (toolMuteIcon != null) {
                 toolMuteIcon.setText("timer");
-                toolMuteIcon.setTextColor(0xFF4CAF50);
+                toolMuteIcon.setTextColor(0xFF35F6BF);
             }
             if (toolMuteLabel != null) {
                 toolMuteLabel.setText("Keyframe");
-                toolMuteLabel.setTextColor(0xFF4CAF50);
+                toolMuteLabel.setTextColor(0xFF35F6BF);
             }
             return;
         }
@@ -6662,13 +6662,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             int color;
             if (muted) {
-                color = 0xFFF44336; // red
+                color = 0xFFFF4438; // red
             } else if (volume > 1.01f) {
-                color = 0xFFF44336; // red for overdrive
+                color = 0xFFFF4438; // red for overdrive
             } else if (Math.abs(volume - 1f) < 0.01f) {
-                color = 0xFF888888; // default gray
+                color = 0xFF8A8A94; // default gray
             } else {
-                color = 0xFF4CAF50; // green for modified
+                color = 0xFF35F6BF; // green for modified
             }
             toolMuteIcon.setTextColor(color);
 
@@ -6827,7 +6827,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         View shortcut = findViewById(R.id.caption_kf_arm_shortcut);
         if (shortcut instanceof TextView) {
             ((TextView) shortcut).setTextColor(
-                    captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E);
+                    captionStyleKeyframeMode ? 0xFF35F6BF : 0xFF8A8A94);
         }
     }
 
@@ -7404,7 +7404,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int pct = Math.round(op * 100f);
         if (opacityDrawerValue != null) {
             opacityDrawerValue.setText(pct + "%");
-            opacityDrawerValue.setTextColor(pct < 100 ? 0xFF4CAF50 : 0xFF888888);
+            opacityDrawerValue.setTextColor(pct < 100 ? 0xFF35F6BF : 0xFF8A8A94);
         }
         // "Armed" and "standing on a keyframe" are different facts and the user needs the second
         // one to edit confidently. Read through the SAME predicate the write uses, so what the
@@ -7416,8 +7416,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Amber means the next change edits the keyframe under the playhead; green means it
             // will create one; grey means keyframe mode is off.
             opacityDrawerKeyframe.setTextColor(
-                    (onKf && clipOpacityKeyframeMode) ? 0xFFFFB300
-                            : (clipOpacityKeyframeMode ? 0xFF4CAF50 : 0xFF9E9E9E));
+                    (onKf && clipOpacityKeyframeMode) ? 0xFFFBBF24
+                            : (clipOpacityKeyframeMode ? 0xFF35F6BF : 0xFF8A8A94));
         }
         View onDot = findViewById(R.id.opacity_kf_onkeyframe);
         if (onDot != null) onDot.setVisibility(onKf ? View.VISIBLE : View.INVISIBLE);
@@ -7459,7 +7459,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         View arm = findViewById(R.id.caption_kf_arm);
         if (arm != null) {
             arm.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                    captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF666666));
+                    captionStyleKeyframeMode ? 0xFF35F6BF : 0xFF52525B));
         }
         // Mirror the same armed state onto the bottom-bar stopwatch shortcut (if built).
         updateCaptionKfArmShortcutUI();
@@ -7467,10 +7467,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Mirror the armed state onto the Captions tool-row cell itself, matching the
         // existing toolMuteIcon/toolOpacityIcon convention (green when armed, grey otherwise).
         if (toolCaptionsIcon != null) {
-            toolCaptionsIcon.setTextColor(captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF888888);
+            toolCaptionsIcon.setTextColor(captionStyleKeyframeMode ? 0xFF35F6BF : 0xFF8A8A94);
         }
         if (toolCaptionsLabel != null) {
-            toolCaptionsLabel.setTextColor(captionStyleKeyframeMode ? 0xFF4CAF50 : 0xFF888888);
+            toolCaptionsLabel.setTextColor(captionStyleKeyframeMode ? 0xFF35F6BF : 0xFF8A8A94);
         }
 
         if (cc == null) return;
@@ -7537,11 +7537,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (clipOpacityKeyframeMode) {
             if (toolOpacityIcon != null) {
                 toolOpacityIcon.setText("timer");
-                toolOpacityIcon.setTextColor(0xFF4CAF50);
+                toolOpacityIcon.setTextColor(0xFF35F6BF);
             }
             if (toolOpacityLabel != null) {
                 toolOpacityLabel.setText("Keyframe");
-                toolOpacityLabel.setTextColor(0xFF4CAF50);
+                toolOpacityLabel.setTextColor(0xFF35F6BF);
             }
             return;
         }
@@ -7551,11 +7551,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int pct = Math.round(opacity * 100f);
         if (toolOpacityIcon != null) {
             toolOpacityIcon.setText("opacity");
-            toolOpacityIcon.setTextColor(pct < 100 ? 0xFF4CAF50 : 0xFF888888);
+            toolOpacityIcon.setTextColor(pct < 100 ? 0xFF35F6BF : 0xFF8A8A94);
         }
         if (toolOpacityLabel != null) {
             toolOpacityLabel.setText(pct < 100 ? pct + "%" : getString(R.string.faditor_tool_opacity));
-            toolOpacityLabel.setTextColor(pct < 100 ? 0xFF4CAF50 : 0xFF888888);
+            toolOpacityLabel.setTextColor(pct < 100 ? 0xFF35F6BF : 0xFF8A8A94);
         }
     }
 
@@ -7697,7 +7697,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Tint the Filter tool green when the selected clip has any active color/grade effect. */
     private void updateFilterUI(@NonNull Clip clip) {
-        int color = clip.getEffectStack().isActive() ? 0xFF4CAF50 : 0xFF888888;
+        int color = clip.getEffectStack().isActive() ? 0xFF35F6BF : 0xFF8A8A94;
         View icon = findViewById(R.id.tool_filter_icon);
         if (icon instanceof TextView) ((TextView) icon).setTextColor(color);
         View label = findViewById(R.id.tool_filter_label);
@@ -7707,7 +7707,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateSpeedUI(float speed) {
         if (toolSpeedLabel != null) {
             toolSpeedLabel.setText(formatSpeed(speed));
-            int color = Math.abs(speed - 1f) < 0.001f ? 0xFF888888 : 0xFF4CAF50;
+            int color = Math.abs(speed - 1f) < 0.001f ? 0xFF8A8A94 : 0xFF35F6BF;
             toolSpeedLabel.setTextColor(color);
             TextView icon = findViewById(R.id.tool_speed_icon);
             if (icon != null) icon.setTextColor(color);
@@ -7734,7 +7734,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updateRotateUI(int degrees) {
         boolean active = degrees != 0;
-        int color = active ? 0xFF4CAF50 : 0xFF888888;
+        int color = active ? 0xFF35F6BF : 0xFF8A8A94;
         if (toolRotateIcon != null) {
             toolRotateIcon.setTextColor(color);
             // Visually rotate the icon to show current rotation
@@ -7774,7 +7774,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updateFlipUI(boolean flipH, boolean flipV) {
         boolean active = flipH || flipV;
-        int color = active ? 0xFF4CAF50 : 0xFF888888;
+        int color = active ? 0xFF35F6BF : 0xFF8A8A94;
         if (toolFlipIcon != null) {
             toolFlipIcon.setTextColor(color);
             // Mirror the icon when horizontally flipped
@@ -8055,7 +8055,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             TextView chip = new TextView(this);
             chip.setText(label);
             chip.setTextSize(13);
-            chip.setTextColor(0xFFCCCCCC);
+            chip.setTextColor(0xFFC4C4CE);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding((int)(14 * dp), (int)(8 * dp), (int)(14 * dp), (int)(8 * dp));
             chip.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -8180,7 +8180,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             View child = row.getChildAt(i);
             if (child instanceof TextView) {
                 boolean isActive = activeKey.equals(child.getTag());
-                ((TextView) child).setTextColor(isActive ? 0xFF4CAF50 : 0xFFCCCCCC);
+                ((TextView) child).setTextColor(isActive ? 0xFF35F6BF : 0xFFC4C4CE);
                 ((TextView) child).setTypeface(null,
                         isActive ? Typeface.BOLD : Typeface.NORMAL);
             }
@@ -8400,7 +8400,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void updateCropUI(@NonNull String preset) {
         boolean active = !"none".equals(preset);
-        int color = active ? 0xFF4CAF50 : 0xFF888888;
+        int color = active ? 0xFF35F6BF : 0xFF8A8A94;
         if (toolCropIcon != null) {
             toolCropIcon.setTextColor(color);
         }
@@ -8417,7 +8417,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             toolCropLabel.setTextColor(color);
         }
         if (cropSnapCenter != null) {
-            cropSnapCenter.setTextColor(cropSnapToCenter ? 0xFF4CAF50 : 0xFF888888);
+            cropSnapCenter.setTextColor(cropSnapToCenter ? 0xFF35F6BF : 0xFF8A8A94);
             cropSnapCenter.setAlpha(cropSnapToCenter ? 1f : 0.55f);
         }
     }
@@ -8584,7 +8584,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void updateCanvasUI(@NonNull String preset) {
         boolean active = !"original".equals(preset);
-        int color = active ? 0xFF4CAF50 : 0xFF888888;
+        int color = active ? 0xFF35F6BF : 0xFF8A8A94;
         if (toolCanvasIcon != null) {
             toolCanvasIcon.setTextColor(color);
         }
@@ -9232,7 +9232,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void updateAudioToolUI() {
         boolean hasAudio = project != null && project.getTimeline().hasAudioClips();
-        int color = hasAudio ? 0xFF4CAF50 : 0xFF888888;
+        int color = hasAudio ? 0xFF35F6BF : 0xFF8A8A94;
         if (toolAudioIcon != null) toolAudioIcon.setTextColor(color);
         if (toolAudioLabel != null) toolAudioLabel.setTextColor(color);
     }
@@ -9654,7 +9654,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (exportProgressBar != null) exportProgressBar.setProgress(100);
                         if (exportProgressText != null) {
                             exportProgressText.setText(completeSummaryRes);
-                            exportProgressText.setTextColor(0xFFFFFFFF);
+                            exportProgressText.setTextColor(0xFFF4F4F5);
                         }
                         if (exportStatusIcon != null) exportStatusIcon.setText("check_circle");
                         if (exportEtaText != null) exportEtaText.setVisibility(View.GONE);
@@ -12407,14 +12407,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             TextView helper = new TextView(this);
             helper.setText(helperText);
-            helper.setTextColor(0xFFBBBBBB);
+            helper.setTextColor(0xFFC4C4CE);
             helper.setTextSize(13);
             root.addView(helper);
 
             // ── Editable output file name (pre-filled with the default name) ──
             TextView fileNameLabel = new TextView(this);
             fileNameLabel.setText(R.string.faditor_export_filename_label);
-            fileNameLabel.setTextColor(0xFF888888);
+            fileNameLabel.setTextColor(0xFF8A8A94);
             fileNameLabel.setTextSize(11);
             android.widget.LinearLayout.LayoutParams fnLabelLp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -12432,7 +12432,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fileNameInput.setText(defaultExportBaseName);
             fileNameInput.setSelectAllOnFocus(true);
             fileNameInput.setSingleLine(true);
-            fileNameInput.setTextColor(0xFFFFFFFF);
+            fileNameInput.setTextColor(0xFFF4F4F5);
             fileNameInput.setTextSize(14);
             fileNameInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
             android.widget.LinearLayout.LayoutParams fnInputLp =
@@ -12445,7 +12445,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             final android.widget.CheckBox cleanAudio = new android.widget.CheckBox(this);
             cleanAudio.setText(R.string.faditor_clean_audio_label);
-            cleanAudio.setTextColor(0xFFFFFFFF);
+            cleanAudio.setTextColor(0xFFF4F4F5);
             cleanAudio.setChecked(project.getExportSettings().isCleanAudio());
             android.widget.LinearLayout.LayoutParams clp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -12457,7 +12457,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             TextView cleanDesc = new TextView(this);
             cleanDesc.setText(R.string.faditor_clean_audio_desc);
-            cleanDesc.setTextColor(0xFF888888);
+            cleanDesc.setTextColor(0xFF8A8A94);
             cleanDesc.setTextSize(11);
             root.addView(cleanDesc);
 
@@ -12473,7 +12473,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] currentTarget = {com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget.OFF};
             TextView loudMeasured = new TextView(this);
             loudMeasured.setText("Measured: -- LUFS → Target: Off");
-            loudMeasured.setTextColor(0xFFAAAAAA);
+            loudMeasured.setTextColor(0xFF8A8A94);
             loudMeasured.setTextSize(11);
             loudMeasured.setPadding(0, pad/2, 0, 0);
             root.addView(loudMeasured);
@@ -12530,7 +12530,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             //    (cosmetic — just drives the two spinners below, no encoder changes). ──
             final TextView lowBandwidthChip = new TextView(this);
             lowBandwidthChip.setText("Low bandwidth");
-            lowBandwidthChip.setTextColor(0xFFFFFFFF);
+            lowBandwidthChip.setTextColor(0xFFF4F4F5);
             lowBandwidthChip.setTextSize(12);
             lowBandwidthChip.setBackgroundResource(R.drawable.settings_home_row_bg);
             int chipPadH = (int) (12 * getResources().getDisplayMetrics().density);
@@ -12567,7 +12567,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             //    defaulting back to video export next time is the safe behavior. ──
             final android.widget.CheckBox audioOnlyBox = new android.widget.CheckBox(this);
             audioOnlyBox.setText("Export audio only (.m4a)");
-            audioOnlyBox.setTextColor(0xFFFFFFFF);
+            audioOnlyBox.setTextColor(0xFFF4F4F5);
             android.widget.LinearLayout.LayoutParams aoLp =
                     new android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
@@ -12579,7 +12579,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             TextView audioOnlyDesc = new TextView(this);
             audioOnlyDesc.setText(
                     "Mixes clip audio + music into one audio file — no video track");
-            audioOnlyDesc.setTextColor(0xFF888888);
+            audioOnlyDesc.setTextColor(0xFF8A8A94);
             audioOnlyDesc.setTextSize(11);
             root.addView(audioOnlyDesc);
 
@@ -12598,7 +12598,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // so Resolution stays live while the video/audio-only choices grey out.
             final android.widget.CheckBox frameBox = new android.widget.CheckBox(this);
             frameBox.setText("Export single frame (image)");
-            frameBox.setTextColor(0xFFFFFFFF);
+            frameBox.setTextColor(0xFFF4F4F5);
             android.widget.LinearLayout.LayoutParams frameBoxLp =
                     new android.widget.LinearLayout.LayoutParams(
                             android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
@@ -12612,7 +12612,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     + "resolution. The frame comes off the same video encoder as an export, so "
                     + "Quality shapes it: PNG keeps that frame exactly, JPG is smaller "
                     + "(no transparency, frames are opaque)");
-            frameDesc.setTextColor(0xFF888888);
+            frameDesc.setTextColor(0xFF8A8A94);
             frameDesc.setTextSize(11);
             root.addView(frameDesc);
 
@@ -12627,7 +12627,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             TextView frameTimeLabel = new TextView(this);
             frameTimeLabel.setText("Frame time (pre-filled from the playhead — type to override)");
-            frameTimeLabel.setTextColor(0xFF888888);
+            frameTimeLabel.setTextColor(0xFF8A8A94);
             frameTimeLabel.setTextSize(11);
             android.widget.LinearLayout.LayoutParams ftLabelLp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -12643,13 +12643,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
             frameTimeInput.setHint("m:ss.t or seconds");
             frameTimeInput.setSelectAllOnFocus(true);
             frameTimeInput.setSingleLine(true);
-            frameTimeInput.setTextColor(0xFFFFFFFF);
+            frameTimeInput.setTextColor(0xFFF4F4F5);
             frameTimeInput.setTextSize(14);
             frameTimeInput.setInputType(android.text.InputType.TYPE_CLASS_DATETIME);
             frameExtras.addView(frameTimeInput);
 
             final TextView frameError = new TextView(this);
-            frameError.setTextColor(0xFFFF6B6B);
+            frameError.setTextColor(0xFFFF4438);
             frameError.setTextSize(11);
             frameError.setVisibility(View.GONE);
             frameExtras.addView(frameError);
@@ -12776,7 +12776,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull String[] options, int initialIndex, int pad) {
         TextView labelView = new TextView(this);
         labelView.setText(label);
-        labelView.setTextColor(0xFF888888);
+        labelView.setTextColor(0xFF8A8A94);
         labelView.setTextSize(11);
         android.widget.LinearLayout.LayoutParams labelLp =
                 new android.widget.LinearLayout.LayoutParams(
@@ -12794,7 +12794,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public View getView(int position, @Nullable View convertView,
                                 @NonNull android.view.ViewGroup parent) {
                 View v = super.getView(position, convertView, parent);
-                if (v instanceof TextView) ((TextView) v).setTextColor(0xFFFFFFFF);
+                if (v instanceof TextView) ((TextView) v).setTextColor(0xFFF4F4F5);
                 return v;
             }
         };
@@ -13183,7 +13183,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         if (exportProgressText != null) {
             exportProgressText.setText(R.string.faditor_exporting);
-            exportProgressText.setTextColor(0xFFAAAAAA);
+            exportProgressText.setTextColor(0xFF8A8A94);
         }
         if (exportEtaText != null) exportEtaText.setVisibility(View.GONE);
         if (exportStatusIcon != null) exportStatusIcon.setText("movie");
@@ -13404,9 +13404,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Card container with dark editor styling (rounded corners + subtle border).
         android.widget.FrameLayout card = new android.widget.FrameLayout(this);
         android.graphics.drawable.GradientDrawable cardBg = new android.graphics.drawable.GradientDrawable();
-        cardBg.setColor(0xFF1A1A2E);
+        cardBg.setColor(0xFF1F1F26);
         cardBg.setCornerRadius(12 * dp);
-        cardBg.setStroke((int) (1 * dp), 0xFF444444);
+        cardBg.setStroke((int) (1 * dp), 0xFF33333C);
         card.setBackground(cardBg);
         card.setPadding(padH / 2, padV / 2, padH / 2, padV / 2);
         card.addView(scroll, new android.widget.FrameLayout.LayoutParams(
@@ -13564,7 +13564,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         numberView.setText(label);
         numberView.setTextSize(13);
         numberView.setTypeface(null, android.graphics.Typeface.BOLD);
-        numberView.setTextColor(isUndoSide ? 0xFFFF8A65 : 0xFF4DD0E1);
+        numberView.setTextColor(isUndoSide ? 0xFFFAA03D : 0xFF22D3EE);
         android.widget.LinearLayout.LayoutParams numLp = new android.widget.LinearLayout.LayoutParams(
                 (int) (32 * dp), android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         row.addView(numberView, numLp);
@@ -13573,7 +13573,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         descView.setText(description);
         descView.setTextSize(13);
         // AI steps read violet; the user's own steps stay the neutral near-white.
-        descView.setTextColor(aiOrigin ? 0xFFB388FF : 0xFFDDDDDD);
+        descView.setTextColor(aiOrigin ? 0xFFA78BFA : 0xFFC4C4CE);
         descView.setMaxLines(1);
         descView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         android.widget.LinearLayout.LayoutParams descLp = new android.widget.LinearLayout.LayoutParams(
@@ -13596,14 +13596,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.setPadding((int) (14 * dp), (int) (10 * dp), (int) (14 * dp), (int) (10 * dp));
 
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xFF33334D);
+        bg.setColor(0xFF33333C);
         bg.setCornerRadius(6 * dp);
         row.setBackground(bg);
 
         View dot = new View(this);
         android.graphics.drawable.GradientDrawable dotBg = new android.graphics.drawable.GradientDrawable();
         dotBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        dotBg.setColor(0xFF4CAF50);
+        dotBg.setColor(0xFF35F6BF);
         dot.setBackground(dotBg);
         android.widget.LinearLayout.LayoutParams dotLp = new android.widget.LinearLayout.LayoutParams(
                 (int) (10 * dp), (int) (10 * dp));
@@ -13614,7 +13614,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         label.setText("Current position");
         label.setTextSize(13);
         label.setTypeface(null, android.graphics.Typeface.BOLD);
-        label.setTextColor(0xFFFFFFFF);
+        label.setTextColor(0xFFF4F4F5);
         row.addView(label);
         return row;
     }
@@ -15067,7 +15067,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * {@code EditorTimelineView} — it is not a renderer row, but solo must be askable
      * for it ("hear only the video"), so the menu shows only what can mean something
      * on each kind of lane. Styling mirrors the undo-history popup
-     * (dark 0xFF1A1A2E card, 12dp radius). Every action records ONE undo step.
+     * (dark 0xFF1F1F26 card, 12dp radius). Every action records ONE undo step.
      */
     private void onTrackHeaderLongPress(@NonNull com.fadcam.ui.faditor.layers.Track track,
                                         float viewX, float viewY) {
@@ -15084,9 +15084,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         android.graphics.drawable.GradientDrawable cardBg =
                 new android.graphics.drawable.GradientDrawable();
-        cardBg.setColor(0xFF1A1A2E);
+        cardBg.setColor(0xFF1F1F26);
         cardBg.setCornerRadius(12 * dp);
-        cardBg.setStroke((int) (1 * dp), 0xFF444444);
+        cardBg.setStroke((int) (1 * dp), 0xFF33333C);
         list.setBackground(cardBg);
 
         final android.widget.PopupWindow popup = new android.widget.PopupWindow(
@@ -15141,7 +15141,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         float dp = getResources().getDisplayMetrics().density;
         TextView row = new TextView(this);
         row.setText(label);
-        row.setTextColor(0xFFEDEDED);
+        row.setTextColor(0xFFF4F4F5);
         row.setTextSize(14f);
         row.setPadding((int) (16 * dp), (int) (10 * dp), (int) (16 * dp), (int) (10 * dp));
         android.util.TypedValue tv = new android.util.TypedValue();
@@ -17278,7 +17278,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setText(currentText);
         input.setSelectAllOnFocus(true);
         input.setSingleLine(true);
-        input.setTextColor(0xFFFFFFFF);
+        input.setTextColor(0xFFF4F4F5);
         col.addView(input);
 
         // ── Timing row: [◄ frame] [absolute timestamp box, tap to type] [► frame] ──
@@ -17293,7 +17293,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (TextView c : new TextView[]{prev, next}) {
             if (iconFont != null) c.setTypeface(iconFont);
             c.setTextSize(26);
-            c.setTextColor(0xFFCCCCCC);
+            c.setTextColor(0xFFC4C4CE);
             c.setGravity(android.view.Gravity.CENTER);
             c.setPadding((int) (10 * dp), (int) (6 * dp), (int) (10 * dp), (int) (6 * dp));
             c.setBackgroundResource(R.drawable.floating_button_item_bg);
@@ -17302,7 +17302,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         next.setText("chevron_right");
 
         final TextView tsBox = new TextView(this);
-        tsBox.setTextColor(0xFF4DD0E1);
+        tsBox.setTextColor(0xFF22D3EE);
         tsBox.setTextSize(18);
         tsBox.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         tsBox.setGravity(android.view.Gravity.CENTER);
@@ -17359,7 +17359,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView hint = new TextView(this);
         hint.setText("Tap the time to type an exact value · ◄ ► nudge ±1 frame");
-        hint.setTextColor(0xFF888888);
+        hint.setTextColor(0xFF8A8A94);
         hint.setTextSize(11);
         hint.setPadding(0, (int) (8 * dp), 0, 0);
         col.addView(hint);
@@ -17418,13 +17418,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView origTimeView = new TextView(this);
         origTimeView.setText(formatTsMs(curAbs));
-        origTimeView.setTextColor(0xFF888888);
+        origTimeView.setTextColor(0xFF8A8A94);
         origTimeView.setTextSize(16);
         row.addView(origTimeView);
 
         TextView arrowView = new TextView(this);
         arrowView.setText(" → ");
-        arrowView.setTextColor(0xFF888888);
+        arrowView.setTextColor(0xFF8A8A94);
         arrowView.setTextSize(16);
         row.addView(arrowView);
 
@@ -17432,7 +17432,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tin.setText(formatTsMs(curAbs));
         tin.setSelectAllOnFocus(true);
         tin.setSingleLine(true);
-        tin.setTextColor(0xFF4DD0E1);
+        tin.setTextColor(0xFF22D3EE);
         tin.setTextSize(16);
         tin.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
@@ -17798,11 +17798,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             for (String c : cases) {
                 TextView tv = new TextView(this);
                 tv.setText(c);
-                tv.setTextColor(0xFFFFFFFF);
+                tv.setTextColor(0xFFF4F4F5);
                 tv.setTextSize(13f);
                 tv.setTypeface(null, android.graphics.Typeface.BOLD);
                 tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-                tv.setBackgroundColor(0xFF333333);
+                tv.setBackgroundColor(0xFF33333C);
                 android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
                 lp.rightMargin = (int)(6*density);
                 tv.setLayoutParams(lp);
@@ -17817,7 +17817,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 tv.setTextSize(13f);
                 tv.setTypeface(null, android.graphics.Typeface.BOLD);
                 tv.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-                tv.setBackgroundColor(0xFF222222);
+                tv.setBackgroundColor(0xFF1F1F26);
                 tv.setAlpha(0.5f);
                 android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
                 lp.rightMargin = (int)(6*density);
@@ -17844,20 +17844,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             wordSyncDrawerRippleLabel = new TextView(this);
             wordSyncDrawerRippleLabel.setId(R.id.word_sync_ripple);
             wordSyncDrawerRippleLabel.setText("ONE");
-            wordSyncDrawerRippleLabel.setTextColor(0xFF4DD0E1);
+            wordSyncDrawerRippleLabel.setTextColor(0xFF22D3EE);
             wordSyncDrawerRippleLabel.setTextSize(12f);
             wordSyncDrawerRippleLabel.setTypeface(null, android.graphics.Typeface.BOLD);
             wordSyncDrawerRippleLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-            wordSyncDrawerRippleLabel.setBackgroundColor(0xFF2A2A2A);
+            wordSyncDrawerRippleLabel.setBackgroundColor(0xFF2C2C35);
             wordSyncDrawerRippleLabel.setOnClickListener(v -> cycleWordSyncRipple());
             row.addView(wordSyncDrawerRippleLabel);
             wordSyncDrawerSnapLabel = new TextView(this);
             wordSyncDrawerSnapLabel.setId(R.id.word_sync_snap);
             wordSyncDrawerSnapLabel.setText("SNAP");
-            wordSyncDrawerSnapLabel.setTextColor(0xFFAAFFAA);
+            wordSyncDrawerSnapLabel.setTextColor(0xFFF4F4F5);
             wordSyncDrawerSnapLabel.setTextSize(11f);
             wordSyncDrawerSnapLabel.setPadding((int)(8*density),(int)(6*density),(int)(8*density),(int)(6*density));
-            wordSyncDrawerSnapLabel.setBackgroundColor(0xFF2A2A2A);
+            wordSyncDrawerSnapLabel.setBackgroundColor(0xFF2C2C35);
             android.widget.LinearLayout.LayoutParams snapLp = new android.widget.LinearLayout.LayoutParams(android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
             snapLp.leftMargin = (int)(8*density);
             wordSyncDrawerSnapLabel.setLayoutParams(snapLp);
@@ -18061,14 +18061,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * monospace + accent green, KARAOKE is the normal proportional face + default colour.
      */
     private void updateWordBlockToggleChrome() {
-        final int ACCENT_GREEN = 0xFF4CAF50;
+        final int ACCENT_GREEN = 0xFF35F6BF;
         if (wordScrubWordText != null) {
             if (wordEditBlockMode) {
                 wordScrubWordText.setTypeface(android.graphics.Typeface.MONOSPACE);
                 wordScrubWordText.setTextColor(ACCENT_GREEN);
             } else {
                 wordScrubWordText.setTypeface(android.graphics.Typeface.DEFAULT);
-                wordScrubWordText.setTextColor(0xFFFFFFFF);
+                wordScrubWordText.setTextColor(0xFFF4F4F5);
             }
         }
         if (wordSyncBlockToggle != null) {
@@ -18076,7 +18076,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 wordSyncBlockToggle.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
             } catch (Exception ignored) {}
             wordSyncBlockToggle.setText(wordEditBlockMode ? "link" : "call_split");
-            wordSyncBlockToggle.setTextColor(wordEditBlockMode ? ACCENT_GREEN : 0xFFEEEEEE);
+            wordSyncBlockToggle.setTextColor(wordEditBlockMode ? ACCENT_GREEN : 0xFFF4F4F5);
             String label = wordEditBlockMode ? "One block" : "Split into words";
             wordSyncBlockToggle.setContentDescription(label);
             androidx.appcompat.widget.TooltipCompat.setTooltipText(wordSyncBlockToggle, label);
@@ -18534,7 +18534,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (wordSyncDrawerSnapLabel != null && wordSyncMode != null) {
             boolean on = wordSyncMode.isSnapEnabled();
             wordSyncDrawerSnapLabel.setText(on ? "SNAP ON" : "SNAP OFF");
-            wordSyncDrawerSnapLabel.setTextColor(on ? 0xFFAAFFAA : 0xFF888888);
+            wordSyncDrawerSnapLabel.setTextColor(on ? 0xFFF4F4F5 : 0xFF8A8A94);
         }
     }
 
@@ -19255,7 +19255,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView sensIcon = new TextView(this);
         if (iconFont != null) sensIcon.setTypeface(iconFont);
         sensIcon.setText("tune");
-        sensIcon.setTextColor(0xFF9E9E9E);
+        sensIcon.setTextColor(0xFF8A8A94);
         sensIcon.setTextSize(18);
         sensIcon.setPadding(0, 0, (int) (8 * dp), 0);
         topRow.addView(sensIcon);
@@ -19308,14 +19308,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView freqLabel = new TextView(this);
         freqLabel.setText("Hz");
-        freqLabel.setTextColor(0xFF9E9E9E);
+        freqLabel.setTextColor(0xFF8A8A94);
         freqLabel.setTextSize(11);
         freqLabel.setPadding(0, 0, (int) (6 * dp), 0);
         freqRow.addView(freqLabel);
 
         TextView lowHzText = new TextView(this);
         lowHzText.setTextSize(11);
-        lowHzText.setTextColor(0xFFCCCCCC);
+        lowHzText.setTextColor(0xFFC4C4CE);
         lowHzText.setMinEms(2);
         freqRow.addView(lowHzText);
 
@@ -19330,7 +19330,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView highHzText = new TextView(this);
         highHzText.setTextSize(11);
-        highHzText.setTextColor(0xFFCCCCCC);
+        highHzText.setTextColor(0xFFC4C4CE);
         highHzText.setMinEms(3);
         freqRow.addView(highHzText);
 
@@ -19375,14 +19375,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView barsLabel = new TextView(this);
         barsLabel.setText("Bars");
-        barsLabel.setTextColor(0xFF9E9E9E);
+        barsLabel.setTextColor(0xFF8A8A94);
         barsLabel.setTextSize(11);
         barsLabel.setPadding((int) (10 * dp), 0, (int) (4 * dp), 0);
         freqRow.addView(barsLabel);
 
         TextView barsText = new TextView(this);
         barsText.setTextSize(11);
-        barsText.setTextColor(0xFFCCCCCC);
+        barsText.setTextColor(0xFFC4C4CE);
         barsText.setMinEms(2);
         freqRow.addView(barsText);
 
@@ -19423,14 +19423,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView widthLabel = new TextView(this);
         widthLabel.setText("Width");
-        widthLabel.setTextColor(0xFF9E9E9E);
+        widthLabel.setTextColor(0xFF8A8A94);
         widthLabel.setTextSize(11);
         widthLabel.setPadding(0, 0, (int) (4 * dp), 0);
         barRow.addView(widthLabel);
 
         TextView widthText = new TextView(this);
         widthText.setTextSize(11);
-        widthText.setTextColor(0xFFCCCCCC);
+        widthText.setTextColor(0xFFC4C4CE);
         widthText.setMinEms(2);
         barRow.addView(widthText);
 
@@ -19444,14 +19444,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView gapLabel = new TextView(this);
         gapLabel.setText("Gap");
-        gapLabel.setTextColor(0xFF9E9E9E);
+        gapLabel.setTextColor(0xFF8A8A94);
         gapLabel.setTextSize(11);
         gapLabel.setPadding((int) (6 * dp), 0, (int) (4 * dp), 0);
         barRow.addView(gapLabel);
 
         TextView gapText = new TextView(this);
         gapText.setTextSize(11);
-        gapText.setTextColor(0xFFCCCCCC);
+        gapText.setTextColor(0xFFC4C4CE);
         gapText.setMinEms(2);
         barRow.addView(gapText);
 
@@ -19504,7 +19504,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int itemH = (int) (26 * dp);
         View groove = new View(this);
         android.graphics.drawable.GradientDrawable grooveBg = new android.graphics.drawable.GradientDrawable();
-        grooveBg.setColor(0x144DD0E1);
+        grooveBg.setColor(0x1422D3EE);
         grooveBg.setCornerRadius(8 * dp);
         groove.setBackground(grooveBg);
         android.widget.FrameLayout.LayoutParams glp = new android.widget.FrameLayout.LayoutParams(
@@ -19527,7 +19527,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 attachBtn = new TextView(this);
         for (TextView b : new TextView[]{justBtn, modeBtn, mirBtn, centerBtn, rendBtn, attachBtn}) {
             if (iconFont != null) b.setTypeface(iconFont);
-            b.setTextColor(0xFFEEEEEE);
+            b.setTextColor(0xFFF4F4F5);
             b.setGravity(android.view.Gravity.CENTER);
             int p = (int) (6 * dp);
             b.setPadding(p, p, p, p);
@@ -19540,15 +19540,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     : (j == 2 ? "vertical_align_top" : "vertical_align_bottom"));
             modeBtn.setText(overlay.getDataMode() == 1 ? "equalizer" : "graphic_eq");
             mirBtn.setText("flip");
-            mirBtn.setTextColor(overlay.isHorizontalMirror() ? 0xFF4CAF50 : 0xFFEEEEEE);
+            mirBtn.setTextColor(overlay.isHorizontalMirror() ? 0xFF35F6BF : 0xFFF4F4F5);
             int cm = overlay.getCenterMode();
             centerBtn.setText(cm == 0 ? "blur_on" : (cm == 1 ? "blur_off" : "view_stream"));
-            centerBtn.setTextColor(cm >= 0 ? 0xFF4CAF50 : 0xFFEEEEEE);
+            centerBtn.setTextColor(cm >= 0 ? 0xFF35F6BF : 0xFFF4F4F5);
             rendBtn.setText(overlay.getRenderMode() == 1 ? "radio_button_checked" : "equalizer");
-            rendBtn.setTextColor(overlay.getRenderMode() == 1 ? 0xFF4CAF50 : 0xFFEEEEEE);
+            rendBtn.setTextColor(overlay.getRenderMode() == 1 ? 0xFF35F6BF : 0xFFF4F4F5);
             // G5: link = attached (time-rides its host clip), link_off = detached.
             attachBtn.setText(overlay.isAttached() ? "link" : "link_off");
-            attachBtn.setTextColor(overlay.isAttached() ? 0xFF4CAF50 : 0xFFEEEEEE);
+            attachBtn.setTextColor(overlay.isAttached() ? 0xFF35F6BF : 0xFFF4F4F5);
         };
         labels.run();
         Runnable live = () -> {
@@ -19657,12 +19657,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // RIGHT: gradient + solid swatch carousel. spec: null=clear, [hex]=solid, [a,b]=gradient.
         final java.util.List<String[]> swatches = new java.util.ArrayList<>();
         swatches.add(null); // clear → preset
-        for (String hex : new String[]{"#00E676", "#2196F3", "#FF1744", "#FFEA00", "#E040FB", "#FF6D00", "#FFFFFF"})
+        for (String hex : new String[]{"#35F6BF", "#4397FD", "#FF4438", "#FBBF24", "#CC27FF", "#FBBF24", "#F4F4F5"})
             swatches.add(new String[]{hex});
         for (String[] g : new String[][]{
-                {"#00E5FF", "#2979FF"}, {"#FF6D00", "#FF1744"}, {"#FFEA00", "#FF6D00"},
-                {"#E040FB", "#7C4DFF"}, {"#69F0AE", "#00BFA5"}, {"#FF80AB", "#7C4DFF"},
-                {"#FFFFFF", "#9E9E9E"}, {"#FFD54F", "#F57F17"}})
+                {"#22D3EE", "#4397FD"}, {"#FBBF24", "#FF4438"}, {"#FBBF24", "#FBBF24"},
+                {"#CC27FF", "#52525B"}, {"#35F6BF", "#22D3EE"}, {"#A78BFA", "#52525B"},
+                {"#F4F4F5", "#8A8A94"}, {"#FBBF24", "#FAA03D"}})
             swatches.add(g);
         androidx.recyclerview.widget.RecyclerView gradRv = new androidx.recyclerview.widget.RecyclerView(this);
         gradRv.setAdapter(new androidx.recyclerview.widget.RecyclerView.Adapter<androidx.recyclerview.widget.RecyclerView.ViewHolder>() {
@@ -19685,7 +19685,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 String[] g = swatches.get(position);
                 android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
                 gd.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-                if (g == null) { gd.setColor(0x00000000); gd.setStroke((int) (2 * dp), 0xFF888888); }
+                if (g == null) { gd.setColor(0x00000000); gd.setStroke((int) (2 * dp), 0xFF8A8A94); }
                 else if (g.length == 1) { gd.setColor(android.graphics.Color.parseColor(g[0]));
                     gd.setStroke((int) (2 * dp), 0x55FFFFFF); }
                 else { gd.setColors(new int[]{android.graphics.Color.parseColor(g[0]),
@@ -19757,7 +19757,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView header = new TextView(this);
         header.setText("Lanes"); // TODO(strings): externalize once the studio strings land.
-        header.setTextColor(0xFF9E9E9E);
+        header.setTextColor(0xFF8A8A94);
         header.setTextSize(12);
         header.setPadding(0, 0, 0, (int) (4 * dp));
         section.addView(header);
@@ -19887,12 +19887,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             chip.setText(emitterLabel(l.emitter) + " " + (i + 1));
             chip.setTextSize(11);
             boolean sel = i == visualizerSelectedLayer;
-            chip.setTextColor(sel ? 0xFF00E5FF : 0xFFCCCCCC);
+            chip.setTextColor(sel ? 0xFF22D3EE : 0xFFC4C4CE);
             chip.setPadding((int) (10 * dp), (int) (5 * dp), (int) (10 * dp), (int) (5 * dp));
             android.graphics.drawable.GradientDrawable cbg = new android.graphics.drawable.GradientDrawable();
             cbg.setCornerRadius(12 * dp);
-            cbg.setColor(sel ? 0x2200E5FF : 0x22FFFFFF);
-            if (sel) cbg.setStroke((int) (1 * dp), 0xFF00E5FF);
+            cbg.setColor(sel ? 0x2222D3EE : 0x22FFFFFF);
+            if (sel) cbg.setStroke((int) (1 * dp), 0xFF22D3EE);
             chip.setBackground(cbg);
             LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -19960,7 +19960,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout emRow = vizPropRow(dp, "Shape");
         TextView emBtn = new TextView(this);
         emBtn.setText(emitterLabel(layer.emitter));
-        emBtn.setTextColor(0xFFEEEEEE);
+        emBtn.setTextColor(0xFFF4F4F5);
         emBtn.setTextSize(12);
         emBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
         emBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -19977,8 +19977,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // color dots (in a horizontal scroll so a long palette never widens the drawer)
         LinearLayout colRow = vizPropRow(dp, "Color");
-        String[] palette = {"#00E676", "#00E5FF", "#2196F3", "#7C4DFF", "#E040FB",
-                "#FF1744", "#FF6D00", "#FFEA00", "#FFFFFF", "#9E9E9E"};
+        String[] palette = {"#35F6BF", "#22D3EE", "#4397FD", "#52525B", "#CC27FF",
+                "#FF4438", "#FBBF24", "#FBBF24", "#F4F4F5", "#8A8A94"};
         android.widget.HorizontalScrollView colScroll = new android.widget.HorizontalScrollView(this);
         colScroll.setHorizontalScrollBarEnabled(false);
         LinearLayout dotsHost = new LinearLayout(this);
@@ -19993,7 +19993,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             dg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
             dg.setColor(android.graphics.Color.parseColor(hex));
             boolean isCur = hex.equalsIgnoreCase(layer.color);
-            dg.setStroke((int) ((isCur ? 2 : 1) * dp), isCur ? 0xFFFFFFFF : 0x55FFFFFF);
+            dg.setStroke((int) ((isCur ? 2 : 1) * dp), isCur ? 0xFFF4F4F5 : 0x55FFFFFF);
             dot.setBackground(dg);
             dot.setOnClickListener(v -> {
                 layer.color = hex;
@@ -20020,7 +20020,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Runnable setBlendLabel = () -> blendBtn.setText(
                 com.fadcam.ui.faditor.model.VizLayer.BLEND_ADD.equals(layer.blend) ? "Add" : "Normal");
         setBlendLabel.run();
-        blendBtn.setTextColor(0xFFEEEEEE);
+        blendBtn.setTextColor(0xFFF4F4F5);
         blendBtn.setTextSize(12);
         blendBtn.setPadding((int) (12 * dp), (int) (5 * dp), (int) (12 * dp), (int) (5 * dp));
         blendBtn.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -20054,7 +20054,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView mirBtn2 = new TextView(this);
         Runnable setMir = () -> {
             mirBtn2.setText(layer.mirror ? "On" : "Off");
-            mirBtn2.setTextColor(layer.mirror ? 0xFF4CAF50 : 0xFFEEEEEE);
+            mirBtn2.setTextColor(layer.mirror ? 0xFF35F6BF : 0xFFF4F4F5);
         };
         setMir.run();
         mirBtn2.setTextSize(12);
@@ -20070,7 +20070,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Runnable setGlow = () -> {
             boolean on = layer.glowColor != null && layer.glowRadiusDp > 0f;
             glowBtn.setText(on ? "On" : "Off");
-            glowBtn.setTextColor(on ? 0xFF4CAF50 : 0xFFEEEEEE);
+            glowBtn.setTextColor(on ? 0xFF35F6BF : 0xFFF4F4F5);
         };
         setGlow.run();
         glowBtn.setTextSize(12);
@@ -20105,7 +20105,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView b = new TextView(this);
         b.setText(label);
         b.setTextSize(13);
-        b.setTextColor(0xFFEEEEEE);
+        b.setTextColor(0xFFF4F4F5);
         b.setGravity(android.view.Gravity.CENTER);
         b.setPadding((int) (8 * dp), (int) (5 * dp), (int) (8 * dp), (int) (5 * dp));
         b.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -20126,7 +20126,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         row.setPadding(0, (int) (3 * dp), 0, (int) (3 * dp));
         TextView t = new TextView(this);
         t.setText(label);
-        t.setTextColor(0xFF9E9E9E);
+        t.setTextColor(0xFF8A8A94);
         t.setTextSize(11);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams((int) (74 * dp),
                 LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -20142,7 +20142,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         LinearLayout row = vizPropRow(dp, label);
         TextView valT = new TextView(this);
         valT.setTextSize(11);
-        valT.setTextColor(0xFFCCCCCC);
+        valT.setTextColor(0xFFC4C4CE);
         valT.setMinEms(3);
         valT.setGravity(android.view.Gravity.END);
         SeekBar sb = new SeekBar(this);
@@ -20322,7 +20322,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Light up the visualizer tool button when the drawer is active.
         TextView toolIcon = findViewById(R.id.tool_visualizer_icon);
         TextView toolLabel = findViewById(R.id.tool_visualizer_label);
-        int activeColor = show ? 0xFF4CAF50 : 0xFF888888;
+        int activeColor = show ? 0xFF35F6BF : 0xFF8A8A94;
         if (toolIcon != null) toolIcon.setTextColor(activeColor);
         if (toolLabel != null) toolLabel.setTextColor(activeColor);
     }
@@ -20352,7 +20352,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView ccIcon = new TextView(this);
         ccIcon.setText("closed_caption"); // same ligature the bottom tools carousel uses for Captions
         ccIcon.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
-        ccIcon.setTextColor(0xFF4CAF50);
+        ccIcon.setTextColor(0xFF35F6BF);
         ccIcon.setTextSize(18);
         ccIcon.setGravity(android.view.Gravity.CENTER);
         captionHeaderPills = buildTrackPillsRow(this);
@@ -20493,13 +20493,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout.LayoutParams slp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f);
         slp.leftMargin = (int)(10*d);
         sizeSlider.setLayoutParams(slp);
-        sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
-        sizeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
-        sizeSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF333333));
+        sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF35F6BF));
+        sizeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF35F6BF));
+        sizeSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF33333C));
         sizeRow.addView(sizeSlider);
         android.widget.TextView sizeVal = new android.widget.TextView(ctx);
         sizeVal.setTextSize(12);
-        sizeVal.setTextColor(0xFF4CAF50);
+        sizeVal.setTextColor(0xFF35F6BF);
         sizeVal.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         sizeVal.setPadding((int)(6*d), 0, 0, 0);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
@@ -20527,7 +20527,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(fontRow);
         android.widget.TextView fontLabel = new android.widget.TextView(ctx);
         fontLabel.setText("Font");
-        fontLabel.setTextColor(0xFFAAAAAA);
+        fontLabel.setTextColor(0xFF8A8A94);
         fontLabel.setTextSize(12);
         fontLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         fontRow.addView(fontLabel);
@@ -20543,7 +20543,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String sel = currentCaptionStyle().fontKey;
             for (java.util.Map.Entry<String, android.widget.TextView> e : fontChipByKey.entrySet()) {
                 boolean on = e.getKey().equals(sel);
-                e.getValue().setTextColor(on ? 0xFF4CAF50 : 0xFFEEEEEE);
+                e.getValue().setTextColor(on ? 0xFF35F6BF : 0xFFF4F4F5);
                 e.getValue().setAlpha(on ? 0.88f : 0.72f);
             }
         };
@@ -20576,7 +20576,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final android.widget.TextView importChip = new android.widget.TextView(ctx);
         styleDrawerChip(importChip, d);
         importChip.setText("+ Import"); // TODO(strings)
-        importChip.setTextColor(0xFF64B5F6);
+        importChip.setTextColor(0xFF4397FD);
         importChip.setOnClickListener(v -> {
             pendingFontImportCallback = key -> {
                 String base = key.substring(key.lastIndexOf('/') + 1);
@@ -20614,7 +20614,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(animRow);
         android.widget.TextView animLabel = new android.widget.TextView(ctx);
         animLabel.setText("Highlight");
-        animLabel.setTextColor(0xFFAAAAAA);
+        animLabel.setTextColor(0xFF8A8A94);
         animLabel.setTextSize(12);
         animLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         animRow.addView(animLabel);
@@ -20668,7 +20668,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(motionRow);
             android.widget.TextView motionLabel = new android.widget.TextView(ctx);
             motionLabel.setText("Motion");
-            motionLabel.setTextColor(0xFFAAAAAA);
+            motionLabel.setTextColor(0xFF8A8A94);
             motionLabel.setTextSize(12);
             motionLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
             motionRow.addView(motionLabel);
@@ -20700,7 +20700,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } else {
             android.widget.TextView empty = new android.widget.TextView(ctx);
             empty.setText("No captioned clip selected");
-            empty.setTextColor(0xFFAAAAAA);
+            empty.setTextColor(0xFF8A8A94);
             empty.setTextSize(12);
             empty.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
             root.addView(empty);
@@ -20774,9 +20774,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // §7.2.6: GradientDrawable, not setBackgroundColor — the latter squares off the
                 // rounded floating_button_item_bg. Full-corner pill + thin accent stroke.
                 android.graphics.drawable.GradientDrawable selBg = new android.graphics.drawable.GradientDrawable();
-                selBg.setColor(0x264CAF50);
+                selBg.setColor(0x2635F6BF);
                 selBg.setCornerRadius(999f);
-                selBg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF4CAF50);
+                selBg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF35F6BF);
                 pill.setBackground(selBg);
             }
             int pp = (int)(6*d);
@@ -20788,12 +20788,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             pill.setLayoutParams(plp);
             TextView dot = new TextView(ctx);
             dot.setText(isActive ? "●" : "○");
-            dot.setTextColor(isActive ? 0xFF4CAF50 : 0xFF888888);
+            dot.setTextColor(isActive ? 0xFF35F6BF : 0xFF8A8A94);
             dot.setTextSize(11);
             pill.addView(dot);
             TextView tv = new TextView(ctx);
             tv.setText(label.length() > 8 ? label.substring(0, 8) : label);
-            tv.setTextColor(isActive ? 0xFF4CAF50 : 0xFFEEEEEE);
+            tv.setTextColor(isActive ? 0xFF35F6BF : 0xFFF4F4F5);
             tv.setTextSize(12);
             int tp = (int)(3*d);
             tv.setPadding(tp, 0, tp, 0);
@@ -20801,7 +20801,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             TextView eye = new TextView(ctx);
             eye.setText(isEnabled ? "visibility" : "visibility_off");
             eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
-            eye.setTextColor(isEnabled ? 0xFFEEEEEE : 0xFF666666);
+            eye.setTextColor(isEnabled ? 0xFFF4F4F5 : 0xFF52525B);
             eye.setTextSize(13);
             eye.setClickable(true);
             eye.setOnClickListener(v -> {
@@ -20849,7 +20849,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // "+" wire/import pill
         TextView add = new TextView(ctx);
         add.setText("+");
-        add.setTextColor(0xFF4CAF50);
+        add.setTextColor(0xFF35F6BF);
         add.setTextSize(16);
         add.setTypeface(null, android.graphics.Typeface.BOLD);
         int ap = (int)(10*d);
@@ -20954,18 +20954,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView kLabel = new TextView(this);
         kLabel.setText("Karaoke — one word per line (per-word timing):");
-        kLabel.setTextColor(0xFFAAAAAA);
+        kLabel.setTextColor(0xFF8A8A94);
         kLabel.setTextSize(12);
         col.addView(kLabel);
         TextView kEx = new TextView(this);
         kEx.setText("00:00.000 -> 00:00.320 Ten\n00:00.320 -> 00:00.610 rows,\n00:00.610 -> 00:00.910 ten toes,");
-        kEx.setTextColor(0xFFCCCCCC);
+        kEx.setTextColor(0xFFC4C4CE);
         kEx.setTextSize(12);
         kEx.setTypeface(android.graphics.Typeface.MONOSPACE);
         col.addView(kEx);
         TextView kCopy = new TextView(this);
         kCopy.setText("Copy example");
-        kCopy.setTextColor(0xFF64B5F6);
+        kCopy.setTextColor(0xFF4397FD);
         kCopy.setTextSize(13);
         int cp = (int) (8 * d);
         kCopy.setPadding(0, cp / 2, 0, cp);
@@ -20975,18 +20975,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView sLabel = new TextView(this);
         sLabel.setText("Slide — one block per timestamp (whole verse shows at once):");
-        sLabel.setTextColor(0xFFAAAAAA);
+        sLabel.setTextColor(0xFF8A8A94);
         sLabel.setTextSize(12);
         col.addView(sLabel);
         TextView sEx = new TextView(this);
         sEx.setText("[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant");
-        sEx.setTextColor(0xFFCCCCCC);
+        sEx.setTextColor(0xFFC4C4CE);
         sEx.setTextSize(12);
         sEx.setTypeface(android.graphics.Typeface.MONOSPACE);
         col.addView(sEx);
         TextView sCopy = new TextView(this);
         sCopy.setText("Copy example");
-        sCopy.setTextColor(0xFF64B5F6);
+        sCopy.setTextColor(0xFF4397FD);
         sCopy.setTextSize(13);
         sCopy.setPadding(0, cp / 2, 0, 0);
         sCopy.setOnClickListener(v -> copyToClipboard(
@@ -21125,7 +21125,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(modeRow);
         android.widget.TextView modeLabel = new android.widget.TextView(ctx);
         modeLabel.setText("Fit");
-        modeLabel.setTextColor(0xFFAAAAAA);
+        modeLabel.setTextColor(0xFF8A8A94);
         modeLabel.setTextSize(12);
         modeLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         modeRow.addView(modeLabel);
@@ -21156,17 +21156,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView truncateBox = new TextView(ctx);
         truncateBox.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
         truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
-        truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? 0xFF4CAF50 : 0xFF888888);
+        truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? 0xFF35F6BF : 0xFF8A8A94);
         truncateBox.setTextSize(14);
         truncateBox.setClickable(true);
         TextView truncateLbl = new TextView(ctx);
         truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
-        truncateLbl.setTextColor(0xFF9A9A9A);
+        truncateLbl.setTextColor(0xFF8A8A94);
         truncateLbl.setTextSize(11);
         truncateBox.setOnClickListener(v -> {
             tweakCaptionStyle(s -> s.fitTruncate = !s.fitTruncate);
             truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
-            truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? 0xFF4CAF50 : 0xFF888888);
+            truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? 0xFF35F6BF : 0xFF8A8A94);
             truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
         });
         android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
@@ -21184,7 +21184,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(wordsRow);
         android.widget.TextView wordsLabel = new android.widget.TextView(ctx);
         wordsLabel.setText("Words");
-        wordsLabel.setTextColor(0xFFAAAAAA);
+        wordsLabel.setTextColor(0xFF8A8A94);
         wordsLabel.setTextSize(12);
         wordsLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         wordsRow.addView(wordsLabel);
@@ -21192,7 +21192,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Max lines dial beside it
         android.widget.TextView maxLinesLabel = new android.widget.TextView(ctx);
         maxLinesLabel.setText("Max lines");
-        maxLinesLabel.setTextColor(0xFFAAAAAA);
+        maxLinesLabel.setTextColor(0xFF8A8A94);
         maxLinesLabel.setTextSize(12);
         maxLinesLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         maxLinesLabel.setPadding((int)(16*d), 0, 0, 0);
@@ -21201,7 +21201,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── Floor shares the Words/Max-lines line (was a full-width row of its own)
         android.widget.TextView floorLabel = new android.widget.TextView(ctx);
         floorLabel.setText("Floor");
-        floorLabel.setTextColor(0xFFAAAAAA);
+        floorLabel.setTextColor(0xFF8A8A94);
         floorLabel.setTextSize(12);
         floorLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         wordsRow.addView(floorLabel);
@@ -21213,13 +21213,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout.LayoutParams flp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         flp.leftMargin = (int)(10*d);
         floorSlider.setLayoutParams(flp);
-        floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
-        floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF4CAF50));
-        floorSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF333333));
+        floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(0xFF35F6BF));
+        floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(0xFF35F6BF));
+        floorSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(0xFF33333C));
         wordsRow.addView(floorSlider);
         android.widget.TextView floorVal = new android.widget.TextView(ctx);
         floorVal.setTextSize(12);
-        floorVal.setTextColor(0xFF4CAF50);
+        floorVal.setTextColor(0xFF35F6BF);
         floorVal.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         floorVal.setPadding((int)(6*d), 0, 0, 0);
         floorVal.setText(Math.round(currentCaptionStyle().fitMinScale * 100) + "%");
@@ -21241,11 +21241,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView slideChip = new TextView(ctx);
         styleDrawerChip(slideChip, d);
         slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
-        slideChip.setTextColor(currentCaptionStyle().slideGroup ? 0xFF4CAF50 : 0xFFEEEEEE);
+        slideChip.setTextColor(currentCaptionStyle().slideGroup ? 0xFF35F6BF : 0xFFF4F4F5);
         slideChip.setOnClickListener(v -> {
             tweakCaptionStyle(s -> s.slideGroup = !s.slideGroup);
             slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
-            slideChip.setTextColor(currentCaptionStyle().slideGroup ? 0xFF4CAF50 : 0xFFEEEEEE);
+            slideChip.setTextColor(currentCaptionStyle().slideGroup ? 0xFF35F6BF : 0xFFF4F4F5);
         });
         final int[] bindRef = {-1, -1}; // [bindingIdx, isAudio]
         Runnable resolveBinding = () -> {
@@ -21272,7 +21272,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView allChip = new TextView(ctx);
         styleDrawerChip(allChip, d);
         allChip.setText("Copy to all");
-        allChip.setTextColor(0xFF64B5F6);
+        allChip.setTextColor(0xFF4397FD);
         Runnable refreshGrowRow = () -> {
             int anchor = 0, justify = 0;
             if (isAudioRef[0]) {
@@ -21399,7 +21399,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Common look for the drawer's tappable chips. */
     private void styleDrawerChip(@NonNull TextView chip, float d) {
-        chip.setTextColor(0xFFEEEEEE);
+        chip.setTextColor(0xFFF4F4F5);
         chip.setTextSize(13);
         chip.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         int cp = (int)(10*d);
@@ -21437,7 +21437,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final TextView dial = new TextView(ctx);
         dial.setTextSize(12);
         dial.setTypeface(null, android.graphics.Typeface.BOLD);
-        dial.setTextColor(0xFF4CAF50);
+        dial.setTextColor(0xFF35F6BF);
         dial.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         dial.setGravity(android.view.Gravity.CENTER);
         dial.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (6 * d));
@@ -21514,7 +21514,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final TextView dial = new TextView(ctx);
         dial.setTextSize(12);
         dial.setTypeface(null, android.graphics.Typeface.BOLD);
-        dial.setTextColor(0xFF4CAF50);
+        dial.setTextColor(0xFF35F6BF);
         dial.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         dial.setGravity(android.view.Gravity.CENTER);
         dial.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (6 * d));
@@ -21605,7 +21605,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 int active = nearestCaptionPositionIndex(ys);
                 float[] lineYs = {h * 0.28f, h * 0.5f, h * 0.72f};
                 for (int i = 0; i < 3; i++) {
-                    p.setColor(i == active ? 0xFF4CAF50 : 0xFF666666);
+                    p.setColor(i == active ? 0xFF35F6BF : 0xFF52525B);
                     canvas.drawLine(inset, lineYs[i], w - inset, lineYs[i], p);
                 }
             }
@@ -21887,7 +21887,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         android.graphics.Paint.ANTI_ALIAS_FLAG);
                 float w = getWidth(), h = getHeight();
                 // The "A", pushed right so the motion lines have room to trail it.
-                p.setColor(0xFFEEEEEE);
+                p.setColor(0xFFF4F4F5);
                 p.setTextAlign(android.graphics.Paint.Align.CENTER);
                 p.setTextSize(h * 0.52f);
                 p.setFakeBoldText(true);
@@ -21900,7 +21900,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float[] lens = {0.20f, 0.26f, 0.16f};
                 int[] alphas = {0x66, 0xAA, 0x44};
                 for (int i = 0; i < 3; i++) {
-                    p.setColor((alphas[i] << 24) | 0x00EEEEEE);
+                    p.setColor((alphas[i] << 24) | 0x00F4F4F5);
                     float rx = w * 0.34f;
                     canvas.drawLine(rx - w * lens[i], ys[i], rx, ys[i], p);
                 }
@@ -21921,7 +21921,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                  @NonNull java.util.function.IntConsumer set) {
         TextView tl = new TextView(this);
         tl.setText(label);
-        tl.setTextColor(0xFFAAAAAA);
+        tl.setTextColor(0xFF8A8A94);
         tl.setTextSize(12);
         tl.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         tl.setPadding((int)(4*d), 0, 0, 0);
@@ -21934,7 +21934,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setCornerRadius(6*d);
         bg.setColor(get.get());
-        bg.setStroke((int)(1*d), 0xFF555555);
+        bg.setStroke((int)(1*d), 0xFF52525B);
         swatch.setBackground(bg);
         // LIVE, both ways: dragging any control in the picker re-styles the caption on the
         // preview immediately (tweakCaptionStyle records no undo, so calling it on every tick
@@ -21971,7 +21971,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setCornerRadius(5*d);
         bg.setColor(getColor.get());
-        bg.setStroke((int)(1*d), 0xFF555555);
+        bg.setStroke((int)(1*d), 0xFF52525B);
         swatch.setBackground(bg);
         swatch.setOnClickListener(v -> com.fadcam.ui.faditor.tools.ColorPickerDialog.show(
                 this, label, getColor.get(), false,
@@ -22002,7 +22002,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView btn = new TextView(this);
         btn.setText(icon);
         btn.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
-        btn.setTextColor(0xFFBBBBBB);
+        btn.setTextColor(0xFFC4C4CE);
         btn.setTextSize(20);
         btn.setGravity(Gravity.CENTER);
         int p = (int)(10*d);
@@ -22112,7 +22112,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // ── Corner roundness ──
         final TextView cornerLab = new TextView(this);
-        cornerLab.setTextColor(0xFFCCCCCC);
+        cornerLab.setTextColor(0xFFC4C4CE);
         cornerLab.setTextSize(12);
         cornerLab.setPadding(0, Math.round(12 * d), 0, 0);
         root.addView(cornerLab);
@@ -22152,7 +22152,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final TextView hideRow = new TextView(this);
         styleDrawerChip(hideRow, d);
         hideRow.setText("Hide this track");
-        hideRow.setTextColor(0xFFEF9A9A);
+        hideRow.setTextColor(0xFFA78BFA);
         root.addView(hideRow);
 
         androidx.appcompat.app.AlertDialog dlg =
@@ -22333,7 +22333,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private View makeDivider(float d) {
         View div = new View(this);
-        div.setBackgroundColor(0xFF2A2A2A);
+        div.setBackgroundColor(0xFF2C2C35);
         LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int)(1 * d));
         dlp.topMargin = (int)(12 * d);
@@ -22822,7 +22822,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView heading = new TextView(this);
         heading.setText("Timing"); // TODO(strings)
-        heading.setTextColor(0xFFAAAAAA);
+        heading.setTextColor(0xFF8A8A94);
         heading.setTextSize(12);
         heading.setPadding(0, (int) (8 * d), 0, 0);
         root.addView(heading);
@@ -22830,13 +22830,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView hint = new TextView(this);
         // Named explicitly because the whole feature turns on it: this is per LINE, not per clip.
         hint.setText("Applied to every caption line, as a share of that line"); // TODO(strings)
-        hint.setTextColor(0xFF777777);
+        hint.setTextColor(0xFF8A8A94);
         hint.setTextSize(11);
         hint.setPadding(0, (int) (2 * d), 0, (int) (4 * d));
         root.addView(hint);
 
         final TextView readout = new TextView(this);
-        readout.setTextColor(0xFFCCCCCC);
+        readout.setTextColor(0xFFC4C4CE);
         readout.setTextSize(11);
 
         // One updater for both sliders so the two readouts can never disagree with the model.
@@ -22885,7 +22885,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView name = new TextView(this);
         name.setText(label); // TODO(strings)
-        name.setTextColor(0xFFCCCCCC);
+        name.setTextColor(0xFFC4C4CE);
         name.setTextSize(11);
         name.setMinEms(2);
         row.addView(name);
@@ -23171,7 +23171,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView vizSectionLabel(@NonNull String text, float dp) {
         TextView t = new TextView(this);
         t.setText(text);
-        t.setTextColor(0xFF9E9E9E);
+        t.setTextColor(0xFF8A8A94);
         t.setTextSize(12);
         t.setPadding(0, (int) (6 * dp), 0, (int) (2 * dp));
         return t;
@@ -23180,7 +23180,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView vizToggle(float dp) {
         TextView t = new TextView(this);
         t.setGravity(android.view.Gravity.CENTER);
-        t.setTextColor(0xFFEEEEEE);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(12);
         t.setLineSpacing(0f, 1.05f);
         t.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -23196,7 +23196,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         com.fadcam.ui.faditor.model.TextOverlayItem item =
                 new com.fadcam.ui.faditor.model.TextOverlayItem(
                         getString(R.string.faditor_text_hint),
-                        0xFFFFFFFF, 0.5f, 0.5f, 0.10f, 0f);
+                        0xFFF4F4F5, 0.5f, 0.5f, 0.10f, 0f);
         // FEEDBACK (2026-07-18): a new text must never stack onto a lane where its
         // time range overlaps an existing item — route it to the first free TEXT
         // lane, creating a new lane if every existing one is occupied.
@@ -24894,7 +24894,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         keyframeRibbon.setGravity(android.view.Gravity.CENTER_VERTICAL);
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xE61C1C1E);
+        bg.setColor(0xE61F1F26);
         bg.setCornerRadius(18 * d);
         keyframeRibbon.setBackground(bg);
         int padH = (int) (10 * d);
@@ -24902,7 +24902,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Elevation comes from PREVIEW_STACK_DP (SPEC X), applied once the view is attached.
 
         ribbonLabel = new TextView(this);
-        ribbonLabel.setTextColor(0xFF999999);
+        ribbonLabel.setTextColor(0xFF8A8A94);
         ribbonLabel.setTextSize(12);
         ribbonLabel.setPadding(0, 0, (int) (6 * d), 0);
         keyframeRibbon.addView(ribbonLabel);
@@ -24966,7 +24966,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         float d = getResources().getDisplayMetrics().density;
         TextView v = new TextView(this);
         v.setText(glyph);
-        v.setTextColor(0xFFCCCCCC);
+        v.setTextColor(0xFFC4C4CE);
         v.setTextSize(15);
         v.setGravity(android.view.Gravity.CENTER);
         v.setPadding((int) (10 * d), (int) (6 * d), (int) (10 * d), (int) (6 * d));
@@ -24987,7 +24987,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ribbonLabel.setText(ribbonProp.label());
         boolean on = ribbonProp.onKeyAt(lastPlayheadAbsoluteMs);
         ribbonDiamond.setText(on ? "◆" : "◇");
-        ribbonDiamond.setTextColor(on ? 0xFF4CAF50 : 0xFFAAAAAA);
+        ribbonDiamond.setTextColor(on ? 0xFF35F6BF : 0xFF8A8A94);
     }
 
     // ── G4: preview manipulation handles — tap-select a layer-row item and its
@@ -26209,22 +26209,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int pad = (int) (14 * d);
             card.setPadding(pad, (int) (12 * d), pad, (int) (12 * d));
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-            bg.setColor(0xF21E1E1E);
+            bg.setColor(0xF21F1F26);
             bg.setCornerRadius(14 * d);
-            bg.setStroke((int) (1 * d), 0x554CAF50);
+            bg.setStroke((int) (1 * d), 0x5535F6BF);
             card.setBackground(bg);
             card.setElevation(12 * d);
 
             TextView title = new TextView(this);
             title.setText(R.string.faditor_coachmark_gestures_title);
-            title.setTextColor(0xFF4CAF50);
+            title.setTextColor(0xFF35F6BF);
             title.setTextSize(13);
             title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
             card.addView(title);
 
             TextView body = new TextView(this);
             body.setText(R.string.faditor_coachmark_gestures_body);
-            body.setTextColor(0xFFEEEEEE);
+            body.setTextColor(0xFFF4F4F5);
             body.setTextSize(13);
             android.widget.LinearLayout.LayoutParams blp = new android.widget.LinearLayout.LayoutParams(
                     android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -26234,7 +26234,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             TextView gotIt = new TextView(this);
             gotIt.setText(R.string.faditor_coachmark_got_it);
-            gotIt.setTextColor(0xFF4CAF50);
+            gotIt.setTextColor(0xFF35F6BF);
             gotIt.setTextSize(13);
             gotIt.setTypeface(gotIt.getTypeface(), android.graphics.Typeface.BOLD);
             gotIt.setGravity(android.view.Gravity.END);
@@ -28373,7 +28373,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * button. Green is what every other active tool in this row uses.</p>
      */
     private void setAdjustToolActive(boolean active) {
-        int color = active ? 0xFF4CAF50 : 0xFF888888;
+        int color = active ? 0xFF35F6BF : 0xFF8A8A94;
         View icon = findViewById(R.id.tool_adjustment_icon);
         View label = findViewById(R.id.tool_adjustment_label);
         if (icon instanceof TextView) ((TextView) icon).setTextColor(color);
@@ -29502,13 +29502,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int total = com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx);
 
         android.widget.TextView info = new android.widget.TextView(ctx);
-        info.setTextColor(0xFFE8E8E8);
+        info.setTextColor(0xFFF4F4F5);
         info.setTextSize(11);
         info.setText("Measured: " + base + " ms (" + src + ")  Route: " + route + "\nUser offset: " + user + " ms  Total: " + total + " ms");
         root.addView(info);
 
         android.widget.TextView tapHint = new android.widget.TextView(ctx);
-        tapHint.setTextColor(0xFFA0A0A0);
+        tapHint.setTextColor(0xFF8A8A94);
         tapHint.setTextSize(10);
         tapHint.setText("Slide until flash and click coincide.");
         tapHint.setPadding(0, Math.round(6*d), 0, 0);
@@ -29518,7 +29518,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setMax(1000);
         bar.setProgress(user + 500);
         android.widget.TextView val = new android.widget.TextView(ctx);
-        val.setTextColor(0xFFE8E8E8);
+        val.setTextColor(0xFFF4F4F5);
         val.setTextSize(11);
         val.setGravity(android.view.Gravity.CENTER);
         val.setText(user + " ms");
@@ -29542,14 +29542,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
         btnRow.setPadding(0, Math.round(8*d), 0, 0);
         android.widget.TextView testBtn = new android.widget.TextView(ctx);
-        testBtn.setText("Test"); testBtn.setTextColor(0xFFFFFFFF); testBtn.setBackgroundColor(0xFF4CAF50);
+        testBtn.setText("Test"); testBtn.setTextColor(0xFFF4F4F5); testBtn.setBackgroundColor(0xFF35F6BF);
         testBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
         android.view.View dot = new android.view.View(ctx);
         android.widget.LinearLayout.LayoutParams dotLp = new android.widget.LinearLayout.LayoutParams(Math.round(16*d), Math.round(16*d));
-        dotLp.leftMargin = Math.round(12*d); dot.setLayoutParams(dotLp); dot.setBackgroundColor(0xFF333333);
+        dotLp.leftMargin = Math.round(12*d); dot.setLayoutParams(dotLp); dot.setBackgroundColor(0xFF33333C);
         btnRow.addView(testBtn); btnRow.addView(dot);
         android.widget.TextView resetBtn = new android.widget.TextView(ctx);
-        resetBtn.setText("Reset to measured"); resetBtn.setTextColor(0xFFE8E8E8); resetBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
+        resetBtn.setText("Reset to measured"); resetBtn.setTextColor(0xFFF4F4F5); resetBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
         resetBtn.setBackgroundColor(0x22FFFFFF);
         android.widget.LinearLayout.LayoutParams rl = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
         rl.leftMargin = Math.round(12*d); resetBtn.setLayoutParams(rl);
@@ -29565,7 +29565,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 testing[0] = false;
                 if (ticker[0] != null) h.removeCallbacks(ticker[0]);
                 if (trackHolder[0] != null) { try { trackHolder[0].stop(); trackHolder[0].release(); } catch (Exception ignored) {} trackHolder[0]=null; }
-                testBtn.setText("Test"); dot.setBackgroundColor(0xFF333333);
+                testBtn.setText("Test"); dot.setBackgroundColor(0xFF33333C);
                 return;
             }
             testing[0] = true; testBtn.setText("Stop");
@@ -29580,7 +29580,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 int count=0;
                 @Override public void run() {
                     if (!testing[0]) return;
-                    dot.setBackgroundColor(count%2==0 ? 0xFFFFFFFF : 0xFF333333);
+                    dot.setBackgroundColor(count%2==0 ? 0xFFF4F4F5 : 0xFF33333C);
                     // write tick + silence to fill 500ms
                     try { at.write(tickBuf, 0, tickBuf.length); short[] silence=new short[sr/2 - tickSamples]; at.write(silence,0,silence.length); } catch (Exception ignored) {}
                     if (testing[0]) h.postDelayed(this, 500);
@@ -29706,7 +29706,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             showCrossfadeSheet(xfade);
         }));
         // Colour swatches: six colours (§5)
-        int[] colours = {0x4CAF50, 0xFF5722, 0x03A9F4, 0xFFC107, 0x9C27B0, 0xE91E63};
+        int[] colours = {0x35F6BF, 0xFF4438, 0x22D3EE, 0xFBBF24, 0xCC27FF, 0xFF008C};
         for (int col : colours) {
             final int c = col;
             String label = String.format("\u25CF %06X", c);
@@ -30776,18 +30776,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Chip ON state — purple accent when on, dim off. */
     private static void styleToggleState(@NonNull TextView t, boolean on) {
-        t.setTextColor(on ? 0xFFB388FF : 0xFFAAAAAA);
-        t.setBackgroundColor(on ? 0x33B388FF : 0x00000000);
+        t.setTextColor(on ? 0xFFA78BFA : 0xFF8A8A94);
+        t.setBackgroundColor(on ? 0x33A78BFA : 0x00000000);
     }
 
     /** Chip MIXED state — purple text, background split half-purple over transparent: "some of
      * these characters are on, some off". */
     private static void styleMixedState(@NonNull TextView t) {
-        t.setTextColor(0xFFB388FF);
+        t.setTextColor(0xFFA78BFA);
         android.graphics.drawable.GradientDrawable g =
                 new android.graphics.drawable.GradientDrawable(
                         android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-                        new int[]{0x33B388FF, 0x00000000});
+                        new int[]{0x33A78BFA, 0x00000000});
         t.setBackground(g);
     }
 
@@ -32894,13 +32894,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     < MARKER_CHIP_EPSILON_MS));
             // Divider
             android.view.View vDiv = new android.view.View(this);
-            vDiv.setBackgroundColor(0xFF3A3A3A);
+            vDiv.setBackgroundColor(0xFF33333C);
             android.widget.LinearLayout.LayoutParams divLp = new android.widget.LinearLayout.LayoutParams(1, Math.round(24*d));
             divLp.leftMargin = Math.round(8*d); divLp.rightMargin = Math.round(8*d);
             topRow.addView(vDiv, divLp);
             // Fit icon — small pill button
             android.widget.TextView fitBtn = new android.widget.TextView(this);
-            fitBtn.setText("Fit"); fitBtn.setTextColor(0xFFEEEEEE); fitBtn.setTextSize(11);
+            fitBtn.setText("Fit"); fitBtn.setTextColor(0xFFF4F4F5); fitBtn.setTextSize(11);
             fitBtn.setPadding(Math.round(10*d), Math.round(5*d), Math.round(10*d), Math.round(5*d));
             fitBtn.setBackgroundResource(R.drawable.segment_active_background);
             fitBtn.setOnClickListener(v -> {
@@ -32914,7 +32914,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
             topRow.addView(fitBtn);
             android.widget.TextView fillBtn = new android.widget.TextView(this);
-            fillBtn.setText("Fill"); fillBtn.setTextColor(0xFFEEEEEE); fillBtn.setTextSize(11);
+            fillBtn.setText("Fill"); fillBtn.setTextColor(0xFFF4F4F5); fillBtn.setTextSize(11);
             fillBtn.setPadding(Math.round(10*d), Math.round(5*d), Math.round(10*d), Math.round(5*d));
             fillBtn.setBackgroundResource(R.drawable.segment_active_background);
             fillBtn.setOnClickListener(v -> {
@@ -32997,12 +32997,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // "Clear all keyframes" (user 2026-09-05) so the whole row fits one line.
             android.widget.TextView clearChip = new android.widget.TextView(this);
             clearChip.setText("Clear all ◇");                                  // TODO(strings)
-            clearChip.setTextColor(0xFFFF8A80);
+            clearChip.setTextColor(0xFFA78BFA);
             clearChip.setTextSize(11);
             android.graphics.drawable.GradientDrawable clearBg =
                     new android.graphics.drawable.GradientDrawable();
             clearBg.setCornerRadius(14 * d);
-            clearBg.setColor(0x33E57373);
+            clearBg.setColor(0x33FF4438);
             clearChip.setBackground(clearBg);
             clearChip.setPadding(Math.round(9 * d), Math.round(6 * d),
                     Math.round(9 * d), Math.round(6 * d));
@@ -33017,11 +33017,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // One-line hint for None (§2.6)
             android.widget.TextView hint = new android.widget.TextView(this);
             hint.setText("No animation (reset) — centred, cover-scaled, static");
-            hint.setTextColor(0xFF777777);
+            hint.setTextColor(0xFF8A8A94);
             hint.setTextSize(10);
             hint.setPadding(0, Math.round(2*d), 0, Math.round(6*d));
             root.addView(hint);
-            android.view.View div = new android.view.View(this); div.setBackgroundColor(0xFF2A2A2A);
+            android.view.View div = new android.view.View(this); div.setBackgroundColor(0xFF2C2C35);
             div.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, 1) {{ topMargin = Math.round(4*d); bottomMargin = Math.round(8*d); }});
             root.addView(div);
         }
@@ -33096,7 +33096,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final android.widget.ImageView iv = new android.widget.ImageView(this);
         iv.setImageResource(o.isScaleLinked()
                 ? R.drawable.ic_pip_chain_linked_24 : R.drawable.ic_pip_chain_broken_24);
-        iv.setColorFilter(o.isScaleLinked() ? 0xFF4CAF50 : 0xFF9A9A9A);
+        iv.setColorFilter(o.isScaleLinked() ? 0xFF35F6BF : 0xFF8A8A94);
         iv.setPadding(Math.round(4 * d), Math.round(4 * d), Math.round(4 * d), Math.round(4 * d));
         iv.setOnClickListener(v -> {
             com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
@@ -33164,7 +33164,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float d) {
         android.widget.TextView t = new android.widget.TextView(this);
         t.setText(label);
-        t.setTextColor(0xFFEEEEEE);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(12.5f);
         int py = Math.round(9 * d);
         t.setPadding(0, py, 0, py);
@@ -33582,7 +33582,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // changes to a color".
         View motionIcon = makeTextMotionIcon(d);
         TextView motionState = new TextView(this);
-        motionState.setTextColor(0xFF888888);
+        motionState.setTextColor(0xFF8A8A94);
         motionState.setTextSize(11);
         motionState.setPadding(pad, 0, 0, 0);
         motionState.setMaxLines(1);
@@ -33592,7 +33592,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         Runnable refreshMotion = () -> {
             updateTextMotionState(motionState, item);
-            motionState.setTextColor(item.isTextAnimActive() ? 0xFFB388FF : 0xFF888888);
+            motionState.setTextColor(item.isTextAnimActive() ? 0xFFA78BFA : 0xFF8A8A94);
         };
         refreshMotion.run();
         motionIcon.setOnClickListener(v -> com.fadcam.ui.faditor.TextAnimPickerPopover.show(
@@ -33631,8 +33631,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fxBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
         int fxCount = item.getFx() == null ? 0 : item.getFx().active().size();
         boolean hasFx = fxCount > 0;
-        fxBg.setColor(hasFx ? 0x55B388FF : 0x22FFFFFF);
-        fxBg.setStroke(Math.round(1.5f * d), hasFx ? 0xCCB388FF : 0x55FFFFFF);
+        fxBg.setColor(hasFx ? 0x55A78BFA : 0x22FFFFFF);
+        fxBg.setStroke(Math.round(1.5f * d), hasFx ? 0xCCA78BFA : 0x55FFFFFF);
         fxBtn.setBackground(fxBg);
         android.widget.ImageView fxIcon = new android.widget.ImageView(this);
         fxIcon.setImageResource(R.drawable.ic_fx_24);
@@ -33700,7 +33700,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer) {
         float d = getResources().getDisplayMetrics().density;
         final TextView t = new TextView(this);
-        t.setTextColor(0xFFEEEEEE);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(13);
         t.setMaxLines(1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -33724,7 +33724,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private static TextView topRowChip(@NonNull Context ctx, float d, @NonNull String label) {
         TextView t = new TextView(ctx);
         t.setText(label);
-        t.setTextColor(0xFFEEEEEE);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(14);
         t.setGravity(android.view.Gravity.CENTER);
         int pad = Math.round(8 * d);
@@ -33792,7 +33792,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     : key.equals(item.getFontFamily());
             TextView row = new TextView(this);
             row.setText(name);
-            row.setTextColor(active ? 0xFFB388FF : 0xFFEEEEEE);
+            row.setTextColor(active ? 0xFFA78BFA : 0xFFF4F4F5);
             row.setTextSize(16);
             row.setPadding(0, Math.round(10 * d), 0, Math.round(10 * d));
             row.setTypeface(getTypefaceForKey(key));
@@ -33817,7 +33817,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView importRow = new TextView(this);
         importRow.setText("＋ Import font…"); // TODO(strings)
-        importRow.setTextColor(0xFF64B5F6);
+        importRow.setTextColor(0xFF4397FD);
         importRow.setTextSize(15);
         importRow.setPadding(0, Math.round(12 * d), 0, Math.round(4 * d));
         importRow.setOnClickListener(v -> {
@@ -33960,7 +33960,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView header = new TextView(this);
         header.setText(R.string.faditor_text_decor_section);
-        header.setTextColor(0xFF888888);
+        header.setTextColor(0xFF8A8A94);
         header.setTextSize(12);
         header.setTypeface(null, android.graphics.Typeface.BOLD);
         header.setAllCaps(true);
@@ -33973,7 +33973,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         addDecorRow(box, item, gap, R.string.faditor_text_decor_stroke, 25, 0xFF000000,
                 item::getStrokeWidthPx, item::setStrokeWidthPx,
                 item::getStrokeColorInt, item::setStrokeColorInt);
-        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 40, 0xFFFFFFFF,
+        addDecorRow(box, item, gap, R.string.faditor_text_decor_glow, 40, 0xFFF4F4F5,
                 item::getGlowRadiusPx, item::setGlowRadiusPx,
                 item::getGlowColorInt, item::setGlowColorInt);
         // ⚠ SHADOW IS NOT "0 = off": both renderers read `radius > 0 ? radius : fontPx * 0.10f`
@@ -33987,7 +33987,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Background plate is colour-only — its "size" is the text box itself.
         TextView bgLabel = new TextView(this);
         bgLabel.setText(R.string.faditor_text_decor_plate);
-        bgLabel.setTextColor(0xFFAAAAAA);
+        bgLabel.setTextColor(0xFF8A8A94);
         bgLabel.setTextSize(12);
         bgLabel.setPadding(0, gap, 0, gap / 2);
         box.addView(bgLabel);
@@ -34010,7 +34010,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Runnable[] ringRefresh = {() -> {}};
         final Runnable refreshSwatchRings = () -> ringRefresh[0].run();
         TextView label = new TextView(this);
-        label.setTextColor(0xFFAAAAAA);
+        label.setTextColor(0xFF8A8A94);
         label.setTextSize(12);
         label.setPadding(0, gap, 0, gap / 2);
         parent.addView(label);
@@ -34058,7 +34058,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (!(chip.getBackground() instanceof android.graphics.drawable.GradientDrawable)) continue;
             boolean on = (tag instanceof Integer) && ((Integer) tag) == selected;
             ((android.graphics.drawable.GradientDrawable) chip.getBackground())
-                    .setStroke(px, on ? 0xFF4CAF50 : 0xFF555555);
+                    .setStroke(px, on ? 0xFF35F6BF : 0xFF52525B);
         }
     }
 
@@ -34068,8 +34068,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                   @NonNull java.util.function.Consumer<Integer> set,
                                   boolean allowNone) {
         final int[] COLORS = {
-                0xFF000000, 0xFFFFFFFF, 0xFFE53935, 0xFFFB8C00, 0xFFFDD835,
-                0xFF43A047, 0xFF1E88E5, 0xFF8E24AA, 0xFF00ACC1,
+                0xFF000000, 0xFFF4F4F5, 0xFFFF4438, 0xFFFAA03D, 0xFFFBBF24,
+                0xFF35F6BF, 0xFF4397FD, 0xFFCC27FF, 0xFF22D3EE,
         };
         android.widget.LinearLayout row = new android.widget.LinearLayout(this);
         row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -34093,7 +34093,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             d.setColor(color);
             // A transparent chip needs an outline or it is an invisible button.
             d.setStroke((int) getResources().getDisplayMetrics().density * 2,
-                    color == get.get() ? 0xFF4CAF50 : 0xFF555555);
+                    color == get.get() ? 0xFF35F6BF : 0xFF52525B);
             chip.setBackground(d);
             chip.setTag(color);
             chip.setOnClickListener(v -> {
@@ -34102,7 +34102,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     View other = row.getChildAt(i);
                     ((android.graphics.drawable.GradientDrawable) other.getBackground())
                             .setStroke((int) getResources().getDisplayMetrics().density * 2,
-                                    other == v ? 0xFF4CAF50 : 0xFF555555);
+                                    other == v ? 0xFF35F6BF : 0xFF52525B);
                 }
                 scheduleAutoSave();
             });
@@ -34270,7 +34270,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView header = new TextView(this);
         header.setText(R.string.faditor_text_decor_section);
-        header.setTextColor(0xFF888888);
+        header.setTextColor(0xFF8A8A94);
         header.setTextSize(12);
         header.setTypeface(null, android.graphics.Typeface.BOLD);
         header.setAllCaps(true);
@@ -34340,7 +34340,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         {
             TextView label = new TextView(this);
             label.setText(getString(R.string.faditor_text_decor_plate));
-            label.setTextColor(0xFFAAAAAA);
+            label.setTextColor(0xFF8A8A94);
             label.setTextSize(12);
             label.setPadding(0, gap, 0, gap / 2);
             box.addView(label);
@@ -34537,7 +34537,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView desc = new TextView(this);
         desc.setText(label);
-        desc.setTextColor(0xFFCCCCCC);
+        desc.setTextColor(0xFFC4C4CE);
         desc.setTextSize(12.5f);
         desc.setPadding(gap, 0, gap, 0);
         desc.setWidth(Math.round(84 * d));
@@ -34584,7 +34584,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         Runnable refresh = () -> {
             t.setText("◆");
-            t.setTextColor(isArmed.get() ? 0xFFB388FF : 0xFF666666);
+            t.setTextColor(isArmed.get() ? 0xFFA78BFA : 0xFF52525B);
         };
         refresh.run();
         t.setTextSize(15);
@@ -34633,7 +34633,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
             bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
             bg.setColor(allowNone && c == android.graphics.Color.TRANSPARENT ? 0x00000000 : c);
-            bg.setStroke(Math.round(1.5f * d), 0xFF888888);
+            bg.setStroke(Math.round(1.5f * d), 0xFF8A8A94);
             swatch.setBackground(bg);
         };
         paint.run();
@@ -34697,7 +34697,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         knobRow.addView(knob, new android.widget.LinearLayout.LayoutParams(knobSize, knobSize));
 
         TextView angleReadout = new TextView(this);
-        angleReadout.setTextColor(0xFFCCCCCC);
+        angleReadout.setTextColor(0xFFC4C4CE);
         angleReadout.setTextSize(13);
         angleReadout.setPadding(gap, 0, gap, 0);
         Runnable syncAngle = () -> {
@@ -34742,7 +34742,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // short inline word so the two share the one horizontal line without wrapping.
         TextView distLabel = new TextView(this);
         distLabel.setText("Dist"); // TODO(strings)
-        distLabel.setTextColor(0xFFAAAAAA);
+        distLabel.setTextColor(0xFF8A8A94);
         distLabel.setTextSize(12);
         distLabel.setPadding(0, 0, gap / 2, 0);
         knobRow.addView(distLabel);
@@ -34855,7 +34855,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             motionRow.setPadding(0, 0, 0, gap / 2);
             TextView motionLabel = new TextView(this);
             motionLabel.setText("Animation"); // TODO(strings)
-            motionLabel.setTextColor(0xFF9E9E9E);
+            motionLabel.setTextColor(0xFF8A8A94);
             motionLabel.setTextSize(11);
             android.widget.LinearLayout.LayoutParams mlp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -34959,7 +34959,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // The selection status + Clear chip (folded in from the old status row). "Select all"
         // sits right beside "Clear" so the context makes it clear Clear removes the selection.
         final TextView status = new TextView(this);
-        status.setTextColor(0xFF888888);
+        status.setTextColor(0xFF8A8A94);
         status.setTextSize(11);
         status.setMaxLines(1);
         // Ellipsize rather than push: this row's job is to keep the trim chips and the trashcan
@@ -34969,7 +34969,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView clearChip = new TextView(this);
         clearChip.setText(R.string.faditor_text_selection_clear);
-        clearChip.setTextColor(0xFFB388FF);
+        clearChip.setTextColor(0xFFA78BFA);
         clearChip.setTextSize(12);
         int cp = Math.round(8 * d);
         clearChip.setPadding(cp, cp / 2, cp, cp / 2);
@@ -34995,7 +34995,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the bottom toolbox's own Delete tool uses, so the two read as the same verb.
         android.widget.ImageView deleteGlyph = new android.widget.ImageView(this);
         deleteGlyph.setImageResource(R.drawable.ic_delete);
-        deleteGlyph.setColorFilter(0xFFE57373);
+        deleteGlyph.setColorFilter(0xFFFF4438);
         int dg = Math.round(6 * d);
         deleteGlyph.setPadding(dg, dg, dg, dg);
         deleteGlyph.setOnClickListener(v -> deleteTextOverlay(item, session));
@@ -35006,10 +35006,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (session.hasSelection()) {
                 int n = session.selEnd - session.selStart;
                 status.setText(getString(R.string.faditor_text_selection_count, n));
-                clearChip.setTextColor(0xFFB388FF);
+                clearChip.setTextColor(0xFFA78BFA);
             } else {
                 status.setText(getString(R.string.faditor_text_selection_whole));
-                clearChip.setTextColor(0xFF666666);
+                clearChip.setTextColor(0xFF52525B);
             }
         };
         session.refreshers.add(refresh);
@@ -35033,14 +35033,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @NonNull
     /** Colour of the object's own range controls — the green of its trim handles. */
-    private static final int MARKER_COLOR_OBJECT = 0xFF4CAF50;
+    private static final int MARKER_COLOR_OBJECT = 0xFF35F6BF;
     /** Motion-range markers on the tape. */
-    private static final int MARKER_COLOR_MOTION = 0xFFB388FF;
+    private static final int MARKER_COLOR_MOTION = 0xFFA78BFA;
     /** Anim-zone (entrance/exit) carets on the tape. */
-    private static final int MARKER_COLOR_ZONE   = 0xFFFFC107;
+    private static final int MARKER_COLOR_ZONE   = 0xFFFBBF24;
 
     /** Idle tint: these read as inert until they have something to say. */
-    private static final int MARKER_CHIP_IDLE = 0xFF9E9E9E;
+    private static final int MARKER_CHIP_IDLE = 0xFF8A8A94;
     /** How close the playhead must be to count as "already there" (~1 frame at 25fps). */
     private static final long MARKER_CHIP_EPSILON_MS = 40L;
 
@@ -35250,14 +35250,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float r = Math.min(w, h) / 2f - 2f;
             paint.setStyle(android.graphics.Paint.Style.STROKE);
             paint.setStrokeWidth(2f);
-            paint.setColor(0xFF555555);
+            paint.setColor(0xFF52525B);
             c.drawCircle(cx, cy, r, paint);
             // 0° = straight down, matching TextOverlayItem's shadowDx/shadowDy convention.
             double rad = Math.toRadians(angleDeg);
             float ix = cx + (float) Math.sin(rad) * r;
             float iy = cy + (float) Math.cos(rad) * r;
             paint.setStyle(android.graphics.Paint.Style.FILL);
-            paint.setColor(0xFFB388FF);
+            paint.setColor(0xFFA78BFA);
             c.drawCircle(ix, iy, r * 0.22f, paint);
         }
 
@@ -35303,7 +35303,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView header = new TextView(this);
         header.setText(R.string.faditor_kf_section);
-        header.setTextColor(0xFF888888);
+        header.setTextColor(0xFF8A8A94);
         header.setTextSize(12);
         header.setTypeface(null, android.graphics.Typeface.BOLD);
         header.setAllCaps(true);
@@ -35311,7 +35311,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         box.addView(header);
 
         final TextView status = new TextView(this);
-        status.setTextColor(0xFFAAAAAA);
+        status.setTextColor(0xFF8A8A94);
         status.setTextSize(12);
         status.setPadding(0, gap / 2, 0, gap);
         box.addView(status);
@@ -35333,7 +35333,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // whole overlay. Preview updates live.
         TextView opLabel = new TextView(this);
         opLabel.setText("OPACITY");
-        opLabel.setTextColor(0xFF888888);
+        opLabel.setTextColor(0xFF8A8A94);
         opLabel.setTextSize(12);
         opLabel.setTypeface(null, android.graphics.Typeface.BOLD);
         opLabel.setAllCaps(true);
@@ -35355,7 +35355,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         opRow.addView(opBar);
 
         final TextView opPct = new TextView(this);
-        opPct.setTextColor(0xFFCCCCCC);
+        opPct.setTextColor(0xFFC4C4CE);
         opPct.setTextSize(13);
         opPct.setPadding(gap, 0, 0, 0);
         opPct.setText(opBar.getProgress() + "%");
@@ -36095,7 +36095,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int pl = chip.getPaddingLeft(), pt = chip.getPaddingTop();
             int pr = chip.getPaddingRight(), pb = chip.getPaddingBottom();
             if (active) {
-                chip.setBackgroundColor(0x554DD0E1); // soft cyan = active style
+                chip.setBackgroundColor(0x5522D3EE); // soft cyan = active style
             } else {
                 chip.setBackgroundResource(R.drawable.floating_button_item_bg);
             }
@@ -36211,7 +36211,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView hideChip = new TextView(this);
         hideChip.setText("visibility_off");
         hideChip.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
-        hideChip.setTextColor(0xFF9E9E9E);
+        hideChip.setTextColor(0xFF8A8A94);
         hideChip.setTextSize(16);
         hideChip.setIncludeFontPadding(false);
         hideChip.setGravity(android.view.Gravity.CENTER);
@@ -36384,13 +36384,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView helper = new TextView(this);
         helper.setText("Apply “" + styleLabel + "” to all clips in the timeline?");
-        helper.setTextColor(0xFFBBBBBB);
+        helper.setTextColor(0xFFC4C4CE);
         helper.setTextSize(13);
         root.addView(helper);
 
         final android.widget.CheckBox copyPosition = new android.widget.CheckBox(this);
         copyPosition.setText("Also apply caption position to all clips");
-        copyPosition.setTextColor(0xFFFFFFFF);
+        copyPosition.setTextColor(0xFFF4F4F5);
         copyPosition.setChecked(false);
         android.widget.LinearLayout.LayoutParams posLp =
                 new android.widget.LinearLayout.LayoutParams(
@@ -36402,7 +36402,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final android.widget.CheckBox copySize = new android.widget.CheckBox(this);
         copySize.setText("Also apply caption size to all clips");
-        copySize.setTextColor(0xFFFFFFFF);
+        copySize.setTextColor(0xFFF4F4F5);
         copySize.setChecked(false);
         android.widget.LinearLayout.LayoutParams sizeLp =
                 new android.widget.LinearLayout.LayoutParams(
@@ -37420,7 +37420,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setPadding(0, vp, 0, vp);
 
         TextView label = new TextView(this);
-        label.setTextColor(0xFFAAAAAA);
+        label.setTextColor(0xFF8A8A94);
         label.setTextSize(12);
         label.setText(R.string.faditor_transitions_more_effects);
         bar.addView(label);
@@ -37465,7 +37465,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         card.setGravity(android.view.Gravity.CENTER);
         int pad = (int) (8 * d);
         card.setPadding(pad, pad, pad, pad);
-        card.setBackgroundColor(Color.parseColor("#332A2A2A"));
+        card.setBackgroundColor(Color.parseColor("#332C2C35"));
         android.widget.LinearLayout.LayoutParams clp =
                 new android.widget.LinearLayout.LayoutParams((int) (96 * d), (int) (118 * d));
         clp.setMarginEnd((int) (8 * d));
@@ -37480,7 +37480,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView lbl = new TextView(this);
         lbl.setText(label);
-        lbl.setTextColor(0xFFFFFFFF);
+        lbl.setTextColor(0xFFF4F4F5);
         lbl.setTextSize(11);
         lbl.setMaxLines(1);
         lbl.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -37612,7 +37612,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             View view = entry.getValue();
             if (view == null) continue;
             boolean selectedType = selected != null && selected.type == entry.getKey();
-            view.setBackgroundColor(selectedType ? Color.parseColor("#2A4CAF50") : Color.parseColor("#332A2A2A"));
+            view.setBackgroundColor(selectedType ? Color.parseColor("#2A35F6BF") : Color.parseColor("#332C2C35"));
         }
     }
 
@@ -38044,7 +38044,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
                 View v = super.getView(position, convertView, parent);
                 if (v instanceof TextView && position < missing.length && missing[position]) {
-                    ((TextView) v).setTextColor(0xFFFF5252); // red tint for missing sheets
+                    ((TextView) v).setTextColor(0xFFFF4438); // red tint for missing sheets
                 }
                 return v;
             }
@@ -39324,7 +39324,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wrap.setPadding(pad, pad / 2, pad, 0);
         TextView msg = new TextView(this);
         msg.setText(R.string.faditor_transcript_offer_message);
-        msg.setTextColor(0xFFCCCCCC);
+        msg.setTextColor(0xFFC4C4CE);
         msg.setTextSize(13);
         wrap.addView(msg);
         wrap.addView(cb);
@@ -39440,9 +39440,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private int transcribeMeterColor(
             @NonNull com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType type) {
         switch (type) {
-            case FAST:     return 0xFF4CAF50;   // green  — quick pass, best timing
-            case ACCURATE: return 0xFFFFC107;   // amber  — slower, better words
-            default:       return 0xFF7E57C2;   // violet — Whisper, slowest, best words
+            case FAST:     return 0xFF35F6BF;   // green  — quick pass, best timing
+            case ACCURATE: return 0xFFFBBF24;   // amber  — slower, better words
+            default:       return 0xFF52525B;   // violet — Whisper, slowest, best words
         }
     }
 
@@ -39710,8 +39710,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             TextView icon = findViewById(R.id.tool_transcript_icon);
             TextView label = findViewById(R.id.tool_transcript_label);
-            if (icon != null) icon.setTextColor(0xFF888888);
-            if (label != null) label.setTextColor(0xFF888888);
+            if (icon != null) icon.setTextColor(0xFF8A8A94);
+            if (label != null) label.setTextColor(0xFF8A8A94);
             if (transcriptionPulseAnimator != null) {
                 transcriptionPulseAnimator.cancel();
                 transcriptionPulseAnimator = null;
@@ -39773,13 +39773,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private int modelAccentColor(@NonNull com.fadcam.ui.faditor.transcript.TranscriptionEngine.ModelType type) {
         switch (type) {
             case FAST:
-                return 0xFF42A5F5;
+                return 0xFF4397FD;
             case ACCURATE:
-                return 0xFF4CAF50;
+                return 0xFF35F6BF;
             case WHISPER_BASE_EN:
-                return 0xFFFFC107;
+                return 0xFFFBBF24;
             default:
-                return 0xFF4CAF50;
+                return 0xFF35F6BF;
         }
     }
 
@@ -39881,7 +39881,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         {
             TextView sourceChip = new TextView(this);
             sourceChip.setText(R.string.faditor_transcript_source);
-            sourceChip.setTextColor(0xFFCE93D8);
+            sourceChip.setTextColor(0xFFA78BFA);
             sourceChip.setTextSize(12);
             sourceChip.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             sourceChip.setPadding(pad, pad / 2, pad, pad / 2);
@@ -39901,9 +39901,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             TextView chip = new TextView(this);
             boolean isActive = i == active;
             // Whisper chips green-tinted, Vosk blue-tinted; active = filled dot.
-            int accent = "whisper".equals(v.engine) ? 0xFFFFC107 : 0xFF42A5F5;
+            int accent = "whisper".equals(v.engine) ? 0xFFFBBF24 : 0xFF4397FD;
             chip.setText((isActive ? "● " : "") + v.label);
-            chip.setTextColor(isActive ? accent : 0xFF999999);
+            chip.setTextColor(isActive ? accent : 0xFF8A8A94);
             chip.setTextSize(12);
             chip.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
             chip.setPadding(pad, pad / 2, pad, pad / 2);
@@ -39922,7 +39922,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // "+ New" chip to add another pass via the model picker.
         TextView add = new TextView(this);
         add.setText("+");
-        add.setTextColor(0xFF4CAF50);
+        add.setTextColor(0xFF35F6BF);
         add.setTextSize(14);
         add.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         add.setPadding(pad + pad / 2, pad / 2, pad + pad / 2, pad / 2);
@@ -40100,7 +40100,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final TextView label = new TextView(this);
         label.setText(nt.label);
-        label.setTextColor(0xFFEEEEEE);
+        label.setTextColor(0xFFF4F4F5);
         label.setTextSize(18);
         label.setTypeface(null, android.graphics.Typeface.BOLD);
         label.setSingleLine(true);
@@ -40113,7 +40113,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView pencil = new TextView(this);
         pencil.setText("edit"); // materialicons flat diagonal pencil
         try { pencil.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons)); } catch (Exception ignored) {}
-        pencil.setTextColor(0xFF9E9E9E);
+        pencil.setTextColor(0xFF8A8A94);
         pencil.setTextSize(18);
         int ip = (int) (8 * d);
         pencil.setPadding(ip, ip, ip, ip);
@@ -40124,7 +40124,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final android.widget.EditText input = new android.widget.EditText(this);
             input.setText(nt.label);
             input.setSingleLine(true);
-            input.setTextColor(0xFF4DD0E1);
+            input.setTextColor(0xFF22D3EE);
             input.setTextSize(16);
             input.setSelectAllOnFocus(true);
             input.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
@@ -40672,7 +40672,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean active = enabled && currentTranscript.words.get(idx).forceLineBreakAfter;
         transcriptBreakBtn.setEnabled(enabled);
         transcriptBreakBtn.setAlpha(enabled ? 1f : 0.4f);
-        transcriptBreakBtn.setTextColor(active ? 0xFF4DD0E1 : 0x80FFFFFF);
+        transcriptBreakBtn.setTextColor(active ? 0xFF22D3EE : 0x80FFFFFF);
     }
 
     // ── Silence detection → yellow candidates → tap to cut ───────────
@@ -40699,7 +40699,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setPadding(pad, pad / 2, pad, 0);
         android.widget.TextView label = new android.widget.TextView(this);
         label.setText(R.string.faditor_silence_sensitivity);
-        label.setTextColor(0xFFCCCCCC);
+        label.setTextColor(0xFFC4C4CE);
         root.addView(label);
         final android.widget.SeekBar seek = new android.widget.SeekBar(this);
         seek.setMax(100);
@@ -40834,7 +40834,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
         root.setPadding(pad, pad, pad, pad);
         android.widget.TextView bpmLabel = new android.widget.TextView(this);
-        bpmLabel.setTextColor(0xFFCCCCCC);
+        bpmLabel.setTextColor(0xFFC4C4CE);
         bpmLabel.setTextSize(14);
         float bpm = editorTimeline.getLastDetectedBpm();
         long[] beats = editorTimeline.getBeatMarkers();
@@ -40842,7 +40842,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(bpmLabel);
         android.widget.TextView sensLabel = new android.widget.TextView(this);
         sensLabel.setText("Sensitivity");
-        sensLabel.setTextColor(0xFFCCCCCC);
+        sensLabel.setTextColor(0xFFC4C4CE);
         sensLabel.setPadding(0, pad/2, 0, 0);
         root.addView(sensLabel);
         com.google.android.material.slider.Slider sensSlider = new com.google.android.material.slider.Slider(new android.view.ContextThemeWrapper(this, R.style.Widget_FadCam_BottomSheetSlider));
@@ -40858,7 +40858,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(snapRow);
         android.widget.TextView snapLabel = new android.widget.TextView(this);
         snapLabel.setText("Snap to beats");
-        snapLabel.setTextColor(0xFFCCCCCC);
+        snapLabel.setTextColor(0xFFC4C4CE);
         snapLabel.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         snapRow.addView(snapLabel);
         androidx.appcompat.widget.SwitchCompat snapSwitch = new androidx.appcompat.widget.SwitchCompat(this);
@@ -40921,7 +40921,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.setPadding(pad, pad, pad, pad);
         android.widget.TextView refLabel = new android.widget.TextView(this);
         refLabel.setText("Reference clip (stays)");
-        refLabel.setTextColor(0xFFCCCCCC);
+        refLabel.setTextColor(0xFFC4C4CE);
         root.addView(refLabel);
         android.widget.Spinner refSpinner = new android.widget.Spinner(this);
         android.widget.ArrayAdapter<String> refAdapter = new android.widget.ArrayAdapter<>(this, android.R.layout.simple_spinner_item, labels);
@@ -40930,7 +40930,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(refSpinner);
         android.widget.TextView targetLabel = new android.widget.TextView(this);
         targetLabel.setText("Clip to move");
-        targetLabel.setTextColor(0xFFCCCCCC);
+        targetLabel.setTextColor(0xFFC4C4CE);
         targetLabel.setPadding(0, pad/2, 0, 0);
         root.addView(targetLabel);
         android.widget.Spinner targetSpinner = new android.widget.Spinner(this);
@@ -41012,7 +41012,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private android.widget.TextView attachSilenceLivePreview(
             @NonNull android.widget.LinearLayout root, @NonNull android.widget.SeekBar seek) {
         final android.widget.TextView preview = new android.widget.TextView(this);
-        preview.setTextColor(0xFFFFC107);
+        preview.setTextColor(0xFFFBBF24);
         preview.setTextSize(12);
         preview.setPadding(0, (int) (6 * getResources().getDisplayMetrics().density), 0, 0);
         preview.setText("Release the slider to preview gaps on the timeline"); // TODO(strings)
@@ -41195,7 +41195,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         android.widget.TextView label = new android.widget.TextView(this);
         label.setText(R.string.faditor_silence_sensitivity);
-        label.setTextColor(0xFFCCCCCC);
+        label.setTextColor(0xFFC4C4CE);
         root.addView(label);
 
         final android.widget.SeekBar seek = new android.widget.SeekBar(this);
@@ -41401,7 +41401,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // dialog it opens has to teach the grammar on sight.
         hint.setText("2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min"); // TODO(strings)
         hint.setTextSize(12);
-        hint.setTextColor(0xFF9E9E9E);
+        hint.setTextColor(0xFF8A8A94);
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
         android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
@@ -41953,7 +41953,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER);
         bar.setPadding(barPad, barPad, barPad, barPad);
-        bar.setBackgroundColor(Color.parseColor("#DD333333"));
+        bar.setBackgroundColor(Color.parseColor("#DD33333C"));
         bar.setElevation(24 * d);
 
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
@@ -41969,7 +41969,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnStart.setTextColor(Color.WHITE);
         btnStart.setTextSize(12);
         btnStart.setPadding((int)(12*d), (int)(8*d), (int)(12*d), (int)(8*d));
-        btnStart.setBackgroundColor(Color.parseColor("#664CAF50"));
+        btnStart.setBackgroundColor(Color.parseColor("#6635F6BF"));
         btnStart.setGravity(Gravity.CENTER);
         btnStart.setOnClickListener(v -> {
             if (selectedAsset != null && project != null) {
@@ -41997,7 +41997,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnEnd.setTextColor(Color.WHITE);
         btnEnd.setTextSize(12);
         btnEnd.setPadding((int)(12*d), (int)(8*d), (int)(12*d), (int)(8*d));
-        btnEnd.setBackgroundColor(Color.parseColor("#664CAF50"));
+        btnEnd.setBackgroundColor(Color.parseColor("#6635F6BF"));
         btnEnd.setGravity(Gravity.CENTER);
         btnEnd.setOnClickListener(v -> {
             if (selectedAsset != null && project != null) {
@@ -42033,7 +42033,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         assetDragView = new TextView(this);
         assetDragView.setTypeface(ResourcesCompat.getFont(this, R.font.materialicons));
         assetDragView.setText(getAssetDragIcon(item));
-        assetDragView.setTextColor(Color.parseColor("#FFFFFFFF"));
+        assetDragView.setTextColor(Color.parseColor("#FFF4F4F5"));
         assetDragView.setGravity(Gravity.CENTER);
         assetDragView.setTextSize(26);
         assetDragView.setBackgroundResource(R.drawable.asset_insert_btn_bg);
@@ -42740,12 +42740,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         android.widget.TextView title = new android.widget.TextView(this);
         title.setText("Choose image for timeline (tap to select, numbered — as clip)");
-        title.setTextSize(14); title.setTextColor(0xFFEEEEEE); title.setPadding(0,0,0,Math.round(8*d));
+        title.setTextSize(14); title.setTextColor(0xFFF4F4F5); title.setPadding(0,0,0,Math.round(8*d));
         root.addView(title);
 
         android.widget.TextView browse = new android.widget.TextView(this);
         browse.setText("Browse files…");
-        browse.setTextColor(0xFF4CAF50); browse.setTextSize(14);
+        browse.setTextColor(0xFF35F6BF); browse.setTextSize(14);
         browse.setPadding(Math.round(8*d), Math.round(8*d), Math.round(8*d), Math.round(8*d));
         browse.setBackgroundResource(R.drawable.segment_active_background);
         root.addView(browse, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ bottomMargin = Math.round(8*d); }});
@@ -42767,12 +42767,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bottomBar.setPadding(0, Math.round(10*d), 0, 0);
         android.widget.TextView btnCancel = new android.widget.TextView(this);
         btnCancel.setText(android.R.string.cancel);
-        btnCancel.setTextColor(0xFFAAAAAA); btnCancel.setTextSize(14);
+        btnCancel.setTextColor(0xFF8A8A94); btnCancel.setTextSize(14);
         btnCancel.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnCancel.setBackgroundResource(R.drawable.segment_active_background);
         android.widget.TextView btnAdd = new android.widget.TextView(this);
         btnAdd.setText("Add (0)");
-        btnAdd.setTextColor(0xFF4CAF50); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
+        btnAdd.setTextColor(0xFF35F6BF); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
         btnAdd.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnAdd.setBackgroundResource(R.drawable.segment_active_background);
         btnAdd.setAlpha(0.4f); btnAdd.setEnabled(false);
@@ -42842,7 +42842,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (filtered.isEmpty()) {
                     android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
                     empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No images in this folder — try Browse files…");
-                    empty.setTextColor(0xFF888888); empty.setGravity(android.view.Gravity.CENTER);
+                    empty.setTextColor(0xFF8A8A94); empty.setGravity(android.view.Gravity.CENTER);
                     empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
                     root.addView(empty, 2);
                 }
@@ -42952,12 +42952,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         android.widget.TextView title = new android.widget.TextView(this);
         title.setText(forImage ? "Choose image (tap to select, numbered)" : "Choose video (tap to select, numbered)");
-        title.setTextSize(14); title.setTextColor(0xFFEEEEEE); title.setPadding(0,0,0,Math.round(8*d));
+        title.setTextSize(14); title.setTextColor(0xFFF4F4F5); title.setPadding(0,0,0,Math.round(8*d));
         root.addView(title);
 
         android.widget.TextView browse = new android.widget.TextView(this);
         browse.setText("Browse files…");
-        browse.setTextColor(0xFF4CAF50); browse.setTextSize(14);
+        browse.setTextColor(0xFF35F6BF); browse.setTextSize(14);
         browse.setPadding(Math.round(8*d), Math.round(8*d), Math.round(8*d), Math.round(8*d));
         browse.setBackgroundResource(R.drawable.segment_active_background);
         root.addView(browse, new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT) {{ bottomMargin = Math.round(8*d); }});
@@ -42980,12 +42980,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bottomBar.setPadding(0, Math.round(10*d), 0, 0);
         android.widget.TextView btnCancel = new android.widget.TextView(this);
         btnCancel.setText(android.R.string.cancel);
-        btnCancel.setTextColor(0xFFAAAAAA); btnCancel.setTextSize(14);
+        btnCancel.setTextColor(0xFF8A8A94); btnCancel.setTextSize(14);
         btnCancel.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnCancel.setBackgroundResource(R.drawable.segment_active_background);
         android.widget.TextView btnAdd = new android.widget.TextView(this);
         btnAdd.setText("Add (0)");
-        btnAdd.setTextColor(0xFF4CAF50); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
+        btnAdd.setTextColor(0xFF35F6BF); btnAdd.setTextSize(14); btnAdd.setTypeface(null, Typeface.BOLD);
         btnAdd.setPadding(Math.round(16*d), Math.round(10*d), Math.round(16*d), Math.round(10*d));
         btnAdd.setBackgroundResource(R.drawable.segment_active_background);
         btnAdd.setAlpha(0.4f); btnAdd.setEnabled(false);
@@ -43068,7 +43068,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (filtered.isEmpty()) {
                     android.widget.TextView empty = new android.widget.TextView(FaditorEditorActivity.this);
                     empty.setText(dir.isEmpty() ? "No folder pinned — tap Browse files…" : "No " + (forImage ? "images" : "videos") + " in this folder — try Browse files…");
-                    empty.setTextColor(0xFF888888); empty.setGravity(android.view.Gravity.CENTER);
+                    empty.setTextColor(0xFF8A8A94); empty.setGravity(android.view.Gravity.CENTER);
                     empty.setPadding(0, Math.round(24*d), 0, Math.round(24*d));
                     root.addView(empty, 2);
                 }
@@ -43830,7 +43830,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView message = new TextView(this);
         message.setText(R.string.faditor_transcribe_prompt_message);
-        message.setTextColor(0xFFCCCCCC);
+        message.setTextColor(0xFFC4C4CE);
         message.setTextSize(13);
         LinearLayout.LayoutParams msgLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -43841,24 +43841,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final android.widget.CheckBox cbFast = new android.widget.CheckBox(this);
         cbFast.setText(getString(R.string.faditor_transcript_model_fast)
                 + " — " + getString(R.string.faditor_transcript_model_fast_sub));
-        cbFast.setTextColor(0xFFFFFFFF);
+        cbFast.setTextColor(0xFFF4F4F5);
         root.addView(cbFast);
 
         final android.widget.CheckBox cbAccurate = new android.widget.CheckBox(this);
         cbAccurate.setText(getString(R.string.faditor_transcript_model_accurate)
                 + " — " + getString(R.string.faditor_transcript_model_accurate_sub));
-        cbAccurate.setTextColor(0xFFFFFFFF);
+        cbAccurate.setTextColor(0xFFF4F4F5);
         root.addView(cbAccurate);
 
         final android.widget.CheckBox cbWhisper = new android.widget.CheckBox(this);
         cbWhisper.setText(getString(R.string.faditor_transcript_model_whisper)
                 + " — " + getString(R.string.faditor_transcript_model_whisper_sub));
-        cbWhisper.setTextColor(0xFFFFFFFF);
+        cbWhisper.setTextColor(0xFFF4F4F5);
         root.addView(cbWhisper);
 
         final android.widget.CheckBox cbDontAsk = new android.widget.CheckBox(this);
         cbDontAsk.setText(R.string.faditor_transcribe_prompt_dont_ask);
-        cbDontAsk.setTextColor(0xFF999999);
+        cbDontAsk.setTextColor(0xFF8A8A94);
         cbDontAsk.setTextSize(12);
         cbDontAsk.setChecked(false);
         LinearLayout.LayoutParams dontAskLp = new LinearLayout.LayoutParams(
@@ -43881,7 +43881,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // matching MaterialAlertDialogBuilder's default cancel behavior.
         TextView okButton = new TextView(this);
         okButton.setText(android.R.string.ok);
-        okButton.setTextColor(0xFF4DD0E1);
+        okButton.setTextColor(0xFF22D3EE);
         okButton.setTextSize(15);
         okButton.setTypeface(null, Typeface.BOLD);
         okButton.setGravity(Gravity.CENTER);
@@ -43997,11 +43997,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         splitHealMode = heal;
         if (toolSplitIcon != null) {
             toolSplitIcon.setText(heal ? "healing" : "content_cut");
-            toolSplitIcon.setTextColor(heal ? 0xFFFFC107 : 0xFF888888);
+            toolSplitIcon.setTextColor(heal ? 0xFFFBBF24 : 0xFF8A8A94);
         }
         if (toolSplitLabel != null) {
             toolSplitLabel.setText(heal ? "Heal" : getString(R.string.faditor_tool_split));
-            toolSplitLabel.setTextColor(heal ? 0xFFFFC107 : 0xFF888888);
+            toolSplitLabel.setTextColor(heal ? 0xFFFBBF24 : 0xFF8A8A94);
         }
         if (toolSplitIcon != null) {
             toolSplitIcon.animate().cancel();

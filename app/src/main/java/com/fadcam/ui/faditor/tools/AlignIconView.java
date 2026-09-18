@@ -39,7 +39,7 @@ public final class AlignIconView extends View {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
         paint.setStyle(Paint.Style.FILL);
-        paint.setColor(0xFFEEEEEE);
+        paint.setColor(0xFFF4F4F5);
     }
 
     public void setAlign(@NonNull String a) {

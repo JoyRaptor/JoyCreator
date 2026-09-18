@@ -338,7 +338,7 @@ public class SpriteGridEditorView extends View {
                 boolean now = i == playingCell;
                 badgePaint.setColor(now ? SpriteTheme.LIVE : SpriteTheme.SELECTED);
                 canvas.drawRoundRect(badgeBox, 4f * density, 4f * density, badgePaint);
-                badgeInk.setColor(now ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT);
+                badgeInk.setColor(now ? 0xFFF4F4F5 : SpriteTheme.ON_ACCENT);
                 canvas.drawText(ord, cx, badgeBox.bottom - 3.2f * density, badgeInk);
             }
         }

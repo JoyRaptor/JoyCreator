@@ -54,9 +54,9 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
     /** Preset swatches for the per-band color chooser. */
     private static final int[] PRESET_COLORS = {
-            0xFFFF4D42, 0xFFFF8A3D, 0xFFF5D442, 0xFF3EE06E,
-            0xFF2EC7B8, 0xFF57A8FF, 0xFF6C7BFF, 0xFFB56CFF,
-            0xFFFF5EAE, 0xFFFFFFFF, 0xFFB0B0B0, 0xFF555555,
+            0xFFFF4438, 0xFFFF8A3D, 0xFFFBBF24, 0xFF35F6BF,
+            0xFF22D3EE, 0xFF8A8A94, 0xFF8A8A94, 0xFFA78BFA,
+            0xFFFF4438, 0xFFF4F4F5, 0xFFC4C4CE, 0xFF52525B,
     };
 
     @Nullable private TapeWaveformStyle style;
@@ -131,7 +131,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         // Grabber handle.
         View grabber = new View(requireContext());
-        grabber.setBackgroundColor(0xFF5A5A5A);
+        grabber.setBackgroundColor(0xFF52525B);
         LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(
                 (int) (40 * dp), (int) (4 * dp));
         grabLp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -141,7 +141,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText("Waveform visualizer");
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding(0, 0, 0, (int) (8 * dp));
@@ -151,12 +151,12 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         sectionHeader(root, dp, "Analysis");
         final CheckBox eager = new CheckBox(requireContext());
         eager.setText("Analyze waveforms immediately");
-        eager.setTextColor(0xFFDDDDDD);
+        eager.setTextColor(0xFFC4C4CE);
         eager.setTextSize(14);
         eager.setChecked(style.analyzeEager);
         root.addView(eager);
         final TextView eagerHint = new TextView(requireContext());
-        eagerHint.setTextColor(0xFF888888);
+        eagerHint.setTextColor(0xFF8A8A94);
         eagerHint.setTextSize(12);
         eagerHint.setText(style.analyzeEager
                 ? "Analyzed at import." : "Analyzed when a clip is first opened.");
@@ -210,7 +210,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         final CheckBox presence = new CheckBox(requireContext());
         presence.setText("Presence band");
-        presence.setTextColor(0xFFDDDDDD);
+        presence.setTextColor(0xFFC4C4CE);
         presence.setTextSize(14);
         presence.setChecked(style.presenceOn);
         root.addView(presence);
@@ -232,12 +232,12 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         sectionHeader(root, dp, "Normalize");
         final CheckBox norm = new CheckBox(requireContext());
         norm.setText("Normalize each band independently");
-        norm.setTextColor(0xFFDDDDDD);
+        norm.setTextColor(0xFFC4C4CE);
         norm.setTextSize(14);
         norm.setChecked(style.perBandNormalize);
         root.addView(norm);
         final TextView normHint = new TextView(requireContext());
-        normHint.setTextColor(0xFF888888);
+        normHint.setTextColor(0xFF8A8A94);
         normHint.setTextSize(12);
         normHint.setText(style.perBandNormalize
                 ? "Each band fills its own height." : "Bands keep relative loudness.");
@@ -288,7 +288,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
     private void sectionHeader(@NonNull LinearLayout root, float dp, @NonNull String text) {
         TextView h = new TextView(requireContext());
         h.setText(text.toUpperCase(java.util.Locale.US));
-        h.setTextColor(0xFF888888);
+        h.setTextColor(0xFF8A8A94);
         h.setTextSize(12);
         h.setTypeface(null, Typeface.BOLD);
         h.setPadding(0, (int) (14 * dp), 0, (int) (4 * dp));
@@ -307,12 +307,12 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         TextView l = new TextView(requireContext());
         l.setText(label);
-        l.setTextColor(0xFFCCCCCC);
+        l.setTextColor(0xFFC4C4CE);
         l.setTextSize(14);
         l.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         labelRow.addView(l);
 
-        valueView.setTextColor(0xFF888888);
+        valueView.setTextColor(0xFF8A8A94);
         valueView.setTextSize(13);
         valueView.setTypeface(null, Typeface.BOLD);
         valueView.setText(hz(initialHz));
@@ -338,12 +338,12 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         TextView l = new TextView(requireContext());
         l.setText(label);
-        l.setTextColor(0xFFCCCCCC);
+        l.setTextColor(0xFFC4C4CE);
         l.setTextSize(14);
         l.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         labelRow.addView(l);
 
-        valueView.setTextColor(0xFF888888);
+        valueView.setTextColor(0xFF8A8A94);
         valueView.setTextSize(13);
         valueView.setTypeface(null, Typeface.BOLD);
         valueView.setText(f2(initial));
@@ -377,7 +377,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         // label
         TextView l = new TextView(requireContext());
         l.setText(BAND_LABELS[band]);
-        l.setTextColor(0xFFDDDDDD);
+        l.setTextColor(0xFFC4C4CE);
         l.setTextSize(15);
         l.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(l);
@@ -416,7 +416,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
                          @NonNull BoolSink sink) {
         CheckBox cb = new CheckBox(requireContext());
         cb.setText(label);
-        cb.setTextColor(0xFFDDDDDD);
+        cb.setTextColor(0xFFC4C4CE);
         cb.setTextSize(14);
         cb.setChecked(initial);
         cb.setOnCheckedChangeListener((b, checked) -> sink.set(checked));
@@ -444,8 +444,8 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
             GradientDrawable d = new GradientDrawable();
             d.setShape(GradientDrawable.OVAL);
             d.setColor(color);
-            if (color == style.bandColor[band]) d.setStroke((int) (3 * dp), 0xFFFFFFFF);
-            else d.setStroke((int) (1 * dp), 0xFF444444);
+            if (color == style.bandColor[band]) d.setStroke((int) (3 * dp), 0xFFF4F4F5);
+            else d.setStroke((int) (1 * dp), 0xFF33333C);
             cell.setBackground(d);
             cell.setOnClickListener(v -> {
                 if (style == null) return;
@@ -485,23 +485,23 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         d.setShape(GradientDrawable.RECTANGLE);
         d.setCornerRadius(6 * dp);
         d.setColor(color);
-        d.setStroke((int) (1 * dp), 0xFF444444);
+        d.setStroke((int) (1 * dp), 0xFF33333C);
         swatch.setBackground(d);
     }
 
     private void updateLaneButton(@NonNull TextView lane, int laneVal) {
         boolean top = laneVal <= 0; // -1 = top lane
         lane.setText(top ? "▲" : "▼"); // ▲ / ▼
-        lane.setTextColor(top ? 0xFF57A8FF : 0xFFF5D442);
+        lane.setTextColor(top ? 0xFF8A8A94 : 0xFFFBBF24);
     }
 
     private void tintSeek(@NonNull SeekBar bar) {
         android.content.res.ColorStateList active =
-                android.content.res.ColorStateList.valueOf(0xFF4DD0E1);
+                android.content.res.ColorStateList.valueOf(0xFF22D3EE);
         bar.setProgressTintList(active);
         bar.setThumbTintList(active);
         bar.setProgressBackgroundTintList(
-                android.content.res.ColorStateList.valueOf(0xFF333333));
+                android.content.res.ColorStateList.valueOf(0xFF33333C));
     }
 
     private static int toProgress(float v, float min, float max) {

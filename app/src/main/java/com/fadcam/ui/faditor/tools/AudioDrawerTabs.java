@@ -52,8 +52,8 @@ public final class AudioDrawerTabs {
 
     private AudioDrawerTabs() {}
 
-    private static final int TXT = 0xFFE8E8E8;
-    private static final int TXT_DIM = 0xFFA0A0A0;
+    private static final int TXT = 0xFFF4F4F5;
+    private static final int TXT_DIM = 0xFF8A8A94;
     private static final int SLIDER_STEPS = 1000;
     /** Key-match tolerance in clip-ms — the SAME tolerance addOrUpdateVolumeKeyframe uses. */
     private static final int KEY_TOLERANCE_MS = 40;
@@ -840,7 +840,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
      */
     private static final class GainReductionBar extends android.view.View {
         private static final int TRACK_COLOR = 0x22FFFFFF;
-        private static final int FILL_COLOR = 0xFFFFB74D;
+        private static final int FILL_COLOR = 0xFFFBBF24;
         /** Full scale: 12 dB of reduction sweeps the whole bar. */
         private static final float MAX_DB = 12f;
         private final android.graphics.Paint trackPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);

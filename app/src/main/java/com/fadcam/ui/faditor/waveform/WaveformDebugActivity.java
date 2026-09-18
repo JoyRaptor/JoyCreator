@@ -101,7 +101,7 @@ public class WaveformDebugActivity extends AppCompatActivity {
         ScrollView scroll = new ScrollView(this);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xFF101014);
+        root.setBackgroundColor(0xFF0D0D10);
         int pad = (int) (12 * density);
         root.setPadding(pad, pad, pad, pad);
         scroll.addView(root);

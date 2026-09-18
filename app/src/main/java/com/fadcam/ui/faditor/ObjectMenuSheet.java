@@ -238,11 +238,11 @@ public final class ObjectMenuSheet extends LinearLayout {
     }
 
     private static final int SLIDER_STEPS = 1000;
-    private static final int BG = 0xFF1C1C1E;
-    private static final int TXT_DIM = 0xFF888888;
-    private static final int TXT = 0xFFDDDDDD;
-    private static final int ACCENT = 0xFF4CAF50;
-    private static final int DESTRUCTIVE = 0xFFE57373;
+    private static final int BG = 0xFF1F1F26;
+    private static final int TXT_DIM = 0xFF8A8A94;
+    private static final int TXT = 0xFFC4C4CE;
+    private static final int ACCENT = 0xFF35F6BF;
+    private static final int DESTRUCTIVE = 0xFFFF4438;
 
     private final float density;
     private final LinearLayout gripRow;
@@ -321,7 +321,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         swatchView = new View(ctx);
         GradientDrawable dot = new GradientDrawable();
         dot.setShape(GradientDrawable.OVAL);
-        dot.setColor(0xFFFFFFFF);
+        dot.setColor(0xFFF4F4F5);
         swatchView.setBackground(dot);
         LayoutParams dotLp = new LayoutParams(dp(14), dp(14));
         dotLp.rightMargin = dp(8);
@@ -496,9 +496,9 @@ public final class ObjectMenuSheet extends LinearLayout {
                 chip.setSingleLine(true);
                 chip.setPadding(dp(10), dp(6), dp(10), dp(6));
                 GradientDrawable chipBg = new GradientDrawable();
-                chipBg.setColor(0xFF2A2A2E);
+                chipBg.setColor(0xFF2C2C35);
                 chipBg.setCornerRadius(dp(14));
-                chipBg.setStroke(dp(1), 0xFF3A3A3E);
+                chipBg.setStroke(dp(1), 0xFF33333C);
                 chip.setBackground(chipBg);
                 chip.setOnClickListener(v -> a.run.run());
                 LayoutParams clp = new LayoutParams(
@@ -665,7 +665,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         grip.setPadding(0, dp(8), 0, dp(8));
         View pill = new View(getContext());
         GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(0xFF555555);
+        pillBg.setColor(0xFF52525B);
         pillBg.setCornerRadius(3 * density);
         pill.setBackground(pillBg);
         grip.addView(pill, new LayoutParams(dp(38), dp(4)));
@@ -766,7 +766,7 @@ public final class ObjectMenuSheet extends LinearLayout {
                 KeyframeGlyph.curveFor(e, cx, cy, r, crv);
                 p.setStyle(Paint.Style.STROKE);
                 p.setStrokeWidth(1.6f * density);
-                p.setColor(0xFFCCCCCC);
+                p.setColor(0xFFC4C4CE);
                 p.setStrokeCap(Paint.Cap.ROUND);
                 p.setStrokeJoin(Paint.Join.ROUND);
                 c.drawPath(sil, p);

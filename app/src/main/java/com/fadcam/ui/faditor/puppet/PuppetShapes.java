@@ -149,7 +149,7 @@ public final class PuppetShapes {
                                  @NonNull Paint fill, @NonNull Paint stroke, float d) {
         draw(c, type, cx, cy, r, colour, fill, stroke, d);
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xFF050507);
+        fill.setColor(0xFF000000);
         c.drawCircle(cx, cy, Math.max(1f, r * 0.42f), fill);
     }
 }

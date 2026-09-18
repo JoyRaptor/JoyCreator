@@ -36,7 +36,7 @@
             android:gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="close"
-            android:textColor="#FFFFFF"
+            android:textColor="#F4F4F5"
             android:textSize="24sp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/faditor_close" />
@@ -49,7 +49,7 @@
             android:gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="push_pin"
-            android:textColor="#888888"
+            android:textColor="#8A8A94"
             android:textSize="22sp"
             android:layout_marginStart="2dp"
             android:background="?attr/selectableItemBackgroundBorderless"
@@ -62,7 +62,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="@string/faditor_editor_title"
-            android:textColor="#FFFFFF"
+            android:textColor="#F4F4F5"
             android:textSize="17sp"
             android:textStyle="bold"
             android:gravity="center"
@@ -80,7 +80,7 @@
             android:padding="4dp"
             android:scaleType="fitCenter"
             android:src="@drawable/ic_ai_assistant_robot"
-            app:tint="#FFFFFFFF"
+            app:tint="#FFF4F4F5"
             android:background="@drawable/joybot_orb"
             android:contentDescription="AI Assistant" />
 
@@ -92,7 +92,7 @@
             android:gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="upload"
-            android:textColor="#FF4CAF50"
+            android:textColor="#FF35F6BF"
             android:textSize="24sp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="@string/faditor_export" />
@@ -117,14 +117,14 @@
             android:gravity="center_vertical"
             android:paddingStart="12dp"
             android:paddingEnd="8dp"
-            android:background="#FF1A1A1A">
+            android:background="#FF16161B">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/faditor_transitions"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -135,7 +135,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -159,14 +159,14 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="A↔B"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:background="@drawable/transition_preview_crossfade_bg" />
@@ -174,7 +174,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_crossfade"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -186,21 +186,21 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="▰"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="28sp"
                         android:background="@drawable/transition_preview_black_bg" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_black"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -212,21 +212,21 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="▱"
-                        android:textColor="#111111"
+                        android:textColor="#0D0D10"
                         android:textSize="28sp"
                         android:background="@drawable/transition_preview_white_bg" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_white"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -238,21 +238,21 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="➜"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="28sp"
                         android:background="@drawable/transition_preview_wipe_bg" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_wipe"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -264,21 +264,21 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="◎"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="28sp"
                         android:background="@drawable/transition_preview_radial_bg" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_radial"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -290,21 +290,21 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="⇆"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="28sp"
                         android:background="@drawable/transition_preview_mirror_bg" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_mirror"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -316,21 +316,21 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="◀"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="28sp"
                         android:background="@drawable/transition_preview_push_bg" />
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_push"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -342,14 +342,14 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="RGB"
-                        android:textColor="#00E5FF"
+                        android:textColor="#22D3EE"
                         android:textSize="18sp"
                         android:textStyle="bold"
                         android:background="@drawable/transition_preview_glitch_bg" />
@@ -357,7 +357,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_glitch"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -369,14 +369,14 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="TV"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="24sp"
                         android:textStyle="bold"
                         android:background="@drawable/transition_preview_tv_bg" />
@@ -384,7 +384,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transition_tv_channel"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -396,14 +396,14 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332A2A2A"
+                    android:background="#332C2C35"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
                         android:layout_height="64dp"
                         android:gravity="center"
                         android:text="GL"
-                        android:textColor="#00E5FF"
+                        android:textColor="#22D3EE"
                         android:textSize="22sp"
                         android:textStyle="bold"
                         android:background="@drawable/transition_preview_glitch_bg" />
@@ -411,7 +411,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="GL Shader"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="11sp"
                         android:layout_marginTop="6dp" />
                 </LinearLayout>
@@ -425,7 +425,7 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="8dp"
-        android:background="#E01A1A1A"
+        android:background="#E017171C"
         android:elevation="12dp"
         android:visibility="gone">
 
@@ -434,7 +434,7 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Transition"
-            android:textColor="#FFFFFF"
+            android:textColor="#F4F4F5"
             android:textSize="14sp"
             android:textStyle="bold" />
 
@@ -460,7 +460,7 @@
             android:layout_height="wrap_content"
             android:gravity="center"
             android:text="@string/faditor_transition_remove"
-            android:textColor="#FFFFFFFF"
+            android:textColor="#FFF4F4F5"
             android:textSize="12sp"
             android:textStyle="bold"
             android:paddingStart="12dp"
@@ -676,7 +676,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="timer"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -707,9 +707,9 @@
             android:gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="chevron_left"
-            android:textColor="#FFFFFF"
+            android:textColor="#F4F4F5"
             android:textSize="20sp"
-            android:background="#CC2A2A2A"
+            android:background="#CC2C2C35"
             android:elevation="11dp"
             android:visibility="gone" />
 
@@ -759,7 +759,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="search"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="16sp"
                         android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -770,7 +770,7 @@
                         android:layout_weight="1"
                         android:layout_marginStart="2dp"
                         android:text="@string/faditor_transcript"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="13sp"
                         android:textStyle="bold"
                         android:clickable="true"
@@ -798,7 +798,7 @@
                         android:layout_height="28dp"
                         android:gravity="center"
                         android:text="@string/faditor_transcript_clean"
-                        android:textColor="#4DD0E1"
+                        android:textColor="#22D3EE"
                         android:textSize="11sp"
                         android:singleLine="true"
                         android:paddingStart="4dp"
@@ -812,7 +812,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="person"
-                        android:textColor="#FFB74D"
+                        android:textColor="#FBBF24"
                         android:textSize="16sp"
                         android:contentDescription="Speaker"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -823,7 +823,7 @@
                         android:layout_height="28dp"
                         android:gravity="center"
                         android:text="@string/faditor_transcript_apply"
-                        android:textColor="#4CAF50"
+                        android:textColor="#35F6BF"
                         android:textSize="11sp"
                         android:textStyle="bold"
                         android:singleLine="true"
@@ -838,7 +838,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="chevron_right"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:background="?attr/selectableItemBackgroundBorderless" />
                 </LinearLayout>
@@ -861,8 +861,8 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:hint="@string/faditor_transcript_search"
-                        android:textColorHint="#888888"
-                        android:textColor="#FFFFFF"
+                        android:textColorHint="#8A8A94"
+                        android:textColor="#F4F4F5"
                         android:textSize="14sp"
                         android:singleLine="true"
                         android:imeOptions="actionSearch"
@@ -873,7 +873,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0/0"
-                        android:textColor="#AAAAAA"
+                        android:textColor="#8A8A94"
                         android:textSize="11sp"
                         android:minWidth="34dp"
                         android:gravity="center" />
@@ -885,7 +885,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="keyboard_arrow_up"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -896,7 +896,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="keyboard_arrow_down"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -907,7 +907,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="close"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:background="?attr/selectableItemBackgroundBorderless" />
                 </LinearLayout>
@@ -927,7 +927,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transcript_working"
-                        android:textColor="#CCCCCC"
+                        android:textColor="#C4C4CE"
                         android:textSize="12sp" />
 
                     <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -936,8 +936,8 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="4dp"
                         android:indeterminate="true"
-                        app:indicatorColor="#4DD0E1"
-                        app:trackColor="#333333"
+                        app:indicatorColor="#22D3EE"
+                        app:trackColor="#33333C"
                         app:trackThickness="4dp" />
                 </LinearLayout>
 
@@ -965,7 +965,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/faditor_transcript_pick_model"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="15sp"
                         android:textStyle="bold" />
 
@@ -974,7 +974,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:text="@string/faditor_transcript_pick_model_sub"
-                        android:textColor="#AAAAAA"
+                        android:textColor="#8A8A94"
                         android:textSize="12sp" />
 
                     <LinearLayout
@@ -992,7 +992,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/faditor_transcript_model_fast"
-                            android:textColor="#4DD0E1"
+                            android:textColor="#22D3EE"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
@@ -1000,7 +1000,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/faditor_transcript_model_fast_sub"
-                            android:textColor="#CCCCCC"
+                            android:textColor="#C4C4CE"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -1019,7 +1019,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/faditor_transcript_model_accurate"
-                            android:textColor="#4CAF50"
+                            android:textColor="#35F6BF"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
@@ -1027,7 +1027,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/faditor_transcript_model_accurate_sub"
-                            android:textColor="#CCCCCC"
+                            android:textColor="#C4C4CE"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -1046,7 +1046,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/faditor_transcript_model_whisper"
-                            android:textColor="#FFC107"
+                            android:textColor="#FBBF24"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
@@ -1054,7 +1054,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:text="@string/faditor_transcript_model_whisper_sub"
-                            android:textColor="#CCCCCC"
+                            android:textColor="#C4C4CE"
                             android:textSize="12sp" />
                     </LinearLayout>
 
@@ -1063,7 +1063,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:text="@string/faditor_transcript_model_whisper_note"
-                        android:textColor="#777777"
+                        android:textColor="#8A8A94"
                         android:textSize="11sp" />
                 </LinearLayout>
                 </androidx.core.widget.NestedScrollView>
@@ -1113,7 +1113,7 @@
         android:id="@+id/timeline_grab_bar"
         android:layout_width="match_parent"
         android:layout_height="28dp"
-        android:background="#FF141414"
+        android:background="#FF16161B"
         android:clickable="true"
         android:focusable="true"
         android:contentDescription="@string/faditor_timeline_resize_handle">
@@ -1150,7 +1150,7 @@
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true"
                 android:text="00:00"
-                android:textColor="#999999"
+                android:textColor="#8A8A94"
                 android:textSize="11sp"
                 android:fontFamily="monospace" />
 
@@ -1165,7 +1165,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="play_arrow"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="28sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_play_pause" />
@@ -1185,7 +1185,7 @@
                     android:gravity="center"
                     android:fontFamily="@font/materialicons"
                     android:text="magnet"
-                    android:textColor="#4CAF50"
+                    android:textColor="#35F6BF"
                     android:textSize="18sp"
                     android:layout_marginEnd="8dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
@@ -1237,7 +1237,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="undo"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:alpha="0.3"
                         android:background="?attr/selectableItemBackgroundBorderless"
@@ -1251,7 +1251,7 @@
                         android:includeFontPadding="false"
                         android:text="0"
                         android:textSize="8sp"
-                        android:textColor="#777777"
+                        android:textColor="#8A8A94"
                         android:alpha="0.3" />
                 </LinearLayout>
             </LinearLayout>
@@ -1278,7 +1278,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="redo"
-                        android:textColor="#FFFFFF"
+                        android:textColor="#F4F4F5"
                         android:textSize="18sp"
                         android:alpha="0.3"
                         android:background="?attr/selectableItemBackgroundBorderless"
@@ -1292,7 +1292,7 @@
                         android:includeFontPadding="false"
                         android:text="0"
                         android:textSize="8sp"
-                        android:textColor="#777777"
+                        android:textColor="#8A8A94"
                         android:alpha="0.3" />
                 </LinearLayout>
 
@@ -1303,7 +1303,7 @@
                     android:gravity="center"
                     android:fontFamily="@font/materialicons"
                     android:text="link"
-                    android:textColor="#888888"
+                    android:textColor="#8A8A94"
                     android:textSize="18sp"
                     android:layout_marginStart="8dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
@@ -1317,7 +1317,7 @@
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true"
                 android:text="00:00"
-                android:textColor="#999999"
+                android:textColor="#8A8A94"
                 android:textSize="11sp"
                 android:fontFamily="monospace" />
 
@@ -1350,10 +1350,10 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp"
                 android:text="Transcribing…"
-                android:textColor="#42A5F5"
+                android:textColor="#4397FD"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:background="#332A2A2A"
+                android:background="#332C2C35"
                 android:visibility="gone" />
 
             <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -1364,8 +1364,8 @@
                 android:layout_marginTop="54dp"
                 android:indeterminate="true"
                 android:visibility="gone"
-                app:indicatorColor="#42A5F5"
-                app:trackColor="#333333"
+                app:indicatorColor="#4397FD"
+                app:trackColor="#33333C"
                 app:trackThickness="3dp" />
         </RelativeLayout>
 
@@ -1409,7 +1409,7 @@
             android:id="@+id/faditor_tools_overlay"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="#FF141414"
+            android:background="#FF16161B"
             android:clipChildren="false"
             android:clipToPadding="false">
 
@@ -1440,7 +1440,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#FF1A1A1A"
+        android:background="#FF16161B"
         android:elevation="4dp"
         android:visibility="gone">
 
@@ -1478,7 +1478,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="auto_crop"
-                android:textColor="#FFC107"
+                android:textColor="#FBBF24"
                 android:textSize="14sp"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
@@ -1491,7 +1491,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="center_focus_strong"
-                android:textColor="#888888"
+                android:textColor="#8A8A94"
                 android:textSize="14sp"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
@@ -1514,7 +1514,7 @@
                 android:layout_height="40dp"
                 android:gravity="center"
                 android:text="@string/faditor_cancel"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="14sp"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"
@@ -1533,7 +1533,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="restart_alt"
-                android:textColor="#FF888888"
+                android:textColor="#FF8A8A94"
                 android:textSize="24sp"
                 android:paddingStart="12dp"
                 android:paddingEnd="12dp"
@@ -1552,7 +1552,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="check"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="28sp"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp"
@@ -1585,7 +1585,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="sync"
-                android:textColor="#4CAF50"
+                android:textColor="#35F6BF"
                 android:textSize="36sp"
                 android:layout_marginBottom="16dp" />
 
@@ -1594,8 +1594,8 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:indeterminate="true"
-                app:indicatorColor="#4CAF50"
-                app:trackColor="#333333"
+                app:indicatorColor="#35F6BF"
+                app:trackColor="#33333C"
                 app:trackCornerRadius="4dp"
                 app:trackThickness="6dp" />
 
@@ -1604,7 +1604,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/faditor_remuxing"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 android:layout_marginTop="20dp" />
@@ -1648,7 +1648,7 @@
             android:gravity="center_vertical"
             android:paddingStart="4dp"
             android:paddingEnd="4dp"
-            android:background="#FF1A1A1A"
+            android:background="#FF16161B"
             android:elevation="2dp">
 
             <!-- Back to editor -->
@@ -1659,7 +1659,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="arrow_back"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="24sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_export_back" />
@@ -1670,7 +1670,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/faditor_exporting"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="17sp"
                 android:textStyle="bold"
                 android:gravity="center"
@@ -1684,7 +1684,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="check"
-                android:textColor="#4CAF50"
+                android:textColor="#35F6BF"
                 android:textSize="24sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:visibility="invisible"
@@ -1708,7 +1708,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="movie"
-                android:textColor="#4CAF50"
+                android:textColor="#35F6BF"
                 android:textSize="48sp"
                 android:layout_marginBottom="24dp" />
 
@@ -1718,7 +1718,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0%"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="40sp"
                 android:textStyle="bold"
                 android:layout_marginBottom="16dp" />
@@ -1731,8 +1731,8 @@
                 android:indeterminate="false"
                 android:max="100"
                 android:progress="0"
-                app:indicatorColor="#4CAF50"
-                app:trackColor="#333333"
+                app:indicatorColor="#35F6BF"
+                app:trackColor="#33333C"
                 app:trackCornerRadius="4dp"
                 app:trackThickness="8dp" />
 
@@ -1742,7 +1742,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/faditor_exporting"
-                android:textColor="#AAAAAA"
+                android:textColor="#8A8A94"
                 android:textSize="14sp"
                 android:layout_marginTop="16dp" />
 
@@ -1751,7 +1751,7 @@
                 android:id="@+id/export_eta_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#666666"
+                android:textColor="#52525B"
                 android:textSize="13sp"
                 android:layout_marginTop="8dp"
                 android:visibility="gone" />
@@ -1761,7 +1761,7 @@
                 android:id="@+id/export_info_text"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#555555"
+                android:textColor="#52525B"
                 android:textSize="12sp"
                 android:gravity="center"
                 android:layout_marginTop="12dp"
@@ -1777,7 +1777,7 @@
                 android:textSize="13sp"
                 android:layout_marginTop="32dp"
                 app:cornerRadius="20dp"
-                app:strokeColor="#666666" />
+                app:strokeColor="#52525B" />
         </LinearLayout>
     </FrameLayout>
 
@@ -1816,7 +1816,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="volume_up"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="44sp" />
 
             <TextView
@@ -1825,7 +1825,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="4dp"
                 android:text="100%"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="30sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -1868,7 +1868,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="volume_up"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="22sp" />
 
             <TextView
@@ -1878,7 +1878,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:text="100%"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -1890,7 +1890,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="timer"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -1901,7 +1901,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="volume_off"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -1912,7 +1912,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -1933,7 +1933,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_left"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -1950,7 +1950,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -1994,7 +1994,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="opacity"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="22sp" />
 
             <TextView
@@ -2004,7 +2004,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:text="100%"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -2016,7 +2016,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="timer"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2027,7 +2027,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2048,7 +2048,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_left"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2084,7 +2084,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="delete"
-                android:textColor="#FFFF5252"
+                android:textColor="#FFFF4438"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:visibility="gone" />
@@ -2096,7 +2096,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2140,7 +2140,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="loop"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="22sp" />
 
             <TextView
@@ -2150,7 +2150,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:text="@string/faditor_loop_off"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -2161,7 +2161,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2202,7 +2202,7 @@
                 android:layout_marginEnd="3dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_off"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:background="@color/faditor_drawer_control"
@@ -2216,7 +2216,7 @@
                 android:layout_marginHorizontal="3dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_normal"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:background="@color/faditor_drawer_control"
@@ -2230,7 +2230,7 @@
                 android:layout_marginHorizontal="3dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_still"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:background="@color/faditor_drawer_control"
@@ -2244,7 +2244,7 @@
                 android:layout_marginStart="3dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_pingpong"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:background="@color/faditor_drawer_control"
@@ -2268,7 +2268,7 @@
                 android:layout_marginEnd="4dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_extend_start"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="12sp"
                 android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
@@ -2281,7 +2281,7 @@
                 android:layout_marginStart="4dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_extend_end"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="12sp"
                 android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
@@ -2303,7 +2303,7 @@
                 android:layout_marginEnd="4dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_extend_prev"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="12sp"
                 android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
@@ -2316,7 +2316,7 @@
                 android:layout_marginStart="4dp"
                 android:gravity="center"
                 android:text="@string/faditor_loop_extend_next"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="12sp"
                 android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
@@ -2361,7 +2361,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="style"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="22sp" />
 
             <TextView
@@ -2370,7 +2370,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:text="Caption Keyframes"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -2382,7 +2382,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="timer"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2393,7 +2393,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2414,7 +2414,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_left"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2440,7 +2440,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="delete"
-                android:textColor="#FFFF5252"
+                android:textColor="#FFFF4438"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:visibility="gone" />
@@ -2452,7 +2452,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2488,14 +2488,14 @@
             android:gravity="center_vertical"
             android:paddingStart="14dp"
             android:paddingEnd="8dp"
-            android:background="#FF1A1A1A">
+            android:background="#FF16161B">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/faditor_visualizer_style_title"
-                android:textColor="#FFFFFF"
+                android:textColor="#F4F4F5"
                 android:textSize="15sp"
                 android:textStyle="bold" />
 
@@ -2509,7 +2509,7 @@
                 android:layout_height="wrap_content"
                 android:gravity="center"
                 android:text="✕"
-                android:textColor="#FF9A9A9A"
+                android:textColor="#FF8A8A94"
                 android:textSize="17sp"
                 android:paddingStart="12dp"
                 android:paddingTop="4dp"
@@ -2580,7 +2580,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="open_with"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="22sp" />
 
             <TextView
@@ -2590,7 +2590,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="10dp"
                 android:text="@string/faditor_move_drawer_title"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="17sp"
                 android:textStyle="bold" />
 
@@ -2601,7 +2601,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2624,7 +2624,7 @@
                 android:gravity="center"
                 android:fontFamily="monospace"
                 android:text="00:00:00.000"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="13sp" />
 
             <TextView
@@ -2634,7 +2634,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0.0s"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="13sp" />
 
             <TextView
@@ -2644,7 +2644,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="0f"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="13sp" />
 
             <TextView
@@ -2654,7 +2654,7 @@
                 android:layout_weight="1"
                 android:gravity="center"
                 android:text="Lane 1"
-                android:textColor="#FF9E9E9E"
+                android:textColor="#FF8A8A94"
                 android:textSize="13sp" />
         </LinearLayout>
 
@@ -2667,7 +2667,7 @@
             android:gravity="center"
             android:paddingTop="2dp"
             android:text="@string/faditor_move_clip_label"
-            android:textColor="#FF777777"
+            android:textColor="#FF8A8A94"
             android:textSize="11sp"
             android:letterSpacing="0.06" />
 
@@ -2687,7 +2687,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="first_page"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="28sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_move_clip_start" />
@@ -2700,7 +2700,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="arrow_back"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_move_clip_left" />
@@ -2713,7 +2713,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="arrow_forward"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="26sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_move_clip_right" />
@@ -2726,7 +2726,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="last_page"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="28sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_move_clip_end" />
@@ -2748,7 +2748,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="arrow_upward"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="28sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/faditor_move_layer_up" />
@@ -2760,7 +2760,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="arrow_downward"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="28sp"
                 android:layout_marginEnd="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
@@ -2773,8 +2773,8 @@
                 android:layout_weight="1"
                 android:background="@drawable/settings_home_row_bg"
                 android:paddingHorizontal="12dp"
-                android:textColor="#FFFFFFFF"
-                android:textColorHint="#FF666666"
+                android:textColor="#FFF4F4F5"
+                android:textColorHint="#FF52525B"
             android:hint="@string/faditor_move_to_time_hint"
             android:textSize="14sp"
                 android:fontFamily="monospace"
@@ -2789,7 +2789,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="play_arrow"
-                android:textColor="#FF4CAF50"
+                android:textColor="#FF35F6BF"
                 android:textSize="24sp"
                 android:layout_marginStart="8dp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
@@ -2831,7 +2831,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textColor="#FF4DD0E1"
+                android:textColor="#FF22D3EE"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:maxLines="1"
@@ -2845,7 +2845,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:textColor="#FF4DD0E1"
+                android:textColor="#FF22D3EE"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:paddingHorizontal="10dp"
@@ -2858,7 +2858,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_left"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2869,7 +2869,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2880,7 +2880,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="align_horizontal_center"
-                android:textColor="#FFCCCCCC"
+                android:textColor="#FFC4C4CE"
                 android:textSize="22sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
 
@@ -2891,7 +2891,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FFFFFFFF"
+                android:textColor="#FFF4F4F5"
                 android:textSize="20sp"
                 android:background="?attr/selectableItemBackgroundBorderless" />
         </LinearLayout>
@@ -2919,7 +2919,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="TT"
-                    android:textColor="#FFFFFFFF"
+                    android:textColor="#FFF4F4F5"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
@@ -2932,7 +2932,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Tt"
-                    android:textColor="#FFFFFFFF"
+                    android:textColor="#FFF4F4F5"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
@@ -2945,7 +2945,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="tt"
-                    android:textColor="#FFFFFFFF"
+                    android:textColor="#FFF4F4F5"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
@@ -2963,7 +2963,7 @@
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
-                    android:background="#FF222222"
+                    android:background="#FF1F1F26"
                     android:alpha="0.5"
                     android:layout_marginEnd="6dp" />
 
@@ -2977,7 +2977,7 @@
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
-                    android:background="#FF222222"
+                    android:background="#FF1F1F26"
                     android:alpha="0.5"
                     android:layout_marginEnd="6dp" />
 
@@ -2991,7 +2991,7 @@
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
-                    android:background="#FF222222"
+                    android:background="#FF1F1F26"
                     android:alpha="0.5"
                     android:layout_marginEnd="6dp" />
 
@@ -3003,7 +3003,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="call_split"
-                    android:textColor="#FFEEEEEE"
+                    android:textColor="#FFF4F4F5"
                     android:textSize="16sp"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="5dp"
@@ -3041,7 +3041,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ONE"
-                android:textColor="#FF4DD0E1"
+                android:textColor="#FF22D3EE"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:paddingHorizontal="8dp"
@@ -3053,7 +3053,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SNAP"
-                android:textColor="#FFAAFFAA"
+                android:textColor="#FFF4F4F5"
                 android:textSize="11sp"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="6dp"

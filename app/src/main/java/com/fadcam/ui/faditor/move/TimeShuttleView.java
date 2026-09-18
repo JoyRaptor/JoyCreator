@@ -87,11 +87,11 @@ public final class TimeShuttleView extends View {
     public TimeShuttleView(@NonNull Context ctx) {
         super(ctx);
         density = ctx.getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF2A2A2E);
-        tickPaint.setColor(0xFF55555A);
+        trackPaint.setColor(0xFF2C2C35);
+        tickPaint.setColor(0xFF52525B);
         tickPaint.setStrokeWidth(1f * density);
-        fillPaint.setColor(0xFF4CAF50);   // green fill grows with deflection (speed cue)
-        thumbPaint.setColor(0xFFEDEDED);
+        fillPaint.setColor(0xFF35F6BF);   // green fill grows with deflection (speed cue)
+        thumbPaint.setColor(0xFFF4F4F5);
         thumbShadow.setColor(0x66000000);
     }
 
@@ -99,22 +99,22 @@ public final class TimeShuttleView extends View {
     public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs) {
         super(ctx, attrs);
         density = ctx.getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF2A2A2E);
-        tickPaint.setColor(0xFF55555A);
+        trackPaint.setColor(0xFF2C2C35);
+        tickPaint.setColor(0xFF52525B);
         tickPaint.setStrokeWidth(1f * density);
-        fillPaint.setColor(0xFF4CAF50);
-        thumbPaint.setColor(0xFFEDEDED);
+        fillPaint.setColor(0xFF35F6BF);
+        thumbPaint.setColor(0xFFF4F4F5);
         thumbShadow.setColor(0x66000000);
     }
 
     public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs, int defStyleAttr) {
         super(ctx, attrs, defStyleAttr);
         density = ctx.getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF2A2A2E);
-        tickPaint.setColor(0xFF55555A);
+        trackPaint.setColor(0xFF2C2C35);
+        tickPaint.setColor(0xFF52525B);
         tickPaint.setStrokeWidth(1f * density);
-        fillPaint.setColor(0xFF4CAF50);
-        thumbPaint.setColor(0xFFEDEDED);
+        fillPaint.setColor(0xFF35F6BF);
+        thumbPaint.setColor(0xFFF4F4F5);
         thumbShadow.setColor(0x66000000);
     }
 

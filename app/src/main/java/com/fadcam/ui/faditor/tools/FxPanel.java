@@ -53,8 +53,8 @@ public final class FxPanel {
 
     private FxPanel() {}
 
-    private static final int TXT = 0xFFE8E8E8;
-    private static final int TXT_DIM = 0xFFA0A0A0;
+    private static final int TXT = 0xFFF4F4F5;
+    private static final int TXT_DIM = 0xFF8A8A94;
     private static final int CARD_BG = 0x1AFFFFFF;
     private static final int CHIP_BG = 0x22FFFFFF;
     private static final int CHIP_ON = 0x66FFFFFF;
@@ -241,7 +241,7 @@ public final class FxPanel {
         col.addView(row);
         TextView warn = new TextView(ctx);
         warn.setText(note);
-        warn.setTextColor(0xFFFFC107);
+        warn.setTextColor(0xFFFBBF24);
         warn.setTextSize(11f);
         warn.setPadding(0, 0, 0, Math.round(6 * d));
         col.addView(warn);
@@ -317,7 +317,7 @@ public final class FxPanel {
         if (!note.isEmpty()) {
             TextView warn = new TextView(ctx);
             warn.setText(note);
-            warn.setTextColor(0xFFFFC107);
+            warn.setTextColor(0xFFFBBF24);
             warn.setTextSize(9.5f);
             warn.setPadding(0, 0, Math.round(6 * d), 0);
             head.addView(warn);
@@ -622,7 +622,7 @@ public final class FxPanel {
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.addView(row);
         TextView h = new TextView(ctx);
-        h.setTextColor(0xFF9A9A9A);
+        h.setTextColor(0xFF8A8A94);
         h.setTextSize(10.5f);
         h.setPadding(Math.round(86 * d), 0, 0, 0);
         h.setVisibility(View.GONE);
@@ -731,7 +731,7 @@ public final class FxPanel {
     private static void paintSwatch(@NonNull View swatch, int color, float d) {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(0xFF000000 | (color & 0xFFFFFF));
+        bg.setColor(0xFF000000 | (color & 0xF4F4F5));
         bg.setStroke(Math.round(1 * d), 0x55FFFFFF);
         swatch.setBackground(bg);
     }
@@ -845,7 +845,7 @@ public final class FxPanel {
             float t = i / (float) steps;
             int rgb = r.sampleColor(t);
             int a = Math.round(r.sampleAlpha(t) * 255f);
-            colors[i] = (a << 24) | (rgb & 0xFFFFFF);
+            colors[i] = (a << 24) | (rgb & 0xF4F4F5);
         }
         android.graphics.drawable.GradientDrawable g =
                 new android.graphics.drawable.GradientDrawable(
@@ -1394,7 +1394,7 @@ public final class FxPanel {
                                        @NonNull Runnable onTap) {
         TextView v = new TextView(ctx);
         v.setText(glyph);
-        v.setTextColor(0xFF888888);
+        v.setTextColor(0xFF8A8A94);
         v.setTextSize(15f);
         v.setGravity(Gravity.CENTER);
         v.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
@@ -1422,7 +1422,7 @@ public final class FxPanel {
         final Runnable repaint = () -> {
             boolean on = onKeyAtPlayhead(stack, fx, param, host.playheadMs());
             dg[0].setText(on ? "◆" : "◇");
-            dg[0].setTextColor(on ? 0xFFB388FF : 0xFF888888);
+            dg[0].setTextColor(on ? 0xFFA78BFA : 0xFF8A8A94);
         };
 
         LinearLayout cluster = new LinearLayout(ctx);
@@ -1538,7 +1538,7 @@ public final class FxPanel {
         rs.entries.add(playheadMs -> {
             boolean on = onKeyAtPlayhead(stack, fx, param, playheadMs);
             dg[0].setText(on ? "◆" : "◇");
-            dg[0].setTextColor(on ? 0xFFB388FF : 0xFF888888);
+            dg[0].setTextColor(on ? 0xFFA78BFA : 0xFF8A8A94);
         });
         return cluster;
     }

@@ -76,7 +76,7 @@ public final class MaskKeyPanel {
     public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
 
     /** Swatches offered before the dropper — the three keys people actually shoot against. */
-    private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
+    private static final int[] SWATCHES = {0x35F6BF, 0x050508, 0x000000, 0xF4F4F5};
 
     private final Activity activity;
     private final Clip clip;
@@ -146,7 +146,7 @@ public final class MaskKeyPanel {
         rotRow.setOrientation(LinearLayout.HORIZONTAL);
         rotRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView rotLabel = new TextView(activity);
-        rotLabel.setTextColor(0xFFAAAAAA);
+        rotLabel.setTextColor(0xFF8A8A94);
         rotLabel.setTextSize(12);
         rotLabel.setText(activity.getString(R.string.faditor_mask_rotate)
                 + "  ·  " + Math.round(shape.rotationDeg));
@@ -197,7 +197,7 @@ public final class MaskKeyPanel {
 
         CheckBox invert = new CheckBox(activity);
         invert.setText(R.string.faditor_mask_only_inside);
-        invert.setTextColor(0xFFCCCCCC);
+        invert.setTextColor(0xFFC4C4CE);
         invert.setChecked(spec.invertMasks);
         invert.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
         root.addView(invert);
@@ -208,7 +208,7 @@ public final class MaskKeyPanel {
 
         CheckBox link = new CheckBox(activity);
         link.setText("Move with the object");
-        link.setTextColor(0xFFCCCCCC);
+        link.setTextColor(0xFFC4C4CE);
         link.setChecked(shape.linkedToObject);
         link.setOnCheckedChangeListener((b, on) -> {
             shape.linkedToObject = on;
@@ -232,7 +232,7 @@ public final class MaskKeyPanel {
         TextView linkHint = new TextView(activity);
         linkHint.setText("Off: the mask stays put and the object moves under it. "
                 + "On: the mask travels with the object.");
-        linkHint.setTextColor(0xFF8A8A8A);
+        linkHint.setTextColor(0xFF8A8A94);
         linkHint.setTextSize(11.5f);
         linkHint.setPadding((int) (8 * density), 0, 0, (int) (6 * density));
         root.addView(linkHint);
@@ -240,7 +240,7 @@ public final class MaskKeyPanel {
         LinearLayout keyRow = new LinearLayout(activity);
         keyRow.setOrientation(LinearLayout.HORIZONTAL);
         final TextView keyState = new TextView(activity);
-        keyState.setTextColor(0xFF8A8A8A);
+        keyState.setTextColor(0xFF8A8A94);
         keyState.setTextSize(11.5f);
         final Runnable refreshKeyState = () ->
                 keyState.setText(spec.hasMaskKeys() ? "  animated" : "  not animated");
@@ -286,7 +286,7 @@ public final class MaskKeyPanel {
 
         CheckBox keyOn = new CheckBox(activity);
         keyOn.setText(R.string.faditor_key_enable);
-        keyOn.setTextColor(0xFFCCCCCC);
+        keyOn.setTextColor(0xFFC4C4CE);
         keyOn.setChecked(spec.keyEnabled);
         root.addView(keyOn);
 
@@ -298,7 +298,7 @@ public final class MaskKeyPanel {
         root.addView(keyBody);
 
         keyColorLabel = new TextView(activity);
-        keyColorLabel.setTextColor(0xFFAAAAAA);
+        keyColorLabel.setTextColor(0xFF8A8A94);
         keyColorLabel.setTextSize(12);
         keyBody.addView(keyColorLabel);
         refreshKeyColorLabel();
@@ -356,7 +356,7 @@ public final class MaskKeyPanel {
             bg.setShape(GradientDrawable.OVAL);
             bg.setColor(0xFF000000 | rgb);
             // A stroke so the black and white swatches are visible on a dark dialog at all.
-            bg.setStroke(Math.max(1, (int) (1.5f * density)), 0xFF888888);
+            bg.setStroke(Math.max(1, (int) (1.5f * density)), 0xFF8A8A94);
             sw.setBackground(bg);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sz, sz);
             lp.rightMargin = gap;
@@ -415,7 +415,7 @@ public final class MaskKeyPanel {
     private void refreshKeyColorLabel() {
         if (keyColorLabel == null) return;
         keyColorLabel.setText(activity.getString(R.string.faditor_key_color)
-                + "  ·  " + String.format("#%06X", spec.keyColor & 0xFFFFFF));
+                + "  ·  " + String.format("#%06X", spec.keyColor & 0xF4F4F5));
     }
 
     // ── Commit / revert ──────────────────────────────────────────────────────────────────
@@ -475,7 +475,7 @@ public final class MaskKeyPanel {
     private TextView chipButton(@NonNull String label, float density) {
         TextView t = new TextView(activity);
         t.setText(label);
-        t.setTextColor(0xFFFFFFFF);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(12.5f);
         int px = (int) (10 * density), py = (int) (6 * density);
         t.setPadding(px, py, px, py);
@@ -490,7 +490,7 @@ public final class MaskKeyPanel {
     private void addHeader(@NonNull LinearLayout parent, int labelRes, float density) {
         TextView t = new TextView(activity);
         t.setText(labelRes);
-        t.setTextColor(0xFFEEEEEE);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(13);
         t.setPadding(0, (int) (12 * density), 0, (int) (2 * density));
         t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
@@ -500,7 +500,7 @@ public final class MaskKeyPanel {
     private void slider(@NonNull LinearLayout parent, int labelRes, int max, int initial,
                         @NonNull java.util.function.Consumer<Integer> onChange) {
         TextView label = new TextView(activity);
-        label.setTextColor(0xFFAAAAAA);
+        label.setTextColor(0xFF8A8A94);
         label.setTextSize(12);
         label.setText(activity.getString(labelRes) + "  ·  " + initial);
         parent.addView(label);

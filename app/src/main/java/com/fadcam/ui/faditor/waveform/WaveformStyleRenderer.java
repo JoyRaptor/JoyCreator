@@ -438,7 +438,7 @@ public class WaveformStyleRenderer {
         // RING is a radial-only accent; nothing to draw (or configure) for it in the linear strip.
         if (VizLayer.EMITTER_RING.equals(layer.emitter) && !radial) return;
 
-        int primary = parseColor(layer.color, 0xFF00E676);
+        int primary = parseColor(layer.color, 0xFF35F6BF);
         configureLayerPaint(barPaint, layer, primary, w, h, radial);
         // P4 AudioMapper response: attack/release smoothing produces a PER-LAYER local energy array
         // (the shared one is never mutated). Off (0/0) returns the same reference → legacy identical.
@@ -567,7 +567,7 @@ public class WaveformStyleRenderer {
 
     private void drawPlaceholder(@NonNull Canvas canvas, @NonNull WaveformStyle style,
                                  int w, int h, float density, float progress) {
-        int primary = parseColor(style.color, 0xFF00E676);
+        int primary = parseColor(style.color, 0xFF35F6BF);
         int bars = Math.max(1, style.bandCount);
         float[] heights = new float[bars];
         for (int i = 0; i < bars; i++) {

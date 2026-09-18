@@ -109,7 +109,7 @@ public final class PreviewLoupe {
         clip.addCircle(bestX + r, bestY + r, r, Path.Direction.CW);
         c.clipPath(clip);
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xF008080B);
+        fill.setColor(0xF0050508);
         c.drawCircle(bestX + r, bestY + r, r, fill);
 
         c.translate(bestX + r, bestY + r);
@@ -126,7 +126,7 @@ public final class PreviewLoupe {
         stroke.setColor(0x47A78BFA);
         stroke.setStrokeWidth(density);
         c.drawCircle(bestX + r, bestY + r, r - density, stroke);
-        stroke.setColor(0xD94FD1C5);
+        stroke.setColor(0xD94ADE80);
         float a = 5f * density, b = 13f * density;
         c.drawLine(bestX + r, bestY + r - b, bestX + r, bestY + r - a, stroke);
         c.drawLine(bestX + r, bestY + r + a, bestX + r, bestY + r + b, stroke);

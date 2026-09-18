@@ -161,15 +161,15 @@ public class TranscriptPanelView extends View {
         density = getResources().getDisplayMetrics().density;
         padX = 14 * density;
         padY = 12 * density;
-        textPaint.setColor(0xFFFFFFFF);
+        textPaint.setColor(0xFFF4F4F5);
         textPaint.setTextSize(17 * density);
         textPaint.setTypeface(Typeface.DEFAULT);
-        strikePaint.setColor(0xFF888888);
+        strikePaint.setColor(0xFF8A8A94);
         strikePaint.setStrokeWidth(2 * density);
-        activePaint.setColor(0x554DD0E1); // soft cyan highlight
-        searchPaint.setColor(0x55FFEB3B);        // yellow for search matches
-        searchCurrentPaint.setColor(0xAAFFC107); // amber for the current match
-        breakPaint.setColor(0xFF4DD0E1);         // cyan break indicator
+        activePaint.setColor(0x5522D3EE); // soft cyan highlight
+        searchPaint.setColor(0x55FBBF24);        // yellow for search matches
+        searchCurrentPaint.setColor(0xAAFBBF24); // amber for the current match
+        breakPaint.setColor(0xFF22D3EE);         // cyan break indicator
         breakPaint.setStrokeWidth(2 * density);
         gutterWidthPx = GUTTER_WIDTH_DP * density;
         gutterGapPx = GUTTER_GAP_DP * density;
@@ -503,7 +503,7 @@ public class TranscriptPanelView extends View {
                         Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
                         outline.setStyle(Paint.Style.STROKE);
                         outline.setStrokeWidth(1.5f * density);
-                        outline.setColor(0xFFFFFFFF);
+                        outline.setColor(0xFFF4F4F5);
                         outline.setAlpha(120);
                         canvas.drawRoundRect(r, railR, railR, pp);
                         canvas.drawRoundRect(r, railR, railR, outline);
@@ -515,7 +515,7 @@ public class TranscriptPanelView extends View {
                     if (isSelected) {
                         Paint sel = new Paint(Paint.ANTI_ALIAS_FLAG);
                         sel.setStyle(Paint.Style.FILL);
-                        sel.setColor(0xFF4DD0E1);
+                        sel.setColor(0xFF22D3EE);
                         sel.setAlpha(210);
                         pp = sel;
                     } else {
@@ -562,7 +562,7 @@ public class TranscriptPanelView extends View {
                 int[] range = paragraphData.paragraphs.get(para);
                 if (i != range[0]) continue;
                 String summary = buildParagraphSummary(para);
-                textPaint.setColor(0xFFB0B0B0);
+                textPaint.setColor(0xFFC4C4CE);
                 float baseY = wy + baselineOffset;
                 float maxW = getWidth() - (gutterWidthPx + gutterGapPx + padX) - padX;
                 String draw = summary;
@@ -591,12 +591,12 @@ public class TranscriptPanelView extends View {
 
             // Outside the current clip's trim = another clip's words: dimmed, still legible
             // and still tappable (a tap there navigates to that clip).
-            textPaint.setColor(outside ? (w.struck ? 0xFF4A4A4A : 0xFF6E6E6E)
-                                       : (w.struck ? 0xFF888888 : 0xFFFFFFFF));
+            textPaint.setColor(outside ? (w.struck ? 0xFF52525B : 0xFF52525B)
+                                       : (w.struck ? 0xFF8A8A94 : 0xFFF4F4F5));
             float baseY = wy + baselineOffset;
             canvas.drawText(w.text, wordX[i], baseY, textPaint);
             if (w.struck) {
-                strikePaint.setColor(outside ? 0xFF4A4A4A : 0xFF888888);
+                strikePaint.setColor(outside ? 0xFF52525B : 0xFF8A8A94);
                 float midY = wy + lineHeight / 2f;
                 canvas.drawLine(wordX[i], midY, wordX[i] + wordW[i], midY, strikePaint);
             }
@@ -614,7 +614,7 @@ public class TranscriptPanelView extends View {
                 float py = wy - 2f * density;
                 // Small filled pin dot above the word
                 Paint pinPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                pinPaint.setColor(0xFFFFC107);
+                pinPaint.setColor(0xFFFBBF24);
                 pinPaint.setStyle(Paint.Style.FILL);
                 canvas.drawCircle(px, py, 3.5f * density, pinPaint);
                 pinPaint.setStyle(Paint.Style.STROKE);

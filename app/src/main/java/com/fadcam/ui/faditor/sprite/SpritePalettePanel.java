@@ -238,7 +238,7 @@ public class SpritePalettePanel extends FrameLayout {
         // made them obsolete for everything except precision, and precision now lives on the
         // keyframe cluster. That buys back the width this row was wasting.
         cellIndicator = new TextView(ctx);
-        cellIndicator.setTextColor(0xFFB0BEC5);
+        cellIndicator.setTextColor(0xFFC4C4CE);
         cellIndicator.setTextSize(12f);
         LinearLayout.LayoutParams ciLp = new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
@@ -403,7 +403,7 @@ public class SpritePalettePanel extends FrameLayout {
         int pad = (int) (8 * density);
 
         dopeSummary = new TextView(getContext());
-        dopeSummary.setTextColor(0xFFB0BEC5);
+        dopeSummary.setTextColor(0xFFC4C4CE);
         dopeSummary.setTextSize(11.5f);
         dopeSummary.setPadding(pad * 2, 0, pad * 2, pad / 2);
         dopeArea.addView(dopeSummary);
@@ -457,7 +457,7 @@ public class SpritePalettePanel extends FrameLayout {
 
     private TextView hint(@NonNull String text) {
         TextView t = new TextView(getContext());
-        t.setTextColor(0xFF90A4AE);
+        t.setTextColor(0xFF8A8A94);
         t.setTextSize(12f);
         t.setPadding((int) (16 * density), (int) (12 * density),
                 (int) (16 * density), (int) (12 * density));
@@ -825,7 +825,7 @@ public class SpritePalettePanel extends FrameLayout {
         if (preset != null) { animChips.add(art); art.start(); }
 
         TextView top = new TextView(getContext());
-        top.setTextColor(name != null && !name.isEmpty() ? 0xFFFFFFFF : SpriteTheme.DIM);
+        top.setTextColor(name != null && !name.isEmpty() ? 0xFFF4F4F5 : SpriteTheme.DIM);
         top.setTextSize(8.5f);
         top.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         top.setGravity(Gravity.CENTER);
@@ -911,7 +911,7 @@ public class SpritePalettePanel extends FrameLayout {
     }
     /** Solid accent, dark ink — no half-opaque middle state anywhere in this package. */
     private void tint(@NonNull TextView v, int colour) {
-        int ink = colour == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT;
+        int ink = colour == SpriteTheme.LIVE ? 0xFFF4F4F5 : SpriteTheme.ON_ACCENT;
         v.setBackground(pill(colour, colour));
         v.setTextColor(ink);
         for (android.graphics.drawable.Drawable dr : v.getCompoundDrawables()) {
@@ -947,7 +947,7 @@ public class SpritePalettePanel extends FrameLayout {
         // not. No half-opacity: a faded control does not tell you whether it will do anything.
         boolean armed = isOnKey();
         deleteKey.setBackground(pill(armed ? SpriteTheme.LIVE : 0x00000000, 0x00000000));
-        int keyInk = armed ? 0xFFFFFFFF : SpriteTheme.DIMMER;
+        int keyInk = armed ? 0xFFF4F4F5 : SpriteTheme.DIMMER;
         deleteKey.setTextColor(keyInk);
         for (android.graphics.drawable.Drawable dr : deleteKey.getCompoundDrawables()) {
             if (dr instanceof SpriteIcons.IconDrawable) {
@@ -1114,7 +1114,7 @@ public class SpritePalettePanel extends FrameLayout {
                 dot.setColor(face);
                 canvas.drawCircle(cx, cy, r, dot);
                 SpriteIcons.IconDrawable mark = SpriteIcons.of(endIcon(preset.type),
-                        face == SpriteTheme.LIVE ? 0xFFFFFFFF : SpriteTheme.ON_ACCENT,
+                        face == SpriteTheme.LIVE ? 0xFFF4F4F5 : SpriteTheme.ON_ACCENT,
                         Math.round(r * 1.5f));
                 mark.setBounds(Math.round(cx - r * 0.75f), Math.round(cy - r * 0.75f),
                         Math.round(cx + r * 0.75f), Math.round(cy + r * 0.75f));

@@ -25,8 +25,8 @@ import androidx.annotation.Nullable;
  */
 public final class MixedSwatchDrawable extends Drawable {
 
-    private static final int BG = 0xFF2E2E38;
-    private static final int ACCENT = 0x99B388FF;
+    private static final int BG = 0xFF2C2C35;
+    private static final int ACCENT = 0x99A78BFA;
 
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint splitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -39,7 +39,7 @@ public final class MixedSwatchDrawable extends Drawable {
         splitPaint.setColor(ACCENT);
         borderPaint.setStyle(Paint.Style.STROKE);
         borderPaint.setStrokeWidth(1.5f);
-        borderPaint.setColor(0xFF888888);
+        borderPaint.setColor(0xFF8A8A94);
     }
 
     @Override

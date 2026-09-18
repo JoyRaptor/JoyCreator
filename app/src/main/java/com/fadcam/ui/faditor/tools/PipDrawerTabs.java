@@ -38,8 +38,8 @@ public final class PipDrawerTabs {
 
     private PipDrawerTabs() {}
 
-    private static final int TXT = 0xFFE8E8E8;
-    private static final int TXT_DIM = 0xFFA0A0A0;
+    private static final int TXT = 0xFFF4F4F5;
+    private static final int TXT_DIM = 0xFF8A8A94;
     private static final int ACCENT = 0xFF8C3DFA;
     private static final int SLIDER_STEPS = 1000;
 
@@ -653,7 +653,7 @@ public final class PipDrawerTabs {
                 shapeGroup.addView(add);
                 TextView none = new TextView(ctx);
                 none.setText("No mask. Add one to show only part of this object.");
-                none.setTextColor(0xFF8A8A8A);
+                none.setTextColor(0xFF8A8A94);
                 none.setTextSize(11.5f);
                 none.setPadding(Math.round(8 * dp), Math.round(6 * dp),
                         Math.round(8 * dp), Math.round(6 * dp));
@@ -845,7 +845,7 @@ public final class PipDrawerTabs {
             hint = new TextView(ctx);
             hint.setText("Off: the mask stays put and the object moves under it. "
                     + "On: the mask travels with the object.");
-            hint.setTextColor(0xFF8A8A8A);
+            hint.setTextColor(0xFF8A8A94);
             hint.setTextSize(11.5f);
             hint.setPadding((int) (8 * d), 0, (int) (8 * d), (int) (6 * d));
             root.addView(hint);
@@ -856,7 +856,7 @@ public final class PipDrawerTabs {
         LinearLayout keyRow = new LinearLayout(ctx);
         keyRow.setOrientation(LinearLayout.HORIZONTAL);
         final TextView state = new TextView(ctx);
-        state.setTextColor(0xFF8A8A8A);
+        state.setTextColor(0xFF8A8A94);
         state.setTextSize(11.5f);
         state.setPadding((int) (8 * d), (int) (8 * d), 0, 0);
         final Runnable refresh = () ->
@@ -922,7 +922,7 @@ public final class PipDrawerTabs {
     private static TextView chip(@NonNull Context ctx, @NonNull String label, float d) {
         TextView t = new TextView(ctx);
         t.setText(label);
-        t.setTextColor(0xFFFFFFFF);
+        t.setTextColor(0xFFF4F4F5);
         t.setTextSize(12.5f);
         int px = (int) (10 * d), py = (int) (6 * d);
         t.setPadding(px, py, px, py);
@@ -936,7 +936,7 @@ public final class PipDrawerTabs {
 
     // ── Tab 2: CHROMA KEY ────────────────────────────────────────────────────────────────
 
-    private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
+    private static final int[] SWATCHES = {0x35F6BF, 0x050508, 0x000000, 0xF4F4F5};
 
     /**
      * Never took a {@code Clip} for anything but its type signature — the tab reads and writes
@@ -963,7 +963,7 @@ public final class PipDrawerTabs {
         colorLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
         body.addView(colorLabel);
         Runnable refreshColor = () -> colorLabel.setText(ctx.getString(R.string.faditor_key_color)
-                + "  ·  " + String.format("#%06X", spec.keyColor & 0xFFFFFF));
+                + "  ·  " + String.format("#%06X", spec.keyColor & 0xF4F4F5));
         refreshColor.run();
 
         LinearLayout swatchRow = new LinearLayout(ctx);
@@ -974,7 +974,7 @@ public final class PipDrawerTabs {
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
             bg.setColor(0xFF000000 | rgb);
-            bg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF888888);
+            bg.setStroke(Math.max(1, Math.round(1.5f * d)), 0xFF8A8A94);
             sw.setBackground(bg);
             LinearLayout.LayoutParams lp =
                     new LinearLayout.LayoutParams(Math.round(30 * d), Math.round(30 * d));

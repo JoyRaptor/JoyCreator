@@ -191,13 +191,13 @@ public class PuppetHelperView extends View {
         box.set(x0, cy - 13f * d, x0 + tw + padX * 2, cy + 13f * d);
 
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor((((int) (a * 0xE0)) << 24) | 0x111114);
+        fill.setColor((((int) (a * 0xE0)) << 24) | 0x0D0D10);
         c.drawRoundRect(box, 13f * d, 13f * d, fill);
         stroke.setStyle(Paint.Style.STROKE);
         stroke.setColor((((int) (a * 0xFF)) << 24) | 0x2C2C35);
         stroke.setStrokeWidth(d);
         c.drawRoundRect(box, 13f * d, 13f * d, stroke);
-        text.setColor((((int) (a * 0xFF)) << 24) | 0xA1A1AA);
+        text.setColor((((int) (a * 0xFF)) << 24) | 0x8A8A94);
         c.drawText(hint, box.right - padX, cy + 4f * d, text);
         text.setTextAlign(Paint.Align.CENTER);
         postInvalidateOnAnimation();
@@ -234,9 +234,9 @@ public class PuppetHelperView extends View {
             box.set(x0, y, x0 + tw + padX * 2, y + rowH - 3f * d);
             boolean hot = i == sel;
             fill.setStyle(Paint.Style.FILL);
-            fill.setColor(hot ? PuppetPalette.HELPER : 0xE0111114);
+            fill.setColor(hot ? PuppetPalette.HELPER : 0xE00D0D10);
             c.drawRoundRect(box, 9f * d, 9f * d, fill);
-            text.setColor(hot ? 0xFF09090B : 0xFF71717A);
+            text.setColor(hot ? 0xFF0D0D10 : 0xFF52525B);
             c.drawText(label, box.right - padX, y + rowH * 0.62f, text);
         }
         text.setTextAlign(Paint.Align.CENTER);
@@ -303,7 +303,7 @@ public class PuppetHelperView extends View {
 
         box.set(0, 0, getWidth(), getHeight());
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xE0111114);                    // SpriteLab --drawer
+        fill.setColor(0xE00D0D10);                    // SpriteLab --drawer
         c.drawRoundRect(box, R_BOX * d, R_BOX * d, fill);
         stroke.setColor(0xFF2C2C35);                  // --line
         stroke.setStrokeWidth(d);
@@ -314,8 +314,8 @@ public class PuppetHelperView extends View {
             boolean armedRing = (i == KEY) && host.isArmed();
             int tint = tintFor(i, rig);
 
-            fill.setColor(i == downIndex ? 0xFF262630 : 0xFF1C1C22);   // --ctl2 / --ctl
-            if (armedRing) fill.setColor(0xFF33141F);
+            fill.setColor(i == downIndex ? 0xFF2C2C35 : 0xFF1F1F26);   // --ctl2 / --ctl
+            if (armedRing) fill.setColor(0xFF17171C);
             c.drawRoundRect(btn, R_BTN * d, R_BTN * d, fill);
             stroke.setColor(armedRing ? PuppetPalette.STIFF : 0xFF2C2C35);
             stroke.setStrokeWidth(d);
@@ -340,9 +340,9 @@ public class PuppetHelperView extends View {
     private int tintFor(int i, @Nullable PuppetRig rig) {
         if (i == SWATCH || i == KEY) {
             PuppetPin p = selectedPin(rig);
-            return p == null ? 0xFFE4E4E7 : PuppetPalette.of(p.type);
+            return p == null ? 0xFFF4F4F5 : PuppetPalette.of(p.type);
         }
-        return 0xFFE4E4E7;
+        return 0xFFF4F4F5;
     }
 
     @Nullable
@@ -371,7 +371,7 @@ public class PuppetHelperView extends View {
         // two moods.
         PuppetIcons.IconDrawable g = PuppetIcons.of(
                 place ? PuppetIcons.CURSOR : PuppetIcons.GRAB,
-                place ? PuppetPalette.HELPER : 0xFFE4E4E7, size);
+                place ? PuppetPalette.HELPER : 0xFFF4F4F5, size);
         int l = Math.round(r.centerX() - size / 2f), t = Math.round(r.centerY() - size / 2f);
         g.setBounds(l, t, l + size, t + size);
         g.draw(c);
@@ -410,7 +410,7 @@ public class PuppetHelperView extends View {
     }
 
     private void drawDepth(@NonNull Canvas c, @NonNull RectF r) {
-        text.setColor(scrubbing ? PuppetPalette.HELPER : 0xFFE4E4E7);
+        text.setColor(scrubbing ? PuppetPalette.HELPER : 0xFFF4F4F5);
         text.setTextSize(scrubbing ? 15f * d : 16f * d);
         if (scrubbing && host != null) {
             // The number only while a finger is on it: what matters is the picture reordering.
@@ -432,7 +432,7 @@ public class PuppetHelperView extends View {
             ringHit[i * 2] = x;
             ringHit[i * 2 + 1] = y;
             btn.set(x - 20f * d, y - 20f * d, x + 20f * d, y + 20f * d);
-            fill.setColor(0xF01C1C22);
+            fill.setColor(0xF01F1F26);
             c.drawRoundRect(btn, R_BTN * d, R_BTN * d, fill);
             stroke.setColor(0xFF2C2C35);
             stroke.setStrokeWidth(d);

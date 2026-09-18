@@ -18,25 +18,25 @@
             <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:background="@drawable/bg_dark_rounded" android:padding="6dp">
 
                 <!-- Alignment buttons (compact) -->
-                <ImageView android:id="@+id/btnAlignLeft" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_align_left" android:contentDescription="@string/desc_align_left" android:background="@drawable/bg_option_button" android:tint="#FFFFFF" />
+                <ImageView android:id="@+id/btnAlignLeft" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_align_left" android:contentDescription="@string/desc_align_left" android:background="@drawable/bg_option_button" android:tint="#F4F4F5" />
 
-                <ImageView android:id="@+id/btnAlignCenter" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_align_center" android:contentDescription="@string/desc_align_center" android:background="@drawable/bg_option_button" android:tint="#FFFFFF" android:layout_marginStart="4dp" />
+                <ImageView android:id="@+id/btnAlignCenter" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_align_center" android:contentDescription="@string/desc_align_center" android:background="@drawable/bg_option_button" android:tint="#F4F4F5" android:layout_marginStart="4dp" />
 
-                <ImageView android:id="@+id/btnAlignRight" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_align_right" android:contentDescription="@string/desc_align_right" android:background="@drawable/bg_option_button" android:tint="#FFFFFF" android:layout_marginStart="4dp" />
+                <ImageView android:id="@+id/btnAlignRight" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_align_right" android:contentDescription="@string/desc_align_right" android:background="@drawable/bg_option_button" android:tint="#F4F4F5" android:layout_marginStart="4dp" />
 
                 <!-- Divider -->
                 <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#40FFFFFF" android:layout_marginStart="6dp" android:layout_marginEnd="6dp" />
 
                 <!-- Style buttons -->
-                <ImageView android:id="@+id/btnBold" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_format_bold" android:contentDescription="@string/desc_bold" android:background="@drawable/bg_option_button" android:tint="#FFFFFF" />
+                <ImageView android:id="@+id/btnBold" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_format_bold" android:contentDescription="@string/desc_bold" android:background="@drawable/bg_option_button" android:tint="#F4F4F5" />
 
-                <ImageView android:id="@+id/btnItalic" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_format_italic" android:contentDescription="@string/desc_italic" android:background="@drawable/bg_option_button" android:tint="#FFFFFF" android:layout_marginStart="4dp" />
+                <ImageView android:id="@+id/btnItalic" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_format_italic" android:contentDescription="@string/desc_italic" android:background="@drawable/bg_option_button" android:tint="#F4F4F5" android:layout_marginStart="4dp" />
 
                 <!-- Divider -->
                 <View android:layout_width="1dp" android:layout_height="match_parent" android:background="#40FFFFFF" android:layout_marginStart="6dp" android:layout_marginEnd="6dp" />
 
                 <!-- Background color button -->
-                <ImageView android:id="@+id/btnBackground" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_format_background" android:contentDescription="@string/desc_text_background" android:background="@drawable/bg_option_button" android:tint="#FFFFFF" />
+                <ImageView android:id="@+id/btnBackground" android:layout_width="28dp" android:layout_height="28dp" android:padding="5dp" android:src="@drawable/ic_format_background" android:contentDescription="@string/desc_text_background" android:background="@drawable/bg_option_button" android:tint="#F4F4F5" />
 
             </LinearLayout>
 
@@ -58,7 +58,7 @@
 
                 <ScrollView android:id="@+id/scrollContainer" android:layout_width="match_parent" android:layout_height="match_parent" android:scrollbars="vertical" android:scrollbarStyle="insideOverlay" android:scrollbarAlwaysDrawVerticalTrack="true" android:fadeScrollbars="false" android:scrollbarThumbVertical="@android:color/white" android:fillViewport="false">
 
-                    <EditText android:id="@+id/editText" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="168dp" android:background="@android:color/transparent" android:textColor="#FFFFFF" android:textSize="24sp" android:fontFamily="@font/ubuntu_regular" android:hint="Add text" android:textColorHint="#80FFFFFF" android:gravity="left|top" android:inputType="textMultiLine|textCapSentences" android:scrollbars="none" android:overScrollMode="never" android:importantForAutofill="no" tools:ignore="HardcodedText" />
+                    <EditText android:id="@+id/editText" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="168dp" android:background="@android:color/transparent" android:textColor="#F4F4F5" android:textSize="24sp" android:fontFamily="@font/ubuntu_regular" android:hint="Add text" android:textColorHint="#80FFFFFF" android:gravity="left|top" android:inputType="textMultiLine|textCapSentences" android:scrollbars="none" android:overScrollMode="never" android:importantForAutofill="no" tools:ignore="HardcodedText" />
 
                 </ScrollView>
 
@@ -133,9 +133,9 @@
 
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="A" android:textColor="#80FFFFFF" android:textSize="14sp" android:fontFamily="@font/ubuntu_regular" tools:ignore="HardcodedText" />
 
-                <SeekBar android:id="@+id/fontSizeSlider" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="32" android:progress="8" android:progressTint="#4CAF50" android:thumbTint="#4CAF50" android:progressBackgroundTint="#80FFFFFF" android:minHeight="40dp" android:layout_marginStart="8dp" android:layout_marginEnd="8dp" />
+                <SeekBar android:id="@+id/fontSizeSlider" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="32" android:progress="8" android:progressTint="#35F6BF" android:thumbTint="#35F6BF" android:progressBackgroundTint="#80FFFFFF" android:minHeight="40dp" android:layout_marginStart="8dp" android:layout_marginEnd="8dp" />
 
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="A" android:textColor="#FFFFFF" android:textSize="22sp" android:fontFamily="@font/ubuntu_regular" tools:ignore="HardcodedText" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="A" android:textColor="#F4F4F5" android:textSize="22sp" android:fontFamily="@font/ubuntu_regular" tools:ignore="HardcodedText" />
 
             </LinearLayout>
 

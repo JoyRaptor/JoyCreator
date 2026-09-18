@@ -67,11 +67,11 @@ public class ExportProgressStripeView extends View {
 
         basePaint.setAntiAlias(false);
         basePaint.setStyle(Paint.Style.FILL);
-        basePaint.setColor(0xFF4CAF50); // lighter flat green
+        basePaint.setColor(0xFF35F6BF); // lighter flat green
 
         stripePaint.setAntiAlias(false);
         stripePaint.setStyle(Paint.Style.FILL);
-        stripePaint.setColor(0xFF388E3C); // darker flat green
+        stripePaint.setColor(0xFF35F6BF); // darker flat green
     }
 
     /** Sets export progress as a 0f–1f fraction and redraws. */

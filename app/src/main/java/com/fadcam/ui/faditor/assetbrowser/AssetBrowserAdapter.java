@@ -129,7 +129,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         imageView.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
-        imageView.setBackgroundColor(Color.parseColor("#FF222222"));
+        imageView.setBackgroundColor(Color.parseColor("#FF1F1F26"));
         thumbFrame.addView(imageView);
 
         // Type badge (top-left)
@@ -151,7 +151,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         usedBadge.setTypeface(ResourcesCompat.getFont(ctx, R.font.materialicons));
         usedBadge.setText("check_circle");
         usedBadge.setTextSize(12);
-        usedBadge.setTextColor(Color.parseColor("#FF4CAF50"));
+        usedBadge.setTextColor(Color.parseColor("#FF35F6BF"));
         usedBadge.setGravity(Gravity.CENTER);
         usedBadge.setVisibility(View.GONE);
         FrameLayout.LayoutParams usedLp = new FrameLayout.LayoutParams(
@@ -168,7 +168,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         selectionBadge.setVisibility(View.GONE);
         android.graphics.drawable.GradientDrawable selBg = new android.graphics.drawable.GradientDrawable();
         selBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        selBg.setColor(Color.parseColor("#FF4CAF50"));
+        selBg.setColor(Color.parseColor("#FF35F6BF"));
         selBg.setStroke((int)(1 * density), Color.WHITE);
         selectionBadge.setBackground(selBg);
         selectionBadge.setElevation(2 * density);
@@ -198,7 +198,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
 
         // Filename label
         TextView nameLabel = new TextView(ctx);
-        nameLabel.setTextColor(Color.parseColor("#FFCCCCCC"));
+        nameLabel.setTextColor(Color.parseColor("#FFC4C4CE"));
         nameLabel.setTextSize(10);
         nameLabel.setMaxLines(2);
         nameLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -225,15 +225,15 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             // Hide used check when numbered badge occupies the same corner — number is the active state.
             holder.usedBadge.setVisibility(View.GONE);
             // Subtle outline for selected thumb
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF4CAF50"));
+            holder.imageView.setBackgroundColor(Color.parseColor("#FF35F6BF"));
         } else if (sameAsset(highlightedItem, item)) {
-            holder.container.setBackgroundColor(Color.parseColor("#FF4CAF50"));
+            holder.container.setBackgroundColor(Color.parseColor("#FF35F6BF"));
             holder.selectionBadge.setVisibility(View.GONE);
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF222222"));
+            holder.imageView.setBackgroundColor(Color.parseColor("#FF1F1F26"));
         } else {
             holder.container.setBackgroundColor(Color.TRANSPARENT);
             holder.selectionBadge.setVisibility(View.GONE);
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF222222"));
+            holder.imageView.setBackgroundColor(Color.parseColor("#FF1F1F26"));
         }
 
         // Filename
@@ -286,7 +286,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             VideoThumbnailCache.cancel(holder.imageView);
             holder.imageView.setScaleType(ImageView.ScaleType.CENTER);
             // Keep selection green when selected, even for audio
-            if (!isSelected) holder.imageView.setBackgroundColor(Color.parseColor("#FF1A2A1A"));
+            if (!isSelected) holder.imageView.setBackgroundColor(Color.parseColor("#FF2C2C35"));
             holder.imageView.setImageDrawable(null);
         }
 

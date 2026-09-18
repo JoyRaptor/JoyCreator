@@ -1149,8 +1149,8 @@ public class OverlayVideoPreviewView extends FrameLayout {
      * 2026-08-06, and worth keeping distinct because the two travel independently once a mask
      * is unlinked.
      */
-    private static final int GHOST_OBJECT = 0xFF4CD964;
-    private static final int GHOST_MASK = 0xFFFFD426;
+    private static final int GHOST_OBJECT = 0xFF35F6BF;
+    private static final int GHOST_MASK = 0xFFFBBF24;
 
     private final android.graphics.Paint ghostPaint = new android.graphics.Paint(
             android.graphics.Paint.ANTI_ALIAS_FLAG);

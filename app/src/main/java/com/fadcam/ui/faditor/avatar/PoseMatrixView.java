@@ -46,18 +46,18 @@ public class PoseMatrixView extends View {
         super(ctx);
         solid.setStyle(Paint.Style.STROKE);
         solid.setStrokeWidth(3f);
-        solid.setColor(0xFF7E57C2);
+        solid.setColor(0xFF52525B);
         dashed.setStyle(Paint.Style.STROKE);
         dashed.setStrokeWidth(2f);
         dashed.setColor(0x66FFFFFF);
         dashed.setPathEffect(new DashPathEffect(new float[]{8f, 6f}, 0f));
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0x2E7E57C2);
+        fill.setColor(0x2E52525B);
         armedPaint.setStyle(Paint.Style.STROKE);
         armedPaint.setStrokeWidth(5f);
-        armedPaint.setColor(0xFFFFD54F);
+        armedPaint.setColor(0xFFFBBF24);
         marker.setStyle(Paint.Style.FILL);
-        marker.setColor(0xFF4FC3F7);
+        marker.setColor(0xFF22D3EE);
     }
 
     public void setListener(@Nullable Listener l) { this.listener = l; }

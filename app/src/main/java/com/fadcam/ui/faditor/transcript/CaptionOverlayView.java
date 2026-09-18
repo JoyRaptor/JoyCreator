@@ -886,7 +886,7 @@ public class CaptionOverlayView extends View {
         float gripW = 4f * density;
         float gripH = Math.min(blockRect.height(), 28f * density);
         float gripTop = blockRect.centerY() - gripH / 2f;
-        gripPaint.setColor(0xD94CAF50);
+        gripPaint.setColor(0xD935F6BF);
         canvas.drawRoundRect(blockRect.left - gripW / 2f, gripTop,
                 blockRect.left + gripW / 2f, gripTop + gripH, gripW / 2f, gripW / 2f, gripPaint);
         canvas.drawRoundRect(blockRect.right - gripW / 2f, gripTop,

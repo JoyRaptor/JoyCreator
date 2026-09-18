@@ -31,7 +31,7 @@ public class TextStyleLibraryPanel extends LinearLayout {
         for (TextStyle style : TextStyleIO.loadBuiltIns(getContext())) {
             android.widget.TextView button = new android.widget.TextView(getContext());
             button.setText(style.getName());
-            button.setTextColor(0xFFFFFFFF);
+            button.setTextColor(0xFFF4F4F5);
             button.setPadding(24, 18, 24, 18);
             button.setOnClickListener(v -> {
                 if (callback != null) callback.onTextStyleSelected(style);

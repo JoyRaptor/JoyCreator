@@ -55,10 +55,10 @@ public final class KeyframeDiamondControl extends LinearLayout {
         void onAction();
     }
 
-    private static final int DIM = 0xFF888888;
-    private static final int ACCENT = 0xFF4CAF50;
-    private static final int SHEET_BG = 0xFF1C1C1E; // the × is carved in the sheet bg color
-    private static final int REFUSED = 0xFFE57373;   // "nowhere to put a key here"
+    private static final int DIM = 0xFF8A8A94;
+    private static final int ACCENT = 0xFF35F6BF;
+    private static final int SHEET_BG = 0xFF1F1F26; // the × is carved in the sheet bg color
+    private static final int REFUSED = 0xFFFF4438;   // "nowhere to put a key here"
 
     private final float density;
     private final DiamondView diamond;

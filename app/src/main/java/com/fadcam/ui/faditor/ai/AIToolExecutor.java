@@ -2221,7 +2221,7 @@ public class AIToolExecutor {
         float size = (float) args.optDouble("sizeFraction", 0.1);
         long startMs = args.optLong("startMs", 0);
         long endMs = args.optLong("endMs", Long.MAX_VALUE);
-        int color = args.optInt("colorInt", 0xFFFFFFFF);
+        int color = args.optInt("colorInt", 0xFFF4F4F5);
 
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: project not found";

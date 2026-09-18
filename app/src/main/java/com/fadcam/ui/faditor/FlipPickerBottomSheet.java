@@ -98,7 +98,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
         // Title
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_flip_title);
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (20 * dp), (int) (12 * dp),
@@ -149,7 +149,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
         iconView.setTypeface(materialIcons);
         iconView.setText(icon);
         iconView.setTextSize(20);
-        iconView.setTextColor(isActive ? 0xFF4CAF50 : 0xFF888888);
+        iconView.setTextColor(isActive ? 0xFF35F6BF : 0xFF8A8A94);
         // Rotate 90 degrees for vertical flip icon
         if (!isHorizontal) {
             iconView.setRotation(90);
@@ -165,7 +165,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
         TextView labelView = new TextView(requireContext());
         labelView.setText(label);
         labelView.setTextSize(15);
-        labelView.setTextColor(isActive ? 0xFF4CAF50 : 0xFFCCCCCC);
+        labelView.setTextColor(isActive ? 0xFF35F6BF : 0xFFC4C4CE);
         labelView.setTypeface(null, isActive ? Typeface.BOLD : Typeface.NORMAL);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -178,7 +178,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
             check.setTypeface(materialIcons);
             check.setText("check");
             check.setTextSize(20);
-            check.setTextColor(0xFF4CAF50);
+            check.setTextColor(0xFF35F6BF);
             check.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
                     (int) (24 * dp), (int) (24 * dp));
@@ -224,7 +224,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
         iconView.setTypeface(materialIcons);
         iconView.setText("refresh");
         iconView.setTextSize(20);
-        iconView.setTextColor(0xFFF44336);
+        iconView.setTextColor(0xFFFF4438);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                 (int) (28 * dp), (int) (28 * dp));
         iconLp.setMarginEnd((int) (16 * dp));
@@ -236,7 +236,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
         TextView labelView = new TextView(requireContext());
         labelView.setText("Reset");
         labelView.setTextSize(15);
-        labelView.setTextColor(0xFFF44336);
+        labelView.setTextColor(0xFFFF4438);
         labelView.setTypeface(null, Typeface.BOLD);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);

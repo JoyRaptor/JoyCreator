@@ -65,9 +65,9 @@ public final class ColorPickerDialog {
     /** Useful fixed colours: greys at both ends, then a spread that covers the common asks.
      *  16 entries — exactly two full rows of 8 (JoyRaptor, 2026-08-08: "let's have it be 8 8 8"). */
     private static final int[] SWATCHES = {
-            0xFF000000, 0xFF404040, 0xFF808080, 0xFFC0C0C0, 0xFFFFFFFF,
+            0xFF000000, 0xFF33333C, 0xFF8A8A94, 0xFFC4C4CE, 0xFFF4F4F5,
             0xFFE53935, 0xFFFB8C00, 0xFFFDD835,
-            0xFF43A047, 0xFF00ACC1, 0xFF1E88E5, 0xFF5E35B1, 0xFFD81B60,
+            0xFF35F6BF, 0xFF00ACC1, 0xFF1E88E5, 0xFF5E35B1, 0xFFD81B60,
             0xFF6D4C41, 0xFF00BFA5, 0xFFFF7043,
     };
 
@@ -121,7 +121,7 @@ public final class ColorPickerDialog {
         int pad = Math.round(14 * d);
 
         final float[] hsb = new float[3];
-        Color.colorToHSV(initial != null ? initial : 0xFFFFFFFF, hsb);
+        Color.colorToHSV(initial != null ? initial : 0xFFF4F4F5, hsb);
         final int[] alpha = {initial != null ? Color.alpha(initial) : 255};
         final boolean[] isNone = {initial == null};
 
@@ -149,7 +149,7 @@ public final class ColorPickerDialog {
 
         TextView titleView = new TextView(ctx);
         titleView.setText(title);
-        titleView.setTextColor(0xFFE8E8E8);
+        titleView.setTextColor(0xFFF4F4F5);
         titleView.setTextSize(14f);
         titleView.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
         titleView.setSingleLine(true);
@@ -161,7 +161,7 @@ public final class ColorPickerDialog {
 
         TextView alphaLab = new TextView(ctx);
         alphaLab.setText("Opacity");
-        alphaLab.setTextColor(0xFFBBBBBB);
+        alphaLab.setTextColor(0xFFC4C4CE);
         alphaLab.setTextSize(12f);
         alphaLab.setPadding(Math.round(6 * d), 0, Math.round(4 * d), 0);
         titleRow.addView(alphaLab);
@@ -172,7 +172,7 @@ public final class ColorPickerDialog {
                 Math.round(96 * d), LinearLayout.LayoutParams.WRAP_CONTENT));
 
         final TextView alphaNum = new TextView(ctx);
-        alphaNum.setTextColor(0xFFE8E8E8);
+        alphaNum.setTextColor(0xFFF4F4F5);
         alphaNum.setTextSize(12.5f);
         alphaNum.setWidth(Math.round(34 * d));
         alphaNum.setGravity(Gravity.END);
@@ -251,7 +251,7 @@ public final class ColorPickerDialog {
 
             TextView lab = new TextView(ctx);
             lab.setText(labels[i]);
-            lab.setTextColor(0xFFBBBBBB);
+            lab.setTextColor(0xFFC4C4CE);
             lab.setTextSize(13f);
             lab.setWidth(Math.round(18 * d));
             row.addView(lab);
@@ -265,7 +265,7 @@ public final class ColorPickerDialog {
             // LOOKS LIKE TEXT, IS A CONTROL. Tapping opens a numeric entry, because a slider
             // cannot express "exactly 210" on a 360-wide track and the value is right there.
             TextView num = new TextView(ctx);
-            num.setTextColor(0xFFE8E8E8);
+            num.setTextColor(0xFFF4F4F5);
             num.setTextSize(12.5f);
             num.setWidth(Math.round(34 * d));
             num.setGravity(Gravity.END);
@@ -305,11 +305,11 @@ public final class ColorPickerDialog {
         TextView copy = new TextView(ctx);
         copy.setText("⧉");
         copy.setTextSize(17f);
-        copy.setTextColor(0xFFBBBBBB);
+        copy.setTextColor(0xFFC4C4CE);
         copy.setPadding(Math.round(10 * d), 0, Math.round(6 * d), 0);
         hexRow.addView(copy);
 
-        hex.setTextColor(0xFFE8E8E8);
+        hex.setTextColor(0xFFF4F4F5);
         hex.setTextSize(14f);
         hex.setTypeface(android.graphics.Typeface.MONOSPACE);
         // Selectable so it can be copied by hand as well as by the icon — the icon is the fast
@@ -402,11 +402,11 @@ public final class ColorPickerDialog {
             alphaBar.setProgress(alphaPct);
             alphaNum.setText(alphaPct + "%");
             wheel.setHsb(hsb[0], hsb[1], hsb[2]);
-            hex.setText(isNone[0] ? "none" : String.format("#%06X", rgb & 0xFFFFFF));
+            hex.setText(isNone[0] ? "none" : String.format("#%06X", rgb & 0xF4F4F5));
             GradientDrawable bg = new GradientDrawable();
             bg.setCornerRadius(4 * d);
             bg.setColor(isNone[0] ? 0x00000000 : rgb);
-            bg.setStroke(Math.round(1 * d), 0xFF777777);
+            bg.setStroke(Math.round(1 * d), 0xFF8A8A94);
             preview.setBackground(bg);
             // LIVE. "I should not have to click Set to see how it looks" — every control in
             // this dialog funnels through syncFromHsb, so firing onLive here is the one place
@@ -428,7 +428,7 @@ public final class ColorPickerDialog {
 
         TextView cancelBtn = new TextView(ctx);
         cancelBtn.setText(android.R.string.cancel);
-        cancelBtn.setTextColor(0xFFBBBBBB);
+        cancelBtn.setTextColor(0xFFC4C4CE);
         cancelBtn.setTextSize(14f);
         cancelBtn.setPadding(Math.round(14 * d), Math.round(6 * d),
                 Math.round(14 * d), Math.round(6 * d));
@@ -580,7 +580,7 @@ public final class ColorPickerDialog {
                 float cx = getWidth() / 2f, cy = getHeight() / 2f;
                 p.setStyle(android.graphics.Paint.Style.STROKE);
                 p.setStrokeWidth(1.6f * d);
-                p.setColor(0xFFCCCCCC);
+                p.setColor(0xFFC4C4CE);
                 c.drawCircle(cx, cy, r, p);
                 double a = Math.toRadians(45);
                 float dx = (float) Math.cos(a) * r, dy = (float) Math.sin(a) * r;

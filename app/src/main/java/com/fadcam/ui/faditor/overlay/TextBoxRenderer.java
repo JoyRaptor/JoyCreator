@@ -96,7 +96,7 @@ public final class TextBoxRenderer {
     /** The accent wash. Same purple as the caret and handles — see {@code colors.xml}'s
      *  {@code faditor_text_selection_accent}; kept as a literal here because this class is
      *  shared with the export path and must not reach for resources. */
-    private static final int SEL_COLOR = 0x66B388FF;
+    private static final int SEL_COLOR = 0x66A78BFA;
     /** The scrim UNDER the wash — see {@code drawSelection} for why there are two passes. */
     private static final int SEL_SCRIM = 0x73000000;
 

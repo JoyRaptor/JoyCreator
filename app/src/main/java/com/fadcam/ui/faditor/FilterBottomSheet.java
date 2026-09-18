@@ -139,7 +139,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         // Grabber handle: an explicit grip to pull the panel down to dismiss.
         View grabber = new View(requireContext());
-        grabber.setBackgroundColor(0xFF5A5A5A);
+        grabber.setBackgroundColor(0xFF52525B);
         LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(
                 (int) (40 * dp), (int) (4 * dp));
         grabLp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -149,7 +149,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_filter_title);
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding(0, 0, 0, (int) (8 * dp));
@@ -186,7 +186,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         TextView saveLabel = new TextView(requireContext());
         saveLabel.setText(R.string.faditor_filter_preset_save);
-        saveLabel.setTextColor(0xFF4DD0E1);
+        saveLabel.setTextColor(0xFF22D3EE);
         saveLabel.setTextSize(15);
         saveLabel.setTypeface(null, Typeface.BOLD);
         saveRow.addView(saveLabel);
@@ -204,7 +204,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
             TextView label = new TextView(requireContext());
             label.setText(spec.label);
-            label.setTextColor(0xFFCCCCCC);
+            label.setTextColor(0xFFC4C4CE);
             label.setTextSize(14);
             LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -212,7 +212,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             labelRow.addView(label);
 
             TextView value = new TextView(requireContext());
-            value.setTextColor(0xFF888888);
+            value.setTextColor(0xFF8A8A94);
             value.setTextSize(13);
             value.setTypeface(null, Typeface.BOLD);
             value.setText(format(spec.g.get(stack)));
@@ -225,11 +225,11 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             slider.setValueTo(spec.max);
             slider.setValue(clamp(spec.g.get(stack), spec.min, spec.max));
             slider.setTrackActiveTintList(
-                    android.content.res.ColorStateList.valueOf(0xFF4DD0E1));
+                    android.content.res.ColorStateList.valueOf(0xFF22D3EE));
             slider.setThumbTintList(
-                    android.content.res.ColorStateList.valueOf(0xFF4DD0E1));
+                    android.content.res.ColorStateList.valueOf(0xFF22D3EE));
             slider.setTrackInactiveTintList(
-                    android.content.res.ColorStateList.valueOf(0xFF333333));
+                    android.content.res.ColorStateList.valueOf(0xFF33333C));
             root.addView(slider);
             sliders[i] = slider;
 
@@ -243,7 +243,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         // ── LUT row ──────────────────────────────────────────────────
         View div = new View(requireContext());
-        div.setBackgroundColor(0xFF2A2A2A);
+        div.setBackgroundColor(0xFF2C2C35);
         LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
         divLp.topMargin = (int) (14 * dp);
@@ -260,7 +260,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         TextView lutLabel = new TextView(requireContext());
         lutLabel.setText(R.string.faditor_filter_lut);
-        lutLabel.setTextColor(0xFFCCCCCC);
+        lutLabel.setTextColor(0xFFC4C4CE);
         lutLabel.setTextSize(15);
         LinearLayout.LayoutParams lutLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -268,7 +268,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         lutRow.addView(lutLabel);
 
         lutValue = new TextView(requireContext());
-        lutValue.setTextColor(0xFF4DD0E1);
+        lutValue.setTextColor(0xFF22D3EE);
         lutValue.setTextSize(14);
         lutValue.setTypeface(null, Typeface.BOLD);
         lutValue.setText(currentLutName());
@@ -289,7 +289,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         TextView intLabel = new TextView(requireContext());
         intLabel.setText("Intensity");
-        intLabel.setTextColor(0xFFCCCCCC);
+        intLabel.setTextColor(0xFFC4C4CE);
         intLabel.setTextSize(14);
         LinearLayout.LayoutParams intLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -297,7 +297,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         intLabelRow.addView(intLabel);
 
         lutIntensityValue = new TextView(requireContext());
-        lutIntensityValue.setTextColor(0xFF888888);
+        lutIntensityValue.setTextColor(0xFF8A8A94);
         lutIntensityValue.setTextSize(13);
         lutIntensityValue.setTypeface(null, Typeface.BOLD);
         lutIntensityValue.setText(format(stack.getLutIntensity()));
@@ -309,11 +309,11 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         lutIntensitySlider.setValueTo(1f);
         lutIntensitySlider.setValue(clamp(stack.getLutIntensity(), 0f, 1f));
         lutIntensitySlider.setTrackActiveTintList(
-                android.content.res.ColorStateList.valueOf(0xFF4DD0E1));
+                android.content.res.ColorStateList.valueOf(0xFF22D3EE));
         lutIntensitySlider.setThumbTintList(
-                android.content.res.ColorStateList.valueOf(0xFF4DD0E1));
+                android.content.res.ColorStateList.valueOf(0xFF22D3EE));
         lutIntensitySlider.setTrackInactiveTintList(
-                android.content.res.ColorStateList.valueOf(0xFF333333));
+                android.content.res.ColorStateList.valueOf(0xFF33333C));
         lutIntensityRow.addView(lutIntensitySlider);
         lutIntensitySlider.addOnChangeListener((sl, v, fromUser) -> {
             if (!fromUser || stack == null) return;
@@ -337,7 +337,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         TextView resetLabel = new TextView(requireContext());
         resetLabel.setText(R.string.faditor_filter_reset);
-        resetLabel.setTextColor(0xFFF44336);
+        resetLabel.setTextColor(0xFFFF4438);
         resetLabel.setTextSize(15);
         resetLabel.setTypeface(null, Typeface.BOLD);
         resetRow.addView(resetLabel);
@@ -357,7 +357,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         TextView copyLabel = new TextView(requireContext());
         copyLabel.setText(R.string.faditor_filter_copy_all);
-        copyLabel.setTextColor(0xFF4DD0E1);
+        copyLabel.setTextColor(0xFF22D3EE);
         copyLabel.setTextSize(15);
         copyLabel.setTypeface(null, Typeface.BOLD);
         copyRow.addView(copyLabel);
@@ -452,7 +452,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         for (String name : names) {
             TextView chip = new TextView(requireContext());
             chip.setText(name);
-            chip.setTextColor(0xFFEEEEEE);
+            chip.setTextColor(0xFFF4F4F5);
             chip.setTextSize(13);
             chip.setPadding((int) (14 * dp), (int) (8 * dp), (int) (14 * dp), (int) (8 * dp));
             chip.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -485,7 +485,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         // Divider above saved presets
         TextView header = new TextView(requireContext());
         header.setText(R.string.faditor_filter_preset_save);
-        header.setTextColor(0xFF888888);
+        header.setTextColor(0xFF8A8A94);
         header.setTextSize(12);
         header.setPadding(0, (int) (2 * dp), 0, (int) (4 * dp));
         savedPresetsRow.addView(header);
@@ -498,7 +498,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         for (String name : names) {
             TextView chip = new TextView(requireContext());
             chip.setText(name);
-            chip.setTextColor(0xFF4DD0E1);
+            chip.setTextColor(0xFF22D3EE);
             chip.setTextSize(13);
             chip.setPadding((int) (14 * dp), (int) (8 * dp), (int) (14 * dp), (int) (8 * dp));
             chip.setBackgroundResource(R.drawable.settings_home_row_bg);

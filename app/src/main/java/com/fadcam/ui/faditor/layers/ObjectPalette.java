@@ -32,8 +32,16 @@ public final class ObjectPalette {
     public static final int VIDEO      = 0xFF4397FD; // blue
     /** Still images (previously aliased to VIDEO blue — F-COLOR gives them their own hue). */
     public static final int IMAGE      = 0xFF26A69A; // teal
-    /** Audio clips. Matches the legacy audio-band waveform green, which was already 0xFF4CAF50. */
-    public static final int AUDIO      = 0xFF4CAF50; // green
+    /** Audio clips. Matches the legacy audio-band waveform green, which was already 0xFF35F6BF. */
+    /**
+     * Audio clips.
+     *
+     * <p>Was Material #35F6BF, which the whole editor also used for "on", "modified",
+     * "selected" and "go" — five meanings on one value. Now a spring green that belongs
+     * to no state: under the gradient-means-action rule a FLAT colour is never an
+     * action, so audio can stay green without competing with the Studio's own aqua.
+     */
+    public static final int AUDIO      = 0xFF4ADE80;
     /** Keyframed sprites. */
     public static final int SPRITE     = 0xFFFFB74D; // amber
     /** Caption / CC spans. */
@@ -45,7 +53,7 @@ public final class ObjectPalette {
      * changes what is ALREADY there rather than adding to it, and reading as a PiP would hide
      * exactly the distinction the user needs to see in the band.
      */
-    public static final int ADJUSTMENT = 0xFF9E9E9E; // slate — "affects, does not add"
+    public static final int ADJUSTMENT = 0xFF8A8A94; // slate — "affects, does not add"
     /** The master spine reads as video — same hue, named separately for call-site clarity. */
     public static final int MASTER     = VIDEO;
 

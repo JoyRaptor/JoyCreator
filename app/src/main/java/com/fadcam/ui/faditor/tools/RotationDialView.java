@@ -40,12 +40,12 @@ import androidx.annotation.NonNull;
 public class RotationDialView extends View {
 
     /** Green for positive winding, pink for negative (JoyRaptor's colour language). */
-    private static final int POS_COL = 0xFF7CC97C;
-    private static final int NEG_COL = 0xFFFF5C8A;
-    private static final int BASE_COL = 0xFF333333;
-    private static final int NOTCH_COL = 0xFF9A9A9A;
+    private static final int POS_COL = 0xFF35F6BF;
+    private static final int NEG_COL = 0xFFFF4438;
+    private static final int BASE_COL = 0xFF33333C;
+    private static final int NOTCH_COL = 0xFF8A8A94;
     private static final int PLATE_COL = 0x8C000000;
-    private static final int TEXT_COL = 0xFFEEEEEE;
+    private static final int TEXT_COL = 0xFFF4F4F5;
 
     /** Gesture callbacks. {@link #onDragDelta} fires AFTER the view has applied the
      *  delta to its own value — read {@link #getDegrees()} and write it through. */

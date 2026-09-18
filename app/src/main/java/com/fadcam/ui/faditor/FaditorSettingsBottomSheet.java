@@ -118,7 +118,7 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_settings_title);
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setLayoutParams(new LinearLayout.LayoutParams(
@@ -129,7 +129,7 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         TextView closeBtn = new TextView(requireContext());
         closeBtn.setTypeface(materialIcons);
         closeBtn.setText("close");
-        closeBtn.setTextColor(0xFF999999);
+        closeBtn.setTextColor(0xFF8A8A94);
         closeBtn.setTextSize(22);
         closeBtn.setGravity(Gravity.CENTER);
         closeBtn.setPadding((int) (8 * dp), (int) (8 * dp),
@@ -280,14 +280,14 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
         TextView titleTv = new TextView(requireContext());
         titleTv.setText(title);
-        titleTv.setTextColor(0xFFFFFFFF);
+        titleTv.setTextColor(0xFFF4F4F5);
         titleTv.setTextSize(15);
         titleTv.setTypeface(null, Typeface.BOLD);
         textCol.addView(titleTv);
 
         TextView descTv = new TextView(requireContext());
         descTv.setText(description);
-        descTv.setTextColor(0xFF999999);
+        descTv.setTextColor(0xFF8A8A94);
         descTv.setTextSize(12);
         descTv.setLineSpacing(0, 1.3f);
         LinearLayout.LayoutParams descLp = new LinearLayout.LayoutParams(
@@ -344,14 +344,14 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
         TextView titleTv = new TextView(requireContext());
         titleTv.setText(title);
-        titleTv.setTextColor(0xFFFFFFFF);
+        titleTv.setTextColor(0xFFF4F4F5);
         titleTv.setTextSize(15);
         titleTv.setTypeface(null, Typeface.BOLD);
         textCol.addView(titleTv);
 
         TextView descTv = new TextView(requireContext());
         descTv.setText(description);
-        descTv.setTextColor(0xFF999999);
+        descTv.setTextColor(0xFF8A8A94);
         descTv.setTextSize(12);
         descTv.setLineSpacing(0, 1.3f);
         LinearLayout.LayoutParams descLp = new LinearLayout.LayoutParams(
@@ -365,7 +365,7 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
 
         TextView chevron = new TextView(requireContext());
         chevron.setText("›");
-        chevron.setTextColor(0xFF999999);
+        chevron.setTextColor(0xFF8A8A94);
         chevron.setTextSize(22);
         LinearLayout.LayoutParams chLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,

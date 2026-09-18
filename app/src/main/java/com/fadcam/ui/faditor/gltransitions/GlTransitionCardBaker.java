@@ -457,12 +457,12 @@ public final class GlTransitionCardBaker {
         Bitmap bmp = Bitmap.createBitmap(FRAME_W, FRAME_H, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(bmp);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
-        int top = first ? 0xFF1E88E5 : 0xFFF4511E;
-        int bot = first ? 0xFF0D47A1 : 0xFFBF360C;
+        int top = first ? 0xFF4397FD : 0xFFFF4438;
+        int bot = first ? 0xFF44444F : 0xFFFF4438;
         p.setShader(new LinearGradient(0, 0, 0, FRAME_H, top, bot, Shader.TileMode.CLAMP));
         c.drawRect(0, 0, FRAME_W, FRAME_H, p);
         p.setShader(null);
-        p.setColor(0xFFFFFFFF);
+        p.setColor(0xFFF4F4F5);
         p.setTextSize(FRAME_H * 0.5f);
         p.setTextAlign(Paint.Align.CENTER);
         c.drawText(first ? "A" : "B", FRAME_W * 0.5f, FRAME_H * 0.68f, p);

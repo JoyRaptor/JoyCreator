@@ -149,7 +149,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         // Title
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_add_asset_title);
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         title.setPadding((int) (20 * dp), (int) (12 * dp),
@@ -220,7 +220,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         // but is deliberately last and visually de-emphasized. Long-press on the toolbox
         // Image button will also offer this same callback (same code path, no duplicate).
         View demoteDivider = new View(requireContext());
-        demoteDivider.setBackgroundColor(0xFF2A2A2A);
+        demoteDivider.setBackgroundColor(0xFF2C2C35);
         LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 1);
         divLp.setMargins((int)(12*dp), (int)(16*dp), (int)(12*dp), (int)(8*dp));
@@ -229,7 +229,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
 
         TextView demoteHeader = new TextView(requireContext());
         demoteHeader.setText("More - timeline segments");
-        demoteHeader.setTextColor(0xFF666666);
+        demoteHeader.setTextColor(0xFF52525B);
         demoteHeader.setTextSize(11);
         demoteHeader.setPadding((int)(20*dp), 0, (int)(20*dp), (int)(6*dp));
         root.addView(demoteHeader);
@@ -277,7 +277,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         iconView.setTypeface(materialIcons);
         iconView.setText(icon);
         iconView.setTextSize(20);
-        iconView.setTextColor(0xFF888888);
+        iconView.setTextColor(0xFF8A8A94);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                 (int) (28 * dp), (int) (28 * dp));
         iconLp.setMarginEnd((int) (16 * dp));
@@ -289,7 +289,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         TextView labelView = new TextView(requireContext());
         labelView.setText(label);
         labelView.setTextSize(15);
-        labelView.setTextColor(0xFFCCCCCC);
+        labelView.setTextColor(0xFFC4C4CE);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         labelView.setLayoutParams(labelLp);
@@ -300,7 +300,7 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         arrow.setTypeface(materialIcons);
         arrow.setText("chevron_right");
         arrow.setTextSize(18);
-        arrow.setTextColor(0xFF666666);
+        arrow.setTextColor(0xFF52525B);
         arrow.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams arrowLp = new LinearLayout.LayoutParams(
                 (int) (24 * dp), (int) (24 * dp));

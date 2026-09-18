@@ -41,8 +41,8 @@ public class WordScrubView extends View {
     public WordScrubView(Context c, @Nullable AttributeSet a) {
         super(c, a);
         density = getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0xFF333333);
-        fillPaint.setColor(0xFF4DD0E1);
+        trackPaint.setColor(0xFF33333C);
+        fillPaint.setColor(0xFF22D3EE);
         centerPaint.setColor(0x88FFFFFF);
         gripPaint.setColor(0x66FFFFFF);
     }

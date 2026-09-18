@@ -61,7 +61,7 @@ public class AudioCrossfade {
      * The user-assignable colour (0xRRGGBB, no alpha). §5: the pill and BOTH shaded tape regions
      * share it, so on a busy timeline you can see at a glance which fade owns which shading.
      */
-    private int colorRgb = 0x4CAF50;
+    private int colorRgb = 0x35F6BF;
 
     public AudioCrossfade(@NonNull String lowerLaneId, long startMs, long endMs) {
         this(UUID.randomUUID().toString(), lowerLaneId, startMs, endMs);
@@ -98,7 +98,7 @@ public class AudioCrossfade {
     public void setToLaneAbove(boolean v) { this.toLaneAbove = v; }
 
     public int getColorRgb() { return colorRgb; }
-    public void setColorRgb(int rgb) { this.colorRgb = rgb & 0xFFFFFF; }
+    public void setColorRgb(int rgb) { this.colorRgb = rgb & 0xF4F4F5; }
 
     /** Flip which lane the sound hands off to. One tap on the pill's arrow (§5.4). */
     public void flipDirection() { this.toLaneAbove = !this.toLaneAbove; }

@@ -151,7 +151,7 @@ public class TapeWaveformRenderer {
 
         // Peak sparks: dots on local maxima (transient onsets / cut cues).
         if (style.fxSparks) {
-            spark.setColor(0xFFFFFFFF);
+            spark.setColor(0xFFF4F4F5);
             // 1.6→0.7dp (JoyRaptor 2026-07-16): the dots were "quite large relative to the tape…
             // a little bit obnoxious" — about a third the size reads as accents, not markers.
             float r = 0.7f * density;

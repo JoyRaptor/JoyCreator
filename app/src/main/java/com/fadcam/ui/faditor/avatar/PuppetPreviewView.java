@@ -139,23 +139,23 @@ public class PuppetPreviewView extends View {
 
     public PuppetPreviewView(Context ctx) {
         super(ctx);
-        setBackgroundColor(0xFF15151A);
-        pinFill.setColor(0xFF64FFDA);
+        setBackgroundColor(0xFF16161B);
+        pinFill.setColor(com.fadcam.ui.faditor.Studio.GO);
         pinRing.setStyle(Paint.Style.STROKE);
         pinRing.setStrokeWidth(3f);
-        pinRing.setColor(0xFF15151A);
+        pinRing.setColor(0xFF16161B);
         pinLink.setStyle(Paint.Style.STROKE);
         pinLink.setStrokeWidth(2f);
-        pinLink.setColor(0x9964FFDA);
+        pinLink.setColor(com.fadcam.ui.faditor.Studio.alpha(com.fadcam.ui.faditor.Studio.GO, 0x99));
         missingPaint.setStyle(Paint.Style.STROKE);
         missingPaint.setStrokeWidth(3f);
-        missingPaint.setColor(0xFFE040FB);
-        missingText.setColor(0xFFE040FB);
+        missingPaint.setColor(0xFFCC27FF);
+        missingText.setColor(0xFFCC27FF);
         missingText.setTextSize(26f);
         missingText.setTextAlign(Paint.Align.CENTER);
         selectPaint.setStyle(Paint.Style.STROKE);
         selectPaint.setStrokeWidth(3f);
-        selectPaint.setColor(0xFFFFD54F);
+        selectPaint.setColor(0xFFFBBF24);
         bgGrid.setColor(0x14FFFFFF);
         bgGrid.setStrokeWidth(1f);
     }
@@ -499,10 +499,10 @@ public class PuppetPreviewView extends View {
                     m.mapPoints(pt);
                     canvas.drawCircle(pt[0], pt[1], radius, pinFill);
                     canvas.drawCircle(pt[0], pt[1], radius, pinRing);
-                    missingText.setColor(0xFF15151A);
+                    missingText.setColor(0xFF16161B);
                     canvas.drawText(String.valueOf(i + 1), pt[0],
                             pt[1] + missingText.getTextSize() / 3f, missingText);
-                    missingText.setColor(0xFFE040FB);
+                    missingText.setColor(0xFFCC27FF);
                 }
             }
         }

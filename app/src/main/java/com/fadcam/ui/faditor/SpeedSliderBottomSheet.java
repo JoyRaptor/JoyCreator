@@ -132,7 +132,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
         TextView title = new TextView(requireContext());
         title.setText(R.string.faditor_speed_title);
-        title.setTextColor(0xFFFFFFFF);
+        title.setTextColor(0xFFF4F4F5);
         title.setTextSize(18);
         title.setTypeface(null, Typeface.BOLD);
         LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
@@ -159,7 +159,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         speedIcon.setTypeface(materialIcons);
         speedIcon.setText("speed");
         speedIcon.setTextSize(24);
-        speedIcon.setTextColor(0xFF4CAF50);
+        speedIcon.setTextColor(0xFF35F6BF);
         speedIcon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
                 (int) (36 * dp), (int) (36 * dp));
@@ -174,13 +174,13 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         slider.setStepSize(5f);    // 0.05x increments
         slider.setValue(Math.max(25f, Math.min(currentSpeed * 100f, 1000f)));
 
-        int trackColor = Math.abs(currentSpeed - 1f) < 0.01f ? 0xFF888888 : 0xFF4CAF50;
+        int trackColor = Math.abs(currentSpeed - 1f) < 0.01f ? 0xFF8A8A94 : 0xFF35F6BF;
         slider.setTrackActiveTintList(
                 android.content.res.ColorStateList.valueOf(trackColor));
         slider.setThumbTintList(
                 android.content.res.ColorStateList.valueOf(trackColor));
         slider.setTrackInactiveTintList(
-                android.content.res.ColorStateList.valueOf(0xFF333333));
+                android.content.res.ColorStateList.valueOf(0xFF33333C));
 
         LinearLayout.LayoutParams sliderLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -214,7 +214,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
             chip.setBackgroundResource(R.drawable.settings_home_row_bg);
 
             boolean selected = Math.abs(presetSpeed - currentSpeed) < 0.01f;
-            chip.setTextColor(selected ? 0xFF4CAF50 : 0xFFAAAAAA);
+            chip.setTextColor(selected ? 0xFF35F6BF : 0xFF8A8A94);
             chip.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
 
             LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
@@ -248,7 +248,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
         android.widget.CheckBox pitchCheck = new android.widget.CheckBox(requireContext());
         pitchCheck.setChecked(pitchCompensation);
-        pitchCheck.setTextColor(0xFFCCCCCC);
+        pitchCheck.setTextColor(0xFFC4C4CE);
         pitchCheck.setTextSize(14);
         pitchCheck.setText("Maintain pitch");
         pitchCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
@@ -275,7 +275,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         resetIcon.setTypeface(materialIcons);
         resetIcon.setText("refresh");
         resetIcon.setTextSize(20);
-        resetIcon.setTextColor(0xFFF44336);
+        resetIcon.setTextColor(0xFFFF4438);
         resetIcon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams resetIconLp = new LinearLayout.LayoutParams(
                 (int) (28 * dp), (int) (28 * dp));
@@ -286,7 +286,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         TextView resetLabel = new TextView(requireContext());
         resetLabel.setText("Reset");
         resetLabel.setTextSize(15);
-        resetLabel.setTextColor(0xFFF44336);
+        resetLabel.setTextColor(0xFFFF4438);
         resetLabel.setTypeface(null, Typeface.BOLD);
         LinearLayout.LayoutParams resetLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
@@ -324,11 +324,11 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
     private void updateSpeedDisplay(TextView tv, float speed) {
         tv.setText(formatSpeed(speed));
-        tv.setTextColor(Math.abs(speed - 1f) < 0.01f ? 0xFF888888 : 0xFF4CAF50);
+        tv.setTextColor(Math.abs(speed - 1f) < 0.01f ? 0xFF8A8A94 : 0xFF35F6BF);
     }
 
     private void updateSliderColor(Slider slider, float speed) {
-        int color = Math.abs(speed - 1f) < 0.01f ? 0xFF888888 : 0xFF4CAF50;
+        int color = Math.abs(speed - 1f) < 0.01f ? 0xFF8A8A94 : 0xFF35F6BF;
         slider.setTrackActiveTintList(
                 android.content.res.ColorStateList.valueOf(color));
         slider.setThumbTintList(
@@ -338,7 +338,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
     private void updateChipSelection(java.util.List<TextView> chips, float speed) {
         for (int i = 0; i < chips.size(); i++) {
             boolean selected = Math.abs(PRESETS[i] - speed) < 0.01f;
-            chips.get(i).setTextColor(selected ? 0xFF4CAF50 : 0xFFAAAAAA);
+            chips.get(i).setTextColor(selected ? 0xFF35F6BF : 0xFF8A8A94);
             chips.get(i).setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
         }
     }

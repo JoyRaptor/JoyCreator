@@ -340,7 +340,7 @@ public class EditScriptApplier {
     private void applyAddTextOverlay(@NonNull FaditorProject project,
                                      @NonNull EditScript.EditOp op) {
         String text = getParamString(op, "text");
-        int color = getParamInt(op, "colorInt", 0xFFFFFFFF);
+        int color = getParamInt(op, "colorInt", 0xFFF4F4F5);
         float cx = getParamFloat(op, "centerX", 0.5f);
         float cy = getParamFloat(op, "centerY", 0.5f);
         float size = getParamFloat(op, "sizeFraction", 0.1f);
@@ -623,7 +623,7 @@ public class EditScriptApplier {
 
             long startMs = getParamLong(op, "startMs", 0);
             com.fadcam.ui.faditor.model.TextOverlayItem item =
-                    new com.fadcam.ui.faditor.model.TextOverlayItem(id, "", 0xFFFFFFFF,
+                    new com.fadcam.ui.faditor.model.TextOverlayItem(id, "", 0xFFF4F4F5,
                             0.5f, 0.5f, 0.3f, 0f);
             item.setTimeRange(startMs, startMs + durationMs);
             GeneratedSource gs = new GeneratedSource(SlideContract.MODE_OVERLAY,

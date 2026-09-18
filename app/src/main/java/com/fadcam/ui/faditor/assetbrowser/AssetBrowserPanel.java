@@ -179,7 +179,7 @@ public class AssetBrowserPanel extends FrameLayout {
         folderIcon.setTypeface(ResourcesCompat.getFont(getContext(), R.font.materialicons));
         folderIcon.setText("keyboard_arrow_up");
         folderIcon.setContentDescription(getContext().getString(R.string.faditor_asset_browser_unpin));
-        folderIcon.setTextColor(Color.parseColor("#FF4CAF50"));
+        folderIcon.setTextColor(Color.parseColor("#FF35F6BF"));
         folderIcon.setTextSize(18);
         folderIcon.setGravity(Gravity.CENTER);
         folderIcon.setOnClickListener(v -> collapse());
@@ -193,7 +193,7 @@ public class AssetBrowserPanel extends FrameLayout {
                 0, (int)(28 * density), 1f));
 
         pathText = new TextView(getContext());
-        pathText.setTextColor(Color.parseColor("#FFCCCCCC"));
+        pathText.setTextColor(Color.parseColor("#FFC4C4CE"));
         pathText.setTextSize(12);
         pathText.setSingleLine(true);
         pathText.setPadding((int)(4 * density), 0, (int)(4 * density), 0);
@@ -201,25 +201,25 @@ public class AssetBrowserPanel extends FrameLayout {
         pathScroll.addView(pathText);
 
         // Previous dir button (<)
-        btnPrevDir = createIconButton("chevron_left", "#FFAAAAAA", 28);
+        btnPrevDir = createIconButton("chevron_left", "#FF8A8A94", 28);
         btnPrevDir.setOnClickListener(v -> navigateDir(-1));
 
         // Next dir button (>)
-        btnNextDir = createIconButton("chevron_right", "#FFAAAAAA", 28);
+        btnNextDir = createIconButton("chevron_right", "#FF8A8A94", 28);
         btnNextDir.setOnClickListener(v -> navigateDir(1));
 
         // Change directory button
-        btnChangeDir = createIconButton("folder_open", "#FF4CAF50", 30);
+        btnChangeDir = createIconButton("folder_open", "#FF35F6BF", 30);
         btnChangeDir.setOnClickListener(v -> {
             if (callback != null) callback.onChangeDirectoryRequested();
         });
 
         // Filter toggle button
-        btnFilter = createIconButton("filter_list", "#FFAAAAAA", 28);
+        btnFilter = createIconButton("filter_list", "#FF8A8A94", 28);
         btnFilter.setOnClickListener(v -> cycleFilter());
 
         // Trash button
-        btnTrash = createIconButton("playlist_remove", "#FF4CAF50", 28);
+        btnTrash = createIconButton("playlist_remove", "#FF35F6BF", 28);
         btnTrash.setOnClickListener(v -> confirmDeleteFromHistory());
 
         header.addView(folderIcon);
@@ -233,7 +233,7 @@ public class AssetBrowserPanel extends FrameLayout {
 
         // Divider
         View divider = new View(getContext());
-        divider.setBackgroundColor(Color.parseColor("#FF2A2A2A"));
+        divider.setBackgroundColor(Color.parseColor("#FF2C2C35"));
         divider.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 1));
         panel.addView(divider);
@@ -248,7 +248,7 @@ public class AssetBrowserPanel extends FrameLayout {
 
         // ── Empty text ──────────────────────────────────────────
         emptyText = new TextView(getContext());
-        emptyText.setTextColor(Color.parseColor("#FF888888"));
+        emptyText.setTextColor(Color.parseColor("#FF8A8A94"));
         emptyText.setTextSize(14);
         emptyText.setGravity(Gravity.CENTER);
         emptyText.setPadding(0, (int)(32 * density), 0, (int)(32 * density));
@@ -294,14 +294,14 @@ public class AssetBrowserPanel extends FrameLayout {
 
         // Grab handle for resizing
         View grabHandle = new View(getContext());
-        grabHandle.setBackgroundColor(Color.parseColor("#FF333333"));
+        grabHandle.setBackgroundColor(Color.parseColor("#FF33333C"));
         LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int)(24 * density));
         panel.addView(grabHandle, grabLp);
 
         // Inner grip line
         View gripLine = new View(getContext());
-        gripLine.setBackgroundColor(Color.parseColor("#FF666666"));
+        gripLine.setBackgroundColor(Color.parseColor("#FF52525B"));
         FrameLayout gripContainer = new FrameLayout(getContext());
         gripContainer.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int)(4 * density)));
@@ -323,7 +323,7 @@ public class AssetBrowserPanel extends FrameLayout {
                     case MotionEvent.ACTION_DOWN:
                         startY = event.getRawY();
                         startRatio = panelHeightRatio;
-                        grabHandle.setBackgroundColor(Color.parseColor("#FF4CAF50"));
+                        grabHandle.setBackgroundColor(Color.parseColor("#FF35F6BF"));
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         float deltaY = startY - event.getRawY();
@@ -333,7 +333,7 @@ public class AssetBrowserPanel extends FrameLayout {
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
-                        grabHandle.setBackgroundColor(Color.parseColor("#FF333333"));
+                        grabHandle.setBackgroundColor(Color.parseColor("#FF33333C"));
                         return true;
                 }
                 return false;
@@ -547,15 +547,15 @@ public class AssetBrowserPanel extends FrameLayout {
         switch (filterMode) {
             case ALL:
                 btnFilter.setText("filter_list");
-                btnFilter.setTextColor(Color.parseColor("#FFAAAAAA"));
+                btnFilter.setTextColor(Color.parseColor("#FF8A8A94"));
                 break;
             case USED:
                 btnFilter.setText("check_circle");
-                btnFilter.setTextColor(Color.parseColor("#FF4CAF50"));
+                btnFilter.setTextColor(Color.parseColor("#FF35F6BF"));
                 break;
             case UNUSED:
                 btnFilter.setText("radio_button_unchecked");
-                btnFilter.setTextColor(Color.parseColor("#FFFFC107"));
+                btnFilter.setTextColor(Color.parseColor("#FFFBBF24"));
                 break;
         }
         applyFilter();

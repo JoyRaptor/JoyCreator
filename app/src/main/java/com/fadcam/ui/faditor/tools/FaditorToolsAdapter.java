@@ -32,7 +32,7 @@ import java.util.List;
  * <p>Each generated cell is structurally identical to the old hardcoded
  * {@code tool_*} block: a 72dp-wide vertical {@link LinearLayout} with 8dp
  * padding, a borderless-ripple background, a 28dp materialicons 22sp icon and
- * an autosized single-line ≤11sp label, gray {@code #888888}. The cell + icon +
+ * an autosized single-line ≤11sp label, gray {@code #8A8A94}. The cell + icon +
  * label are assigned the SAME {@code R.id.*} the XML used, so all activity code
  * keeps working.</p>
  *
@@ -200,7 +200,7 @@ public class FaditorToolsAdapter {
             ((LinearLayout.LayoutParams) lp).width = dp(editMode ? 3 : 2);
             divider.setLayoutParams(lp);
         }
-        divider.setBackgroundColor(editMode ? 0xFF4CAF50 : 0x33FFFFFF);
+        divider.setBackgroundColor(editMode ? 0xFF35F6BF : 0x33FFFFFF);
         divider.setAlpha(editMode ? 1f : 0.9f);
     }
 
@@ -226,7 +226,7 @@ public class FaditorToolsAdapter {
         editChipIcon.setGravity(Gravity.CENTER);
         editChipIcon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
         editChipIcon.setText("tune");
-        editChipIcon.setTextColor(0xFF888888);
+        editChipIcon.setTextColor(0xFF8A8A94);
         editChipIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f);
         editChip.addView(editChipIcon);
 
@@ -236,7 +236,7 @@ public class FaditorToolsAdapter {
         lblLp.topMargin = dp(2);
         editChipLabel.setLayoutParams(lblLp);
         editChipLabel.setText(R.string.faditor_tools_edit);
-        editChipLabel.setTextColor(0xFF888888);
+        editChipLabel.setTextColor(0xFF8A8A94);
         editChipLabel.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
         editChip.addView(editChipLabel);
 
@@ -250,9 +250,9 @@ public class FaditorToolsAdapter {
     public void updateEditChip() {
         if (editChipIcon == null || editChipLabel == null) return;
         editChipIcon.setText("tune");
-        editChipIcon.setTextColor(0xFF888888);
+        editChipIcon.setTextColor(0xFF8A8A94);
         editChipLabel.setText(R.string.faditor_tools_edit);
-        editChipLabel.setTextColor(0xFF888888);
+        editChipLabel.setTextColor(0xFF8A8A94);
         // Hide the entry chip while editing (Done takes over), show otherwise.
         editChip.setVisibility(editMode ? View.GONE : View.VISIBLE);
     }
@@ -617,7 +617,7 @@ public class FaditorToolsAdapter {
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(dp(3), dp(52));
         lp.gravity = Gravity.CENTER_VERTICAL | Gravity.START;
         dropLine.setLayoutParams(lp);
-        dropLine.setBackgroundColor(0xFF4CAF50);
+        dropLine.setBackgroundColor(0xFF35F6BF);
         dropLine.setElevation(dp(10));
         dropLine.setVisibility(View.GONE);
         overlay.addView(dropLine);
@@ -712,7 +712,7 @@ public class FaditorToolsAdapter {
         int padH = dp(14);
         int padV = dp(8);
         done.setPadding(padH, padV, padH, padV);
-        done.setBackgroundColor(0xF2101010);
+        done.setBackgroundColor(0xF20D0D10);
         done.setElevation(dp(12));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -724,14 +724,14 @@ public class FaditorToolsAdapter {
         TextView icon = new TextView(context);
         icon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
         icon.setText("check");
-        icon.setTextColor(0xFF4CAF50);
+        icon.setTextColor(0xFF35F6BF);
         icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
         icon.setGravity(Gravity.CENTER);
         done.addView(icon);
 
         TextView label = new TextView(context);
         label.setText(R.string.faditor_tools_edit_done);
-        label.setTextColor(0xFF4CAF50);
+        label.setTextColor(0xFF35F6BF);
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f);
         LinearLayout.LayoutParams lblLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -799,7 +799,7 @@ public class FaditorToolsAdapter {
         // Via applyIcon, so a tool whose mark is a WORD ("text:FX") renders as bold letters
         // rather than as the literal string "text:FX" in the icon font.
         FaditorTool.applyIcon(icon, tool.icon, 22f);
-        icon.setTextColor(0xFF888888);
+        icon.setTextColor(0xFF8A8A94);
         cell.addView(icon);
 
         TextView label = new TextView(context);
@@ -812,7 +812,7 @@ public class FaditorToolsAdapter {
         labelLp.topMargin = dp(2);
         label.setLayoutParams(labelLp);
         label.setText(tool.label);
-        label.setTextColor(0xFF888888);
+        label.setTextColor(0xFF8A8A94);
         label.setGravity(Gravity.CENTER);
         // Spec 1: labels never wrap — single line, autosized down to fit the
         // fixed cell width. "transitions"/"transcript" previously wrapped.
@@ -838,7 +838,7 @@ public class FaditorToolsAdapter {
             chevron.setLayoutParams(chevronLp);
             chevron.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
             chevron.setText("expand_more");
-            chevron.setTextColor(0xFF666666);
+            chevron.setTextColor(0xFF52525B);
             chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f);
             chevron.setGravity(Gravity.CENTER);
             chevron.setAlpha(0.85f);

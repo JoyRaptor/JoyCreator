@@ -36,10 +36,10 @@ public final class SpriteTheme {
 
     // ── ground and structure ────────────────────────────────────────────
     /** True black, so the user's own art is the brightest thing on screen. */
-    public static final int BG        = 0xFF050507;
-    public static final int PANEL     = 0xFF111114;
-    public static final int CONTROL   = 0xFF1C1C22;
-    public static final int CONTROL_HI= 0xFF262630;
+    public static final int BG        = 0xFF000000;
+    public static final int PANEL     = 0xFF0D0D10;
+    public static final int CONTROL   = 0xFF1F1F26;
+    public static final int CONTROL_HI= 0xFF2C2C35;
     public static final int LINE      = 0xFF2C2C35;
     /**
      * The drawer floats over live video; see rule 2.
@@ -52,11 +52,11 @@ public final class SpriteTheme {
     public static final int DRAWER_SCRIM = 0xF2111114;
 
     // ── ink ─────────────────────────────────────────────────────────────
-    public static final int INK       = 0xFFE4E4E7;
-    public static final int DIM       = 0xFFA1A1AA;
-    public static final int DIMMER    = 0xFF71717A;
+    public static final int INK       = 0xFFF4F4F5;
+    public static final int DIM       = 0xFF8A8A94;
+    public static final int DIMMER    = 0xFF52525B;
     /** Ink to place ON a saturated accent. */
-    public static final int ON_ACCENT = 0xFF09090B;
+    public static final int ON_ACCENT = 0xFF0D0D10;
 
     // ── state (rule 1 — never reused as a section accent) ───────────────
     public static final int SELECTED  = 0xFF22D3EE;   // cyan
@@ -69,7 +69,7 @@ public final class SpriteTheme {
     public static final int ACCENT_ALIGN = 0xFF22D3EE;   // cyan   — alignment
     public static final int ACCENT_VIEW  = 0xFF60A5FA;   // blue   — onion and other viewing aids
     public static final int ACCENT_CLIPS = 0xFFA78BFA;   // violet — saved animations
-    public static final int ACCENT_OUT   = 0xFF34D399;   // green  — export
+    public static final int ACCENT_OUT   = 0xFF35F6BF;   // green  — export
     public static final int WARN         = 0xFFFBBF24;
 
     // ── geometry ────────────────────────────────────────────────────────

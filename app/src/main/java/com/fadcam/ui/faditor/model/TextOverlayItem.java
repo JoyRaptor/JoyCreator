@@ -2781,7 +2781,7 @@ public class TextOverlayItem {
     public static TextOverlayItem createImage(@NonNull String imageUri,
                                               float centerX, float centerY,
                                               float sizeFraction) {
-        TextOverlayItem item = new TextOverlayItem("", 0xFFFFFFFF,
+        TextOverlayItem item = new TextOverlayItem("", 0xFFF4F4F5,
                 centerX, centerY, sizeFraction, 0f);
         item.setImageUri(imageUri);
         return item;

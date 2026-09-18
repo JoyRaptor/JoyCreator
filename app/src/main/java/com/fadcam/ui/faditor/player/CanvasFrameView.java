@@ -27,8 +27,8 @@ import androidx.annotation.Nullable;
  */
 public class CanvasFrameView extends View {
 
-    private static final int HATCH_DARK = 0x8C3A3A3A;    // stripe (~55% opacity)
-    private static final int HATCH_DARKER = 0xFF141414;  // background
+    private static final int HATCH_DARK = 0x8C33333C;    // stripe (~55% opacity)
+    private static final int HATCH_DARKER = 0xFF16161B;  // background
     private static final int CANVAS_BLACK = 0xFF000000;
 
     private final Paint stripePaint = new Paint(Paint.ANTI_ALIAS_FLAG);

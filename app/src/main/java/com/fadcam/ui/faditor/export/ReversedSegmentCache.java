@@ -274,7 +274,7 @@ public class ReversedSegmentCache {
      *
      * <ol>
      *   <li><b>hevc_mediacodec / nv12</b> — HW HEVC encode, explicit {@code -b:v 10M}, {@code -g 30},
-     *       {@code -tag:v hvc1}. NO {@code -profile}/{@code -level} flags (the suspected 0xffffffc3
+     *       {@code -tag:v hvc1}. NO {@code -profile}/{@code -level} flags (the suspected 0xffffffff
      *       configure trigger in the AVC sibling). nv12 is the MediaCodec-native input layout.</li>
      *   <li><b>hevc_mediacodec / yuv420p</b> — same, but {@code -pix_fmt yuv420p} in case the encoder
      *       rejects nv12 for these sources.</li>

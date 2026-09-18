@@ -54,12 +54,12 @@ public final class ObjectDrawer extends LinearLayout {
      * THE SCRIM, AND WHY IT GOT DARKER RATHER THAN LIGHTER.
      *
      * <p>This was black at 40%, chosen so the PiP stayed watchable behind it. Measured to
-     * WCAG 2.1 against a blown-out frame (#FFD07A — sunlit skin, a white slide, a bright
+     * WCAG 2.1 against a blown-out frame (#FBBF24 — sunlit skin, a white slide, a bright
      * sky), that came out at:</p>
      *
      * <pre>
-     *   black 40%   body #EEEEEE 3.36:1   secondary #9A9A9A 1.39:1
-     *   black 64%   body #EEEEEE 7.25:1   secondary #C4C4CE 4.86:1
+     *   black 40%   body #F4F4F5 3.36:1   secondary #8A8A94 1.39:1
+     *   black 64%   body #F4F4F5 7.25:1   secondary #C4C4CE 4.86:1
      * </pre>
      *
      * <p>1.39:1 is not dim text, it is invisible text — and only outdoors, which is why it
@@ -71,7 +71,7 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>You can still watch the video through it. You can now also read the labels.</p>
      */
     private static final int SCRIM = 0xA3000000;
-    private static final int TXT = 0xFFF2F2F5;
+    private static final int TXT = 0xFFF4F4F5;
     private static final int TXT_DIM = 0xFFC4C4CE;
     /**
      * Active tab / engaged toggle. Defaults to the SELECTED state colour rather than green,
@@ -81,7 +81,7 @@ public final class ObjectDrawer extends LinearLayout {
      * row on a label saying so.
      */
     private int accent = 0xFF22D3EE;
-    private static final int DANGER = 0xFFE57373;
+    private static final int DANGER = 0xFFFF4438;
     private static final int SLIDE_MS = 240;
     /** Cap so the drawer can never swallow the preview; content scrolls inside. */
     private static final float MAX_HEIGHT_FRACTION = 0.55f;

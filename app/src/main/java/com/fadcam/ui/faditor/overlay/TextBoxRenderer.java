@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * THE per-glyph renderer for a TEXT BOX — the one place a text overlay's pixels are decided,
@@ -96,9 +97,9 @@ public final class TextBoxRenderer {
     /** The accent wash. Same purple as the caret and handles — see {@code colors.xml}'s
      *  {@code faditor_text_selection_accent}; kept as a literal here because this class is
      *  shared with the export path and must not reach for resources. */
-    private static final int SEL_COLOR = 0x66A78BFA;
+    private static final int SEL_COLOR = Studio.alpha(Studio.GUIDE, 0x66);
     /** The scrim UNDER the wash — see {@code drawSelection} for why there are two passes. */
-    private static final int SEL_SCRIM = 0x73000000;
+    private static final int SEL_SCRIM = Studio.alpha(Studio.GROUND, 0x73);
 
     /**
      * The shared margin unit ({@link #PAD_EM}) — exposed so the rasterised export path

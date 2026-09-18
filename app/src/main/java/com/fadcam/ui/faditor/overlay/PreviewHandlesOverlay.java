@@ -289,7 +289,7 @@ public final class PreviewHandlesOverlay extends View {
         // extra drawRect on a view that redraws only while something is selected.
         boxHalo.setStyle(Paint.Style.STROKE);
         boxHalo.setStrokeWidth(3.5f * density);
-        boxHalo.setColor(0x99000000);
+        boxHalo.setColor(Studio.alpha(Studio.GROUND, 0x99));
         boxPaint.setStyle(Paint.Style.STROKE);
         boxPaint.setStrokeWidth(1.5f * density);
         boxPaint.setColor(Studio.ARMED);
@@ -307,7 +307,7 @@ public final class PreviewHandlesOverlay extends View {
         movePaint.setStyle(Paint.Style.STROKE);
         movePaint.setStrokeWidth(1.8f * density);
         movePaint.setStrokeCap(Paint.Cap.ROUND);
-        movePaint.setColor(0x99FFFFFF);
+        movePaint.setColor(Studio.alpha(Studio.INK, 0x99));
         // The curve itself, solid and a shade heavier than the dashed selection box — it is the
         // thing being authored, not chrome around something else.
         guidePaint.setStyle(Paint.Style.STROKE);
@@ -316,7 +316,7 @@ public final class PreviewHandlesOverlay extends View {
         guidePaint.setColor(Studio.GUIDE);
         tetherPaint.setStyle(Paint.Style.STROKE);
         tetherPaint.setStrokeWidth(1f * density);
-        tetherPaint.setColor(0x99A78BFA);
+        tetherPaint.setColor(Studio.alpha(Studio.GUIDE, 0x99));
     }
 
     /** Show handles for {@code t} (null = hide). Selection drives this. */

@@ -255,6 +255,55 @@ since it is the least-pressed control in the row. That was wrong: the lever was 
 container but the button. `layout_marginStart="14dp"` on `btn_soft_snap` makes its own
 left gap, and the delegate takes half of it. **51.3dp, no label narrowed.**
 
+### Where the colour actually is now
+
+The goal asked for *"an organized theme system, not hardcoded chaotic slop, dozens of
+colors, not hundreds."* This is the count, by category rather than as one number, because
+one number would hide the only thing that matters — whether a literal has a reason.
+
+**The onboarding and the lobby.** Onboarding Java went 23 → 14, and the 14 are exactly the
+`BEATS` table: seven beats × two gradient stops, tuned by eye against the text that sits on
+them. That table already carries a note recording that a mix-with-the-room-hue formula was
+tested against all fourteen and fits between f=0.001 and f=0.121 — there is no single rule,
+and replacing them with one would flatten seven moods into one. Everything else in the
+onboarding was a token typed out: GO three times, INK_OFF twice, ON_GO twice, ARMED, and
+INK_FAINT. `onboarding_welcome.xml`'s `#FF000000` is `@color/s_ground`; the lobby's two
+`#FF050507` inks are `@color/s_on_go`.
+
+One of those had gone actively wrong. `OnboardingHumanFragment` held
+`int redPastelColor = 0xFF22D3EE` — a name inherited from FadCam on a value that is cyan.
+The single line in that file that said what the colour *is* was saying the opposite of the
+truth. It is `Studio.ARMED`, and it is called `tickColor`.
+
+**The editor.** 93 value-identical rewrites across the faditor package, and afterwards
+**zero literals remain that are simply a token typed out.** Value-identical is provable
+rather than asserted: `Studio.alpha` is `(colour & 0x00FFFFFF) | (a << 24)`, so every
+rewrite reconstructs the exact ARGB it replaced.
+
+Four kinds of literal were deliberately left, and the exclusions are the substance of this
+pass:
+
+| kept | count | why |
+|---|---|---|
+| palette tables | 91 | ObjectPalette, SpriteTheme, PuppetPalette, CaptionStyle and the colour picker's swatch ramp. Each is documented as the single place its hues live. A value there may equal a Studio token today without *meaning* it, and coupling them would be the FILM_RAIL mistake run backwards. |
+| persistence | 5 | `0xCC000000` as a stored default — and `ProjectStorage` compares against it to decide whether to write the field at all. A token that moved would change what a saved project means. |
+| transparent / masks | 56 | `0x00000000` fills and `& 0x00FFFFFF` bit maths. Not colours. |
+| a real colour | 30 | No token matches. Genuinely one-off, and not this pass's business. |
+
+**The sweep got the swatch ramp and I caught it.** Five of the picker's sixteen swatches
+were rewritten to GROUND / OFF / INK_FAINT / LABEL / GO by a pass that had no way to read
+the comment above the array saying it is content. Reverted. The lesson is that an exclusion
+list is the only thing that protects a content table — a comment protects it from people,
+not from scripts.
+
+**Raw white is gone from the editor.** 69 sites painted `0xFFFFFF` at an alpha. INK is
+`0xFFF2F2F5`, deliberately below white, so those veils and hairlines were brighter than the
+brightest *text* in the app — a hierarchy inversion. All 69 now ask for INK. This is the
+one part of the sweep that is **not** value-identical: the worst-case channel gap is 13/255
+scaled by alpha, 23 sites land under 4/255 and cannot be seen, and the other 46 are listed
+with their exact maximum in `tasks/WHITE_TO_INK_SITES.md`. None exceeds 12/255. **None has
+been looked at on a screen** — the sandbox dropped off adb first.
+
 ### The lobby, measured on the sandbox at 548dp
 
 26 clickable nodes. **All 26 carry an accessible name** — the count I claimed earlier,

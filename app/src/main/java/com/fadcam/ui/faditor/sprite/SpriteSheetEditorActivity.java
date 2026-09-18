@@ -4711,7 +4711,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                         getHeight() - pad);
                 bgPaint.setColorFilter(null);
                 bgPaint.setStyle(Paint.Style.FILL);
-                bgPaint.setColor(0xB0000000);
+                bgPaint.setColor(Studio.alpha(Studio.GROUND, 0xB0));
                 canvas.drawRoundRect(hudBg, 4 * d, 4 * d, bgPaint);
                 canvas.drawText(hud, pad * 2, getHeight() - pad - 4.5f * d, hudInk);
             }

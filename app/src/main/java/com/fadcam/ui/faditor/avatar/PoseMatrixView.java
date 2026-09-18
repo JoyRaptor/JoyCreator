@@ -51,10 +51,10 @@ public class PoseMatrixView extends View {
         solid.setColor(Studio.INK_OFF);
         dashed.setStyle(Paint.Style.STROKE);
         dashed.setStrokeWidth(2f);
-        dashed.setColor(0x66FFFFFF);
+        dashed.setColor(Studio.alpha(Studio.INK, 0x66));
         dashed.setPathEffect(new DashPathEffect(new float[]{8f, 6f}, 0f));
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0x2E52525B);
+        fill.setColor(Studio.alpha(Studio.INK_OFF, 0x2E));
         armedPaint.setStyle(Paint.Style.STROKE);
         armedPaint.setStrokeWidth(5f);
         armedPaint.setColor(Studio.CAREFUL);

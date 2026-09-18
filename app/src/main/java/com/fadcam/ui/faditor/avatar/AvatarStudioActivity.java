@@ -507,7 +507,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         hintLine.setText(armedCol >= 0
                 ? getString(R.string.avatar_studio_armed_hint)
                 : getString(R.string.avatar_studio_disarm_hint));
-        hintLine.setTextColor(armedCol >= 0 ? Studio.CAREFUL : 0x99FFFFFF);
+        hintLine.setTextColor(armedCol >= 0 ? Studio.CAREFUL : Studio.alpha(Studio.INK, 0x99));
     }
 
     // ── Part management ────────────────────────────────────────────────────
@@ -895,7 +895,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         nameField.setSingleLine(true);
         nameField.setTextColor(Color.WHITE);
         nameField.setHint(R.string.avatar_studio_name_hint);
-        nameField.setHintTextColor(0x66FFFFFF);
+        nameField.setHintTextColor(Studio.alpha(Studio.INK, 0x66));
         LinearLayout.LayoutParams nameLp =
                 new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
         nameLp.leftMargin = nameLp.rightMargin = (int) (8 * d);
@@ -1041,7 +1041,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         row.setGravity(Gravity.CENTER_VERTICAL);
         TextView title = new TextView(this);
         title.setText(label);
-        title.setTextColor(0x99FFFFFF);
+        title.setTextColor(Studio.alpha(Studio.INK, 0x99));
         title.setTextSize(11f);
         title.setMinWidth((int) (38 * density()));
         SeekBar bar = new SeekBar(this);
@@ -1077,7 +1077,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         lp.leftMargin = (int) (8 * d);
         TextView title = new TextView(this);
         title.setText(label);
-        title.setTextColor(0x99FFFFFF);
+        title.setTextColor(Studio.alpha(Studio.INK, 0x99));
         title.setTextSize(11f);
         title.setPadding(0, 0, (int) (4 * d), 0);
         box.addView(title);

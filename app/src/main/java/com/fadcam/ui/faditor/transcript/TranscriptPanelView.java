@@ -168,16 +168,16 @@ public class TranscriptPanelView extends View {
         textPaint.setTypeface(Typeface.DEFAULT);
         strikePaint.setColor(Studio.INK_FAINT);
         strikePaint.setStrokeWidth(2 * density);
-        activePaint.setColor(0x5522D3EE); // soft cyan highlight
-        searchPaint.setColor(0x55FBBF24);        // yellow for search matches
-        searchCurrentPaint.setColor(0xAAFBBF24); // amber for the current match
+        activePaint.setColor(Studio.alpha(Studio.ARMED, 0x55)); // soft cyan highlight
+        searchPaint.setColor(Studio.alpha(Studio.CAREFUL, 0x55));        // yellow for search matches
+        searchCurrentPaint.setColor(Studio.alpha(Studio.CAREFUL, 0xAA)); // amber for the current match
         breakPaint.setColor(Studio.ARMED);         // cyan break indicator
         breakPaint.setStrokeWidth(2 * density);
         gutterWidthPx = GUTTER_WIDTH_DP * density;
         gutterGapPx = GUTTER_GAP_DP * density;
-        gutterPaint.setColor(0x33FFFFFF);
+        gutterPaint.setColor(Studio.alpha(Studio.INK, 0x33));
         gutterPaint.setStyle(Paint.Style.FILL);
-        gutterSelectedPaint.setColor(0xAAFFFFFF);
+        gutterSelectedPaint.setColor(Studio.alpha(Studio.INK, 0xAA));
         gutterSelectedPaint.setStyle(Paint.Style.FILL);
         touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         setClickable(true);

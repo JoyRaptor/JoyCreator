@@ -153,7 +153,7 @@ public class TransitionPreviewCardView extends View {
         p.setShader(new LinearGradient(0, 0, 0, h, top, bot, Shader.TileMode.CLAMP));
         c.drawRect(0, 0, w, h, p);
         p.setShader(null);
-        p.setColor(0x66FFFFFF);
+        p.setColor(Studio.alpha(Studio.INK, 0x66));
         if (first) {
             c.drawCircle(w * 0.5f, h * 0.5f, h * 0.28f, p);
         } else {
@@ -242,7 +242,7 @@ public class TransitionPreviewCardView extends View {
         if (hasOptions) {
             float cx = w - 9f * density, cy = 9f * density, rad = 7f * density;
             badgePaint.setStyle(Paint.Style.FILL);
-            badgePaint.setColor(0xCC17171C);
+            badgePaint.setColor(Studio.alpha(Studio.LANE_B, 0xCC));
             canvas.drawCircle(cx, cy, rad, badgePaint);
             badgePaint.setColor(Studio.GO);
             badgePaint.setStrokeWidth(1.6f * density);

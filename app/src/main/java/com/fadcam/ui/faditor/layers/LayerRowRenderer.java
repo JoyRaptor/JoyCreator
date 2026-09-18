@@ -121,8 +121,8 @@ public final class LayerRowRenderer {
     // gutter grey, which sits directly above these rows — by keeping R == G == B and moving
     // only the single lightness value. The LOCK variants stay red-shifted on purpose: that is
     // a STATE signal, not neutral chrome.
-    private static final int COLOR_HEADER_BG      = 0x9916161B; // ruler grey, semi-transparent
-    private static final int COLOR_HEADER_BG_LOCK = 0x9916161B;
+    private static final int COLOR_HEADER_BG      = Studio.alpha(Studio.SUNK, 0x99); // ruler grey, semi-transparent
+    private static final int COLOR_HEADER_BG_LOCK = Studio.alpha(Studio.SUNK, 0x99);
     /**
      * EVEN lanes draw NOTHING — the timeline's true-black ground shows through, so a lane
      * costs one fewer fill on a surface that redraws while you scrub. JoyRaptor, 2026-09-17:
@@ -170,7 +170,7 @@ public final class LayerRowRenderer {
     private static final int COLOR_HEADER_BG_LOCK_ALT = 0x99202027;
     private static final int COLOR_ROW_NAME       = Studio.INK;
     private static final int COLOR_ICON_ON        = Studio.INK;
-    private static final int COLOR_ICON_OFF       = 0x66FFFFFF;
+    private static final int COLOR_ICON_OFF       = Studio.alpha(Studio.INK, 0x66);
     /** Muted lane: dimmed but still clearly PRESENT — it is a state, not a disabled control.
      *  (Nothing draws a disabled mute any more; a lane with no audio has no icon at all.) */
     private static final int COLOR_ICON_MUTED     = Studio.alpha(Studio.DANGER, 0xB3);
@@ -221,7 +221,7 @@ public final class LayerRowRenderer {
     // ── B3/B4 header chrome ─────────────────────────────────────────
     /** Solo ring around the mute glyph — amber, the colour solo reads as in every DAW. */
     private static final int COLOR_SOLO_RING = Studio.CAREFUL;
-    private static final int COLOR_METER_TRACK = 0x26FFFFFF;
+    private static final int COLOR_METER_TRACK = Studio.alpha(Studio.INK, 0x26);
     private static final int COLOR_METER_FILL = Studio.GO;
     private static final int COLOR_METER_CLIP = Studio.DANGER;
     /** Width of the per-track level gutter bar (B4). */
@@ -1100,7 +1100,7 @@ public final class LayerRowRenderer {
     private final Paint onsetTickPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private void ensureOnsetPaint() {
         if (onsetTickPaint.getColor() == 0) {
-            onsetTickPaint.setColor(0x88FFFFFF);
+            onsetTickPaint.setColor(Studio.alpha(Studio.INK, 0x88));
             onsetTickPaint.setStrokeWidth(1.4f * density);
             onsetTickPaint.setStrokeCap(Paint.Cap.ROUND);
         } else if (onsetTickPaint.getStrokeWidth() < 0.5f) {
@@ -2095,7 +2095,7 @@ public final class LayerRowRenderer {
         if (label != null && !label.isEmpty()) {
             canvas.save();
             canvas.clipRect(x0, top, x1, bottom);
-            itemLabelPaint.setColor(ghosted ? 0x88FFFFFF : Studio.INK);
+            itemLabelPaint.setColor(ghosted ? Studio.alpha(Studio.INK, 0x88) : Studio.INK);
             // §3 pinned-scroll for labels (JoyRaptor 2026-07-18): when the item start scrolls
             // off-screen left, the label RIDES the left viewport edge exactly like the
             // image thumb (drawPinnedThumb) — so a long text item stays identifiable
@@ -2142,7 +2142,7 @@ public final class LayerRowRenderer {
         if (item.getSprite() != null) {
             float cy = centerY;
             float r = 4f * density;
-            int diamondColor = ghosted ? 0x66FFFFFF : 0xE6FFFFFF;
+            int diamondColor = ghosted ? Studio.alpha(Studio.INK, 0x66) : Studio.alpha(Studio.INK, 0xE6);
             spriteDiamondPaint.setColor(diamondColor);
             for (FrameTrack.Key k : item.getSprite().getFrameTrack().keys()) {
                 float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
@@ -2169,7 +2169,7 @@ public final class LayerRowRenderer {
             if (clip.hasCaptionStyleKeyframes()) {
                 float cy = centerY;
                 float r = 4f * density;
-                spriteDiamondPaint.setColor(ghosted ? 0x66FFFFFF : 0xE6FFFFFF);
+                spriteDiamondPaint.setColor(ghosted ? Studio.alpha(Studio.INK, 0x66) : Studio.alpha(Studio.INK, 0xE6));
                 for (com.fadcam.ui.faditor.model.Clip.CaptionStyleKeyframe kf
                         : clip.getCaptionStyleKeyframes()) {
                     float dx = timeToX.map(item.getTimelineStartMs() + kf.timeMs);
@@ -2786,7 +2786,7 @@ public final class LayerRowRenderer {
         if (sel >= 0) {
             hue = com.fadcam.ui.faditor.puppet.PuppetPalette.of(rig.pin(sel).type, rig.locked);
         }
-        int violet = ghosted ? (hue & 0x66FFFFFF) : hue;
+        int violet = ghosted ? (hue & Studio.alpha(Studio.INK, 0x66)) : hue;
 
         puppetPaint.setStyle(Paint.Style.FILL);
         for (com.fadcam.ui.faditor.puppet.PuppetTapeMarks.Mark m : marks) {
@@ -2831,7 +2831,7 @@ public final class LayerRowRenderer {
             // The survivors inside, at half strength: present and reachable, not shouting.
             long[] inside = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.insideOf(times, m);
             if (inside.length == 0 || inside.length > 400) continue;
-            puppetPaint.setColor(ghosted ? 0x33FFFFFF : (violet & 0x00FFFFFF) | Studio.alpha(Studio.GROUND, 0x80));
+            puppetPaint.setColor(ghosted ? Studio.alpha(Studio.INK, 0x33) : (violet & 0x00FFFFFF) | Studio.alpha(Studio.GROUND, 0x80));
             for (long t : inside) {
                 float dx = timeToX.map(keyTimeToTimelineMs(item, t));
                 if (dx < lo + 2f || dx > hi - 2f) continue;
@@ -2856,11 +2856,11 @@ public final class LayerRowRenderer {
         if (op == null || op.keyframes.size() < 2) return;
         if (!kfEnvPaintsInit) {
             kfEnvPaintsInit = true;
-            kfEnvLinePaint.setColor(0xCCFFFFFF);
+            kfEnvLinePaint.setColor(Studio.alpha(Studio.INK, 0xCC));
             kfEnvLinePaint.setStyle(Paint.Style.STROKE);
             kfEnvLinePaint.setStrokeWidth(1.6f * density);
             kfEnvLinePaint.setStrokeJoin(Paint.Join.ROUND);
-            kfEnvDotPaint.setColor(0xCCFFFFFF);
+            kfEnvDotPaint.setColor(Studio.alpha(Studio.INK, 0xCC));
             kfEnvDotPaint.setStyle(Paint.Style.FILL);
             kfScrimPaint.setStyle(Paint.Style.FILL);
         }
@@ -2871,8 +2871,8 @@ public final class LayerRowRenderer {
             kfEnvLinePaint.setColor(Studio.CAREFUL);
             kfEnvDotPaint.setColor(Studio.CAREFUL);
         } else {
-            kfEnvLinePaint.setColor(0xCCFFFFFF);
-            kfEnvDotPaint.setColor(0xCCFFFFFF);
+            kfEnvLinePaint.setColor(Studio.alpha(Studio.INK, 0xCC));
+            kfEnvDotPaint.setColor(Studio.alpha(Studio.INK, 0xCC));
         }
         float h = bottom - top;
         canvas.save();
@@ -2896,7 +2896,7 @@ public final class LayerRowRenderer {
             }
             // Dots amber if that specific key is preset-owned
             if (kf.presetOwned) kfEnvDotPaint.setColor(Studio.CAREFUL);
-            else kfEnvDotPaint.setColor(anyPreset ? Studio.CAREFUL : 0xCCFFFFFF);
+            else kfEnvDotPaint.setColor(anyPreset ? Studio.CAREFUL : Studio.alpha(Studio.INK, 0xCC));
             canvas.drawCircle(x, y, 2.4f * density, kfEnvDotPaint);
             prevX = x;
             prevY = y;
@@ -3200,7 +3200,7 @@ public final class LayerRowRenderer {
         }
 
         repeatPaint.setAlpha(110);
-        seqTickPaint.setColor(0xB3FFFFFF);
+        seqTickPaint.setColor(Studio.alpha(Studio.INK, 0xB3));
         float tickW = Math.max(1f, density);
         // Thumbs are skipped, not shrunk, when they would collide: overlapping them would read
         // as a faster cadence than the sequence actually has. The hairline still marks every
@@ -3774,7 +3774,7 @@ public final class LayerRowRenderer {
             ex = Math.min(ex, x1);
             canvas.drawRect(sx, top, ex, bottom, dark);
             // Thin diagonal hatch to make it read as "cut" even on monochrome.
-            dark.setColor(0x22FFFFFF);
+            dark.setColor(Studio.alpha(Studio.INK, 0x22));
             dark.setStrokeWidth(1f * density);
             for (float hx = sx; hx < ex; hx += 6f * density) {
                 canvas.drawLine(hx, top, hx + 4f * density, bottom, dark);
@@ -4583,7 +4583,7 @@ public final class LayerRowRenderer {
             long dur = item.getDisplayDurationMs(totalMs);
             float x1 = Math.max(x0 + 6f * density,
                     timeToX.map(item.getTimelineStartMs() + dur));
-            itemPaint.setColor(0x33FFFFFF);
+            itemPaint.setColor(Studio.alpha(Studio.INK, 0x33));
             canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density, itemPaint);
             itemSelectionPaint.setColor(Studio.INK);
             canvas.drawRoundRect(x0, top, x1, bottom, 4f * density, 4f * density,

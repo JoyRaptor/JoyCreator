@@ -39,7 +39,7 @@ public final class PuppetShapes {
     private PuppetShapes() {}
 
     /** The dark ring that keeps a pin visible on artwork its own colour. */
-    private static final int OUTLINE = 0xD9050507;
+    private static final int OUTLINE = Studio.alpha(Studio.ON_GO, 0xD9);
 
     private static final Path PATH = new Path();
 

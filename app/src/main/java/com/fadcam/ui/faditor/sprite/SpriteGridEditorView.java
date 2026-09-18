@@ -135,20 +135,20 @@ public class SpriteGridEditorView extends View {
         gridPaint.setColor(SpriteTheme.LINE);
         numPaint.setColor(SpriteTheme.DIMMER);
         numPaint.setTextSize(9f * density);
-        numPaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        numPaint.setShadowLayer(3f * density, 0, 0, Studio.alpha(Studio.GROUND, 0xCC));
         namePaint.setColor(SpriteTheme.SELECTED);
         namePaint.setTextSize(8.5f * density);
         namePaint.setTextAlign(Paint.Align.RIGHT);
-        namePaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        namePaint.setShadowLayer(3f * density, 0, 0, Studio.alpha(Studio.GROUND, 0xCC));
         visPaint.setColor(SpriteTheme.ACCENT_CELL);
         visPaint.setTextSize(8.5f * density);
-        visPaint.setShadowLayer(3f * density, 0, 0, 0xCC000000);
+        visPaint.setShadowLayer(3f * density, 0, 0, Studio.alpha(Studio.GROUND, 0xCC));
         dropPaint.setStyle(Paint.Style.STROKE);
         dropPaint.setStrokeWidth(3f * density);
         badgeInk.setTextSize(9.5f * density);
         badgeInk.setTextAlign(Paint.Align.CENTER);
         badgeInk.setFakeBoldText(true);
-        shadePaint.setColor(0x99000000);
+        shadePaint.setColor(Studio.alpha(Studio.GROUND, 0x99));
         // Cyan is "you are pointing at this", pink is "this is what the preview is showing
         // right now" — the same two meanings they carry everywhere else in the package.
         selPaint.setStyle(Paint.Style.STROKE);

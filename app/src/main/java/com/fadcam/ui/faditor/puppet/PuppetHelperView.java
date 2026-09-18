@@ -236,7 +236,7 @@ public class PuppetHelperView extends View {
             box.set(x0, y, x0 + tw + padX * 2, y + rowH - 3f * d);
             boolean hot = i == sel;
             fill.setStyle(Paint.Style.FILL);
-            fill.setColor(hot ? PuppetPalette.HELPER : 0xE00D0D10);
+            fill.setColor(hot ? PuppetPalette.HELPER : Studio.alpha(Studio.SURFACE, 0xE0));
             c.drawRoundRect(box, 9f * d, 9f * d, fill);
             text.setColor(hot ? Studio.SURFACE : Studio.INK_OFF);
             c.drawText(label, box.right - padX, y + rowH * 0.62f, text);
@@ -305,7 +305,7 @@ public class PuppetHelperView extends View {
 
         box.set(0, 0, getWidth(), getHeight());
         fill.setStyle(Paint.Style.FILL);
-        fill.setColor(0xE00D0D10);                    // SpriteLab --drawer
+        fill.setColor(Studio.alpha(Studio.SURFACE, 0xE0));                    // SpriteLab --drawer
         c.drawRoundRect(box, R_BOX * d, R_BOX * d, fill);
         stroke.setColor(Studio.LINE);                  // --line
         stroke.setStrokeWidth(d);

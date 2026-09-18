@@ -9,6 +9,7 @@ import android.view.ViewParent;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * THE MAGNIFIER — the same helper the transform tool uses, pointed at a puppet pin.
@@ -123,10 +124,10 @@ public final class PreviewLoupe {
 
         // Rim, then a crosshair with a gap at the middle so the thing being dragged stays visible.
         stroke.setStyle(Paint.Style.STROKE);
-        stroke.setColor(0x47A78BFA);
+        stroke.setColor(Studio.alpha(Studio.GUIDE, 0x47));
         stroke.setStrokeWidth(density);
         c.drawCircle(bestX + r, bestY + r, r - density, stroke);
-        stroke.setColor(0xD94ADE80);
+        stroke.setColor(Studio.alpha(Studio.AUDIO, 0xD9));
         float a = 5f * density, b = 13f * density;
         c.drawLine(bestX + r, bestY + r - b, bestX + r, bestY + r - a, stroke);
         c.drawLine(bestX + r, bestY + r + a, bestX + r, bestY + r + b, stroke);

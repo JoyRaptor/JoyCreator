@@ -158,7 +158,7 @@ public class PuppetPreviewView extends View {
         selectPaint.setStyle(Paint.Style.STROKE);
         selectPaint.setStrokeWidth(3f);
         selectPaint.setColor(Studio.CAREFUL);
-        bgGrid.setColor(0x14FFFFFF);
+        bgGrid.setColor(Studio.alpha(Studio.INK, 0x14));
         bgGrid.setStrokeWidth(1f);
     }
 

@@ -770,7 +770,7 @@ public class PreviewPipController {
     private void installDockResizeHandle(@NonNull LinearLayout shell, int edge) {
         removeDockResizeHandle();
         View grip = new View(shell.getContext());
-        grip.setBackgroundColor(0x66FFFFFF);
+        grip.setBackgroundColor(Studio.alpha(Studio.INK, 0x66));
         int gripW = (int) (6 * density);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 gripW, ViewGroup.LayoutParams.MATCH_PARENT,
@@ -912,7 +912,7 @@ public class PreviewPipController {
             // window is about to occupy rather than an overlay on top of it.
             rootFrame.addView(dockHint, rootFrame.indexOfChild(editorRoot) + 1);
         }
-        dockHint.setBackgroundColor(0x334ADE80);            // the cyan already used for selection
+        dockHint.setBackgroundColor(Studio.alpha(Studio.AUDIO, 0x33));            // the cyan already used for selection
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 w, ViewGroup.LayoutParams.MATCH_PARENT,
                 edge < 0 ? Gravity.START : Gravity.END);

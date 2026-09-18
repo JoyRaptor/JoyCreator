@@ -18,6 +18,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.List;
 import java.util.Locale;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * The image-sequence import dialog (SPEC_IMAGE_SEQUENCE §3b).
@@ -206,7 +207,7 @@ public final class SequenceImportDialog {
         t.setText(label);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         t.setPadding(dp(ctx, 12), dp(ctx, 8), dp(ctx, 12), dp(ctx, 8));
-        t.setBackgroundColor(0x22FFFFFF);
+        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
         t.setOnClickListener(v -> onTap.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);

@@ -43,8 +43,8 @@ public class WordScrubView extends View {
         density = getResources().getDisplayMetrics().density;
         trackPaint.setColor(Studio.OFF);
         fillPaint.setColor(Studio.ARMED);
-        centerPaint.setColor(0x88FFFFFF);
-        gripPaint.setColor(0x66FFFFFF);
+        centerPaint.setColor(Studio.alpha(Studio.INK, 0x88));
+        gripPaint.setColor(Studio.alpha(Studio.INK, 0x66));
     }
 
     public void setListener(@Nullable Listener l) { this.listener = l; }

@@ -342,7 +342,7 @@
                 android:paddingStart="18dp"
                 android:paddingEnd="18dp"
                 android:text=""
-                android:textColor="#FF050507"
+                android:textColor="@color/s_on_go"
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:maxLines="1"
@@ -481,7 +481,7 @@
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
                 android:text=""
-                android:textColor="#FF050507"
+                android:textColor="@color/s_on_go"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 

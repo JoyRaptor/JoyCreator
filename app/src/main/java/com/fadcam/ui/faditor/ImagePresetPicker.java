@@ -70,7 +70,7 @@ public final class ImagePresetPicker {
     private static final int BG = Studio.RAISED;
     private static final int TILE_BG = Studio.LINE;
     private static final int ACCENT = Studio.GO;
-    private static final int RING_FILL = 0x1F35F6BF;
+    private static final int RING_FILL = Studio.alpha(Studio.GO, 0x1F);
     private static final int CANVAS_SOLID = Studio.OFF;
     private static final int IMAGE_DOTTED = Studio.INK_DIM;
 

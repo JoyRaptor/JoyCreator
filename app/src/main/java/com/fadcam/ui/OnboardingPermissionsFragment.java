@@ -26,6 +26,7 @@ import com.google.android.material.button.MaterialButton;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * OnboardingPermissionsFragment handles permission requests and enforces policy for AppIntro.
@@ -182,7 +183,7 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
             grantButton.setEnabled(false);
             grantButton.setAlpha(1f);
             grantButton.setBackgroundResource(R.drawable.intro_ghost_pill);
-            grantButton.setTextColor(0xFF35F6BF);
+            grantButton.setTextColor(Studio.GO);
             grantButton.setText(R.string.permissions_granted);
             showPermissionStatus(R.string.permissions_granted, true);
         } else {
@@ -191,7 +192,7 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
             grantButton.setEnabled(true);
             grantButton.setAlpha(1f);
             grantButton.setBackgroundResource(R.drawable.studio_action_pill);
-            grantButton.setTextColor(0xFF050507);
+            grantButton.setTextColor(Studio.ON_GO);
             grantButton.setText(R.string.grant_permissions);
         }
         
@@ -349,7 +350,7 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
                 // INK_FAINT, not INK_OFF. #52525B on black measures 2.6:1 — under the 3:1
                 // floor even for text you are only meant to notice. #8A8A94 measures 5.4:1
                 // and still reads as quieter than everything around it.
-                batteryOptButton.setTextColor(0xFF8A8A94);
+                batteryOptButton.setTextColor(Studio.INK_FAINT);
                 // Not permissions_granted: that is the PRIMARY button's text, and reusing
                 // it here put the same sentence on both controls at once.
                 batteryOptButton.setText(R.string.battery_optimization_off);

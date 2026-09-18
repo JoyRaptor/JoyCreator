@@ -1412,7 +1412,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         Typeface materialIcons = ResourcesCompat.getFont(this, R.font.materialicons);
         copyBtn.setTypeface(materialIcons);
         copyBtn.setText("content_copy");
-        copyBtn.setTextColor(0x66C4C4CE);
+        copyBtn.setTextColor(Studio.alpha(Studio.LABEL, 0x66));
         copyBtn.setTextSize(13);
         copyBtn.setPadding(dp(6), dp(6), dp(6), dp(6));
         FrameLayout.LayoutParams clp = new FrameLayout.LayoutParams(

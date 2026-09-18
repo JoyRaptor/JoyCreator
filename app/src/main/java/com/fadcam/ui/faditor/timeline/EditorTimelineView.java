@@ -208,7 +208,7 @@ public class EditorTimelineView extends View {
     private static final int COLOR_FILM_RAIL      = Studio.FILM_RAIL;
     private static final int COLOR_FILM_EDGE      = Studio.FILM_EDGE;
     /** Highlight on a perforation's lower lip -- the film's thickness catching light. */
-    private static final int COLOR_FILM_HOLE_LIP  = 0x3DFFFFFF;
+    private static final int COLOR_FILM_HOLE_LIP  = Studio.alpha(Studio.INK, 0x3D);
     /** Sprocket perforations punched along the film rails. */
     private static final int COLOR_FILM_SPROCKET  = Studio.FILM_HOLE;
     private static final int COLOR_SEGMENT        = Studio.LINE;
@@ -240,7 +240,7 @@ public class EditorTimelineView extends View {
      * want to see, the other means something is being lost.
      */
     private static final int COLOR_PLAYHEAD       = Studio.LIVE;
-    private static final int COLOR_LABEL          = 0xBBFFFFFF;
+    private static final int COLOR_LABEL          = Studio.alpha(Studio.INK, 0xBB);
     private static final int COLOR_DRAG_GHOST     = Studio.alpha(Studio.ARMED, 0x66);
     private static final int COLOR_AUDIO_BG       = Studio.LINE;
     private static final int COLOR_AUDIO_BG_SEL   = Studio.LINE; // selected audio fill — cyan family
@@ -248,7 +248,7 @@ public class EditorTimelineView extends View {
     private static final int COLOR_AUDIO_WAVE_MUTED = Studio.INK_OFF;
     private static final int COLOR_AUDIO_WAVE_DIM = Studio.alpha(Studio.AUDIO, 0x40); // mirror half
     private static final int COLOR_AUDIO_CENTERLINE = Studio.alpha(Studio.AUDIO, 0x33);
-    private static final int COLOR_AUDIO_LABEL    = 0xBBFFFFFF;
+    private static final int COLOR_AUDIO_LABEL    = Studio.alpha(Studio.INK, 0xBB);
     /**
      * The audio band's ground.
      *
@@ -2081,7 +2081,7 @@ public class EditorTimelineView extends View {
         reorderBlockSelectedPaint.setColor(COLOR_BORDER_SEL);
         reorderBlockSelectedPaint.setStyle(Paint.Style.STROKE);
         reorderBlockSelectedPaint.setStrokeWidth(2.5f * density);
-        reorderNumPaint.setColor(0xDDFFFFFF);
+        reorderNumPaint.setColor(Studio.alpha(Studio.INK, 0xDD));
         reorderNumPaint.setTextSize(14f * density);
         reorderNumPaint.setTextAlign(Paint.Align.CENTER);
         reorderNumPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
@@ -2149,11 +2149,11 @@ public class EditorTimelineView extends View {
         volEnvLinePaint.setStrokeJoin(Paint.Join.ROUND);
         volEnvDotPaint.setColor(Studio.ARMED);
         volEnvDotPaint.setStyle(Paint.Style.FILL);
-        opacityEnvLinePaint.setColor(0xCCFFFFFF); // semi-transparent white
+        opacityEnvLinePaint.setColor(Studio.alpha(Studio.INK, 0xCC)); // semi-transparent white
         opacityEnvLinePaint.setStyle(Paint.Style.STROKE);
         opacityEnvLinePaint.setStrokeWidth(1.6f * density);
         opacityEnvLinePaint.setStrokeJoin(Paint.Join.ROUND);
-        opacityEnvDotPaint.setColor(0xCCFFFFFF);
+        opacityEnvDotPaint.setColor(Studio.alpha(Studio.INK, 0xCC));
         opacityEnvDotPaint.setStyle(Paint.Style.FILL);
         volumeEnvLinePaint.setColor(Studio.ARMED);
         volumeEnvLinePaint.setStyle(Paint.Style.STROKE);
@@ -3962,7 +3962,7 @@ public class EditorTimelineView extends View {
                 transcriptTextPaint.setColor((pulseA << 24) | 0x00FFFFFF);
                 canvas.drawText("analyzing audio…", labelX,
                         bandTop + H / 2f + 3f * density, transcriptTextPaint);
-                transcriptTextPaint.setColor(0x99FFFFFF);
+                transcriptTextPaint.setColor(Studio.alpha(Studio.INK, 0x99));
                 drawAnalyzingSheen(canvas, seg.left, bandTop, seg.right, bandTop + H);
                 drawerAnalysisAnimating = true;
             }
@@ -4029,7 +4029,7 @@ public class EditorTimelineView extends View {
         if (drawerSheenPaint.getShader() == null) {
             drawerSheenPaint.setShader(new android.graphics.LinearGradient(
                     0f, 0f, 1f, 0f,
-                    new int[]{0x00FFFFFF, 0x24FFFFFF, 0x00FFFFFF},
+                    new int[]{0x00FFFFFF, Studio.alpha(Studio.INK, 0x24), 0x00FFFFFF},
                     null, android.graphics.Shader.TileMode.CLAMP));
         }
         float period = 2400f; // slow, calm pass
@@ -4171,7 +4171,7 @@ public class EditorTimelineView extends View {
         for (int i = 0; i < lines; i++) {
             com.fadcam.ui.faditor.layers.Track t = ordered.get(i);
             // Faint rail so an EMPTY layer still reads as a layer that exists.
-            minimapBlockPaint.setColor(0x1AFFFFFF);
+            minimapBlockPaint.setColor(Studio.alpha(Studio.INK, 0x1A));
             canvas.drawRect(margin, y, margin + stripW, y + thickness, minimapBlockPaint);
 
             for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
@@ -4277,7 +4277,7 @@ public class EditorTimelineView extends View {
                 float barTop = bot - 4.5f * density, barBot = bot - 2.5f * density;
                 // Dim full-width track so a QUEUED clip (progress 0, or indeterminate) still
                 // reads as "this one is waiting its turn", not as "nothing is happening".
-                minimapBlockPaint.setColor(0x33FFFFFF);
+                minimapBlockPaint.setColor(Studio.alpha(Studio.INK, 0x33));
                 canvas.drawRect(x0, barTop, x0 + blockW, barBot, minimapBlockPaint);
                 int tcol = transcribeColor.get(i, Studio.CAREFUL);
                 if (tp < 0f) {
@@ -4680,7 +4680,7 @@ public class EditorTimelineView extends View {
         long leftHiddenMs = sd.inPointMs;
         long rightHiddenMs = sd.sourceDurationMs - sd.outPointMs;
 
-        segmentPaint.setColor(0x33FFFFFF); // faint fill
+        segmentPaint.setColor(Studio.alpha(Studio.INK, 0x33)); // faint fill
         if (leftHiddenMs > 0) {
             float ghostW = leftHiddenMs * pxPerSourceMs;
             RectF ghost = new RectF(r.left - ghostW, r.top + r.height() * 0.15f,
@@ -7077,13 +7077,13 @@ if (sd.clip.hasVolumeKeyframes()) {
             canvas.drawLine(rect.left + 4f * density, rect.bottom - 8f * density,
                     rect.right - 4f * density, rect.bottom - 8f * density, transitionHelperPaint);
         } else if (t.isTvChannel()) {
-            transitionHelperPaint.setColor(0xCCFFFFFF);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.INK, 0xCC));
             canvas.drawLine(rect.left + 4f * density, rect.top + 8f * density,
                     rect.right - 4f * density, rect.top + 8f * density, transitionHelperPaint);
             transitionHelperPaint.setColor(Studio.alpha(Studio.GROUND, 0x66));
             canvas.drawLine(rect.left + 4f * density, rect.centerY(),
                     rect.right - 4f * density, rect.centerY(), transitionHelperPaint);
-            transitionHelperPaint.setColor(0xCCFFFFFF);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.INK, 0xCC));
             canvas.drawLine(rect.left + 4f * density, rect.bottom - 8f * density,
                     rect.right - 4f * density, rect.bottom - 8f * density, transitionHelperPaint);
         }
@@ -7149,7 +7149,7 @@ if (sd.clip.hasVolumeKeyframes()) {
                 ? (reorderLinkRect.right + reorderDoneRect.left) / 2f
                 : w / 2f;
         reorderBtnTextPaint.setTextAlign(Paint.Align.CENTER);
-        reorderBtnTextPaint.setColor(0xAAFFFFFF);
+        reorderBtnTextPaint.setColor(Studio.alpha(Studio.INK, 0xAA));
         canvas.drawText("Reorder", cx, btnY, reorderBtnTextPaint);
         reorderBtnTextPaint.setColor(COLOR_HANDLE);  // restore
 

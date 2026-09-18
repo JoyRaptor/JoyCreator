@@ -44,7 +44,7 @@ public final class EasePickerPopover {
     private static final int BASELINE = Studio.OFF;
     private static final int CURVE = Studio.INK_DIM;
     private static final int ACCENT = Studio.GO;
-    private static final int RING_FILL = 0x1F35F6BF;
+    private static final int RING_FILL = Studio.alpha(Studio.GO, 0x1F);
     private static final int TXT_DIM = Studio.INK_FAINT;
 
     private EasePickerPopover() {}

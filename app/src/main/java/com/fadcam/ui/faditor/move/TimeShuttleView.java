@@ -94,7 +94,7 @@ public final class TimeShuttleView extends View {
         tickPaint.setStrokeWidth(1f * density);
         fillPaint.setColor(Studio.GO);   // green fill grows with deflection (speed cue)
         thumbPaint.setColor(Studio.INK);
-        thumbShadow.setColor(0x66000000);
+        thumbShadow.setColor(Studio.alpha(Studio.GROUND, 0x66));
     }
 
     // XML inflation requires Context+AttributeSet constructor — was programmatic-only before V2
@@ -106,7 +106,7 @@ public final class TimeShuttleView extends View {
         tickPaint.setStrokeWidth(1f * density);
         fillPaint.setColor(Studio.GO);
         thumbPaint.setColor(Studio.INK);
-        thumbShadow.setColor(0x66000000);
+        thumbShadow.setColor(Studio.alpha(Studio.GROUND, 0x66));
     }
 
     public TimeShuttleView(Context ctx, @Nullable android.util.AttributeSet attrs, int defStyleAttr) {
@@ -117,7 +117,7 @@ public final class TimeShuttleView extends View {
         tickPaint.setStrokeWidth(1f * density);
         fillPaint.setColor(Studio.GO);
         thumbPaint.setColor(Studio.INK);
-        thumbShadow.setColor(0x66000000);
+        thumbShadow.setColor(Studio.alpha(Studio.GROUND, 0x66));
     }
 
     public void setListener(@Nullable Listener l) { this.listener = l; }

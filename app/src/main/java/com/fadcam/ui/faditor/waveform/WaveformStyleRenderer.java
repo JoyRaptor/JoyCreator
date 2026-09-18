@@ -19,6 +19,7 @@ import androidx.annotation.Nullable;
 import com.fadcam.ui.faditor.model.VizLayer;
 import com.fadcam.ui.faditor.model.WaveformData;
 import com.fadcam.ui.faditor.model.WaveformStyle;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * Draws an animated waveform/spectrum frame to a software {@link Bitmap} using only
@@ -438,7 +439,7 @@ public class WaveformStyleRenderer {
         // RING is a radial-only accent; nothing to draw (or configure) for it in the linear strip.
         if (VizLayer.EMITTER_RING.equals(layer.emitter) && !radial) return;
 
-        int primary = parseColor(layer.color, 0xFF35F6BF);
+        int primary = parseColor(layer.color, Studio.GO);
         configureLayerPaint(barPaint, layer, primary, w, h, radial);
         // P4 AudioMapper response: attack/release smoothing produces a PER-LAYER local energy array
         // (the shared one is never mutated). Off (0/0) returns the same reference → legacy identical.
@@ -466,7 +467,7 @@ public class WaveformStyleRenderer {
         boolean hasShadow = layer.shadowColor != null;
         if (hasShadow) {
             shadowPaint.set(barPaint); // inherits antialias/style/shader
-            shadowPaint.setColor(parseColor(layer.shadowColor, 0xFF000000));
+            shadowPaint.setColor(parseColor(layer.shadowColor, Studio.GROUND));
             shadowPaint.setShader(null);
             shadowPaint.setXfermode(null); // a shadow blends NORMAL beneath the layer, never ADD
             shadowPaint.setMaskFilter(ensureShadowFilter(layer.shadowRadiusDp, density));
@@ -567,7 +568,7 @@ public class WaveformStyleRenderer {
 
     private void drawPlaceholder(@NonNull Canvas canvas, @NonNull WaveformStyle style,
                                  int w, int h, float density, float progress) {
-        int primary = parseColor(style.color, 0xFF35F6BF);
+        int primary = parseColor(style.color, Studio.GO);
         int bars = Math.max(1, style.bandCount);
         float[] heights = new float[bars];
         for (int i = 0; i < bars; i++) {

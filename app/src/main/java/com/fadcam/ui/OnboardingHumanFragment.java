@@ -22,6 +22,7 @@ import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import com.airbnb.lottie.LottieAnimationView;
 import com.fadcam.R;
+import com.fadcam.ui.faditor.Studio;
 
 public class OnboardingHumanFragment extends Fragment {
     private boolean checked1 = false;
@@ -45,7 +46,7 @@ public class OnboardingHumanFragment extends Fragment {
      */
     private static void tickTint(android.widget.ImageView v, boolean on) {
         if (v == null) return;
-        v.setColorFilter(on ? 0xFF35F6BF : 0xFF52525B);
+        v.setColorFilter(on ? Studio.GO : Studio.INK_OFF);
     }
 
     /** Swap a primary button's FILL for its availability, rather than fading it. */
@@ -64,7 +65,7 @@ public class OnboardingHumanFragment extends Fragment {
         b.setAlpha(1f);
         b.setBackgroundResource(on ? R.drawable.studio_action_pill
                                    : R.drawable.studio_action_pill_off);
-        b.setTextColor(on ? 0xFF050507 : 0xFF52525B);
+        b.setTextColor(on ? Studio.ON_GO : Studio.INK_OFF);
     }
 
     @Override
@@ -93,10 +94,13 @@ public class OnboardingHumanFragment extends Fragment {
         continueButton.setEnabled(false);
         primaryState(continueButton, false);
 
-        // Get the redPastel color
         // A ticked box is a STATE, and this app has exactly four state colours.
         // Selected/on is cyan everywhere: the timeline, Sprite Lab, the drawers, here.
-        int redPastelColor = 0xFF22D3EE;
+        //
+        // This was called redPastelColor and held cyan — the name survived from FadCam and
+        // the value did not, so the one line in this file that said what the colour IS was
+        // saying the opposite. It is ARMED, and it is named that now.
+        int tickColor = Studio.ARMED;
 
         View.OnClickListener update = view -> {
             continueButton.setEnabled(checked1 && checked2 && checked3);
@@ -120,7 +124,7 @@ public class OnboardingHumanFragment extends Fragment {
             tickTint(icon1, checked1);
             if (checked1) {
                 // Apply redPastel tint to the checked checkbox
-                icon1.setColorFilter(redPastelColor, PorterDuff.Mode.SRC_IN);
+                icon1.setColorFilter(tickColor, PorterDuff.Mode.SRC_IN);
             } else {
                 // Clear any color filter for unchecked state
                 icon1.clearColorFilter();
@@ -135,7 +139,7 @@ public class OnboardingHumanFragment extends Fragment {
             tickTint(icon2, checked2);
             if (checked2) {
                 // Apply redPastel tint to the checked checkbox
-                icon2.setColorFilter(redPastelColor, PorterDuff.Mode.SRC_IN);
+                icon2.setColorFilter(tickColor, PorterDuff.Mode.SRC_IN);
             } else {
                 // Clear any color filter for unchecked state
                 icon2.clearColorFilter();
@@ -150,7 +154,7 @@ public class OnboardingHumanFragment extends Fragment {
             tickTint(icon3, checked3);
             if (checked3) {
                 // Apply redPastel tint to the checked checkbox
-                icon3.setColorFilter(redPastelColor, PorterDuff.Mode.SRC_IN);
+                icon3.setColorFilter(tickColor, PorterDuff.Mode.SRC_IN);
             } else {
                 // Clear any color filter for unchecked state
                 icon3.clearColorFilter();

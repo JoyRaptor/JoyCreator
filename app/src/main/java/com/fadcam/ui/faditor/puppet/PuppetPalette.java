@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.puppet;
 
 import com.fadcam.ui.faditor.transform.HandleModel;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * THE ONE PLACE a puppet thing gets a colour.
@@ -64,7 +65,7 @@ public final class PuppetPalette {
      * <p>Deliberately colourless and very quiet. The triangles are a debug view sitting UNDER
      * somebody's artwork, and anything with a hue there would read as part of the character.
      */
-    public static final int MESH = 0x2EFFFFFF;
+    public static final int MESH = Studio.alpha(Studio.INK, 0x2E);
 
     /** The colour for a pin of this type, or {@link #LOCKED} when the rig is shut off. */
     public static int of(PuppetPin.Type type, boolean locked) {

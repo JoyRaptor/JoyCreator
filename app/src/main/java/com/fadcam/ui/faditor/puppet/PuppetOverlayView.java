@@ -301,7 +301,7 @@ public class PuppetOverlayView extends View {
         text.setTextAlign(Paint.Align.CENTER);
         text.setTextSize(LABEL_SP * d);
         text.setFakeBoldText(true);
-        text.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        text.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         setWillNotDraw(false);
     }
 
@@ -388,7 +388,7 @@ public class PuppetOverlayView extends View {
         // is readable before it lands — which is the whole point of showing it at all.
         if (ghostType != null) {
             fill.setStyle(Paint.Style.FILL);
-            fill.setColor(0x33000000);
+            fill.setColor(Studio.alpha(Studio.GROUND, 0x33));
             c.drawCircle(ghostX, ghostY, 17f * d, fill);
             PuppetShapes.draw(c, ghostType, ghostX, ghostY, DOT_R_SEL * d,
                     PuppetPalette.of(ghostType), fill, stroke, d);
@@ -650,9 +650,9 @@ public class PuppetOverlayView extends View {
         badgeRect.set(getWidth() - (BADGE + BADGE_INSET) * d, BADGE_INSET * d,
                 getWidth() - BADGE_INSET * d, (BADGE + BADGE_INSET) * d);
 
-        fill.setColor(0xA80D0D10);
+        fill.setColor(Studio.alpha(Studio.SURFACE, 0xA8));
         c.drawRoundRect(badgeRect, 10f * d, 10f * d, fill);
-        stroke.setColor(0x1AFFFFFF);
+        stroke.setColor(Studio.alpha(Studio.INK, 0x1A));
         stroke.setStrokeWidth(1f * d);
         c.drawRoundRect(badgeRect, 10f * d, 10f * d, stroke);
 

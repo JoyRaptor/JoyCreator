@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * A2 (PLAN_AVATAR_STUDIO): a scripted, fully deterministic
@@ -70,9 +71,9 @@ public final class SyntheticTrackingSource implements TrackingSource {
             // Deterministic jitter: two LCG draws per frame, always consumed
             // in the same order (frame-count-pure).
             lcg = lcg * 0x5DEECE66DL + 0xBL;
-            float jYaw = (((lcg >>> 17) & 0x7FFFFFFF) / (float) (1L << 31) * 2f - 1f) * JITTER;
+            float jYaw = (((lcg >>> 17) & Studio.alpha(Studio.INK, 0x7F)) / (float) (1L << 31) * 2f - 1f) * JITTER;
             lcg = lcg * 0x5DEECE66DL + 0xBL;
-            float jPitch = (((lcg >>> 17) & 0x7FFFFFFF) / (float) (1L << 31) * 2f - 1f) * JITTER;
+            float jPitch = (((lcg >>> 17) & Studio.alpha(Studio.INK, 0x7F)) / (float) (1L << 31) * 2f - 1f) * JITTER;
             p.put("yaw", (float) Math.sin(2 * Math.PI * YAW_HZ * t) * YAW_AMP + jYaw);
             p.put("pitch", (float) Math.sin(2 * Math.PI * PITCH_HZ * t + 1.3) * PITCH_AMP + jPitch);
             for (int i = 0; i < pinTargetPartIds.size(); i++) {

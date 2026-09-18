@@ -16,6 +16,7 @@ import com.fadcam.ui.faditor.transcript.Transcript;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * Renders the animated on-screen caption to a full-frame bitmap for export.
@@ -759,14 +760,14 @@ public class CaptionExportRenderer {
     /** Fill pass plus optional stroke-outline pass — mirrors CaptionOverlayView. */
     /** The style's own shadow, as the per-frame setup applies it — mirror of the preview's. */
     /**
-     * The style's drop-shadow colour, faded WITH the glyphs. Left at a constant 0xDD000000 the
+     * The style's drop-shadow colour, faded WITH the glyphs. Left at a constant Studio.alpha(Studio.GROUND, 0xDD) the
      * caption's shadow stayed fully opaque while the text faded out, which reads as a black
      * smear where the caption used to be — the same reason TextBoxRenderer fades shadow+glow with
      * its glyphs. The preset's per-unit alpha is deliberately NOT folded in here: the shadow is
      * set once per frame, and the binding's fade is the only per-frame constant.
      */
     private int styleShadowColor() {
-        return com.fadcam.ui.faditor.transcript.CaptionAnimator.applyAlpha(0xDD000000, frameFade);
+        return com.fadcam.ui.faditor.transcript.CaptionAnimator.applyAlpha(Studio.alpha(Studio.GROUND, 0xDD), frameFade);
     }
 
     private void applyStyleShadow(float fontPx) {

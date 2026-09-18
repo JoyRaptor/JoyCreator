@@ -32,10 +32,10 @@ public class VolumeDragFaderView extends View {
     public VolumeDragFaderView(Context c, @Nullable AttributeSet a) {
         super(c, a);
         density = getResources().getDisplayMetrics().density;
-        trackPaint.setColor(0x66000000);
+        trackPaint.setColor(Studio.alpha(Studio.GROUND, 0x66));
         fillPaint.setColor(Studio.GO);   // green
         thumbPaint.setColor(Studio.INK);
-        groovePaint.setColor(0x66FFFFFF);
+        groovePaint.setColor(Studio.alpha(Studio.INK, 0x66));
         groovePaint.setStrokeWidth(1.5f * density);
     }
 

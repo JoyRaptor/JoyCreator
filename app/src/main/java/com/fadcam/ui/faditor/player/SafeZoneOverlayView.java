@@ -69,7 +69,7 @@ public class SafeZoneOverlayView extends View {
                 new float[]{8f * density, 6f * density}, 0f));
 
         tickPaint.setStyle(Paint.Style.STROKE);
-        tickPaint.setColor(0x55FBBF24);
+        tickPaint.setColor(Studio.alpha(Studio.CAREFUL, 0x55));
         tickPaint.setStrokeWidth(1f * density);
     }
 

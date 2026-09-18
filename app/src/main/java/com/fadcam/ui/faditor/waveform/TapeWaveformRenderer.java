@@ -99,7 +99,7 @@ public class TapeWaveformRenderer {
         }
 
         // Baseline.
-        baselinePaint.setColor(0x29FFFFFF);
+        baselinePaint.setColor(Studio.alpha(Studio.INK, 0x29));
         canvas.drawLine(rect.left, baseY, rect.right, baseY, baselinePaint);
     }
 
@@ -135,7 +135,7 @@ public class TapeWaveformRenderer {
             }
             path.lineTo(x0 + W, baseY);
             path.close();
-            fill.setColor(0x17FFFFFF);
+            fill.setColor(Studio.alpha(Studio.INK, 0x17));
             canvas.drawPath(path, fill);
         }
 

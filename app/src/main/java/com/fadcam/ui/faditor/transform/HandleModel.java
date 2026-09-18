@@ -1,4 +1,5 @@
 package com.fadcam.ui.faditor.transform;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * WHAT EACH HANDLE DOES, AND WHAT IT LOOKS LIKE SAYING SO.
@@ -46,13 +47,13 @@ public final class HandleModel {
 
     // ── Colours (ARGB) ───────────────────────────────────────────────────
 
-    public static final int COLOR_SCALE = 0xFFFBBF24;   // amber — structure
+    public static final int COLOR_SCALE = Studio.CAREFUL;   // amber — structure
     public static final int COLOR_TILT  = 0xFF6EE7A8;   // green — semi-fluid
     public static final int COLOR_FREE  = 0xFFFF3D7F;   // red   — chaotic
     public static final int COLOR_BEND  = 0xFF5AA9FF;   // blue  — fluid
     public static final int COLOR_ROTATE = COLOR_SCALE; // rotation preserves everything
     /** The quad outline itself. */
-    public static final int COLOR_GUIDE = 0xFFA78BFA;
+    public static final int COLOR_GUIDE = Studio.GUIDE;
 
     /**
      * The resting selection outline. JoyRaptor: "a Cyan bounding box may be the right call."
@@ -68,7 +69,7 @@ public final class HandleModel {
      * free-red once it breaks out; only the RESTING state changes. Those two say what the
      * drag is doing, which is a different question from what is selected.</p>
      */
-    public static final int COLOR_SELECTION = 0xFF22D3EE;
+    public static final int COLOR_SELECTION = Studio.ARMED;
 
     public static int colorOf(Role r) {
         switch (r) {

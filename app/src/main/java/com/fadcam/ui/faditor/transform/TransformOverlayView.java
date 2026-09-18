@@ -696,7 +696,7 @@ public class TransformOverlayView extends View {
     private void drawExitPill(@NonNull Canvas c) {
         if (onExit == null) return;
         exitPillRect(rectf);
-        fill.setColor(0xE616161B);
+        fill.setColor(Studio.alpha(Studio.SUNK, 0xE6));
         c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
         stroke.setColor(Studio.FILM_EDGE);
         stroke.setStrokeWidth(dp(1f));
@@ -742,7 +742,7 @@ public class TransformOverlayView extends View {
         Host h = host;
         boolean bent = h != null && h.hasBend();
         bendPillRect(rectf);
-        fill.setColor(bendMode && bent ? Studio.LINE : 0xE616161B);
+        fill.setColor(bendMode && bent ? Studio.LINE : Studio.alpha(Studio.SUNK, 0xE6));
         c.drawRoundRect(rectf, dp(17f), dp(17f), fill);
         stroke.setColor(!bendMode ? Studio.LINE : (bent ? HandleModel.COLOR_BEND : Studio.INK_FAINT));
         stroke.setStrokeWidth(dp(bendMode ? 1.6f : 1f));
@@ -773,10 +773,10 @@ public class TransformOverlayView extends View {
     }
 
     private void drawPinchPivot(@NonNull Canvas c, float mx, float my) {
-        stroke.setColor(0x594ADE80);
+        stroke.setColor(Studio.alpha(Studio.AUDIO, 0x59));
         stroke.setStrokeWidth(dp(0.8f));
         c.drawLine(pinchAx, pinchAy, pinchBx, pinchBy, stroke);
-        stroke.setColor(0xF04ADE80);
+        stroke.setColor(Studio.alpha(Studio.AUDIO, 0xF0));
         stroke.setStrokeWidth(dp(1.2f));
         c.drawCircle(mx, my, dp(9f), stroke);
         float r = dp(15f);
@@ -1353,7 +1353,7 @@ public class TransformOverlayView extends View {
         // and the ring read as a modal dialog rather than something floating over the work.
         // 0xCC is 80%: the glyphs still carry their contrast against it, and you can now see
         // what you are about to change.
-        fill.setColor(0xCC16161B);
+        fill.setColor(Studio.alpha(Studio.SUNK, 0xCC));
         c.drawCircle(ringCx, ringCy, r, fill);
         stroke.setColor(Studio.FILM_EDGE);
         stroke.setStrokeWidth(dp(1f));

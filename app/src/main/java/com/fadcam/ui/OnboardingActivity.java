@@ -37,6 +37,7 @@ import android.text.TextUtils;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * OnboardingActivity shows the app intro slides using AppIntro.
@@ -49,7 +50,7 @@ public class OnboardingActivity extends AppIntro {
     private View nextButton;
 
     /** The one accent the intro is allowed. Matches the Studio's primary action. */
-    private static final int INTRO_ACCENT = 0xFF35F6BF;
+    private static final int INTRO_ACCENT = Studio.GO;
 
     /**
      * Recolour a Lottie composition in place.

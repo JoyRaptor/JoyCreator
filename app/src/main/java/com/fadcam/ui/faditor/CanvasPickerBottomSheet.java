@@ -372,7 +372,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
                 borderPaint.setColor(selected ? Studio.GO : Studio.INK_OFF);
 
                 fillPaint.setStyle(Paint.Style.FILL);
-                fillPaint.setColor(selected ? 0x3335F6BF : 0x22FFFFFF);
+                fillPaint.setColor(selected ? Studio.alpha(Studio.GO, 0x33) : Studio.alpha(Studio.INK, 0x22));
             }
 
             @Override

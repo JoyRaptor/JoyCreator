@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.waveform;
 
 import com.fadcam.ui.faditor.model.BandedWaveformData;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * The global look of the quad-band tape waveform — the knobs the prototype exposed in its
@@ -23,7 +24,7 @@ public final class TapeWaveformStyle {
     public final int[] bandColor = {
             0xFFFF4D42, // bass  — red
             0xFF57A8FF, // voice — sky blue
-            0xFF35F6BF, // presence — green
+            Studio.GO, // presence — green
             0xFFF5D442, // highs — yellow
     };
 

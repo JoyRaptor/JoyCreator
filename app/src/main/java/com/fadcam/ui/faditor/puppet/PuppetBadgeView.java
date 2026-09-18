@@ -98,9 +98,9 @@ public class PuppetBadgeView extends View {
 
         box.set(0.5f * d, 0.5f * d, getWidth() - 0.5f * d, getHeight() - 0.5f * d);
 
-        fill.setColor(pressed ? 0xCC17171C : 0xA80D0D10);
+        fill.setColor(pressed ? Studio.alpha(Studio.LANE_B, 0xCC) : Studio.alpha(Studio.SURFACE, 0xA8));
         c.drawRoundRect(box, 10f * d, 10f * d, fill);
-        stroke.setColor(0x1AFFFFFF);
+        stroke.setColor(Studio.alpha(Studio.INK, 0x1A));
         stroke.setStrokeWidth(1f * d);
         c.drawRoundRect(box, 10f * d, 10f * d, stroke);
 

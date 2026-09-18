@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * Texture cache for captions - SPEC_20260829_CAPTIONS_GL S3.1.
@@ -212,7 +213,7 @@ public final class CaptionTextureCache {
         TextPaint tp = new TextPaint(Paint.ANTI_ALIAS_FLAG);
         tp.setTypeface(style.typeface());
         tp.setTextSize(fontPxSup);
-        if (style.shadow) tp.setShadowLayer(fontPxSup * 0.12f, 0, fontPxSup * 0.05f, 0xDD000000);
+        if (style.shadow) tp.setShadowLayer(fontPxSup * 0.12f, 0, fontPxSup * 0.05f, Studio.alpha(Studio.GROUND, 0xDD));
         else tp.clearShadowLayer();
 
         float space = tp.measureText(" ");

@@ -15,6 +15,7 @@ import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * Live, animated on-screen captions (TikTok-style). Driven by the playhead: it
@@ -425,7 +426,7 @@ public class CaptionOverlayView extends View {
 
     /** The style's drop-shadow colour, faded WITH the glyphs — see CaptionExportRenderer. */
     private int styleShadowColor() {
-        return CaptionAnimator.applyAlpha(0xDD000000, frameFade);
+        return CaptionAnimator.applyAlpha(Studio.alpha(Studio.GROUND, 0xDD), frameFade);
     }
 
     /**
@@ -881,12 +882,12 @@ public class CaptionOverlayView extends View {
         // caption on screen carries the outline + grips at any moment.
         if (!boxChromeActive) return;
         if (blockRect.isEmpty()) return;
-        boxStrokePaint.setColor(0x50FFFFFF);
+        boxStrokePaint.setColor(Studio.alpha(Studio.INK, 0x50));
         canvas.drawRoundRect(blockRect, 8f * density, 8f * density, boxStrokePaint);
         float gripW = 4f * density;
         float gripH = Math.min(blockRect.height(), 28f * density);
         float gripTop = blockRect.centerY() - gripH / 2f;
-        gripPaint.setColor(0xD935F6BF);
+        gripPaint.setColor(Studio.alpha(Studio.GO, 0xD9));
         canvas.drawRoundRect(blockRect.left - gripW / 2f, gripTop,
                 blockRect.left + gripW / 2f, gripTop + gripH, gripW / 2f, gripW / 2f, gripPaint);
         canvas.drawRoundRect(blockRect.right - gripW / 2f, gripTop,

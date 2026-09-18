@@ -29,7 +29,7 @@ import androidx.annotation.Nullable;
  */
 public class CanvasFrameView extends View {
 
-    private static final int HATCH_DARK = 0x8C33333C;    // stripe (~55% opacity)
+    private static final int HATCH_DARK = Studio.alpha(Studio.OFF, 0x8C);    // stripe (~55% opacity)
     private static final int HATCH_DARKER = Studio.PANEL;  // background
     private static final int CANVAS_BLACK = Studio.GROUND;
 

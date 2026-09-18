@@ -48,7 +48,7 @@ public class VolumeBarView extends View {
         trackPaint.setColor(Studio.OFF);
         fillPaint.setColor(Studio.GO);
         markerPaint.setColor(Studio.INK);
-        tickPaint.setColor(0x88FFFFFF);
+        tickPaint.setColor(Studio.alpha(Studio.INK, 0x88));
         tickPaint.setStrokeWidth(1.5f * density);
     }
 

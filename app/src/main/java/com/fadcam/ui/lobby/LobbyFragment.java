@@ -196,6 +196,36 @@ public class LobbyFragment extends BaseFragment {
         newRow     = v.findViewById(R.id.lobby_new_row);
         floorRow   = v.findViewById(R.id.lobby_floor);
         hero       = v.findViewById(R.id.lobby_hero);
+        // ── THE HERO'S SHARE ────────────────────────────────────────────────
+        // The Marquee §01 draws it at 244 of 812 points. It was a LinearLayout weight, so
+        // it absorbed every point the rest of the column did not use and landed at 39% on
+        // this phone — nine points more than the drawing, taken out of the bottom third,
+        // which is the part §02 exists to argue for. A weight cannot be capped, so the
+        // proportion is set once the root knows its own height, which also holds it on a
+        // screen of any shape.
+        final View root = v;
+        root.getViewTreeObserver().addOnPreDrawListener(
+                new android.view.ViewTreeObserver.OnPreDrawListener() {
+                    @Override public boolean onPreDraw() {
+                        root.getViewTreeObserver().removeOnPreDrawListener(this);
+                        int h = root.getHeight();
+                        if (h > 0 && hero != null) {
+                            int grown = hero.getHeight();      // what the weight gave it
+                            int lo = Math.round(h * HERO_SHARE);
+                            int hi = Math.round(h * HERO_SHARE_MAX);
+                            int want = Math.max(lo, Math.min(hi, grown));
+                            if (want != grown) {
+                                ViewGroup.LayoutParams hp = hero.getLayoutParams();
+                                if (hp instanceof LinearLayout.LayoutParams) {
+                                    ((LinearLayout.LayoutParams) hp).weight = 0f;
+                                }
+                                hp.height = want;
+                                hero.setLayoutParams(hp);
+                            }
+                        }
+                        return true;
+                    }
+                });
         heroArt    = v.findViewById(R.id.lobby_hero_art);
         heroWash   = v.findViewById(R.id.lobby_hero_wash);
         heroBar    = v.findViewById(R.id.lobby_hero_bar);
@@ -419,6 +449,47 @@ public class LobbyFragment extends BaseFragment {
     private static final int MARQUEE_COPIES = 3;
     /** Settle delay after the last scroll event before the carousel snaps. */
     private static final long MARQUEE_SETTLE_MS = 90L;
+    /**
+     * The hero's share of the window, from The Marquee §01: 244 of 812 points.
+     *
+     * <p>It was a LinearLayout weight, which meant the hero absorbed every point the rest
+     * of the column did not use. On this phone that landed it at 39% — nine points more
+     * than the drawing — and those nine points come out of the bottom third, which is the
+     * part §02 exists to argue for. A weight cannot be capped, so the proportion is set
+     * once after layout instead, which also holds it on a screen of any shape.
+     */
+    private static final float HERO_SHARE = 244f / 812f;
+
+    /**
+     * ...and its ceiling.
+     *
+     * <p>Pinning the hero to exactly {@link #HERO_SHARE} looked wrong on the phone, and
+     * measuring said why: the bottom third of this build is 157dp SHORTER than the drawing's,
+     * because the New row became one compact chip row on JoyRaptor's instruction instead of
+     * the drawing's four stacked buttons. The drawing's proportion assumed the drawing's
+     * content. Held at 30% exactly, that 157dp became a hole above the floor — and a hole is
+     * the thing §02 was written to get rid of: <i>"it was empty and it read as unfinished".</i>
+     *
+     * <p>So the drawing's 30% is the FLOOR and this is the ceiling. The hero may take slack,
+     * but it can no longer take all of it: unconstrained it reached 39%, which is nine points
+     * of the bottom third. What the hero does not take goes to the recents, where it is spent
+     * showing the user's own work.
+     */
+    private static final float HERO_SHARE_MAX = 0.35f;
+
+    /** Recents card width. The Marquee §02: 100 points, with 9 between. */
+    private static final int RECENT_CARD_DP = 100;
+
+    /**
+     * Thumbnail height. The drawing says 60; this is 84.
+     *
+     * <p>The extra 24 is the first claim on the height the compact New row gave back, and it
+     * is spent the way this product is supposed to spend height: <i>"old black is great for
+     * letting your art be the centerpiece."</i> A taller card shows more of the thing you
+     * made and nothing else — no new chrome, no new colour.
+     */
+    private static final int RECENT_THUMB_DP = 84;
+
     /** How small a word gets when it is far from the gutter. 0.55 x 34sp reads as ~19sp. */
     private static final float MARQUEE_MIN_SCALE = 0.55f;
     /** Distance over which a word goes from full size to minimum, in dp. */
@@ -1072,14 +1143,14 @@ public class LobbyFragment extends BaseFragment {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setBackground(pill(PANEL, dp(12)));
         card.setClipToOutline(true);
-        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(dp(104),
+        LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(dp(RECENT_CARD_DP),
                 ViewGroup.LayoutParams.WRAP_CONTENT);
         clp.setMarginEnd(dp(9));
         card.setLayoutParams(clp);
 
         FrameLayout thumbWrap = new FrameLayout(requireContext());
         thumbWrap.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(62)));
+                ViewGroup.LayoutParams.MATCH_PARENT, dp(RECENT_THUMB_DP)));
 
         ImageView thumb = new ImageView(requireContext());
         thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);

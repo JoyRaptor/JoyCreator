@@ -165,6 +165,52 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### Conformance to *The Marquee* (design record 04), measured on device
+
+The HTML records are recoverable — they are published artifacts, not lost to
+compaction. The lobby and first-run spec is **The Marquee**,
+`https://claude.ai/artifact/HKLVT4iYjZiKYS7vYWSLVA`; the Studio spec is
+**Studio Final**, `https://claude.ai/artifact/EUSt9oqAwDdmkJepS51bZ5`. Read them
+before changing any of these numbers.
+
+| § | spec | built | |
+|---|---|---|---|
+| 01 | gutter 17px | 17–18dp | ✅ |
+| 01 | marquee row 48px | 47dp | ✅ |
+| 01 | press 140ms, `scale(.97)` | `Motion.PRESS` 140, `PRESS_SCALE` .97 | ✅ |
+| 01 | marquee swap 260ms ease-out | 260ms, `EASE_OUT` | ✅ |
+| 01 | hero cross-fade 260ms + `blur(2px)` | `Motion.swapPicture` | ✅ |
+| 01 | hero **244/812 = 30%** | 33.8%, clamped 30–35% | ⚠️ see below |
+| 01 | hero bar 3px | 3dp | ✅ |
+| 01 | marquee fade 38px | 44dp | ✅ scaled with the 34sp word |
+| 02 | recents card 100px, radius 12 | 100dp, 12dp | ✅ |
+| 02 | recents thumb 60px | 84dp | ⚠️ see below |
+| 02 | Joybot's one line, one action + dismiss | present | ✅ |
+| 02 | floor: five words, glyph 13 / type 11.5 | present | ✅ |
+| 03 | slideshow 560ms ease-out | 560ms | ✅ |
+| 03 | cycle 3000ms, text swap 260ms | 3000 / 260 | ✅ |
+| 04 | nothing from `scale(0)`; no `ease-in` | verified | ✅ |
+| 04 | 100×-a-day actions get 0ms | verified | ✅ |
+| 04 | reduced motion keeps opacity, drops travel | verified | ✅ |
+
+**The two departures, and why.** The bottom third of this build measures 157dp
+SHORTER than the drawing's, because the New row became one compact chip row on
+JoyRaptor's instruction ("center the text+icons on the parallelograms... close
+the gap 30%") instead of the drawing's four stacked buttons. Held at exactly
+30%, that 157dp became a hole above the floor — which is the very thing §02 was
+written to remove: *"it was empty and it read as unfinished."* So 30% is now the
+FLOOR and 35% the ceiling, and the first 24dp of what the hero does not take
+goes to the recents thumbnail, where it is spent showing the user's own work.
+102dp of breathing room remains above the floor; the drawing has about 80dp
+there, so this is close but not equal.
+
+**Earlier departures, already his call:** the marquee's live word is 34sp not
+29px ("make the word studio larger"); LIBRARY and the room names are all caps
+("it would look nicer all caps for that title row and the liberary title row");
+the New row is sheared gradient chips, not grey buttons with coloured glyphs —
+§05 of the drawing records that grey buttons were the anti-slop FIX for accent
+footprint, so this one is worth a second look if he wants it.
+
 ### Measured state of the colour system, 2026-09-18 04:55
 
 Measured on the screens the goal names, not repo-wide:

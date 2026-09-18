@@ -57,7 +57,7 @@ public class FileOperationNotificationManager {
         
         return new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_notification) // You may need to add this icon
-                .setContentTitle("FadCam File Operations")
+                .setContentTitle("Joy Creator File Operations")
                 .setContentText("Processing files...")
                 .setContentIntent(pendingIntent)
                 .setOngoing(true)

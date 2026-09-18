@@ -40,7 +40,7 @@ public class LocationGeocoder {
     
     // zoom=18 → building-level detail; accept-language=en → always English names
     private static final String NOMINATIM_URL = "https://nominatim.openstreetmap.org/reverse?format=json&lat=%f&lon=%f&zoom=18&addressdetails=1&accept-language=en";
-    private static final String USER_AGENT = "FadCam/1.0 (Open Source Video Recorder)";
+    private static final String USER_AGENT = "JoyCreator/1.0 (Open Source Video Recorder)";
     // 0.01° bucket ≈ 1 km cache granularity — precise enough for accurate geocoding
     private static final double SPATIAL_BUCKET = 0.01;
     private static final int CONNECTION_TIMEOUT_MS = 8000;

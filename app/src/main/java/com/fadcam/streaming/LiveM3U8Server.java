@@ -225,7 +225,7 @@ import fi.iki.elonen.NanoHTTPD;
         if (!streamManager.isStreamingEnabled()) {
             FLog.w(TAG, "❌ Streaming is disabled - recording not started or streaming mode is DISABLED");
             String message = "❌ Streaming Disabled\n\n" +
-                "Please start recording on FadCam with streaming enabled (STREAM_ONLY or STREAM_AND_SAVE mode).\n\n" +
+                "Please start recording on Joy Creator with streaming enabled (STREAM_ONLY or STREAM_AND_SAVE mode).\n\n" +
                 "Check /status endpoint for current state.";
             return newFixedLengthResponse(
                 Response.Status.SERVICE_UNAVAILABLE,

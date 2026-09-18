@@ -1532,7 +1532,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="watermark_style_row_title">Watermark Style</string>
 
-<string name="watermark_preview_sample_fadcam">Captured by FadCam - %1$s</string>
+<string name="watermark_preview_sample_fadcam">Captured by Joy Creator - %1$s</string>
 
 <string name="watermark_preview_sample_timeonly">%1$s</string>
 

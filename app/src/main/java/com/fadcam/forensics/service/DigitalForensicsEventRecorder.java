@@ -649,7 +649,7 @@ public class DigitalForensicsEventRecorder {
     @NonNull
     private String formatWatermark(long captureEpochMs, long timelineMs) {
         String date = new SimpleDateFormat("dd/MMM/yyyy hh:mm:ss a", Locale.ENGLISH).format(new Date(Math.max(0L, captureEpochMs)));
-        return "Captured by FadCam - " + date;
+        return "Captured by Joy Creator - " + date;
     }
 
     @NonNull

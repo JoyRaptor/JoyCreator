@@ -170,7 +170,7 @@ public class WatermarkManager implements WatermarkInfoProvider {
                 finalText = "";
                 break;
             default:
-                finalText = "Captured by FadCam - " + getCurrentTimestamp() + getTimezoneSuffix()
+                finalText = "Captured by Joy Creator - " + getCurrentTimestamp() + getTimezoneSuffix()
                         + locationText + customTextLine;
         }
 

@@ -3081,7 +3081,7 @@ public class RecordingService extends Service {
                 finalText = "";
                 break;
             default:
-                finalText = "Captured by FadCam - " + getCurrentTimestamp() + getTimezoneSuffix() + locationText + customTextLine;
+                finalText = "Captured by Joy Creator - " + getCurrentTimestamp() + getTimezoneSuffix() + locationText + customTextLine;
         }
         if (!finalText.isEmpty()) {
             finalText += getExtendedSensorData();
@@ -3120,7 +3120,7 @@ public class RecordingService extends Service {
                         finalText = "";
                         break;
                     default:
-                        finalText = "Captured by FadCam - " + getCurrentTimestamp() + getTimezoneSuffix() + locationText + customTextLine;
+                        finalText = "Captured by Joy Creator - " + getCurrentTimestamp() + getTimezoneSuffix() + locationText + customTextLine;
                 }
                 if (!finalText.isEmpty()) {
                     // Watermark text built; logging omitted (fires every second during recording)

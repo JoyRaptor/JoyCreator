@@ -3456,7 +3456,7 @@ public class AnnotationService extends Service {
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setContentTitle("FadRec Annotation" + annotationStatus)
                 .setContentText(
-                        "Tap to open FadCam • Project: " + (currentProjectName != null ? currentProjectName : "None"))
+                        "Tap to open Joy Creator • Project: " + (currentProjectName != null ? currentProjectName : "None"))
                 .setSmallIcon(R.drawable.ic_draw_edit)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .setOngoing(true)

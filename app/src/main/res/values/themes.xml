@@ -172,6 +172,88 @@
         <item name="android:textColor">@color/amoled_text_primary</item>
     </style>
 
+
+    <!-- ══ JOY CREATOR ════════════════════════════════════════════════════════════
+         The app's own theme, and the default.
+
+         The legacy rooms — Finder, Records, Remote, Setup — are one tap from the lobby
+         and were still FadCam red inside, because the default theme was "Crimson Bloom".
+         That is the largest visual gap left after the lobby, the Studio and the intro,
+         and it is fixed HERE rather than in the fifty-seven layouts those screens use:
+         colorHeading alone is referenced 314 times across them, so the theme is the only
+         place the change can be made once.
+
+         Every value comes from studio_tokens.xml, so the legacy screens, the Studio and
+         the lobby are now painted from ONE palette. Change a token and all three move.
+
+         The other themes are untouched and still selectable. JoyRaptor asked for "central
+         control so users can theme easily (like Obsidian)" — that machinery already
+         existed and was working; what it lacked was an entry that looked like this
+         product. Crimson Bloom is still there for anyone who wants it.
+         ═══════════════════════════════════════════════════════════════════════════ -->
+    <style name="Theme.FadCam.JoyCreator" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorTopBar">@color/s_surface</item>
+        <item name="colorBottomNav">@color/s_surface</item>
+        <!-- A heading is STRUCTURE, so it takes ink rather than accent. Colour spent on
+             structure cannot be spent on the thing you want pressed, and this attribute
+             is what made every section header in the legacy app red. -->
+        <item name="colorHeading">@color/s_ink</item>
+        <item name="colorButton">@color/s_go</item>
+        <item name="colorToggle">@color/s_go</item>
+        <item name="colorSwitchTrack">@color/s_raised</item>
+        <item name="colorDialog">@color/s_panel</item>
+        <item name="colorStatusBar">@color/s_surface</item>
+        <item name="android:colorBackground">@color/s_ground</item>
+        <item name="colorSurface">@color/s_panel</item>
+        <item name="backgroundColor">@color/s_ground</item>
+        <item name="android:windowBackground">@color/s_surface</item>
+        <item name="android:navigationBarColor">@color/s_surface</item>
+        <item name="colorPrimary">@color/s_go</item>
+        <item name="colorPrimaryVariant">@color/s_go_end</item>
+        <item name="colorSecondary">@color/s_armed</item>
+        <item name="colorSecondaryVariant">@color/s_armed</item>
+        <item name="colorAccent">@color/s_go</item>
+        <!-- The aqua is LIGHT, so ink ON it is black. White on it measures under 2:1. -->
+        <item name="colorOnPrimary">@color/s_on_go</item>
+        <item name="colorOnSecondary">@color/s_on_go</item>
+        <item name="colorOnBackground">@color/s_ink</item>
+        <item name="colorOnSurface">@color/s_ink</item>
+        <item name="android:textColor">@color/s_ink</item>
+        <item name="android:textColorPrimary">@color/s_ink</item>
+        <item name="android:textColorSecondary">@color/s_ink_faint</item>
+        <item name="toolbarStyle">@style/Widget.FadCam.Toolbar</item>
+        <item name="bottomNavigationStyle">@style/Widget.FadCam.BottomNavigationView</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.FadCam.Dialog</item>
+        <item name="switchStyle">@style/Widget.FadCam.Switch</item>
+        <item name="materialSwitchStyle">@style/Widget.FadCam.Switch</item>
+        <!-- The picker's gradient walks the ground ramp rather than tinting it. A coloured
+             wash behind a list of options makes every option look partly selected. -->
+        <item name="pickerGradientStart">@color/s_ground</item>
+        <item name="pickerGradientMid">@color/s_surface</item>
+        <item name="pickerGradientEnd">@color/s_panel</item>
+        <item name="pickerTextPrimary">@color/s_ink</item>
+        <item name="pickerTextSecondary">@color/s_ink_faint</item>
+        <item name="sectionHeaderColor">@color/s_ink</item>
+        <item name="homeRailBgStart">@color/s_surface</item>
+        <item name="homeRailBgEnd">@color/s_surface</item>
+        <item name="homeRailCardSurface">@color/s_panel</item>
+        <item name="homeRailCardBorder">@color/s_line</item>
+        <item name="homeRailCardStroke">@color/s_line</item>
+        <item name="homeRailTileSurface">@color/s_raised</item>
+        <item name="homeRailSegmentedSurface">@color/s_panel</item>
+        <item name="homeRailSegmentedBorder">@color/s_line</item>
+        <item name="homeRailSegmentActive">@color/s_go</item>
+        <item name="homeRailSegmentActiveText">@color/s_on_go</item>
+        <item name="homeRailTextPrimary">@color/s_ink</item>
+        <item name="homeRailTextSecondary">@color/s_ink_faint</item>
+        <item name="homeRailAccent">@color/s_go</item>
+        <item name="pickerButtonBackground">@color/s_go</item>
+        <item name="pickerButtonText">@color/s_on_go</item>
+        <item name="pickerIconTint">@color/s_go</item>
+        <item name="pickerSliderActive">@color/s_go</item>
+        <item name="pickerSliderInactive">@color/s_raised</item>
+    </style>
+
     <style name="Theme.FadCam.Red" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorTopBar">@color/red_theme_primary_variant</item>
         <item name="colorBottomNav">@color/red_theme_primary_variant</item>

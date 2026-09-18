@@ -166,13 +166,32 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
         }
         permanentlyDenied = isAnyPermissionPermanentlyDenied();
         if (permissionsGranted) {
+            // DONE is not the same as UNAVAILABLE, and it must not look the same.
+            //
+            // This was the filled aqua-to-lime pill at alpha 0.5. Half-alpha over black
+            // halves the gradient toward black — the bright primary became a muddy olive —
+            // and it halved the near-black LABEL on top of it at the same time, so the one
+            // sentence saying everything had worked was the least readable thing on the
+            // screen. It read as a fault, not as a finished step.
+            //
+            // A completed step takes the quiet form the battery control already uses: an
+            // outline, at full opacity, with the aqua carried in the INK. Nothing here is
+            // dimmed, because nothing here is broken. The saturated fill goes back to being
+            // the one thing on the screen you are meant to press — and right now there
+            // isn't one.
             grantButton.setEnabled(false);
-            grantButton.setAlpha(0.5f);
+            grantButton.setAlpha(1f);
+            grantButton.setBackgroundResource(R.drawable.intro_ghost_pill);
+            grantButton.setTextColor(0xFF35F6BF);
             grantButton.setText(R.string.permissions_granted);
             showPermissionStatus(R.string.permissions_granted, true);
         } else {
+            // Set explicitly rather than left to the layout: the branch above changes both,
+            // and a permission revoked from Settings brings us back through here.
             grantButton.setEnabled(true);
             grantButton.setAlpha(1f);
+            grantButton.setBackgroundResource(R.drawable.studio_action_pill);
+            grantButton.setTextColor(0xFF050507);
             grantButton.setText(R.string.grant_permissions);
         }
         
@@ -327,7 +346,10 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
                 // A quiet control that is also unavailable just loses its ink; it is
                 // already an outline, so there is no fill to take away.
                 batteryOptButton.setAlpha(1f);
-                batteryOptButton.setTextColor(0xFF52525B);
+                // INK_FAINT, not INK_OFF. #52525B on black measures 2.6:1 — under the 3:1
+                // floor even for text you are only meant to notice. #8A8A94 measures 5.4:1
+                // and still reads as quieter than everything around it.
+                batteryOptButton.setTextColor(0xFF8A8A94);
                 // Not permissions_granted: that is the PRIMARY button's text, and reusing
                 // it here put the same sentence on both controls at once.
                 batteryOptButton.setText(R.string.battery_optimization_off);

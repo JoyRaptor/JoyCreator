@@ -743,16 +743,27 @@ public class OnboardingActivity extends AppIntro {
         // Log the change to verify it happened
         FLog.d("OnboardingActivity", "Onboarding marked as completed");
 
-        // START: Navigate to What's New screen after onboarding completes
-        // Show What's New screen if onboarding display is enabled (which it should be on first install)
-        // This ensures the What's New screen appears right after onboarding completes
-        // Skip WhatsNewActivity on Wear OS: WebView is not supported
-        if (!com.fadcam.utils.RuntimeCompat.isWatchDevice(this)) {
-            Intent intent = new Intent(this, WhatsNewActivity.class);
-            startActivity(intent);
-        }
+        // ── STRAIGHT INTO THE APP ────────────────────────────────────────────────
+        // This used to open What's New, so the very first thing a brand-new user saw
+        // after "LET ME IN" was a changelog: FadCam's, in FadCam red, announcing FadCam
+        // Pro, FadRec and a free offer that expired in December 2025. Three sentences
+        // after being told this is Joy Creator, they were handed the release notes of a
+        // different product — and release notes for a version they have never run are not
+        // news to them in any case. There is nothing to catch up on; catching up is the
+        // entire purpose of that screen.
+        //
+        // It is not deleted — it stays reachable from the Home sidebar, where someone who
+        // wants the release notes can go and read them.
+        //
+        // And it was never an update screen. isShowOnboarding() returns !completedOnboarding,
+        // so MainActivity's branch to it — which needs showOnboarding AND completedOnboarding
+        // at once — cannot be true. Nothing tracks the last version seen. This call was the
+        // only thing that ever opened it automatically, and it opened it for the one person
+        // with nothing to read.
+        Intent intent = new Intent(this, com.fadcam.MainActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
         finish();
-        // END: Navigate to What's New screen after onboarding completes
     }
 
     /**

@@ -37,15 +37,19 @@
              Two layers so a change CROSS-FADES: the outgoing slide holds until the
              incoming one has faded up over it. One view swapping its own background
              flashes the window between frames. ─────────────────────────────────── -->
-        <!-- The mockup gives the slideshow 300 of the phone body's ~660px: 45%. Expressed
-             as a WEIGHT rather than as 300dp so it holds that proportion on a short phone
-             and on a tall one — a fixed height that is 45% of a Note 9 is 58% of a compact
-             device, where it would swallow the copy underneath it. -->
+        <!-- The slideshow takes EVERYTHING the words do not.
+             It was a 45/55 split against the words, taken from the mockup's proportions. On
+             the phone that produced a hole: the copy is shorter than 55% of a 2220px screen,
+             so the Space below the cycling line inflated to swallow the remainder and the
+             page read as two separate blocks of text with 500px of nothing between them.
+             A weight of 1 against a wrap_content block below cannot do that — the words are
+             exactly as tall as the words, and the glow is everything that is left, on any
+             screen. -->
         <FrameLayout
             android:id="@+id/welcome_stage"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="45"
+            android:layout_weight="1"
             android:minHeight="240dp">
 
             <View
@@ -79,15 +83,21 @@
 
         <!-- ── THE WORDS ───────────────────────────────────────────────────────
              Pulled up into the slideshow's fade, which is what makes the visual read
-             as being BEHIND the title rather than as a banner above it. -->
+             as being BEHIND the title rather than as a banner above it.
+
+             paddingBottom is room for AppIntro's own bottom bar — the page dots and the
+             chevron — which is drawn OVER this fragment and is not part of this file.
+             While this block was weighted, the slack it carried happened to clear that bar;
+             now that it is exactly as tall as its content, the clearance has to be asked
+             for, or the buttons sit under the dots. -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="55"
+            android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layout_marginTop="-84dp"
             android:paddingStart="22dp"
-            android:paddingEnd="22dp">
+            android:paddingEnd="22dp"
+            android:paddingBottom="40dp">
 
             <TextView
                 android:id="@+id/welcome_wordmark"
@@ -126,10 +136,11 @@
                 android:textFontWeight="700"
                 android:layout_marginTop="3dp" />
 
+            <!-- The break between what the app IS and what it COSTS. It was a weighted
+                 Space, which is why it grew into a hole; as a fixed gap it stays a gap. -->
             <Space
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                android:layout_height="34dp" />
 
             <TextView
                 android:layout_width="match_parent"

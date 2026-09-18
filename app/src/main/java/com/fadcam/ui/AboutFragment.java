@@ -113,27 +113,7 @@ public class AboutFragment extends BaseFragment {
         String currentTheme = com.fadcam.SharedPreferencesManager.getInstance(requireContext()).sharedPreferences.getString(com.fadcam.Constants.PREF_APP_THEME, Constants.DEFAULT_APP_THEME);
         
         // Define theme-specific colors - use theme-specific colors from resources instead of hardcoded values
-        int themeTextColor;
-        if ("Midnight Dusk".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.colorPrimary); // Light purple (#cfbafd)
-        } else if ("Crimson Bloom".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.red_theme_primary); // Red primary color
-        } else if ("Premium Gold".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.gold_theme_primary); // Gold
-        } else if ("Silent Forest".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.silentforest_theme_primary); // Green
-        } else if ("Shadow Alloy".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.shadowalloy_theme_primary); // Silver
-        } else if ("Pookie Pink".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.pookiepink_theme_primary); // Pink
-        } else if ("Snow Veil".equals(currentTheme)) {
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.snowveil_theme_text_primary); // Black
-        } else if ("Faded Night".equals(currentTheme)) {
-            themeTextColor = Color.WHITE; // Default for Faded Night
-        } else {
-            // Default to Crimson Bloom if no matches
-            themeTextColor = ContextCompat.getColor(requireContext(), R.color.red_theme_primary);
-        }
+        int themeTextColor = aboutAccent(currentTheme);
 
         appIcon.setImageResource(R.mipmap.ic_launcher);
         appName.setText(getString(R.string.app_name));
@@ -160,25 +140,7 @@ public class AboutFragment extends BaseFragment {
         String formattedAppDesc = "";
         
         // Setup highlight colors that match the theme colors
-        String highlightColorHex;
-        if ("Midnight Dusk".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.colorPrimary)));
-        } else if ("Crimson Bloom".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.red_theme_primary)));
-        } else if ("Premium Gold".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.gold_theme_primary)));
-        } else if ("Silent Forest".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.silentforest_theme_primary)));
-        } else if ("Shadow Alloy".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.shadowalloy_theme_primary)));
-        } else if ("Pookie Pink".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.pookiepink_theme_primary)));
-        } else if ("Snow Veil".equals(currentTheme)) {
-            highlightColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.snowveil_theme_text_primary)));
-        } else {
-            // Faded Night or default
-            highlightColorHex = "#FFFFFF"; // White for Faded Night
-        }
+        String highlightColorHex = aboutAccentHex(currentTheme);
         
         // Replace any hardcoded color with the theme-specific one
         appDesc = appDesc.replaceAll("#cfbafd", highlightColorHex);
@@ -255,24 +217,7 @@ public class AboutFragment extends BaseFragment {
         String currentThemeAnswers = com.fadcam.SharedPreferencesManager.getInstance(requireContext()).sharedPreferences.getString(com.fadcam.Constants.PREF_APP_THEME, Constants.DEFAULT_APP_THEME);
         
         // Use theme-specific colors for answers
-        String answerColorHex;
-        if ("Midnight Dusk".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.colorPrimary)));
-        } else if ("Crimson Bloom".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.red_theme_primary)));
-        } else if ("Premium Gold".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.gold_theme_primary)));
-        } else if ("Silent Forest".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.silentforest_theme_primary)));
-        } else if ("Shadow Alloy".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.shadowalloy_theme_primary)));
-        } else if ("Pookie Pink".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.pookiepink_theme_primary)));
-        } else if ("Snow Veil".equals(currentThemeAnswers)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.snowveil_theme_text_primary)));
-        } else {
-            answerColorHex = "#FFFFFF"; // White for Faded Night
-        }
+        String answerColorHex = aboutAccentHex(currentThemeAnswers);
         
         StringBuilder qnaContent = new StringBuilder();
         for (int i = 0; i < questions.length; i++) {
@@ -325,24 +270,7 @@ public class AboutFragment extends BaseFragment {
         String currentTheme = com.fadcam.SharedPreferencesManager.getInstance(requireContext()).sharedPreferences.getString(com.fadcam.Constants.PREF_APP_THEME, Constants.DEFAULT_APP_THEME);
         
         // Use theme-specific colors for answers
-        String answerColorHex;
-        if ("Midnight Dusk".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.colorPrimary)));
-        } else if ("Crimson Bloom".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.red_theme_primary)));
-        } else if ("Premium Gold".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.gold_theme_primary)));
-        } else if ("Silent Forest".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.silentforest_theme_primary)));
-        } else if ("Shadow Alloy".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.shadowalloy_theme_primary)));
-        } else if ("Pookie Pink".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.pookiepink_theme_primary)));
-        } else if ("Snow Veil".equals(currentTheme)) {
-            answerColorHex = String.format("#%06X", (0xFFFFFF & ContextCompat.getColor(requireContext(), R.color.snowveil_theme_text_primary)));
-        } else {
-            answerColorHex = "#FFFFFF"; // White for Faded Night
-        }
+        String answerColorHex = aboutAccentHex(currentTheme);
         
         // Determine question text color based on theme
         String questionColorHex = "#FFFFFF"; // Default white for most themes
@@ -576,6 +504,36 @@ public class AboutFragment extends BaseFragment {
         startActivity(intent);
     }
 
+
+    /**
+     * The accent this screen writes its app name, highlights and answers in.
+     *
+     * <p>This replaced four copies of an eight-branch ladder that mapped a theme NAME to a
+     * colour resource. Every branch was reconstructing, by hand, a value the theme already
+     * holds: {@code colorButton}. Checked against themes.xml, the ladders and the attribute
+     * agree for Midnight Dusk, Crimson Bloom, Premium Gold, Silent Forest, Shadow Alloy and
+     * Pookie Pink — so asking the theme is not a change to any of them. It is the same answer,
+     * arrived at without a list that has to be updated every time a theme is added.
+     *
+     * <p>Which is the point: it was not updated. Joy Creator fell off the end of all four,
+     * where the first ladder answered FadCam red and the other three answered flat white.
+     *
+     * <p>Two themes genuinely differ from their own accent here and stay explicit. Faded
+     * Night's colorButton is a near-black panel, unreadable as text; Snow Veil is a light
+     * theme and needs its dark text colour.
+     */
+    private int aboutAccent(String currentTheme) {
+        if ("Faded Night".equals(currentTheme)) return Color.WHITE;
+        if ("Snow Veil".equals(currentTheme)) {
+            return ContextCompat.getColor(requireContext(), R.color.snowveil_theme_text_primary);
+        }
+        return resolveThemeColor(R.attr.colorButton);
+    }
+
+    /** {@link #aboutAccent} as {@code #RRGGBB}, for the HTML these screens build. */
+    private String aboutAccentHex(String currentTheme) {
+        return String.format("#%06X", 0xFFFFFF & aboutAccent(currentTheme));
+    }
 
     private int resolveThemeColor(int attr) {
         android.util.TypedValue typedValue = new android.util.TypedValue();

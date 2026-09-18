@@ -1533,6 +1533,12 @@ public class MainActivity extends AppCompatActivity {
             }
 
             getWindow().setNavigationBarColor(getResources().getColor(R.color.amoled_background, getTheme()));
+        } else if ("Joy Creator".equals(themeName)) {
+            // The product's own theme, and the default. Every value resolves to a token in
+            // studio_tokens.xml, so the legacy rooms are now painted from the same palette
+            // as the Studio and the lobby.
+            setTheme(R.style.Theme_FadCam_JoyCreator);
+            getWindow().setNavigationBarColor(getResources().getColor(R.color.s_surface, getTheme()));
         } else if ("Crimson Bloom".equals(themeName)) {
             // Red theme
             setTheme(R.style.Theme_FadCam_Red);
@@ -1610,8 +1616,17 @@ public class MainActivity extends AppCompatActivity {
                     .apply();
         }
 
-        // Apply appropriate theme based on name
-        if ("Crimson Bloom".equals(themeName)) {
+        // Apply appropriate theme based on name.
+        //
+        // THIS IS THE SECOND COPY of this chain — the other is applyTheme(String) — and the
+        // two had drifted. Adding "Joy Creator" to that one alone did nothing, because it is
+        // this one that onCreate calls, and its else branch does not merely fall back to
+        // Crimson Bloom: it WRITES Crimson Bloom back to the preference. So an unrecognised
+        // theme name was not ignored, it was overwritten, and the setting kept reverting
+        // with nothing in the picker looking wrong.
+        if ("Joy Creator".equals(themeName)) {
+            setTheme(R.style.Theme_FadCam_JoyCreator);
+        } else if ("Crimson Bloom".equals(themeName)) {
             setTheme(R.style.Theme_FadCam_Red);
         } else if ("Faded Night".equals(themeName)) {
             setTheme(R.style.Theme_FadCam_Amoled);
@@ -1628,11 +1643,11 @@ public class MainActivity extends AppCompatActivity {
         } else if ("Snow Veil".equals(themeName)) {
             setTheme(R.style.Theme_FadCam_SnowVeil);
         } else {
-            // Default to Crimson Bloom for any unknown values
-            setTheme(R.style.Theme_FadCam_Red);
-            // Save the corrected theme value
+            // Unknown value: fall back to the DEFAULT rather than to a hard-coded name, and
+            // correct the stored preference to match what was actually applied.
+            setTheme(R.style.Theme_FadCam_JoyCreator);
             sharedPreferencesManager.sharedPreferences.edit()
-                    .putString(Constants.PREF_APP_THEME, "Crimson Bloom")
+                    .putString(Constants.PREF_APP_THEME, Constants.DEFAULT_APP_THEME)
                     .apply();
         }
 

@@ -79,6 +79,8 @@ public class ImageViewerActivity extends AppCompatActivity {
             setTheme(R.style.Theme_FadCam_Red);
         } else if ("Faded Night".equals(savedTheme)) {
             setTheme(R.style.Theme_FadCam_Amoled);
+        } else if ("Joy Creator".equals(savedTheme)) {
+            setTheme(R.style.Theme_FadCam_JoyCreator);
         } else {
             setTheme(R.style.Base_Theme_FadCam);
         }

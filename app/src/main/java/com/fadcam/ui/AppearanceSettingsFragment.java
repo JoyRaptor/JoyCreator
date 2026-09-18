@@ -142,6 +142,19 @@ public class AppearanceSettingsFragment extends Fragment {
             );
         java.util.ArrayList<com.fadcam.ui.picker.OptionItem> items =
             new java.util.ArrayList<>();
+        // FIRST, because it is the product's own and the new default for fresh installs.
+        // Everything else stays: the theme machinery was already what JoyRaptor asked for —
+        // "central control so users can theme easily (like Obsidian)" — it simply had no
+        // entry that looked like Joy Creator. Nobody's existing choice is touched, which is
+        // why an install that already chose Crimson Bloom still opens in Crimson Bloom.
+        items.add(
+            new com.fadcam.ui.picker.OptionItem(
+                "Joy Creator",
+                getString(R.string.theme_joycreator),
+                null,
+                ContextCompat.getColor(requireContext(), R.color.s_go)
+            )
+        );
         items.add(
             new com.fadcam.ui.picker.OptionItem(
                 "Crimson Bloom",

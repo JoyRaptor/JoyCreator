@@ -118,6 +118,12 @@ public class SharedPreferencesManager {
                 currentTheme.equalsIgnoreCase("Faded Night"))
         ) {
             return "#424242"; // Dark Grey for AMOLED
+        } else if (currentTheme.equals("Joy Creator")) {
+            // Grey, deliberately. Every other entry here paints the clock card in the theme's
+            // accent, which works when the accent is a mid-tone red or gold. Joy Creator's is
+            // a light aqua reserved for the one thing you are meant to press, and the white
+            // clock face on it would measure under 2:1. Greys fade, colour guides.
+            return "#424242";
         } else if (currentTheme.equals("Crimson Bloom")) {
             return "#F44336"; // Red for Red theme
         } else if (currentTheme.equals("Premium Gold")) {
@@ -158,6 +164,8 @@ public class SharedPreferencesManager {
                 currentTheme.equalsIgnoreCase("Faded Night")
             ) {
                 setClockCardColor("#424242"); // Dark Grey for AMOLED
+            } else if (currentTheme.equals("Joy Creator")) {
+                setClockCardColor("#424242"); // see getClockCardColor for why grey, not accent
             } else if (currentTheme.equals("Crimson Bloom")) {
                 setClockCardColor("#F44336"); // Red for Red theme
             } else if (currentTheme.equals("Premium Gold")) {

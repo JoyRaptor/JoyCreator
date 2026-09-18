@@ -136,7 +136,8 @@
                 android:contentDescription="Search everything" />
 
             <!-- ── JOYBOT ─────────────────────────────────────────────────────
-                 JoyRaptor's own art, two frames, registered on the head. This slot used to hold
+                 JoyRaptor's own art, two frames, registered on the HANDS — his widest span — and
+                 aligned on the bottom of them. This slot used to hold
                  the Material "smart_toy" glyph, which is a generic robot head shipped with
                  the icon font and used by thousands of apps — the single most borrowed
                  element on the screen, standing in for the one thing that is entirely this
@@ -165,11 +166,15 @@
              both Archivo Black; set close together they read as one two-line title and the
              carousel stops looking like something you can touch. Separating them says they
              are different KINDS of thing. ────────────────────────────────── -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="66dp"
+            android:layout_marginTop="12dp">
+
         <HorizontalScrollView
             android:id="@+id/lobby_marquee_scroll"
             android:layout_width="match_parent"
-            android:layout_height="66dp"
-            android:layout_marginTop="12dp"
+            android:layout_height="match_parent"
             android:scrollbars="none"
             android:overScrollMode="never"
             android:fillViewport="false">
@@ -191,6 +196,18 @@
                 android:paddingStart="18dp"
                 android:paddingEnd="420dp" />
         </HorizontalScrollView>
+
+        <!-- Not clickable and not focusable, so it is painted over the strip without
+             taking a single touch away from it: the words underneath stay tappable and
+             the whole width still drags. -->
+        <View
+            android:layout_width="72dp"
+            android:layout_height="match_parent"
+            android:layout_gravity="end"
+            android:clickable="false"
+            android:focusable="false"
+            android:background="@drawable/lobby_marquee_fade" />
+        </FrameLayout>
 
         <!-- ── HERO. Full bleed: no side gutter, no radius. The one deliberate break
              of the 18dp margin on this screen. ─────────────────────────────────── -->

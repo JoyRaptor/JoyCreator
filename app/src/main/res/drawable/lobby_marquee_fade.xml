@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The right edge of the lobby's room dial.
+
+    Without it the strip is CUT: "AVATAR" arrives at the screen edge and stops mid-letter,
+    which reads as a rendering fault rather than as a list that continues. A fade says the
+    same thing the clip was trying to say — there is more over there — without ever looking
+    broken.
+
+    Only the RIGHT edge is faded. The left edge is the gutter: it is where the live word
+    sits, and fading it would dim the one word the whole control exists to point at.
+
+    The end colour is s_ground because that is what the lobby is painted on. If the ground
+    token moves, this moves with it.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="180"
+        android:startColor="@android:color/transparent"
+        android:endColor="@color/s_ground"
+        android:type="linear" />
+</shape>

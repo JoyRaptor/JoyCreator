@@ -11076,6 +11076,12 @@ public class HomeFragment extends BaseFragment {
                     "FORCE RESET: Changed saved clock color from Purple to Dark Grey for AMOLED"
                 );
             }
+        } else if ("Joy Creator".equals(themeName)) {
+            result = CLOCK_COLOR_HEX_VALUES[6]; // Dark Grey (#424242)
+            FLog.i(
+                TAG,
+                "Joy Creator theme match, using Dark Grey: " + result
+            );
         } else if ("Crimson Bloom".equals(themeName)) {
             result = CLOCK_COLOR_HEX_VALUES[5]; // Red (#F44336)
             FLog.i(

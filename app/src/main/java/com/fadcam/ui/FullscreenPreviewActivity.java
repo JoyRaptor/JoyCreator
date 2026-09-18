@@ -407,8 +407,13 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             case "Shadow Alloy":  styleRes = R.style.Theme_FadCam_ShadowAlloy;  break;
             case "Pookie Pink":   styleRes = R.style.Theme_FadCam_PookiePink;   break;
             case "Snow Veil":     styleRes = R.style.Theme_FadCam_SnowVeil;     break;
-            case "Crimson Bloom":
-            default:              styleRes = R.style.Theme_FadCam_Red;          break;
+            case "Crimson Bloom": styleRes = R.style.Theme_FadCam_Red;          break;
+            // Joy Creator is the DEFAULT arm as well as a named case. The default used to be
+            // Red, so any theme not listed here — which included Joy Creator until this line —
+            // landed in FadCam's red. A default arm must agree with DEFAULT_APP_THEME, or the
+            // two disagree exactly when the preference has never been written: on first run.
+            case "Joy Creator":
+            default:              styleRes = R.style.Theme_FadCam_JoyCreator;   break;
         }
         setTheme(styleRes);
     }

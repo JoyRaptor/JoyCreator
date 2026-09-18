@@ -86,3 +86,4 @@ tools/devices.local.sh
 # GIT_PRACTICE §4 -- screen dumps and device data must never be committed.
 scratchpad/
 window_dump.xml
+.mockup-preview/

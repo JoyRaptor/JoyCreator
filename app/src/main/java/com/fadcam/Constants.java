@@ -101,8 +101,14 @@ public abstract class Constants {
      * NOTE: Some files may still reference "Midnight Dusk" directly and should be
      * updated to use this constant.
      */
-    public static final String DEFAULT_APP_THEME = "Crimson Bloom"; // Default theme changed from Midnight Dusk to
-    // Crimson Bloom
+    public static final String DEFAULT_APP_THEME = "Joy Creator";
+    // Was "Crimson Bloom", which is FadCam's red. It is still available in the theme
+    // picker and still works; it is simply no longer what a new install looks like.
+    //
+    // This one line is what de-brands the legacy rooms. colorHeading alone is referenced
+    // 314 times across 57 layouts, and those layouts are correct — they ask the theme for
+    // a heading colour, which is exactly what they should do. The theme was the thing
+    // answering "red".
     public static final String PREF_IS_RECORDING_IN_PROGRESS =
         "is_recording_in_progress";
     // Camera runtime control preferences (persisted when user changes controls

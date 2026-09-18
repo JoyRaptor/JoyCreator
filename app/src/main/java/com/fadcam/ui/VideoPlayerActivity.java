@@ -202,6 +202,11 @@ public class VideoPlayerActivity extends AppCompatActivity {
             setTheme(R.style.Theme_FadCam_Red);
         } else if ("Faded Night".equals(savedTheme)) {
             setTheme(R.style.Theme_FadCam_Amoled);
+        } else if ("Joy Creator".equals(savedTheme)) {
+            // Without this the player fell to Base_Theme_FadCam, whose accent is the old
+            // purple and whose home-rail segment is #F44336 — FadCam red, inside a window
+            // that opens straight from the Joy Creator library.
+            setTheme(R.style.Theme_FadCam_JoyCreator);
         } else {
             setTheme(R.style.Base_Theme_FadCam);
         }

@@ -11,12 +11,18 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <!-- Centred rather than pushed down 120dp from the top.
+             A fixed top margin decides where the content STARTS and says nothing about
+             where it ends, so on this phone the three promises, the key card and LET ME IN
+             all finished by 68% of the screen and the last third was empty. Centring makes
+             the leftover space split evenly above and below, which is what the eye reads as
+             a composed page rather than as a page that ran out. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:layoutDirection="ltr"
-            android:layout_marginTop="120dp"
+            android:layout_centerVertical="true"
             android:paddingTop="@dimen/onboarding_nav_margin"
             android:paddingBottom="@dimen/onboarding_nav_margin">
 

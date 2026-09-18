@@ -24,6 +24,10 @@
     <string name="onboarding_a11y_checked">%1$s. Ticked.</string>
     <string name="onboarding_a11y_unchecked">%1$s. Not ticked.</string>
     <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
+    <!-- The tool row scrolls and gave no sign of it; Studio Final rated that MAJOR.
+         %1$d is how many tools are past the right edge right now. -->
+    <string name="faditor_tools_more">%1$d more</string>
+    <string name="faditor_tools_more_desc">Show all tools</string>
     <string name="capture_mode_camera">Camera</string>
     <string name="capture_mode_screen">Screen</string>
     <string name="capture_mode_mic">Mic</string>

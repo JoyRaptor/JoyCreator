@@ -1471,6 +1471,27 @@
                 android:clickable="false"
                 android:focusable="false"
                 android:background="@drawable/faditor_tools_fade" />
+
+            <!-- Studio Final 01/05: the count of what is off-screen, so the row is not a
+                 mystery. It sits ON the fade rather than at the end of the scrolling row,
+                 because a counter you have to scroll to reach cannot tell you there is
+                 something to scroll to. Hidden the moment nothing is hidden. -->
+            <TextView
+                android:id="@+id/faditor_tools_more"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end|center_vertical"
+                android:layout_marginEnd="6dp"
+                android:minHeight="28dp"
+                android:gravity="center"
+                android:paddingStart="9dp"
+                android:paddingEnd="9dp"
+                android:fontFamily="@font/joy_mono"
+                android:textSize="10sp"
+                android:textColor="@color/s_ink_dim"
+                android:background="@drawable/faditor_more_pill"
+                android:visibility="gone"
+                android:contentDescription="@string/faditor_tools_more_desc" />
         </FrameLayout>
     </LinearLayout>
 

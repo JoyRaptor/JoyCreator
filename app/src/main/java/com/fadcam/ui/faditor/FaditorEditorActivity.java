@@ -1263,6 +1263,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         toolsAdapter.setTools(ordered);
         toolsAdapter.updateEditChip();
+        wireToolOverflowCount();
 
         // Stage 2: swipe UP on the carousel opens the all-tools drawer.
         toolsDrawer = new com.fadcam.ui.faditor.tools.FaditorToolsDrawer(
@@ -19013,6 +19014,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             row.setTouchDelegate(any ? all : null);
         }
+    }
+
+    /**
+     * Keeps the tool row's "N more" pill honest.
+     *
+     * <p>Studio Final §01, finding 05, rated MAJOR: <i>"Thirty tools, seven visible, nothing
+     * saying so. The row scrolls and gives no sign of it. A user who never swipes it believes
+     * the editor has seven tools."</i> The 26dp edge fade answers the first half — there IS
+     * more. This answers the second: how much.
+     *
+     * <p>Counted from geometry rather than from the tool list, because the list does not know
+     * what the viewport can show: a cell is hidden when its left edge sits past the scrolled
+     * right edge. Recounted on scroll and on layout, so it survives the row being reordered,
+     * retargeted by a selection, or the phone being turned.
+     *
+     * <p>The pill disappears when the count reaches zero. A counter reading "0 more" is worse
+     * than no counter: it takes up the space and tells you nothing.
+     */
+    private void wireToolOverflowCount() {
+        final android.widget.HorizontalScrollView scroll = findViewById(R.id.faditor_tools_scroll);
+        final LinearLayout row = findViewById(R.id.faditor_tools_row);
+        final android.widget.TextView more = findViewById(R.id.faditor_tools_more);
+        if (scroll == null || row == null || more == null) return;
+
+        more.setOnClickListener(v -> {
+            if (toolsDrawer != null && !toolsDrawer.isShowing()) toolsDrawer.show();
+        });
+
+        final Runnable recount = () -> {
+            int right = scroll.getScrollX() + scroll.getWidth();
+            int hidden = 0;
+            for (int i = 0; i < row.getChildCount(); i++) {
+                View c = row.getChildAt(i);
+                if (c.getVisibility() != View.VISIBLE || c.getWidth() <= 0) continue;
+                if (c.getLeft() >= right) hidden++;
+            }
+            if (hidden <= 0) {
+                more.setVisibility(View.GONE);
+            } else {
+                more.setText(getString(R.string.faditor_tools_more, hidden));
+                more.setVisibility(View.VISIBLE);
+            }
+        };
+
+        scroll.getViewTreeObserver().addOnScrollChangedListener(recount::run);
+        row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or_, ob) -> recount.run());
+        row.post(recount);
     }
 
     private void handleLinkTap() {

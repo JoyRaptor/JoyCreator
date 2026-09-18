@@ -165,6 +165,30 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### Studio Final §01/05 is now fully built
+
+The finding it rates MAJOR reads: *"Thirty tools, seven visible, nothing saying so. The row
+scrolls and gives no sign of it. A user who never swipes it believes the editor has seven
+tools."* Its fix has two halves and both now exist.
+
+The **26dp edge fade** shipped earlier tonight, so the row reads as continuing. The **live
+count** is the other half, and it is the half that turns "there is more" into a number.
+
+Verified on device: the pill reads **23 more**, and that is computed, not written down. The
+view hierarchy reports 8 tool cells inside the viewport; 8 + 23 = 31, which is the 30 tools
+plus the edit chip. The drawing's own mock says *"⋯ 23 more"*.
+
+Three things about how it is built, each deliberate:
+
+- **It sits ON the fade, not at the end of the row.** A counter you have to scroll to reach
+  cannot tell you there is something to scroll to — which is the exact failure being fixed.
+- **Counted from geometry, not from the tool list.** The list does not know what the viewport
+  can show. A cell is hidden when its left edge is past the scrolled right edge, recounted on
+  scroll and on layout so it survives a reorder, a selection retarget, or a rotation.
+- **It disappears at zero.** A pill reading "0 more" takes the space and tells you nothing.
+
+Tapping it opens the all-tools drawer — the same surface the swipe-up gesture opens.
+
 ### The density, and why it matters more than any single measurement
 
 ```

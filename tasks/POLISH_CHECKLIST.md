@@ -165,6 +165,46 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### The seven records, and where each one stands
+
+All seven exist as published artifacts from this conversation — verified by searching the
+raw transcript for each title, not by assuming. They are the "html files" the goal refers to.
+
+| # | record | url |
+|---|---|---|
+| — | Joy Creator Swatch Room | `claude.ai/artifact/RzCk8dwVURfuezNEcVwjgp` |
+| 02 | Five Front Doors | `claude.ai/artifact/VHuyQh69uA3dEzBWwF2jsL` |
+| 03 | The Studio Floor | `claude.ai/artifact/UUM9jWpnmaPKkBY9AKacgS` |
+| 04 | **The Marquee** — lobby + first run | `claude.ai/artifact/HKLVT4iYjZiKYS7vYWSLVA` |
+| 05 | The Studio Kit | `claude.ai/artifact/DpjtUDLJ7QSTvyHnQCVDST` |
+| 06 | **Studio Final** — the editor | `claude.ai/artifact/EUSt9oqAwDdmkJepS51bZ5` |
+| 07 | **The Art Order** | `claude.ai/artifact/HUmbjSccQvH9xVA3hsWtn3` |
+
+### Record 07, *The Art Order* — what it asked for and what happened
+
+Most of it is an art list only JoyRaptor can fill: five empty-room heroes, seven first-run
+stills, a demo project, Joybot's claymation states, eight room glyphs, a grain tile, the
+wordmark and app icon. Those are his to draw, not mine to build. Three of its items were
+engineering, and all three are done:
+
+- **03a, the face in the orb** — *"Right now that orb contains a generic Material robot
+  glyph."* It is his own Joybot art now, in the lobby, the editor's top bar and the chat.
+- **05b, a display typeface** — *"the marquee currently borrows Android's own
+  `sans-serif-black`... Joy Creator's biggest, most characterful type is the same type every
+  other Android app uses."* Archivo is bundled as a VARIABLE face, 100–900, which is what
+  §05b asks for twice over since the marquee interpolates weight.
+- **06/1, the contextual tool row** — left open in the record as *"your call how the two
+  combine"* with the existing pins-and-recency system. Built so that context sorts ONLY the
+  unpinned half, so pinned tools never move. **Device-verified this session:** double-tapping
+  an audio clip swaps the right-hand section to Extract audio / Sound / Clean in audio green,
+  and leaves everything left of the divider untouched.
+
+**The one item §07 flags as unverified is still unverified.** It lists the object drawer
+header as *"BUILT — not yet driven on a phone, needs a real double-tap."* I drove it: the
+double-tap selects the clip and retargets the tool row correctly, but tapping Sound did not
+open a drawer in the split layout this sandbox renders at its 315dpi override. No crash. It
+needs a look on the Note 9 at its real density, and it stays on this list until it gets one.
+
 ### Against *Studio Final* §04, the spec table — "no value on this page was chosen by eye"
 
 | spec | built | |

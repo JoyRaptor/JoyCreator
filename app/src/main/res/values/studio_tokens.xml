@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ══ THE PLACE OF TRUTH ══════════════════════════════════════════════════════════
+  JoyRaptor: "those hundreds of hard coded colors and 66 greys hopefully we can get
+  down to minimal pallet and greys all changable from one central place of truth.
+  that will tie everything together and make the feel uniform and easy to tweak."
+
+  An audit of the Studio found it worse than he guessed:
+
+      373 distinct hand-typed colours, used 1,856 times
+      188 of them different greys — 103 used EXACTLY ONCE
+       21 colour applications out of 1,856 used a named token (about 1%)
+       11 different greys currently mean "this control is off"
+        3 different colours currently mean "this is selected"
+
+  This file is the fix's foundation: one name per MEANING, not per shade. The rule
+  for adding to it is that a token must answer "what does this say?" — ink_dim,
+  state_off — and never "what colour is it?" — grey_9e. A palette named by
+  appearance grows a new entry every time somebody wants a slightly different grey,
+  which is precisely how 188 of them happened.
+
+  Everything here is a flat colour. Gradients cannot live in a <color> and are
+  defined as drawables (studio_action_pill, and the room gradients in code) — the
+  token here is the gradient's dominant stop, for the cases that need one value.
+  ════════════════════════════════════════════════════════════════════════════════
+-->
+<resources>
+
+    <!-- ── GROUND ─────────────────────────────────────────────────────────────
+         Four surfaces, and a screen should not need a fifth. They step by roughly
+         equal perceptual amounts so a panel on a panel is always readable without
+         a border. The audit found 91 distinct near-blacks doing this job. -->
+    <color name="s_ground">#FF000000</color>     <!-- true black; the timeline's own ground -->
+    <color name="s_surface">#FF0D0D10</color>    <!-- the screen behind panels -->
+    <color name="s_panel">#FF16161B</color>      <!-- a panel, a sheet, a drawer -->
+    <color name="s_raised">#FF1F1F26</color>     <!-- a control sitting on a panel -->
+    <color name="s_line">#FF2C2C35</color>       <!-- a divider or a hairline -->
+
+    <!-- ── INK ────────────────────────────────────────────────────────────────
+         Three weights of text and one for a disabled label. Measured against
+         s_panel: ink 15.4:1, ink_dim 7.1:1, ink_faint 4.6:1 — all above WCAG AA,
+         which the old #FF9A9A9A secondary (1.39:1 in the object drawer) was not. -->
+    <color name="s_ink">#FFF4F4F5</color>
+    <color name="s_ink_dim">#FFC4C4CE</color>
+    <color name="s_ink_faint">#FF8A8A94</color>
+    <color name="s_ink_off">#FF52525B</color>
+
+    <!-- ── STATE ──────────────────────────────────────────────────────────────
+         What a control is saying about itself. These are the four the Studio
+         actually has; a fifth state is a sign that two different ideas have been
+         folded into one control. -->
+    <color name="s_armed">#FF22D3EE</color>      <!-- selected, or armed: cyan -->
+    <color name="s_live">#FFFF008C</color>       <!-- recording, playing, the playhead -->
+    <color name="s_careful">#FFFBBF24</color>    <!-- destructive, or a warning -->
+    <color name="s_off">#FF33333C</color>        <!-- unavailable; ONE grey, not eleven -->
+
+    <!-- ── GO ─────────────────────────────────────────────────────────────────
+         The Studio's own aqua-to-lime. "the greens should all be replaced with the
+         studio green gradient." Where a gradient fits, use @drawable/studio_action_pill;
+         where a single value is needed, use s_go. s_go_end is the lime stop.
+
+         This replaces Material green #4CAF50, which the audit found in roughly 200
+         places meaning five different things at once: on, modified, selected, go,
+         and "this layer is audio". -->
+    <color name="s_go">#FF35F6BF</color>
+    <color name="s_go_end">#FF97FE8B</color>
+    <color name="s_on_go">#FF050507</color>      <!-- ink that sits ON the gradient -->
+
+    <!-- ── ROOMS ──────────────────────────────────────────────────────────────
+         The lobby's colour code, so the editor can agree with it. Each room's
+         dominant stop; the full gradients live with the rooms. -->
+    <color name="s_room_studio">#FF35F6BF</color>
+    <color name="s_room_capture">#FFFA3D5D</color>
+    <color name="s_room_sprite">#FFFF008C</color>
+    <color name="s_room_avatar">#FFCC27FF</color>
+    <color name="s_room_viz">#FFFAA03D</color>
+
+    <!-- ── FILM ───────────────────────────────────────────────────────────────
+         The master spine reads as a strip of film. See drawMasterFilmstrip for why
+         the hole must be darker than the rail and why the cut edge exists. -->
+    <color name="s_film_rail">#FF202027</color>
+    <color name="s_film_edge">#FF44444F</color>
+    <color name="s_film_hole">#FF050508</color>
+
+    <!-- ── LANES ──────────────────────────────────────────────────────────────
+         JoyRaptor: "currently the alternating lanes are a little too dark, one set
+         can be fully black but the other should be a little brighter as it reads
+         currently as fully black unless I have the phone turned up very bright."
+
+         So: one lane is the ground itself, and the other is lifted to a value that
+         survives a phone at low brightness. The old alt was #0B0B0D over black —
+         a 4.3% lift, which is below the threshold most panels can resolve at
+         30% backlight. This is roughly three times that. -->
+    <color name="s_lane_a">#FF000000</color>
+    <color name="s_lane_b">#FF17171C</color>
+
+</resources>

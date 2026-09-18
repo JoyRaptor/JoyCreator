@@ -3408,6 +3408,22 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- ── FIRST RUN (design record 04 §03) ──────────────────────────────── -->
     <!-- The promise, stated before the ask. You are not asking someone to fund a
          hope; you are telling them what they already have, then letting them decide. -->
+    <!-- ── THE FIRST SCREEN ─────────────────────────────────────
+         The seven cycling lines, verbatim from design/marquee.html. Each one is a
+         sentence a stranger could repeat to somebody else, which is the test a feature
+         list fails: "compositing" means nothing to a person who has never composited.
+         This is the only description of the product most people will ever read. -->
+    <string name="intro_line_capture">screen capture with your face on it</string>
+    <string name="intro_line_record">video recording, even with the screen off</string>
+    <string name="intro_line_editor">a real editor — layers, masks, keyframes</string>
+    <string name="intro_line_animation">animation — sprites, rigs, puppets</string>
+    <string name="intro_line_transcribe">transcription that never leaves your phone</string>
+    <string name="intro_line_secondcam">a second phone as a camera, over your own Wi-Fi</string>
+    <string name="intro_line_ai">AI that edits the actual timeline</string>
+    <string name="intro_start_creating">Start creating</string>
+    <string name="intro_support">Support</string>
+    <string name="support_url" translatable="false">https://ko-fi.com/fadedx</string>
+
     <string name="intro_promise">No ads. No subscription.\nNo watermark. No export paywall. Ever.</string>
     <!-- "Between naps" does more work than a paragraph of explanation would. -->
     <string name="intro_story">I built this between naps, looking after my three toddlers. It\'s how I support my family. If you get something out of it, you can help keep it free for everyone else.</string>

@@ -95,8 +95,18 @@ public class OnboardingActivity extends AppIntro {
         }
 
         // Add slides in the correct sequence
-        addSlide(AppIntroCustomLayoutFragment.newInstance(R.layout.onboarding_intro_slide));
-        addSlide(AppIntroCustomLayoutFragment.newInstance(R.layout.onboarding_language_slide));
+        // ── THE SEQUENCE ────────────────────────────────────────────────────
+        // Welcome, then permissions, then the agreement. Three screens.
+        //
+        // The LANGUAGE screen is gone. JoyRaptor: "do we really need to select
+        // language? cant that be detected by the system? fallback in settings?" —
+        // and he is right twice over. Android already knows the device locale and
+        // this app already honours it; asking again makes the reader do work the
+        // phone has done for them. Worse, it is the SECOND screen, so the first
+        // thing the product ever asks is a question about itself rather than
+        // anything to do with the thing they installed it to make. Settings keeps
+        // the picker for the case the detection is wrong.
+        addSlide(new OnboardingWelcomeFragment());
         addSlide(new OnboardingPermissionsFragment());
         addSlide(new OnboardingHumanFragment());
 
@@ -201,359 +211,31 @@ public class OnboardingActivity extends AppIntro {
         // Update navigation buttons initially
         updateNavigationButtons(0);
 
-        getSupportFragmentManager().registerFragmentLifecycleCallbacks(
-                new androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
-                    @Override
-                    public void onFragmentViewCreated(@NonNull androidx.fragment.app.FragmentManager fm,
-                            @NonNull Fragment f, @Nullable View v, @Nullable Bundle savedInstanceState) {
-                        super.onFragmentViewCreated(fm, f, v, savedInstanceState);
-                        if (v == null)
-                            return;
-                        final android.widget.ImageView ivOnboardingAvatar = v.findViewById(R.id.ivOnboardingAvatar);
-                        final TextView tvHiGreeting = v.findViewById(R.id.tvHiGreeting);
-                        final TextView descView = v.findViewById(R.id.tvOnboardingDescription);
-                        final LottieAnimationView lottieArrow = v.findViewById(R.id.lottieArrow);
-                        final TextView swipeInstruction = v.findViewById(R.id.tvSwipeInstruction);
-                        if (ivOnboardingAvatar != null && descView != null) {
-                            // ===== SLEEP STATE =====
-                            // Joybot asleep. The art is white line work on transparency, so
-                            // the tint is what gives him a colour at all; it is set once here
-                            // rather than per-frame because setImageResource does not clear a
-                            // colour filter and re-applying it on every blink would be four
-                            // redundant filter allocations a second.
-                            ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
-                            ivOnboardingAvatar.setColorFilter(0xFFE4E4E7);
-                            final Handler handler = new Handler();
-                            final boolean[] wakeDone = {false};
-                            final boolean[] blinkLoopActive = {false};
-                            final android.widget.TextView tvZ1 = v.findViewById(R.id.tvOnboardZ1);
-                            final android.widget.TextView tvZ2 = v.findViewById(R.id.tvOnboardZ2);
-                            final android.widget.TextView tvZ3 = v.findViewById(R.id.tvOnboardZ3);
-                            // ZzZ float-up-and-fade loop, staggered per letter
-                            if (tvZ1 != null && tvZ2 != null && tvZ3 != null) {
-                                final Runnable[] z1r = {null}, z2r = {null}, z3r = {null};
-                                z1r[0] = () -> { if (wakeDone[0]) return; tvZ1.setTranslationY(0f); tvZ1.setAlpha(0.85f); tvZ1.animate().translationY(-20f).alpha(0f).setDuration(1100).withEndAction(() -> { if (!wakeDone[0]) handler.postDelayed(z1r[0], 120); }).start(); };
-                                z2r[0] = () -> { if (wakeDone[0]) return; tvZ2.setTranslationY(0f); tvZ2.setAlpha(0.85f); tvZ2.animate().translationY(-24f).alpha(0f).setDuration(1300).withEndAction(() -> { if (!wakeDone[0]) handler.postDelayed(z2r[0], 120); }).start(); };
-                                z3r[0] = () -> { if (wakeDone[0]) return; tvZ3.setTranslationY(0f); tvZ3.setAlpha(0.85f); tvZ3.animate().translationY(-28f).alpha(0f).setDuration(1500).withEndAction(() -> { if (!wakeDone[0]) handler.postDelayed(z3r[0], 120); }).start(); };
-                                tvZ1.setVisibility(View.VISIBLE); tvZ2.setVisibility(View.VISIBLE); tvZ3.setVisibility(View.VISIBLE);
-                                tvZ1.setAlpha(0f); tvZ2.setAlpha(0f); tvZ3.setAlpha(0f);
-                                tvZ1.animate().alpha(1f).setDuration(220).withEndAction(() -> handler.post(z1r[0])).start();
-                                handler.postDelayed(() -> tvZ2.animate().alpha(1f).setDuration(220).withEndAction(() -> handler.post(z2r[0])).start(), 220);
-                                handler.postDelayed(() -> tvZ3.animate().alpha(1f).setDuration(220).withEndAction(() -> handler.post(z3r[0])).start(), 440);
-                            }
-                            // Dim-breathing while sleeping
-                            ValueAnimator sleepBreath = ValueAnimator.ofFloat(0f, 1f);
-                            sleepBreath.setDuration(2400);
-                            sleepBreath.setRepeatCount(ValueAnimator.INFINITE);
-                            sleepBreath.setRepeatMode(ValueAnimator.REVERSE);
-                            sleepBreath.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-                            sleepBreath.addUpdateListener(a -> {
-                                if (!ivOnboardingAvatar.isAttachedToWindow()) return;
-                                float t = (float) a.getAnimatedValue();
-                                ivOnboardingAvatar.setAlpha(0.52f + 0.30f * t);
-                                float sc = 0.96f + 0.04f * t;
-                                ivOnboardingAvatar.setScaleX(sc); ivOnboardingAvatar.setScaleY(sc);
-                            });
-                            sleepBreath.start();
-                            // ===== WAKE SEQUENCE =====
-                            handler.postDelayed(() -> {
-                                wakeDone[0] = true;
-                                sleepBreath.cancel();
-                                ivOnboardingAvatar.setAlpha(1f); ivOnboardingAvatar.setScaleX(1f); ivOnboardingAvatar.setScaleY(1f);
-                                if (tvZ1 != null) tvZ1.animate().alpha(0f).setDuration(200).withEndAction(() -> tvZ1.setVisibility(View.GONE)).start();
-                                if (tvZ2 != null) tvZ2.animate().alpha(0f).setDuration(200).withEndAction(() -> tvZ2.setVisibility(View.GONE)).start();
-                                if (tvZ3 != null) tvZ3.animate().alpha(0f).setDuration(200).withEndAction(() -> tvZ3.setVisibility(View.GONE)).start();
-                                // Play wake AVD immediately
-                                ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
-                                ivOnboardingAvatar.post(() -> {
-                                        android.graphics.drawable.Drawable wakeDrawable = ivOnboardingAvatar.getDrawable();
-                                        // afterWake handles Hi! greeting — no pre-pop needed here
-                                        Runnable afterWake = () -> {
-                                            ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
-                                            // Idle breathing (alpha + scale pulse)
-                                            ValueAnimator idleBreath = ValueAnimator.ofFloat(0f, 1f);
-                                            idleBreath.setDuration(2600);
-                                            idleBreath.setRepeatCount(ValueAnimator.INFINITE);
-                                            idleBreath.setRepeatMode(ValueAnimator.REVERSE);
-                                            idleBreath.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-                                            idleBreath.addUpdateListener(a2 -> {
-                                                if (!ivOnboardingAvatar.isAttachedToWindow()) return;
-                                                float t2 = (float) a2.getAnimatedValue();
-                                                ivOnboardingAvatar.setAlpha(0.85f + 0.15f * t2);
-                                                float sc2 = 0.97f + 0.03f * t2;
-                                                ivOnboardingAvatar.setScaleX(sc2); ivOnboardingAvatar.setScaleY(sc2);
-                                            });
-                                            idleBreath.start();
-                                            // Floating bob
-                                            android.animation.ObjectAnimator floatAnim = android.animation.ObjectAnimator
-                                                    .ofFloat(ivOnboardingAvatar, "translationY", 0f, -8f);
-                                            floatAnim.setDuration(3200);
-                                            floatAnim.setRepeatCount(android.animation.ObjectAnimator.INFINITE);
-                                            floatAnim.setRepeatMode(android.animation.ObjectAnimator.REVERSE);
-                                            floatAnim.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
-                                            floatAnim.start();
-                                            // Blink loop
-                                            blinkLoopActive[0] = true;
-                                            final Runnable[] blinkRef = {null};
-                                            blinkRef[0] = () -> {
-                                                if (!blinkLoopActive[0]) return;
-                                                ivOnboardingAvatar.setImageResource(R.drawable.joybot_smile);
-                                                android.graphics.drawable.Drawable bd = ivOnboardingAvatar.getDrawable();
-                                                if (bd instanceof android.graphics.drawable.Animatable2) {
-                                                    android.graphics.drawable.Animatable2 blinkAvd = (android.graphics.drawable.Animatable2) bd;
-                                                    blinkAvd.clearAnimationCallbacks();
-                                                    blinkAvd.registerAnimationCallback(new android.graphics.drawable.Animatable2.AnimationCallback() {
-                                                        @Override
-                                                        public void onAnimationEnd(android.graphics.drawable.Drawable d2) {
-                                                            if (!blinkLoopActive[0]) return;
-                                                            ivOnboardingAvatar.post(() -> {
-                                                                ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
-                                                                int nb = 2600 + new java.util.Random().nextInt(2200);
-                                                                handler.postDelayed(blinkRef[0], nb);
-                                                            });
-                                                        }
-                                                    });
-                                                    blinkAvd.start();
-                                                } else if (bd instanceof android.graphics.drawable.Animatable) {
-                                                    ((android.graphics.drawable.Animatable) bd).start();
-                                                    handler.postDelayed(() -> {
-                                                        if (!blinkLoopActive[0]) return;
-                                                        ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
-                                                        handler.postDelayed(blinkRef[0], 3000);
-                                                    }, 280);
-                                                } else {
-                                                    // Joybot's expressions are STILL frames, so neither
-                                                    // Animatable branch fires and nothing would ever put
-                                                    // the neutral face back -- he would smile once and
-                                                    // the loop would die holding it. Hold the smile long
-                                                    // enough to read as an expression, then settle.
-                                                    handler.postDelayed(() -> {
-                                                        if (!blinkLoopActive[0]) return;
-                                                        ivOnboardingAvatar.setImageResource(R.drawable.joybot_neutral);
-                                                        handler.postDelayed(blinkRef[0],
-                                                                2600 + new java.util.Random().nextInt(2200));
-                                                    }, 900);
-                                                }
-                                            };
-                                            handler.postDelayed(blinkRef[0], 2400);
-                                            // Greeting cycle: Hi! <-> Arabic (parallel, non-blocking)
-                                            final int[] gCycleIdx = {0};
-                                            final Runnable[] greetingCycle = {null};
-                                            greetingCycle[0] = () -> {
-                                                if (tvHiGreeting == null || !tvHiGreeting.isAttachedToWindow()) return;
-                                                boolean isHi = (gCycleIdx[0] % 2 == 0);
-                                                tvHiGreeting.setText(isHi ? "Hi!"
-                                                        : "\u0627\u0644\u0633\u0644\u0627\u0645 \u0639\u0644\u064a\u0643\u0645\n\u0648\u0631\u062d\u0645\u0629 \u0627\u0644\u0644\u0647 \u0648\u0628\u0631\u0643\u0627\u062a\u0647");
-                                                tvHiGreeting.setTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, isHi ? 32f : 11f);
-                                                tvHiGreeting.setRotation(isHi ? -10f : 4f);
-                                                tvHiGreeting.setTextDirection(isHi ? View.TEXT_DIRECTION_LTR : View.TEXT_DIRECTION_RTL);
-                                                tvHiGreeting.setAlpha(0f);
-                                                tvHiGreeting.setScaleX(isHi ? 0.4f : 0.7f);
-                                                tvHiGreeting.setScaleY(isHi ? 0.4f : 0.7f);
-                                                tvHiGreeting.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                                                        .setDuration(280)
-                                                        .setInterpolator(new android.view.animation.OvershootInterpolator(isHi ? 2.2f : 1.5f))
-                                                        .withEndAction(() -> handler.postDelayed(() -> {
-                                                            tvHiGreeting.animate().alpha(0f).setDuration(220)
-                                                                    .withEndAction(() -> {
-                                                                        gCycleIdx[0]++;
-                                                                        handler.postDelayed(greetingCycle[0], 150);
-                                                                    }).start();
-                                                        }, 1200)).start();
-                                            };
-                                            tvHiGreeting.setVisibility(View.VISIBLE);
-                                            handler.post(greetingCycle[0]);
-                                            // ===== TEXT ANIMATION (starts immediately, alongside greeting) =====
-                                            // Monospaced ON PURPOSE -- this text types itself out a
-                                            // character at a time, and in a proportional face every
-                                            // new character re-wraps the line behind it, so the words
-                                            // already on screen twitch as the next one lands.
-                                            //
-                                            // But Typeface.MONOSPACE is whatever the OEM calls mono;
-                                            // on this phone that is Droid Sans Mono. IBM Plex Mono is
-                                            // the face the rest of the app uses for machine output.
-                                            descView.setTypeface(com.fadcam.ui.type.Type.mono(
-                                                    OnboardingActivity.this, com.fadcam.ui.type.Type.REGULAR));
-                                descView.setGravity(android.view.Gravity.START);
-                                descView.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
-                                final String[] lines = {
-                                        getString(R.string.onboarding_intro_line1),
-                                        getString(R.string.onboarding_intro_line2),
-                                        getString(R.string.onboarding_intro_line3),
-                                        getString(R.string.onboarding_intro_line4)
-                                };
-                                final String cursorChar = "▌";
-                                final int rowFadeDuration = 220;
-                                final int rowPauseDelay = 1200;
-                                final int blinkFrameDelay = 32;
-                                final int blinkDuration = 900;
-                                final Runnable[] blinkRunnable = new Runnable[1];
-                                final float[] cursorAlpha = { 1f };
-                                final boolean[] fadingOut = { true };
-                                // Was FadCam red. The cursor is the first coloured pixel a
-                                // stranger ever sees in this app, so it should be the studio's
-                                // colour rather than the fork's.
-                                final int cursorColor = 0xFF35F6BF;
-                                descView.setText("");
-                                // Define startBlinkingCursor before RowFadeAnimator so it is in scope
-                                final Runnable startBlinkingCursor = new Runnable() {
-                                    @Override
-                                    public void run() {
-                                        blinkRunnable[0] = new Runnable() {
-                                            @Override
-                                            public void run() {
-                                                if (fadingOut[0]) {
-                                                    cursorAlpha[0] -= (float) blinkFrameDelay / (blinkDuration / 2f);
-                                                    if (cursorAlpha[0] <= 0f) {
-                                                        cursorAlpha[0] = 0f;
-                                                        fadingOut[0] = false;
-                                                    }
-                                                } else {
-                                                    cursorAlpha[0] += (float) blinkFrameDelay / (blinkDuration / 2f);
-                                                    if (cursorAlpha[0] >= 1f) {
-                                                        cursorAlpha[0] = 1f;
-                                                        fadingOut[0] = true;
-                                                    }
-                                                }
-                                                String finalText = String.join("\n", lines);
-                                                android.text.SpannableString span = new android.text.SpannableString(
-                                                        finalText + cursorChar);
-                                                span.setSpan(new AlphaSpan(1f), 0, finalText.length(),
-                                                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                                                span.setSpan(new android.text.style.ForegroundColorSpan(cursorColor),
-                                                        finalText.length(), finalText.length() + 1,
-                                                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                                                span.setSpan(new AlphaSpan(cursorAlpha[0]), finalText.length(),
-                                                        finalText.length() + 1,
-                                                        android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                                                descView.setText(span);
-                                                handler.postDelayed(this, blinkFrameDelay);
-                                            }
-                                        };
-                                        handler.post(blinkRunnable[0]);
-                                    }
-                                };
-                                class RowFadeAnimator {
-                                    private final Runnable startBlinkingCursor;
-                                    int rowIdx = 0;
-                                    StringBuilder shownText = new StringBuilder();
+        // The intro's first screen used to be built HERE, from a fragment-lifecycle
+        // callback that reached into an inflated layout by id: a sleeping toggle-switch
+        // avatar, a "Hi!" that cycled into Arabic, and a four-line typewriter — roughly
+        // three hundred lines of choreography driving FadCam's artwork.
+        //
+        // It is gone. OnboardingWelcomeFragment owns that screen now and owns its own
+        // views, which is why there is nothing left to reach into.
+    }
 
-                                    RowFadeAnimator(Runnable startBlinkingCursor) {
-                                        this.startBlinkingCursor = startBlinkingCursor;
-                                    }
-
-                                    void start() {
-                                        shownText.append(lines[0]);
-                                        updateTextWithCursor();
-                                        rowIdx = 1;
-                                        handler.postDelayed(this::animateNextRow, rowPauseDelay);
-                                    }
-
-                                    void animateNextRow() {
-                                        if (rowIdx >= lines.length) {
-                                            // Start blinking cursor after all lines
-                                            startBlinkingCursor.run();
-                                            return;
-                                        }
-                                        shownText.append("\n").append(lines[rowIdx]);
-                                        descView.setAlpha(0f);
-                                        updateTextWithCursor();
-                                        descView.animate().alpha(1f).setDuration(rowFadeDuration).withEndAction(() -> {
-                                            // As the last line animates in, fade in swipe instruction and arrow
-                                            if (rowIdx == lines.length - 1 && swipeInstruction != null
-                                                    && lottieArrow != null) {
-                                                tintLottie(lottieArrow, INTRO_ACCENT);
-                                                lottieArrow.setVisibility(View.VISIBLE);
-                                                lottieArrow.setSpeed(0.5f);
-                                                lottieArrow.setRepeatCount(0);
-                                                lottieArrow.playAnimation();
-
-                                                // Create a center-outward fade effect for the text
-                                                handler.postDelayed(() -> {
-                                                    // Check if the view is still attached before proceeding
-                                                    if (swipeInstruction == null
-                                                            || !swipeInstruction.isAttachedToWindow()) {
-                                                        return; // Skip animation if view is detached
-                                                    }
-
-                                                    // Simple fade-in without reveal animation (which was causing the
-                                                    // crash)
-                                                    swipeInstruction.setVisibility(View.VISIBLE);
-                                                    swipeInstruction.setAlpha(0f);
-
-                                                    // First fade in the entire text (base layer)
-                                                    swipeInstruction.animate()
-                                                            .alpha(1f)
-                                                            .setDuration(1200)
-                                                            .setInterpolator(
-                                                                    new android.view.animation.AccelerateDecelerateInterpolator())
-                                                            .withEndAction(() -> {
-                                                                // Start the shimmer effect after fade-in completes
-                                                                if (swipeInstruction.isAttachedToWindow()) {
-                                                                    startShimmerEffect(swipeInstruction);
-                                                                }
-                                                            })
-                                                            .start();
-                                                }, 700); // Delay before animation
-                                            }
-                                            rowIdx++;
-                                            handler.postDelayed(this::animateNextRow, rowPauseDelay);
-                                        }).start();
-                                    }
-
-                                    void updateTextWithCursor() {
-                                        String text = shownText.toString() + cursorChar;
-                                        android.text.SpannableString span = new android.text.SpannableString(text);
-                                        span.setSpan(new android.text.style.ForegroundColorSpan(cursorColor),
-                                                text.length() - 1, text.length(),
-                                                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
-                                        descView.setText(span);
-                                    }
-                                }
-                                final RowFadeAnimator rowAnimator = new RowFadeAnimator(startBlinkingCursor);
-                                // The promise and the story arrive AFTER the capability lines
-                                // have finished typing. Showing them together would make the
-                                // screen a wall; showing them in order makes it a sentence:
-                                // here is what it does, here is what it costs you, here is why.
-                                final android.view.View promiseView = v.findViewById(R.id.tvIntroPromise);
-                                final android.view.View storyView = v.findViewById(R.id.tvIntroStory);
-                                if (promiseView != null && storyView != null) {
-                                    handler.postDelayed(() -> {
-                                        promiseView.animate().alpha(1f).setDuration(560)
-                                                .setInterpolator(com.fadcam.ui.motion.Motion.EASE_OUT).start();
-                                        storyView.animate().alpha(1f).setStartDelay(320).setDuration(560)
-                                                .setInterpolator(com.fadcam.ui.motion.Motion.EASE_OUT).start();
-                                    }, 1200L * 4 + 400L);
-                                }
-                                            handler.postDelayed(rowAnimator::start, 200);
-                                        }; // closes afterWake
-                                        // Play wake AVD; call afterWake on completion
-                                        if (wakeDrawable instanceof android.graphics.drawable.Animatable2) {
-                                            android.graphics.drawable.Animatable2 avd2 = (android.graphics.drawable.Animatable2) wakeDrawable;
-                                            avd2.clearAnimationCallbacks();
-                                            avd2.registerAnimationCallback(new android.graphics.drawable.Animatable2.AnimationCallback() {
-                                                @Override
-                                                public void onAnimationEnd(android.graphics.drawable.Drawable drawable) {
-                                                    ivOnboardingAvatar.post(afterWake);
-                                                }
-                                            });
-                                            avd2.start();
-                                        } else if (wakeDrawable instanceof android.graphics.drawable.Animatable) {
-                                            ((android.graphics.drawable.Animatable) wakeDrawable).start();
-                                            handler.postDelayed(afterWake, 480);
-                                        } else {
-                                            afterWake.run();
-                                        }
-                                    });
-                            }, 600); // sleep display duration
-                        }
-                        // Slide 2 logic (language selection)
-                        MaterialButton languageChooseButton = v.findViewById(R.id.language_choose_button);
-                        if (languageChooseButton != null) {
-                            setupOnboardingLanguageDialog(languageChooseButton);
-                        }
-                    }
-                }, true);
+    /**
+     * Advance one screen.
+     *
+     * <p>The welcome screen's "Start creating" needs this. A page cannot page ITSELF —
+     * AppIntro owns the ViewPager — so the fragment asks the host, which is also what
+     * keeps the nav chevrons, the dots and this method's own state in agreement.
+     *
+     * <p>Named advanceSlide rather than goToNextSlide because AppIntroBase already has a
+     * goToNextSlide() that this cannot override, and a same-named method that quietly
+     * does something different from its parent's is worse than a clear new name.
+     */
+    public void advanceSlide() {
+        ViewPager pager = findViewById(com.github.appintro.R.id.view_pager);
+        if (pager == null || pager.getAdapter() == null) return;
+        int next = pager.getCurrentItem() + 1;
+        if (next < pager.getAdapter().getCount()) pager.setCurrentItem(next, true);
     }
 
     // Method to update navigation buttons based on current position

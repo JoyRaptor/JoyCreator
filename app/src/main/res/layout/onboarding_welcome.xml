@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ── WELCOME ─────────────────────────────────────────────────────────────────────
+  Built to the mockup in design/marquee.html §03 "First run — the two changes",
+  not to memory of it. The first attempt at this screen was built from memory after
+  a compaction and came out with the wrong architecture entirely, which JoyRaptor
+  caught: "it doesn't look anything like the mockup you made!"
+
+  The mockup's structure, top to bottom:
+
+      · a 300px full-bleed SLIDESHOW, dark base with one soft coloured glow,
+        cross-fading at 560ms
+      · a 150px fade from transparent to the page black over its bottom
+      · the wordmark, large, sitting in that fade
+      · a fixed lead line: "a creative studio in your pocket —"
+      · ONE CYCLING PHRASE underneath it, swapping in time with the slide
+      · the promise, then the story
+      · two controls: "Start creating" filled, "Support" quiet
+
+  The cycling element is a PHRASE, not a word. "screen capture with your face on
+  it" tells a stranger what the app does; "capture" does not. That was the other
+  thing the first attempt got wrong.
+  ─────────────────────────────────────────────────────────────────────────────── -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FF000000"
+    android:layoutDirection="ltr">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- ── THE SLIDESHOW ───────────────────────────────────────────────────
+             Two layers so a change CROSS-FADES: the outgoing slide holds until the
+             incoming one has faded up over it. One view swapping its own background
+             flashes the window between frames. ─────────────────────────────────── -->
+        <FrameLayout
+            android:id="@+id/welcome_stage"
+            android:layout_width="match_parent"
+            android:layout_height="300dp">
+
+            <View
+                android:id="@+id/welcome_slide_a"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+            <View
+                android:id="@+id/welcome_slide_b"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:alpha="0" />
+
+            <!-- The fade. Black only — a tinted one would drag every future
+                 screenshot toward a single hue. -->
+            <View
+                android:id="@+id/welcome_fade"
+                android:layout_width="match_parent"
+                android:layout_height="150dp"
+                android:layout_gravity="bottom" />
+
+            <com.fadcam.ui.lobby.JoybotView
+                android:id="@+id/welcome_bot"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="26dp"
+                android:layout_marginEnd="20dp"
+                android:contentDescription="Joybot" />
+        </FrameLayout>
+
+        <!-- ── THE WORDS ───────────────────────────────────────────────────────
+             Pulled up into the slideshow's fade, which is what makes the visual read
+             as being BEHIND the title rather than as a banner above it. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginTop="-84dp"
+            android:paddingStart="22dp"
+            android:paddingEnd="22dp">
+
+            <TextView
+                android:id="@+id/welcome_wordmark"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/app_name"
+                android:textSize="42sp"
+                android:letterSpacing="-0.045"
+                android:includeFontPadding="false"
+                android:textColor="#FFFFFFFF"
+                android:fontFamily="@font/joy_display"
+                android:textStyle="bold"
+                android:textFontWeight="900" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/onboarding_intro_line1"
+                android:textSize="13.5sp"
+                android:textColor="#FF8A8A94"
+                android:fontFamily="@font/joy_body"
+                android:layout_marginTop="14dp" />
+
+            <!-- The cycling phrase. Two lines of room reserved so the block below it
+                 never jumps when a longer line arrives. -->
+            <TextView
+                android:id="@+id/welcome_line"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:minLines="2"
+                android:textSize="17sp"
+                android:lineSpacingExtra="2dp"
+                android:textColor="#FFF4F4F5"
+                android:fontFamily="@font/joy_display"
+                android:textStyle="bold"
+                android:textFontWeight="700"
+                android:layout_marginTop="3dp" />
+
+            <Space
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/intro_promise"
+                android:textSize="14sp"
+                android:lineSpacingExtra="3dp"
+                android:textColor="#FFFFFFFF"
+                android:fontFamily="@font/joy_display"
+                android:textStyle="bold"
+                android:textFontWeight="700" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/intro_story"
+                android:textSize="12sp"
+                android:lineSpacingExtra="3dp"
+                android:textColor="#FF8A8A94"
+                android:fontFamily="@font/joy_body"
+                android:layout_marginTop="12dp" />
+
+            <!-- ── THE TWO CONTROLS ────────────────────────────────────────────
+                 One filled, one quiet. Both are ways forward, but only one of them is
+                 what the reader came here to do, and a screen with two equal buttons
+                 makes them choose before they have been told what the choice is. -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="20dp"
+                android:layout_marginBottom="22dp">
+
+                <TextView
+                    android:id="@+id/welcome_start"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:layout_height="52dp"
+                    android:gravity="center"
+                    android:text="@string/intro_start_creating"
+                    android:textSize="14.5sp"
+                    android:textColor="#FF050507"
+                    android:fontFamily="@font/joy_display"
+                    android:textStyle="bold"
+                    android:textFontWeight="800"
+                    android:background="@drawable/studio_action_pill" />
+
+                <TextView
+                    android:id="@+id/welcome_support"
+                    android:layout_width="wrap_content"
+                    android:layout_height="52dp"
+                    android:gravity="center"
+                    android:paddingStart="24dp"
+                    android:paddingEnd="24dp"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/intro_support"
+                    android:textSize="14sp"
+                    android:textColor="#FFA1A1AA"
+                    android:fontFamily="@font/joy_display"
+                    android:textStyle="bold"
+                    android:textFontWeight="600"
+                    android:background="@drawable/intro_ghost_pill" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Setup progress, out of the way, adding a highlight and nothing else. -->
+    <View
+        android:id="@+id/welcome_hairline"
+        android:layout_width="match_parent"
+        android:layout_height="2dp"
+        android:layout_gravity="top" />
+</FrameLayout>

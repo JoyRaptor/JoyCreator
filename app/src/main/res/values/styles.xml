@@ -175,26 +175,41 @@
         <item name="android:fontFamily">@font/ubuntu_regular</item>
     </style>
 
-    <!-- Faditor Editor dark immersive theme -->
+    <!-- ══ THE STUDIO THEME ═══════════════════════════════════════════════════
+         Every value here now comes from @color/s_* in studio_tokens.xml.
+
+         This style is the single highest-leverage thing in the editor, and it was
+         the root cause of the complaint "the greens should all be replaced with
+         the studio green gradient". colorPrimary was Material green, and Material
+         resolves it for EVERY slider, switch, checkbox, ripple, text cursor and
+         selection handle — plus the 112 MaterialAlertDialogs the editor builds.
+         None of those had a line of colour code to grep for; they were green
+         because the theme said so. Changing this one line changes all of them.
+         ═══════════════════════════════════════════════════════════════════════ -->
     <style name="Theme.FadCam.FaditorEditor" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorSurface">#FF1A1A1A</item>
-        <item name="colorSurfaceVariant">#FF252525</item>
-        <item name="colorOnSurface">#FFFFFFFF</item>
-        <item name="colorOnSurfaceVariant">#FFAAAAAA</item>
-        <item name="colorPrimary">#FF4CAF50</item>
-        <item name="colorOnPrimary">#FF000000</item>
-        <item name="colorSecondaryContainer">#FF2E7D32</item>
-        <item name="android:windowBackground">#FF0D0D0D</item>
+        <item name="colorSurface">@color/s_panel</item>
+        <item name="colorSurfaceVariant">@color/s_raised</item>
+        <item name="colorOnSurface">@color/s_ink</item>
+        <item name="colorOnSurfaceVariant">@color/s_ink_dim</item>
+        <item name="colorPrimary">@color/s_go</item>
+        <!-- Ink ON the primary. The aqua is LIGHT, so black text on it measures
+             about 12:1 where the old white-on-Material-green managed 2.8:1. -->
+        <item name="colorOnPrimary">@color/s_on_go</item>
+        <item name="colorSecondaryContainer">@color/s_raised</item>
+        <item name="android:windowBackground">@color/s_surface</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">#FF1A1A1A</item>
+        <item name="android:navigationBarColor">@color/s_surface</item>
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <!-- Required for picker_bottom_sheet and InputActionBottomSheetFragment -->
-        <item name="pickerTextSecondary">#999999</item>
-        <item name="pickerTextPrimary">@android:color/white</item>
-        <item name="colorHeading">#FF4CAF50</item>
-        <item name="pickerGradientStart">@color/black</item>
-        <item name="pickerGradientMid">#FF1A1A1A</item>
-        <item name="pickerGradientEnd">#FF2A2A2A</item>
+        <item name="pickerTextSecondary">@color/s_ink_faint</item>
+        <item name="pickerTextPrimary">@color/s_ink</item>
+        <!-- A heading is STRUCTURE. Colour spent on structure cannot be spent on
+             the thing you want pressed, so headings take ink and the gradient is
+             kept for the one action per sheet that matters. -->
+        <item name="colorHeading">@color/s_ink</item>
+        <item name="pickerGradientStart">@color/s_ground</item>
+        <item name="pickerGradientMid">@color/s_panel</item>
+        <item name="pickerGradientEnd">@color/s_raised</item>
     </style>
 
     <style name="Theme.FadCam.ChatAssistant" parent="Theme.FadCam.FaditorEditor">

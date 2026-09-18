@@ -3768,6 +3768,10 @@ public final class LayerRowRenderer {
                 namePaint.setColor(pc);
                 break;
             }
+            // IMAGE fell through to the filmstrip default, so a still on the spine drew the
+            // same badge as video and the two were told apart by HUE ALONE — teal vs blue,
+            // which is the pair deuteranopia flattens. A still is a still on either track.
+            case IMAGE:
             case STICKER: { // image: mountain in a frame + sun
                 iconPaint.setStyle(Paint.Style.STROKE);
                 canvas.drawRoundRect(l, t, r, b, 1.5f * density, 1.5f * density, iconPaint);

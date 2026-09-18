@@ -158,6 +158,20 @@ public final class ObjectDrawer extends LinearLayout {
         // Shadow rather than a solid bar: keeps the title readable on a bright frame without
         // giving up the transparency the drawer exists for.
         titleView.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
+        // JoyRaptor, 2026-09-16, reporting this as a daily obstruction: "there's not enough
+        // room for the label so the label then stacks vertically instead of reading
+        // horizontally and it pushes the title header to be huge which then subsequently
+        // pushes down button rows until all the usable buttons are past the minimum openness
+        // of a drawer... I used to be able to have the drawer open a little so that I could
+        // have one row working while I work on the preview underneath."
+        //
+        // The title was a weighted, WRAP_CONTENT TextView with no line cap, so as soon as the
+        // icon row grew, the title's width shrank and the text WRAPPED. A drawer header must
+        // be a fixed-height object: it may run out of room for CHARACTERS, never for ROWS.
+        // Truncating a title costs a few letters; growing the header costs the whole drawer.
+        titleView.setMaxLines(1);
+        titleView.setSingleLine(true);
+        titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         header.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
 
         iconRow = new LinearLayout(ctx);
@@ -166,7 +180,16 @@ public final class ObjectDrawer extends LinearLayout {
         // G9: header toggles were reported invisible — ensure iconRow is above scrim
         iconRow.setElevation(4f * density);
         header.setElevation(3f * density);
-        header.addView(iconRow, new LayoutParams(
+        // The icon row is WRAP_CONTENT inside a fixed-width header: with enough toggles it
+        // simply ran off the right edge and the ones past it became unreachable. Wrapping it
+        // in a non-scrollbarred HorizontalScrollView means overflow SCROLLS instead of
+        // disappearing, and it still costs nothing when everything fits.
+        android.widget.HorizontalScrollView iconScroll = new android.widget.HorizontalScrollView(ctx);
+        iconScroll.setHorizontalScrollBarEnabled(false);
+        iconScroll.setClipToPadding(false);
+        iconScroll.addView(iconRow, new FrameLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+        header.addView(iconScroll, new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
 
         TextView close = new TextView(ctx);

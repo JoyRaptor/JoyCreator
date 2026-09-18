@@ -5,6 +5,9 @@
          app this one was forked from, sitting one tap behind the lobby's first button.
          They now say what they DO, which is also what a person scanning a row of three
          tabs needs: the thing being captured. -->
+    <!-- He has a name. "AI Assistant" was a category, not a character, and the same face
+         appears in the lobby, in the editor's top bar and here. -->
+    <string name="assistant_title" translatable="false">Joybot</string>
     <string name="capture_mode_camera">Camera</string>
     <string name="capture_mode_screen">Screen</string>
     <string name="capture_mode_mic">Mic</string>

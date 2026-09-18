@@ -64,7 +64,7 @@ import okhttp3.Response;
  *
  * <p>This is the entry point for the "AI as editor assistant" vision:
  * the chat can answer questions about the app, suggest edits, and (later)
- * emit EditScripts that FadCam validates and applies.</p>
+ * emit EditScripts that Joy Creator validates and applies.</p>
  */
 public class ChatAssistantActivity extends AppCompatActivity {
 
@@ -777,7 +777,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
             systemMsg.put("role", "system");
 
             StringBuilder sb = new StringBuilder();
-            sb.append("You are FadCam AI, an assistant for the FadCam video editor app. ");
+            // The SYSTEM PROMPT, which is the deepest place the old name could hide: it is
+            // not a label on a screen, it is what the model believes it is. Told it was
+            // FadCam AI, it introduced itself as FadCam in answers nobody had reviewed —
+            // a brand leak that regenerates itself on every reply.
+            sb.append("You are Joybot, the assistant inside Joy Creator, ");
+            sb.append("a video editing and animation studio for Android. ");
             sb.append("You help users with video editing tasks. ");
             sb.append("You can suggest edits, explain features, and guide users. ");
             sb.append("Be concise and practical.\n\n");
@@ -918,12 +923,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void showWelcome() {
         if (apiKey == null || apiKey.isEmpty()) {
-            addBotMessage("Hi! I'm your FadCam assistant. "
+            addBotMessage("Hi, I'm Joybot. "
                     + "I can help you discover features, answer questions, and suggest edits.\n\n"
                     + "To unlock full AI power, add an API key in Settings (top-right icon). "
                     + "Until then, I can still help with quick answers about the app!");
         } else {
-            addBotMessage("Hi! I'm your FadCam assistant, connected to " + model + ". "
+            addBotMessage("Hi, I'm Joybot, connected to " + model + ". "
                     + "Ask me anything about your project, or tell me what you want to do!");
         }
     }
@@ -950,7 +955,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         if (lower.contains("transcript") || lower.contains("subtitle")) {
             response = "Transcripts: Tap the Transcript tool to transcribe your video. "
-                    + "FadCam supports Vosk (fast) and Whisper (accurate) offline. "
+                    + "Joy Creator supports Vosk (fast) and Whisper (accurate) offline. "
                     + "Word-level timing is saved so you can edit by tapping words to cut.";
         } else if (lower.contains("silence") || lower.contains("dead air")) {
             response = "Silence detection: Tap the Silence tool to find quiet spots. "

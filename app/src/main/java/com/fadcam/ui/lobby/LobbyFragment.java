@@ -290,7 +290,17 @@ public class LobbyFragment extends BaseFragment {
         // smile is the acknowledgement that the tap landed.
         joybot = v.findViewById(R.id.lobby_bot);
         joybot.setOrb(0xFFCC27FF, 0xFF5C43FD);
-        joybot.setOnClickListener(b -> { joybot.react(); routeTab(TAB_STUDIO); });
+        // Joybot opens the ASSISTANT. He used to open the Studio's project list, which is
+        // arbitrary: he is the AI everywhere else in the app — the button in the editor's
+        // top bar and the face at the top of the chat are both him — and an avatar that
+        // means "assistant" in two places and "project list" in a third teaches nobody
+        // anything. Driving the lobby is what surfaced it.
+        //
+        // He carries the most recent project with him so the assistant opens knowing what
+        // you were last working on, which is the whole premise of this screen. With no
+        // projects he opens with no context, which the chat already handles — every use of
+        // the project id in there is null-guarded.
+        joybot.setOnClickListener(b -> { joybot.react(); openAssistant(); });
 
         View libraryDoor = v.findViewById(R.id.lobby_library_door);
         libraryDoor.setOnClickListener(b -> routeTab(TAB_LIBRARY));
@@ -979,6 +989,17 @@ public class LobbyFragment extends BaseFragment {
         // Viz Lab has no room yet, and neither bench has anywhere to live without a project.
         // Sending someone to the Studio is the honest fallback: it is where they will make one.
         routeTab(TAB_STUDIO);
+    }
+
+    /** Joybot's destination: the chat, with whatever you last touched for context. */
+    private void openAssistant() {
+        Intent i = new Intent(requireContext(),
+                com.fadcam.ui.faditor.ai.ChatAssistantActivity.class);
+        if (!projects.isEmpty()) {
+            i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID,
+                    projects.get(0).id);
+        }
+        startActivity(i);
     }
 
     private void routeTab(int position) {

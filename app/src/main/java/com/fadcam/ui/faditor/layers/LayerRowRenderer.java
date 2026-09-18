@@ -128,7 +128,7 @@ public final class LayerRowRenderer {
      * costs one fewer fill on a surface that redraws while you scrub. JoyRaptor, 2026-09-17:
      * "alternating pure black to very dark gray". Lane A is now literally the ground.
      */
-    private static final int COLOR_ROW_BODY_BG    = 0x00000000;
+    private static final int COLOR_ROW_BODY_BG    = Studio.LANE_A;
     // SPEC_N §6 — ALTERNATING LANE BANDING (JoyRaptor 2026-09-08, "yes, but keep it subtle").
     // A second, marginally lighter pair of backgrounds applied to every ODD row. The delta is
     // deliberately ~3% of final lightness once the alpha is composited over the timeline's
@@ -143,7 +143,7 @@ public final class LayerRowRenderer {
     // (0.60) => ~2.8%. Both stay inside SPEC_N §6's 3-5% target; only the blue channel moved.
     /**
      * ODD lanes. Re-based 2026-09-17 when the timeline ground went to true black: the old
-     * 0x662C2C35 was tuned against a #16161B backing and composites to #1F1F26 there, but to
+     * Studio.alpha(Studio.LINE, 0x66) was tuned against a #16161B backing and composites to #1F1F26 there, but to
      * #0D0D10 over black — a 7.2% delta, above SPEC_N §6's 3–5% window. 0x661F1F26 composites
      * to #0D0D10 over black: a 4.3% delta, inside the window, with the faint blue cast that
      * matches the zinc ramp the rest of the studio uses.
@@ -173,10 +173,10 @@ public final class LayerRowRenderer {
     private static final int COLOR_ICON_OFF       = 0x66FFFFFF;
     /** Muted lane: dimmed but still clearly PRESENT — it is a state, not a disabled control.
      *  (Nothing draws a disabled mute any more; a lane with no audio has no icon at all.) */
-    private static final int COLOR_ICON_MUTED     = 0xB3FF4438;
+    private static final int COLOR_ICON_MUTED     = Studio.alpha(Studio.DANGER, 0xB3);
     // Per-item hues moved to ObjectPalette (F-COLOR) — one table for the whole editor.
-    private static final int COLOR_ITEM_HIDDEN    = 0x552C2C35;   // dimmed/ghosted
-    private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
+    private static final int COLOR_ITEM_HIDDEN    = Studio.alpha(Studio.LINE, 0x55);   // dimmed/ghosted
+    private static final int COLOR_STRIP          = Studio.alpha(Studio.ROOM_AVATAR, 0x99);   // collapsed summary strip
     /** Selection stroke width, item-hit-test PLAN §6: "accent-colored stroke... per the item's color family." */
     /**
      * The selection ring, per the Studio spec: <i>"Selected clip — 1.5dp cyan + 3dp cyan at
@@ -752,7 +752,7 @@ public final class LayerRowRenderer {
         fadeDurationPaint.setTypeface(Typeface.DEFAULT_BOLD);
         fadeDurationPaint.setColor(Studio.INK);
         fadeDurationPaint.setTextAlign(Paint.Align.CENTER);
-        fadeDurationPaint.setShadowLayer(3f * density, 0f, 1f * density, 0xCC000000);
+        fadeDurationPaint.setShadowLayer(3f * density, 0f, 1f * density, Studio.alpha(Studio.GROUND, 0xCC));
     }
 
     /** True when there is nothing to draw (plain single-track project — PLAN scope item 6). */
@@ -1174,7 +1174,7 @@ public final class LayerRowRenderer {
         android.graphics.PathEffect prevEffect = itemSelectionPaint.getPathEffect();
         itemSelectionPaint.setStyle(Paint.Style.STROKE);
         itemSelectionPaint.setStrokeWidth(1f); // single-pixel per spec
-        itemSelectionPaint.setColor(0x9AC4C4CE);
+        itemSelectionPaint.setColor(Studio.alpha(Studio.LABEL, 0x9A));
         itemSelectionPaint.setPathEffect(new android.graphics.DashPathEffect(
                 new float[]{2f * density, 2.5f * density}, 0f));
         canvas.drawLine(x0, top, x0, bottom, itemSelectionPaint);
@@ -1390,7 +1390,7 @@ public final class LayerRowRenderer {
             int prevColor = barPaint.getColor();
             Paint.Style prevStyle = barPaint.getStyle();
             barPaint.setStyle(Paint.Style.FILL);
-            barPaint.setColor(0x1F8C3DFA); // ~12% purple wash over the target row
+            barPaint.setColor(Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x1F)); // ~12% purple wash over the target row
             canvas.drawRoundRect(row.bodyRect, 3f * density, 3f * density, barPaint);
             barPaint.setColor(COLOR_DROP_TARGET_RING); // solid accent bar at the left edge
             canvas.drawRect(row.bodyRect.left, row.bodyRect.top,
@@ -1556,11 +1556,11 @@ public final class LayerRowRenderer {
         // whispers. Armed (home snap) = the ghost warms slightly + stroke solidifies —
         // still gray family, never brighter than the live item.
         itemSelectionPaint.setStyle(Paint.Style.FILL);
-        itemSelectionPaint.setColor(homeGhostArmed ? 0x4AC4C4CE : 0x2A8A8A94);
+        itemSelectionPaint.setColor(homeGhostArmed ? Studio.alpha(Studio.LABEL, 0x4A) : Studio.alpha(Studio.INK_FAINT, 0x2A));
         canvas.drawRoundRect(gx0, top, gx1, bottom, 3f * density, 3f * density, itemSelectionPaint);
         itemSelectionPaint.setStyle(Paint.Style.STROKE);
         itemSelectionPaint.setStrokeWidth(1.5f * density);
-        itemSelectionPaint.setColor(homeGhostArmed ? 0xC8C4C4CE : 0x6E8A8A94);
+        itemSelectionPaint.setColor(homeGhostArmed ? Studio.alpha(Studio.LABEL, 0xC8) : Studio.alpha(Studio.INK_FAINT, 0x6E));
         if (!homeGhostArmed) {
             itemSelectionPaint.setPathEffect(new android.graphics.DashPathEffect(
                     new float[]{4f * density, 3f * density}, 0f));
@@ -1938,7 +1938,7 @@ public final class LayerRowRenderer {
             // brightened, slightly inflated body so it visibly rises off the row
             // (PLAN TARGET CONTRACT: "haptic + a visible lift"). Drawn before the
             // body so the shadow sits under it.
-            itemPaint.setColor(0x66000000);
+            itemPaint.setColor(Studio.alpha(Studio.GROUND, 0x66));
             float sh = 2f * density;
             canvas.drawRoundRect(x0 + sh, top + sh, x1 + sh, bottom + sh,
                     3f * density, 3f * density, itemPaint);
@@ -2071,7 +2071,7 @@ public final class LayerRowRenderer {
                     float sx1 = timeToX.map(segRightMs);
                     if (sx1 > sx0) {
                         int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId).activeColor;
-                        itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
+                        itemPaint.setColor(Studio.alpha(Studio.GROUND, 0xDD) | (c & 0x00FFFFFF));
                         canvas.drawRect(sx0, top, sx1, bottom, itemPaint);
                     }
                     segLeftMs = segRightMs;
@@ -2080,14 +2080,14 @@ public final class LayerRowRenderer {
                 if (segLeftMs < endMs) {
                     float sx0 = timeToX.map(segLeftMs);
                     int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(styleId).activeColor;
-                    itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
+                    itemPaint.setColor(Studio.alpha(Studio.GROUND, 0xDD) | (c & 0x00FFFFFF));
                     canvas.drawRect(sx0, top, x1, bottom, itemPaint);
                 }
                 canvas.restore();
             } else {
                 // UNKEYFRAMED or non-first binding: solid colour from the binding's style.
                 int c = com.fadcam.ui.faditor.transcript.CaptionStyle.byId(bindingStyleId).activeColor;
-                itemPaint.setColor(0xDD000000 | (c & 0x00FFFFFF));
+                itemPaint.setColor(Studio.alpha(Studio.GROUND, 0xDD) | (c & 0x00FFFFFF));
                 canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             }
         }
@@ -2133,7 +2133,7 @@ public final class LayerRowRenderer {
             float r = 3.2f * density;
             float cy = top + 5.5f * density;
             float cx = x1 - 9f * density;
-            linkBadgePaint.setColor(ghosted ? 0x668C3DFA : Studio.ROOM_AVATAR_DEEP);
+            linkBadgePaint.setColor(ghosted ? Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x66) : Studio.ROOM_AVATAR_DEEP);
             canvas.drawCircle(cx - r * 0.7f, cy, r, linkBadgePaint);
             canvas.drawCircle(cx + r * 0.7f, cy, r, linkBadgePaint);
         }
@@ -2551,7 +2551,7 @@ public final class LayerRowRenderer {
             float dx = timeToX.map(keyTimeToTimelineMs(item, b.timeMs));
             if (dx < x0 + 3f || dx > x1 - 3f) continue;
             if (b.presetOwned && !ghosted) kfDiamondPaint.setColor(Studio.CAREFUL);
-            else kfDiamondPaint.setColor(ghosted ? 0x6635F6BF : 0xE635F6BF);
+            else kfDiamondPaint.setColor(ghosted ? Studio.alpha(Studio.GO, 0x66) : Studio.alpha(Studio.GO, 0xE6));
             spriteDiamondPath.rewind();
             KeyframeGlyph.silhouetteFor(b.easing, dx, cy, r, spriteDiamondPath);
             // §4 white 1px stroke behind fill — independent of fill colour so amber on amber and green on green both read
@@ -2812,7 +2812,7 @@ public final class LayerRowRenderer {
             float lo = Math.max(ax, x0 + 1f), hi = Math.min(bx, x1 - 1f);
             if (hi - lo < 1f) continue;
             float cap = Math.min(half, (hi - lo) / 2f);
-            puppetPaint.setColor(ghosted ? 0x44A78BFA : 0x8CA78BFA);
+            puppetPaint.setColor(ghosted ? Studio.alpha(Studio.GUIDE, 0x44) : Studio.alpha(Studio.GUIDE, 0x8C));
             puppetBarPath.rewind();
             puppetBarPath.moveTo(lo, cy);
             puppetBarPath.lineTo(lo + cap, cy - half);
@@ -2831,7 +2831,7 @@ public final class LayerRowRenderer {
             // The survivors inside, at half strength: present and reachable, not shouting.
             long[] inside = com.fadcam.ui.faditor.puppet.PuppetTapeMarks.insideOf(times, m);
             if (inside.length == 0 || inside.length > 400) continue;
-            puppetPaint.setColor(ghosted ? 0x33FFFFFF : (violet & 0x00FFFFFF) | 0x80000000);
+            puppetPaint.setColor(ghosted ? 0x33FFFFFF : (violet & 0x00FFFFFF) | Studio.alpha(Studio.GROUND, 0x80));
             for (long t : inside) {
                 float dx = timeToX.map(keyTimeToTimelineMs(item, t));
                 if (dx < lo + 2f || dx > hi - 2f) continue;
@@ -2877,7 +2877,7 @@ public final class LayerRowRenderer {
         float h = bottom - top;
         canvas.save();
         canvas.clipRect(x0, top, x1, bottom);
-        kfScrimPaint.setColor(0x59000000);
+        kfScrimPaint.setColor(Studio.alpha(Studio.GROUND, 0x59));
         canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, kfScrimPaint);
         List<Keyframe> ks = op.keyframes;
         float prevX = 0f, prevY = 0f;
@@ -3302,7 +3302,7 @@ public final class LayerRowRenderer {
         if (w <= 0) return;
         float centerY = (top + bottom) / 2f;
         float halfH = Math.max(1f, (bottom - top) / 2f - 2f * density);
-        barPaint.setColor(ghosted ? 0x4035F6BF : 0xCC35F6BF);
+        barPaint.setColor(ghosted ? Studio.alpha(Studio.GO, 0x40) : Studio.alpha(Studio.GO, 0xCC));
         canvas.getClipBounds(hdClipBounds);
         float vx0 = Math.max(x0, hdClipBounds.left);
         float vx1 = Math.min(x1, hdClipBounds.right);
@@ -3347,7 +3347,7 @@ public final class LayerRowRenderer {
         } catch (Exception e) {
             styleColor = Studio.CAREFUL;
         }
-        itemPaint.setColor(0xCC000000 | (styleColor & 0x00FFFFFF));
+        itemPaint.setColor(Studio.alpha(Studio.GROUND, 0xCC) | (styleColor & 0x00FFFFFF));
         canvas.drawRoundRect(x0 + 2f * density, ribbonTop, x1 - 2f * density, bottom - 2f * density,
                 2f * density, 2f * density, itemPaint);
         canvas.save();
@@ -3365,7 +3365,7 @@ public final class LayerRowRenderer {
         float centerY = (top + bottom) / 2f;
         float halfH = Math.max(1f, (bottom - top) / 2f - 2f * density);
         // Mute baseColor to a dim alpha for the bars
-        int barColor = ghosted ? 0x4035F6BF : (0xCC35F6BF);
+        int barColor = ghosted ? Studio.alpha(Studio.GO, 0x40) : (Studio.alpha(Studio.GO, 0xCC));
         barPaint.setColor(barColor);
         float barW = Math.max(1f, 2f * density);
         float step = w / waveform.length;
@@ -3617,7 +3617,7 @@ public final class LayerRowRenderer {
             float pad = 3f*density;
             Paint bg = itemSelectionPaint;
             int pbc = bg.getColor(); Paint.Style pbs = bg.getStyle();
-            bg.setColor(0xCC000000); bg.setStyle(Paint.Style.FILL);
+            bg.setColor(Studio.alpha(Studio.GROUND, 0xCC)); bg.setStyle(Paint.Style.FILL);
             canvas.drawRoundRect(lx - tw/2f - pad, ly - 9f*density, lx + tw/2f + pad, ly + 4f*density, 3f*density, 3f*density, bg);
             bg.setColor(pbc); bg.setStyle(pbs);
             canvas.drawText(label, lx, ly, fadeDurationPaint);
@@ -3763,7 +3763,7 @@ public final class LayerRowRenderer {
         long clipStart = item.getTimelineStartMs();
         long inPoint = ac.getInPointMs();
         Paint dark = new Paint(Paint.ANTI_ALIAS_FLAG);
-        dark.setColor(0xAA000000);
+        dark.setColor(Studio.alpha(Studio.GROUND, 0xAA));
         dark.setStyle(Paint.Style.FILL);
         for (long[] span : ac.getRemovedSpans()) {
             long s = span[0], e = span[1];
@@ -3779,7 +3779,7 @@ public final class LayerRowRenderer {
             for (float hx = sx; hx < ex; hx += 6f * density) {
                 canvas.drawLine(hx, top, hx + 4f * density, bottom, dark);
             }
-            dark.setColor(0xAA000000);
+            dark.setColor(Studio.alpha(Studio.GROUND, 0xAA));
         }
     }
 
@@ -4800,7 +4800,7 @@ public final class LayerRowRenderer {
      */
     public static final class MasterMeterView extends android.view.View {
 
-        private static final int TRACK_COLOR = 0x33000000;
+        private static final int TRACK_COLOR = Studio.alpha(Studio.GROUND, 0x33);
         private static final int FILL_COLOR = Studio.GO;
         private static final int CLIP_COLOR = Studio.DANGER;
         private static final float FULL_SCALE = 1.0f;

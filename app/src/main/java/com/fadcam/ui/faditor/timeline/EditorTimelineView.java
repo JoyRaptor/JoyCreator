@@ -205,12 +205,12 @@ public class EditorTimelineView extends View {
     // the shape is carried by the hairline and by the RHYTHM of the perforations, not by
     // making the film lighter until the numbers look respectable. A grey filmstrip would
     // pass a contrast check and look nothing like film.
-    private static final int COLOR_FILM_RAIL      = Studio.RAISED;
-    private static final int COLOR_FILM_EDGE      = Studio.OFF;
+    private static final int COLOR_FILM_RAIL      = Studio.FILM_RAIL;
+    private static final int COLOR_FILM_EDGE      = Studio.FILM_EDGE;
     /** Highlight on a perforation's lower lip -- the film's thickness catching light. */
     private static final int COLOR_FILM_HOLE_LIP  = 0x3DFFFFFF;
     /** Sprocket perforations punched along the film rails. */
-    private static final int COLOR_FILM_SPROCKET  = Studio.GROUND;
+    private static final int COLOR_FILM_SPROCKET  = Studio.FILM_HOLE;
     private static final int COLOR_SEGMENT        = Studio.LINE;
     private static final int COLOR_SEGMENT_SEL    = Studio.LINE; // SELECTED fill — cyan family (was green Studio.OFF)
     /** SELECTED = cyan, everywhere in the app. A state is a RING; an object colour is a FILL. */
@@ -219,7 +219,7 @@ public class EditorTimelineView extends View {
      *  selected CLIP now that clip selection is cyan. Revisit if the two ever read alike. */
     private static final int COLOR_TRANSITION_SEL = Studio.VIDEO;
     private static final int COLOR_HANDLE         = Studio.ARMED; // trim handles follow the selection colour
-    private static final int COLOR_HANDLE_NOTCH   = 0xBB33333C;
+    private static final int COLOR_HANDLE_NOTCH   = Studio.alpha(Studio.OFF, 0xBB);
     /**
      * NEUTRAL playhead = LIVE pink, matching Sprite Lab's "this is what is showing now".
      * This is only the fallback: {@link #resolvePlayheadContextColor()} still tints the head
@@ -241,7 +241,7 @@ public class EditorTimelineView extends View {
      */
     private static final int COLOR_PLAYHEAD       = Studio.LIVE;
     private static final int COLOR_LABEL          = 0xBBFFFFFF;
-    private static final int COLOR_DRAG_GHOST     = 0x6622D3EE;
+    private static final int COLOR_DRAG_GHOST     = Studio.alpha(Studio.ARMED, 0x66);
     private static final int COLOR_AUDIO_BG       = Studio.LINE;
     private static final int COLOR_AUDIO_BG_SEL   = Studio.LINE; // selected audio fill — cyan family
     private static final int COLOR_AUDIO_WAVE     = Studio.AUDIO;
@@ -2022,11 +2022,11 @@ public class EditorTimelineView extends View {
         bookmarkPaint.setStyle(Paint.Style.FILL);
         dragGhostPaint.setColor(COLOR_DRAG_GHOST);
         dragGhostPaint.setStyle(Paint.Style.FILL);
-        trimOverlayPaint.setColor(0x80000000);
+        trimOverlayPaint.setColor(Studio.alpha(Studio.GROUND, 0x80));
         freezeMarkerPaint.setColor(Studio.INK);
-        freezeZonePaint.setColor(0x3322D3EE);
+        freezeZonePaint.setColor(Studio.alpha(Studio.ARMED, 0x33));
         textAnimMarkerPaint.setColor(Studio.CAREFUL);
-        textAnimZonePaint.setColor(0x40FBBF24);
+        textAnimZonePaint.setColor(Studio.alpha(Studio.CAREFUL, 0x40));
         motionRangeMarkerPaint.setColor(Studio.GUIDE);
         // Rounded corners via a CornerPathEffect rather than by hand-building arcs: the markers
         // are built as 3-point Paths in two places, and an effect on the paint rounds both
@@ -2044,11 +2044,11 @@ public class EditorTimelineView extends View {
         // The SAME effect instance as the fills: a stroke rounded differently from the shape it
         // outlines shows as a halo that misses the corners.
         animMarkerOutlinePaint.setPathEffect(markerCorners);
-        motionRangeZonePaint.setColor(0x33A78BFA);
+        motionRangeZonePaint.setColor(Studio.alpha(Studio.GUIDE, 0x33));
         trimOverlayPaint.setStyle(Paint.Style.FILL);
-        trimRecoverPaint.setColor(0x4035F6BF);
+        trimRecoverPaint.setColor(Studio.alpha(Studio.GO, 0x40));
         trimRecoverPaint.setStyle(Paint.Style.FILL);
-        transitionHelperPaint.setColor(0xCC35F6BF);
+        transitionHelperPaint.setColor(Studio.alpha(Studio.GO, 0xCC));
         transitionHelperPaint.setStyle(Paint.Style.STROKE);
         transitionHelperPaint.setStrokeWidth(1.5f * density);
         transitionHelperPaint.setPathEffect(new android.graphics.DashPathEffect(
@@ -2064,13 +2064,13 @@ public class EditorTimelineView extends View {
         reorderBtnPaddingPx = REORDER_BTN_PADDING_DP * density;
         reorderBlockCornerPx = REORDER_BLOCK_CORNER_DP * density;
 
-        missingBgPaint.setColor(0xCCFF4438);
+        missingBgPaint.setColor(Studio.alpha(Studio.DANGER, 0xCC));
         missingBgPaint.setStyle(Paint.Style.FILL);
         missingTextPaint.setColor(Studio.INK);
         missingTextPaint.setTextSize(11f * density);
         missingTextPaint.setTextAlign(Paint.Align.CENTER);
         missingTextPaint.setTypeface(Typeface.DEFAULT_BOLD);
-        reorderBgPaint2.setColor(0xE00D0D10);
+        reorderBgPaint2.setColor(Studio.alpha(Studio.SURFACE, 0xE0));
         reorderBgPaint2.setStyle(Paint.Style.FILL);
         reorderBarPaint.setColor(Studio.PANEL);
         reorderBarPaint.setStyle(Paint.Style.FILL);
@@ -2089,11 +2089,11 @@ public class EditorTimelineView extends View {
         reorderBtnTextPaint.setTextSize(14f * density);
         reorderBtnTextPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         carryCardPaint.setColor(Studio.RAISED);
-        carryCardPaint.setShadowLayer(8f * density, 0f, 4f * density, 0xAA000000);
+        carryCardPaint.setShadowLayer(8f * density, 0f, 4f * density, Studio.alpha(Studio.GROUND, 0xAA));
         // The ghost is a WASH over the clip's own pixels rather than a hole: the user must still
         // recognise WHICH clip left, and an empty slot looks like the clip was deleted.
-        carryGhostPaint.setColor(0xB00D0D10);
-        carryLayerBandPaint.setColor(0x338C3DFA);
+        carryGhostPaint.setColor(Studio.alpha(Studio.SURFACE, 0xB0));
+        carryLayerBandPaint.setColor(Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x33));
         // RED = the only destructive state in the drag language (§3A.4). Trimming to fit loses
         // content, which is the same promise as the cut, so it reuses the same colour rather than
         // teaching a second warning vocabulary. The scissors glyph is REQUIRED, not decoration:
@@ -2116,7 +2116,7 @@ public class EditorTimelineView extends View {
         spineDropPaint.setStrokeWidth(3.5f * density);
         spineDropPaint.setStrokeCap(Paint.Cap.ROUND);
         spineDropPaint.setStyle(Paint.Style.FILL);
-        spineDropGlowPaint.setColor(0x338C3DFA);
+        spineDropGlowPaint.setColor(Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x33));
         spineDropGlowPaint.setStyle(Paint.Style.FILL);
 
         reorderDropIndicatorPaint.setColor(COLOR_HANDLE);
@@ -3335,7 +3335,7 @@ public class EditorTimelineView extends View {
         seqReadoutTextPaint.setColor(Studio.INK);
         seqReadoutTextPaint.setTextSize(13f * density);
         seqReadoutTextPaint.setTypeface(Typeface.MONOSPACE);
-        seqReadoutBgPaint.setColor(0xF017171C);
+        seqReadoutBgPaint.setColor(Studio.alpha(Studio.LANE_B, 0xF0));
         float padX = 10f * density, padY = 6f * density;
         float tw = seqReadoutTextPaint.measureText(text);
         float bw = tw + padX * 2, bh = 15f * density + padY * 2;
@@ -3382,7 +3382,7 @@ public class EditorTimelineView extends View {
         if (below) top = trackBot + 8f * density;
         RectF box = new RectF(left, top, left + boxW, top + boxH);
 
-        trimPreviewBgPaint.setColor(0xF0000000);
+        trimPreviewBgPaint.setColor(Studio.alpha(Studio.GROUND, 0xF0));
         trimPreviewBorderPaint.setStyle(Paint.Style.STROKE);
         trimPreviewBorderPaint.setStrokeWidth(1.5f * density);
         trimPreviewBorderPaint.setColor(Studio.GO);
@@ -3447,7 +3447,7 @@ public class EditorTimelineView extends View {
         if (below) top = trackBot + 8f * density;
         RectF box = new RectF(left, top, left + boxW, top + boxH);
 
-        trimPreviewBgPaint.setColor(0xF0000000);
+        trimPreviewBgPaint.setColor(Studio.alpha(Studio.GROUND, 0xF0));
         trimPreviewBorderPaint.setStyle(Paint.Style.STROKE);
         trimPreviewBorderPaint.setStrokeWidth(1.5f * density);
         trimPreviewBorderPaint.setColor(Studio.GO);
@@ -3522,19 +3522,19 @@ public class EditorTimelineView extends View {
             int color;
             String label;
             if (t.isFade()) {
-                color = 0x9922D3EE;
+                color = Studio.alpha(Studio.ARMED, 0x99);
                 label = t.type.name().contains("BLACK") ? "fade⬛" : "fade⬜";
             } else if (t.isWipe()) {
-                color = 0x99FBBF24;
+                color = Studio.alpha(Studio.CAREFUL, 0x99);
                 label = "wipe" + t.getDirection().charAt(0);
             } else if (t.isPush()) {
-                color = 0x99CC27FF;
+                color = Studio.alpha(Studio.ROOM_AVATAR, 0x99);
                 label = "push" + t.getDirection().charAt(0);
             } else if (t.isGlShader()) {
-                color = 0x9922D3EE;
+                color = Studio.alpha(Studio.ARMED, 0x99);
                 label = "gl";
             } else {
-                color = 0x9935F6BF;
+                color = Studio.alpha(Studio.GO, 0x99);
                 label = "dissolve";
             }
             // Chip-label honesty: the chip's drawable width is capped to the neighbor-clip seam
@@ -4324,7 +4324,7 @@ public class EditorTimelineView extends View {
                         long relEnd = (cand[1] - sd.inPointMs);
                         float cx0 = x0 + Math.max(0, relStart / (float) sd.effectiveMs) * segW;
                         float cx1 = x0 + Math.min(1, relEnd / (float) sd.effectiveMs) * segW;
-                        minimapBlockPaint.setColor(0xCCFBBF24);
+                        minimapBlockPaint.setColor(Studio.alpha(Studio.CAREFUL, 0xCC));
                         canvas.drawRect(cx0, top + 2f * density,
                                 Math.max(cx0 + 1, cx1), bot - 2f * density, minimapBlockPaint);
                     }
@@ -4412,7 +4412,7 @@ public class EditorTimelineView extends View {
         RectF halo = new RectF(r.left - 6f * d, r.top - 6f * d, r.right + 6f * d, r.bottom + 6f * d);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         p.setStyle(Paint.Style.FILL);
-        p.setColor(0x558C3DFA);
+        p.setColor(Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x55));
         canvas.drawRoundRect(halo, 6f * d, 6f * d, p);
         p.setStyle(Paint.Style.STROKE);
         p.setStrokeWidth(2f * d);
@@ -4728,7 +4728,7 @@ public class EditorTimelineView extends View {
                     float x1 = r.left + loopBefore * pxPerVisMs;
                     canvas.save();
                     canvas.clipRect(x0, r.top, x1, r.bottom);
-                    canvas.drawColor(0x88000000);
+                    canvas.drawColor(Studio.alpha(Studio.GROUND, 0x88));
                     if (!isStill) {
                         // Repeating loop arrows
                         loopPaint.setAlpha(220);
@@ -4745,7 +4745,7 @@ public class EditorTimelineView extends View {
                     float x1 = r.right;
                     canvas.save();
                     canvas.clipRect(x0, r.top, x1, r.bottom);
-                    canvas.drawColor(0x88000000);
+                    canvas.drawColor(Studio.alpha(Studio.GROUND, 0x88));
                     if (!isStill) {
                         loopPaint.setAlpha(220);
                         float arrowSize = Math.min(20 * density, (x1 - x0) * 0.3f);
@@ -5145,7 +5145,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         clipPath.addRoundRect(rect, segmentCornerPx, segmentCornerPx, Path.Direction.CW);
         canvas.clipPath(clipPath);
         float pxPerMs = rect.width() / (float) sd.trimmedMs;
-        segmentPaint.setColor(0xCC0D0D10); // near-opaque dark
+        segmentPaint.setColor(Studio.alpha(Studio.SURFACE, 0xCC)); // near-opaque dark
         for (long[] span : sd.removedSpans) {
             float x0 = rect.left + (Math.max(sd.inPointMs, span[0]) - sd.inPointMs) * pxPerMs;
             float x1 = rect.left + (Math.min(sd.outPointMs, span[1]) - sd.inPointMs) * pxPerMs;
@@ -5165,7 +5165,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         clipPath.addRoundRect(rect, segmentCornerPx, segmentCornerPx, Path.Direction.CW);
         canvas.clipPath(clipPath);
         float pxPerMs = rect.width() / (float) sd.trimmedMs;
-        segmentPaint.setColor(0x66FBBF24); // translucent yellow
+        segmentPaint.setColor(Studio.alpha(Studio.CAREFUL, 0x66)); // translucent yellow
         for (long[] span : sd.silenceCandidates) {
             float x0 = rect.left + (Math.max(sd.inPointMs, span[0]) - sd.inPointMs) * pxPerMs;
             float x1 = rect.left + (Math.min(sd.outPointMs, span[1]) - sd.inPointMs) * pxPerMs;
@@ -5226,7 +5226,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         int jStart = Math.max(0, (int) ((wVisL - rect.left) / step) - 1);
         int jEnd = Math.min(barCount, (int) ((wVisR - rect.left) / step) + 2);
 
-        segmentWavePaint.setColor(0xB322D3EE); // soft cyan, distinct from green accents
+        segmentWavePaint.setColor(Studio.alpha(Studio.ARMED, 0xB3)); // soft cyan, distinct from green accents
         for (int j = jStart; j < jEnd; j++) {
             float fracInTrim = j / (float) barCount;
             long sourceMs = sd.inPointMs + (long) (fracInTrim * sd.trimmedMs);
@@ -5329,7 +5329,7 @@ if (sd.clip.hasVolumeKeyframes()) {
             canvas.drawRect(rect, segmentPaint);
         } else {
             // Slight darken for unselected to make labels readable
-            segmentPaint.setColor(0x30000000);
+            segmentPaint.setColor(Studio.alpha(Studio.GROUND, 0x30));
             canvas.drawRect(rect, segmentPaint);
         }
 
@@ -6250,7 +6250,7 @@ if (sd.clip.hasVolumeKeyframes()) {
      */
     private void drawContextGuides(@NonNull Canvas canvas, float lineTop, float lineBot) {
         int w = getWidth();
-        int guideColor = (playheadColorCurrent & 0x00FFFFFF) | 0x55000000; // low-alpha context tint
+        int guideColor = (playheadColorCurrent & 0x00FFFFFF) | Studio.alpha(Studio.GROUND, 0x55); // low-alpha context tint
         guidePaint.setColor(guideColor);
 
         // Horizontal row-band guides (segRects .top/.bottom are absolute
@@ -6596,7 +6596,7 @@ if (sd.clip.hasVolumeKeyframes()) {
      */
     private void drawBeatMarkers(@NonNull Canvas canvas, long visStartMs, long visEndMs) {
         if (beatsMs.length == 0) return;
-        beatPaint.setColor(0x99FBBF24);
+        beatPaint.setColor(Studio.alpha(Studio.CAREFUL, 0x99));
         beatPaint.setStrokeWidth(Math.max(1f, 1.2f * density));
         float top = minimapHeightPx;
         float bottom = top + bookmarkSizePx * 1.6f;
@@ -6888,7 +6888,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         // the gutter's neutral grey (COLOR_RULER_BG) at 80% rather than the master track's
         // slightly blue film-black — the caret sits in the same left gutter as every lane
         // caret, and those now read pure neutral too.
-        segmentPaint.setColor(0xCC000000 | (COLOR_RULER_BG & 0x00FFFFFF));
+        segmentPaint.setColor(Studio.alpha(Studio.GROUND, 0xCC) | (COLOR_RULER_BG & 0x00FFFFFF));
         canvas.drawCircle(cx, cy, size * 0.85f, segmentPaint);
         layerRowRenderer.drawCollapseCaret(canvas, spineCaretRect, isSpineCollapsed());
     }
@@ -7023,20 +7023,20 @@ if (sd.clip.hasVolumeKeyframes()) {
             float cx = rect.centerX();
             float cy = rect.centerY();
             float len = Math.max(rect.width(), rect.height()) * 0.42f;
-            transitionHelperPaint.setColor(0xCC35F6BF);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.GO, 0xCC));
             canvas.drawLine(cx - len, cy, cx + len, cy, transitionHelperPaint);
-            transitionHelperPaint.setColor(0xAA22D3EE);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.ARMED, 0xAA));
             canvas.drawLine(cx, cy - len, cx, cy + len, transitionHelperPaint);
         } else if (t.type == Transition.Type.RADIAL) {
             float cx = rect.centerX();
             float cy = rect.centerY();
             float r = Math.min(rect.width(), rect.height()) * 0.34f;
-            transitionHelperPaint.setColor(0xCC35F6BF);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.GO, 0xCC));
             canvas.drawCircle(cx, cy, r, transitionHelperPaint);
-            transitionHelperPaint.setColor(0xAA22D3EE);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.ARMED, 0xAA));
             canvas.drawCircle(cx, cy, r * 0.68f, transitionHelperPaint);
         } else if (t.isPush()) {
-            transitionHelperPaint.setColor(0x668A8A94);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.INK_FAINT, 0x66));
             float cx = rect.centerX();
             float cy = rect.centerY();
             float s = Math.min(rect.width(), rect.height()) * 0.22f;
@@ -7061,23 +7061,23 @@ if (sd.clip.hasVolumeKeyframes()) {
             tri.lineTo(cx, cy);
             tri.close();
             canvas.drawPath(tri, transitionHelperPaint);
-            transitionHelperPaint.setColor(0xCC35F6BF);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.GO, 0xCC));
             canvas.drawPath(tri, transitionHelperPaint);
         } else if (t.isGlitch()) {
-            transitionHelperPaint.setColor(0xCC22D3EE);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.ARMED, 0xCC));
             canvas.drawLine(rect.left + 4f * density, rect.top + 8f * density,
                     rect.right - 4f * density, rect.top + 8f * density, transitionHelperPaint);
-            transitionHelperPaint.setColor(0xCCFF008C);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.LIVE, 0xCC));
             canvas.drawLine(rect.left + 10f * density, rect.centerY(),
                     rect.right - 10f * density, rect.centerY(), transitionHelperPaint);
-            transitionHelperPaint.setColor(0xCC22D3EE);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.ARMED, 0xCC));
             canvas.drawLine(rect.left + 4f * density, rect.bottom - 8f * density,
                     rect.right - 4f * density, rect.bottom - 8f * density, transitionHelperPaint);
         } else if (t.isTvChannel()) {
             transitionHelperPaint.setColor(0xCCFFFFFF);
             canvas.drawLine(rect.left + 4f * density, rect.top + 8f * density,
                     rect.right - 4f * density, rect.top + 8f * density, transitionHelperPaint);
-            transitionHelperPaint.setColor(0x66000000);
+            transitionHelperPaint.setColor(Studio.alpha(Studio.GROUND, 0x66));
             canvas.drawLine(rect.left + 4f * density, rect.centerY(),
                     rect.right - 4f * density, rect.centerY(), transitionHelperPaint);
             transitionHelperPaint.setColor(0xCCFFFFFF);
@@ -7330,7 +7330,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         canvas.drawBitmap(thumb, null, dest, null);
 
         // Darken for number readability
-        segmentPaint.setColor(0x55000000);
+        segmentPaint.setColor(Studio.alpha(Studio.GROUND, 0x55));
         canvas.drawRect(rect, segmentPaint);
         canvas.restore();
     }
@@ -8035,7 +8035,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         if (marqueeFillPaint == null) {
             marqueeFillPaint = new Paint();
             marqueeFillPaint.setStyle(Paint.Style.FILL);
-            marqueeFillPaint.setColor(0x268C3DFA);
+            marqueeFillPaint.setColor(Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x26));
             marqueeStrokePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             marqueeStrokePaint.setStyle(Paint.Style.STROKE);
             marqueeStrokePaint.setStrokeWidth(1.5f * density);
@@ -10819,7 +10819,7 @@ if (sd.clip.hasVolumeKeyframes()) {
         int prevColor = dragGhostPaint.getColor();
         Paint.Style prevStyle = dragGhostPaint.getStyle();
         // Buttress highlight: outline the two clips the transition will join.
-        dragGhostPaint.setColor(0x5535F6BF);
+        dragGhostPaint.setColor(Studio.alpha(Studio.GO, 0x55));
         dragGhostPaint.setStyle(Paint.Style.FILL);
         canvas.drawRect(Math.max(0, segRects.get(transitionDragSeam).left - scrollOffsetPx), tTop,
                 sx, tBot, dragGhostPaint);

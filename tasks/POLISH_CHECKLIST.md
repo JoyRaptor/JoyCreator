@@ -165,6 +165,45 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### The seven repos, read and applied — 2026-09-18 05:4x
+
+Not summarised from memory this time; fetched and tested against.
+
+| repo | what it changed here |
+|---|---|
+| **jakubkrehel/skills · better-colors** | *"Use a token only in its role. Never borrow a token because its value is right today."* Four tokens rendered NOWHERE while the code that should have used them borrowed lookalikes. Fixed — see below. *"Treat hues within 15° as the same color"* caught `ROOM_LIBRARY` sitting **1.2° from `ARMED`**; it is `ARMED_LIGHT` now, a ramp step, which is what its own javadoc already admitted it was. |
+| **jakubkrehel · better-ui/surfaces** | Concentric radius `outer = inner + padding`, image rings as a 1px white outline at ~10% with `outline-offset:-1px`, shadows over borders except for dividers — already how the recents cards and panels are built. |
+| **emilkowalski · review-animations/STANDARDS** | Durations, the four curves, never `ease-in`, never `scale(0)`, 0ms on hundred-times-a-day actions, reduced motion keeps opacity and drops travel. All verified present. |
+| **codeswithroh/tastemaker** | Interface-quality rules gave the accessibility sweep (0 of 28 unlabelled on the lobby, 0 of 11 on slide 3). The anti-slop gates flag pure-grey neutrals — ours are tinted blue, passes — and "button text matching button fill", which the luminance-derived transport ink now makes impossible. |
+| **MengTo/Skills · audit-ai-design-slop** | Categories rather than a checklist: decorative stacking, component repetition, motion theatre, fake proof. The design record's own §05 already ran this sweep. |
+| ConardLi/garden-skills, elayadesign, Owl-Listener | Landing-page conversion structure. Deliberately not imported — the drawing's own §05 says why: *"a rule is only as good as the situation it was written for. The motion numbers travel. The conversion structure doesn't."* |
+
+**Four tokens rendered nowhere**, and each was being impersonated:
+
+| token | who was borrowed instead |
+|---|---|
+| `FILM_RAIL` | `EditorTimelineView` used `Studio.RAISED` — a *control surface* standing in for film |
+| `FILM_EDGE` | used `Studio.OFF` — an *unavailable-state* colour standing in for a cut edge |
+| `FILM_HOLE` | used `Studio.GROUND` |
+| `LANE_A` | `LayerRowRenderer` painted `0x00000000` directly |
+
+Fixed so that **no pixel moves**: the film tokens were corrected to the values that actually
+ship and that JoyRaptor approved, rather than repainting an approved surface to match
+constants nobody had looked at. `LANE_A` is transparent now, because that is what lane A
+is — the ground showing through. Every one of the 46 tokens renders somewhere.
+
+**Alpha-over-token literals.** 77 values like `0xCC35F6BF` (GO at 80%) and `0xAA22D3EE`
+(ARMED at 67%) were primitives smuggled past the token layer. Rewritten to
+`Studio.alpha(TOKEN, 0xAA)`. Across the eight files behind the three screens: distinct
+literal values **94 → 44**, occurrences **165 → 88**. Verified as a visual no-op by pixel
+diff — **0 pixels differ** across the 600×1150 timeline band, max channel delta 0.
+
+**One finding I did not act on.** The room wheel collides with the status ramp: `ROOM_CAPTURE`
+is 13.8° from `DANGER`, `ROOM_VIZ` is 11.8° from `CAREFUL`, and three violets sit within 10°
+of each other. Under the 15° rule those read as the same colour, so a Capture accent and an
+error are not reliably distinguishable. That is JoyRaptor's Swatch Room wheel against the
+system's status colours, and repainting his rooms is his call, not mine.
+
 ### Conformance to *The Marquee* (design record 04), measured on device
 
 The HTML records are recoverable — they are published artifacts, not lost to

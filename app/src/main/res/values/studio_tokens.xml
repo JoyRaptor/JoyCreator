@@ -85,9 +85,9 @@
     <!-- ── FILM ───────────────────────────────────────────────────────────────
          The master spine reads as a strip of film. See drawMasterFilmstrip for why
          the hole must be darker than the rail and why the cut edge exists. -->
-    <color name="s_film_rail">#FF202027</color>
-    <color name="s_film_edge">#FF44444F</color>
-    <color name="s_film_hole">#FF050508</color>
+    <color name="s_film_rail">#FF1C1C22</color>
+    <color name="s_film_edge">#FF33333C</color>
+    <color name="s_film_hole">#FF000000</color>
 
     <!-- ── LANES ──────────────────────────────────────────────────────────────
          JoyRaptor: "currently the alternating lanes are a little too dark, one set
@@ -98,7 +98,7 @@
          survives a phone at low brightness. The old alt was #0B0B0D over black —
          a 4.3% lift, which is below the threshold most panels can resolve at
          30% backlight. This is roughly three times that. -->
-    <color name="s_lane_a">#FF000000</color>
+    <color name="s_lane_a">#00000000</color>
     <color name="s_lane_b">#FF17171C</color>
 
 
@@ -131,6 +131,6 @@
     <color name="s_video">#FF4397FD</color>
     <color name="s_room_avatar_deep">#FF8C3DFA</color>
     <color name="s_room_viz_deep">#FFFC6818</color>
-    <color name="s_room_library">#FF55E0F9</color>
+    <color name="s_armed_light">#FF55E0F9</color>
     <color name="s_orb_deep">#FF5C43FD</color>
 </resources>

@@ -111,13 +111,19 @@ public final class Studio {
     /** Viz Lab's deeper stop. The lobby draws the pair; this is the far end. */
     public static final int ROOM_VIZ_DEEP = 0xFFFC6818;
     /**
-     * The Library's own stop — a lighter {@link #ARMED}.
+     * The light end of the armed ramp.
      *
-     * <p>The library is not a room you make things in, so it does not get a hue of its own;
-     * it borrows the cyan that means "this one" everywhere else, one step brighter so the
-     * chip reads against a panel.
+     * <p>Named ROOM_LIBRARY at first, which was wrong twice over. Measured, it is 1.2° from
+     * {@link #ARMED} — and jakubkrehel's better-colors is blunt about that: <i>"treat hues
+     * within 15° as the same color"</i>, and <i>"one color carries one meaning across the
+     * interface."</i> A second name for the same cyan is a second place for it to drift.
+     *
+     * <p>It is also not a room. The library is not somewhere you make things, which is why it
+     * has no hue of its own; it carries the cyan that means "this one" everywhere else, one
+     * step brighter so a chip reads against a panel. That is a RAMP STEP, and it is named as
+     * one now.
      */
-    public static final int ROOM_LIBRARY = 0xFF55E0F9;
+    public static final int ARMED_LIGHT = 0xFF55E0F9;
     /**
      * The indigo Joybot's disc falls to.
      *
@@ -132,9 +138,19 @@ public final class Studio {
     // The master spine. The hole is DARKER than the rail because a hole shows the dark
     // behind it; the cut edge is the only line bright enough to draw the strip's shape
     // against a near-black ground.
-    public static final int FILM_RAIL = 0xFF202027;
-    public static final int FILM_EDGE = 0xFF44444F;
-    public static final int FILM_HOLE = 0xFF050508;
+    // These three were declared here and used NOWHERE: EditorTimelineView had its own
+    // aliases pointing at RAISED, OFF and GROUND instead. So the spine shipped in one set of
+    // colours while the tokens named after it held another, and nobody could have found that
+    // by reading either file alone.
+    //
+    // Corrected to the values that actually ship and that JoyRaptor approved — "film spine
+    // reads as film on near-black" — rather than repainting an approved surface to match
+    // constants no one had looked at. FILM_RAIL now equals RAISED and FILM_EDGE equals OFF by
+    // VALUE, which is fine and is the point: they are different ROLES, so a later change to
+    // what a raised control looks like will not silently restyle the film.
+    public static final int FILM_RAIL = 0xFF1C1C22;
+    public static final int FILM_EDGE = 0xFF33333C;
+    public static final int FILM_HOLE = 0xFF000000;
 
     // ── LANES ───────────────────────────────────────────────────────────────
     // "one set can be fully black but the other should be a little brighter as it reads
@@ -142,7 +158,15 @@ public final class Studio {
     //
     // The old alternate was #0B0B0D over black — a 4.3% lift, below what most panels
     // resolve at 30% backlight. LANE_B is roughly three times that.
-    public static final int LANE_A = 0xFF000000;
+    /**
+     * Lane A is the GROUND SHOWING THROUGH, so it is transparent, not black.
+     *
+     * <p>It was declared opaque and used nowhere — LayerRowRenderer painted 0x00000000
+     * directly instead, which is the right thing and for the right reason: a lane drawn
+     * opaque would cover whatever has already been composited beneath it. The token was
+     * simply wrong about what lane A is.
+     */
+    public static final int LANE_A = 0x00000000;
     public static final int LANE_B = 0xFF17171C;
 
     /** Apply an alpha to a token without re-typing the hex. */

@@ -412,7 +412,7 @@ public class LobbyFragment extends BaseFragment {
     private void buildRooms() {
         rooms.clear();
         rooms.add(new Room(getString(R.string.lobby_room_studio),
-                Studio.GO, Studio.GO_END, ON_LIGHT, "LAST PROJECT",
+                Studio.ROOM_STUDIO, Studio.GO_END, ON_LIGHT, "LAST PROJECT",
                 getString(R.string.lobby_act_carry_on),
                 getString(R.string.lobby_empty_studio), TAB_STUDIO, "movie_edit"));
 
@@ -1236,9 +1236,13 @@ public class LobbyFragment extends BaseFragment {
     private List<Recent> recents = new ArrayList<>();
 
     /** Room gradients, reused so a card's corner matches the room that made it. */
-    private static final int G_STUDIO_A  = Studio.GO,           G_STUDIO_B  = Studio.GO_END;
+    // ROOM_STUDIO, not GO. They hold the same value and always will — the Studio room's
+    // identity IS the go colour, which is the joke — but they are different ROLES, and
+    // naming the room by the action token is how a room quietly repaints itself the next
+    // time the primary action changes.
+    private static final int G_STUDIO_A  = Studio.ROOM_STUDIO,  G_STUDIO_B  = Studio.GO_END;
     private static final int G_CAPTURE_A = Studio.ROOM_CAPTURE, G_CAPTURE_B = Studio.ROOM_SPRITE;
-    private static final int G_LIBRARY_A = Studio.VIDEO,        G_LIBRARY_B = Studio.ROOM_LIBRARY;
+    private static final int G_LIBRARY_A = Studio.VIDEO,        G_LIBRARY_B = Studio.ARMED_LIGHT;
     private static final int G_SOUND_A   = Studio.ROOM_VIZ,     G_SOUND_B   = Studio.ROOM_VIZ_DEEP;
 
     /**
@@ -1333,7 +1337,7 @@ public class LobbyFragment extends BaseFragment {
         // door.
         addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character), R.string.lobby_a11y_new_character,
                 false, () -> { active = 2; paintMarquee(); paintHero(); enterRoom(); });
-        addNewChip("folder",         Studio.ROOM_LIBRARY, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
+        addNewChip("folder",         Studio.ARMED_LIGHT, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
                 false, () -> routeTab(TAB_LIBRARY));
     }
 

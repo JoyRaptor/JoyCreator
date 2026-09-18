@@ -110,6 +110,14 @@
     <color name="studio_line">#FF2C2C35</color>
 
     <color name="faditor_drawer_scrim">#A3000000</color>
+    <!-- Controls INSIDE a drop-down drawer. JoyRaptor, 2026-09-17: "things that are going
+         in the drop-down drawer shouldn't be fully solid but transparent, even the colored
+         things, because you have to still be able to see the content."
+         White 10% over the 64% scrim reads as raised without becoming a second opaque
+         layer; the ring at 12% gives it an edge on a busy frame. -->
+    <color name="faditor_drawer_control">#1AFFFFFF</color>
+    <color name="faditor_drawer_control_hi">#2EFFFFFF</color>
+    <color name="faditor_drawer_ring">#1FFFFFFF</color>
     <!-- Ink measured against the scrim above. Do not darken these without re-measuring. -->
     <color name="faditor_drawer_ink">#F2F2F5</color>
     <color name="faditor_drawer_dim">#C9C9D3</color>

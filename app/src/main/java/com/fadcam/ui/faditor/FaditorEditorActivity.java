@@ -7005,8 +7005,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (clip == null) return;
         int mode = clip.getLoopMode();
         // Update mode chip highlights
-        int normalBg = 0xFF333333;
-        int activeBg = 0xFF4CAF50;
+        // Set from Java, so it overrode the layout's translucent fill. A drawer chip is
+        // never opaque: white 10% over the scrim reads as raised without adding a second
+        // solid layer between the user and their own frame.
+        int normalBg = 0x1AFFFFFF;
+        // ARMED inside a drawer: cyan (the state colour), and TRANSLUCENT so the frame is
+        // still visible through the selected chip. JoyRaptor, 2026-09-17: "even the colored
+        // things", because the whole point of a drop-down drawer is that you can still see
+        // what you are editing underneath it. 0xB3 keeps the hue unmistakable while letting
+        // roughly a third of the picture through.
+        int activeBg = 0xB322D3EE;
         loopModeOff.setBackgroundColor(mode == Clip.LOOP_MODE_OFF ? activeBg : normalBg);
         loopModeNormal.setBackgroundColor(mode == Clip.LOOP_MODE_NORMAL ? activeBg : normalBg);
         loopModeStill.setBackgroundColor(mode == Clip.LOOP_MODE_STILL ? activeBg : normalBg);
@@ -28344,6 +28352,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         },
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER);
                 }));
+        // The drawer wears the OBJECT's colour, so its own controls say what you
+        // are editing without a row spent announcing it.
+        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.VIDEO);
         ensureObjectDrawer().show(tabs, new java.util.ArrayList<>(), true);
     }
 
@@ -28604,6 +28615,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
+        // The drawer wears the OBJECT's colour, so its own controls say what you
+        // are editing without a row spent announcing it.
+        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.ADJUSTMENT);
         ensureObjectDrawer().show(tabs, toggles, true);
     }
 
@@ -29391,6 +29405,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
 
+        // The drawer wears the OBJECT's colour, so its own controls say what you
+        // are editing without a row spent announcing it.
+        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.VIDEO);
         ensureObjectDrawer().show(tabs, toggles, true);
     }
 
@@ -29464,6 +29481,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // there is no picture being covered worth protecting.
         ensureObjectDrawer().setAudioOnly(isAudioOnlyProject());
         ensureObjectDrawer().setOnClose(null);
+        // The drawer wears the OBJECT's colour, so its own controls say what you
+        // are editing without a row spent announcing it.
+        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.AUDIO);
         ensureObjectDrawer().show(tabs, toggles, false);
     }
 
@@ -29630,6 +29650,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // B9: same audio-only drawer cap for the clip-audio shelf drawer.
         ensureObjectDrawer().setAudioOnly(isAudioOnlyProject());
         ensureObjectDrawer().setOnClose(null);
+        // The drawer wears the OBJECT's colour, so its own controls say what you
+        // are editing without a row spent announcing it.
+        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.AUDIO);
         ensureObjectDrawer().show(tabs, toggles, false);
     }
 
@@ -30841,6 +30864,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ctx, textFx, host,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
 
+        // The drawer wears the OBJECT's colour, so its own controls say what you
+        // are editing without a row spent announcing it.
+        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.TEXT);
         ensureObjectDrawer().show(tabs, new java.util.ArrayList<>(), true);
     }
 

@@ -2205,7 +2205,7 @@
                 android:textColor="#FFCCCCCC"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
 
             <TextView
@@ -2219,7 +2219,7 @@
                 android:textColor="#FFCCCCCC"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
 
             <TextView
@@ -2233,7 +2233,7 @@
                 android:textColor="#FFCCCCCC"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
 
             <TextView
@@ -2247,7 +2247,7 @@
                 android:textColor="#FFCCCCCC"
                 android:textSize="13sp"
                 android:textStyle="bold"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
         </LinearLayout>
 
@@ -2270,7 +2270,7 @@
                 android:text="@string/faditor_loop_extend_start"
                 android:textColor="#FFFFFFFF"
                 android:textSize="12sp"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
 
             <TextView
@@ -2283,7 +2283,7 @@
                 android:text="@string/faditor_loop_extend_end"
                 android:textColor="#FFFFFFFF"
                 android:textSize="12sp"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
         </LinearLayout>
 
@@ -2305,7 +2305,7 @@
                 android:text="@string/faditor_loop_extend_prev"
                 android:textColor="#FFFFFFFF"
                 android:textSize="12sp"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
 
             <TextView
@@ -2318,7 +2318,7 @@
                 android:text="@string/faditor_loop_extend_next"
                 android:textColor="#FFFFFFFF"
                 android:textSize="12sp"
-                android:background="#FF333333"
+                android:background="@color/faditor_drawer_control"
                 android:padding="6dp" />
         </LinearLayout>
 
@@ -2924,7 +2924,7 @@
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
-                    android:background="#FF333333"
+                    android:background="@color/faditor_drawer_control"
                     android:layout_marginEnd="6dp" />
 
                 <TextView
@@ -2937,7 +2937,7 @@
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
-                    android:background="#FF333333"
+                    android:background="@color/faditor_drawer_control"
                     android:layout_marginEnd="6dp" />
 
                 <TextView
@@ -2950,7 +2950,7 @@
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="6dp"
-                    android:background="#FF333333"
+                    android:background="@color/faditor_drawer_control"
                     android:layout_marginEnd="6dp" />
 
                 <TextView
@@ -3007,7 +3007,7 @@
                     android:textSize="16sp"
                     android:paddingHorizontal="8dp"
                     android:paddingVertical="5dp"
-                    android:background="#FF2A2A2A"
+                    android:background="@color/faditor_drawer_control"
                     android:contentDescription="Split into words" />
             </LinearLayout>
 
@@ -3046,7 +3046,7 @@
                 android:textStyle="bold"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="6dp"
-                android:background="#FF2A2A2A" />
+                android:background="@color/faditor_drawer_control" />
 
             <TextView
                 android:id="@+id/word_sync_snap"
@@ -3057,7 +3057,7 @@
                 android:textSize="11sp"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="6dp"
-                android:background="#FF2A2A2A"
+                android:background="@color/faditor_drawer_control"
                 android:layout_marginStart="8dp" />
         </LinearLayout>
     </LinearLayout>

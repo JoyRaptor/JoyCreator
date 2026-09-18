@@ -818,7 +818,9 @@ public class FaditorToolsAdapter {
         // fixed cell width. "transitions"/"transcript" previously wrapped.
         label.setMaxLines(1);
         label.setSingleLine(true);
-        label.setEllipsize(null);
+        // Degrade gracefully: if a label still cannot fit at the 7sp floor, lose the END of
+        // it rather than centre-cropping, which throws away the first letters too.
+        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
         TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
                 label, 7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
         cell.addView(label);

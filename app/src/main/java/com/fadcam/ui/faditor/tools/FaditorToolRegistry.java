@@ -134,7 +134,11 @@ public final class FaditorToolRegistry {
         // "Consolidate layers" over "Compact": longer, but it names the OBJECT it acts on.
         // "Compact" alone could mean compact the timeline, the view, the file, or the UI.
         add(t, "compact", R.id.tool_compact, R.id.tool_compact_icon, R.id.tool_compact_label,
-                "Consolidate layers", "compress",
+                // The ROW label, not the feature's name. "Consolidate layers" is 18 characters and
+                // clipped to "onsolidate la" in a 68dp cell even at the 7sp autosize floor -
+                // and a centre-clipped label loses BOTH ends, which is worse than a short one.
+                // The full name survives everywhere it has room.
+                "Consolidate", "compress",
                 FaditorTool.BindMode.CLICK, false);
         // G8: marquee multi-select mode toggle (off / inclusive-crossing / exclusive-window).
         add(t, "select", R.id.tool_select, R.id.tool_select_icon, R.id.tool_select_label,

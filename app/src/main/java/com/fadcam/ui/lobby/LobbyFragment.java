@@ -421,6 +421,15 @@ public class LobbyFragment extends BaseFragment {
     /** Where a marquee word actually takes you. */
     private void enterRoom() {
         Room r = room();
+
+        // "Carry on" names a PROJECT, so it must open that project. Routing to the project
+        // LIST would be a button that lies: it says the name of the thing and then hands you
+        // a list containing it. Caught by driving the screen rather than by reading it.
+        if (rooms.indexOf(r) == 0 && !projects.isEmpty()) {
+            openProject(projects.get(0).id);
+            return;
+        }
+
         if (r.tab >= 0) { routeTab(r.tab); return; }
 
         String projectId = projects.isEmpty() ? null : projects.get(0).id;

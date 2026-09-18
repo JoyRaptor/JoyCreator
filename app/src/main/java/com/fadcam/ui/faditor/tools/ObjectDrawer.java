@@ -50,11 +50,37 @@ import java.util.List;
  */
 public final class ObjectDrawer extends LinearLayout {
 
-    /** Black at 40% — see-through enough to watch the PiP behind it. */
-    private static final int SCRIM = 0x66000000;
-    private static final int TXT = 0xFFEEEEEE;
-    private static final int TXT_DIM = 0xFF9A9A9A;
-    private static final int ACCENT = 0xFF4CAF50;      // active tab / engaged toggle
+    /**
+     * THE SCRIM, AND WHY IT GOT DARKER RATHER THAN LIGHTER.
+     *
+     * <p>This was black at 40%, chosen so the PiP stayed watchable behind it. Measured to
+     * WCAG 2.1 against a blown-out frame (#FFD07A — sunlit skin, a white slide, a bright
+     * sky), that came out at:</p>
+     *
+     * <pre>
+     *   black 40%   body #EEEEEE 3.36:1   secondary #9A9A9A 1.39:1
+     *   black 64%   body #EEEEEE 7.25:1   secondary #C4C4CE 4.86:1
+     * </pre>
+     *
+     * <p>1.39:1 is not dim text, it is invisible text — and only outdoors, which is why it
+     * survived so long indoors. The floor for body copy is 4.5:1, so the scrim goes to 64%
+     * and the secondary ink comes UP to meet it. Blur cannot rescue this either: RenderEffect
+     * is API 31+, minSdk here is 24, and the test phone is API 29, so tint is the only lever
+     * and it has to do all the work.</p>
+     *
+     * <p>You can still watch the video through it. You can now also read the labels.</p>
+     */
+    private static final int SCRIM = 0xA3000000;
+    private static final int TXT = 0xFFF2F2F5;
+    private static final int TXT_DIM = 0xFFC4C4CE;
+    /**
+     * Active tab / engaged toggle. Defaults to the SELECTED state colour rather than green,
+     * because green now means Studio. {@link #setAccent(int)} lets the host hand the drawer
+     * the colour of the OBJECT being edited, so a sprite's drawer is amber and a text
+     * drawer is purple — which is what tells you what you are editing without spending a
+     * row on a label saying so.
+     */
+    private int accent = 0xFF22D3EE;
     private static final int DANGER = 0xFFE57373;
     private static final int SLIDE_MS = 240;
     /** Cap so the drawer can never swallow the preview; content scrolls inside. */
@@ -127,6 +153,19 @@ public final class ObjectDrawer extends LinearLayout {
      * because it is rigged.
      */
     public void openOnTab(int index) { openOnTab = Math.max(0, index); }
+
+    /**
+     * Tint this drawer to the object it is editing.
+     *
+     * <p>Object colour is a FILL; a STATE colour is a ring. That split is what keeps
+     * sprite-amber and careful-amber from ever being confused, and it means the drawer's
+     * own controls can say what you are editing without a dedicated row announcing it.</p>
+     */
+    public void setAccent(int colour) {
+        this.accent = colour;
+        refreshIcons();
+    }
+
     private boolean animating;
     @Nullable private Runnable onClose;
 
@@ -534,13 +573,13 @@ public final class ObjectDrawer extends LinearLayout {
             ImageView iv = toggleIcons.get(i);
             iv.setImageResource(on ? t.iconOn : t.iconOff);
             // G9: ensure visible tint even over dark scrim — use solid colours with shadow
-            iv.setColorFilter(on ? (t.dangerWhenOn ? DANGER : ACCENT) : TXT_DIM);
+            iv.setColorFilter(on ? (t.dangerWhenOn ? DANGER : accent) : TXT_DIM);
             iv.setAlpha(1f);
             iv.setElevation(6f * density);
             iv.invalidate();
         }
         for (int i = 0; i < tabIcons.size(); i++) {
-            tabIcons.get(i).setColorFilter(activeTab == i + 1 ? ACCENT : TXT_DIM);
+            tabIcons.get(i).setColorFilter(activeTab == i + 1 ? accent : TXT_DIM);
             tabIcons.get(i).setAlpha(1f);
             tabIcons.get(i).setElevation(6f * density);
         }

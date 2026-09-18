@@ -2296,10 +2296,25 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="new_project">New Project</string>
     <string name="delete">Delete</string>
 
-    <!-- Joy Creator Pro Strings -->
-    <string name="fadcam_pro_title">Joy Creator Pro</string>
+    <!-- ══ FADCAM PRO — SOMEBODY ELSE'S PAID PRODUCT ═══════════════════════════════════
+         An app-wide rename swept "FadCam" to "Joy Creator" through this block, and the
+         result was a page offering "Joy Creator Pro" for $15 with a button that opens
+         patreon.com/cw/Fadedx/shop — the shop of the developer of FadCam, the app this one
+         was forked from. Presented as this product's own paid tier, in a product whose
+         first screen promises "No ads. No subscription. No export paywall. Ever."
+
+         The names are restored to FadCam Pro, which is what it is. The feature is NOT
+         removed — whether Joy Creator carries an upstream upsell at all is JoyRaptor's
+         call, not a design decision, and deleting a revenue path is not mine to make.
+         What could not stand was the page claiming to be this product.
+
+         Also note the offer has expired: it says free until 23 Dec 2025, so it currently
+         tells people the free period is over and it costs $15.
+         ═══════════════════════════════════════════════════════════════════════════════ -->
+    <!-- FadCam Pro Strings -->
+    <string name="fadcam_pro_title">FadCam Pro</string>
     <string name="fadcam_pro_subtitle">Premium features for complete discretion</string>
-    <string name="fadcam_pro_get_button">Get Joy Creator Pro</string>
+    <string name="fadcam_pro_get_button">Get FadCam Pro</string>
     <string name="fadcam_pro_free">Free</string>
     <string name="fadcam_pro_column_label">Pro</string>
     <string name="fadcam_pro_proplus_label">Pro+</string>
@@ -2311,8 +2326,8 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="fadcam_pro_benefit_lifetime_updates">Lifetime updates: Always receive new features, improvements, and bug fixes</string>
     <string name="fadcam_pro_benefit_support">Instant support: Direct help through tickets via Discord</string>
     <string name="fadcam_pro_coming_soon">Pro+ and Lab features coming soon with custom icon uploads, custom app names, and FadDrive cloud sync.</string>
-    <string name="fadcam_pro_support_message">Joy Creator will always remain free, with no ads and no tracking. I handle the entire project on my own, and it takes ongoing time and work. Upgrading to Pro (currently free) helps support development, and in return I’m able to offer additional value through the Pro features on top of the full free version. Thank you for supporting the project :)</string>
-    <string name="fadcam_pro_separate_apk">Standalone app • Works alongside Joy Creator</string>
+    <string name="fadcam_pro_support_message">FadCam Pro is a separate app by the developer of FadCam, the project Joy Creator was forked from. Joy Creator itself stays free, with no ads and no tracking.</string>
+    <string name="fadcam_pro_separate_apk">Standalone app • A separate app, by the developer of FadCam</string>
     <string name="fadcam_pro_feature_everything_icon">Everything</string>
     <string name="fadcam_pro_feature_everything">Everything</string>
     <string name="fadcam_pro_feature_custom_icon">Custom App Icon</string>
@@ -2425,7 +2440,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="stream_notes_wifi">• Clients must be on the same WiFi network to access the stream</string>
     <string name="stream_notes_quality">• Stream quality (LOW/MEDIUM/HIGH/ULTRA) controls FPS cap and bitrate to prevent network issues</string>
     <string name="stream_notes_resolution">• Stream orientation and resolution are taken from your normal recording settings (Video Settings → Resolution &amp; Orientation). Adjust those if you want to change stream dimensions</string>
-    <string name="stream_notes_cellular">⚠ï¸ WiFi-only limitation: Cellular networks block incoming connections. For seamless streaming from any network (WiFi, LTE, anywhere), upgrade to Joy Creator Pro+. Stream from anywhere globally with a private generated link—no port forwarding, no router changes, no network restrictions</string>
+    <string name="stream_notes_cellular">⚠ï¸ WiFi-only limitation: Cellular networks block incoming connections. For seamless streaming from any network (WiFi, LTE, anywhere), upgrade to FadCam Pro+. Stream from anywhere globally with a private generated link—no port forwarding, no router changes, no network restrictions</string>
     <string name="stream_notes_android14_screen">⚠ï¸ Android 14+: System restriction prevents recording when screen is off. Workarounds: (1) Enable "Black Screen Mode" in Settings → Security, or (2) Disable screen lock (no PIN/password/fingerprint). Both allow seamless remote recording</string>
     
     <!-- Joy Creator Cloud / Remote Streaming -->
@@ -2919,13 +2934,13 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="sidebar_update_available">Update Available</string>
     <string name="sidebar_stable_release">Stable Release</string>
     <string name="sidebar_beta_release">Beta Release</string>
-    <string name="sidebar_fadcam_pro">Joy Creator Pro</string>
+    <string name="sidebar_fadcam_pro">FadCam Pro</string>
     <string name="badge_new">NEW</string>
 
     <!-- Update Bottom Sheets -->
-    <string name="update_pro_title">Joy Creator Pro Update</string>
-    <string name="update_pro_desc">A new version of Joy Creator Pro is available.\n\nFor free users, the stable release will arrive after approximately 60 days. Pro users receive updates immediately.</string>
-    <string name="update_get_pro">Get Joy Creator Pro</string>
+    <string name="update_pro_title">FadCam Pro Update</string>
+    <string name="update_pro_desc">A new version of FadCam Pro is available.\n\nFor free users, the stable release will arrive after approximately 60 days. Pro users receive updates immediately.</string>
+    <string name="update_get_pro">Get FadCam Pro</string>
     <string name="update_maybe_later">Maybe Later</string>
     <string name="update_beta_title">Beta Update Available</string>
     <string name="update_beta_desc">The Joy Creator beta is a standalone app that can be installed alongside the stable version. It will not interfere with your stable app or its data.\n\nInstall the beta to test new features before they reach the stable release.</string>

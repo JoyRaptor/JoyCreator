@@ -178,7 +178,13 @@ public final class LayerRowRenderer {
     private static final int COLOR_ITEM_HIDDEN    = 0x552C2C35;   // dimmed/ghosted
     private static final int COLOR_STRIP          = 0x99CC27FF;   // collapsed summary strip
     /** Selection stroke width, item-hit-test PLAN §6: "accent-colored stroke... per the item's color family." */
-    private static final float SELECTION_STROKE_DP = 2f;
+    /**
+     * The selection ring, per the Studio spec: <i>"Selected clip — 1.5dp cyan + 3dp cyan at
+     * 28%. A ring and a halo, so it reads on any clip colour."</i>
+     */
+    private static final float SELECTION_STROKE_DP = 1.5f;
+    /** The halo outside the ring. Wider and faint, so the ring has something to sit on. */
+    private static final float SELECTION_HALO_DP = 3f;
 
     /** Reusable path for sprite frame-swap diamonds. */
     private final Path spriteDiamondPath = new Path();
@@ -3383,7 +3389,29 @@ public final class LayerRowRenderer {
      */
     private void drawItemSelection(@NonNull Canvas canvas, float x0, float top, float x1, float bottom,
                                      int baseColor, boolean deletable) {
-        itemSelectionPaint.setColor(brighten(baseColor));
+        // ── A RING AND A HALO, IN CYAN ──────────────────────────────────────
+        // The spec states the rule this was breaking: "Object colour always a FILL. State
+        // colour always a RING." Selection is a STATE, so it takes the state colour.
+        //
+        // This used to ring the object in brighten(baseColor) — its OWN colour, lightened.
+        // That is ambiguous at the best of times (is this thing selected, or just a paler
+        // shade of the same kind?) and it got worse when the tapes became gradients, because
+        // a brightened single colour no longer matches either end of the tape it surrounds.
+        //
+        // The halo is what makes one cyan work on every clip colour. A 1.5dp line alone
+        // disappears against the blue-to-cyan image tape and shouts against the amber sprite;
+        // 3dp of the same cyan at 28% underneath gives the ring a consistent ground, so it
+        // reads the same on both. Drawn FIRST and wider, so the crisp ring sits on top of it.
+        float haloIns = (SELECTION_STROKE_DP * density) / 2f;
+        int prevSelColor = itemSelectionPaint.getColor();
+        float prevSelStroke = itemSelectionPaint.getStrokeWidth();
+        itemSelectionPaint.setStrokeWidth(SELECTION_HALO_DP * density);
+        itemSelectionPaint.setColor(Studio.alpha(Studio.ARMED, 0x47));   // 28%
+        canvas.drawRoundRect(x0 + haloIns, top + haloIns, x1 - haloIns, bottom - haloIns,
+                3f * density, 3f * density, itemSelectionPaint);
+        itemSelectionPaint.setStrokeWidth(prevSelStroke);
+
+        itemSelectionPaint.setColor(Studio.ARMED);
         float ins = (SELECTION_STROKE_DP * density) / 2f;
         canvas.drawRoundRect(x0 + ins, top + ins, x1 - ins, bottom - ins,
                 3f * density, 3f * density, itemSelectionPaint);
@@ -3399,6 +3427,7 @@ public final class LayerRowRenderer {
         canvas.drawRoundRect(x1 - handleHalf / 2f, capTop, x1 + handleHalf / 2f, capTop + handleH,
                 handleHalf / 2f, handleHalf / 2f, itemSelectionPaint);
         itemSelectionPaint.setStyle(prevStyle);
+        itemSelectionPaint.setColor(prevSelColor);
         // Delete badge (redesign): a small trash roundel at the selected item's right
         // end, just inside the right trim cap. Tapping it routes the SAME
         // Callback#onItemDeleteRequested → confirmation dialog the old long-press used

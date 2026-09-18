@@ -136,7 +136,14 @@ public final class Motion {
      * actually does.</p>
      */
     public static void swap(@NonNull View v, long durationMs, @NonNull Runnable applyNewContent) {
-        if (reduced(v.getContext())) { applyNewContent.run(); return; }
+        // No early-out for reduced motion. This animation is ALREADY nothing but opacity,
+        // and the spec is explicit: "Reduced motion — opacity and colour survive. Travel and
+        // scale are dropped. Fewer and gentler, not zero."
+        //
+        // Cutting it entirely was the wrong reading and the worse experience. Vestibular
+        // triggers are movement and scale; a cross-fade is what you REPLACE those with. A
+        // hard content swap with no fade is more jarring than the fade, not less, and it is
+        // the one thing a reduced-motion user cannot opt back into.
         v.animate().cancel();
         v.animate().alpha(0f).setDuration(durationMs / 2).setInterpolator(EASE_OUT)
                 .withEndAction(() -> {
@@ -173,11 +180,16 @@ public final class Motion {
      */
     public static void swapPicture(@NonNull View v, long durationMs,
                                    @NonNull Runnable applyNewContent) {
-        if (reduced(v.getContext())) { applyNewContent.run(); return; }
         v.animate().cancel();
         final long half = Math.max(1L, durationMs / 2);
+        // Reduced motion drops the SCALE and the blur and keeps the cross-fade, which is
+        // exactly the line the spec draws: travel and scale go, opacity and colour stay.
+        // The scale is the part that can trigger vestibular symptoms; the fade is the part
+        // that stops two photographs reading as one, and that job still needs doing.
+        final boolean gentle = reduced(v.getContext());
+        final float grow = gentle ? 1f : 1.03f;
 
-        if (android.os.Build.VERSION.SDK_INT >= 31) {
+        if (!gentle && android.os.Build.VERSION.SDK_INT >= 31) {
             blur(v, 2f * v.getResources().getDisplayMetrics().density);
         } else {
             v.setScaleX(1f);
@@ -185,7 +197,7 @@ public final class Motion {
         }
 
         v.animate().alpha(0f)
-                .scaleX(1.03f).scaleY(1.03f)
+                .scaleX(grow).scaleY(grow)
                 .setDuration(half).setInterpolator(EASE_IN_OUT)
                 .withEndAction(() -> {
                     applyNewContent.run();
@@ -221,8 +233,11 @@ public final class Motion {
      * itself, which is a thing to watch rather than a thing to use.</p>
      */
     public static void enter(@NonNull View v, int index) {
-        if (reduced(v.getContext())) { v.setAlpha(1f); v.setTranslationY(0f); return; }
-        float rise = 6f * v.getResources().getDisplayMetrics().density;
+        // Reduced motion drops the RISE and keeps the fade — travel goes, opacity stays.
+        // Snapping a list in at full opacity is a flash, and a flash is worse for the people
+        // this setting exists for than a 6dp movement they never asked to lose.
+        float rise = reduced(v.getContext())
+                ? 0f : 6f * v.getResources().getDisplayMetrics().density;
         v.setAlpha(0f);
         v.setTranslationY(rise);
         v.animate().alpha(1f).translationY(0f)

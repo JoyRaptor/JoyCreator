@@ -214,6 +214,39 @@ the New row is sheared gradient chips, not grey buttons with coloured glyphs —
 §05 of the drawing records that grey buttons were the anti-slop FIX for accent
 footprint, so this one is worth a second look if he wants it.
 
+### Conformance to *Studio Final* (design record 06), measured on device
+
+| § | spec | built | |
+|---|---|---|---|
+| 02 | clip selection 1.5dp cyan ring + 3dp halo at 28% | as drawn | ✅ |
+| 02 | playhead 1.5px | was 2dp — now 1.5 | ✅ fixed |
+| 01/05 | tool row: 26dp right-edge fade | was absent | ✅ fixed |
+| 01/05 | overflow button carries a live count | absent | ❌ |
+| 01/01 | drawer scrim dark `rgba(0,0,0,.64)` | as drawn | ✅ |
+| 01/04 | drawer section labels `#C4C4CE` | `s_label` | ✅ |
+| 02 | tool cell 56dp, label capped 52dp, ellipsis | as drawn | ✅ |
+| 02 | playhead colour `--live` | Capture gradient | ⚠️ his instruction |
+| 02 | minimap 15dp | 11dp | ⚠️ his ruling, in pixels |
+| **01/02** | **six transport targets at 44dp** | **eight, all 21.5dp** | ❌ **CRITICAL** |
+
+**The one that is still open, with the arithmetic.** Measured on device, every
+control in the transport row is **21.5 × 21.5dp**; the play button is 28.7. The
+minimum is 44. Studio Final rated this CRITICAL and did the sum: eight controls
+plus two time labels at 44dp needs 444dp and the row has 375, *"which is why a
+mis-tap on the play button once got logged as a critical playback regression."*
+
+A TouchDelegate cannot rescue it — the gaps between controls are 6dp, so growing
+each one only reaches ~27dp before neighbours collide. The drawing's fix is
+structural and is the only one that fits: **collapse Select and Ripple into one
+cycling mode button** (they were always exclusive) and **move Relink out of the
+row**, appearing instead as an amber ring on the broken clip. That leaves six
+targets plus two labels = 356dp, inside the 375 available.
+
+Not attempted here because it changes editor BEHAVIOUR — merging two mode
+controls and hiding a third — and doing that unverified at the end of a long
+session is how undo or play quietly stops working. It is the largest remaining
+gap against any of the three records.
+
 ### Measured state of the colour system, 2026-09-18 04:55
 
 Measured on the screens the goal names, not repo-wide:

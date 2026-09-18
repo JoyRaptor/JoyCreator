@@ -145,7 +145,15 @@ public class EditorTimelineView extends View {
      * and that layering is the whole point: the playhead wearing a warning, not a second
      * cursor drawn beside it.
      */
-    private static final float PLAYHEAD_WIDTH_DP = 2f;
+    /**
+     * Studio Final §02 draws {@code .ph} at 1.5px. This was 2.
+     *
+     * <p>It was left open in the checklist — "KineMaster's is thinner, open question whether
+     * to reduce" — and the drawing had already answered it. A playhead is a hairline that
+     * says exactly where you are; half a point of extra width is half a point of ambiguity
+     * about which frame it is over.
+     */
+    private static final float PLAYHEAD_WIDTH_DP = 1.5f;
     private static final float PLAYHEAD_CIRCLE_DP = 6f;
     private static final float BORDER_WIDTH_DP = 2f;
 

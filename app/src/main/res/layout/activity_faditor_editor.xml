@@ -1459,6 +1459,16 @@
                     android:clipToPadding="false"
                     android:paddingEnd="8dp" />
             </com.fadcam.ui.faditor.tools.SwipeUpHorizontalScrollView>
+
+            <!-- Studio Final 01/05, MAJOR: the row scrolls and gives no sign of it.
+                 Not clickable, so every tool underneath stays tappable. -->
+            <View
+                android:layout_width="26dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="end"
+                android:clickable="false"
+                android:focusable="false"
+                android:background="@drawable/faditor_tools_fade" />
         </FrameLayout>
     </LinearLayout>
 

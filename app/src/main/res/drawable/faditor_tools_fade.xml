@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The right edge of the tool row.
+
+    Studio Final, section 01, finding 05, rated MAJOR: "Thirty tools, seven visible, nothing
+    saying so. The row scrolls and gives no sign of it. A user who never swipes it believes
+    the editor has seven tools."
+
+    The drawing's fix is a 26dp gradient on the right edge. This is it. The end colour is
+    s_panel because that is what the tool row is painted on, so it moves when the token does.
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="180"
+        android:startColor="@android:color/transparent"
+        android:endColor="@color/s_panel"
+        android:type="linear" />
+</shape>

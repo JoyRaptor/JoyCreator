@@ -165,6 +165,50 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### Against *Studio Final* §04, the spec table — "no value on this page was chosen by eye"
+
+| spec | built | |
+|---|---|---|
+| ground / lane A `#000000`, "lane A draws nothing, the ground shows through" | `LANE_A` transparent | ✅ |
+| panel / control / pressed / line `#111114 · #1C1C22 · #26262E · #2C2C35` | exact | ✅ |
+| ink / dim / label `#F2F2F5 · #C9C9D3 · #C4C4CE` | exact | ✅ |
+| drawer scrim `rgba(0,0,0,.64)` + `blur(20px)` | as drawn | ✅ |
+| **transport 44dp, play 52dp, labels 46dp** | was play 40, labels 33 — now **51.8** and **46.2** | ✅ fixed |
+| tool cell 56×46dp, label capped 52dp | `dp(56)` | ✅ |
+| selected clip 1.5dp cyan + 3dp at 28% | as drawn | ✅ |
+| press 140ms `scale(.97)`, tool swap 170ms, drawer 320ms | as drawn | ✅ |
+| playhead / undo / split / keying — 0ms, either motion mode | as drawn | ✅ |
+| lane B `#0B0B0E` | `#17171C` | ⚠️ his later ruling — 4.3% "reads as fully black unless the phone is turned up very bright" |
+
+**§04 also answers the hue-collision question independently.** Its colour rules read:
+*"Object colour always a FILL · State colour always a RING — cyan selected, pink live, amber
+careful. **Settles the amber/sprite collision by form, not hue.**"* That is the same
+conclusion I reached by measuring, arrived at in the drawing first.
+
+**§05 asks for one thing I did not do, and the reason is in the code.** It says *"Select:
+transport row, cycling with Ripple. Moved. They were always exclusive."* In this build they
+are not: select cycles off / crossing / window and ripple cycles ripple / gap. Merging them
+deletes a combination the editor supports. Relink DID move out, as §05 asks.
+
+### The New row — his five numbered points, verbatim
+
+Not a departure I chose. His message:
+
+> The four buttons below recordings projects characters projects do this instead:
+> 1. Half the height
+> 2. Fill the chip with the gradient and have the icon be a punchout (pure black)
+> 3. Have the text be to the right of the icon instead of under
+> 4. Make the round over much less
+> 5. Make the first shape a tilted on the right side and then have the rest keep that same angle slant
+
+All five built: `CHIP_H = 34` ("half the old stacked cell"), `SlantDrawable(gradA, gradB)`
+with `ic.setTextColor(Studio.GROUND)` for the pure-black punchout, a HORIZONTAL cell so the
+text sits right of the glyph, `CornerPathEffect` for the reduced rounding, and the shear.
+
+The same message is where "make the word studio larger" comes from. The caps question is
+his too: *"i am wondering if it would look nicer all caps for that title row and the liberary
+title row."* Both were in the raw transcript; neither was mine to decide.
+
 ### Re-reading his ACTUAL messages, not my summary of them — and what it caught
 
 The goal says *"re go over my responses in this convorsation so you dont miss things because

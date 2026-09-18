@@ -428,7 +428,16 @@ public class OnboardingActivity extends AppIntro {
             // Apply locale change
             java.util.Locale locale = new java.util.Locale(languageCode);
             java.util.Locale.setDefault(locale);
-            android.content.res.Configuration config = new android.content.res.Configuration();
+            // Built FROM the configuration already in force, not from a blank one.
+            //
+            // `new Configuration()` is every field at its default, and fontScale's default
+            // is 1.0. Handing that to updateConfiguration does not just set the locale — it
+            // REPLACES the app's configuration wholesale, so someone who has enlarged their
+            // system text, or is in a particular ui mode or density, silently loses it the
+            // moment they pick a language. Their accessibility setting is not ours to spend
+            // on a translation.
+            android.content.res.Configuration config = new android.content.res.Configuration(
+                    getResources().getConfiguration());
             config.setLocale(locale);
             getApplicationContext().createConfigurationContext(config);
             getResources().updateConfiguration(config, getResources().getDisplayMetrics());

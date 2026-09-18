@@ -86,8 +86,9 @@ Audit of the editor, 2026-09-18:
 - [x] Breathing room: shorter hero, air under the wordmark, STUDIO 34sp
 - [x] Re-checked against `marquee.html` §01/§02: hero meta is now
       `N LAYERS · M:SS · AGO` as specified, and the hero swap has the 2px blur
-- [ ] Rooms still route to the six legacy tabs; those keep the legacy theme and
-      each needs its own de-branding pass (not a rewrite — the nav bar still works)
+- [x] Rooms still route to the six legacy tabs — and those tabs are now Joy Creator
+      too, via the theme rather than via a pass over each one. Device-verified on
+      Smart Detection, Recordings, Faditor and Settings.
 
 ## D. Welcome / first run
 
@@ -145,13 +146,27 @@ flattens into the white icon.*
 | Joybot | Now the AI icon in the Studio and the chat, replacing the earlier robot. |
 | Minimap spine | 11dp slot, 1.5dp insets → 8dp usable. 7dp left a 1dp band that could not show a loading meter, a transcribe bar or a silence gap. |
 
+### Fixed, device-verified — second half of the session
+
+| | |
+|---|---|
+| The legacy rooms | Done, and done ONCE. `Theme.FadCam.JoyCreator` resolves every value to a token and became the default. colorHeading alone is referenced 314× across 57 layouts, so the theme was the only place this could be changed once. The earlier attempts failed because there are TWO `applyTheme` methods in MainActivity and the no-arg one — the one `onCreate` calls — wrote "Crimson Bloom" back to prefs in its else branch. |
+| Four more theme chains | FullscreenPreview (its DEFAULT arm was Red, so it caught everything unlisted), VideoPlayer and ImageViewer (fell to `Base_Theme_FadCam`, the old purple), and About — whose four eight-branch ladders became one `aboutAccent()`, because every branch was rebuilding by hand a value the theme already holds. |
+| The greys | 343 sites in 92 files now name a token; distinct literals in layouts+drawables 281 → 242. Rules are in the commit — the first pass would have mapped 180 white icon paths onto `s_line`. |
+| Welcome slide | The 500px hole between the cycling line and the price is gone: the glow takes whatever the words do not, rather than a 45/55 weight split against copy that is shorter than 55% of the screen. |
+| Permissions slide | The finished state was the primary pill at alpha 0.5 — half-alpha over black halves the gradient toward black AND halves the near-black label on it, so the sentence saying everything worked was the least readable thing on screen. Done is not unavailable: outline, full opacity, aqua ink. The off-state battery label went #52525B → #8A8A94 (2.6:1 → 5.4:1). |
+| "Before we start" | Centred rather than pinned 120dp from the top; it ended at 68% of the screen with the last third empty. |
+| What's New | No longer the last step of the intro. A brand-new user was handed FadCam's changelog — FadCam red, FadCam Pro, an offer that expired in December 2025 — with nothing to catch up on. Still reachable from the Home sidebar. |
+| Story Board empty state | The tan #C49A7C disc was the only warm thing left on any screen. An empty state guides nothing. |
+| Marquee right edge | Fades rather than cutting "AVATAR" mid-letter. Left edge untouched: it is the gutter. |
+| Language change | `new Configuration()` is every field at its DEFAULT, including fontScale 1.0, and it was being handed straight to `updateConfiguration`. Picking a language silently reset the user's enlarged system text. Now built from the configuration in force. Two sites. |
+
+Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
+compresses large display text non-linearly — that is the platform, not us), and
+the lobby holds at 2.0 with ellipsis rather than overlap.
+
 ### Open
 
-- [ ] **The legacy rooms still wear FadCam red.** Finder/Smart Detection, Records,
-      Remote and Setup are reached from the lobby and are unchanged inside. Not a
-      rewrite — the nav still works — but each needs its own de-branding pass. This
-      is the largest remaining visual gap and it is what a new user sees one tap
-      after the lobby.
 - [ ] **Joybot's claymation.** `JoybotFilm` + `playThenFlatten` are ready and
       unwired. Needed from the owner: the two spritesheets, their column/row counts,
       and the fps they were shot at. Guessing any of the three would look wrong.

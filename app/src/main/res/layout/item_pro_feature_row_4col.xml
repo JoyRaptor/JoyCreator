@@ -37,7 +37,7 @@
             android:layout_gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="remove"
-            android:textColor="#666666"
+            android:textColor="@color/s_ink_off"
             android:textSize="16sp"
             android:gravity="center" />
     </FrameLayout>
@@ -94,7 +94,7 @@
             android:layout_gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="remove"
-            android:textColor="#666666"
+            android:textColor="@color/s_ink_off"
             android:textSize="16sp"
             android:gravity="center" />
     </FrameLayout>

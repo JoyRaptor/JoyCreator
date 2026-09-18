@@ -17,7 +17,7 @@
         android:fontFamily="@font/materialicons"
         android:gravity="center"
         android:text="chevron_right"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/s_ink"
         android:textSize="16sp"
         android:clickable="false"
         android:focusable="false"

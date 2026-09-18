@@ -89,7 +89,7 @@
             android:layout_height="wrap_content"
             android:text="@string/fadcam_pro_subtitle"
             android:textSize="13sp"
-            android:textColor="#B0B0B0"
+            android:textColor="@color/s_label"
             android:gravity="center" />
 
     </LinearLayout>
@@ -120,7 +120,7 @@
                     android:layout_weight="1"
                     android:text=""
                     android:textSize="10sp"
-                    android:textColor="#808080" />
+                    android:textColor="@color/s_ink_faint" />
 
                 <!-- Free column header -->
                 <FrameLayout
@@ -134,7 +134,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/fadcam_pro_free"
                         android:textSize="9sp"
-                        android:textColor="#808080"
+                        android:textColor="@color/s_ink_faint"
                         android:gravity="center"
                         android:textStyle="bold" />
                 </FrameLayout>
@@ -349,7 +349,7 @@
             android:layout_marginBottom="8dp"
             android:text="@string/fadcam_pro_separate_apk"
             android:textSize="11sp"
-            android:textColor="#B0B0B0"
+            android:textColor="@color/s_label"
             android:gravity="center"
             android:drawableStart="@drawable/ic_download_small"
             android:drawablePadding="4dp"
@@ -362,7 +362,7 @@
             android:paddingHorizontal="0dp"
             android:text="@string/fadcam_pro_support_message"
             android:textSize="12sp"
-            android:textColor="#B0B0B0"
+            android:textColor="@color/s_label"
             android:gravity="start"
             android:lineSpacingMultiplier="1.15" />
 

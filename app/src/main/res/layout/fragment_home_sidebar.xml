@@ -151,7 +151,7 @@
 
                     <TextView android:layout_width="24dp" android:layout_height="24dp"
                         android:layout_marginEnd="10dp" android:fontFamily="@font/materialicons"
-                        android:text="verified" android:textColor="#FFFFFF" android:textSize="18sp"
+                        android:text="verified" android:textColor="@color/s_ink" android:textSize="18sp"
                         android:gravity="center"/>
 
 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
@@ -160,11 +160,11 @@
                             android:orientation="horizontal" android:gravity="center_vertical">
                             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="@string/sidebar_stable_release" android:textColor="#FFFFFF"
+                                android:text="@string/sidebar_stable_release" android:textColor="@color/s_ink"
                                 android:textStyle="bold" android:textSize="12sp"/>
                             <TextView android:layout_width="wrap_content" android:layout_height="16dp"
                                 android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
-                                android:text="@string/badge_new" android:textColor="#FFFFFF"
+                                android:text="@string/badge_new" android:textColor="@color/s_ink"
                                 android:textSize="8sp" android:textStyle="bold"
                                 android:gravity="center"
                                 android:background="@drawable/bg_badge_stable"/>
@@ -177,7 +177,7 @@
                     <ImageView android:layout_width="14dp" android:layout_height="14dp"
                         android:layout_marginStart="12dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#FFFFFF" android:alpha="0.5"/>
+                        android:tint="@color/s_ink" android:alpha="0.5"/>
                 </LinearLayout>
             </FrameLayout>
 
@@ -209,7 +209,7 @@
 
                     <TextView android:layout_width="24dp" android:layout_height="24dp"
                         android:layout_marginEnd="10dp" android:fontFamily="@font/materialicons"
-                        android:text="science" android:textColor="#FFFFFF" android:textSize="18sp"
+                        android:text="science" android:textColor="@color/s_ink" android:textSize="18sp"
                         android:gravity="center"/>
 
 <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
@@ -218,11 +218,11 @@
                             android:orientation="horizontal" android:gravity="center_vertical">
                             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="@string/sidebar_beta_release" android:textColor="#FFFFFF"
+                                android:text="@string/sidebar_beta_release" android:textColor="@color/s_ink"
                                 android:textStyle="bold" android:textSize="12sp"/>
                             <TextView android:layout_width="wrap_content" android:layout_height="16dp"
                                 android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
-                                android:text="@string/badge_new" android:textColor="#FFFFFF"
+                                android:text="@string/badge_new" android:textColor="@color/s_ink"
                                 android:textSize="8sp" android:textStyle="bold"
                                 android:gravity="center"
                                 android:background="@drawable/bg_badge_beta"/>
@@ -235,7 +235,7 @@
                     <ImageView android:layout_width="14dp" android:layout_height="14dp"
                         android:layout_marginStart="12dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#FFFFFF" android:alpha="0.5"/>
+                        android:tint="@color/s_ink" android:alpha="0.5"/>
                 </LinearLayout>
             </FrameLayout>
 
@@ -267,7 +267,7 @@
 
                     <ImageView android:layout_width="24dp" android:layout_height="24dp"
                         android:layout_marginEnd="10dp"
-                        android:src="@drawable/ic_crown" android:tint="#FFFFFF"
+                        android:src="@drawable/ic_crown" android:tint="@color/s_ink"
                         android:scaleType="centerInside"/>
 
                     <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
@@ -276,7 +276,7 @@
                             android:orientation="horizontal" android:gravity="center_vertical">
                             <TextView android:layout_width="0dp" android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="@string/sidebar_fadcam_pro" android:textColor="#FFFFFF"
+                                android:text="@string/sidebar_fadcam_pro" android:textColor="@color/s_ink"
                                 android:textStyle="bold" android:textSize="12sp"/>
                              <TextView android:layout_width="wrap_content" android:layout_height="16dp"
                                 android:layout_marginStart="6dp" android:paddingHorizontal="6dp"
@@ -287,13 +287,13 @@
                         </LinearLayout>
                           <TextView android:id="@+id/tv_pro_version" android:layout_width="wrap_content"
                             android:layout_height="wrap_content" android:text="v--  >>  v--"
-                            android:textColor="#FFFFFF" android:textSize="11sp" android:layout_marginTop="2dp"/>
+                            android:textColor="@color/s_ink" android:textSize="11sp" android:layout_marginTop="2dp"/>
                     </LinearLayout>
 
                     <ImageView android:layout_width="14dp" android:layout_height="14dp"
                         android:layout_marginStart="12dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#FFFFFF" android:alpha="0.5"/>
+                        android:tint="@color/s_ink" android:alpha="0.5"/>
         </LinearLayout>
             </FrameLayout>
         </LinearLayout>
@@ -927,7 +927,7 @@
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="9sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -980,7 +980,7 @@
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="9sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -1033,7 +1033,7 @@
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="9sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -1086,7 +1086,7 @@
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="9sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -1139,7 +1139,7 @@
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="9sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -1192,7 +1192,7 @@
                     android:paddingTop="2dp"
                     android:paddingBottom="2dp"
                     android:text="@string/mini_app_coming_soon"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="9sp"
                     android:textStyle="bold" />
                 <ImageView

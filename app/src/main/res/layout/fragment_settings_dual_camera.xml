@@ -132,7 +132,7 @@
                     android:layout_height="60dp"
                     android:layout_gravity="bottom|end"
                     android:layout_margin="12dp"
-                    android:background="#FF333333">
+                    android:background="@color/s_line">
                     <TextView
                         android:id="@+id/preview_pip_label"
                         android:layout_width="wrap_content"

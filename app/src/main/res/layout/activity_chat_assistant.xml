@@ -12,7 +12,7 @@
         android:layout_height="56dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#FF1A1A1A"
+        android:background="@color/s_raised"
         android:paddingStart="8dp"
         android:paddingEnd="8dp">
 
@@ -22,7 +22,7 @@
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="#FFFFFFFF"
+            android:tint="@color/s_ink"
             android:contentDescription="Close" />
 
         <!-- AI mascot, 30% larger than the toolbar icon (40dp -> 52dp), horizontally
@@ -51,7 +51,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="AI Assistant"
-                android:textColor="#FFFFFFFF"
+                android:textColor="@color/s_ink"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
@@ -60,7 +60,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
-                android:textColor="#FF888888"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="10sp"
                 android:singleLine="true"
                 android:visibility="gone" />
@@ -72,7 +72,7 @@
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_preferences"
-            android:tint="#FFFFFFFF"
+            android:tint="@color/s_ink"
             android:contentDescription="Settings" />
     </LinearLayout>
 
@@ -112,7 +112,7 @@
                 android:id="@+id/chat_status_percent"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#FF888888"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -175,7 +175,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#FF1A1A1A"
+        android:background="@color/s_raised"
         android:padding="8dp">
 
         <ImageButton
@@ -184,7 +184,7 @@
             android:layout_height="40dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_gallery"
-            android:tint="#FF888888"
+            android:tint="@color/s_ink_faint"
             android:contentDescription="Attach image" />
 
         <EditText
@@ -193,8 +193,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:hint="Ask anything..."
-            android:textColorHint="#FF666666"
-            android:textColor="#FFFFFFFF"
+            android:textColorHint="@color/s_ink_off"
+            android:textColor="@color/s_ink"
             android:background="@android:color/transparent"
             android:padding="12dp"
             android:maxLines="4"

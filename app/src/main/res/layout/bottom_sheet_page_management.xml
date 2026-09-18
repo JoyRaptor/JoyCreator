@@ -22,7 +22,7 @@
             android:gravity="center"
             android:text="tab"
             android:textSize="24sp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:fontFamily="@font/materialicons" />
 
         <TextView
@@ -32,7 +32,7 @@
             android:text="@string/remote_pages"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:layout_marginStart="12dp" />
 
         <TextView
@@ -42,7 +42,7 @@
             android:gravity="center"
             android:text="add"
             android:textSize="24sp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:fontFamily="@font/materialicons"
             android:background="@drawable/settings_home_row_bg"
             android:clickable="true"

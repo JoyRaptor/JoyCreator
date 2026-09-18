@@ -106,7 +106,7 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/materialicons"
                     android:text="storage"
-                    android:textColor="#FF71717A"
+                    android:textColor="@color/s_ink_off"
                     android:textSize="13sp"
                     android:layout_marginEnd="6dp" />
 
@@ -115,7 +115,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text=""
-                    android:textColor="#FFA1A1AA"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="11sp"
                     android:fontFamily="monospace"
                     android:maxLines="1"
@@ -130,7 +130,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="search"
-                android:textColor="#FFA1A1AA"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="19sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Search everything" />
@@ -245,7 +245,7 @@
                 android:paddingTop="4dp"
                 android:paddingBottom="4dp"
                 android:text=""
-                android:textColor="#FFEEEEF2"
+                android:textColor="@color/s_ink"
                 android:textSize="9sp"
                 android:fontFamily="monospace"
                 android:letterSpacing="0.14"
@@ -262,7 +262,7 @@
                 android:paddingStart="34dp"
                 android:paddingEnd="34dp"
                 android:text=""
-                android:textColor="#FF9A9AA6"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="13sp"
                 android:visibility="gone" />
 
@@ -297,7 +297,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text=""
-                    android:textColor="#FFE4E4E7"
+                    android:textColor="@color/s_ink"
                     android:textSize="18sp"
                     android:maxLines="1"
                     android:singleLine="true"
@@ -309,7 +309,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text=""
-                    android:textColor="#FF71717A"
+                    android:textColor="@color/s_ink_off"
                     android:textSize="9sp"
                     android:fontFamily="monospace"
                     android:maxLines="1"
@@ -327,7 +327,7 @@
                 android:paddingEnd="14dp"
                 android:layout_marginEnd="8dp"
                 android:text="@string/lobby_hero_new"
-                android:textColor="#FFA1A1AA"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="12.5sp"
                 android:maxLines="1"
                 android:singleLine="true" />
@@ -365,7 +365,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/lobby_library"
-                android:textColor="#FFE4E4E7"
+                android:textColor="@color/s_ink"
                 android:textSize="19sp"
                 android:letterSpacing="-0.04" />
 
@@ -377,7 +377,7 @@
                 android:layout_marginStart="9dp"
                 android:layout_marginBottom="2dp"
                 android:text=""
-                android:textColor="#FF71717A"
+                android:textColor="@color/s_ink_off"
                 android:textSize="10sp"
                 android:fontFamily="monospace" />
 
@@ -386,7 +386,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#FF71717A"
+                android:textColor="@color/s_ink_off"
                 android:textSize="16sp" />
         </LinearLayout>
 
@@ -399,7 +399,7 @@
             android:paddingTop="2dp"
             android:paddingBottom="8dp"
             android:text="@string/lobby_carry_on"
-            android:textColor="#FF71717A"
+            android:textColor="@color/s_ink_off"
             android:textSize="10sp" />
 
         <HorizontalScrollView
@@ -465,7 +465,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="9dp"
                 android:text=""
-                android:textColor="#FFA1A1AA"
+                android:textColor="@color/s_ink_faint"
                 android:textSize="11sp"
                 android:maxLines="2"
                 android:ellipsize="end" />
@@ -489,7 +489,7 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="close"
-                android:textColor="#FF4B4B55"
+                android:textColor="@color/s_ink_off"
                 android:textSize="15sp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="Dismiss" />

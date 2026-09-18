@@ -46,7 +46,7 @@
                 android:textSize="@dimen/onboarding_title_size"
                 android:textStyle="bold"
                 android:fontFamily="@font/joy_display"
-                android:textColor="#FFE4E4E7"
+                android:textColor="@color/s_ink"
                 android:gravity="center"
                 android:layout_marginLeft="@dimen/onboarding_margin"
                 android:layout_marginRight="@dimen/onboarding_margin"
@@ -204,7 +204,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/intro_ai_note"
-                        android:textColor="#FFA1A1AA"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="12sp"
                         android:lineSpacingExtra="2dp" />
 
@@ -212,7 +212,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/intro_ai_have_key"
-                        android:textColor="#FFE4E4E7"
+                        android:textColor="@color/s_ink"
                         android:textSize="12sp"
                         android:textStyle="bold"
                         android:layout_marginTop="10dp" />
@@ -231,7 +231,7 @@
                             android:paddingStart="16dp"
                             android:paddingEnd="16dp"
                             android:text="@string/intro_ai_add_now"
-                            android:textColor="#FFFFFFFF"
+                            android:textColor="@color/s_ink"
                             android:textSize="12sp"
                             android:textStyle="bold"
                             android:background="@drawable/joybot_orb_pill" />
@@ -245,7 +245,7 @@
                             android:paddingEnd="14dp"
                             android:layout_marginStart="8dp"
                             android:text="@string/intro_ai_later"
-                            android:textColor="#FFA1A1AA"
+                            android:textColor="@color/s_ink_faint"
                             android:textSize="12sp" />
                     </LinearLayout>
                 </LinearLayout>

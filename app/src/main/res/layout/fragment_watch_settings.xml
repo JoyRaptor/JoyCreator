@@ -20,7 +20,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/watch_settings_title"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:textSize="11sp"
             android:textStyle="bold"
             android:letterSpacing="0.08"
@@ -42,7 +42,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/watch_settings_video"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -51,7 +51,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#666666"
+                android:textColor="@color/s_ink_off"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -71,7 +71,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/watch_settings_audio"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -80,7 +80,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#666666"
+                android:textColor="@color/s_ink_off"
                 android:textSize="14sp" />
         </LinearLayout>
 
@@ -99,7 +99,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/watch_settings_security"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -108,7 +108,7 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/materialicons"
                 android:text="chevron_right"
-                android:textColor="#666666"
+                android:textColor="@color/s_ink_off"
                 android:textSize="14sp" />
         </LinearLayout>
 

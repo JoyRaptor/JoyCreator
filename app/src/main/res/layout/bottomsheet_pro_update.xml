@@ -23,14 +23,14 @@
      <TextView
          android:id="@+id/tv_pro_sheet_version"
          android:layout_width="match_parent" android:layout_height="wrap_content"
-         android:text="v4.0.0  >>  v5.0.0" android:textColor="#FFFFFF"
+         android:text="v4.0.0  >>  v5.0.0" android:textColor="@color/s_ink"
          android:textSize="14sp" android:textStyle="bold" android:gravity="center"
          android:layout_marginBottom="14dp"/>
 
     <TextView
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:text="@string/update_pro_desc"
-        android:textColor="#D0D0D0" android:textSize="13sp" android:gravity="center"
+        android:textColor="@color/s_ink_dim" android:textSize="13sp" android:gravity="center"
         android:lineSpacingExtra="3dp" android:layout_marginBottom="18dp"/>
 
      <Button

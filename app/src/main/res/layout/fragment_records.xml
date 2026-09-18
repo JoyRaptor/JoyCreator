@@ -373,7 +373,7 @@
             android:layout_marginStart="6dp"
             android:fontFamily="@font/materialicons"
             android:text="checklist"
-            android:textColor="#666666"
+            android:textColor="@color/s_ink_off"
             android:textSize="20sp"
             android:padding="4dp"
             android:contentDescription="@string/records_filter_checklist_desc" />

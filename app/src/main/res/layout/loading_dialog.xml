@@ -16,7 +16,7 @@
             android:layout_height="wrap_content"
             android:id="@+id/loading_message"
             android:text="Checking for updates..."
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:paddingTop="8dp"/>
     </LinearLayout>
 </layout>

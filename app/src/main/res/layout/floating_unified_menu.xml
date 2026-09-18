@@ -24,7 +24,7 @@
             android:text="@string/floating_menu_title"
             android:textSize="14sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF" />
+            android:textColor="@color/s_ink" />
 
         <TextView
             android:id="@+id/btnCloseMenu"
@@ -33,7 +33,7 @@
             android:gravity="center"
             android:text="close"
             android:textSize="18sp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:fontFamily="@font/materialicons"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:clickable="true"
@@ -89,7 +89,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/floating_menu_start_short"
                     android:textSize="8sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:gravity="center"
                     android:maxLines="2"
                     android:ellipsize="none"
@@ -129,7 +129,7 @@
                     android:layout_marginTop="4dp"
                     android:text="@string/floating_menu_pause"
                     android:textSize="8sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:gravity="center"
                     android:maxLines="2"
                     android:ellipsize="none"
@@ -167,7 +167,7 @@
             android:gravity="center"
             android:text="videocam"
             android:textSize="18sp"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/s_ink"
             android:fontFamily="@font/materialicons"
             android:layout_marginEnd="10dp" />
 
@@ -177,7 +177,7 @@
             android:layout_weight="1"
             android:text="@string/webcam_overlay"
             android:textSize="13sp"
-            android:textColor="#FFFFFF" />
+            android:textColor="@color/s_ink" />
 
         <TextView
             android:id="@+id/webcamToggleState"
@@ -185,7 +185,7 @@
             android:layout_height="wrap_content"
             android:text="@string/webcam_overlay_off"
             android:textSize="11sp"
-            android:textColor="#AAAAAA" />
+            android:textColor="@color/s_ink_faint" />
     </LinearLayout>
 
     <!-- Divider -->
@@ -223,7 +223,7 @@
                 android:gravity="center"
                 android:text="edit"
                 android:textSize="18sp"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/s_ink"
                 android:fontFamily="@font/materialicons"
                 android:layout_marginEnd="10dp" />
 
@@ -233,7 +233,7 @@
                 android:layout_weight="1"
                 android:text="@string/annotations"
                 android:textSize="13sp"
-                android:textColor="#FFFFFF" />
+                android:textColor="@color/s_ink" />
 
             <TextView
                 android:id="@+id/annotationsExpandIcon"
@@ -242,7 +242,7 @@
                 android:gravity="center"
                 android:text="expand_more"
                 android:textSize="20sp"
-                android:textColor="#FFFFFF"
+                android:textColor="@color/s_ink"
                 android:fontFamily="@font/materialicons" />
         </LinearLayout>
 
@@ -274,7 +274,7 @@
                     android:layout_weight="1"
                     android:text="@string/enable_annotations"
                     android:textSize="13sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:maxLines="2"
                     android:breakStrategy="balanced" />
 
@@ -301,7 +301,7 @@
                     android:gravity="center"
                     android:text="grid_on"
                     android:textSize="16sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/materialicons"
                     android:layout_marginEnd="8dp" />
 
@@ -311,7 +311,7 @@
                     android:layout_weight="1"
                     android:text="@string/snap_guides"
                     android:textSize="12sp"
-                    android:textColor="#FFFFFF" />
+                    android:textColor="@color/s_ink" />
 
                 <com.fadcam.ui.AvatarToggleView
                     android:id="@+id/snapGuidesSwitch"
@@ -341,7 +341,7 @@
                     android:gravity="center"
                     android:text="title"
                     android:textSize="16sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/materialicons"
                     android:layout_marginEnd="8dp" />
 
@@ -351,7 +351,7 @@
                     android:layout_weight="1"
                     android:text="@string/add_text"
                     android:textSize="12sp"
-                    android:textColor="#FFFFFF" />
+                    android:textColor="@color/s_ink" />
             </LinearLayout>
 
             <!-- Add Shape Button -->
@@ -375,7 +375,7 @@
                     android:gravity="center"
                     android:text="crop_square"
                     android:textSize="16sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/materialicons"
                     android:layout_marginEnd="8dp" />
 
@@ -385,7 +385,7 @@
                     android:layout_weight="1"
                     android:text="@string/add_shape"
                     android:textSize="12sp"
-                    android:textColor="#FFFFFF" />
+                    android:textColor="@color/s_ink" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

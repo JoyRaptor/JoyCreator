@@ -17,7 +17,7 @@
         android:layout_height="wrap_content"
         android:text="Project Name"
         android:textSize="15sp"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/s_ink"
         android:textStyle="bold"
         android:fontFamily="@font/ubuntu_regular"
         android:maxLines="1"
@@ -30,7 +30,7 @@
         android:layout_height="wrap_content"
         android:text="Description of the project"
         android:textSize="12sp"
-        android:textColor="#B0B0B0"
+        android:textColor="@color/s_label"
         android:fontFamily="@font/ubuntu_regular"
         android:layout_marginTop="4dp"
         android:maxLines="2"
@@ -43,7 +43,7 @@
         android:layout_height="wrap_content"
         android:text="Modified: Oct 7, 2025 • 12.5 KB"
         android:textSize="10sp"
-        android:textColor="#808080"
+        android:textColor="@color/s_ink_faint"
         android:fontFamily="@font/ubuntu_regular"
         android:layout_marginTop="6dp" />
 

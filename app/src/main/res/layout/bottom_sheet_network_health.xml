@@ -176,10 +176,10 @@
             android:layout_gravity="center_vertical"
             android:gravity="bottom"
             android:padding="4dp">
-            <View android:id="@+id/bar1" android:layout_width="3dp" android:layout_height="4dp" android:background="#444444" android:layout_marginEnd="2dp"/>
-            <View android:id="@+id/bar2" android:layout_width="3dp" android:layout_height="7dp" android:background="#444444" android:layout_marginEnd="2dp"/>
-            <View android:id="@+id/bar3" android:layout_width="3dp" android:layout_height="10dp" android:background="#444444" android:layout_marginEnd="2dp"/>
-            <View android:id="@+id/bar4" android:layout_width="3dp" android:layout_height="13dp" android:background="#444444" />
+            <View android:id="@+id/bar1" android:layout_width="3dp" android:layout_height="4dp" android:background="@color/s_line" android:layout_marginEnd="2dp"/>
+            <View android:id="@+id/bar2" android:layout_width="3dp" android:layout_height="7dp" android:background="@color/s_line" android:layout_marginEnd="2dp"/>
+            <View android:id="@+id/bar3" android:layout_width="3dp" android:layout_height="10dp" android:background="@color/s_line" android:layout_marginEnd="2dp"/>
+            <View android:id="@+id/bar4" android:layout_width="3dp" android:layout_height="13dp" android:background="@color/s_line" />
         </LinearLayout>
     </LinearLayout>
 

@@ -223,7 +223,7 @@
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:text="20"
-                    android:textColor="#e6edf3"
+                    android:textColor="@color/s_ink"
                     android:textColorHint="#8b949e"
                     android:minEms="3" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -301,7 +301,7 @@
                     android:layout_height="wrap_content"
                     android:inputType="number"
                     android:text="5000"
-                    android:textColor="#e6edf3"
+                    android:textColor="@color/s_ink"
                     android:textColorHint="#8b949e"
                     android:minEms="4" />
             </com.google.android.material.textfield.TextInputLayout>
@@ -345,7 +345,7 @@
             android:paddingBottom="12dp"
             android:paddingStart="8dp"
             android:paddingEnd="8dp"
-            android:background="#1a1b1e"
+            android:background="@color/s_raised"
             android:gravity="center_vertical">
 
             <TextView
@@ -363,7 +363,7 @@
                 android:layout_height="wrap_content"
                 android:text="• Per-hour consumption: ~7.6%"
                 android:textSize="10sp"
-                android:textColor="#e6edf3"
+                android:textColor="@color/s_ink"
                 android:layout_marginBottom="4dp" />
 
             <TextView
@@ -372,7 +372,7 @@
                 android:layout_height="wrap_content"
                 android:text="• At 100% battery: ~13.1 hours"
                 android:textSize="10sp"
-                android:textColor="#e6edf3" />
+                android:textColor="@color/s_ink" />
         </LinearLayout>
     </LinearLayout>
 

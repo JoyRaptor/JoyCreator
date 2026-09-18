@@ -75,7 +75,7 @@
                 android:gravity="center_vertical"
                 android:drawableStart="@drawable/ic_crown"
                 android:drawablePadding="0dp"
-                android:drawableTint="#1A1A1A"
+                android:drawableTint="@color/s_raised"
                 android:focusable="true"
                 android:clickable="true"
                 android:foreground="?attr/selectableItemBackgroundBorderless"
@@ -156,7 +156,7 @@
 
                         </LinearLayout>
 
-                        <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="#555555" android:contentDescription="@string/desc_open_settings" />
+                        <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="@color/s_ink_off" android:contentDescription="@string/desc_open_settings" />
 
                     </LinearLayout>
 
@@ -190,7 +190,7 @@
 
                         </LinearLayout>
 
-                        <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="#555555" android:contentDescription="@string/desc_open_settings" />
+                        <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="@color/s_ink_off" android:contentDescription="@string/desc_open_settings" />
 
                     </LinearLayout>
 
@@ -230,7 +230,7 @@
 
                         </LinearLayout>
 
-                        <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="#555555" android:contentDescription="@string/desc_open_settings" />
+                        <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="@color/s_ink_off" android:contentDescription="@string/desc_open_settings" />
 
                     </LinearLayout>
 
@@ -400,7 +400,7 @@
                         </LinearLayout>
                     </LinearLayout>
 
-                    <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="center" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="#555555" android:contentDescription="@string/desc_open_video_stats" />
+                    <ImageView android:layout_width="12dp" android:layout_height="12dp" android:layout_gravity="center" android:layout_marginStart="2dp" android:src="@drawable/ic_arrow_right" android:tint="@color/s_ink_off" android:contentDescription="@string/desc_open_video_stats" />
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -444,7 +444,7 @@
             android:layout_height="16dp"
             android:layout_gravity="center"
             android:src="@drawable/ic_expand_more"
-            android:tint="#555555" />
+            android:tint="@color/s_ink_off" />
     </FrameLayout>
 
 
@@ -629,7 +629,7 @@
                     android:gravity="center"
                     android:text="pause_circle"
                     android:textSize="48sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:alpha="0.9"
                     android:fontFamily="@font/materialicons" />
 
@@ -640,7 +640,7 @@
                     android:text="Recording Paused"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:alpha="0.9" />
 
             </LinearLayout>

@@ -13,7 +13,7 @@
         android:text="@string/fadrec_projects" 
         android:textSize="20sp" 
         android:textStyle="bold" 
-        android:textColor="#FFFFFF" 
+        android:textColor="@color/s_ink" 
         android:fontFamily="@font/ubuntu_regular"
         android:gravity="center" 
  />
@@ -89,7 +89,7 @@
                 android:text="@string/new_project" 
                 android:textSize="13sp" 
                 android:textStyle="bold" 
-                android:textColor="#FFFFFF" 
+                android:textColor="@color/s_ink" 
                 android:fontFamily="@font/ubuntu_regular" />
         </LinearLayout>
 
@@ -112,7 +112,7 @@
                 android:layout_height="wrap_content" 
                 android:text="@string/delete_all" 
                 android:textSize="13sp" 
-                android:textColor="#FFFFFF" 
+                android:textColor="@color/s_ink" 
                 android:fontFamily="@font/ubuntu_regular" />
         </LinearLayout>
 
@@ -133,7 +133,7 @@
                 android:layout_height="wrap_content" 
                 android:text="@string/close" 
                 android:textSize="13sp" 
-                android:textColor="#FFFFFF" 
+                android:textColor="@color/s_ink" 
                 android:fontFamily="@font/ubuntu_regular" />
         </LinearLayout>
     </LinearLayout>

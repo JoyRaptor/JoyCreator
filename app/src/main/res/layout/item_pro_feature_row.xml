@@ -36,7 +36,7 @@
             android:layout_gravity="center"
             android:fontFamily="@font/materialicons"
             android:text="remove"
-            android:textColor="#666666"
+            android:textColor="@color/s_ink_off"
             android:textSize="18sp"
             android:gravity="center" />
     </FrameLayout>

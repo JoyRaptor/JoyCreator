@@ -46,7 +46,7 @@
                 android:fontFamily="@font/materialicons"
                 android:text="brightness_low"
                 android:textSize="16sp"
-                android:textColor="#E0E0E0"
+                android:textColor="@color/s_ink"
                 android:gravity="center"
                 android:contentDescription="@null" />
 

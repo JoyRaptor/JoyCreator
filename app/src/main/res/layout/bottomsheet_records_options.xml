@@ -64,7 +64,7 @@
                 android:text="@string/sort_by"
                 android:textStyle="bold"
                 android:textSize="16sp"
-                android:textColor="#CCCCCC"
+                android:textColor="@color/s_ink_dim"
                 android:layout_marginBottom="8dp"
                 android:textAlignment="viewStart"/>
 
@@ -79,7 +79,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/sort_latest_first"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textAlignment="viewStart"/>
 
                 <RadioButton
@@ -87,7 +87,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/sort_oldest_first"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textAlignment="viewStart"/>
 
                 <RadioButton
@@ -95,7 +95,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/sort_smallest_first"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textAlignment="viewStart"/>
 
                 <RadioButton
@@ -103,7 +103,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/sort_largest_first"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textAlignment="viewStart"/>
             </RadioGroup>
 

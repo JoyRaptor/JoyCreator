@@ -37,7 +37,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="00:00:00"
-        android:textColor="#FFFFFF"
+        android:textColor="@color/s_ink"
         android:textSize="28sp"
         android:fontFamily="monospace" />
 

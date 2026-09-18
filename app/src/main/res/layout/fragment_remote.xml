@@ -65,7 +65,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/cloud_button_title"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:textSize="11sp"
                     android:fontFamily="sans-serif-medium"
                     android:letterSpacing="0.02" />
@@ -75,7 +75,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/cloud_account_not_linked"
-                    android:textColor="#888888"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="9sp"
                     android:fontFamily="sans-serif" />
                     
@@ -164,7 +164,7 @@
                         android:text="@string/stream_inactive"
                         android:textSize="14sp"
                         android:textStyle="bold"
-                        android:textColor="#FFFFFF"
+                        android:textColor="@color/s_ink"
                         android:shadowColor="#000000"
                         android:shadowDx="0"
                         android:shadowDy="1"
@@ -176,7 +176,7 @@
                         android:text="@string/remote_server_status"
                         android:textSize="11sp"
                         android:layout_marginTop="2dp"
-                        android:textColor="#DDDDDD"
+                        android:textColor="@color/s_ink_dim"
                         android:shadowColor="#000000"
                         android:shadowDx="0"
                         android:shadowDy="1"
@@ -809,10 +809,10 @@
                             android:gravity="bottom"
                             android:padding="2dp"
                             android:layout_marginEnd="8dp">
-                            <View android:id="@+id/wifi_bar1" android:layout_width="2dp" android:layout_height="3dp" android:background="#444444" android:layout_marginEnd="1dp"/>
-                            <View android:id="@+id/wifi_bar2" android:layout_width="2dp" android:layout_height="5dp" android:background="#444444" android:layout_marginEnd="1dp"/>
-                            <View android:id="@+id/wifi_bar3" android:layout_width="2dp" android:layout_height="7dp" android:background="#444444" android:layout_marginEnd="1dp"/>
-                            <View android:id="@+id/wifi_bar4" android:layout_width="2dp" android:layout_height="9dp" android:background="#444444" />
+                            <View android:id="@+id/wifi_bar1" android:layout_width="2dp" android:layout_height="3dp" android:background="@color/s_line" android:layout_marginEnd="1dp"/>
+                            <View android:id="@+id/wifi_bar2" android:layout_width="2dp" android:layout_height="5dp" android:background="@color/s_line" android:layout_marginEnd="1dp"/>
+                            <View android:id="@+id/wifi_bar3" android:layout_width="2dp" android:layout_height="7dp" android:background="@color/s_line" android:layout_marginEnd="1dp"/>
+                            <View android:id="@+id/wifi_bar4" android:layout_width="2dp" android:layout_height="9dp" android:background="@color/s_line" />
                         </LinearLayout>
 
                         <ImageView

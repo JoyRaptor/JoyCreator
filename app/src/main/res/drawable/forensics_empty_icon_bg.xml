@@ -1,8 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    The disc behind an empty Story Board.
+
+    It was a tan (#C49A7C) at 12% over a 22% ring — a warm colour used nowhere else in the
+    app, and after the palette landed it was the only warm thing on a screen of blacks,
+    greys and aqua. It read as a stain rather than as a placeholder.
+
+    An empty state guides nothing, so it takes no accent: greys fade, colour guides. The
+    disc is RAISED and the ring is LINE, exactly as any other inert surface in the product.
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="oval">
-    <solid android:color="#1EC49A7C" />
+    <solid android:color="@color/s_raised" />
     <stroke
         android:width="1dp"
-        android:color="#38C49A7C" />
+        android:color="@color/s_line" />
 </shape>

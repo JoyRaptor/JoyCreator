@@ -48,7 +48,7 @@
         android:layout_marginStart="14dp"
         android:layout_marginEnd="12dp"
         android:layout_marginBottom="12dp"
-        android:background="#404040" />
+        android:background="@color/s_line" />
 
     <ScrollView
         android:id="@+id/picker_scroll"
@@ -87,7 +87,7 @@
                     android:layout_marginTop="8dp"
                     android:layout_marginEnd="12dp"
                     android:layout_marginBottom="4dp"
-                    android:background="#404040" />
+                    android:background="@color/s_line" />
 
                 <LinearLayout
                     android:id="@+id/open_video_action_row"
@@ -145,7 +145,7 @@
                     android:layout_marginTop="4dp"
                     android:layout_marginEnd="12dp"
                     android:layout_marginBottom="4dp"
-                    android:background="#404040" />
+                    android:background="@color/s_line" />
 
                 <LinearLayout
                     android:id="@+id/copy_action_row"

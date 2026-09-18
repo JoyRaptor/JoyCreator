@@ -47,7 +47,7 @@
                         android:gravity="center"
                         android:text="videocam"
                         android:textSize="20sp"
-                        android:textColor="#9E9E9E"
+                        android:textColor="@color/s_ink_faint"
                         android:fontFamily="@font/materialicons"
                         android:layout_marginEnd="10dp" />
 
@@ -58,7 +58,7 @@
                         android:text="@string/webcam_overlay"
                         android:textSize="13sp"
                         android:textStyle="bold"
-                        android:textColor="#FFFFFF"
+                        android:textColor="@color/s_ink"
                         android:fontFamily="@font/ubuntu_regular" />
 
                     <TextView
@@ -67,7 +67,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/webcam_overlay_off"
                         android:textSize="11sp"
-                        android:textColor="#AAAAAA"
+                        android:textColor="@color/s_ink_faint"
                         android:fontFamily="@font/ubuntu_regular" />
 
                     <TextView
@@ -77,7 +77,7 @@
                         android:gravity="center"
                         android:text="close_fullscreen"
                         android:textSize="18sp"
-                        android:textColor="#FFFFFF"
+                        android:textColor="@color/s_ink"
                         android:fontFamily="@font/materialicons"
                         android:background="?android:attr/selectableItemBackgroundBorderless"
                         android:clickable="true"
@@ -113,7 +113,7 @@
                         android:layout_height="32dp" 
                         android:src="@drawable/screen_recorder"
                         android:scaleType="fitCenter"
-                        android:tint="#FFFFFF" />
+                        android:tint="@color/s_ink" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -129,7 +129,7 @@
                             android:text="@string/fadrec_ready_to_record"
                             android:textSize="15sp"
                             android:textStyle="bold"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/s_ink"
                             android:fontFamily="@font/ubuntu_regular"
                             android:maxLines="1"
                             android:ellipsize="end" />
@@ -180,7 +180,7 @@
                             android:gravity="center" 
                             android:text="stop" 
                             android:textSize="20sp" 
-                            android:textColor="#FFFFFF" 
+                            android:textColor="@color/s_ink" 
                             android:fontFamily="@font/materialicons" />
 
                         <TextView 
@@ -191,7 +191,7 @@
                             android:text="@string/floating_menu_start_short" 
                             android:textSize="11sp" 
                             android:textStyle="bold" 
-                            android:textColor="#FFFFFF" 
+                            android:textColor="@color/s_ink" 
                             android:fontFamily="@font/ubuntu_regular"
                             android:includeFontPadding="false" />
                     </LinearLayout>
@@ -219,7 +219,7 @@
                             android:gravity="center" 
                             android:text="pause" 
                             android:textSize="20sp" 
-                            android:textColor="#FFFFFF" 
+                            android:textColor="@color/s_ink" 
                             android:fontFamily="@font/materialicons" />
 
                         <TextView 
@@ -230,7 +230,7 @@
                             android:text="@string/floating_menu_pause" 
                             android:textSize="11sp" 
                             android:textStyle="bold" 
-                            android:textColor="#FFFFFF" 
+                            android:textColor="@color/s_ink" 
                             android:fontFamily="@font/ubuntu_regular"
                             android:includeFontPadding="false" />
                     </LinearLayout>
@@ -296,7 +296,7 @@
                     android:gravity="center"
                     android:text="expand_less"
                     android:textSize="18sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/materialicons" />
             </LinearLayout>
 
@@ -339,7 +339,7 @@
                         android:layout_height="24dp"
                         android:text="edit_off"
                         android:textSize="20sp"
-                        android:textColor="#9E9E9E"
+                        android:textColor="@color/s_ink_faint"
                         android:fontFamily="@font/materialicons"
                         android:gravity="center"
                         android:layout_marginEnd="8dp" />
@@ -355,7 +355,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/annotation_annotate"
                             android:textSize="12sp"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/s_ink"
                             android:textStyle="bold"
                             android:fontFamily="@font/ubuntu_regular" />
 
@@ -409,7 +409,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/annotation_canvas"
                             android:textSize="12sp"
-                            android:textColor="#FFFFFF"
+                            android:textColor="@color/s_ink"
                             android:textStyle="bold"
                             android:fontFamily="@font/ubuntu_regular" />
 
@@ -470,7 +470,7 @@
                     android:gravity="center"
                     android:text="expand_more"
                     android:textSize="18sp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="@font/materialicons" />
             </LinearLayout>
 
@@ -526,7 +526,7 @@
                                 android:layout_height="wrap_content" 
                                  android:text="@string/annotation_untitled_project" 
                                 android:textSize="13sp" 
-                                android:textColor="#FFFFFF" 
+                                android:textColor="@color/s_ink" 
                                 android:textStyle="bold" 
                                 android:fontFamily="@font/ubuntu_regular"
                                 android:maxLines="1"
@@ -550,7 +550,7 @@
                             android:layout_height="18dp" 
                             android:text="edit" 
                             android:textSize="14sp" 
-                            android:textColor="#9E9E9E" 
+                            android:textColor="@color/s_ink_faint" 
                             android:fontFamily="@font/materialicons" 
                             android:gravity="center" 
                             android:layout_marginStart="8dp" />
@@ -585,7 +585,7 @@
                         android:layout_weight="1"
                         android:text="@string/annotation_manage_projects" 
                         android:textSize="13sp" 
-                        android:textColor="#FFFFFF" 
+                        android:textColor="@color/s_ink" 
                         android:textStyle="bold" 
                         android:fontFamily="@font/ubuntu_regular" />
 
@@ -594,7 +594,7 @@
                         android:layout_height="18dp" 
                         android:text="chevron_right" 
                         android:textSize="16sp" 
-                        android:textColor="#9E9E9E" 
+                        android:textColor="@color/s_ink_faint" 
                         android:fontFamily="@font/materialicons" 
                         android:gravity="center" />
                 </LinearLayout>
@@ -611,7 +611,7 @@
 
                 <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/annotation_tools" android:textSize="12sp" android:textStyle="bold" android:textColor="@color/annotation_heading_accent" android:fontFamily="@font/ubuntu_regular" />
 
-                <TextView android:id="@+id/annotationsExpandIcon" android:layout_width="20dp" android:layout_height="20dp" android:gravity="center" android:text="expand_more" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" />
+                <TextView android:id="@+id/annotationsExpandIcon" android:layout_width="20dp" android:layout_height="20dp" android:gravity="center" android:text="expand_more" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" />
             </LinearLayout>
 
             <!-- Annotation Tools Content (Expandable) -->
@@ -620,9 +620,9 @@
                 <!-- Snap Guides Switch -->
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:paddingTop="6dp" android:paddingBottom="6dp">
 
-                    <TextView android:id="@+id/iconSnapGuides" android:layout_width="20dp" android:layout_height="20dp" android:gravity="center" android:text="grid_on" android:textSize="14sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:layout_marginEnd="8dp" />
+                    <TextView android:id="@+id/iconSnapGuides" android:layout_width="20dp" android:layout_height="20dp" android:gravity="center" android:text="grid_on" android:textSize="14sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:layout_marginEnd="8dp" />
 
-                    <TextView android:id="@+id/labelSnapGuides" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/snap_guides" android:textSize="11sp" android:textColor="#FFFFFF" android:fontFamily="@font/ubuntu_regular" />
+                    <TextView android:id="@+id/labelSnapGuides" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="@string/snap_guides" android:textSize="11sp" android:textColor="@color/s_ink" android:fontFamily="@font/ubuntu_regular" />
 
                     <com.fadcam.ui.AvatarToggleView android:id="@+id/snapGuidesSwitch" android:layout_width="44dp" android:layout_height="44dp" android:layout_gravity="center_vertical" />
                 </LinearLayout>
@@ -633,23 +633,23 @@
                     <!-- Undo -->
                     <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:layout_margin="2dp">
 
-                        <TextView android:id="@+id/btnUndo" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="undo" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" android:alpha="0.5" />
+                        <TextView android:id="@+id/btnUndo" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="undo" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" android:alpha="0.5" />
 
-                        <TextView android:id="@+id/txtUndoCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="8sp" android:textColor="#9E9E9E" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
+                        <TextView android:id="@+id/txtUndoCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="8sp" android:textColor="@color/s_ink_faint" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Redo -->
                     <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:layout_margin="2dp">
 
-                        <TextView android:id="@+id/btnRedo" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="redo" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" android:alpha="0.5" />
+                        <TextView android:id="@+id/btnRedo" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="redo" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" android:alpha="0.5" />
 
-                        <TextView android:id="@+id/txtRedoCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="8sp" android:textColor="#9E9E9E" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
+                        <TextView android:id="@+id/txtRedoCount" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" android:textSize="8sp" android:textColor="@color/s_ink_faint" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Pages -->
                     <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:layout_margin="2dp">
 
-                        <TextView android:id="@+id/btnPages" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="tab" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" />
+                        <TextView android:id="@+id/btnPages" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="tab" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" />
 
                         <TextView android:id="@+id/txtPageInfo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="1/1" android:textSize="8sp" android:textColor="#4CAF50" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
                     </LinearLayout>
@@ -657,7 +657,7 @@
                     <!-- Layers -->
                     <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:layout_margin="2dp">
 
-                        <TextView android:id="@+id/btnLayers" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="layers" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" />
+                        <TextView android:id="@+id/btnLayers" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="layers" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" />
 
                         <TextView android:id="@+id/txtLayerInfo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="L1" android:textSize="8sp" android:textColor="#2196F3" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
                     </LinearLayout>
@@ -667,7 +667,7 @@
 
                         <TextView android:id="@+id/btnClearAll" android:layout_width="32dp" android:layout_height="32dp" android:gravity="center" android:text="delete_sweep" android:textSize="18sp" android:textColor="#FF5252" android:fontFamily="@font/materialicons" android:background="@drawable/floating_button_item_bg" android:clickable="true" android:focusable="true" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_delete_all"  android:textSize="8sp" android:textColor="#9E9E9E" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_delete_all"  android:textSize="8sp" android:textColor="@color/s_ink_faint" android:fontFamily="@font/ubuntu_regular" android:gravity="center" android:layout_marginTop="1dp" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -682,7 +682,7 @@
 
                         <TextView android:id="@+id/iconSelectTool" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="pan_tool" android:textSize="18sp" android:textColor="#4CAF50" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_select" android:textSize="7sp" android:textColor="#FFFFFF" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_select" android:textSize="7sp" android:textColor="@color/s_ink" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Pen Tool -->
@@ -690,15 +690,15 @@
 
                         <TextView android:id="@+id/iconPenTool" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="edit" android:textSize="18sp" android:textColor="#4CAF50" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_pen" android:textSize="7sp" android:textColor="#FFFFFF" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_pen" android:textSize="7sp" android:textColor="@color/s_ink" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Eraser Tool -->
                     <LinearLayout android:id="@+id/btnEraserTool" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:padding="2dp" android:clickable="true" android:focusable="true" android:background="?android:attr/selectableItemBackground">
 
-                        <TextView android:id="@+id/iconEraserTool" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="cleaning_services" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
+                        <TextView android:id="@+id/iconEraserTool" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="cleaning_services" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_erase" android:textSize="7sp" android:textColor="#FFFFFF" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_erase" android:textSize="7sp" android:textColor="@color/s_ink" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Text Tool -->
@@ -706,7 +706,7 @@
 
                         <TextView android:id="@+id/iconTextTool" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="text_fields" android:textSize="18sp" android:textColor="#FFEB3B" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_text" android:textSize="7sp" android:textColor="#FFFFFF" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_text" android:textSize="7sp" android:textColor="@color/s_ink" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Shape Tool -->
@@ -714,7 +714,7 @@
 
                         <TextView android:id="@+id/iconShapeTool" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="category" android:textSize="18sp" android:textColor="#FF5722" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_shape" android:textSize="7sp" android:textColor="#FFFFFF" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_shape" android:textSize="7sp" android:textColor="@color/s_ink" android:fontFamily="@font/ubuntu_regular" android:layout_marginTop="1dp" />
                     </LinearLayout>
                 </LinearLayout>
 
@@ -737,7 +737,7 @@
                     <View android:id="@+id/btnColorBlack" android:layout_width="24dp" android:layout_height="24dp" android:layout_margin="3dp" android:background="@drawable/annotation_color_circle_black" android:clickable="true" android:focusable="true" />
 
                     <!-- Color Picker -->
-                    <TextView android:id="@+id/btnColorPicker" android:layout_width="24dp" android:layout_height="24dp" android:layout_margin="3dp" android:gravity="center" android:text="palette" android:textSize="16sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_color_circle" android:backgroundTint="#424242" android:clickable="true" android:focusable="true" />
+                    <TextView android:id="@+id/btnColorPicker" android:layout_width="24dp" android:layout_height="24dp" android:layout_margin="3dp" android:gravity="center" android:text="palette" android:textSize="16sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_color_circle" android:backgroundTint="@color/s_line" android:clickable="true" android:focusable="true" />
                 </LinearLayout>
 
                 <!-- Stroke Size Heading -->
@@ -764,9 +764,9 @@
                     <!-- None (Transparent) -->
                     <LinearLayout android:id="@+id/btnBoardNone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:padding="2dp" android:clickable="true" android:focusable="true" android:background="?android:attr/selectableItemBackground">
 
-                        <TextView android:id="@+id/iconBoardNone" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="block" android:textSize="18sp" android:textColor="#9E9E9E" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
+                        <TextView android:id="@+id/iconBoardNone" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="block" android:textSize="18sp" android:textColor="@color/s_ink_faint" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_board_none" android:textSize="7sp" android:textColor="#FFFFFF" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_board_none" android:textSize="7sp" android:textColor="@color/s_ink" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- Black Board -->
@@ -774,15 +774,15 @@
 
                         <TextView android:id="@+id/iconBoardBlack" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="square" android:textSize="18sp" android:textColor="#000000" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_board_black" android:textSize="7sp" android:textColor="#FFFFFF" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_board_black" android:textSize="7sp" android:textColor="@color/s_ink" android:layout_marginTop="1dp" />
                     </LinearLayout>
 
                     <!-- White Board -->
                     <LinearLayout android:id="@+id/btnBoardWhite" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center" android:padding="2dp" android:clickable="true" android:focusable="true" android:background="?android:attr/selectableItemBackground">
 
-                        <TextView android:id="@+id/iconBoardWhite" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="square" android:textSize="18sp" android:textColor="#FFFFFF" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
+                        <TextView android:id="@+id/iconBoardWhite" android:layout_width="28dp" android:layout_height="28dp" android:gravity="center" android:text="square" android:textSize="18sp" android:textColor="@color/s_ink" android:fontFamily="@font/materialicons" android:background="@drawable/annotation_tool_bg" />
 
-                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_board_white" android:textSize="7sp" android:textColor="#FFFFFF" android:layout_marginTop="1dp" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"                         android:text="@string/annotation_board_white" android:textSize="7sp" android:textColor="@color/s_ink" android:layout_marginTop="1dp" />
                     </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
@@ -833,7 +833,7 @@
                 android:gravity="center"
                 android:text="pause"
                 android:textSize="20sp"
-                android:textColor="#9E9E9E"
+                android:textColor="@color/s_ink_faint"
                 android:fontFamily="@font/materialicons"
                 android:background="@drawable/floating_button_item_bg"
                 android:clickable="true"
@@ -847,7 +847,7 @@
                 android:gravity="center"
                 android:text="videocam"
                 android:textSize="20sp"
-                android:textColor="#9E9E9E"
+                android:textColor="@color/s_ink_faint"
                 android:fontFamily="@font/materialicons"
                 android:background="@drawable/floating_button_item_bg"
                 android:clickable="true"
@@ -861,7 +861,7 @@
                 android:gravity="center"
                 android:text="rotate_90_degrees_ccw"
                 android:textSize="16sp"
-                android:textColor="#AAAAAA"
+                android:textColor="@color/s_ink_faint"
                 android:fontFamily="@font/materialicons"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:clickable="true"
@@ -874,7 +874,7 @@
                 android:gravity="center"
                 android:text="open_in_full"
                 android:textSize="16sp"
-                android:textColor="#AAAAAA"
+                android:textColor="@color/s_ink_faint"
                 android:fontFamily="@font/materialicons"
                 android:background="?android:attr/selectableItemBackgroundBorderless"
                 android:clickable="true"

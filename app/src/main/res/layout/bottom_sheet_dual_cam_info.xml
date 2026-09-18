@@ -41,7 +41,7 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#404040"
+        android:background="@color/s_line"
         android:layout_marginBottom="12dp" />
 
     <!-- Info Card -->
@@ -219,7 +219,7 @@
             android:id="@+id/info_reason"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#FFBBBBBB"
+            android:textColor="@color/s_label"
             android:textSize="12sp"
             android:lineSpacingMultiplier="1.3"
             android:visibility="gone"
@@ -238,7 +238,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/dual_cam_info_unsupported_explanation"
-            android:textColor="#FFBBBBBB"
+            android:textColor="@color/s_label"
             android:textSize="12sp"
             android:lineSpacingMultiplier="1.3"
             android:layout_marginBottom="12dp" />
@@ -256,7 +256,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/dual_cam_info_devices_explanation"
-            android:textColor="#FFBBBBBB"
+            android:textColor="@color/s_label"
             android:textSize="12sp"
             android:lineSpacingMultiplier="1.3" />
     </LinearLayout>

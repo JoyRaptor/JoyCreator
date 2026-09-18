@@ -26,7 +26,7 @@
             android:text="Page 1"
             android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="#FFFFFF" />
+            android:textColor="@color/s_ink" />
 
         <TextView
             android:id="@+id/txtPageInfo"
@@ -34,7 +34,7 @@
             android:layout_height="wrap_content"
             android:text="2 layers"
             android:textSize="12sp"
-            android:textColor="#9E9E9E"
+            android:textColor="@color/s_ink_faint"
             android:layout_marginTop="2dp" />
     </LinearLayout>
 

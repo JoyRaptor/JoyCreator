@@ -38,7 +38,7 @@
             android:contentDescription="@string/desc_close"
             android:elevation="20dp"
             android:layout_gravity="center"
-            android:tint="#FFFFFF" />
+            android:tint="@color/s_ink" />
     </FrameLayout>
 
     <ScrollView
@@ -93,7 +93,7 @@
                     android:text="@string/update_sarcastic_heading"
                     android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:gravity="center"
                     android:layout_marginBottom="8dp"
                     android:fontFamily="sans-serif-medium" />
@@ -108,7 +108,7 @@
                     android:textAlignment="viewStart"
                     android:layout_marginBottom="12dp"
                     android:lineSpacingExtra="2dp"
-                    android:textColor="#FFFFFF"
+                    android:textColor="@color/s_ink"
                     android:lineSpacingMultiplier="1.2"
                     android:autoLink="web"
                     android:linksClickable="true" />
@@ -137,7 +137,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/update_version_arrow"
-                        android:textColor="#FFFFFF"
+                        android:textColor="@color/s_ink"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:includeFontPadding="true"

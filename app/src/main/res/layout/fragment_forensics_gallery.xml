@@ -244,7 +244,7 @@
                         android:fontFamily="@font/materialicons"
                         android:gravity="center"
                         android:text="find_in_page"
-                        android:textColor="#C49A7C"
+                        android:textColor="@color/s_ink_faint"
                         android:textSize="52sp" />
                 </FrameLayout>
 
@@ -254,7 +254,7 @@
                     android:layout_marginTop="20dp"
                     android:gravity="center"
                     android:text="@string/forensics_gallery_empty_title"
-                    android:textColor="#F5F5F5"
+                    android:textColor="@color/s_ink"
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
@@ -267,7 +267,7 @@
                     android:layout_marginEnd="40dp"
                     android:gravity="center"
                     android:text="@string/forensics_gallery_empty_subtitle_no_data"
-                    android:textColor="#80FFFFFF"
+                    android:textColor="@color/s_ink_faint"
                     android:textSize="13sp" />
 
             </LinearLayout>

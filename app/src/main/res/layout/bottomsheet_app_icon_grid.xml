@@ -56,7 +56,7 @@
             android:text="@string/app_icon_description"
             android:textSize="14sp"
             android:gravity="center"
-            android:textColor="#CCCCCC" />
+            android:textColor="@color/s_ink_dim" />
 
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/icon_grid_recycler_view"

@@ -300,14 +300,14 @@ public class TransformOverlayView extends View {
     private static final float SNAP_REJOIN_REL = 0.10f;
 
     /**
-     * Snap-tint fade for the quad outline during corner scales: purple at rest and
+     * Snap-tint fade for the quad outline during corner scales: CYAN at rest and
      * at identity, tilt-green while snapped uniform, free-red once broken out. The
      * edges carry the state, never the handle glyphs (their shape+colour vocabulary
      * already means the handle's role, not the drag's momentary state).
      */
     private static final long SNAP_FADE_MS = 150L;
-    private int snapTintFrom = HandleModel.COLOR_GUIDE;
-    private int snapTintTo = HandleModel.COLOR_GUIDE;
+    private int snapTintFrom = HandleModel.COLOR_SELECTION;
+    private int snapTintTo = HandleModel.COLOR_SELECTION;
     private long snapTintStartMs = 0L;
 
     /** Point the outline tint at {@code color}; fades from whatever it shows now. */
@@ -1806,7 +1806,7 @@ public class TransformOverlayView extends View {
         moved = false;
         cornerSnapBroken = false;
         // The outline fades back to purple on release (snapTintNow animates it).
-        setSnapTint(HandleModel.COLOR_GUIDE);
+        setSnapTint(HandleModel.COLOR_SELECTION);
         loupeShowing = false;
         haveRectAtGrab = false;
     }
@@ -1897,7 +1897,7 @@ public class TransformOverlayView extends View {
                     // Outline tint: purple at identity (no change, or back where it
                     // started), tilt-green while snapped uniform, free-red broken out.
                     if (Math.abs(sf[0] - 1f) < 0.005f && Math.abs(sf[1] - 1f) < 0.005f) {
-                        setSnapTint(HandleModel.COLOR_GUIDE);
+                        setSnapTint(HandleModel.COLOR_SELECTION);
                     } else if (snapped) {
                         setSnapTint(HandleModel.COLOR_TILT);
                     } else {
@@ -2058,7 +2058,7 @@ public class TransformOverlayView extends View {
         pinchIdA = pinchIdB = -1;
         haveRectAtGrab = false;
         cornerSnapBroken = false;
-        setSnapTint(HandleModel.COLOR_GUIDE);
+        setSnapTint(HandleModel.COLOR_SELECTION);
         if (clean && moved) h.commitGesture("Transform");
         hudEndedAtMs = SystemClock.uptimeMillis();
         moved = false;

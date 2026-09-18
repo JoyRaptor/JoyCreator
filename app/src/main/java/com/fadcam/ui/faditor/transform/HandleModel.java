@@ -54,6 +54,22 @@ public final class HandleModel {
     /** The quad outline itself. */
     public static final int COLOR_GUIDE = 0xFFA78BFA;
 
+    /**
+     * The resting selection outline. JoyRaptor: "a Cyan bounding box may be the right call."
+     *
+     * <p>Separate from {@link #COLOR_GUIDE} rather than replacing it, because COLOR_GUIDE is
+     * also what {@code PuppetPalette.FREE} is defined as — repointing it would have silently
+     * recoloured every free puppet pin to match a decision that was only ever about the
+     * transform box.
+     *
+     * <p>#22D3EE is the same cyan the timeline draws a selected clip's border and trim
+     * handles in, so selecting an object lights it up in one colour on the canvas and on the
+     * timeline. The outline still fades to tilt-green while a scale is snapped uniform and to
+     * free-red once it breaks out; only the RESTING state changes. Those two say what the
+     * drag is doing, which is a different question from what is selected.</p>
+     */
+    public static final int COLOR_SELECTION = 0xFF22D3EE;
+
     public static int colorOf(Role r) {
         switch (r) {
             case TILT: return COLOR_TILT;

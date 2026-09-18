@@ -587,6 +587,15 @@ public class LobbyFragment extends BaseFragment {
             }
         }
 
+        // Measured on the sandbox at 548dp: the unfocused room words were clickable nodes
+        // 20.3-21.8dp tall, under Studio Final §04's 28dp floor, sitting in a 66dp band —
+        // so most of the strip you can see was not a strip you could press. The words are
+        // SCALED, which is why they measure small however large the type is set, and why
+        // this works off layout slots rather than drawn bounds. Each word now owns its
+        // frozen slot, the full height of the band, and half the gap to each neighbour.
+        // Nothing is drawn any differently.
+        com.fadcam.ui.TouchDelegates.growChildren(marquee);
+
         marquee.post(() -> {
             centreOnActive();
             layoutMarquee();

@@ -255,6 +255,29 @@ since it is the least-pressed control in the row. That was wrong: the lever was 
 container but the button. `layout_marginStart="14dp"` on `btn_soft_snap` makes its own
 left gap, and the delegate takes half of it. **51.3dp, no label narrowed.**
 
+### The lobby, measured on the sandbox at 548dp
+
+26 clickable nodes. **All 26 carry an accessible name** — the count I claimed earlier,
+now read off a live dump rather than off the source.
+
+Five failed the size floor, and they were all the same control: the marquee's room words,
+**20.3–21.8dp tall** inside a **66dp band**. The strip you can see was mostly not a strip
+you could press. They measure small because they are SCALED — the type is set at 34sp and
+the unfocused words are shrunk toward the edges — so no reading of the layout would have
+shown it.
+
+Fixed the way the transport row was fixed, and the composite delegate that does it now
+lives in `com.fadcam.ui.TouchDelegates` instead of being private to the editor: each word
+owns its frozen layout slot, the full height of the band, and half the gap to each
+neighbour. It works off layout slots rather than drawn bounds, precisely because these
+children are scaled. Nothing is drawn differently. **Compile-verified only** — the sandbox
+dropped off adb before I could re-measure, so this one still owes a device reading.
+
+Everything else on the lobby clears the floor: search and Joybot at 40.1dp, the hero
+action row at 40.1, the library door at 548.6 × 58.9, the recents cards at 100.1 × 125.5,
+the New row at 127 × 34 and the floor dock at 104 × 36.1. §04 asks for "nothing below 28dp,
+almost everything 40 or 44"; the 34 and 36dp rows sit in the tolerated middle.
+
 ### The seven records, and where each one stands
 
 All seven exist as published artifacts from this conversation — verified by searching the

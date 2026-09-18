@@ -18915,35 +18915,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
     // G15 helpers
     /**
-     * One {@link android.view.TouchDelegate} that holds several.
-     *
-     * <p>A View has exactly ONE touch delegate, so the obvious loop — set one per child —
-     * silently keeps only the last and leaves every other control exactly as small as it was.
-     * That bug is the reason this class exists rather than four lines inline.
-     */
-    private static final class TouchDelegates extends android.view.TouchDelegate {
-        private final java.util.List<android.view.TouchDelegate> parts = new java.util.ArrayList<>();
-
-        TouchDelegates(android.view.View host) {
-            super(new android.graphics.Rect(), host);
-        }
-
-        void add(android.view.TouchDelegate d) { parts.add(d); }
-
-        @Override
-        public boolean onTouchEvent(android.view.MotionEvent e) {
-            // A copy per delegate: TouchDelegate OFFSETS the event it is given, so handing
-            // the same one to the next delegate would hand it already-shifted coordinates.
-            float x = e.getX(), y = e.getY();
-            for (android.view.TouchDelegate d : parts) {
-                e.setLocation(x, y);
-                if (d.onTouchEvent(e)) return true;
-            }
-            return false;
-        }
-    }
-
-    /**
      * Grows every transport control's HIT rectangle to fill the row, without resizing it.
      *
      * <p>Studio Final §01, finding 02, rated CRITICAL: the row's controls are drawn at 30dp
@@ -18976,7 +18947,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         {
             int n = row.getChildCount();
             if (n == 0 || row.getHeight() <= 0) return;
-            TouchDelegates all = new TouchDelegates(row);
+            com.fadcam.ui.TouchDelegates all = new com.fadcam.ui.TouchDelegates(row);
             boolean any = false;
             // Collect the visible children first, so each one can be grown to the MIDPOINT
             // between its actual neighbours. Reading its own margins is not enough: every

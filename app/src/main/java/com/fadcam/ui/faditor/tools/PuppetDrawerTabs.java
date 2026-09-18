@@ -78,9 +78,9 @@ public final class PuppetDrawerTabs {
     private static final int TXT = Studio.INK;
     private static final int TXT_DIM = Studio.INK_FAINT;
     private static final int TXT_FAINT = Studio.INK_FAINT;
-    private static final int ROW_BG = 0x552C2C35;
-    private static final int ROW_LINE = 0x33FFFFFF;
-    private static final int SUNK_BG = 0x6616161B;
+    private static final int ROW_BG = Studio.alpha(Studio.LINE, 0x55);
+    private static final int ROW_LINE = Studio.alpha(Studio.INK, 0x33);
+    private static final int SUNK_BG = Studio.alpha(Studio.SUNK, 0x66);
     private static final int GO = Studio.GO;
     private static final int REC = Studio.DANGER;
     private static final int OFF = Studio.INK_OFF;
@@ -294,7 +294,7 @@ public final class PuppetDrawerTabs {
         name.setSingleLine(true);
         name.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         name.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-        name.setBackground(rowBg(d, 0x22FFFFFF));
+        name.setBackground(rowBg(d, Studio.alpha(Studio.INK, 0x22)));
         name.setPadding(pad(d, 7), pad(d, 3), pad(d, 7), pad(d, 3));
         name.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
@@ -383,7 +383,7 @@ public final class PuppetDrawerTabs {
         PuppetRig rig = host.rig();
         FrameLike wrap = new FrameLike(ctx);
         wrap.setGravity(Gravity.CENTER);
-        wrap.setBackground(rowBg(d, rig.recordOnTouch ? 0x33FF4438 : 0x00000000,
+        wrap.setBackground(rowBg(d, rig.recordOnTouch ? Studio.alpha(Studio.DANGER, 0x33) : 0x00000000,
                 rig.recordOnTouch ? REC : ROW_LINE, d));
 
         View dotView = new View(ctx);
@@ -1160,7 +1160,7 @@ public final class PuppetDrawerTabs {
         t.setText(text);
         t.setTextSize(10.5f);
         t.setTextColor(TXT_FAINT);
-        t.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        t.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         t.setPadding(pad(d, 2), pad(d, 5), pad(d, 2), pad(d, 3));
         return t;
     }

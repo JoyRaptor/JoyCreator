@@ -57,9 +57,9 @@ public final class FxPanel {
 
     private static final int TXT = Studio.INK;
     private static final int TXT_DIM = Studio.INK_FAINT;
-    private static final int CARD_BG = 0x1AFFFFFF;
-    private static final int CHIP_BG = 0x22FFFFFF;
-    private static final int CHIP_ON = 0x66FFFFFF;
+    private static final int CARD_BG = Studio.alpha(Studio.INK, 0x1A);
+    private static final int CHIP_BG = Studio.alpha(Studio.INK, 0x22);
+    private static final int CHIP_ON = Studio.alpha(Studio.INK, 0x66);
 
     /** What the panel needs back from the editor. */
     public interface Host {
@@ -734,7 +734,7 @@ public final class FxPanel {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
         bg.setColor(Studio.GROUND | (color & 0xF4F4F5));
-        bg.setStroke(Math.round(1 * d), 0x55FFFFFF);
+        bg.setStroke(Math.round(1 * d), Studio.alpha(Studio.INK, 0x55));
         swatch.setBackground(bg);
     }
 
@@ -1244,7 +1244,7 @@ public final class FxPanel {
                     Math.round(16 * d), Math.round(2 * d));
             blp.topMargin = i == 0 ? 0 : Math.round(3 * d);
             bar.setLayoutParams(blp);
-            bar.setBackgroundColor(0x66FFFFFF);
+            bar.setBackgroundColor(Studio.alpha(Studio.INK, 0x66));
             box.addView(bar);
         }
         int size = Math.round(44 * d);

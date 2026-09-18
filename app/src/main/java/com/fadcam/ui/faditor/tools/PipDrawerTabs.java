@@ -76,7 +76,7 @@ public final class PipDrawerTabs {
         note.setText(noteRes);
         note.setTextColor(TXT_DIM);
         note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         note.setPadding(Math.round(6 * d), Math.round(6 * d),
                 Math.round(6 * d), Math.round(6 * d));
         root.addView(note);
@@ -176,7 +176,7 @@ public final class PipDrawerTabs {
         TextView labelView = new TextView(ctx);
         labelView.setTextColor(TXT_DIM);
         labelView.setTextSize(11);
-        labelView.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        labelView.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         labelView.setWidth(Math.round(52 * d));
         labelView.setText(label);
         row.addView(labelView);
@@ -210,7 +210,7 @@ public final class PipDrawerTabs {
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         value.setWidth(Math.round(40 * d));
         value.setGravity(Gravity.END);
         value.setText(prop.format(cur));
@@ -276,7 +276,7 @@ public final class PipDrawerTabs {
         TextView label = new TextView(ctx);
         label.setTextColor(TXT_DIM);
         label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         label.setWidth(Math.round(52 * d));
         label.setText(prop.label());
         row.addView(label);
@@ -305,7 +305,7 @@ public final class PipDrawerTabs {
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         value.setWidth(Math.round(46 * d));
         value.setGravity(Gravity.END);
         value.setText(prop.format(cur));
@@ -670,7 +670,7 @@ public final class PipDrawerTabs {
             for (int i = 0; i < spec.masks.size(); i++) {
                 final int idx = i;
                 TextView c = chip(ctx, String.valueOf(i + 1), dp);
-                c.setBackgroundColor(idx == sel[0] ? 0x66FFFFFF : 0x22FFFFFF);
+                c.setBackgroundColor(idx == sel[0] ? Studio.alpha(Studio.INK, 0x66) : Studio.alpha(Studio.INK, 0x22));
                 c.setOnClickListener(v -> { sel[0] = idx; rebuild[0].run(); });
                 shapeGroup.addView(c);
             }
@@ -928,7 +928,7 @@ public final class PipDrawerTabs {
         t.setTextSize(12.5f);
         int px = (int) (10 * d), py = (int) (6 * d);
         t.setPadding(px, py, px, py);
-        t.setBackgroundColor(0x22FFFFFF);
+        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = (int) (8 * d);
@@ -962,7 +962,7 @@ public final class PipDrawerTabs {
         final TextView colorLabel = new TextView(ctx);
         colorLabel.setTextColor(TXT_DIM);
         colorLabel.setTextSize(11);
-        colorLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        colorLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         body.addView(colorLabel);
         Runnable refreshColor = () -> colorLabel.setText(ctx.getString(R.string.faditor_key_color)
                 + "  ·  " + String.format("#%06X", spec.keyColor & 0xF4F4F5));
@@ -1067,7 +1067,7 @@ public final class PipDrawerTabs {
             note.setText(R.string.faditor_blend_export_note);
             note.setTextColor(TXT_DIM);
             note.setTextSize(10);
-            note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             note.setPadding(Math.round(6 * d), Math.round(6 * d), Math.round(6 * d), 0);
             root.addView(note);
         }
@@ -1134,7 +1134,7 @@ public final class PipDrawerTabs {
         TextView label = new TextView(ctx);
         label.setTextColor(TXT_DIM);
         label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // 78dp wrapped "Soften edges" onto two lines, which made that one row taller than every
         // other and read as a layout fault (user, 2026-08-05). Widened rather than shortened:
         // the labels are already the shortest honest names for these controls, and at a larger
@@ -1154,7 +1154,7 @@ public final class PipDrawerTabs {
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // Wide enough for "-100" — a negative position used to be unreachable, and a value
         // column sized for "100" would ellipsize the very numbers that prove it now works.
         value.setWidth(Math.round(40 * d));
@@ -1213,7 +1213,7 @@ public final class PipDrawerTabs {
         TextView label = new TextView(ctx);
         label.setTextColor(TXT_DIM);
         label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         label.setWidth(Math.round(94 * d));
         label.setMaxLines(1);
         label.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -1226,7 +1226,7 @@ public final class PipDrawerTabs {
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // Wide enough for "-45" and "720" — windings a mask can genuinely hold.
         value.setWidth(Math.round(40 * d));
         value.setGravity(Gravity.END);
@@ -1314,7 +1314,7 @@ public final class PipDrawerTabs {
         iv.setContentDescription(name);
         int pad = Math.round(5 * d);
         iv.setPadding(pad, pad, pad, pad);
-        iv.setBackgroundColor(selected ? 0x66FFFFFF : 0x22FFFFFF);
+        iv.setBackgroundColor(selected ? Studio.alpha(Studio.INK, 0x66) : Studio.alpha(Studio.INK, 0x22));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 Math.round(34 * d), Math.round(30 * d));
         lp.rightMargin = Math.round(5 * d);

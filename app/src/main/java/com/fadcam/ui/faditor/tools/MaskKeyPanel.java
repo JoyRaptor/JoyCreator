@@ -481,7 +481,7 @@ public final class MaskKeyPanel {
         t.setTextSize(12.5f);
         int px = (int) (10 * density), py = (int) (6 * density);
         t.setPadding(px, py, px, py);
-        t.setBackgroundColor(0x22FFFFFF);
+        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = (int) (8 * density);

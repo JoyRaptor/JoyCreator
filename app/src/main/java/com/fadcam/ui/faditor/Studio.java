@@ -45,6 +45,7 @@ public final class Studio {
     public static final int GROUND  = 0xFF000000;   // the timeline's own ground
     public static final int SURFACE = 0xFF0D0D10;   // the screen behind panels
     public static final int PANEL   = 0xFF111114;   // a panel, a sheet, a drawer
+    public static final int SUNK    = 0xFF16161B;   // a well cut INTO a panel
     public static final int RAISED  = 0xFF1C1C22;   // a control sitting on a panel
     /** A control being held down. The rung the first ladder skipped. */
     public static final int PRESSED = 0xFF26262E;

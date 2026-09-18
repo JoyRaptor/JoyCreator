@@ -46,7 +46,7 @@ public class RotationDialView extends View {
     private static final int NEG_COL = Studio.DANGER;
     private static final int BASE_COL = Studio.OFF;
     private static final int NOTCH_COL = Studio.INK_FAINT;
-    private static final int PLATE_COL = 0x8C000000;
+    private static final int PLATE_COL = Studio.alpha(Studio.GROUND, 0x8C);
     private static final int TEXT_COL = Studio.INK;
 
     /** Gesture callbacks. {@link #onDragDelta} fires AFTER the view has applied the

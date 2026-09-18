@@ -163,7 +163,7 @@ public final class AudioDrawerTabs {
         TextView label = new TextView(ctx);
         label.setTextColor(TXT_DIM);
         label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         label.setWidth(Math.round(52 * d));
         label.setMaxLines(1);
         label.setText("Level");                                            // TODO(strings)
@@ -175,7 +175,7 @@ public final class AudioDrawerTabs {
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         value.setWidth(Math.round(46 * d));
         value.setGravity(Gravity.END);
 
@@ -255,7 +255,7 @@ public final class AudioDrawerTabs {
         TextView label = new TextView(ctx);
         label.setTextColor(TXT_DIM);
         label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         label.setWidth(Math.round(52 * d));
         label.setMaxLines(1);
         label.setText("Pan");                                            // TODO(strings)
@@ -270,7 +270,7 @@ public final class AudioDrawerTabs {
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         value.setWidth(Math.round(46 * d));
         value.setGravity(Gravity.END);
 
@@ -363,7 +363,7 @@ public final class AudioDrawerTabs {
         TextView state = new TextView(ctx);
         state.setTextColor(TXT_DIM);
         state.setTextSize(10);
-        state.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        state.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         state.setPadding(Math.round(8 * d), 0, Math.round(8 * d), 0);
         row.addView(state, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -419,7 +419,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         TextView labelView = new TextView(ctx);
         labelView.setTextColor(TXT_DIM);
         labelView.setTextSize(11);
-        labelView.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        labelView.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         labelView.setWidth(Math.round((half ? 40 : 52) * d));
         labelView.setMaxLines(1);
         labelView.setText(label);
@@ -433,7 +433,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         TextView value = new TextView(ctx);
         value.setTextColor(TXT);
         value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         value.setWidth(Math.round((half ? 38 : 46) * d));
         value.setGravity(Gravity.END);
 
@@ -531,7 +531,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         TextView state = new TextView(ctx);
         state.setTextColor(TXT_DIM);
         state.setTextSize(10);
-        state.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        state.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         state.setPadding(Math.round(8 * d), Math.round(4 * d),
                 Math.round(8 * d), Math.round(6 * d));
         root.addView(state);
@@ -653,7 +653,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         note.setText("Runs ffmpeg offline over this clip's trimmed range.");   // TODO(strings)
         note.setTextColor(TXT_DIM);
         note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         note.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
         root.addView(note);
         return root;
@@ -722,7 +722,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             vLabel.setText("Enhance voice");                               // TODO(strings)
             vLabel.setTextColor(TXT);
             vLabel.setTextSize(12.5f);
-            vLabel.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            vLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             vLabel.setLayoutParams(new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             vRow.addView(vLabel);
@@ -750,7 +750,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                     + "for speech. Rebuilds this clip's preview sound.");
             vNote.setTextColor(TXT_DIM);
             vNote.setTextSize(10);
-            vNote.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            vNote.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             vNote.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), Math.round(4 * d));
             root.addView(vNote);
         }
@@ -762,10 +762,10 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             linkBtn.setText("\u25C6 Beat-reactive link\u2026");                // TODO(strings)
             linkBtn.setTextColor(TXT);
             linkBtn.setTextSize(12.5f);
-            linkBtn.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            linkBtn.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             linkBtn.setPadding(Math.round(8 * d), Math.round(6 * d),
                     Math.round(8 * d), Math.round(6 * d));
-            linkBtn.setBackgroundColor(0x22FFFFFF);
+            linkBtn.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
             linkBtn.setOnClickListener(v -> host.onAudioReactiveLinkRequested());
             root.addView(linkBtn, new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -779,7 +779,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                     + "of this clip. Writes normal keyframes you can drag afterwards.");
             linkNote.setTextColor(TXT_DIM);
             linkNote.setTextSize(10);
-            linkNote.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+            linkNote.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             linkNote.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
             root.addView(linkNote);
         }
@@ -788,7 +788,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         title.setText("Compressor");                                       // TODO(strings)
         title.setTextColor(TXT);
         title.setTextSize(12.5f);
-        title.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        title.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         root.addView(title);
 
         GainReductionBar bar = new GainReductionBar(ctx);
@@ -799,7 +799,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         TextView value = new TextView(ctx);
         value.setTextColor(TXT_DIM);
         value.setTextSize(10);
-        value.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         value.setPadding(Math.round(8 * d), 0, Math.round(8 * d), 0);
         valRow.addView(value, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -809,7 +809,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         TextView note = new TextView(ctx);
         note.setTextColor(TXT_DIM);
         note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         note.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
         root.addView(note);
 
@@ -841,7 +841,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
      * the compressor pushes the level down — reduction reads as subtraction, leftward.
      */
     private static final class GainReductionBar extends android.view.View {
-        private static final int TRACK_COLOR = 0x22FFFFFF;
+        private static final int TRACK_COLOR = Studio.alpha(Studio.INK, 0x22);
         private static final int FILL_COLOR = Studio.CAREFUL;
         /** Full scale: 12 dB of reduction sweeps the whole bar. */
         private static final float MAX_DB = 12f;
@@ -901,10 +901,10 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         t.setText(text);
         t.setTextColor(TXT);
         t.setTextSize(12.5f);
-        t.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        t.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         t.setPadding(Math.round(10 * d), Math.round(6 * d),
                 Math.round(10 * d), Math.round(6 * d));
-        t.setBackgroundColor(0x22FFFFFF);
+        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = Math.round(8 * d);

@@ -202,7 +202,7 @@ public class FaditorToolsAdapter {
             ((LinearLayout.LayoutParams) lp).width = dp(editMode ? 3 : 2);
             divider.setLayoutParams(lp);
         }
-        divider.setBackgroundColor(editMode ? Studio.GO : 0x33FFFFFF);
+        divider.setBackgroundColor(editMode ? Studio.GO : Studio.alpha(Studio.INK, 0x33));
         divider.setAlpha(editMode ? 1f : 0.9f);
     }
 
@@ -714,7 +714,7 @@ public class FaditorToolsAdapter {
         int padH = dp(14);
         int padV = dp(8);
         done.setPadding(padH, padV, padH, padV);
-        done.setBackgroundColor(0xF20D0D10);
+        done.setBackgroundColor(Studio.alpha(Studio.SURFACE, 0xF2));
         done.setElevation(dp(12));
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT);

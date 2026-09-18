@@ -289,11 +289,58 @@ engineering, and all three are done:
   an audio clip swaps the right-hand section to Extract audio / Sound / Clean in audio green,
   and leaves everything left of the divider untouched.
 
-**The one item §07 flags as unverified is still unverified.** It lists the object drawer
-header as *"BUILT — not yet driven on a phone, needs a real double-tap."* I drove it: the
-double-tap selects the clip and retargets the tool row correctly, but tapping Sound did not
-open a drawer in the split layout this sandbox renders at its 315dpi override. No crash. It
-needs a look on the Note 9 at its real density, and it stays on this list until it gets one.
+**§07's unverified item is now verified.** It listed the object drawer header as
+*"BUILT — not yet driven on a phone, needs a real double-tap."* It is driven, on the
+sandbox at 548dp: selecting a clip and tapping **Adjust** opens the drawer over the top
+bar as designed, with its **Effects** title, its accent, its ✕ and its empty state
+(*"This layer changes nothing yet"*). The timeline stays uncovered underneath, which is
+the whole reason the drawer hangs from the top. Screenshot taken.
+
+My earlier note said Sound "did not open a drawer". That was not a layout failure — the
+tool row is CONTEXTUAL, and with an audio clip selected it swaps Adjust out for Silence,
+Fix audio and Beats. I was tapping a tool that the selection had legitimately replaced.
+The drawer was never broken.
+
+Three defects the drive-through found, none of which a reading of the code would have:
+
+| | found | fixed |
+|---|---|---|
+| ✕ close, unnamed | its only accessible name was the character "✕" | `universal_close`, the same word the rest of the app uses |
+| ✕ close, 32.5 × 31.5dp | a drawer's only dismiss button, sitting on the floor | **40.1 × 40.1dp**, measured after |
+| the panel announced itself | `setClickable(true)` blocks taps reaching the preview, but also made the whole drawer a 548 × 187dp unlabelled button | `IMPORTANT_FOR_ACCESSIBILITY_NO` — container out, children kept |
+
+The first two are device-verified. The third is **compile-verified only**: `uiautomator`
+sets `FLAG_INCLUDE_NOT_IMPORTANT_VIEWS`, so its dump still lists the node. TalkBack does
+not set that flag. The tool cannot show the difference the change makes.
+
+Still short of the norm and left alone deliberately: the `＋ Add effect` chip at
+93.0 × **30.5dp**. It comes from FxPanel's shared `chip()`, so raising it restyles every
+chip in the effects panel — a bigger change than the defect. §04's floor is 28dp and it
+clears it.
+
+### The tools package still typed its colours by hand — 105 of them
+
+Found while measuring the drawer. Three separate faults, one pass, **105 → 25**:
+
+- **69 were tokens wearing an alpha** — `0xCC000000` is GROUND at 80%, written out 34
+  times. Value-identical rewrites to `Studio.alpha(TOKEN, 0xAA)`, so nothing moved.
+- **One was a colour the app no longer has.** `0x33FF4438` is a tint of DANGER as it was
+  *before* the Swatch Room corrected it to `0xFFFA3D5D`. Nobody updated the translucent
+  copy, so the puppet record button's armed wash was still painted in a red that exists
+  nowhere else. This is precisely the failure hand-typed colour has and tokens do not.
+- **27 were raw white at an alpha.** Studio's INK is `0xFFF2F2F5` — deliberately a touch
+  below white. A hairline or a grip pill at `0xFFFFFF` is brighter than the brightest
+  *text* in the app, which is a hierarchy inversion. Now `Studio.alpha(Studio.INK, ..)`.
+
+Then the last hand-painted screen, ColorPickerDialog: eleven chrome colours became LABEL,
+INK, INK_FAINT and OFF — `0xFFF4F4F5` turned out to be INK typed two values off. Its
+affirmative button was `0xFF4FC3F7`, a Material light-blue belonging to no family; it is
+ARMED now, the nearest hue the app owns. One token was added, `Studio.SUNK = 0xFF16161B`,
+the value between SURFACE and RAISED that had a use and no name.
+
+**All 25 that remain are accounted for:** 16 are the colour picker's swatch ramp, which is
+CONTENT — the colours the user picks *out of*, which must not move when the app's surfaces
+do — and the rest are `0x00000000` fills and one `0x00FFFFFF` bit mask.
 
 ### Against *Studio Final* §04, the spec table — "no value on this page was chosen by eye"
 

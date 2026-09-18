@@ -187,7 +187,7 @@ public final class GradientRampEditorView extends LinearLayout {
                     colors, pos, Shader.TileMode.CLAMP));
             float r = 6f * d;
             c.drawRoundRect(barRect, r, r, barPaint);
-            strokePaint.setColor(0x55FFFFFF);
+            strokePaint.setColor(Studio.alpha(Studio.INK, 0x55));
             c.drawRoundRect(barRect, r, r, strokePaint);
 
             // Opacity track: squares on the stops, diamonds biased between them.

@@ -118,7 +118,7 @@ public class FaditorToolsDrawer {
         scrim = new View(context);
         scrim.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        scrim.setBackgroundColor(0xB3000000);
+        scrim.setBackgroundColor(Studio.alpha(Studio.GROUND, 0xB3));
         scrim.setOnClickListener(v -> dismiss());
         overlay.addView(scrim);
 

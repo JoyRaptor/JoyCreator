@@ -50,9 +50,9 @@ public final class BlendPickerPopover {
     private static final int SHEET_BG = Studio.RAISED;
     private static final int TXT = Studio.INK;
     private static final int TXT_HEADING = Studio.INK_FAINT;   // the "small grey text" category label
-    private static final int ROW_ON = 0x338C3DFA;
+    private static final int ROW_ON = Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x33);
     private static final int ACCENT = Studio.GUIDE;
-    private static final int CHIP_BG = 0x22FFFFFF;
+    private static final int CHIP_BG = Studio.alpha(Studio.INK, 0x22);
 
     /**
      * Which column each of {@link BlendModes#GROUPED}'s groups lands in. Hand-assigned rather than
@@ -125,14 +125,14 @@ public final class BlendPickerPopover {
         final TextView chip = new TextView(ctx);
         chip.setTextColor(TXT);
         chip.setTextSize(12f);
-        chip.setShadowLayer(3f * d, 0f, 1f, 0xCC000000);
+        chip.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         chip.setGravity(Gravity.CENTER_VERTICAL);
         int px = Math.round(14 * d), py = Math.round(9 * d);
         chip.setPadding(px, py, px, py);
         GradientDrawable bg = new GradientDrawable();
         bg.setCornerRadius(14f * d);
         bg.setColor(CHIP_BG);
-        bg.setStroke(Math.round(1 * d), 0x33FFFFFF);
+        bg.setStroke(Math.round(1 * d), Studio.alpha(Studio.INK, 0x33));
         chip.setBackground(bg);
         chip.setMinHeight(Math.round(44 * d));
         chip.setText(chipText(ctx, getMode.get()));

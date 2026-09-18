@@ -28,7 +28,7 @@ import androidx.annotation.Nullable;
 public final class MixedSwatchDrawable extends Drawable {
 
     private static final int BG = Studio.LINE;
-    private static final int ACCENT = 0x99A78BFA;
+    private static final int ACCENT = Studio.alpha(Studio.GUIDE, 0x99);
 
     private final Paint bgPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint splitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);

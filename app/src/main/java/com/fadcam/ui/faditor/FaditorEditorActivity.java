@@ -19069,6 +19069,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 more.setText(getString(R.string.faditor_tools_more, hidden));
                 more.setVisibility(View.VISIBLE);
             }
+
+            // The fade is a PROMISE that the row continues, so it has to be able to stop
+            // making it. Driven off scrollability rather than off the count above: a cell
+            // can be partly cut by the right edge while none is fully past it, and a fade
+            // over a half-visible tool is telling the truth. Scrolled to the end, both the
+            // count and the fade go, and the row simply ends.
+            if (fade != null) {
+                boolean canScrollRight = scroll.canScrollHorizontally(1);
+                fade.setVisibility(canScrollRight ? View.VISIBLE : View.INVISIBLE);
+            }
         };
 
         scroll.getViewTreeObserver().addOnScrollChangedListener(recount::run);

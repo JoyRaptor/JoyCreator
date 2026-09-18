@@ -72,7 +72,7 @@ public final class ObjectDrawer extends LinearLayout {
      *
      * <p>You can still watch the video through it. You can now also read the labels.</p>
      */
-    private static final int SCRIM = 0xA3000000;
+    private static final int SCRIM = Studio.alpha(Studio.GROUND, 0xA3);
     private static final int TXT = Studio.INK;
     private static final int TXT_DIM = Studio.INK_DIM;
     /**
@@ -186,6 +186,11 @@ public final class ObjectDrawer extends LinearLayout {
         // Consume touches so a tap on the drawer never reaches the preview underneath and
         // starts dragging the very PiP being edited.
         setClickable(true);
+        // ...but that clickable panel then showed up on the sandbox as a 548 × 187dp node with
+        // no accessible name: TalkBack would offer the whole drawer as an unlabelled button
+        // before reaching anything inside it. NO (not NO_HIDE_DESCENDANTS) drops the container
+        // from the tree and leaves every child in it, which is what a tap-blocker should be.
+        setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         header = new LinearLayout(ctx);
         header.setOrientation(HORIZONTAL);
@@ -198,7 +203,7 @@ public final class ObjectDrawer extends LinearLayout {
         titleView.setTypeface(titleView.getTypeface(), Typeface.BOLD);
         // Shadow rather than a solid bar: keeps the title readable on a bright frame without
         // giving up the transparency the drawer exists for.
-        titleView.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
+        titleView.setShadowLayer(4f * density, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // JoyRaptor, 2026-09-16, reporting this as a daily obstruction: "there's not enough
         // room for the label so the label then stacks vertically instead of reading
         // horizontally and it pushes the title header to be huge which then subsequently
@@ -238,6 +243,16 @@ public final class ObjectDrawer extends LinearLayout {
         close.setTextColor(TXT_DIM);
         close.setTextSize(17);
         close.setPadding(dp(12), dp(4), dp(10), dp(4));
+        // A glyph is not a label. Measured on the sandbox this was a clickable node whose
+        // only accessible name was the character "✕" — the one control every user of this
+        // drawer needs, announced as a dingbat. It is the same Close the rest of the app says.
+        close.setContentDescription(ctx.getString(com.fadcam.R.string.universal_close));
+        // 32.5 × 31.5dp as measured. Studio Final §04 puts the floor at 28 and the norm at
+        // "almost everything 40 or 44"; a drawer's only dismiss button belongs at the norm,
+        // not on the floor. Gravity keeps the glyph where it was drawn, so only the box grows.
+        close.setMinWidth(dp(40));
+        close.setMinHeight(dp(40));
+        close.setGravity(Gravity.CENTER);
         close.setOnClickListener(v -> hide());
         header.addView(close);
 
@@ -255,7 +270,7 @@ public final class ObjectDrawer extends LinearLayout {
         grip.setPadding(0, dp(4), 0, dp(8));
         View pill = new View(ctx);
         GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(0x88FFFFFF);
+        pillBg.setColor(Studio.alpha(Studio.INK, 0x88));
         pillBg.setCornerRadius(3f * density);
         pill.setBackground(pillBg);
         grip.addView(pill, new LayoutParams(dp(38), dp(4)));
@@ -603,7 +618,7 @@ public final class ObjectDrawer extends LinearLayout {
         }
         if (!tabs.isEmpty() && !toggles.isEmpty()) {
             View divider = new View(getContext());
-            divider.setBackgroundColor(0x33FFFFFF);
+            divider.setBackgroundColor(Studio.alpha(Studio.INK, 0x33));
             LayoutParams lp = new LayoutParams(Math.max(1, dp(1)), dp(18));
             lp.leftMargin = dp(5);
             lp.rightMargin = dp(5);
@@ -629,7 +644,7 @@ public final class ObjectDrawer extends LinearLayout {
         iv.setLayoutParams(lp);
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.OVAL);
-        bg.setColor(0x33FFFFFF);
+        bg.setColor(Studio.alpha(Studio.INK, 0x33));
         iv.setBackground(bg);
         iv.setAlpha(1f);
         return iv;

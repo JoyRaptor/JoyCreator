@@ -47,7 +47,7 @@ public final class TextOverlayDrawer extends LinearLayout {
      * PiP drawer had already made the trade. The text on top carries a shadow layer, which is what
      * keeps it legible over an arbitrary frame.</p>
      */
-    private static final int BG = 0x66000000;
+    private static final int BG = Studio.alpha(Studio.GROUND, 0x66);
     private static final int TXT = Studio.INK;
     private static final int TXT_DIM = Studio.INK_FAINT;
     private static final int SLIDE_MS = 220;
@@ -95,7 +95,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         titleView.setLetterSpacing(0.05f);
         // The panel is a scrim now, so anything on it has arbitrary picture behind it. Same shadow
         // the PiP drawer's title carries, for the same reason.
-        titleView.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
+        titleView.setShadowLayer(4f * density, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         header.addView(titleView, new LayoutParams(LayoutParams.WRAP_CONTENT,
                 LayoutParams.WRAP_CONTENT));
 
@@ -112,7 +112,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         close.setTextColor(TXT_DIM);
         close.setTextSize(17);
         close.setPadding(dp(12), dp(4), dp(10), dp(4));
-        close.setShadowLayer(4f * density, 0f, 1f, 0xCC000000);
+        close.setShadowLayer(4f * density, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         close.setOnClickListener(v -> hide());
         header.addView(close);
         addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
@@ -127,7 +127,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         grip.setPadding(0, dp(4), 0, dp(8));
         View pill = new View(ctx);
         GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(0x88FFFFFF);
+        pillBg.setColor(Studio.alpha(Studio.INK, 0x88));
         pillBg.setCornerRadius(3f * density);
         pill.setBackground(pillBg);
         grip.addView(pill, new LayoutParams(dp(38), dp(4)));
@@ -141,7 +141,7 @@ public final class TextOverlayDrawer extends LinearLayout {
         moreHint.setTextColor(Studio.GUIDE);
         moreHint.setTextSize(9f);
         moreHint.setLetterSpacing(0.08f);
-        moreHint.setShadowLayer(3f * density, 0f, 1f, 0xCC000000);
+        moreHint.setShadowLayer(3f * density, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         moreHint.setPadding(dp(10), 0, 0, 0);
         moreHint.setVisibility(GONE);
         grip.addView(moreHint, new LayoutParams(

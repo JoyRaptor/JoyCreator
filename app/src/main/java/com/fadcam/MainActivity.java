@@ -603,11 +603,22 @@ public class MainActivity extends AppCompatActivity {
             // Configuration change / process death — FragmentManager restores all added fragments
             // We need to find which was the current one and ensure others are hidden
             FLog.d("FragmentNav", "onCreate: Restoring from savedInstanceState");
-            int restoredPosition = savedInstanceState.getInt("current_fragment_position", 0);
+            // ── THE RESTORE PATH DID NOT KNOW THE LOBBY EXISTED ─────────────
+            // Two bugs, and together they are the "abominable mix of the old FadCam with our
+            // new stuff stacked on top" that JoyRaptor hit.
+            //
+            // The default was 0 — the legacy FadCam home — so any restore with no saved
+            // position landed there rather than on the front door. And the loop below ran
+            // i < 6, which covers tabs 0..5 and NOT the lobby at 6: its fragment was never
+            // hidden and never shown, so whatever state it was left in survived. Restore to
+            // position 0 with the lobby still visible and you get both at once, which is
+            // exactly what he saw.
+            int restoredPosition = savedInstanceState.getInt("current_fragment_position", TAB_LOBBY);
             androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
-            
-            // Hide all fragments except the current one, and restore currentFragmentPosition
-            for (int i = 0; i < 6; i++) {
+
+            // Hide all fragments except the current one, and restore currentFragmentPosition.
+            // <= TAB_LOBBY, so the lobby is one of the fragments this loop governs.
+            for (int i = 0; i <= TAB_LOBBY; i++) {
                 String visibleTag = i == 0 ? getHomeFragmentTagForCurrentMode() : FRAGMENT_TAG_PREFIX + i;
                 for (String tag : getFragmentTagsForPosition(i)) {
                     Fragment f = fm.findFragmentByTag(tag);
@@ -624,6 +635,11 @@ public class MainActivity extends AppCompatActivity {
             }
             currentFragmentPosition = restoredPosition;
             FLog.d("FragmentNav", "onCreate: Restored current position to " + restoredPosition);
+            // The restore showed the right fragment but never told the rest of the screen:
+            // handleTabSelected is what hides the bottom bar on the lobby and shows it
+            // everywhere else. Without it a restore onto the lobby kept the nav bar, which
+            // is the second half of the same stacked-chrome complaint.
+            handleTabSelected(restoredPosition);
             scheduleTabPrewarm();
         }
 
@@ -1658,9 +1674,13 @@ public class MainActivity extends AppCompatActivity {
         try {
             androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
             
-            // TRANSACTION 1: Detach all added fragments
+            // TRANSACTION 1: Detach all added fragments.
+            // <= TAB_LOBBY, not < 6. The same off-by-one as the restore path: the lobby sits
+            // at 6, so a rotation detached and re-attached every tab EXCEPT the one the user
+            // is most likely looking at, leaving it in the tree beside whichever tab the
+            // re-attach decided to show.
             androidx.fragment.app.FragmentTransaction detachTx = fm.beginTransaction();
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i <= TAB_LOBBY; i++) {
                 for (String tag : getFragmentTagsForPosition(i)) {
                     Fragment f = fm.findFragmentByTag(tag);
                     if (f != null) {
@@ -1673,7 +1693,7 @@ public class MainActivity extends AppCompatActivity {
             
             // TRANSACTION 2: Re-attach all fragments (they will re-inflate with new orientation's layout)
             androidx.fragment.app.FragmentTransaction attachTx = fm.beginTransaction();
-            for (int i = 0; i < 6; i++) {
+            for (int i = 0; i <= TAB_LOBBY; i++) {
                 String visibleTag = i == 0 ? getHomeFragmentTagForCurrentMode() : FRAGMENT_TAG_PREFIX + i;
                 for (String tag : getFragmentTagsForPosition(i)) {
                     Fragment f = fm.findFragmentByTag(tag);

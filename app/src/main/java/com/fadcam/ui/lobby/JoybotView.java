@@ -2,12 +2,14 @@ package com.fadcam.ui.lobby;
 
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Canvas;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.R;
@@ -109,6 +111,127 @@ public final class JoybotView extends FrameLayout {
 
     private boolean onOrb = false;
 
+    // ── THE ANIMATED HALF ───────────────────────────────────────────────────
+    // JoyRaptor: "he will when large or in chat be an animated claymation style avatar ...
+    // he greets you as a claymation and then he flies up into the corner and flattens into
+    // the white icon."
+    //
+    // The stills and the film are two representations of ONE character, so they live in one
+    // view rather than in two that call sites have to choose between. Everything public here
+    // — setTint, setOrb, react, watch — behaves identically whichever is playing, which is
+    // the point: the lobby chrome should not need to know that Joybot has learned to move.
+    @Nullable private FilmView film;
+
+    /**
+     * Play a spritesheet instead of the stills.
+     *
+     * <p>Pass null to go back to the line art. The view keeps its size, its orb, its tint
+     * and its idle hover across the swap, so a call site that set Joybot up once never has
+     * to set him up again.
+     */
+    public void setFilm(@Nullable JoybotFilm f) {
+        if (f == null) {
+            if (film != null) { removeView(film); film = null; }
+            neutral.setVisibility(VISIBLE);
+            smile.setVisibility(VISIBLE);
+            return;
+        }
+        if (film == null) {
+            film = new FilmView(getContext());
+            film.setLayoutParams(new LayoutParams(
+                    LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER));
+            addView(film);
+        }
+        // The stills are HIDDEN rather than removed: a one-shot film finishing has to hand
+        // the face back instantly, and re-inflating two ImageViews at that moment would
+        // drop the frame the handover happens on.
+        neutral.setVisibility(INVISIBLE);
+        smile.setVisibility(INVISIBLE);
+        film.play(f);
+    }
+
+    /**
+     * The entrance: he plays out, then flattens into the icon he is in the chrome.
+     *
+     * <p>The flatten is a scale toward the view's own bounds plus a cross-fade to the still,
+     * which is what "flattens into the white icon" has to mean mechanically — the claymation
+     * is a photographed object with depth and the icon is a flat line drawing, so the
+     * transition is from one to the other, not a shrink of the first.
+     *
+     * <p>{@code onDone} fires after the still is fully in place, so a caller can chain the
+     * fly-to-corner without guessing at a duration.
+     */
+    public void playThenFlatten(@NonNull JoybotFilm f, @Nullable Runnable onDone) {
+        setFilm(f);
+        if (film == null) { if (onDone != null) onDone.run(); return; }
+        film.onFinished = () -> {
+            neutral.setVisibility(VISIBLE);
+            neutral.setAlpha(0f);
+            neutral.animate().alpha(1f).setDuration(FACE_SWAP_MS * 2)
+                    .setInterpolator(Motion.EASE_OUT).start();
+            film.animate().alpha(0f).scaleX(0.94f).scaleY(0.94f)
+                    .setDuration(FACE_SWAP_MS * 2)
+                    .setInterpolator(Motion.EASE_IN_OUT)
+                    .withEndAction(() -> {
+                        setFilm(null);
+                        if (onDone != null) onDone.run();
+                    }).start();
+        };
+    }
+
+    /**
+     * One cell of a spritesheet, on a clock.
+     *
+     * <p>Drives itself with postInvalidateOnAnimation rather than a ValueAnimator: the film
+     * already knows which cell belongs to a timestamp, so all this needs is "draw again next
+     * vsync", and going through an animator would add a second source of timing that could
+     * disagree with the first.
+     */
+    private static final class FilmView extends View {
+        @Nullable JoybotFilm f;
+        @Nullable Runnable onFinished;
+        private final android.graphics.RectF box = new android.graphics.RectF();
+        private final android.graphics.Paint paint =
+                new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+
+        FilmView(android.content.Context c) { super(c); }
+
+        void play(@NonNull JoybotFilm film) {
+            this.f = film;
+            film.start(android.os.SystemClock.uptimeMillis());
+            setAlpha(1f);
+            setScaleX(1f);
+            setScaleY(1f);
+            postInvalidateOnAnimation();
+        }
+
+        void setFilmTint(int colour) {
+            paint.setColorFilter(new android.graphics.PorterDuffColorFilter(
+                    colour, android.graphics.PorterDuff.Mode.SRC_ATOP));
+        }
+
+        @Override
+        protected void onDraw(@NonNull Canvas canvas) {
+            if (f == null || getWidth() == 0) return;
+            // Fit the cell, preserving its aspect. A claymation cell is a photograph of a
+            // physical object; stretching it is immediately visible in a way that stretching
+            // line art is not.
+            float cw = f.cellWidth(), ch = f.cellHeight();
+            float s = Math.min(getWidth() / cw, getHeight() / ch);
+            float w = cw * s, h = ch * s;
+            box.set((getWidth() - w) / 2f, (getHeight() - h) / 2f,
+                    (getWidth() + w) / 2f, (getHeight() + h) / 2f);
+            f.draw(canvas, box, paint, android.os.SystemClock.uptimeMillis());
+            if (f.isFinished()) {
+                Runnable done = onFinished;
+                onFinished = null;                 // once
+                if (done != null) post(done);
+            } else {
+                postInvalidateOnAnimation();
+            }
+        }
+    }
+
     private ImageView face(int res, float alpha) {
         ImageView v = new ImageView(getContext());
         v.setImageResource(res);
@@ -161,6 +284,11 @@ public final class JoybotView extends FrameLayout {
     public void setTint(int colour) {
         neutral.setColorFilter(colour);
         smile.setColorFilter(colour);
+        // The claymation is full-colour art, so a tint would normally be wrong on it — but
+        // the chrome's white-on-disc treatment applies to whichever representation is
+        // showing, and a half-tinted handover looks like a bug. Callers that want the film
+        // in its own colours simply do not tint.
+        if (film != null) film.setFilmTint(colour);
     }
 
     /**

@@ -33,11 +33,44 @@
             android:background="@color/studio_panel"
             android:visibility="gone" />
 
-        <!-- ── Chrome ──────────────────────────────────────────────────────────── -->
+        <!-- ══ CHROME ═══════════════════════════════════════════════════
+             JoyRaptor's neon banner replaces the wordmark TEXT and becomes the backdrop for
+             the whole top line: "it will sit as a backdrop for the top line sitting right
+             above the Studio Capture Carousel."
+
+             Band 1 of the six, chosen over the bottom band because its right-hand side
+             fades into a dark grid, while the bottom one puts a bright setting sun exactly
+             where the storage readout, the search and Joybot have to stay legible.
+
+             Even so the art is neon and the controls are grey, so a scrim fades black in
+             from the right: clear over the lettering, solid under the controls.
+
+             Full-bleed and LEFT-anchored, because the wordmark is baked into the art at its
+             left edge — centring would walk it off the 18dp gutter on every other screen
+             width. The row grew from 52dp to 60dp to give the art room to read.
+             ══════════════════════════════════════════════════════════ -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
+
+            <ImageView
+                android:id="@+id/lobby_banner"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="matrix"
+                android:contentDescription="@string/app_name" />
+
+            <View
+                android:id="@+id/lobby_banner_scrim"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
         <LinearLayout
             android:id="@+id/lobby_chrome"
             android:layout_width="match_parent"
-            android:layout_height="52dp"
+            android:layout_height="match_parent"
             android:clipChildren="false"
             android:clipToPadding="false"
             android:orientation="horizontal"
@@ -50,7 +83,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Joy Creator"
-                android:textColor="#FFE4E4E7"
+                android:textColor="#00000000"
                 android:textSize="16sp"
                 android:maxLines="1"
                 android:singleLine="true"
@@ -118,6 +151,7 @@
                 android:layout_marginStart="2dp"
                 android:contentDescription="Joybot" />
         </LinearLayout>
+        </FrameLayout>
 
         <!-- ── THE MARQUEE ──────────────────────────────────────────────
              Titles grow from thin grey to heavy white as they arrive.

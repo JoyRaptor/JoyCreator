@@ -216,6 +216,35 @@ public class LobbyFragment extends BaseFragment {
         Type.display(wordmark, Type.BLACK);
         Type.display(heroName, Type.BLACK);
 
+        // ══ THE BANNER ══════════════════════════════════════════════════════════
+        // JoyRaptor's neon wordmark, full-bleed across the chrome, with the controls
+        // sitting on top of it.
+        //
+        // scaleType is MATRIX rather than one of the presets, and that is not fussiness:
+        //   · FIT_CENTER would letterbox a 6.5:1 banner inside a 6:1 row and leave bars
+        //   · CENTER_CROP fills, but crops from the CENTRE — on a narrow phone that eats
+        //     the left edge, which is exactly where the wordmark is
+        // So: scale to the row's HEIGHT, pin to x=0, and let the grid run off the right.
+        // The art was drawn with its quiet end on the right for precisely this.
+        ImageView banner = v.findViewById(R.id.lobby_banner);
+        banner.setImageResource(R.drawable.lobby_banner);
+        banner.addOnLayoutChangeListener((vw, l, t, r, b, ol, ot, orr, ob) -> fitBanner(banner));
+        fitBanner(banner);
+
+        // The scrim. Clear across the lettering, black by the time it reaches the stat,
+        // the search and Joybot. Without it, grey 12sp type sits on a magenta grid and
+        // becomes a texture rather than a readout.
+        //
+        // The stops are where they are because the bright ink measured out at 69% of the
+        // art's width: the scrim stays out of the way until 55% and is fully down by 78%,
+        // so it never dims the wordmark and is already solid under the controls.
+        View bannerScrim = v.findViewById(R.id.lobby_banner_scrim);
+        GradientDrawable wash = new GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0x00000000, 0x00000000, 0xCC000000, 0xE6000000});
+        wash.setGradientType(GradientDrawable.LINEAR_GRADIENT);
+        bannerScrim.setBackground(wash);
+
         TextView libLabel = v.findViewById(R.id.lobby_library_label);
         // Section labels sit at 800 rather than 900. One notch down is enough to
         // rank them under the wordmark while still reading as the same voice — and
@@ -878,6 +907,26 @@ public class LobbyFragment extends BaseFragment {
             }
             return active != null && active.onTouchEvent(e);
         }
+    }
+
+
+    /**
+     * Scale the banner to the chrome's height and pin it to the left edge.
+     *
+     * <p>Recomputed on layout because the row's height is a dp value and the view's width
+     * is not known until measure — and because a fold or a rotation changes both. Setting
+     * the matrix once in onViewCreated leaves the art at whatever scale a zero-width view
+     * implied, which is none.
+     */
+    private void fitBanner(ImageView banner) {
+        android.graphics.drawable.Drawable d = banner.getDrawable();
+        if (d == null || banner.getHeight() == 0) return;
+        float iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
+        if (iw <= 0 || ih <= 0) return;
+        float s = banner.getHeight() / ih;
+        android.graphics.Matrix m = new android.graphics.Matrix();
+        m.setScale(s, s);
+        banner.setImageMatrix(m);
     }
 
     // ── the floor ───────────────────────────────────────────────────────────

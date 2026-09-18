@@ -109,7 +109,22 @@ public class EditorTimelineView extends View {
     private static final float HANDLE_NOTCH_WIDTH_DP = 3f;
     private static final float HANDLE_NOTCH_HEIGHT_DP = 18f;
 
-    private static final float PLAYHEAD_WIDTH_DP = 2.5f;
+    /**
+     * The playhead line.
+     *
+     * <p>2dp, down from 2.5dp. JoyRaptor asked how wide it was and pointed at KineMaster's,
+     * which is thinner — thinness is most of what makes a cursor read as PRECISE rather
+     * than as a marker laid over the work.
+     *
+     * <p>It does not go thinner than 2dp, and the reason is the slice dashes. Those are 1
+     * physical pixel and they sit ON the playhead; at 1.5dp on a 3x screen the line is 4.5
+     * physical pixels, so a 1px dash would leave under 2px of pink either side of it and
+     * the two would smear into one muddy stripe. At 2dp there are 6 physical pixels with
+     * the dash centred, which keeps the pink readable at the dash edges AND in the gaps —
+     * and that layering is the whole point: the playhead wearing a warning, not a second
+     * cursor drawn beside it.
+     */
+    private static final float PLAYHEAD_WIDTH_DP = 2f;
     private static final float PLAYHEAD_CIRCLE_DP = 6f;
     private static final float BORDER_WIDTH_DP = 2f;
 

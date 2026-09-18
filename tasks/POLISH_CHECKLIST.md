@@ -125,3 +125,41 @@ flattens into the white icon.*
   press scale 0.97, UI under 300ms — first-run/explanatory may exceed it
 - Never `adb uninstall`; never resolve a merge conflict; never run gradle directly
 - Owner is `JoyRaptor` in every tracked file — never his real name
+
+---
+
+## G. Session of 2026-09-18 — what changed and what is still open
+
+### Fixed, device-verified
+
+| | |
+|---|---|
+| Palette | 373 chrome colours → **28**, and now CENTRAL: 1,036 token references, 10 literals left (all identity tables). Editing `studio_tokens.xml` changes the app. |
+| Token values | Realigned to the Studio mockup's own spec table (Sprite Lab's ramp) — I had drifted a few points per channel and invented a parallel ramp. |
+| Carousel | Rebuilt as a dial: scale for size, Archivo's `wght` axis for weight, translationX for packing, one shared baseline, all caps, snap with momentum. |
+| Hero | Drag turns the dial; tap enters. Three stacked bugs fixed — see commit `a90e05c4`. |
+| Navigation | Back goes to the lobby (3 sites). All three fragment loops now include position 6; restore defaults to the lobby and calls `handleTabSelected`. |
+| Selection | Cyan ring + 28% halo, per spec. Object colour is a FILL, state colour is a RING. |
+| Reduced motion | Keeps opacity, drops travel and scale — the javadoc said this; the code did not. |
+| Contextual tool row | Built. Context sorts ONLY the unpinned section; pinned tools never move. |
+| Joybot | Now the AI icon in the Studio and the chat, replacing the earlier robot. |
+| Minimap spine | 11dp slot, 1.5dp insets → 8dp usable. 7dp left a 1dp band that could not show a loading meter, a transcribe bar or a silence gap. |
+
+### Open
+
+- [ ] **The legacy rooms still wear FadCam red.** Finder/Smart Detection, Records,
+      Remote and Setup are reached from the lobby and are unchanged inside. Not a
+      rewrite — the nav still works — but each needs its own de-branding pass. This
+      is the largest remaining visual gap and it is what a new user sees one tap
+      after the lobby.
+- [ ] **Joybot's claymation.** `JoybotFilm` + `playThenFlatten` are ready and
+      unwired. Needed from the owner: the two spritesheets, their column/row counts,
+      and the fps they were shot at. Guessing any of the three would look wrong.
+- [ ] **Blues in the editor** (`#2196F3` family) were left as-is rather than folded,
+      because blue means VIDEO in the object table and folding them could silently
+      change a meaning. Flagged, not guessed at.
+- [ ] Deliberate departures from the mockups, each because a later instruction beat
+      the earlier drawing — say the word to revert any: lane B lifted to `#17171C`
+      (spec says `#0B0B0E`); the New row is sheared gradient chips (spec says grey
+      buttons with coloured glyphs); object tapes are gradients (predates that
+      instruction).

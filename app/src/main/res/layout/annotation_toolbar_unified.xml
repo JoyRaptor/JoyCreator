@@ -365,7 +365,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/annotation_enable_tools"
                             android:textSize="9sp"
-                            android:textColor="#80FFFFFF"
+                            android:textColor="@color/s_ink_50"
                             android:fontFamily="@font/ubuntu_regular"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
@@ -419,7 +419,7 @@
                             android:layout_height="wrap_content"
                             android:text="@string/annotation_toggle_visibility"
                             android:textSize="9sp"
-                            android:textColor="#80FFFFFF"
+                            android:textColor="@color/s_ink_50"
                             android:fontFamily="@font/ubuntu_regular"
                             android:layout_marginTop="2dp" />
                     </LinearLayout>
@@ -538,7 +538,7 @@
                                 android:layout_height="wrap_content" 
                                  android:text="@string/annotation_tap_to_add_desc" 
                                 android:textSize="10sp" 
-                                android:textColor="#80FFFFFF" 
+                                android:textColor="@color/s_ink_50" 
                                 android:fontFamily="@font/ubuntu_regular"
                                 android:layout_marginTop="2dp"
                                 android:maxLines="2"

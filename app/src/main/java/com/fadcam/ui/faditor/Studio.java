@@ -108,6 +108,25 @@ public final class Studio {
     /** The Avatar room's deeper stop, and the object table's TEXT hue. */
     public static final int ROOM_AVATAR_DEEP = 0xFF8C3DFA;
     public static final int ROOM_VIZ     = 0xFFFAA03D;
+    /** Viz Lab's deeper stop. The lobby draws the pair; this is the far end. */
+    public static final int ROOM_VIZ_DEEP = 0xFFFC6818;
+    /**
+     * The Library's own stop — a lighter {@link #ARMED}.
+     *
+     * <p>The library is not a room you make things in, so it does not get a hue of its own;
+     * it borrows the cyan that means "this one" everywhere else, one step brighter so the
+     * chip reads against a panel.
+     */
+    public static final int ROOM_LIBRARY = 0xFF55E0F9;
+    /**
+     * The indigo Joybot's disc falls to.
+     *
+     * <p>Third stop of the Avatar ramp: {@link #ROOM_AVATAR} to
+     * {@link #ROOM_AVATAR_DEEP} to this. He sits on it because white-on-indigo was the
+     * only combination that stayed readable at 40dp — "turns out he looks harder to read
+     * colored on black."
+     */
+    public static final int ORB_DEEP = 0xFF5C43FD;
 
     // ── FILM ────────────────────────────────────────────────────────────────
     // The master spine. The hole is DARKER than the rail because a hole shows the dark

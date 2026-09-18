@@ -25,7 +25,7 @@
         android:layout_height="wrap_content" 
         android:text="Projects saved at: ~/Documents/FadRec/Projects" 
         android:textSize="11sp" 
-        android:textColor="#80FFFFFF" 
+        android:textColor="@color/s_ink_50" 
         android:fontFamily="@font/ubuntu_regular"
         android:gravity="center" 
         android:paddingBottom="8dp" />

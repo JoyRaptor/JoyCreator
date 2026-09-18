@@ -55,7 +55,7 @@
             android:layout_height="wrap_content"
             android:text="512 KB • Oct 8, 2025 03:15"
             android:textSize="11sp"
-            android:textColor="#66FFFFFF"
+            android:textColor="@color/s_ink_40"
             android:fontFamily="@font/ubuntu_regular"
             android:maxLines="1"
             android:ellipsize="end"

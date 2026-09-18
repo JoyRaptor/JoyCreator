@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment;
 import com.fadcam.R;
 import com.fadcam.ui.lobby.JoybotView;
 import com.fadcam.ui.motion.Motion;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * THE FIRST SCREEN.
@@ -59,14 +60,28 @@ public final class OnboardingWelcomeFragment extends Fragment {
     // The glow alphas (0x4D–0x57 ≈ .30–.34) and the off-centre placements come from the
     // mockup's CSS. They alternate left and right of centre so consecutive beats move the
     // light across the screen instead of pulsing it in place.
+    /**
+     * The seven beats.
+     *
+     * <p>The GLOW of each is that beat's room, at an alpha tuned per beat — named rather than
+     * re-typed, so a room that changes hue changes here too.
+     *
+     * <p>The two base tones are NOT derivable and are deliberately left as numbers. I fitted
+     * a mix of "neutral near-black plus a trace of the room hue" against all fourteen of
+     * them: the best fit ranges from f=0.001 (Capture's beat is essentially neutral) to
+     * f=0.121, over neutrals from #05 to #17. There is no single rule, because each pair was
+     * tuned by eye against the text that sits on it. They are authored art in a table, not
+     * scattered literals, and a later tidy-up that replaces them with a formula will flatten
+     * seven distinct moods into one.
+     */
     private static final Beat[] BEATS = {
-            new Beat(R.string.intro_line_capture,    0x57FF008C, 0xFF17171F, 0xFF101016, 0.34f, 0.30f),
-            new Beat(R.string.intro_line_record,     0x52FA3D5D, 0xFF1C1418, 0xFF0F0B0D, 0.62f, 0.34f),
-            new Beat(R.string.intro_line_editor,     0x5235F6BF, 0xFF12201C, 0xFF0C1512, 0.40f, 0.28f),
-            new Beat(R.string.intro_line_animation,  0x4DCC27FF, 0xFF1A1024, 0xFF0D0912, 0.56f, 0.32f),
-            new Beat(R.string.intro_line_transcribe, 0x4DFAA03D, 0xFF241A10, 0xFF120D08, 0.40f, 0.30f),
-            new Beat(R.string.intro_line_secondcam,  0x524397FD, 0xFF101822, 0xFF0A0D12, 0.66f, 0.34f),
-            new Beat(R.string.intro_line_ai,         0x4D5C43FD, 0xFF14142A, 0xFF0A0A14, 0.44f, 0.26f),
+            new Beat(R.string.intro_line_capture,    Studio.alpha(Studio.ROOM_SPRITE, 0x57), 0xFF17171F, 0xFF101016, 0.34f, 0.30f),
+            new Beat(R.string.intro_line_record,     Studio.alpha(Studio.ROOM_CAPTURE, 0x52), 0xFF1C1418, 0xFF0F0B0D, 0.62f, 0.34f),
+            new Beat(R.string.intro_line_editor,     Studio.alpha(Studio.GO, 0x52), 0xFF12201C, 0xFF0C1512, 0.40f, 0.28f),
+            new Beat(R.string.intro_line_animation,  Studio.alpha(Studio.ROOM_AVATAR, 0x4D), 0xFF1A1024, 0xFF0D0912, 0.56f, 0.32f),
+            new Beat(R.string.intro_line_transcribe, Studio.alpha(Studio.ROOM_VIZ, 0x4D), 0xFF241A10, 0xFF120D08, 0.40f, 0.30f),
+            new Beat(R.string.intro_line_secondcam,  Studio.alpha(Studio.VIDEO, 0x52), 0xFF101822, 0xFF0A0D12, 0.66f, 0.34f),
+            new Beat(R.string.intro_line_ai,         Studio.alpha(Studio.ORB_DEEP, 0x4D), 0xFF14142A, 0xFF0A0A14, 0.44f, 0.26f),
     };
 
     private static final long BEAT_MS = 3000L;
@@ -97,14 +112,14 @@ public final class OnboardingWelcomeFragment extends Fragment {
         bot = v.findViewById(R.id.welcome_bot);
 
         fade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x00000000, 0xFF000000}));
+                new int[]{ Studio.alpha(Studio.GROUND, 0x00), Studio.GROUND }));
 
         hairline.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xFF35F6BF, 0xFF97FE8B}));
+                new int[]{ Studio.GO, Studio.GO_END }));
         hairline.setPivotX(0f);
         hairline.setScaleX(1f / 3f);           // one of three screens
 
-        if (bot != null) bot.setTint(0xFFFFFFFF);
+        if (bot != null) bot.setTint(Studio.INK);
 
         slideA.setBackground(slideFor(BEATS[0]));
         line.setText(getString(BEATS[0].line));

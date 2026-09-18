@@ -112,7 +112,7 @@
                 android:textSize="13sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.05"
-                android:textColor="#80FFFFFF" />
+                android:textColor="@color/s_ink_50" />
 
             <!-- Pattern section header -->
             <LinearLayout
@@ -235,7 +235,7 @@
                         android:text="@string/torch_status_off"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:textColor="#66FFFFFF"
+                        android:textColor="@color/s_ink_40"
                         android:layout_marginEnd="8dp" />
 
                     <ImageView
@@ -315,7 +315,7 @@
                         android:text="@string/torch_timer_off"
                         android:textSize="12sp"
                         android:textStyle="bold"
-                        android:textColor="#66FFFFFF"
+                        android:textColor="@color/s_ink_40"
                         android:layout_marginEnd="8dp" />
 
                     <ImageView
@@ -393,7 +393,7 @@
                     android:text="@string/torch_status_off"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    android:textColor="#66FFFFFF"
+                    android:textColor="@color/s_ink_40"
                     android:layout_marginEnd="8dp" />
 
                 <ImageView
@@ -469,7 +469,7 @@
                     android:text="@string/torch_timer_off"
                     android:textSize="12sp"
                     android:textStyle="bold"
-                    android:textColor="#66FFFFFF"
+                    android:textColor="@color/s_ink_40"
                     android:layout_marginEnd="8dp" />
 
                 <ImageView

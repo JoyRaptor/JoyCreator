@@ -105,7 +105,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="top"
         android:orientation="vertical"
-        android:background="#CC000000"
+        android:background="@color/s_scrim_80"
         android:elevation="14dp"
         android:visibility="gone">
 
@@ -159,7 +159,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -186,7 +186,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -212,7 +212,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -238,7 +238,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -264,7 +264,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -290,7 +290,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -316,7 +316,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -342,7 +342,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -369,7 +369,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -396,7 +396,7 @@
                     android:orientation="vertical"
                     android:gravity="center"
                     android:padding="8dp"
-                    android:background="#332C2C35"
+                    android:background="@color/s_line_20"
                     android:layout_marginEnd="8dp">
                     <TextView
                         android:layout_width="64dp"
@@ -425,7 +425,7 @@
         android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="8dp"
-        android:background="#E017171C"
+        android:background="@color/s_lane_b_88"
         android:elevation="12dp"
         android:visibility="gone">
 
@@ -442,7 +442,7 @@
             android:id="@+id/transition_inspector_type"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/s_ink_60"
             android:textSize="12sp"
             android:layout_marginEnd="8dp" />
 
@@ -450,7 +450,7 @@
             android:id="@+id/transition_inspector_duration"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#99FFFFFF"
+            android:textColor="@color/s_ink_60"
             android:textSize="12sp"
             android:layout_marginEnd="8dp" />
 
@@ -647,7 +647,7 @@
             android:layout_gravity="bottom"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:background="#99000000"
+            android:background="@color/s_scrim_60"
             android:visibility="gone">
 
             <HorizontalScrollView
@@ -709,7 +709,7 @@
             android:text="chevron_left"
             android:textColor="@color/s_ink"
             android:textSize="20sp"
-            android:background="#CC2C2C35"
+            android:background="@color/s_line_80"
             android:elevation="11dp"
             android:visibility="gone" />
 
@@ -732,9 +732,9 @@
                 android:gravity="center"
                 android:fontFamily="@font/materialicons"
                 android:text="drag_indicator"
-                android:textColor="#80FFFFFF"
+                android:textColor="@color/s_ink_50"
                 android:textSize="16sp"
-                android:background="#33000000" />
+                android:background="@color/s_scrim_20" />
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -787,7 +787,7 @@
                         android:gravity="center"
                         android:fontFamily="@font/materialicons"
                         android:text="wrap_text"
-                        android:textColor="#80FFFFFF"
+                        android:textColor="@color/s_ink_50"
                         android:textSize="16sp"
                         android:contentDescription="@string/faditor_transcript_break"
                         android:background="?attr/selectableItemBackgroundBorderless" />
@@ -1378,10 +1378,10 @@
                 android:paddingStart="10dp"
                 android:paddingEnd="10dp"
                 android:text="Transcribing…"
-                android:textColor="#4397FD"
+                android:textColor="@color/s_video"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                android:background="#332C2C35"
+                android:background="@color/s_line_20"
                 android:visibility="gone" />
 
             <com.google.android.material.progressindicator.LinearProgressIndicator
@@ -1392,7 +1392,7 @@
                 android:layout_marginTop="54dp"
                 android:indeterminate="true"
                 android:visibility="gone"
-                app:indicatorColor="#4397FD"
+                app:indicatorColor="@color/s_video"
                 app:trackColor="@color/s_off"
                 app:trackThickness="3dp" />
         </RelativeLayout>
@@ -1593,7 +1593,7 @@
         android:id="@+id/remux_progress_overlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#CC000000"
+        android:background="@color/s_scrim_80"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"
@@ -1879,7 +1879,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <LinearLayout
             android:id="@+id/volume_drawer_header"
@@ -2005,7 +2005,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <LinearLayout
             android:id="@+id/opacity_drawer_header"
@@ -2150,7 +2150,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <!-- Header: icon + mode label + close -->
         <LinearLayout
@@ -2374,7 +2374,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -2506,7 +2506,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="2dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <LinearLayout
             android:id="@+id/visualizer_drawer_header"
@@ -2568,7 +2568,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="2dp"
             android:layout_marginBottom="8dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
     </LinearLayout>
 
     <!-- ─── Move drawer (non-modal top drawer for position/layer) ─── -->
@@ -2591,7 +2591,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="8dp"
             android:layout_marginBottom="4dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <LinearLayout
             android:id="@+id/move_drawer_header"
@@ -2843,7 +2843,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginTop="6dp"
             android:layout_marginBottom="4dp"
-            android:background="#55FFFFFF" />
+            android:background="@color/s_ink_33" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -2986,7 +2986,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="B"
-                    android:textColor="#66FFFFFF"
+                    android:textColor="@color/s_ink_40"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
@@ -3000,7 +3000,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="U"
-                    android:textColor="#66FFFFFF"
+                    android:textColor="@color/s_ink_40"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"
@@ -3014,7 +3014,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="I"
-                    android:textColor="#66FFFFFF"
+                    android:textColor="@color/s_ink_40"
                     android:textSize="13sp"
                     android:textStyle="bold"
                     android:paddingHorizontal="8dp"

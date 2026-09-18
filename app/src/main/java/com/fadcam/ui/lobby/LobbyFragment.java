@@ -53,6 +53,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.fadcam.ui.faditor.Studio;
 
 /**
  * THE LOBBY — Joy Creator's front door.
@@ -86,16 +87,32 @@ import java.util.concurrent.TimeUnit;
  */
 public class LobbyFragment extends BaseFragment {
 
-    // ── The ramp, matching the studio tokens ────────────────────────────────
-    private static final int INK      = 0xFFE4E4E7;
-    private static final int DIM      = 0xFFA1A1AA;
-    private static final int DIMMER   = 0xFF71717A;
-    private static final int DIMMEST  = 0xFF4B4B55;
-    private static final int PANEL    = 0xFF111114;
-    private static final int CTL      = 0xFF1C1C22;
-    private static final int ON_LIGHT = 0xFF050507;
+    // ── THE RAMP — ALIASES, NOT VALUES ───────────────────────
+    //
+    // This block used to hold eight numbers under the comment "matching the studio
+    // tokens", and four of them did not match:
+    //
+    //     INK      #E4E4E7   vs  Studio.INK        #F2F2F5
+    //     DIM      #A1A1AA   vs  Studio.INK_DIM    #C9C9D3
+    //     DIMMER   #71717A   vs  Studio.INK_FAINT  #8A8A94
+    //     DIMMEST  #4B4B55   vs  Studio.INK_OFF    #52525B
+    //
+    // Four near-misses of four tokens: a parallel ink ramp, on the app's front door, drifting
+    // quietly away from the one the rest of the product uses. That is what "dozens of colours,
+    // not hundreds" is actually aimed at — not a hundred different colours, but eight where
+    // there should be four, none of them wrong enough to notice and all of them wrong.
+    //
+    // The short names stay because they read well at the call sites. They are aliases now, so
+    // there is nothing left here to drift.
+    private static final int INK      = Studio.INK;
+    private static final int DIM      = Studio.INK_DIM;
+    private static final int DIMMER   = Studio.INK_FAINT;
+    private static final int DIMMEST  = Studio.INK_OFF;
+    private static final int PANEL    = Studio.PANEL;
+    private static final int CTL      = Studio.RAISED;
+    private static final int ON_LIGHT = Studio.ON_GO;
 
-    private static final int WARN     = 0xFFFBBF24;
+    private static final int WARN     = Studio.CAREFUL;
 
     /** MainActivity tab positions, named so the routing reads as English. */
     private static final int TAB_CAPTURE  = 0;
@@ -204,7 +221,7 @@ public class LobbyFragment extends BaseFragment {
         // without anyone scrolling to find out.
         View heroNew = v.findViewById(R.id.lobby_hero_new);
         Type.display((TextView) heroNew, Type.SEMIBOLD);
-        heroNew.setBackground(strokePill(0x33FFFFFF, dp(999)));
+        heroNew.setBackground(strokePill(Studio.alpha(Studio.INK, 0x33), dp(999)));
         Motion.press(heroNew);
         heroNew.setOnClickListener(b -> startNewInRoom());
         statIcon   = v.findViewById(R.id.lobby_stat_icon);
@@ -219,7 +236,7 @@ public class LobbyFragment extends BaseFragment {
         botLineOrb  = v.findViewById(R.id.lobby_bot_line_orb);
         // Same character, same disc, smaller. He is the one speaking this line, so it
         // gets his face rather than a coloured dot standing in for one.
-        botLineOrb.setOrb(0xFFCC27FF, 0xFF5C43FD);
+        botLineOrb.setOrb(Studio.ROOM_AVATAR, Studio.ORB_DEEP);
         botLineYes.setBackground(pill(INK, dp(999)));
         botLineNo.setOnClickListener(b -> {
             botDismissed = true;
@@ -263,7 +280,8 @@ public class LobbyFragment extends BaseFragment {
         View bannerScrim = v.findViewById(R.id.lobby_banner_scrim);
         GradientDrawable wash = new GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0x00000000, 0x00000000, 0xCC000000, 0xE6000000});
+                new int[]{ Studio.alpha(Studio.GROUND, 0x00), Studio.alpha(Studio.GROUND, 0x00),
+                           Studio.alpha(Studio.GROUND, 0xCC), Studio.alpha(Studio.GROUND, 0xE6) });
         wash.setGradientType(GradientDrawable.LINEAR_GRADIENT);
         bannerScrim.setBackground(wash);
 
@@ -289,7 +307,7 @@ public class LobbyFragment extends BaseFragment {
         // reacting". The push is not a navigation: tapping him opens the Studio, and the
         // smile is the acknowledgement that the tap landed.
         joybot = v.findViewById(R.id.lobby_bot);
-        joybot.setOrb(0xFFCC27FF, 0xFF5C43FD);
+        joybot.setOrb(Studio.ROOM_AVATAR, Studio.ORB_DEEP);
         // Joybot opens the ASSISTANT. He used to open the Studio's project list, which is
         // arbitrary: he is the AI everywhere else in the app — the button in the editor's
         // top bar and the face at the top of the chat are both him — and an avatar that
@@ -326,8 +344,8 @@ public class LobbyFragment extends BaseFragment {
         // visible piece of the old identity left on the front door.
         try {
             android.view.Window w = requireActivity().getWindow();
-            w.setStatusBarColor(0xFF000000);
-            w.setNavigationBarColor(0xFF000000);
+            w.setStatusBarColor(Studio.GROUND);
+            w.setNavigationBarColor(Studio.GROUND);
         } catch (Exception ignored) { }
         registerExportWatch();
         reloadProjects();
@@ -364,26 +382,26 @@ public class LobbyFragment extends BaseFragment {
     private void buildRooms() {
         rooms.clear();
         rooms.add(new Room(getString(R.string.lobby_room_studio),
-                0xFF35F6BF, 0xFF97FE8B, ON_LIGHT, "LAST PROJECT",
+                Studio.GO, Studio.GO_END, ON_LIGHT, "LAST PROJECT",
                 getString(R.string.lobby_act_carry_on),
                 getString(R.string.lobby_empty_studio), TAB_STUDIO, "movie_edit"));
 
         rooms.add(new Room(getString(R.string.lobby_room_capture),
-                0xFFFA3D5D, 0xFFFF008C, Color.WHITE, "READY",
+                Studio.ROOM_CAPTURE, Studio.ROOM_SPRITE, Color.WHITE, "READY",
                 getString(R.string.lobby_act_record), null, TAB_CAPTURE, "videocam"));
 
         rooms.add(new Room(getString(R.string.lobby_room_sprites),
-                0xFFFF008C, 0xFFCC27FF, Color.WHITE, "LAST SHEET",
+                Studio.ROOM_SPRITE, Studio.ROOM_AVATAR, Color.WHITE, "LAST SHEET",
                 getString(R.string.lobby_act_open),
                 getString(R.string.lobby_empty_sprites), -1, "directions_run"));
 
         rooms.add(new Room(getString(R.string.lobby_room_avatar),
-                0xFFCC27FF, 0xFF8C3DFA, Color.WHITE, "LAST CHARACTER",
+                Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, Color.WHITE, "LAST CHARACTER",
                 getString(R.string.lobby_act_open),
                 getString(R.string.lobby_empty_avatar), -1, "accessibility_new"));
 
         rooms.add(new Room(getString(R.string.lobby_room_viz),
-                0xFFFAA03D, 0xFFFC6818, ON_LIGHT, "LAST VISUALISER",
+                Studio.ROOM_VIZ, Studio.ROOM_VIZ_DEEP, ON_LIGHT, "LAST VISUALISER",
                 getString(R.string.lobby_act_start),
                 getString(R.string.lobby_empty_viz), -1, "graphic_eq"));
     }
@@ -859,7 +877,7 @@ public class LobbyFragment extends BaseFragment {
         }
 
         heroTag.setText(r.tag);
-        heroTag.setBackground(pill(0x8C050507, dp(999)));
+        heroTag.setBackground(pill(Studio.alpha(Studio.ON_GO, 0x8C), dp(999)));
         heroTag.setVisibility(hasContent ? View.VISIBLE : View.GONE);
 
         heroEmpty.setVisibility(hasContent ? View.GONE : View.VISIBLE);
@@ -877,7 +895,9 @@ public class LobbyFragment extends BaseFragment {
         // signature bar have something to sit against. The picture between them is untouched.
         GradientDrawable wash = new GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{ 0xB3000000, 0x26000000, 0x00000000, 0x40000000, 0xD9000000 });
+                new int[]{ Studio.alpha(Studio.GROUND, 0xB3), Studio.alpha(Studio.GROUND, 0x26),
+                           Studio.alpha(Studio.GROUND, 0x00), Studio.alpha(Studio.GROUND, 0x40),
+                           Studio.alpha(Studio.GROUND, 0xD9) });
         wash.setGradientCenter(0.5f, 0.5f);
         heroWash.setBackground(wash);
 
@@ -885,7 +905,7 @@ public class LobbyFragment extends BaseFragment {
         heroArt.setImageDrawable(null);
         heroArt.setTag(R.id.lobby_thumb_tag, null);
         if (hasContent) {
-            heroArt.setBackgroundColor(0xFF08080B);
+            heroArt.setBackgroundColor(Studio.SURFACE);
             if (!projects.isEmpty() && r.tab != TAB_CAPTURE) {
                 loadThumbInto(heroArt, projects.get(0).videoUri);
             }
@@ -896,7 +916,7 @@ public class LobbyFragment extends BaseFragment {
             // is the only thing on screen saying which room you are standing in.
             heroArt.setBackground(new GradientDrawable(
                     GradientDrawable.Orientation.TL_BR,
-                    new int[]{ withAlpha(r.gradA, 0x47), withAlpha(r.gradB, 0x2B), 0xFF08080B }));
+                    new int[]{ withAlpha(r.gradA, 0x47), withAlpha(r.gradB, 0x2B), Studio.SURFACE }));
         }
 
         heroName.setText(name);
@@ -1057,7 +1077,7 @@ public class LobbyFragment extends BaseFragment {
 
         ImageView thumb = new ImageView(requireContext());
         thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        thumb.setBackgroundColor(0xFF17171D);
+        thumb.setBackgroundColor(Studio.LANE_B);
         loadThumbInto(thumb, item.thumbUri);
         thumbWrap.addView(thumb, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -1135,10 +1155,10 @@ public class LobbyFragment extends BaseFragment {
     private List<Recent> recents = new ArrayList<>();
 
     /** Room gradients, reused so a card's corner matches the room that made it. */
-    private static final int G_STUDIO_A  = 0xFF35F6BF, G_STUDIO_B  = 0xFF97FE8B;
-    private static final int G_CAPTURE_A = 0xFFFA3D5D, G_CAPTURE_B = 0xFFFF008C;
-    private static final int G_LIBRARY_A = 0xFF4397FD, G_LIBRARY_B = 0xFF55E0F9;
-    private static final int G_SOUND_A   = 0xFFFAA03D, G_SOUND_B   = 0xFFFC6818;
+    private static final int G_STUDIO_A  = Studio.GO,           G_STUDIO_B  = Studio.GO_END;
+    private static final int G_CAPTURE_A = Studio.ROOM_CAPTURE, G_CAPTURE_B = Studio.ROOM_SPRITE;
+    private static final int G_LIBRARY_A = Studio.VIDEO,        G_LIBRARY_B = Studio.ROOM_LIBRARY;
+    private static final int G_SOUND_A   = Studio.ROOM_VIZ,     G_SOUND_B   = Studio.ROOM_VIZ_DEEP;
 
     /**
      * Merge projects and recordings into one recency-ordered list, off the main thread.
@@ -1216,9 +1236,9 @@ public class LobbyFragment extends BaseFragment {
         // the marquee above it as well as a set of actions. Import has no room of its own --
         // it is a Library action -- so it takes the Library's cyan rather than inventing a
         // fifth identity the rest of the app would never repeat.
-        addNewChip("videocam",       0xFFFA3D5D, 0xFFFF008C, getString(R.string.lobby_new_recording),
+        addNewChip("videocam",       G_CAPTURE_A, G_CAPTURE_B, getString(R.string.lobby_new_recording),
                 true,  () -> routeTab(TAB_CAPTURE));
-        addNewChip("movie_edit",     0xFF35F6BF, 0xFF97FE8B, getString(R.string.lobby_new_project),
+        addNewChip("movie_edit",     G_STUDIO_A, G_STUDIO_B, getString(R.string.lobby_new_project),
                 false, () -> routeTab(TAB_STUDIO));
         // Character SELECTS the Sprite Lab and then ENTERS it. It used to only select —
         // the dial turned, the hero changed, and nothing else happened. Three chips in this
@@ -1230,9 +1250,9 @@ public class LobbyFragment extends BaseFragment {
         // make one. Selecting first is what makes that legible — the dial has visibly moved
         // to Sprite Lab, so the Studio is obviously a step on the way rather than the wrong
         // door.
-        addNewChip("directions_run", 0xFFCC27FF, 0xFF8C3DFA, getString(R.string.lobby_new_character),
+        addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character),
                 false, () -> { active = 2; paintMarquee(); paintHero(); enterRoom(); });
-        addNewChip("folder",         0xFF55E0F9, 0xFF22D3EE, getString(R.string.lobby_new_import),
+        addNewChip("folder",         Studio.ROOM_LIBRARY, Studio.ARMED, getString(R.string.lobby_new_import),
                 false, () -> routeTab(TAB_LIBRARY));
     }
 
@@ -1289,7 +1309,7 @@ public class LobbyFragment extends BaseFragment {
         TextView ic = new TextView(requireContext());
         ic.setTypeface(iconFont);
         ic.setText(glyph);
-        ic.setTextColor(0xFF000000);
+        ic.setTextColor(Studio.GROUND);
         ic.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         ic.setIncludeFontPadding(false);
         ic.setGravity(Gravity.CENTER);
@@ -1297,7 +1317,7 @@ public class LobbyFragment extends BaseFragment {
 
         TextView tv = new TextView(requireContext());
         tv.setText(label);
-        tv.setTextColor(0xFF000000);
+        tv.setTextColor(Studio.GROUND);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f);
         // Display face at 700: these are labels on a coloured field, not prose, and Archivo's
         // tight apertures hold their shape at this size where the body face starts to close in.
@@ -1602,7 +1622,7 @@ public class LobbyFragment extends BaseFragment {
             // relayout the whole screen every frame, so it scales on the X axis instead,
             // which is a compositor-only property.
             hairlineFill = new View(requireContext());
-            hairlineFill.setBackground(linearGradient(0xFF35F6BF, 0xFF97FE8B));
+            hairlineFill.setBackground(linearGradient(Studio.GO, Studio.GO_END));
             ((ViewGroup) hairline.getParent()).addView(hairlineFill,
                     ((ViewGroup) hairline.getParent()).indexOfChild(hairline) + 1,
                     new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(2)));

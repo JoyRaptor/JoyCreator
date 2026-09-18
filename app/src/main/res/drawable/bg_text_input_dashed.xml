@@ -6,7 +6,7 @@
         <shape android:shape="rectangle">
             <stroke
                 android:width="2dp"
-                android:color="#80FFFFFF"
+                android:color="@color/s_ink_50"
                 android:dashWidth="8dp"
                 android:dashGap="4dp" />
             <corners android:radius="8dp" />

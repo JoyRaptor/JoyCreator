@@ -101,4 +101,36 @@
     <color name="s_lane_a">#FF000000</color>
     <color name="s_lane_b">#FF17171C</color>
 
+
+    <!-- ══ VEILS ════════════════════════════════════════════════════════════
+         Java says Studio.alpha(TOKEN, a). XML cannot, so an alpha-over-a-token had to be
+         re-typed as an eight-digit literal every time — #332C2C35 alone appeared eleven
+         times in the editor's layout, which is eleven places to miss when s_line moves.
+
+         These are that same vocabulary, named. The suffix is the alpha as a percentage, and
+         the base is always a token, never a re-typed black or white: a veil over the palette
+         is still the palette.
+         ═════════════════════════════════════════════════════════════════ -->
+    <color name="s_line_20">#332C2C35</color>
+    <color name="s_line_80">#CC2C2C35</color>
+    <color name="s_lane_b_88">#E017171C</color>
+    <color name="s_scrim_20">#33000000</color>
+    <color name="s_scrim_60">#99000000</color>
+    <color name="s_scrim_80">#CC000000</color>
+    <color name="s_ink_33">#55F2F2F5</color>
+    <color name="s_ink_40">#66F2F2F5</color>
+    <color name="s_ink_50">#80F2F2F5</color>
+    <color name="s_ink_60">#99F2F2F5</color>
+
+    <!-- ══ MIRROR GAPS ══════════════════════════════════════════════════════
+         This file is the XML mirror of Studio.java, and it had drifted: these six existed in
+         Java and not here, so any layout that wanted one had to re-type the hex. A mirror
+         with holes in it is how the literals come back.
+         ═════════════════════════════════════════════════════════════════ -->
+    <color name="s_audio">#FF4ADE80</color>
+    <color name="s_video">#FF4397FD</color>
+    <color name="s_room_avatar_deep">#FF8C3DFA</color>
+    <color name="s_room_viz_deep">#FFFC6818</color>
+    <color name="s_room_library">#FF55E0F9</color>
+    <color name="s_orb_deep">#FF5C43FD</color>
 </resources>

@@ -165,6 +165,31 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### Needs JoyRaptor — found by driving the app, not reading it
+
+1. **The Support button pays the wrong person.** `support_url` was
+   `https://ko-fi.com/fadedx` — the Ko-fi of the developer of FadCam — and it sits
+   directly under "I built this between naps, looking after my three toddlers.
+   It's how I support my family." The string is now EMPTY and the button is inert;
+   put a Ko-fi / GitHub Sponsors / Patreon URL in `support_url` and it works again.
+   The About screen's donate sheet is separate, still goes upstream, and now says
+   FadCam rather than claiming to be the developer behind Joy Creator.
+2. **Where updates come from.** `UpdateCheckService` pointed at
+   `anonfaded/FadCam` — so "Check for Updates" and the Update badge offered a
+   different developer's APK. Now `JoyRaptor/JoyCreator`; no releases there means
+   no update offered, which is the right answer. Change ORG/FREE_REPO if releases
+   are distributed elsewhere.
+3. **The gold "Pro" crown** in the capture header is FadCam Pro's upsell, one
+   screen after an intro promising "No ads. No subscription. Ever." Left alone —
+   deleting a revenue path is not a design decision.
+4. **Records has no search.** `RecordsFragment.searchView` is declared and never
+   assigned. The lobby's magnifier therefore opens the library rather than
+   searching it. Either build search or the icon should go.
+5. **"FadShot"** labels the photo button in the capture room, and is also the
+   filename prefix that the Records filter chips key off. Renaming the label alone
+   makes them disagree; renaming the files moves them between chips. Same for the
+   `FadCam_<ts>.mp4` fallback name.
+
 ### Open
 
 - [ ] **Joybot's claymation.** `JoybotFilm` + `playThenFlatten` are ready and

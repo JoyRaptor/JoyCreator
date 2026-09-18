@@ -822,19 +822,19 @@
             app:iconSize="14dp"
             android:enabled="false"
             app:backgroundTint="@color/button_start"
-            app:iconTint="@color/white"
-            android:textColor="@color/white"
+            app:iconTint="@color/s_on_go"
+            android:textColor="@color/s_on_go"
             android:text="@string/button_start"
             android:nextFocusUp="@+id/cardElapsedHero"
             android:nextFocusDown="@+id/buttonPauseResume" />
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/buttonPauseResume" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/pause_rounded" app:iconSize="16dp" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" app:backgroundTint="@color/button_pause" app:iconTint="@color/white" app:cornerRadius="15dp"
+        <com.google.android.material.button.MaterialButton android:id="@+id/buttonPauseResume" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/pause_rounded" app:iconSize="16dp" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" app:backgroundTint="@color/button_pause" app:iconTint="@color/s_on_go" app:cornerRadius="15dp"
             android:nextFocusUp="@+id/cardElapsedHero"
             android:nextFocusDown="@+id/buttonCamSwitch" />
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/buttonFadRecMute" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/ic_volume_up_24" app:iconSize="24dp" android:paddingLeft="12dp" android:paddingRight="0dp" android:enabled="false" app:backgroundTint="@color/button_pause" app:iconTint="@color/white" app:cornerRadius="15dp" android:visibility="gone" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/buttonFadRecMute" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/ic_volume_up_24" app:iconSize="24dp" android:paddingLeft="12dp" android:paddingRight="0dp" android:enabled="false" app:backgroundTint="@color/button_pause" app:iconTint="@color/s_on_go" app:cornerRadius="15dp" android:visibility="gone" />
 
-        <com.google.android.material.button.MaterialButton android:id="@+id/buttonFadRecViz" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/ic_waveform_bars" app:iconSize="24dp" android:paddingLeft="12dp" android:paddingRight="0dp" app:backgroundTint="@color/button_pause" app:iconTint="@color/white" app:cornerRadius="15dp" android:visibility="gone" android:contentDescription="Toggle live visualizer" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/buttonFadRecViz" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/ic_waveform_bars" app:iconSize="24dp" android:paddingLeft="12dp" android:paddingRight="0dp" app:backgroundTint="@color/button_pause" app:iconTint="@color/s_on_go" app:cornerRadius="15dp" android:visibility="gone" android:contentDescription="Toggle live visualizer" />
 
         <com.google.android.material.button.MaterialButton android:id="@+id/buttonCamSwitch" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/cam_switch" app:iconSize="24dp" android:paddingLeft="12dp" android:paddingRight="0dp" android:enabled="false" app:cornerRadius="15dp"
             android:nextFocusUp="@+id/cardElapsedHero"

@@ -15,9 +15,21 @@ import java.util.regex.Pattern;
 public class UpdateCheckService {
 
     private static final String TAG = "UpdateCheckService";
-    private static final String ORG = "anonfaded";
-    private static final String FREE_REPO = "FadCam";
-    private static final String PRO_REPO = "FadCamPro";
+    // ── WHERE UPDATES COME FROM ──────────────────────────────────────────────
+    //
+    // This was anonfaded/FadCam and anonfaded/FadCamPro — the repositories of the app this
+    // one was forked from. So "Check for Updates" and the Update badge in the capture
+    // header were offering Joy Creator's users a DIFFERENT developer's APK, and anyone who
+    // followed the prompt would have installed another app over this one.
+    //
+    // It points at this project now. If there are no releases published here yet, the feed
+    // simply yields nothing and no update is offered, which is the correct answer — unlike
+    // the old one, which always had an answer and it was the wrong app.
+    //
+    // JoyRaptor: change ORG/FREE_REPO if releases are distributed somewhere else.
+    private static final String ORG = "JoyRaptor";
+    private static final String FREE_REPO = "JoyCreator";
+    private static final String PRO_REPO = "JoyCreator";
     private static final String FREE_FEED = feedUrl(FREE_REPO);
     private static final String PRO_FEED = feedUrl(PRO_REPO);
 

@@ -12,9 +12,15 @@
     <color name="material_on_surface_emphasis_medium">@color/white</color>
     <color name="torch_off">#757575</color>
     <color name="torch_on">#FFB300</color>
-    <color name="button_start">#4CAF50</color>
-    <color name="button_stop">#FF0000</color>
-    <color name="button_pause">#FFA500</color>
+    <!-- The transport: start, stop, pause.
+         These were Material green, pure red and orange — the traffic light every recorder
+         uses, which is right, drawn in three colours from nowhere in this product, which is
+         not. The MEANING is unchanged; only the shade moves onto the palette's own rungs.
+         They are referenced by name in a handful of places and set at runtime from the same
+         names, so this is the one edit. -->
+    <color name="button_start">@color/s_go</color>
+    <color name="button_stop">@color/s_danger</color>
+    <color name="button_pause">@color/s_careful</color>
     <color name="button_record">#00FF00</color>
     <color name="danger_red">#D32F2F</color>
     <color name="danger_red_light">#F44336</color>

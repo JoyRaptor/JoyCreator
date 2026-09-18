@@ -1914,10 +1914,12 @@ public class HomeFragment extends BaseFragment {
             if (buttonStartStop != null) {
                 applyButtonTransition(buttonStartStop, getString(R.string.button_start),
                         AppCompatResources.getDrawable(getContext(), R.drawable.play_button_rounded), () -> {
-                    // Always use green color for start button regardless of theme
-                    int btnColor = Color.parseColor("#4CAF50"); // Always green
+                    // @color/button_start, not a parsed literal. Four sites parsed
+                    // #4CAF50 by hand and two carried the comment "always green regardless
+                    // of theme" — which is how the named colour came to be decorative
+                    // while the real one lived in Java.
                     buttonStartStop.setBackgroundTintList(
-                        ColorStateList.valueOf(btnColor)
+                        ContextCompat.getColorStateList(requireContext(), R.color.button_start)
                     );
                     // Force enable the button when resetting to idle state, regardless of any debouncing
                     buttonStartStop.setEnabled(true);
@@ -1975,9 +1977,10 @@ public class HomeFragment extends BaseFragment {
             buttonStartStop.setEnabled(shouldEnable);
             buttonStartStop.setAlpha(shouldEnable ? 1.0f : 0.5f);
 
-            // Always maintain green color even when disabled
+            // The fill does not change when the button is disabled; the alpha above is
+            // what says "not yet". @color/button_start, so it follows the palette.
             buttonStartStop.setBackgroundTintList(
-                ColorStateList.valueOf(Color.parseColor("#4CAF50"))
+                ContextCompat.getColorStateList(requireContext(), R.color.button_start)
             );
 
             if (!shouldEnable) {
@@ -5228,7 +5231,7 @@ public class HomeFragment extends BaseFragment {
                     applyButtonTransition(buttonStartStop, getString(R.string.button_start),
                             AppCompatResources.getDrawable(requireContext(), R.drawable.play_button_rounded), () -> {
                         buttonStartStop.setBackgroundTintList(
-                                ColorStateList.valueOf(Color.parseColor("#4CAF50"))
+                                ContextCompat.getColorStateList(requireContext(), R.color.button_start)
                         );
                         buttonStartStop.setAlpha(1.0f);
                     });
@@ -5236,7 +5239,7 @@ public class HomeFragment extends BaseFragment {
                     animateButtonTransition(buttonStartStop, getString(R.string.button_start),
                             AppCompatResources.getDrawable(requireContext(), R.drawable.play_button_rounded), () -> {
                         buttonStartStop.setBackgroundTintList(
-                                ColorStateList.valueOf(Color.parseColor("#4CAF50"))
+                                ContextCompat.getColorStateList(requireContext(), R.color.button_start)
                         );
                         buttonStartStop.setAlpha(1.0f);
                     }, false);
@@ -11574,21 +11577,24 @@ public class HomeFragment extends BaseFragment {
                     String text = textView.getText().toString();
 
                     // Apply semantic colors based on icon text
+                    // Six Material shades for six glyphs, which is a colour per icon rather
+                    // than a colour per meaning. On the palette there are three meanings
+                    // here — running, warning, and everything that is just a reading.
                     switch (text) {
                         case "timer":
-                            textView.setTextColor(Color.parseColor("#D32F2F")); // Red for timer
+                            textView.setTextColor(0xFFFF4438);      // s_danger
                             break;
                         case "access_time":
-                            textView.setTextColor(Color.parseColor("#F57C00")); // Orange for hourglass/estimated time
+                            textView.setTextColor(0xFFFBBF24);      // s_careful
                             break;
                         case "play_arrow":
-                            textView.setTextColor(Color.parseColor("#4CAF50")); // Green for play/elapsed time
+                            textView.setTextColor(0xFF35F6BF);      // s_go — it is running
                             break;
                         case "folder":
-                            textView.setTextColor(Color.parseColor("#616161")); // Gray for folder/storage
+                            textView.setTextColor(0xFF8A8A94);      // s_ink_faint — a reading
                             break;
                         case "database":
-                            textView.setTextColor(Color.parseColor("#1976D2")); // Blue for database/storage
+                            textView.setTextColor(0xFF8A8A94);      // s_ink_faint — a reading
                             break;
                     }
                 } else if (child instanceof ViewGroup) {

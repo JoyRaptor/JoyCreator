@@ -93,11 +93,15 @@ public class KoFiSupportBottomSheet extends BottomSheetDialogFragment {
         // Styled description (left-aligned, only keywords bold, project names red/clickable)
         TextView tvKoFiDescription = view.findViewById(R.id.tvKoFiDescription);
         if (tvKoFiDescription != null) {
-            String desc = "Built and maintained by the developer behind Joy Creator, FadCrypt, and other projects — a community-driven effort focused on privacy-first, ad-free, tracker-free, and fully open-source tools, crafted over hundreds of hours of effort.\n\nIf you find value in this work and want to support the vision, you're welcome to buy the maintainer a coffee. ☕";
+            // "FadCam", not "Joy Creator". This sheet is about the UPSTREAM developer and
+            // links their repositories; an app-wide rename had swept through it and left it
+            // crediting them with this product. This sheet is honest now: it supports the
+            // author of the app Joy Creator was forked from, and says so.
+            String desc = "Built and maintained by the developer behind FadCam, FadCrypt, and other projects — a community-driven effort focused on privacy-first, ad-free, tracker-free, and fully open-source tools, crafted over hundreds of hours of effort.\n\nIf you find value in this work and want to support the vision, you're welcome to buy the maintainer a coffee. ☕";
             android.text.SpannableString spannable = new android.text.SpannableString(desc);
             // Make Joy Creator red and clickable
-            int fadCamStart = desc.indexOf("Joy Creator");
-            int fadCamEnd = fadCamStart + "Joy Creator".length();
+            int fadCamStart = desc.indexOf("FadCam");
+            int fadCamEnd = fadCamStart + "FadCam".length();
             if (fadCamStart >= 0) {
                 spannable.setSpan(new android.text.style.ForegroundColorSpan(Color.parseColor("#E43C3C")), fadCamStart, fadCamEnd, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
                 spannable.setSpan(new android.text.style.ClickableSpan() {

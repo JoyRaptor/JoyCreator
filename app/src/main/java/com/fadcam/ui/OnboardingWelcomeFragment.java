@@ -129,13 +129,19 @@ public final class OnboardingWelcomeFragment extends Fragment {
     }
 
     private void openSupport() {
+        // An UNSET support URL opens nothing, on purpose. It used to hold the Ko-fi of the
+        // developer of the app this one was forked from, sitting under the sentence "It's
+        // how I support my family" — so the button quietly contradicted the paragraph above
+        // it and sent the money elsewhere. Better to do nothing than to do that.
+        String url = getString(R.string.support_url);
+        if (url == null || url.trim().isEmpty()) return;
         try {
             startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse(getString(R.string.support_url))));
+                    android.net.Uri.parse(url)));
         } catch (Exception ignored) {
-            // No browser, or the URL is not set yet. Silently doing nothing is right here:
-            // this is a donation link on a welcome screen, and an error dialog about it
-            // would be the first thing the product ever said to someone.
+            // No browser. Silently doing nothing is right here: this is a donation link on
+            // a welcome screen, and an error dialog about it would be the first thing the
+            // product ever said to someone.
         }
     }
 

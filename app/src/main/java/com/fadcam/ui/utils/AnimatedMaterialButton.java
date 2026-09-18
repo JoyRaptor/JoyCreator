@@ -29,6 +29,52 @@ import com.google.android.material.button.MaterialButton;
  */
 public class AnimatedMaterialButton extends MaterialButton {
 
+    // ── THE INK FOLLOWS THE FILL ─────────────────────────────────────────────
+    //
+    // The transport button changes its own background between start, stop and pause and
+    // keeps one label colour, which worked only because all three of the old colours were
+    // dark enough to carry white: Material green, pure red, orange.
+    //
+    // Joy Creator's GO is a LIGHT aqua and its CAREFUL is a light amber. White on either
+    // measures under 2:1 — the word "Start" would have been very nearly invisible on the
+    // button that starts recording.
+    //
+    // Rather than chase the ~14 places that set this background, the ink is derived HERE,
+    // from the fill, every time the fill changes. It is computed with the WCAG relative
+    // luminance formula, so it stays right for a colour nobody has picked yet — including
+    // whatever this button becomes after the next palette change.
+    //
+    // Only an explicit setTextColor from outside overrides it, and nothing does that for
+    // these buttons except this class's own animation, which saves and restores it.
+
+    @Override
+    public void setBackgroundTintList(@Nullable android.content.res.ColorStateList tint) {
+        super.setBackgroundTintList(tint);
+        if (tint == null) return;
+        int ink = readableOn(tint.getDefaultColor());
+        super.setTextColor(ink);
+        setIconTint(android.content.res.ColorStateList.valueOf(ink));
+    }
+
+    /** Near-black or near-white, whichever actually reads on {@code fill}. Measured. */
+    public static int readableOn(int fill) {
+        double l = relativeLuminance(fill);
+        double onLight = (l + 0.05) / 0.05;          // contrast of near-black ink
+        double onDark = 1.05 / (l + 0.05);           // contrast of near-white ink
+        return onLight >= onDark ? 0xFF050507 : 0xFFF2F2F5;
+    }
+
+    private static double relativeLuminance(int c) {
+        return 0.2126 * channel((c >> 16) & 0xFF)
+             + 0.7152 * channel((c >> 8) & 0xFF)
+             + 0.0722 * channel(c & 0xFF);
+    }
+
+    private static double channel(int v) {
+        double x = v / 255.0;
+        return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    }
+
     private static final long DEBOUNCE_MS = 100;
 
     private boolean isSlotAnimating = false;

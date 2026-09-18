@@ -3442,7 +3442,21 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="intro_line_ai">AI that edits the actual timeline</string>
     <string name="intro_start_creating">Start creating</string>
     <string name="intro_support">Support</string>
-    <string name="support_url" translatable="false">https://ko-fi.com/fadedx</string>
+    <!-- ══ NOT SET YET — JoyRaptor must fill this in ═══════════════════════════════════
+         This was https://ko-fi.com/fadedx, which is the Ko-fi of the developer of FadCam,
+         the app this one was forked from.
+
+         It is the URL behind the "Support" button on the welcome screen — the button that
+         sits directly under the sentence "I built this between naps, looking after my three
+         toddlers. It's how I support my family." Money from that button was going to
+         somebody else. Whatever is decided about supporting upstream, that particular
+         combination could not stand, so the button is inert until this is filled in rather
+         than paying the wrong person in the meantime.
+
+         Put a Ko-fi, GitHub Sponsors or Patreon URL here and the button works again. The
+         About screen's donate sheet is separate and still goes upstream, honestly labelled.
+         ═══════════════════════════════════════════════════════════════════════════════ -->
+    <string name="support_url" translatable="false"></string>
 
     <string name="intro_promise">No ads. No subscription.\nNo watermark. No export paywall. Ever.</string>
     <!-- "Between naps" does more work than a paragraph of explanation would. -->

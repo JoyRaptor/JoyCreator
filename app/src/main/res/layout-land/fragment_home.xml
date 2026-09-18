@@ -749,7 +749,7 @@
                 android:nextFocusUp="@+id/buttonTorchSwitch"
                 android:nextFocusDown="@+id/buttonPauseResume" />
 
-            <com.google.android.material.button.MaterialButton android:id="@+id/buttonPauseResume" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/pause_rounded" app:iconSize="16dp" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" app:backgroundTint="@color/button_pause" app:iconTint="@color/white" app:cornerRadius="15dp"
+            <com.google.android.material.button.MaterialButton android:id="@+id/buttonPauseResume" android:layout_width="48dp" android:layout_height="48dp" android:layout_marginStart="4dp" app:icon="@drawable/pause_rounded" app:iconSize="16dp" app:iconGravity="textStart" app:iconPadding="0dp" android:enabled="false" app:backgroundTint="@color/button_pause" app:iconTint="@color/s_on_go" app:cornerRadius="15dp"
                 android:focusable="true"
                 android:nextFocusUp="@+id/buttonStartStop"
                 android:nextFocusDown="@+id/buttonCamSwitch" />

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.layers;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -146,7 +148,24 @@ public final class LayerRowRenderer {
      * to #0D0D10 over black: a 4.3% delta, inside the window, with the faint blue cast that
      * matches the zinc ramp the rest of the studio uses.
      */
-    private static final int COLOR_ROW_BODY_BG_ALT = 0x661F1F26;
+    /**
+     * The BRIGHTER of the two alternating lanes.
+     *
+     * <p>JoyRaptor: "currently the alternating lanes are a little too dark, one set can be
+     * fully black but the other should be a little brighter as it reads currently as fully
+     * black unless I have the phone turned up very bright."
+     *
+     * <p>He is describing a real perceptual floor, not a preference. The old value composited
+     * to about #0B0B0D over black — a 4.3% lift — and a 4% step is below what most OLED
+     * panels resolve once the backlight drops to a third. On his desk it was visible; on a
+     * phone in a lit room it was not, so the stripe that tells you where one lane ends and
+     * the next begins simply was not there.
+     *
+     * <p>Opaque now rather than 40%-over-black, because a translucent lane composites
+     * differently depending on what has already been drawn underneath it — which is how the
+     * value drifted in the first place. {@link Studio#LANE_B} is a flat, known result.
+     */
+    private static final int COLOR_ROW_BODY_BG_ALT = Studio.LANE_B;
     private static final int COLOR_HEADER_BG_ALT   = 0x99202027;
     private static final int COLOR_HEADER_BG_LOCK_ALT = 0x99202027;
     private static final int COLOR_ROW_NAME       = 0xFFF4F4F5;
@@ -1828,6 +1847,55 @@ public final class LayerRowRenderer {
      * lifted item on its hovered target row (a row it is not yet a member of) with the
      * exact same visuals as an in-place item, guaranteeing one coherent object.
      */
+    // ── tape shaders ────────────────────────────────────────────────────────
+    // One LinearGradient per (kind, width) rather than one per item per frame. Shader
+    // construction compiles a ramp, and a timeline redraws every frame while scrubbing;
+    // building one for each visible object each time is a measurable cost for a picture
+    // that has not changed.
+    private final java.util.HashMap<Long, android.graphics.LinearGradient> tapeShaders =
+            new java.util.HashMap<>();
+
+    private void applyTapeShader(@NonNull TimedItem item, @NonNull TrackKind rowKind,
+                                 int baseColor, boolean ghosted, boolean lifted,
+                                 float x0, float x1) {
+        float w = x1 - x0;
+        if (ghosted || w < 3f * density) {
+            // A sliver has no room for a ramp and would just read as a random flat colour
+            // sampled from somewhere in the middle of it. Ghosts stay flat because the
+            // whole point of a ghost is that it recedes.
+            itemPaint.setShader(null);
+            return;
+        }
+        TrackKind kind = ObjectPalette.payloadKindOf(item, rowKind);
+        int[] g = ObjectPalette.gradientFor(kind);
+        int a = android.graphics.Color.alpha(baseColor);
+        int c0 = ObjectPalette.withAlpha(g[0], a);
+        int c1 = ObjectPalette.withAlpha(g[1], a);
+        if (lifted) { c0 = brighten(c0); c1 = brighten(c1); }
+
+        // Quantise the width so a clip being dragged does not rebuild its shader on every
+        // pixel of movement; 8dp buckets are far finer than the eye can resolve on a ramp.
+        long key = ((long) kind.ordinal() << 40)
+                | ((long) Math.round(w / (8f * density)) << 8)
+                | (lifted ? 2 : 0) | (a >>> 4);
+        android.graphics.LinearGradient sh = tapeShaders.get(key);
+        if (sh == null) {
+            sh = new android.graphics.LinearGradient(0f, 0f, Math.max(1f, w), 0f,
+                    c0, c1, android.graphics.Shader.TileMode.CLAMP);
+            if (tapeShaders.size() > 96) tapeShaders.clear();   // bounded; cheap to refill
+            tapeShaders.put(key, sh);
+        }
+        // The shader is built in item-local space, so it has to be slid to where the item
+        // actually is. Without this every tape would show the same slice of the ramp
+        // regardless of where it sits on the timeline.
+        shaderShift.setTranslate(x0, 0f);
+        sh.setLocalMatrix(shaderShift);
+        itemPaint.setShader(sh);
+    }
+
+    private final android.graphics.Matrix shaderShift = new android.graphics.Matrix();
+
+
     private void drawItemBody(@NonNull Canvas canvas, @NonNull TimedItem item,
                                @NonNull TrackKind rowKind, int baseColor, boolean ghosted,
                                boolean lifted, float top, float bottom, float centerY,
@@ -1851,7 +1919,17 @@ public final class LayerRowRenderer {
             canvas.drawRoundRect(x0 + sh, top + sh, x1 + sh, bottom + sh,
                     3f * density, 3f * density, itemPaint);
         }
+        // ── THE TAPE IS A GRADIENT ──────────────────────────────────────────
+        // A flat bar is the single most "default" thing a timeline can draw. The same bar
+        // with its own two-stop gradient reads as a MATERIAL — a strip of something —
+        // which is what a clip on a timeline is pretending to be.
+        //
+        // The shader runs along the item, not across it, so a long clip shows the whole
+        // sweep and a short one shows a slice of it. That means length itself carries a
+        // little information: two clips of the same kind are obviously the same family,
+        // and the longer one is obviously longer even at a glance.
         itemPaint.setColor(ghosted ? COLOR_ITEM_HIDDEN : (lifted ? brighten(baseColor) : baseColor));
+        applyTapeShader(item, rowKind, baseColor, ghosted, lifted, x0, x1);
         int[] waveform = (item.getAudioClip() != null) ? item.getAudioClip().getWaveform() : null;
         // AV2 quad-band tape: the richest audio representation, drawn in a dark contained body.
         // Falls through to the W2/legacy bars while its lazy extraction is still in flight.
@@ -1877,10 +1955,16 @@ public final class LayerRowRenderer {
                         3f * density, 3f * density, itemPaint);
             }
             // Dark contained body (prototype background), then the tape bands on top.
+            // setColor does NOT clear a shader, so this dark backing would come out as the
+            // tape's own gradient if the shader were left attached — a solid fill silently
+            // turning into whatever was drawn last is the classic shared-Paint bug.
             int prevBody = itemPaint.getColor();
+            android.graphics.Shader prevShader = itemPaint.getShader();
+            itemPaint.setShader(null);
             itemPaint.setColor(0xFF0D0D10);
             canvas.drawRoundRect(x0, top, x1, bottom, 3f * density, 3f * density, itemPaint);
             itemPaint.setColor(prevBody);
+            itemPaint.setShader(prevShader);
             tapeRect.set(x0, top, x1, bottom);
             long inMs = item.getAudioClip().getInPointMs();
             long durMs = Math.max(1, item.getAudioClip().getTrimmedDurationMs());
@@ -2109,6 +2193,10 @@ public final class LayerRowRenderer {
         int slot = 0;
         if (drawPassThroughBadge(canvas, item, x0, top, x1, bottom, slot)) slot++;
         drawFxBadge(canvas, item, x0, top, x1, bottom, slot);
+        // The shader must not outlive this object. itemPaint is shared with the chain
+        // badges, the sprite diamonds and the caption bindings below, and every one of
+        // them sets a COLOUR and expects a flat fill.
+        itemPaint.setShader(null);
     }
 
     /**

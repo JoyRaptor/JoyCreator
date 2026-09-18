@@ -57,6 +57,72 @@ public final class ObjectPalette {
     /** The master spine reads as video — same hue, named separately for call-site clarity. */
     public static final int MASTER     = VIDEO;
 
+    // ══ THE TAPES ═══════════════════════════════════════════════════════════
+    // JoyRaptor: "the object colors came from an older theme, map them onto there
+    // closest gradient from our latest html styleguides ... tapes should be gradients."
+    //
+    // The flat hues above were picked before the palette existed. They are not WRONG —
+    // they were pulled from the July brand list — they are just lonely: a mid purple on
+    // its own reads as a leftover, while the same purple running into indigo reads as
+    // part of a family.
+    //
+    // Every pair below is an ADJACENT pair from the Swatch Room's fourteen-colour wheel
+    // (design record 01, §03 Gradients). That is the rule the wheel was ordered for: any
+    // two neighbours blend without going muddy through the middle, because there is no
+    // hue between them to pass through. Non-adjacent pairs — purple into orange — cross
+    // the whole wheel and turn grey at the midpoint.
+    //
+    // ── what each kind gets, and why ────────────────────────────────────────
+    //   TEXT        purple -> indigo        keeps the purple it already had
+    //   VIDEO       indigo -> bright blue   keeps the blue it already had; adjacent to
+    //                                       TEXT because a title IS video, drawn
+    //   IMAGE       bright blue -> cyan     was teal and alone; now the cool end
+    //   AUDIO       yellow-green -> golden  warm means SOUND in this system, and it is
+    //                                       far from the Studio's aqua so "audio" can
+    //                                       never be mistaken for "go"
+    //   SPRITE      amber -> orange         keeps its amber
+    //   CAPTION     orange -> deep orange   warm, next to audio, because captions ARE audio
+    //   VISUALIZER  red-pink -> neon pink   keeps its pink
+    //   ADJUSTMENT  grey -> grey            deliberately hueless: it is the one object
+    //                                       that CHANGES what is already there rather
+    //                                       than adding to it, and a colour would make
+    //                                       it look like another layer of content
+    //
+    // The aqua-to-lime stretch of the wheel is left empty on purpose. That belongs to
+    // the Studio's own GO gradient, and an object wearing it would read as a button.
+
+    private static final int[] G_TEXT       = {0xFF8C3DFA, 0xFF5C43FD};
+    private static final int[] G_VIDEO      = {0xFF5C43FD, 0xFF4397FD};
+    private static final int[] G_IMAGE      = {0xFF4397FD, 0xFF55E0F9};
+    private static final int[] G_AUDIO      = {0xFFCEFF5B, 0xFFF9F462};
+    private static final int[] G_SPRITE     = {0xFFFFC341, 0xFFFAA03D};
+    private static final int[] G_CAPTION    = {0xFFFAA03D, 0xFFFC6818};
+    private static final int[] G_VISUALIZER = {0xFFFA3D5D, 0xFFFF008C};
+    private static final int[] G_ADJUSTMENT = {0xFF52525B, 0xFF33333C};
+
+    /**
+     * The two stops for a kind's tape, in draw order (left to right along the timeline).
+     *
+     * <p>Returned as a shared array rather than copied: this is read inside onDraw for
+     * every visible object on every frame while scrubbing, and allocating two ints per
+     * object per frame is exactly the kind of thing that turns a smooth timeline into a
+     * stuttery one. Callers must not write to it.
+     */
+    @NonNull
+    public static int[] gradientFor(@NonNull TrackKind kind) {
+        switch (kind) {
+            case TEXT:       return G_TEXT;
+            case STICKER:
+            case IMAGE:      return G_IMAGE;
+            case AUDIO:      return G_AUDIO;
+            case SPRITE:     return G_SPRITE;
+            case CAPTION:    return G_CAPTION;
+            case VISUALIZER: return G_VISUALIZER;
+            case ADJUSTMENT: return G_ADJUSTMENT;
+            default:         return G_VIDEO;
+        }
+    }
+
     /** Alpha used for item bodies drawn on a lane row. */
     private static final int BODY_ALPHA = 0xDD;
 

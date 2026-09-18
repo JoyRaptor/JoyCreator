@@ -75,7 +75,20 @@ public class EditorTimelineView extends View {
      * a collapsed audio row already uses, not a second collapse idea with its own look.
      */
     private static final float SPINE_COLLAPSED_HEIGHT_DP = 14f;
-    private static final float MINIMAP_HEIGHT_DP = 16f;
+    /**
+     * The master tape's slot at the bottom of the minimap.
+     *
+     * <p>JoyRaptor: "the spine preview that sits under the timeline minimap — that spine
+     * part was before all the other minimap was made, so currently its too thick, you can
+     * shorten the spike part 50% or 60%."
+     *
+     * <p>He is describing an artefact of the order things were built in. This band was the
+     * WHOLE minimap once, so 16dp was the right size for it; then the per-layer lines were
+     * added above it and the tape kept a height it had earned as the only thing there. 7dp
+     * is a 56% cut and puts it back in proportion with the lines it now shares the strip
+     * with — the tape is one row among several, not the headline.
+     */
+    private static final float MINIMAP_HEIGHT_DP = 7f;
     // F-MINIMAP: thin per-layer lines stacked ABOVE the master tape, so a glance at the strip
     // shows WHERE the objects are across the whole project, not just where the clips are.
     /** Thickness of one layer line. */
@@ -179,7 +192,17 @@ public class EditorTimelineView extends View {
     private static final int COLOR_AUDIO_WAVE_DIM = Studio.alpha(Studio.AUDIO, 0x40); // mirror half
     private static final int COLOR_AUDIO_CENTERLINE = Studio.alpha(Studio.AUDIO, 0x33);
     private static final int COLOR_AUDIO_LABEL    = 0xBBFFFFFF;
-    private static final int COLOR_AUDIO_TRACK_BG = 0xFF16161B;
+    /**
+     * The audio band's ground.
+     *
+     * <p>Was #16161B — a full step lighter than the lane stripes above it, which JoyRaptor
+     * spotted immediately: "audio tracks are a lighter grey then the dark alternating lines
+     * in the other lanes, looks odd". It read as a different SURFACE rather than as more of
+     * the same timeline, so the band looked pasted on.
+     *
+     * <p>It now sits on the same two-value alternation as every other lane.
+     */
+    private static final int COLOR_AUDIO_TRACK_BG = Studio.LANE_B;
 
     // ── KineMaster-class playhead lane (JoyRaptor 2026-07-19) ─────────────────
     // The per-kind playhead tints used to be re-declared here as a hand-kept mirror of
@@ -4249,14 +4272,27 @@ public class EditorTimelineView extends View {
         if (tRight > tLeft) {
             float vx0 = margin + (tLeft / (float) totalEffectiveMs) * stripW;
             float vx1 = margin + (tRight / (float) totalEffectiveMs) * stripW;
-            minimapViewportPaint.setColor(0x30FFFFFF);
-            canvas.drawRoundRect(vx0, top - 1.5f * density, vx1, bot + 1.5f * density,
-                    3f * density, 3f * density, minimapViewportPaint);
-            minimapViewportBorderPaint.setColor(0xCCFFFFFF);
+            // ── WHAT YOU ARE LOOKING AT ──────────────────────────────────────
+            // JoyRaptor: "currently the selection preview range is white and only over the
+            // spine in the minimap. it should extend the hight of the full minimap (which is
+            // variable with how many layers are shown) and be a thin 1px cyan frame instead
+            // of white to go with our system."
+            //
+            // Two fixes in one. It spans the WHOLE strip now, layer lines included, because
+            // the window is a statement about TIME and every row in the strip shares that
+            // axis — framing only the tape said the viewport applied to the tape alone.
+            //
+            // And it is a frame, not a filled box. The old 0x30 white wash sat on top of the
+            // per-layer lines, which are 1.2dp and already faint; anything laid over them
+            // takes away the one thing the band exists to show. A stroke says the same thing
+            // and costs nothing underneath it.
+            float vTop = 1.5f * density;
+            float vBot = minimapHeightPx - 1.5f * density;
+            minimapViewportBorderPaint.setColor(Studio.ARMED);
             minimapViewportBorderPaint.setStyle(Paint.Style.STROKE);
-            minimapViewportBorderPaint.setStrokeWidth(1.2f * density);
-            canvas.drawRoundRect(vx0, top - 1.5f * density, vx1, bot + 1.5f * density,
-                    3f * density, 3f * density, minimapViewportBorderPaint);
+            minimapViewportBorderPaint.setStrokeWidth(Math.max(1f, 1f * density));
+            canvas.drawRoundRect(vx0, vTop, vx1, vBot,
+                    2f * density, 2f * density, minimapViewportBorderPaint);
         }
     }
 
@@ -7064,12 +7100,16 @@ if (sd.clip.hasVolumeKeyframes()) {
             // Configure explicitly — the normal-mode minimap (which usually sets
             // these) doesn't run while reordering.
             boolean active = reorderMinimapDragging || reorderMinimapPanning;
+            // The same window while it is being DRAGGED. It gets a faint fill only in that
+            // moment — you are holding it, so it is worth making solid enough to track — and
+            // goes back to a bare frame the instant you let go.
             minimapViewportPaint.setStyle(Paint.Style.FILL);
-            minimapViewportPaint.setColor(active ? 0x4035F6BF : 0x30FFFFFF);
-            minimapViewportBorderPaint.setColor(active ? 0xCC35F6BF : 0xCCFFFFFF);
+            minimapViewportPaint.setColor(active ? Studio.alpha(Studio.ARMED, 0x33) : 0x00000000);
+            minimapViewportBorderPaint.setColor(Studio.ARMED);
             minimapViewportBorderPaint.setStyle(Paint.Style.STROKE);
-            minimapViewportBorderPaint.setStrokeWidth(1.2f * density);
-            canvas.drawRect(vL, top - 2f * density, vR, bot + 2f * density, minimapViewportPaint);
+            minimapViewportBorderPaint.setStrokeWidth(Math.max(1f, 1f * density));
+            canvas.drawRect(vL, 1.5f * density, vR, minimapHeightPx - 1.5f * density,
+                    minimapViewportPaint);
             canvas.drawRect(vL, top - 2f * density, vR, bot + 2f * density,
                     minimapViewportBorderPaint);
         }

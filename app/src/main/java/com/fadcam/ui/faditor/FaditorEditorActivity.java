@@ -107,6 +107,16 @@ import java.util.concurrent.Executors;
  */
 public class FaditorEditorActivity extends AppCompatActivity {
 
+    // ── STUDIO STATE COLOURS (design records 01-06) ──────────────────────────
+    // Four colours that mean the same thing in every room of the app. A STATE is
+    // shown as a ring or a tint; an OBJECT's colour is shown as a fill. That split
+    // is what keeps sprite-amber and careful-amber from ever being confused.
+    /** The thing you are pointing at. */            static final int STUDIO_ARMED   = 0xFF22D3EE;
+    /** What is playing or recording right now. */   static final int STUDIO_LIVE    = 0xFFF43F8E;
+    /** Unsaved, degraded, approximate, unusual. */  static final int STUDIO_CAREFUL = 0xFFFBBF24;
+    /** Present, but not available right now. */     static final int STUDIO_OFF     = 0xFF33333C;
+
+
     private static final String TAG = "FaditorEditor";
 
     /** Intent extra key for the video URI string. */
@@ -3114,7 +3124,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Undo/Redo buttons with count badges
         btnUndo = findViewById(R.id.btn_undo);
         btnRedo = findViewById(R.id.btn_redo);
+        // The layout ships these at alpha 0.3 and the listener below only fires when the
+        // undo stack CHANGES, so on a cold open they kept the old faded-white look instead
+        // of the receded off-grey. Seed the resting state here.
+        if (btnUndo != null) { btnUndo.setAlpha(1f); btnUndo.setTextColor(STUDIO_OFF); }
+        if (btnRedo != null) { btnRedo.setAlpha(1f); btnRedo.setTextColor(STUDIO_OFF); }
         btnRelinkMedia = findViewById(R.id.btn_relink_media);
+        if (btnRelinkMedia != null) btnRelinkMedia.setTextColor(STUDIO_OFF);
         TextView undoCount = findViewById(R.id.undo_count);
         TextView redoCount = findViewById(R.id.redo_count);
         btnUndo.setOnClickListener(v -> performUndo());
@@ -3144,8 +3160,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             btnRippleMode.setOnClickListener(v -> toggleRippleMode());
         }
         undoManager.setOnStateChangedListener((canUndo, canRedo) -> {
-            btnUndo.setAlpha(canUndo ? 1.0f : 0.3f);
-            btnRedo.setAlpha(canRedo ? 1.0f : 0.3f);
+            // TRANSPORT RECESSION (design record 06 §03): white = available and about to
+            // be pressed; STUDIO_OFF = present but not now. Never more than three whites.
+            btnUndo.setAlpha(1f);
+            btnRedo.setAlpha(1f);
+            btnUndo.setTextColor(canUndo ? 0xFFFFFFFF : STUDIO_OFF);
+            btnRedo.setTextColor(canRedo ? 0xFFFFFFFF : STUDIO_OFF);
             btnUndo.setEnabled(canUndo);
             btnRedo.setEnabled(canRedo);
 
@@ -14391,17 +14411,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             case OFF:
                 next = com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode.INCLUSIVE;
                 hint = "Select: touch anything the box crosses";
-                tint = 0xFF4CAF50;
+                tint = STUDIO_ARMED;
                 break;
             case INCLUSIVE:
                 next = com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode.EXCLUSIVE;
                 hint = "Select: only fully-boxed objects";
-                tint = 0xFFFFB74D;
+                tint = STUDIO_CAREFUL;
                 break;
             default:
                 next = com.fadcam.ui.faditor.timeline.EditorTimelineView.MarqueeMode.OFF;
                 hint = "Select mode off";
-                tint = 0xFFCCCCCC;
+                tint = STUDIO_OFF;
                 break;
         }
         editorTimeline.setMarqueeMode(next);
@@ -15750,11 +15770,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 : "Ripple mode: deleting a clip closes the gap", Toast.LENGTH_SHORT).show();
     }
 
-    /** Sync the toggle's tint with the model: green = ripple (default), amber = gap. */
+    /** Cyan = ripple (the armed default), amber = gap (the careful, unusual mode). */
     private void updateRippleModeButton() {
         if (btnRippleMode == null || project == null) return;
         boolean ripple = "ripple".equals(project.getTimeline().getRippleMode());
-        btnRippleMode.setTextColor(ripple ? 0xFF4CAF50 : 0xFFFFB300);
+        btnRippleMode.setTextColor(ripple ? STUDIO_ARMED : STUDIO_CAREFUL);
     }
 
     /**
@@ -18784,7 +18804,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (btnVoiceover == null) return;
         boolean rec = voiceoverRecorder != null && voiceoverRecorder.isRecording();
         if (rec) {
-            btnVoiceover.setTextColor(0xFFE53935);
+            btnVoiceover.setTextColor(STUDIO_LIVE);
             btnVoiceover.setAlpha(1f);
             if (voiceoverPulseAnimator == null || !voiceoverPulseAnimator.isRunning()) {
                 voiceoverPulseAnimator = android.animation.ValueAnimator.ofFloat(1f, 0.4f);
@@ -18796,8 +18816,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         } else {
             if (voiceoverPulseAnimator != null) { voiceoverPulseAnimator.cancel(); voiceoverPulseAnimator = null; }
-            btnVoiceover.setTextColor(0xFF888888);
-            btnVoiceover.setAlpha(0.9f);
+            btnVoiceover.setTextColor(STUDIO_OFF);
+            btnVoiceover.setAlpha(1f);
         }
     }
     // G14 helpers
@@ -18810,8 +18830,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
     private void updateGlobalSnapButton() {
         if (btnSoftSnap == null) return;
-        btnSoftSnap.setTextColor(globalSnapEnabled ? 0xFF4CAF50 : 0xFF888888);
-        btnSoftSnap.setAlpha(globalSnapEnabled ? 1f : 0.5f);
+        btnSoftSnap.setTextColor(globalSnapEnabled ? STUDIO_ARMED : STUDIO_OFF);
+        btnSoftSnap.setAlpha(1f);
     }
     private void showSnapList() {
         String[] items = {"Beat snap: " + (editorTimeline != null && editorTimeline.isBeatSnapEnabled() ? "on" : "off"), "Overlay snap: " + (overlaySoftSnapEnabled ? "on" : "off"), "Global snap: " + (globalSnapEnabled ? "on" : "off")};
@@ -18980,8 +19000,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         overlaySoftSnapEnabled = !overlaySoftSnapEnabled;
         if (overlayLayer != null) overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
         if (btnSoftSnap != null) {
-            btnSoftSnap.setTextColor(overlaySoftSnapEnabled ? 0xFF4CAF50 : 0xFF888888);
-            btnSoftSnap.setAlpha(overlaySoftSnapEnabled ? 1f : 0.45f);
+            btnSoftSnap.setTextColor(overlaySoftSnapEnabled ? STUDIO_ARMED : STUDIO_OFF);
+            btnSoftSnap.setAlpha(1f);
         }
         Toast.makeText(this,
                 overlaySoftSnapEnabled ? R.string.faditor_soft_snap_on : R.string.faditor_soft_snap_off,

@@ -814,3 +814,22 @@ RING and never a fill. Settles the sprite-amber / warn-amber collision by form.
 NOT DOING: the playhead does NOT become flat pink. `resolvePlayheadContextColor()`
 already tints it by the selected object's kind, which is better than the design
 record proposed. Pink replaces WHITE as the neutral default only.
+
+### LANDED 2026-09-17, each device-proved on the sandbox Note 9 (SM-N960U, API 29)
+Commits 1bfadaf6, 55e1f7bb, + the transport commit below. Screenshots sampled with
+System.Drawing.GetPixel, so every figure here is measured off the phone, not asserted.
+
+| | Before | After |
+|---|---|---|
+| Clip selection | green #4CAF50 | cyan #22D3EE |
+| Neutral playhead | white | pink #F43F8E (context tint preserved) |
+| Lane A / lane B | #1A1A1A / #222222 (3.1%) | #000000 / #0B0B0D (4.3%) |
+| Top bar + transport | #1A1A1A | @color/studio_panel #111114 |
+| Top drawers | #F0121212, ~94% | @color/faditor_drawer_scrim, 64% |
+| Tool label "Transcript" | clipped to "Transcrip" | renders in full |
+| Transport row | 5 competing brightnesses | one white (play), one cyan (armed), rest #33333C |
+
+STILL OPEN IN THIS LANE: per-clip type glyphs (the colour-blind tell — sprite amber and
+caption gold collapse under deuteranopia), the object-drawer header rebuild, and the ~50
+sites where 0xFF4CAF50 means "modified". That last one is NOT a blind sweep — green inside
+the Studio may legitimately keep meaning "this control is doing something".

@@ -67,7 +67,19 @@ public final class Studio {
     // What a control says about itself. Four, because the Studio has four; a fifth is a
     // sign two ideas have been folded into one control.
     public static final int ARMED   = 0xFF22D3EE;   // selected, or armed
-    public static final int LIVE    = 0xFFFF008C;   // recording, playing, the playhead
+    /**
+     * Live — recording, playing, the playhead.
+     *
+     * <p>#F43F8E, which is what JoyRaptor's Swatch Room says and what BOTH design records
+     * say: {@code --live:#f43f8e} in The Marquee and in Studio Final.
+     *
+     * <p>It held #FF008C, which is Capture's SECOND STOP — the same value as
+     * {@link #ROOM_SPRITE}. So "live" was not a colour of its own at all; it was a room's
+     * colour wearing a state's name, and the playhead gradient only looked correct because
+     * ROOM_CAPTURE to LIVE happened to spell out the Capture gradient by accident. Found by
+     * re-reading his own messages rather than my summary of them.
+     */
+    public static final int LIVE    = 0xFFF43F8E;
     public static final int CAREFUL = 0xFFFBBF24;   // destructive, or a warning
     public static final int OFF     = 0xFF33333C;   // unavailable — ONE grey, not eleven
     /**
@@ -78,7 +90,15 @@ public final class Studio {
      * being lost. Material's #F44336 used to carry it in 31 places, which meant the editor's
      * "delete" and its "recording" were told apart only by hue.
      */
-    public static final int DANGER  = 0xFFFF4438;
+    /**
+     * Destroys — #FA3D5D, from the Swatch Room, and {@code --danger} in both records.
+     *
+     * <p>It held #FF4438, a red from nowhere. Note that this is the same value as
+     * {@link #ROOM_CAPTURE}: that is deliberate and is in both drawings, where Capture's
+     * gradient RUNS FROM the destroys-red to neon pink. Two roles, one value, like
+     * GO / ROOM_STUDIO.
+     */
+    public static final int DANGER  = 0xFFFA3D5D;
     /** An alignment guide, or a snap line. Not a control — a hint about geometry. */
     public static final int GUIDE   = 0xFFA78BFA;
 
@@ -180,12 +200,15 @@ public final class Studio {
      *
      *   GO / ROOM_STUDIO          0.0 deg — the same value by design. The Studio room's
      *                             identity IS the go colour. Two roles, one value.
-     *   LIVE / ROOM_SPRITE        0.0 deg — likewise: the Sprite Lab's pink is the live pink.
+     *   ROOM_CAPTURE / DANGER     0.0 deg — the same value, and that is in BOTH design
+     *                             records: Capture's gradient runs FROM the destroys-red to
+     *                             neon pink. Two roles, one value.
      *
-     *   ROOM_CAPTURE / DANGER    13.8 deg — co-occur only in EditorTimelineView, where capture
-     *                             red is the PLAYHEAD, a 1.5dp line, and danger is a filled
-     *                             wash behind missing media. Different shape, different size,
-     *                             two orders of magnitude apart in area.
+     *   LIVE / ROOM_SPRITE       10.2 deg — they USED to be the same value, because LIVE was
+     *                             wrongly holding Capture's second stop. With LIVE corrected
+     *                             to #F43F8E they are a live pink and a room pink, ten degrees
+     *                             apart, and they co-occur only in the timeline where live is
+     *                             a 1.5dp line and the room colour is a filled tape.
      *   ROOM_VIZ / CAREFUL       11.8 deg — co-occur on the lobby, where careful is a 10sp
      *                             mono stat label beside a clock glyph in the header and the
      *                             Viz Lab amber is a 3dp signature bar and a pill. Context

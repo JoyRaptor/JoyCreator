@@ -52,12 +52,12 @@
          actually has; a fifth state is a sign that two different ideas have been
          folded into one control. -->
     <color name="s_armed">#FF22D3EE</color>      <!-- selected, or armed: cyan -->
-    <color name="s_live">#FFFF008C</color>       <!-- recording, playing, the playhead -->
+    <color name="s_live">#FFF43F8E</color>       <!-- recording, playing, the playhead -->
     <color name="s_careful">#FFFBBF24</color>    <!-- destructive, or a warning -->
     <color name="s_off">#FF33333C</color>        <!-- unavailable; ONE grey, not eleven -->
     <!-- Destructive, or past a limit. Separate from s_live because magenta means
          "recording, and that is fine"; this means "something is being lost". -->
-    <color name="s_danger">#FFFF4438</color>
+    <color name="s_danger">#FFFA3D5D</color>
     <!-- An alignment guide or snap line: a hint about geometry, not a control. -->
     <color name="s_guide">#FFA78BFA</color>
 

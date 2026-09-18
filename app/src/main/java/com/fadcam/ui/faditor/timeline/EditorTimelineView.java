@@ -6086,7 +6086,10 @@ if (sd.clip.hasVolumeKeyframes()) {
             if (playheadGrad == null || playheadGradTop != lineTop || playheadGradBot != lineBot) {
                 playheadGrad = new android.graphics.LinearGradient(
                         0f, lineTop, 0f, lineBot,
-                        Studio.ROOM_CAPTURE, Studio.LIVE, android.graphics.Shader.TileMode.CLAMP);
+                        // The CAPTURE gradient, named honestly: capture's first stop to its
+                        // second. It used to read ROOM_CAPTURE to LIVE and render the same
+                        // pixels, but only because LIVE was holding capture's second stop.
+                        Studio.ROOM_CAPTURE, Studio.ROOM_SPRITE, android.graphics.Shader.TileMode.CLAMP);
                 playheadGradTop = lineTop;
                 playheadGradBot = lineBot;
             }

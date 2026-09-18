@@ -165,6 +165,41 @@ Font scale checked at 1.3 and 2.0: honoured (1.3 looks unchanged because Android
 compresses large display text non-linearly — that is the platform, not us), and
 the lobby holds at 2.0 with ellipsis rather than overlap.
 
+### Re-reading his ACTUAL messages, not my summary of them — and what it caught
+
+The goal says *"re go over my responses in this convorsation so you dont miss things because
+of compactions."* I had been citing his instructions from a compacted summary. Reading the
+raw transcript found a real defect that three sources agreed on and the build did not.
+
+His Swatch Room message, verbatim:
+
+```
+STATE
+  - Careful  #FBBF24
+  - Selected #22D3EE
+  - Live     #F43F8E
+  - Destroys #FA3D5D
+```
+
+Both design records agree: `--live:#f43f8e; --danger:#fa3d5d` appears in The Marquee AND in
+Studio Final. The build had `LIVE = #FF008C` and `DANGER = #FF4438`.
+
+`#FF008C` is **Capture's second stop** — the same value as `ROOM_SPRITE`. So "live" was not a
+colour of its own at all; it was a room's colour wearing a state's name. And the playhead
+gradient only *looked* right because `ROOM_CAPTURE → LIVE` happened to spell out the Capture
+gradient by accident. It now says `ROOM_CAPTURE → ROOM_SPRITE`, which is the same pixels and
+the honest name.
+
+Measured on device: the playhead chip went **#FF008C → #F43F8E**.
+
+`DANGER` at #FA3D5D is now the same value as `ROOM_CAPTURE`, which is deliberate and is in
+both drawings — Capture's gradient runs FROM the destroys-red to neon pink.
+
+Cross-checked the rest of his list: Careful, Selected, neon pink, lime, indigo, aqua green and
+every gradient pair already matched. The one value of his that has no token is Finder
+(#CEFF5B / #F9F462 / #FFC341), and correctly so — the lobby floor draws Finder in grey like
+every other floor word, so a Finder token would be a colour nothing renders.
+
 ### The seven repos, read and applied — 2026-09-18 05:4x
 
 Not summarised from memory this time; fetched and tested against.

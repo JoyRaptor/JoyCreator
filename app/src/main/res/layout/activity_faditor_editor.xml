@@ -1182,6 +1182,7 @@
                  tools start at the timecode, and a weighted Space pushes undo up against
                  play. The gap is the punctuation. ══════════════════════════════ -->
             <LinearLayout
+                android:id="@+id/transport_left"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_toEndOf="@id/time_current"
@@ -1199,7 +1200,7 @@
                     android:text="magnet"
                     android:textColor="@color/s_go"
                     android:textSize="18sp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="14dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Soft snap overlays" />
 
@@ -1215,7 +1216,7 @@
                     android:text="select_all"
                     android:textColor="@color/s_off"
                     android:textSize="18sp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="14dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Multi-select mode" />
 
@@ -1231,7 +1232,7 @@
                     android:text="align_horizontal_center"
                     android:textColor="@color/s_armed"
                     android:textSize="18sp"
-                    android:layout_marginEnd="8dp"
+                    android:layout_marginEnd="14dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Ripple or gap delete mode" />
 
@@ -1279,6 +1280,7 @@
             <!-- Transport, right. The mirror of the left: redo hugs play, the tools work
                  inward from the total-time readout, and the gap falls between them. -->
             <LinearLayout
+                android:id="@+id/transport_right"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_toEndOf="@id/btn_play_pause"
@@ -1333,7 +1335,7 @@
                     android:text="link"
                     android:textColor="@color/s_ink_faint"
                     android:textSize="18sp"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="14dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/faditor_relink_btn" />
             </LinearLayout>

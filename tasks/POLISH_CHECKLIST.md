@@ -227,25 +227,42 @@ footprint, so this one is worth a second look if he wants it.
 | 02 | tool cell 56dp, label capped 52dp, ellipsis | as drawn | ✅ |
 | 02 | playhead colour `--live` | Capture gradient | ⚠️ his instruction |
 | 02 | minimap 15dp | 11dp | ⚠️ his ruling, in pixels |
-| **01/02** | **six transport targets at 44dp** | **eight, all 21.5dp** | ❌ **CRITICAL** |
+| **01/02** | **transport targets at 44dp** | **44.2–109.7 × 42.2dp** | ✅ **fixed** |
 
-**The one that is still open, with the arithmetic.** Measured on device, every
-control in the transport row is **21.5 × 21.5dp**; the play button is 28.7. The
-minimum is 44. Studio Final rated this CRITICAL and did the sum: eight controls
-plus two time labels at 44dp needs 444dp and the row has 375, *"which is why a
-mis-tap on the play button once got logged as a critical playback regression."*
+**How the CRITICAL was actually fixed.** First, a correction: my earlier "21.5dp"
+was wrong. The sandbox runs an override density of 315, so the factor is 1.969,
+not 2.75 — the viewport is 549dp wide and the controls were exactly the 30dp the
+layout declares. The defect was real (30 < 44) but the arithmetic was not.
 
-A TouchDelegate cannot rescue it — the gaps between controls are 6dp, so growing
-each one only reaches ~27dp before neighbours collide. The drawing's fix is
-structural and is the only one that fits: **collapse Select and Ripple into one
-cycling mode button** (they were always exclusive) and **move Relink out of the
-row**, appearing instead as an amber ring on the broken clip. That leaves six
-targets plus two labels = 356dp, inside the 375 available.
+The drawing's own fix could not be taken as written. It says to merge Select and
+Ripple because "they were always exclusive" — in this build they are NOT. Select
+cycles off / crossing / window; ripple cycles ripple / gap. Merging them would
+delete a combination the editor supports.
 
-Not attempted here because it changes editor BEHAVIOUR — merging two mode
-controls and hiding a third — and doing that unverified at the end of a long
-session is how undo or play quietly stops working. It is the largest remaining
-gap against any of the three records.
+So the width came from two other places:
+
+1. **Link left the row**, which the drawing also asks for. Its own handler opens
+   with a check for a selection and a toast saying "Select an item to link" — a
+   dead knob most of the time. It now appears with a selection and leaves with it.
+2. **The dead space between the controls.** An 8dp margin either side of a 30dp
+   glyph is 8dp of row that answers to nobody. Every control's hit rectangle now
+   runs the full height of the row and meets its neighbours at the midpoint, with
+   the two on the ends reaching their container's edge. The margins went 8 → 14dp
+   so the midpoint pitch lands on 44.
+
+Measured after, on device: **44.2 to 109.7dp wide by 42.2dp tall**, from 30 × 30.
+
+Verified by driving it, not by reading it: a tap at y=261 — below the button's own
+bounds and inside the row — toggles it, and taps in the horizontal gap cycle
+select through off → cyan → amber. Both were dead before. Play still plays:
+00:00 → pause icon at 00:02 → play icon at 00:03.
+
+One implementation note worth keeping: a View has exactly ONE TouchDelegate, so
+the obvious loop that sets one per child silently keeps only the last and leaves
+every other control as small as it was. There is a small composite class for this,
+and the delegates are rebuilt on every layout pass rather than posted once — posted
+once, it raced the first layout and measured a row of height zero, and it went
+stale whenever link came or went.
 
 ### Measured state of the colour system, 2026-09-18 04:55
 

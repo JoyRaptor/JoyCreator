@@ -3185,6 +3185,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         // G15: link icon manages LINKED ITEMS, not the media catalog (catalog moves to object menu)
         btnRelinkMedia.setOnClickListener(v -> handleLinkTap());
+        // A dead knob nine tenths of the time: handleLinkTap's first act is to look for a
+        // selection and toast "Select an item to link" when there is none. Studio Final
+        // §01/02 says take it out of the transport row; its own handler says when.
+        btnRelinkMedia.setVisibility(View.GONE);
+        growTransportTargets(findViewById(R.id.transport_left));
+        growTransportTargets(findViewById(R.id.transport_right));
         btnRelinkMedia.setOnLongClickListener(v -> { showLinkOptions(); return true; });
         if (btnSoftSnap != null) {
             // G14: magnet is GLOBAL snap — green when on, grey when off; long-press lists all snaps
@@ -16575,6 +16581,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // in the preview; deselect (or selecting a type without a handles
                 // target yet) hides them.
                 updatePreviewHandlesForSelection(item);
+                // Link appears with a selection and leaves with it — the difference between
+                // a control that is unavailable and one that is not there.
+                if (btnRelinkMedia != null) {
+                    btnRelinkMedia.setVisibility(item == null ? View.GONE : View.VISIBLE);
+                }
                 // The tool row follows the selection. This is the right place for it and
                 // the FX-drawer sites were not: opening a drawer is DOWNSTREAM of selecting,
                 // so hooking it would only reorder the row once you had already navigated to
@@ -18891,6 +18902,101 @@ public class FaditorEditorActivity extends AppCompatActivity {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Snap settings").setItems(items, null).setPositiveButton("Toggle global", (d,w)-> toggleGlobalSnap()).setNegativeButton(android.R.string.cancel, null).show();
     }
     // G15 helpers
+    /**
+     * One {@link android.view.TouchDelegate} that holds several.
+     *
+     * <p>A View has exactly ONE touch delegate, so the obvious loop — set one per child —
+     * silently keeps only the last and leaves every other control exactly as small as it was.
+     * That bug is the reason this class exists rather than four lines inline.
+     */
+    private static final class TouchDelegates extends android.view.TouchDelegate {
+        private final java.util.List<android.view.TouchDelegate> parts = new java.util.ArrayList<>();
+
+        TouchDelegates(android.view.View host) {
+            super(new android.graphics.Rect(), host);
+        }
+
+        void add(android.view.TouchDelegate d) { parts.add(d); }
+
+        @Override
+        public boolean onTouchEvent(android.view.MotionEvent e) {
+            // A copy per delegate: TouchDelegate OFFSETS the event it is given, so handing
+            // the same one to the next delegate would hand it already-shifted coordinates.
+            float x = e.getX(), y = e.getY();
+            for (android.view.TouchDelegate d : parts) {
+                e.setLocation(x, y);
+                if (d.onTouchEvent(e)) return true;
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Grows every transport control's HIT rectangle to fill the row, without resizing it.
+     *
+     * <p>Studio Final §01, finding 02, rated CRITICAL: the row's controls are drawn at 30dp
+     * against a 44dp minimum, <i>"which is why a mis-tap on the play button once got logged
+     * as a critical playback regression."</i>
+     *
+     * <p>The drawing's own fix was to remove two controls and draw the rest bigger. Two of the
+     * three it names cannot be merged here: it assumed Select and Ripple were exclusive, and
+     * in this build they are not — select is off/crossing/window, ripple is ripple/gap, and
+     * collapsing them would delete a combination. So the width comes from the third one (link,
+     * now contextual) and from the space BETWEEN the buttons, which is currently dead: an 8dp
+     * margin either side of a 30dp glyph is 8dp of row that answers to nobody.
+     *
+     * <p>Each rectangle now runs the full height of the row and half the gap to each
+     * neighbour. Half, not all, so no two overlap and no touch is ever ambiguous. Posted,
+     * because a view has no bounds until it is laid out and a delegate built from an empty
+     * rectangle swallows every touch it is handed.
+     */
+    private void growTransportTargets(android.view.ViewGroup row) {
+        if (row == null) return;
+        // Rebuilt on every layout pass, not posted once. Posting once raced the first layout
+        // and measured a row of height zero; and even when it won that race it went stale the
+        // moment a child changed size or visibility — which this row does, because the link
+        // control comes and goes with the selection.
+        row.addOnLayoutChangeListener((v, l, t, r2, b2, ol, ot, or_, ob) -> applyTransportTargets(row));
+        applyTransportTargets(row);
+    }
+
+    private void applyTransportTargets(android.view.ViewGroup row) {
+        {
+            int n = row.getChildCount();
+            if (n == 0 || row.getHeight() <= 0) return;
+            TouchDelegates all = new TouchDelegates(row);
+            boolean any = false;
+            // Collect the visible children first, so each one can be grown to the MIDPOINT
+            // between its actual neighbours. Reading its own margins is not enough: every
+            // control here declares marginEnd and no marginStart, so a rect built from them
+            // grows one way and leaves the other half of every gap dead.
+            java.util.List<View> kids = new java.util.ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                View c = row.getChildAt(i);
+                if (c.getVisibility() == View.VISIBLE && c.getWidth() > 0) kids.add(c);
+            }
+            for (int i = 0; i < kids.size(); i++) {
+                View c = kids.get(i);
+                android.graphics.Rect r = new android.graphics.Rect();
+                c.getHitRect(r);
+                // The two on the ends reach their container's edge; everything between meets
+                // its neighbours halfway. Between them that leaves no pixel of this row that
+                // belongs to nothing.
+                r.left = (i > 0)
+                        ? (kids.get(i - 1).getRight() + c.getLeft()) / 2
+                        : 0;
+                r.right = (i < kids.size() - 1)
+                        ? (c.getRight() + kids.get(i + 1).getLeft()) / 2
+                        : row.getWidth();
+                r.top = 0;
+                r.bottom = row.getHeight();
+                all.add(new android.view.TouchDelegate(r, c));
+                any = true;
+            }
+            row.setTouchDelegate(any ? all : null);
+        }
+    }
+
     private void handleLinkTap() {
         String sel = editorTimeline != null ? editorTimeline.getSelectedLayerItemId() : null;
         if (sel == null) { android.widget.Toast.makeText(this, "Select an item to link", android.widget.Toast.LENGTH_SHORT).show(); return; }

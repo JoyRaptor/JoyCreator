@@ -112,7 +112,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // shown as a ring or a tint; an OBJECT's colour is shown as a fill. That split
     // is what keeps sprite-amber and careful-amber from ever being confused.
     /** The thing you are pointing at. */            static final int STUDIO_ARMED   = 0xFF22D3EE;
-    /** What is playing or recording right now. */   static final int STUDIO_LIVE    = 0xFFFF4438;
+    /** What is playing or recording right now. Never the same value as DANGER. */
+    static final int STUDIO_LIVE    = Studio.LIVE;
     /** Unsaved, degraded, approximate, unusual. */  static final int STUDIO_CAREFUL = 0xFFFBBF24;
     /** Present, but not available right now. */     static final int STUDIO_OFF     = 0xFF33333C;
 

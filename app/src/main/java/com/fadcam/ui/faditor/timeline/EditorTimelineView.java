@@ -182,7 +182,20 @@ public class EditorTimelineView extends View {
      * by the SELECTED OBJECT's kind, which is more informative and predates this change.
      * Do not flatten that away.
      */
-    private static final int COLOR_PLAYHEAD       = 0xFFFF4438;
+    /**
+     * The playhead's own colour: the Capture magenta.
+     *
+     * <p>JoyRaptor: "shouldnt we have it be hot pink capture color?" — and the body draws
+     * the full Capture gradient #FA3D5D -> #FF008C vertically; this is the end stop, used
+     * for the time chip and anywhere a single value is needed.
+     *
+     * <p>DO NOT let a colour sweep touch this. It was #F43F8E, and a pass that folded rare
+     * near-duplicates onto tokens measured it a short hop from the new DANGER red and
+     * snapped it — which made "playing" and "about to destroy something" the same colour
+     * for about ten minutes. LIVE and DANGER must never converge: one is a normal state you
+     * want to see, the other means something is being lost.
+     */
+    private static final int COLOR_PLAYHEAD       = Studio.LIVE;
     private static final int COLOR_LABEL          = 0xBBFFFFFF;
     private static final int COLOR_DRAG_GHOST     = 0x6622D3EE;
     private static final int COLOR_AUDIO_BG       = 0xFF2C2C35;
@@ -248,6 +261,7 @@ public class EditorTimelineView extends View {
     private final Paint labelPaint         = new Paint(Paint.ANTI_ALIAS_FLAG);
     // KineMaster playhead lane paints (JoyRaptor 2026-07-19)
     private final Paint chipBgPaint        = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Path chipPath = new android.graphics.Path();
     private final Paint chipBorderPaint     = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint chipTextPaint       = new Paint(Paint.ANTI_ALIAS_FLAG);
     /** Dashed guide line paint (top/bottom row-band + vertical trim edge). */
@@ -321,6 +335,9 @@ public class EditorTimelineView extends View {
     /** True while the user is actively scrubbing the playhead (chip grows/bolds). */
     private boolean playheadScrubbing = false;
     /** Animated (current) playhead+chip-border colour, and its target. */
+    @Nullable private android.graphics.LinearGradient playheadGrad;
+    private float playheadGradTop = Float.NaN, playheadGradBot = Float.NaN;
+    private final Paint slicePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private int playheadColorCurrent = COLOR_PLAYHEAD;
     private int playheadColorTarget  = COLOR_PLAYHEAD;
     @Nullable private android.animation.ValueAnimator playheadColorAnim;
@@ -1944,6 +1961,7 @@ public class EditorTimelineView extends View {
         // punched out of it. The chip and the line below it become a single object that
         // changes colour together, which is the whole point of the context tinting.
         chipBgPaint.setStyle(Paint.Style.FILL);
+        chipBgPaint.setPathEffect(new android.graphics.CornerPathEffect(3f * density));
         chipBorderPaint.setStyle(Paint.Style.FILL);
         chipTextPaint.setTextAlign(Paint.Align.CENTER);
         chipTextPaint.setTextSize(chipTextPx);
@@ -3220,6 +3238,10 @@ public class EditorTimelineView extends View {
         drawCenterPlayhead(canvas, tTop, playheadBot);
 
         // Minimap strip on top (screen coords, not scrolled)
+        // The selected object's span is recorded by the row renderer as it draws, and read
+        // back when the playhead is drawn later in this same pass. Clearing it here means a
+        // frame in which nothing is selected cannot inherit the last frame's answer.
+        if (layerRowRenderer != null) layerRowRenderer.clearSelectionSpan();
         drawMinimap(canvas, w);
         // Keep the minimap loading meters animating while anything is mid-load —
         // throttled repaint that stops itself once every meter reads complete.
@@ -6001,13 +6023,94 @@ if (sd.clip.hasVolumeKeyframes()) {
         // playhead line so the solid line + chip stay crisp on top.
         drawContextGuides(canvas, lineTop, lineBot);
 
-        // Context-coloured playhead line.
-        playheadPaint.setColor(playheadColorCurrent);
-        canvas.drawRect(px - playheadWidthPx / 2f, lineTop,
-                px + playheadWidthPx / 2f, lineBot, playheadPaint);
+        // ── THE PLAYHEAD BODY ───────────────────────────────────────────────
+        // JoyRaptor: "the blue playhead seems just blue. shouldnt we have it be hot pink
+        // capture color?" and "the full capture gradient should be used vertically on the
+        // playhead body and long vertical pin."
+        //
+        // It runs VERTICALLY, top to bottom, which is the only orientation that means
+        // anything on a line 2.5dp wide: across it there is nothing to see, but down its
+        // length the gradient gives the eye something to track when the timeline is dense.
+        //
+        // The context tint still wins when there IS a context — trimming turns it amber,
+        // and a selected object lends it that object's colour, which is more informative
+        // than any fixed colour could be. The capture gradient is what it wears when it is
+        // just being the playhead.
+        boolean neutral = playheadColorCurrent == COLOR_PLAYHEAD;
+        float halfW = playheadWidthPx / 2f;
+        if (neutral) {
+            if (playheadGrad == null || playheadGradTop != lineTop || playheadGradBot != lineBot) {
+                playheadGrad = new android.graphics.LinearGradient(
+                        0f, lineTop, 0f, lineBot,
+                        0xFFFA3D5D, 0xFFFF008C, android.graphics.Shader.TileMode.CLAMP);
+                playheadGradTop = lineTop;
+                playheadGradBot = lineBot;
+            }
+            playheadPaint.setShader(playheadGrad);
+        } else {
+            playheadPaint.setShader(null);
+            playheadPaint.setColor(playheadColorCurrent);
+        }
+        canvas.drawRect(px - halfW, lineTop, px + halfW, lineBot, playheadPaint);
+        playheadPaint.setShader(null);
+
+        // ── WHAT SLICE WILL CUT ─────────────────────────────────────────────
+        // JoyRaptor, describing KineMaster: "a 1px wide dashed line that appears on the
+        // playhead in caution amber over the playhead just the vertical range of the
+        // selected object or clip or audio. the idea is that if you click 'slice' the
+        // dashed line lets you know what exactly is being sliced. that way your not like
+        // 'will it slice my clip or my selected object?'"
+        //
+        // That is the whole value of it: Slice is ambiguous the moment more than one thing
+        // is selectable, and the answer is currently only discoverable by doing it and
+        // undoing it. The dashes sit ON the playhead and span ONLY the selected object's
+        // rows, so the question answers itself before the button is pressed.
+        //
+        // Amber because this is the "careful" colour — a cut is destructive — and it is
+        // drawn OVER the pink, which stays visible at the dash gaps, so the line still
+        // reads as the playhead wearing a warning rather than as a second cursor.
+        drawSliceSpan(canvas, px, tTop, tBot);
 
         // Floating time-chip at the playhead top.
         drawPlayheadChip(canvas, px);
+    }
+
+    /**
+     * The dashed amber marker showing exactly what a Slice would cut.
+     *
+     * <p>Spans the selected object's rows and nothing else. Three cases, in the order the
+     * editor resolves selection:
+     * <ol>
+     *   <li>a SPINE segment is selected -> the master track's own band;</li>
+     *   <li>a LAYER object is selected -> the span the row renderer recorded while
+     *       drawing it this frame;</li>
+     *   <li>nothing selected -> nothing drawn, because there is no ambiguity to resolve.</li>
+     * </ol>
+     *
+     * <p>1px, not 1dp. JoyRaptor called it "1px wide" and on a 3x screen a 1dp dash is 3
+     * physical pixels, which stops looking like a hairline and starts looking like a
+     * second playhead competing with the first.
+     */
+    private void drawSliceSpan(@NonNull Canvas canvas, float px, float tTop, float tBot) {
+        float top, bot;
+        if (selectedIndex >= 0) {
+            top = tTop; bot = tBot;
+        } else if (layerRowRenderer != null && layerRowRenderer.hasSelectionSpan()) {
+            top = layerRowRenderer.selectionSpanTop();
+            bot = layerRowRenderer.selectionSpanBottom();
+        } else {
+            return;
+        }
+        if (bot - top < 2f) return;
+
+        if (slicePaint.getPathEffect() == null) {
+            slicePaint.setStyle(Paint.Style.STROKE);
+            slicePaint.setStrokeWidth(1f);              // one PHYSICAL pixel
+            slicePaint.setPathEffect(new android.graphics.DashPathEffect(
+                    new float[]{3f * density, 3f * density}, 0f));
+        }
+        slicePaint.setColor(COLOR_PLAYHEAD_TRIM);
+        canvas.drawLine(px, top, px, bot, slicePaint);
     }
 
     // ═══════════ KineMaster-class playhead lane (JoyRaptor 2026-07-19) ═══════════
@@ -6029,17 +6132,31 @@ if (sd.clip.hasVolumeKeyframes()) {
         a.start();
     }
 
-    /** Priority: trim tint &gt; master &gt; selected layer kind &gt; neutral. */
+    /**
+     * Priority: trim tint &gt; the playhead's own colour.
+     *
+     * <p>This used to borrow the SELECTED OBJECT's hue — master blue, text purple, and so
+     * on. It was a reasonable idea and it is now the wrong one, for two reasons that only
+     * became true together.
+     *
+     * <p>First, JoyRaptor: "the blue playhead seems just blue. shouldnt we have it be hot
+     * pink capture color?" He was looking at the playhead wearing an object's identity and
+     * reading it as the playhead's own colour, which is exactly what it looks like — there
+     * is nothing on screen to say the tint was borrowed.
+     *
+     * <p>Second, and the reason it can simply go: the dashed slice span now answers the
+     * question the tint was trying to answer, and answers it far better. A tint says "the
+     * selected thing is blue-ish"; the dashes say "THIS is what Slice will cut", drawn over
+     * exactly those rows. Keeping both would be two systems reporting one fact, and the
+     * weaker one was costing the playhead its identity.
+     *
+     * <p>Trimming keeps its amber, because that is a MODE rather than a selection: while a
+     * handle is being dragged the playhead is doing something different, and it should not
+     * look like it is idling.
+     */
     private int resolvePlayheadContextColor() {
         if (activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE) {
             return COLOR_PLAYHEAD_TRIM;
-        }
-        if (selectedIndex >= 0) return com.fadcam.ui.faditor.layers.ObjectPalette.MASTER;
-        String selId = layerGestureController != null
-                ? layerGestureController.getSelectedItemId() : null;
-        if (selId != null) {
-            com.fadcam.ui.faditor.layers.TrackKind k = kindForSelectedLayerItem(selId);
-            if (k != null) return colorForKind(k);
         }
         return COLOR_PLAYHEAD;
     }
@@ -6170,12 +6287,32 @@ if (sd.clip.hasVolumeKeyframes()) {
         // was 0xE6 -- 90% -- which let the ruler's tick marks ghost through the numbers.
         chipBgPaint.setColor(0xFF000000 | (playheadColorCurrent & 0x00FFFFFF));
 
-        // ROUNDED: a true pill. The radius is half the height rather than a fixed 4dp, so
-        // the ends stay perfectly semicircular when the text grows -- the chip gets taller
-        // while scrubbing, and a fixed radius would make it look like a different shape at
-        // each size.
-        float radius = boxH / 2f;
-        canvas.drawRoundRect(chipRect, radius, radius, chipBgPaint);
+        // ── A TRAPEZOID, NOT A PILL ─────────────────────────────────────────
+        // JoyRaptor: "seeing the pill on the playhead its much better then box, i am
+        // wondering if it would be even better as a trapazoid? eg: \\00:01.127/"
+        //
+        // His sketch has both edges leaning inward toward the bottom, so the chip narrows
+        // as it approaches the line it belongs to. That is what a pill cannot do: a pill
+        // is the same shape at both ends and floats above the playhead, while this one
+        // FUNNELS into it, and the eye follows the taper down to the exact column the time
+        // refers to.
+        //
+        // It is also the same shear already used by the lobby's New chips and by the
+        // recents cards, so the angle is becoming a thing the product says rather than a
+        // one-off flourish.
+        //
+        // The corners are softened with a CornerPathEffect rather than a rounded-rect
+        // path: a trapezoid's corners are not 90 degrees, and the effect solves the
+        // tangent arc at each vertex, so the acute pair rounds tighter than the obtuse
+        // pair -- which is what the eye expects and what hand-rolled quadratics get wrong.
+        float taper = Math.min(boxH * 0.42f, boxW * 0.16f);
+        chipPath.reset();
+        chipPath.moveTo(chipRect.left, chipRect.top);
+        chipPath.lineTo(chipRect.right, chipRect.top);
+        chipPath.lineTo(chipRect.right - taper, chipRect.bottom);
+        chipPath.lineTo(chipRect.left + taper, chipRect.bottom);
+        chipPath.close();
+        canvas.drawPath(chipPath, chipBgPaint);
 
         // The time is punched OUT of the chip, in whichever of black or white actually
         // reads on this colour. Hardcoding white was safe on the old near-black fill and

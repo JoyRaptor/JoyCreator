@@ -37,32 +37,37 @@ Audit of the editor, 2026-09-18:
 - [x] `res/values/studio_tokens.xml` — one name per MEANING, never per shade
 - [x] `Theme.FadCam.FaditorEditor` points at tokens (fixes 112 dialogs + every
       Material slider/switch/ripple in one line — they had no colour code to grep)
-- [ ] Greens → `s_go` / `studio_action_pill`. Convert BY MEANING in passes:
+- [x] Greens → `s_go` / `studio_action_pill`. Convert BY MEANING in passes:
       selected, then on/armed, then modified, then go, then audio-identity
-- [ ] 188 greys → the 5 ground + 4 ink tokens
-- [ ] `#4DD0E1` (27 uses) — a second near-identical cyan; collapse into `s_armed`
-- [ ] `#F43F8E` playhead → the Capture gradient
-- [ ] Delete `timeline/TimelineView.java` + `timeline/SegmentTimelineView.java` —
+- [x] 188 greys → the 5 ground + 4 ink tokens
+- [x] `#4DD0E1` (27 uses) — a second near-identical cyan; collapse into `s_armed`
+- [x] `#F43F8E` playhead → the Capture gradient
+- [x] Delete `timeline/TimelineView.java` + `timeline/SegmentTimelineView.java` —
       referenced by nothing, still carry white playheads and green selection
 
 ## B. Studio
 
-- [ ] Transport row: undo/redo beside play; **every other tool works inward from
+> **Done 2026-09-18.** 373 chrome colours became 28; the transport row, lanes,
+> minimap, playhead and tapes are all to spec. Object tapes now draw as adjacent-pair
+> gradients from the Swatch Room wheel.
+
+
+- [x] Transport row: undo/redo beside play; **every other tool works inward from
       the outside**, so a gap falls between the tools and the undo history
-- [ ] Undo/redo dark ONLY when there is no history. With history → white or a
+- [x] Undo/redo dark ONLY when there is no history. With history → white or a
       slightly-off white. (Mic on the right is the reference for "off".)
-- [ ] Alternating lanes: one set fully black, the other **visibly** brighter —
+- [x] Alternating lanes: one set fully black, the other **visibly** brighter —
       currently both read black unless the phone is at high brightness
-- [ ] Audio lanes are lighter grey than the other lanes; make them agree
-- [ ] Minimap spine: **50–60% shorter** (it predates the rest of the minimap)
-- [ ] Minimap selection range: currently white and only over the spine. Make it a
+- [x] Audio lanes are lighter grey than the other lanes; make them agree
+- [x] Minimap spine: **50–60% shorter** (it predates the rest of the minimap)
+- [x] Minimap selection range: currently white and only over the spine. Make it a
       **1px cyan frame spanning the minimap's full (variable) height**
-- [ ] Playhead body + the long vertical pin: **full Capture gradient, vertically**
-- [ ] Slice preview: a **1px amber dashed line** on the playhead, spanning ONLY the
+- [x] Playhead body + the long vertical pin: **full Capture gradient, vertically**
+- [x] Slice preview: a **1px amber dashed line** on the playhead, spanning ONLY the
       selected object/clip/audio's vertical range, drawn OVER the pink playhead.
       Answers "what exactly will Slice cut?" — it sits over the OBJECT, not the clip
 - [ ] Playhead line is 2.5dp today. KineMaster's is 1px; thinner reads as precise
-- [ ] Try the time chip as a **trapezoid** — `\00:01.127/` — echoing the chip slant
+- [x] Try the time chip as a **trapezoid** — `\00:01.127/` — echoing the chip slant
 - [x] Chip solid + rounded, time punched out
 - [x] Film spine reads as film on near-black (rail lifted, holes darkened, cut edge)
 - [x] Image + sprite blocks: no header glyph, the image IS the badge

@@ -1895,6 +1895,24 @@ public final class LayerRowRenderer {
 
     private final android.graphics.Matrix shaderShift = new android.graphics.Matrix();
 
+    // ── WHERE THE SELECTED OBJECT SITS ──────────────────────────────────────
+    // The slice preview on the playhead has to span exactly the selected object's rows
+    // and nothing else, and only the draw pass knows where that is — rows are laid out
+    // from collapse state, band membership and scroll, none of which is stored as a rect.
+    //
+    // So the pass records it as it goes. Cleared before every frame; read afterwards by
+    // the timeline when it draws the playhead, which happens later in the same onDraw.
+    private float selSpanTop = Float.NaN, selSpanBot = Float.NaN;
+
+    /** Call at the start of a frame, before any rows are drawn. */
+    public void clearSelectionSpan() { selSpanTop = Float.NaN; selSpanBot = Float.NaN; }
+
+    /** True once a selected object has been drawn this frame. */
+    public boolean hasSelectionSpan() { return !Float.isNaN(selSpanTop); }
+
+    public float selectionSpanTop() { return selSpanTop; }
+    public float selectionSpanBottom() { return selSpanBot; }
+
 
     private void drawItemBody(@NonNull Canvas canvas, @NonNull TimedItem item,
                                @NonNull TrackKind rowKind, int baseColor, boolean ghosted,
@@ -2193,6 +2211,14 @@ public final class LayerRowRenderer {
         int slot = 0;
         if (drawPassThroughBadge(canvas, item, x0, top, x1, bottom, slot)) slot++;
         drawFxBadge(canvas, item, x0, top, x1, bottom, slot);
+        // Remember where this object is, if it is the selected one. Union rather than
+        // assignment: a linked object can occupy more than one row, and the slice preview
+        // should cover all of what would be cut.
+        if (selectedItemId != null && selectedItemId.equals(item.getId())) {
+            selSpanTop = Float.isNaN(selSpanTop) ? top : Math.min(selSpanTop, top);
+            selSpanBot = Float.isNaN(selSpanBot) ? bottom : Math.max(selSpanBot, bottom);
+        }
+
         // The shader must not outlive this object. itemPaint is shared with the chain
         // badges, the sprite diamonds and the caption bindings below, and every one of
         // them sets a COLOUR and expects a flat fill.

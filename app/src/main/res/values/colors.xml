@@ -101,6 +101,14 @@
          test phone is API 29, so TINT is the universal baseline; blur can be
          layered on later where the API exists.
          ============================================================ -->
+    <!-- The studio ramp. Sprite Lab's zinc values, with the ground at true black.
+         Ground is the TIMELINE and the canvas letterbox; panel is CHROME (top bar,
+         transport). Keeping them different is what lets lane A simply be the ground. -->
+    <color name="studio_ground">#FF000000</color>
+    <color name="studio_panel">#FF111114</color>
+    <color name="studio_control">#FF1C1C22</color>
+    <color name="studio_line">#FF2C2C35</color>
+
     <color name="faditor_drawer_scrim">#A3000000</color>
     <!-- Ink measured against the scrim above. Do not darken these without re-measuring. -->
     <color name="faditor_drawer_ink">#F2F2F5</color>

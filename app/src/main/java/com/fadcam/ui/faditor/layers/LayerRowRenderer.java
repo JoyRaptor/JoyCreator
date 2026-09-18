@@ -121,7 +121,12 @@ public final class LayerRowRenderer {
     // a STATE signal, not neutral chrome.
     private static final int COLOR_HEADER_BG      = 0x99141414; // ruler grey, semi-transparent
     private static final int COLOR_HEADER_BG_LOCK = 0x99201414;
-    private static final int COLOR_ROW_BODY_BG    = 0x661A1A1A;
+    /**
+     * EVEN lanes draw NOTHING — the timeline's true-black ground shows through, so a lane
+     * costs one fewer fill on a surface that redraws while you scrub. JoyRaptor, 2026-09-17:
+     * "alternating pure black to very dark gray". Lane A is now literally the ground.
+     */
+    private static final int COLOR_ROW_BODY_BG    = 0x00000000;
     // SPEC_N §6 — ALTERNATING LANE BANDING (JoyRaptor 2026-09-08, "yes, but keep it subtle").
     // A second, marginally lighter pair of backgrounds applied to every ODD row. The delta is
     // deliberately ~3% of final lightness once the alpha is composited over the timeline's
@@ -134,7 +139,14 @@ public final class LayerRowRenderer {
     // SPEC_U §1: same deltas as before, hue removed. Body 0x1A -> 0x2E is +20/255 at alpha
     // 0x66 (0.40) => ~3.1% composited lightness; header 0x14 -> 0x20 is +12/255 at alpha 0x99
     // (0.60) => ~2.8%. Both stay inside SPEC_N §6's 3-5% target; only the blue channel moved.
-    private static final int COLOR_ROW_BODY_BG_ALT = 0x662E2E2E;
+    /**
+     * ODD lanes. Re-based 2026-09-17 when the timeline ground went to true black: the old
+     * 0x662E2E2E was tuned against a #1A1A1A backing and composites to #222222 there, but to
+     * #121212 over black — a 7.2% delta, above SPEC_N §6's 3–5% window. 0x661C1C20 composites
+     * to #0B0B0D over black: a 4.3% delta, inside the window, with the faint blue cast that
+     * matches the zinc ramp the rest of the studio uses.
+     */
+    private static final int COLOR_ROW_BODY_BG_ALT = 0x661C1C20;
     private static final int COLOR_HEADER_BG_ALT   = 0x99202020;
     private static final int COLOR_HEADER_BG_LOCK_ALT = 0x99302020;
     private static final int COLOR_ROW_NAME       = 0xFFEDEDED;

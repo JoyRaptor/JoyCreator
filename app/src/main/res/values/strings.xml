@@ -3373,5 +3373,31 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="grid_lines_subtitle">Show grid lines</string>
     <string name="desc_mini_apps_edit">Edit mini apps</string>
     <string name="records_repair_banner_title">Repair Banner</string>
-    <string name="records_repair_banner_dismiss">Dismiss</string></resources>
+    <string name="records_repair_banner_dismiss">Dismiss</string>
 
+    <!-- ── THE LOBBY (design record 04) ───────────────────────────────────── -->
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">carry on with anything you touched</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">Capture</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">Avatar</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_new_recording">Recording</string>
+    <string name="lobby_new_project">Project</string>
+    <string name="lobby_new_character">Character</string>
+    <string name="lobby_new_import">Import</string>
+    <string name="lobby_floor_finder">Finder</string>
+    <string name="lobby_floor_remote">Remote</string>
+    <string name="lobby_floor_bits">Bits</string>
+    <string name="lobby_floor_packs">Packs</string>
+    <string name="lobby_floor_setup">Setup</string>
+    <string name="lobby_empty_studio">Nothing edited yet. Start a project and it will wait for you here.</string>
+    <string name="lobby_empty_sprites">No sheets yet. Bring a drawing in and slice it into frames.</string>
+    <string name="lobby_empty_avatar">No characters yet. Rig a picture and it will move.</string>
+    <string name="lobby_empty_viz">No visualisers yet. Make one from any sound you have.</string>
+    <string name="lobby_act_carry_on">Carry on</string>
+    <string name="lobby_act_open">Open</string>
+    <string name="lobby_act_record">Record</string>
+    <string name="lobby_act_start">Start one</string>
+</resources>

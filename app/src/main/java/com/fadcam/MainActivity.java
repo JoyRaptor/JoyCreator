@@ -596,7 +596,7 @@ public class MainActivity extends AppCompatActivity {
         if (savedInstanceState == null) {
             // Fresh launch — load Home tab
             FLog.d("FragmentNav", "onCreate: No saved state, loading Home fragment");
-            switchFragment(0, false); // Uses commitNow() for instant, synchronous load
+            switchFragment(TAB_LOBBY, false); // Uses commitNow() for instant, synchronous load
             FLog.d("FragmentNav", "onCreate: Initial fragment load completed");
             scheduleTabPrewarm();
         } else {
@@ -632,7 +632,11 @@ public class MainActivity extends AppCompatActivity {
             int targetPosition = -1;
             
             if (itemId == R.id.navigation_home) {
-                targetPosition = 0;
+                // The house means THE LOBBY, not the recorder. It is the way back from every
+                // room — without it, entering a room would be a one-way trip.
+                switchFragment(TAB_LOBBY, true);
+                return true;
+                // (was: targetPosition = 0;)
             } else if (itemId == R.id.navigation_records) {
                 targetPosition = 1;
             } else if (itemId == R.id.navigation_remote) {
@@ -1806,6 +1810,12 @@ public class MainActivity extends AppCompatActivity {
     // ========== Fragment-based Navigation System ==========
     
     private int currentFragmentPosition = -1; // -1 means no fragment loaded yet
+    /**
+     * The lobby's tab position. It has no bottom-nav item on purpose — the lobby IS the
+     * navigation, so the bar is hidden while it is showing (see {@link #handleTabSelected}).
+     */
+    public static final int TAB_LOBBY = 6;
+
     private static final String FRAGMENT_TAG_PREFIX = "tab_fragment_";
     private static final String HOME_FRAGMENT_TAG_FADCAM = FRAGMENT_TAG_PREFIX + "0_fadcam";
     private static final String HOME_FRAGMENT_TAG_FADREC = FRAGMENT_TAG_PREFIX + "0_fadrec";
@@ -1980,6 +1990,13 @@ public class MainActivity extends AppCompatActivity {
             case 4:
                 newFragment = new com.fadcam.ui.SettingsHomeFragment();
                 break;
+            case TAB_LOBBY:
+                // THE LOBBY (design record 04). Deliberately the LAST position rather than
+                // position 0: every existing tab keeps its index, so nothing downstream that
+                // switches on a position had to be touched, and the whole thing is one
+                // constant away from being reverted.
+                newFragment = new com.fadcam.ui.lobby.LobbyFragment();
+                break;
             case 5:
                 newFragment = new com.fadcam.forensics.ui.ForensicIntelligenceFragment();
                 break;
@@ -2004,6 +2021,14 @@ public class MainActivity extends AppCompatActivity {
             bottomNavigationView.setSelectedItemId(navItemId);
         }
         
+        // The lobby carries its own navigation — a bottom bar underneath it would be a
+        // SECOND navigation system on one screen, and the user would have to work out which
+        // one they were in. Every other room keeps the bar as its way back.
+        View navContainerForTab = findViewById(R.id.nav_container);
+        if (navContainerForTab != null) {
+            navContainerForTab.setVisibility(position == TAB_LOBBY ? View.GONE : View.VISIBLE);
+        }
+
         // Restore correct bar colors for the selected tab
         restoreBarColorsForCurrentTab();
         

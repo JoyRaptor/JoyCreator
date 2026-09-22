@@ -2113,6 +2113,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline = findViewById(R.id.editor_timeline_view);
         editorTitle = findViewById(R.id.editor_title);
         editorTitle.setOnClickListener(v -> showRenameProjectDialog());
+        // Long-press too: JoyRaptor remembers renaming by holding the title, and a rename that
+        // only answers one of the two presses people try is a rename that seems broken.
+        editorTitle.setOnLongClickListener(v -> { showRenameProjectDialog(); return true; });
         editorTimeline.setOnTrackHeaderActionListener(this::onTrackHeaderAction);
         editorTimeline.setOnTrackHeaderLongPressListener(this::onTrackHeaderLongPress);
         editorTimeline.setLayerGestureCallback(layerGestureCallback());
@@ -19020,58 +19023,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * <p>The pill disappears when the count reaches zero. A counter reading "0 more" is worse
      * than no counter: it takes up the space and tells you nothing.
      */
+    /**
+     * Sizes the tool row's right-edge fade to the row, and hides it once the row can't scroll
+     * further — the fade is a promise that the row continues, so it must be able to stop
+     * making it.
+     *
+     * <p>There used to be a live "N more" count here as well (Studio Final §01/05). JoyRaptor
+     * removed it on 2026-09-22: "'23 more' pill is stupid. Remove it, swiping up on the drawer
+     * is discoverable." The fade stays; it is the quiet half of the same signal.
+     */
     private void wireToolOverflowCount() {
         final android.widget.HorizontalScrollView scroll = findViewById(R.id.faditor_tools_scroll);
-        final LinearLayout row = findViewById(R.id.faditor_tools_row);
-        final android.widget.TextView more = findViewById(R.id.faditor_tools_more);
-        if (scroll == null || row == null || more == null) return;
-
-        more.setOnClickListener(v -> {
-            if (toolsDrawer != null && !toolsDrawer.isShowing()) toolsDrawer.show();
-        });
-
         final View fade = findViewById(R.id.faditor_tools_fade);
+        if (scroll == null || fade == null) return;
 
-        final Runnable recount = () -> {
+        final Runnable resync = () -> {
             // Sit on the ROW, not on the frame. The frame runs to the bottom of the screen
             // because edit mode floats its drop line and Done control in it.
             int band = scroll.getHeight();
-            if (fade != null && band > 0 && fade.getHeight() != band) {
+            if (band > 0 && fade.getHeight() != band) {
                 ViewGroup.LayoutParams fp = fade.getLayoutParams();
                 fp.height = band;
                 fade.setLayoutParams(fp);
             }
-            if (band > 0 && more.getHeight() > 0) {
-                more.setTranslationY(scroll.getTop() + (band - more.getHeight()) / 2f);
-            }
-            int right = scroll.getScrollX() + scroll.getWidth();
-            int hidden = 0;
-            for (int i = 0; i < row.getChildCount(); i++) {
-                View c = row.getChildAt(i);
-                if (c.getVisibility() != View.VISIBLE || c.getWidth() <= 0) continue;
-                if (c.getLeft() >= right) hidden++;
-            }
-            if (hidden <= 0) {
-                more.setVisibility(View.GONE);
-            } else {
-                more.setText(getString(R.string.faditor_tools_more, hidden));
-                more.setVisibility(View.VISIBLE);
-            }
-
-            // The fade is a PROMISE that the row continues, so it has to be able to stop
-            // making it. Driven off scrollability rather than off the count above: a cell
-            // can be partly cut by the right edge while none is fully past it, and a fade
-            // over a half-visible tool is telling the truth. Scrolled to the end, both the
-            // count and the fade go, and the row simply ends.
-            if (fade != null) {
-                boolean canScrollRight = scroll.canScrollHorizontally(1);
-                fade.setVisibility(canScrollRight ? View.VISIBLE : View.INVISIBLE);
-            }
+            fade.setVisibility(scroll.canScrollHorizontally(1) ? View.VISIBLE : View.INVISIBLE);
         };
 
-        scroll.getViewTreeObserver().addOnScrollChangedListener(recount::run);
-        row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or_, ob) -> recount.run());
-        row.post(recount);
+        scroll.getViewTreeObserver().addOnScrollChangedListener(resync::run);
+        scroll.addOnLayoutChangeListener((v, l, t, r, b2, ol, ot, or_, ob) -> resync.run());
+        scroll.post(resync);
     }
 
     private void handleLinkTap() {

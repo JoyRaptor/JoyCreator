@@ -84,18 +84,46 @@
             android:background="@drawable/joybot_orb"
             android:contentDescription="AI Assistant" />
 
-        <!-- Export button (compact icon) -->
-        <TextView
+        <!-- EXPORT, as record 06 draws it (.etop .exp): the Studio-green pill with an arrow and
+             the WORD. It was a bare green arrow, and JoyRaptor read it the way a newcomer
+             would: "if that's export it doesn't look like an export button." This is the
+             top bar's one filled action, so it is the one thing up here allowed to be loud. -->
+        <LinearLayout
             android:id="@+id/btn_export"
-            android:layout_width="40dp"
+            android:layout_width="wrap_content"
             android:layout_height="40dp"
-            android:gravity="center"
-            android:fontFamily="@font/materialicons"
-            android:text="upload"
-            android:textColor="@color/s_go"
-            android:textSize="24sp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/faditor_export" />
+            android:layout_marginStart="4dp"
+            android:layout_marginEnd="6dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="13dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="@drawable/studio_action_pill_inset"
+            android:foreground="?attr/selectableItemBackground"
+            android:contentDescription="@string/faditor_export"
+            android:tooltipText="@string/faditor_export">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/materialicons"
+                android:text="upload"
+                android:textSize="14sp"
+                android:textColor="@color/s_on_go"
+                android:importantForAccessibility="no" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="5dp"
+                android:text="@string/faditor_export"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:textColor="@color/s_on_go"
+                android:importantForAccessibility="no" />
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Transitions panel -->
@@ -1496,26 +1524,9 @@
                 android:focusable="false"
                 android:background="@drawable/faditor_tools_fade" />
 
-            <!-- Studio Final 01/05: the count of what is off-screen, so the row is not a
-                 mystery. It sits ON the fade rather than at the end of the scrolling row,
-                 because a counter you have to scroll to reach cannot tell you there is
-                 something to scroll to. Hidden the moment nothing is hidden. -->
-            <TextView
-                android:id="@+id/faditor_tools_more"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end|top"
-                android:layout_marginEnd="6dp"
-                android:minHeight="28dp"
-                android:gravity="center"
-                android:paddingStart="9dp"
-                android:paddingEnd="9dp"
-                android:fontFamily="@font/joy_mono"
-                android:textSize="10sp"
-                android:textColor="@color/s_ink_dim"
-                android:background="@drawable/faditor_more_pill"
-                android:visibility="gone"
-                android:contentDescription="@string/faditor_tools_more_desc" />
+            <!-- No "N more" control. JoyRaptor, 2026-09-22: "'23 more' pill is stupid. Remove it,
+                 swiping up on the drawer is discoverable." The fade alone says the row continues;
+                 swiping up opens every tool. -->
         </FrameLayout>
     </LinearLayout>
 

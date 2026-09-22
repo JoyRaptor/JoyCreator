@@ -90,6 +90,13 @@ public class FaditorToolsAdapter {
      * is in. Nothing outside this class has to know a rebuild happened.
      */
     private final java.util.Map<String, View> cellCache = new java.util.HashMap<>();
+
+    // ── cell geometry, record 06 `.tools button` ───────────────────────────
+    /** Width of a tool cell (record 06 MINOR 09). */
+    public static final int CELL_DP = 56;
+    public static final float GLYPH_SP = 17f;
+    public static final float LABEL_SP = 8.5f;
+    public static final int LABEL_MAX_DP = 52;
     private List<FaditorTool> tools = new ArrayList<>();
 
     @Nullable private FaditorToolPrefs prefs;
@@ -817,23 +824,29 @@ public class FaditorToolsAdapter {
         cell.setId(tool.viewId);
         cell.setOrientation(LinearLayout.VERTICAL);
         cell.setGravity(Gravity.CENTER);
-        int pad = dp(8);
-        cell.setPadding(pad, pad, pad, pad);
+        // Record 06 MINOR 09: "Cells are 56dp, label capped at 52dp with ellipsis." These
+        // were 72, so the row showed 7.6 tools on the Note 9 where the drawing fits nearly
+        // ten. JoyRaptor has ruled that the drawn dp is the device dp ("the things are a bit
+        // smaller, so more fits on the screen"), so 56 it is. Height keeps the 44dp norm
+        // rather than the record's tighter 41 — the target size outranks the drawing.
+        cell.setPadding(0, dp(5), 0, dp(5));
+        cell.setMinimumHeight(dp(44));
         cell.setBackgroundResource(resolveSelectableBorderless());
         LinearLayout.LayoutParams cellLp = new LinearLayout.LayoutParams(
-                dp(72), ViewGroup.LayoutParams.WRAP_CONTENT);
+                dp(CELL_DP), ViewGroup.LayoutParams.WRAP_CONTENT);
         cell.setLayoutParams(cellLp);
         cell.setClickable(true);
         cell.setFocusable(true);
 
         TextView icon = new TextView(context);
         icon.setId(tool.iconViewId);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(24), dp(22));
         icon.setLayoutParams(iconLp);
         icon.setGravity(Gravity.CENTER);
         // Via applyIcon, so a tool whose mark is a WORD ("text:FX") renders as bold letters
-        // rather than as the literal string "text:FX" in the icon font.
-        FaditorTool.applyIcon(icon, tool.icon, 22f);
+        // rather than as the literal string "text:FX" in the icon font. 17, the record's
+        // `.tools button em{font-size:17px}`; it was 22.
+        FaditorTool.applyIcon(icon, tool.icon, GLYPH_SP);
         // ── A CONTEXTUAL TOOL WEARS WHAT IT ACTS ON ─────────────────────────
         // The Studio manifest: "Tools 1-15 (act on selection) — Contextual row, filtered by
         // what is selected. Glyphs take the object colour."
@@ -855,11 +868,13 @@ public class FaditorToolsAdapter {
         // AppCompat behaviour), so "Transcript" was clipped mid-word rather than shrunk.
         // A bounded height is what makes the 7-11sp range actually engage.
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                dp(68), dp(14));
-        labelLp.topMargin = dp(2);
+                dp(LABEL_MAX_DP), dp(12));
+        labelLp.topMargin = dp(3);
         label.setLayoutParams(labelLp);
         label.setText(tool.label);
-        label.setTextColor(Studio.INK_FAINT);
+        // --dim, per `.tools button s{color:var(--dim)}`. It was INK_FAINT, a rung darker,
+        // which put every tool name in the row below the contrast its own record set.
+        label.setTextColor(Studio.INK_DIM);
         label.setGravity(Gravity.CENTER);
         // Spec 1: labels never wrap — single line, autosized down to fit the
         // fixed cell width. "transitions"/"transcript" previously wrapped.
@@ -868,8 +883,14 @@ public class FaditorToolsAdapter {
         // Degrade gracefully: if a label still cannot fit at the 7sp floor, lose the END of
         // it rather than centre-cropping, which throws away the first letters too.
         label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
-                label, 7, 11, 1, TypedValue.COMPLEX_UNIT_SP);
+        // The record sets 8.5. Autosize only DOWN from there, in half-steps, so a long name
+        // like "Consolidate" shrinks a touch before it ever loses letters. Presets are in px
+        // because the step granularity of the sp overload is a whole sp, and 8.5 isn't one.
+        float sd = context.getResources().getDisplayMetrics().scaledDensity;
+        TextViewCompat.setAutoSizeTextTypeUniformWithPresetSizes(label, new int[]{
+                Math.round(7f * sd), Math.round(7.5f * sd),
+                Math.round(8f * sd), Math.round(LABEL_SP * sd)},
+                TypedValue.COMPLEX_UNIT_PX);
         cell.addView(label);
 
         // SPEC_20260829_QUICK_WINS S1: Image overlay is common; image-as-clip (spine)

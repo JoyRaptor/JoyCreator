@@ -63,13 +63,18 @@ public class ColorGradePanel extends LinearLayout {
 
     private void addSlider(@NonNull String label, int min, int max, int initial,
                            @NonNull SeekValueListener listener) {
+        // Drawer content, so drawer ink: the slider's name in the label rung, the slider in the
+        // one drawer slider look. Range, start value and listener are unchanged.
         TextView text = new TextView(getContext());
         text.setText(label);
-        text.setTextColor(Studio.INK);
+        text.setTextColor(Studio.DRAWER_LABEL);
+        text.setTextSize(11f);
         addView(text);
         SeekBar seekBar = new SeekBar(getContext());
         seekBar.setMax(max - min);
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.styleSlider(seekBar, Studio.DRAWER_DIM);
         seekBar.setProgress(initial - min);
+        seekBar.setContentDescription(label);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) listener.onValue(min + progress);

@@ -3,7 +3,6 @@ package com.fadcam.ui.faditor;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -45,13 +44,15 @@ public final class TextAnimPickerPopover {
 
     private static final int COLS = 3;
 
-    private static final int BG = Studio.RAISED;
-    private static final int TILE_BG = Studio.LINE;
-    private static final int GLYPH = Studio.INK_DIM;
-    private static final int ACCENT = Studio.GO;
-    private static final int RING_FILL = Studio.alpha(Studio.GO, 0x1F);
-    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
-    // Same value it has always rendered; it simply asks for it by the right name now.
+    // Same surface and ink as EasePickerPopover, and for the same reason: this floats over the
+    // canvas — it opens from the text drawer's motion button — so it is "over video" and takes
+    // the drawer's dark glass and the drawer's ink.
+    private static final int TILE_BG = com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.CTL;
+    /** The animated "A"s. Drawer DIM — the tile's subject, readable on the glass. */
+    private static final int GLYPH = Studio.DRAWER_DIM;
+    /** Selected preset / granularity — "State colour always a RING — cyan selected" (record 06). */
+    private static final int ACCENT = Studio.ARMED;
+    private static final int RING_FILL = Studio.alpha(Studio.ARMED, 0x1F);
     private static final int TXT_DIM = Studio.DRAWER_LABEL;
 
     /**
@@ -130,10 +131,8 @@ public final class TextAnimPickerPopover {
 
         LinearLayout container = new LinearLayout(ctx);
         container.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(BG);
-        bg.setCornerRadius(12 * d);
-        container.setBackground(bg);
+        // Concentric corners: tile radius 10 + the 4dp cell margin around it = 14.
+        container.setBackground(com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.surface(ctx, 14));
         container.setElevation(16 * d);
         int pad = (int) (10 * d);
         container.setPadding(pad, pad, pad, pad);
@@ -142,8 +141,10 @@ public final class TextAnimPickerPopover {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT, true);
         pop.setElevation(16 * d);
+        // The window's own fade is replaced by the record's arrival in popShow.
+        pop.setAnimationStyle(0);
 
-        container.addView(caption(ctx, d, "Motion")); // TODO(strings)
+        container.addView(caption(ctx, d, ctx.getString(com.fadcam.R.string.faditor_lc_motion_title)));
 
         int tile = (int) (60 * d);
         int cell = (int) (4 * d);
@@ -158,6 +159,9 @@ public final class TextAnimPickerPopover {
             }
             shown++;
             final PresetTileView view = new PresetTileView(ctx, p, p == current);
+            // The tile draws its name but a drawn name is invisible to TalkBack and to a hover.
+            com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.describe(view, CaptionAnimator.presetLabel(p));
+            com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.pressable(view);
             view.setOnClickListener(v -> {
                 view.setSelectedRing(true);
                 onPick.onPreset(p);
@@ -169,12 +173,17 @@ public final class TextAnimPickerPopover {
         }
 
         // ── Granularity: what counts as one animating unit ──────────────
-        container.addView(caption(ctx, d, "Animate by")); // TODO(strings)
+        container.addView(caption(ctx, d, ctx.getString(com.fadcam.R.string.faditor_lc_motion_by)));
         LinearLayout granRow = new LinearLayout(ctx);
         granRow.setOrientation(LinearLayout.HORIZONTAL);
         container.addView(granRow);
         CaptionAnimator.Granularity[] allGrans = CaptionAnimator.Granularity.values();
-        String[] allGranNames = {"Letter", "Word", "Sentence", "Block"}; // TODO(strings)
+        // In Granularity's declaration order, which is what indexes this array.
+        String[] allGranNames = {
+                ctx.getString(com.fadcam.R.string.faditor_lc_gran_letter),
+                ctx.getString(com.fadcam.R.string.faditor_lc_gran_word),
+                ctx.getString(com.fadcam.R.string.faditor_lc_gran_sentence),
+                ctx.getString(com.fadcam.R.string.faditor_lc_gran_block)};
         java.util.List<CaptionAnimator.Granularity> granList = new java.util.ArrayList<>();
         java.util.List<String> granNameList = new java.util.ArrayList<>();
         for (int i = 0; i < allGrans.length; i++) {
@@ -189,15 +198,14 @@ public final class TextAnimPickerPopover {
         for (int i = 0; i < grans.length; i++) {
             final CaptionAnimator.Granularity g = grans[i];
             final int idx = i;
-            TextView chip = new TextView(ctx);
-            chip.setText(granNames[i]);
-            chip.setTextSize(12);
-            int cp = (int) (8 * d);
-            chip.setPadding(cp, cp / 2, cp, cp / 2);
+            // Record 06 `.dchip`, from the one chip builder. It was a hand-built 8dp-radius box
+            // whose UNSELECTED state was half-alpha dim grey on grey — the same unreadable
+            // off-state the text drawer's toggles were reported for.
+            TextView chip = com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.chip(ctx, granNames[i]);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.setMargins((int) (3 * d), (int) (2 * d), (int) (3 * d), (int) (2 * d));
+            lp.setMargins((int) (3 * d), (int) (4 * d), (int) (3 * d), (int) (2 * d));
             granRow.addView(chip, lp);
             granChips[i] = chip;
             styleGranChip(chip, d, g == currentGran);
@@ -216,29 +224,26 @@ public final class TextAnimPickerPopover {
         popShow(pop, container, anchor, d);
     }
 
-    /** Selected/unselected look for a granularity chip, so the two states cannot drift apart. */
+    /**
+     * Selected/unselected look for a granularity chip, so the two states cannot drift apart —
+     * and now the same look every drawer chip has: a cyan ring when selected, the control fill
+     * and drawer-dim ink when not. Nothing is faded with alpha any more.
+     */
     private static void styleGranChip(@NonNull TextView chip, float d, boolean selected) {
-        chip.setTextColor(selected ? ACCENT : GLYPH);
-        chip.setAlpha(selected ? 1f : 0.5f);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(8 * d);
-        bg.setColor(TILE_BG);
-        if (selected) bg.setStroke((int) (1.5f * d), ACCENT);
-        chip.setBackground(bg);
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.setChipOn(chip, selected);
     }
 
+    /** A section heading inside the popover — record 06 `.dsec`, from the one builder. */
     @NonNull
     private static TextView caption(@NonNull Context ctx, float d, @NonNull String text) {
-        TextView tv = new TextView(ctx);
-        tv.setText(text);
-        tv.setTextColor(TXT_DIM);
-        tv.setTextSize(11);
+        TextView tv = com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.sectionLabel(ctx, text);
         tv.setPadding((int) (6 * d), (int) (6 * d), 0, (int) (2 * d));
         return tv;
     }
 
     private static void popShow(@NonNull PopupWindow pop, @NonNull View container,
                                 @NonNull View anchor, float d) {
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.popIn(container);
         // Prefer above the anchor so the popover never covers the drawer rows below it; fall
         // back to below only when there isn't room. Same rule as EasePickerPopover.
         container.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -378,7 +383,10 @@ public final class TextAnimPickerPopover {
                 c.save();
                 c.translate(t.dx, t.dy);
                 c.scale(t.scaleX, t.scaleY, cx, baseY - fontPx * 0.35f);
-                paint.setColor(CaptionAnimator.applyAlpha(Studio.GROUND | (GLYPH & 0xF4F4F5), t.alpha));
+                // GLYPH is an opaque token already. This was `GROUND | (GLYPH & 0xF4F4F5)` — the
+                // palette sweep turned a 0x00FFFFFF bit mask into a colour value, which quietly
+                // shaved bits off the glyph's channels. There was never anything to mask.
+                paint.setColor(CaptionAnimator.applyAlpha(GLYPH, t.alpha));
                 // The tile's own FIFTH channel: GHOST's blur, applied only when the TARGET's
                 // renderer actually draws it.
                 //

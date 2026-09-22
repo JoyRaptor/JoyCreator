@@ -70,6 +70,26 @@ public class FaditorToolsAdapter {
     private final LinearLayout container;
     private final ToolBinder binder;
     private final List<View> cellViews = new ArrayList<>();
+
+    /**
+     * Every cell this adapter has ever built, by tool id, so a re-order REUSES them.
+     *
+     * <p>2026-09-22, found on the Note 9 with the whole tool row dead: undo worked, the
+     * transport worked, and tapping Add, Text, Split or Captions did nothing at all.
+     * {@link #setTools} used to {@code removeAllViews()} and build a fresh cell for every
+     * tool. The editor binds its click handlers ONCE, in {@code initViews}, by
+     * {@code findViewById(R.id.tool_split).setOnClickListener(..)} — and
+     * {@code applyToolContext} calls setTools again every time the selection changes kind,
+     * which is what the contextual row does on almost every tap. So the first retarget threw
+     * away every cell that had a handler and replaced it with an identical-looking one that
+     * had none. The editor also caches cells in fields ({@code toolCrop}, {@code toolLoop},
+     * ...) to restyle them later, and those were left pointing at detached views.
+     *
+     * <p>Reusing the View is the fix that covers every caller at once: the handler, the
+     * cached field and the cell on screen are the same object again, whatever order the row
+     * is in. Nothing outside this class has to know a rebuild happened.
+     */
+    private final java.util.Map<String, View> cellCache = new java.util.HashMap<>();
     private List<FaditorTool> tools = new ArrayList<>();
 
     @Nullable private FaditorToolPrefs prefs;
@@ -132,16 +152,29 @@ public class FaditorToolsAdapter {
         container.removeAllViews();
         cellViews.clear();
         for (FaditorTool tool : tools) {
-            View cell = buildCell(tool);
+            View cell = cellCache.get(tool.id);
+            boolean fresh = cell == null;
+            if (fresh) {
+                cell = buildCell(tool);
+                cellCache.put(tool.id, cell);
+            } else if (cell.getParent() instanceof ViewGroup) {
+                ((ViewGroup) cell.getParent()).removeView(cell);
+            }
             container.addView(cell);
             cellViews.add(cell);
             TextView icon = cell.findViewById(tool.iconViewId);
             TextView label = cell.findViewById(tool.labelViewId);
-            binder.onBindTool(tool, cell, icon, label);
+            // Only a NEW cell is handed to the binder. The binder is where the editor wires
+            // things that must happen once per cell; running it on every retarget would stack
+            // a second copy of whatever it installs on a cell that already has the first.
+            if (fresh) binder.onBindTool(tool, cell, icon, label);
             installRecencyHook(tool, cell);
-            if (tool.alwaysHidden) {
-                cell.setVisibility(View.GONE);
-            }
+            // Set in BOTH directions. A reused cell remembers the visibility it had in its last
+            // position, so a tool that was hidden once would otherwise stay hidden for good.
+            cell.setVisibility(tool.alwaysHidden ? View.GONE : View.VISIBLE);
+            // A reused cell may still be mid-wiggle or mid-drag from edit mode.
+            cell.setTranslationX(0f);
+            cell.setRotation(0f);
         }
         insertDivider();
         appendEditChip();

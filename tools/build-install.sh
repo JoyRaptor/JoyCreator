@@ -38,10 +38,23 @@ fi
 # shellcheck disable=SC1091
 . tools/devices.local.sh
 
-if adb devices | grep -q "$REAL_SERIAL"; then
-  echo "REFUSING: the Note 20 is attached — it holds the real project."
-  exit 1
-fi
+# ASK EACH DEVICE WHO IT IS. `adb devices` prints a TRANSPORT address, not a serial, and a
+# phone paired over Wi-Fi shows up as "192.168.1.14:33623" — so grepping that list for the
+# real serial silently matched nothing while the Note 20 sat there connected and installable.
+# Found 2026-09-22 with the Note 20 on Wi-Fi and the guard reporting all clear. ro.serialno
+# comes from the device itself and is the same string over USB or TCP.
+for T in $(adb devices | awk 'NR>1 && $2=="device" {print $1}'); do
+  ID="$(adb -s "$T" shell getprop ro.serialno 2>/dev/null | tr -d '[:space:]')"
+  if [ "$ID" = "$REAL_SERIAL" ]; then
+    echo "REFUSING: the Note 20 is attached as '$T' - it holds the real project."
+    exit 1
+  fi
+done
+
+# Install to the sandbox BY SERIAL. Gradle's install task targets every attached device, so
+# with two phones connected the refusal above is the only thing standing between a debug
+# build and the real project. Belt and braces: name the target as well.
+export ANDROID_SERIAL="$SANDBOX_SERIAL"
 
 export JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=C:\\Windows\\Temp"
 TASK="${1:-:app:installDefaultDebug}"

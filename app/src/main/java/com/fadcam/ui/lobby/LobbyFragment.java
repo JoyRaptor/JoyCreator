@@ -483,31 +483,25 @@ public class LobbyFragment extends BaseFragment {
     private static final int RECENT_CARD_DP = 100;
 
     /**
-     * Thumbnail height. The Marquee §02 draws 60; this is 84, and the 24 is deliberate.
+     * Thumbnail height. The Marquee 02 draws 60, and 60 is what this is.
      *
-     * <p>I nearly reverted this. Having measured a 157dp hole above the floor at the test
-     * device's 549dp viewport, I re-measured at 411dp, found a 30dp gap, concluded the hole
-     * was an artifact of a density override and put the thumbnail back to 60.
+     * <p>It was 84 for a while. I had measured a 157dp hole above the floor at the test
+     * device's 548dp viewport and spent 24 of it here, on the reasoning that the records are
+     * drawn for a 390dp phone and his is 40% wider, so anything in dp lands proportionally
+     * smaller than drawn and ought to be scaled back up.
      *
-     * <p>That was wrong, and the device itself says why:
+     * <p>JoyRaptor ruled the other way, and the ruling is about the whole product rather than
+     * this one number: <i>"I actually like how the Note 9 looks in general better. The things
+     * are a bit smaller, so more fits on the screen."</i>
      *
-     * <pre>
-     *   Physical size 1440x2960 @ 420dpi  =  548dp wide
-     *   Override size 1080x2220 @ 315dpi  =  549dp wide
-     * </pre>
-     *
-     * <p>Both configurations are 548dp. The override reproduces the Note 9's real width
-     * faithfully; the 411dp I forced is a width this phone never has. So the hole is real on
-     * his actual device, and the extra 24dp is spent the way this product is supposed to
-     * spend height — <i>"old black is great for letting your art be the centerpiece"</i> —
-     * rather than left as a gap.
-     *
-     * <p>The wider lesson, which is why this comment is long: the records are drawn for a
-     * 390dp phone and his is 548dp, 40% wider. Anything specified in dp lands proportionally
-     * smaller on his screen than in the drawing. That is why the hero is specified as a SHARE
-     * and not a height — a proportion survives the difference and a dp does not.
+     * <p>So a dp in a record is a dp on the device. The extra width buys MORE CONTENT, not
+     * bigger content, and the hole above the floor is space for another row rather than a gap
+     * to pad out. The hero stays specified as a share of the window, because a full-bleed
+     * image has to reach the edges and a proportion is the only thing that guarantees it —
+     * that is the exception, and it is the only one.
      */
-    private static final int RECENT_THUMB_DP = 84;
+
+    private static final int RECENT_THUMB_DP = 60;
 
     /** How small a word gets when it is far from the gutter. 0.55 x 34sp reads as ~19sp. */
     private static final float MARQUEE_MIN_SCALE = 0.55f;
@@ -651,6 +645,9 @@ public class LobbyFragment extends BaseFragment {
         // case with nothing in the code looking wrong.
         t.setAllCaps(true);
         t.setTextColor(INK);
+        // 34, not the 29 The Marquee draws. This is the one place the drawn number does
+        // not win, because JoyRaptor asked for this specific word by name — "make the word
+        // studio larger" — and a direct instruction outranks a record.
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 34f);
         t.setLetterSpacing(0f);
         Type.display(t, Type.BLACK);

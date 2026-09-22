@@ -444,6 +444,21 @@ public final class LayerRowRenderer {
      *  visible viewport in content-x, needed to pin the delete badge on-screen for
      *  items whose right end runs past the screen edge (user feedback 2026-07-03). */
     private float lastHScrollOffsetPx = 0f;
+
+    /**
+     * Right edge, in content-x, of the artwork this item just drew at its head — an image
+     * thumbnail or a sprite's first cell. {@link Float#NaN} when the item drew none.
+     *
+     * <p>JoyRaptor, 2026-09-18: <i>"In the timeline the IMG text covers an image. It should
+     * be to the right of the image. Sprite should be to the right of the first Sprite image
+     * on the tape."</i> Both the thumbnail and the label pin themselves to the left viewport
+     * edge as an item scrolls past, which is what put them in the same place; the label now
+     * pins to the far side of the art instead.
+     *
+     * <p>Set during {@link #drawItemPreviews}, which runs before the label, and reset per
+     * item so one clip's art can never push the next clip's label.
+     */
+    private float lastArtRightPx = Float.NaN;
     private float lastWidthPx = 0f;
     /** Screen-y of the FLOATING band's top edge at the last {@link #layout} (band-1 anchor). */
     private float lastTopPx = 0f;
@@ -2035,6 +2050,7 @@ public final class LayerRowRenderer {
         }
         // §2 item preview images (video filmstrip / image thumb / sprite cells) over the
         // plain body — cache-served, viewport-culled, no decode/alloc on this draw path.
+        lastArtRightPx = Float.NaN;   // this item's own art only; see the field's javadoc
         drawItemPreviews(canvas, item, x0, x1, top, bottom, timeToX);
         // AUDIO volume-automation envelope (audio consolidation 2026-07-07): keep the blue
         // rubber-band + keyframe dots on the unified audio rows (legacy drawAudioTrack port).
@@ -2112,7 +2128,13 @@ public final class LayerRowRenderer {
                     ? KIND_BADGE_LABEL_INSET_DP * density : pad);
             float labelW = itemLabelPaint.measureText(label);
             float viewLeft = lastHScrollOffsetPx + HEADER_WIDTH_DP * density;
-            float labelX = Math.max(leftBound, Math.min(viewLeft + pad, x1 - labelW - pad));
+            // Clear this item's head artwork, at rest AND while it is pinned to the viewport
+            // edge. Both bounds move, because both the art and the label ride that edge.
+            float artRight = Float.isNaN(lastArtRightPx) ? Float.NEGATIVE_INFINITY
+                    : lastArtRightPx + pad;
+            float pinnedX = Math.max(viewLeft + pad, artRight);
+            float labelX = Math.max(Math.max(leftBound, artRight),
+                    Math.min(pinnedX, x1 - labelW - pad));
             canvas.drawText(label, labelX,
                     centerY + itemLabelPaint.getTextSize() / 3f, itemLabelPaint);
             canvas.restore();
@@ -3106,6 +3128,7 @@ public final class LayerRowRenderer {
         previewDst.set(thumbX, top, thumbX + w, bottom);
         canvas.drawBitmap(bmp, null, previewDst, previewPaint);
         canvas.restore();
+        lastArtRightPx = thumbX + w;   // the label starts after this, not on top of it
     }
 
     /**
@@ -3144,6 +3167,9 @@ public final class LayerRowRenderer {
             if (cell < 0) continue;
             previewDst.set(dx, top, Math.min(dx + w, x1), bottom);
             sr.drawCell(canvas, cell, previewDst, previewPaint);
+            // The FIRST cell that survives culling is the one the label has to clear. Later
+            // keyframes sit further along the tape and the label never reaches them.
+            if (Float.isNaN(lastArtRightPx)) lastArtRightPx = Math.min(dx + w, x1);
         }
         canvas.restore();
     }

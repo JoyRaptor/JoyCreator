@@ -4,6 +4,7 @@ import android.app.Dialog;
 import android.content.DialogInterface;
 import android.graphics.Typeface;
 import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -95,13 +96,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
-            }
-        });
+        SheetKit.install(dialog, null);
         return dialog;
     }
 
@@ -116,54 +111,45 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         }
 
         float dp = getResources().getDisplayMetrics().density;
-        Typeface materialIcons = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
+        Typeface materialIcons = SheetKit.icons(requireContext());
+
+        LinearLayout outer = new LinearLayout(requireContext());
+        outer.setOrientation(LinearLayout.VERTICAL);
+
+        // -- Header: title + the live value --------------------------------
+        SheetKit.Header header = SheetKit.header(requireContext(),
+                getString(R.string.faditor_speed_title), null);
+        TextView speedDisplay = new TextView(requireContext());
+        speedDisplay.setTextSize(TypedValue.COMPLEX_UNIT_SP, SheetKit.TITLE_SP);
+        com.fadcam.ui.type.Type.mono(speedDisplay, com.fadcam.ui.type.Type.SEMIBOLD);
+        updateSpeedDisplay(speedDisplay, currentSpeed);
+        header.addTrailing(speedDisplay);
+        outer.addView(header.view);
 
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding((int) (20 * dp), (int) (16 * dp),
-                (int) (20 * dp), (int) (28 * dp));
+        root.setPadding(SheetKit.dp(requireContext(), SheetKit.ROW_INSET_DP), 0,
+                SheetKit.dp(requireContext(), SheetKit.ROW_INSET_DP),
+                SheetKit.dp(requireContext(), 16));
+        outer.addView(root);
 
-        // ── Title row ────────────────────────────────────────────────
-        LinearLayout titleRow = new LinearLayout(requireContext());
-        titleRow.setOrientation(LinearLayout.HORIZONTAL);
-        titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        titleRow.setPadding(0, 0, 0, (int) (4 * dp));
-        root.addView(titleRow);
-
-        TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_speed_title);
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
-        LinearLayout.LayoutParams titleLp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        title.setLayoutParams(titleLp);
-        titleRow.addView(title);
-
-        // Speed display
-        TextView speedDisplay = new TextView(requireContext());
-        speedDisplay.setTextSize(18);
-        speedDisplay.setTypeface(null, Typeface.BOLD);
-        updateSpeedDisplay(speedDisplay, currentSpeed);
-        titleRow.addView(speedDisplay);
-
-        // ── Slider row ───────────────────────────────────────────────
+        // -- Slider row -----------------------------------------------------
         LinearLayout sliderRow = new LinearLayout(requireContext());
         sliderRow.setOrientation(LinearLayout.HORIZONTAL);
         sliderRow.setGravity(Gravity.CENTER_VERTICAL);
-        sliderRow.setPadding(0, (int) (12 * dp), 0, (int) (4 * dp));
+        sliderRow.setPadding(0, (int) (4 * dp), 0, (int) (4 * dp));
         root.addView(sliderRow);
 
         // Speed icon
         TextView speedIcon = new TextView(requireContext());
         speedIcon.setTypeface(materialIcons);
         speedIcon.setText("speed");
-        speedIcon.setTextSize(24);
-        speedIcon.setTextColor(Studio.GO);
+        speedIcon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f);
+        speedIcon.setTextColor(SheetKit.ROW_ICON);
         speedIcon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
-                (int) (36 * dp), (int) (36 * dp));
-        iconLp.setMarginEnd((int) (8 * dp));
+                (int) (32 * dp), (int) (32 * dp));
+        iconLp.setMarginEnd((int) (6 * dp));
         speedIcon.setLayoutParams(iconLp);
         sliderRow.addView(speedIcon);
 
@@ -173,6 +159,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         slider.setValueTo(1000f);  // 10.0x * 100
         slider.setStepSize(5f);    // 0.05x increments
         slider.setValue(Math.max(25f, Math.min(currentSpeed * 100f, 1000f)));
+        slider.setContentDescription(getString(R.string.faditor_speed_title));
 
         int trackColor = Math.abs(currentSpeed - 1f) < 0.01f ? Studio.INK_FAINT : Studio.GO;
         slider.setTrackActiveTintList(
@@ -187,11 +174,11 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         slider.setLayoutParams(sliderLp);
         sliderRow.addView(slider);
 
-        // ── Preset chips ─────────────────────────────────────────────
+        // -- Preset chips ---------------------------------------------------
         android.widget.HorizontalScrollView chipScroll =
                 new android.widget.HorizontalScrollView(requireContext());
         chipScroll.setHorizontalScrollBarEnabled(false);
-        chipScroll.setPadding(0, (int) (8 * dp), 0, 0);
+        chipScroll.setPadding(0, (int) (4 * dp), 0, 0);
         root.addView(chipScroll);
 
         LinearLayout chipRow = new LinearLayout(requireContext());
@@ -204,24 +191,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         final LinearLayout[] resetHolder = new LinearLayout[1];
 
         for (float presetSpeed : PRESETS) {
-            TextView chip = new TextView(requireContext());
-            String label = formatSpeed(presetSpeed);
-            chip.setText(label);
-            chip.setTextSize(13);
-            chip.setGravity(Gravity.CENTER);
-            chip.setPadding((int) (14 * dp), (int) (8 * dp),
-                    (int) (14 * dp), (int) (8 * dp));
-            chip.setBackgroundResource(R.drawable.settings_home_row_bg);
-
-            boolean selected = Math.abs(presetSpeed - currentSpeed) < 0.01f;
-            chip.setTextColor(selected ? Studio.GO : Studio.INK_FAINT);
-            chip.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
-
-            LinearLayout.LayoutParams chipLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            chipLp.setMarginEnd((int) (6 * dp));
-            chip.setLayoutParams(chipLp);
+            TextView chip = SheetKit.chip(requireContext(), formatSpeed(presetSpeed));
             chipViews.add(chip);
 
             chip.setOnClickListener(v -> {
@@ -238,8 +208,9 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
             chipRow.addView(chip);
         }
+        updateChipSelection(chipViews, currentSpeed);
 
-        // ── Pitch compensation toggle ────────────────────────────────
+        // -- Pitch compensation toggle --------------------------------------
         LinearLayout pitchRow = new LinearLayout(requireContext());
         pitchRow.setOrientation(LinearLayout.HORIZONTAL);
         pitchRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -248,50 +219,25 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
 
         android.widget.CheckBox pitchCheck = new android.widget.CheckBox(requireContext());
         pitchCheck.setChecked(pitchCompensation);
-        pitchCheck.setTextColor(Studio.INK_DIM);
-        pitchCheck.setTextSize(14);
+        pitchCheck.setTextColor(SheetKit.ROW_LABEL);
+        pitchCheck.setTextSize(TypedValue.COMPLEX_UNIT_SP, SheetKit.ROW_SP);
+        com.fadcam.ui.type.Type.body(pitchCheck, com.fadcam.ui.type.Type.REGULAR);
+        pitchCheck.setButtonTintList(android.content.res.ColorStateList.valueOf(Studio.ARMED));
         pitchCheck.setText("Maintain pitch");
+        SheetKit.label(pitchCheck, getString(R.string.lane_d_pitch_tip));
         pitchCheck.setOnCheckedChangeListener((buttonView, isChecked) -> {
             pitchCompensation = isChecked;
             if (callback != null) callback.onPitchCompensationChanged(isChecked);
         });
         pitchRow.addView(pitchCheck);
 
-        // ── Reset button (consistent row style) ─────────────────────
-        LinearLayout resetRow = new LinearLayout(requireContext());
+        // -- Reset button (consistent row style) ----------------------------
+        SheetKit.Row reset = SheetKit.row(requireContext(), "refresh", "Reset", false,
+                SheetKit.Trail.NONE, null);
+        SheetKit.tintRow(reset, Studio.DANGER, true);
+        LinearLayout resetRow = reset.view;
+        SheetKit.flush(resetRow, 10);
         resetHolder[0] = resetRow;
-        resetRow.setOrientation(LinearLayout.HORIZONTAL);
-        resetRow.setGravity(Gravity.CENTER_VERTICAL);
-        resetRow.setBackgroundResource(R.drawable.settings_home_row_bg);
-        resetRow.setPadding((int) (16 * dp), (int) (14 * dp),
-                (int) (16 * dp), (int) (14 * dp));
-        LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        resetLp.topMargin = (int) (12 * dp);
-        resetRow.setLayoutParams(resetLp);
-
-        TextView resetIcon = new TextView(requireContext());
-        resetIcon.setTypeface(materialIcons);
-        resetIcon.setText("refresh");
-        resetIcon.setTextSize(20);
-        resetIcon.setTextColor(Studio.DANGER);
-        resetIcon.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams resetIconLp = new LinearLayout.LayoutParams(
-                (int) (28 * dp), (int) (28 * dp));
-        resetIconLp.setMarginEnd((int) (16 * dp));
-        resetIcon.setLayoutParams(resetIconLp);
-        resetRow.addView(resetIcon);
-
-        TextView resetLabel = new TextView(requireContext());
-        resetLabel.setText("Reset");
-        resetLabel.setTextSize(15);
-        resetLabel.setTextColor(Studio.DANGER);
-        resetLabel.setTypeface(null, Typeface.BOLD);
-        LinearLayout.LayoutParams resetLabelLp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        resetLabel.setLayoutParams(resetLabelLp);
-        resetRow.addView(resetLabel);
 
         resetRow.setOnClickListener(v -> {
             currentSpeed = 1.0f;
@@ -307,7 +253,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
         resetRow.setVisibility(Math.abs(currentSpeed - 1f) < 0.01f ? View.GONE : View.VISIBLE);
         root.addView(resetRow);
 
-        // ── Slider listener ──────────────────────────────────────────
+        // -- Slider listener ------------------------------------------------
         slider.addOnChangeListener((sl, value, fromUser) -> {
             if (!fromUser) return;
             float speed = value / 100f;
@@ -319,7 +265,7 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
             if (callback != null) callback.onSpeedChanged(speed);
         });
 
-        return root;
+        return SheetKit.fitNavBar(outer);
     }
 
     private void updateSpeedDisplay(TextView tv, float speed) {
@@ -338,8 +284,10 @@ public class SpeedSliderBottomSheet extends BottomSheetDialogFragment {
     private void updateChipSelection(java.util.List<TextView> chips, float speed) {
         for (int i = 0; i < chips.size(); i++) {
             boolean selected = Math.abs(PRESETS[i] - speed) < 0.01f;
-            chips.get(i).setTextColor(selected ? Studio.GO : Studio.INK_FAINT);
-            chips.get(i).setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
+            SheetKit.setChipSelected(chips.get(i), selected);
+            // Numbers stay in the mono so the row does not shift as the selection moves.
+            com.fadcam.ui.type.Type.mono(chips.get(i), selected
+                    ? com.fadcam.ui.type.Type.SEMIBOLD : com.fadcam.ui.type.Type.MEDIUM);
         }
     }
 

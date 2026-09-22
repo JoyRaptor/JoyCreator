@@ -77,8 +77,16 @@ public final class MaskKeyPanel {
 
     public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
 
-    /** Swatches offered before the dropper — the three keys people actually shoot against. */
-    private static final int[] SWATCHES = {0x35F6BF, 0x050508, 0x000000, 0xF4F4F5};
+    /**
+     * Swatches offered before the dropper — the keys people actually shoot against. CONTENT,
+     * not palette: these are the colours the KEY is set to, so they are the real green and blue
+     * screens. Restored after the "373 colours become 28" pass (e251de04) rewrote them to Studio
+     * green, near-black and off-white — the same find-and-replace PipDrawerTabs suffered.
+     */
+    private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
+    /** Names for {@link #SWATCHES}, index-aligned. */
+    private static final int[] SWATCH_NAMES = {R.string.lane_a_key_green,
+            R.string.lane_a_key_blue, R.string.lane_a_key_black, R.string.lane_a_key_white};
 
     private final Activity activity;
     private final Clip clip;
@@ -148,7 +156,7 @@ public final class MaskKeyPanel {
         rotRow.setOrientation(LinearLayout.HORIZONTAL);
         rotRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView rotLabel = new TextView(activity);
-        rotLabel.setTextColor(Studio.INK_FAINT);
+        rotLabel.setTextColor(LABEL_INK);
         rotLabel.setTextSize(12);
         rotLabel.setText(activity.getString(R.string.faditor_mask_rotate)
                 + "  ·  " + Math.round(shape.rotationDeg));
@@ -300,7 +308,7 @@ public final class MaskKeyPanel {
         root.addView(keyBody);
 
         keyColorLabel = new TextView(activity);
-        keyColorLabel.setTextColor(Studio.INK_FAINT);
+        keyColorLabel.setTextColor(LABEL_INK);
         keyColorLabel.setTextSize(12);
         keyBody.addView(keyColorLabel);
         refreshKeyColorLabel();
@@ -352,8 +360,10 @@ public final class MaskKeyPanel {
         int sz = (int) (34 * density);
         int gap = (int) (8 * density);
 
-        for (int rgb : SWATCHES) {
+        for (int si = 0; si < SWATCHES.length; si++) {
+            final int rgb = SWATCHES[si];
             View sw = new View(activity);
+            ObjectDrawer.Kit.describe(sw, activity.getString(SWATCH_NAMES[si]));
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
             bg.setColor(Studio.GROUND | rgb);
@@ -371,11 +381,9 @@ public final class MaskKeyPanel {
             row.addView(sw);
         }
 
-        TextView dropper = new TextView(activity);
-        dropper.setText(R.string.faditor_key_eyedropper);
-        dropper.setTextColor(Studio.ROOM_AVATAR_DEEP);
-        dropper.setTextSize(14);
-        dropper.setPadding(gap, gap / 2, gap, gap / 2);
+        // A pill like the panel's other buttons, not violet text: the violet was Avatar's room
+        // colour standing in for "tap me", which is not a role it has.
+        TextView dropper = chipButton(activity.getString(R.string.faditor_key_eyedropper), density);
         dropper.setOnClickListener(v -> {
             // Step aside so the tap can actually reach the preview, then come back either way.
             // "Either way" is the important half: an early return on failure that forgot to
@@ -417,7 +425,7 @@ public final class MaskKeyPanel {
     private void refreshKeyColorLabel() {
         if (keyColorLabel == null) return;
         keyColorLabel.setText(activity.getString(R.string.faditor_key_color)
-                + "  ·  " + String.format("#%06X", spec.keyColor & 0xF4F4F5));
+                + "  ·  " + String.format("#%06X", spec.keyColor & 0x00FFFFFF));   // RGB mask
     }
 
     // ── Commit / revert ──────────────────────────────────────────────────────────────────
@@ -473,15 +481,29 @@ public final class MaskKeyPanel {
         return kf == null ? fallback : kf.valueAt(property, t, fallback);
     }
 
-    /** Small tappable chip, matching the inline-view style the rest of this panel uses. */
+    /**
+     * This panel is a DIALOG on an opaque surface, so it takes the SCREEN ramp — never the
+     * drawer's, which exists only for text over the video scrim. Secondary ink for a control's
+     * label; INK_FAINT stays for the genuinely tertiary hints.
+     */
+    private static final int LABEL_INK = Studio.INK_DIM;
+
+    /**
+     * Small tappable chip. A pill (Fill = Pill), raised fill with a hairline ring, screen ink —
+     * the shape the drawer's chips have, in this surface's colours. It was a square of INK at
+     * 13%, the one control in the panel that was neither.
+     */
     private TextView chipButton(@NonNull String label, float density) {
         TextView t = new TextView(activity);
         t.setText(label);
         t.setTextColor(Studio.INK);
         t.setTextSize(12.5f);
-        int px = (int) (10 * density), py = (int) (6 * density);
+        t.setSingleLine(true);
+        t.setGravity(Gravity.CENTER);
+        int px = (int) (13 * density), py = (int) (7 * density);
         t.setPadding(px, py, px, py);
-        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
+        ObjectDrawer.Kit.background(t, ObjectDrawer.Kit.pill(activity, Studio.RAISED, Studio.LINE));
+        ObjectDrawer.Kit.pressable(t);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.rightMargin = (int) (8 * density);
@@ -489,20 +511,27 @@ public final class MaskKeyPanel {
         return t;
     }
 
+    /**
+     * A section label: record 06's {@code .dsec} shape — mono, uppercase, tracked .14em — in
+     * the screen ramp's secondary ink, since this sits on an opaque dialog and not the scrim.
+     * 10sp rather than the drawer's 8, because a dialog has the room and no video to protect.
+     */
     private void addHeader(@NonNull LinearLayout parent, int labelRes, float density) {
         TextView t = new TextView(activity);
         t.setText(labelRes);
-        t.setTextColor(Studio.INK);
-        t.setTextSize(13);
-        t.setPadding(0, (int) (12 * density), 0, (int) (2 * density));
-        t.setTypeface(t.getTypeface(), android.graphics.Typeface.BOLD);
+        t.setTextColor(Studio.INK_DIM);
+        t.setTextSize(10);
+        t.setAllCaps(true);
+        t.setLetterSpacing(0.14f);
+        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
+        t.setPadding(0, (int) (14 * density), 0, (int) (4 * density));
         parent.addView(t);
     }
 
     private void slider(@NonNull LinearLayout parent, int labelRes, int max, int initial,
                         @NonNull java.util.function.Consumer<Integer> onChange) {
         TextView label = new TextView(activity);
-        label.setTextColor(Studio.INK_FAINT);
+        label.setTextColor(LABEL_INK);
         label.setTextSize(12);
         label.setText(activity.getString(labelRes) + "  ·  " + initial);
         parent.addView(label);

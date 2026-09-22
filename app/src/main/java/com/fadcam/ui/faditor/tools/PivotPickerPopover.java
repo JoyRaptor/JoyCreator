@@ -15,6 +15,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.fadcam.R;
+
 /**
  * SPEC B — the pivot picker: a small popover of nine dots (centre, the four edge midpoints,
  * the four corners); tapping one sets the object's rotation pivot and closes. Opened from the
@@ -30,10 +32,17 @@ public final class PivotPickerPopover {
 
     private PivotPickerPopover() {}
 
-    private static final int SHEET_BG = Studio.RAISED;
-    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
-    // Same value it has always rendered; it simply asks for it by the right name now.
-    private static final int TXT = Studio.DRAWER_INK;
+    // The sheet itself — colour, radius, elevation, title — and the above-the-anchor placement
+    // come from BlendPickerPopover, so the two popovers cannot drift apart. Screen ramp: this is
+    // an opaque sheet, not the drawer's scrim.
+
+    /** The nine anchors, row-major (top-left … bottom-right): their spoken names. */
+    private static final int[] DOT_NAMES = {
+            R.string.lane_a_pivot_top_left, R.string.lane_a_pivot_top,
+            R.string.lane_a_pivot_top_right, R.string.lane_a_pivot_left,
+            R.string.lane_a_pivot_centre, R.string.lane_a_pivot_right,
+            R.string.lane_a_pivot_bottom_left, R.string.lane_a_pivot_bottom,
+            R.string.lane_a_pivot_bottom_right};
 
     /** One pick. Normalized fractions in 0..1, the model's own unit. */
     public interface OnPivotPick {
@@ -51,22 +60,7 @@ public final class PivotPickerPopover {
         DisplayMetrics dm = ctx.getResources().getDisplayMetrics();
         float d = dm.density;
 
-        LinearLayout sheet = new LinearLayout(ctx);
-        sheet.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(SHEET_BG);
-        bg.setCornerRadius(16 * d);
-        sheet.setBackground(bg);
-        sheet.setElevation(16 * d);
-        int pad = Math.round(12 * d);
-        sheet.setPadding(pad, pad, pad, pad);
-
-        TextView title = new TextView(ctx);
-        title.setText("Rotation pivot");                                   // TODO(strings)
-        title.setTextColor(TXT);
-        title.setTextSize(14f);
-        title.setPadding(Math.round(4 * d), 0, 0, Math.round(8 * d));
-        sheet.addView(title);
+        LinearLayout sheet = BlendPickerPopover.sheet(ctx, ctx.getText(R.string.lane_a_pivot_title));
 
         final PopupWindow pop = new PopupWindow(ctx);
         pop.setFocusable(true);
@@ -118,15 +112,7 @@ public final class PivotPickerPopover {
         // near the bottom of the screen, so dropping down would open off the edge.
         sheet.measure(View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
-        int h = sheet.getMeasuredHeight();
-        int[] loc = new int[2];
-        anchor.getLocationInWindow(loc);
-        int gap = Math.round(6 * d);
-        if (loc[1] - h - gap > 0) {
-            pop.showAsDropDown(anchor, 0, -(h + anchor.getHeight() + gap), Gravity.CENTER);
-        } else {
-            pop.showAsDropDown(anchor, 0, gap, Gravity.CENTER);
-        }
+        BlendPickerPopover.showAbove(pop, anchor, sheet.getMeasuredHeight(), Gravity.CENTER);
     }
 
     /** One 44dp dot cell. Colours come from {@link PivotNineView} so the picker and the
@@ -141,7 +127,9 @@ public final class PivotPickerPopover {
             this.col = col;
             this.row = row;
             this.selected = selected;
-            setContentDescription("Pivot " + col + "," + row);             // TODO(strings)
+            // "Pivot: top left", not "Pivot 0,0" — and a hover tooltip for the stylus.
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(this,
+                    ctx.getString(DOT_NAMES[row * 3 + col]));
         }
 
         @Override

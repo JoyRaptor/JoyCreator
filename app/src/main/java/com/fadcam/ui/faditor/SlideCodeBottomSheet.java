@@ -60,15 +60,10 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
-                BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(bottomSheet);
-                behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
-                behavior.setSkipCollapsed(true);
-            }
+        SheetKit.install(dialog, bottomSheet -> {
+            BottomSheetBehavior<View> behavior = BottomSheetBehavior.from(bottomSheet);
+            behavior.setState(BottomSheetBehavior.STATE_EXPANDED);
+            behavior.setSkipCollapsed(true);
         });
         // The editor activity runs fullscreen-immersive; make sure this sheet's
         // window can actually take the IME — otherwise tapping the code box
@@ -92,34 +87,33 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
                              @Nullable Bundle savedInstanceState) {
         float dp = getResources().getDisplayMetrics().density;
 
+        LinearLayout outer = new LinearLayout(requireContext());
+        outer.setOrientation(LinearLayout.VERTICAL);
+
+        // TODO(strings)
+        outer.addView(SheetKit.header(requireContext(), "Slide code", null).view);
+
+        // TODO(strings)
+        outer.addView(SheetKit.subtitle(requireContext(),
+                "Edit the HTML, or select all and paste a different slide. "
+                + "Apply re-renders the clip."));
+
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding((int) (16 * dp), (int) (12 * dp),
-                (int) (16 * dp), (int) (24 * dp));
-
-        // TODO(strings)
-        TextView title = new TextView(requireContext());
-        title.setText("Slide code");
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setPadding((int) (4 * dp), (int) (8 * dp), (int) (4 * dp), (int) (2 * dp));
-        root.addView(title);
-
-        // TODO(strings)
-        TextView subtitle = new TextView(requireContext());
-        subtitle.setText("Edit the HTML, or select all and paste a different slide. "
-                + "Apply re-renders the clip.");
-        subtitle.setTextColor(Studio.INK_FAINT);
-        subtitle.setTextSize(13);
-        subtitle.setPadding((int) (4 * dp), 0, (int) (4 * dp), (int) (10 * dp));
-        root.addView(subtitle);
+        root.setPadding(SheetKit.dp(requireContext(), SheetKit.ROW_INSET_DP), 0,
+                SheetKit.dp(requireContext(), SheetKit.ROW_INSET_DP), (int) (16 * dp));
+        outer.addView(root);
 
         codeBox = new EditText(requireContext());
-        codeBox.setTypeface(Typeface.MONOSPACE);
+        com.fadcam.ui.type.Type.mono(codeBox, com.fadcam.ui.type.Type.REGULAR);
         codeBox.setTextSize(12);
         codeBox.setTextColor(Studio.INK_DIM);
-        codeBox.setBackgroundColor(Studio.PANEL);
+        // A well cut into the panel: the sheet is PANEL now, so a PANEL box would vanish.
+        android.graphics.drawable.GradientDrawable well =
+                new android.graphics.drawable.GradientDrawable();
+        well.setColor(Studio.SUNK);
+        well.setCornerRadius(SheetKit.dp(requireContext(), SheetKit.ROW_RADIUS_DP));
+        codeBox.setBackground(well);
         codeBox.setPadding((int) (10 * dp), (int) (10 * dp),
                 (int) (10 * dp), (int) (10 * dp));
         codeBox.setGravity(Gravity.TOP | Gravity.START);
@@ -190,31 +184,19 @@ public class SlideCodeBottomSheet extends BottomSheetDialogFragment {
         androidx.core.widget.NestedScrollView scroll =
                 new androidx.core.widget.NestedScrollView(requireContext());
         scroll.setFillViewport(true);
-        scroll.addView(root);
-        return scroll;
+        scroll.addView(outer);
+        return SheetKit.fitNavBar(scroll);
     }
 
+    /** A pill: the one primary action (Apply) wears the Studio gradient, the rest are flat. */
     private View makeButton(String label, boolean primary, float dp,
                             @NonNull Runnable onClick) {
-        TextView btn = new TextView(requireContext());
-        btn.setText(label);
-        btn.setTextSize(14);
-        btn.setTypeface(null, Typeface.BOLD);
-        btn.setTextColor(primary ? Color.BLACK : Studio.INK_DIM);
-        btn.setGravity(Gravity.CENTER);
-        btn.setPadding((int) (16 * dp), (int) (10 * dp),
-                (int) (16 * dp), (int) (10 * dp));
-        android.graphics.drawable.GradientDrawable bg =
-                new android.graphics.drawable.GradientDrawable();
-        bg.setCornerRadius(10 * dp);
-        bg.setColor(primary ? Studio.GO : Studio.LINE);
-        btn.setBackground(bg);
+        TextView btn = SheetKit.pillButton(requireContext(), label, primary, v -> onClick.run());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMarginStart((int) (8 * dp));
         btn.setLayoutParams(lp);
-        btn.setOnClickListener(v -> onClick.run());
         return btn;
     }
 }

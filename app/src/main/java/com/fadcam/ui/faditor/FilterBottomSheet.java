@@ -93,25 +93,20 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         if (dialog.getWindow() != null) {
             dialog.getWindow().setDimAmount(0f);
         }
-        dialog.setOnShowListener(d -> {
-            BottomSheetDialog bsd = (BottomSheetDialog) dialog;
-            View bs = bsd.findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bs != null) {
-                bs.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
-                // Cap the panel at ~1/3 of the screen so it never covers the video; the inner
-                // ScrollView handles the rest. Fixing the height (peek == expanded) also kills the
-                // "drag past fullscreen then it eats the top" bug.
-                int third = (int) (getResources().getDisplayMetrics().heightPixels / 3.0);
-                ViewGroup.LayoutParams lp = bs.getLayoutParams();
-                lp.height = third;
-                bs.setLayoutParams(lp);
-                com.google.android.material.bottomsheet.BottomSheetBehavior<View> beh =
-                        com.google.android.material.bottomsheet.BottomSheetBehavior.from(bs);
-                beh.setPeekHeight(third);
-                beh.setFitToContents(true);
-                beh.setSkipCollapsed(true);
-                beh.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
-            }
+        SheetKit.install(dialog, bs -> {
+            // Cap the panel at ~1/3 of the screen so it never covers the video; the inner
+            // ScrollView handles the rest. Fixing the height (peek == expanded) also kills the
+            // "drag past fullscreen then it eats the top" bug.
+            int third = (int) (getResources().getDisplayMetrics().heightPixels / 3.0);
+            ViewGroup.LayoutParams lp = bs.getLayoutParams();
+            lp.height = third;
+            bs.setLayoutParams(lp);
+            com.google.android.material.bottomsheet.BottomSheetBehavior<View> beh =
+                    com.google.android.material.bottomsheet.BottomSheetBehavior.from(bs);
+            beh.setPeekHeight(third);
+            beh.setFitToContents(true);
+            beh.setSkipCollapsed(true);
+            beh.setState(com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
         });
         return dialog;
     }
@@ -132,28 +127,19 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         // content is scrolled to the very top — fixing the "swipe-up just dismisses" conflict.
         androidx.core.widget.NestedScrollView scroll =
                 new androidx.core.widget.NestedScrollView(requireContext());
+        LinearLayout outer = new LinearLayout(requireContext());
+        outer.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(outer);
+
+        // Header: the grab pill (an explicit grip to pull the panel down) and the title.
+        outer.addView(SheetKit.header(requireContext(),
+                getString(R.string.faditor_filter_title), null).view);
+
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding((int) (20 * dp), (int) (8 * dp), (int) (20 * dp), (int) (28 * dp));
-        scroll.addView(root);
-
-        // Grabber handle: an explicit grip to pull the panel down to dismiss.
-        View grabber = new View(requireContext());
-        grabber.setBackgroundColor(Studio.INK_OFF);
-        LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(
-                (int) (40 * dp), (int) (4 * dp));
-        grabLp.gravity = Gravity.CENTER_HORIZONTAL;
-        grabLp.bottomMargin = (int) (8 * dp);
-        grabber.setLayoutParams(grabLp);
-        root.addView(grabber);
-
-        TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_filter_title);
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setPadding(0, 0, 0, (int) (8 * dp));
-        root.addView(title);
+        root.setPadding(SheetKit.dp(requireContext(), SheetKit.ROW_INSET_DP), 0,
+                SheetKit.dp(requireContext(), SheetKit.ROW_INSET_DP), (int) (20 * dp));
+        outer.addView(root);
 
         specs = new Spec[]{
                 new Spec("Exposure", -1f, 1f, 0f, EffectStack::getExposure, EffectStack::setExposure),
@@ -173,24 +159,12 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         buildPresetRow(root, dp);
 
         // ── "Save as preset…" row ───────────────────────────────────
-        LinearLayout saveRow = new LinearLayout(requireContext());
-        saveRow.setOrientation(LinearLayout.HORIZONTAL);
-        saveRow.setGravity(Gravity.CENTER_VERTICAL);
-        saveRow.setBackgroundResource(R.drawable.settings_home_row_bg);
-        saveRow.setPadding((int) (16 * dp), (int) (14 * dp), (int) (16 * dp), (int) (14 * dp));
-        LinearLayout.LayoutParams saveLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        saveLp.topMargin = (int) (8 * dp);
-        saveRow.setLayoutParams(saveLp);
-        root.addView(saveRow);
-
-        TextView saveLabel = new TextView(requireContext());
-        saveLabel.setText(R.string.faditor_filter_preset_save);
-        saveLabel.setTextColor(Studio.ARMED);
-        saveLabel.setTextSize(15);
-        saveLabel.setTypeface(null, Typeface.BOLD);
-        saveRow.addView(saveLabel);
-        saveRow.setOnClickListener(v -> showSavePresetDialog());
+        SheetKit.Row save = SheetKit.row(requireContext(), "bookmark_add",
+                getString(R.string.faditor_filter_preset_save), false, SheetKit.Trail.NONE,
+                v -> showSavePresetDialog());
+        SheetKit.tintRow(save, Studio.ARMED, true);
+        SheetKit.flush(save.view, 8);
+        root.addView(save.view);
 
         for (int i = 0; i < specs.length; i++) {
             final Spec spec = specs[i];
@@ -205,7 +179,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             TextView label = new TextView(requireContext());
             label.setText(spec.label);
             label.setTextColor(Studio.INK_DIM);
-            label.setTextSize(14);
+            label.setTextSize(13);
+            com.fadcam.ui.type.Type.body(label, com.fadcam.ui.type.Type.REGULAR);
             LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
             label.setLayoutParams(labelLp);
@@ -213,8 +188,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
             TextView value = new TextView(requireContext());
             value.setTextColor(Studio.INK_FAINT);
-            value.setTextSize(13);
-            value.setTypeface(null, Typeface.BOLD);
+            value.setTextSize(12);
+            com.fadcam.ui.type.Type.mono(value, com.fadcam.ui.type.Type.MEDIUM);
             value.setText(format(spec.g.get(stack)));
             labelRow.addView(value);
             valueTexts[i] = value;
@@ -224,6 +199,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             slider.setValueFrom(spec.min);
             slider.setValueTo(spec.max);
             slider.setValue(clamp(spec.g.get(stack), spec.min, spec.max));
+            slider.setContentDescription(spec.label);
             slider.setTrackActiveTintList(
                     android.content.res.ColorStateList.valueOf(Studio.ARMED));
             slider.setThumbTintList(
@@ -246,35 +222,26 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         div.setBackgroundColor(Studio.LINE);
         LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
-        divLp.topMargin = (int) (14 * dp);
+        divLp.topMargin = (int) (12 * dp);
         divLp.bottomMargin = (int) (8 * dp);
         div.setLayoutParams(divLp);
         root.addView(div);
 
-        LinearLayout lutRow = new LinearLayout(requireContext());
-        lutRow.setOrientation(LinearLayout.HORIZONTAL);
-        lutRow.setGravity(Gravity.CENTER_VERTICAL);
-        lutRow.setBackgroundResource(R.drawable.settings_home_row_bg);
-        lutRow.setPadding((int) (16 * dp), (int) (14 * dp), (int) (16 * dp), (int) (14 * dp));
+        SheetKit.Row lut = SheetKit.row(requireContext(), "palette",
+                getString(R.string.faditor_filter_lut), false, SheetKit.Trail.NONE,
+                v -> showLutChooser());
+        LinearLayout lutRow = lut.view;
+        SheetKit.flush(lutRow, 0);
         root.addView(lutRow);
 
-        TextView lutLabel = new TextView(requireContext());
-        lutLabel.setText(R.string.faditor_filter_lut);
-        lutLabel.setTextColor(Studio.INK_DIM);
-        lutLabel.setTextSize(15);
-        LinearLayout.LayoutParams lutLabelLp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        lutLabel.setLayoutParams(lutLabelLp);
-        lutRow.addView(lutLabel);
-
+        // The current LUT's name, trailing: ARMED, because it names what is selected.
         lutValue = new TextView(requireContext());
         lutValue.setTextColor(Studio.ARMED);
-        lutValue.setTextSize(14);
-        lutValue.setTypeface(null, Typeface.BOLD);
+        lutValue.setTextSize(13);
+        com.fadcam.ui.type.Type.body(lutValue, com.fadcam.ui.type.Type.SEMIBOLD);
+        lutValue.setSingleLine(true);
         lutValue.setText(currentLutName());
         lutRow.addView(lutValue);
-
-        lutRow.setOnClickListener(v -> showLutChooser());
 
         // ── LUT intensity slider (visible only while a LUT is active) ─
         lutIntensityRow = new LinearLayout(requireContext());
@@ -290,7 +257,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         TextView intLabel = new TextView(requireContext());
         intLabel.setText("Intensity");
         intLabel.setTextColor(Studio.INK_DIM);
-        intLabel.setTextSize(14);
+        intLabel.setTextSize(13);
+        com.fadcam.ui.type.Type.body(intLabel, com.fadcam.ui.type.Type.REGULAR);
         LinearLayout.LayoutParams intLabelLp = new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         intLabel.setLayoutParams(intLabelLp);
@@ -298,8 +266,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
 
         lutIntensityValue = new TextView(requireContext());
         lutIntensityValue.setTextColor(Studio.INK_FAINT);
-        lutIntensityValue.setTextSize(13);
-        lutIntensityValue.setTypeface(null, Typeface.BOLD);
+        lutIntensityValue.setTextSize(12);
+        com.fadcam.ui.type.Type.mono(lutIntensityValue, com.fadcam.ui.type.Type.MEDIUM);
         lutIntensityValue.setText(format(stack.getLutIntensity()));
         intLabelRow.addView(lutIntensityValue);
 
@@ -308,6 +276,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         lutIntensitySlider.setValueFrom(0f);
         lutIntensitySlider.setValueTo(1f);
         lutIntensitySlider.setValue(clamp(stack.getLutIntensity(), 0f, 1f));
+        lutIntensitySlider.setContentDescription("Intensity");
         lutIntensitySlider.setTrackActiveTintList(
                 android.content.res.ColorStateList.valueOf(Studio.ARMED));
         lutIntensitySlider.setThumbTintList(
@@ -324,48 +293,23 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         updateLutIntensityVisibility();
 
         // ── Reset row ────────────────────────────────────────────────
-        LinearLayout resetRow = new LinearLayout(requireContext());
-        resetRow.setOrientation(LinearLayout.HORIZONTAL);
-        resetRow.setGravity(Gravity.CENTER_VERTICAL);
-        resetRow.setBackgroundResource(R.drawable.settings_home_row_bg);
-        resetRow.setPadding((int) (16 * dp), (int) (14 * dp), (int) (16 * dp), (int) (14 * dp));
-        LinearLayout.LayoutParams resetLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        resetLp.topMargin = (int) (8 * dp);
-        resetRow.setLayoutParams(resetLp);
-        root.addView(resetRow);
-
-        TextView resetLabel = new TextView(requireContext());
-        resetLabel.setText(R.string.faditor_filter_reset);
-        resetLabel.setTextColor(Studio.DANGER);
-        resetLabel.setTextSize(15);
-        resetLabel.setTypeface(null, Typeface.BOLD);
-        resetRow.addView(resetLabel);
-        resetRow.setOnClickListener(v -> resetAll());
+        SheetKit.Row reset = SheetKit.row(requireContext(), "refresh",
+                getString(R.string.faditor_filter_reset), false, SheetKit.Trail.NONE,
+                v -> resetAll());
+        SheetKit.tintRow(reset, Studio.DANGER, true);
+        SheetKit.flush(reset.view, 8);
+        root.addView(reset.view);
 
         // ── Copy-to-all row ──────────────────────────────────────────
-        LinearLayout copyRow = new LinearLayout(requireContext());
-        copyRow.setOrientation(LinearLayout.HORIZONTAL);
-        copyRow.setGravity(Gravity.CENTER_VERTICAL);
-        copyRow.setBackgroundResource(R.drawable.settings_home_row_bg);
-        copyRow.setPadding((int) (16 * dp), (int) (14 * dp), (int) (16 * dp), (int) (14 * dp));
-        LinearLayout.LayoutParams copyLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        copyLp.topMargin = (int) (8 * dp);
-        copyRow.setLayoutParams(copyLp);
-        root.addView(copyRow);
+        SheetKit.Row copy = SheetKit.row(requireContext(), "content_copy",
+                getString(R.string.faditor_filter_copy_all), false, SheetKit.Trail.NONE, v -> {
+                    if (callback != null) callback.onCopyToAll();
+                });
+        SheetKit.tintRow(copy, Studio.ARMED, true);
+        SheetKit.flush(copy.view, 8);
+        root.addView(copy.view);
 
-        TextView copyLabel = new TextView(requireContext());
-        copyLabel.setText(R.string.faditor_filter_copy_all);
-        copyLabel.setTextColor(Studio.ARMED);
-        copyLabel.setTextSize(15);
-        copyLabel.setTypeface(null, Typeface.BOLD);
-        copyRow.addView(copyLabel);
-        copyRow.setOnClickListener(v -> {
-            if (callback != null) callback.onCopyToAll();
-        });
-
-        return scroll;
+        return SheetKit.fitNavBar(scroll);
     }
 
     private void showLutChooser() {
@@ -450,16 +394,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         row.setOrientation(LinearLayout.HORIZONTAL);
         hs.addView(row);
         for (String name : names) {
-            TextView chip = new TextView(requireContext());
-            chip.setText(name);
+            TextView chip = SheetKit.chip(requireContext(), name);
             chip.setTextColor(Studio.INK);
-            chip.setTextSize(13);
-            chip.setPadding((int) (14 * dp), (int) (8 * dp), (int) (14 * dp), (int) (8 * dp));
-            chip.setBackgroundResource(R.drawable.settings_home_row_bg);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.setMarginEnd((int) (8 * dp));
-            chip.setLayoutParams(lp);
             chip.setOnClickListener(v -> applyPreset(name));
             row.addView(chip);
         }
@@ -483,11 +419,9 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         if (names.isEmpty()) return;
 
         // Divider above saved presets
-        TextView header = new TextView(requireContext());
-        header.setText(R.string.faditor_filter_preset_save);
-        header.setTextColor(Studio.INK_FAINT);
-        header.setTextSize(12);
-        header.setPadding(0, (int) (2 * dp), 0, (int) (4 * dp));
+        LinearLayout header = SheetKit.sectionLabel(requireContext(),
+                getString(R.string.faditor_filter_preset_save), 0);
+        header.setPadding(0, (int) (6 * dp), 0, (int) (5 * dp));
         savedPresetsRow.addView(header);
 
         HorizontalScrollView hs = new HorizontalScrollView(requireContext());
@@ -496,16 +430,8 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         chipRow.setOrientation(LinearLayout.HORIZONTAL);
         hs.addView(chipRow);
         for (String name : names) {
-            TextView chip = new TextView(requireContext());
-            chip.setText(name);
-            chip.setTextColor(Studio.ARMED);
-            chip.setTextSize(13);
-            chip.setPadding((int) (14 * dp), (int) (8 * dp), (int) (14 * dp), (int) (8 * dp));
-            chip.setBackgroundResource(R.drawable.settings_home_row_bg);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-            lp.setMarginEnd((int) (8 * dp));
-            chip.setLayoutParams(lp);
+            TextView chip = SheetKit.chip(requireContext(), name);
+            chip.setTextColor(Studio.ARMED);   // the user's own looks, set apart from the curated ones
             chip.setOnClickListener(v -> applySavedPreset(name));
             chip.setOnLongClickListener(v -> { confirmDeletePreset(name, dp); return true; });
             chipRow.addView(chip);

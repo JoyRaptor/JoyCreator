@@ -91,6 +91,31 @@ public class TranscriptPanelView extends View {
     private final Paint searchCurrentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint breakPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
+    // ── record 06 §02, the transcript panel (.tsc / .tscb) ──────────────────────────────
+    // The panel sits on the same dark scrim as the object drawer (transcript_panel_bg), so
+    // every word on it is DRAWER ink — the ramp record 06 raised for text over moving video.
+    // It was screen ink before, the ramp for opaque surfaces.
+    /** {@code .tscb}: body words are {@code --ddim}. */
+    private static final int WORD = Studio.DRAWER_DIM;
+    /**
+     * {@code .tscb u}: a struck (filler / removed) word. The record draws #8a8a97; the drawer
+     * label at 70% over the dark scrim lands on the same grey (~#89898F) without a new hex,
+     * and stays readable so a struck word can still be found and restored.
+     */
+    private static final int WORD_STRUCK = Studio.alpha(Studio.DRAWER_LABEL, 0xB3);
+    /** Another clip's word: dimmer again, still legible, still tappable (it navigates). */
+    private static final int WORD_OUTSIDE = Studio.alpha(Studio.DRAWER_LABEL, 0x73);
+    /** A collapsed paragraph's one-line summary. */
+    private static final int SUMMARY = Studio.DRAWER_LABEL;
+    /**
+     * {@code .tscb mark}: the word being spoken is filled LIVE pink with dark ink — "pink =
+     * playing" (grand design §13). LIVE is the state token for "playing, the playhead".
+     * It was a translucent cyan wash, which is the SELECTED colour and not a playing one.
+     */
+    private static final int PLAYING_FILL = Studio.LIVE;
+    /** The record's #050507 on the live fill, which is {@link Studio#ON_GO}. */
+    private static final int PLAYING_INK = Studio.ON_GO;
+
     private static final int DOUBLE_TAP_TIMEOUT_MS = 300;
     private long lastTapTime;
     private int lastTapIndex = -1;
@@ -163,24 +188,31 @@ public class TranscriptPanelView extends View {
         density = getResources().getDisplayMetrics().density;
         padX = 14 * density;
         padY = 12 * density;
-        textPaint.setColor(Studio.INK);
+        textPaint.setColor(WORD);
+        // Kept at 17sp, NOT the record's 11px: every word is a tap target (seek, strike,
+        // edit), and at 11sp a line is ~19dp tall — under the 28dp floor. See the lane report.
         textPaint.setTextSize(17 * density);
-        textPaint.setTypeface(Typeface.DEFAULT);
-        strikePaint.setColor(Studio.INK_FAINT);
+        // IBM Plex Sans — the record's body face (--f-body), "for anything meant to be READ".
+        Typeface body = com.fadcam.ui.type.Type.body(context, com.fadcam.ui.type.Type.REGULAR);
+        textPaint.setTypeface(body != null ? body : Typeface.DEFAULT);
+        strikePaint.setColor(WORD_STRUCK);
         strikePaint.setStrokeWidth(2 * density);
-        activePaint.setColor(Studio.alpha(Studio.ARMED, 0x55)); // soft cyan highlight
+        activePaint.setColor(PLAYING_FILL);
         searchPaint.setColor(Studio.alpha(Studio.CAREFUL, 0x55));        // yellow for search matches
         searchCurrentPaint.setColor(Studio.alpha(Studio.CAREFUL, 0xAA)); // amber for the current match
         breakPaint.setColor(Studio.ARMED);         // cyan break indicator
         breakPaint.setStrokeWidth(2 * density);
         gutterWidthPx = GUTTER_WIDTH_DP * density;
         gutterGapPx = GUTTER_GAP_DP * density;
-        gutterPaint.setColor(Studio.alpha(Studio.INK, 0x33));
+        // Paragraph rails: record 06's grab rail (.tscgrab) is white at 30% on the scrim.
+        gutterPaint.setColor(Studio.alpha(Studio.DRAWER_INK, 0x4D));
         gutterPaint.setStyle(Paint.Style.FILL);
-        gutterSelectedPaint.setColor(Studio.alpha(Studio.INK, 0xAA));
+        gutterSelectedPaint.setColor(Studio.alpha(Studio.DRAWER_INK, 0xAA));
         gutterSelectedPaint.setStyle(Paint.Style.FILL);
         touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         setClickable(true);
+        // A self-drawn view has no text of its own for a screen reader or a hover to announce.
+        setContentDescription(context.getString(com.fadcam.R.string.lane_b_transcript_panel));
     }
 
     public void setListener(@NonNull Listener l) { this.listener = l; }
@@ -505,7 +537,7 @@ public class TranscriptPanelView extends View {
                         Paint outline = new Paint(Paint.ANTI_ALIAS_FLAG);
                         outline.setStyle(Paint.Style.STROKE);
                         outline.setStrokeWidth(1.5f * density);
-                        outline.setColor(Studio.INK);
+                        outline.setColor(Studio.DRAWER_INK);
                         outline.setAlpha(120);
                         canvas.drawRoundRect(r, railR, railR, pp);
                         canvas.drawRoundRect(r, railR, railR, outline);
@@ -544,7 +576,9 @@ public class TranscriptPanelView extends View {
                         lineY = wordY[r[0]] - scrollY;
                     }
                     Paint lp = new Paint(Paint.ANTI_ALIAS_FLAG);
-                    lp.setColor(Studio.ROOM_AVATAR_DEEP);
+                    // "Drop here" is a hint about geometry — GUIDE's role. It wore a ROOM
+                    // colour (Avatar's deep violet), which is an identity, not a hint.
+                    lp.setColor(Studio.GUIDE);
                     lp.setStrokeWidth(3f * density);
                     float left = gutterWidthPx + gutterGapPx;
                     canvas.drawLine(left, lineY, getWidth() - padX, lineY, lp);
@@ -564,7 +598,7 @@ public class TranscriptPanelView extends View {
                 int[] range = paragraphData.paragraphs.get(para);
                 if (i != range[0]) continue;
                 String summary = buildParagraphSummary(para);
-                textPaint.setColor(Studio.INK_DIM);
+                textPaint.setColor(SUMMARY);
                 float baseY = wy + baselineOffset;
                 float maxW = getWidth() - (gutterWidthPx + gutterGapPx + padX) - padX;
                 String draw = summary;
@@ -577,10 +611,12 @@ public class TranscriptPanelView extends View {
             }
             boolean outside = !inClipWindow(w);
 
-            if (i == activeIndex && !w.struck) {
-                RectF bg = new RectF(wordX[i] - 2 * density, wy,
-                        wordX[i] + wordW[i] + 2 * density, wy + lineHeight);
-                canvas.drawRoundRect(bg, 4 * density, 4 * density, activePaint);
+            boolean playing = i == activeIndex && !w.struck;
+            if (playing) {
+                // .tscb mark: radius 3, padding 0 3px.
+                RectF bg = new RectF(wordX[i] - 3 * density, wy,
+                        wordX[i] + wordW[i] + 3 * density, wy + lineHeight);
+                canvas.drawRoundRect(bg, 3 * density, 3 * density, activePaint);
             }
             if (searchMatchSet.contains(i)) {
                 RectF hl = new RectF(wordX[i] - 2 * density, wy,
@@ -593,12 +629,15 @@ public class TranscriptPanelView extends View {
 
             // Outside the current clip's trim = another clip's words: dimmed, still legible
             // and still tappable (a tap there navigates to that clip).
-            textPaint.setColor(outside ? (w.struck ? Studio.INK_OFF : Studio.INK_OFF)
-                                       : (w.struck ? Studio.INK_FAINT : Studio.INK));
+            // The playing word takes dark ink on its pink fill — unless a search highlight has
+            // just been painted over it, where the normal ink still reads.
+            textPaint.setColor(playing && !searchMatchSet.contains(i) ? PLAYING_INK
+                    : outside ? WORD_OUTSIDE
+                    : (w.struck ? WORD_STRUCK : WORD));
             float baseY = wy + baselineOffset;
             canvas.drawText(w.text, wordX[i], baseY, textPaint);
             if (w.struck) {
-                strikePaint.setColor(outside ? Studio.INK_OFF : Studio.INK_FAINT);
+                strikePaint.setColor(outside ? WORD_OUTSIDE : WORD_STRUCK);
                 float midY = wy + lineHeight / 2f;
                 canvas.drawLine(wordX[i], midY, wordX[i] + wordW[i], midY, strikePaint);
             }

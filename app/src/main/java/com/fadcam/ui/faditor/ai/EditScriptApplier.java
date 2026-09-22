@@ -624,8 +624,10 @@ public class EditScriptApplier {
                     ? hashParam : SlideFiles.contentHash(html, w, h, durationMs);
 
             long startMs = getParamLong(op, "startMs", 0);
+            // White = untinted, as a literal: a slide overlay's colour multiplies what it draws,
+            // so a UI token here tinted every AI-made slide grey once INK moved to #E4E4E7.
             com.fadcam.ui.faditor.model.TextOverlayItem item =
-                    new com.fadcam.ui.faditor.model.TextOverlayItem(id, "", Studio.INK,
+                    new com.fadcam.ui.faditor.model.TextOverlayItem(id, "", 0xFFFFFFFF,
                             0.5f, 0.5f, 0.3f, 0f);
             item.setTimeRange(startMs, startMs + durationMs);
             GeneratedSource gs = new GeneratedSource(SlideContract.MODE_OVERLAY,

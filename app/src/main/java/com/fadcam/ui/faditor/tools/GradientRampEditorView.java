@@ -180,7 +180,7 @@ public final class GradientRampEditorView extends LinearLayout {
                 float t = i / (float) n;
                 int rgb = ramp.sampleColor(t);
                 int a = Math.round(ramp.sampleAlpha(t) * 255f);
-                colors[i] = (a << 24) | (rgb & 0xF4F4F5);
+                colors[i] = (a << 24) | (rgb & 0xFFFFFF);
                 pos[i] = t;
             }
             barPaint.setShader(new LinearGradient(barRect.left, 0, barRect.right, 0,
@@ -231,7 +231,7 @@ public final class GradientRampEditorView extends LinearLayout {
                 float y = colorY() + (dragMode == MODE_COLOR && dragIndex == i ? dragDy : 0f);
                 boolean marked = dragMode == MODE_COLOR && dragIndex == i
                         && Math.abs(dragDy) > DELETE_DP * d;
-                fillPaint.setColor(Studio.GROUND | (s.color & 0xF4F4F5));
+                fillPaint.setColor(Studio.GROUND | (s.color & 0x00FFFFFF));
                 fillPaint.setAlpha(marked ? 90 : 255);
                 c.drawCircle(x, y, stopR(), fillPaint);
                 strokePaint.setColor(Studio.INK);
@@ -388,7 +388,7 @@ public final class GradientRampEditorView extends LinearLayout {
         private void openPicker(int index) {
             if (index < 0 || index >= ramp.colorStops.size()) return;
             GradientRamp.ColorStop stop = ramp.colorStops.get(index);
-            int initial = Studio.GROUND | (stop.color & 0xF4F4F5);
+            int initial = Studio.GROUND | (stop.color & 0x00FFFFFF);
             ColorPickerDialog.show(getContext(), "Stop color", initial, false,
                     live -> {
                         if (live != null) { stop.color = live; fire(); }

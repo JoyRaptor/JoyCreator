@@ -98,7 +98,7 @@ public class AudioCrossfade {
     public void setToLaneAbove(boolean v) { this.toLaneAbove = v; }
 
     public int getColorRgb() { return colorRgb; }
-    public void setColorRgb(int rgb) { this.colorRgb = rgb & 0xF4F4F5; }
+    public void setColorRgb(int rgb) { this.colorRgb = rgb & 0xFFFFFF; }
 
     /** Flip which lane the sound hands off to. One tap on the pill's arrow (§5.4). */
     public void flipDirection() { this.toLaneAbove = !this.toLaneAbove; }

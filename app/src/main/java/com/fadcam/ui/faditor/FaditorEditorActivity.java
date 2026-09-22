@@ -23421,10 +23421,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (inCropMode) {
             exitCropMode(false);
         }
+        // WHITE, as a literal. New text is CONTENT: this colour is burned into the exported
+        // video. It was 0xFFFFFFFF until a palette sweep pointed it at Studio.INK, which then
+        // became #E4E4E7 when the ink ramp was corrected — so every new title came in grey.
+        // A UI token must never decide what the video looks like.
         com.fadcam.ui.faditor.model.TextOverlayItem item =
                 new com.fadcam.ui.faditor.model.TextOverlayItem(
                         getString(R.string.faditor_text_hint),
-                        Studio.INK, 0.5f, 0.5f, 0.10f, 0f);
+                        0xFFFFFFFF, 0.5f, 0.5f, 0.10f, 0f);
         // FEEDBACK (2026-07-18): a new text must never stack onto a lane where its
         // time range overlaps an existing item — route it to the first free TEXT
         // lane, creating a new lane if every existing one is occupied.

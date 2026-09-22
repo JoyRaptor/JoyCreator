@@ -25,8 +25,8 @@ public class WaveformStyle {
     public String displayName = "Untitled";
     public String type = TYPE_BARS;
 
-    /** Primary color (hex, e.g. "#35F6BF"). */
-    public String color = "#35F6BF";
+    /** Primary color (hex, e.g. "#00E676"). */
+    public String color = "#00E676";
     /** Optional vertical gradient endpoints; fall back to {@link #color} when null. */
     @Nullable public String gradientStart;
     @Nullable public String gradientEnd;

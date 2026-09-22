@@ -956,7 +956,7 @@ public final class CaptionAnimator {
     private static final float MATRIX_CHURN_MAX = 0.42f;
 
     /** Keeps the per-character churn DURATION independent of the per-tick glyph CHOICE. */
-    private static final int MATRIX_JITTER_SALT = 0x52525B;
+    private static final int MATRIX_JITTER_SALT = 0x3A7C19;
 
     /**
      * Which characters a unit should DRAW at {@code progress} — the second thing a preset can
@@ -1098,7 +1098,7 @@ public final class CaptionAnimator {
     /** How many flicker slots NEON_FLICKER cuts its entrance into. */
     private static final int NEON_SLOTS = 14;
     /** Keeps NEON_FLICKER's hash from colliding with UNSCRAMBLE's scatter for the same unit. */
-    private static final int NEON_SALT = 0x33333C;
+    private static final int NEON_SALT = 0x4E30F1;
 
     /** One axis of a unit's scatter direction, in {@code [-1, 1]}. */
     private static float scatterAxis(int unitIndex, int salt) {

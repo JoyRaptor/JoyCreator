@@ -243,7 +243,7 @@ public class CaptionStyle {
                 anim = Anim.POP;
             }
             CaptionStyle s = new CaptionStyle(id, label,
-                    o.optInt("base", 0xFFF4F4F5), o.optInt("active", 0xFFFFEB3B),
+                    o.optInt("base", 0xFFFFFFFF), o.optInt("active", 0xFFFFEB3B),
                     o.optBoolean("pill", false), o.optInt("pillColor", 0xCC000000),
                     o.optBoolean("bold", true), anim);
             s.fontKey = o.optString("font", "default");
@@ -281,17 +281,17 @@ public class CaptionStyle {
     @NonNull
     public static List<CaptionStyle> presets() {
         return Arrays.asList(
-                new CaptionStyle("pop", "Pop", 0xFFF4F4F5, 0xFFFFEB3B,
+                new CaptionStyle("pop", "Pop", 0xFFFFFFFF, 0xFFFFEB3B,
                         false, 0, true, Anim.POP),
-                new CaptionStyle("zoom", "Zoom", 0xFFF4F4F5, 0xFF4DD0E1,
+                new CaptionStyle("zoom", "Zoom", 0xFFFFFFFF, 0xFF4DD0E1,
                         false, 0, true, Anim.ZOOM),
-                new CaptionStyle("bounce", "Bounce", 0xFFF4F4F5, 0xFF35F6BF,
+                new CaptionStyle("bounce", "Bounce", 0xFFFFFFFF, 0xFF69F0AE,
                         false, 0, true, Anim.BOUNCE),
-                new CaptionStyle("boxed", "Boxed", 0xFFF4F4F5, 0xFFFFC107,
+                new CaptionStyle("boxed", "Boxed", 0xFFFFFFFF, 0xFFFFC107,
                         true, 0xCC000000, true, Anim.POP),
-                new CaptionStyle("hot", "Hot", 0xFFF4F4F5, 0xFFFF5252,
+                new CaptionStyle("hot", "Hot", 0xFFFFFFFF, 0xFFFF5252,
                         true, 0x99000000, true, Anim.ZOOM),
-                new CaptionStyle("meme", "Meme", 0xFFF4F4F5, 0xFFFFEB3B,
+                new CaptionStyle("meme", "Meme", 0xFFFFFFFF, 0xFFFFEB3B,
                         true, 0xCC000000, true, Anim.POP),
                 new CaptionStyle("bright", "Bright", 0xFF4DD0E1, 0xFFFF4081,
                         false, 0, true, Anim.BOUNCE));
@@ -300,7 +300,7 @@ public class CaptionStyle {
     /** The special "hidden" pseudo-style (captions not rendered). */
     @NonNull
     public static CaptionStyle hidden() {
-        return new CaptionStyle("hidden", "Hidden", 0xFF8A8A94, 0xFF8A8A94,
+        return new CaptionStyle("hidden", "Hidden", 0xFF888888, 0xFF888888,
                 false, 0, false, Anim.POP);
     }
 

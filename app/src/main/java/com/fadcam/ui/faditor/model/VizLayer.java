@@ -104,8 +104,8 @@ public class VizLayer {
     public float cornerRadiusDp = 2f;
 
     // ── Paint params ─────────────────────────────────────────────────────────
-    /** Primary colour (hex, e.g. "#35F6BF"). */
-    public String color = "#35F6BF";
+    /** Primary colour (hex, e.g. "#00E676"). */
+    public String color = "#00E676";
     /** Optional vertical gradient endpoints; fall back to {@link #color} when null. */
     @Nullable public String gradientStart;
     @Nullable public String gradientEnd;
@@ -231,7 +231,7 @@ public class VizLayer {
         if (barWidthDp != 3f) j.addProperty("barWidthDp", barWidthDp);
         if (barGapDp != 1f) j.addProperty("barGapDp", barGapDp);
         if (cornerRadiusDp != 2f) j.addProperty("cornerRadiusDp", cornerRadiusDp);
-        if (color != null && !"#35F6BF".equals(color)) j.addProperty("color", color);
+        if (color != null && !"#00E676".equals(color)) j.addProperty("color", color);
         if (gradientStart != null) j.addProperty("gradientStart", gradientStart);
         if (gradientEnd != null) j.addProperty("gradientEnd", gradientEnd);
         if (gradientStops != null && gradientStops.size() >= 2) {
@@ -272,7 +272,7 @@ public class VizLayer {
             l.barWidthDp = optFloat(j, "barWidthDp", 3f);
             l.barGapDp = optFloat(j, "barGapDp", 1f);
             l.cornerRadiusDp = optFloat(j, "cornerRadiusDp", 2f);
-            l.color = optString(j, "color", "#35F6BF");
+            l.color = optString(j, "color", "#00E676");
             l.gradientStart = j.has("gradientStart") ? j.get("gradientStart").getAsString() : null;
             l.gradientEnd = j.has("gradientEnd") ? j.get("gradientEnd").getAsString() : null;
             l.gradientStops = readStops(j);

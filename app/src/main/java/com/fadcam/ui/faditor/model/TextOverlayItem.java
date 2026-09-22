@@ -479,10 +479,9 @@ public class TextOverlayItem {
     private String textAnimPreset = "NONE";
 
     /**
-     * {@code CaptionAnimator.Granularity} name. LETTER for new boxes (owner, 2026-09-22:
-     * a whole BLOCK flying in can read as an unclear flash, per-letter reads as a title).
-     * Projects saved before the default changed carry no field and load as BLOCK —
-     * see ProjectStorage — so nothing already authored changes its look.
+     * {@code CaptionAnimator.Granularity} name. LETTER (owner, 2026-09-22: a whole BLOCK
+     * flying in can read as an unclear flash, per-letter reads as a title). Missing on
+     * load inherits this — owner's ruling, sole user, BLOCK never authored.
      */
     @NonNull
     private String textAnimGranularity = "LETTER";
@@ -2785,7 +2784,12 @@ public class TextOverlayItem {
     public static TextOverlayItem createImage(@NonNull String imageUri,
                                               float centerX, float centerY,
                                               float sizeFraction) {
-        TextOverlayItem item = new TextOverlayItem("", Studio.INK,
+        // WHITE, and a literal on purpose: this is CONTENT, not chrome. An image overlay's
+        // colour is a multiply, and white is "untinted". It was 0xFFFFFFFF until a palette
+        // sweep read it as a UI grey and pointed it at Studio.INK — which then moved to
+        // #E4E4E7 when the ink ramp was corrected, so every new image came in tinted grey.
+        // A value that ends up in the exported video must never follow a UI token.
+        TextOverlayItem item = new TextOverlayItem("", 0xFFFFFFFF,
                 centerX, centerY, sizeFraction, 0f);
         item.setImageUri(imageUri);
         return item;

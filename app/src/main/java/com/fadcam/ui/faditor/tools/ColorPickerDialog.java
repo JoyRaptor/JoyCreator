@@ -405,7 +405,7 @@ public final class ColorPickerDialog {
             alphaBar.setProgress(alphaPct);
             alphaNum.setText(alphaPct + "%");
             wheel.setHsb(hsb[0], hsb[1], hsb[2]);
-            hex.setText(isNone[0] ? "none" : String.format("#%06X", rgb & 0xF4F4F5));
+            hex.setText(isNone[0] ? "none" : String.format("#%06X", rgb & 0xFFFFFF));
             GradientDrawable bg = new GradientDrawable();
             bg.setCornerRadius(4 * d);
             bg.setColor(isNone[0] ? 0x00000000 : rgb);

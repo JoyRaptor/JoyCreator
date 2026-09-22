@@ -82,7 +82,9 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_tool_text), "text_fields",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "visualizer", R.id.tool_visualizer, R.id.tool_visualizer_icon, R.id.tool_visualizer_label,
-                "Visualizer", "music_note",
+                // graphic_eq, not music_note: Beats already wears the note, and the owner tells
+                // tools apart by their icon. Two tools, one glyph, is one tool too few to find.
+                "Visualizer", "graphic_eq",
                 FaditorTool.BindMode.CLICK, false);
         // "closed_caption" is the CC badge, which is literally what captions ARE. It was on
         // Transcript, where it meant nothing, while Captions wore "subtitles" — a stack of
@@ -103,7 +105,8 @@ public final class FaditorToolRegistry {
                 ctx.getString(R.string.faditor_transcript), "subtitles",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "silence", R.id.tool_silence, R.id.tool_silence_icon, R.id.tool_silence_label,
-                ctx.getString(R.string.faditor_tool_silence), "auto_fix_high",
+                // cleaning_services, not auto_fix_high: that is Fix audio's wand. Same reason.
+                ctx.getString(R.string.faditor_tool_silence), "cleaning_services",
                 FaditorTool.BindMode.CLICK, false);
         add(t, "fix_audio", R.id.tool_fix_audio, R.id.tool_fix_audio_icon, R.id.tool_fix_audio_label,
                 "Fix audio", "auto_fix_high",

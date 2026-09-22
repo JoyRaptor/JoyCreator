@@ -73,8 +73,21 @@ public class FaditorToolsDrawer {
     private static final int SCRIM_OUT_MS = 160;
 
     // ── colours, by role (record 06 :root) ───────────────────────────────
-    /** {@code --scrim}: rgba(0,0,0,.64) — the sheet's own fill. */
-    private static final int SHEET_FILL = Studio.alpha(Studio.GROUND, 0xA3);
+    /**
+     * The sheet's own fill: SURFACE at 96%, NOT the drawer's see-through 64% scrim.
+     *
+     * <p>Record 06 draws this sheet on --scrim with blur(22px). The blur is what makes 64% work,
+     * and Android before 12 cannot blur what is behind a view — the Note 9 is Android 10. So on
+     * the device the timeline showed through SHARP: the cat filmstrip behind "Move", the
+     * waveform behind "Volume", the sheet's close button sitting on the sprite tape's stars.
+     *
+     * <p>And unlike an object drawer, this sheet does not sit over the VIDEO. JoyRaptor's reason
+     * for see-through drawers is to keep watching what you are changing; here the thing behind
+     * is the timeline and the tool row, which the sheet replaces while it is open. Seeing it
+     * through the tiles is clutter, not information. The object drawers over the preview keep
+     * their 64%.
+     */
+    private static final int SHEET_FILL = Studio.alpha(Studio.SURFACE, 0xF5);
     /** {@code --edge}: rgba(255,255,255,.10), the top hairline. */
     private static final int SHEET_EDGE = Studio.alpha(Studio.DRAWER_INK, 0x1A);
     /** {@code --dctl}: rgba(255,255,255,.10), a control over the scrim. */

@@ -1,5 +1,9 @@
 package com.fadcam.ui.faditor.assetbrowser;
 
+import com.fadcam.ui.faditor.SheetKit;
+import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.type.Type;
+
 import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.content.Context;
@@ -151,14 +155,15 @@ public class AssetBrowserPanel extends FrameLayout {
                 ViewGroup.LayoutParams.MATCH_PARENT));
 
         // Semi-transparent scrim background
-        setBackgroundColor(Color.argb(0, 0, 0, 0)); // Start transparent, animate in
+        setBackgroundColor(Studio.alpha(Studio.GROUND, 0)); // Start transparent, animate in
 
         float density = getResources().getDisplayMetrics().density;
 
         // Main container panel
         LinearLayout panel = new LinearLayout(getContext());
         panel.setOrientation(LinearLayout.VERTICAL);
-        panel.setBackgroundColor(Color.argb(225, 13, 13, 13)); // ~88% opacity
+        // ~88% over the video, so everything on it uses the DRAWER ink ramp.
+        panel.setBackgroundColor(Studio.alpha(Studio.SURFACE, 0xE1));
         LayoutParams panelLp = new LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -172,19 +177,22 @@ public class AssetBrowserPanel extends FrameLayout {
         header.setPadding(
                 (int)(8 * density), (int)(6 * density),
                 (int)(8 * density), (int)(6 * density));
-        header.setBackgroundColor(Color.argb(255, 26, 26, 26));
+        header.setBackgroundColor(Studio.RAISED);
 
         // Folder/pin icon
         TextView folderIcon = new TextView(getContext());
         folderIcon.setTypeface(ResourcesCompat.getFont(getContext(), R.font.materialicons));
         folderIcon.setText("keyboard_arrow_up");
-        folderIcon.setContentDescription(getContext().getString(R.string.faditor_asset_browser_unpin));
-        folderIcon.setTextColor(Color.parseColor("#FF35F6BF"));
+        // It closes the browser (collapse()), so it says so — it used to announce "Unpin folder".
+        SheetKit.label(folderIcon, getContext().getString(R.string.lane_d_asset_close));
+        folderIcon.setTextColor(Studio.DRAWER_DIM);
         folderIcon.setTextSize(18);
         folderIcon.setGravity(Gravity.CENTER);
         folderIcon.setOnClickListener(v -> collapse());
         folderIcon.setLayoutParams(new LinearLayout.LayoutParams(
                 (int)(32 * density), (int)(32 * density)));
+        folderIcon.setBackgroundResource(borderless());
+        SheetKit.press(folderIcon);
 
         // Path display (horizontally scrollable)
         pathScroll = new HorizontalScrollView(getContext());
@@ -193,33 +201,41 @@ public class AssetBrowserPanel extends FrameLayout {
                 0, (int)(28 * density), 1f));
 
         pathText = new TextView(getContext());
-        pathText.setTextColor(Color.parseColor("#FFC4C4CE"));
-        pathText.setTextSize(12);
+        pathText.setTextColor(Studio.DRAWER_LABEL);
+        pathText.setTextSize(11);
+        Type.mono(pathText, Type.REGULAR);
         pathText.setSingleLine(true);
         pathText.setPadding((int)(4 * density), 0, (int)(4 * density), 0);
         pathText.setGravity(Gravity.CENTER_VERTICAL);
         pathScroll.addView(pathText);
 
         // Previous dir button (<)
-        btnPrevDir = createIconButton("chevron_left", "#FF8A8A94", 28);
+        btnPrevDir = createIconButton("chevron_left", Studio.DRAWER_DIM, 28,
+                R.string.lane_d_asset_prev);
         btnPrevDir.setOnClickListener(v -> navigateDir(-1));
 
         // Next dir button (>)
-        btnNextDir = createIconButton("chevron_right", "#FF8A8A94", 28);
+        btnNextDir = createIconButton("chevron_right", Studio.DRAWER_DIM, 28,
+                R.string.lane_d_asset_next);
         btnNextDir.setOnClickListener(v -> navigateDir(1));
 
         // Change directory button
-        btnChangeDir = createIconButton("folder_open", "#FF35F6BF", 30);
+        // The header's one action — pick a folder — keeps GO; the rest recede.
+        btnChangeDir = createIconButton("folder_open", Studio.GO, 30,
+                R.string.faditor_asset_browser_change_dir);
         btnChangeDir.setOnClickListener(v -> {
             if (callback != null) callback.onChangeDirectoryRequested();
         });
 
         // Filter toggle button
-        btnFilter = createIconButton("filter_list", "#FF8A8A94", 28);
+        btnFilter = createIconButton("filter_list", Studio.DRAWER_DIM, 28,
+                R.string.lane_d_asset_filter);
         btnFilter.setOnClickListener(v -> cycleFilter());
 
         // Trash button
-        btnTrash = createIconButton("playlist_remove", "#FF35F6BF", 28);
+        // Removing a folder from history is not "go": it recedes, and the dialog guards it.
+        btnTrash = createIconButton("playlist_remove", Studio.DRAWER_DIM, 28,
+                R.string.lane_d_asset_forget);
         btnTrash.setOnClickListener(v -> confirmDeleteFromHistory());
 
         header.addView(folderIcon);
@@ -233,7 +249,7 @@ public class AssetBrowserPanel extends FrameLayout {
 
         // Divider
         View divider = new View(getContext());
-        divider.setBackgroundColor(Color.parseColor("#FF2C2C35"));
+        divider.setBackgroundColor(Studio.LINE);
         divider.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 1));
         panel.addView(divider);
@@ -248,7 +264,7 @@ public class AssetBrowserPanel extends FrameLayout {
 
         // ── Empty text ──────────────────────────────────────────
         emptyText = new TextView(getContext());
-        emptyText.setTextColor(Color.parseColor("#FF8A8A94"));
+        emptyText.setTextColor(Studio.DRAWER_DIM);
         emptyText.setTextSize(14);
         emptyText.setGravity(Gravity.CENTER);
         emptyText.setPadding(0, (int)(32 * density), 0, (int)(32 * density));
@@ -294,20 +310,26 @@ public class AssetBrowserPanel extends FrameLayout {
 
         // Grab handle for resizing
         View grabHandle = new View(getContext());
-        grabHandle.setBackgroundColor(Color.parseColor("#FF33333C"));
+        grabHandle.setBackgroundColor(Studio.OFF);
+        SheetKit.label(grabHandle, getContext().getString(R.string.lane_d_asset_resize));
         LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int)(24 * density));
         panel.addView(grabHandle, grabLp);
 
         // Inner grip line
         View gripLine = new View(getContext());
-        gripLine.setBackgroundColor(Color.parseColor("#FF52525B"));
+        // Record 06 .dgrab: white 30%, 38 x 3.5.
+        android.graphics.drawable.GradientDrawable grip =
+                new android.graphics.drawable.GradientDrawable();
+        grip.setColor(Studio.alpha(Studio.DRAWER_INK, 0x4D));
+        grip.setCornerRadius(2 * density);
+        gripLine.setBackground(grip);
         FrameLayout gripContainer = new FrameLayout(getContext());
         gripContainer.setLayoutParams(new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int)(4 * density)));
         gripContainer.setBackgroundColor(Color.TRANSPARENT);
         FrameLayout.LayoutParams gripLp2 = new FrameLayout.LayoutParams(
-                (int)(40 * density), (int)(4 * density));
+                (int)(38 * density), Math.max(1, Math.round(3.5f * density)));
         gripLp2.gravity = Gravity.CENTER;
         gripLine.setLayoutParams(gripLp2);
         gripContainer.addView(gripLine);
@@ -323,7 +345,7 @@ public class AssetBrowserPanel extends FrameLayout {
                     case MotionEvent.ACTION_DOWN:
                         startY = event.getRawY();
                         startRatio = panelHeightRatio;
-                        grabHandle.setBackgroundColor(Color.parseColor("#FF35F6BF"));
+                        grabHandle.setBackgroundColor(Studio.ARMED);   // held
                         return true;
                     case MotionEvent.ACTION_MOVE:
                         float deltaY = startY - event.getRawY();
@@ -333,7 +355,7 @@ public class AssetBrowserPanel extends FrameLayout {
                         return true;
                     case MotionEvent.ACTION_UP:
                     case MotionEvent.ACTION_CANCEL:
-                        grabHandle.setBackgroundColor(Color.parseColor("#FF33333C"));
+                        grabHandle.setBackgroundColor(Studio.OFF);
                         return true;
                 }
                 return false;
@@ -354,11 +376,13 @@ public class AssetBrowserPanel extends FrameLayout {
     }
 
     @NonNull
-    private TextView createIconButton(@NonNull String icon, @NonNull String color, int sizeDp) {
+    private TextView createIconButton(@NonNull String icon, int color, int sizeDp, int whatRes) {
         TextView tv = new TextView(getContext());
         tv.setTypeface(ResourcesCompat.getFont(getContext(), R.font.materialicons));
         tv.setText(icon);
-        tv.setTextColor(Color.parseColor(color));
+        tv.setTextColor(color);
+        SheetKit.label(tv, getContext().getString(whatRes));
+        SheetKit.press(tv);
         tv.setTextSize(sizeDp * 0.7f);
         tv.setGravity(Gravity.CENTER);
         float d = getResources().getDisplayMetrics().density;
@@ -375,6 +399,13 @@ public class AssetBrowserPanel extends FrameLayout {
         return tv;
     }
 
+    private int borderless() {
+        TypedValue outValue = new TypedValue();
+        getContext().getTheme().resolveAttribute(
+                android.R.attr.selectableItemBackgroundBorderless, outValue, true);
+        return outValue.resourceId;
+    }
+
     // ── Public API ──────────────────────────────────────────────
 
     /** Animate the panel down into view. */
@@ -386,7 +417,7 @@ public class AssetBrowserPanel extends FrameLayout {
         ValueAnimator scrimAnim = ValueAnimator.ofInt(0, 120);
         scrimAnim.addUpdateListener(a -> {
             int alpha = (int) a.getAnimatedValue();
-            setBackgroundColor(Color.argb(alpha, 0, 0, 0));
+            setBackgroundColor(Studio.alpha(Studio.GROUND, alpha));
         });
         scrimAnim.setDuration(200);
         scrimAnim.start();
@@ -429,7 +460,7 @@ public class AssetBrowserPanel extends FrameLayout {
         ValueAnimator scrimAnim = ValueAnimator.ofInt(120, 0);
         scrimAnim.addUpdateListener(a -> {
             int alpha = (int) a.getAnimatedValue();
-            setBackgroundColor(Color.argb(alpha, 0, 0, 0));
+            setBackgroundColor(Studio.alpha(Studio.GROUND, alpha));
         });
         scrimAnim.setDuration(200);
         scrimAnim.start();
@@ -547,15 +578,15 @@ public class AssetBrowserPanel extends FrameLayout {
         switch (filterMode) {
             case ALL:
                 btnFilter.setText("filter_list");
-                btnFilter.setTextColor(Color.parseColor("#FF8A8A94"));
+                btnFilter.setTextColor(Studio.DRAWER_DIM);
                 break;
             case USED:
                 btnFilter.setText("check_circle");
-                btnFilter.setTextColor(Color.parseColor("#FF35F6BF"));
+                btnFilter.setTextColor(Studio.GO);   // matches the adapter's "in use" check
                 break;
             case UNUSED:
                 btnFilter.setText("radio_button_unchecked");
-                btnFilter.setTextColor(Color.parseColor("#FFFBBF24"));
+                btnFilter.setTextColor(Studio.CAREFUL);
                 break;
         }
         applyFilter();

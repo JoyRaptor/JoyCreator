@@ -68,13 +68,7 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
-            }
-        });
+        SheetKit.install(dialog, null);
         return dialog;
     }
 
@@ -88,170 +82,69 @@ public class FlipPickerBottomSheet extends BottomSheetDialogFragment {
             flipV = getArguments().getBoolean("flipV", false);
         }
 
-        float dp = getResources().getDisplayMetrics().density;
-        Typeface materialIcons = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
-
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, (int) (12 * dp), 0, (int) (24 * dp));
+        root.setPadding(0, 0, 0, SheetKit.dp(requireContext(), 16));
 
-        // Title
-        TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_flip_title);
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setPadding((int) (20 * dp), (int) (12 * dp),
-                (int) (20 * dp), (int) (16 * dp));
-        root.addView(title);
+        root.addView(SheetKit.header(requireContext(),
+                getString(R.string.faditor_flip_title), null).view);
 
         // Horizontal flip row
-        root.addView(createFlipRow("Flip Horizontal", "flip",
-                flipH, materialIcons, dp, true));
+        root.addView(createFlipRow("Flip Horizontal", flipH, true));
 
         // Vertical flip row
-        root.addView(createFlipRow("Flip Vertical", "flip",
-                flipV, materialIcons, dp, false));
+        root.addView(createFlipRow("Flip Vertical", flipV, false));
 
         // Reset row
         if (flipH || flipV) {
-            root.addView(createResetRow(materialIcons, dp));
+            root.addView(createResetRow());
         }
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);
         scroll.addView(root);
-        return scroll;
+        return SheetKit.fitNavBar(scroll);
     }
 
     /**
-     * Creates a flip option row.
+     * Creates a flip option row. Tapping toggles that axis, reports both axes, and closes.
      */
-    private View createFlipRow(String label, String icon, boolean isActive,
-                               @Nullable Typeface materialIcons, float dp,
-                               boolean isHorizontal) {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackgroundResource(R.drawable.settings_home_row_bg);
-        int hPad = (int) (20 * dp);
-        int vPad = (int) (14 * dp);
-        row.setPadding(hPad, vPad, hPad, vPad);
-
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        rowLp.setMargins((int) (12 * dp), (int) (2 * dp), (int) (12 * dp), (int) (2 * dp));
-        row.setLayoutParams(rowLp);
-
-        // Icon
-        TextView iconView = new TextView(requireContext());
-        iconView.setTypeface(materialIcons);
-        iconView.setText(icon);
-        iconView.setTextSize(20);
-        iconView.setTextColor(isActive ? Studio.GO : Studio.INK_FAINT);
-        // Rotate 90 degrees for vertical flip icon
-        if (!isHorizontal) {
-            iconView.setRotation(90);
+    private View createFlipRow(String label, boolean isActive, boolean isHorizontal) {
+        SheetKit.Row row = SheetKit.row(requireContext(), "flip", label, isActive,
+                SheetKit.Trail.CHECK, v -> {
+                    if (isHorizontal) {
+                        flipH = !flipH;
+                    } else {
+                        flipV = !flipV;
+                    }
+                    if (callback != null) {
+                        callback.onFlipChanged(flipH, flipV);
+                    }
+                    dismiss();
+                });
+        // The same mirror glyph, turned a quarter, reads as the vertical axis.
+        if (!isHorizontal && row.icon != null) {
+            row.icon.setRotation(90);
         }
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
-                (int) (28 * dp), (int) (28 * dp));
-        iconLp.setMarginEnd((int) (16 * dp));
-        iconView.setLayoutParams(iconLp);
-        iconView.setGravity(Gravity.CENTER);
-        row.addView(iconView);
-
-        // Label
-        TextView labelView = new TextView(requireContext());
-        labelView.setText(label);
-        labelView.setTextSize(15);
-        labelView.setTextColor(isActive ? Studio.GO : Studio.INK_DIM);
-        labelView.setTypeface(null, isActive ? Typeface.BOLD : Typeface.NORMAL);
-        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        labelView.setLayoutParams(labelLp);
-        row.addView(labelView);
-
-        // Check/status
-        if (isActive) {
-            TextView check = new TextView(requireContext());
-            check.setTypeface(materialIcons);
-            check.setText("check");
-            check.setTextSize(20);
-            check.setTextColor(Studio.GO);
-            check.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
-                    (int) (24 * dp), (int) (24 * dp));
-            check.setLayoutParams(checkLp);
-            row.addView(check);
-        }
-
-        row.setOnClickListener(v -> {
-            if (isHorizontal) {
-                flipH = !flipH;
-            } else {
-                flipV = !flipV;
-            }
-            if (callback != null) {
-                callback.onFlipChanged(flipH, flipV);
-            }
-            dismiss();
-        });
-
-        return row;
+        return row.view;
     }
 
     /**
      * Creates a reset row to clear all flips.
      */
-    private View createResetRow(@Nullable Typeface materialIcons, float dp) {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackgroundResource(R.drawable.settings_home_row_bg);
-        int hPad = (int) (20 * dp);
-        int vPad = (int) (14 * dp);
-        row.setPadding(hPad, vPad, hPad, vPad);
-
-        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        rowLp.setMargins((int) (12 * dp), (int) (8 * dp), (int) (12 * dp), (int) (2 * dp));
-        row.setLayoutParams(rowLp);
-
-        // Icon
-        TextView iconView = new TextView(requireContext());
-        iconView.setTypeface(materialIcons);
-        iconView.setText("refresh");
-        iconView.setTextSize(20);
-        iconView.setTextColor(Studio.DANGER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
-                (int) (28 * dp), (int) (28 * dp));
-        iconLp.setMarginEnd((int) (16 * dp));
-        iconView.setLayoutParams(iconLp);
-        iconView.setGravity(Gravity.CENTER);
-        row.addView(iconView);
-
-        // Label
-        TextView labelView = new TextView(requireContext());
-        labelView.setText("Reset");
-        labelView.setTextSize(15);
-        labelView.setTextColor(Studio.DANGER);
-        labelView.setTypeface(null, Typeface.BOLD);
-        LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        labelView.setLayoutParams(labelLp);
-        row.addView(labelView);
-
-        row.setOnClickListener(v -> {
-            flipH = false;
-            flipV = false;
-            if (callback != null) {
-                callback.onFlipChanged(false, false);
-            }
-            dismiss();
-        });
-
-        return row;
+    private View createResetRow() {
+        SheetKit.Row row = SheetKit.row(requireContext(), "refresh", "Reset", false,
+                SheetKit.Trail.NONE, v -> {
+                    flipH = false;
+                    flipV = false;
+                    if (callback != null) {
+                        callback.onFlipChanged(false, false);
+                    }
+                    dismiss();
+                });
+        SheetKit.tintRow(row, Studio.DANGER, true);
+        ((LinearLayout.LayoutParams) row.view.getLayoutParams()).topMargin =
+                SheetKit.dp(requireContext(), 8);
+        return row.view;
     }
 }

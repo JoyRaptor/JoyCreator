@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings for the in-editor drawers: effects (FxPanel), the text drawer shell, the ease and
+  text-motion pickers, and the object menu sheet. Kept in their own file so the drawer polish
+  could land without touching strings.xml; safe to fold into it later, names unchanged.
+
+  Most of these are accessibility labels. They are also the hover tooltips a stylus or mouse
+  shows, so they are written as what the control DOES, in the owner's words where he has any.
+-->
+<resources>
+    <!-- Text drawer shell -->
+    <string name="faditor_lc_drawer_more">More ⌄</string>
+    <string name="faditor_lc_drawer_grip">Drawer handle. Drag to resize, tap to show more or close</string>
+
+    <!-- Effects panel -->
+    <string name="faditor_lc_fx_expand">Show this effect\'s settings</string>
+    <string name="faditor_lc_fx_collapse">Hide this effect\'s settings</string>
+    <string name="faditor_lc_fx_bypass">Bypass effect</string>
+    <string name="faditor_lc_fx_enable">Enable effect</string>
+    <string name="faditor_lc_fx_delete">Delete effect</string>
+    <string name="faditor_lc_fx_reorder">Hold and drag to reorder</string>
+
+    <!-- Keyframe control -->
+    <string name="faditor_lc_key_prev">Previous keyframe</string>
+    <string name="faditor_lc_key_next">Next keyframe</string>
+    <string name="faditor_lc_key_diamond">Keyframe. Tap to add or remove, hold to clear all</string>
+
+    <!-- Pickers -->
+    <string name="faditor_lc_ease_need_keys">Drop keyframes first</string>
+    <string name="faditor_lc_motion_title">Motion</string>
+    <string name="faditor_lc_motion_by">Animate by</string>
+    <string name="faditor_lc_gran_letter">Letter</string>
+    <string name="faditor_lc_gran_word">Word</string>
+    <string name="faditor_lc_gran_sentence">Sentence</string>
+    <string name="faditor_lc_gran_block">Block</string>
+
+    <!-- Object menu sheet -->
+    <string name="faditor_lc_sheet_grip">Sheet handle. Tap or drag up for every setting, drag down to close</string>
+    <string name="faditor_lc_sheet_legend">What the keyframe shapes mean</string>
+    <string name="faditor_lc_sheet_more">More…</string>
+    <string name="faditor_lc_sheet_move_to">Move to</string>
+    <string name="faditor_lc_sheet_jump">Type a time to jump to</string>
+    <string name="faditor_lc_sheet_push">Push through</string>
+    <string name="faditor_lc_sheet_snap">Snap</string>
+    <string name="faditor_lc_sheet_static_hint">Static — tap ♦ to animate</string>
+</resources>

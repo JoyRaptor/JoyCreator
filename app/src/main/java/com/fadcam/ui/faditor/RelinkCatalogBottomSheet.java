@@ -74,6 +74,8 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
     private LinearLayout listContainer;
     private TextView subtitleText;
     private TextView relinkAllButton;
+    /** The row that holds {@link #relinkAllButton}; it is what shows and hides. */
+    private View relinkAllRow;
 
     public void setCallback(@Nullable Callback callback) {
         this.callback = callback;
@@ -108,14 +110,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(
-                        R.drawable.picker_bottom_sheet_dark_gradient_bg);
-            }
-        });
+        SheetKit.install(dialog, null);
         return dialog;
     }
 
@@ -128,71 +123,47 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, (int) (12 * dp), 0, (int) (24 * dp));
+        root.setPadding(0, 0, 0, (int) (16 * dp));
 
-        // ── Title row ──────────────────────────────────────────
-        LinearLayout titleRow = new LinearLayout(requireContext());
-        titleRow.setOrientation(LinearLayout.HORIZONTAL);
-        titleRow.setGravity(Gravity.CENTER_VERTICAL);
-        titleRow.setPadding((int) (20 * dp), (int) (12 * dp),
-                (int) (20 * dp), (int) (4 * dp));
-
-        TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_relink_catalog_title);
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
-        titleRow.addView(title);
-
-        View spacer = new View(requireContext());
-        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(
-                0, 0, 1f);
-        titleRow.addView(spacer);
-
-        TextView doneBtn = new TextView(requireContext());
-        doneBtn.setText(R.string.faditor_relink_done);
-        doneBtn.setTextColor(Studio.GO);
-        doneBtn.setTextSize(14);
-        doneBtn.setTypeface(null, android.graphics.Typeface.BOLD);
-        doneBtn.setPadding((int) (8 * dp), 0, 0, 0);
-        doneBtn.setOnClickListener(v -> {
-            if (callback != null) callback.onCatalogClosed();
-            dismiss();
-        });
-        titleRow.addView(doneBtn);
-
-        root.addView(titleRow);
+        // ── Title row: title + Done ────────────────────────────
+        SheetKit.Header header = SheetKit.header(requireContext(),
+                getString(R.string.faditor_relink_catalog_title), null);
+        TextView doneBtn = SheetKit.pillButton(requireContext(),
+                getString(R.string.faditor_relink_done), false, v -> {
+                    if (callback != null) callback.onCatalogClosed();
+                    dismiss();
+                });
+        header.addTrailing(doneBtn);
+        root.addView(header.view);
 
         // ── Subtitle (count) ───────────────────────────────────
-        subtitleText = new TextView(requireContext());
-        subtitleText.setTextColor(Studio.INK_FAINT);
-        subtitleText.setTextSize(13);
-        subtitleText.setPadding((int) (20 * dp), 0,
-                (int) (20 * dp), (int) (12 * dp));
+        subtitleText = SheetKit.subtitle(requireContext(), "");
         root.addView(subtitleText);
 
         // ── "Relink All Missing" button ────────────────────────
-        relinkAllButton = new TextView(requireContext());
-        relinkAllButton.setText(R.string.faditor_relink_all);
-        relinkAllButton.setTextColor(Studio.CAREFUL);
-        relinkAllButton.setTextSize(14);
-        relinkAllButton.setTypeface(null, android.graphics.Typeface.BOLD);
-        relinkAllButton.setPadding((int) (20 * dp), (int) (8 * dp),
-                (int) (20 * dp), (int) (12 * dp));
-        relinkAllButton.setOnClickListener(v -> {
-            if (callback != null) callback.onRelinkAllRequested();
-        });
-        root.addView(relinkAllButton);
+        // A row, in CAREFUL: it is the thing to do next while anything is missing.
+        SheetKit.Row relinkAll = SheetKit.row(requireContext(), "link",
+                getString(R.string.faditor_relink_all), false, SheetKit.Trail.CHEVRON, v -> {
+                    if (callback != null) callback.onRelinkAllRequested();
+                });
+        SheetKit.tintRow(relinkAll, Studio.CAREFUL, true);
+        relinkAllButton = relinkAll.label;
+        relinkAllRow = relinkAll.view;
+        root.addView(relinkAllRow);
 
         // ── Scrollable media list ──────────────────────────────
         ScrollView scroll = new ScrollView(requireContext());
+        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        scrollLp.topMargin = (int) (6 * dp);
+        scroll.setLayoutParams(scrollLp);
         listContainer = new LinearLayout(requireContext());
         listContainer.setOrientation(LinearLayout.VERTICAL);
         scroll.addView(listContainer);
         root.addView(scroll);
 
         refreshList();
-        return root;
+        return SheetKit.fitNavBar(root);
     }
 
     private void refreshList() {
@@ -214,7 +185,7 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
             div.setBackgroundColor(Studio.LINE);
             LinearLayout.LayoutParams dlp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
-            dlp.setMargins((int) (20 * dp), 0, (int) (20 * dp), 0);
+            dlp.setMargins((int) (13 * dp), 0, (int) (13 * dp), 0);
             div.setLayoutParams(dlp);
             listContainer.addView(div);
         }
@@ -233,8 +204,8 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         }
 
         // Hide "Relink All" if nothing missing
-        if (relinkAllButton != null) {
-            relinkAllButton.setVisibility(missingCount > 0 ? View.VISIBLE : View.GONE);
+        if (relinkAllRow != null) {
+            relinkAllRow.setVisibility(missingCount > 0 ? View.VISIBLE : View.GONE);
         }
     }
 
@@ -243,8 +214,9 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
         LinearLayout row = new LinearLayout(requireContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding((int) (20 * dp), (int) (10 * dp),
-                (int) (20 * dp), (int) (10 * dp));
+        row.setPadding((int) (13 * dp), (int) (8 * dp),
+                (int) (13 * dp), (int) (8 * dp));
+        row.setMinimumHeight((int) (SheetKit.ROW_MIN_H_DP * dp));
 
         boolean missing = entry.status == Status.MISSING;
 
@@ -268,7 +240,8 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         // Name line
         TextView nameLine = new TextView(requireContext());
-        nameLine.setTextSize(14);
+        nameLine.setTextSize(13);
+        com.fadcam.ui.type.Type.body(nameLine, com.fadcam.ui.type.Type.MEDIUM);
         nameLine.setTextColor(missing ? Studio.CAREFUL : Studio.INK_DIM);
         nameLine.setSingleLine(true);
         nameLine.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
@@ -281,7 +254,8 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         // Detail line
         TextView detailLine = new TextView(requireContext());
-        detailLine.setTextSize(11);
+        detailLine.setTextSize(10);
+        com.fadcam.ui.type.Type.mono(detailLine, com.fadcam.ui.type.Type.REGULAR);
         detailLine.setTextColor(Studio.INK_FAINT);
         detailLine.setSingleLine(true);
         StringBuilder detail = new StringBuilder();
@@ -311,8 +285,9 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
 
         // Status badge
         TextView badge = new TextView(requireContext());
-        badge.setTextSize(11);
-        badge.setTypeface(null, android.graphics.Typeface.BOLD);
+        badge.setTextSize(10);
+        com.fadcam.ui.type.Type.mono(badge, com.fadcam.ui.type.Type.SEMIBOLD);
+        badge.setAllCaps(true);
         badge.setPadding((int) (6 * dp), (int) (2 * dp), (int) (6 * dp), (int) (2 * dp));
         if (missing) {
             badge.setText("✗ " + getString(R.string.faditor_relink_missing));
@@ -320,7 +295,9 @@ public class RelinkCatalogBottomSheet extends BottomSheetDialogFragment {
             row.setOnClickListener(v -> {
                 if (callback != null) callback.onRelinkRequested(entry);
             });
-            row.setBackgroundResource(android.R.color.transparent);
+            row.setBackground(SheetKit.rowBackground(requireContext()));
+            SheetKit.label(row, getString(R.string.faditor_relink_missing) + " — " + entry.displayName);
+            SheetKit.press(row);
         } else {
             badge.setText("✓ " + getString(R.string.faditor_relink_ok));
             badge.setTextColor(Studio.GO);

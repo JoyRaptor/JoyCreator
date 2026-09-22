@@ -39,12 +39,13 @@ import java.util.List;
 public final class PipDrawerTabs {
 
     private PipDrawerTabs() {}
-    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
-    // Same value it has always rendered; it simply asks for it by the right name now.
+    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp. Every chip, row,
+    // label, value, slider and checkbox below is built by ObjectDrawer.Kit (record 06's drawer
+    // components), so this file says WHAT each control is and the Kit says what it looks like.
+    // It used to carry its own chip (square, INK at 13%), its own row padding, and a drop
+    // shadow on every label — none of which any other drawer file agreed with.
 
     private static final int TXT = Studio.DRAWER_INK;
-    private static final int TXT_DIM = Studio.DRAWER_LABEL;
-    private static final int ACCENT = Studio.ROOM_AVATAR_DEEP;
     private static final int SLIDER_STEPS = 1000;
 
     /** Everything the tabs need back from the editor. */
@@ -74,13 +75,8 @@ public final class PipDrawerTabs {
     public static View withInertNote(@NonNull Context ctx, @NonNull View content, int noteRes) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
-        TextView note = new TextView(ctx);
-        note.setText(noteRes);
-        note.setTextColor(TXT_DIM);
-        note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        note.setPadding(Math.round(6 * d), Math.round(6 * d),
-                Math.round(6 * d), Math.round(6 * d));
+        TextView note = ObjectDrawer.Kit.note(ctx, ctx.getText(noteRes));
+        note.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
         root.addView(note);
         root.addView(content);
         // The row-refresh tag is looked up on the tab's ROOT view (see refreshRows), so wrapping a
@@ -175,13 +171,7 @@ public final class PipDrawerTabs {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
 
-        TextView labelView = new TextView(ctx);
-        labelView.setTextColor(TXT_DIM);
-        labelView.setTextSize(11);
-        labelView.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        labelView.setWidth(Math.round(52 * d));
-        labelView.setText(label);
-        row.addView(labelView);
+        row.addView(ObjectDrawer.Kit.rowLabel(ctx, label, 52));
 
         row.addView(chainToggle);
 
@@ -204,17 +194,13 @@ public final class PipDrawerTabs {
                                         @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
                                         float d) {
         FineSeekBar bar = new FineSeekBar(ctx);
+        ObjectDrawer.Kit.styleSlider(bar);
         bar.setMax(SLIDER_STEPS);
         final float min = propMin(prop), max = propMax(prop);
         float cur = prop.valueAt(host.playheadMs());
         bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        value.setWidth(Math.round(40 * d));
-        value.setGravity(Gravity.END);
+        TextView value = ObjectDrawer.Kit.value(ctx, 40);
         value.setText(prop.format(cur));
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -275,13 +261,7 @@ public final class PipDrawerTabs {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
 
-        TextView label = new TextView(ctx);
-        label.setTextColor(TXT_DIM);
-        label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        label.setWidth(Math.round(52 * d));
-        label.setText(prop.label());
-        row.addView(label);
+        row.addView(ObjectDrawer.Kit.rowLabel(ctx, prop.label(), 52));
 
         // SPEC F: the Rotate row is a DIAL, not a slider. A slider tops out and folds a
         // typed 720 back into its window on the next touch; the dial shows the winding
@@ -300,16 +280,12 @@ public final class PipDrawerTabs {
         } else {
             dial = null;
             bar = new FineSeekBar(ctx);
+            ObjectDrawer.Kit.styleSlider(bar);
             bar.setMax(SLIDER_STEPS);
             bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
         }
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        value.setWidth(Math.round(46 * d));
-        value.setGravity(Gravity.END);
+        TextView value = ObjectDrawer.Kit.value(ctx, 46);
         value.setText(prop.format(cur));
 
         if (bar != null) {
@@ -648,6 +624,7 @@ public final class PipDrawerTabs {
                 modeRow.removeAllViews();
                 sliderHost.removeAllViews();
                 TextView add = chip(ctx, "+", dp);
+                ObjectDrawer.Kit.describe(add, ctx.getString(R.string.lane_a_mask_add_shape));
                 add.setOnClickListener(v -> {
                     spec.addShape();
                     sel[0] = 0;
@@ -655,12 +632,12 @@ public final class PipDrawerTabs {
                     apply.run();
                 });
                 shapeGroup.addView(add);
-                TextView none = new TextView(ctx);
-                none.setText("No mask. Add one to show only part of this object.");
-                none.setTextColor(Studio.INK_FAINT);
+                // Drawer label ink, not INK_FAINT: #71717A over the scrim on a bright frame is
+                // the unreadable secondary text of record 06's CRITICAL 01.
+                TextView none = ObjectDrawer.Kit.note(ctx,
+                        "No mask. Add one to show only part of this object.");
                 none.setTextSize(11.5f);
-                none.setPadding(Math.round(8 * dp), Math.round(6 * dp),
-                        Math.round(8 * dp), Math.round(6 * dp));
+                none.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));
                 sliderHost.addView(none);
                 if (syncSelected[0] != null) syncSelected[0].run();
                 return;
@@ -672,11 +649,14 @@ public final class PipDrawerTabs {
             for (int i = 0; i < spec.masks.size(); i++) {
                 final int idx = i;
                 TextView c = chip(ctx, String.valueOf(i + 1), dp);
-                c.setBackgroundColor(idx == sel[0] ? Studio.alpha(Studio.INK, 0x66) : Studio.alpha(Studio.INK, 0x22));
+                // The selected shape is the ONE filled chip in the row (record 06 .dchip.on).
+                ObjectDrawer.Kit.setChipOn(c, idx == sel[0]);
+                ObjectDrawer.Kit.describe(c, ctx.getString(R.string.lane_a_mask_shape_n, i + 1));
                 c.setOnClickListener(v -> { sel[0] = idx; rebuild[0].run(); });
                 shapeGroup.addView(c);
             }
             TextView addChip = chip(ctx, "+", dp);
+            ObjectDrawer.Kit.describe(addChip, ctx.getString(R.string.lane_a_mask_add_shape));
             addChip.setOnClickListener(v -> {
                 CompositingSpec.MaskShape n = spec.addShape();
                 // Offset the newcomer so it is not hidden exactly under the shape it was
@@ -692,6 +672,7 @@ public final class PipDrawerTabs {
                 // Always offered, including for the LAST shape — removing it is how you get
                 // back to an unmasked object, which is where every object now starts.
                 TextView del = chip(ctx, "−", dp);
+                ObjectDrawer.Kit.describe(del, ctx.getString(R.string.lane_a_mask_remove_shape));
                 del.setOnClickListener(v -> {
                     // removeShape drops this slot's keyframe tracks and leaves every other
                     // slot alone, which is what stops shape 3's animation landing on shape 2.
@@ -801,8 +782,7 @@ public final class PipDrawerTabs {
         if (linkSource != null) {
             link = new CheckBox(ctx);
             link.setText("Move with the object");
-            link.setTextColor(TXT);
-            link.setTextSize(12);
+            ObjectDrawer.Kit.styleCheck(link);
             link.setChecked(!spec.masks.isEmpty() && spec.masks.get(sel[0]).linkedToObject);
             link.setOnCheckedChangeListener((b, on) -> {
                 if (spec.masks.isEmpty()) return;
@@ -846,23 +826,20 @@ public final class PipDrawerTabs {
 
         @Nullable final TextView hint;
         if (link != null) {
-            hint = new TextView(ctx);
-            hint.setText("Off: the mask stays put and the object moves under it. "
+            hint = ObjectDrawer.Kit.note(ctx,
+                    "Off: the mask stays put and the object moves under it. "
                     + "On: the mask travels with the object.");
-            hint.setTextColor(Studio.INK_FAINT);
             hint.setTextSize(11.5f);
-            hint.setPadding((int) (8 * d), 0, (int) (8 * d), (int) (6 * d));
+            hint.setPadding(0, 0, 0, (int) (6 * d));
             root.addView(hint);
         } else {
             hint = null;
         }
 
-        LinearLayout keyRow = new LinearLayout(ctx);
-        keyRow.setOrientation(LinearLayout.HORIZONTAL);
-        final TextView state = new TextView(ctx);
-        state.setTextColor(Studio.INK_FAINT);
+        LinearLayout keyRow = ObjectDrawer.Kit.row(ctx);
+        final TextView state = ObjectDrawer.Kit.note(ctx, "");
         state.setTextSize(11.5f);
-        state.setPadding((int) (8 * d), (int) (8 * d), 0, 0);
+        state.setPadding((int) (2 * d), 0, 0, 0);
         final Runnable refresh = () ->
                 state.setText(spec.hasMaskKeys() ? "animated" : "not animated");
 
@@ -923,24 +900,35 @@ public final class PipDrawerTabs {
         return kf == null ? fallback : kf.valueAt(property, t, fallback);
     }
 
+    /**
+     * A drawer chip with its layout params already set. The Kit draws it (record 06
+     * {@code .dchip}: round, drawer control fill, 1dp ring); this only places it. It used to be
+     * a square of screen INK at 13% with screen-white text — the one control in the drawer that
+     * was neither a pill nor on the drawer ramp. {@code d} is unused and kept so the dozen call
+     * sites above did not have to change shape.
+     */
     private static TextView chip(@NonNull Context ctx, @NonNull String label, float d) {
-        TextView t = new TextView(ctx);
-        t.setText(label);
-        t.setTextColor(Studio.INK);
-        t.setTextSize(12.5f);
-        int px = (int) (10 * d), py = (int) (6 * d);
-        t.setPadding(px, py, px, py);
-        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = (int) (8 * d);
-        t.setLayoutParams(lp);
+        TextView t = ObjectDrawer.Kit.chip(ctx, label);
+        t.setLayoutParams(ObjectDrawer.Kit.chipLp(ctx));
         return t;
     }
 
     // ── Tab 2: CHROMA KEY ────────────────────────────────────────────────────────────────
 
-    private static final int[] SWATCHES = {0x35F6BF, 0x050508, 0x000000, 0xF4F4F5};
+    /**
+     * CONTENT, not palette: the colours people actually shoot a key against — green screen, blue
+     * screen, black, white. These are the values the KEY is set to, so they must be the real
+     * screens, not the nearest app token.
+     *
+     * <p>Restored. The "373 colours become 28" token pass (e251de04) rewrote this table from
+     * {@code 00FF00 0000FF 000000 FFFFFF} to Studio green, near-black and off-white, so the
+     * "green screen" swatch has been keying #35F6BF — a mint no green screen is — and the
+     * "blue" one a black. That was a find-and-replace on values, not a design decision.</p>
+     */
+    private static final int[] SWATCHES = {0x00FF00, 0x0000FF, 0x000000, 0xFFFFFF};
+    /** Names for {@link #SWATCHES}, index-aligned. */
+    private static final int[] SWATCH_NAMES = {R.string.lane_a_key_green,
+            R.string.lane_a_key_blue, R.string.lane_a_key_black, R.string.lane_a_key_white};
 
     /**
      * Never took a {@code Clip} for anything but its type signature — the tab reads and writes
@@ -961,24 +949,25 @@ public final class PipDrawerTabs {
         body.setPadding(0, 0, 0, 0);
         root.addView(body);
 
-        final TextView colorLabel = new TextView(ctx);
-        colorLabel.setTextColor(TXT_DIM);
+        final TextView colorLabel = ObjectDrawer.Kit.note(ctx, "");
         colorLabel.setTextSize(11);
-        colorLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         body.addView(colorLabel);
+        // & 0x00FFFFFF, the RGB mask. The same token pass turned it into & 0xF4F4F5, which
+        // silently printed white as #F4F4F5 and zeroed low bits of every other key colour.
         Runnable refreshColor = () -> colorLabel.setText(ctx.getString(R.string.faditor_key_color)
-                + "  ·  " + String.format("#%06X", spec.keyColor & 0xF4F4F5));
+                + "  ·  " + String.format("#%06X", spec.keyColor & 0x00FFFFFF));
         refreshColor.run();
 
-        LinearLayout swatchRow = new LinearLayout(ctx);
-        swatchRow.setOrientation(LinearLayout.HORIZONTAL);
-        swatchRow.setGravity(Gravity.CENTER_VERTICAL);
-        for (int rgb : SWATCHES) {
+        LinearLayout swatchRow = ObjectDrawer.Kit.row(ctx);
+        for (int si = 0; si < SWATCHES.length; si++) {
+            final int rgb = SWATCHES[si];
             View sw = new View(ctx);
             GradientDrawable bg = new GradientDrawable();
             bg.setShape(GradientDrawable.OVAL);
             bg.setColor(Studio.GROUND | rgb);
-            bg.setStroke(Math.max(1, Math.round(1.5f * d)), Studio.INK_FAINT);
+            // A ring in the drawer's label ink so the black swatch exists at all on a dark scrim.
+            bg.setStroke(Math.max(1, Math.round(1.5f * d)), Studio.DRAWER_LABEL);
+            ObjectDrawer.Kit.describe(sw, ctx.getString(SWATCH_NAMES[si]));
             sw.setBackground(bg);
             LinearLayout.LayoutParams lp =
                     new LinearLayout.LayoutParams(Math.round(30 * d), Math.round(30 * d));
@@ -988,12 +977,10 @@ public final class PipDrawerTabs {
             sw.setOnClickListener(v -> { spec.keyColor = c; refreshColor.run(); apply.run(); });
             swatchRow.addView(sw);
         }
-        TextView dropper = new TextView(ctx);
-        dropper.setText(R.string.faditor_key_eyedropper);
-        dropper.setTextColor(ACCENT);
-        dropper.setTextSize(12);
-        dropper.setPadding(Math.round(6 * d), Math.round(6 * d),
-                Math.round(6 * d), Math.round(6 * d));
+        // A chip, not violet text: it is a control, and the violet was Avatar's room colour
+        // borrowed for "tap me" — a role it does not have.
+        TextView dropper = ObjectDrawer.Kit.chip(ctx, ctx.getText(R.string.faditor_key_eyedropper));
+        ObjectDrawer.Kit.pressable(dropper);
         dropper.setOnClickListener(v -> host.pickColorFromPreview(rgb -> {
             if (rgb == null) {
                 android.widget.Toast.makeText(ctx, R.string.faditor_key_eyedropper_failed,
@@ -1065,12 +1052,8 @@ public final class PipDrawerTabs {
         // The chip states the CURRENT mode and opens the grouped, columned popover.
         root.addView(BlendPickerPopover.chip(ctx, getMode, setMode, apply));
         if (!previewsLive) {
-            TextView note = new TextView(ctx);
-            note.setText(R.string.faditor_blend_export_note);
-            note.setTextColor(TXT_DIM);
-            note.setTextSize(10);
-            note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            note.setPadding(Math.round(6 * d), Math.round(6 * d), Math.round(6 * d), 0);
+            TextView note = ObjectDrawer.Kit.note(ctx, ctx.getText(R.string.faditor_blend_export_note));
+            note.setPadding(0, Math.round(6 * d), 0, 0);
             root.addView(note);
         }
         return root;
@@ -1083,7 +1066,8 @@ public final class PipDrawerTabs {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout l = new LinearLayout(ctx);
         l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(Math.round(14 * d), 0, Math.round(14 * d), Math.round(10 * d));
+        // 11dp sides: record 06 .dr / .dsec. It was 14.
+        l.setPadding(Math.round(11 * d), 0, Math.round(11 * d), Math.round(10 * d));
         return l;
     }
 
@@ -1093,19 +1077,14 @@ public final class PipDrawerTabs {
      */
     @NonNull
     private static LinearLayout row(@NonNull Context ctx) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        LinearLayout l = new LinearLayout(ctx);
-        l.setOrientation(LinearLayout.HORIZONTAL);
-        l.setPadding(0, Math.round(6 * d), 0, Math.round(2 * d));
-        return l;
+        return ObjectDrawer.Kit.row(ctx);
     }
 
     @NonNull
     private static CheckBox check(@NonNull Context ctx, int labelRes, boolean checked) {
         CheckBox cb = new CheckBox(ctx);
         cb.setText(labelRes);
-        cb.setTextColor(TXT);
-        cb.setTextSize(12);
+        ObjectDrawer.Kit.styleCheck(cb);
         cb.setChecked(checked);
         return cb;
     }
@@ -1133,34 +1112,22 @@ public final class PipDrawerTabs {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView label = new TextView(ctx);
-        label.setTextColor(TXT_DIM);
-        label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // 78dp wrapped "Soften edges" onto two lines, which made that one row taller than every
         // other and read as a layout fault (user, 2026-08-05). Widened rather than shortened:
         // the labels are already the shortest honest names for these controls, and at a larger
         // system font scale a shorter string would only move the wrap to a different row.
         // maxLines(1) is the belt to the braces — a translation longer than any English label
         // now ellipsizes instead of silently growing the drawer over the preview.
-        label.setWidth(Math.round(94 * d));
-        label.setMaxLines(1);
-        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        label.setText(ctx.getString(labelRes));
-        row.addView(label);
+        row.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(labelRes), 94));
 
         FineSeekBar bar = new FineSeekBar(ctx);
+        ObjectDrawer.Kit.styleSlider(bar);
         bar.setMax(max - min);
         bar.setProgress(Math.max(0, Math.min(max - min, initial - min)));
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // Wide enough for "-100" — a negative position used to be unreachable, and a value
         // column sized for "100" would ellipsize the very numbers that prove it now works.
-        value.setWidth(Math.round(40 * d));
-        value.setGravity(Gravity.END);
+        TextView value = ObjectDrawer.Kit.value(ctx, 40);
         value.setText(String.valueOf(initial));
 
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -1212,26 +1179,13 @@ public final class PipDrawerTabs {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView label = new TextView(ctx);
-        label.setTextColor(TXT_DIM);
-        label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        label.setWidth(Math.round(94 * d));
-        label.setMaxLines(1);
-        label.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        label.setText(ctx.getString(R.string.faditor_mask_rotate));
-        row.addView(label);
+        row.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.faditor_mask_rotate), 94));
 
         RotationDialView dial = new RotationDialView(ctx);
         dial.setDegrees(initial);
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         // Wide enough for "-45" and "720" — windings a mask can genuinely hold.
-        value.setWidth(Math.round(40 * d));
-        value.setGravity(Gravity.END);
+        TextView value = ObjectDrawer.Kit.value(ctx, 40);
         value.setText(String.valueOf(initial));
 
         // ‹ ◇ › — same nudge trio the other mask rows carry. The diamond stays the
@@ -1313,12 +1267,14 @@ public final class PipDrawerTabs {
                                                        float d) {
         android.widget.ImageView iv = new android.widget.ImageView(ctx);
         iv.setImageResource(iconRes);
-        iv.setContentDescription(name);
-        int pad = Math.round(5 * d);
+        ObjectDrawer.Kit.describe(iv, name);
+        // 36 × 36 with 8dp padding: the same 20dp glyph the old 34 × 30 / 5dp box fitted, in a
+        // box a finger can hit. The face is the Kit's: the selected mode is the filled one.
+        int pad = Math.round(8 * d);
         iv.setPadding(pad, pad, pad, pad);
-        iv.setBackgroundColor(selected ? Studio.alpha(Studio.INK, 0x66) : Studio.alpha(Studio.INK, 0x22));
+        ObjectDrawer.Kit.setIconOn(iv, selected);
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                Math.round(34 * d), Math.round(30 * d));
+                Math.round(36 * d), Math.round(36 * d));
         lp.rightMargin = Math.round(5 * d);
         iv.setLayoutParams(lp);
         iv.setOnLongClickListener(v -> {
@@ -1333,6 +1289,10 @@ public final class PipDrawerTabs {
     private static TextView stepper(@NonNull Context ctx, @NonNull String glyph, float d) {
         TextView t = new TextView(ctx);
         t.setText(glyph);
+        // ‹ and › are glyphs, not names: say what they do. The ◇ placeholder has no listener
+        // and is not a control, so it gets no name.
+        if ("‹".equals(glyph)) ObjectDrawer.Kit.describe(t, ctx.getString(R.string.lane_a_step_down));
+        else if ("›".equals(glyph)) ObjectDrawer.Kit.describe(t, ctx.getString(R.string.lane_a_step_up));
         t.setTextColor(TXT);
         t.setTextSize(15);
         t.setGravity(Gravity.CENTER);

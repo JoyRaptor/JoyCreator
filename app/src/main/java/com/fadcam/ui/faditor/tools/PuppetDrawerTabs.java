@@ -3,7 +3,6 @@ package com.fadcam.ui.faditor.tools;
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
-import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.InputType;
@@ -80,12 +79,34 @@ public final class PuppetDrawerTabs {
     private static final int TXT = Studio.DRAWER_INK;
     private static final int TXT_DIM = Studio.DRAWER_LABEL;
     private static final int TXT_FAINT = Studio.DRAWER_LABEL;
-    private static final int ROW_BG = Studio.alpha(Studio.LINE, 0x55);
-    private static final int ROW_LINE = Studio.alpha(Studio.INK, 0x33);
-    private static final int SUNK_BG = Studio.alpha(Studio.SUNK, 0x66);
-    private static final int GO = Studio.GO;
-    private static final int REC = Studio.DANGER;
-    private static final int OFF = Studio.INK_OFF;
+
+    // ── record 06 §02, the drawer's control vocabulary ──────────────────────────────────
+    // The glass values are white at a low alpha in the record. There is no role token for
+    // "drawer control glass" yet, so they are derived from DRAWER_INK — the white this
+    // drawer's text already is — rather than typed as hex. Same derivation as AudioDrawerTabs.
+    /** {@code --dctl} rgba(255,255,255,.10): a control's fill on the scrim. */
+    private static final int CTL_FILL = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    /** {@code --dring} rgba(255,255,255,.12): a control's 1dp inset ring. */
+    private static final int CTL_RING = Studio.alpha(Studio.DRAWER_INK, 0x1F);
+    /** {@code .dsl .tr} rgba(255,255,255,.18): the 4dp slider track. */
+    private static final int TRACK = Studio.alpha(Studio.DRAWER_INK, 0x2E);
+    /** {@code .lens} rgba(0,0,0,.36): the well a segmented switch sits in. */
+    private static final int WELL = Studio.alpha(Studio.GROUND, 0x5C);
+    private static final int SHADOW = Studio.alpha(Studio.GROUND, 0xCC);
+    /** An ON control is its colour at 70% — {@code .dchip.on}, {@code .dcb.on}, the slider fill. */
+    private static final int ON_ALPHA = 0xB3;
+    /** Ink on a saturated fill: the record's #050507, which is {@link Studio#ON_GO}. */
+    private static final int ON_FILL_INK = Studio.ON_GO;
+    /**
+     * RECORDING is LIVE, not DANGER. Studio.java draws the line in as many words: LIVE is the
+     * magenta of recording and the playhead, a normal state you want to see; DANGER is the red
+     * of something being lost. The record button wore DANGER, so "I am recording" and "this
+     * will destroy" were the same colour on the same tab — the one place that must not happen,
+     * because Start over lives three rows below it.
+     */
+    private static final int REC = Studio.LIVE;
+    /** Start over, and only Start over. */
+    private static final int DESTROY = Studio.DANGER;
     private static final int SLIDER_STEPS = 1000;
 
     /** What a touch on the picture means. Exactly one is armed at a time. */
@@ -176,6 +197,17 @@ public final class PuppetDrawerTabs {
         void deleteKeyAtPlayhead();
         void jumpToPrevKey();
         void jumpToNextKey();
+
+        /**
+         * The colour an ON control wears — record 06: "every on control is [the object's
+         * colour] at 70%". A puppet is a rigged PICTURE, so the default is the image's own
+         * identity hue; teal also sits clear of every pin-type hue on this tab (amber, pink,
+         * cyan, violet, blue), which a toggle's "on" must not be mistaken for.
+         *
+         * <p>Default so the editor needs no change to compile; a host that knows better can
+         * hand in the drawer's accent.
+         */
+        default int accent() { return com.fadcam.ui.faditor.layers.ObjectPalette.IMAGE; }
     }
 
     // ── the tab ──────────────────────────────────────────────────────────
@@ -257,9 +289,12 @@ public final class PuppetDrawerTabs {
         PuppetPin pin = rig.pin(index);
         final int hue = PuppetPalette.of(pin.type, rig.locked);
 
+        // Record 06 .dr: a 46dp line on the drawer's glass pill.
         LinearLayout row = row(ctx);
-        row.setBackground(rowBg(d, ROW_BG));
-        row.setPadding(pad(d, 9), pad(d, 4), pad(d, 5), pad(d, 4));
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(pad(d, 46));
+        row.setBackground(pill(d, CTL_FILL, CTL_RING));
+        row.setPadding(pad(d, 5), pad(d, 3), pad(d, 3), pad(d, 3));
 
         // THE TYPE, as the pin's own silhouette — and it CHANGES the type rather than only
         // reporting it. The drawer could show a pin's type and not set it, so the only way to
@@ -268,7 +303,9 @@ public final class PuppetDrawerTabs {
         // strip has. Same grammar in both places, deliberately.
         ImageView swatch = new ImageView(ctx);
         swatch.setImageDrawable(PuppetIcons.of(PuppetIcons.forType(pin.type), hue, pad(d, 17)));
-        swatch.setContentDescription(pin.typeLabel() + " pin. Tap to change type.");
+        hoverLabel(swatch, pin.typeLabel() + " pin. Tap to change type.");
+        // 22dp of glyph in a 32dp target: grow the hit area, not the icon.
+        swatch.setPadding(pad(d, 5), pad(d, 5), pad(d, 5), pad(d, 5));
         swatch.setOnClickListener(v -> {
             PuppetPin.Type[] all = PuppetPin.Type.values();
             PuppetPin.Type was = pin.type;
@@ -283,21 +320,25 @@ public final class PuppetDrawerTabs {
             host.rebuildRows();
             host.onChanged();
         });
-        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(pad(d, 22), pad(d, 22));
-        slp.rightMargin = pad(d, 7);
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(pad(d, 32), pad(d, 32));
+        slp.rightMargin = pad(d, 4);
         row.addView(swatch, slp);
 
-        // the name. This is the thing the assistant reads.
+        // the name. This is the thing the assistant reads. Record 06 .dh .nm: 12sp w700 in
+        // drawer ink, sat in a dark well so it reads as a field you can type into.
         EditText name = new EditText(ctx);
         name.setText(pin.name);
         name.setTextColor(TXT);
-        name.setTextSize(12.5f);
-        name.setTypeface(Typeface.DEFAULT_BOLD);
+        name.setTextSize(12f);
+        com.fadcam.ui.type.Type.body(name, com.fadcam.ui.type.Type.BOLD);
         name.setSingleLine(true);
         name.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         name.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-        name.setBackground(rowBg(d, Studio.alpha(Studio.INK, 0x22)));
-        name.setPadding(pad(d, 7), pad(d, 3), pad(d, 7), pad(d, 3));
+        name.setBackground(pill(d, WELL, CTL_RING));
+        name.setPadding(pad(d, 10), pad(d, 5), pad(d, 10), pad(d, 5));
+        name.setHint(R.string.lane_b_puppet_name);
+        name.setHintTextColor(TXT_DIM);
+        androidx.core.view.ViewCompat.setTooltipText(name, ctx.getString(R.string.lane_b_puppet_name));
         name.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) {}
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) {}
@@ -325,9 +366,12 @@ public final class PuppetDrawerTabs {
 
         // where you are in the pin's keys. Tiny, monospaced-ish, and the only reason the
         // diamond can go unlabelled: this says what it is acting on.
-        TextView pos = new TextView(ctx);
-        pos.setTextColor(TXT_FAINT);
-        pos.setTextSize(9.5f);
+        TextView pos = text(ctx, d, 9.5f, TXT_FAINT);
+        // A count the machine keeps: the mono face, tabular so "3/10" does not jitter.
+        com.fadcam.ui.type.Type.mono(pos, com.fadcam.ui.type.Type.MEDIUM);
+        pos.setFontFeatureSettings("tnum");
+        androidx.core.view.ViewCompat.setTooltipText(pos,
+                ctx.getString(R.string.lane_b_puppet_key_position));
         pos.setMinWidth(pad(d, 28));
         pos.setGravity(Gravity.END);
         LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(
@@ -385,19 +429,26 @@ public final class PuppetDrawerTabs {
         PuppetRig rig = host.rig();
         FrameLike wrap = new FrameLike(ctx);
         wrap.setGravity(Gravity.CENTER);
-        wrap.setBackground(rowBg(d, rig.recordOnTouch ? Studio.alpha(Studio.DANGER, 0x33) : 0x00000000,
-                rig.recordOnTouch ? REC : ROW_LINE, d));
+        // A 30dp ring inside a 40dp target. No press animation: this arms a take, and record
+        // 06 never animates keying.
+        GradientDrawable ring = new GradientDrawable();
+        ring.setShape(GradientDrawable.OVAL);
+        ring.setColor(rig.recordOnTouch ? Studio.alpha(REC, 0x33) : 0x00000000);
+        ring.setStroke(Math.max(1, pad(d, 1)), rig.recordOnTouch ? REC : CTL_RING);
+        wrap.setBackground(new android.graphics.drawable.InsetDrawable(ring, pad(d, 5)));
 
         View dotView = new View(ctx);
         GradientDrawable g = new GradientDrawable();
         g.setShape(GradientDrawable.OVAL);
-        g.setColor(rig.recordOnTouch ? REC : OFF);
+        // Idle is grey in the drawer's label ink — "off is grey, never a faded colour" —
+        // and bright enough to find on the scrim, which the old #4B4B55 dot was not.
+        g.setColor(rig.recordOnTouch ? REC : TXT_DIM);
         dotView.setBackground(g);
         wrap.addView(dotView, new LinearLayout.LayoutParams(pad(d, 10), pad(d, 10)));
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(pad(d, 30), pad(d, 30));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(pad(d, 40), pad(d, 40));
         wrap.setLayoutParams(lp);
-        wrap.setContentDescription(rig.recordOnTouch
+        hoverLabel(wrap, rig.recordOnTouch
                 ? "Recording when you touch a pin. Tap to stop."
                 : "Not recording on touch. Tap to arm.");
         wrap.setOnClickListener(v -> {
@@ -442,26 +493,37 @@ public final class PuppetDrawerTabs {
 
         LinearLayout cell = column(ctx);
         cell.setGravity(Gravity.CENTER);
-        cell.setPadding(pad(d, 1), pad(d, 7), pad(d, 1), pad(d, 6));
-        cell.setBackground(rowBg(d, on ? mix(hue, 0x26) : ROW_BG, on ? hue : ROW_LINE, d));
+        cell.setPadding(pad(d, 1), pad(d, 5), pad(d, 1), pad(d, 5));
+        cell.setMinimumHeight(pad(d, 44));
+        // Record 06's fill-pill (.dchip): a fully round glass capsule with a 1dp ring when
+        // idle; the tool in use is filled with its own colour at 70%, loses the ring, and its
+        // glyph and word go dark. That fill IS the "what am I doing" signal. It replaces the
+        // 4dp-cornered outlined box, which read as a form field rather than a control.
+        // Glyph over word stays — five pin types are not self-evident as glyphs (see above).
+        cell.setBackground(pill(d, on ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL,
+                on ? 0 : CTL_RING));
 
         ImageView glyph = new ImageView(ctx);
         // OFF is grey, never a faded colour — the rule SpriteIcons states and this set keeps.
-        glyph.setImageDrawable(PuppetIcons.of(icon, on ? hue : TXT_DIM, pad(d, 18)));
-        cell.addView(glyph, new LinearLayout.LayoutParams(pad(d, 18), pad(d, 18)));
+        glyph.setImageDrawable(PuppetIcons.of(icon, on ? ON_FILL_INK : TXT_DIM, pad(d, 16)));
+        cell.addView(glyph, new LinearLayout.LayoutParams(pad(d, 16), pad(d, 16)));
 
-        TextView text = new TextView(ctx);
+        TextView text = text(ctx, d, 10f, on ? ON_FILL_INK : TXT_DIM);
+        // A label on a filled pill carries no shadow; a shadow under dark ink is a smudge.
+        if (on) text.setShadowLayer(0f, 0f, 0f, 0);
+        com.fadcam.ui.type.Type.body(text, com.fadcam.ui.type.Type.SEMIBOLD);
         text.setText(label);
-        text.setTextSize(10f);
-        text.setTextColor(on ? TXT : TXT_DIM);
-        text.setTypeface(Typeface.DEFAULT_BOLD);
         text.setGravity(Gravity.CENTER);
         text.setSingleLine(true);
+        text.setEllipsize(android.text.TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        tlp.topMargin = pad(d, 3);
+        tlp.topMargin = pad(d, 2);
         cell.addView(text, tlp);
 
+        hoverLabel(cell, ctx.getString(on ? R.string.lane_b_puppet_tool_on
+                : R.string.lane_b_puppet_tool, label));
+        press(cell);
         cell.setOnClickListener(v -> {
             host.setTool(tool);
             host.rebuildRows();
@@ -477,9 +539,11 @@ public final class PuppetDrawerTabs {
 
     @NonNull
     private static View scopeRow(@NonNull Context ctx, @NonNull Host host, float d) {
+        // Record 06's segmented switch (.lens): a dark round well, the showing segment filled
+        // with the selected colour and dark ink. Concentric: well radius = segment radius + gap.
         LinearLayout row = row(ctx);
-        row.setBackground(rowBg(d, SUNK_BG, ROW_LINE, d));
-        row.setPadding(pad(d, 3), pad(d, 3), pad(d, 3), pad(d, 3));
+        row.setBackground(pill(d, WELL, 0));
+        row.setPadding(pad(d, 2), pad(d, 2), pad(d, 2), pad(d, 2));
         addScope(ctx, host, row, d, Scope.SELECTED, "Selected");
         addScope(ctx, host, row, d, Scope.CHARACTER, "Character");
         addScope(ctx, host, row, d, Scope.RECORDING, "Recording");
@@ -490,16 +554,21 @@ public final class PuppetDrawerTabs {
                                  @NonNull LinearLayout parent, float d,
                                  @NonNull Scope scope, @NonNull String label) {
         boolean on = host.scope() == scope;
-        TextView t = new TextView(ctx);
+        TextView t = text(ctx, d, 10f, on ? ON_FILL_INK : TXT_FAINT);
+        if (on) t.setShadowLayer(0f, 0f, 0f, 0);
+        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.SEMIBOLD);
         t.setText(label);
         t.setAllCaps(true);
-        t.setTextSize(10f);
-        t.setLetterSpacing(0.04f);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setTextColor(on ? TXT : TXT_FAINT);
+        t.setLetterSpacing(0.06f);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         t.setGravity(Gravity.CENTER);
+        t.setMinHeight(pad(d, 34));
         t.setPadding(pad(d, 3), pad(d, 6), pad(d, 3), pad(d, 6));
-        if (on) t.setBackground(rowBg(d, ROW_BG));
+        if (on) t.setBackground(pill(d, Studio.ARMED, 0));
+        hoverLabel(t, ctx.getString(on ? R.string.lane_b_puppet_scope_on
+                : R.string.lane_b_puppet_scope, label));
+        press(t);
         t.setOnClickListener(v -> { host.setScope(scope); host.rebuildRows(); });
         parent.addView(t, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
@@ -618,24 +687,33 @@ public final class PuppetDrawerTabs {
     @NonNull
     private static View dangerRow(@NonNull Context ctx, @NonNull Host host, float d,
                                   @NonNull String title, @NonNull String detail) {
-        LinearLayout cell = column(ctx);
-        cell.setBackground(rowBg(d, SUNK_BG, mix(REC, 0x99), d));
-        cell.setPadding(pad(d, 11), pad(d, 9), pad(d, 11), pad(d, 9));
+        // ONE line, not two: a two-line tap target reads as two controls. Title in the destroy
+        // colour, what it destroys beside it, cut with an ellipsis before it ever wraps — the
+        // spoken/hover label always carries the whole sentence.
+        LinearLayout cell = row(ctx);
+        cell.setGravity(Gravity.CENTER_VERTICAL);
+        cell.setMinimumHeight(pad(d, 44));
+        cell.setBackground(pill(d, WELL, Studio.alpha(DESTROY, 0x99)));
+        cell.setPadding(pad(d, 14), 0, pad(d, 14), 0);
 
-        TextView t = new TextView(ctx);
+        TextView t = text(ctx, d, 11.5f, DESTROY);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.SEMIBOLD);
         t.setText(title);
-        t.setTextSize(11.5f);
-        t.setTextColor(REC);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
+        t.setSingleLine(true);
         cell.addView(t);
 
-        TextView sub = new TextView(ctx);
-        sub.setText("Removes " + detail + " and every keyframe");
-        sub.setTextSize(10f);
-        sub.setTextColor(TXT_FAINT);
-        sub.setPadding(0, pad(d, 2), 0, 0);
-        cell.addView(sub);
+        String what = "Removes " + detail + " and every keyframe";
+        TextView sub = text(ctx, d, 10f, TXT_FAINT);
+        sub.setText(what);
+        sub.setSingleLine(true);
+        sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams sublp =
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        sublp.leftMargin = pad(d, 8);
+        cell.addView(sub, sublp);
 
+        hoverLabel(cell, title + ". " + what + ".");
+        press(cell);
         cell.setOnClickListener(v -> host.confirmResetRig());
         return cell;
     }
@@ -663,18 +741,24 @@ public final class PuppetDrawerTabs {
             boolean hot = i == sel;
             int hue = PuppetPalette.of(p.type, rig.locked);
 
+            // Record 06 .dchip: glass pill with a ring; the pin being edited is filled with its
+            // own type colour at 70% and loses the ring. 30dp visible inside a 40dp target.
             LinearLayout chip = row(ctx);
             chip.setGravity(Gravity.CENTER_VERTICAL);
-            chip.setBackground(rowBg(d, hot ? mix(hue, 0x33) : SUNK_BG,
-                    hot ? hue : ROW_LINE, d));
-            chip.setPadding(pad(d, 9), pad(d, 5), pad(d, 9), pad(d, 5));
+            int inset = pad(d, 5);
+            chip.setBackground(new android.graphics.drawable.InsetDrawable(
+                    pill(d, hot ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL, hot ? 0 : CTL_RING),
+                    0, inset, 0, inset));
+            chip.setPadding(pad(d, 13), pad(d, 7) + inset, pad(d, 13), pad(d, 7) + inset);
+            chip.setMinimumHeight(pad(d, 40));
 
-            TextView t = new TextView(ctx);
+            TextView t = text(ctx, d, 11f, hot ? ON_FILL_INK : Studio.DRAWER_DIM);
+            if (hot) t.setShadowLayer(0f, 0f, 0f, 0);
+            com.fadcam.ui.type.Type.body(t, hot ? com.fadcam.ui.type.Type.BOLD
+                    : com.fadcam.ui.type.Type.SEMIBOLD);
             t.setText(p.name);
-            t.setTextSize(10.5f);
-            t.setTextColor(hot ? TXT : TXT_DIM);
-            t.setTypeface(Typeface.DEFAULT_BOLD);
             t.setSingleLine(true);
+            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
             chip.addView(t);
 
             // THE DOT. Only when there is something to see — an always-present dot would be
@@ -684,13 +768,16 @@ public final class PuppetDrawerTabs {
                 View dot = new View(ctx);
                 GradientDrawable g = new GradientDrawable();
                 g.setShape(GradientDrawable.OVAL);
+                // On the filled chip the dot takes the chip's dark ink — a hue dot on its own
+                // hue fill would vanish, and it is information, not decoration.
+                int dotInk = hot ? ON_FILL_INK : hue;
                 // A dangle pin is SIMULATED, so its dot is hollow: it has motion but no keys,
                 // and a solid dot beside a pin whose tape is empty would be a straight lie.
                 if (simulated) {
                     g.setColor(0x00000000);
-                    g.setStroke(Math.max(1, Math.round(d)), hue);
+                    g.setStroke(Math.max(1, Math.round(d)), dotInk);
                 } else {
-                    g.setColor(hue);
+                    g.setColor(dotInk);
                 }
                 dot.setBackground(g);
                 LinearLayout.LayoutParams dlp =
@@ -699,6 +786,9 @@ public final class PuppetDrawerTabs {
                 chip.addView(dot, dlp);
             }
 
+            hoverLabel(chip, ctx.getString(hot ? R.string.lane_b_puppet_chip_on
+                    : R.string.lane_b_puppet_chip, p.name));
+            press(chip);
             chip.setOnClickListener(v -> {
                 host.setSelectedPin(index);
                 host.setSelectedBone(-1);
@@ -835,8 +925,8 @@ public final class PuppetDrawerTabs {
     private static void characterRows(@NonNull Context ctx, @NonNull Host host,
                                       @NonNull LinearLayout root, float d) {
         PuppetRig rig = host.rig();
-        slider(ctx, root, host, d, "Softness", GO, rig.softness, true, v -> rig.softness = v);
-        slider(ctx, root, host, d, "Mesh detail", GO, rig.meshDetail, false, v -> rig.meshDetail = v);
+        slider(ctx, root, host, d, "Softness", host.accent(), rig.softness, true, v -> rig.softness = v);
+        slider(ctx, root, host, d, "Mesh detail", host.accent(), rig.meshDetail, false, v -> rig.meshDetail = v);
         slider(ctx, root, host, d, "Gravity", PuppetPalette.DANGLE, rig.gravity, false,
                 v -> rig.gravity = v);
         // WIND. PuppetRigSolver.paramsFor has taken both of these since it was written and
@@ -859,9 +949,9 @@ public final class PuppetDrawerTabs {
         gap(ctx, root, d, 7);
 
         root.addView(fold(ctx, d, "Rarely needed"));
-        slider(ctx, root, host, d, "Edge threshold", GO, rig.edgeThreshold, false,
+        slider(ctx, root, host, d, "Edge threshold", host.accent(), rig.edgeThreshold, false,
                 v -> rig.edgeThreshold = v);
-        slider(ctx, root, host, d, "Edge expansion", GO, rig.edgeExpansion, false,
+        slider(ctx, root, host, d, "Edge expansion", host.accent(), rig.edgeExpansion, false,
                 v -> rig.edgeExpansion = v);
 
         // The LOCK is deliberately NOT here. It lives on the puppet badge in the corner of the
@@ -902,10 +992,10 @@ public final class PuppetDrawerTabs {
         root.addView(pair);
         gap(ctx, root, d, 7);
 
-        slider(ctx, root, host, d, "Detail of recorded moves", GO, rig.detail, false,
+        slider(ctx, root, host, d, "Detail of recorded moves", host.accent(), rig.detail, false,
                 v -> rig.detail = v);
         // Stored in ms, shown as a fraction of half a second — a number nobody wants to type.
-        slider(ctx, root, host, d, "Blend out", GO, rig.blendOutMs / 500f, false,
+        slider(ctx, root, host, d, "Blend out", host.accent(), rig.blendOutMs / 500f, false,
                 v -> rig.blendOutMs = Math.round(v * 500f));
         root.addView(hint(ctx, d,
                 "A punch-in starts where the old move was, and eases back at the end"));
@@ -937,10 +1027,12 @@ public final class PuppetDrawerTabs {
                                   @NonNull Host host, float d, @NonNull String label, int hue,
                                   float value, boolean eye, @NonNull FloatSink sink,
                                   @NonNull Readout readout) {
+        // Record 06 .dr: a bare 46dp line on the scrim — no box behind it. The label is the
+        // record's section label (.dsec), the number its mono value, the bar its .dsl.
         LinearLayout row = row(ctx);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setBackground(rowBg(d, ROW_BG));
-        row.setPadding(pad(d, 6), pad(d, 5), pad(d, 10), pad(d, 5));
+        row.setMinimumHeight(pad(d, 46));
+        row.setPadding(0, pad(d, 2), pad(d, 4), pad(d, 2));
 
         if (eye) {
             // THE REACH RING, which is what this eye has always claimed to control. It used to
@@ -950,38 +1042,38 @@ public final class PuppetDrawerTabs {
             ImageView eyeView = new ImageView(ctx);
             boolean showing = host.rig().showReach;
             eyeView.setImageDrawable(PuppetIcons.of(PuppetIcons.EYE,
-                    showing ? hue : OFF, pad(d, 16)));
+                    showing ? hue : TXT_DIM, pad(d, 16)));
+            // A 16dp eye in a 32dp target: grow the hit area, not the glyph.
+            eyeView.setPadding(pad(d, 8), pad(d, 8), pad(d, 8), pad(d, 8));
+            hoverLabel(eyeView, ctx.getString(showing ? R.string.lane_b_puppet_eye_on
+                    : R.string.lane_b_puppet_eye_off));
             eyeView.setOnClickListener(v -> {
                 host.rig().showReach = !host.rig().showReach;
                 host.rebuildRows();
                 host.onChanged();
             });
             LinearLayout.LayoutParams elp =
-                    new LinearLayout.LayoutParams(pad(d, 24), pad(d, 24));
-            elp.rightMargin = pad(d, 7);
+                    new LinearLayout.LayoutParams(pad(d, 32), pad(d, 32));
+            elp.rightMargin = pad(d, 3);
             row.addView(eyeView, elp);
         } else {
             View spacer = new View(ctx);
             LinearLayout.LayoutParams slp =
-                    new LinearLayout.LayoutParams(pad(d, 24), pad(d, 1));
-            slp.rightMargin = pad(d, 7);
+                    new LinearLayout.LayoutParams(pad(d, 32), pad(d, 1));
+            slp.rightMargin = pad(d, 3);
             row.addView(spacer, slp);
         }
 
         LinearLayout body = column(ctx);
 
         LinearLayout top = row(ctx);
-        TextView lab = new TextView(ctx);
-        lab.setText(label);
-        lab.setTextSize(10.5f);
-        lab.setTextColor(TXT_DIM);
-        lab.setTypeface(Typeface.DEFAULT_BOLD);
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView lab = sectionLabel(ctx, d, label);
+        lab.setPadding(0, 0, pad(d, 6), 0);
         top.addView(lab, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView val = new TextView(ctx);
-        val.setTextSize(10.5f);
-        val.setTextColor(TXT);
+        TextView val = valueText(ctx, d);
         val.setText(readout.of(value));
         top.addView(val);
         body.addView(top);
@@ -989,9 +1081,9 @@ public final class PuppetDrawerTabs {
         SeekBar bar = new SeekBar(ctx);
         bar.setMax(SLIDER_STEPS);
         bar.setProgress(Math.round(clamp01(value) * SLIDER_STEPS));
-        bar.getProgressDrawable().setTint(hue);
-        bar.getThumb().setTint(hue);
-        bar.setPadding(0, pad(d, 2), 0, pad(d, 2));
+        styleSlider(bar, d, hue);
+        bar.setContentDescription(label);
+        bar.setPadding(pad(d, 8), pad(d, 4), pad(d, 8), pad(d, 4));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             /** The value the drag started from — the ONE thing undo has to put back. */
             private float before = value;
@@ -1035,7 +1127,7 @@ public final class PuppetDrawerTabs {
         row.addView(body, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(row);
-        gap(ctx, root, d, 7);
+        gap(ctx, root, d, 3);
     }
 
     /**
@@ -1070,27 +1162,28 @@ public final class PuppetDrawerTabs {
                 : String.format(java.util.Locale.US, "%.2f", v);
     }
 
-    /** A number you can read and cannot change. Shares its line, like everything else here. */
+    /**
+     * A number you can read and cannot change. Shares its line, like everything else here.
+     *
+     * <p>Record 06's scrub typography (.dscrub: small label, mono value) with NO pill and no
+     * ring: the pill is what says "this is a control", and a readout is not one.
+     */
     private static void addReadout(@NonNull Context ctx, @NonNull LinearLayout parent, float d,
                                    @NonNull String label, @NonNull String value) {
         LinearLayout cell = row(ctx);
         cell.setGravity(Gravity.CENTER_VERTICAL);
-        cell.setBackground(rowBg(d, SUNK_BG, ROW_LINE, d));
-        cell.setPadding(pad(d, 8), pad(d, 6), pad(d, 8), pad(d, 6));
+        cell.setMinimumHeight(pad(d, 32));
+        cell.setPadding(pad(d, 2), 0, pad(d, 8), 0);
 
-        TextView l = new TextView(ctx);
+        TextView l = text(ctx, d, 9.5f, TXT_FAINT);
         l.setText(label);
-        l.setTextSize(10.5f);
-        l.setTextColor(TXT_FAINT);
         l.setSingleLine(true);
+        l.setEllipsize(android.text.TextUtils.TruncateAt.END);
         cell.addView(l, new LinearLayout.LayoutParams(
                 0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView v = new TextView(ctx);
+        TextView v = valueText(ctx, d);
         v.setText(value);
-        v.setTextSize(10.5f);
-        v.setTextColor(TXT);
-        v.setTypeface(Typeface.DEFAULT_BOLD);
         v.setSingleLine(true);
         cell.addView(v);
 
@@ -1102,33 +1195,39 @@ public final class PuppetDrawerTabs {
 
     private interface BoolSink { void accept(boolean v); }
 
-    /** A toggle that shares its line. Never gets one of its own — that is the whole point. */
+    /**
+     * A toggle that shares its line. Never gets one of its own — that is the whole point.
+     *
+     * <p>Record 06's drawer checkbox (.dcb): an 18dp box, then the word; the whole 44dp cell is
+     * the target. On = the box filled with the accent at 70% and a dark tick, word in drawer
+     * ink. It replaces a boxed cell with a GO-green pip — GO is the colour of pressing to make
+     * something happen, and a toggle's state is not that.
+     */
     private static void addToggle(@NonNull Context ctx, @NonNull Host host,
                                   @NonNull LinearLayout parent, float d,
                                   @NonNull String label, boolean on, @NonNull BoolSink sink) {
         LinearLayout cell = row(ctx);
         cell.setGravity(Gravity.CENTER_VERTICAL);
-        cell.setBackground(rowBg(d, ROW_BG, on ? mix(GO, 0x88) : ROW_LINE, d));
-        cell.setPadding(pad(d, 8), pad(d, 6), pad(d, 8), pad(d, 6));
+        cell.setMinimumHeight(pad(d, 44));
+        cell.setPadding(pad(d, 2), 0, pad(d, 4), 0);
 
-        TextView t = new TextView(ctx);
+        View box = new View(ctx);
+        box.setBackground(checkBoxFace(ctx, d, host.accent(), on));
+        cell.addView(box, new LinearLayout.LayoutParams(pad(d, 18), pad(d, 18)));
+
+        TextView t = text(ctx, d, 11.5f, on ? TXT : Studio.DRAWER_DIM);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.MEDIUM);
         t.setText(label);
-        t.setTextSize(10.5f);
-        t.setTextColor(on ? TXT : TXT_DIM);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
         t.setSingleLine(true);
-        cell.addView(t, new LinearLayout.LayoutParams(
-                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        LinearLayout.LayoutParams tlp =
+                new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        tlp.leftMargin = pad(d, 8);
+        cell.addView(t, tlp);
 
-        View pip = new View(ctx);
-        GradientDrawable g = new GradientDrawable();
-        g.setShape(GradientDrawable.OVAL);
-        g.setColor(on ? GO : OFF);
-        pip.setBackground(g);
-        LinearLayout.LayoutParams plp = new LinearLayout.LayoutParams(pad(d, 10), pad(d, 10));
-        plp.leftMargin = pad(d, 6);
-        cell.addView(pip, plp);
-
+        hoverLabel(cell, ctx.getString(on ? R.string.lane_b_puppet_toggle_on
+                : R.string.lane_b_puppet_toggle_off, label));
+        press(cell);
         cell.setOnClickListener(v -> {
             sink.accept(!on);
             host.rebuildRows();
@@ -1143,26 +1242,18 @@ public final class PuppetDrawerTabs {
 
     // ── small pieces ─────────────────────────────────────────────────────
 
+    /** "Rarely needed" — the record's section label, like every other heading on the tab. */
     @NonNull
     private static View fold(@NonNull Context ctx, float d, @NonNull String text) {
-        TextView t = new TextView(ctx);
-        t.setText(text);
-        t.setAllCaps(true);
-        t.setTextSize(9.5f);
-        t.setLetterSpacing(0.08f);
-        t.setTypeface(Typeface.DEFAULT_BOLD);
-        t.setTextColor(TXT_FAINT);
-        t.setPadding(pad(d, 2), pad(d, 6), pad(d, 2), pad(d, 6));
+        TextView t = sectionLabel(ctx, d, text);
+        t.setPadding(pad(d, 2), pad(d, 7), pad(d, 2), pad(d, 3));
         return t;
     }
 
     @NonNull
     private static View hint(@NonNull Context ctx, float d, @NonNull String text) {
-        TextView t = new TextView(ctx);
+        TextView t = text(ctx, d, 10.5f, TXT_FAINT);
         t.setText(text);
-        t.setTextSize(10.5f);
-        t.setTextColor(TXT_FAINT);
-        t.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         t.setPadding(pad(d, 2), pad(d, 5), pad(d, 2), pad(d, 3));
         return t;
     }
@@ -1191,23 +1282,150 @@ public final class PuppetDrawerTabs {
                 ViewGroup.LayoutParams.MATCH_PARENT, pad(d, dp)));
     }
 
+    // ── the drawer kit: ONE builder per visual (record 06 §02) ──────────────────────────
+    // Text, section label, value, pill, slider face, checkbox face, press, hover label.
+    // Nothing above sets a colour, a font or a corner of its own. AudioDrawerTabs carries the
+    // same kit; the report that came with this pass names the signature to lift into one
+    // shared class once the drawer lanes merge.
+
+    /** Plain drawer text: body face, drawer ink, and the shadow every drawer word carries. */
     @NonNull
-    private static GradientDrawable rowBg(float d, int fill) {
-        return rowBg(d, fill, 0, d);
+    private static TextView text(@NonNull Context ctx, float d, float sp, int colour) {
+        TextView t = new TextView(ctx);
+        t.setTextSize(sp);
+        t.setTextColor(colour);
+        t.setShadowLayer(3f * d, 0f, 1f, SHADOW);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.REGULAR);
+        return t;
     }
 
+    /**
+     * Record 06 {@code .dsec}: IBM Plex Mono 8sp, .14em, UPPERCASE, {@code --dlabel} — the
+     * colour the record measured at 4.86:1 over the dark scrim. Single line, ellipsised.
+     */
     @NonNull
-    private static GradientDrawable rowBg(float d, int fill, int stroke, float unused) {
+    private static TextView sectionLabel(@NonNull Context ctx, float d, @NonNull String label) {
+        TextView t = text(ctx, d, 8f, TXT_DIM);
+        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
+        t.setAllCaps(true);
+        t.setLetterSpacing(0.14f);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setText(label);
+        return t;
+    }
+
+    /** Record 06 {@code .dscrub b}: mono 12sp w600, drawer ink, tabular so digits do not jitter. */
+    @NonNull
+    private static TextView valueText(@NonNull Context ctx, float d) {
+        TextView t = text(ctx, d, 12f, TXT);
+        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.SEMIBOLD);
+        t.setFontFeatureSettings("tnum");
+        return t;
+    }
+
+    /**
+     * Record 06 {@code .dsl}: a 4dp {@code rgba(255,255,255,.18)} track, the colour at 70% for
+     * the filled part, and a 15dp white thumb. The colour stays the slider's own (a pin type's
+     * hue, or the rig's) — it says which thing the number belongs to.
+     */
+    private static void styleSlider(@NonNull SeekBar bar, float d, int hue) {
+        GradientDrawable bg = rounded(d, TRACK, 0, 999);
+        GradientDrawable fill = rounded(d, Studio.alpha(hue, ON_ALPHA), 0, 999);
+        android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
+                fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
+        android.graphics.drawable.LayerDrawable layers =
+                new android.graphics.drawable.LayerDrawable(
+                        new android.graphics.drawable.Drawable[]{bg, clip});
+        layers.setId(0, android.R.id.background);
+        layers.setId(1, android.R.id.progress);
+        for (int i = 0; i < 2; i++) {
+            layers.setLayerGravity(i, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
+            layers.setLayerHeight(i, pad(d, 4));
+        }
+        bar.setProgressDrawable(layers);
+        GradientDrawable thumb = new GradientDrawable();
+        thumb.setShape(GradientDrawable.OVAL);
+        thumb.setColor(TXT);
+        thumb.setSize(pad(d, 15), pad(d, 15));
+        bar.setThumb(thumb);
+        bar.setSplitTrack(false);
+    }
+
+    /**
+     * One face of record 06's drawer checkbox (.dcb): an 18dp box, radius 5 — a 1.5dp
+     * {@code --dlabel} ring when off; the accent at 70% with a dark tick when on.
+     */
+    @NonNull
+    private static android.graphics.drawable.Drawable checkBoxFace(@NonNull Context ctx, float d,
+                                                                  int accent, boolean on) {
+        int size = pad(d, 18);
+        if (!on) {
+            GradientDrawable off = rounded(d, 0x00000000, 0, 5);
+            off.setStroke(Math.round(1.5f * d), TXT_DIM);
+            off.setSize(size, size);
+            return off;
+        }
+        GradientDrawable fill = rounded(d, Studio.alpha(accent, ON_ALPHA), 0, 5);
+        fill.setSize(size, size);
+        android.graphics.drawable.Drawable tick =
+                androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.ic_check);
+        if (tick == null) return fill;
+        tick = tick.mutate();
+        tick.setTint(ON_FILL_INK);
+        android.graphics.drawable.LayerDrawable face =
+                new android.graphics.drawable.LayerDrawable(
+                        new android.graphics.drawable.Drawable[]{fill, tick});
+        face.setLayerGravity(1, Gravity.CENTER);
+        face.setLayerSize(1, pad(d, 13), pad(d, 13));
+        return face;
+    }
+
+    /** A fully round shape — "Fill=Pill controls". {@code ring} 0 = none. */
+    @NonNull
+    private static GradientDrawable pill(float d, int fill, int ring) {
+        return rounded(d, fill, ring, 999);
+    }
+
+    /** A rounded rect with an optional 1dp ring ({@code ring} 0 = none). */
+    @NonNull
+    private static GradientDrawable rounded(float d, int fill, int ring, int radiusDp) {
         GradientDrawable g = new GradientDrawable();
         g.setColor(fill);
-        g.setCornerRadius(4f * d);
-        if (stroke != 0) g.setStroke(Math.max(1, Math.round(d)), stroke);
+        g.setCornerRadius(radiusDp * d);
+        if (ring != 0) g.setStroke(Math.max(1, Math.round(d)), ring);
         return g;
     }
 
-    /** The hue at {@code alpha}, for a tinted background that still shows the video behind it. */
-    private static int mix(int argb, int alpha) {
-        return (alpha << 24) | (argb & 0x00FFFFFF);
+    /**
+     * Press feedback: 140ms to 0.97 on the record's ease-out, and back. Transform only;
+     * returns false so the view's own click still fires. Not used on the record button or the
+     * ‹♦› — record 06 never animates keying.
+     */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    private static void press(@NonNull View v) {
+        v.setOnTouchListener((view, e) -> {
+            int a = e.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_DOWN) {
+                view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(140)
+                        .setInterpolator(EASE_OUT).start();
+            } else if (a == android.view.MotionEvent.ACTION_UP
+                    || a == android.view.MotionEvent.ACTION_CANCEL) {
+                view.animate().scaleX(1f).scaleY(1f).setDuration(140)
+                        .setInterpolator(EASE_OUT).start();
+            }
+            return false;
+        });
+    }
+
+    /** Record 06 {@code --ease-out}: cubic-bezier(.23,1,.32,1). Never ease-in. */
+    private static final android.view.animation.Interpolator EASE_OUT =
+            new android.view.animation.PathInterpolator(0.23f, 1f, 0.32f, 1f);
+
+    /** Spoken name AND hover tooltip — a stylus or a mouse shows it on Android. */
+    private static void hoverLabel(@NonNull View v, @NonNull CharSequence label) {
+        v.setContentDescription(label);
+        androidx.core.view.ViewCompat.setTooltipText(v, label);
     }
 
     @NonNull

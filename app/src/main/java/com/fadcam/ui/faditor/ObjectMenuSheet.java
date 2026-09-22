@@ -239,11 +239,23 @@ public final class ObjectMenuSheet extends LinearLayout {
 
     private static final int SLIDER_STEPS = 1000;
     private static final int BG = Studio.RAISED;
-    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
-    // Same value it has always rendered; it simply asks for it by the right name now.
-    private static final int TXT_DIM = Studio.DRAWER_LABEL;
-    private static final int TXT = Studio.DRAWER_DIM;
+    // This sheet is OPAQUE (RAISED), not a scrim — so it takes the SCREEN ramp, which is the
+    // one for text on a solid surface. The comment that used to sit here said "over the frosted
+    // scrim", and that was never true of this class; the drawer ramp belongs over video only.
+    // TXT goes UP (#C9C9D3 to #E4E4E7: body ink was a dim, now it is ink); TXT_DIM is the
+    // shared label rung, the identical value it had.
+    private static final int TXT_DIM = Studio.LABEL;
+    private static final int TXT = Studio.INK;
+    /** "More…" is the sheet's one ACTION — go colour. Nothing else here wears it now. */
     private static final int ACCENT = Studio.GO;
+    /**
+     * A checked box. It was the go green, which made "Snap is on" look like a button to press.
+     * Checked is a state: the selected cyan.
+     */
+    private static final int CHECKED = Studio.ARMED;
+    /** A slider's filled part: plain ink. The sheet is not told the object's identity colour
+     *  (its swatch is the user's TEXT colour, which may be black), so it claims no colour. */
+    private static final int SLIDER_FILL = Studio.LABEL;
     private static final int DESTRUCTIVE = Studio.DANGER;
 
     private final float density;
@@ -336,12 +348,16 @@ public final class ObjectMenuSheet extends LinearLayout {
         titleView.setSingleLine(true);
         titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         headerRow.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        TextView legendBtn = glyphButton("?", ACCENT);
+        // Label ink, not go green: this explains, it does not act, and one green per view is
+        // "More…". Named, because "?" is not a label.
+        TextView legendBtn = glyphButton("?", TXT_DIM);
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.describe(legendBtn, ctx.getString(com.fadcam.R.string.faditor_lc_sheet_legend));
         legendBtn.setOnClickListener(v -> showGlyphLegend());
         headerRow.addView(legendBtn);
         // No trash here: the timeline selection badge is the ONE delete affordance
         // (JoyRaptor 2026-07-17) — × stays on the right.
         TextView closeBtn = glyphButton("✕", TXT_DIM);
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.describe(closeBtn, ctx.getString(com.fadcam.R.string.universal_close));
         closeBtn.setOnClickListener(v -> hide());
         headerRow.addView(closeBtn);
         addView(headerRow);
@@ -359,12 +375,14 @@ public final class ObjectMenuSheet extends LinearLayout {
         actionsBox.setOrientation(VERTICAL);
         content.addView(actionsBox);
         moreBtn = new TextView(ctx);
-        moreBtn.setText("More…"); // TODO(strings)
+        moreBtn.setText(com.fadcam.R.string.faditor_lc_sheet_more);
         moreBtn.setTextColor(ACCENT);
         moreBtn.setTextSize(14);
         moreBtn.setTypeface(null, Typeface.BOLD);
         moreBtn.setGravity(Gravity.CENTER);
         moreBtn.setPadding(0, dp(12), 0, dp(6));
+        moreBtn.setMinHeight(dp(44));
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.pressable(moreBtn);
         content.addView(moreBtn);
 
         // Move-in-time section — built once, added at the TOP of the body, hidden until
@@ -378,14 +396,18 @@ public final class ObjectMenuSheet extends LinearLayout {
         readRow.setOrientation(HORIZONTAL);
         readRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView moveLbl = new TextView(ctx);
-        moveLbl.setText("Move to"); // TODO(strings)
+        moveLbl.setText(com.fadcam.R.string.faditor_lc_sheet_move_to);
         moveLbl.setTextColor(TXT_DIM);
         moveLbl.setTextSize(12);
         readRow.addView(moveLbl, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         scrubReadout = new TextView(ctx);
         scrubReadout.setTextColor(TXT);
         scrubReadout.setTextSize(15);
-        scrubReadout.setTypeface(null, Typeface.BOLD);
+        // A timecode: mono with tabular figures, so it does not shimmer sideways while the
+        // shuttle streams new values into it (record 06 `.dscrub b`).
+        com.fadcam.ui.type.Type.mono(scrubReadout, com.fadcam.ui.type.Type.SEMIBOLD);
+        scrubReadout.setFontFeatureSettings("tnum");
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.describe(scrubReadout, ctx.getString(com.fadcam.R.string.faditor_lc_sheet_jump));
         scrubReadout.setPadding(dp(10), dp(4), dp(10), dp(4));
         scrubReadout.setBackgroundResource(selectableBg());
         scrubReadout.setText(fmtTime(0));
@@ -417,20 +439,20 @@ public final class ObjectMenuSheet extends LinearLayout {
         pushToggle.setPadding(dp(4), dp(6), dp(10), dp(6));
         pushToggle.setOnClickListener(v -> {
             pushThroughOn = !pushThroughOn;
-            renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
+            renderToggle(pushToggle, pushLabel(), pushThroughOn);
             if (timeScrubListener != null) timeScrubListener.onPushThroughToggled(pushThroughOn);
         });
-        renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
+        renderToggle(pushToggle, pushLabel(), pushThroughOn);
         togRow.addView(pushToggle);
         incrementToggle = new TextView(ctx);
         incrementToggle.setTextSize(12);
         incrementToggle.setPadding(dp(4), dp(6), dp(10), dp(6));
         incrementToggle.setOnClickListener(v -> {
             incrementOn = !incrementOn;
-            renderToggle(incrementToggle, "Snap", incrementOn); // TODO(strings)
+            renderToggle(incrementToggle, snapLabel(), incrementOn);
             if (timeScrubListener != null) timeScrubListener.onIncrementToggled(incrementOn);
         });
-        renderToggle(incrementToggle, "Snap", incrementOn); // TODO(strings)
+        renderToggle(incrementToggle, snapLabel(), incrementOn);
         LayoutParams incLp = new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
         incLp.leftMargin = dp(12);
@@ -491,17 +513,11 @@ public final class ObjectMenuSheet extends LinearLayout {
         rangeBox.removeAllViews();
         if (rangeChips != null) {
             for (Action a : rangeChips) {
-                TextView chip = new TextView(getContext());
-                chip.setText(a.label);
+                // The one chip builder (record 06 `.dchip`), so these match every other chip in
+                // the editor instead of being a LINE-filled box with an OFF-grey outline. Ink is
+                // re-set for this opaque surface: screen ink, or danger for a destructive one.
+                TextView chip = com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.chip(getContext(), a.label);
                 chip.setTextColor(a.destructive ? DESTRUCTIVE : TXT);
-                chip.setTextSize(12);
-                chip.setSingleLine(true);
-                chip.setPadding(dp(10), dp(6), dp(10), dp(6));
-                GradientDrawable chipBg = new GradientDrawable();
-                chipBg.setColor(Studio.LINE);
-                chipBg.setCornerRadius(dp(14));
-                chipBg.setStroke(dp(1), Studio.OFF);
-                chip.setBackground(chipBg);
                 chip.setOnClickListener(v -> a.run.run());
                 LayoutParams clp = new LayoutParams(
                         LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
@@ -517,6 +533,12 @@ public final class ObjectMenuSheet extends LinearLayout {
             btn.setTextColor(a.destructive ? DESTRUCTIVE : TXT);
             btn.setTextSize(14);
             btn.setPadding(dp(4), dp(11), dp(4), dp(11));
+            // Record 06 `.dr`: a row is 46dp and the row is the target. Single line — a
+            // two-line tap target is its own defect.
+            btn.setMinHeight(dp(46));
+            btn.setGravity(Gravity.CENTER_VERTICAL);
+            btn.setSingleLine(true);
+            btn.setEllipsize(android.text.TextUtils.TruncateAt.END);
             btn.setBackgroundResource(selectableBg());
             btn.setOnClickListener(v -> a.run.run());
             actionsBox.addView(btn);
@@ -573,8 +595,8 @@ public final class ObjectMenuSheet extends LinearLayout {
         this.incrementOn = increment;
         // The push-through toggle is hidden until the relayer slice ships (v1 is lock-only).
         pushToggle.setVisibility(showPushThrough ? VISIBLE : GONE);
-        renderToggle(pushToggle, "Push through", pushThroughOn); // TODO(strings)
-        renderToggle(incrementToggle, "Snap", incrementOn);      // TODO(strings)
+        renderToggle(pushToggle, pushLabel(), pushThroughOn);
+        renderToggle(incrementToggle, snapLabel(), incrementOn);
         setScrubTimeMs(startMs);
         timeScrubBox.setVisibility(showing ? VISIBLE : GONE);
         requestLayout();
@@ -586,9 +608,32 @@ public final class ObjectMenuSheet extends LinearLayout {
         scrubReadout.setText(fmtTime(scrubDisplayMs));
     }
 
+    @NonNull private String pushLabel() { return getContext().getString(com.fadcam.R.string.faditor_lc_sheet_push); }
+    @NonNull private String snapLabel() { return getContext().getString(com.fadcam.R.string.faditor_lc_sheet_snap); }
+
+    /**
+     * A checkbox row — record 06 `.dcb`: a drawn 18dp box (radius 5) beside the label, the label
+     * brightening when checked. It was "☑ " / "☐ " typed in front of the text: glyphs at text
+     * size in whatever face the phone had, and the ON state painted in go green.
+     */
     private void renderToggle(@NonNull TextView t, @NonNull String label, boolean on) {
-        t.setText((on ? "☑ " : "☐ ") + label);   // ☑ / ☐
-        t.setTextColor(on ? ACCENT : TXT_DIM);
+        t.setText(label);
+        t.setTextColor(on ? TXT : TXT_DIM);
+        t.setCompoundDrawablesRelative(com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.checkbox(getContext(), on, CHECKED, TXT_DIM),
+                null, null, null);
+        t.setCompoundDrawablePadding(dp(8));
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        t.setMinHeight(dp(44));
+        // The row is the target and the box is only its picture, so the state has to be SPOKEN.
+        t.setContentDescription(label);
+        t.setAccessibilityDelegate(new android.view.View.AccessibilityDelegate() {
+            @Override public void onInitializeAccessibilityNodeInfo(
+                    @NonNull View host, @NonNull android.view.accessibility.AccessibilityNodeInfo info) {
+                super.onInitializeAccessibilityNodeInfo(host, info);
+                info.setCheckable(true);
+                info.setChecked(on);
+            }
+        });
     }
 
     private void promptJumpToTime() {
@@ -665,10 +710,13 @@ public final class ObjectMenuSheet extends LinearLayout {
         LinearLayout grip = new LinearLayout(getContext());
         grip.setGravity(Gravity.CENTER);
         grip.setPadding(0, dp(8), 0, dp(8));
+        // Record 06 `.dgrab`: white at 30%. INK_OFF is the colour for "present but not
+        // available", which a grip that is the sheet's main control is not.
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.describe(grip, getContext().getString(com.fadcam.R.string.faditor_lc_sheet_grip));
         View pill = new View(getContext());
         GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(Studio.INK_OFF);
-        pillBg.setCornerRadius(3 * density);
+        pillBg.setColor(Studio.alpha(Studio.INK, 0x4D));
+        pillBg.setCornerRadius(2 * density);
         pill.setBackground(pillBg);
         grip.addView(pill, new LayoutParams(dp(38), dp(4)));
 
@@ -800,6 +848,9 @@ public final class ObjectMenuSheet extends LinearLayout {
         v.setTextSize(16);
         v.setGravity(Gravity.CENTER);
         v.setPadding(dp(10), dp(6), dp(10), dp(6));
+        // Record 06 §04: a header button belongs at the 40dp norm, not the 28dp floor.
+        v.setMinWidth(dp(40));
+        v.setMinHeight(dp(40));
         v.setBackgroundResource(selectableBg());
         return v;
     }
@@ -858,13 +909,13 @@ public final class ObjectMenuSheet extends LinearLayout {
             } else {
                 bar = new SeekBar(getContext());
                 bar.setMax(SLIDER_STEPS);
+                com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.styleSlider(bar, SLIDER_FILL);
                 controls.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
                 dialView = null;
             }
 
-            value = new TextView(getContext());
+            value = com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.valueText(getContext());
             value.setTextColor(TXT);
-            value.setTextSize(12);
             value.setGravity(Gravity.END);
             value.setWidth(dp(44));
             controls.addView(value);
@@ -976,7 +1027,7 @@ public final class ObjectMenuSheet extends LinearLayout {
             // Static props can't be armed — the "tap ♦" hint would be a lie.
             if (!prop.keyframeable || hintShownThisShowing || prop.armed()) return;
             hintShownThisShowing = true;
-            hint.setText("Static — tap ♦ to animate"); // TODO(strings)
+            hint.setText(com.fadcam.R.string.faditor_lc_sheet_static_hint);
             hint.setAlpha(1f);
             hint.setVisibility(VISIBLE);
             hint.animate().cancel();

@@ -110,13 +110,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
-            }
-        });
+        SheetKit.install(dialog, null);
         return dialog;
     }
 
@@ -133,86 +127,42 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         // Root layout
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, (int) (12 * dp), 0, (int) (24 * dp));
+        root.setPadding(0, 0, 0, (int) (16 * dp));
 
         // ── Title ───────────────────────────────────────────────
-        TextView title = new TextView(requireContext());
         boolean relinkMode = lookingForName != null;
-        title.setText(relinkMode
+        root.addView(SheetKit.header(requireContext(), relinkMode
                 ? getString(R.string.faditor_relink_sheet_title)
-                : getString(R.string.faditor_start_project));
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setPadding((int) (20 * dp), (int) (12 * dp),
-                (int) (20 * dp), (int) (4 * dp));
-        root.addView(title);
+                : getString(R.string.faditor_start_project), null).view);
 
         // Subtitle / helper text — in relink mode this names the missing file.
-        TextView subtitle = new TextView(requireContext());
-        if (relinkMode) {
-            subtitle.setText(getString(R.string.faditor_relink_sheet_sub, lookingForName));
-            subtitle.setTextColor(Studio.CAREFUL);
-        } else {
-            subtitle.setText(R.string.faditor_source_chooser_desc);
-            subtitle.setTextColor(Studio.INK_FAINT);
-        }
-        subtitle.setTextSize(13);
-        subtitle.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (16 * dp));
+        TextView subtitle = SheetKit.subtitle(requireContext(), relinkMode
+                ? getString(R.string.faditor_relink_sheet_sub, lookingForName)
+                : getString(R.string.faditor_source_chooser_desc));
+        if (relinkMode) subtitle.setTextColor(Studio.CAREFUL);
         root.addView(subtitle);
 
         // ── Option 1: Browse Device ─────────────────────────────
-        View browseRow = createBrowseRow(materialIcons, dp);
-        LinearLayout.LayoutParams browseLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        browseLp.setMargins((int) (12 * dp), 0, (int) (12 * dp), 0);
-        browseRow.setLayoutParams(browseLp);
-        root.addView(browseRow);
+        root.addView(createBrowseRow(materialIcons, dp));
 
         // ── Option 2: Blank audio project (G21/B9) ──────────────
         // New-project used to FORCE a video pick, so an audio-first user (podcast,
         // voiceover, music) had to import a video they did not want just to reach a
         // timeline. Not offered in relink mode — that sheet is hunting one specific file.
         if (!relinkMode) {
-            View blankRow = createBlankAudioRow(materialIcons, dp);
-            LinearLayout.LayoutParams blankLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            blankLp.setMargins((int) (12 * dp), (int) (6 * dp), (int) (12 * dp), 0);
-            blankRow.setLayoutParams(blankLp);
-            root.addView(blankRow);
+            root.addView(createBlankAudioRow(materialIcons, dp));
         }
 
         // ── Divider ─────────────────────────────────────────────
-        View divider = new View(requireContext());
-        divider.setBackgroundColor(Studio.LINE);
-        LinearLayout.LayoutParams divLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, (int) (1 * dp));
-        divLp.setMargins((int) (20 * dp), (int) (8 * dp),
-                (int) (20 * dp), (int) (8 * dp));
-        divider.setLayoutParams(divLp);
-        root.addView(divider);
+        root.addView(SheetKit.divider(requireContext()));
 
-        // ── Section: FadCam Recordings ──────────────────────────
-        TextView recordingsHeader = new TextView(requireContext());
-        recordingsHeader.setText(R.string.faditor_your_recordings);
-        recordingsHeader.setTextColor(Studio.INK_DIM);
-        recordingsHeader.setTextSize(12);
-        recordingsHeader.setTypeface(null, Typeface.BOLD);
-        recordingsHeader.setAllCaps(true);
-        recordingsHeader.setLetterSpacing(0.08f);
-        recordingsHeader.setPadding((int) (20 * dp), (int) (12 * dp),
-                (int) (20 * dp), (int) (4 * dp));
-        root.addView(recordingsHeader);
+        // ── Section: Recordings ─────────────────────────────────
+        root.addView(SheetKit.sectionLabel(requireContext(),
+                getString(R.string.faditor_your_recordings), 0));
 
         // Helper subtitle for recordings
-        TextView recordingsHelp = new TextView(requireContext());
-        recordingsHelp.setText(R.string.faditor_recordings_helper);
-        recordingsHelp.setTextColor(Studio.INK_OFF);
-        recordingsHelp.setTextSize(12);
-        recordingsHelp.setPadding((int) (20 * dp), 0, (int) (20 * dp), (int) (10 * dp));
-        root.addView(recordingsHelp);
+        root.addView(SheetKit.subtitle(requireContext(),
+                getString(R.string.faditor_recordings_helper)));
 
         // Loading indicator
         loadingIndicator = createLoadingView(dp);
@@ -236,7 +186,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         // Start background scan
         loadRecordings();
 
-        return root;
+        return SheetKit.fitNavBar(root);
     }
 
     // ── "Browse Device" row ──────────────────────────────────────────
@@ -247,106 +197,28 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
      */
     @NonNull
     private View createBlankAudioRow(@Nullable Typeface iconFont, float dp) {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding((int) (20 * dp), (int) (14 * dp),
-                (int) (20 * dp), (int) (14 * dp));
-        row.setBackgroundResource(R.drawable.settings_home_row_bg);
-        row.setClickable(true);
-        row.setFocusable(true);
+        // TODO(strings)
+        LinearLayout row = SheetKit.detailRow(requireContext(), "graphic_eq", Studio.AUDIO,
+                "Blank audio project", "Podcast, voiceover, music — import audio after",
+                SheetKit.chevron(requireContext()), true);
         row.setOnClickListener(v -> {
             dismiss();
             if (callback != null) callback.onStartBlankAudioProject();
         });
-
-        // Icon — Material ligature "graphic_eq", the audio-shape of this choice.
-        TextView icon = new TextView(requireContext());
-        icon.setTypeface(iconFont);
-        icon.setText("graphic_eq");
-        icon.setTextColor(Studio.GO);
-        icon.setTextSize(24);
-        icon.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
-                (int) (40 * dp), (int) (40 * dp));
-        iconLp.setMarginEnd((int) (14 * dp));
-        icon.setLayoutParams(iconLp);
-        row.addView(icon);
-
-        LinearLayout textCol = new LinearLayout(requireContext());
-        textCol.setOrientation(LinearLayout.VERTICAL);
-        TextView title = new TextView(requireContext());
-        title.setText("Blank audio project");                              // TODO(strings)
-        title.setTextColor(Studio.INK);
-        title.setTextSize(15);
-        title.setTypeface(null, Typeface.BOLD);
-        textCol.addView(title);
-        TextView sub = new TextView(requireContext());
-        sub.setText("Podcast, voiceover, music — import audio after");     // TODO(strings)
-        sub.setTextColor(Studio.INK_FAINT);
-        sub.setTextSize(12);
-        textCol.addView(sub);
-        row.addView(textCol);
         return row;
     }
 
+    /** "Browse Device" — the folder glyph wears VIDEO, the kind of thing it goes to find. */
     @NonNull
     private View createBrowseRow(@Nullable Typeface iconFont, float dp) {
-        LinearLayout row = new LinearLayout(requireContext());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding((int) (20 * dp), (int) (14 * dp),
-                (int) (20 * dp), (int) (14 * dp));
-        row.setBackgroundResource(R.drawable.settings_home_row_bg);
-        row.setClickable(true);
-        row.setFocusable(true);
+        LinearLayout row = SheetKit.detailRow(requireContext(), "folder_open", Studio.VIDEO,
+                getString(R.string.faditor_browse_device),
+                getString(R.string.faditor_browse_device_desc),
+                SheetKit.chevron(requireContext()), true);
         row.setOnClickListener(v -> {
             dismiss();
             if (callback != null) callback.onBrowseDevice();
         });
-
-        // Icon
-        TextView icon = new TextView(requireContext());
-        icon.setTypeface(iconFont);
-        icon.setText("folder_open");
-        icon.setTextColor(Studio.VIDEO);
-        icon.setTextSize(24);
-        icon.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(
-                (int) (40 * dp), (int) (40 * dp));
-        iconLp.setMarginEnd((int) (14 * dp));
-        icon.setLayoutParams(iconLp);
-        row.addView(icon);
-
-        // Text
-        LinearLayout textSection = new LinearLayout(requireContext());
-        textSection.setOrientation(LinearLayout.VERTICAL);
-        textSection.setLayoutParams(new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView label = new TextView(requireContext());
-        label.setText(R.string.faditor_browse_device);
-        label.setTextColor(Studio.INK);
-        label.setTextSize(15);
-        label.setTypeface(null, Typeface.BOLD);
-        textSection.addView(label);
-
-        TextView desc = new TextView(requireContext());
-        desc.setText(R.string.faditor_browse_device_desc);
-        desc.setTextColor(Studio.INK_FAINT);
-        desc.setTextSize(12);
-        textSection.addView(desc);
-
-        row.addView(textSection);
-
-        // Arrow
-        TextView arrow = new TextView(requireContext());
-        arrow.setTypeface(iconFont);
-        arrow.setText("chevron_right");
-        arrow.setTextColor(Studio.INK_OFF);
-        arrow.setTextSize(20);
-        row.addView(arrow);
-
         return row;
     }
 
@@ -648,17 +520,25 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding((int) (16 * dp), (int) (8 * dp),
-                (int) (16 * dp), (int) (8 * dp));
-        row.setBackgroundResource(R.drawable.settings_home_row_bg);
+        row.setPadding((int) (8 * dp), (int) (8 * dp),
+                (int) (12 * dp), (int) (8 * dp));
+        row.setBackground(SheetKit.rowBackground(ctx));
         row.setClickable(true);
         row.setFocusable(true);
+        LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        rowLp.setMargins(SheetKit.dp(ctx, SheetKit.ROW_INSET_DP), SheetKit.dp(ctx, 2),
+                SheetKit.dp(ctx, SheetKit.ROW_INSET_DP), SheetKit.dp(ctx, 2));
+        row.setLayoutParams(rowLp);
+        SheetKit.press(row);
+        SheetKit.label(row, item.name);
 
         // ── Thumbnail (rounded corners via CardView-like clipping) ────
         androidx.cardview.widget.CardView thumbCard = new androidx.cardview.widget.CardView(ctx);
         thumbCard.setCardElevation(0);
-        thumbCard.setCardBackgroundColor(Studio.RAISED);
-        thumbCard.setRadius(8 * dp);
+        thumbCard.setCardBackgroundColor(Studio.SUNK);
+        // Concentric inside the row: 8dp row corner minus the 8dp inset leaves a tight 4dp.
+        thumbCard.setRadius(4 * dp);
         LinearLayout.LayoutParams thumbCardLp = new LinearLayout.LayoutParams(
                 (int) (80 * dp), (int) (50 * dp));
         thumbCardLp.setMarginEnd((int) (12 * dp));
@@ -706,7 +586,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         nameView.setText(displayName);
         nameView.setTextColor(Studio.INK);
         nameView.setTextSize(13);
-        nameView.setTypeface(null, Typeface.BOLD);
+        com.fadcam.ui.type.Type.body(nameView, com.fadcam.ui.type.Type.SEMIBOLD);
         nameView.setMaxLines(1);
         nameView.setEllipsize(TextUtils.TruncateAt.END);
         textSection.addView(nameView);
@@ -716,7 +596,8 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         String meta = formatSize(item.size) + " · " + item.source;
         metaView.setText(meta);
         metaView.setTextColor(Studio.INK_FAINT);
-        metaView.setTextSize(11);
+        metaView.setTextSize(10);
+        com.fadcam.ui.type.Type.mono(metaView, com.fadcam.ui.type.Type.REGULAR);
         metaView.setMaxLines(1);
         textSection.addView(metaView);
 
@@ -736,7 +617,8 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         TextView editIcon = new TextView(ctx);
         editIcon.setTypeface(iconFont);
         editIcon.setText("edit");
-        editIcon.setTextColor(Studio.GO);
+        // A resting glyph, not GO: the whole row is the button, this only says what it does.
+        editIcon.setTextColor(SheetKit.ROW_ICON);
         editIcon.setTextSize(18);
         editIcon.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams editLp = new LinearLayout.LayoutParams(

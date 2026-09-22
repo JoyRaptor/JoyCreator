@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -39,14 +38,20 @@ public final class EasePickerPopover {
     };
     private static final int COLS = 4;
 
-    private static final int BG = Studio.RAISED;
-    private static final int TILE_BG = Studio.LINE;
-    private static final int BASELINE = Studio.OFF;
-    private static final int CURVE = Studio.INK_DIM;
-    private static final int ACCENT = Studio.GO;
-    private static final int RING_FILL = Studio.alpha(Studio.GO, 0x1F);
-    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
-    // Same value it has always rendered; it simply asks for it by the right name now.
+    // A popover floats over the canvas, so it is "over video" exactly as a drawer is: the
+    // drawer's dark glass (TextOverlayDrawer.Kit.surface) and the drawer's ink, not an opaque
+    // grey slab with screen-ramp greys on it. Tiles take the drawer's control fill.
+    private static final int TILE_BG = com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.CTL;
+    /** The family silhouette behind each curve: a ghost of the drawer's dim ink, decorative. */
+    private static final int BASELINE = Studio.alpha(Studio.DRAWER_DIM, 0x4D);
+    private static final int CURVE = Studio.DRAWER_DIM;
+    /**
+     * The chosen curve. SELECTED is a state, and record 06 §04 gives states one colour and one
+     * form: "State colour always a RING — cyan selected". It was the Studio green, which since
+     * the palette settled means "press to make something happen", not "this one".
+     */
+    private static final int ACCENT = Studio.ARMED;
+    private static final int RING_FILL = Studio.alpha(Studio.ARMED, 0x1F);
     private static final int TXT_DIM = Studio.DRAWER_LABEL;
 
     private EasePickerPopover() {}
@@ -64,10 +69,8 @@ public final class EasePickerPopover {
 
         LinearLayout container = new LinearLayout(ctx);
         container.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(BG);
-        bg.setCornerRadius(12 * d);
-        container.setBackground(bg);
+        // Concentric corners: tile radius 10 + the 4dp cell margin around it = 14.
+        container.setBackground(com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.surface(ctx, 14));
         container.setElevation(16 * d);
         int pad = (int) (10 * d);
         container.setPadding(pad, pad, pad, pad);
@@ -76,10 +79,13 @@ public final class EasePickerPopover {
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT, true);
         pop.setElevation(16 * d);
+        // The window's own fade is replaced by the record's arrival (scale .95 to 1, 220ms
+        // ease-out) in popShow, so the two do not stack.
+        pop.setAnimationStyle(0);
 
         if (!enabled) {
             TextView msg = new TextView(ctx);
-            msg.setText("Drop keyframes first"); // TODO(strings)
+            msg.setText(com.fadcam.R.string.faditor_lc_ease_need_keys);
             msg.setTextColor(TXT_DIM);
             msg.setTextSize(13);
             msg.setPadding((int) (6 * d), (int) (4 * d), (int) (6 * d), (int) (4 * d));
@@ -113,6 +119,7 @@ public final class EasePickerPopover {
 
     private static void popShow(@NonNull PopupWindow pop, @NonNull View container,
                                 @NonNull View anchor, float d) {
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.popIn(container);
         // Prefer above the diamond (never cover the slider row below it); fall back
         // to below only when there isn't room above.
         container.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -134,6 +141,11 @@ public final class EasePickerPopover {
                                   @NonNull Easing e, boolean selected,
                                   @NonNull TileTap onTap) {
         final EaseTileView view = new EaseTileView(ctx, e, selected);
+        // A drawn tile has no text for TalkBack or a hover to read. The enum's own name, spoken
+        // as words ("ease in out"), is exact and cannot drift from the curve it labels.
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.describe(view,
+                e.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' '));
+        com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.pressable(view);
         view.setOnClickListener(v -> {
             view.setSelectedRing(true); // show the ring lands on tap before dismiss
             onTap.tap(e);

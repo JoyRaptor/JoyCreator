@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Hover labels and spoken names for the audio drawer, the puppet drawer, the transcript panel
+  and the waveform visualiser sheet.
+
+  Every tappable thing needs one: the owner uses a stylus and a mouse, and on Android both show
+  a view's tooltip on hover. A value you tap to type, an icon with no word under it and a colour
+  swatch are all controls whose meaning is not written on them, so the label is the only place
+  it is written at all.
+-->
+<resources>
+
+    <!-- ── Audio drawer ─────────────────────────────────────────────────────── -->
+    <string name="lane_b_audio_level_slider">Level</string>
+    <string name="lane_b_audio_pan_slider">Pan</string>
+    <string name="lane_b_audio_fade_in_slider">Fade in</string>
+    <string name="lane_b_audio_fade_out_slider">Fade out</string>
+    <string name="lane_b_audio_level_value">Level. Tap to type an exact percentage.</string>
+    <string name="lane_b_audio_pan_value">Pan. Tap to type an exact position.</string>
+    <string name="lane_b_audio_fade_in_value">Fade in. Tap to type it in seconds.</string>
+    <string name="lane_b_audio_fade_out_value">Fade out. Tap to type it in seconds.</string>
+    <string name="lane_b_audio_clear_envelope">Clear the volume envelope and go back to flat gain</string>
+    <string name="lane_b_audio_beat_link">Link an overlay to the beat of this clip</string>
+    <string name="lane_b_audio_gain_meter">Compressor gain reduction</string>
+
+    <!-- ── Puppet drawer ────────────────────────────────────────────────────── -->
+    <string name="lane_b_puppet_name">Pin name</string>
+    <string name="lane_b_puppet_tool">%1$s tool</string>
+    <string name="lane_b_puppet_tool_on">%1$s tool, in use</string>
+    <string name="lane_b_puppet_chip">%1$s pin. Tap to edit it.</string>
+    <string name="lane_b_puppet_chip_on">%1$s pin, being edited</string>
+    <string name="lane_b_puppet_scope">%1$s settings</string>
+    <string name="lane_b_puppet_scope_on">%1$s settings, showing</string>
+    <string name="lane_b_puppet_toggle_on">%1$s: on. Tap to turn off.</string>
+    <string name="lane_b_puppet_toggle_off">%1$s: off. Tap to turn on.</string>
+    <string name="lane_b_puppet_eye_on">Reach ring always shown. Tap to show it only while dragging.</string>
+    <string name="lane_b_puppet_eye_off">Reach ring shows while dragging. Tap to keep it on.</string>
+    <string name="lane_b_puppet_key_position">Key position for this pin</string>
+
+    <!-- ── Transcript panel ─────────────────────────────────────────────────── -->
+    <string name="lane_b_transcript_panel">Transcript. Tap a word to jump to it, hold to fix or strike it.</string>
+
+    <!-- ── Waveform visualiser sheet ────────────────────────────────────────── -->
+    <string name="lane_b_wave_swatch">%1$s colour. Tap to choose.</string>
+    <string name="lane_b_wave_lane_top">%1$s lane: on top. Tap to move below.</string>
+    <string name="lane_b_wave_lane_below">%1$s lane: below. Tap to move on top.</string>
+    <string name="lane_b_wave_band_show">Show the %1$s band</string>
+    <string name="lane_b_wave_preset">Colour %1$d of %2$d</string>
+    <string name="lane_b_wave_preset_on">Colour %1$d of %2$d, in use</string>
+
+</resources>

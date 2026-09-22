@@ -123,13 +123,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
-        dialog.setOnShowListener(d -> {
-            View bottomSheet = ((BottomSheetDialog) dialog)
-                    .findViewById(com.google.android.material.R.id.design_bottom_sheet);
-            if (bottomSheet != null) {
-                bottomSheet.setBackgroundResource(R.drawable.picker_bottom_sheet_dark_gradient_bg);
-            }
-        });
+        SheetKit.install(dialog, null);
         return dialog;
     }
 
@@ -143,23 +137,16 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         }
 
         float dp = getResources().getDisplayMetrics().density;
-        Typeface materialIcons = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
 
         LinearLayout root = new LinearLayout(requireContext());
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(0, (int) (12 * dp), 0, (int) (24 * dp));
+        root.setPadding(0, 0, 0, SheetKit.dp(requireContext(), 16));
 
-        // Title
-        TextView title = new TextView(requireContext());
-        title.setText(R.string.faditor_canvas_title);
-        title.setTextColor(Studio.INK);
-        title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
-        title.setPadding((int) (20 * dp), (int) (12 * dp),
-                (int) (20 * dp), (int) (16 * dp));
-        root.addView(title);
+        root.addView(SheetKit.header(requireContext(),
+                getString(R.string.faditor_canvas_title), null).view);
 
         // Presets
+        int previewSize = (int) (40 * dp);
         for (String[] preset : CANVAS_PRESETS) {
             String key = preset[0];
             String label = preset[1];
@@ -167,126 +154,44 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             int ratioH = Integer.parseInt(preset[3]);
             boolean selected = key.equals(currentPreset);
 
-            LinearLayout row = new LinearLayout(requireContext());
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setBackgroundResource(R.drawable.settings_home_row_bg);
-            int hPad = (int) (20 * dp);
-            int vPad = (int) (14 * dp);
-            row.setPadding(hPad, vPad, hPad, vPad);
+            SheetKit.Row row = SheetKit.row(requireContext(), null, label, selected,
+                    SheetKit.Trail.CHECK, v -> {
+                        if (callback != null) {
+                            callback.onCanvasSelected(key);
+                        }
+                        dismiss();
+                    });
 
-            LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
-            rowLp.setMargins((int) (12 * dp), (int) (2 * dp), (int) (12 * dp), (int) (2 * dp));
-            row.setLayoutParams(rowLp);
-
-            // Aspect ratio visual preview
+            // Aspect ratio visual preview, leading the row where a glyph would sit.
             FrameLayout previewContainer = new FrameLayout(requireContext());
-            int containerSize = (int) (40 * dp);
             LinearLayout.LayoutParams previewLp = new LinearLayout.LayoutParams(
-                    containerSize, containerSize);
-            previewLp.setMarginEnd((int) (16 * dp));
+                    previewSize, previewSize);
+            previewLp.setMarginEnd((int) (14 * dp));
             previewContainer.setLayoutParams(previewLp);
+            previewContainer.addView(createAspectPreview(ratioW, ratioH, previewSize, selected, dp));
+            row.view.addView(previewContainer, 0);
 
-            // Add the visual preview
-            View previewView = createAspectPreview(ratioW, ratioH, containerSize, selected, dp);
-            previewContainer.addView(previewView);
-            row.addView(previewContainer);
-
-            // Label
-            TextView labelView = new TextView(requireContext());
-            labelView.setText(label);
-            labelView.setTextSize(15);
-            labelView.setTextColor(selected ? Studio.GO : Studio.INK_DIM);
-            labelView.setTypeface(null, selected ? Typeface.BOLD : Typeface.NORMAL);
-            LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-            labelView.setLayoutParams(labelLp);
-            row.addView(labelView);
-
-            // Check mark for selected
-            if (selected) {
-                TextView check = new TextView(requireContext());
-                check.setTypeface(materialIcons);
-                check.setText("check");
-                check.setTextSize(20);
-                check.setTextColor(Studio.GO);
-                check.setGravity(Gravity.CENTER);
-                LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
-                        (int) (24 * dp), (int) (24 * dp));
-                check.setLayoutParams(checkLp);
-                row.addView(check);
-            }
-
-            row.setOnClickListener(v -> {
-                if (callback != null) {
-                    callback.onCanvasSelected(key);
-                }
-                dismiss();
-            });
-
-            root.addView(row);
+            root.addView(row.view);
         }
 
         // Custom W×H row (road_map "canvas custom-resolution input"). Mirrors the
         // crop toolbar's Custom-ratio chip pattern (numeric-entry AlertDialog).
         boolean customSelected = currentPreset.startsWith(CUSTOM_PREFIX);
-        LinearLayout customRow = new LinearLayout(requireContext());
-        customRow.setOrientation(LinearLayout.HORIZONTAL);
-        customRow.setGravity(Gravity.CENTER_VERTICAL);
-        customRow.setBackgroundResource(R.drawable.settings_home_row_bg);
-        int hPad = (int) (20 * dp);
-        int vPad = (int) (14 * dp);
-        customRow.setPadding(hPad, vPad, hPad, vPad);
-        LinearLayout.LayoutParams customRowLp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-        customRowLp.setMargins((int) (12 * dp), (int) (2 * dp), (int) (12 * dp), (int) (2 * dp));
-        customRow.setLayoutParams(customRowLp);
-
-        TextView customIcon = new TextView(requireContext());
-        customIcon.setTypeface(materialIcons);
-        customIcon.setText("aspect_ratio");
-        customIcon.setTextSize(20);
-        customIcon.setTextColor(customSelected ? Studio.GO : Studio.INK_OFF);
-        customIcon.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams customIconLp = new LinearLayout.LayoutParams(
-                (int) (40 * dp), (int) (40 * dp));
-        customIconLp.setMarginEnd((int) (16 * dp));
-        customIcon.setLayoutParams(customIconLp);
-        customRow.addView(customIcon);
-
-        TextView customLabel = new TextView(requireContext());
-        customLabel.setText(customSelected ? displayLabel(currentPreset) : "Custom…");
-        customLabel.setTextSize(15);
-        customLabel.setTextColor(customSelected ? Studio.GO : Studio.INK_DIM);
-        customLabel.setTypeface(null, customSelected ? Typeface.BOLD : Typeface.NORMAL);
-        LinearLayout.LayoutParams customLabelLp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        customLabel.setLayoutParams(customLabelLp);
-        customRow.addView(customLabel);
-
-        if (customSelected) {
-            TextView customCheck = new TextView(requireContext());
-            customCheck.setTypeface(materialIcons);
-            customCheck.setText("check");
-            customCheck.setTextSize(20);
-            customCheck.setTextColor(Studio.GO);
-            customCheck.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams checkLp = new LinearLayout.LayoutParams(
-                    (int) (24 * dp), (int) (24 * dp));
-            customCheck.setLayoutParams(checkLp);
-            customRow.addView(customCheck);
+        SheetKit.Row customRow = SheetKit.row(requireContext(), "aspect_ratio",
+                customSelected ? displayLabel(currentPreset) : "Custom…",
+                customSelected, SheetKit.Trail.CHECK, v -> showCustomResolutionDialog());
+        if (customRow.icon != null) {
+            // Same 40dp slot as the previews above, so every label starts on one line.
+            LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(previewSize, previewSize);
+            iconLp.setMarginEnd((int) (14 * dp));
+            customRow.icon.setLayoutParams(iconLp);
         }
-
-        customRow.setOnClickListener(v -> showCustomResolutionDialog());
-        root.addView(customRow);
+        root.addView(customRow.view);
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);
         scroll.addView(root);
-        return scroll;
+        return SheetKit.fitNavBar(scroll);
     }
 
     /**
@@ -369,10 +274,10 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             {
                 borderPaint.setStyle(Paint.Style.STROKE);
                 borderPaint.setStrokeWidth(1.5f * dp);
-                borderPaint.setColor(selected ? Studio.GO : Studio.INK_OFF);
+                borderPaint.setColor(selected ? Studio.ARMED : Studio.INK_OFF);
 
                 fillPaint.setStyle(Paint.Style.FILL);
-                fillPaint.setColor(selected ? Studio.alpha(Studio.GO, 0x33) : Studio.alpha(Studio.INK, 0x22));
+                fillPaint.setColor(selected ? Studio.alpha(Studio.ARMED, 0x33) : Studio.alpha(Studio.INK, 0x22));
             }
 
             @Override

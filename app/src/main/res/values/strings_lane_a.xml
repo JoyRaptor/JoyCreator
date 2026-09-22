@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Names for the drawer shell, the PiP tabs, the mask panel, the two popovers and the sprite
+  palette. Almost all of these are ACCESSIBILITY names and hover tooltips for controls that
+  were icon-only and had none; a stylus or mouse shows them on hover, TalkBack reads them.
+  Kept in their own file so this pass never has to touch strings.xml.
+-->
+<resources>
+    <!-- Drawer shell (ObjectDrawer) -->
+    <string name="lane_a_drawer_grip">Drag to resize, tap to close</string>
+    <string name="lane_a_toggle_mute">Mute</string>
+    <string name="lane_a_toggle_hide">Hide</string>
+    <string name="lane_a_toggle_lock">Lock</string>
+    <string name="lane_a_toggle_pass_through">Let taps pass through</string>
+    <string name="lane_a_toggle_start_here">Start here</string>
+    <string name="lane_a_toggle_end_here">End here</string>
+    <string name="lane_a_toggle_split">Split at playhead</string>
+    <string name="lane_a_toggle_fx_bypass">Bypass effects (A/B)</string>
+
+    <!-- PiP mask + chroma tabs (PipDrawerTabs, MaskKeyPanel) -->
+    <string name="lane_a_mask_add_shape">Add a mask shape</string>
+    <string name="lane_a_mask_remove_shape">Remove this shape</string>
+    <string name="lane_a_mask_shape_n">Shape %1$d</string>
+    <string name="lane_a_step_down">Step down</string>
+    <string name="lane_a_step_up">Step up</string>
+    <string name="lane_a_key_green">Key out green</string>
+    <string name="lane_a_key_blue">Key out blue</string>
+    <string name="lane_a_key_black">Key out black</string>
+    <string name="lane_a_key_white">Key out white</string>
+
+    <!-- Pivot picker (PivotPickerPopover) -->
+    <string name="lane_a_pivot_title">Rotation pivot</string>
+    <string name="lane_a_pivot_top_left">Pivot: top left</string>
+    <string name="lane_a_pivot_top">Pivot: top</string>
+    <string name="lane_a_pivot_top_right">Pivot: top right</string>
+    <string name="lane_a_pivot_left">Pivot: left</string>
+    <string name="lane_a_pivot_centre">Pivot: centre</string>
+    <string name="lane_a_pivot_right">Pivot: right</string>
+    <string name="lane_a_pivot_bottom_left">Pivot: bottom left</string>
+    <string name="lane_a_pivot_bottom">Pivot: bottom</string>
+    <string name="lane_a_pivot_bottom_right">Pivot: bottom right</string>
+
+    <!-- Sprite palette (SpritePalettePanel) -->
+    <string name="lane_a_sprite_prev_key">Nudge key earlier</string>
+    <string name="lane_a_sprite_key">Delete the key under the playhead</string>
+    <string name="lane_a_sprite_next_key">Nudge key later</string>
+    <string name="lane_a_sprite_open_lab">Open in Sprite Lab</string>
+    <string name="lane_a_sprite_flip_h">Flip horizontally</string>
+    <string name="lane_a_sprite_flip_v">Flip vertically</string>
+    <string name="lane_a_sprite_end">At the end: once, loop or ping-pong</string>
+    <string name="lane_a_sprite_record">Record performance</string>
+    <string name="lane_a_sprite_stop">Stop recording</string>
+    <string name="lane_a_sprite_sweep">Track from the video under it</string>
+    <string name="lane_a_sprite_more">More</string>
+    <string name="lane_a_sprite_dope">Dope sheet</string>
+    <string name="lane_a_sprite_manage">Sprite sheets</string>
+    <string name="lane_a_sprite_grip">Drag up for more rows, down for fewer</string>
+</resources>

@@ -59,9 +59,18 @@ public final class FxPanel {
 
     private static final int TXT = Studio.DRAWER_INK;
     private static final int TXT_DIM = Studio.DRAWER_LABEL;
-    private static final int CARD_BG = Studio.alpha(Studio.INK, 0x1A);
-    private static final int CHIP_BG = Studio.alpha(Studio.INK, 0x22);
-    private static final int CHIP_ON = Studio.alpha(Studio.INK, 0x66);
+    // A card is a control-weight panel sitting ON the scrim: record 06's control fill, the same
+    // value it rendered before (white 10%), now asked for by its role. Chips, their on/off state,
+    // the slider and the section headings all come from TextOverlayDrawer.Kit — the ONE place
+    // those looks are built — instead of three private alpha constants of this class's own.
+    private static final int CARD_BG = TextOverlayDrawer.Kit.CTL;
+    /**
+     * A filled slider track. The panel is not told which object it is editing, so it cannot
+     * wear the object's colour the record asks for; it wears the drawer's own ink, which says
+     * "value" without claiming to be a state. See the lane report: a host-supplied accent is the
+     * follow-up.
+     */
+    private static final int SLIDER_FILL = Studio.DRAWER_DIM;
 
     /** What the panel needs back from the editor. */
     public interface Host {
@@ -301,6 +310,9 @@ public final class FxPanel {
         // Borderless: a disclosure triangle does not need a box around it, and the box was
         // making the least important control in the row look like one of the most important.
         TextView caret = iconBtn(ctx, fx.collapsed ? "▸" : "▾", d);
+        TextOverlayDrawer.Kit.describe(caret, ctx.getString(fx.collapsed
+                ? com.fadcam.R.string.faditor_lc_fx_expand
+                : com.fadcam.R.string.faditor_lc_fx_collapse));
         caret.setOnClickListener(v -> { fx.collapsed = !fx.collapsed; rebuild.run(); });
         head.addView(caret);
         installDragHandle(ctx, head, card, stack,
@@ -329,6 +341,9 @@ public final class FxPanel {
 
         // Bypass, which is also the cheap escape: a disabled card contributes NO pass at all.
         TextView eye = chip(ctx, fx.enabled ? "◉" : "◌", d);
+        TextOverlayDrawer.Kit.describe(eye, ctx.getString(fx.enabled
+                ? com.fadcam.R.string.faditor_lc_fx_bypass
+                : com.fadcam.R.string.faditor_lc_fx_enable));
         eye.setOnClickListener(v -> structural(stack, host, rebuild,
                 fx.enabled ? "Bypass effect" : "Enable effect",
                 () -> fx.enabled = !fx.enabled));
@@ -339,6 +354,7 @@ public final class FxPanel {
         // ScrollView ate the gesture, and rebuilding mid-drag destroyed the view holding the
         // listener). The handle below is the replacement, and it actually runs.
         TextView del = iconBtn(ctx, "✕", d);
+        TextOverlayDrawer.Kit.describe(del, ctx.getString(com.fadcam.R.string.faditor_lc_fx_delete));
         // No confirm dialog: the delete is now a recorded undo step, and undo is a better
         // answer than a modal on every ✕. remove() also deletes this slot's keyframe tracks
         // and retires the slot, so nothing added later can inherit them — the snapshot in
@@ -402,7 +418,7 @@ public final class FxPanel {
             boolean posEditing = host.isEditingGradientInPreview(fx, centerParam);
             TextView pos = chip(ctx, posEditing
                     ? "Positioning in preview — done" : "Position in preview", d);
-            pos.setBackground(pill(posEditing ? CHIP_ON : CHIP_BG, d));
+            TextOverlayDrawer.Kit.setChipOn(pos, posEditing);
             pos.setOnClickListener(v -> {
                 host.editGradientInPreview(posEditing ? null : stack, posEditing ? null : fx,
                         posEditing ? null : centerParam);
@@ -454,10 +470,10 @@ public final class FxPanel {
                 row.addView(label);
                 boolean on = fx.getScalar(param) >= 0.5f;
                 TextView c = chip(ctx, on ? "On" : "Off", d);
-                c.setBackground(pill(on ? CHIP_ON : CHIP_BG, d));
+                TextOverlayDrawer.Kit.setChipOn(c, on);
                 c.setOnClickListener(v -> {
                     c.setText(on ? "Off" : "On");
-                    c.setBackground(pill(on ? CHIP_BG : CHIP_ON, d));
+                    TextOverlayDrawer.Kit.setChipOn(c, !on);
                     structural(stack, host, rebuild, param.label,
                             () -> fx.set(param, on ? 0f : 1f));
                 });
@@ -485,7 +501,7 @@ public final class FxPanel {
                 for (int i = 0; i < labels.length; i++) {
                     final int idx = i;
                     TextView c = chip(ctx, labels[i], d);
-                    c.setBackground(pill(Math.round(fx.getScalar(param)) == i ? CHIP_ON : CHIP_BG, d));
+                    TextOverlayDrawer.Kit.setChipOn(c, Math.round(fx.getScalar(param)) == i);
                     c.setOnClickListener(v -> {
                         FxStack before = stack.copy();
                         fx.set(param, idx);
@@ -494,10 +510,10 @@ public final class FxPanel {
                         for (int k = 0; k < cluster.getChildCount(); k++) {
                             View child = cluster.getChildAt(k);
                             if (child instanceof TextView && child != v) {
-                                child.setBackground(pill(CHIP_BG, d));
+                                TextOverlayDrawer.Kit.setChipOn((TextView) child, false);
                             }
                         }
-                        v.setBackground(pill(CHIP_ON, d));
+                        TextOverlayDrawer.Kit.setChipOn((TextView) v, true);
                         recordSnapshot(stack, host, rebuild, param.label, before);
                     });
                     cluster.addView(c);
@@ -592,13 +608,8 @@ public final class FxPanel {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.addView(label(ctx, param.label, d));
 
-        SeekBar bar = new SeekBar(ctx);
-        bar.setMax(Math.max(1, max - min));
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11f);
-        value.setWidth(Math.round(40 * d));
-        value.setGravity(Gravity.END);
+        SeekBar bar = slider(ctx, max - min);
+        TextView value = valueText(ctx, d);
 
         Runnable render = () -> {
             scanArmed.run();
@@ -626,7 +637,9 @@ public final class FxPanel {
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.addView(row);
         TextView h = new TextView(ctx);
-        h.setTextColor(Studio.INK_FAINT);
+        // Drawer LABEL ink, not the screen ramp's faint grey: this line sits on the scrim, and
+        // #71717A there is the same near-invisible grey the text drawer's toggles were reported for.
+        h.setTextColor(TXT_DIM);
         h.setTextSize(10.5f);
         h.setPadding(Math.round(86 * d), 0, 0, 0);
         h.setVisibility(View.GONE);
@@ -705,6 +718,7 @@ public final class FxPanel {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(sz, sz);
         swatch.setLayoutParams(lp);
         paintSwatch(swatch, initial, d);
+        TextOverlayDrawer.Kit.describe(swatch, param.label);
 
         swatch.setOnClickListener(v -> {
             FxStack before = stack.copy();
@@ -735,8 +749,12 @@ public final class FxPanel {
     private static void paintSwatch(@NonNull View swatch, int color, float d) {
         android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
         bg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        bg.setColor(Studio.GROUND | (color & 0xF4F4F5));
-        bg.setStroke(Math.round(1 * d), Studio.alpha(Studio.INK, 0x55));
+        // THE MASK IS 0x00FFFFFF — a bit mask, not a colour. The palette sweep (e251de04)
+        // rewrote it to 0xF4F4F5 as if it were the old white INK, which silently cleared three
+        // bits of every channel: a picked #FFFFFF showed as #F4F4F5, a #0B0B0B as #000000. The
+        // swatch then disagreed with the colour actually stored. Studio.alpha is the same mask.
+        bg.setColor(Studio.alpha(color, 0xFF));
+        bg.setStroke(Math.round(1 * d), Studio.alpha(Studio.DRAWER_INK, 0x55));
         swatch.setBackground(bg);
     }
 
@@ -803,7 +821,7 @@ public final class FxPanel {
         for (int i = 0; i <= GradientCurve.VERTEX_CAP; i++) {
             final int n = i;
             TextView c = chip(ctx, String.valueOf(i), d);
-            c.setBackground(pill(path.vertices.size() == i ? CHIP_ON : CHIP_BG, d));
+            TextOverlayDrawer.Kit.setChipOn(c, path.vertices.size() == i);
             c.setOnClickListener(v -> structural(stack, host, rebuild, "Curve vertices", () -> {
                 GradientCurve p = GradientCurve.fromFloatArray(fx.get(param));
                 p.setVertexCount(n);
@@ -819,7 +837,7 @@ public final class FxPanel {
         eRow.setGravity(Gravity.CENTER_VERTICAL);
         boolean editing = host.isEditingGradientInPreview(fx, param);
         TextView edit = chip(ctx, editing ? "Editing in preview — done" : "Edit in preview", d);
-        edit.setBackground(pill(editing ? CHIP_ON : CHIP_BG, d));
+        TextOverlayDrawer.Kit.setChipOn(edit, editing);
         edit.setOnClickListener(v -> {
             host.editGradientInPreview(editing ? null : stack, editing ? null : fx,
                     editing ? null : param);
@@ -849,7 +867,9 @@ public final class FxPanel {
             float t = i / (float) steps;
             int rgb = r.sampleColor(t);
             int a = Math.round(r.sampleAlpha(t) * 255f);
-            colors[i] = (a << 24) | (rgb & 0xF4F4F5);
+            // Same corrupted-mask repair as paintSwatch: this is the ramp's own colour at its own
+            // alpha, so the preview strip matches what the effect renders.
+            colors[i] = Studio.alpha(rgb, a);
         }
         android.graphics.drawable.GradientDrawable g =
                 new android.graphics.drawable.GradientDrawable(
@@ -921,15 +941,10 @@ public final class FxPanel {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.addView(label(ctx, labelText, d));
 
-        SeekBar bar = new SeekBar(ctx);
-        bar.setMax(Math.max(1, max - min));
+        SeekBar bar = slider(ctx, max - min);
         bar.setProgress(Math.max(0, Math.min(max - min, initial - min)));
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11f);
-        value.setWidth(Math.round(40 * d));
-        value.setGravity(Gravity.END);
+        TextView value = valueText(ctx, d);
         value.setText(String.valueOf(initial));
 
         final FxStack[] snap = {null};
@@ -1001,18 +1016,28 @@ public final class FxPanel {
      */
     @NonNull
     private static TextView chip(@NonNull Context ctx, @NonNull String text, float d) {
-        TextView t = new TextView(ctx);
-        t.setText(text);
-        t.setTextColor(TXT);
-        t.setTextSize(12f);
-        int px = Math.round(12 * d), py = Math.round(7 * d);
-        t.setPadding(px, py, px, py);
-        t.setBackground(pill(CHIP_BG, d));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = Math.round(7 * d);
-        t.setLayoutParams(lp);
-        return t;
+        // Record 06 `.dchip`, built by the drawer kit. Every chip on this panel — enum options,
+        // on/off, vertices, Edit, Straighten, looks, the effect picker, the diamond — comes
+        // through here, so there is one chip, not a family of near-copies.
+        return TextOverlayDrawer.Kit.chip(ctx, text);
+    }
+
+    /** A slider in the drawer look, with its range. Listener and value stay with the caller. */
+    @NonNull
+    private static SeekBar slider(@NonNull Context ctx, int range) {
+        SeekBar bar = new SeekBar(ctx);
+        bar.setMax(Math.max(1, range));
+        TextOverlayDrawer.Kit.styleSlider(bar, SLIDER_FILL);
+        return bar;
+    }
+
+    /** The number at the end of a slider row: mono, tabular, right-aligned in a fixed slot. */
+    @NonNull
+    private static TextView valueText(@NonNull Context ctx, float d) {
+        TextView value = TextOverlayDrawer.Kit.valueText(ctx);
+        value.setWidth(Math.round(40 * d));
+        value.setGravity(Gravity.END);
+        return value;
     }
 
     /**
@@ -1037,6 +1062,9 @@ public final class FxPanel {
                                           @NonNull Host host, @NonNull Runnable rebuild,
                                           float d) {
         View handle = grabHandle(ctx, d);
+        // Content description only — NOT Kit.describe. Below API 26 a tooltip is delivered by a
+        // long-click listener, and a long press is this handle's own gesture (it lifts the card).
+        handle.setContentDescription(ctx.getString(com.fadcam.R.string.faditor_lc_fx_reorder));
         head.addView(handle, 0);
         if (count < 2) {
             // Dimmed AND answerable. A greyed control with no explanation reads as broken; the
@@ -1246,22 +1274,12 @@ public final class FxPanel {
                     Math.round(16 * d), Math.round(2 * d));
             blp.topMargin = i == 0 ? 0 : Math.round(3 * d);
             bar.setLayoutParams(blp);
-            bar.setBackgroundColor(Studio.alpha(Studio.INK, 0x66));
+            bar.setBackgroundColor(Studio.alpha(Studio.DRAWER_INK, 0x66));
             box.addView(bar);
         }
         int size = Math.round(44 * d);
         box.setLayoutParams(new LinearLayout.LayoutParams(size, size));
         return box;
-    }
-
-    /** The pill background at the one radius this app uses for chips. */
-    @NonNull
-    private static android.graphics.drawable.GradientDrawable pill(int color, float d) {
-        android.graphics.drawable.GradientDrawable g =
-                new android.graphics.drawable.GradientDrawable();
-        g.setColor(color);
-        g.setCornerRadius(14f * d);
-        return g;
     }
 
     /** A card is a soft panel, not a hard rectangle — a smaller radius than the chips on it. */
@@ -1317,6 +1335,15 @@ public final class FxPanel {
 
     /** Tag key for the panel root's live refresh list — diamonds/sliders re-read the model. */
     private static final int REFRESH_TAG = 0x2A5F_0001; // arbitrary unique tag key
+
+    /**
+     * The diamond on a key: CAREFUL amber — record 06 "Keyframe diamond = careful/amber"
+     * ({@code .dkf .dia::after} background var(--warn)). It was the guide violet, which is the
+     * snap-line colour and meant two things at once.
+     */
+    private static final int KEY_ON = Studio.CAREFUL;
+    /** Off a key: drawer DIM, so a hollow diamond on the scrim is still plainly there. */
+    private static final int KEY_OFF = Studio.DRAWER_DIM;
 
     /** One registered live-refresh callback (diamond fill state, keyframed slider value). */
     private interface RefreshEntry { void onPlayhead(long playheadMs); }
@@ -1398,10 +1425,14 @@ public final class FxPanel {
                                        @NonNull Runnable onTap) {
         TextView v = new TextView(ctx);
         v.setText(glyph);
-        v.setTextColor(Studio.INK_FAINT);
+        // Drawer DIM, not the screen ramp's faint grey — it sits on the scrim.
+        v.setTextColor(Studio.DRAWER_DIM);
         v.setTextSize(15f);
         v.setGravity(Gravity.CENTER);
         v.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
+        // Record 06 §04's floor: "nothing below 28dp".
+        v.setMinWidth(Math.round(28 * d));
+        v.setMinHeight(Math.round(28 * d));
         v.setOnClickListener(ignored -> onTap.run());
         return v;
     }
@@ -1426,17 +1457,27 @@ public final class FxPanel {
         final Runnable repaint = () -> {
             boolean on = onKeyAtPlayhead(stack, fx, param, host.playheadMs());
             dg[0].setText(on ? "◆" : "◇");
-            dg[0].setTextColor(on ? Studio.GUIDE : Studio.INK_FAINT);
+            dg[0].setTextColor(on ? KEY_ON : KEY_OFF);
         };
 
         LinearLayout cluster = new LinearLayout(ctx);
         cluster.setOrientation(LinearLayout.HORIZONTAL);
         cluster.setGravity(Gravity.CENTER_VERTICAL);
 
-        cluster.addView(keyChevron(ctx, "‹", d,
-                () -> jumpKey(stack, fx, param, host, false)));
+        TextView prev = keyChevron(ctx, "‹", d,
+                () -> jumpKey(stack, fx, param, host, false));
+        TextOverlayDrawer.Kit.describe(prev,
+                ctx.getString(com.fadcam.R.string.faditor_lc_key_prev));
+        cluster.addView(prev);
 
         TextView t = chip(ctx, "◇", d);
+        // Record 06 `.dkf .dia`: the diamond carries no chip behind it — the glyph IS the control
+        // — and it is a hundred-times-a-day control, so it gets no press animation ("keying a
+        // cell 0ms"). The padding the chip gave it stays, so the target does not shrink.
+        t.setBackground(null);
+        t.setStateListAnimator(null);
+        t.setTextSize(13f);
+        TextOverlayDrawer.Kit.describe(t, ctx.getString(com.fadcam.R.string.faditor_lc_key_diamond));
         dg[0] = t;
         repaint.run();
         // BOTH GO THROUGH structural. The diamond is a mutation path with one undo per gesture,
@@ -1536,13 +1577,16 @@ public final class FxPanel {
             }
         });
         cluster.addView(t);
-        cluster.addView(keyChevron(ctx, "›", d,
-                () -> jumpKey(stack, fx, param, host, true)));
+        TextView next = keyChevron(ctx, "›", d,
+                () -> jumpKey(stack, fx, param, host, true));
+        TextOverlayDrawer.Kit.describe(next,
+                ctx.getString(com.fadcam.R.string.faditor_lc_key_next));
+        cluster.addView(next);
 
         rs.entries.add(playheadMs -> {
             boolean on = onKeyAtPlayhead(stack, fx, param, playheadMs);
             dg[0].setText(on ? "◆" : "◇");
-            dg[0].setTextColor(on ? Studio.GUIDE : Studio.INK_FAINT);
+            dg[0].setTextColor(on ? KEY_ON : KEY_OFF);
         });
         return cluster;
     }
@@ -1594,12 +1638,8 @@ public final class FxPanel {
         wrap.addView(row);
 
         if (names.isEmpty()) return wrap;
-        TextView head = new TextView(ctx);
-        head.setText("Saved looks");
-        head.setTextColor(TXT_DIM);
-        head.setTextSize(10.5f);
-        head.setPadding(0, Math.round(6 * d), 0, Math.round(2 * d));
-        wrap.addView(head);
+        // A section heading, so it gets the section-label voice (record 06 `.dsec`).
+        wrap.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, "Saved looks"));
 
         LinearLayout list = new LinearLayout(ctx);
         list.setOrientation(LinearLayout.HORIZONTAL);
@@ -1690,7 +1730,9 @@ public final class FxPanel {
         wrap.setPadding(0, Math.round(6 * d), 0, 0);
 
         TextView add = chip(ctx, "＋ Add effect", d);
-        add.setBackground(pill(CHIP_ON, d));
+        // THE one filled action on this panel — the gradient. It was a brighter grey pill, so
+        // the thing you came here to do looked like one more option among the chips.
+        TextOverlayDrawer.Kit.setPrimaryAction(add);
         final LinearLayout picker = new LinearLayout(ctx);
         picker.setOrientation(LinearLayout.VERTICAL);
         picker.setVisibility(View.GONE);
@@ -1702,12 +1744,7 @@ public final class FxPanel {
         for (FxEffectDef.Family family : FxEffectDef.Family.values()) {
             List<FxEffectDef> defs = FxRegistry.byFamily(family);
             if (defs.isEmpty()) continue;
-            TextView head = new TextView(ctx);
-            head.setText(pretty(family.name()));
-            head.setTextColor(TXT_DIM);
-            head.setTextSize(10.5f);
-            head.setPadding(0, Math.round(6 * d), 0, Math.round(2 * d));
-            picker.addView(head);
+            picker.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, pretty(family.name())));
 
             LinearLayout rowA = new LinearLayout(ctx);
             rowA.setOrientation(LinearLayout.HORIZONTAL);
@@ -1731,7 +1768,16 @@ public final class FxPanel {
                 boolean canRender = FxPreviewTier.canExportOn(def, subject);
                 TextView c = chip(ctx, def.displayName, d);
                 if (!canRender) {
-                    c.setAlpha(0.4f);
+                    // Unavailable HERE, but still legible and still answerable. It was the chip at
+                    // 40% alpha — grey on grey, the same "can't read the off state" defect as the
+                    // text drawer's toggles. Now: no fill, only its ring, in label ink. An outline
+                    // with nothing inside reads as "not this one" without becoming invisible.
+                    android.graphics.drawable.GradientDrawable hollow =
+                            new android.graphics.drawable.GradientDrawable();
+                    hollow.setCornerRadius(999f * d);
+                    hollow.setStroke(Math.max(1, Math.round(d)), TextOverlayDrawer.Kit.RING);
+                    c.setBackground(hollow);
+                    c.setTextColor(TXT_DIM);
                     c.setOnClickListener(v -> new com.google.android.material.dialog
                             .MaterialAlertDialogBuilder(ctx)
                             .setTitle(def.displayName + " needs its own pass")

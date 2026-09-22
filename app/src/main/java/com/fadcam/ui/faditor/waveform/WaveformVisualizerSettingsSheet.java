@@ -54,11 +54,22 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
     private static final String[] BAND_LABELS = {"Bass", "Voice", "Presence", "Highs"};
 
-    /** Preset swatches for the per-band color chooser. */
+    /**
+     * Preset swatches for the per-band color chooser.
+     *
+     * <p>CONTENT, not chrome: these are colours the USER picks for their own waveform, so they
+     * are a palette of choices and are deliberately not Studio tokens. A tokenising pass had
+     * mapped each one onto the nearest UI role, which collapsed twelve choices into ten (two
+     * reds, two identical greys) and dropped teal, blue and indigo entirely — and because the
+     * bands' shipped defaults (red #FF4D42, sky #57A8FF, yellow #F5D442) were no longer in the
+     * grid, the chooser could never ring the colour a band was actually using. Restored to the
+     * original twelve, with slot 4 set to the presence band's shipped default (#35F6BF, see
+     * TapeWaveformStyle) so every default is re-pickable.
+     */
     private static final int[] PRESET_COLORS = {
-            Studio.DANGER, Studio.ROOM_VIZ, Studio.CAREFUL, Studio.GO,
-            Studio.ARMED, Studio.INK_FAINT, Studio.INK_FAINT, Studio.GUIDE,
-            Studio.DANGER, Studio.INK, Studio.INK_DIM, Studio.INK_OFF,
+            0xFFFF4D42, 0xFFFF8A3D, 0xFFF5D442, 0xFF35F6BF,   // content: red, orange, yellow, aqua
+            0xFF2EC7B8, 0xFF57A8FF, 0xFF6C7BFF, 0xFFB56CFF,   // content: teal, sky, indigo, violet
+            0xFFFF5EAE, 0xFFFFFFFF, 0xFFB0B0B0, 0xFF555555,   // content: pink, white, grey, dark grey
     };
 
     @Nullable private TapeWaveformStyle style;
@@ -131,9 +142,12 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         root.setPadding((int) (20 * dp), (int) (8 * dp), (int) (20 * dp), (int) (28 * dp));
         scroll.addView(root);
 
-        // Grabber handle.
+        // Grabber handle — a round rail (record 06 .dgrab), not a square bar.
         View grabber = new View(requireContext());
-        grabber.setBackgroundColor(Studio.INK_OFF);
+        GradientDrawable grabBg = new GradientDrawable();
+        grabBg.setColor(Studio.INK_OFF);
+        grabBg.setCornerRadius(999 * dp);
+        grabber.setBackground(grabBg);
         LinearLayout.LayoutParams grabLp = new LinearLayout.LayoutParams(
                 (int) (40 * dp), (int) (4 * dp));
         grabLp.gravity = Gravity.CENTER_HORIZONTAL;
@@ -145,25 +159,16 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         title.setText("Waveform visualizer");
         title.setTextColor(Studio.INK);
         title.setTextSize(18);
-        title.setTypeface(null, Typeface.BOLD);
+        // Archivo — the display face, for a title meant to be LOOKED AT.
+        com.fadcam.ui.type.Type.display(title, com.fadcam.ui.type.Type.BOLD);
         title.setPadding(0, 0, 0, (int) (8 * dp));
         root.addView(title);
 
         // ── Analysis timing ──────────────────────────────────────────
         sectionHeader(root, dp, "Analysis");
-        final CheckBox eager = new CheckBox(requireContext());
-        eager.setText("Analyze waveforms immediately");
-        eager.setTextColor(Studio.INK_DIM);
-        eager.setTextSize(14);
-        eager.setChecked(style.analyzeEager);
-        root.addView(eager);
-        final TextView eagerHint = new TextView(requireContext());
-        eagerHint.setTextColor(Studio.INK_FAINT);
-        eagerHint.setTextSize(12);
-        eagerHint.setText(style.analyzeEager
+        final CheckBox eager = check(root, "Analyze waveforms immediately", style.analyzeEager);
+        final TextView eagerHint = hint(root, dp, style.analyzeEager
                 ? "Analyzed at import." : "Analyzed when a clip is first opened.");
-        eagerHint.setPadding((int) (2 * dp), 0, 0, (int) (6 * dp));
-        root.addView(eagerHint);
         eager.setOnCheckedChangeListener((b, checked) -> {
             if (style == null) return;
             style.analyzeEager = checked;
@@ -210,12 +215,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
             commit(true);
         }));
 
-        final CheckBox presence = new CheckBox(requireContext());
-        presence.setText("Presence band");
-        presence.setTextColor(Studio.INK_DIM);
-        presence.setTextSize(14);
-        presence.setChecked(style.presenceOn);
-        root.addView(presence);
+        final CheckBox presence = check(root, "Presence band", style.presenceOn);
         presence.setOnCheckedChangeListener((b, checked) -> {
             if (style == null) return;
             style.presenceOn = checked;
@@ -232,19 +232,10 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         // ── Normalize ────────────────────────────────────────────────
         sectionHeader(root, dp, "Normalize");
-        final CheckBox norm = new CheckBox(requireContext());
-        norm.setText("Normalize each band independently");
-        norm.setTextColor(Studio.INK_DIM);
-        norm.setTextSize(14);
-        norm.setChecked(style.perBandNormalize);
-        root.addView(norm);
-        final TextView normHint = new TextView(requireContext());
-        normHint.setTextColor(Studio.INK_FAINT);
-        normHint.setTextSize(12);
-        normHint.setText(style.perBandNormalize
+        final CheckBox norm = check(root, "Normalize each band independently",
+                style.perBandNormalize);
+        final TextView normHint = hint(root, dp, style.perBandNormalize
                 ? "Each band fills its own height." : "Bands keep relative loudness.");
-        normHint.setPadding((int) (2 * dp), 0, 0, (int) (6 * dp));
-        root.addView(normHint);
         norm.setOnCheckedChangeListener((b, checked) -> {
             if (style == null) return;
             style.perBandNormalize = checked;
@@ -287,51 +278,74 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
     // ── Row builders ─────────────────────────────────────────────────
 
+    // ── one builder per visual: section label, check, hint, labelled slider ──
+    // This sheet is an OPAQUE panel, not the drawer scrim, so it wears the SCREEN ramp:
+    // INK for values, LABEL for a control's own label, INK_DIM for secondary lines. It had
+    // INK_FAINT (#71717A) on hints and every value — about 4:1 on this panel, under the 4.5:1
+    // small text needs — and INK_DIM on the labels of the controls themselves.
+
+    /** Record 06's section label: IBM Plex Mono, .14em, UPPERCASE. */
     private void sectionHeader(@NonNull LinearLayout root, float dp, @NonNull String text) {
         TextView h = new TextView(requireContext());
         h.setText(text.toUpperCase(java.util.Locale.US));
-        h.setTextColor(Studio.INK_FAINT);
-        h.setTextSize(12);
-        h.setTypeface(null, Typeface.BOLD);
-        h.setPadding(0, (int) (14 * dp), 0, (int) (4 * dp));
+        h.setTextColor(Studio.INK_DIM);
+        h.setTextSize(10);
+        com.fadcam.ui.type.Type.mono(h, com.fadcam.ui.type.Type.SEMIBOLD);
+        h.setLetterSpacing(0.14f);
+        h.setPadding(0, (int) (16 * dp), 0, (int) (4 * dp));
         root.addView(h);
+    }
+
+    /** A labelled checkbox, added to {@code root}. The caller wires its listener. */
+    @NonNull
+    private CheckBox check(@NonNull LinearLayout root, @NonNull String label, boolean initial) {
+        CheckBox cb = new CheckBox(requireContext());
+        cb.setText(label);
+        cb.setTextColor(Studio.LABEL);
+        cb.setTextSize(14);
+        com.fadcam.ui.type.Type.body(cb, com.fadcam.ui.type.Type.REGULAR);
+        tintCheck(cb);
+        cb.setMinHeight((int) (44 * getResources().getDisplayMetrics().density));
+        cb.setChecked(initial);
+        root.addView(cb);
+        return cb;
+    }
+
+    /** A secondary explanatory line under a control, added to {@code root}. */
+    @NonNull
+    private TextView hint(@NonNull LinearLayout root, float dp, @NonNull String text) {
+        TextView t = new TextView(requireContext());
+        t.setTextColor(Studio.INK_DIM);
+        t.setTextSize(12);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.REGULAR);
+        t.setText(text);
+        t.setPadding((int) (2 * dp), 0, 0, (int) (6 * dp));
+        root.addView(t);
+        return t;
     }
 
     /** A labelled Hz SeekBar (60..8000). Returns the SeekBar so the caller wires the listener. */
     @NonNull
     private SeekBar hzRow(@NonNull LinearLayout root, float dp, @NonNull String label,
                           int initialHz, @NonNull TextView valueView) {
-        LinearLayout labelRow = new LinearLayout(requireContext());
-        labelRow.setOrientation(LinearLayout.HORIZONTAL);
-        labelRow.setGravity(Gravity.CENTER_VERTICAL);
-        labelRow.setPadding(0, (int) (2 * dp), 0, 0);
-        root.addView(labelRow);
-
-        TextView l = new TextView(requireContext());
-        l.setText(label);
-        l.setTextColor(Studio.INK_DIM);
-        l.setTextSize(14);
-        l.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        labelRow.addView(l);
-
-        valueView.setTextColor(Studio.INK_FAINT);
-        valueView.setTextSize(13);
-        valueView.setTypeface(null, Typeface.BOLD);
         valueView.setText(hz(initialHz));
-        labelRow.addView(valueView);
-
-        SeekBar bar = new SeekBar(requireContext());
-        bar.setMax(HZ_MAX - HZ_MIN);
-        bar.setProgress(clampInt(initialHz, HZ_MIN, HZ_MAX) - HZ_MIN);
-        tintSeek(bar);
-        root.addView(bar);
-        return bar;
+        return labelledSlider(root, dp, label, valueView,
+                HZ_MAX - HZ_MIN, clampInt(initialHz, HZ_MIN, HZ_MAX) - HZ_MIN);
     }
 
     /** A labelled float SeekBar mapped onto [min,max] with FLOAT_STEPS resolution. */
     @NonNull
     private SeekBar floatRow(@NonNull LinearLayout root, float dp, @NonNull String label,
                              float initial, float min, float max, @NonNull TextView valueView) {
+        valueView.setText(f2(initial));
+        return labelledSlider(root, dp, label, valueView, FLOAT_STEPS,
+                toProgress(initial, min, max));
+    }
+
+    /** Label and mono value on one line, the slider under them. The one slider builder here. */
+    @NonNull
+    private SeekBar labelledSlider(@NonNull LinearLayout root, float dp, @NonNull String label,
+                                   @NonNull TextView valueView, int max, int progress) {
         LinearLayout labelRow = new LinearLayout(requireContext());
         labelRow.setOrientation(LinearLayout.HORIZONTAL);
         labelRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -340,20 +354,23 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         TextView l = new TextView(requireContext());
         l.setText(label);
-        l.setTextColor(Studio.INK_DIM);
+        l.setTextColor(Studio.LABEL);
         l.setTextSize(14);
+        com.fadcam.ui.type.Type.body(l, com.fadcam.ui.type.Type.REGULAR);
         l.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         labelRow.addView(l);
 
-        valueView.setTextColor(Studio.INK_FAINT);
+        // A number the machine is telling you exactly: mono, tabular, full ink.
+        valueView.setTextColor(Studio.INK);
         valueView.setTextSize(13);
-        valueView.setTypeface(null, Typeface.BOLD);
-        valueView.setText(f2(initial));
+        com.fadcam.ui.type.Type.mono(valueView, com.fadcam.ui.type.Type.SEMIBOLD);
+        valueView.setFontFeatureSettings("tnum");
         labelRow.addView(valueView);
 
         SeekBar bar = new SeekBar(requireContext());
-        bar.setMax(FLOAT_STEPS);
-        bar.setProgress(toProgress(initial, min, max));
+        bar.setMax(max);
+        bar.setProgress(progress);
+        bar.setContentDescription(label);
         tintSeek(bar);
         root.addView(bar);
         return bar;
@@ -366,12 +383,13 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         row.setPadding(0, (int) (6 * dp), 0, (int) (6 * dp));
         root.addView(row);
 
-        // color swatch
+        // color swatch — 28dp of colour inside a 44dp target (the inset lives in applySwatch).
         View swatch = new View(requireContext());
-        LinearLayout.LayoutParams swLp = new LinearLayout.LayoutParams((int) (28 * dp), (int) (28 * dp));
-        swLp.setMarginEnd((int) (12 * dp));
+        LinearLayout.LayoutParams swLp = new LinearLayout.LayoutParams((int) (44 * dp), (int) (44 * dp));
+        swLp.setMarginEnd((int) (4 * dp));
         swatch.setLayoutParams(swLp);
         applySwatch(swatch, style.bandColor[band]);
+        hoverLabel(swatch, getString(R.string.lane_b_wave_swatch, BAND_LABELS[band]));
         swatch.setOnClickListener(v -> showColorChooser(band));
         row.addView(swatch);
         if (bandSwatches != null) bandSwatches[band] = swatch;
@@ -379,20 +397,24 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         // label
         TextView l = new TextView(requireContext());
         l.setText(BAND_LABELS[band]);
-        l.setTextColor(Studio.INK_DIM);
+        l.setTextColor(Studio.LABEL);
         l.setTextSize(15);
+        com.fadcam.ui.type.Type.body(l, com.fadcam.ui.type.Type.MEDIUM);
         l.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(l);
 
-        // lane toggle (▲ top = -1, ▼ below = +1)
+        // lane toggle (▲ top = -1, ▼ below = +1). 44dp square target around a 16sp glyph.
         TextView lane = new TextView(requireContext());
         lane.setTextSize(16);
         lane.setTypeface(null, Typeface.BOLD);
-        lane.setPadding((int) (10 * dp), (int) (4 * dp), (int) (10 * dp), (int) (4 * dp));
+        lane.setGravity(Gravity.CENTER);
+        lane.setMinWidth((int) (44 * dp));
+        lane.setMinHeight((int) (44 * dp));
         LinearLayout.LayoutParams laneLp = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        laneLp.setMarginEnd((int) (8 * dp));
+        laneLp.setMarginEnd((int) (4 * dp));
         lane.setLayoutParams(laneLp);
+        lane.setTag(BAND_LABELS[band]);
         updateLaneButton(lane, style.bandLane[band]);
         lane.setOnClickListener(v -> {
             if (style == null) return;
@@ -405,6 +427,8 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
         // on/off
         CheckBox on = new CheckBox(requireContext());
+        tintCheck(on);
+        hoverLabel(on, getString(R.string.lane_b_wave_band_show, BAND_LABELS[band]));
         on.setChecked(style.bandOn[band]);
         on.setOnCheckedChangeListener((b, checked) -> {
             if (style == null) return;
@@ -416,13 +440,8 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
 
     private void fxCheck(@NonNull LinearLayout root, @NonNull String label, boolean initial,
                          @NonNull BoolSink sink) {
-        CheckBox cb = new CheckBox(requireContext());
-        cb.setText(label);
-        cb.setTextColor(Studio.INK_DIM);
-        cb.setTextSize(14);
-        cb.setChecked(initial);
+        CheckBox cb = check(root, label, initial);
         cb.setOnCheckedChangeListener((b, checked) -> sink.set(checked));
-        root.addView(cb);
     }
 
     // ── Color chooser (preset grid in a dialog) ──────────────────────
@@ -436,8 +455,12 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         grid.setPadding(pad, pad, pad, pad);
 
         final Dialog[] holder = new Dialog[1];
-        for (final int color : PRESET_COLORS) {
+        for (int idx = 0; idx < PRESET_COLORS.length; idx++) {
+            final int color = PRESET_COLORS[idx];
             View cell = new View(requireContext());
+            hoverLabel(cell, getString(color == style.bandColor[band]
+                            ? R.string.lane_b_wave_preset_on : R.string.lane_b_wave_preset,
+                    idx + 1, PRESET_COLORS.length));
             android.widget.GridLayout.LayoutParams lp = new android.widget.GridLayout.LayoutParams();
             lp.width = (int) (44 * dp);
             lp.height = (int) (44 * dp);
@@ -488,13 +511,34 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
         d.setCornerRadius(6 * dp);
         d.setColor(color);
         d.setStroke((int) (1 * dp), Studio.OFF);
-        swatch.setBackground(d);
+        // 28dp of colour centred in the 44dp view: the target grows, the swatch does not.
+        swatch.setBackground(new android.graphics.drawable.InsetDrawable(d, (int) (8 * dp)));
     }
 
     private void updateLaneButton(@NonNull TextView lane, int laneVal) {
         boolean top = laneVal <= 0; // -1 = top lane
         lane.setText(top ? "▲" : "▼"); // ▲ / ▼
-        lane.setTextColor(top ? Studio.INK_FAINT : Studio.CAREFUL);
+        // Top is the default and sits quiet; "below" is a changed arrangement and is marked in
+        // the ARMED colour. It was CAREFUL amber, which says "warning" — nothing here warns.
+        lane.setTextColor(top ? Studio.INK_DIM : Studio.ARMED);
+        Object band = lane.getTag();
+        if (band != null) {
+            hoverLabel(lane, getString(top ? R.string.lane_b_wave_lane_top
+                    : R.string.lane_b_wave_lane_below, band));
+        }
+    }
+
+    /** Spoken name AND hover tooltip — a stylus or a mouse shows it on Android. */
+    private static void hoverLabel(@NonNull View v, @NonNull CharSequence label) {
+        v.setContentDescription(label);
+        androidx.core.view.ViewCompat.setTooltipText(v, label);
+    }
+
+    /** The checkbox tint: ARMED when on, the secondary ink when off — never the theme's. */
+    private static void tintCheck(@NonNull CheckBox cb) {
+        cb.setButtonTintList(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{Studio.ARMED, Studio.INK_DIM}));
     }
 
     private void tintSeek(@NonNull SeekBar bar) {

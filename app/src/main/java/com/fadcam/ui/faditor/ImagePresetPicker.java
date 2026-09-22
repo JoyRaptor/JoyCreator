@@ -69,8 +69,9 @@ public final class ImagePresetPicker {
     private static final int COLS = 4;
     private static final int BG = Studio.RAISED;
     private static final int TILE_BG = Studio.LINE;
-    private static final int ACCENT = Studio.GO;
-    private static final int RING_FILL = Studio.alpha(Studio.GO, 0x1F);
+    // Selected is ARMED (#22D3EE) — the Studio green means "press to act", not "this one".
+    private static final int ACCENT = Studio.ARMED;
+    private static final int RING_FILL = Studio.alpha(Studio.ARMED, 0x1F);
     private static final int CANVAS_SOLID = Studio.OFF;
     private static final int IMAGE_DOTTED = Studio.INK_DIM;
 
@@ -93,8 +94,9 @@ public final class ImagePresetPicker {
         // Hint for None
         TextView hint = new TextView(ctx);
         hint.setText("No animation (reset) — centred, cover-scaled, static");
-        hint.setTextColor(Studio.INK_FAINT);
+        hint.setTextColor(Studio.INK_DIM);
         hint.setTextSize(10);
+        com.fadcam.ui.type.Type.body(hint, com.fadcam.ui.type.Type.REGULAR);
         hint.setPadding(0, 0, 0, (int)(6*d));
         container.addView(hint);
 
@@ -114,6 +116,10 @@ public final class ImagePresetPicker {
             final ImageAnimPreset.Kind k = ORDER[i];
             final boolean selected = k == current;
             PresetTileView v = new PresetTileView(ctx, k, selected);
+            v.setClickable(true);
+            v.setFocusable(true);
+            SheetKit.label(v, labelOf(k));
+            SheetKit.press(v);
             v.setOnClickListener(vv -> {
                 onPick.onPick(k);
                 anchor.postDelayed(pop::dismiss, 120);
@@ -172,7 +178,7 @@ public final class ImagePresetPicker {
             dottedPaint.setStyle(Paint.Style.STROKE);
             dottedPaint.setStrokeWidth(1.6f * density);
             dottedPaint.setPathEffect(new DashPathEffect(new float[]{4f*density, 3f*density}, 0));
-            textPaint.setColor(Studio.INK_FAINT);
+            textPaint.setColor(Studio.INK_DIM);   // FAINT on the LINE tile measured ~3:1
             textPaint.setTextSize(9f * density);
             textPaint.setTextAlign(Paint.Align.CENTER);
 

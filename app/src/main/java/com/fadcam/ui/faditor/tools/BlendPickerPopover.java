@@ -48,13 +48,16 @@ public final class BlendPickerPopover {
     public interface OnPick { void onPick(@NonNull String mode); }
 
     private static final int SHEET_BG = Studio.RAISED;
-    // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
-    // Same value it has always rendered; it simply asks for it by the right name now.
-    private static final int TXT = Studio.DRAWER_INK;
-    private static final int TXT_HEADING = Studio.DRAWER_LABEL;   // the "small grey text" category label
-    private static final int ROW_ON = Studio.alpha(Studio.ROOM_AVATAR_DEEP, 0x33);
-    private static final int ACCENT = Studio.GUIDE;
-    private static final int CHIP_BG = Studio.alpha(Studio.INK, 0x22);
+    // The popover is an OPAQUE raised sheet, not the scrim — so the SCREEN ramp. It was on the
+    // drawer ramp under a comment saying it sat "over the frosted scrim", which it never has:
+    // the drawer ink exists to survive video behind the text, and there is none here.
+    private static final int TXT = Studio.INK;
+    private static final int TXT_HEADING = Studio.INK_DIM;   // the "small grey text" category label
+    // The current mode is SELECTED, so it wears the selected state (cyan). It wore GUIDE violet
+    // on an Avatar-violet wash: an alignment-guide colour and a room colour, neither of which
+    // means "this one".
+    private static final int ROW_ON = Studio.alpha(Studio.ARMED, 0x2E);
+    private static final int ACCENT = Studio.ARMED;
 
     /**
      * Which column each of {@link BlendModes#GROUPED}'s groups lands in. Hand-assigned rather than
@@ -123,21 +126,11 @@ public final class BlendPickerPopover {
                                 @NonNull java.util.function.Supplier<String> getMode,
                                 @NonNull java.util.function.Consumer<String> setMode,
                                 @NonNull Runnable apply) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        final TextView chip = new TextView(ctx);
-        chip.setTextColor(TXT);
-        chip.setTextSize(12f);
-        chip.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        chip.setGravity(Gravity.CENTER_VERTICAL);
-        int px = Math.round(14 * d), py = Math.round(9 * d);
-        chip.setPadding(px, py, px, py);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(14f * d);
-        bg.setColor(CHIP_BG);
-        bg.setStroke(Math.round(1 * d), Studio.alpha(Studio.INK, 0x33));
-        chip.setBackground(bg);
-        chip.setMinHeight(Math.round(44 * d));
-        chip.setText(chipText(ctx, getMode.get()));
+        // This chip lives IN a drawer (the Blend tab, and FxPanel's cards), so it is the drawer's
+        // chip: ObjectDrawer.Kit draws it — record 06 .dchip, round, control fill, 1dp ring,
+        // drawer ink — instead of a fourth private chip recipe with a drop shadow.
+        final TextView chip = ObjectDrawer.Kit.chip(ctx, chipText(ctx, getMode.get()));
+        ObjectDrawer.Kit.pressable(chip);
         chip.setOnClickListener(v -> show(v, getMode.get(), picked -> {
             setMode.accept(picked);
             chip.setText(chipText(ctx, picked));
@@ -178,22 +171,7 @@ public final class BlendPickerPopover {
         int width = Math.min(dm.widthPixels - Math.round(20 * d), Math.round(430 * d));
         int colW = (width - Math.round(24 * d)) / COLUMNS;
 
-        LinearLayout sheet = new LinearLayout(ctx);
-        sheet.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(SHEET_BG);
-        bg.setCornerRadius(16 * d);
-        sheet.setBackground(bg);
-        sheet.setElevation(16 * d);
-        int pad = Math.round(12 * d);
-        sheet.setPadding(pad, pad, pad, pad);
-
-        TextView title = new TextView(ctx);
-        title.setText(R.string.faditor_blend_title);
-        title.setTextColor(TXT);
-        title.setTextSize(14f);
-        title.setPadding(Math.round(4 * d), 0, 0, Math.round(8 * d));
-        sheet.addView(title);
+        LinearLayout sheet = sheet(ctx, ctx.getText(R.string.faditor_blend_title));
 
         LinearLayout cols = new LinearLayout(ctx);
         cols.setOrientation(LinearLayout.HORIZONTAL);
@@ -215,10 +193,12 @@ public final class BlendPickerPopover {
             TextView heading = new TextView(ctx);
             heading.setText(groupLabelRes(BlendModes.GROUP_KEYS[
                     Math.min(g, BlendModes.GROUP_KEYS.length - 1)]));
+            // The .dsec shape — mono, uppercase, tracked — in this sheet's screen ink.
             heading.setTextColor(TXT_HEADING);
             heading.setTextSize(10f);
             heading.setAllCaps(true);
-            heading.setLetterSpacing(0.08f);
+            heading.setLetterSpacing(0.14f);
+            com.fadcam.ui.type.Type.mono(heading, com.fadcam.ui.type.Type.MEDIUM);
             heading.setPadding(Math.round(6 * d), Math.round(8 * d), 0, Math.round(2 * d));
             host.addView(heading);
             for (String mode : BlendModes.GROUPED[g]) {
@@ -253,17 +233,53 @@ public final class BlendPickerPopover {
         if (centered) {
             pop.showAtLocation(anchor, Gravity.CENTER, 0, 0);
         } else {
-            // Prefer ABOVE the chip: these chips sit in a drawer near the bottom of the screen,
-            // so dropping down would open the picker off the edge.
-            int h = Math.min(sheet.getMeasuredHeight(), maxH);
-            int[] loc = new int[2];
-            anchor.getLocationInWindow(loc);
-            int gap = Math.round(6 * d);
-            if (loc[1] - h - gap > 0) {
-                pop.showAsDropDown(anchor, 0, -(h + anchor.getHeight() + gap), Gravity.START);
-            } else {
-                pop.showAsDropDown(anchor, 0, gap, Gravity.START);
-            }
+            showAbove(pop, anchor, Math.min(sheet.getMeasuredHeight(), maxH), Gravity.START);
+        }
+    }
+
+    // ── shared with PivotPickerPopover: one sheet, one placement ─────────────────────────────
+    // Both popovers built the same sheet and the same "above the anchor if it fits" placement by
+    // hand. They are "one family" by design (PivotPickerPopover's own note), so they now share
+    // the code that makes them one, and cannot drift apart a dp at a time.
+
+    /** The popover sheet: raised, radius 16, elevation 16, 12dp padding, with a title line. */
+    @NonNull
+    static LinearLayout sheet(@NonNull Context ctx, @NonNull CharSequence titleText) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        LinearLayout sheet = new LinearLayout(ctx);
+        sheet.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(SHEET_BG);
+        bg.setCornerRadius(16 * d);
+        sheet.setBackground(bg);
+        sheet.setElevation(16 * d);
+        int pad = Math.round(12 * d);
+        sheet.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(ctx);
+        title.setText(titleText);
+        title.setTextColor(TXT);
+        title.setTextSize(14f);
+        com.fadcam.ui.type.Type.body(title, com.fadcam.ui.type.Type.SEMIBOLD);
+        title.setPadding(Math.round(4 * d), 0, 0, Math.round(8 * d));
+        sheet.addView(title);
+        return sheet;
+    }
+
+    /**
+     * Show {@code pop} ABOVE {@code anchor} when there is room, else below. These popovers open
+     * from controls in a drawer near the bottom of the screen, so dropping down by default would
+     * open them off the edge.
+     */
+    static void showAbove(@NonNull PopupWindow pop, @NonNull View anchor, int h, int gravity) {
+        float d = anchor.getResources().getDisplayMetrics().density;
+        int[] loc = new int[2];
+        anchor.getLocationInWindow(loc);
+        int gap = Math.round(6 * d);
+        if (loc[1] - h - gap > 0) {
+            pop.showAsDropDown(anchor, 0, -(h + anchor.getHeight() + gap), gravity);
+        } else {
+            pop.showAsDropDown(anchor, 0, gap, gravity);
         }
     }
 

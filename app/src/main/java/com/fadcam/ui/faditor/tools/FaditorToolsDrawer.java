@@ -1,41 +1,59 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.SheetKit;
 import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.type.Type;
 
-import android.animation.ObjectAnimator;
 import android.content.Context;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.content.res.ColorStateList;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.animation.DecelerateInterpolator;
+import android.view.animation.PathInterpolator;
 import android.widget.FrameLayout;
-import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.core.content.res.ResourcesCompat;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.fadcam.R;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Stage 2 — swipe-up "all tools" drawer for the Faditor editor.
+ * Stage 2 — swipe-up "all tools" sheet for the editor.
  *
- * <p>A full-width overlay (dim scrim + bottom sheet-style panel) that shows
- * every carousel tool in a grid, each with its label underneath. It is a
- * power-user surface and may cover the video. Tapping a tool re-fires the SAME
- * carousel cell (via {@link FaditorToolsAdapter#getCellForId} +
- * {@code performClick()}), so all existing handlers — including the mute /
- * opacity touch tools' tap paths — run unchanged, then the drawer dismisses.
- * Swipe-down on the panel or tapping the scrim dismisses.</p>
+ * <p>Drawn to record 06 §02 ({@code .sheet .sh .sb .tgrid}): the dark scrim itself is the sheet
+ * — rgba(0,0,0,.64) with a white-10% top edge and 20dp top corners — sitting 78dp below the top
+ * of the screen so the editor's top bar stays visible. A header carries the title in Archivo
+ * 14.5 w800 and a mono count of the tools shown, and the body is a five-column grid of 9dp-radius
+ * cells on white-10%, 14sp glyph over a 7sp single-line label. Because the sheet is translucent
+ * over the video, all of its text uses the DRAWER ink ramp.</p>
  *
- * <p>Context is respected: tools whose carousel cell is {@code GONE} for the
- * current selection (currently only the always-hidden {@code trim}/{@code
- * heal}) are omitted from the grid too.</p>
+ * <p>Tapping a tool re-fires the SAME carousel cell (via {@link FaditorToolsAdapter#getCellForId}
+ * + {@code performClick()}), so every existing handler — including the mute / opacity touch
+ * tools' tap paths — runs unchanged, then the sheet dismisses. Swipe-down on the sheet, the close
+ * button, a tap above the sheet, or system back dismisses.</p>
+ *
+ * <p>Context is respected: tools whose carousel cell is {@code GONE} for the current selection
+ * (currently only the always-hidden {@code trim}/{@code heal}) are omitted from the grid too.</p>
+ *
+ * <p><b>Two fixes for the owner's report that the last row had no labels.</b> The grid was a
+ * {@code GridLayout} with weighted zero-width cells, which measures a child's height before its
+ * width is final, and the panel never reserved room for the navigation / gesture bar that the
+ * immersive editor lays out beneath. The grid is now plain weighted rows (deterministic
+ * measurement, single-line labels), the sheet's height is capped to the space below the top bar
+ * with the grid scrolling inside it, and the bottom padding adds the system bar inset.</p>
  */
 public class FaditorToolsDrawer {
 
@@ -44,7 +62,25 @@ public class FaditorToolsDrawer {
         void onToolChosen(@NonNull String toolId);
     }
 
-    private static final int COLUMNS = 4;
+    /** Record 06 {@code .tgrid}: repeat(5, 1fr). */
+    private static final int COLUMNS = 5;
+    /** Record 06 {@code .sheet}: top:78px — the editor's top bar stays in view above it. */
+    private static final int TOP_RESERVE_DP = 78;
+    /** Record 06: the drawer curve, cubic-bezier(.32,.72,0,1), 320ms in. */
+    private static final int IN_MS = 320;
+    private static final int OUT_MS = 200;
+    private static final int SCRIM_IN_MS = 180;
+    private static final int SCRIM_OUT_MS = 160;
+
+    // ── colours, by role (record 06 :root) ───────────────────────────────
+    /** {@code --scrim}: rgba(0,0,0,.64) — the sheet's own fill. */
+    private static final int SHEET_FILL = Studio.alpha(Studio.GROUND, 0xA3);
+    /** {@code --edge}: rgba(255,255,255,.10), the top hairline. */
+    private static final int SHEET_EDGE = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    /** {@code --dctl}: rgba(255,255,255,.10), a control over the scrim. */
+    private static final int CELL_FILL = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    /** A light veil over the rest of the editor, so a tap there reads as "close". */
+    private static final int OUTSIDE_VEIL = Studio.alpha(Studio.GROUND, 0x33);
 
     private final Context context;
     private final ViewGroup root;
@@ -75,16 +111,13 @@ public class FaditorToolsDrawer {
         showing = true;
         buildOverlay();
         root.addView(overlay);
-        // Animate scrim fade + panel slide up.
         scrim.setAlpha(0f);
-        scrim.animate().alpha(1f).setDuration(180).start();
+        scrim.animate().alpha(1f).setDuration(SCRIM_IN_MS).start();
         panel.post(() -> {
             float h = panel.getHeight();
             panel.setTranslationY(h);
-            ObjectAnimator a = ObjectAnimator.ofFloat(panel, "translationY", h, 0f);
-            a.setDuration(240);
-            a.setInterpolator(new DecelerateInterpolator());
-            a.start();
+            panel.animate().translationY(0f).setDuration(IN_MS)
+                    .setInterpolator(curve()).start();
         });
     }
 
@@ -93,16 +126,14 @@ public class FaditorToolsDrawer {
         if (!showing || overlay == null) return;
         showing = false;
         final FrameLayout toRemove = overlay;
-        scrim.animate().alpha(0f).setDuration(160).start();
-        float h = panel.getHeight();
-        ObjectAnimator a = ObjectAnimator.ofFloat(panel, "translationY", 0f, h);
-        a.setDuration(200);
-        a.setInterpolator(new DecelerateInterpolator());
-        a.start();
-        panel.postDelayed(() -> {
-            root.removeView(toRemove);
-            if (overlay == toRemove) overlay = null;
-        }, 210);
+        scrim.animate().alpha(0f).setDuration(SCRIM_OUT_MS).start();
+        panel.animate().translationY(panel.getHeight()).setDuration(OUT_MS)
+                .setInterpolator(curve())
+                .withEndAction(() -> {
+                    root.removeView(toRemove);
+                    if (overlay == toRemove) overlay = null;
+                })
+                .start();
     }
 
     // ── Build ─────────────────────────────────────────────────────────
@@ -114,100 +145,123 @@ public class FaditorToolsDrawer {
         overlay.setClickable(true);
         overlay.setFocusable(true);
 
-        // Dim scrim — tap to dismiss.
+        // Outside the sheet — tap to dismiss.
         scrim = new View(context);
         scrim.setLayoutParams(new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        scrim.setBackgroundColor(Studio.alpha(Studio.GROUND, 0xB3));
+        scrim.setBackgroundColor(OUTSIDE_VEIL);
         scrim.setOnClickListener(v -> dismiss());
         overlay.addView(scrim);
 
-        // Bottom panel.
-        panel = new LinearLayout(context);
+        // The sheet. Its height is capped so it never climbs over the top bar.
+        panel = new LinearLayout(context) {
+            @Override
+            protected void onMeasure(int widthSpec, int heightSpec) {
+                int avail = View.MeasureSpec.getSize(heightSpec);
+                if (avail > 0) {
+                    int cap = Math.max(dp(160), avail - dp(TOP_RESERVE_DP));
+                    heightSpec = View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.AT_MOST);
+                }
+                super.onMeasure(widthSpec, heightSpec);
+            }
+        };
         panel.setOrientation(LinearLayout.VERTICAL);
         FrameLayout.LayoutParams panelLp = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         panelLp.gravity = Gravity.BOTTOM;
         panel.setLayoutParams(panelLp);
-        panel.setBackgroundColor(Studio.PANEL);
-        panel.setPadding(dp(8), dp(10), dp(8), dp(24));
+        panel.setBackground(sheetBackground());
         panel.setClickable(true);
+        // .sb padding 0 10 12; the system bar inset is added on top (see fitBottom).
+        final int baseBottom = dp(12);
+        panel.setPadding(0, 0, 0, baseBottom + systemBottomInset());
+        ViewCompat.setOnApplyWindowInsetsListener(panel, (v, insets) -> {
+            v.setPadding(0, 0, 0, baseBottom + bottomOf(insets));
+            return insets;
+        });
         // Swipe-down on the panel dismisses.
         attachSwipeDownDismiss(panel);
         overlay.addView(panel);
 
-        // Grab handle.
-        View handle = new View(context);
-        LinearLayout.LayoutParams handleLp = new LinearLayout.LayoutParams(dp(36), dp(4));
-        handleLp.gravity = Gravity.CENTER_HORIZONTAL;
-        handleLp.bottomMargin = dp(6);
-        handle.setLayoutParams(handleLp);
-        handle.setBackgroundColor(Studio.INK_OFF);
-        panel.addView(handle);
-
-        // Title.
-        TextView title = new TextView(context);
-        title.setText(R.string.faditor_tools_all_title);
-        title.setTextColor(Studio.INK_DIM);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
-        title.setPadding(dp(8), dp(2), dp(8), dp(8));
-        panel.addView(title);
-
-        // Scrollable grid of tools.
-        ScrollView scroll = new ScrollView(context);
-        LinearLayout.LayoutParams scrollLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT);
-        scroll.setLayoutParams(scrollLp);
-        // Cap height so a huge tool set stays scrollable and doesn't fill the screen.
-        int maxH = (int) (context.getResources().getDisplayMetrics().heightPixels * 0.5f);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-
-        GridLayout grid = new GridLayout(context);
-        grid.setColumnCount(COLUMNS);
-        grid.setLayoutParams(new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-
-        List<FaditorTool> tools = adapter.getTools();
-        for (FaditorTool tool : tools) {
+        // Which tools show — unchanged: skip always-hidden and currently-GONE cells.
+        List<FaditorTool> shown = new ArrayList<>();
+        for (FaditorTool tool : adapter.getTools()) {
             if (tool.alwaysHidden) continue;
             View cell = adapter.getCellForId(tool.id);
             // Skip tools currently hidden in the carousel (context filtering).
             if (cell != null && cell.getVisibility() != View.VISIBLE) continue;
-            grid.addView(buildGridCell(tool));
+            shown.add(tool);
         }
 
+        // Header: grab, "All tools" + mono count, close.
+        SheetKit.Header header = SheetKit.header(context,
+                context.getString(R.string.faditor_tools_all_title),
+                context.getString(R.string.lane_d_tools_count, shown.size()));
+        header.title.setTextColor(Studio.DRAWER_INK);
+        header.count.setTextColor(Studio.DRAWER_LABEL);
+        recolourGrab(header.view);
+        TextView close = SheetKit.iconButton(context, "close", Studio.DRAWER_DIM,
+                context.getString(R.string.lane_d_tools_close));
+        close.setOnClickListener(v -> dismiss());
+        header.addTrailing(close);
+        panel.addView(header.view);
+
+        // Body: the grid, scrolling inside the capped sheet.
+        ScrollView scroll = new ScrollView(context);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        scroll.setVerticalScrollBarEnabled(false);
+        // WRAP_CONTENT under the panel's AT_MOST cap measures as "the grid, or whatever is left
+        // below the header if that is less" — a short grid is not stretched, a long one scrolls.
+        scroll.setLayoutParams(new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        LinearLayout grid = new LinearLayout(context);
+        grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setPadding(dp(10), 0, dp(10), 0);
+        LinearLayout row = null;
+        for (int i = 0; i < shown.size(); i++) {
+            if (i % COLUMNS == 0) {
+                row = new LinearLayout(context);
+                row.setOrientation(LinearLayout.HORIZONTAL);
+                LinearLayout.LayoutParams rowLp = new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                if (i > 0) rowLp.topMargin = dp(4);   // .tgrid gap 4
+                grid.addView(row, rowLp);
+            }
+            row.addView(buildGridCell(shown.get(i), i % COLUMNS));
+        }
+        // Pad the last row with empty slots so its cells keep the same width as the rest.
+        if (row != null) {
+            int rem = shown.size() % COLUMNS;
+            if (rem != 0) {
+                for (int k = rem; k < COLUMNS; k++) {
+                    View filler = new View(context);
+                    LinearLayout.LayoutParams fLp = new LinearLayout.LayoutParams(
+                            0, 1, 1f);
+                    fLp.setMarginStart(dp(4));
+                    row.addView(filler, fLp);
+                }
+            }
+        }
         scroll.addView(grid);
         panel.addView(scroll);
-        // Enforce max height after layout.
-        scroll.getViewTreeObserver().addOnPreDrawListener(
-                new android.view.ViewTreeObserver.OnPreDrawListener() {
-                    @Override
-                    public boolean onPreDraw() {
-                        scroll.getViewTreeObserver().removeOnPreDrawListener(this);
-                        if (scroll.getHeight() > maxH) {
-                            ViewGroup.LayoutParams lp = scroll.getLayoutParams();
-                            lp.height = maxH;
-                            scroll.setLayoutParams(lp);
-                        }
-                        return true;
-                    }
-                });
     }
 
-    private View buildGridCell(@NonNull FaditorTool tool) {
+    private View buildGridCell(@NonNull FaditorTool tool, int column) {
         LinearLayout cell = new LinearLayout(context);
         cell.setOrientation(LinearLayout.VERTICAL);
         cell.setGravity(Gravity.CENTER);
-        cell.setPadding(dp(6), dp(12), dp(6), dp(12));
-        cell.setBackgroundResource(resolveSelectableBorderless());
+        // .tgrid span: padding 6px 1px, gap 3px.
+        cell.setPadding(dp(1), dp(6), dp(1), dp(6));
+        cell.setMinimumHeight(dp(40));
+        cell.setBackground(cellBackground());
         cell.setClickable(true);
         cell.setFocusable(true);
+        SheetKit.press(cell);
 
-        GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
-        lp.width = 0;
-        lp.height = ViewGroup.LayoutParams.WRAP_CONTENT;
-        lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        if (column > 0) lp.setMarginStart(dp(4));   // .tgrid gap 4
         cell.setLayoutParams(lp);
 
         // Reflect the CURRENT icon/label/color of the live carousel cell so the
@@ -218,32 +272,38 @@ public class FaditorToolsDrawer {
 
         TextView icon = new TextView(context);
         icon.setGravity(Gravity.CENTER);
+        icon.setIncludeFontPadding(false);
         // The live cell may carry a dynamically overridden glyph; a text icon has no live
         // override to inherit, so it is applied from the registry either way.
-        if (tool.icon.startsWith(com.fadcam.ui.faditor.tools.FaditorTool.TEXT_ICON)) {
-            FaditorTool.applyIcon(icon, tool.icon, 24f);
+        if (tool.icon.startsWith(FaditorTool.TEXT_ICON)) {
+            FaditorTool.applyIcon(icon, tool.icon, 14f);
         } else {
             icon.setTypeface(ResourcesCompat.getFont(context, R.font.materialicons));
             icon.setText(liveIcon != null ? liveIcon.getText() : tool.icon);
-            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f);
+            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f);   // .tgrid span em: 14
         }
-        icon.setTextColor(liveIcon != null ? liveIcon.getCurrentTextColor() : Studio.INK_FAINT);
-        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(30), dp(30));
-        iconLp.gravity = Gravity.CENTER_HORIZONTAL;
-        icon.setLayoutParams(iconLp);
-        cell.addView(icon);
+        icon.setTextColor(onScrim(liveIcon != null ? liveIcon.getCurrentTextColor() : 0));
+        cell.addView(icon, new LinearLayout.LayoutParams(dp(18), dp(18)));
 
+        CharSequence labelText = liveLabel != null ? liveLabel.getText() : tool.label;
         TextView label = new TextView(context);
         label.setGravity(Gravity.CENTER);
-        label.setText(liveLabel != null ? liveLabel.getText() : tool.label);
-        label.setTextColor(liveLabel != null ? liveLabel.getCurrentTextColor() : Studio.INK_FAINT);
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f);
-        label.setMaxLines(2);
+        label.setText(labelText);
+        label.setTextColor(onScrim(liveLabel != null ? liveLabel.getCurrentTextColor() : 0));
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 7f);   // .tgrid span: 7
+        Type.body(label, Type.MEDIUM);
+        label.setIncludeFontPadding(false);
+        // Never two lines — a two-line tap target is its own defect (record 06 MINOR 09).
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
         LinearLayout.LayoutParams labelLp = new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        labelLp.topMargin = dp(4);
-        label.setLayoutParams(labelLp);
-        cell.addView(label);
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        labelLp.topMargin = dp(3);
+        cell.addView(label, labelLp);
+
+        // The full name, for a stylus or mouse hover and for TalkBack — the 7sp label may clip.
+        SheetKit.label(cell, tool.label.contentEquals(labelText)
+                ? tool.label : tool.label + " — " + labelText);
 
         cell.setOnClickListener(v -> {
             callback.onToolChosen(tool.id);
@@ -252,6 +312,83 @@ public class FaditorToolsDrawer {
             dismiss();
         });
         return cell;
+    }
+
+    /**
+     * The carousel paints its resting tools in SCREEN ink (INK_FAINT), which is the contrast bug
+     * record 06 measured on the scrim. A resting colour becomes the drawer's own dim; any other
+     * colour is a live state (speed changed, volume over 100%, a context tint) and is kept.
+     */
+    private static int onScrim(int live) {
+        if (live == 0 || live == Studio.INK_FAINT || live == Studio.INK_DIM) {
+            return Studio.DRAWER_DIM;
+        }
+        return live;
+    }
+
+    // ── Drawing ───────────────────────────────────────────────────────
+
+    private GradientDrawable sheetBackground() {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(SHEET_FILL);
+        float r = dp(20);
+        bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        bg.setStroke(Math.max(1, dp(1) / 2), SHEET_EDGE);   // inset 0 1px 0 var(--edge)
+        return bg;
+    }
+
+    private RippleDrawable cellBackground() {
+        GradientDrawable fill = new GradientDrawable();
+        fill.setColor(CELL_FILL);
+        fill.setCornerRadius(dp(9));   // .tgrid span radius 9
+        GradientDrawable focused = new GradientDrawable();
+        focused.setColor(CELL_FILL);
+        focused.setCornerRadius(dp(9));
+        focused.setStroke(dp(2), Studio.ARMED);   // focus-visible: 2dp cyan, instant
+        android.graphics.drawable.StateListDrawable states =
+                new android.graphics.drawable.StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_focused}, focused);
+        states.addState(new int[]{}, fill);
+        GradientDrawable mask = new GradientDrawable();
+        mask.setColor(Studio.DRAWER_INK);
+        mask.setCornerRadius(dp(9));
+        return new RippleDrawable(
+                ColorStateList.valueOf(Studio.alpha(Studio.DRAWER_INK, 0x33)), states, mask);
+    }
+
+    /** The grab pill on the scrim uses the drawer's white-30%, not the screen ramp's. */
+    private void recolourGrab(@NonNull View headerColumn) {
+        if (!(headerColumn instanceof ViewGroup)) return;
+        View strip = ((ViewGroup) headerColumn).getChildAt(0);
+        if (strip instanceof ViewGroup && ((ViewGroup) strip).getChildCount() > 0) {
+            View pill = ((ViewGroup) strip).getChildAt(0);
+            if (pill.getBackground() instanceof GradientDrawable) {
+                ((GradientDrawable) pill.getBackground().mutate())
+                        .setColor(Studio.alpha(Studio.DRAWER_INK, 0x4D));
+            }
+        }
+    }
+
+    private static PathInterpolator curve() {
+        return new PathInterpolator(0.32f, 0.72f, 0f, 1f);
+    }
+
+    // ── Insets ────────────────────────────────────────────────────────
+
+    /**
+     * The editor runs immersive with LAYOUT_HIDE_NAVIGATION, so its layout extends under the
+     * navigation bar even while the bar is hidden; a swipe brings the bar back OVER the sheet.
+     * Reserve the bar's height whether or not it is showing, and the gesture strip.
+     */
+    private int systemBottomInset() {
+        WindowInsetsCompat insets = ViewCompat.getRootWindowInsets(root);
+        return insets != null ? bottomOf(insets) : 0;
+    }
+
+    private static int bottomOf(@NonNull WindowInsetsCompat insets) {
+        Insets nav = insets.getInsetsIgnoringVisibility(WindowInsetsCompat.Type.navigationBars());
+        Insets gest = insets.getInsets(WindowInsetsCompat.Type.mandatorySystemGestures());
+        return Math.max(nav.bottom, gest.bottom);
     }
 
     // ── Swipe-down-to-dismiss on the panel ────────────────────────────
@@ -282,13 +419,6 @@ public class FaditorToolsDrawer {
                 }
             }
         });
-    }
-
-    private int resolveSelectableBorderless() {
-        TypedValue tv = new TypedValue();
-        context.getTheme().resolveAttribute(
-                android.R.attr.selectableItemBackgroundBorderless, tv, true);
-        return tv.resourceId;
     }
 
     private int dp(int v) {

@@ -58,6 +58,34 @@ public final class AudioDrawerTabs {
 
     private static final int TXT = Studio.DRAWER_INK;
     private static final int TXT_DIM = Studio.DRAWER_LABEL;
+
+    // ── record 06 §02, the drawer's control vocabulary ──────────────────────────────────
+    // Every visual below is built by ONE helper in "the drawer kit" at the bottom of this
+    // file, so a chip, a value pill, a slider or a checkbox cannot drift from its siblings.
+    //
+    // The glass values are white at a low alpha in the record (--dctl, --dring, the slider
+    // track). There is no role token for "drawer control glass" yet, so they are derived from
+    // DRAWER_INK — the white this drawer's text already is — rather than typed as hex.
+    /** {@code --dctl} rgba(255,255,255,.10): a control's fill on the scrim. */
+    private static final int CTL_FILL = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    /** {@code --dring} rgba(255,255,255,.12): a control's 1dp inset ring. */
+    private static final int CTL_RING = Studio.alpha(Studio.DRAWER_INK, 0x1F);
+    /** {@code .dsl .tr} rgba(255,255,255,.18): the 4dp slider track. */
+    private static final int TRACK = Studio.alpha(Studio.DRAWER_INK, 0x2E);
+    /** The shadow every drawer word already carried, for the CLEAR (unblurred) scrim. */
+    private static final int SHADOW = Studio.alpha(Studio.GROUND, 0xCC);
+    /**
+     * The drawer wears the OBJECT's colour — the host hands ObjectDrawer
+     * {@code ObjectPalette.AUDIO} for every audio drawer — and an ON control is that colour
+     * at 70% ("{@code .dchip.on}", "{@code .dcb.on}", the slider fill).
+     */
+    private static final int ACCENT = com.fadcam.ui.faditor.layers.ObjectPalette.AUDIO;
+    private static final int ON_ALPHA = 0xB3;
+    /**
+     * Ink on a saturated fill. The record puts #050507 on every accent fill (the ON chip,
+     * the lens, the playhead time); that value is {@link Studio#ON_GO}.
+     */
+    private static final int ON_FILL_INK = Studio.ON_GO;
     private static final int SLIDER_STEPS = 1000;
     /** Key-match tolerance in clip-ms — the SAME tolerance addOrUpdateVolumeKeyframe uses. */
     private static final int KEY_TOLERANCE_MS = 40;
@@ -156,30 +184,12 @@ public final class AudioDrawerTabs {
     @NonNull
     private static Runnable levelRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                      @NonNull AudioParams clip, @NonNull Host host) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
+        LinearLayout row = sliderRow(ctx);
+        row.addView(inlineLabel(ctx, "Level", LABEL_W));                  // TODO(strings)
 
-        TextView label = new TextView(ctx);
-        label.setTextColor(TXT_DIM);
-        label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        label.setWidth(Math.round(52 * d));
-        label.setMaxLines(1);
-        label.setText("Level");                                            // TODO(strings)
-        row.addView(label);
+        FineSeekBar bar = slider(ctx, R.string.lane_b_audio_level_slider);
 
-        FineSeekBar bar = new FineSeekBar(ctx);
-        bar.setMax(SLIDER_STEPS);
-
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        value.setWidth(Math.round(46 * d));
-        value.setGravity(Gravity.END);
+        TextView value = valuePill(ctx, VALUE_W, R.string.lane_b_audio_level_value);
 
         final Runnable[] selfRefresh = new Runnable[1];
         final Runnable refreshAll = () -> {
@@ -208,15 +218,11 @@ public final class AudioDrawerTabs {
             }
         });
 
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        row.addView(bar, blp);
+        row.addView(bar, sliderLp());
         row.addView(value);
         // TAP THE NUMBER TO TYPE IT — exact percentages are unreachable on a 1000-step
-        // slider (same justification as PipDrawerTabs' Scale row).
-        value.setPaintFlags(value.getPaintFlags()
-                | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
+        // slider (same justification as PipDrawerTabs' Scale row). The pill (record 06's
+        // .dscrub) is what says "this number is a control"; it replaced an underline.
         value.setOnClickListener(v -> promptForGain(ctx, clip, host, refreshAll));
 
         KeyframeDiamondControl diamond = new KeyframeDiamondControl(ctx);
@@ -248,33 +254,15 @@ public final class AudioDrawerTabs {
     @NonNull
     private static Runnable panRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                    @NonNull AudioParams clip, @NonNull Host host) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
-
-        TextView label = new TextView(ctx);
-        label.setTextColor(TXT_DIM);
-        label.setTextSize(11);
-        label.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        label.setWidth(Math.round(52 * d));
-        label.setMaxLines(1);
-        label.setText("Pan");                                            // TODO(strings)
+        LinearLayout row = sliderRow(ctx);
         // A5.U BUGFIX 2026-08-24: this read parent.addView(label) — the label rendered as
         // its own full-width LINE above a label-less slider row, breaking the one-line
         // "Label · slider · value · diamond" idiom every other row in this file follows.
-        row.addView(label);
+        row.addView(inlineLabel(ctx, "Pan", LABEL_W));                    // TODO(strings)
 
-        FineSeekBar bar = new FineSeekBar(ctx);
-        bar.setMax(SLIDER_STEPS);
+        FineSeekBar bar = slider(ctx, R.string.lane_b_audio_pan_slider);
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        value.setWidth(Math.round(46 * d));
-        value.setGravity(Gravity.END);
+        TextView value = valuePill(ctx, VALUE_W, R.string.lane_b_audio_pan_value);
 
         final Runnable[] selfRefresh = new Runnable[1];
         final Runnable refreshAll = () -> {
@@ -306,14 +294,9 @@ public final class AudioDrawerTabs {
             }
         });
 
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        row.addView(bar, blp);
+        row.addView(bar, sliderLp());
         row.addView(value);
         // TAP THE NUMBER TO TYPE IT — same as Level.
-        value.setPaintFlags(value.getPaintFlags()
-                | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
         value.setOnClickListener(v -> promptForPan(ctx, clip, host, refreshAll));
 
         row.addView(new View(ctx)); // spacer for diamond position parity
@@ -360,17 +343,15 @@ public final class AudioDrawerTabs {
     @NonNull
     private static Runnable envelopeStateRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                              @NonNull AudioParams clip, @NonNull Host host) {
-        float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = row(ctx);
-        TextView state = new TextView(ctx);
-        state.setTextColor(TXT_DIM);
-        state.setTextSize(10);
-        state.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        state.setPadding(Math.round(8 * d), 0, Math.round(8 * d), 0);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView state = note(ctx, null);
+        state.setPadding(dp(ctx, 8), 0, dp(ctx, 8), 0);
         row.addView(state, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView clear = chip(ctx, "Clear", d);                            // TODO(strings)
+        TextView clear = chip(ctx, "Clear");                               // TODO(strings)
+        hoverLabel(clear, ctx.getString(R.string.lane_b_audio_clear_envelope));
         clear.setOnClickListener(v -> {
             if (!clip.hasVolumeKeyframes()) return;
             List<VolumeKeyframe> before = copyKeyframes(clip);
@@ -412,32 +393,18 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                                    @NonNull String label, boolean fadeIn,
                                    @NonNull AudioClip clip, @NonNull Host host,
                                    boolean half) {
-        float d = ctx.getResources().getDisplayMetrics().density;
-        LinearLayout row = new LinearLayout(ctx);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
-
-        TextView labelView = new TextView(ctx);
-        labelView.setTextColor(TXT_DIM);
-        labelView.setTextSize(11);
-        labelView.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        labelView.setWidth(Math.round((half ? 40 : 52) * d));
-        labelView.setMaxLines(1);
-        labelView.setText(label);
-        row.addView(labelView);
+        LinearLayout row = sliderRow(ctx);
+        row.addView(inlineLabel(ctx, label, half ? HALF_LABEL_W : LABEL_W));
 
         long maxFade = Math.max(1, clip.getTrimmedDurationMs() / 2);
 
-        FineSeekBar bar = new FineSeekBar(ctx);
-        bar.setMax(SLIDER_STEPS);
+        FineSeekBar bar = slider(ctx, fadeIn
+                ? R.string.lane_b_audio_fade_in_slider
+                : R.string.lane_b_audio_fade_out_slider);
 
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT);
-        value.setTextSize(11);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        value.setWidth(Math.round((half ? 38 : 46) * d));
-        value.setGravity(Gravity.END);
+        TextView value = valuePill(ctx, VALUE_W, fadeIn
+                ? R.string.lane_b_audio_fade_in_value
+                : R.string.lane_b_audio_fade_out_value);
 
         final Runnable[] selfRefresh = new Runnable[1];
         final Runnable refreshAll = () -> {
@@ -462,14 +429,9 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             }
         });
 
-        LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
-                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        row.addView(bar, blp);
+        row.addView(bar, sliderLp());
         row.addView(value);
         // TAP TO TYPE, in seconds ("0.5") — exactly 500ms is a fingertip lottery otherwise.
-        value.setPaintFlags(value.getPaintFlags()
-                | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
         value.setOnClickListener(v ->
                 promptForFadeSeconds(ctx, clip, host, fadeIn, maxFade, refreshAll));
         if (half) {
@@ -523,23 +485,24 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     public static View cleanTab(@NonNull Context ctx, @NonNull AudioParams clip,
                                 @NonNull Host host, @NonNull java.io.File projectDir,
                                 @NonNull com.fadcam.ui.faditor.audio.BakedAudioCache cache) {
-        float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
         final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
         // Seeded from the CLIP-id registry, not a fresh local: a reopen mid-bake must show
         // the honest "Processing…" state, not an idle sheet inviting a duplicate job.
         final boolean[] baking = {BAKING_CLIP_IDS.contains(clip.getId())};
 
-        TextView state = new TextView(ctx);
-        state.setTextColor(TXT_DIM);
-        state.setTextSize(10);
-        state.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        state.setPadding(Math.round(8 * d), Math.round(4 * d),
-                Math.round(8 * d), Math.round(6 * d));
+        TextView state = note(ctx, null);
+        state.setPadding(dp(ctx, 8), dp(ctx, 4), dp(ctx, 8), dp(ctx, 6));
         root.addView(state);
 
         LinearLayout actions = row(ctx);
-        root.addView(actions);
+        // Three chips are wider than a 360dp phone. A plain row CLIPPED the last one off the
+        // right edge with no sign it existed; scrolling keeps every chip reachable.
+        android.widget.HorizontalScrollView actionScroll =
+                new android.widget.HorizontalScrollView(ctx);
+        actionScroll.setHorizontalScrollBarEnabled(false);
+        actionScroll.addView(actions);
+        root.addView(actionScroll);
 
         // Holder, not a plain local: the row's own listeners re-run this refresh, and a
         // lambda may not capture itself before its initializer completes.
@@ -555,7 +518,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             } else {
                 state.setText("Offline renders — the original file is never modified."); // TODO(strings)
             }
-            TextView revert = chip(ctx, "Revert to original", d);               // TODO(strings)
+            TextView revert = chip(ctx, "Revert to original");                  // TODO(strings)
             revert.setTextColor(clip.isBakedSource() ? TXT : TXT_DIM);
             revert.setOnClickListener(v -> {
                 if (!clip.isBakedSource() || baking[0]) return;
@@ -640,24 +603,19 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                         }));
             }
         }
-        TextView dn = chip(ctx, "Reduce noise", d);                            // TODO(strings)
+        TextView dn = chip(ctx, "Reduce noise");                               // TODO(strings)
         dn.setOnClickListener(v -> new Apply(
                 com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_DENOISE,
                 "Reduce noise").run());
         actions.addView(dn);
-        TextView ln = chip(ctx, "Normalize loudness", d);                      // TODO(strings)
+        TextView ln = chip(ctx, "Normalize loudness");                         // TODO(strings)
         ln.setOnClickListener(v -> new Apply(
                 com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_LOUDNORM,
                 "Normalize loudness").run());
         actions.addView(ln);
 
-        TextView note = new TextView(ctx);
-        note.setText("Runs ffmpeg offline over this clip's trimmed range.");   // TODO(strings)
-        note.setTextColor(TXT_DIM);
-        note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        note.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
-        root.addView(note);
+        root.addView(note(ctx,
+                "Runs ffmpeg offline over this clip's trimmed range."));       // TODO(strings)
         return root;
     }
 
@@ -713,22 +671,14 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     @NonNull
     public static View fxTab(@NonNull Context ctx, @NonNull Host host,
                              @Nullable AudioParams clip) {
-        float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout root = column(ctx);
 
         if (clip != null) {
-            LinearLayout vRow = new LinearLayout(ctx);
-            vRow.setOrientation(LinearLayout.HORIZONTAL);
-            vRow.setGravity(Gravity.CENTER_VERTICAL);
-            TextView vLabel = new TextView(ctx);
-            vLabel.setText("Enhance voice");                               // TODO(strings)
-            vLabel.setTextColor(TXT);
-            vLabel.setTextSize(12.5f);
-            vLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            vLabel.setLayoutParams(new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-            vRow.addView(vLabel);
-            android.widget.Switch vSwitch = new android.widget.Switch(ctx);
+            // Record 06's drawer checkbox (.dcb): box, then its label, and the whole 44dp line
+            // is the target. It was a platform Switch beside a separate label, which drew in
+            // the theme's colours rather than the object's and only the thumb was tappable.
+            // Same CompoundButton, same listener, same checked state — only the look moved.
+            android.widget.CheckBox vSwitch = checkBox(ctx, "Enhance voice");  // TODO(strings)
             vSwitch.setChecked(clip.isVoiceFxEnabled());
             vSwitch.setOnCheckedChangeListener((b, on) -> {
                 if (on == clip.isVoiceFxEnabled()) return;
@@ -744,75 +694,48 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                 host.onVoiceFxChanged();
                 host.onChanged();
             });
-            vRow.addView(vSwitch);
-            root.addView(vRow);
+            root.addView(vSwitch);
 
-            TextView vNote = new TextView(ctx);                            // TODO(strings)
-            vNote.setText("De-hum, gate, de-ess, presence, compressor, limiter \u2014 "
+            TextView vNote = note(ctx,                                     // TODO(strings)
+                    "De-hum, gate, de-ess, presence, compressor, limiter — "
                     + "for speech. Rebuilds this clip's preview sound.");
-            vNote.setTextColor(TXT_DIM);
-            vNote.setTextSize(10);
-            vNote.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            vNote.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), Math.round(4 * d));
+            vNote.setPadding(dp(ctx, 8), dp(ctx, 2), dp(ctx, 8), dp(ctx, 4));
             root.addView(vNote);
         }
 
         // D8: the door to audio-reactive links — pick a band of THIS clip's sound, a target
         // property on an overlay clip, and the linker writes ordinary editable keyframes.
         if (host.supportsAudioReactiveLink()) {
-            TextView linkBtn = new TextView(ctx);
-            linkBtn.setText("\u25C6 Beat-reactive link\u2026");                // TODO(strings)
-            linkBtn.setTextColor(TXT);
-            linkBtn.setTextSize(12.5f);
-            linkBtn.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            linkBtn.setPadding(Math.round(8 * d), Math.round(6 * d),
-                    Math.round(8 * d), Math.round(6 * d));
-            linkBtn.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
+            TextView linkBtn = chip(ctx, "◆ Beat-reactive link…");   // TODO(strings)
+            hoverLabel(linkBtn, ctx.getString(R.string.lane_b_audio_beat_link));
             linkBtn.setOnClickListener(v -> host.onAudioReactiveLinkRequested());
-            root.addView(linkBtn, new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT));
             LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) linkBtn.getLayoutParams();
-            lp.topMargin = Math.round(6 * d);
-            linkBtn.setLayoutParams(lp);
+            lp.topMargin = dp(ctx, 6);
+            root.addView(linkBtn, lp);
 
-            TextView linkNote = new TextView(ctx);                         // TODO(strings)
-            linkNote.setText("Drive an overlay's scale / opacity / rotation from one band "
-                    + "of this clip. Writes normal keyframes you can drag afterwards.");
-            linkNote.setTextColor(TXT_DIM);
-            linkNote.setTextSize(10);
-            linkNote.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-            linkNote.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
-            root.addView(linkNote);
+            root.addView(note(ctx,                                         // TODO(strings)
+                    "Drive an overlay's scale / opacity / rotation from one band "
+                    + "of this clip. Writes normal keyframes you can drag afterwards."));
         }
 
-        TextView title = new TextView(ctx);
-        title.setText("Compressor");                                       // TODO(strings)
-        title.setTextColor(TXT);
-        title.setTextSize(12.5f);
-        title.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        root.addView(title);
+        root.addView(sectionLabel(ctx, "Compressor"));                    // TODO(strings)
 
         GainReductionBar bar = new GainReductionBar(ctx);
+        bar.setContentDescription(ctx.getString(R.string.lane_b_audio_gain_meter));
         root.addView(bar, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, Math.round(10 * d)));
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(ctx, 10)));
 
         LinearLayout valRow = row(ctx);
-        TextView value = new TextView(ctx);
-        value.setTextColor(TXT_DIM);
-        value.setTextSize(10);
-        value.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        value.setPadding(Math.round(8 * d), 0, Math.round(8 * d), 0);
+        // A number the machine reports: record 06's mono value face, read-only so no pill.
+        TextView value = text(ctx, 11f, TXT);
+        com.fadcam.ui.type.Type.mono(value, com.fadcam.ui.type.Type.SEMIBOLD);
+        value.setPadding(dp(ctx, 8), 0, dp(ctx, 8), 0);
         valRow.addView(value, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(valRow);
 
         // §0 rule 6: say what the control IS, including when it cannot be live yet.
-        TextView note = new TextView(ctx);
-        note.setTextColor(TXT_DIM);
-        note.setTextSize(10);
-        note.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        note.setPadding(Math.round(8 * d), Math.round(2 * d), Math.round(8 * d), 0);
+        TextView note = note(ctx, null);
         root.addView(note);
 
         Runnable refresh = () -> {
@@ -843,7 +766,8 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
      * the compressor pushes the level down — reduction reads as subtraction, leftward.
      */
     private static final class GainReductionBar extends android.view.View {
-        private static final int TRACK_COLOR = Studio.alpha(Studio.INK, 0x22);
+        /** The same 18%-white track every drawer slider sits on, so a meter reads as one. */
+        private static final int TRACK_COLOR = TRACK;
         private static final int FILL_COLOR = Studio.CAREFUL;
         /** Full scale: 12 dB of reduction sweeps the whole bar. */
         private static final float MAX_DB = 12f;
@@ -890,28 +814,289 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
 
     @NonNull
     private static LinearLayout row(@NonNull Context ctx) {
-        float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout l = new LinearLayout(ctx);
         l.setOrientation(LinearLayout.HORIZONTAL);
-        l.setPadding(0, Math.round(6 * d), 0, Math.round(2 * d));
+        l.setPadding(0, dp(ctx, 6), 0, dp(ctx, 2));
+        return l;
+    }
+
+    // ── the drawer kit: ONE builder per visual (record 06 §02) ──────────────────────────
+    // A chip, a section label, a slider row, a slider, a value pill, a note, a checkbox.
+    // Everything above asks for these by name; nothing above sets a colour, a size or a
+    // padding of its own. PuppetDrawerTabs carries the same kit — see the report that came
+    // with this pass for the signature to lift into one shared class.
+
+    /** Inline row label width (dp), and the narrower one for the paired fade rows. */
+    private static final int LABEL_W = 44;
+    private static final int HALF_LABEL_W = 28;
+    /**
+     * Value pill width (dp). FIXED, not wrap: a pill that grew from "95%" to "100%" would
+     * shorten the slider beside it mid-drag. Mono 12sp holds "R100%" and "12.50s" inside it.
+     */
+    private static final int VALUE_W = 58;
+
+    /** Record 06 {@code .dr}: a 46dp line, centred — "controls look 26dp; the row is the target". */
+    @NonNull
+    private static LinearLayout sliderRow(@NonNull Context ctx) {
+        LinearLayout l = new LinearLayout(ctx);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        l.setMinimumHeight(dp(ctx, 46));
         return l;
     }
 
     @NonNull
-    private static TextView chip(@NonNull Context ctx, @NonNull String text, float d) {
+    private static LinearLayout.LayoutParams sliderLp() {
+        return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+    }
+
+    /** Plain drawer text: body face, drawer ink, and the shadow every drawer word carries. */
+    @NonNull
+    private static TextView text(@NonNull Context ctx, float sp, int colour) {
         TextView t = new TextView(ctx);
-        t.setText(text);
-        t.setTextColor(TXT);
-        t.setTextSize(12.5f);
-        t.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        t.setPadding(Math.round(10 * d), Math.round(6 * d),
-                Math.round(10 * d), Math.round(6 * d));
-        t.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
+        t.setTextColor(colour);
+        t.setTextSize(sp);
+        t.setShadowLayer(3f * density(ctx), 0f, 1f, SHADOW);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.REGULAR);
+        return t;
+    }
+
+    /**
+     * Record 06 {@code .dsec}: IBM Plex Mono 8sp, .14em, UPPERCASE, {@code --dlabel}. The
+     * label colour is the one the record measured at 4.86:1 over the dark scrim.
+     */
+    @NonNull
+    private static TextView sectionLabel(@NonNull Context ctx, @NonNull String label) {
+        TextView t = text(ctx, 8f, TXT_DIM);
+        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
+        t.setAllCaps(true);
+        t.setLetterSpacing(0.14f);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setText(label);
+        t.setPadding(dp(ctx, 8), dp(ctx, 7), dp(ctx, 8), dp(ctx, 3));
+        return t;
+    }
+
+    /** The same section-label face, sitting at the start of a one-line slider row. */
+    @NonNull
+    private static TextView inlineLabel(@NonNull Context ctx, @NonNull String label, int widthDp) {
+        TextView t = sectionLabel(ctx, label);
+        t.setPadding(0, 0, dp(ctx, 4), 0);
+        t.setWidth(dp(ctx, widthDp));
+        return t;
+    }
+
+    /** A short explanatory line: body 10sp in the drawer's label ink. */
+    @NonNull
+    private static TextView note(@NonNull Context ctx, @Nullable String line) {
+        TextView t = text(ctx, 10f, TXT_DIM);
+        if (line != null) t.setText(line);
+        t.setPadding(dp(ctx, 8), dp(ctx, 2), dp(ctx, 8), 0);
+        return t;
+    }
+
+    /**
+     * Record 06 {@code .dchip}: 11sp w600, 7×13 padding, fully round, {@code --dctl} fill with
+     * a 1dp {@code --dring} ring, {@code --ddim} ink. The VISIBLE pill is 30dp; the view is
+     * 40dp tall so a thumb that lands just off it still counts (grow the target, not the glyph).
+     */
+    @NonNull
+    private static TextView chip(@NonNull Context ctx, @NonNull String label) {
+        TextView t = text(ctx, 11f, Studio.DRAWER_DIM);
+        com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.SEMIBOLD);
+        t.setText(label);
+        t.setSingleLine(true);
+        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        t.setGravity(Gravity.CENTER);
+        int inset = dp(ctx, 5);
+        t.setBackground(new android.graphics.drawable.InsetDrawable(
+                pill(ctx, CTL_FILL, CTL_RING), 0, inset, 0, inset));
+        t.setPadding(dp(ctx, 13), dp(ctx, 7) + inset, dp(ctx, 13), dp(ctx, 7) + inset);
+        t.setMinHeight(dp(ctx, 40));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.rightMargin = Math.round(8 * d);
+        lp.rightMargin = dp(ctx, 6);
         t.setLayoutParams(lp);
+        press(t);
         return t;
+    }
+
+    /**
+     * Record 06 {@code .dscrub}: a mono, tabular value in a pill — the sign that the number is
+     * a control you tap to type. 28dp visible inside a 40dp target.
+     */
+    @NonNull
+    private static TextView valuePill(@NonNull Context ctx, int widthDp, int hoverRes) {
+        TextView t = text(ctx, 12f, TXT);
+        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.SEMIBOLD);
+        t.setFontFeatureSettings("tnum");
+        t.setSingleLine(true);
+        t.setGravity(Gravity.CENTER);
+        int inset = dp(ctx, 6);
+        t.setBackground(new android.graphics.drawable.InsetDrawable(
+                pill(ctx, CTL_FILL, CTL_RING), dp(ctx, 3), inset, 0, inset));
+        t.setPadding(dp(ctx, 3), inset, 0, inset);
+        t.setMinHeight(dp(ctx, 40));
+        t.setWidth(dp(ctx, widthDp));
+        // Tooltip only, no contentDescription: a description would REPLACE the live number
+        // for a screen reader, and the number is the thing being read.
+        androidx.core.view.ViewCompat.setTooltipText(t, ctx.getString(hoverRes));
+        press(t);
+        return t;
+    }
+
+    /**
+     * Record 06 {@code .dsl}: a 4dp {@code rgba(255,255,255,.18)} track, the object's colour
+     * at 70% for the filled part, and a 15dp white thumb. Replaces the theme's default seek
+     * bar, which drew in whatever the app theme's accent happened to be.
+     */
+    @NonNull
+    private static FineSeekBar slider(@NonNull Context ctx, int nameRes) {
+        FineSeekBar bar = new FineSeekBar(ctx);
+        bar.setMax(SLIDER_STEPS);
+        styleSlider(ctx, bar, ACCENT);
+        bar.setContentDescription(ctx.getString(nameRes));
+        return bar;
+    }
+
+    private static void styleSlider(@NonNull Context ctx, @NonNull SeekBar bar, int accent) {
+        int track = dp(ctx, 4);
+        android.graphics.drawable.GradientDrawable bg = rounded(ctx, TRACK, 0, 999);
+        android.graphics.drawable.GradientDrawable fill =
+                rounded(ctx, Studio.alpha(accent, ON_ALPHA), 0, 999);
+        android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
+                fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
+        android.graphics.drawable.LayerDrawable layers =
+                new android.graphics.drawable.LayerDrawable(
+                        new android.graphics.drawable.Drawable[]{bg, clip});
+        layers.setId(0, android.R.id.background);
+        layers.setId(1, android.R.id.progress);
+        for (int i = 0; i < 2; i++) {
+            layers.setLayerGravity(i, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
+            layers.setLayerHeight(i, track);
+        }
+        bar.setProgressDrawable(layers);
+        android.graphics.drawable.GradientDrawable thumb = new android.graphics.drawable.GradientDrawable();
+        thumb.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        thumb.setColor(TXT);
+        thumb.setSize(dp(ctx, 15), dp(ctx, 15));
+        bar.setThumb(thumb);
+        // The platform splits the track around the thumb; a white disc over a thin line reads
+        // cleaner whole, and the record draws it whole.
+        bar.setSplitTrack(false);
+    }
+
+    /**
+     * Record 06 {@code .dcb}: an 18dp box, radius 5 — a 1.5dp {@code --dlabel} ring when off,
+     * the object's colour at 70% with a dark tick when on. {@code --ddim} label off, {@code
+     * --dink} on. The whole 44dp line is the target.
+     */
+    @NonNull
+    private static android.widget.CheckBox checkBox(@NonNull Context ctx, @NonNull String label) {
+        android.widget.CheckBox cb = new android.widget.CheckBox(ctx);
+        android.graphics.drawable.StateListDrawable box =
+                new android.graphics.drawable.StateListDrawable();
+        box.addState(new int[]{android.R.attr.state_checked}, checkBoxFace(ctx, ACCENT, true));
+        box.addState(new int[]{}, checkBoxFace(ctx, ACCENT, false));
+        cb.setButtonDrawable(box);
+        cb.setText(label);
+        cb.setTextSize(11.5f);
+        com.fadcam.ui.type.Type.body(cb, com.fadcam.ui.type.Type.MEDIUM);
+        cb.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{TXT, Studio.DRAWER_DIM}));
+        cb.setShadowLayer(3f * density(ctx), 0f, 1f, SHADOW);
+        cb.setPadding(dp(ctx, 8), 0, 0, 0);
+        cb.setMinHeight(dp(ctx, 44));
+        cb.setBackground(null);
+        return cb;
+    }
+
+    /** One face of the drawer checkbox. Shared by the stateful box above. */
+    @NonNull
+    private static android.graphics.drawable.Drawable checkBoxFace(@NonNull Context ctx,
+                                                                  int accent, boolean on) {
+        int size = dp(ctx, 18);
+        if (!on) {
+            android.graphics.drawable.GradientDrawable off =
+                    rounded(ctx, 0x00000000, TXT_DIM, 5);
+            off.setStroke(Math.round(1.5f * density(ctx)), TXT_DIM);
+            off.setSize(size, size);
+            return off;
+        }
+        android.graphics.drawable.GradientDrawable fill =
+                rounded(ctx, Studio.alpha(accent, ON_ALPHA), 0, 5);
+        fill.setSize(size, size);
+        android.graphics.drawable.Drawable tick =
+                androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.ic_check);
+        if (tick == null) return fill;
+        tick = tick.mutate();
+        tick.setTint(ON_FILL_INK);
+        android.graphics.drawable.LayerDrawable face =
+                new android.graphics.drawable.LayerDrawable(
+                        new android.graphics.drawable.Drawable[]{fill, tick});
+        face.setLayerGravity(1, Gravity.CENTER);
+        face.setLayerSize(1, dp(ctx, 13), dp(ctx, 13));
+        return face;
+    }
+
+    /** A fully round shape — "Fill=Pill controls". */
+    @NonNull
+    private static android.graphics.drawable.GradientDrawable pill(@NonNull Context ctx,
+                                                                  int fill, int ring) {
+        return rounded(ctx, fill, ring, 999);
+    }
+
+    /** A rounded rect with an optional 1dp ring (0 = none). */
+    @NonNull
+    private static android.graphics.drawable.GradientDrawable rounded(@NonNull Context ctx,
+                                                                     int fill, int ring,
+                                                                     int radiusDp) {
+        android.graphics.drawable.GradientDrawable g =
+                new android.graphics.drawable.GradientDrawable();
+        g.setColor(fill);
+        g.setCornerRadius(radiusDp * density(ctx));
+        if (ring != 0) g.setStroke(Math.max(1, dp(ctx, 1)), ring);
+        return g;
+    }
+
+    /**
+     * Press feedback: 140ms to 0.97 on the ease-out the record names, and back. Transform
+     * only, never a colour flash; returns false so the view's own click still fires.
+     */
+    @android.annotation.SuppressLint("ClickableViewAccessibility")
+    private static void press(@NonNull View v) {
+        v.setOnTouchListener((view, e) -> {
+            int a = e.getActionMasked();
+            if (a == android.view.MotionEvent.ACTION_DOWN) {
+                view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(140)
+                        .setInterpolator(EASE_OUT).start();
+            } else if (a == android.view.MotionEvent.ACTION_UP
+                    || a == android.view.MotionEvent.ACTION_CANCEL) {
+                view.animate().scaleX(1f).scaleY(1f).setDuration(140)
+                        .setInterpolator(EASE_OUT).start();
+            }
+            return false;
+        });
+    }
+
+    /** Record 06 {@code --ease-out}: cubic-bezier(.23,1,.32,1). Never ease-in. */
+    private static final android.view.animation.Interpolator EASE_OUT =
+            new android.view.animation.PathInterpolator(0.23f, 1f, 0.32f, 1f);
+
+    /** Spoken name AND hover tooltip — a stylus or a mouse shows it on Android. */
+    private static void hoverLabel(@NonNull View v, @NonNull CharSequence label) {
+        v.setContentDescription(label);
+        androidx.core.view.ViewCompat.setTooltipText(v, label);
+    }
+
+    private static float density(@NonNull Context ctx) {
+        return ctx.getResources().getDisplayMetrics().density;
+    }
+
+    private static int dp(@NonNull Context ctx, float v) {
+        return Math.round(v * density(ctx));
     }
 
     // ── model plumbing ───────────────────────────────────────────────────────────────────

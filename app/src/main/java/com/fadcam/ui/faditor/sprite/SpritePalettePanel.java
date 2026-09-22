@@ -198,12 +198,16 @@ public class SpritePalettePanel extends FrameLayout {
         android.graphics.drawable.GradientDrawable gripBg =
                 new android.graphics.drawable.GradientDrawable();
         gripBg.setColor(Studio.INK_OFF);
-        gripBg.setCornerRadius(2 * density);
+        gripBg.setCornerRadius(999f * density);
         gripLine.setBackground(gripBg);
+        // Record 06's .dgrab pill: 38 × 3.5, fully round. It was 36 × 4 with a 2dp corner, so
+        // this panel's handle and the object drawer's were two different handles. The 18dp
+        // strip around it — the actual drag target — is unchanged.
         FrameLayout.LayoutParams gl = new FrameLayout.LayoutParams(
-                (int) (36 * density), (int) (4 * density));
+                Math.round(38 * density), Math.max(1, Math.round(3.5f * density)));
         gl.gravity = Gravity.CENTER;
         grip.addView(gripLine, gl);
+        describe(grip, R.string.lane_a_sprite_grip);
         panel.addView(grip);
         grip.setOnTouchListener(new OnTouchListener() {
             float downY;
@@ -258,10 +262,12 @@ public class SpritePalettePanel extends FrameLayout {
         kf.setPadding(kfp, kfp, kfp, kfp);
 
         nudgeLeft = segIcon("prev");
+        describe(nudgeLeft, R.string.lane_a_sprite_prev_key);
         nudgeLeft.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onNudgeKey(selected, -1);
         });
         nudgeRight = segIcon("next");
+        describe(nudgeRight, R.string.lane_a_sprite_next_key);
         nudgeRight.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onNudgeKey(selected, +1);
         });
@@ -272,6 +278,7 @@ public class SpritePalettePanel extends FrameLayout {
         // leaves you guessing whether it means the keyframe or the sprite; a diamond that
         // lights pink when the playhead is on a key says what it is and what it will remove.
         deleteKey = segIcon("key");
+        describe(deleteKey, R.string.lane_a_sprite_key);
         deleteKey.setOnClickListener(v -> {
             if (callback != null && selected != null && isOnKey()) {
                 callback.onDeleteKeyAtPlayhead(selected);
@@ -282,10 +289,12 @@ public class SpritePalettePanel extends FrameLayout {
         kf.addView(nudgeRight);
 
         labBtn = ichip("grid", SpriteTheme.ACCENT_GRID);
+        describe(labBtn, R.string.lane_a_sprite_open_lab);
         labBtn.setOnClickListener(v -> {
             if (callback != null && selected != null) callback.onOpenLab(selected);
         });
         TextView close = ichip("x", SpriteTheme.DIM);
+        describe(close, R.string.universal_close);
         close.setOnClickListener(v -> collapse());
         transport.addView(cellIndicator, ciLp);
         transport.addView(kf, chipLp());
@@ -687,12 +696,15 @@ public class SpritePalettePanel extends FrameLayout {
             // Icon-only, as the design draws them: the words cost a third of the row and the
             // mark says it faster than "Flip H" does.
             TextView fh = ichip("fliph", SpriteTheme.DIM);
+            describe(fh, R.string.lane_a_sprite_flip_h);
             if (selected.isFlipH()) tint(fh, SpriteTheme.SELECTED);
             fh.setOnClickListener(v -> callback.onFlipH(selected));
             TextView fv = ichip("flipv", SpriteTheme.DIM);
+            describe(fv, R.string.lane_a_sprite_flip_v);
             if (selected.isFlipV()) tint(fv, SpriteTheme.SELECTED);
             fv.setOnClickListener(v -> callback.onFlipV(selected));
             TextView eb = ichip(endIcon(selected.getEndBehavior()), SpriteTheme.DIM);
+            describe(eb, R.string.lane_a_sprite_end);
             tint(eb, endColour(selected.getEndBehavior()));
             eb.setOnClickListener(v -> callback.onEndBehaviorCycled(selected));
             toggles.addView(fh, chipLp());
@@ -702,6 +714,7 @@ public class SpritePalettePanel extends FrameLayout {
             if (selected.getAvatarRigId() != null) {
                 boolean rec = callback.isRecordingPerformance(selected);
                 TextView perf = ichip(rec ? "stop" : "record", SpriteTheme.DIM);
+                describe(perf, rec ? R.string.lane_a_sprite_stop : R.string.lane_a_sprite_record);
                 // setBackgroundColor would flatten the pill back into a square. Recording is
                 // pink because it IS the live state; a performance already on tape is green.
                 if (rec) tint(perf, SpriteTheme.LIVE);
@@ -709,6 +722,7 @@ public class SpritePalettePanel extends FrameLayout {
                 perf.setOnClickListener(v -> callback.onRecordPerformance(selected));
                 toggles.addView(perf, chipLp());
                 TextView sweep = ichip("film", SpriteTheme.DIM);
+                describe(sweep, R.string.lane_a_sprite_sweep);
                 sweep.setOnClickListener(v -> callback.onSweepFromVideo(selected));
                 toggles.addView(sweep, chipLp());
             }
@@ -717,6 +731,7 @@ public class SpritePalettePanel extends FrameLayout {
             // they are rare and they were crowding out the chips, but dropping a working
             // feature to tidy a row is not a trade anyone asked for.
             TextView more = ichip("dots", SpriteTheme.DIM);
+            describe(more, R.string.lane_a_sprite_more);
             more.setOnClickListener(v -> showTrackMenu(more));
             toggles.addView(more, chipLp());
 
@@ -725,10 +740,12 @@ public class SpritePalettePanel extends FrameLayout {
             // A TOGGLE, not a one-way door. It used to swap the palette out for the dope sheet
             // with no way back except a drag gesture nothing advertises.
             TextView dope = ichip("layers", SpriteTheme.DIM);
+            describe(dope, R.string.lane_a_sprite_dope);
             if (dopeOpen) tint(dope, SpriteTheme.ACCENT_GRID);
             dope.setOnClickListener(v -> { dopeOpen = !dopeOpen; setDetent(detent); rebuild(); });
             toggles.addView(dope, chipLp());
             TextView manage = ichip("gear", SpriteTheme.DIM);
+            describe(manage, R.string.lane_a_sprite_manage);
             manage.setOnClickListener(v -> callback.onManageSheets());
             toggles.addView(manage, chipLp());
             contentArea.addView(toggles);
@@ -1032,6 +1049,14 @@ public class SpritePalettePanel extends FrameLayout {
         t.setPadding(p, (int) (2 * density), p, (int) (2 * density));
         t.setBackground(pill(0x00000000, 0x00000000));
         return t;
+    }
+
+    /**
+     * Name an icon-only control for TalkBack and for the hover tooltip a stylus or mouse shows.
+     * Thirteen controls on this panel were a glyph with no name at all.
+     */
+    private void describe(@NonNull View v, int nameRes) {
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(v, getContext().getString(nameRes));
     }
 
     private LinearLayout.LayoutParams chipLp() {

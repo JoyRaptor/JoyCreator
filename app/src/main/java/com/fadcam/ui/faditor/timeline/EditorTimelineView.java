@@ -6141,7 +6141,14 @@ if (sd.clip.hasVolumeKeyframes()) {
     private void drawSliceSpan(@NonNull Canvas canvas, float px, float tTop, float tBot) {
         float top, bot;
         if (selectedIndex >= 0) {
-            top = tTop; bot = tBot;
+            // The MASTER band, from its own geometry — never the tTop/tBot handed in. Those
+            // are the playhead's extent, and the playhead runs down to the bottom of the audio
+            // band whenever there is audio (drawCenterPlayhead is called with audioBot). So a
+            // selected spine clip showed the cut running through the audio lane beneath it,
+            // while splitAtPlayhead() cuts the master clip alone — audio items split only
+            // when an audio item is itself selected. JoyRaptor: "if I were to press slice
+            // right now which one would it slice? It doesn't slice both."
+            top = masterTopPx(); bot = masterBotPx();
         } else if (layerRowRenderer != null && layerRowRenderer.hasSelectionSpan()) {
             top = layerRowRenderer.selectionSpanTop();
             bot = layerRowRenderer.selectionSpanBottom();
@@ -6152,11 +6159,15 @@ if (sd.clip.hasVolumeKeyframes()) {
 
         if (slicePaint.getPathEffect() == null) {
             slicePaint.setStyle(Paint.Style.STROKE);
-            slicePaint.setStrokeWidth(1f);              // one PHYSICAL pixel
+            // The playhead's own width, not one pixel. At 1px the dash covered a third of a
+            // 1.5dp line and the pink either side of it swallowed it — which is most of why
+            // it didn't pop. Full width, each dash is a solid block of yellow and the pink
+            // shows only in the gaps: the playhead wearing a warning, not a second cursor.
+            slicePaint.setStrokeWidth(PLAYHEAD_WIDTH_DP * density);
             slicePaint.setPathEffect(new android.graphics.DashPathEffect(
                     new float[]{3f * density, 3f * density}, 0f));
         }
-        slicePaint.setColor(COLOR_PLAYHEAD_TRIM);
+        slicePaint.setColor(Studio.SLICE);
         canvas.drawLine(px, top, px, bot, slicePaint);
     }
 

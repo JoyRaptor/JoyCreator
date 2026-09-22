@@ -80,6 +80,8 @@
          and "this layer is audio". -->
     <color name="s_go">#FF35F6BF</color>
     <color name="s_go_end">#FF97FE8B</color>
+    <!-- What Split will cut: the dashed marker on the playhead. Twin of Studio.SLICE. -->
+    <color name="s_slice">#FFF9F462</color>
     <color name="s_on_go">#FF050507</color>      <!-- ink that sits ON the gradient -->
 
     <!-- ── ROOMS ──────────────────────────────────────────────────────────────

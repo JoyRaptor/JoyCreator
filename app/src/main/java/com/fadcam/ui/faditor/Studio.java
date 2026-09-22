@@ -161,6 +161,14 @@ public final class Studio {
      */
     public static final int ROOM_STUDIO_END = 0xFF97FE8B;
     public static final int ROOM_CAPTURE = 0xFFFA3D5D;
+    /**
+     * WHAT SPLIT WILL CUT: the dashed marker on the playhead. A ROLE, not a room: its value is
+     * the Finder room's golden yellow (#F9F462, Grand Design rFinA), the brightest yellow on
+     * the wheel. It was CAREFUL amber, and JoyRaptor: "the yellow is not nearly a bright
+     * enough yellow to contrast with the pink, it needs to pop more by being brighter."
+     * Measured against the playhead's LIVE pink: about 3.4:1, where the amber was about 2.4:1.
+     */
+    public static final int SLICE = 0xFFF9F462;
     public static final int ROOM_SPRITE  = 0xFFFF008C;
     /**
      * Sprite Lab's far stop (Grand Design: rSprA #FF008C to rSprB #CC27FF). Equal to

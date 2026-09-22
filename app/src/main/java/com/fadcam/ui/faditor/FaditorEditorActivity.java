@@ -1221,17 +1221,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * does not change which tools are relevant, and rebuilding the row on every tap would
      * make the thing flicker for no information gain.
      */
-    private void applyToolContext(@Nullable com.fadcam.ui.faditor.layers.TrackKind kind) {
+    private void applyToolContext(@Nullable com.fadcam.ui.faditor.layers.TrackKind kind,
+                                  int tint) {
         if (toolsAdapter == null || toolPrefs == null || toolCanonical == null) return;
-        if (kind == toolContextKind) return;
+        // The TINT is part of the guard, not just the kind. A rigged image and a plain one
+        // are the same kind and need the same tools, but not the same colour — the rigged
+        // one wears Avatar violet on its tape, and record 06 calls this tint "the whole 'what
+        // am I editing' signal". Guarding on kind alone left the row teal under a violet tape.
+        if (kind == toolContextKind && tint == toolContextTint) return;
+        boolean kindChanged = kind != toolContextKind;
         toolContextKind = kind;
-        toolsAdapter.setTools(toolPrefs.resolveOrder(
-                toolCanonical, com.fadcam.ui.faditor.tools.ToolContext.relevantTo(kind)));
+        toolContextTint = tint;
+        // Only re-order when the kind moved: the relevant tool set is a function of kind, and
+        // re-ordering on a colour-only change would shuffle the row under the user's thumb.
+        if (kindChanged) {
+            toolsAdapter.setTools(toolPrefs.resolveOrder(
+                    toolCanonical, com.fadcam.ui.faditor.tools.ToolContext.relevantTo(kind)));
+        }
         // ...and the tools that act on it wear its colour, per the manifest.
-        toolsAdapter.setContextTint(
-                kind == null ? 0 : com.fadcam.ui.faditor.layers.ObjectPalette.forKind(kind),
+        toolsAdapter.setContextTint(kind == null ? 0 : tint,
                 com.fadcam.ui.faditor.tools.ToolContext.relevantSet(kind));
     }
+
+    /** Last tint applied by {@link #applyToolContext}; pairs with {@code toolContextKind}. */
+    private int toolContextTint = 0;
 
     private void buildToolsCarousel() {
         LinearLayout row = findViewById(R.id.faditor_tools_row);
@@ -16602,10 +16615,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // the FX-drawer sites were not: opening a drawer is DOWNSTREAM of selecting,
                 // so hooking it would only reorder the row once you had already navigated to
                 // the thing the reorder exists to help you reach.
+                com.fadcam.ui.faditor.layers.TrackKind rowKind = track != null ? track.getKind()
+                        : com.fadcam.ui.faditor.layers.TrackKind.VIDEO;
+                // forItem, not forKind: the per-item answer is the one that knows about rigs,
+                // and it is the same call the tape itself is painted with.
                 applyToolContext(item == null ? null
-                        : com.fadcam.ui.faditor.layers.ObjectPalette.payloadKindOf(
-                                item, track != null ? track.getKind()
-                                        : com.fadcam.ui.faditor.layers.TrackKind.VIDEO));
+                        : com.fadcam.ui.faditor.layers.ObjectPalette.payloadKindOf(item, rowKind),
+                        item == null ? 0
+                        : com.fadcam.ui.faditor.layers.ObjectPalette.forItem(item, rowKind));
                 // G7 (contract §6/§7): first-ever selection teaches the invisible
                 // per-item gestures (double-tap / hold / drag) once.
                 if (item != null) maybeShowGestureCoachMark();

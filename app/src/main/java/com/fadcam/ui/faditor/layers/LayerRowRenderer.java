@@ -1888,7 +1888,9 @@ public final class LayerRowRenderer {
             return;
         }
         TrackKind kind = ObjectPalette.payloadKindOf(item, rowKind);
-        int[] g = ObjectPalette.gradientFor(kind);
+        // Per ITEM, not per kind: a rigged image is kind IMAGE but wears the Avatar ramp.
+        boolean rigged = ObjectPalette.isRigged(item);
+        int[] g = ObjectPalette.gradientForItem(item, rowKind);
         int a = android.graphics.Color.alpha(baseColor);
         int c0 = ObjectPalette.withAlpha(g[0], a);
         int c1 = ObjectPalette.withAlpha(g[1], a);
@@ -1896,7 +1898,13 @@ public final class LayerRowRenderer {
 
         // Quantise the width so a clip being dragged does not rebuild its shader on every
         // pixel of movement; 8dp buckets are far finer than the eye can resolve on a ramp.
+        //
+        // The rig bit is load-bearing. The key used to be the KIND alone, and a rigged image
+        // and a plain one are the same kind — so without it, whichever was drawn first would
+        // fill the cache and the other would be handed its shader, and pinning an image would
+        // appear to do nothing to its colour for as long as the cache lived.
         long key = ((long) kind.ordinal() << 40)
+                | ((long) (rigged ? 1 : 0) << 39)
                 | ((long) Math.round(w / (8f * density)) << 8)
                 | (lifted ? 2 : 0) | (a >>> 4);
         android.graphics.LinearGradient sh = tapeShaders.get(key);

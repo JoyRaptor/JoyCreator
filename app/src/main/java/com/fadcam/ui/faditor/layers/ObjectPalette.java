@@ -29,7 +29,10 @@ public final class ObjectPalette {
     /** Text and stickers. */
     public static final int TEXT       = 0xFF8C3DFA; // purple
     /** Overlay video / PiP, and the master spine. */
-    public static final int VIDEO      = 0xFF4397FD; // blue
+    /** Studio green. Was bright blue; JoyRaptor 2026-09-18: "video ... should have the studio
+     *  green gradient because it's video." The flat is the tape's first stop, so the tool
+     *  row's tint and the drawer's accent agree with the tape they belong to. */
+    public static final int VIDEO      = com.fadcam.ui.faditor.Studio.ROOM_STUDIO;
     /** Still images (previously aliased to VIDEO blue — F-COLOR gives them their own hue). */
     public static final int IMAGE      = 0xFF26A69A; // teal
     /** Audio clips. Matches the legacy audio-band waveform green, which was already 0xFF35F6BF. */
@@ -43,9 +46,22 @@ public final class ObjectPalette {
      */
     public static final int AUDIO      = 0xFF4ADE80;
     /** Keyframed sprites. */
-    public static final int SPRITE     = 0xFFFFB74D; // amber
+    /** Sprite Lab pink. Was amber; JoyRaptor 2026-09-18: "the Sprite tape should correspond
+     *  to the gradient for sprite lab." Record 06 calls the object's colour on the drawer
+     *  and tool row "the whole 'what am I editing' signal" — so it has to match the tape,
+     *  or the signal says one thing and the timeline another. */
+    public static final int SPRITE     = com.fadcam.ui.faditor.Studio.ROOM_SPRITE;
     /** Caption / CC spans. */
     public static final int CAPTION    = 0xFFFFC107; // gold
+    /**
+     * An IMAGE that has puppet pins on it. Not a kind of its own — it is still an image —
+     * so this is applied per item in {@link #forItem}, never by {@link #forKind}.
+     *
+     * <p>JoyRaptor 2026-09-18: "as soon as they have a puppet tool like pins on it it should
+     * change color to the Avatar Studio colors so that you can tell at a glance which
+     * images have puppeteering rigs active."
+     */
+    public static final int RIGGED     = com.fadcam.ui.faditor.Studio.ROOM_AVATAR;
     /** Waveform / spectrum visualizers. */
     public static final int VISUALIZER = 0xFFEC407A; // pink
     /**
@@ -73,14 +89,32 @@ public final class ObjectPalette {
     // the whole wheel and turn grey at the midpoint.
     //
     // ── what each kind gets, and why ────────────────────────────────────────
+    // ── 2026-09-18: the tapes join the ROOM gradients ──────────────────────────
+    // JoyRaptor: "We are further tying together the color gradient ecosystem into the object
+    // tapes colors." Three kinds now wear the gradient of the ROOM they belong to, taken from
+    // the Grand Design's own :root rather than typed again:
+    //   VIDEO    Studio  #35F6BF -> #97FE8B   "because it's video"
+    //   SPRITE   Sprites #FF008C -> #CC27FF   "correspond to the gradient for sprite lab"
+    //   IMAGE + pins  Avatar #CC27FF -> #8C3DFA  "so you can tell at a glance which images
+    //                                            have puppeteering rigs active"
+    // This reverses the rule written further down — that the aqua-to-lime stretch stays empty
+    // because it belongs to GO. It does belong to GO, and to the Studio room, and video now
+    // wears the room. His call, made knowing the Studio is where video lives. The practical
+    // safeguard is record 06 MAJOR 03's: every tape carries its TYPE GLYPH at the left cap, so
+    // no object is ever identified by colour alone.
+    //
+    // Sprites -> Avatar -> Text now run as three neighbours along the wheel, each handing over
+    // at a shared stop. That is the wheel doing what it was ordered for; the glyph tells them
+    // apart where hue alone gets close.
+    //
+    // The table as it stood before this change, kept for its reasoning:
     //   TEXT        purple -> indigo        keeps the purple it already had
-    //   VIDEO       indigo -> bright blue   keeps the blue it already had; adjacent to
-    //                                       TEXT because a title IS video, drawn
+    //   VIDEO       (was) indigo -> bright blue
+    //   SPRITE      (was) amber -> orange
     //   IMAGE       bright blue -> cyan     was teal and alone; now the cool end
     //   AUDIO       yellow-green -> golden  warm means SOUND in this system, and it is
     //                                       far from the Studio's aqua so "audio" can
     //                                       never be mistaken for "go"
-    //   SPRITE      amber -> orange         keeps its amber
     //   CAPTION     orange -> deep orange   warm, next to audio, because captions ARE audio
     //   VISUALIZER  red-pink -> neon pink   keeps its pink
     //   ADJUSTMENT  grey -> grey            deliberately hueless: it is the one object
@@ -92,10 +126,14 @@ public final class ObjectPalette {
     // the Studio's own GO gradient, and an object wearing it would read as a button.
 
     private static final int[] G_TEXT       = {0xFF8C3DFA, 0xFF5C43FD};
-    private static final int[] G_VIDEO      = {0xFF5C43FD, 0xFF4397FD};
+    private static final int[] G_VIDEO      = {com.fadcam.ui.faditor.Studio.ROOM_STUDIO,
+                                               com.fadcam.ui.faditor.Studio.ROOM_STUDIO_END};
     private static final int[] G_IMAGE      = {0xFF4397FD, 0xFF55E0F9};
     private static final int[] G_AUDIO      = {0xFFCEFF5B, 0xFFF9F462};
-    private static final int[] G_SPRITE     = {0xFFFFC341, 0xFFFAA03D};
+    private static final int[] G_SPRITE     = {com.fadcam.ui.faditor.Studio.ROOM_SPRITE,
+                                               com.fadcam.ui.faditor.Studio.ROOM_SPRITE_END};
+    private static final int[] G_RIGGED     = {com.fadcam.ui.faditor.Studio.ROOM_AVATAR,
+                                               com.fadcam.ui.faditor.Studio.ROOM_AVATAR_DEEP};
     private static final int[] G_CAPTION    = {0xFFFAA03D, 0xFFFC6818};
     private static final int[] G_VISUALIZER = {0xFFFA3D5D, 0xFFFF008C};
     private static final int[] G_ADJUSTMENT = {0xFF52525B, 0xFF33333C};
@@ -154,7 +192,32 @@ public final class ObjectPalette {
      * passing a row's kind straight to {@link #forKind} is the bug this class exists to stop.
      */
     public static int forItem(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
+        if (isRigged(item)) return RIGGED;
         return forKind(payloadKindOf(item, rowKind));
+    }
+
+    /**
+     * The tape's two stops for an ITEM. Use this, not {@link #gradientFor(TrackKind)}, from
+     * anything that draws a specific object — a rigged image is still kind IMAGE, and only
+     * the item knows it has pins.
+     */
+    @NonNull
+    public static int[] gradientForItem(@NonNull TimedItem item, @NonNull TrackKind rowKind) {
+        if (isRigged(item)) return G_RIGGED;
+        return gradientFor(payloadKindOf(item, rowKind));
+    }
+
+    /**
+     * An image with at least one puppet PIN. {@code getOrCreatePuppet()} builds a rig lazily
+     * the moment the puppet drawer is opened, so a non-null rig is not enough — an image
+     * someone merely looked at in that drawer must not change colour. Pins are what the
+     * owner named: "as soon as they have a puppet tool like pins on it".
+     */
+    public static boolean isRigged(@NonNull TimedItem item) {
+        com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+        if (o == null || !o.isImage()) return false;
+        com.fadcam.ui.faditor.puppet.PuppetRig rig = o.getPuppet();
+        return rig != null && rig.pinCount() > 0;
     }
 
     /**

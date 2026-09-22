@@ -154,8 +154,20 @@ public final class Studio {
     // The lobby's colour code, repeated here so the editor agrees with the room the
     // user just walked out of. Each is that room's dominant gradient stop.
     public static final int ROOM_STUDIO  = 0xFF35F6BF;
+    /**
+     * The Studio room's far stop. Equal to {@link #GO_END} by value and deliberately a
+     * separate name: GO is an ACTION, the Studio room is a PLACE, and video tapes wear the
+     * place. If the action colour is ever retuned, video must not move with it.
+     */
+    public static final int ROOM_STUDIO_END = 0xFF97FE8B;
     public static final int ROOM_CAPTURE = 0xFFFA3D5D;
     public static final int ROOM_SPRITE  = 0xFFFF008C;
+    /**
+     * Sprite Lab's far stop (Grand Design: rSprA #FF008C to rSprB #CC27FF). Equal to
+     * {@link #ROOM_AVATAR} by value, because the two rooms are neighbours on the wheel and
+     * hand over at that colour; a separate name so neither drags the other if retuned.
+     */
+    public static final int ROOM_SPRITE_END = 0xFFCC27FF;
     public static final int ROOM_AVATAR  = 0xFFCC27FF;
     /** The Avatar room's deeper stop, and the object table's TEXT hue. */
     public static final int ROOM_AVATAR_DEEP = 0xFF8C3DFA;

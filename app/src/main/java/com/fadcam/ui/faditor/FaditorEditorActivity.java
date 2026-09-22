@@ -14138,7 +14138,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // audio UI. Every op anchored on getSelectedAudioIndex keeps working: that
             // method now DERIVES the index from LayerGestureController's unified selection
             // (TimedItem id == AudioClip id).
-            editorTimeline.setLayerTracks(layerBand, tl.getAudioTracks());
+            // A LANE WITH NOTHING IN IT IS NOT SHOWN. JoyRaptor, 2026-09-22: "If there is an
+            // object anywhere on the timeline in a lane that lane should exist, but as soon as
+            // there is no object in a lane it should not be cluttering things up."
+            //
+            // Filtered HERE, at the one point that hands lanes to the view, rather than deleted
+            // from the model. Three reasons: the model deliberately keeps the fixed "text" and
+            // "audio" lanes alive (maybeRemoveEmptyLayerTrack exempts them, and code relies on
+            // them existing); a lane that empties and refills must come back in its own z-order
+            // slot; and undo restores items into lanes by id, which a deletion would break. The
+            // view finds lanes by id, never by position, so drawing and touch see the same list.
+            // Dropping onto a NEW lane still works — that is the synthetic pending slot, not an
+            // empty track.
+            layerBand.removeIf(com.fadcam.ui.faditor.layers.Track::isEmpty);
+            java.util.List<com.fadcam.ui.faditor.layers.Track> audioBand =
+                    new java.util.ArrayList<>(tl.getAudioTracks());
+            audioBand.removeIf(com.fadcam.ui.faditor.layers.Track::isEmpty);
+            editorTimeline.setLayerTracks(layerBand, audioBand);
             // LANE_BADGES §2: feed sprite sheets so the sprite-item cell previews can decode
             // + resolve them (renderer stays pure-draw; EditorTimelineView owns the decode).
             if (project != null) editorTimeline.setSpriteSheets(project.getSpriteSheets());

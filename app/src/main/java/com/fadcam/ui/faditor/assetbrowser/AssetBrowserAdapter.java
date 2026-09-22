@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.assetbrowser;
 
+import com.fadcam.ui.faditor.Studio;
+
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
@@ -46,6 +48,15 @@ import java.util.Locale;
 public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapter.AssetViewHolder> {
 
     private static final String TAG = "AssetBrowserAdapter";
+
+    /**
+     * A thumbnail's ground before its picture lands. RAISED because VideoThumbnailCache (not
+     * this lane's file) paints #1F1F26 while it decodes, and RAISED is the nearest token — a
+     * darker well here would visibly jump when the cache takes over.
+     */
+    private static final int THUMB_WELL = Studio.RAISED;
+    /** Audio has no picture at all, so its tile sits one step up, where a pressed control does. */
+    private static final int AUDIO_TILE = Studio.PRESSED;
 
     private final List<AssetItem> items = new ArrayList<>();
     // SPEC_20260829_MEDIA_IMPORT §2.3: ordered multi-select — kept here so badge numbers are live
@@ -129,15 +140,15 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         imageView.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
-        imageView.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+        imageView.setBackgroundColor(THUMB_WELL);
         thumbFrame.addView(imageView);
 
         // Type badge (top-left)
         TextView typeBadge = new TextView(ctx);
         typeBadge.setTypeface(ResourcesCompat.getFont(ctx, R.font.materialicons));
         typeBadge.setTextSize(11);
-        typeBadge.setTextColor(Color.WHITE);
-        typeBadge.setBackgroundColor(Color.argb(160, 0, 0, 0));
+        typeBadge.setTextColor(Studio.DRAWER_INK);
+        typeBadge.setBackgroundColor(Studio.alpha(Studio.GROUND, 0xA0));
         typeBadge.setGravity(Gravity.CENTER);
         typeBadge.setPadding((int)(3 * density), (int)(2 * density),
                 (int)(3 * density), (int)(2 * density));
@@ -151,7 +162,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         usedBadge.setTypeface(ResourcesCompat.getFont(ctx, R.font.materialicons));
         usedBadge.setText("check_circle");
         usedBadge.setTextSize(12);
-        usedBadge.setTextColor(Color.parseColor("#FF35F6BF"));
+        usedBadge.setTextColor(Studio.GO);   // "in the project"
         usedBadge.setGravity(Gravity.CENTER);
         usedBadge.setVisibility(View.GONE);
         FrameLayout.LayoutParams usedLp = new FrameLayout.LayoutParams(
@@ -161,15 +172,15 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
 
         // Selection numbered badge (SPEC_20260829_MEDIA_IMPORT §2.3) — circular green with white number, top-end.
         TextView selectionBadge = new TextView(ctx);
-        selectionBadge.setTextColor(Color.WHITE);
+        selectionBadge.setTextColor(Studio.ON_GO);   // dark ink on the cyan disc
         selectionBadge.setTextSize(10);
         selectionBadge.setTypeface(Typeface.DEFAULT_BOLD);
         selectionBadge.setGravity(Gravity.CENTER);
         selectionBadge.setVisibility(View.GONE);
         android.graphics.drawable.GradientDrawable selBg = new android.graphics.drawable.GradientDrawable();
         selBg.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-        selBg.setColor(Color.parseColor("#FF35F6BF"));
-        selBg.setStroke((int)(1 * density), Color.WHITE);
+        selBg.setColor(Studio.ARMED);
+        selBg.setStroke((int)(1 * density), Studio.DRAWER_INK);
         selectionBadge.setBackground(selBg);
         selectionBadge.setElevation(2 * density);
         FrameLayout.LayoutParams selLp = new FrameLayout.LayoutParams(
@@ -180,10 +191,10 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
 
         // Duration overlay (bottom-right)
         TextView durationText = new TextView(ctx);
-        durationText.setTextColor(Color.WHITE);
+        durationText.setTextColor(Studio.DRAWER_INK);
         durationText.setTextSize(9);
-        durationText.setTypeface(Typeface.MONOSPACE);
-        durationText.setBackgroundColor(Color.argb(140, 0, 0, 0));
+        com.fadcam.ui.type.Type.mono(durationText, com.fadcam.ui.type.Type.MEDIUM);
+        durationText.setBackgroundColor(Studio.alpha(Studio.GROUND, 0x8C));
         durationText.setPadding((int)(3 * density), (int)(1 * density),
                 (int)(3 * density), (int)(1 * density));
         durationText.setVisibility(View.GONE);
@@ -198,10 +209,12 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
 
         // Filename label
         TextView nameLabel = new TextView(ctx);
-        nameLabel.setTextColor(Color.parseColor("#FFC4C4CE"));
+        nameLabel.setTextColor(Studio.DRAWER_LABEL);
         nameLabel.setTextSize(10);
-        nameLabel.setMaxLines(2);
-        nameLabel.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        // One line: the name is a tap target (rename), and a two-line target is its own defect.
+        // Middle ellipsis keeps both the start and the take number / extension at the end.
+        nameLabel.setSingleLine(true);
+        nameLabel.setEllipsize(android.text.TextUtils.TruncateAt.MIDDLE);
         nameLabel.setGravity(Gravity.CENTER_HORIZONTAL);
         nameLabel.setPadding(0, (int)(3 * density), 0, 0);
         container.addView(nameLabel);
@@ -219,21 +232,21 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
         boolean isSelected = selIdx >= 0;
         if (isSelected) {
             // Selected state: green border + badge number; selection takes visual precedence over highlight.
-            holder.container.setBackgroundColor(Color.argb(60, 76, 175, 80));
+            holder.container.setBackgroundColor(Studio.alpha(Studio.ARMED, 0x3C));
             holder.selectionBadge.setVisibility(View.VISIBLE);
             holder.selectionBadge.setText(String.valueOf(selIdx + 1));
             // Hide used check when numbered badge occupies the same corner — number is the active state.
             holder.usedBadge.setVisibility(View.GONE);
             // Subtle outline for selected thumb
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF35F6BF"));
+            holder.imageView.setBackgroundColor(Studio.ARMED);
         } else if (sameAsset(highlightedItem, item)) {
-            holder.container.setBackgroundColor(Color.parseColor("#FF35F6BF"));
+            holder.container.setBackgroundColor(Studio.ARMED);
             holder.selectionBadge.setVisibility(View.GONE);
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+            holder.imageView.setBackgroundColor(THUMB_WELL);
         } else {
             holder.container.setBackgroundColor(Color.TRANSPARENT);
             holder.selectionBadge.setVisibility(View.GONE);
-            holder.imageView.setBackgroundColor(Color.parseColor("#FF1F1F26"));
+            holder.imageView.setBackgroundColor(THUMB_WELL);
         }
 
         // Filename
@@ -286,7 +299,7 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             VideoThumbnailCache.cancel(holder.imageView);
             holder.imageView.setScaleType(ImageView.ScaleType.CENTER);
             // Keep selection green when selected, even for audio
-            if (!isSelected) holder.imageView.setBackgroundColor(Color.parseColor("#FF2C2C35"));
+            if (!isSelected) holder.imageView.setBackgroundColor(AUDIO_TILE);
             holder.imageView.setImageDrawable(null);
         }
 
@@ -295,7 +308,10 @@ public class AssetBrowserAdapter extends RecyclerView.Adapter<AssetBrowserAdapte
             if (callback != null) callback.onItemTapped(item);
         });
 
+        holder.itemView.setContentDescription(item.shortLabel());
         // Tap filename to rename
+        holder.nameLabel.setContentDescription(
+                ctx.getString(R.string.faditor_asset_browser_rename) + " " + item.shortLabel());
         holder.nameLabel.setOnClickListener(v -> {
             if (callback != null) callback.onItemRenameRequested(item);
         });

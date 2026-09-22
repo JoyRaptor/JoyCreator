@@ -685,6 +685,12 @@ public class TransformOverlayView extends View {
     public void setOnDoubleTap(@Nullable Runnable r) { onDoubleTap = r; }
 
     private long lastBodyTapUpMs;
+    /**
+     * Where the first tap lifted, view-local px. Pairing is time AND distance: a tap, a
+     * drag, then a tap must not pair into a double-tap (TEXT_REPAIR_PASS, 2026-09-23).
+     */
+    private float lastBodyTapX;
+    private float lastBodyTapY;
 
     private static final long DOUBLE_TAP_MS = 320L;
 
@@ -1752,6 +1758,8 @@ public class TransformOverlayView extends View {
         if (!moved && Math.hypot(x - downX, y - downY) > dp(MOVE_SLOP_DP)) {
             moved = true;
             removeCallbacks(longPress);
+            // A drag is not half of a double-tap (TEXT_REPAIR_PASS, 2026-09-23).
+            lastBodyTapUpMs = 0L;
         }
         if (!moved) return true;
         applyDrag(h, x + grabOffsetX, y + grabOffsetY, x, y);
@@ -1780,19 +1788,30 @@ public class TransformOverlayView extends View {
         boolean didMove = moved;
         cancelGesture();
         if (was && didMove && clean) {
+            // A completed drag breaks any pending tap pairing (TEXT_REPAIR_PASS, 2026-09-23).
+            lastBodyTapUpMs = 0L;
             h.commitGesture(kind == HandleModel.Kind.BODY ? "Move"
                     : kind == HandleModel.Kind.ROTATE ? "Rotate"
                     : "Distort");
         } else if (was && !didMove && clean && kind == HandleModel.Kind.BODY) {
             // A tap on the picture that moved nothing. Pair it with the previous one and forward
-            // the double-tap; a single tap deliberately does nothing at all.
+            // the double-tap; a single tap deliberately does nothing at all. downX/downY is
+            // the DOWN point, but an unmoved tap lifted within slop of it, so it stands in
+            // for the UP point without threading the MotionEvent through (TEXT_REPAIR_PASS).
             long nowMs = SystemClock.uptimeMillis();
-            if (nowMs - lastBodyTapUpMs <= DOUBLE_TAP_MS) {
+            int slopPx = android.view.ViewConfiguration.get(getContext())
+                    .getScaledTouchSlop();
+            boolean nearLastTap = nowMs - lastBodyTapUpMs <= DOUBLE_TAP_MS
+                    && Math.abs(downX - lastBodyTapX) <= slopPx
+                    && Math.abs(downY - lastBodyTapY) <= slopPx;
+            if (nearLastTap) {
                 lastBodyTapUpMs = 0L;
                 Runnable dt = onDoubleTap;
                 if (dt != null) dt.run();
             } else {
                 lastBodyTapUpMs = nowMs;
+                lastBodyTapX = downX;
+                lastBodyTapY = downY;
             }
         }
         hudEndedAtMs = SystemClock.uptimeMillis();

@@ -231,6 +231,12 @@ public final class PreviewHandlesOverlay extends View {
 
     /** In-box tap pairing for the double-tap forwarder (see onTouchEvent UP). */
     private long lastInBoxTapUpMs;
+    /**
+     * Where the first tap lifted, view-local px. Pairing is time AND distance
+     * (TEXT_REPAIR_PASS, 2026-09-23 — a tap, a drag, then a tap must not pair).
+     */
+    private float lastInBoxTapX;
+    private float lastInBoxTapY;
 
     /** Center-snap threshold, TextOverlayLayer parity. */
     private static final float SNAP_THRESHOLD = 0.045f;
@@ -663,6 +669,8 @@ public final class PreviewHandlesOverlay extends View {
                 pinching = false;
                 awaitingPinch = false;
                 if (moved && committed) {
+                    // A completed drag breaks any pending tap pairing (TEXT_REPAIR_PASS).
+                    lastInBoxTapUpMs = 0;
                     t.commit(finished == Mode.MOVE ? "Move"
                             : finished == Mode.SCALE ? "Scale"
                             : finished == Mode.PINCH ? "Transform" : "Rotate");
@@ -672,11 +680,18 @@ public final class PreviewHandlesOverlay extends View {
                     // the type editor became unreachable from the preview on a selected
                     // object. Pair clean in-box taps here and forward the double-tap.
                     long now = android.os.SystemClock.uptimeMillis();
-                    if (now - lastInBoxTapUpMs <= 320) {
+                    int slopPx = android.view.ViewConfiguration.get(getContext())
+                            .getScaledTouchSlop();
+                    boolean nearLastTap = now - lastInBoxTapUpMs <= 320
+                            && Math.abs(e.getX() - lastInBoxTapX) <= slopPx
+                            && Math.abs(e.getY() - lastInBoxTapY) <= slopPx;
+                    if (nearLastTap) {
                         lastInBoxTapUpMs = 0;
                         t.onDoubleTapped();
                     } else {
                         lastInBoxTapUpMs = now;
+                        lastInBoxTapX = e.getX();
+                        lastInBoxTapY = e.getY();
                     }
                 }
                 invalidate();
@@ -880,7 +895,11 @@ public final class PreviewHandlesOverlay extends View {
     private void onDragMove(@NonNull Target t, float x, float y) {
         RectF r = t.videoRect();
         if (r.width() <= 0 || r.height() <= 0) return;
-        if (!moved && (Math.abs(x - downX) > 8 || Math.abs(y - downY) > 8)) moved = true;
+        if (!moved && (Math.abs(x - downX) > 8 || Math.abs(y - downY) > 8)) {
+            moved = true;
+            // A drag is not half of a double-tap (TEXT_REPAIR_PASS, 2026-09-23).
+            lastInBoxTapUpMs = 0;
+        }
         if (!moved) return;
         // Center from the CURRENT frame (it moves under a MOVE drag).
         if (!t.frame(currentTimeMs, box)) return;

@@ -61,6 +61,14 @@ public class TextOverlayLayer extends FrameLayout {
          */
         default void onOverlayManipulated(@NonNull TextOverlayItem item,
                                           @NonNull TextOverlayItem.TransformSnapshot before) { }
+        /**
+         * A legacy-surface drag on {@code item} moved it this frame (fired per MOVE, not
+         * just on commit). The transform helper reads its quad from its own host, so a
+         * box dragged on this surface leaves the helper behind until the next playhead
+         * tick unless somebody re-syncs it — this is that call (TEXT_REPAIR_PASS,
+         * 2026-09-23). Default no-op so existing callers need not implement it.
+         */
+        default void onOverlayTransformSync() { }
     }
 
     // ── WYSIWYG in-canvas text editing (2026-08-09 reframe) ───────────────────────────────────
@@ -399,6 +407,13 @@ public class TextOverlayLayer extends FrameLayout {
     /** Double-tap pairing state (type-editor express lane, layer-level). */
     @Nullable private TextOverlayItem lastTapOverlay;
     private long lastTapUpMs;
+    /**
+     * Where the first tap lifted, in raw screen px. The pairing is time+identity AND
+     * distance: a tap, a drag somewhere else, then a tap must not pair (TEXT_REPAIR_PASS,
+     * 2026-09-23 — the stale pairing fired the type editor mid-move).
+     */
+    private float lastTapRawX;
+    private float lastTapRawY;
     private boolean snapEnabled = true;
     private static final float SNAP_THRESHOLD = 0.045f;
     private static final long TIME_SNAP_MS = 250L;
@@ -1853,6 +1868,10 @@ public class TextOverlayLayer extends FrameLayout {
                                 || Math.abs(e.getRawY() - downRawY) > 8) {
                             moved = true;
                             cancelHold();
+                            // A drag is not half of a double-tap: disarm the pairing so the
+                            // next lift cannot pair with the tap from before the drag
+                            // (TEXT_REPAIR_PASS, 2026-09-23).
+                            lastTapOverlay = null;
                         }
                         if (snapEnabled) {
                             float snappedX = snapX(startCenterX + dx);
@@ -1862,6 +1881,10 @@ public class TextOverlayLayer extends FrameLayout {
                             o.setCenter(startCenterX + dx, startCenterY + dy);
                         }
                         position(tv, o);
+                        // Keep the transform helper on the dragged box: it reads its quad
+                        // from the host, not from this path, and otherwise sits stale until
+                        // the next playhead tick (TEXT_REPAIR_PASS, 2026-09-23).
+                        if (callback != null) callback.onOverlayTransformSync();
                         return true;
                     case MotionEvent.ACTION_CANCEL:
                         cancelHold();
@@ -1879,7 +1902,13 @@ public class TextOverlayLayer extends FrameLayout {
                         if (callback != null) {
                             if (!moved) {
                                 long now = android.os.SystemClock.uptimeMillis();
-                                if (o == lastTapOverlay && now - lastTapUpMs <= 320) {
+                                int slopPx = android.view.ViewConfiguration.get(getContext())
+                                        .getScaledTouchSlop();
+                                boolean nearLastTap = o == lastTapOverlay
+                                        && now - lastTapUpMs <= 320
+                                        && Math.abs(e.getRawX() - lastTapRawX) <= slopPx
+                                        && Math.abs(e.getRawY() - lastTapRawY) <= slopPx;
+                                if (nearLastTap) {
                                     lastTapOverlay = null;
                                     callback.onEditRequested(o); // double-tap = type editor
                                 } else if (isEmptyTextBox(o)) {
@@ -1909,6 +1938,8 @@ public class TextOverlayLayer extends FrameLayout {
                                 } else {
                                     lastTapOverlay = o;
                                     lastTapUpMs = now;
+                                    lastTapRawX = e.getRawX();
+                                    lastTapRawY = e.getRawY();
                                     callback.onOverlaySelected(o); // tap = select
                                 }
                             } else {

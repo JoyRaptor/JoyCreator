@@ -3282,6 +3282,12 @@ public class ProjectStorage {
                         }
                         if (hasValue(oObj, "textAnimGranularity")) {
                             o.setTextAnimGranularity(oObj.get("textAnimGranularity").getAsString());
+                        } else {
+                            // TEXT_ANIM_REFRESH (2026-09-22): new boxes default to LETTER, but
+                            // every project saved before that carries NO field (BLOCK was the
+                            // default and was omitted on write). Missing means authored-as-BLOCK,
+                            // so say so explicitly rather than inheriting the new default.
+                            o.setTextAnimGranularity("BLOCK");
                         }
                         if (hasValue(oObj, "textAnimInPct") || hasValue(oObj, "textAnimOutPct")) {
                             o.setTextAnimZonePct(

@@ -356,6 +356,34 @@ public class TextOverlayLayer extends FrameLayout {
         }
     }
 
+    /**
+     * Dismiss the soft keyboard but KEEP the in-canvas editor attached (TEXT_ANIM_REFRESH,
+     * 2026-09-22).
+     *
+     * <p>Picking an animation preset/granularity is a request to WATCH the box, and the box
+     * cannot animate while {@link #isLiveEditing} holds: {@code live} forces
+     * {@code animate=false}, which forces {@code preset=NONE} in TextBoxRenderer —
+     * visually identical to "no animation". Since opening the drawer raises the keyboard
+     * ({@link #startTextEditing} → {@link #showIme}), the suppression spans the whole
+     * drawer session, so a preset change is invisible until the drawer closes — the exact
+     * "does not refresh until I exit the editor" report. Tapping to another box ends its
+     * editing (clearing the suppression), which is why that "refreshed" it.
+     *
+     * <p>Hiding the keyboard here ends the suppression while keeping the editing session:
+     * the transparent editor stays hosted, the drawer stays open, and tapping the box
+     * brings the keyboard back (same-item {@code startTextEditing} re-hosts and re-asks).
+     * Re-positions afterwards so the live gate re-evaluates with the keyboard down and
+     * the new preset draws on this tick rather than on the next scrub.
+     */
+    public void dismissKeyboardKeepEditing() {
+        if (textEditor != null) {
+            hideIme(textEditor);
+        } else {
+            imeActive = false;
+        }
+        setPlayheadMs(currentTimeMs);
+    }
+
     private final List<TextOverlayItem> overlays = new ArrayList<>();
     @Nullable private Callback callback;
     /** Current timeline time (ms) used to evaluate overlay time-ranges + keyframes. */

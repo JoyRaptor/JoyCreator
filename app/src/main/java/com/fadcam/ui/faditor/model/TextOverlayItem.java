@@ -479,11 +479,13 @@ public class TextOverlayItem {
     private String textAnimPreset = "NONE";
 
     /**
-     * {@code CaptionAnimator.Granularity} name. **BLOCK is the only honest value here —
-     * see {@link #textAnimGranularitySupported}.**
+     * {@code CaptionAnimator.Granularity} name. LETTER for new boxes (owner, 2026-09-22:
+     * a whole BLOCK flying in can read as an unclear flash, per-letter reads as a title).
+     * Projects saved before the default changed carry no field and load as BLOCK —
+     * see ProjectStorage — so nothing already authored changes its look.
      */
     @NonNull
-    private String textAnimGranularity = "BLOCK";
+    private String textAnimGranularity = "LETTER";
 
     /** Entrance zone as a fraction of this box's own visible span, 0…0.5. */
     private float textAnimInPct = 0f;

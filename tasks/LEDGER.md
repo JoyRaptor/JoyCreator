@@ -3691,3 +3691,36 @@ exactly the half that went unstated and exactly the half that was then missed.
 - **The desktop three-column layout, the Sources load/unload rail, Escape-to-cancel**: superseded
   on purpose. The phone build is `SpriteLabMobile.html` layout C, and the rail became
   tap-to-include over sheets already in the project.
+
+## 2026-09-22 — still text animation: the preset pick is visible now, default is per-letter
+
+JoyRaptor: *"when I change the text animation style it does not refresh until I close the
+app or exit the editor… tapping off the box and back on refreshed it… default should be
+per letter instead of block."* Same symptom as 2026-08-19, which 2e9fd468 claimed to fix
+by tying the typing-suppression to the keyboard (`imeActive`) instead of the drawer — a
+fix that was committed NOT device-verified, and never actually worked: opening the drawer
+raises the keyboard (`startTextEditing` → `showIme`), and the focusable animation popover
+does NOT dismiss it, so `imeActive` stays true through the whole pick and the box keeps
+drawing `preset=NONE`. Tapping to another box ended its editing (clearing the flag),
+which is the "refresh" he found. Second hiding place: outside the entrance/exit zones
+every preset draws the identical settled box, so a pick with the playhead parked mid-hold
+shows nothing even with the keyboard down.
+
+Fix (COMPILE-VERIFIED only — watcher BUILD SUCCESSFUL, both new symbols confirmed in the
+packaged classes; no device in this session, needs JoyRaptor's eye):
+
+- `applyTextOverlayAnim` now calls `previewTextAnimNow`: keyboard down first
+  (`TextOverlayLayer.dismissKeyboardKeepEditing` — editor stays attached, drawer stays
+  open, tapping the box brings the keyboard back), then parks the playhead mid-entrance
+  when the pick is watchable and the playhead is not already inside a zone. Undo/redo
+  go through the old path deliberately — history must not yank the playhead or the
+  keyboard. Picking None dismisses the keyboard but seeks nowhere (nothing to show).
+- New boxes default to LETTER granularity (was BLOCK). Old projects carry no granularity
+  field (BLOCK was omitted on write), so the loader now reads missing-as-BLOCK
+  explicitly — nothing already authored changes its look; only new boxes are per-letter.
+  Preview and the main export both draw through the shared `TextBoxRenderer`, so the new
+  default renders identically on both.
+
+Owed on a phone: pick presets/granularities with the drawer open and watch the box;
+confirm old projects still animate as BLOCK and new boxes as LETTER; confirm the keyboard
+returns on box tap and typing stays static (glyphs must not slide under the caret).

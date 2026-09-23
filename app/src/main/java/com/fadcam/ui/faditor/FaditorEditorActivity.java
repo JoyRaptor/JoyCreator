@@ -3237,6 +3237,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             redoCount.setText(String.valueOf(rCount));
             redoCount.setVisibility(View.VISIBLE);
             redoCount.setAlpha(rCount > 0 ? 1.0f : 0.3f);
+            // Undo, redo and every recorded edit can make or remove a seam under the playhead,
+            // so the Split/Heal button re-reads the timeline here. It didn't: undoing a split
+            // left the button saying "Heal" over a seam that no longer existed, and pressing it
+            // tried to heal nothing - the "Split doesn't work" JoyRaptor hit. Posted, so it
+            // runs after the undo has finished restoring the timeline, not before.
+            if (btnUndo != null) btnUndo.post(this::updateSplitHealButton);
         });
 
         // Segment tools
@@ -44283,22 +44289,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void splitOrHealAtPlayhead() {
-        if (splitHealMode) {
+        // Decide from the timeline as it is NOW, not from the cached flag the label was drawn
+        // with. The flag is only as fresh as the last refresh, and a press on a stale "Heal"
+        // silently did nothing.
+        if (isHealableHere()) {
             healAtPlayhead();
         } else {
             splitAtPlayhead();
         }
+        updateSplitHealButton();
+    }
+
+    /** True when the playhead sits on a seam Heal can actually rejoin (§3.6). */
+    private boolean isHealableHere() {
+        Timeline timeline = project != null ? project.getTimeline() : null;
+        Clip clip = getSelectedClip();
+        long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
+        return timeline != null && clip != null && !clip.isImageClip()
+                && healableSeam(playhead) >= 0;
     }
 
     private void updateSplitHealButton() {
-        Timeline timeline = project != null ? project.getTimeline() : null;
-        Clip clip = getSelectedClip();
         // §3.6: Heal is offered ONLY on a genuinely healable seam (same source + contiguous + in
         // order) — the old code flipped to Heal for ANY seam, so pressing it on a fresh split's
         // seam fired the span-removal path and read as "did nothing".
-        long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
-        boolean heal = timeline != null && clip != null && !clip.isImageClip()
-                && healableSeam(playhead) >= 0;
+        boolean heal = isHealableHere();
         boolean changed = heal != splitHealMode;
         splitHealMode = heal;
         if (toolSplitIcon != null) {

@@ -20560,6 +20560,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null) return;
         closeAllTopPanels();
         com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        // Its OWN accent. The drawer is one shared view; without this it kept whatever colour the
+        // last drawer set, so the caption drawer's dot and active tab showed image teal.
+        drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         // ── Style tab ── size, font, highlight, colours, box/outline/shadow, save/delete/copy/import,
         // motion (the Timing tab's content moved here — SPEC_20260831_CAPTION_SLIDES_UX §7.2.5)
@@ -32990,6 +32993,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // rect is read from the overlay view's laid-out bounds.
         ensureObjectDrawer().setOnClose(this::commitPendingCompUndo);
         final com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        // The image's own colour, from the same rule its tape uses: Avatar violet once it has
+        // pins, image colour otherwise. It used to inherit the previous drawer's accent.
+        drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.forOverlay(o));
         drawer.setOnTabChanged(() -> drawer.post(() -> {
             // LANDING ON THE PUPPET TAB BRINGS THE PINS BACK. Otherwise a picture whose pins had
             // been put away would show the whole puppet drawer over a picture with nothing on it

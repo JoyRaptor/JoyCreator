@@ -214,10 +214,24 @@ public final class ObjectPalette {
      * owner named: "as soon as they have a puppet tool like pins on it".
      */
     public static boolean isRigged(@NonNull TimedItem item) {
-        com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
+        return isRigged(item.getTextOverlay());
+    }
+
+    /** The overlay-level form of {@link #isRigged(TimedItem)}; the one place the rule lives. */
+    public static boolean isRigged(@androidx.annotation.Nullable com.fadcam.ui.faditor.model.TextOverlayItem o) {
         if (o == null || !o.isImage()) return false;
         com.fadcam.ui.faditor.puppet.PuppetRig rig = o.getPuppet();
         return rig != null && rig.pinCount() > 0;
+    }
+
+    /**
+     * An overlay's colour when all you have is the overlay (a drawer opened for it), not its
+     * timeline item. Same answer {@link #forItem} gives: a pinned image is Avatar violet, any
+     * other image IMAGE, text TEXT.
+     */
+    public static int forOverlay(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        if (isRigged(o)) return RIGGED;
+        return o.isImage() ? IMAGE : TEXT;
     }
 
     /**

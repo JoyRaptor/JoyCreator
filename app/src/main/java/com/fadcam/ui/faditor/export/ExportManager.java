@@ -4462,6 +4462,13 @@ public class ExportManager {
      */
     static final boolean GL_IMAGE_PASS = true;
 
+    /**
+     * Captions composited by {@link GlCaptionEffect} (same renderer pixels, tight boxes uploaded
+     * only on change) instead of blitted into the full-frame Canvas pass. OFF until proven on
+     * the Note 20 — the watcher APK reaches the owner's phone through other lanes too.
+     */
+    static final boolean GL_CAPTION_PASS = false;
+
     /** The ONE export routing question: does this overlay leave the Canvas for a GL pass? */
     static boolean exportGlRouted(@NonNull TextOverlayItem o) {
         if (GL_IMAGE_PASS && o.isImage()) return true;
@@ -5914,7 +5921,20 @@ public class ExportManager {
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
                         isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
-                videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
+                // Captions leave this Canvas pass for GlCaptionEffect (same renderers, tight
+                // boxes, uploaded only when they change). The Canvas pass itself is dropped when
+                // captions were all it had to draw.
+                boolean captionsOnGl = GL_CAPTION_PASS && overlay.hasCaptions();
+                if (captionsOnGl) overlay.setCaptionsViaGl(true);
+                boolean canvasWork = !exportSpriteItems.isEmpty() || !clipWaveformSlots.isEmpty()
+                        || clipHasWaveformRef;
+                for (TextOverlayItem to : exportTextOverlays) {
+                    if (!exportGlRouted(to)) { canvasWork = true; break; }
+                }
+                if (!captionsOnGl || canvasWork) {
+                    videoEffects.add(new OverlayEffect(Collections.singletonList(overlay)));
+                }
+                if (captionsOnGl) videoEffects.add(new GlCaptionEffect(overlay));
             }
         } else if (!isTransitionItem) {
             FLog.w(TAG, "assembleClipVideoEffects: cannot infer overlay dimensions for clip "

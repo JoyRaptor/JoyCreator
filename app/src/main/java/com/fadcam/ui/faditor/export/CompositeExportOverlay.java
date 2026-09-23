@@ -566,6 +566,100 @@ public class CompositeExportOverlay extends BitmapOverlay {
         return out;
     }
 
+    // ── Captions, shared by the Canvas pass and the GL caption pass ─────────────────────
+    private boolean captionsViaGl = false;
+    private final java.util.List<CaptionExportRenderer> captionFrame = new ArrayList<>();
+    private final android.graphics.Rect captionScratch = new android.graphics.Rect();
+
+    /** When true this pass leaves captions to {@link GlCaptionEffect} (drawn after it). */
+    void setCaptionsViaGl(boolean viaGl) { this.captionsViaGl = viaGl; }
+
+    boolean hasCaptions() { return !clipCaptionSlots.isEmpty() || !audioCaptionSlots.isEmpty(); }
+
+    /** The GL caption pass's entry: every caption that draws at this presentation time. */
+    @NonNull
+    java.util.List<CaptionExportRenderer> renderCaptionsAt(long presentationTimeUs) {
+        return renderCaptions(ExportManager.clipMsFor(presentationTimeUs, clipTimelineStartMs));
+    }
+
+    /**
+     * Render every caption slot (clip bindings, then audio bindings) for this frame; returns the
+     * renderers that drew something. ONE implementation for both passes, so the GL captions are
+     * the Canvas captions' own pixels.
+     */
+    @NonNull
+    private java.util.List<CaptionExportRenderer> renderCaptions(long clipLocalMs) {
+        captionFrame.clear();
+        if (!clipCaptionSlots.isEmpty()) {
+            long clipSourceLocalMs =
+                    (long) ((clipLocalMs + headTransitionMs) * clip.getSpeedMultiplier());
+            long sourceMs = clip.getInPointMs() + clipSourceLocalMs;
+            boolean isFirstBinding = true;
+            for (ClipCaptionSlot slot : clipCaptionSlots) {
+                String styleId;
+                if (isFirstBinding && clip.hasCaptionStyleKeyframes()) {
+                    styleId = clip.captionStyleAtClipMs(clipSourceLocalMs);
+                } else {
+                    styleId = slot.binding.styleId;
+                }
+                isFirstBinding = false;
+                if (styleId == null || "hidden".equals(styleId)) continue;
+                if (slot.renderer != null && !styleId.equals(slot.rendererStyleId)) {
+                    // Caption style KEYFRAME transition. Swap the style in place rather than
+                    // rebuilding: the constructor allocates a full-frame ARGB_8888 bitmap (8.3 MB
+                    // at 1080p) and drops the old one for the GC, and it also discards the fit
+                    // caches, so a clip alternating between two styles re-fit its whole
+                    // transcript at every switch. setStyle resets every piece of style-derived
+                    // state and keeps the bitmap; the settings below are binding/clip properties,
+                    // not style properties, so they survive the swap unchanged.
+                    slot.renderer.setStyle(CaptionStyle.byId(styleId));
+                    slot.rendererStyleId = styleId;
+                }
+                if (slot.renderer == null) {
+                    slot.renderer = new CaptionExportRenderer(slot.transcript,
+                            CaptionStyle.byId(styleId), slot.binding.centerX, slot.binding.centerY,
+                            slot.binding.sizeFraction, slot.binding.boxWidthFraction, outW, outH);
+                    slot.rendererStyleId = styleId;
+                    slot.renderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
+                            clip.getCaptionAnimGranularity(),
+                            clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
+                    // The binding's box alignment and opacity fade — the two properties the
+                    // export used to drop on the floor. The fade's span is the caption's own
+                    // placement on the timeline, which for a clip caption IS the clip's span
+                    // (CaptionSpanRef), so the local clock below is clipLocalMs.
+                    slot.renderer.setBoxAlign(slot.binding.anchor, slot.binding.justify);
+                    slot.renderer.setCaptionFade(slot.binding.fadeInMs, slot.binding.fadeOutMs,
+                            Math.max(1L, clip.getVisualDurationMs()));
+                }
+                Bitmap captionBmp = slot.renderer.render(sourceMs, clipLocalMs);
+                if (captionBmp == null || captionBmp.isRecycled()) {
+                    if (!loggedNullCaptionWarning) {
+                        FLog.w(TAG, "CaptionExportRenderer returned null/recycled bitmap; "
+                                + "caption skipped (this warning is logged once)");
+                        loggedNullCaptionWarning = true;
+                    }
+                } else if (slot.renderer.tightBounds(captionScratch)) {
+                    captionFrame.add(slot.renderer);
+                }
+            }
+        }
+        if (!audioCaptionSlots.isEmpty()) {
+            long audioCaptionTimelineMs = clipTimelineStartMs + clipLocalMs;
+            for (AudioCaptionSlot slot : audioCaptionSlots) {
+                long audioSourceMs = audioCaptionTimelineMs - slot.offsetMs + slot.inPointMs;
+                // Local time within the AUDIO clip's own span — the clock the binding's fade is
+                // measured against (its span on the timeline starts at the clip's offset).
+                long audioSpanLocalMs = audioCaptionTimelineMs - slot.offsetMs;
+                Bitmap captionBmp = slot.renderer.render(audioSourceMs, audioSpanLocalMs);
+                if (captionBmp != null && !captionBmp.isRecycled()
+                        && slot.renderer.tightBounds(captionScratch)) {
+                    captionFrame.add(slot.renderer);
+                }
+            }
+        }
+        return captionFrame;
+    }
+
     @Override
     public void configure(@NonNull Size size) {
         int w = Math.max(1, size.getWidth());
@@ -965,80 +1059,17 @@ public class CompositeExportOverlay extends BitmapOverlay {
 
         // Captions — one renderer per enabled binding (SPEC_20260829_CAPTION_LAYERS).
         // Each slot shares the same windowed transcript semantics as before (source time).
+        // On the GL caption path GlCaptionEffect draws them AFTER this pass, from the same
+        // renderers (renderCaptionsAt) — same pixels, no full-frame blit or upload.
         boolean drewCaption = false;
         int captionSaveCount = canvas.getSaveCount();
         try {
-        if (!clipCaptionSlots.isEmpty()) {
-            long clipSourceLocalMs =
-                    (long) ((clipLocalMs + headTransitionMs) * clip.getSpeedMultiplier());
-            long sourceMs = clip.getInPointMs() + clipSourceLocalMs;
-            boolean isFirstBinding = true;
-            for (ClipCaptionSlot slot : clipCaptionSlots) {
-                String styleId;
-                if (isFirstBinding && clip.hasCaptionStyleKeyframes()) {
-                    styleId = clip.captionStyleAtClipMs(clipSourceLocalMs);
-                } else {
-                    styleId = slot.binding.styleId;
-                }
-                isFirstBinding = false;
-                if (styleId == null || "hidden".equals(styleId)) continue;
-                if (slot.renderer != null && !styleId.equals(slot.rendererStyleId)) {
-                    // Caption style KEYFRAME transition. Swap the style in place rather than
-                    // rebuilding: the constructor allocates a full-frame ARGB_8888 bitmap (8.3 MB
-                    // at 1080p) and drops the old one for the GC, and it also discards the fit
-                    // caches, so a clip alternating between two styles re-fit its whole
-                    // transcript at every switch. setStyle resets every piece of style-derived
-                    // state and keeps the bitmap; the settings below are binding/clip properties,
-                    // not style properties, so they survive the swap unchanged.
-                    slot.renderer.setStyle(CaptionStyle.byId(styleId));
-                    slot.rendererStyleId = styleId;
-                }
-                if (slot.renderer == null) {
-                    slot.renderer = new CaptionExportRenderer(slot.transcript,
-                            CaptionStyle.byId(styleId), slot.binding.centerX, slot.binding.centerY,
-                            slot.binding.sizeFraction, slot.binding.boxWidthFraction, outW, outH);
-                    slot.rendererStyleId = styleId;
-                    slot.renderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
-                            clip.getCaptionAnimGranularity(),
-                            clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
-                    // The binding's box alignment and opacity fade — the two properties the
-                    // export used to drop on the floor. The fade's span is the caption's own
-                    // placement on the timeline, which for a clip caption IS the clip's span
-                    // (CaptionSpanRef), so the local clock below is clipLocalMs.
-                    slot.renderer.setBoxAlign(slot.binding.anchor, slot.binding.justify);
-                    slot.renderer.setCaptionFade(slot.binding.fadeInMs, slot.binding.fadeOutMs,
-                            Math.max(1L, clip.getVisualDurationMs()));
-                }
-                Bitmap captionBmp = slot.renderer.render(sourceMs, clipLocalMs);
-                if (captionBmp == null || captionBmp.isRecycled()) {
-                    if (!loggedNullCaptionWarning) {
-                        FLog.w(TAG, "CaptionExportRenderer returned null/recycled bitmap; "
-                                + "caption skipped (this warning is logged once)");
-                        loggedNullCaptionWarning = true;
-                    }
-                } else {
-                    canvas.drawBitmap(captionBmp, 0, 0, null);
+            if (!captionsViaGl) {
+                for (CaptionExportRenderer r : renderCaptions(clipLocalMs)) {
+                    canvas.drawBitmap(r.lastBitmap(), 0, 0, null);
                     drewCaption = true;
                 }
             }
-        }
-        if (drewCaption) framesWithCaption++;
-
-        if (!audioCaptionSlots.isEmpty()) {
-            long audioCaptionTimelineMs = clipTimelineStartMs + clipLocalMs;
-            for (AudioCaptionSlot slot : audioCaptionSlots) {
-                long audioSourceMs = audioCaptionTimelineMs - slot.offsetMs + slot.inPointMs;
-                // Local time within the AUDIO clip's own span — the clock the binding's fade is
-                // measured against (its span on the timeline starts at the clip's offset).
-                long audioSpanLocalMs = audioCaptionTimelineMs - slot.offsetMs;
-                Bitmap captionBmp = slot.renderer.render(audioSourceMs, audioSpanLocalMs);
-                if (captionBmp != null && !captionBmp.isRecycled()) {
-                    canvas.drawBitmap(captionBmp, 0, 0, null);
-                    drewCaption = true;
-                }
-            }
-            if (drewCaption && clipCaptionSlots.isEmpty()) framesWithCaption++;
-        }
         } catch (Throwable t) {
             canvas.restoreToCount(captionSaveCount);
             if (!loggedCaptionDrawError) {
@@ -1047,6 +1078,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 loggedCaptionDrawError = true;
             }
         }
+        if (drewCaption) framesWithCaption++;
 
         // Waveform visualizers
         int drawnWaveform = 0;

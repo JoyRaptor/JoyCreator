@@ -9,6 +9,7 @@ import android.graphics.Typeface;
 import android.text.TextPaint;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.transcript.CaptionFit;
 import com.fadcam.ui.faditor.transcript.CaptionStyle;
@@ -243,16 +244,68 @@ public class CaptionExportRenderer {
     @NonNull
     public Bitmap render(long sourceMs, long spanLocalMs) {
         int active = transcript.indexAtOrBeforeTime(sourceMs);
-        frameSourceMs = sourceMs;
-        frameFade = fadeFactorAt(spanLocalMs);
-        canvas.drawColor(0, PorterDuff.Mode.CLEAR);
-        lastDrawnWord = active;
-        if (active < 0 || grouping.phraseOf(active) < 0) {
+        float fade = fadeFactorAt(spanLocalMs);
+        boolean hasPhrase = active >= 0 && grouping.phraseOf(active) >= 0;
+        float emphasis = hasPhrase ? emphasisFor(active, sourceMs) : 0f;
+        // SAME PIXELS AS LAST FRAME? With no entrance/exit preset the picture is a pure function
+        // of (word, emphasis, fade, style): between words — most frames — nothing moves, so the
+        // raster and the upload can be skipped. A preset animates per unit per frame: never cached.
+        String sig = animPreset == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE
+                ? active + "|" + Math.round(emphasis * 1000f) + "|" + Math.round(fade * 1000f)
+                        + "|" + style.id
+                : null;
+        if (sig != null && sig.equals(lastSig)) {
+            lastChanged = false;
             return bitmap;
         }
-        float emphasis = emphasisFor(active, sourceMs);
+        lastSig = sig;
+        lastChanged = true;
+        frameSourceMs = sourceMs;
+        frameFade = fade;
+        canvas.drawColor(0, PorterDuff.Mode.CLEAR);
+        hasBounds = false;
+        lastDrawnWord = active;
+        if (!hasPhrase) {
+            return bitmap;
+        }
         drawPhrase(active, emphasis);
         return bitmap;
+    }
+
+    // ── Tight bounds (GL caption path, 2026-09-23) ──────────────────────────────────────
+    @Nullable private String lastSig = null;
+    private boolean lastChanged = true;
+    private boolean hasBounds = false;
+    private final RectF drawnBounds = new RectF();
+
+    /** False when the last {@link #render} returned the previous frame's pixels unchanged. */
+    public boolean lastRenderChanged() { return lastChanged; }
+
+    /** The last rendered bitmap (outW x outH), valid until the next render. */
+    @NonNull
+    public Bitmap lastBitmap() { return bitmap; }
+
+    /**
+     * Where the last render actually drew, in bitmap pixels, padded for the active word's
+     * emphasis scale, shadow and glow; false when it drew nothing.
+     */
+    public boolean tightBounds(@NonNull android.graphics.Rect out) {
+        if (!hasBounds) return false;
+        float pad = Math.max(8f, (drawnBounds.bottom - drawnBounds.top) * 0.6f);
+        out.set(Math.max(0, (int) Math.floor(drawnBounds.left - pad)),
+                Math.max(0, (int) Math.floor(drawnBounds.top - pad)),
+                Math.min(outW, (int) Math.ceil(drawnBounds.right + pad)),
+                Math.min(outH, (int) Math.ceil(drawnBounds.bottom + pad)));
+        return out.width() > 0 && out.height() > 0;
+    }
+
+    private void includeBounds(float l, float t, float r, float b) {
+        if (!hasBounds) {
+            drawnBounds.set(l, t, r, b);
+            hasBounds = true;
+        } else {
+            drawnBounds.union(l, t, r, b);
+        }
     }
 
     // ── Layout (mirrors CaptionOverlayView) ──────────────────────────
@@ -384,6 +437,7 @@ public class CaptionExportRenderer {
                     cx + widest / 2f + padH, top + totalH + padV);
             pillPaint.setColor(com.fadcam.ui.faditor.transcript.CaptionAnimator
                     .applyAlpha(style.pillColor, frameFade));
+            includeBounds(pill.left, pill.top, pill.right, pill.bottom);
             canvas.drawRoundRect(pill, fontPx * style.pillCornerScale,
                     fontPx * style.pillCornerScale, pillPaint);
         }
@@ -516,6 +570,7 @@ public class CaptionExportRenderer {
                     cx + widest / 2f + padH, top + totalH + padV);
             pillPaint.setColor(com.fadcam.ui.faditor.transcript.CaptionAnimator
                     .applyAlpha(style.pillColor, frameFade));
+            includeBounds(pill.left, pill.top, pill.right, pill.bottom);
             canvas.drawRoundRect(pill, fontPx * style.pillCornerScale,
                     fontPx * style.pillCornerScale, pillPaint);
         }
@@ -644,6 +699,8 @@ public class CaptionExportRenderer {
 
     private void drawWord(String word, float x, float baseY, float ww,
                           boolean active, float emphasisValue, float fontPx, int wordPos) {
+        Paint.FontMetrics bfm = textPaint.getFontMetrics();
+        includeBounds(x, baseY + bfm.ascent, x + ww, baseY + bfm.descent);
         int color = active ? style.activeColor : style.baseColor;
 
         // LETTER granularity is the one case that cannot draw the word as a single run: each

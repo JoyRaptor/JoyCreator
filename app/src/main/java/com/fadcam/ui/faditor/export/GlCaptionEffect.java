@@ -1,0 +1,150 @@
+package com.fadcam.ui.faditor.export;
+
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Rect;
+import android.opengl.GLES20;
+
+import androidx.annotation.NonNull;
+import androidx.media3.common.VideoFrameProcessingException;
+import androidx.media3.common.util.GlUtil;
+import androidx.media3.common.util.Size;
+import androidx.media3.effect.BaseGlShaderProgram;
+import androidx.media3.effect.GlEffect;
+
+import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
+import com.fadcam.ui.faditor.compositor.PipGl;
+
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * EXPORT SPEED (2026-09-23): captions on the GPU, with their Canvas pixels unchanged.
+ *
+ * <p>Measured on the Note 20 once images moved to {@link GlImageOverlayEffect}: the caption path
+ * was ~65% of every frame — each caption rastered into a full-frame bitmap, blitted onto the
+ * overlay's full-frame canvas (Canvas blit 28%), then that whole frame uploaded (20%).</p>
+ *
+ * <p>Here each caption is still rendered by the SAME {@link CaptionExportRenderer} the Canvas
+ * pass uses (via {@link CompositeExportOverlay#renderCaptionsAt}), but only its tight box is
+ * copied and uploaded, only on frames where it changed, and it is composited at its own place
+ * by the preview's Pip shader. Identical pixels, a fraction of the traffic.</p>
+ */
+final class GlCaptionEffect implements GlEffect {
+
+    private final CompositeExportOverlay overlay;
+
+    GlCaptionEffect(@NonNull CompositeExportOverlay overlay) {
+        this.overlay = overlay;
+    }
+
+    @NonNull
+    @Override
+    public BaseGlShaderProgram toGlShaderProgram(@NonNull Context ignored, boolean useHdr)
+            throws VideoFrameProcessingException {
+        if (useHdr) throw new VideoFrameProcessingException("HDR captions not supported");
+        return new Program(overlay);
+    }
+
+    private static final class Program extends BaseGlShaderProgram {
+        /** One uploaded caption box per renderer. */
+        private static final class Box {
+            int tex;
+            final Rect bounds = new Rect();
+            Bitmap crop;
+        }
+
+        private final CompositeExportOverlay overlay;
+        private final PipChainGl chain = new PipChainGl();
+        private final Map<CaptionExportRenderer, Box> boxes = new IdentityHashMap<>();
+        private final List<FxPreviewTextureView.Pip> pips = new ArrayList<>();
+        private final List<Integer> texes = new ArrayList<>();
+        private final Rect scratch = new Rect();
+
+        Program(@NonNull CompositeExportOverlay overlay) {
+            super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
+            this.overlay = overlay;
+        }
+
+        @NonNull
+        @Override
+        public Size configure(int inputWidth, int inputHeight) throws VideoFrameProcessingException {
+            try {
+                chain.configure(inputWidth, inputHeight);
+            } catch (GlUtil.GlException e) {
+                throw new VideoFrameProcessingException(e);
+            }
+            return new Size(chain.w, chain.h);
+        }
+
+        @Override
+        public void drawFrame(int inputTexId, long presentationTimeUs)
+                throws VideoFrameProcessingException {
+            try {
+                final int outFbo = PipChainGl.boundFbo();
+                pips.clear();
+                texes.clear();
+                List<CaptionExportRenderer> rs;
+                try {
+                    rs = overlay.renderCaptionsAt(presentationTimeUs);
+                } catch (Throwable t) {
+                    FLog.w("GlCaption", "caption render threw; frame drawn without captions", t);
+                    rs = java.util.Collections.emptyList();
+                }
+                long editorMs = presentationTimeUs / 1000;
+                int idx = 0;
+                for (CaptionExportRenderer r : rs) {
+                    Box box = boxes.get(r);
+                    if (box == null || r.lastRenderChanged()) {
+                        if (!r.tightBounds(scratch)) continue;
+                        if (box == null) {
+                            box = new Box();
+                            box.tex = PipGl.newStillTexture();
+                            boxes.put(r, box);
+                        }
+                        Bitmap crop = Bitmap.createBitmap(r.lastBitmap(), scratch.left,
+                                scratch.top, scratch.width(), scratch.height());
+                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, box.tex);
+                        android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, crop, 0);
+                        if (box.crop != null && !box.crop.isRecycled()) box.crop.recycle();
+                        box.crop = crop;
+                        box.bounds.set(scratch);
+                    }
+                    float bw = r.getWidth(), bh = r.getHeight();
+                    Rect b = box.bounds;
+                    float cx = (b.left + b.width() / 2f) / bw;
+                    float cy = (b.top + b.height() / 2f) / bh;
+                    float halfW = b.width() / (2f * bw);
+                    float halfH = b.height() / (2f * bh);
+                    // Same framing as an image Pip: y and rotation into GL's bottom-up uv.
+                    FxPreviewTextureView.Pip p = FxPreviewTextureView.Pip.ofImage(
+                            cx, 1f - cy, halfW, halfH, 0f, 1f, null, editorMs, null, 0f,
+                            chain.w, chain.h, "cap#" + (idx++), box.crop, 1f);
+                    pips.add(p);
+                    texes.add(box.tex);
+                }
+                chain.composite(inputTexId, outFbo, pips, texes);
+            } catch (Exception e) {
+                throw new VideoFrameProcessingException(e);
+            }
+        }
+
+        @Override
+        public void release() throws VideoFrameProcessingException {
+            try {
+                super.release();
+            } finally {
+                for (Box box : boxes.values()) {
+                    try { GLES20.glDeleteTextures(1, new int[]{box.tex}, 0); }
+                    catch (RuntimeException ignored) { }
+                    if (box.crop != null && !box.crop.isRecycled()) box.crop.recycle();
+                }
+                boxes.clear();
+                chain.release();
+            }
+        }
+    }
+}

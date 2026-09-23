@@ -209,3 +209,40 @@ ImageOverlayDraw.draw) - the GPU-compositor port in the handoff is the next spee
 - [ ] NEW (JoyRaptor 2026-09-23): image Bend warp handles are hard to grab/move — investigate hit targets
 - [x] Video overlay drawer now device-verified (3e6dfa60); visualizer hold path still not reachable on the Note 9
 - Test media left on the Note 9: /sdcard/Download/joy_test_overlay.mp4 (copy of ws20.mp4), pushed for the PiP test
+
+## NEXT: export speed, 1x -> 6-9x (measured ceilings, 2026-09-23)
+
+Hardware ceilings on the Note 20 (app_process MediaCodec bench): H.264 encode 1080x1920
+416 fps (13.9x), 720x1280 723 fps (24x); decode of the screen recording ~300 fps (~10x).
+Encode+decode share the VPU, so a GPU-only 1080p pipeline tops out ~6-9x. 20x at 1080p is
+not physically available on this phone; 720p gets close. Media3 already sets best-effort
+priority + high operating rate on both codecs (checked) - the codecs are not the limit.
+
+Where the ~30 ms/frame goes (single GL thread, serial): per clip the chain is
+Crop, Presentation, OverlayEffect(below-blend CompositeExportOverlay: every plain image under
+a GL-routed image, CPU Canvas, full-frame clear + draw + 8.3 MB upload), 4x ImageBlendGlEffect
+(visible: CPU draw + Bitmap.createBitmap full copy 6.5 ms measured + upload), OverlayEffect
+(captions/text: full-frame caption bitmap + full-frame blit + 8.3 MB upload), Presentation.
+STALL_STACKS caught the GL thread inside ImageOverlayDraw.draw.
+
+- [ ] 1. MEASURE (needs Note 20 Wi-Fi ADB): per-pass nanos on the GL thread (below-blend
+      overlay, each ImageBlend, caption overlay, uploads) -> one EXPORT_COST line per chunk.
+      `am profile start --sampling 500 com.fadcam.beta:export /data/local/tmp/x.trace` works
+      without root (simpleperf needs security.perf_harden - do not change it); parser at
+      scratch dmtrace.py pattern (ART .trace v3). Profile project 3968cd84 (copy of the
+      lecture, no chunk cache) for 60 s, then cancel.
+- [ ] 2. QUICK WINS (~1 day, expect 2-3x): drop ImageOverlayFrameOverlay's per-frame full copy
+      (patched BitmapOverlay already keys on generationId); captions render into their
+      bounding box only and re-raster only when the active word/emphasis changes; skip the
+      upload when a pass's pixels did not change.
+- [ ] 3. THE REAL FIX (several days, expect 6-9x): image overlays become GL quads - each image
+      uploaded ONCE as a texture, placed per frame by the same keyframe authority
+      (animatedCenterX/Y/Size/Rotation/Opacity) and masked by the SAME MaskSdf shader the
+      preview uses. Removes the CPU raster and the per-frame uploads, and makes export masks
+      preview-identical by construction (JoyRaptor's mask parity bug is the same fork).
+      Coordinate with the mask lane: its staged "hole by default" (fxMaskCover) is the shader
+      this would share.
+- [ ] 4. Offer 720p as a fast export preset (encoder ceiling 24x).
+- [ ] Sound pass comes out MONO 44.1 kHz (final file 2026-09-23): the audio-only composition
+      takes its format from the first item (the silence WAV?). Should be the project rate
+      (48 kHz) and stereo.

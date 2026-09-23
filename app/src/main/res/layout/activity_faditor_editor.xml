@@ -1206,6 +1206,22 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
+                <!-- THE TOOLS SHRINK, UNDO NEVER DOES. This row used to pack snap, select and ripple
+                     in order with undo last, and a LinearLayout gives the last child whatever is
+                     left: on the Note 20 (411dp) the tools took all ~121dp and undo got none, so
+                     JoyRaptor could not see Undo at all (2026-09-23). The tools now sit in a
+                     weighted group that is measured AFTER undo; on a narrow phone the activity shrinks
+                     them to fit (fitTransportTools) rather than moving any to the right, which
+                     holds the non-timeline tools (JoyRaptor: timeline tools left, others right). -->
+                <LinearLayout
+                    android:id="@+id/transport_left_tools"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical|start">
+
                 <TextView
                     android:id="@+id/btn_soft_snap"
                     android:layout_width="30dp"
@@ -1215,8 +1231,8 @@
                     android:text="magnet"
                     android:textColor="@color/s_go"
                     android:textSize="18sp"
-                    android:layout_marginEnd="14dp"
-                    android:layout_marginStart="14dp"
+                    android:layout_marginEnd="8dp"
+                    android:layout_marginStart="6dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Soft snap overlays" />
 
@@ -1232,7 +1248,7 @@
                     android:text="select_all"
                     android:textColor="@color/s_off"
                     android:textSize="18sp"
-                    android:layout_marginEnd="14dp"
+                    android:layout_marginEnd="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Multi-select mode" />
 
@@ -1248,17 +1264,12 @@
                     android:text="align_horizontal_center"
                     android:textColor="@color/s_armed"
                     android:textSize="18sp"
-                    android:layout_marginEnd="14dp"
+                    android:layout_marginEnd="4dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Ripple or gap delete mode" />
 
-                <!-- The gap. Everything left of this is a TOOL; everything right of it is
-                     the undo history, which is not a tool but a record of what you have
-                     already done. -->
-                <Space
-                    android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
+                </LinearLayout>
+
 
                 <LinearLayout
                     android:layout_width="wrap_content"
@@ -1340,10 +1351,18 @@
                         android:alpha="0.3" />
                 </LinearLayout>
 
-                <Space
+                <!-- Redo is protected like undo: the tools here (ripple, and relink when a file is
+                     missing) sit in a weighted group that gives way first. -->
+                <LinearLayout
+                    android:id="@+id/transport_right_tools"
                     android:layout_width="0dp"
-                    android:layout_height="1dp"
-                    android:layout_weight="1" />
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:minHeight="44dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical|end">
+
+
 
                 <TextView
                     android:id="@+id/btn_relink_media"
@@ -1357,6 +1376,7 @@
                     android:layout_marginStart="14dp"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/faditor_relink_btn" />
+                </LinearLayout>
             </LinearLayout>
 
             <TextView

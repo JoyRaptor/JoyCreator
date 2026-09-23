@@ -3275,6 +3275,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         btnRelinkMedia.setVisibility(View.GONE);
         growTransportTargets(findViewById(R.id.transport_left));
         growTransportTargets(findViewById(R.id.transport_right));
+        // The tools sit in their own shrink-first groups now (so undo and redo can never be
+        // squeezed out on a narrow phone); their targets are grown inside those groups.
+        growTransportTargets(findViewById(R.id.transport_left_tools));
+        growTransportTargets(findViewById(R.id.transport_right_tools));
+        fitTransportTools(findViewById(R.id.transport_left_tools));
         btnRelinkMedia.setOnLongClickListener(v -> { showLinkOptions(); return true; });
         if (btnSoftSnap != null) {
             // G14: magnet is GLOBAL snap — green when on, grey when off; long-press lists all snaps
@@ -16912,6 +16917,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onSpriteFrameKeyRetimed(
+                    @NonNull com.fadcam.ui.faditor.layers.TimedItem item,
+                    @NonNull com.fadcam.ui.faditor.sprite.FrameTrack.Key key,
+                    long fromMs, long toMs) {
+                // ONE undo step per drag. The Key object is the identity: its neighbours bound
+                // the drag, so the track's order holds in both directions without a resort.
+                final com.fadcam.ui.faditor.sprite.SpriteOverlayItem s = item.getSprite();
+                undoManager.recordAction(new EditActions.LambdaAction("Retime frame", // TODO(strings)
+                        () -> { key.timeMs = toMs; refreshSpritePreviewData(); syncTimelineOverlays(); },
+                        () -> { key.timeMs = fromMs; refreshSpritePreviewData(); syncTimelineOverlays(); }));
+                refreshSpritePreviewData();
+                syncTimelineOverlays();
+                scheduleAutoSave();
+            }
+
+            @Override
             public void onPuppetTapeCommitted(
                     @NonNull com.fadcam.ui.faditor.layers.TimedItem item, boolean changed) {
                 final com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
@@ -19134,6 +19155,52 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * because a view has no bounds until it is laid out and a delegate built from an empty
      * rectangle swallows every touch it is handed.
      */
+    /**
+     * Shrink the timeline tools (snap, select, ripple) to fit their group on a narrow phone.
+     * Their group is weighted, so undo is measured first and always keeps its full size; the
+     * tools get what is left. At 548dp that is plenty and nothing changes. At 411dp (the Note 20)
+     * it is about 87dp for three 30dp buttons, so each button narrows (never below 24dp) and
+     * the gaps close to 2dp, rather than clipping the last one or moving it across play:
+     * timeline tools stay on the left, other tools on the right (JoyRaptor, 2026-09-23).
+     */
+    private void fitTransportTools(@Nullable android.view.ViewGroup tools) {
+        if (tools == null) return;
+        final float d = getResources().getDisplayMetrics().density;
+        tools.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or2, ob) -> {
+            int avail = r - l;
+            java.util.List<View> kids = new java.util.ArrayList<>();
+            for (int i = 0; i < tools.getChildCount(); i++) {
+                View c = tools.getChildAt(i);
+                if (c.getVisibility() != View.GONE) kids.add(c);
+            }
+            if (kids.isEmpty() || avail <= 0) return;
+            int full = Math.round(30 * d);
+            int gapFull = Math.round(6 * d);   // average of the authored 4-8dp gaps
+            boolean fits = kids.size() * (full + gapFull) <= avail;
+            int gap = fits ? -1 : Math.round(2 * d);
+            int w = fits ? full : Math.max(Math.round(24 * d),
+                    Math.min(full, (avail - kids.size() * gap) / kids.size()));
+            final int fw = w, fgap = gap;
+            final boolean ffits = fits;
+            // Posted: children's params must not change inside their parent's layout pass. Only
+            // a real change is applied, so the relayout it causes settles on the next pass.
+            tools.post(() -> {
+                for (View c : kids) {
+                    android.widget.LinearLayout.LayoutParams lp =
+                            (android.widget.LinearLayout.LayoutParams) c.getLayoutParams();
+                    boolean changed = lp.width != fw;
+                    lp.width = fw;
+                    if (!ffits && (lp.getMarginStart() != 0 || lp.getMarginEnd() != fgap)) {
+                        lp.setMarginStart(0);
+                        lp.setMarginEnd(fgap);
+                        changed = true;
+                    }
+                    if (changed) c.setLayoutParams(lp);
+                }
+            });
+        });
+    }
+
     private void growTransportTargets(android.view.ViewGroup row) {
         if (row == null) return;
         // Rebuilt on every layout pass, not posted once. Posting once raced the first layout

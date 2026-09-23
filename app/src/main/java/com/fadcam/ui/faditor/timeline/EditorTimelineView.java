@@ -6006,6 +6006,8 @@ if (sd.clip.hasVolumeKeyframes()) {
         canvas.drawRect(left, tTop, right, tTop + railH, filmPaint);
         canvas.drawRect(left, tBot - railH, right, tBot, filmPaint);
 
+        drawEmptyFilmFrames(canvas, tTop + railH, tBot - railH, left, right);
+
         // The CUT EDGE. One hairline along the outside of each rail, which is where the
         // film meets the ground and therefore the only line that can tell you where the
         // strip stops. Without it the band just fades out and the master track stops
@@ -6046,6 +6048,50 @@ if (sd.clip.hasVolumeKeyframes()) {
                     cx + holeW / 2f - lipInset, topCy + holeH / 2f, filmPaint);
             canvas.drawRect(cx - holeW / 2f + lipInset, botCy + holeH / 2f - lipH,
                     cx + holeW / 2f - lipInset, botCy + holeH / 2f, filmPaint);
+        }
+    }
+
+    /**
+     * EMPTY FILM FRAMES where the strip has no clip — before the first and after the last.
+     * JoyRaptor, 2026-09-23: the spine is a film strip and "what will sell it a little bit
+     * more" is unexposed frames running on past the footage. Black boxes on the rail colour
+     * (the film base around the sprockets), on the SAME square grid the clip thumbnails tile
+     * at (a tile is as wide as the strip is tall, see drawSegment), each a little narrower
+     * than a tile so a bar of film base shows between them, with small rounded corners: this
+     * strip is an illustration, and film strips are a running theme in the app.
+     *
+     * <p>Content-space, like the sprockets, so the frames travel with the strip. Anchored to
+     * the project's start, so they continue the thumbnails' rhythm off either end.</p>
+     */
+    private void drawEmptyFilmFrames(@NonNull Canvas canvas, float top, float bottom,
+                                     float left, float right) {
+        float h = bottom - top;
+        if (h <= 0f) return;
+        float pitch = h;                              // the thumbnail tile width
+        float bar = 3f * density;                     // film base between frames
+        float inset = Math.min(1.5f * density, h * 0.1f);
+        float corner = 2f * density;                  // small and subtle, but there
+        float start = timeToX(0L);
+        float end = segRects.isEmpty() ? start : timeToX(Math.max(0L, totalEffectiveMs));
+        filmPaint.setStyle(Paint.Style.FILL);
+        // Before the first clip, then after the last.
+        for (int side = 0; side < 2; side++) {
+            float from = side == 0 ? left : Math.max(left, end);
+            float to = side == 0 ? Math.min(right, start) : right;
+            if (to <= from) continue;
+            filmPaint.setColor(COLOR_FILM_RAIL);
+            canvas.drawRect(from, top, to, bottom, filmPaint);
+            filmPaint.setColor(Studio.GROUND);
+            float anchor = side == 0 ? start : end;
+            // First grid line at or before `from`, on the grid anchored at `anchor`.
+            float x = anchor + (float) Math.floor((from - anchor) / pitch) * pitch;
+            for (; x < to; x += pitch) {
+                float fx0 = Math.max(from, x + bar / 2f);
+                float fx1 = Math.min(to, x + pitch - bar / 2f);
+                if (fx1 - fx0 < corner * 2f) continue;
+                canvas.drawRoundRect(fx0, top + inset, fx1, bottom - inset,
+                        corner, corner, filmPaint);
+            }
         }
     }
 
@@ -6280,13 +6326,21 @@ if (sd.clip.hasVolumeKeyframes()) {
         // half of JoyRaptor's report — that they sat at FULL height and did not move — was
         // the stale-segRects fault fixed in ensureSegRectsFresh(); they now derive from the
         // current geometry either way.
-        if (selectedIndex >= 0 && selectedIndex < segRects.size() && !isSpineCollapsed()) {
+        // ONLY WHILE AN EDGE IS MOVING. At rest they were two full-width dotted lines that only
+        // restated the selection outline, and where there is no clip (before the first, after
+        // the last) they read as unexplained red dotted chrome — JoyRaptor asked what they were
+        // (2026-09-23). Their one job is lining a trim up against the other rows.
+        boolean trimming = activeDrag == Drag.LEFT_HANDLE || activeDrag == Drag.RIGHT_HANDLE
+                || (layerGestureController != null
+                    && layerGestureController.liveTrimEdgeMs(totalEffectiveMs) != Long.MIN_VALUE);
+        if (trimming && selectedIndex >= 0 && selectedIndex < segRects.size()
+                && !isSpineCollapsed()) {
             band = segRects.get(selectedIndex);
         }
         if (band != null) {
             canvas.drawLine(0, band.top, w, band.top, guidePaint);
             canvas.drawLine(0, band.bottom, w, band.bottom, guidePaint);
-        } else if (layerGestureController != null && layerRowRenderer != null
+        } else if (trimming && layerGestureController != null && layerRowRenderer != null
                 && layerGestureController.getSelectedItemId() != null) {
             // Deferred-seam TODO closed: guides along the SELECTED layer item's row
             // (text/sticker/sprite/viz/PiP in the floating band, or a renderer audio

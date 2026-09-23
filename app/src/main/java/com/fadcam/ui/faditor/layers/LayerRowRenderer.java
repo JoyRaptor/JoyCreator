@@ -3140,6 +3140,36 @@ public final class LayerRowRenderer {
     }
 
     /**
+     * The frame key whose tape thumbnail is under {@code x}, for dragging it in time, or null.
+     * A thumbnail starts at its key's time and runs one cell-width right (see
+     * {@link #drawSpriteKeyframeCells}); the target reaches 12dp further left so the key's own
+     * edge is easy to grab. Where thumbnails overlap, the LATER key wins, as it is drawn on top.
+     * Image-sequence sprites are timed by their sequence, not by keys, and never match.
+     */
+    @Nullable
+    public FrameTrack.Key hitTestSpriteFrameKey(@NonNull TimedItem item, float x,
+                                                @NonNull TimeToX timeToX) {
+        // An expanded row's body (the row less the 3dp inset top and bottom), which is the
+        // height the thumbnails are drawn at; only its width matters here.
+        float bodyHeightPx = (ROW_HEIGHT_EXPANDED_DP - 6f) * density;
+        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sprite = item.getSprite();
+        if (sprite == null || spriteCellProvider == null) return null;
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = spriteCellProvider.sheet(sprite.getSheetId());
+        if (sheet != null && sheet.isSequence()) return null;
+        com.fadcam.ui.faditor.sprite.SpriteSheetRenderer sr =
+                spriteCellProvider.renderer(sprite.getSheetId());
+        float w = sr == null ? bodyHeightPx
+                : Math.max(2f * density, bodyHeightPx * Math.max(0.05f, sr.cellAspect()));
+        float lead = 12f * density;
+        FrameTrack.Key hit = null;
+        for (FrameTrack.Key k : sprite.getFrameTrack().keys()) {
+            float dx = timeToX.map(item.getTimelineStartMs() + k.timeMs);
+            if (x >= dx - lead && x <= dx + w) hit = k;
+        }
+        return hit;
+    }
+
+    /**
      * §2 sprite: draw the sheet cell at each frame-track keyframe, at that keyframe's
      * item-local x — an "updated preview wherever there is a keyframe". The frame-swap
      * diamonds (drawn later in {@link #drawItemBody}) mark the exact key; the cell shows

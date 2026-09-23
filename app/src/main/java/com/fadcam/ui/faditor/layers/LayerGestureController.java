@@ -179,6 +179,15 @@ public final class LayerGestureController {
 
         /** The tape drag ended. Record ONE undo step; a no-op when nothing actually moved. */
         default void onPuppetTapeCommitted(@NonNull TimedItem item, boolean changed) {}
+
+        /**
+         * A sprite frame key was dragged along the tape from {@code fromMs} to {@code toMs}
+         * (item-local). Fired once on a committed UP that moved it; the host records ONE undo
+         * step. The key has already been moved.
+         */
+        default void onSpriteFrameKeyRetimed(@NonNull TimedItem item,
+                @NonNull com.fadcam.ui.faditor.sprite.FrameTrack.Key key,
+                long fromMs, long toMs) {}
     }
 
     public enum GestureKind { MOVE, TRIM_LEFT, TRIM_RIGHT, FADE_IN, FADE_OUT }
@@ -589,6 +598,13 @@ public final class LayerGestureController {
         // keyframe shift below, so a first touch on an unselected item is still plain select.
         if (!objectLocked && hit.item.getId().equals(selectedItemId)
                 && tryArmPuppetTape(hit, x, y, topPx, timeToX)) {
+            return DownResult.ARMED_TRIM;
+        }
+
+        // A SPRITE FRAME KEY, dragged along the tape, retimes that frame change. Same
+        // ALREADY-SELECTED rule as above: the first touch on a sprite still just selects it.
+        if (!objectLocked && hit.item.getId().equals(selectedItemId)
+                && tryArmSpriteKey(hit, x, timeToX)) {
             return DownResult.ARMED_TRIM;
         }
 
@@ -1079,6 +1095,75 @@ public final class LayerGestureController {
         return true;
     }
 
+    // ── Sprite frame keys: drag one along the tape to retime it ─────────────────────────────
+    private boolean spriteKeyActive;
+    @Nullable private TimedItem spriteKeyItem;
+    @Nullable private com.fadcam.ui.faditor.sprite.FrameTrack.Key spriteKey;
+    private long spriteKeyFromMs, spriteKeyDownLocalMs = Long.MIN_VALUE;
+    private float spriteKeyDownX;
+    private boolean spriteKeyMoved;
+
+    private boolean tryArmSpriteKey(@NonNull LayerRowRenderer.ItemHit hit, float x,
+                                    @NonNull LayerRowRenderer.TimeToX timeToX) {
+        if (hit.zone != LayerRowRenderer.ItemZone.BODY || hit.item.getSprite() == null) return false;
+        com.fadcam.ui.faditor.sprite.FrameTrack.Key k =
+                rowRenderer.hitTestSpriteFrameKey(hit.item, x, timeToX);
+        if (k == null) return false;
+        spriteKeyActive = true;
+        spriteKeyItem = hit.item;
+        spriteKey = k;
+        spriteKeyFromMs = k.timeMs;
+        spriteKeyDownX = x;
+        spriteKeyDownLocalMs = Long.MIN_VALUE;
+        spriteKeyMoved = false;
+        active = true;
+        activeItem = hit.item;
+        activeTrack = hit.track;
+        return true;
+    }
+
+    /** Move the key with the finger, never past its neighbours (keys stay in order). */
+    private void doSpriteKeyMove(float x, @NonNull XToTime xToTime) {
+        TimedItem item = spriteKeyItem;
+        com.fadcam.ui.faditor.sprite.FrameTrack.Key k = spriteKey;
+        if (item == null || k == null || item.getSprite() == null) return;
+        long start = item.getTimelineStartMs();
+        if (spriteKeyDownLocalMs == Long.MIN_VALUE) {
+            spriteKeyDownLocalMs = xToTime.map(spriteKeyDownX) - start;
+        }
+        long want = spriteKeyFromMs + ((xToTime.map(x) - start) - spriteKeyDownLocalMs);
+        java.util.List<com.fadcam.ui.faditor.sprite.FrameTrack.Key> keys =
+                item.getSprite().getFrameTrack().keys();
+        int i = keys.indexOf(k);
+        long lo = i > 0 ? keys.get(i - 1).timeMs + 1 : 0L;
+        long hi = i >= 0 && i < keys.size() - 1 ? keys.get(i + 1).timeMs - 1 : Long.MAX_VALUE;
+        long t = Math.max(lo, Math.min(hi, want));
+        if (t != k.timeMs) {
+            k.timeMs = t;
+            spriteKeyMoved = true;
+            callback.onGestureLive(item);
+        }
+    }
+
+    private boolean finishSpriteKey(boolean committed) {
+        TimedItem item = spriteKeyItem;
+        com.fadcam.ui.faditor.sprite.FrameTrack.Key k = spriteKey;
+        long from = spriteKeyFromMs;
+        if (!committed && spriteKeyMoved && k != null) k.timeMs = from;   // CANCEL puts it back
+        boolean changed = committed && spriteKeyMoved && k != null && k.timeMs != from;
+        spriteKeyActive = false;
+        spriteKeyItem = null;
+        spriteKey = null;
+        spriteKeyDownLocalMs = Long.MIN_VALUE;
+        spriteKeyMoved = false;
+        active = false;
+        activeItem = null;
+        activeTrack = null;
+        if (changed && item != null) callback.onSpriteFrameKeyRetimed(item, k, from, k.timeMs);
+        else if (item != null) callback.onGestureLive(item);
+        return true;
+    }
+
     private boolean tryArmKeyframeShift(@NonNull LayerRowRenderer.ItemHit hit, float x,
                                         @NonNull LayerRowRenderer.TimeToX timeToX) {
         if (hit.zone != LayerRowRenderer.ItemZone.BODY) return false;
@@ -1216,6 +1301,7 @@ public final class LayerGestureController {
         }
         lastTotalMs = totalMs;
         if (puppetTapeActive) { doPuppetTapeMove(x, xToTime); return; }
+        if (spriteKeyActive) { doSpriteKeyMove(x, xToTime); return; }
         if (kfShiftActive) { doKeyframeShiftMove(x, xToTime); return; }
         if (!active || activeItem == null) return;
         // Redesign gate (PLAN TARGET CONTRACT): a MOVE only happens AFTER a pick-up
@@ -2458,6 +2544,7 @@ public final class LayerGestureController {
 
     public boolean onRowBodyUp(boolean committed) {
         if (puppetTapeActive) return finishPuppetTape(committed);
+        if (spriteKeyActive) return finishSpriteKey(committed);
         if (kfShiftActive) return finishKeyframeShift(committed);
         if (!active) return false;
         // A real committed change only happened if we actually moved (trim, or a

@@ -949,9 +949,11 @@ public class ExportManager {
         ExportSettings exportSettings = project.getExportSettings();
         boolean qualityIsDefault = exportSettings == null
                 || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
-        if (qualityIsDefault) return null;
+        // Always a factory now: the sound bitrate (stereo, 256 kbps) applies at every quality.
+        // Video stays at media3's own default when the quality is the default.
+        if (qualityIsDefault) return exportEncoderFactory(null);
         int bitrate = suggestedExportBitrate(project);
-        if (bitrate <= 0) return null;
+        if (bitrate <= 0) return exportEncoderFactory(null);
         VideoEncoderSettings.Builder encoderSettings =
                 new VideoEncoderSettings.Builder().setBitrate(bitrate);
         // Optional H.264 Baseline-profile request for max-compatibility / low-bandwidth
@@ -969,9 +971,7 @@ public class ExportManager {
         FLog.d(TAG, "Export quality " + exportSettings.getQuality()
                 + " → requested video bitrate " + bitrate
                 + (REQUEST_BASELINE_PROFILE ? " (H.264 Baseline)" : ""));
-        return new DefaultEncoderFactory.Builder(context)
-                .setRequestedVideoEncoderSettings(encoderSettings.build())
-                .build();
+        return exportEncoderFactory(encoderSettings.build());
     }
 
     // ── Single-frame image export (SPEC_C) ─────────────────────────────
@@ -1276,7 +1276,9 @@ public class ExportManager {
                     .setAssetLoaderFactory(hardwareFirstAssetLoaderFactory())
                     // Same watchdog headroom as the video path above (300 s, 2026-09-22).
                     .setMaxDelayBetweenMuxerSamplesMs(300_000L)
-                    .setAudioMimeType(MimeTypes.AUDIO_AAC);
+                    .setAudioMimeType(MimeTypes.AUDIO_AAC)
+                    // Stereo 256 kbps — the chunked driver's ONE sound pass comes from here.
+                    .setEncoderFactory(exportEncoderFactory(null));
 
             builder.addListener(new Transformer.Listener() {
                 @Override
@@ -2271,7 +2273,7 @@ public class ExportManager {
             }
             sequences.add(new EditedMediaItemSequence.Builder(tiny).build());
         }
-        return new Composition.Builder(sequences).build();
+        return new Composition.Builder(withStereoOutput(sequences)).build();
     }
 
     /** Append chunked silence totalling {@code durationMs} to {@code items} (no-op if there
@@ -3450,7 +3452,7 @@ public class ExportManager {
             }
         }
 
-        return new Composition.Builder(sequences).build();
+        return new Composition.Builder(withStereoOutput(sequences)).build();
     }
 
     /**
@@ -4445,6 +4447,73 @@ public class ExportManager {
                     + " uri=" + wfUri + ")");
         }
         return slots;
+    }
+
+    /** Export sound format: what YouTube and home-theatre playback expect. */
+    static final int EXPORT_AUDIO_SAMPLE_RATE = 48_000;
+    static final int EXPORT_AUDIO_BITRATE = 256_000;
+
+    /**
+     * STEREO OUT, ALWAYS (2026-09-23). Media3 mixes every sequence in the format of the FIRST
+     * audio input it registers, and converts everything else down to it. On the 48-min
+     * project that first input was the silence spacer (44.1 kHz mono), so the whole export -
+     * stereo screen recording, stereo music - was folded to mono. Ending EVERY item's chain
+     * in 48 kHz stereo makes the mix stereo whatever comes first: mono sources play equally
+     * in both channels (unity gain, so a mono voice is as loud as it was), stereo passes
+     * through untouched, and 3-8 channel sources fold to stereo at constant power.
+     * Fresh processors per item - they are stateful.
+     */
+    @NonNull
+    private static List<EditedMediaItemSequence> withStereoOutput(
+            @NonNull List<EditedMediaItemSequence> sequences) {
+        List<EditedMediaItemSequence> out = new ArrayList<>(sequences.size());
+        for (EditedMediaItemSequence seq : sequences) {
+            List<EditedMediaItem> items = new ArrayList<>(seq.editedMediaItems.size());
+            for (EditedMediaItem it : seq.editedMediaItems) {
+                List<AudioProcessor> aps = new ArrayList<>(it.effects.audioProcessors);
+                aps.addAll(stereoOutputChain());
+                items.add(it.buildUpon()
+                        .setEffects(new Effects(aps, it.effects.videoEffects))
+                        .build());
+            }
+            out.add(new EditedMediaItemSequence.Builder(items)
+                    .setIsLooping(seq.isLooping)
+                    .experimentalSetForceAudioTrack(seq.forceAudioTrack)
+                    .experimentalSetForceVideoTrack(seq.forceVideoTrack)
+                    .build());
+        }
+        return out;
+    }
+
+    @NonNull
+    private static List<AudioProcessor> stereoOutputChain() {
+        SonicAudioProcessor rate = new SonicAudioProcessor();
+        rate.setOutputSampleRateHz(EXPORT_AUDIO_SAMPLE_RATE);   // inert when already 48 kHz
+        androidx.media3.common.audio.ChannelMixingAudioProcessor mix =
+                new androidx.media3.common.audio.ChannelMixingAudioProcessor();
+        mix.putChannelMixingMatrix(
+                androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain(1, 2));
+        mix.putChannelMixingMatrix(
+                androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain(2, 2));
+        for (int in = 3; in <= 8; in++) {
+            mix.putChannelMixingMatrix(
+                    androidx.media3.common.audio.ChannelMixingMatrix.createForConstantPower(in, 2));
+        }
+        List<AudioProcessor> chain = new ArrayList<>(2);
+        chain.add(rate);
+        chain.add(mix);
+        return chain;
+    }
+
+    /** Encoder factory carrying the stereo audio bitrate, plus video settings when given. */
+    @NonNull
+    private DefaultEncoderFactory exportEncoderFactory(@Nullable VideoEncoderSettings video) {
+        DefaultEncoderFactory.Builder b = new DefaultEncoderFactory.Builder(context)
+                .setRequestedAudioEncoderSettings(
+                        new androidx.media3.transformer.AudioEncoderSettings.Builder()
+                                .setBitrate(EXPORT_AUDIO_BITRATE).build());
+        if (video != null) b.setRequestedVideoEncoderSettings(video);
+        return b.build();
     }
 
     /**

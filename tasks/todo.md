@@ -243,6 +243,7 @@ STALL_STACKS caught the GL thread inside ImageOverlayDraw.draw.
       Coordinate with the mask lane: its staged "hole by default" (fxMaskCover) is the shader
       this would share.
 - [ ] 4. Offer 720p as a fast export preset (encoder ceiling 24x).
-- [ ] Sound pass comes out MONO 44.1 kHz (final file 2026-09-23): the audio-only composition
+- [x] (COMPILE-VERIFIED, device proof owed) Sound pass came out MONO 44.1 kHz: FIXED by ending every
+      item's chain in 48 kHz stereo (withStereoOutput) + 256 kbps AAC. Was: the audio-only composition
       takes its format from the first item (the silence WAV?). Should be the project rate
       (48 kHz) and stereo.

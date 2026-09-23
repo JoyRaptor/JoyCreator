@@ -234,7 +234,7 @@ public class LoudnessAnalyzer {
                         // -f mp4: the output is "<name>.loudnorm.tmp", and ffmpeg picks the
                         // container from the extension — without this every loudness pass
                         // failed to open its output and the export shipped un-normalized.
-                        + "-c:v copy -c:a aac -b:a 192k -ar 48000 -f mp4 \"%s\"",
+                        + "-c:v copy -c:a aac -b:a 256k -ar 48000 -f mp4 \"%s\"",
                 in, cleanChain ? CLEAN_CHAIN_PREFIX : "",
                 mI, mTp, mLra, mTh, mOff, targetLUFS, TARGET_TP, TARGET_LRA,
                 outFile.getAbsolutePath());

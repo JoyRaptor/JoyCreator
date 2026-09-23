@@ -16550,8 +16550,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                     // ONE LANGUAGE: double-tap opens the object's drawer, on the timeline as on
                     // the picture (the preview double-tap already did). The sound strip this
-                    // used to toggle is a header toggle in that drawer now.
-                    showPipDrawerForObject(item.getClip());
+                    // used to toggle is a header toggle in that drawer now. The FULL drawer
+                    // (Transform rows and all), not showPipDrawerForObject, which is the Adjust
+                    // tool's Effects shortcut and opens with an empty Transform tab.
+                    showObjectMenuSheetForPipClip(item.getClip());
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getAdjustment() != null) {
@@ -16693,7 +16695,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // conjure a drawer nobody asked for.
                 if (objectDrawer != null && objectDrawer.isShowing() && item != null) {
                     if (item.getClip() != null && item.getClip().isOverlayClip()) {
-                        showPipDrawerForObject(item.getClip());
+                        // The full drawer; keepPlace carries the open tab across (see ObjectDrawer).
+                        showObjectMenuSheetForPipClip(item.getClip());
                     } else if (item.getAdjustment() != null) {
                         showAdjustmentDrawer(item.getAdjustment());
                     } else if (item.getTextOverlay() != null
@@ -25703,7 +25706,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // SPEC H — PiP stays bend-free: no pin/mesh render path in either surface.
         v.setBendAvailable(false);
         v.setBendVisible(false);
-        v.setOnDoubleTap(() -> showPipDrawerForObject(clip));
+        v.setOnDoubleTap(() -> showObjectMenuSheetForPipClip(clip));   // the full drawer
         v.bringToFront();
         v.refresh();
     }
@@ -27089,7 +27092,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 .DEFAULT_SCALE, t);
             }
 
-            @Override public void onDoubleTapped() { showPipDrawerForObject(c); }
+            @Override public void onDoubleTapped() { showObjectMenuSheetForPipClip(c); }
 
             @Override
             public boolean frame(long timeMs, @NonNull android.graphics.RectF outRect) {

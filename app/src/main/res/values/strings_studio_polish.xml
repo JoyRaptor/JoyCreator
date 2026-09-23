@@ -40,4 +40,8 @@
     <string name="drawer_tab_level">Level</string>
     <string name="drawer_tab_lanes">Lanes</string>
     <string name="faditor_back_to_lobby">Back to your projects</string>
+    <string name="drawer_tab_text">Text</string>
+    <string name="drawer_scale_linked_desc">Width and height scale together. Tap to scale them separately</string>
+    <string name="drawer_scale_split_desc">Width and height scale separately. Tap to link them</string>
+    <string name="pip_sound_strip_desc">Show this overlay\'s sound on the timeline</string>
 </resources>

@@ -131,6 +131,16 @@ public final class ObjectDrawer extends LinearLayout {
         }
 
         @NonNull String pillLabel() { return tabLabel != null ? tabLabel : title; }
+
+        /**
+         * Open this tab showing only its first {@code rows} top-level rows, with MORE on the
+         * grip for the rest (0 = the drawer's normal height). The text tab uses 2: its font
+         * and style toolbar and the trim line are touched constantly, the rest is set once
+         * (JoyRaptor, 2026-08-12: "better that they only have to expand 10% of the time").
+         */
+        int peekRows;
+
+        @NonNull public Tab peek(int rows) { peekRows = Math.max(0, rows); return this; }
     }
 
     public interface ContentBuilder { @NonNull View build(@NonNull Context ctx); }
@@ -204,6 +214,9 @@ public final class ObjectDrawer extends LinearLayout {
      * because it is rigged.
      */
     public void openOnTab(int index) { openOnTab = Math.max(0, index); }
+
+    /** The tab on screen now (0 = the object's own first tab). */
+    public int activeTabIndex() { return activeTab; }
 
     /**
      * Tint this drawer to the object it is editing.
@@ -370,9 +383,16 @@ public final class ObjectDrawer extends LinearLayout {
         // shrinking a drag target to match a drawing would be a behaviour change dressed as a
         // style one. The pill itself is the record's: 38 × 3.5, white at 30%.
         LinearLayout grip = new LinearLayout(ctx);
+        grip.setOrientation(VERTICAL);
         grip.setGravity(Gravity.CENTER);
         grip.setPadding(0, dp(6), 0, dp(6));
         grip.setMinimumHeight(dp(16));
+        // "MORE ⌄", ABOVE the pill on the same axis, shown only while a peeking tab (see
+        // Tab#peek) has rows below the fold. A tap on the grip then expands instead of closing.
+        moreHint = Kit.sectionLabel(ctx, ctx.getString(com.fadcam.R.string.faditor_lc_drawer_more));
+        moreHint.setPadding(0, 0, 0, dp(3));
+        moreHint.setVisibility(GONE);
+        grip.addView(moreHint, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         View pill = new View(ctx);
         GradientDrawable pillBg = new GradientDrawable();
         pillBg.setColor(Kit.GRAB);
@@ -440,7 +460,12 @@ public final class ObjectDrawer extends LinearLayout {
                         // body to its floor — at that point "smaller" can only mean "gone".
                         boolean atFloor = bodyScroll != null
                                 && bodyScroll.getHeight() <= dp(MIN_BODY_DP) + 1;
-                        if (!moved || (dy < -slop * 2 && atFloor)) {
+                        boolean hasMore = moreHint != null && moreHint.getVisibility() == VISIBLE;
+                        if (!moved && hasMore) {
+                            // A TAP means "show me the rest" while MORE is showing: the label is
+                            // written on this grip, so the grip is its target. ✕ still closes.
+                            expandToFull();
+                        } else if (!moved || (dy < -slop * 2 && atFloor)) {
                             userHeightPx = -1;
                             hide();
                         } else {
@@ -468,7 +493,15 @@ public final class ObjectDrawer extends LinearLayout {
      * the handle overlays, which is exactly the several-views-one-hit-test bug this project has
      * already paid for once.
      */
-    public void setOnTabChanged(@Nullable Runnable r) { this.onTabChanged = r; }
+    /**
+     * Set BEFORE {@link #show}; it lasts for that one opening. A listener used to outlive its
+     * drawer: the image drawer's Puppet hook kept firing inside the next audio or PiP drawer.
+     */
+    public void setOnTabChanged(@Nullable Runnable r) { this.onTabChanged = r; tabListenerFresh = true; }
+    private boolean tabListenerFresh;
+
+    /** Switch to tab {@code index} with the usual slide (no-op if it is already showing). */
+    public void selectTab(int index) { switchTo(index); }
 
     @Nullable private Runnable onTabChanged;
 
@@ -599,6 +632,9 @@ public final class ObjectDrawer extends LinearLayout {
             header.addView(middleView, header.indexOfChild(titleView) + 1, mlp);
         }
         buildIconRow();
+        // A tab listener set for an earlier opening is not this drawer's.
+        if (!tabListenerFresh) onTabChanged = null;
+        tabListenerFresh = false;
         // WHICH TAB OPENS. Zero unless a caller asked for another one, and the request is
         // consumed here so it can never leak into the next drawer. This exists because a picture
         // that has been RIGGED should open on Puppet: its owner is not coming back to the drawer
@@ -612,7 +648,8 @@ public final class ObjectDrawer extends LinearLayout {
         }
         openOnTab = 0;
         contentHost.removeAllViews();
-        contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext())));
+        contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext()),
+                tabs.get(activeTab).peekRows));
         // The HEADER names the object; the active tab pill names the place. Tab 0's title is
         // the object's own ("Video overlay", "Image", a layer's name), so it is the header's
         // for the whole visit — it no longer flips to "Mask" when the pill below already says so.
@@ -645,7 +682,8 @@ public final class ObjectDrawer extends LinearLayout {
     public void refreshCurrentTab() {
         if (animating || tabs.isEmpty()) return;
         contentHost.removeAllViews();
-        contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext())));
+        contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext()),
+                tabs.get(activeTab).peekRows));
         post(this::reportHeight);
     }
 
@@ -886,7 +924,8 @@ public final class ObjectDrawer extends LinearLayout {
         if (animating || target == activeTab || target < 0 || target >= tabs.size()) return;
         final boolean forward = target > activeTab;
         final View outgoing = contentHost.getChildAt(0);
-        final View incoming = wrap(tabs.get(target).content.build(getContext()));
+        final View incoming = wrap(tabs.get(target).content.build(getContext()),
+                tabs.get(target).peekRows);
         final float w = Math.max(getWidth(), dp(300));
 
         incoming.setTranslationX(forward ? w : -w);
@@ -966,7 +1005,7 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>The user can also drag the grip to resize (see {@code wireGrip}); {@link #userHeightPx}
      * overrides the fraction when they have expressed a preference.</p>
      */
-    private View wrap(@NonNull View content) {
+    private View wrap(@NonNull View content, final int peekRows) {
         ScrollView sv = new ScrollView(getContext()) {
             @Override
             protected void onMeasure(int widthSpec, int heightSpec) {
@@ -977,6 +1016,16 @@ public final class ObjectDrawer extends LinearLayout {
                 // dragging DOWN did nothing at all and the grip read as broken.
                 int mode = userHeightPx > 0 ? MeasureSpec.EXACTLY : MeasureSpec.AT_MOST;
                 super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(cap, mode));
+                if (userHeightPx <= 0) {
+                    // The rows are measured now, so the peek height can be added up; a second
+                    // pass only while the user has not dragged a height of their own.
+                    int peek = peekBodyHeightPx(this, peekRows);
+                    if (peek > 0 && peek < getMeasuredHeight()) {
+                        super.onMeasure(widthSpec,
+                                MeasureSpec.makeMeasureSpec(peek, MeasureSpec.EXACTLY));
+                    }
+                }
+                post(ObjectDrawer.this::syncMoreHint);
             }
         };
         sv.setVerticalScrollBarEnabled(false);
@@ -990,6 +1039,54 @@ public final class ObjectDrawer extends LinearLayout {
         bodyScroll = sv;
         return sv;
     }
+
+    /**
+     * Body height showing exactly {@code peekRows} top-level rows, or -1 when there is no peek,
+     * the content is not a row container, a row is not measured yet, or nothing would be hidden.
+     * A ROW COUNT, not a dp height, so "the first two rows" stays true when a row changes size.
+     * A clean cut at the row boundary: MORE on the grip says there is more, in words.
+     */
+    private static int peekBodyHeightPx(@NonNull ScrollView sv, int peekRows) {
+        if (peekRows <= 0) return -1;
+        View content = sv.getChildCount() > 0 ? sv.getChildAt(0) : null;
+        if (!(content instanceof ViewGroup)) return -1;
+        ViewGroup rows = (ViewGroup) content;
+        if (rows.getChildCount() <= peekRows) return -1;
+        int sum = rows.getPaddingTop();
+        for (int i = 0; i < peekRows; i++) {
+            View row = rows.getChildAt(i);
+            if (row.getVisibility() == GONE) continue;
+            int h = row.getMeasuredHeight();
+            if (h <= 0) return -1;
+            ViewGroup.LayoutParams lp = row.getLayoutParams();
+            if (lp instanceof MarginLayoutParams) {
+                h += ((MarginLayoutParams) lp).topMargin + ((MarginLayoutParams) lp).bottomMargin;
+            }
+            sum += h;
+        }
+        return sum;
+    }
+
+    /** MORE shows only while there is something below the fold of the current tab. */
+    private void syncMoreHint() {
+        if (moreHint == null) return;
+        ScrollView sv = bodyScroll;
+        boolean scrollable = sv != null && sv.getChildCount() > 0
+                && sv.getChildAt(0).getHeight() > sv.getHeight() + 1;
+        moreHint.setVisibility(scrollable ? VISIBLE : GONE);
+    }
+
+    /** The tap behind MORE: grow to the default cap, never past it. */
+    private void expandToFull() {
+        int screen = getResources().getDisplayMetrics().heightPixels;
+        float frac = audioOnly ? MAX_HEIGHT_FRACTION_AUDIO_ONLY : MAX_HEIGHT_FRACTION;
+        userHeightPx = Math.round(screen * frac);
+        if (bodyScroll != null) bodyScroll.requestLayout();
+        post(this::reportHeight);
+        post(this::syncMoreHint);
+    }
+
+    @Nullable private TextView moreHint;
 
     /** The tallest the scrolling body may be: the user's dragged height, else the fraction. */
     private int maxBodyHeightPx() {

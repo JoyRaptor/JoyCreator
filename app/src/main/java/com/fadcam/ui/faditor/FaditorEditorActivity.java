@@ -16543,27 +16543,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (item.getTextOverlay() != null) {
                     showTextOverlayEditor(item.getTextOverlay());
                 } else if (item.getSprite() != null) {
-                    openSpritePalette();
+                    // The sprite's drawer AND its frames palette (see showSpriteDrawer).
+                    showSpriteDrawer(item.getSprite(), true);
                 } else if (item.getWaveform() != null) {
                     showVisualizerDrawer(true);
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
-                    // THE PiP AUDIO DRAWER, restored. It had two doors and lost both: the
-                    // "Show audio waveform" row went when the object menu's action list was
-                    // deleted (its removal note said "the double-tap already opens it"), and
-                    // the double-tap branch it named never existed. So a PiP whose lane icon
-                    // says it has audio could not be opened to show that audio at all.
-                    Clip pc = item.getClip();
-                    if (pc.isOverlayAudioEnabled() && editorTimeline != null) {
-                        String laneId = pc.getLayerId() != null ? pc.getLayerId() : "video";
-                        editorTimeline.setLaneAudioDrawerOpen(
-                                laneId, !editorTimeline.isLaneAudioDrawerOpen(laneId));
-                    } else {
-                        // Silent would read as the same bug all over again. A PiP is muted by
-                        // default, so the honest answer is that there is nothing to show yet.
-                        Toast.makeText(FaditorEditorActivity.this,
-                                "This PiP has no audio turned on yet",   // TODO(strings)
-                                Toast.LENGTH_SHORT).show();
-                    }
+                    // ONE LANGUAGE: double-tap opens the object's drawer, on the timeline as on
+                    // the picture (the preview double-tap already did). The sound strip this
+                    // used to toggle is a header toggle in that drawer now.
+                    showPipDrawerForObject(item.getClip());
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getAdjustment() != null) {
@@ -16583,16 +16571,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // object's general advanced menu — now the G2 peek/expand bottom sheet:
                 // peek = active property row + diamond with the timeline still live;
                 // expand = full property/action menu; More… = the double-tap type editor.
+                // ONE LANGUAGE (JoyRaptor, 2026-09-23): hold opens the object's drawer, the same
+                // drawer a double-tap opens. The bottom property sheet this used to raise is the
+                // retired "keyframe widget" -- the drawer does all of it, with more.
                 if (item.getTextOverlay() != null) {
                     if (item.getTextOverlay().isImage()) {
-                        // Images: the top drawer IS their type editor (Blend · Mask · Key ·
-                        // FX · Move) — see showImageOverlayDrawer.
                         showImageOverlayDrawer(item.getTextOverlay());
                     } else {
-                        showObjectMenuSheetForTextOverlay(item.getTextOverlay());
+                        showTextOverlayEditor(item.getTextOverlay());
                     }
                 } else if (item.getSprite() != null) {
-                    showObjectMenuSheetForSprite(item.getSprite());
+                    showSpriteDrawer(item.getSprite(), false);
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
@@ -16669,12 +16658,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // without it would leave the previously edited box pinned above its lane -- the
                 // exact leak fixed on 2026-08-18 -- and chaining edits across several boxes
                 // would strand a new one on top after every tap.
-                if (textDrawer != null && textDrawer.isShowing()
-                        && item != null && item.getTextOverlay() != null
-                        && !item.getTextOverlay().isImage()) {
-                    if (overlayLayer != null) overlayLayer.endTextEditing();
-                    showTextOverlayEditor(item.getTextOverlay());
-                }
+                // (Text now opens in the one object drawer; its retarget is below.)
                 // C6 (JoyRaptor 2026-07-17): ONE open drawer, owned by the selection.
                 // Selecting a different object RETARGETS the sheet when the new
                 // type has drawer adapters, closes it otherwise — no more "sprite
@@ -16717,16 +16701,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         showImageOverlayDrawer(item.getTextOverlay());
                     } else if (item.getTextOverlay() != null
                             && !item.getTextOverlay().isImage()) {
-                        showTextFxDrawer(item.getTextOverlay());
+                        // endTextEditing FIRST: it releases the previous box's z-hoist (see the
+                        // comment above), then the text drawer opens on the new box.
+                        if (overlayLayer != null) overlayLayer.endTextEditing();
+                        showTextOverlayEditor(item.getTextOverlay());
                     } else if (item.getAudioClip() != null) {
                         // Retarget, never toggle: clearing the id first stops showAudioDrawer's
                         // double-tap toggle from reading "same clip" as "close it".
                         lastAudioDrawerId = null;
                         showAudioDrawer(item.getAudioClip());
+                    } else if (item.getSprite() != null) {
+                        showSpriteDrawer(item.getSprite(), false);
                     } else {
-                        // A sprite, a visualizer or the film has no top drawer of its own. C6:
-                        // close it, rather than leave the OLD object's drawer open with every
-                        // control aimed at something the user is no longer pointing at.
+                        // A visualizer or the film has no top drawer of its own. C6: close it,
+                        // rather than leave the OLD object's drawer open with every control
+                        // aimed at something the user is no longer pointing at.
                         objectDrawer.hide();
                     }
                 }
@@ -23843,7 +23832,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (item.isImage()) {
                     showImageOverlayDrawer(item);
                 } else {
-                    showObjectMenuSheetForTextOverlay(item);
+                    showTextOverlayEditor(item);   // hold = the drawer, as everywhere
                 }
             }
 
@@ -24483,9 +24472,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSpriteDoubleTapped(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
-                // Grammar 2026-07-17: double-tap = TYPE editor (what JoyRaptor expects
-                // when tapping a sprite) — same route as the timeline G1 double-tap.
-                openSpritePalette();
+                // Double-tap = the sprite's drawer and its frames palette, the same route as
+                // the timeline double-tap.
+                showSpriteDrawer(item, true);
             }
 
             @Override
@@ -24505,12 +24494,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSpriteHeld(
                     @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
-                // Hold = general properties drawer (the 2026-07-16 double-tap route).
+                // Hold = the sprite's drawer, as for every object.
                 if (editorTimeline != null) {
                     editorTimeline.selectLayerItemById(item.getId());
                     editorTimeline.revealLayerRowForItem(item.getId());
                 }
-                showObjectMenuSheetForSprite(item);
+                showSpriteDrawer(item, false);
             }
 
             @NonNull
@@ -25648,7 +25637,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // And the bend is offered too, on the same rule: both surfaces draw it.
         v.setBendAvailable(true);
         v.setBendVisible(false);
-        v.setOnDoubleTap(() -> showObjectMenuSheetForSprite(sp));
+        v.setOnDoubleTap(() -> showSpriteDrawer(sp, true));
         v.bringToFront();
         v.refresh();
     }
@@ -26931,7 +26920,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             @Override
             public void onDoubleTapped() {
-                openSpritePalette(); // grammar: double-tap = type editor
+                showSpriteDrawer(s, true); // grammar: double-tap = the object's drawer
             }
 
             @Override
@@ -27654,6 +27643,101 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * mirrors TextOverlayItem's transform/keyframe shape deliberately). More… =
      * the sprite palette (same as double-tap); delete = confirm + one undo step.
      */
+    /**
+     * A SPRITE's top drawer: Transform · Lanes, with the same header toggles as every object.
+     * JoyRaptor, 2026-09-23: the sprite needs "a top down drawer for animating its position,
+     * opacity, rotation ... just as image and video have". Its own editor, the frames palette,
+     * stays where it is at the BOTTOM (over the spine and audio, which matter less while
+     * animating a sprite); {@code withPalette} raises it alongside.
+     *
+     * <p>No Blend, Mask, Key or Effects tab: the sprite renderer has none of those, and a tab
+     * that changes nothing is worse than no tab.</p>
+     */
+    private void showSpriteDrawer(@NonNull final com.fadcam.ui.faditor.sprite.SpriteOverlayItem s,
+                                  boolean withPalette) {
+        if (project == null) return;
+        commitPendingCompUndo();
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(s.getSheetId());
+        final String title = sheet != null ? sheet.getName() : "Sprite";   // TODO(strings)
+        final com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host =
+                new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            // The prop setters already repaint the sprite; all that is left is saving.
+            @Override public void onChanged() { scheduleAutoSave(); }
+            @Override public void pickColorFromPreview(
+                    @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
+                cb.onPicked(null);
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            @Nullable private com.fadcam.ui.faditor.sprite.SpriteOverlayItem.TransformSnapshot editBefore;
+            @Override public void beginEdit() { editBefore = s.snapshotTransform(); }
+            @Override public void endEdit(@NonNull String label) {
+                if (editBefore != null) recordSpriteMenuUndo(s, editBefore, label);
+                editBefore = null;
+            }
+        };
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                title, getString(R.string.drawer_tab_transform), R.drawable.ic_transform_24,
+                ctx -> buildSpriteTransformTab(s, host)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                title, getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
+                ctx -> buildLanesTab(com.fadcam.ui.faditor.layers.TimedItem.ofSprite(s))));
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
+        final Runnable afterToggle = () -> {
+            refreshSpritePreviewData();
+            syncTimelineOverlays();
+            scheduleAutoSave();
+        };
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24, s::isHidden,
+                () -> { s.setHidden(!s.isHidden()); afterToggle.run(); }, true));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_lock, R.drawable.ic_lock, s::isLocked,
+                () -> { s.setLocked(!s.isLocked()); afterToggle.run(); }, false));
+        com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.SPRITE);
+        drawer.show(tabs, toggles, false);
+        if (withPalette) openSpritePalette();
+    }
+
+    /** The sprite drawer's Transform tab: position, scale, and rotate + opacity. */
+    @NonNull
+    private View buildSpriteTransformTab(
+            @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s,
+            @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host) {
+        final float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(Math.round(14 * d), Math.round(4 * d), Math.round(14 * d), Math.round(10 * d));
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°"; // SPEC A: raw, keeps winding
+        final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, "Pos X",   // TODO(strings)
+                        0f, 1f, pct, ms -> s.animatedCenterX(ms)), host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, "Pos Y",   // TODO(strings)
+                        0f, 1f, pct, ms -> s.animatedCenterY(ms)), host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, "Scale", // TODO(strings)
+                        0.01f, 1f, pct, ms -> s.animatedSizeFraction(ms)), host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addRotateOpacityRow(this, root,
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, "Rotate", // TODO(strings)
+                        -180f, 180f, deg, ms -> s.animatedRotation(ms)),
+                spriteMenuProp(s, com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY, "Opacity", // TODO(strings)
+                        0f, 1f, pct, ms -> s.animatedOpacity(ms)),
+                host));
+        for (Runnable r : refreshers) r.run();
+        root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
+            for (Runnable r : refreshers) r.run();
+        });
+        return root;
+    }
+
     private void showObjectMenuSheetForSprite(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
         if (project == null) return;
@@ -28611,6 +28695,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Open the object drawer on its Effects tab, for a clip or PiP. */
+    /** The lane a PiP sits on, as the timeline names it (an overlay clip's lane is never null). */
+    @NonNull
+    private static String pipLaneId(@NonNull Clip c) {
+        return c.getLayerId() != null ? c.getLayerId() : "video";
+    }
+
     private void showPipDrawerForObject(@NonNull Clip c) {
         showPipDrawer(c, new java.util.ArrayList<>());
         com.fadcam.ui.faditor.tools.ObjectDrawer d = objectDrawer;
@@ -29578,6 +29668,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Video overlay", getString(R.string.drawer_tab_transform),  // TODO(strings)
                 R.drawable.ic_transform_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.videoTab(ctx, props, tabHost)));
+        // Same ORDER as the image drawer (Transform · Blend · Mask · Key · Effects · Lanes): one
+        // drawer language, so a tab is where the hand expects it on every object.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
+                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
+                        ctx, c, tabHost::onChanged)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
@@ -29587,16 +29683,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 getString(R.string.faditor_key_section), R.drawable.ic_pip_chroma_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.chromaTab(
                         ctx, spec, applyComp, tabHost)));
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                getString(R.string.faditor_blend_title), R.drawable.ic_pip_blend_24,
-                ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.blendTab(
-                        ctx, c, tabHost::onChanged)));
         // M7: this object's OWN effects. Same registry, same compiler, same panel as an
-        // adjustment layer -- the difference is only WHAT they transform. Appended, so the
-        // drawer's icon-index arithmetic is unchanged (ObjectDrawer's buildIconRow is
-        // correct only because icons are dense from index 1, and appending keeps that true).
+        // adjustment layer -- the difference is only WHAT they transform.
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Effects", R.drawable.ic_fx_24,                               // TODO(strings)
+                getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
                 ctx -> {
                     // Hoisted, because the host must be able to RE-ATTACH this exact stack.
                     // setFx(getFx()) detaches it the moment the last card is deleted (an empty
@@ -29652,6 +29742,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // finished image for a sampler to read.
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT);
                 }));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
+                ctx -> buildLanesTab(com.fadcam.ui.faditor.layers.TimedItem.ofClip(
+                        c, c.getOverlayStartMs()))));
 
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
@@ -29666,6 +29760,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                     scheduleAutoSave();
                 }, true));
+        // THE SOUND STRIP'S DOOR. A timeline double-tap on a PiP used to open its waveform
+        // strip; double-tap now opens this drawer (one gesture language), so the strip moves
+        // here rather than losing its only way in again.
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_waveform_bars, R.drawable.ic_waveform_bars,
+                () -> editorTimeline != null && editorTimeline.isLaneAudioDrawerOpen(pipLaneId(c)),
+                () -> {
+                    if (editorTimeline == null) return;
+                    if (!c.isOverlayAudioEnabled()) {
+                        Toast.makeText(this, "Turn this overlay's sound on first", // TODO(strings)
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    String lane = pipLaneId(c);
+                    editorTimeline.setLaneAudioDrawerOpen(lane,
+                            !editorTimeline.isLaneAudioDrawerOpen(lane));
+                }, false, getString(R.string.pip_sound_strip_desc)));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 c::isHiddenObject,
@@ -30852,81 +30963,117 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void moveOverlayItemToNewLayer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
                                            boolean above) {
+        moveItemToNewLane(com.fadcam.ui.faditor.layers.TimedItem.ofTextOverlay(o), above);
+    }
+
+    private void moveOverlayItemToAdjacentLayer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                                boolean up) {
+        moveItemToAdjacentLane(com.fadcam.ui.faditor.layers.TimedItem.ofTextOverlay(o), up);
+    }
+
+    /**
+     * The lane {@code it} sits on, named as {@link Timeline#getLayers()} names it: each family's
+     * default bucket is stored raw (null for text and sprites, "" for adjustments) but listed
+     * under its seeded id. Null for something that does not live on a floating lane.
+     */
+    @Nullable
+    private static String laneIdOf(@NonNull com.fadcam.ui.faditor.layers.TimedItem it) {
+        if (it.getTextOverlay() != null) {
+            String id = it.getTextOverlay().getLayerId();
+            return id == null ? "text" : id;
+        }
+        if (it.getSprite() != null) {
+            String id = it.getSprite().getLayerId();
+            return id == null ? "sprite" : id;
+        }
+        if (it.getClip() != null && it.getClip().isOverlayClip()) return it.getClip().getLayerId();
+        if (it.getAdjustment() != null) {
+            String id = it.getAdjustment().getLayerId();
+            return id.isEmpty() ? "adjustment" : id;
+        }
+        return null;
+    }
+
+    /** Row of {@code it}'s lane in {@code layers} (0 = top), or -1. */
+    private static int laneRowOf(@NonNull com.fadcam.ui.faditor.layers.TimedItem it,
+                                 @NonNull java.util.List<com.fadcam.ui.faditor.layers.Track> layers) {
+        String id = laneIdOf(it);
+        if (id == null) return -1;
+        for (int i = 0; i < layers.size(); i++) if (layers.get(i).getId().equals(id)) return i;
+        return -1;
+    }
+
+    /** "Text 4", "Image 4", "Video 4"... the name a new lane is born with. */
+    @NonNull
+    private String newLaneName(@NonNull com.fadcam.ui.faditor.layers.TimedItem it, int n) {
+        String kind = it.getSprite() != null ? "Sprite "
+                : it.getClip() != null ? "Video "
+                : it.getAdjustment() != null ? "Adjustment "
+                : it.getTextOverlay() != null && it.getTextOverlay().isImage() ? "Image " : "Text ";
+        return kind + n;                                                    // TODO(strings)
+    }
+
+    /**
+     * Put {@code it} on a brand-new lane at the top ({@code above}) or bottom of the stack: the
+     * layer sandwich. The move itself is {@link #stageMoveItemToLayerTrack}, the SAME one a drag
+     * between lanes uses (it knows every family's storage rules, including that a video
+     * overlay's lane may never be null). ONE undo step for lane + move.
+     */
+    private void moveItemToNewLane(@NonNull com.fadcam.ui.faditor.layers.TimedItem it,
+                                   boolean above) {
         if (project == null) return;
         final Timeline timeline = project.getTimeline();
-        final String fromLayerId = o.getLayerId(); // null = default "text" track
+        final String from = laneIdOf(it);
+        if (from == null) return;
         final String newTrackId = timeline.createLayerTrack(
                 com.fadcam.ui.faditor.layers.TrackKind.LAYER,
-                (o.isImage() ? "Image " : "Text ") + (timeline.getLayers().size() + 1)); // TODO(strings)
+                newLaneName(it, timeline.getLayers().size() + 1));
         final com.fadcam.ui.faditor.layers.LayerTrackDef createdDef =
                 timeline.getLayerTrackDef(newTrackId);
         final int newZ = above ? topLayerZIndex(timeline) + 1 : bottomLayerZIndex(timeline) - 1;
-        // The SOURCE lane is pruned when this was its last item — snapshot it (with its
-        // index) so undo restores the lane, not just the item. See stageMoveItemToLayerTrack.
-        final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
-                fromLayerId != null ? timeline.getLayerTrackDef(fromLayerId) : null;
-        final int fromDefIndex =
-                fromLayerId != null ? timeline.indexOfLayerTrackDef(fromLayerId) : -1;
-
-        Runnable redo = () -> {
-            if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
-            timeline.getOrCreateTrackFlags(newTrackId).zIndex = newZ;
-            o.setLayerId(newTrackId);
-            if (fromLayerId != null) maybeRemoveEmptyLayerTrack(fromLayerId);
-            refreshAfterOverlayLayerChange();
-        };
-        Runnable undo = () -> {
-            if (fromDefBefore != null) timeline.restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
-            o.setLayerId(fromLayerId);
+        timeline.getOrCreateTrackFlags(newTrackId).zIndex = newZ;
+        final PendingLayerTrackUndo move = stageMoveItemToLayerTrack(it, from, newTrackId);
+        if (move == null) {
             timeline.removeLayerTrackDef(newTrackId);
             timeline.setTrackFlags(newTrackId, null);
-            refreshAfterOverlayLayerChange();
-        };
-        redo.run();
+            return;
+        }
+        refreshAfterOverlayLayerChange();
         undoManager.recordAction(new EditActions.LambdaAction(
-                above ? "New lane above" : "New lane below", redo, undo));
+                above ? "New lane above" : "New lane below",               // TODO(strings)
+                () -> {
+                    if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
+                    timeline.getOrCreateTrackFlags(newTrackId).zIndex = newZ;
+                    move.redo.run();
+                    refreshAfterOverlayLayerChange();
+                },
+                () -> {
+                    move.undo.run();
+                    timeline.removeLayerTrackDef(newTrackId);
+                    timeline.setTrackFlags(newTrackId, null);
+                    refreshAfterOverlayLayerChange();
+                }));
         scheduleAutoSave();
         Toast.makeText(this, above ? "Moved to new lane above" : "Moved to new lane below",
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
     }
 
-    /**
-     * P2: move {@code o} onto the ADJACENT existing layer — the row above ({@code
-     * up=true}) or below — reusing the Phase-P row order ({@code getLayers()} sorted
-     * DESC by z; row 0 = top). Just reassigns {@code layerId} (no track creation);
-     * the vacated source track is pruned if empty. ONE undo step.
-     */
-    private void moveOverlayItemToAdjacentLayer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
-                                                boolean up) {
+    /** Move {@code it} one lane up or down the existing stack. ONE undo step. */
+    private void moveItemToAdjacentLane(@NonNull com.fadcam.ui.faditor.layers.TimedItem it,
+                                        boolean up) {
         if (project == null) return;
-        final Timeline timeline = project.getTimeline();
-        java.util.List<com.fadcam.ui.faditor.layers.Track> layers = timeline.getLayers();
-        int rowIdx = overlayItemRowIndex(o, layers);
-        int target = rowIdx + (up ? -1 : 1);
-        if (rowIdx < 0 || target < 0 || target >= layers.size()) return;
-        final String fromLayerId = o.getLayerId();
-        String targetId = layers.get(target).getId();
-        final String toLayerId = "text".equals(targetId) ? null : targetId;
-
-        // Snapshot the source lane's def: moving this last item off it prunes it, and undo
-        // must bring the LANE back too, not just the item (see stageMoveItemToLayerTrack).
-        final com.fadcam.ui.faditor.layers.LayerTrackDef fromDefBefore =
-                fromLayerId != null ? timeline.getLayerTrackDef(fromLayerId) : null;
-        final int fromDefIndex =
-                fromLayerId != null ? timeline.indexOfLayerTrackDef(fromLayerId) : -1;
-        Runnable redo = () -> {
-            o.setLayerId(toLayerId);
-            if (fromLayerId != null) maybeRemoveEmptyLayerTrack(fromLayerId);
-            refreshAfterOverlayLayerChange();
-        };
-        Runnable undo = () -> {
-            if (fromDefBefore != null) timeline.restoreLayerTrackDefAt(fromDefBefore, fromDefIndex);
-            o.setLayerId(fromLayerId);
-            refreshAfterOverlayLayerChange();
-        };
-        redo.run();
+        java.util.List<com.fadcam.ui.faditor.layers.Track> layers = project.getTimeline().getLayers();
+        int row = laneRowOf(it, layers);
+        int target = row + (up ? -1 : 1);
+        if (row < 0 || target < 0 || target >= layers.size()) return;
+        final PendingLayerTrackUndo move = stageMoveItemToLayerTrack(
+                it, layers.get(row).getId(), layers.get(target).getId());
+        if (move == null) return;
+        refreshAfterOverlayLayerChange();
         undoManager.recordAction(new EditActions.LambdaAction(
-                up ? "Move layer up" : "Move layer down", redo, undo));
+                up ? "Move layer up" : "Move layer down",                   // TODO(strings)
+                () -> { move.redo.run(); refreshAfterOverlayLayerChange(); },
+                () -> { move.undo.run(); refreshAfterOverlayLayerChange(); }));
         scheduleAutoSave();
         Toast.makeText(this, up ? "Moved up a lane" : "Moved down a lane",
                 Toast.LENGTH_SHORT).show(); // TODO(strings)
@@ -31191,11 +31338,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * badged "layer only": a text overlay's effects are folded into its compositing shader in
      * one pass, exactly like a PiP's.</p>
      */
+    /**
+     * FX on a text object is the Effects tab of its ONE drawer now, not a drawer of its own.
+     * Already open on this text: switch to the tab. Otherwise open the text drawer on it.
+     */
     private void showTextFxDrawer(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
-        // Hoisted so the host can RE-ATTACH it: setFx(getFx()) nulls an emptied stack, which
-        // detaches the very object the panel is still editing, and an undo then refilled an
-        // orphan — the card reappeared and the effect stayed gone. No session-close undo here
-        // either; FxPanel records per edit now, and two authorities for one delta disagree.
+        if (objectDrawer != null && objectDrawer.isShowing()
+                && item.getId().equals(textDrawerItemId)) {
+            objectDrawer.selectTab(TEXT_TAB_EFFECTS);
+            return;
+        }
+        ensureObjectDrawer().openOnTab(TEXT_TAB_EFFECTS);
+        showTextOverlayEditor(item);
+    }
+
+    /** The text drawer's Effects tab: the object's own FX stack. */
+    @NonNull
+    private View buildTextFxTab(@NonNull android.content.Context ctx,
+                                @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
         final com.fadcam.ui.faditor.fx.FxStack textFx = item.getOrCreateFx();
         com.fadcam.ui.faditor.tools.FxPanel.Host host =
                 new com.fadcam.ui.faditor.tools.FxPanel.Host() {
@@ -31228,19 +31388,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
-        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
-                new java.util.ArrayList<>();
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Text effects", getString(R.string.drawer_tab_effects),       // TODO(strings)
-                R.drawable.ic_fx_24,
-                ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
-                        ctx, textFx, host,
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
-
-        // The drawer wears the OBJECT's colour, so its own controls say what you
-        // are editing without a row spent announcing it.
-        ensureObjectDrawer().setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.TEXT);
-        ensureObjectDrawer().show(tabs, new java.util.ArrayList<>(), true);
+        return com.fadcam.ui.faditor.tools.FxPanel.build(
+                ctx, textFx, host, com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT);
     }
 
     // ── IMAGE-OVERLAY DRAWER ─────────────────────────────────────────────────────────────
@@ -33090,35 +33239,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
 
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
-                new java.util.ArrayList<>();
-        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
-                R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
-                o::isHidden,
-                () -> {
-                    o.setHidden(!o.isHidden());
-                    refreshAfterMarqueeBatchDelete();
-                    scheduleAutoSave();
-                }, true));
-        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
-                R.drawable.ic_lock, R.drawable.ic_lock,
-                o::isLocked,
-                () -> {
-                    o.setLocked(!o.isLocked());
-                    scheduleAutoSave();
-                }, false));
-        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
-                R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
-                o::isPassThrough,
-                () -> {
-                    o.setPassThrough(!o.isPassThrough());
-                    android.widget.Toast.makeText(this,
-                            o.isPassThrough()
-                                    ? "Taps now pass through this in the preview"
-                                    : "Touchable in the preview again",   // TODO(strings)
-                            android.widget.Toast.LENGTH_SHORT).show();
-                    refreshAfterMarqueeBatchDelete();
-                    scheduleAutoSave();
-                }, false));
+                overlayToggles(o);
 
         // ── Undo for the mask and chroma-key controls (SPEC_ADJUSTMENT_LAYERS_FX §1.5) ──
         // Identical session idiom to showPipDrawer: one undo step for the whole drawer session,
@@ -33295,7 +33416,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 o.applyFit(canvas[0], canvas[1], img[0], img[1]);
                 recordOverlayMenuUndo(o, before, "Fit");
                 refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
-                if (ensureTextDrawer() != null && ensureTextDrawer().isShowing()) showImageOverlayDrawer(o);
+                if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
             });
             topRow.addView(fitBtn);
             android.widget.TextView fillBtn = new android.widget.TextView(this);
@@ -33309,7 +33430,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 o.applyFill(canvas[0], canvas[1], img[0], img[1]);
                 recordOverlayMenuUndo(o, before, "Fill");
                 refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
-                if (ensureTextDrawer() != null && ensureTextDrawer().isShowing()) showImageOverlayDrawer(o);
+                if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
             });
             android.widget.LinearLayout.LayoutParams fillLp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
             fillLp.leftMargin = Math.round(6*d);
@@ -33337,7 +33458,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         o.resetToStaticCover(canvas[0], canvas[1], img[0], img[1]);
                         recordOverlayMenuUndo(o, before, "No animation (reset)");
                         refreshOverlayPreview(); syncTimelineOverlays(); scheduleAutoSave();
-                        if (ensureTextDrawer() != null && ensureTextDrawer().isShowing()) showImageOverlayDrawer(o);
+                        if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
                         return;
                     }
                     // Custom animation warning
@@ -33413,6 +33534,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // (The old "Clear all keyframes" own-row was folded into the top row above — user
         // 2026-09-05 — so the drawer is one line shorter.)
 
+        final android.widget.LinearLayout rows = buildOverlayTransformRows(o, host, d);
+        root.addView(rows);
+        // The drawer refreshes a tab through its ROOT's tag; hand the rows' refresh up.
+        root.setTag(R.id.faditor_tag_row_refresh, rows.getTag(R.id.faditor_tag_row_refresh));
+        return root;
+    }
+
+    /**
+     * Position, Scale (with its chain), and Rotate + Opacity: the SAME rows in the image drawer's
+     * and the text drawer's Transform tab, so the two cannot drift apart. The returned view
+     * carries its own refresh on {@code faditor_tag_row_refresh}.
+     */
+    @NonNull
+    private android.widget.LinearLayout buildOverlayTransformRows(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host, float d) {
         final android.widget.LinearLayout rows = new android.widget.LinearLayout(this);
         rows.setOrientation(android.widget.LinearLayout.VERTICAL);
         final java.util.List<Runnable>[] refreshers =
@@ -33460,13 +33597,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             for (Runnable r : refreshers[0]) r.run();
         };
         rebuild[0].run();
-        root.addView(rows);
         // The tag refresh re-reads the CURRENT list — rebuild[] swaps refreshers[0] wholesale,
         // so a post-chain-toggle playhead tick still re-reads the rows that are actually there.
-        root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
+        rows.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
             for (Runnable r : refreshers[0]) r.run();
         });
-        return root;
+        return rows;
     }
 
     /**
@@ -33481,7 +33617,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final android.widget.ImageView iv = new android.widget.ImageView(this);
         iv.setImageResource(o.isScaleLinked()
                 ? R.drawable.ic_pip_chain_linked_24 : R.drawable.ic_pip_chain_broken_24);
-        iv.setColorFilter(o.isScaleLinked() ? Studio.GO : Studio.INK_FAINT);
+        // The OBJECT's colour when linked (the drawer's accent, as every lit control in it),
+        // drawer-dim when split. It was always Studio green, whatever the object.
+        iv.setColorFilter(o.isScaleLinked()
+                ? com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.accent() : Studio.DRAWER_DIM);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(iv, getString(o.isScaleLinked()
+                ? R.string.drawer_scale_linked_desc : R.string.drawer_scale_split_desc));
         iv.setPadding(Math.round(4 * d), Math.round(4 * d), Math.round(4 * d), Math.round(4 * d));
         iv.setOnClickListener(v -> {
             com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
@@ -33516,6 +33657,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @NonNull
     private View buildImageMoveTab(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        return buildLanesTab(com.fadcam.ui.faditor.layers.TimedItem.ofTextOverlay(o));
+    }
+
+    /**
+     * The Lanes tab of every object drawer (text, image, video overlay, sprite): a new lane
+     * above or below, or one lane up or down. Moves that cannot happen are not offered.
+     */
+    @NonNull
+    private View buildLanesTab(@NonNull final com.fadcam.ui.faditor.layers.TimedItem it) {
         final float d = getResources().getDisplayMetrics().density;
         final android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -33524,26 +33674,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final Timeline timeline = project != null ? project.getTimeline() : null;
         java.util.List<com.fadcam.ui.faditor.layers.Track> layers =
                 timeline != null ? timeline.getLayers() : new java.util.ArrayList<>();
-        int rowIdx = overlayItemRowIndex(o, layers);
+        int rowIdx = laneRowOf(it, layers);
 
         // Record 06's drawer chips, in two labelled rows, instead of four bare lines of text:
         // "New lane  [Above] [Below]" and "Move  [Up a lane] [Down a lane]". A move that
         // cannot happen (already the top or bottom lane) is not offered.
         android.widget.LinearLayout newLane = imageMoveRow(R.string.image_move_new_lane, d);
         imageMoveChip(newLane, R.string.image_move_above, R.string.image_move_above_desc,
-                v -> moveOverlayItemToNewLayer(o, true));
+                v -> moveItemToNewLane(it, true));
         imageMoveChip(newLane, R.string.image_move_below, R.string.image_move_below_desc,
-                v -> moveOverlayItemToNewLayer(o, false));
+                v -> moveItemToNewLane(it, false));
         root.addView(newLane);
         if (layers.size() > 1 && rowIdx >= 0) {
             android.widget.LinearLayout move = imageMoveRow(R.string.image_move_label, d);
             if (rowIdx > 0) {
                 imageMoveChip(move, R.string.image_move_up, R.string.image_move_up_desc,
-                        v -> moveOverlayItemToAdjacentLayer(o, true));
+                        v -> moveItemToAdjacentLane(it, true));
             }
             if (rowIdx < layers.size() - 1) {
                 imageMoveChip(move, R.string.image_move_down, R.string.image_move_down_desc,
-                        v -> moveOverlayItemToAdjacentLayer(o, false));
+                        v -> moveItemToAdjacentLane(it, false));
             }
             root.addView(move);
         }
@@ -33596,7 +33746,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             project.getTimeline().addTextOverlay(item); }));
         }
         scheduleAutoSave();
-        if (textDrawer != null) textDrawer.hide();
+        if (objectDrawer != null) objectDrawer.hide();
     }
 
     private void showTextOverlayEditor(
@@ -33617,8 +33767,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
 
         final TextStyleSession session = new TextStyleSession(item);
-
-        com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer = ensureTextDrawer();
 
         android.widget.LinearLayout root = new android.widget.LinearLayout(this);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -33646,9 +33794,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // "EDIT TEXT", so with several on the timeline nothing on screen said WHICH one was being
         // edited (JoyRaptor, 2026-08-12: "exit text should have the first couple words of the text
         // content after it"). The first few words are what the user recognises it by.
-        drawer.setTitle(getString(R.string.faditor_text_edit_title) + textTitleSuffix(item));
-        drawer.setHeaderAccessory(buildTextFontHeaderButton(item, session, drawer));
-        drawer.show(root);
+        showTextDrawerTabs(item, session, root);
         // WYSIWYG (2026-08-09, Joy): the PREVIEW IS the text box. The selection input is a
         // transparent EditText layered over the drawn box in the preview (native handles, precise
         // char indices, no gesture conflict with the move/scale/rotate surface) — the drawer
@@ -33698,7 +33844,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // "OK" used to be: text/colour/font/style all write live as the user works, so all that
         // is left on the way out is recording the ADD undo the first time the box survives a
         // close — same convention FxPanel/PipDrawerTabs use.
-        drawer.setOnClose(() -> {
+        ensureObjectDrawer().setOnClose(() -> {
+            textDrawerItemId = null;
             // A PLACEHOLDER IS KEPT. This used to delete a box created in this session that
             // still held the placeholder text — the "opened the tool, then changed my mind"
             // case — and a growing list of things the user does next turned out to close the
@@ -33776,6 +33923,132 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
     }
 
+    /** Which text object the drawer is showing, or null. */
+    @Nullable private String textDrawerItemId;
+    /** Tab order of a text drawer: Text · Transform · Effects · Lanes. */
+    private static final int TEXT_TAB_EFFECTS = 2;
+
+    /**
+     * A TEXT object's drawer is the same ObjectDrawer every other object uses (JoyRaptor,
+     * 2026-09-23: "the drop down drawer needs to be a universal object tool"). Its own tab
+     * first, then the shared tabs text can really use: Transform, Effects, Lanes. No Blend,
+     * Mask or Key: both renderers apply those to images only (TextOverlayItem.wantsGlExport),
+     * so on text they would be controls that do nothing.
+     */
+    private void showTextDrawerTabs(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
+                                    @NonNull TextStyleSession session,
+                                    @NonNull final android.widget.LinearLayout textRoot) {
+        final com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        String words = textTitleSuffix(item);
+        String name = words.startsWith(" · ") ? words.substring(3) : getString(R.string.drawer_tab_text);
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        // The Text tab hands back the SAME view every time: it holds the live style session,
+        // so a rebuild would lose it. Detached first, because the drawer re-wraps a tab's
+        // content on every visit.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.drawer_tab_text), R.drawable.ic_text_tab_24, ctx -> {
+                    if (textRoot.getParent() instanceof android.view.ViewGroup) {
+                        ((android.view.ViewGroup) textRoot.getParent()).removeView(textRoot);
+                    }
+                    return textRoot;
+                }).peek(2));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.drawer_tab_transform), R.drawable.ic_transform_24,
+                ctx -> buildTextTransformTab(item)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
+                ctx -> buildTextFxTab(ctx, item)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                name, getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
+                ctx -> buildImageMoveTab(item)));
+        drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.forOverlay(item));
+        // The keyboard belongs to the Text tab. Anywhere else it only hides the drawer.
+        drawer.setOnTabChanged(() -> {
+            if (drawer.activeTabIndex() != 0) hideSoftKeyboard(drawer);
+        });
+        textDrawerItemId = item.getId();
+        drawer.show(tabs, overlayToggles(item), false, null,
+                buildTextFontHeaderButton(item, session));
+        // The in-picture editor takes focus a frame later and can raise the keyboard; if the
+        // drawer opened on another tab (kept from the previous object, or FX), put it away.
+        drawer.postDelayed(() -> {
+            if (drawer.isShowing() && drawer.activeTabIndex() != 0) hideSoftKeyboard(drawer);
+        }, 250);
+    }
+
+    /** The text drawer's Transform tab: the shared rows, with one undo step per drag. */
+    @NonNull
+    private View buildTextTransformTab(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        final float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(Math.round(14 * d), Math.round(4 * d), Math.round(14 * d), Math.round(10 * d));
+        com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host =
+                new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            // The prop setters already reposition the preview; all that is left is saving.
+            @Override public void onChanged() { scheduleAutoSave(); }
+            @Override public void pickColorFromPreview(
+                    @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
+                cb.onPicked(null);
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot editBefore;
+            @Override public void beginEdit() { editBefore = o.snapshotTransform(); }
+            @Override public void endEdit(@NonNull String label) {
+                if (editBefore != null) recordOverlayMenuUndo(o, editBefore, label);
+                editBefore = null;
+            }
+        };
+        android.widget.LinearLayout rows = buildOverlayTransformRows(o, host, d);
+        root.addView(rows);
+        root.setTag(R.id.faditor_tag_row_refresh, rows.getTag(R.id.faditor_tag_row_refresh));
+        return root;
+    }
+
+    /**
+     * Hide · lock · taps-pass-through: the header toggles of every text and image overlay
+     * drawer, built once.
+     */
+    @NonNull
+    private java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> overlayToggles(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
+                new java.util.ArrayList<>();
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
+                o::isHidden,
+                () -> {
+                    o.setHidden(!o.isHidden());
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }, true));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_lock, R.drawable.ic_lock,
+                o::isLocked,
+                () -> {
+                    o.setLocked(!o.isLocked());
+                    scheduleAutoSave();
+                }, false));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
+                o::isPassThrough,
+                () -> {
+                    o.setPassThrough(!o.isPassThrough());
+                    android.widget.Toast.makeText(this,
+                            o.isPassThrough()
+                                    ? "Taps now pass through this in the preview"
+                                    : "Touchable in the preview again",   // TODO(strings)
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
+                }, false));
+        return toggles;
+    }
+
     /** The session's close bookkeeping: clear the preview highlight, retire the font-import
      * callback (it captures THIS session — a SAR result landing after close must not mutate a
      * drawer that is no longer open), then one undo for all of the session's span edits
@@ -33802,39 +34075,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
-    @Nullable private com.fadcam.ui.faditor.tools.TextOverlayDrawer textDrawer;
-
-    /**
-     * The BOTTOM text drawer — see {@link com.fadcam.ui.faditor.tools.TextOverlayDrawer}'s class
-     * doc for why it comes from the bottom (opposite of the PiP drawer, which comes from the
-     * top). Unlike the PiP drawer this one does NOT reflow the preview: it deliberately covers
-     * the timeline instead, which "doesn't count" per the owner, so the video area is untouched.
-     */
-    @NonNull
-    private com.fadcam.ui.faditor.tools.TextOverlayDrawer ensureTextDrawer() {
-        if (textDrawer == null) {
-            textDrawer = new com.fadcam.ui.faditor.tools.TextOverlayDrawer(this);
-            android.view.ViewGroup root2 =
-                    (android.view.ViewGroup) findViewById(R.id.editor_root).getParent();
-            // TOP-down, like ObjectDrawer (2026-08-10): it drops from the top and pushes the
-            // preview down, keeping the timeline reachable for keyframing. Same reflow hook the
-            // PiP drawer uses.
-            android.widget.FrameLayout.LayoutParams lp =
-                    new android.widget.FrameLayout.LayoutParams(
-                            android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
-                            android.view.Gravity.TOP);
-            root2.addView(textDrawer, lp);
-            textDrawer.setHeightListener(this::reflowPreviewUnderDrawer);
-            // TWO ROWS: the font/style toolbar and the trim + selection line. Those are the ones
-            // touched constantly; STYLE (outline, glow, shadow, background) and the animation
-            // section below them are set once per overlay and then left, so they are worth a
-            // scroll (JoyRaptor, 2026-08-12 — "better that they only have to expand 10% of the time").
-            // Stated as a row COUNT so it keeps meaning "the first two" if those rows change size.
-            textDrawer.setPeekRows(2);
-        }
-        return textDrawer;
-    }
 
     // ── SPEC_TEXT_DRAWER top row: font · B/I/U · case · alignment · motion ──────────────────
 
@@ -34043,10 +34283,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fxBtn.addView(fxIcon, new android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
                 android.widget.FrameLayout.LayoutParams.MATCH_PARENT));
-        fxBtn.setOnClickListener(v -> {
-            if (textDrawer != null) textDrawer.hide();
-            showTextFxDrawer(item);
-        });
+        // FX is a tab of this same drawer now: switch to it (showTextFxDrawer knows how).
+        fxBtn.setOnClickListener(v -> showTextFxDrawer(item));
         row.addView(fxBtn);
 
         // The consolidated top row is wider than any phone — [colour] Aa B I U Tt TT TT
@@ -34098,8 +34336,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @NonNull
     private View buildTextFontHeaderButton(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
-            @NonNull TextStyleSession session,
-            @NonNull com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer) {
+            @NonNull TextStyleSession session) {
         float d = getResources().getDisplayMetrics().density;
         final TextView t = new TextView(this);
         t.setTextColor(Studio.DRAWER_INK);   // on the drawer scrim, so drawer ink

@@ -188,7 +188,9 @@ final class ImageBlendGlEffect implements GlEffect {
                 + "      else if (uMeshMaskOp[i] > 0.5) inside = min(inside, 1.0 - c);\n"
                 + "      else inside = max(inside, c);\n"
                 + "    }\n"
-                + "    float cover = uMeshMaskInvert > 0.5 ? 1.0 - inside : inside;\n"
+                // HOLE BY DEFAULT — see fxMaskCover in MaskSdf.GLSL_MASK_FN, the single
+                // statement of this policy shared by all three GL consumers.
+                + "    float cover = fxMaskCover(inside, uMeshMaskInvert);\n"
                 + "    a *= clamp(cover, 0.0, 1.0);\n"
                 + "  }\n"
                 + "  vec3 outc = mix(base.rgb, clamp(blendPix(base.rgb, sc), 0.0, 1.0), a);\n"

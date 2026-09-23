@@ -225,7 +225,9 @@ public class FxPreviewTextureView extends TextureView
             + "        else if (uPipMaskOp[i] > 0.5) inside = min(inside, 1.0 - c);\n"
             + "        else inside = max(inside, c);\n"
             + "      }\n"
-            + "      cover = uPipMaskInvert > 0.5 ? 1.0 - inside : inside;\n"
+            // HOLE BY DEFAULT — see fxMaskCover in MaskSdf.GLSL_MASK_FN, the single
+            // statement of this policy shared by all three GL consumers.
+            + "      cover = fxMaskCover(inside, uPipMaskInvert);\n"
             + "    }\n"
             + "    if (uMatteOn > 0.5) {\n"
             + "      vec2 mp = vFxUv - uMatteCentre;\n"

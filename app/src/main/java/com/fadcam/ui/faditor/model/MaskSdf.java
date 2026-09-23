@@ -20,7 +20,8 @@ import androidx.annotation.Nullable;
  *
  * <p><b>What is NOT exact, stated rather than hidden:</b> the feather. A Canvas mask softens
  * through {@code BlurMaskFilter}, a true Gaussian; here it is a {@code smoothstep} across the
- * distance field. They differ slightly, most visibly near a concave join. That is acceptable
+ * distance field. (Since 2026-09-23 the field's edge follows the Gaussian's own curve — see
+ * {@code fxCoverageOf} — so a single edge matches; joins still differ.) That is acceptable
  * because BOTH GL renderers use this same field and therefore agree with EACH OTHER, which is
  * the property that actually matters — a preview that matches the export. The PiP Canvas path
  * is left alone.</p>
@@ -60,19 +61,44 @@ public final class MaskSdf {
             //   rc    = (cos, sin)            cf  = corner fraction 0..1
             // Rotation is applied AFTER scaling into pixels, which is what stops a non-square
             // frame shearing the shape.
+            //
+            // uv is a GL frame coordinate, Y-UP (v = 1 is the top of the picture) — every caller
+            // passes vFxUv / vTexSamplingCoord. The shapes are authored Y-DOWN (cy = 0 is the
+            // top: the drawer's Y slider, the ghost outlines, MaskPathBuilder.shapePath), so the
+            // point is flipped into that space here, once, before anything else reads it. This
+            // line was missing: every GL mask sat mirrored top-to-bottom against the Canvas
+            // export, which is why a box at Y 6% previewed near the BOTTOM and exported at the
+            // top (JoyRaptor, 2026-09-23). Flipping the point rather than the shape keeps the
+            // rotation below exact: in Y-down pixels it is the inverse of Canvas.rotate.
             + "float fxShapeSd(vec2 uv, vec2 frame, vec4 geo, vec2 rc, float cf) {\n"
-            + "  vec2 p = (uv - geo.xy) * frame;\n"
+            + "  vec2 p = (vec2(uv.x, 1.0 - uv.y) - geo.xy) * frame;\n"
             + "  vec2 rot = vec2(p.x * rc.x + p.y * rc.y, -p.x * rc.y + p.y * rc.x);\n"
             + "  vec2 halfSize = geo.zw * frame * 0.5;\n"
             + "  float rad = cf * min(halfSize.x, halfSize.y);\n"
             + "  return sdRoundBox(rot, halfSize, rad);\n"
             + "}\n"
-            // Coverage from a signed distance: 1 inside, 0 outside, feathered across the band.
+            // Coverage from a signed distance: 1 inside, 0 outside.
             // A feather of 0 still gets a half-pixel band so the edge is ANTIALIASED rather
             // than stair-stepped — a hard clip that aliases reads as a rendering fault.
+            // A real feather follows the EXPORT's edge, not a straight ramp: the Canvas path
+            // blurs with BlurMaskFilter(radius), a Gaussian whose sigma Skia takes as
+            // 0.57735 * radius + 0.5, and a blurred edge is that Gaussian's CDF. The logistic
+            // 1/(1+e^(1.702x)) is the standard stand-in for it (under 1% off everywhere). The
+            // old linear band was ~2.3x narrower, so every soft mask previewed harder than it
+            // exported. Clamped so mediump exp() cannot overflow.
             + "float fxCoverageOf(float sd, float feather) {\n"
-            + "  float band = max(feather, 0.75);\n"
-            + "  return clamp(0.5 - sd / band, 0.0, 1.0);\n"
+            + "  if (feather <= 0.0) return clamp(0.5 - sd / 0.75, 0.0, 1.0);\n"
+            + "  float sigma = 0.57735 * feather + 0.5;\n"
+            + "  return 1.0 / (1.0 + exp(clamp(1.702 * sd / sigma, -9.0, 9.0)));\n"
+            + "}\n"
+            // THE polarity policy, stated once. Default (inv <= 0.5): a mask cuts a HOLE, so
+            // the layer shows OUTSIDE the shapes (1 - inside) — the reading
+            // MaskPathBuilder.buildVisiblePath is the authority for. Inverted: a window,
+            // visible only INSIDE. Every GL consumer calls this rather than restating the
+            // ternary, because two hand-transcribed copies of this line drifted into
+            // opposite polarities and previewed a window while the export cut a hole.
+            + "float fxMaskCover(float inside, float inv) {\n"
+            + "  return inv > 0.5 ? inside : 1.0 - inside;\n"
             + "}\n";
 
     /**
@@ -99,10 +125,11 @@ public final class MaskSdf {
             out[o + 4] = (float) Math.cos(rad);
             out[o + 5] = (float) Math.sin(rad);
             out[o + 6] = m.corner;
-            // Feather in PIXELS, through the same helper the Canvas path uses, so the two
-            // renderers at least start from one definition of "how soft is 0.3".
-            out[o + 7] = CompositingSpec.featherRadiusPx(
-                    spec.featherOf(m), m.w * frameW, m.h * frameH);
+            // Feather in PIXELS, through the same helper the Canvas path uses, AND with the same
+            // arguments: MaskPathBuilder sizes the blur off the FRAME's shorter side. This passed
+            // the shape's own size, so a small soft box previewed near-hard while the export
+            // blurred it by a fraction of the whole frame.
+            out[o + 7] = CompositingSpec.featherRadiusPx(spec.featherOf(m), frameW, frameH);
         }
         return out;
     }
@@ -159,8 +186,7 @@ public final class MaskSdf {
             float hh = geo[o + 3] * frameH * 0.5f;
             float rad = geo[o + 6] * Math.min(hw, hh);
             float sd = sdRoundBox(rx, ry, hw, hh, rad);
-            float band = Math.max(geo[o + 7], 0.75f);
-            float cov = Math.max(0f, Math.min(1f, 0.5f - sd / band));
+            float cov = coverageOf(sd, geo[o + 7]);
             int op = i < ops.length ? ops[i] : OP_UNION;
             if (i == 0) {
                 acc = cov;                                  // the seed, as MaskFold reports it
@@ -178,6 +204,24 @@ public final class MaskSdf {
         return acc;
     }
 
+    /** Java mirror of {@code fxCoverageOf}, line for line. */
+    public static float coverageOf(float sd, float feather) {
+        if (feather <= 0f) return Math.max(0f, Math.min(1f, 0.5f - sd / 0.75f));
+        float sigma = 0.57735f * feather + 0.5f;
+        float x = Math.max(-9f, Math.min(9f, 1.702f * sd / sigma));
+        return (float) (1.0 / (1.0 + Math.exp(x)));
+    }
+
+    /**
+     * Java mirror of {@code fxMaskCover}: the polarity policy in one place on this side too.
+     *
+     * @param inside the folded shape field, 1 inside the combined region, 0 outside
+     * @param invert the {@code invertMasks} flag: a window when true, a hole when false
+     */
+    public static float coverOf(float inside, boolean invert) {
+        return invert ? inside : 1f - inside;
+    }
+
     /**
      * Coverage as the ADJUSTMENT LAYER wants it — how much of the effect lands here.
      *
@@ -189,6 +233,6 @@ public final class MaskSdf {
                                        float frameW, float frameH) {
         if (spec == null || spec.masks.isEmpty()) return 1f;
         float c = coverage(spec, uvx, uvy, frameW, frameH);
-        return spec.invertMasks ? c : 1f - c;
+        return coverOf(c, spec.invertMasks);
     }
 }

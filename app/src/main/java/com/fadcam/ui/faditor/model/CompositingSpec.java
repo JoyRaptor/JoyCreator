@@ -387,9 +387,10 @@ public class CompositingSpec {
      *
      * <p>Cheap where it matters: the GL path feathers with a distance band in the shader
      * ({@code MaskSdf.fxCoverageOf}), so a wider band costs the same as a narrow one, and
-     * masked images route to GL since {@code hasExportMask} joined {@code wantsGlExport}. Only
-     * the legacy Canvas path pays, through {@code BlurMaskFilter} in {@code MaskPathBuilder},
-     * whose cost grows with radius — and that path is no longer the one a masked image takes.
+     * masked images route to GL since {@code hasExportMask} joined {@code wantsGlExport}. The
+     * export still cuts an unbent masked image on Canvas, though ({@code ImageOverlayDraw} via
+     * {@code MaskPathBuilder}'s {@code BlurMaskFilter}, which costs more as the radius grows),
+     * so that path is the reference the shader's edge is shaped to match.
      *
      * <p>Preview and export read this same constant through {@link #featherRadiusPx}, so they
      * cannot disagree about how soft "soft" is.</p>

@@ -874,7 +874,7 @@ files (committed in 2773746d — free):
 since: 2026-09-23
 
 ## MASK_INVERT_FIX (2026-09-22 - opencode/muse-spark, JoyRaptor mask-inversion bug report)
-status: ACTIVE (2026-09-22 — invert-polarity fix + fxMaskCover consolidation; staged, NOT committed)
+status: IDLE (2026-09-23 - Claude/Opus 5.5 took over and COMMITTED; handoff below. Export lane owns mask parity from here.)
 files:
   app/src/main/java/com/fadcam/ui/faditor/model/MaskSdf.java  (GLSL_MASK_FN + fxMaskCover, Java mirror)
   app/src/main/java/com/fadcam/ui/faditor/model/MaskPathBuilder.java  (per-shape feather invert complement; staged)
@@ -887,6 +887,11 @@ NOT MINE, do not edit — text lanes own TextOverlayItem/TextOverlayLayer/TextFx
   Overlap note: TRANSFORM SURFACE (2026-09-13) lists FxPreviewTextureView + ImageBlendGlEffect
   but has been idle 9 days; my edits are single-line cover expressions in those files only.
 since: 2026-09-22
+HANDOFF 2026-09-23 (Opus 5.5): polarity alone was half the bug. GLSL fxShapeSd got a Y-UP uv against Y-DOWN
+  shapes, so every GL mask was mirrored top-to-bottom vs the Canvas export (and vs the drawer/outlines). Fixed once in
+  GLSL_MASK_FN (flip uv), plus fxCoverageOf = BlurMaskFilter's Gaussian, packShapes feather off the FRAME, and
+  MaskPathBuilder feather erase no longer stops at the frame edge. Harness MaskSdf 52/52. NOT device-verified.
+  Owed: JoyRaptor re-checks masks at 2:15-3:25, 41:34, 44:01-47:24 in preview before a keeper export (export lane installs).
 
 ## STUDIO_POLISH (2026-09-22 - Claude/Opus 5.5, JoyRaptor /goal: finish + polish the Studio editor)
 status: ACTIVE (2026-09-22 17:50 - found this board late; registering now. Every commit so far used a

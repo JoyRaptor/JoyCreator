@@ -203,9 +203,9 @@ public final class FxGlSource {
                 + "      else if (uMaskOp[i] > 0.5) inside = min(inside, 1.0 - cvg);\n"
                 + "      else inside = max(inside, cvg);\n"
                 + "    }\n"
-                // invert flips WHICH SIDE the effect lands on. Default: a mask cuts a hole, so
-                // the effect applies outside it.
-                + "    cover = uMaskInvert > 0.5 ? inside : 1.0 - inside;\n"
+                // HOLE BY DEFAULT — see fxMaskCover in MaskSdf.GLSL_MASK_FN, the single
+                // statement of this policy shared by all three GL consumers.
+                + "    cover = fxMaskCover(inside, uMaskInvert);\n"
                 + "  }\n"
                 // Key gates the SAME mix factor a mask does, on the colour already sitting there
                 // (BASE, not the graded result) — "key out this colour before grading", which is

@@ -27,6 +27,9 @@ public class MaskSdfTest {
         rotationIsAPixelRotationNotAShear();
         booleanFolds();
         effectCoverageRespectsInvert();
+        coverOfMirrorsFxMaskCover();
+        glslReadsShapesTopDown();
+        featherMatchesTheExportBlur();
         packing();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
@@ -141,6 +144,64 @@ public class MaskSdfTest {
         check("no mask at all means the effect lands everywhere",
                 MaskSdf.effectCoverage(new CompositingSpec(), 0.1f, 0.9f, W, H) == 1f);
         check("a null spec is the same answer", MaskSdf.effectCoverage(null, 0f, 0f, W, H) == 1f);
+    }
+
+    static void coverOfMirrorsFxMaskCover() {
+        // The polarity policy lives once in GLSL (fxMaskCover) and once in Java
+        // (coverOf). Pin both: the shared string must carry the hole-by-default
+        // reading, and the mirror must agree with it point for point.
+        String glsl = MaskSdf.GLSL_MASK_FN;
+        check("GLSL_MASK_FN carries the single polarity function",
+                glsl.contains("float fxMaskCover(float inside, float inv)"));
+        check("...with hole-by-default polarity",
+                glsl.contains("inv > 0.5 ? inside : 1.0 - inside"));
+        check("coverOf: hole by default shows outside",
+                Math.abs(MaskSdf.coverOf(0.2f, false) - 0.8f) < 0.001f);
+        check("coverOf: window shows inside",
+                Math.abs(MaskSdf.coverOf(0.2f, true) - 0.2f) < 0.001f);
+        check("coverOf agrees with effectCoverage inside the shape",
+                Math.abs(MaskSdf.coverOf(1f, false)
+                        - MaskSdf.effectCoverage(
+                                spec(shape(0.5f, 0.5f, 0.4f, 0.4f, 0f, 0f)),
+                                0.5f, 0.5f, W, H)) < 0.001f);
+    }
+
+    static void glslReadsShapesTopDown() {
+        // Every GL caller hands fxShapeSd a Y-UP frame coordinate; the shapes are Y-DOWN. The
+        // flip must live in the shared function, or each consumer mirrors the mask top-to-bottom
+        // against the Canvas export (2026-09-23: a box at Y 6% previewed at the bottom).
+        String glsl = MaskSdf.GLSL_MASK_FN;
+        check("fxShapeSd flips the GL point into the authored top-down space",
+                glsl.contains("vec2 p = (vec2(uv.x, 1.0 - uv.y) - geo.xy) * frame;"));
+        check("...and nothing else in the shared string reads raw uv",
+                glsl.indexOf("(uv - geo.xy)") < 0);
+    }
+
+    static void featherMatchesTheExportBlur() {
+        // The Canvas export blurs with BlurMaskFilter(r): Gaussian, sigma = 0.57735 r + 0.5.
+        float r = 60f;
+        float sigma = 0.57735f * r + 0.5f;
+        check("a soft edge is half covered exactly on the edge",
+                Math.abs(MaskSdf.coverageOf(0f, r) - 0.5f) < 0.001f);
+        // Normal CDF at one sigma: 0.8413 inside, 0.1587 outside.
+        check("one sigma inside matches the Gaussian (0.841)",
+                Math.abs(MaskSdf.coverageOf(-sigma, r) - 0.8413f) < 0.01f);
+        check("one sigma outside matches the Gaussian (0.159)",
+                Math.abs(MaskSdf.coverageOf(sigma, r) - 0.1587f) < 0.01f);
+        check("two sigma inside matches the Gaussian (0.977)",
+                Math.abs(MaskSdf.coverageOf(-2f * sigma, r) - 0.9772f) < 0.01f);
+        check("a hard edge keeps its half-pixel antialias band",
+                MaskSdf.coverageOf(-0.5f, 0f) > 0.99f && MaskSdf.coverageOf(0.5f, 0f) < 0.01f);
+        check("the GLSL states the same curve as the Java mirror",
+                MaskSdf.GLSL_MASK_FN.contains("float sigma = 0.57735 * feather + 0.5;")
+                && MaskSdf.GLSL_MASK_FN.contains("exp(clamp(1.702 * sd / sigma, -9.0, 9.0))"));
+
+        // Radius off the FRAME's shorter side, like MaskPathBuilder — not the shape's size.
+        CompositingSpec small = spec(shape(0.5f, 0.5f, 0.1f, 0.1f, 0f, 0f));
+        small.maskFeather = 0.5f;
+        float[] g = MaskSdf.packShapes(small, 1080f, 1920f);
+        check("a small soft box is blurred by a fraction of the FRAME, as the export does",
+                Math.abs(g[7] - CompositingSpec.featherRadiusPx(0.5f, 1080f, 1920f)) < 0.01f);
     }
 
     // ── Packing ─────────────────────────────────────────────────────────────

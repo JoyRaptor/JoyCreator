@@ -297,12 +297,33 @@ public final class MaskPathBuilder {
 
             if (spec.usesPerShapeFeather()) {
                 if (!drawPerShapeFeather(spec, bmp, w, h)) return null;
+                if (spec.invertMasks) {
+                    // drawPerShapeFeather composes `inside` (the combined shape region).
+                    // The erase pass needs the complement when the stack is a window:
+                    // visible = inside, so erase = full - inside. The combined path
+                    // gets this via buildErasePath; this path never read invertMasks
+                    // at all, so a window-mode stack with per-shape feather exported
+                    // inverted (erasing where it should keep). Complement here, once,
+                    // so the fold above stays the single statement of the booleans.
+                    Bitmap inner;
+                    try {
+                        inner = Bitmap.createBitmap(bw, bh, Bitmap.Config.ALPHA_8);
+                    } catch (OutOfMemoryError e) {
+                        return null;
+                    }
+                    new Canvas(inner).drawBitmap(bmp, 0f, 0f, null);
+                    new Canvas(bmp).drawColor(0xFFFFFFFF);
+                    Paint cut = new Paint();
+                    cut.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
+                    new Canvas(bmp).drawBitmap(inner, 0f, 0f, cut);
+                    inner.recycle();
+                }
             } else {
                 // EXACTLY the code that shipped: one combined path, one blur. Gated so every
                 // project written before per-shape feather provably renders unchanged.
-                Path erase = buildErasePath(spec, w, h);
-                if (erase == null) return null;
                 float radius = CompositingSpec.featherRadiusPx(spec.maskFeather, w, h);
+                Path erase = featherErasePath(spec, w, h, radius * 2f + 4f);
+                if (erase == null) return null;
                 Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
                 // Software canvas — this is the whole reason the blur lives in a Bitmap.
                 if (radius > 0f) {
@@ -313,6 +334,31 @@ public final class MaskPathBuilder {
             featherCache.put(key, bmp);
             return bmp;
         }
+    }
+
+    /**
+     * {@link #buildErasePath} for the BLUR, which must not stop at the frame edge.
+     *
+     * <p>buildErasePath is bounded by the frame rect, and a Gaussian treats everything past a
+     * path's edge as "not erased" — so wherever the erase region met the frame border, the blur
+     * faded it to half strength and the picture leaked back in along that border. That is most
+     * of the frame's edge for a window ("Show only inside the box"), and any edge a hole box
+     * runs off. The hole is the shapes themselves, unclipped; the window's complement is taken
+     * against a rect {@code pad} beyond the frame, past the blur's reach. Same geometry inside
+     * the frame, so the hard clip path and {@link #buildVisiblePath} are untouched.</p>
+     */
+    @Nullable
+    private static Path featherErasePath(@NonNull CompositingSpec spec, float w, float h,
+                                         float pad) {
+        if (!spec.hasMasks() || w <= 0 || h <= 0) return null;
+        MaskFold.Fold fold = MaskFold.foldOps(spec);
+        Path region = fold.sequential ? buildSequential(spec, fold, w, h)
+                                      : buildTwoBucket(spec, w, h);
+        if (!spec.invertMasks) return region;
+        Path erase = new Path();
+        erase.addRect(-pad, -pad, w + pad, h + pad, Path.Direction.CW);
+        erase.op(region, Path.Op.DIFFERENCE);
+        return erase;
     }
 
     /**
@@ -334,6 +380,10 @@ public final class MaskPathBuilder {
      * so a subtract still removes from the union of ALL adds rather than only from those before
      * it. Switching that to an ordered fold would move existing geometry the moment a user
      * touched a feather slider, which is the last thing this change may do.</p>
+     *
+     * <p>Composes {@code inside} (the combined shape region), NEVER the erase bitmap:
+     * {@link #featherBitmap} complements it when {@code invertMasks} turns the stack into
+     * a window. Reading invert here as well would be a second statement of the same fact.</p>
      *
      * @return false if the surface could not be prepared; the caller then falls back to no
      *         feather bitmap at all rather than to a wrong one

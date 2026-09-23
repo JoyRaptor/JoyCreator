@@ -785,3 +785,23 @@ only by diffing two saves of the same untouched project on the device.
   Context rooted in a temp dir; `AUDIOID_BASE=<rev>` runs the positive control).
 - Any model with a `final id = UUID.randomUUID()` needs a restore-with-id constructor, and the
   loader must call it. Check this whenever a model's id gets referenced from somewhere else.
+
+## 2026-09-23 - masks: the "polarity" fix was half the bug; the GL mask was also upside down
+
+**Pattern:** JoyRaptor's report ("export inverted, other layers vanish") was read as ONE
+polarity bug. The previous lane fixed the ternary and made the preview agree with the export
+on WHICH SIDE shows, but every GL consumer also evaluated the mask at a Y-UP frame uv against
+Y-DOWN authored shapes, so the mask sat mirrored top-to-bottom. For a centred box the mirror is
+invisible and the polarity looks like the whole story; for his box at Y 6% it is not. Fixing
+only polarity made the preview disagree with the export in a NEW way. The feather was also a
+2.3x-narrower linear ramp sized off the shape, not the frame.
+
+**Rules:**
+- Any shader that reads authored normalized coords must state the space of its uv. Check
+  how the SAME caller converts the object's own centre (here `1f - cy` in fxPipFor) and apply
+  the same conversion to every other authored coordinate in that shader.
+- A preview/export mask check needs an OFF-CENTRE, edge-touching shape. A centred one cannot
+  see a mirror.
+- Before "the preview is right, fix the export", check the preview against the UI that
+  authors the data (sliders, outlines, labels). Here the export matched the UI; the preview
+  did not.

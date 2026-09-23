@@ -951,9 +951,9 @@ public class ExportManager {
                 || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
         // Always a factory now: the sound bitrate (stereo, 256 kbps) applies at every quality.
         // Video stays at media3's own default when the quality is the default.
-        if (qualityIsDefault) return exportEncoderFactory(null);
+        if (qualityIsDefault) return exportEncoderFactory(project, null);
         int bitrate = suggestedExportBitrate(project);
-        if (bitrate <= 0) return exportEncoderFactory(null);
+        if (bitrate <= 0) return exportEncoderFactory(project, null);
         VideoEncoderSettings.Builder encoderSettings =
                 new VideoEncoderSettings.Builder().setBitrate(bitrate);
         // Optional H.264 Baseline-profile request for max-compatibility / low-bandwidth
@@ -971,7 +971,7 @@ public class ExportManager {
         FLog.d(TAG, "Export quality " + exportSettings.getQuality()
                 + " → requested video bitrate " + bitrate
                 + (REQUEST_BASELINE_PROFILE ? " (H.264 Baseline)" : ""));
-        return exportEncoderFactory(encoderSettings.build());
+        return exportEncoderFactory(project, encoderSettings.build());
     }
 
     // ── Single-frame image export (SPEC_C) ─────────────────────────────
@@ -1278,7 +1278,7 @@ public class ExportManager {
                     .setMaxDelayBetweenMuxerSamplesMs(300_000L)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC)
                     // Stereo 256 kbps — the chunked driver's ONE sound pass comes from here.
-                    .setEncoderFactory(exportEncoderFactory(null));
+                    .setEncoderFactory(exportEncoderFactory(project, null));
 
             builder.addListener(new Transformer.Listener() {
                 @Override
@@ -4505,13 +4505,101 @@ public class ExportManager {
         return chain;
     }
 
+    /** Top AAC bitrate, used when the project holds lossless or high-bitrate sound. */
+    static final int EXPORT_AUDIO_BITRATE_BEST = 320_000;
+
+    /** Per-export answer of {@link #chooseExportAudioBitrate}, keyed so parts reuse it. */
+    @Nullable private String audioBitrateKey = null;
+    private int audioBitrateChosen = EXPORT_AUDIO_BITRATE;
+
+    /**
+     * BEST SOUND IN, BEST SOUND OUT. Before encoding, read every audible source in the
+     * project (unmuted master clips, audio lanes, PiPs that carry sound) and size the AAC
+     * bitrate to the best of them: lossless (WAV/FLAC/PCM) or >= 256 kbps sources get 320 kbps,
+     * everything else 256 kbps - never below that, because the mix is re-encoded once more
+     * by YouTube. Each source is written to the trace so a thin music file is visible.
+     */
+    private int chooseExportAudioBitrate(@Nullable FaditorProject project) {
+        if (project == null) return EXPORT_AUDIO_BITRATE;
+        String key = project.getId() + "@" + project.getLastModified();
+        if (key.equals(audioBitrateKey)) return audioBitrateChosen;
+        java.util.LinkedHashSet<Uri> sources = new java.util.LinkedHashSet<>();
+        Timeline tl = project.getTimeline();
+        for (int i = 0; i < tl.getClipCount(); i++) {
+            Clip c = tl.getClip(i);
+            if (!c.isAudioMuted() && !c.isImageClip() && c.getSourceUri() != null) {
+                sources.add(c.getSourceUri());
+            }
+        }
+        for (AudioClip ac : tl.getAudioClips()) {
+            if (!ac.isMuted() && ac.getSourceUri() != null) sources.add(ac.getSourceUri());
+        }
+        for (Clip oc : tl.getOverlayClips()) {
+            if (oc.isOverlayAudioEnabled() && oc.getSourceUri() != null) sources.add(oc.getSourceUri());
+        }
+        boolean best = false;
+        String bestName = "none";
+        int bestKbps = -1;
+        for (Uri u : sources) {
+            android.media.MediaExtractor ex = new android.media.MediaExtractor();
+            try {
+                ex.setDataSource(context, u, null);
+                for (int t = 0; t < ex.getTrackCount(); t++) {
+                    android.media.MediaFormat f = ex.getTrackFormat(t);
+                    String mime = f.getString(android.media.MediaFormat.KEY_MIME);
+                    if (mime == null || !mime.startsWith("audio/")) continue;
+                    int sr = f.containsKey(android.media.MediaFormat.KEY_SAMPLE_RATE)
+                            ? f.getInteger(android.media.MediaFormat.KEY_SAMPLE_RATE) : -1;
+                    int ch = f.containsKey(android.media.MediaFormat.KEY_CHANNEL_COUNT)
+                            ? f.getInteger(android.media.MediaFormat.KEY_CHANNEL_COUNT) : -1;
+                    int kbps = f.containsKey(android.media.MediaFormat.KEY_BIT_RATE)
+                            ? f.getInteger(android.media.MediaFormat.KEY_BIT_RATE) / 1000 : -1;
+                    boolean lossless = mime.equals("audio/raw") || mime.equals("audio/flac")
+                            || mime.contains("wav");
+                    if (kbps < 0 && ex.getTrackCount() == 1
+                            && f.containsKey(android.media.MediaFormat.KEY_DURATION)) {
+                        // Audio-only file with no declared rate: size over length.
+                        long durUs = f.getLong(android.media.MediaFormat.KEY_DURATION);
+                        long bytes = -1L;
+                        try (android.content.res.AssetFileDescriptor fd = context
+                                .getContentResolver().openAssetFileDescriptor(u, "r")) {
+                            if (fd != null) bytes = fd.getLength();
+                        } catch (Exception ignored) { }
+                        if (bytes > 0 && durUs > 0) kbps = (int) (bytes * 8L * 1000L / durUs);
+                    }
+                    String name = u.getLastPathSegment() != null ? u.getLastPathSegment() : "?";
+                    if (name.length() > 48) name = name.substring(name.length() - 48);
+                    trace("AUDIO_SOURCE " + name + " " + mime + " " + sr + "Hz " + ch + "ch "
+                            + (kbps > 0 ? kbps + "kbps" : "?kbps") + (lossless ? " lossless" : ""));
+                    if (lossless || kbps >= 256) best = true;
+                    if (lossless || kbps > bestKbps) {
+                        bestKbps = lossless ? Integer.MAX_VALUE : kbps;
+                        bestName = name;
+                    }
+                    break;
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "audio probe failed for " + u, e);
+            } finally {
+                ex.release();
+            }
+        }
+        int chosen = best ? EXPORT_AUDIO_BITRATE_BEST : EXPORT_AUDIO_BITRATE;
+        trace("AUDIO_OUT " + EXPORT_AUDIO_SAMPLE_RATE + "Hz stereo AAC " + (chosen / 1000)
+                + "kbps (best source: " + bestName + ")");
+        audioBitrateKey = key;
+        audioBitrateChosen = chosen;
+        return chosen;
+    }
+
     /** Encoder factory carrying the stereo audio bitrate, plus video settings when given. */
     @NonNull
-    private DefaultEncoderFactory exportEncoderFactory(@Nullable VideoEncoderSettings video) {
+    private DefaultEncoderFactory exportEncoderFactory(@Nullable FaditorProject project,
+                                                       @Nullable VideoEncoderSettings video) {
         DefaultEncoderFactory.Builder b = new DefaultEncoderFactory.Builder(context)
                 .setRequestedAudioEncoderSettings(
                         new androidx.media3.transformer.AudioEncoderSettings.Builder()
-                                .setBitrate(EXPORT_AUDIO_BITRATE).build());
+                                .setBitrate(chooseExportAudioBitrate(project)).build());
         if (video != null) b.setRequestedVideoEncoderSettings(video);
         return b.build();
     }

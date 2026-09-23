@@ -231,7 +231,10 @@ public class LoudnessAnalyzer {
         String applyCmd = String.format(Locale.US,
                 "-y -i \"%s\" -af \"%sloudnorm=measured_I=%s:measured_TP=%s:measured_LRA=%s"
                         + ":measured_thresh=%s:offset=%s:linear=true:I=%.1f:TP=%.1f:LRA=%.1f\" "
-                        + "-c:v copy -c:a aac -b:a 192k -ar 48000 \"%s\"",
+                        // -f mp4: the output is "<name>.loudnorm.tmp", and ffmpeg picks the
+                        // container from the extension — without this every loudness pass
+                        // failed to open its output and the export shipped un-normalized.
+                        + "-c:v copy -c:a aac -b:a 192k -ar 48000 -f mp4 \"%s\"",
                 in, cleanChain ? CLEAN_CHAIN_PREFIX : "",
                 mI, mTp, mLra, mTh, mOff, targetLUFS, TARGET_TP, TARGET_LRA,
                 outFile.getAbsolutePath());

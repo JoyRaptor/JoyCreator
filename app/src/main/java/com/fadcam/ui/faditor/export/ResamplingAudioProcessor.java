@@ -38,6 +38,16 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
     /** Last input frame of the previously queued chunk (interpolation partner), null at stream start. */
     private short[] tail;
     private boolean endHandled;
+    /**
+     * 2026-09-22 drift fix: exact-length accounting. The end-of-stream tail used to emit
+     * up to ~2 frames of fade-to-silence per ITEM; over a 19-item export that gained
+     * ~477 ms of audio with no video (measured: audio 1835.096 s vs video 1834.619 s on
+     * the 30:35 partial — ~1 AAC frame per item). Counting input vs emitted frames lets
+     * the tail emit exactly what the stream is owed — no more, no less — so per-item
+     * rounding can no longer accumulate along the timeline.
+     */
+    private long totalInputFrames;
+    private long emittedFrames;
 
     public ResamplingAudioProcessor(int sourceSampleRate, int targetSampleRate) {
         if (sourceSampleRate <= 0 || targetSampleRate <= 0) {
@@ -58,6 +68,8 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
         this.carry = 0.0;
         this.tail = null;
         this.endHandled = false;
+        this.totalInputFrames = 0L;
+        this.emittedFrames = 0L;
         // Output format has the target sample rate; channel count and encoding unchanged.
         return new AudioFormat(targetSampleRate, channelCount, inputAudioFormat.encoding);
     }
@@ -69,6 +81,7 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
 
         ShortBuffer inShort = inputBuffer.asShortBuffer();
         int frames = remaining / (2 * channelCount); // 2 bytes per sample (16-bit)
+        totalInputFrames += frames;
         boolean hasTail = tail != null;
         // Effective stream: [tail] ++ current chunk; index 0 is tail when present.
         int effFrames = frames + (hasTail ? 1 : 0);
@@ -110,6 +123,7 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
         // the bytes written, or every drained buffer carries capacity-sized garbage
         // (and buffer reuse in replaceOutputBuffer re-ships stale samples).
         output.limit(outShort.position() * 2);
+        emittedFrames += outShort.position();
     }
 
     /** Sample ch of effective-stream index i; index 0 is the retained tail, negatives/overflow read as 0. */
@@ -125,18 +139,32 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
     @Override
     protected void onQueueEndOfStream() {
         // queueEndOfStream() is final in this media3 tree and its default hook is a no-op,
-        // so the resampler owns its tail: emit any outputs still owed inside/beyond the
-        // retained last frame, interpolating against silence.
+        // so the resampler owns its tail.
+        //
+        // 2026-09-22 exact-length fix: the old code emitted every output position up to
+        // one step past the retained last frame — up to ~2 invented fade-to-silence
+        // frames per ITEM. Over a 19-item export that gained ~477 ms of audio with no
+        // video (audio 1835.096 s vs video 1834.619 s on the 30:35 partial, ~1 AAC frame
+        // per item). Now the tail emits exactly what the stream is owed —
+        // round(totalIn / step) minus what went out — and nothing when owed <= 0, so
+        // per-item rounding can no longer accumulate along the timeline.
         if (endHandled || channelCount == 0) return;
         endHandled = true;
 
-        int maxOutFrames = (int) (1.0 / step) + 2;
+        long expectedTotal = Math.round(totalInputFrames / step);
+        long owed = expectedTotal - emittedFrames;
+        // Never invent more than the old code could have (≈2 frames); the min() with
+        // owed is what stops the accumulation, the cap is belt-and-suspenders.
+        long toEmit = Math.max(0L, Math.min(owed, 2L));
+
+        int maxOutFrames = (int) toEmit + 1;
         ByteBuffer output = replaceOutputBuffer(maxOutFrames * channelCount * 2);
         output.order(ByteOrder.nativeOrder());
         ShortBuffer outShort = output.asShortBuffer();
 
         double pos = carry;
-        while (pos <= 1.0 + 1e-9) { // index 0 = tail frame, index 1 = implicit silence
+        long emitted = 0;
+        while (emitted < toEmit && pos <= 1.0 + 1e-9) { // 0 = tail, 1 = implicit silence
             int i0 = (int) pos;
             double frac = pos - i0;
             for (int ch = 0; ch < channelCount; ch++) {
@@ -147,7 +175,9 @@ public class ResamplingAudioProcessor extends BaseAudioProcessor {
                 outShort.put((short) interpolated);
             }
             pos += step;
+            emitted++;
         }
+        emittedFrames += outShort.position();
         tail = null;
         carry = 0.0;
         output.position(0);

@@ -1,4 +1,4 @@
-﻿<resources xmlns:tools="http://schemas.android.com/tools">
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name" translatable="false">Joy Creator</string>
     <!-- The capture mode switcher. These were the literal strings "FadCam", "FadRec" and
          "FadMic", hardcoded in mode_switcher_segmented.xml — three product names from the
@@ -1094,6 +1094,12 @@
     <string name="faditor_cancel">Cancel</string>
     <string name="faditor_exporting">Exporting…</string>
     <string name="faditor_exporting_percent">Exporting… %1$d%%</string>
+    <string name="faditor_export_preparing">Preparing export…</string>
+    <string name="faditor_export_compositing">Compositing video…</string>
+    <string name="faditor_export_finalizing">Finalizing…</string>
+    <string name="faditor_font_picker_title">Font</string>
+    <string name="faditor_font_import">Import font…</string>
+    <string name="faditor_font_row_selected">%1$s (selected)</string>
     <string name="faditor_export_success">Video exported successfully</string>
     <string name="faditor_export_error">Export failed: %1$s</string>
     <string name="faditor_export_in_progress">Export already in progress</string>

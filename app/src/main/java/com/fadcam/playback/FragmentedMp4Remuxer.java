@@ -91,6 +91,63 @@ public class FragmentedMp4Remuxer {
     }
     
     /**
+     * Home of the remuxed files. PERSISTENT (files/), not the cache dir.
+     *
+     * <p>2026-09-21: a 48-minute export died at ~28 min with ENOENT on its 2.2 GB
+     * remuxed copy because remuxes lived in {@code getCacheDir()}, which Android may
+     * empty under storage pressure — exactly when a GB-scale export is running. A file
+     * an hour-long export depends on must survive pressure; it is cleared only on
+     * uninstall (acceptable) or by {@link #pruneStaleRemuxedFiles} below.</p>
+     */
+    public File remuxDir() {
+        File dir = new File(context.getFilesDir(), "faditor/remuxed");
+        if (!dir.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+        }
+        maybeMigrateLegacyCacheDir(dir);
+        return dir;
+    }
+
+    /** Old, evictable home. Read-only source for the one-time migration; never written. */
+    private File legacyCacheDir() {
+        // NOTE: getCacheDir() spelled out on purpose — remuxDir() must never route here.
+        //noinspection ConstantConditions
+        File c = context.getCacheDir();
+        return new File(c, "remuxed");
+    }
+
+    private static final java.util.concurrent.atomic.AtomicBoolean legacyMigrated =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
+
+    /**
+     * One-time, one-direction move of surviving entries from the old cache dir into
+     * {@link #remuxDir()} (same partition, so this is a rename, not a 2.2 GB copy).
+     * Skips live {@code .part} temp files; failures are left behind and simply re-remux
+     * on next use. Runs once per process.
+     */
+    private void maybeMigrateLegacyCacheDir(File target) {
+        if (!legacyMigrated.compareAndSet(false, true)) return;
+        try {
+            File legacy = legacyCacheDir();
+            File[] files = legacy.listFiles();
+            if (files == null || files.length == 0) return;
+            int moved = 0;
+            for (File f : files) {
+                if (!f.isFile() || f.getName().endsWith(".part.mp4")) continue;
+                File dest = new File(target, f.getName());
+                if (dest.exists()) continue; // already migrated by an earlier run
+                if (f.renameTo(dest)) moved++;
+            }
+            if (moved > 0) {
+                FLog.i(TAG, "Migrated " + moved + " remuxed file(s) out of the cache dir");
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Remux cache migration failed (will re-remux on demand)", e);
+        }
+    }
+
+    /**
      * Gets the path for the remuxed version of a file.
      * The remuxed file is stored in a cache directory with a clean name.
      *
@@ -98,10 +155,7 @@ public class FragmentedMp4Remuxer {
      * @return Path to the remuxed file (may not exist yet).
      */
     public File getRemuxedFile(File originalFile) {
-        File cacheDir = new File(context.getCacheDir(), "remuxed");
-        if (!cacheDir.exists()) {
-            cacheDir.mkdirs();
-        }
+        File cacheDir = remuxDir();
         
         String name = originalFile.getName();
         String baseName = name.substring(0, name.lastIndexOf('.'));
@@ -349,7 +403,7 @@ public class FragmentedMp4Remuxer {
      * @param maxAgeDays Maximum age in days for cached files.
      */
     public void cleanupCache(int maxAgeDays) {
-        File cacheDir = new File(context.getCacheDir(), "remuxed");
+        File cacheDir = remuxDir();
         if (!cacheDir.exists()) {
             return;
         }
@@ -375,12 +429,66 @@ public class FragmentedMp4Remuxer {
     }
     
     /**
+     * Prune stale remuxed files. Safe to call when no export/remux is running (e.g.
+     * after an export finishes): deletes interrupted-remux {@code .part} files older
+     * than a day (never a live one), finals untouched for {@code maxAgeDays}, then —
+     * if the directory still exceeds {@code maxTotalBytes} — oldest first.
+     * The file the export just used is hours fresh, so a post-export prune can never
+     * take it.
+     *
+     * @param maxAgeDays   finals untouched this long are deleted.
+     * @param maxTotalBytes size cap enforced oldest-first after the age pass.
+     * @return number of files deleted.
+     */
+    public int pruneStaleRemuxedFiles(int maxAgeDays, long maxTotalBytes) {
+        File dir = remuxDir();
+        File[] files = dir.listFiles();
+        if (files == null || files.length == 0) return 0;
+        long now = System.currentTimeMillis();
+        long partTtlMs = 24L * 60 * 60 * 1000;
+        long maxAgeMs = maxAgeDays * 24L * 60 * 60 * 1000;
+        int deleted = 0;
+        java.util.List<File> finals = new java.util.ArrayList<>();
+        for (File f : files) {
+            if (!f.isFile()) continue;
+            if (f.getName().endsWith(".part.mp4")) {
+                if (now - f.lastModified() > partTtlMs && f.delete()) deleted++;
+                continue;
+            }
+            if (now - f.lastModified() > maxAgeMs) {
+                if (f.delete()) deleted++;
+            } else {
+                finals.add(f);
+            }
+        }
+        if (maxTotalBytes > 0) {
+            long total = 0;
+            for (File f : finals) total += f.length();
+            if (total > maxTotalBytes) {
+                finals.sort((a, b) -> Long.compare(a.lastModified(), b.lastModified()));
+                for (File f : finals) {
+                    if (total <= maxTotalBytes) break;
+                    long len = f.length();
+                    if (f.delete()) {
+                        deleted++;
+                        total -= len;
+                    }
+                }
+            }
+        }
+        if (deleted > 0) {
+            FLog.i(TAG, "Pruned " + deleted + " stale remuxed file(s)");
+        }
+        return deleted;
+    }
+
+    /**
      * Gets the total size of all cached remuxed files in bytes.
      *
      * @return Size in bytes, or 0 if cache directory doesn't exist.
      */
     public long getTotalCacheSize() {
-        File cacheDir = new File(context.getCacheDir(), "remuxed");
+        File cacheDir = remuxDir();
         if (!cacheDir.exists()) return 0;
         
         long totalSize = 0;
@@ -403,7 +511,7 @@ public class FragmentedMp4Remuxer {
      * @return Size in bytes of matching cached files.
      */
     public long getCacheSizeForPrefix(String prefix) {
-        File cacheDir = new File(context.getCacheDir(), "remuxed");
+        File cacheDir = remuxDir();
         if (!cacheDir.exists()) return 0;
         
         long totalSize = 0;
@@ -426,7 +534,7 @@ public class FragmentedMp4Remuxer {
      * @return Number of files deleted.
      */
     public int deleteCacheForPrefix(String prefix) {
-        File cacheDir = new File(context.getCacheDir(), "remuxed");
+        File cacheDir = remuxDir();
         if (!cacheDir.exists()) return 0;
         
         int deleted = 0;
@@ -455,7 +563,7 @@ public class FragmentedMp4Remuxer {
      * @return Number of files deleted.
      */
     public int clearAllCache() {
-        File cacheDir = new File(context.getCacheDir(), "remuxed");
+        File cacheDir = remuxDir();
         if (!cacheDir.exists()) return 0;
         
         int deleted = 0;

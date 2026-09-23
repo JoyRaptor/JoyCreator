@@ -69,9 +69,20 @@ public class ExportService extends Service {
     public static final String ACTION_EXPORT_COMPLETED = "com.fadcam.EXPORT_COMPLETED";
     public static final String ACTION_EXPORT_ERROR = "com.fadcam.EXPORT_ERROR";
     public static final String ACTION_EXPORT_CANCELLED = "com.fadcam.EXPORT_CANCELLED";
-    
+    /** FIX-6: the muxer finished; the finalize phase (loudness/SAF) is running. */
+    public static final String ACTION_EXPORT_FINALIZING = "com.fadcam.EXPORT_FINALIZING";
+
     public static final String EXTRA_OUTPUT_PATH = "output_path";
     public static final String EXTRA_PROGRESS = "progress";
+    /** Chunked export phase label ("Part 2 of 6", "Sound", "Joining"). */
+    public static final String EXTRA_PHASE = "export_phase";
+    /** FIX-6: approximate composition item (see ExportListener), -1 unknown. */
+    public static final String EXTRA_PROGRESS_ITEM = "progress_item";
+    public static final String EXTRA_PROGRESS_ITEMS = "progress_items";
+    /** FIX-6: exact staging bytes written, -1 unknown. */
+    public static final String EXTRA_PROGRESS_BYTES = "progress_bytes";
+    /** FIX-6: pace-measured remaining ms, -1 unknown. */
+    public static final String EXTRA_PROGRESS_ETA_MS = "progress_eta_ms";
     public static final String EXTRA_ERROR_MESSAGE = "error_message";
     public static final String EXTRA_ERROR_CLASS = "error_class";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
@@ -114,6 +125,50 @@ public class ExportService extends Service {
     private NotificationManager notificationManager;
     private boolean isExporting = false;
     private long exportStartTimeMs;
+
+    /**
+     * Keeps the CPU running while an export is in flight. A foreground service keeps the
+     * PROCESS alive but does not stop the phone suspending: measured on JoyRaptor's Note 20
+     * (2026-09-23), a busy process with the screen off was asleep 30-45% of the wall clock and
+     * ran at half speed, back to 100% the instant the screen woke. Every long export that
+     * "flew, then crawled" crawled from the moment the screen timed out (5 min on that phone).
+     * Released in onDestroy, which every terminal path (done, error, cancel) reaches through
+     * stopSelf; the timeout is only a backstop so a wedged export can never drain the battery.
+     */
+    @Nullable private android.os.PowerManager.WakeLock exportWakeLock;
+    private static final long EXPORT_WAKELOCK_MAX_MS = 8L * 60L * 60L * 1000L;
+
+    private void acquireExportWakeLock() {
+        try {
+            if (exportWakeLock == null) {
+                android.os.PowerManager pm =
+                        (android.os.PowerManager) getSystemService(Context.POWER_SERVICE);
+                if (pm == null) return;
+                exportWakeLock = pm.newWakeLock(
+                        android.os.PowerManager.PARTIAL_WAKE_LOCK, "JoyCreator:export");
+                exportWakeLock.setReferenceCounted(false);
+            }
+            exportWakeLock.acquire(EXPORT_WAKELOCK_MAX_MS);
+            FLog.d(TAG, "Export wake lock held");
+        } catch (Exception e) {
+            FLog.w(TAG, "Export wake lock unavailable — export will slow if the screen turns off", e);
+        }
+    }
+
+    private void releaseExportWakeLock() {
+        try {
+            if (exportWakeLock != null && exportWakeLock.isHeld()) {
+                exportWakeLock.release();
+                FLog.d(TAG, "Export wake lock released");
+            }
+        } catch (Exception ignored) { }
+    }
+    /**
+     * FIX-2: phase label overriding the notification text while set (e.g. the cache-warm
+     * phase, which remuxes GB-scale files for minutes). Cleared when the real export starts.
+     */
+    @Nullable
+    private String progressTextOverride = null;
     /** Single-thread executor used to warm the fMP4 remux cache off the main thread. */
     @Nullable
     private ExecutorService remuxExecutor;
@@ -122,6 +177,40 @@ public class ExportService extends Service {
     private void sendExportBroadcast(@NonNull Intent broadcast) {
         broadcast.setPackage(getPackageName());
         sendBroadcast(broadcast);
+    }
+
+    /**
+     * FIX-7: terminal-result ledger for the editor's onResume. Broadcasts are missed
+     * whenever the editor is dead; the :export process is usually dead by the time the
+     * user returns, so the result must outlive both in shared prefs. The editor shows
+     * it once (consumed marker) and clears it.
+     */
+    private void recordTerminalResult(@NonNull String status, @Nullable String outputPath,
+                                      @Nullable String errorMessage,
+                                      @Nullable String errorClass) {
+        try {
+            getSharedPreferences("faditor_export", MODE_PRIVATE).edit()
+                    .putString("last_export_status", status)
+                    .putString("last_export_path", outputPath)
+                    .putString("last_export_error", errorMessage)
+                    .putString("last_export_error_class", errorClass)
+                    .putLong("last_export_time", System.currentTimeMillis())
+                    .putLong("last_export_consumed", 0L)
+                    .apply();
+        } catch (Exception e) {
+            FLog.w(TAG, "recordTerminalResult failed", e);
+        }
+    }
+
+    /** FIX-7: mark the ledger consumed (called by the editor after showing it live). */
+    public static void markTerminalResultConsumed(@NonNull Context context, long resultTime) {
+        try {
+            android.content.SharedPreferences prefs =
+                    context.getSharedPreferences("faditor_export", MODE_PRIVATE);
+            if (prefs.getLong("last_export_time", 0L) == resultTime) {
+                prefs.edit().putLong("last_export_consumed", resultTime).apply();
+            }
+        } catch (Exception ignored) {}
     }
 
     // ── Service lifecycle ────────────────────────────────────────────
@@ -181,6 +270,7 @@ public class ExportService extends Service {
             remuxExecutor.shutdownNow();
             remuxExecutor = null;
         }
+        releaseExportWakeLock();
         FLog.d(TAG, "Service destroyed");
     }
 
@@ -244,6 +334,7 @@ public class ExportService extends Service {
 
         // Show initial foreground notification
         startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
+        acquireExportWakeLock();
 
         // Create ExportManager and run
         SharedPreferencesManager prefsManager = SharedPreferencesManager.getInstance(this);
@@ -273,11 +364,54 @@ public class ExportService extends Service {
 
             @Override
             public void onExportProgress(float progress) {
+                // Old coarse path (kept for interface compat): the poller always calls
+                // the detailed variant below, which carries this same broadcast.
+                onExportProgressDetailed(progress, -1, -1, -1L, -1L);
+            }
+
+            @Override
+            public void onExportProgressDetailed(float progress, int itemIndex,
+                                                 int itemCount, long bytesWritten,
+                                                 long etaRemainingMs) {
                 int percent = (int) (progress * 100);
-                updateNotification(percent);
+                lastNotifiedPercent = percent;
+                lastNotifiedProgress = progress;
+                updateNotificationDetailed(percent, itemIndex, itemCount,
+                        bytesWritten, etaRemainingMs);
                 Intent broadcast = new Intent(ACTION_EXPORT_PROGRESS);
                 broadcast.putExtra(EXTRA_PROGRESS, progress);
+                if (currentPhase != null) broadcast.putExtra(EXTRA_PHASE, currentPhase);
+                broadcast.putExtra(EXTRA_PROGRESS_ITEM, itemIndex);
+                broadcast.putExtra(EXTRA_PROGRESS_ITEMS, itemCount);
+                broadcast.putExtra(EXTRA_PROGRESS_BYTES, bytesWritten);
+                broadcast.putExtra(EXTRA_PROGRESS_ETA_MS, etaRemainingMs);
                 sendExportBroadcast(broadcast);
+            }
+
+            @Override
+            public void onChunkPhase(@NonNull String phase) {
+                currentPhase = phase;
+                // Refresh the notification line with the phase; the next progress poll
+                // overwrites with full detail anyway.
+                oneShotText = getString(R.string.faditor_exporting_percent,
+                        lastNotifiedPercent) + " • " + phase;
+                notificationManager.notify(NOTIFICATION_ID,
+                        buildProgressNotification(lastNotifiedPercent, false));
+                oneShotText = null;
+                Intent broadcast = new Intent(ACTION_EXPORT_PROGRESS);
+                broadcast.putExtra(EXTRA_PROGRESS, lastNotifiedProgress);
+                broadcast.putExtra(EXTRA_PHASE, phase);
+                sendExportBroadcast(broadcast);
+            }
+
+            @Override
+            public void onExportFinalizing() {
+                // FIX-6: the muxer is done; loudness/SAF still run. The notification must
+                // say so instead of sitting at a stuck percent or vanishing.
+                progressTextOverride = getString(R.string.faditor_export_finalizing);
+                notificationManager.notify(NOTIFICATION_ID,
+                        buildProgressNotification(100, false));
+                sendExportBroadcast(new Intent(ACTION_EXPORT_FINALIZING));
             }
 
             @Override
@@ -285,10 +419,22 @@ public class ExportService extends Service {
                                           @NonNull androidx.media3.transformer.ExportResult result) {
                 FLog.d(TAG, "Export completed: " + outputPath);
                 isExporting = false;
+                recordTerminalResult("completed", outputPath, null, null);
+                // FIX-1: post-export prune (30 days, 8 GB cap). The file just written is
+                // minutes fresh so the age rule can never take it; failures skip this so
+                // their helpers survive a retry.
+                try {
+                    new FragmentedMp4Remuxer(ExportService.this)
+                            .pruneStaleRemuxedFiles(30, 8L * 1024 * 1024 * 1024);
+                    new PreTrimCache(ExportService.this)
+                            .prunePreTrims(14, 6L * 1024 * 1024 * 1024);
+                } catch (Exception e) {
+                    FLog.w(TAG, "Post-export cache prune failed", e);
+                }
                 // Remove the ongoing 3001 (it doubles as the isRunning() truth) and re-post
                 // the completion under its own id.
                 stopForeground(STOP_FOREGROUND_REMOVE);
-                showCompletionNotification(audioOnly);
+                showCompletionNotification(audioOnly, outputPath);
                 Intent broadcast = new Intent(ACTION_EXPORT_COMPLETED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
                 broadcast.putExtra(EXTRA_AUDIO_ONLY, audioOnly);
@@ -300,6 +446,8 @@ public class ExportService extends Service {
             public void onExportError(@NonNull Exception error) {
                 FLog.e(TAG, "Export failed", error);
                 isExporting = false;
+                recordTerminalResult("error", null, error.getMessage(),
+                        error.getClass().getName());
                 stopForeground(STOP_FOREGROUND_REMOVE);
                 showErrorNotification(error.getMessage());
                 Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
@@ -309,6 +457,12 @@ public class ExportService extends Service {
                 stopSelf();
             }
         });
+
+        // Durable trace opens BEFORE warming so the remux/probe lines survive logcat
+        // rotation on multi-hour exports (2026-09-22: a 2h run's PROBE lines were gone).
+        try {
+            exportManager.openTrace(audioOnly ? "audio" : (frameTimeMs != null ? "frame" : "video"));
+        } catch (Exception ignored) {}
 
         // ── Warm caches off the main thread BEFORE exporting ──
         // (1) fMP4 remux cache: raw FadCam recordings (file:// fragmented MP4s) are not seekable to
@@ -323,29 +477,51 @@ public class ExportService extends Service {
         final FaditorProject exportProject = project;
         final List<File> needsRemux = collectSourcesNeedingRemux(exportProject);
         final List<Clip> needsReverse = collectClipsNeedingReverse(exportProject);
-        if (needsRemux.isEmpty() && needsReverse.isEmpty()) {
-            // Common case: nothing to warm — behave exactly as before.
+        // 2026-09-22 pre-trim: every non-image file:// window from a BIG source gets its
+        // own small flat file, so no item boundary ever seeks deep into a GB file on a hot
+        // phone. Lookup-only downstream; a missing/failed trim silently falls back.
+        // Collected BEFORE the early return: the 12:17 run proved a cached remux skips
+        // the whole warm phase, which silently skipped the probe AND the pre-trims too.
+        final List<Clip> needsPreTrim = collectWindowsNeedingPreTrim(exportProject);
+        if (!audioOnly && frameTimeMs == null
+                && needsRemux.isEmpty() && needsReverse.isEmpty() && needsPreTrim.isEmpty()) {
+            // Common case: nothing to warm — behave exactly as before. (Video exports
+            // always warm: the decode probe is cheap insurance even with zero bakes.)
             dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg);
             return;
         }
 
         FLog.i(TAG, "Warming caches before export: " + needsRemux.size()
-                + " fMP4 remux(es), " + needsReverse.size() + " reverse bake(s)");
+                + " fMP4 remux(es), " + needsReverse.size() + " reverse bake(s), "
+                + needsPreTrim.size() + " pre-trim(s)");
+        progressTextOverride = getString(R.string.faditor_export_preparing);
+        notificationManager.notify(NOTIFICATION_ID, buildProgressNotification(0, true));
         final FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
         final ReversedSegmentCache reversedCache = new ReversedSegmentCache(this);
+        final PreTrimCache preTrimmer = new PreTrimCache(this);
         if (remuxExecutor == null) {
             remuxExecutor = Executors.newSingleThreadExecutor();
         }
         remuxExecutor.execute(() -> {
+            // FIX-2 (2026-09-21): verify AFTER warming — a remux that fails (or whose
+            // output vanishes, cf. the 11:32 ENOENT) must fail FAST here with a retryable
+            // message, never 28 minutes into the export. One synchronous retry; the
+            // thread is already background.
+            final List<String> unpreparable = new ArrayList<>();
             for (File f : needsRemux) {
                 try {
                     File out = remuxer.remuxSync(f);
-                    if (out == null) {
-                        FLog.w(TAG, "Remux failed for " + f.getName()
-                                + " — export may fail for this trimmed source");
+                    if (out == null || !remuxer.hasRemuxedVersion(f)) {
+                        FLog.w(TAG, "Remux missing for " + f.getName() + " — retrying once");
+                        out = remuxer.remuxSync(f);
+                    }
+                    if (out == null || !remuxer.hasRemuxedVersion(f)) {
+                        FLog.e(TAG, "Remux unrecoverable for " + f.getName());
+                        unpreparable.add(f.getName());
                     }
                 } catch (Exception e) {
                     FLog.w(TAG, "Remux threw for " + f.getName(), e);
+                    unpreparable.add(f.getName());
                 }
             }
             // Reverse bakes AFTER remuxing, so a raw-fMP4 ping-pong source reverses from its
@@ -363,9 +539,81 @@ public class ExportService extends Service {
                     FLog.w(TAG, "Reverse bake threw for a ping-pong clip", e);
                 }
             }
+            // 2026-09-22 pre-trim bakes AFTER remuxing (bakes cut FROM the flat remux
+            // when one applies — fast indexed seek for ffmpeg's own -ss). Failures are
+            // non-fatal by design: the export falls back to the resolved URI.
+            // Single-frame exports skip bakes AND probe: one frame needs neither.
+            final boolean fullProbe = frameTimeMs == null;
+            for (Clip c : needsPreTrim) {
+                if (!fullProbe) break;
+                try {
+                    File input = resolvePreTrimInputFile(c, remuxer);
+                    if (input == null) continue;
+                    File out = preTrimmer.bakeSync(input, c.getInPointMs(), c.getOutPointMs());
+                    if (out == null) {
+                        FLog.w(TAG, "Pre-trim unavailable for a clip window — export will "
+                                + "seek the source file for that item (today's behavior)");
+                    }
+                } catch (Exception e) {
+                    FLog.w(TAG, "Pre-trim threw for a clip window", e);
+                }
+            }
+            // FIX-3: cold-baseline decode probe on the same background thread, AFTER
+            // the remuxes it reads are in place. Minutes here save a 74-minute stall.
+            ExportManager.WindowProbeFailure probeFailure = null;
+            try {
+                if (fullProbe && exportManager != null) {
+                    probeFailure = exportManager.probeClipWindows(exportProject);
+                }
+            } catch (Exception e) {
+                FLog.w(TAG, "Probe threw (proceeding to export anyway)", e);
+            }
+            final ExportManager.WindowProbeFailure probeFailed = probeFailure;
             // Hand back to the main thread to start the export (ExportManager
-            // runs its Transformer on the main thread, as today).
+            // runs its Transformer on the main thread, as today) — or fail fast when
+            // a source could not be prepared (FIX-2: never a 28-minute delayed ENOENT).
+            final List<String> failed = new ArrayList<>(unpreparable);
             new Handler(Looper.getMainLooper()).post(() -> {
+                progressTextOverride = null;
+                if (probeFailed != null) {
+                    isExporting = false;
+                    String srcName = probeFailed.uri.substring(
+                            probeFailed.uri.lastIndexOf('/') + 1);
+                    long srcSec = probeFailed.inMs / 1000;
+                    String msg = "clip " + (probeFailed.clipIndex + 1) + " could not be read"
+                            + " at " + (srcSec / 60) + ":" + String.format("%02d", srcSec % 60)
+                            + " in " + srcName + " (" + probeFailed.reason + ")."
+                            + " Let the phone cool down, keep it plugged in and retry —"
+                            + " or trim around that spot. Your project is safe";
+                    FLog.e(TAG, "Export pre-flight probe failed: " + msg
+                            + " codec=" + probeFailed.codecName
+                            + " costMs=" + probeFailed.costMs);
+                    stopForeground(STOP_FOREGROUND_REMOVE);
+                    showErrorNotification(msg);
+                    Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
+                    broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
+                    broadcast.putExtra(EXTRA_ERROR_CLASS,
+                            ExportManager.WindowProbeFailure.class.getName());
+                    sendExportBroadcast(broadcast);
+                    stopSelf();
+                    return;
+                }
+                if (!failed.isEmpty()) {
+                    isExporting = false;
+                    String msg = "helper file for " + failed.get(0)
+                            + " could not be prepared — free up space and retry,"
+                            + " your project is safe";
+                    FLog.e(TAG, "Export preparation failed: " + msg);
+                    stopForeground(STOP_FOREGROUND_REMOVE);
+                    showErrorNotification(msg);
+                    Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
+                    broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
+                    broadcast.putExtra(EXTRA_ERROR_CLASS,
+                            java.io.IOException.class.getName());
+                    sendExportBroadcast(broadcast);
+                    stopSelf();
+                    return;
+                }
                 if (exportManager != null) {
                     dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg);
                 }
@@ -408,6 +656,58 @@ public class ExportService extends Service {
             if (!cache.isCached(clip.getSourceUri(), in, out)) result.add(clip);
         }
         return result;
+    }
+
+    /**
+     * 2026-09-22: windows worth pre-trimming — non-image {@code file://} clips from BIG
+     * sources (small files seek fine; the 100 MB gate keeps ordinary projects trim-free)
+     * whose baked window is missing. Lookup hits are skipped here AND downstream.
+     */
+    @NonNull
+    private List<Clip> collectWindowsNeedingPreTrim(@NonNull FaditorProject project) {
+        List<Clip> result = new ArrayList<>();
+        if (project.getTimeline() == null) return result;
+        FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
+        PreTrimCache cache = new PreTrimCache(this);
+        for (Clip clip : project.getTimeline().getClips()) {
+            if (clip.isImageClip()) continue;
+            Uri uri = clip.getSourceUri();
+            if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) continue;
+            long in = clip.getInPointMs();
+            long out = clip.getOutPointMs();
+            if (out <= in) continue;
+            try {
+                File input = resolvePreTrimInputFile(clip, remuxer);
+                if (input == null || input.length() < 100L * 1024 * 1024) continue;
+                if (!cache.hasPreTrim(input, in, out)) result.add(clip);
+            } catch (Exception e) {
+                FLog.w(TAG, "collectWindowsNeedingPreTrim: skip " + uri, e);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * The on-disk file to cut a pre-trim from — the remuxed copy when one is in force
+     * (flat index → fast seek), else the raw file. Mirrors resolveReverseInputFile's
+     * choice so the bake reads what the export would read. Null if unresolvable.
+     */
+    @Nullable
+    private File resolvePreTrimInputFile(@NonNull Clip clip,
+                                         @NonNull FragmentedMp4Remuxer remuxer) {
+        Uri uri = clip.getSourceUri();
+        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) return null;
+        File raw = new File(uri.getPath());
+        if (!raw.exists()) return null;
+        try {
+            if (remuxer.needsRemux(raw) && remuxer.hasRemuxedVersion(raw)) {
+                File remuxed = remuxer.getRemuxedFile(raw);
+                if (remuxed != null && remuxed.exists()) return remuxed;
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "resolvePreTrimInputFile: falling back to raw for " + uri, e);
+        }
+        return raw;
     }
 
     /**
@@ -479,6 +779,12 @@ public class ExportService extends Service {
 
     // ── Notification helpers ─────────────────────────────────────────
 
+    /** FIX-7: terminal (done/failed) notices. The old channel is IMPORTANCE_LOW and
+     *  its importance is frozen on devices that already created it, so failures posted
+     *  there are easy to miss (the 28-minute silent run). A fresh channel id starts at
+     *  DEFAULT — visible but not intrusive. */
+    private static final String ALERTS_CHANNEL_ID = "faditor_export_alerts";
+
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -489,6 +795,13 @@ public class ExportService extends Service {
             channel.setShowBadge(false);
             if (notificationManager != null) {
                 notificationManager.createNotificationChannel(channel);
+                NotificationChannel alerts = new NotificationChannel(
+                        ALERTS_CHANNEL_ID,
+                        getString(R.string.faditor_export_notif_channel),
+                        NotificationManager.IMPORTANCE_DEFAULT);
+                alerts.setDescription(getString(R.string.faditor_export_notif_channel_desc));
+                alerts.setShowBadge(true);
+                notificationManager.createNotificationChannel(alerts);
             }
         }
     }
@@ -508,17 +821,24 @@ public class ExportService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         String title = getString(R.string.faditor_export_notif_title);
-        String text = indeterminate
-                ? getString(R.string.faditor_exporting)
-                : getString(R.string.faditor_exporting_percent, percent);
+        String text;
+        if (oneShotText != null) {
+            text = oneShotText;
+        } else if (progressTextOverride != null) {
+            text = progressTextOverride;
+        } else {
+            text = indeterminate
+                    ? getString(R.string.faditor_exporting)
+                    : getString(R.string.faditor_exporting_percent, percent);
+        }
 
-        // ETA calculation
-        if (!indeterminate && percent > 5) {
-            long elapsed = System.currentTimeMillis() - exportStartTimeMs;
-            float progress = percent / 100f;
-            long totalEstimated = (long) (elapsed / progress);
-            long remainingMs = totalEstimated - elapsed;
-            text += " • " + formatEta(remainingMs);
+        // ETA calculation — pace-measured when the manager supplies one (FIX-6),
+        // else the old elapsed/progress estimate.
+        if (!indeterminate && percent > 0 && oneShotText == null) {
+            long remainingMs = detailEtaMs >= 0 ? detailEtaMs : elapsedEtaMs(percent);
+            if (remainingMs >= 0) {
+                text += " • " + formatEta(remainingMs);
+            }
         }
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -541,19 +861,78 @@ public class ExportService extends Service {
         }
     }
 
-    private void showCompletionNotification(boolean audioOnly) {
+    /** Chunked-export phase label + last notified progress (for phase refreshes). */
+    @Nullable
+    private String currentPhase = null;
+    private int lastNotifiedPercent = 0;
+    private float lastNotifiedProgress = 0f;
+
+    /** FIX-6 detail snapshot feeding the notification text (see buildProgressNotification). */
+    private long detailEtaMs = -1L;
+    private long detailBytes = -1L;
+    private int detailItem = -1;
+    private int detailItems = -1;
+
+    private long elapsedEtaMs(int percent) {
+        try {
+            long elapsed = System.currentTimeMillis() - exportStartTimeMs;
+            float progress = percent / 100f;
+            if (progress <= 0) return -1L;
+            return (long) (elapsed / progress) - elapsed;
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
+    /** FIX-6: one-shot full notification line, composed by updateNotificationDetailed. */
+    @Nullable
+    private String oneShotText = null;
+
+    private void updateNotificationDetailed(int percent, int itemIndex, int itemCount,
+                                            long bytesWritten, long etaRemainingMs) {
+        detailEtaMs = etaRemainingMs;
+        detailBytes = bytesWritten;
+        detailItem = itemIndex;
+        detailItems = itemCount;
+        // Full line: percent + phase + exact MB + pace ETA. The thing a stuck bar never says.
+        StringBuilder line = new StringBuilder(
+                getString(R.string.faditor_exporting_percent, percent));
+        line.append(" • ").append(currentPhase != null ? currentPhase
+                : getString(R.string.faditor_export_compositing));
+        if (itemIndex >= 0 && itemCount > 0) {
+            line.append(" (≈").append(itemIndex + 1).append('/').append(itemCount).append(')');
+        }
+        if (bytesWritten >= 0) {
+            line.append(" • ").append(bytesWritten / (1024 * 1024)).append(" MB");
+        }
+        if (etaRemainingMs >= 0) {
+            line.append(" • ").append(formatEta(etaRemainingMs));
+        }
+        oneShotText = line.toString();
+        notificationManager.notify(NOTIFICATION_ID, buildProgressNotification(percent, false));
+        oneShotText = null;
+    }
+
+    private void showCompletionNotification(boolean audioOnly, @Nullable String outputPath) {
         // Tap to open editor
         Intent openIntent = new Intent(this, FaditorEditorActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         PendingIntent openPi = PendingIntent.getActivity(this, 0, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+        // FIX-7: terminal notices go to the DEFAULT-importance alerts channel (the old
+        // channel is frozen at LOW on this device) and name the finished file.
+        String doneText = getString(audioOnly
+                ? R.string.faditor_export_complete_summary_audio
+                : R.string.faditor_export_complete_summary);
+        if (outputPath != null) {
+            String name = new File(outputPath).getName();
+            doneText = name + " • " + doneText;
+        }
+        Notification notification = new NotificationCompat.Builder(this, ALERTS_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_export_video)
                 .setContentTitle(getString(R.string.faditor_export_complete_title))
-                .setContentText(getString(audioOnly
-                        ? R.string.faditor_export_complete_summary_audio
-                        : R.string.faditor_export_complete_summary))
+                .setContentText(doneText)
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .setContentIntent(openPi)
@@ -565,11 +944,14 @@ public class ExportService extends Service {
     }
 
     private void showErrorNotification(@Nullable String errorMsg) {
-        Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
+        Notification notification = new NotificationCompat.Builder(this, ALERTS_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_export_video)
                 .setContentTitle(getString(R.string.faditor_export_notif_error_title))
                 .setContentText(errorMsg != null ? errorMsg
                         : getString(R.string.faditor_export_error, "Unknown error"))
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(errorMsg != null
+                        ? errorMsg
+                        : getString(R.string.faditor_export_error, "Unknown error")))
                 .setOngoing(false)
                 .setAutoCancel(true)
                 .build();

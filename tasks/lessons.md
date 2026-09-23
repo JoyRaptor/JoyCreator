@@ -689,6 +689,87 @@ distortion keeps the budget. Discrete fold refusals now say "Pin limit" on the g
 instead of dying silent (mid-drag refusals stay silent — the drag simply stops).
 
 
+## 2026-09-22 � never install the dirty tree to JoyRaptor's phone without checking it
+Pattern: the watcher builds the whole working tree, which always holds other lanes' half-finished work. Installing that APK to the owner's Note 20 shipped someone else's in-flight UI (missing undo button, broken ripple) to his personal phone, and he froze real editing work waiting for safety that was already gone. Rule: before ANY install to the Note 20, run git status + read LANES.md ACTIVE lanes; if files outside your lane are dirty, say so and ask before installing. Staged-but-unverified beats verified-but-lost applies to code � it does not license delivering other lanes' drafts to the owner.
+
+## 2026-09-22 � PC VPN kills wireless ADB (check it first)
+Pattern: 10013 on connect + ping failing + mDNS advertising = packets never leave the PC. It was the VPN on the COMPUTER tunneling everything away from the LAN, not the phone, not adb, not the firewall. Rule: when wireless ADB dies with 10013/ping-fail, ask about the PC's VPN before touching anything else (phone VPN second, WiFi toggle third).
+
+## 2026-09-22 — a focusable popover does not dismiss the keyboard, so keyboard-gated preview stays suppressed through the whole pick
+Pattern: typing-suppression for text animation is gated on a keyboard-up belief flag (`imeActive`, set in `showIme`). Opening the text drawer raises the keyboard, and the animation picker is a focusable `PopupWindow` — it takes focus but never hides the IME. So the suppression spans the entire preset/granularity pick: the "suppress while typing, not while the drawer is open" fix changed nothing observable, and the stale-preview report came back a month later as a regression-that-was-never-fixed (the original commit even said NOT device-verified).
+Problem: any preview gate keyed on keyboard visibility is also keyed on every surface that leaves the keyboard up incidentally. A picker opened FOR previewing keeps the very state that hides the preview.
+Rule: when a setting's whole purpose is immediate visual feedback, the apply path must actively establish preview conditions (dismiss keyboard, seek into the animated zone) rather than relying on ambient state. Second hiding place: outside entrance/exit zones every preset draws the identical settled box, so un-suppressing alone still shows nothing with the playhead parked mid-hold — seek mid-entrance on explicit picks, never on undo/redo.
+Trigger: "changing X does nothing until I leave and come back" where leaving ends an editing/keyboard session.
+
+## 2026-09-22 � ffmpeg input -ss + -c copy rebases timestamps to zero
+Pattern: a pre-trim baked with -ss BEFORE -i and stream copy comes out zero-based (first packet PTS 0.000000, measured), while our composition clips in absolute source time � every padded window then seeks wrong, mostly past EOF into empty items (48-min export: video ending at 1:42 with full-length audio, 137MB file). Validation passed because durations match; only the base shifts. Rule: any ffmpeg window cut feeding timestamp-based clipping MUST pass -copyts, and validation must compare coverage in the file's own base (out - padStart), never absolute out.
+
+## Media3 1.8.0 Composition/EditedMediaItemSequence expose public fields, not getters
+
+**Pattern:** In this project's Media3 fork (1.8.0, media3-patched), Composition.sequences
+and EditedMediaItemSequence.editedMediaItems are public final fields. There are no
+getSequences() / getEditedMediaItems() methods.
+
+**Problem:** Writing c.getSequences() or seq.getEditedMediaItems() compiles in some
+Media3 versions but fails here with cannot find symbol. The build log is UTF-16 and
+accumulates stale errors from the watcher, so the real error is easy to miss.
+
+**Rule:** Always read the Media3 source at C:/+Projects/Screenrecorder/media3-patched/
+(see local.properties media3.patched.path) before calling Composition/Sequence APIs.
+Use c.sequences and seq.editedMediaItems. Also EditedMediaItem.durationUs is a public
+field. When uild.log is locked or stale, copy it first (cmd /c "copy build.log %TEMP%\blog.txt /Y")
+and read the tail with a seek, not Get-Content on 200+ MB.
+
+## phone.ps1 picks the FIRST attached device; pin  for the Note 20
+
+**Pattern:** 	ools/phone.ps1 Get-Serial selects the first db devices line. With both
+the sandbox Note 9 and JoyRaptor's Note 20 (Wi-Fi ADB) attached,
+installs go to the wrong phone silently.
+
+**Problem:** An install that succeeds but lands on the sandbox looks green while the owner's
+phone keeps the old build. Discovered 2026-09-22 when the smoke screenshot showed the
+sandbox UI.
+
+**Rule:** Before any phone.ps1 device command when more than one device is attached, set
+$env:PHONE = "<note20-serial>" (see tools/devices.local.sh). Verify with
+phone.ps1 devices and a screenshot of the target, not just lastUpdateTime.
+
+## 2026-09-22 - STUDIO_POLISH (Claude/Opus 5.5)
+
+**A hunk-range commit is only as safe as the moment you listed the hunks.** I committed
+FaditorEditorActivity with the range `1-99999` because an hour earlier every unstaged hunk in
+it was mine. During a usage-limit pause the export lane added five unstaged hunks to the same
+file; the commit only survived because an unrelated apply failure stopped it.
+**Rule:** immediately before a partial commit, re-list `git diff -U0 -- <file> | grep ^@@`,
+identify every hunk's owner, and give ranges covering ONLY yours. Never a whole-file range.
+
+**A device that keeps "reconnecting" is probably someone's.** The Note 20 kept reappearing on
+Wi-Fi ADB and I kept disconnecting it so build-install.sh would run - it was another lane's
+live connection. **Rule:** never `adb disconnect` a device you did not connect. To install,
+use `adb -s <serial> install -r <watcher apk>`; it can only reach that one device.
+
+**`grep -h` hides which file matched.** I grepped for three string names, saw matches, and
+read them as "no clash" because the filenames were suppressed. They already existed in
+strings.xml; redefining them would have broken the resource merge. **Rule:** when checking for
+a clash, never pass -h - print the file.
+
+**Never append to a shared text file by decode -> re-encode.** LANES.md had picked up a
+cp1252 byte; decoding it as UTF-8 threw. Re-encoding would have "fixed" another lane's bytes
+- the strings.xml-to-UTF-16 incident's mechanism. **Rule:** append raw bytes, and assert the
+file still starts with its old contents.
+
+**Never use Undo as test cleanup unless you can PROVE the top step is yours.** The undo count is capped at 50, so it stays at 50 whether or not your action recorded. I dragged a clip (a plain drag pans - the contract says hold-then-drag moves), the count stayed 50, I pressed Undo "to clean up" and reverted a real step instead. Redo recovered it. **Rule:** prove your action by an independent measure (the object's position, a value) before undoing, and verify the same measure after.
+
+## 2026-09-22 - A replaced surface must carry its undo brackets
+- The drawers replaced ObjectMenuSheet but dropped its GestureHooks (onSliderStart/onSliderCommit), so every drawer slider/dial bypassed Undo for weeks. When porting controls to a new container, grep the old one for undo/commit hooks and port them FIRST.
+- After adb gesture tests on a real project, diff the project's undo history snapshots for values that changed with no entry of their own (a swipe crossed a dial and spun an image -1567 deg). That is how a silent write shows up.
+
+## 2026-09-23 - 48-min export (Claude/Opus 5.5): three models chased a misread gauge
+- **Media3 progress is NOT time.** `SequenceAssetLoader.getProgress` is `itemIndex/itemCount + frac/itemCount`, and `TransformerInternal` AVERAGES it across every sequence (video + each audio lane). Every "23x -> 0.13x decay" and "stalls at item 19 / 70%" conclusion came from mapping that percent onto durations. Decoded with the real formula the export was ~1x from the start, stepped to ~0.25x, and stopped at comp ~30:35. **Rule:** never derive a rate or an item from Transformer percent; log real composition time (pts) or invert the formula first.
+- **Measure before porting.** Four confident theories died against 2-minute measurements: overlay density (item 8 has more image content than the slow items), caption shadow blur (0.4 ms/frame on the Note 20 via an app_process benchmark), fMP4 deep seeks (the remux is a normal MP4 with a keyframe every ~1 s), VFR frame rate (steady 30-45 fps). **Rule:** a static theory about cost gets a device number before code. `CLASSPATH=x.dex app_process /system/bin Cls` runs framework Canvas code on the phone in minutes (call `Typeface.loadPreinstalledSystemFontMap()` first).
+- **The real speed cause was the screen turning off.** ExportService held no wake lock; a foreground service keeps the process, not the CPU. Measured: busy process with screen off = asleep 30-45% of wall time at ~half speed; screen on = 100%. Clue that was in the old trace all along: the 60-second MEM ticks (uptime-based Handler timer) drifted 3-4 s per minute. **Rule:** any long background job holds a PARTIAL_WAKE_LOCK, and uptime-vs-wall drift in a trace means the phone was sleeping.
+- **Resume keyed on lastModified is no resume.** The editor re-saves on pause, so opening the project discarded 5.5 h of finished chunks. Key on content.
+
 ## 2026-09-23 — a key the writer emits is not "read" just because some reader reads that name
 
 **Pattern:** AudioClip ids were written to project.json but never read back, so every load

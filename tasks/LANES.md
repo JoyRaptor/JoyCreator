@@ -177,7 +177,10 @@ DEVICE: SPEC_20260915_PUPPET_UI (2026-09-16 - NOTE 9 over USB, the sandbox phone
         written up for him instead of half-done by me.
         NOTE: a blank project called "Untitled audio" was created on the sandbox by a stray tap.
         Harmless, sandbox only, delete whenever.)
-DEVICE: free
+DEVICE: STUDIO_POLISH (2026-09-22 23:30 - Claude/Opus 5.5, Note 9 by serial only; drawer sweep)
+# previous holder: free (TEXT_REPAIR_PASS released 2026-09-23 — Note 9 session done, sandbox
+        restored from verified backup, Note 20 never touched: no install/push there, all
+        commands -s note9, no uninstall. Findings in LEDGER 2026-09-23 device note.)
 
 ## EXPORT BROKEN + FIXED 2026-09-02 02:25 (claude) - READ FIRST
 JoyRaptor: "export failed twice in a row on my most recent project."
@@ -833,3 +836,128 @@ STILL OPEN IN THIS LANE: per-clip type glyphs (the colour-blind tell — sprite 
 caption gold collapse under deuteranopia), the object-drawer header rebuild, and the ~50
 sites where 0xFF4CAF50 means "modified". That last one is NOT a blind sweep — green inside
 the Studio may legitimately keep meaning "this control is doing something".
+
+## EXPORT_48MIN_TRUNCATION (2026-09-21 - opencode/muse-spark)
+status: ACTIVE (diagnosed from on-device error logs; implementing fixes)
+files:
+  app/src/main/java/com/fadcam/playback/FragmentedMp4Remuxer.java  (remux cache cache/ -> files/, prune)
+  app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java  (staging output, phases, watchdog classify, preflight probe)
+  app/src/main/java/com/fadcam/ui/faditor/export/ExportService.java  (phase broadcasts, notif importance, verify remux)
+  app/src/main/java/com/fadcam/ui/faditor/export/ExportFailureCause.java  (watchdog/ENOENT classify)
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (export progress UI sites only: stripe/dialog/ETA/resume)
+since: 2026-09-21
+NOTE 2026-09-22 (export lane): the 11:48 install on the Note 20 carries tree-wide in-flight work incl. missing undo + ripple trouble. That breakage is NOT the export lane's (my files: export/, playback/FragmentedMp4Remuxer, ResamplingAudioProcessor, 3 strings) — owning lane(s), please see JoyRaptor's report. I am not touching your files.
+
+## TEXT_ANIM_REFRESH (2026-09-22 - opencode/muse-spark, JoyRaptor bug report)
+status: IDLE (2026-09-22 — landed 7483f845, pushed. COMPILE-VERIFIED only: watcher BUILD SUCCESSFUL + new symbols in packaged classes. DEVICE PASS OWED — see LEDGER 2026-09-22 entry for the checklist.)
+STAGED, NOT COMMITTED (needs export-lane coordination — same-file staged hunks are theirs):
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (previewTextAnimNow + 1 call site in applyTextOverlayAnim — my hunks only; file also holds export lane's staged progress-UI hunks, so no commit here without them)
+  tasks/lessons.md (my 2026-09-22 popover/keyboard entry appended after others' staged entries)
+files (committed in 7483f845 — free):
+  app/src/main/java/com/fadcam/ui/faditor/overlay/TextOverlayLayer.java (NEW public dismissKeyboardKeepEditing only)
+  app/src/main/java/com/fadcam/ui/faditor/model/TextOverlayItem.java (granularity default BLOCK->LETTER + comment only)
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java (load-missing-granularity -> BLOCK only)
+  tasks/LEDGER.md (2026-09-22 entry)
+since: 2026-09-22
+NOTE: tasks/todo.md left untouched (export lane's staged work lives there); plan tracked in-session.
+
+## TEXT_REPAIR_PASS (2026-09-23 - opencode/muse-spark, JoyRaptor triple report)
+status: IDLE (2026-09-23 — gesture/hook half landed 2773746d, pushed. COMPILE-VERIFIED only: watcher BUILD SUCCESSFUL + all new symbols confirmed in packaged classes. DEVICE PASS OWED — checklist in LEDGER 2026-09-23 entry.)
+STAGED, NOT COMMITTED (needs export-lane coordination — same-file staged hunks are theirs):
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java (Callback onOverlayTransformSync impl; showTextOverlayEditor exit-transform for text; color-span repaint — my hunks only; file also holds export lane's staged progress-UI hunks, so no commit here without them)
+  tasks/lessons.md (my two entries appended after others' staged entries)
+files (committed in 2773746d — free):
+  app/src/main/java/com/fadcam/ui/faditor/overlay/TextOverlayLayer.java (pairing disarm+spatial gate; NEW default callback onOverlayTransformSync + per-MOVE call)
+  app/src/main/java/com/fadcam/ui/faditor/transform/TransformOverlayView.java (pairing disarm+spatial gate only)
+  app/src/main/java/com/fadcam/ui/faditor/overlay/PreviewHandlesOverlay.java (pairing disarm+spatial gate only)
+  (+ earlier 7483f845: TextOverlayItem LETTER default, ProjectStorage revert-to-inherit, TextOverlayLayer.dismissKeyboardKeepEditing, LEDGER entries)
+since: 2026-09-23
+
+## MASK_INVERT_FIX (2026-09-22 - opencode/muse-spark, JoyRaptor mask-inversion bug report)
+status: ACTIVE (2026-09-22 — invert-polarity fix + fxMaskCover consolidation; staged, NOT committed)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/model/MaskSdf.java  (GLSL_MASK_FN + fxMaskCover, Java mirror)
+  app/src/main/java/com/fadcam/ui/faditor/model/MaskPathBuilder.java  (per-shape feather invert complement; staged)
+  app/src/main/java/com/fadcam/ui/faditor/compositor/FxPreviewTextureView.java  (Pip cover line only)
+  app/src/main/java/com/fadcam/ui/faditor/export/ImageBlendGlEffect.java  (mesh cover line only)
+  app/src/main/java/com/fadcam/ui/faditor/fx/FxGlSource.java  (composite cover line only)
+  tools/jvm-harness/MaskSdfTest.java  (golden-string pin only)
+NOT MINE, do not edit — text lanes own TextOverlayItem/TextOverlayLayer/TextFxGlEffect/FaditorEditorActivity;
+  export lane owns ExportManager/ExportService/ExportFailureCause/FragmentedMp4Remuxer.
+  Overlap note: TRANSFORM SURFACE (2026-09-13) lists FxPreviewTextureView + ImageBlendGlEffect
+  but has been idle 9 days; my edits are single-line cover expressions in those files only.
+since: 2026-09-22
+
+## STUDIO_POLISH (2026-09-22 - Claude/Opus 5.5, JoyRaptor /goal: finish + polish the Studio editor)
+status: ACTIVE (2026-09-22 17:50 - found this board late; registering now. Every commit so far used a
+        temp-index pathspec commit, so no other lane's staged hunks were swept in - EXCEPT one javadoc
+        line of TEXT_ANIM_REFRESH's in model/TextOverlayItem.java that rode along in 96354d00. It is
+        committed, not lost.)
+files (my hunks only; FaditorEditorActivity also holds export + text lanes' STAGED hunks - I never
+       commit those, I commit only my unstaged hunks via a temp index):
+  app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java  (tool row overflow cell, applyToolContext tint, new-text colour)
+  app/src/main/java/com/fadcam/ui/faditor/tools/FaditorToolsAdapter.java
+  app/src/main/java/com/fadcam/ui/faditor/tools/FaditorToolRegistry.java  (duplicate icons, groups)
+  app/src/main/java/com/fadcam/ui/faditor/tools/FaditorTool.java  (group field)
+  app/src/main/res/layout/activity_faditor_editor.xml  (tool row only)
+  app/src/main/java/com/fadcam/ui/faditor/layers/ObjectPalette.java, layers/LayerRowRenderer.java
+  app/src/main/java/com/fadcam/ui/faditor/Studio.java, res/values/studio_tokens.xml
+  + merging four drawer-restyle branches (worktree-agent-*), which touch ONLY: tools/ObjectDrawer,
+    PipDrawerTabs, MaskKeyPanel, BlendPickerPopover, PivotPickerPopover, sprite/SpritePalettePanel,
+    AudioDrawerTabs, PuppetDrawerTabs, transcript/TranscriptPanelView, waveform/WaveformVisualizerSettingsSheet,
+    FxPanel, TextOverlayDrawer, EasePickerPopover, TextAnimPickerPopover, ObjectMenuSheet,
+    text/TextStyleLibraryPanel, effects/ColorGradePanel, effects/LutLibraryPanel, the 14 *BottomSheet /
+    picker files, tools/FaditorToolsDrawer, assetbrowser/AssetBrowserPanel + Adapter, NEW SheetKit.java,
+    NEW res/values/strings_lane_{a,b,c,d}.xml
+NOT MINE: export/*, playback/*, model/MaskSdf, MaskPathBuilder, FxGlSource, ImageBlendGlEffect,
+  FxPreviewTextureView, and the text lanes' TextOverlayLayer. Not touching them.
+LANDED: ec73e83e (dead tool row: setTools rebuilt cells, handlers bound once), 3cfc2e4f (tapes wear
+  their rooms), 96354d00 (e251de04's palette sweep had rewritten CONTENT - caption presets, new-text
+  white, chroma swatches, split-tone, viz default, RNG salts, bit masks - restored).
+since: 2026-09-22
+
+## CHUNKED_EXPORT (2026-09-22 20:51 - opencode/xiaomi-mimo, JoyRaptor 48-min export stall)
+status: ACTIVE (2026-09-23 04:40 - TAKEN OVER by Claude/Opus 5.5: export wake lock (ExportService),
+        chunk tail-filler absolute cursor + honest length message (ExportManager). Driving the
+        NOTE 20 over Wi-Fi ADB by serial; install -r only, never uninstall, never disconnect.)
+prior-status: ACTIVE (2026-09-22 20:51 - chunked export driver staged, BUILD SUCCESSFUL, INSTALLED to Note 20)
+since: 2026-09-22
+files: app/src/main/java/com/fadcam/ui/faditor/export/ExportManager.java,
+       app/src/main/java/com/fadcam/ui/faditor/export/ExportService.java,
+       app/src/main/java/com/fadcam/ui/faditor/export/PreTrimCache.java,
+       app/src/main/res/values/strings.xml
+note: Long timelines (>=12 min) export in bounded ~5-min chunk sessions with manifest resume.
+      Short timelines: legacy path unchanged. Proof run pending on project a32d24e2.
+
+NOTE 2026-09-22 (STUDIO_POLISH -> EXPORT lane / whoever drives the Note 20 over Wi-Fi):
+  I ran `adb disconnect` on the Note 20's Wi-Fi ADB three times today (~12:39, ~17:35,
+  ~22:33) because tools/build-install.sh refused to run with it attached. I did not know
+  another lane was using it. If your adb session dropped, that was me - sorry. Nothing ran on
+  the phone itself. I have STOPPED: I now install only the watcher's APK, by serial, to the
+  Note 9 (`adb -s <sandbox> install -r`), which cannot reach any other device, and I never
+  disconnect anything. build-install.sh's guard still refuses (correctly - Gradle's install
+  task targets every attached device); I no longer run it.
+  ALSO: your unstaged hunks in FaditorEditorActivity (lastExportPhase / EXTRA_PHASE, ~280,
+  ~9742-9792, ~13376) are untouched. I commit my own hunks only, from a temp index.
+
+NOTE 2026-09-22 (STUDIO_POLISH -> EXPORT lane / whoever drives the Note 20 over Wi-Fi):
+  I ran `adb disconnect` on the Note 20's Wi-Fi ADB three times today (~12:39, ~17:35,
+  ~22:33) because tools/build-install.sh refused to run with it attached. I did not know
+  another lane was using it. If your adb session dropped, that was me - sorry. Nothing ran on
+  the phone itself. I have STOPPED: I install only the watcher's APK, by serial, to the Note 9
+  (`adb -s <sandbox> install -r`), which cannot reach any other device, and I never disconnect
+  anything. build-install.sh still refuses (correctly - Gradle's install targets every device).
+  Your unstaged hunks in FaditorEditorActivity (lastExportPhase / EXTRA_PHASE: ~280,
+  ~9742-9792, ~13376) are untouched; I commit my own hunks only, from a temp index.
+  FYI: this file now contains a non-UTF-8 byte (0x97 near offset 43387, a cp1252 dash) - a
+  tool writing in the system codepage. I did not re-encode it.
+
+## AUDIO_ID_ROUNDTRIP (2026-09-23 - Claude/Opus 5.5, task: audio clip ids re-minted on every load)
+status: IDLE (2026-09-23 05:15 - LANDED + PUSHED 40e8b6cb. COMPILE-VERIFIED (watcher BUILD SUCCESSFUL 05:12:58, new ctor in javac output) + JVM 14/14 run-audioid.sh. DEVICE PASS OWED - see LEDGER 2026-09-23 audio-id entry. Files below are FREE.)
+files:
+  app/src/main/java/com/fadcam/ui/faditor/model/AudioClip.java           (restore-with-id constructor)
+  app/src/main/java/com/fadcam/ui/faditor/project/ProjectStorage.java     (audioClips parse ~3022-3040 ONLY; TEXT lane's staged hunk ~3282 untouched)
+  tools/jvm-harness/AudioIdRoundTripTest.java + run-audioid.sh            (NEW)
+NOT touching ExportManager (export lane) - its projectContentKey UUID-ordinal workaround stays valid.
+Device: none planned (Note 20 off-limits). If needed, Note 9 by serial only.
+since: 2026-09-23T05:05

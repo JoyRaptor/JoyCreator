@@ -186,6 +186,15 @@ public class ExportManager {
     /** EXPORT_PACE state: last percent printed, and the clock it is measured from. */
     private int lastLoggedProgressPct = -1;
     private long progressEpochMs = 0L;
+    /**
+     * ITEM-0 seam timing: composition-start ms of every video-sequence item, recorded
+     * when the composition is built, so the progress poller can log EXPORT_SEAM lines
+     * as the muxer crosses item boundaries. Per-item wall times are the hot measurement
+     * the 30:35 stall diagnosis needs (cold baseline comes from the pre-flight probe).
+     */
+    private long[] exportItemStartMs = new long[0];
+    private long exportItemTotalMs = 0L;
+    private int lastSeamItem = -1;
 
     /** Interval between progress polls (ms). */
     private static final long PROGRESS_POLL_INTERVAL_MS = 300;
@@ -244,6 +253,68 @@ public class ExportManager {
     private final ThreadLocal<String> retrieverCurrentUri = new ThreadLocal<>();
 
     /**
+     * FIX-4: the in-progress output path of the running export (final path +
+     * {@code .exporting}), or null when idle. The muxer writes here; success renames it
+     * onto the final name, error/cancel deletes it — a failed export must never leave a
+     * short file wearing the finished name (2026-09-21: 28-min and 30:35 partials
+     * mistaken for completed exports). Same directory, so the commit is an atomic rename.
+     */
+    @Nullable
+    private String currentStagingPath = null;
+
+    /** Staging path for a final output path (same dir → rename commit is atomic). */
+    @NonNull
+    private static String stagingPathFor(@NonNull String finalPath) {
+        return finalPath + ".exporting";
+    }
+
+    /**
+     * Commit a finished staging file onto its final name. Returns the path the caller
+     * should announce (final on success; staging itself if the rename impossibly
+     * fails, so a good export is never lost to a rename error).
+     */
+    @NonNull
+    private String commitStaging(@NonNull String stagingPath, @NonNull String finalPath) {
+        currentStagingPath = null;
+        File staging = new File(stagingPath);
+        File fin = new File(finalPath);
+        if (!staging.exists()) {
+            FLog.e(TAG, "commitStaging: staging file missing: " + stagingPath);
+            return finalPath;
+        }
+        if (staging.getAbsolutePath().equals(fin.getAbsolutePath())) return finalPath;
+        if (fin.exists() && !fin.delete()) {
+            FLog.w(TAG, "commitStaging: could not remove existing " + finalPath);
+        }
+        if (staging.renameTo(fin)) {
+            trace("TRACE_COMMIT " + fin.getName() + " (" + fin.length() + " bytes)");
+            closeTrace();
+            return finalPath;
+        }
+        FLog.e(TAG, "commitStaging: rename failed, keeping " + stagingPath);
+        closeTrace();
+        return stagingPath;
+    }
+
+    /** Delete an in-progress staging file, if any. Idempotent. */
+    private void discardStaging(@Nullable String stagingPath) {
+        currentStagingPath = null;
+        if (stagingPath != null) {
+            trace("TRACE_DISCARD " + new java.io.File(stagingPath).getName());
+        }
+        closeTrace();
+        if (stagingPath == null) return;
+        try {
+            File f = new File(stagingPath);
+            if (f.exists() && !f.delete()) {
+                FLog.w(TAG, "discardStaging: could not delete " + stagingPath);
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "discardStaging failed", e);
+        }
+    }
+
+    /**
      * Lazily-created remuxer used only to LOOK UP a cached seekable copy of a raw
      * fragmented-MP4 source. The cache is warmed off the main thread by
      * {@link ExportService} before export; this class never blocks on remuxing.
@@ -290,6 +361,10 @@ public class ExportManager {
      * <p>Returns the original URI unchanged for image clips, non-{@code file://}
      * sources, or when no cached remux exists (the common imported/remuxed case).</p>
      */
+    /** Lazily-created pre-trim cache (lookup-only from this class; see the field's doc). */
+    @Nullable
+    private PreTrimCache exportPreTrimmer = null;
+
     @Nullable
     private android.net.Uri resolveSeekableSourceUri(@NonNull Clip clip) {
         android.net.Uri uri = clip.getSourceUri();
@@ -300,16 +375,243 @@ public class ExportManager {
         try {
             java.io.File f = new java.io.File(uri.getPath());
             if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
+            java.io.File input = f;
+            boolean remuxed = false;
             if (exportRemuxer.needsRemux(f) && exportRemuxer.hasRemuxedVersion(f)) {
-                java.io.File remuxed = exportRemuxer.getRemuxedFile(f);
-                if (remuxed != null && remuxed.exists()) {
-                    return android.net.Uri.fromFile(remuxed);
+                java.io.File remuxedFile = exportRemuxer.getRemuxedFile(f);
+                if (remuxedFile != null && remuxedFile.exists()) {
+                    input = remuxedFile;
+                    remuxed = true;
                 }
             }
+            // 2026-09-22 pre-trim: a baked window for THIS exact [in, out] beats a deep
+            // seek into the big file. Lookup only — the warm phase bakes. Same timestamps
+            // (padded superset), so every caller below is unaffected either way.
+            if (exportPreTrimmer == null) exportPreTrimmer = new PreTrimCache(context);
+            if (exportPreTrimmer.hasPreTrim(input, clip.getInPointMs(), clip.getOutPointMs())) {
+                java.io.File trim = exportPreTrimmer.getPreTrimFile(input,
+                        clip.getInPointMs(), clip.getOutPointMs());
+                if (trim.exists()) return android.net.Uri.fromFile(trim);
+            }
+            if (remuxed) return android.net.Uri.fromFile(input);
         } catch (Exception e) {
             FLog.w(TAG, "resolveSeekableSourceUri failed", e);
         }
         return uri;
+    }
+
+    /**
+     * FIX-3: a clip window the pre-flight probe could not get a decoded frame from.
+     * Null from {@link #probeClipWindows} means every window produced a frame.
+     */
+    public static final class WindowProbeFailure {
+        public final int clipIndex;
+        public final long inMs;
+        public final long outMs;
+        public final String uri;
+        public final String codecName;
+        public final long costMs;
+        public final String reason;
+        WindowProbeFailure(int clipIndex, long inMs, long outMs, String uri,
+                           String codecName, long costMs, String reason) {
+            this.clipIndex = clipIndex;
+            this.inMs = inMs;
+            this.outMs = outMs;
+            this.uri = uri;
+            this.codecName = codecName;
+            this.costMs = costMs;
+            this.reason = reason;
+        }
+    }
+
+    /** Per-window decode budget for the pre-flight probe (ms). */
+    private static final long PROBE_WINDOW_BUDGET_MS = 30_000L;
+
+    /**
+     * FIX-3: cold-baseline pre-flight probe. For every non-image {@code file://} spine
+     * window, open the RESOLVED export URI (remuxed copy when one is in force — the same
+     * file the export will read), seek to the window start, and decode until the first
+     * output frame. Logs one {@code PROBE} line per window (clip, source position,
+     * remux yes/no, decoder name, cost) whether it passes or not.
+     *
+     * <p>Why decode and not just extract: the 30:35 stall is "no DECODED output in
+     * 120 s" with a healthy container, so an extractor-only probe would pass it and hand
+     * the user false reassurance. Typical cost is ~1–3 s per window on hardware decode
+     * (it also warms the page cache for the export itself).
+     *
+     * <p>Runs on the caller's thread — ExportService calls it on the warm background
+     * thread, never the main thread. Creates and releases its own decoder per window.
+     *
+     * @return the first window that produced no frame within budget, or null when all pass.
+     */
+    @Nullable
+    public WindowProbeFailure probeClipWindows(@NonNull FaditorProject project) {
+        if (project.getTimeline() == null) return null;
+        WindowProbeFailure firstFailure = null;
+        int n = project.getTimeline().getClipCount();
+        for (int ci = 0; ci < n; ci++) {
+            Clip clip = project.getTimeline().getClip(ci);
+            if (clip.isImageClip()) continue;
+            android.net.Uri uri = clip.getSourceUri();
+            if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) {
+                trace("PROBE clip[" + ci + "] SKIP (non-file source "
+                        + (uri != null ? uri.getScheme() : "null") + ")");
+                continue;
+            }
+            long inMs = clip.getInPointMs();
+            long outMs = clip.getOutPointMs();
+            if (outMs <= inMs) {
+                trace("PROBE clip[" + ci + "] SKIP (degenerate window)");
+                continue;
+            }
+            android.net.Uri resolved = resolveSeekableSourceUri(clip);
+            String path = resolved.getPath();
+            boolean isRemux = resolved.toString().contains("-remuxed-");
+            long t0 = android.os.SystemClock.elapsedRealtime();
+            String codecName = "?";
+            String failReason = null;
+            long firstPtsUs = -1;
+            android.media.MediaExtractor ex = null;
+            android.media.MediaCodec codec = null;
+            android.view.Surface surface = null;
+            android.graphics.SurfaceTexture surfaceTexture = null;
+            try {
+                ex = new android.media.MediaExtractor();
+                ex.setDataSource(path);
+                int videoTrack = -1;
+                android.media.MediaFormat format = null;
+                for (int t = 0; t < ex.getTrackCount(); t++) {
+                    android.media.MediaFormat f = ex.getTrackFormat(t);
+                    String mime = f.getString(android.media.MediaFormat.KEY_MIME);
+                    if (mime != null && mime.startsWith("video/")) {
+                        videoTrack = t;
+                        format = f;
+                        break;
+                    }
+                }
+                if (videoTrack < 0 || format == null) {
+                    failReason = "no video track in " + new java.io.File(path).getName();
+                } else {
+                    String mime = format.getString(android.media.MediaFormat.KEY_MIME);
+                    // 2026-09-22: video-ends-early warning (non-fatal). A window running
+                    // past its source's last video frame (clip 0: picture ends 4.75s,
+                    // clip runs to 5.226s) freezes the tail in preview AND export — no
+                    // overlay timed over the dead region can ever look right. The export
+                    // keeps today's hold-last-frame behavior; this line tells the owner
+                    // which clip to trim instead of failing a 2-hour run over it.
+                    try {
+                        if (format.containsKey(android.media.MediaFormat.KEY_DURATION)) {
+                            long videoDurMs = format.getLong(
+                                    android.media.MediaFormat.KEY_DURATION) / 1000L;
+                            // 2026-09-22 fix: videoDur is FILE-relative (a pre-trim starts
+                            // at padStart, not 0) — the old absolute comparison cried wolf
+                            // on all 20 windows. Same needMs rule as the trim validation,
+                            // with the same 10 s pad rule the baker uses.
+                            long padStartMs = 0L;
+                            if (resolved.toString().contains("-v2")) {
+                                padStartMs = Math.max(0L, inMs - 10_000L);
+                            }
+                            long needMs = outMs - padStartMs - 250;
+                            if (videoDurMs > 0 && videoDurMs < needMs) {
+                                trace("PROBE clip[" + ci + "] WARN video-ends-early videoDur="
+                                        + videoDurMs + "ms windowEnd=" + outMs + "ms src="
+                                        + new java.io.File(path).getName()
+                                        + " (tail freezes; trim the clip or move overlays)");
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    ex.selectTrack(videoTrack);
+                    ex.seekTo(inMs * 1000L,
+                            android.media.MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+                    codec = android.media.MediaCodec.createDecoderByType(mime);
+                    codecName = codec.getName();
+                    // Headless output: a detached SurfaceTexture sinks frames with no GL.
+                    surfaceTexture = new android.graphics.SurfaceTexture(0);
+                    surface = new android.view.Surface(surfaceTexture);
+                    codec.configure(format, surface, null, 0);
+                    codec.start();
+                    long deadline = t0 + PROBE_WINDOW_BUDGET_MS;
+                    boolean inputEos = false;
+                    boolean gotFrame = false;
+                    android.media.MediaCodec.BufferInfo info =
+                            new android.media.MediaCodec.BufferInfo();
+                    while (!gotFrame && android.os.SystemClock.elapsedRealtime() < deadline) {
+                        if (!inputEos) {
+                            int inIdx = codec.dequeueInputBuffer(10_000);
+                            if (inIdx >= 0) {
+                                java.nio.ByteBuffer buf = codec.getInputBuffer(inIdx);
+                                int sampleSize = (buf == null) ? -1
+                                        : ex.readSampleData(buf, 0);
+                                if (sampleSize < 0) {
+                                    codec.queueInputBuffer(inIdx, 0, 0, 0,
+                                            android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                                    inputEos = true;
+                                } else {
+                                    codec.queueInputBuffer(inIdx, 0, sampleSize,
+                                            ex.getSampleTime(), ex.getSampleFlags());
+                                    ex.advance();
+                                }
+                            }
+                        }
+                        int outIdx = codec.dequeueOutputBuffer(info, 10_000);
+                        if (outIdx >= 0) {
+                            boolean isConfig = (info.flags
+                                    & android.media.MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0;
+                            boolean isEos = (info.flags
+                                    & android.media.MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0;
+                            if (!isConfig && info.size > 0) {
+                                firstPtsUs = info.presentationTimeUs;
+                                gotFrame = true;
+                            }
+                            try {
+                                codec.releaseOutputBuffer(outIdx, false);
+                            } catch (Exception ignored) {}
+                            if (isEos) break;
+                        }
+                    }
+                    if (!gotFrame) {
+                        failReason = inputEos
+                                ? "end of stream before any frame (truncated source?)"
+                                : "no decoded frame within " + (PROBE_WINDOW_BUDGET_MS / 1000)
+                                + "s (decoder stall at this seam)";
+                    }
+                }
+            } catch (Exception e) {
+                failReason = e.getClass().getSimpleName() + ": " + e.getMessage();
+            } finally {
+                if (codec != null) {
+                    try { codec.stop(); } catch (Exception ignored) {}
+                    try { codec.release(); } catch (Exception ignored) {}
+                }
+                if (surface != null) {
+                    try { surface.release(); } catch (Exception ignored) {}
+                }
+                if (surfaceTexture != null) {
+                    try { surfaceTexture.release(); } catch (Exception ignored) {}
+                }
+                if (ex != null) {
+                    try { ex.release(); } catch (Exception ignored) {}
+                }
+            }
+            long costMs = android.os.SystemClock.elapsedRealtime() - t0;
+            String shortName = new java.io.File(path).getName();
+            if (failReason == null) {
+                trace("PROBE clip[" + ci + "] ok in=" + inMs + "ms pts=" + firstPtsUs
+                        + "us remux=" + (isRemux ? "yes" : "no") + " codec=" + codecName
+                        + " costMs=" + costMs + " src=" + shortName);
+            } else {
+                String failLine = "PROBE clip[" + ci + "] FAIL in=" + inMs + "ms out=" + outMs + "ms"
+                        + " remux=" + (isRemux ? "yes" : "no") + " codec=" + codecName
+                        + " costMs=" + costMs + " src=" + shortName + " reason=" + failReason;
+                FLog.w(TAG, failLine);
+                trace(failLine);
+                if (firstFailure == null) {
+                    firstFailure = new WindowProbeFailure(ci, inMs, outMs,
+                            resolved.toString(), codecName, costMs, failReason);
+                }
+            }
+        }
+        return firstFailure;
     }
 
     /**
@@ -318,6 +620,21 @@ public class ExportManager {
     public interface ExportListener {
         void onExportStarted(@NonNull String outputPath);
         void onExportProgress(float progress);
+        /**
+         * FIX-6: rich progress. itemIndex is approximate (derived from the composition
+         * map against Media3's own curve — never present it without ≈), bytesWritten is
+         * exact (staging file size), etaRemainingMs is pace-measured (composition time
+         * per wall second), -1 when unknowable.
+         */
+        void onExportProgressDetailed(float progress, int itemIndex, int itemCount,
+                                      long bytesWritten, long etaRemainingMs);
+        /** FIX-6: the muxer is done; the loudness/SAF finalize (minutes on GB files) starts. */
+        void onExportFinalizing();
+        /**
+         * Chunked export (2026-09-22): human phase label for long runs ("Part 2 of 6",
+         * "Sound", "Joining"). Only implementer is ExportService.
+         */
+        void onChunkPhase(@NonNull String phase);
         void onExportCompleted(@NonNull String outputPath, @NonNull ExportResult result);
         void onExportError(@NonNull Exception error);
     }
@@ -408,10 +725,24 @@ public class ExportManager {
         // G9: host/rider link groups re-derive rider times too (same one-write-point rule).
         project.getTimeline().resyncLinkGroups();
 
+        // Chunked driver for long timelines: bounded fresh-pipeline sessions per chunk,
+        // resume via manifest, exact progress. Short timelines take the legacy path
+        // unchanged (byte-identical output).
+        if (project.getTimeline().getTotalDurationMs() >= CHUNKED_THRESHOLD_MS) {
+            exportChunked(project, generateOutputPath(project));
+            return;
+        }
+
         String outputPath = generateOutputPath(project);
+        // FIX-4: staging path hoisted so the catch below can discard it too.
+        final String stagingPath = stagingPathFor(outputPath);
+        currentStagingPath = stagingPath;
         isExporting = true;
+        resetChunkState();
         lastLoggedProgressPct = -1;
         progressEpochMs = 0L;
+        paceBaseCompMs = -1L;
+        lastSeamItem = -1;
         // C7 snapshot: one deterministic read at export start (see the field's doc).
         fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
         FLog.d(TAG, "C1.E FX chain: bypassed=" + fxBypassedSnapshot);
@@ -478,6 +809,10 @@ public class ExportManager {
                 FLog.d(TAG, "Using full re-encode path (effects, overlays, or canvas transform present)");
             }
 
+            // FIX-4: the muxer writes to the hoisted staging path; the final name
+            // appears only via atomic rename in onCompleted. onExportStarted still
+            // announces the FINAL path (the name the user picked) — it just doesn't
+            // exist on disk yet.
             // Add progress listener
             builder.addListener(new Transformer.Listener() {
                 @Override
@@ -485,7 +820,8 @@ public class ExportManager {
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
                     isExporting = false;
-                    finalizeExportAsync(project, outputPath, result, "Export completed");
+                    String committed = commitStaging(stagingPath, outputPath);
+                    finalizeExportAsync(project, committed, result, "Export completed");
                 }
 
                 @Override
@@ -496,12 +832,9 @@ public class ExportManager {
                     isExporting = false;
                     pendingSafCopy = false;
                     safExportFileName = null;
-                    // Clean up temp file on error
-                    File tempFile = new File(outputPath);
-                    if (tempFile.getParentFile() != null
-                            && tempFile.getParentFile().getName().equals("faditor_export")) {
-                        tempFile.delete();
-                    }
+                    // FIX-4: a failed export leaves no file behind — not even in SAF-temp
+                    // mode (that path is staging too now).
+                    discardStaging(stagingPath);
                     FLog.e(TAG, "Export failed", exception);
                     writeExportErrorLog(project, exception, outputPath);
                     if (listener != null) {
@@ -524,19 +857,21 @@ public class ExportManager {
                 releasePerThreadRetriever();
             }
 
-            // Start export
-            transformer.start(composition, outputPath);
+            // Start export — into staging (FIX-4); the final name is committed in
+            // onCompleted and announced below (it does not exist on disk yet).
+            transformer.start(composition, stagingPath);
 
             // Begin polling for progress (Transformer doesn't push progress via Listener)
             startProgressPolling();
 
-            FLog.d(TAG, "Export started → " + outputPath);
+            FLog.d(TAG, "Export started → " + outputPath + " (staging " + stagingPath + ")");
             if (listener != null) {
                 listener.onExportStarted(outputPath);
             }
 
         } catch (Exception e) {
             isExporting = false;
+            discardStaging(stagingPath);
             FLog.e(TAG, "Failed to start export", e);
             writeExportErrorLog(project, e, generateOutputPath(project));
             if (listener != null) {
@@ -578,7 +913,13 @@ public class ExportManager {
                 // is worth attacking separately. A watchdog exists to catch a genuine hang,
                 // and a hang still trips this one — it just no longer mistakes a slow device
                 // for a broken one.
-                .setMaxDelayBetweenMuxerSamplesMs(120_000L)
+                //
+                // 2026-09-22: 120 s proved too short. The 48-minute project stalls at the
+                // clip18→clip19 seam (source 31:13) on a HOT phone while the same window
+                // decodes in seconds cold (pre-flight probe passes) — a slow seam, not a
+                // stuck one. 300 s lets a throttled 2–4 min seam through and still aborts a
+                // true hang with 10x margin over anything healthy.
+                .setMaxDelayBetweenMuxerSamplesMs(300_000L)
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
                 // Encode portrait output NATIVELY (coded WxH portrait, rotation=0)
@@ -687,8 +1028,11 @@ public class ExportManager {
                 && project.getExportSettings().isCleanAudio();
 
         isExporting = true;
+        resetChunkState();
         lastLoggedProgressPct = -1;
         progressEpochMs = 0L;
+        paceBaseCompMs = -1L;
+        lastSeamItem = -1;
         try {
             // Pass 1 — record where every item sits on both clocks (no waveform/audio
             // work; items are built but nothing is rendered).
@@ -873,10 +1217,28 @@ public class ExportManager {
      * is treated as a continuation of the outgoing clip's audio (no audio crossfade).</p>
      */
     public void exportAudioOnly(@NonNull FaditorProject project) {
+        exportAudioOnly(project, generateOutputPath(project, "m4a"), null);
+    }
+
+    /**
+     * Terminal override for the chunked driver's intermediate audio pass: when set, the
+     * audio file is handed to the driver instead of finalized + announced (the single
+     * loudness pass runs once, on the final mux). Cleared when consumed. Null = legacy.
+     */
+    @Nullable
+    private ExportListener audioTerminalOverride = null;
+
+    /**
+     * Audio-only export to an explicit path with an optional terminal override
+     * (chunked driver). Progress/started/finalizing still flow to the field listener.
+     */
+    public void exportAudioOnly(@NonNull FaditorProject project, @NonNull String outputPath,
+                                @Nullable ExportListener terminalOverride) {
         if (isExporting) {
             FLog.w(TAG, "Export already in progress");
             return;
         }
+        audioTerminalOverride = terminalOverride;
         // EMPTY means NO master clips AND no audio lanes. An audio-first project (G21/B9:
         // blank video start + audio lane) has an empty MASTER SPINE by design — refusing it
         // here made audio-only export impossible for exactly the projects the feature was
@@ -894,10 +1256,15 @@ public class ExportManager {
         project.getTimeline().resyncAttachedVisualizers();
         project.getTimeline().resyncLinkGroups();
 
-        String outputPath = generateOutputPath(project, "m4a");
+        // FIX-4: same staging discipline as the video path (see export()).
+        final String audioStagingPath = stagingPathFor(outputPath);
+        currentStagingPath = audioStagingPath;
         isExporting = true;
+        resetChunkState();
         lastLoggedProgressPct = -1;
         progressEpochMs = 0L;
+        paceBaseCompMs = -1L;
+        lastSeamItem = -1;
         // C7 snapshot: one deterministic read at export start (see the field's doc).
         fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
         FLog.d(TAG, "C1.E FX chain (audio-only): bypassed=" + fxBypassedSnapshot);
@@ -907,8 +1274,8 @@ public class ExportManager {
         try {
             Transformer.Builder builder = new Transformer.Builder(context)
                     .setAssetLoaderFactory(hardwareFirstAssetLoaderFactory())
-                    // Same watchdog headroom as the video path above.
-                    .setMaxDelayBetweenMuxerSamplesMs(120_000L)
+                    // Same watchdog headroom as the video path above (300 s, 2026-09-22).
+                    .setMaxDelayBetweenMuxerSamplesMs(300_000L)
                     .setAudioMimeType(MimeTypes.AUDIO_AAC);
 
             builder.addListener(new Transformer.Listener() {
@@ -917,7 +1284,15 @@ public class ExportManager {
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
                     isExporting = false;
-                    finalizeExportAsync(project, outputPath, result, "Audio-only export completed");
+                    String committed = commitStaging(audioStagingPath, outputPath);
+                    ExportListener term = audioTerminalOverride;
+                    audioTerminalOverride = null;
+                    if (term != null) {
+                        // Chunked driver: intermediate audio, no finalize yet.
+                        term.onExportCompleted(committed, result);
+                    } else {
+                        finalizeExportAsync(project, committed, result, "Audio-only export completed");
+                    }
                 }
 
                 @Override
@@ -928,14 +1303,14 @@ public class ExportManager {
                     isExporting = false;
                     pendingSafCopy = false;
                     safExportFileName = null;
-                    File tempFile = new File(outputPath);
-                    if (tempFile.getParentFile() != null
-                            && tempFile.getParentFile().getName().equals("faditor_export")) {
-                        tempFile.delete();
-                    }
+                    discardStaging(audioStagingPath);
                     FLog.e(TAG, "Audio-only export failed", exception);
                     writeExportErrorLog(project, exception, outputPath);
-                    if (listener != null) {
+                    ExportListener term = audioTerminalOverride;
+                    audioTerminalOverride = null;
+                    if (term != null) {
+                        term.onExportError(exception);
+                    } else if (listener != null) {
                         listener.onExportError(exception);
                     }
                 }
@@ -950,27 +1325,698 @@ public class ExportManager {
                 releasePerThreadRetriever();
             }
 
-            transformer.start(composition, outputPath);
+            transformer.start(composition, audioStagingPath);
             startProgressPolling();
 
-            FLog.d(TAG, "Audio-only export started → " + outputPath);
+            FLog.d(TAG, "Audio-only export started → " + outputPath
+                    + " (staging " + audioStagingPath + ")");
             if (listener != null) {
                 listener.onExportStarted(outputPath);
             }
         } catch (Exception e) {
             isExporting = false;
+            discardStaging(audioStagingPath);
             FLog.e(TAG, "Failed to start audio-only export", e);
             writeExportErrorLog(project, e, outputPath);
-            if (listener != null) {
+            ExportListener term = audioTerminalOverride;
+            audioTerminalOverride = null;
+            if (term != null) {
+                term.onExportError(e);
+            } else if (listener != null) {
                 listener.onExportError(e);
             }
         }
     }
 
+    // ── Chunked export driver (2026-09-22) ────────────────────────────────
+    //
+    // WHY: a 48-minute single-pass export decays 30x→0.14x realtime with a COOLING SoC
+    // (12:17 trace) and wedges at the same seam four times — an accumulation the long
+    // session grows (per-frame native allocation churn is the prime suspect; MEM lines
+    // now watch it). Bounded sessions can't accumulate: each ≤~6 min chunk runs at
+    // early-pipeline speed with a fresh decoder/encoder/muxer/GL, a failed chunk retries
+    // alone, progress is linear, and completed chunks survive restarts (manifest).
+    // One audio pass + ffmpeg concat+mux join the parts; joins never touch audio.
+    //
+    // CORRECTNESS NOTES (why the parts equal the whole):
+    // - Overlay clocks are absolute: chunkBaseMs (exact, measured from built items, never
+    //   estimated) rides every editorTimeOffsetFor site; clip-local effects keep the
+    //   chunk-relative cursor. Cuts never straddle transitions or split a clip's span.
+    // - Same builder/settings per chunk ⇒ identical codec params ⇒ clean -c copy concat.
+    // - Short timelines (< 12 min) never enter: legacy path byte-identical.
+
+    /** Timelines at/above this total take the chunked path. */
+    private static final long CHUNKED_THRESHOLD_MS = 720_000L;
+    /** Target composition length per chunk; cuts land on clip seams near it. */
+    private static final long CHUNK_TARGET_MS = 300_000L;
+    private static final int CHUNK_MANIFEST_VERSION = 1;
+
+    /** Set while the chunked driver owns the run (chain stops when cancelled). */
+    private volatile boolean chunkCancelled = false;
+    /** Last chunk's ExportResult, handed to the final finalize (mirrors single-pass). */
+    @Nullable
+    private ExportResult lastChunkResult = null;
+    /** Service listener saved while a chunk adapter borrows the field. Set per step. */
+    @Nullable
+    private ExportListener chunkServiceListener = null;
+
+    /** Progress weights: video chunks dominate; audio/join/finalize are quick. */
+    private static final float CHUNK_VIDEO_FRAC = 0.85f;
+    private static final float CHUNK_AUDIO_FRAC = 0.07f;
+
+    /**
+     * Cut the timeline into [startClip, endClip) ranges of ~CHUNK_TARGET_MS composition
+     * (approximated by trimmed durations — sizes only, never correctness), never cutting
+     * at a transition seam. A trailing runt merges into the previous chunk.
+     */
+    @NonNull
+    private List<int[]> computeChunkRanges(@NonNull Timeline timeline) {
+        List<int[]> ranges = new ArrayList<>();
+        int n = timeline.getClipCount();
+        int start = 0;
+        long acc = 0L;
+        for (int i = 0; i < n; i++) {
+            long dur = Math.max(1L, timeline.getClip(i).getTrimmedDurationMs());
+            boolean isLast = (i == n - 1);
+            boolean atTarget = acc + dur >= CHUNK_TARGET_MS;
+            // Never cut right after clip i if a transition straddles seam i→i+1.
+            boolean seamClean = isLast || findTransitionAtSeam(timeline, i) == null;
+            if (!isLast && !(atTarget && seamClean && i > start)) {
+                acc += dur;
+                continue;
+            }
+            acc += dur;
+            ranges.add(new int[]{start, i + 1});
+            start = i + 1;
+            acc = 0L;
+        }
+        if (start < n) ranges.add(new int[]{start, n});
+        // Merge a trailing runt (< 60 s and not the only chunk) into its predecessor.
+        if (ranges.size() > 1) {
+            int[] last = ranges.get(ranges.size() - 1);
+            long lastDur = 0L;
+            for (int i = last[0]; i < last[1]; i++) {
+                lastDur += Math.max(1L, timeline.getClip(i).getTrimmedDurationMs());
+            }
+            if (lastDur < 60_000L) {
+                int[] prev = ranges.get(ranges.size() - 2);
+                ranges.set(ranges.size() - 2, new int[]{prev[0], last[1]});
+                ranges.remove(ranges.size() - 1);
+            }
+        }
+        if (ranges.isEmpty() && n > 0) ranges.add(new int[]{0, n});
+        return ranges;
+    }
+
+    /** Manifest dir for this project's chunk resume state (created on demand). */
+    @NonNull
+    private File chunkDirFor(@NonNull FaditorProject project) {
+        String id = project.getId() != null
+                ? project.getId().replaceAll("[^A-Za-z0-9_-]", "_") : "noid";
+        File dir = new File(new File(context.getFilesDir(), "faditor/chunks"), id);
+        if (!dir.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+        }
+        return dir;
+    }
+
+    /**
+     * Load the resume manifest, or start fresh when the project changed (lastModified),
+     * the version moved, or the ranges no longer match. Never throws.
+     */
+    @NonNull
+    private org.json.JSONObject loadChunkManifest(@NonNull FaditorProject project,
+                                                  @NonNull List<int[]> ranges) {
+        File mf = new File(chunkDirFor(project), "manifest.json");
+        String contentKey = projectContentKey(project);
+        try {
+            if (mf.exists()) {
+                String raw = new String(java.nio.file.Files.readAllBytes(mf.toPath()),
+                        java.nio.charset.StandardCharsets.UTF_8);
+                org.json.JSONObject o = new org.json.JSONObject(raw);
+                // Same project CONTENT, not merely the same save time: the editor re-saves
+                // (bumping lastModified) on every pause, so a save-time key threw away hours
+                // of finished parts the moment the user so much as opened the project again.
+                boolean sameProject = o.optLong("projectModified", -1L) == project.getLastModified()
+                        || (contentKey != null && contentKey.equals(o.optString("contentKey", "")));
+                if (o.optInt("version", -1) == CHUNK_MANIFEST_VERSION
+                        && sameProject
+                        && o.optInt("rangeCount", -1) == ranges.size()) {
+                    return o;
+                }
+            }
+        } catch (Exception ignored) {}
+        try {
+            org.json.JSONObject o = new org.json.JSONObject();
+            o.put("version", CHUNK_MANIFEST_VERSION);
+            o.put("projectModified", project.getLastModified());
+            if (contentKey != null) o.put("contentKey", contentKey);
+            o.put("rangeCount", ranges.size());
+            o.put("audioDone", false);
+            o.put("audioFile", new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath());
+            org.json.JSONArray chunks = new org.json.JSONArray();
+            for (int i = 0; i < ranges.size(); i++) {
+                org.json.JSONObject c = new org.json.JSONObject();
+                c.put("index", i);
+                c.put("startClip", ranges.get(i)[0]);
+                c.put("endClip", ranges.get(i)[1]);
+                c.put("file", new File(chunkDirFor(project),
+                        "chunk" + i + ".mp4").getAbsolutePath());
+                c.put("done", false);
+                chunks.put(c);
+            }
+            o.put("chunks", chunks);
+            saveChunkManifest(project, o);
+            return o;
+        } catch (Exception e) {
+            FLog.w(TAG, "Chunk manifest init failed", e);
+            return new org.json.JSONObject();
+        }
+    }
+
+    /**
+     * Fingerprint of everything that decides the rendered picture: the saved project with its
+     * save-time field removed. Null when it cannot be computed — resume then falls back to
+     * the save-time match alone, which is the old behaviour.
+     */
+    @Nullable
+    private String projectContentKey(@NonNull FaditorProject project) {
+        try {
+            String json = new com.fadcam.ui.faditor.project.ProjectStorage(context).toJson(project);
+            if (json == null) return null;
+            json = json.replaceAll("\"lastModified\"\\s*:\\s*-?\\d+", "");
+            // Audio clip ids are re-minted on every load (measured 2026-09-23: the only
+            // difference between two saves minutes apart was the three audio clip UUIDs), so
+            // hash identities by ORDER OF FIRST APPEARANCE instead of their random value —
+            // references between objects still count, the labels do not.
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
+                    "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+                    .matcher(json);
+            java.util.Map<String, Integer> ordinals = new java.util.HashMap<>();
+            StringBuffer norm = new StringBuffer(json.length());
+            while (m.find()) {
+                String id = m.group().toLowerCase(Locale.US);
+                Integer ord = ordinals.get(id);
+                if (ord == null) { ord = ordinals.size(); ordinals.put(id, ord); }
+                m.appendReplacement(norm, "#" + ord);
+            }
+            m.appendTail(norm);
+            json = norm.toString();
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] d = md.digest(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : d) sb.append(String.format(Locale.US, "%02x", b));
+            return sb.toString();
+        } catch (Exception e) {
+            FLog.w(TAG, "projectContentKey failed; resume matches on save time only", e);
+            return null;
+        }
+    }
+
+    private void saveChunkManifest(@NonNull FaditorProject project,
+                                   @NonNull org.json.JSONObject manifest) {
+        try {
+            File mf = new File(chunkDirFor(project), "manifest.json");
+            try (java.io.FileOutputStream fos = new java.io.FileOutputStream(mf)) {
+                fos.write(manifest.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "Chunk manifest save failed", e);
+        }
+    }
+
+    /** A manifest-marked chunk file is reusable when it exists with sane duration. */
+    private boolean chunkFileValid(@NonNull String path, long expectedMs) {
+        try {
+            File f = new File(path);
+            if (!f.exists() || f.length() <= 0) return false;
+            long dur = PreTrimCache.probeVideoDurationMs(f);
+            if (dur <= 0) return false;
+            return Math.abs(dur - expectedMs) <= Math.max(20_000L, expectedMs / 10);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Entry point for long timelines (called from export()). Video chunks (fresh
+     * pipeline each) → single audio pass → ffmpeg concat+mux → shared finalize.
+     * Completed chunks survive failures/restarts via the manifest (resume, not redo).
+     */
+    public void exportChunked(@NonNull FaditorProject project,
+                              @NonNull String finalOutputPath) {
+        if (isExporting) {
+            FLog.w(TAG, "Export already in progress");
+            return;
+        }
+        if (project.getTimeline().isEmpty()) {
+            FLog.e(TAG, "Cannot export empty timeline");
+            if (listener != null) {
+                listener.onExportError(new IllegalStateException("Timeline is empty"));
+            }
+            return;
+        }
+        project.getTimeline().resyncAttachedVisualizers();
+        project.getTimeline().resyncLinkGroups();
+
+        resetChunkState();
+        isExporting = true;
+        chunkCancelled = false;
+        lastChunkResult = null;
+        lastLoggedProgressPct = -1;
+        progressEpochMs = 0L;
+        paceBaseCompMs = -1L;
+        lastSeamItem = -1;
+        fxBypassedSnapshot = com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxChainBypassed;
+        cleanAudioSnapshot = project.getExportSettings().isCleanAudio();
+        openTrace("chunked");
+
+        List<int[]> ranges = computeChunkRanges(project.getTimeline());
+        org.json.JSONObject manifest = loadChunkManifest(project, ranges);
+        trace("CHUNKED ranges=" + ranges.size() + " total="
+                + project.getTimeline().getTotalDurationMs() + "ms");
+        if (listener != null) {
+            listener.onExportStarted(finalOutputPath);
+        }
+        runChunkStep(project, finalOutputPath, manifest, ranges, 0);
+    }
+
+    /**
+     * Step machine: -1 = audio pass, 0..N-1 = video chunks, N = join. Sequential —
+     * each step starts from the previous step's completion callback.
+     */
+    private void runChunkStep(@NonNull FaditorProject project,
+                              @NonNull String finalOutputPath,
+                              @NonNull org.json.JSONObject manifest,
+                              @NonNull List<int[]> ranges,
+                              int step) {
+        if (chunkCancelled || !isExporting) return;
+        int n = ranges.size();
+        if (step < n) {
+            runVideoChunk(project, finalOutputPath, manifest, ranges, step);
+        } else if (step == n) {
+            runChunkAudio(project, finalOutputPath, manifest, ranges);
+        } else {
+            runChunkJoin(project, finalOutputPath, manifest, ranges);
+        }
+    }
+
+    /** Expected composition duration of a range (approx: trimmed sums; validation only). */
+    private long rangeExpectedMs(@NonNull Timeline timeline, int start, int end) {
+        long sum = 0L;
+        for (int i = start; i < end && i < timeline.getClipCount(); i++) {
+            sum += Math.max(1L, timeline.getClip(i).getTrimmedDurationMs());
+        }
+        return sum;
+    }
+
+    /** Adapter mapping one step's Media3 progress into overall progress + phase. */
+    private final class ChunkProgressAdapter implements ExportListener {
+        final ExportListener downstream;
+        final float baseFrac;
+        final float spanFrac;
+        final String phase;
+        ChunkProgressAdapter(ExportListener downstream, float baseFrac, float spanFrac,
+                             @NonNull String phase) {
+            this.downstream = downstream;
+            this.baseFrac = baseFrac;
+            this.spanFrac = spanFrac;
+            this.phase = phase;
+        }
+        private float overall(float p) {
+            return Math.min(1f, Math.max(0f, baseFrac + p * spanFrac));
+        }
+        @Override public void onExportStarted(@NonNull String outputPath) {}
+        @Override public void onExportProgress(float progress) {
+            onExportProgressDetailed(progress, -1, -1, -1L, -1L);
+        }
+        @Override public void onExportProgressDetailed(float progress, int itemIndex,
+                                                       int itemCount, long bytesWritten,
+                                                       long etaRemainingMs) {
+            float o = overall(progress);
+            downstream.onChunkPhase(phase);
+            downstream.onExportProgress(o);
+            downstream.onExportProgressDetailed(o, -1, -1, -1L, -1L);
+        }
+        @Override public void onExportFinalizing() {}
+        @Override public void onChunkPhase(@NonNull String p) {}
+        @Override public void onExportCompleted(@NonNull String outputPath,
+                                                @NonNull ExportResult result) {}
+        @Override public void onExportError(@NonNull Exception error) {}
+    }
+
+    private void runVideoChunk(@NonNull FaditorProject project,
+                               @NonNull String finalOutputPath,
+                               @NonNull org.json.JSONObject manifest,
+                               @NonNull List<int[]> ranges, int step) {
+        Timeline timeline = project.getTimeline();
+        int[] range = ranges.get(step);
+        String chunkPath;
+        try {
+            chunkPath = manifest.getJSONArray("chunks").getJSONObject(step).getString("file");
+        } catch (Exception e) {
+            chunkFail(project, finalOutputPath, manifest, ranges, step,
+                    new IllegalStateException("Chunk manifest unreadable", e));
+            return;
+        }
+        long expectedMs = rangeExpectedMs(timeline, range[0], range[1]);
+        boolean markedDone = manifest.optJSONArray("chunks") != null
+                && manifest.optJSONArray("chunks").optJSONObject(step) != null
+                && manifest.optJSONArray("chunks").optJSONObject(step).optBoolean("done", false);
+        if (markedDone && chunkFileValid(chunkPath, expectedMs)) {
+            trace("CHUNK " + step + "/" + ranges.size() + " resumed (valid file, skipping)");
+            if (listener != null) {
+                listener.onChunkPhase("Part " + (step + 1) + " of " + ranges.size()
+                        + " (done)");
+            }
+            runChunkStep(project, finalOutputPath, manifest, ranges, step + 1);
+            return;
+        }
+        // Exact absolute base: sum of BUILT durations of all preceding ranges. Built
+        // compositions are cheap (no encode); measuring beats estimating, so overlay
+        // clocks stay exact across loops, transitions and degenerate skips.
+        long baseMs = 0L;
+        for (int r = 0; r < step; r++) {
+            int[] prev = ranges.get(r);
+            baseMs += builtRangeDurationMs(project, prev[0], prev[1]);
+        }
+        chunkBaseMs = baseMs;
+        chunkVideoOnly = true;
+        chunkClipStart = range[0];
+        chunkClipEnd = range[1];
+        lastLoggedProgressPct = -1;
+        progressEpochMs = 0L;
+        paceBaseCompMs = -1L;
+        lastSeamItem = -1;
+        float totalMs = Math.max(1f, (float) timeline.getTotalDurationMs());
+        float baseFrac = (baseMs / totalMs) * CHUNK_VIDEO_FRAC;
+        float spanFrac = ((float) Math.max(1L, expectedMs) / totalMs) * CHUNK_VIDEO_FRAC;
+        String phase = "Part " + (step + 1) + " of " + ranges.size();
+        trace("CHUNK " + step + "/" + ranges.size() + " clips " + range[0] + ".." + range[1]
+                + " base=" + baseMs + "ms expected~" + expectedMs + "ms");
+        if (listener != null) listener.onChunkPhase(phase);
+        chunkServiceListener = listener;
+        final ExportListener down = listener;
+        ChunkProgressAdapter adapter = (down == null) ? null
+                : new ChunkProgressAdapter(down, baseFrac, spanFrac, phase);
+        if (adapter != null) this.listener = adapter;
+
+        try {
+            Transformer.Builder builder = baseVideoTransformerBuilder(project);
+            final int fStep = step;
+            final String fChunkPath = chunkPath;
+            final long fExpected = expectedMs;
+            final long fBase = baseMs;
+            builder.addListener(new Transformer.Listener() {
+                @Override
+                public void onCompleted(@NonNull Composition composition,
+                                        @NonNull ExportResult result) {
+                    stopProgressPolling();
+                    restoreServiceListener();
+                    if (chunkCancelled || !isExporting) return;
+                    lastChunkResult = result;
+                    if (!chunkFileValid(fChunkPath, fExpected)) {
+                        long gotMs = -1L;
+                        try {
+                            gotMs = PreTrimCache.probeVideoDurationMs(new File(fChunkPath));
+                        } catch (Exception ignored) {}
+                        trace("CHUNK " + fStep + " length mismatch: expected ~" + fExpected
+                                + "ms, got " + gotMs + "ms");
+                        chunkFail(project, finalOutputPath, manifest, ranges, fStep,
+                                new IllegalStateException("Part " + (fStep + 1) + " of "
+                                        + ranges.size() + " came out the wrong length (expected "
+                                        + (fExpected / 1000) + " s, got " + (gotMs / 1000)
+                                        + " s). Export again to redo just this part."));
+                        return;
+                    }
+                    try {
+                        manifest.getJSONArray("chunks").getJSONObject(fStep).put("done", true);
+                        saveChunkManifest(project, manifest);
+                    } catch (Exception ignored) {}
+                    trace("CHUNK " + fStep + " done (" + new File(fChunkPath).length()
+                            + " bytes)");
+                    runChunkStep(project, finalOutputPath, manifest, ranges, fStep + 1);
+                }
+
+                @Override
+                public void onError(@NonNull Composition composition,
+                                    @NonNull ExportResult result,
+                                    @NonNull ExportException exception) {
+                    stopProgressPolling();
+                    restoreServiceListener();
+                    if (chunkCancelled || !isExporting) return;
+                    chunkFail(project, finalOutputPath, manifest, ranges, fStep, exception);
+                }
+            });
+            transformer = builder.build();
+            Composition composition;
+            try {
+                composition = buildComposition(project, null);
+            } finally {
+                releasePerThreadRetriever();
+            }
+            transformer.start(composition, fChunkPath);
+            startProgressPolling();
+            FLog.d(TAG, "Chunk " + step + " started → " + fChunkPath);
+        } catch (Exception e) {
+            restoreServiceListener();
+            chunkFail(project, finalOutputPath, manifest, ranges, step, e);
+        }
+    }
+
+    /** Restore the service listener after a chunk/audio step borrowed the field. */
+    private void restoreServiceListener() {
+        if (chunkServiceListener != null) {
+            this.listener = chunkServiceListener;
+            chunkServiceListener = null;
+        }
+    }
+
+    /**
+     * Composition duration of a clip range, measured from built items (exact — whatever
+     * the loop emitted, including loop reps and transition compression). No encode.
+     */
+    private long builtRangeDurationMs(@NonNull FaditorProject project, int start, int end) {
+        long keepBase = chunkBaseMs;
+        boolean keepVideoOnly = chunkVideoOnly;
+        int keepStart = chunkClipStart;
+        int keepEnd = chunkClipEnd;
+        try {
+            chunkBaseMs = 0L;
+            chunkVideoOnly = true;
+            chunkClipStart = start;
+            chunkClipEnd = end;
+            Composition c = buildComposition(project, null);
+            long sum = 0L;
+            for (EditedMediaItemSequence seq : c.sequences) {
+                for (EditedMediaItem it : seq.editedMediaItems) {
+                    if (it.durationUs > 0) sum += it.durationUs / 1000L;
+                }
+            }
+            return sum;
+        } catch (Exception e) {
+            FLog.w(TAG, "builtRangeDurationMs failed, estimating", e);
+            long sum = 0L;
+            Timeline tl = project.getTimeline();
+            for (int i = start; i < end && i < tl.getClipCount(); i++) {
+                sum += Math.max(1L, tl.getClip(i).getTrimmedDurationMs());
+            }
+            return sum;
+        } finally {
+            chunkBaseMs = keepBase;
+            chunkVideoOnly = keepVideoOnly;
+            chunkClipStart = keepStart;
+            chunkClipEnd = keepEnd;
+        }
+    }
+
+    private void runChunkAudio(@NonNull FaditorProject project,
+                               @NonNull String finalOutputPath,
+                               @NonNull org.json.JSONObject manifest,
+                               @NonNull List<int[]> ranges) {
+        String audioPath = new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath();
+        boolean audioDone = manifest.optBoolean("audioDone", false);
+        if (audioDone) {
+            File af = new File(audioPath);
+            if (af.exists() && af.length() > 0) {
+                trace("CHUNK audio resumed (valid file, skipping)");
+                runChunkStep(project, finalOutputPath, manifest, ranges, ranges.size() + 1);
+                return;
+            }
+        }
+        if (listener != null) listener.onChunkPhase("Sound");
+        chunkServiceListener = listener;
+        final ExportListener down = listener;
+        float baseFrac = CHUNK_VIDEO_FRAC;
+        ChunkProgressAdapter adapter = (down == null) ? null
+                : new ChunkProgressAdapter(down, baseFrac, CHUNK_AUDIO_FRAC, "Sound");
+        if (adapter != null) this.listener = adapter;
+        lastLoggedProgressPct = -1;
+        progressEpochMs = 0L;
+        paceBaseCompMs = -1L;
+        lastSeamItem = -1;
+        resetChunkState();
+        trace("CHUNK audio pass started");
+        // isExporting is already true (driver entry); exportAudioOnly refuses when set.
+        isExporting = false;
+        exportAudioOnly(project, audioPath, new ExportListener() {
+            @Override public void onExportStarted(@NonNull String outputPath) {}
+            @Override public void onExportProgress(float progress) {}
+            @Override public void onExportProgressDetailed(float p, int ii, int ic, long b, long e) {}
+            @Override public void onExportFinalizing() {}
+            @Override public void onChunkPhase(@NonNull String p) {}
+            @Override public void onExportCompleted(@NonNull String outputPath,
+                                                    @NonNull ExportResult result) {
+                restoreServiceListener();
+                if (chunkCancelled) { isExporting = false; return; }
+                isExporting = true;
+                try {
+                    manifest.put("audioDone", true);
+                    manifest.put("audioFile", outputPath);
+                    saveChunkManifest(project, manifest);
+                } catch (Exception ignored) {}
+                trace("CHUNK audio done (" + new File(outputPath).length() + " bytes)");
+                runChunkStep(project, finalOutputPath, manifest, ranges, ranges.size() + 1);
+            }
+            @Override public void onExportError(@NonNull Exception error) {
+                restoreServiceListener();
+                if (chunkCancelled || !isExporting) return;
+                chunkFail(project, finalOutputPath, manifest, ranges, ranges.size(), error);
+            }
+        });
+    }
+
+    /** Abort the chain with a part-numbered error (chunks stay for resume). */
+    private void chunkFail(@NonNull FaditorProject project,
+                           @NonNull String finalOutputPath,
+                           @NonNull org.json.JSONObject manifest,
+                           @NonNull List<int[]> ranges, int step,
+                           @NonNull Throwable error) {
+        isExporting = false;
+        resetChunkState();
+        String where = step < ranges.size()
+                ? "Part " + (step + 1) + " of " + ranges.size()
+                : "Sound";
+        FLog.e(TAG, "Chunked export failed at " + where, error);
+        writeExportErrorLog(project, error, finalOutputPath);
+        if (listener != null) {
+            String msg = error.getMessage() != null ? error.getMessage() : error.toString();
+            listener.onExportError(new Exception(where + ": " + msg, error));
+        }
+    }
+
+    /**
+     * Join: concat video chunks (stream copy) + mux the single audio pass, then the
+     * shared finalize (loudness once, SAF copy). Runs off-main; failures keep chunks.
+     */
+    private void runChunkJoin(@NonNull FaditorProject project,
+                              @NonNull String finalOutputPath,
+                              @NonNull org.json.JSONObject manifest,
+                              @NonNull List<int[]> ranges) {
+        // The audio pass commits its own staging file, which closes the trace; reopen so the
+        // join (the step that failed silently on 2026-09-23) leaves a durable record.
+        openTrace("join");
+        if (listener != null) listener.onChunkPhase("Joining");
+        if (listener != null) {
+            listener.onExportProgress(CHUNK_VIDEO_FRAC + CHUNK_AUDIO_FRAC);
+            listener.onExportProgressDetailed(CHUNK_VIDEO_FRAC + CHUNK_AUDIO_FRAC,
+                    -1, -1, -1L, -1L);
+        }
+        final String stagingPath = stagingPathFor(finalOutputPath);
+        currentStagingPath = stagingPath;
+        new Thread(() -> {
+            try {
+                File dir = chunkDirFor(project);
+                File listFile = new File(dir, "concat_list.txt");
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < ranges.size(); i++) {
+                    String p = manifest.getJSONArray("chunks").getJSONObject(i)
+                            .getString("file");
+                    sb.append("file '").append(p.replace("'", "'\\''")).append("'\n");
+                }
+                try (java.io.FileOutputStream fos = new java.io.FileOutputStream(listFile)) {
+                    fos.write(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                }
+                File videoFull = new File(dir, "video_full.mp4");
+                if (videoFull.exists()) videoFull.delete();
+                String audioPath = manifest.optString("audioFile",
+                        new File(dir, "audio_full.m4a").getAbsolutePath());
+                trace("CHUNK joining " + ranges.size() + " parts + audio");
+                com.arthenica.ffmpegkit.FFmpegSession s1 =
+                        com.arthenica.ffmpegkit.FFmpegKit.execute(
+                                "-f concat -safe 0 -i \"" + listFile.getAbsolutePath()
+                                        + "\" -map 0:v:0 -an -c copy -f mp4 -movflags +faststart -y \""
+                                        + videoFull.getAbsolutePath() + "\"");
+                if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(s1.getReturnCode())
+                        || !videoFull.exists() || videoFull.length() <= 0) {
+                    traceFfmpegTail("join video", s1);
+                    throw new IllegalStateException("Joining video parts failed: "
+                            + s1.getReturnCode());
+                }
+                File staging = new File(stagingPath);
+                if (staging.exists()) staging.delete();
+                com.arthenica.ffmpegkit.FFmpegSession s2 =
+                        com.arthenica.ffmpegkit.FFmpegKit.execute(
+                                // EXPLICIT maps. Every video part carries Media3's forced
+                                // SILENT audio track; unmapped, ffmpeg picks "the best"
+                                // audio across inputs and on a tie takes input 0's — the
+                                // silence — shipping a full-length export with no sound.
+                                "-i \"" + videoFull.getAbsolutePath() + "\" -i \"" + audioPath
+                                        // -f mp4: the staging name ends ".exporting", and ffmpeg
+                                        // picks the container from the extension — without it
+                                        // the join died "Error opening output file" (exit 1)
+                                        // after 58 minutes of good parts (2026-09-23 05:42).
+                                        + "\" -map 0:v:0 -map 1:a:0 -c copy -f mp4 -movflags +faststart -y \""
+                                        + staging.getAbsolutePath() + "\"");
+                if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(s2.getReturnCode())
+                        || !staging.exists() || staging.length() <= 0) {
+                    traceFfmpegTail("join sound", s2);
+                    throw new IllegalStateException("Joining sound failed: "
+                            + s2.getReturnCode());
+                }
+                if (chunkCancelled) {
+                    discardStaging(stagingPath);
+                    isExporting = false;
+                    return;
+                }
+                String committed = commitStaging(stagingPath, finalOutputPath);
+                ExportResult result = lastChunkResult;
+                isExporting = false;
+                resetChunkState();
+                if (result != null) {
+                    finalizeExportAsync(project, committed, result, "Chunked export completed");
+                } else {
+                    // Should not happen (every chunk completed), but never lose a good file.
+                    FLog.e(TAG, "Chunked export: no chunk result; announcing directly");
+                    if (listener != null) {
+                        listener.onExportCompleted(committed,
+                                new ExportResult.Builder().build());
+                    }
+                }
+            } catch (Exception e) {
+                if (chunkCancelled) {
+                    isExporting = false;
+                    return;
+                }
+                chunkFail(project, finalOutputPath, manifest, ranges, ranges.size() + 1, e);
+            }
+        }, "faditor-chunk-join").start();
+    }
+
+    /** Last ~1.5 KB of an ffmpeg session's log into the durable trace — its own reason for failing. */
+    private void traceFfmpegTail(@NonNull String step,
+                                 @NonNull com.arthenica.ffmpegkit.FFmpegSession session) {
+        try {
+            String logs = session.getAllLogsAsString();
+            if (logs == null) logs = "";
+            String tail = logs.length() > 1500 ? logs.substring(logs.length() - 1500) : logs;
+            trace("FFMPEG_FAIL " + step + " rc=" + session.getReturnCode() + '\n' + tail);
+        } catch (Exception ignored) { }
+    }
+
     /**
      * C4/C8 — shared post-export finalize for BOTH export paths: run the loudness
-     * correction pass on the finished temp file (if requested), THEN do the SAF copy
-     * (so the copied file is already normalized), then notify the listener.
      *
      * <p>The correction pass runs ffmpeg three times (measure, apply, re-measure) —
      * always OFF the main thread Media3 delivers {@code onCompleted} on.</p>
@@ -990,6 +2036,11 @@ public class ExportManager {
         }
         new Thread(() -> {
             String finalPath = outputPath;
+            // FIX-6: announce the finalize phase (loudness + SAF copy run minutes on GB
+            // files with zero UI state today) BEFORE doing it.
+            try {
+                if (listener != null) listener.onExportFinalizing();
+            } catch (Exception ignored) {}
             if (needsPass) {
                 applyLoudnessPass(new File(outputPath), target, cleanAudio);
             }
@@ -1280,7 +2331,7 @@ public class ExportManager {
                         sb.append("\n    -> offering ").append(hw.isEmpty()
                                 ? "SOFTWARE (no hardware entry found)"
                                 : (hw.size() + " hardware"));
-                        FLog.i(TAG, sb.toString());
+                        trace(sb.toString());
                     }
                     if (!hw.isEmpty()) return hw;
                     return sw;
@@ -1338,6 +2389,17 @@ public class ExportManager {
             StringBuilder sb = new StringBuilder();
             sb.append("Export failed: ").append(new java.util.Date()).append('\n');
             sb.append("output=").append(outputPath).append('\n');
+            // 2026-09-22: the muxer position at death — names the stall's item without
+            // needing the (rotated-away) logcat.
+            if (lastSeamItem >= 0 && exportItemStartMs.length > 0
+                    && lastSeamItem < exportItemStartMs.length) {
+                sb.append("lastSeam=item ").append(lastSeamItem)
+                        .append(" of ").append(exportItemStartMs.length)
+                        .append(" (comp ").append(exportItemStartMs[lastSeamItem])
+                        .append("ms of ").append(exportItemTotalMs).append("ms)\n");
+            } else {
+                sb.append("lastSeam=unknown (muxer never reached the first item boundary)\n");
+            }
             if (project != null) {
                 Timeline tl = project.getTimeline();
                 sb.append("projectId=").append(project.getId()).append('\n');
@@ -1375,6 +2437,9 @@ public class ExportManager {
             stopProgressPolling();
             transformer.cancel();
             isExporting = false;
+            // FIX-4: cancel fires no listener callback — remove the staging file here,
+            // or a cancelled export leaves a husk at the almost-final name.
+            discardStaging(currentStagingPath);
             FLog.d(TAG, "Export cancelled");
         }
     }
@@ -1385,12 +2450,211 @@ public class ExportManager {
      */
     private void startProgressPolling() {
         progressHandler.removeCallbacksAndMessages(null);
+        stallKey = Integer.MIN_VALUE;
+        stallSinceMs = android.os.SystemClock.elapsedRealtime();
+        lastStackDumpMs = 0L;
         progressHandler.postDelayed(progressPoller, PROGRESS_POLL_INTERVAL_MS);
+    }
+
+    /**
+     * STALL STACKS (2026-09-23). Every single-pass run of the 48-min project stopped at the
+     * same point (~30:35) and all anyone ever got back was Media3's watchdog saying nothing
+     * was written — never WHERE the pipeline was waiting. When progress has not moved for
+     * 90 s, write every thread's stack to the durable trace (then at most every 5 min), so a
+     * stall names its own frame. Costs nothing while progress moves.
+     */
+    private int stallKey = Integer.MIN_VALUE;
+    private long stallSinceMs = 0L;
+    private long lastStackDumpMs = 0L;
+    private static final long STALL_STACKS_AFTER_MS = 90_000L;
+    private static final long STALL_STACKS_REPEAT_MS = 300_000L;
+
+    private void traceStacksIfStalled(int key) {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (key != stallKey) {
+            stallKey = key;
+            stallSinceMs = now;
+            return;
+        }
+        if (now - stallSinceMs < STALL_STACKS_AFTER_MS) return;
+        if (lastStackDumpMs != 0L && now - lastStackDumpMs < STALL_STACKS_REPEAT_MS) return;
+        lastStackDumpMs = now;
+        try {
+            StringBuilder sb = new StringBuilder();
+            sb.append("STALL_STACKS no progress for ").append((now - stallSinceMs) / 1000L)
+                    .append("s (state*1000+pct=").append(key).append(")\n");
+            for (java.util.Map.Entry<Thread, StackTraceElement[]> e
+                    : Thread.getAllStackTraces().entrySet()) {
+                Thread t = e.getKey();
+                sb.append("  THREAD \"").append(t.getName()).append("\" ")
+                        .append(t.getState()).append('\n');
+                StackTraceElement[] st = e.getValue();
+                for (int i = 0; i < st.length && i < 40; i++) {
+                    sb.append("      at ").append(st[i]).append('\n');
+                }
+            }
+            trace(sb.toString());
+        } catch (Throwable t) {
+            trace("STALL_STACKS failed: " + t);
+        }
     }
 
     /** Stop polling for progress. */
     private void stopProgressPolling() {
         progressHandler.removeCallbacksAndMessages(null);
+    }
+
+    /** FIX-6: composition ms the muxer had reached at the pace anchor, for ETA. */
+    private long paceBaseCompMs = -1L;
+    private long paceBaseWallMs = 0L;
+
+    /**
+     * Chunked-export state (2026-09-22): long timelines export as N sequential video
+     * chunks (fresh decoder/encoder/muxer/GL per chunk — bounded sessions instead of
+     * one 2-hour accumulation), one audio pass, then ffmpeg concat+mux. Sequential use
+     * only. chunkBaseMs = absolute composition start of the chunk being built;
+     * chunkVideoOnly strips all audio (the single audio pass covers it);
+     * chunkClipStart/End bound the composition loop ([start, end), -1 = timeline end).
+     * All zero/false when the legacy single-pass path runs — which is then
+     * byte-identical to before.
+     */
+    private long chunkBaseMs = 0L;
+    private boolean chunkVideoOnly = false;
+    private int chunkClipStart = 0;
+    private int chunkClipEnd = -1;
+
+    private void resetChunkState() {
+        chunkBaseMs = 0L;
+        chunkVideoOnly = false;
+        chunkClipStart = 0;
+        chunkClipEnd = -1;
+    }
+    /**
+     * 2026-09-22 MEM telemetry: the 12:17 trace showed throughput decaying 30x→0.14x
+     * with the SoC COOLING (75°C→45°C) — starvation/leak, not heat. One MEM line per
+     * minute names it: climbing native heap = leak (prime suspect: per-frame full-bitmap
+     * copies in ImageOverlayFrameOverlay), flat heap + slow pace = blocked somewhere.
+     */
+    private long lastMemLogMs = 0L;
+
+    private void traceMemIfDue() {
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (now - lastMemLogMs < 60_000L) return;
+        lastMemLogMs = now;
+        try {
+            Runtime rt = Runtime.getRuntime();
+            long dalvikUsedMb = (rt.totalMemory() - rt.freeMemory()) / (1024 * 1024);
+            long dalvikMaxMb = rt.maxMemory() / (1024 * 1024);
+            long nativeMb = android.os.Debug.getNativeHeapAllocatedSize() / (1024 * 1024);
+            trace("MEM dalvik=" + dalvikUsedMb + "/" + dalvikMaxMb + "MB native="
+                    + nativeMb + "MB threads=" + Thread.activeCount());
+        } catch (Exception ignored) {}
+    }
+
+    /**
+     * Durable per-export trace (2026-09-22): logcat rotates within the hour on this
+     * phone, so a 2-hour export's PROBE/SEAM/PACE lines are gone before anyone reads
+     * them. The lines that matter are mirrored to
+     * {@code <external-files>/faditor_export_errors/export_trace_<ts>.txt} — same
+     * folder as the error logs, pulled the same way. Best-effort: if the file can't
+     * be opened, logging continues to logcat only.
+     */
+    @Nullable
+    private java.io.PrintWriter traceWriter = null;
+    private final Object traceLock = new Object();
+
+    /** Open the durable trace; idempotent — the warm-phase probe may open it first. */
+    public void openTrace(@NonNull String kind) {
+        synchronized (traceLock) {
+            if (traceWriter != null) return;
+        }
+        try {
+            java.io.File dir = new java.io.File(context.getExternalFilesDir(null),
+                    "faditor_export_errors");
+            if (!dir.exists()) dir.mkdirs();
+            String ts = new java.text.SimpleDateFormat("yyyyMMdd_HHmmss",
+                    java.util.Locale.US).format(new java.util.Date());
+            java.io.File f = new java.io.File(dir, "export_trace_" + ts + "_" + kind + ".txt");
+            traceWriter = new java.io.PrintWriter(
+                    new java.io.BufferedWriter(new java.io.FileWriter(f, true)), true);
+            trace("TRACE_OPEN kind=" + kind + " file=" + f.getName());
+        } catch (Exception e) {
+            traceWriter = null;
+        }
+    }
+
+    private void trace(@NonNull String line) {
+        String stamped = new java.text.SimpleDateFormat("HH:mm:ss",
+                java.util.Locale.US).format(new java.util.Date()) + " " + line;
+        FLog.i(TAG, line);
+        synchronized (traceLock) {
+            if (traceWriter != null) {
+                try {
+                    traceWriter.println(stamped);
+                } catch (Exception ignored) {}
+            }
+        }
+    }
+
+    private void closeTrace() {
+        synchronized (traceLock) {
+            if (traceWriter != null) {
+                try { traceWriter.close(); } catch (Exception ignored) {}
+                traceWriter = null;
+            }
+        }
+    }
+
+    /**
+     * 2026-09-22: read the hottest thermal zone (°C, one decimal) for the seam log.
+     * The 30:35 stall was first blamed on heat with NO measurement; the owner reports
+     * the phone stays barely warm. sysfs thermal zones are world-readable, so the
+     * export now records the temperature it actually ran at — data, not adjectives.
+     * Returns "?" when unreadable; never throws.
+     */
+    @NonNull
+    private static String readThermalC() {
+        try {
+            java.io.File base = new java.io.File("/sys/class/thermal");
+            String[] zones = base.list();
+            int maxMilli = -1;
+            if (zones != null) {
+                for (String z : zones) {
+                    if (!z.startsWith("thermal_zone")) continue;
+                    java.io.BufferedReader br = null;
+                    try {
+                        br = new java.io.BufferedReader(new java.io.FileReader(
+                                new java.io.File(base, z + "/temp")));
+                        String v = br.readLine();
+                        if (v != null) maxMilli = Math.max(maxMilli,
+                                Integer.parseInt(v.trim()));
+                    } catch (Exception ignored) {
+                    } finally {
+                        if (br != null) {
+                            try { br.close(); } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            }
+            if (maxMilli < 0) return "?";
+            return String.format(java.util.Locale.US, "%.1fC", maxMilli / 1000.0);
+        } catch (Exception e) {
+            return "?";
+        }
+    }
+
+    /** Item index for a progress percent against the built composition map (-1 unknown). */
+    private int currentItemForPct(int pct) {
+        if (exportItemTotalMs <= 0 || exportItemStartMs.length == 0) return -1;
+        long compMs = (long) pct * exportItemTotalMs / 100L;
+        int cur = exportItemStartMs.length - 1;
+        for (int i = 0; i < exportItemStartMs.length; i++) {
+            if (compMs < exportItemStartMs[i]) {
+                cur = Math.max(0, i - 1);
+                break;
+            }
+        }
+        return cur;
     }
 
     /** Runnable that periodically polls Transformer progress and forwards to listener. */
@@ -1400,6 +2664,7 @@ public class ExportManager {
             if (transformer == null || !isExporting) return;
             try {
                 int state = transformer.getProgress(progressHolder);
+                traceStacksIfStalled(state * 1000 + progressHolder.progress);
                 if (state == Transformer.PROGRESS_STATE_AVAILABLE) {
                     float progress = progressHolder.progress / 100f;
                     // EXPORT_PACE: the wall clock against the progress curve. Laid beside the
@@ -1408,15 +2673,52 @@ public class ExportManager {
                     // hundred lines and a stalled one prints almost none — the silence is
                     // itself the signal.
                     int pct = progressHolder.progress;
+                    long now = android.os.SystemClock.elapsedRealtime();
+                    if (progressEpochMs == 0L) progressEpochMs = now;
                     if (pct != lastLoggedProgressPct) {
-                        long now = android.os.SystemClock.elapsedRealtime();
-                        if (progressEpochMs == 0L) progressEpochMs = now;
-                        FLog.i(TAG, "EXPORT_PACE " + pct + "% at +"
+                        trace("EXPORT_PACE " + pct + "% at +"
                                 + ((now - progressEpochMs) / 1000L) + "s");
                         lastLoggedProgressPct = pct;
                     }
+                    // ITEM-0: seam crossing — which composition item is the muxer in,
+                    // and when did it get there. A stall prints its last seam, so the
+                    // watchdog abort names the item instead of a bare percent.
+                    int cur = currentItemForPct(pct);
+                    if (cur >= 0 && cur != lastSeamItem) {
+                        trace("EXPORT_SEAM entered item " + cur
+                                + " of " + exportItemStartMs.length
+                                + " (comp " + exportItemStartMs[cur] + "ms) at +"
+                                + ((now - progressEpochMs) / 1000L) + "s"
+                                + " temp=" + readThermalC());
+                        lastSeamItem = cur;
+                    }
+                    traceMemIfDue();
                     if (listener != null) {
                         listener.onExportProgress(progress);
+                        // FIX-6: pace-measured ETA — composition ms per wall second since
+                        // the pace anchor. The only rate that survives Media3's curve.
+                        long etaMs = -1L;
+                        if (exportItemTotalMs > 0 && pct > 0) {
+                            long compMs = (long) pct * exportItemTotalMs / 100L;
+                            if (paceBaseCompMs < 0) {
+                                paceBaseCompMs = compMs;
+                                paceBaseWallMs = now;
+                            } else if (now > paceBaseWallMs && compMs > paceBaseCompMs) {
+                                double rate = (double) (compMs - paceBaseCompMs)
+                                        / (double) (now - paceBaseWallMs);
+                                if (rate > 0) {
+                                    etaMs = (long) ((exportItemTotalMs - compMs) / rate);
+                                }
+                            }
+                        }
+                        long bytes = -1L;
+                        try {
+                            if (currentStagingPath != null) {
+                                bytes = new java.io.File(currentStagingPath).length();
+                            }
+                        } catch (Exception ignored) {}
+                        listener.onExportProgressDetailed(progress, cur,
+                                exportItemStartMs.length, bytes, etaMs);
                     }
                 }
                 // Continue polling regardless of state (may become available later)
@@ -1659,11 +2961,24 @@ public class ExportManager {
         // time). Recorded beside the composition cursor so a requested editor time can be
         // mapped onto the item that covers it (see FrameExportDirective).
         long editorCursorMs = 0;
+        // Chunked export: clips before chunkClipStart are not emitted, but the editor
+        // cursor (frameDirective spans; write-only without a directive) starts at their
+        // true editor time for hygiene.
+        if (frameDirective == null && chunkClipStart > 0) {
+            for (int ci = 0; ci < chunkClipStart && ci < timeline.getClipCount(); ci++) {
+                editorCursorMs += timeline.getClip(ci).getVisualDurationMs();
+            }
+        }
         // Lead filler for a clamp pass: emitted once, immediately before the covering item,
         // so the covering item starts at the same composition time it has in a full export.
         boolean leadFillerEmitted = false;
 
-        for (int ci = 0; ci < timeline.getClipCount(); ci++) {
+        // Chunked export: emit only this chunk's clip range. Transitions never straddle
+        // a cut (the cutter forbids it), loop spans belong to their clip, so the body is
+        // untouched — only the bounds move. Full range when chunkClipEnd < 0 (legacy).
+        final int clipEndExclusive = chunkClipEnd < 0
+                ? timeline.getClipCount() : Math.min(chunkClipEnd, timeline.getClipCount());
+        for (int ci = Math.max(0, chunkClipStart); ci < clipEndExclusive; ci++) {
             Clip clip = timeline.getClip(ci);
             // SPEC_C_SINGLE_FRAME: editor-span inputs for this clip (record/clamp passes).
             long clipLoopBeforeMs = clip.hasLoopExtension() && !clip.isImageClip()
@@ -1958,7 +3273,12 @@ public class ExportManager {
         // site's emit parity comes from the recorded flag, not from a recomputed tailMs.
         boolean clampPass = frameDirective != null && frameDirective.isClampPass();
         boolean fillerEmitHere = true;
-        long tailMs = projectTotalMs - timelineCursorMs;
+        // Chunked export: timelineCursorMs restarts at 0 in every part, so the remainder has
+        // to be measured from the part's ABSOLUTE end (chunkBaseMs + cursor). Measuring from
+        // the chunk-relative cursor gave the last part of a 48-min project a 44-min black tail
+        // (chunk6: 260,821 ms of content came out 2,907,125 ms long). chunkBaseMs is 0 on the
+        // single-pass path, so this is byte-identical there.
+        long tailMs = projectTotalMs - (chunkBaseMs + timelineCursorMs);
         if (clampPass) {
             if (!frameDirective.lastItemWasTailFiller()) {
                 fillerEmitHere = false;   // pass 1 emitted no filler — this site must not either
@@ -1971,7 +3291,10 @@ public class ExportManager {
                         frameDirective.clampLocalMs));
             }
         }
-        if (fillerEmitHere && tailMs >= MIN_EXPORT_SEGMENT_MS) {
+        // Chunked export: the tail filler (project remainder as black) belongs ONLY to
+        // the last chunk — anywhere else it would append the rest of the timeline.
+        boolean isLastChunk = chunkClipEnd < 0 || chunkClipEnd >= timeline.getClipCount();
+        if (fillerEmitHere && isLastChunk && tailMs >= MIN_EXPORT_SEGMENT_MS) {
             Uri blackUri = ensureBlackFillerUri();
             if (blackUri != null) {
                 Clip filler = new Clip(blackUri, tailMs);
@@ -2039,13 +3362,31 @@ public class ExportManager {
                     if (fx.length() > 0) fx.append(',');
                     fx.append(e.getClass().getSimpleName());
                 }
-                FLog.i(TAG, "EXPORT_ITEM[" + i + "] startMs=" + cum + " durMs=" + durMs
+                // ITEM-0: explicit remux flag — tail-eyeballing "-remuxed-NNNN.mp4"
+                // vs the original cost us a day on the 30:35 stall. The seam log below
+                // + this flag settle "which file was actually read" without guessing.
+                boolean isRemux = uri.contains("-remuxed-");
+                // 2026-09-22: pre-trimmed windows carry in/out in the name — log it too.
+                String srcTail = uri.substring(Math.max(0, uri.length() - 46));
+                trace("EXPORT_ITEM[" + i + "] startMs=" + cum + " durMs=" + durMs
                         + " effects=" + it.effects.videoEffects.size()
                         + " [" + fx + "]"
-                        + " src=" + uri.substring(Math.max(0, uri.length() - 46)));
+                        + " remux=" + (isRemux ? "yes" : "no")
+                        + " src=" + srcTail);
                 if (durMs > 0) cum += durMs;
             }
-            FLog.i(TAG, "EXPORT_ITEM total=" + cum + "ms across " + items.size() + " items");
+                trace("EXPORT_ITEM total=" + cum + "ms across " + items.size() + " items");
+            // ITEM-0: snapshot the boundaries for the seam-crossing log in the poller.
+            long[] starts = new long[items.size()];
+            long c2 = 0L;
+            for (int i = 0; i < items.size(); i++) {
+                starts[i] = c2;
+                long d = items.get(i).durationUs > 0 ? items.get(i).durationUs / 1000L : 0L;
+                c2 += d;
+            }
+            exportItemStartMs = starts;
+            exportItemTotalMs = cum;
+            lastSeamItem = -1;
         }
         EditedMediaItemSequence videoSequence =
                 new EditedMediaItemSequence.Builder(items)
@@ -2069,13 +3410,16 @@ public class ExportManager {
         // SPEC_C_SINGLE_FRAME: neither single-frame pass needs them — the frame's pixels
         // come from the video sequence, and skipping the lanes avoids decoding whole
         // music sources for one picture.
-        if (frameDirective == null && timeline.hasAudioClips()) {
+        // Chunked export: video chunks carry NO audio at all (the single audio pass
+        // covers the whole timeline; joined later). Audio sequences would also decode
+        // 48 minutes of music per chunk for nothing.
+        if (frameDirective == null && !chunkVideoOnly && timeline.hasAudioClips()) {
             // A8: one sequence PER AUDIO LANE, mixed in parallel by the Composition.
             sequences.addAll(buildAudioSequences(timeline));
         }
         // SPEC_PIP_AUDIO: PiP audio rides its own audio-only sequence (the pixels come from
         // the overlay pass above). Null unless a PiP opted in → composition unchanged.
-        if (frameDirective == null) {
+        if (frameDirective == null && !chunkVideoOnly) {
             EditedMediaItemSequence overlayAudio = buildOverlayAudioSequence(timeline, projectSampleRate);
             if (overlayAudio != null) {
                 sequences.add(overlayAudio);
@@ -2235,6 +3579,18 @@ public class ExportManager {
             if (t.clipIndex == idx - 1) return effectiveTransitionMs(timeline, t, t.clipIndex);
         }
         return 0L;
+    }
+
+    /**
+     * Instance version: the static computation PLUS this chunk's absolute base. Overlay
+     * clocks are absolute (pts + offset must equal editor time), while the composition
+     * cursor restarts at 0 per chunk — so chunked builds add chunkBaseMs here. Legacy
+     * path: chunkBaseMs is 0, identical to the static result.
+     */
+    private long editorTimeOffsetForChunk(@NonNull Timeline timeline,
+                                          @NonNull Clip clip,
+                                          long compressedStartMs) {
+        return editorTimeOffsetFor(timeline, clip, compressedStartMs) + chunkBaseMs;
     }
 
     private static long editorTimeOffsetFor(@NonNull Timeline timeline,
@@ -2481,7 +3837,8 @@ public class ExportManager {
 
         EditedMediaItem.Builder editedBuilder = new EditedMediaItem.Builder(mediaItem);
         if (clip.isImageClip()) editedBuilder.setFrameRate(30);
-        boolean dropAudio = clip.isAudioMuted() || clip.isImageClip();
+        // Chunked export: video chunks drop all master audio (single audio pass later).
+        boolean dropAudio = clip.isAudioMuted() || clip.isImageClip() || chunkVideoOnly;
         // A clipped window that starts past the end of the source's AUDIO track yields
         // zero audio samples → AudioGraph stall → watchdog "no output sample" abort.
         // Make such items video-only instead (arises at transition-trimmed tails and
@@ -3816,7 +5173,7 @@ public class ExportManager {
         if (!isTransitionItem && clip.getFx() != null && !clip.getFx().active().isEmpty()) {
             videoEffects.add(new AdjustmentLayerGlEffect(
                     context, spineFxLayer(clip),
-                    editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                    editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                             - (isLoopBeforeItem
                                     ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
         }
@@ -4004,7 +5361,7 @@ public class ExportManager {
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                        editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
                         isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
@@ -4028,7 +5385,7 @@ public class ExportManager {
                     }
                 }
                 videoEffects.add(new BlendModeGlEffect(context, oc, matte,
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                        editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
@@ -4049,7 +5406,7 @@ public class ExportManager {
             for (com.fadcam.ui.faditor.model.TextOverlayItem to : exportTextOverlays) {
                 if (!to.hasActiveFx() || to.isImage()) continue;
                 videoEffects.add(new TextFxGlEffect(context, to,
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                        editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
             }
@@ -4130,7 +5487,7 @@ public class ExportManager {
                             project.getSpriteSheets(),
                             project.getAvatarRigs(),
                             project.getTimeline().getTotalDurationMs(),
-                            editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                            editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                     - (isLoopBeforeItem ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
                             isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
                     videoEffects.add(new OverlayEffect(Collections.singletonList(belowBlendOverlay)));
@@ -4230,7 +5587,7 @@ public class ExportManager {
                 if (s.wantsGl()) glOverlaysBottomTop.add(s);
             }
             final long overlayOffsetMs =
-                    editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                    editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                             - (isLoopBeforeItem
                                     ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
             glOverlaysBottomTop.sort((a, b) -> {
@@ -4280,7 +5637,7 @@ public class ExportManager {
             // that loop, so the z-unification fix's code is read but never rewritten.
             if (!project.getTimeline().getAdjustmentLayers().isEmpty()) {
                 final long adjustmentOffset =
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                        editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
                 // How many PiP effects were just appended, and where they start. An adjustment
@@ -4324,7 +5681,7 @@ public class ExportManager {
                         project.getSpriteSheets(),
                         project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(),
-                        editorTimeOffsetFor(project.getTimeline(), clip, timelineCursorMs)
+                        editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
                         isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));

@@ -255,6 +255,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     // so a silent :export-process death can never wedge future exports.
     private static final long EXPORT_START_GRACE_MS = 30_000;
     private volatile long exportStartedLocallyAtMs = 0;
+    /** FIX-6: last SHOWN progress — the bar only ever advances (never jumps back) and is
+     *  rate-capped, so Media3's early 25%-in-30-seconds jump reads as steady motion. */
+    private float lastUiProgress = -1f;
     private boolean lastExportWasAudioOnly = false;
     private boolean exportEventsReceiverRegistered = false;
     private final android.content.BroadcastReceiver exportEventsReceiver =
@@ -269,16 +272,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             exportUiOnStarted();
                             break;
                         case ExportService.ACTION_EXPORT_PROGRESS:
-                            exportUiOnProgress(intent.getFloatExtra(ExportService.EXTRA_PROGRESS, 0f));
+                            exportUiOnProgressDetailed(
+                                    intent.getFloatExtra(ExportService.EXTRA_PROGRESS, 0f),
+                                    intent.getIntExtra(ExportService.EXTRA_PROGRESS_ITEM, -1),
+                                    intent.getIntExtra(ExportService.EXTRA_PROGRESS_ITEMS, -1),
+                                    intent.getLongExtra(ExportService.EXTRA_PROGRESS_BYTES, -1L),
+                                    intent.getLongExtra(ExportService.EXTRA_PROGRESS_ETA_MS, -1L),
+                                    intent.getStringExtra(ExportService.EXTRA_PHASE));
+                            break;
+                        case ExportService.ACTION_EXPORT_FINALIZING:
+                            exportUiOnFinalizing();
                             break;
                         case ExportService.ACTION_EXPORT_COMPLETED:
                             exportStartedLocallyAtMs = 0;
+                            consumeTerminalResult();
                             restorePreviewAfterExport();
                             exportUiOnCompleted(intent.getStringExtra(ExportService.EXTRA_OUTPUT_PATH),
                                     intent.getBooleanExtra(ExportService.EXTRA_AUDIO_ONLY, false));
                             break;
                         case ExportService.ACTION_EXPORT_ERROR:
                             exportStartedLocallyAtMs = 0;
+                            consumeTerminalResult();
                             restorePreviewAfterExport();
                             exportUiOnError(intent.getStringExtra(ExportService.EXTRA_ERROR_MESSAGE),
                                     intent.getStringExtra(ExportService.EXTRA_ERROR_CLASS));
@@ -1815,9 +1829,62 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * FIX-7: reconcile with the out-of-process export on every return. Broadcasts are
+     * missed while this activity is dead; the service's terminal-result ledger survives
+     * both processes. A still-running export re-shows its stripe; a finished one the
+     * user never saw announced is announced now, once.
+     */
+    private void checkRunningExportState() {
+        try {
+            if (isExportRunning()) {
+                if (exportProgressOverlay == null
+                        || exportProgressOverlay.getVisibility() != View.VISIBLE) {
+                    showExportProgressStripe();
+                }
+                return;
+            }
+            android.content.SharedPreferences prefs =
+                    getSharedPreferences("faditor_export", MODE_PRIVATE);
+            long resultTime = prefs.getLong("last_export_time", 0L);
+            long consumed = prefs.getLong("last_export_consumed", 0L);
+            if (resultTime <= 0 || resultTime == consumed) return;
+            String status = prefs.getString("last_export_status", "");
+            if ("error".equals(status)) {
+                String msg = prefs.getString("last_export_error", null);
+                String cls = prefs.getString("last_export_error_class", null);
+                ExportService.markTerminalResultConsumed(this, resultTime);
+                restorePreviewAfterExport();
+                exportUiOnError(msg, cls);
+            } else if ("completed".equals(status)) {
+                String path = prefs.getString("last_export_path", null);
+                ExportService.markTerminalResultConsumed(this, resultTime);
+                String name = path != null
+                        ? new java.io.File(path).getName() : null;
+                Toast.makeText(this,
+                        name != null ? name + " saved." : "Export complete.",
+                        Toast.LENGTH_LONG).show();
+                com.fadcam.ui.RecordsFragment.requestRefresh();
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "checkRunningExportState failed", e);
+        }
+    }
+
+    /** FIX-7: the live receiver handled this terminal result — the ledger copy is spent. */
+    private void consumeTerminalResult() {
+        try {
+            android.content.SharedPreferences prefs =
+                    getSharedPreferences("faditor_export", MODE_PRIVATE);
+            long t = prefs.getLong("last_export_time", 0L);
+            if (t > 0) ExportService.markTerminalResultConsumed(this, t);
+        } catch (Exception ignored) {}
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        checkRunningExportState();
 
         // A sequence offer parked by the picker's result callback (see the field's doc).
         if (pendingSequenceOffer != null) {
@@ -9576,6 +9643,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             android.content.IntentFilter filter = new android.content.IntentFilter();
             filter.addAction(ExportService.ACTION_EXPORT_STARTED);
             filter.addAction(ExportService.ACTION_EXPORT_PROGRESS);
+            filter.addAction(ExportService.ACTION_EXPORT_FINALIZING);
             filter.addAction(ExportService.ACTION_EXPORT_COMPLETED);
             filter.addAction(ExportService.ACTION_EXPORT_ERROR);
             filter.addAction(ExportService.ACTION_EXPORT_CANCELLED);
@@ -9678,11 +9746,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void exportUiOnProgress(float progress) {
+        exportUiOnProgressDetailed(progress, -1, -1, -1L, -1L, null);
+    }
+
+    /**
+     * FIX-6: honest progress. The SHOWN bar is monotonic and rate-capped (+3 points per
+     * update, ~3 updates/sec) so the early jump in Media3's curve becomes steady motion;
+     * completion still snaps to 100% via exportUiOnCompleted. The info line says what is
+     * happening (approximate clip), how much is written (exact MB), and the pace ETA.
+     */
+    /** Chunked-export phase label (null clears back to live detail). */
+    @Nullable
+    private String lastExportPhase = null;
+
+    private void exportUiOnProgressDetailed(float progress, int itemIndex, int itemCount,
+                                            long bytesWritten, long etaRemainingMs,
+                                            @Nullable String phase) {
                     runOnUiThread(() -> {
-                        int percent = (int) (progress * 100);
+                        float shown = progress;
+                        if (lastUiProgress >= 0f) {
+                            shown = Math.max(lastUiProgress,
+                                    Math.min(progress, lastUiProgress + 0.03f));
+                        }
+                        lastUiProgress = shown;
+                        int percent = (int) (shown * 100);
 
                         if (exportProgressStripe != null) {
-                            exportProgressStripe.setProgress(progress);
+                            exportProgressStripe.setProgress(shown);
                         }
 
                         if (exportProgressPercent != null) {
@@ -9697,14 +9787,61 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     getString(R.string.faditor_exporting_percent, percent));
                         }
 
-                        // Compute ETA
-                        if (progress > 0.05f && exportEtaText != null) {
-                            long elapsed = System.currentTimeMillis() - exportStartTimeMs;
-                            long totalEstimated = (long) (elapsed / progress);
-                            long remainingMs = totalEstimated - elapsed;
-                            exportEtaText.setText(getString(R.string.faditor_export_eta,
-                                    formatEta(remainingMs)));
-                            exportEtaText.setVisibility(View.VISIBLE);
+                        // Live detail line: phase (chunked runs) + ≈clip + exact MB + pace ETA.
+                        if (phase != null) lastExportPhase = phase;
+                        if (exportInfoText != null) {
+                            StringBuilder detail = new StringBuilder();
+                            if (lastExportPhase != null) {
+                                detail.append(lastExportPhase);
+                            }
+                            if (itemIndex >= 0 && itemCount > 0) {
+                                if (detail.length() > 0) detail.append(" · ");
+                                detail.append("Clip ≈").append(itemIndex + 1)
+                                        .append(" of ").append(itemCount);
+                            }
+                            if (bytesWritten >= 0) {
+                                if (detail.length() > 0) detail.append(" · ");
+                                detail.append(bytesWritten / (1024 * 1024)).append(" MB written");
+                            }
+                            if (detail.length() > 0) {
+                                exportInfoText.setText(detail.toString());
+                                exportInfoText.setVisibility(View.VISIBLE);
+                            }
+                        }
+
+                        // ETA — pace-measured when the service supplies one, else the old
+                        // elapsed/progress estimate.
+                        if (exportEtaText != null) {
+                            long remainingMs = etaRemainingMs >= 0 ? etaRemainingMs : -1L;
+                            if (remainingMs < 0 && progress > 0.05f) {
+                                long elapsed = System.currentTimeMillis() - exportStartTimeMs;
+                                remainingMs = (long) (elapsed / progress) - elapsed;
+                            }
+                            if (remainingMs >= 0) {
+                                exportEtaText.setText(getString(R.string.faditor_export_eta,
+                                        formatEta(remainingMs)));
+                                exportEtaText.setVisibility(View.VISIBLE);
+                            }
+                        }
+                    });
+    }
+
+    /** FIX-6: the muxer is done; loudness/SAF finalize is running. Not stuck — working. */
+    private void exportUiOnFinalizing() {
+                    runOnUiThread(() -> {
+                        if (exportProgressText != null) {
+                            exportProgressText.setText(R.string.faditor_export_finalizing);
+                        }
+                        if (exportProgressBar != null) {
+                            exportProgressBar.setIndeterminate(true);
+                        }
+                        if (exportEtaText != null) exportEtaText.setVisibility(View.GONE);
+                        if (exportInfoText != null) {
+                            exportInfoText.setText(R.string.faditor_export_finalizing);
+                            exportInfoText.setVisibility(View.VISIBLE);
+                        }
+                        if (exportProgressStripe != null) {
+                            exportProgressStripe.setProgress(1f);
                         }
                     });
     }
@@ -9723,6 +9860,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             exportProgressText.setTextColor(Studio.INK);
                         }
                         if (exportStatusIcon != null) exportStatusIcon.setText("check_circle");
+                        if (exportProgressOverlay != null) exportProgressOverlay.setKeepScreenOn(false);
                         if (exportEtaText != null) exportEtaText.setVisibility(View.GONE);
                         if (exportInfoText != null) exportInfoText.setVisibility(View.GONE);
                         if (exportTitle != null) {
@@ -9798,9 +9936,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
 
                         // Dialog, not toast — must hold Retry and Details
-                        String userMsg = cause.userMessage;
-                        if (!userMsg.toLowerCase(java.util.Locale.ROOT).contains("safe")) {
-                            userMsg += "\n\nYour project is safe.";
+                        // FIX-5: the export service authors plain-language messages for the
+                        // failures it diagnoses itself (probe, warm-phase) — they carry the
+                        // clip, position and options, so show them verbatim instead of the
+                        // generic cause template. Marker: the service always signs them with
+                        // "Your project is safe".
+                        String rawForDialog = errorMessage != null ? errorMessage : "";
+                        String userMsg;
+                        if (rawForDialog.contains("Your project is safe")) {
+                            userMsg = rawForDialog;
+                        } else {
+                            userMsg = cause.userMessage;
+                            if (!userMsg.toLowerCase(java.util.Locale.ROOT).contains("safe")) {
+                                userMsg += "\n\nYour project is safe.";
+                            }
                         }
                         com.google.android.material.dialog.MaterialAlertDialogBuilder b =
                                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
@@ -13240,6 +13389,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showExportProgress() {
         if (exportProgressOverlay == null) return;
 
+        lastUiProgress = -1f;
+        lastExportPhase = null;
         // Reset to initial exporting state (indeterminate until first progress poll)
         if (exportProgressPercent != null) exportProgressPercent.setText("–");
         if (exportProgressBar != null) {
@@ -13264,12 +13415,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         exportProgressOverlay.setVisibility(View.VISIBLE);
         exportProgressOverlay.setAlpha(0f);
         exportProgressOverlay.animate().alpha(1f).setDuration(200).start();
+        // Keep the display awake while the progress screen is up. Measured on the Note 20
+        // (2026-09-23), same clips: screen on ~1.2x, screen off ~0.6x even with the export's
+        // wake lock — the phone throttles itself with the display off. The view flag only
+        // applies while this overlay is visible, so minimising to keep editing drops it.
+        exportProgressOverlay.setKeepScreenOn(true);
 
         showExportProgressStripe();
     }
 
     private void hideExportProgress() {
         if (exportProgressOverlay != null) {
+            exportProgressOverlay.setKeepScreenOn(false);
             exportProgressOverlay.animate().alpha(0f).setDuration(200).withEndAction(() -> {
                 exportProgressOverlay.setVisibility(View.GONE);
             }).start();

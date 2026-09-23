@@ -25330,6 +25330,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // rebuild — exactly the per-write path a gesture already takes, so no new
             // plumbing. Size-gated (position-only layouts are no-ops) and layout cannot
             // recurse: none of those writes change this container's own size.
+            // Created while a drawer is already open: start below it, not under it.
+            transformOverlay.post(this::syncTransformChromeInset);
             playerContainer.addOnLayoutChangeListener(
                     (v, l, t, r, b, ol, ot, orr, ob) -> {
                         if ((r - l) != (orr - ol) || (b - t) != (ob - ot)) {
@@ -29241,6 +29243,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     @Nullable private com.fadcam.ui.faditor.tools.ObjectDrawer objectDrawer;
+    /** The open drawer's height, px; 0 when closed. */
+    private int objectDrawerHeightPx;
+
+    /**
+     * Keep the canvas's own pills (Bend, Done) clear of an open drawer: tell the transform
+     * surface how far the drawer reaches into it. Both live in the same full-screen parent's
+     * coordinates via their window positions; the drawer starts at the top of that parent.
+     */
+    private void syncTransformChromeInset() {
+        if (transformOverlay == null) return;
+        float cover = 0f;
+        if (objectDrawerHeightPx > 0 && objectDrawer != null
+                && objectDrawer.getParent() instanceof View) {
+            int[] parent = new int[2], overlay = new int[2];
+            ((View) objectDrawer.getParent()).getLocationInWindow(parent);
+            transformOverlay.getLocationInWindow(overlay);
+            cover = parent[1] + objectDrawerHeightPx - overlay[1];
+        }
+        transformOverlay.setChromeTopInset(cover);
+    }
     // SPEC_20260831_CAPTION_SLIDES_UX §7.2.1: the pills row living in the caption drawer's
     // header (middleView) — kept so refreshCaptionDrawerIfOpen can refill it in place (§7.1.5).
     @Nullable private android.widget.LinearLayout captionHeaderPills;
@@ -29301,7 +29323,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // header stays functionally intact underneath (the drawer dismisses with one gesture).
             root.addView(objectDrawer, lp);
             objectDrawer.setHeightListener(h -> {
+                objectDrawerHeightPx = h;
                 reflowPreviewUnderDrawer(h);
+                syncTransformChromeInset();
                 // One place that knows the drawer's visibility, so the tool light
                 // cannot be left on by a close path nobody remembered to hook.
                 // A2: caller-supplied via show(..., lightAdjust) — which tool this open should light.
@@ -29462,6 +29486,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
                                              @NonNull Runnable undo) {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            // ONE undo step per drag, dial turn or typed value on the Video overlay tab: the
+            // transform keys, and the Volume row, which lives on the clip rather than in them.
+            @Nullable private com.fadcam.ui.faditor.keyframe.KeyframeSet editBefore;
+            private float volBefore;
+            @Nullable private java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> volKeysBefore;
+            @Override public void beginEdit() {
+                editBefore = pipKfCopy(c);
+                volBefore = c.getVolumeLevel();
+                volKeysBefore = new java.util.ArrayList<>(c.getVolumeKeyframes());
+            }
+            @Override public void endEdit(@NonNull String label) {
+                if (editBefore == null || volKeysBefore == null) return;
+                recordPipMenuUndo(c, editBefore, label);
+                final float volAfter = c.getVolumeLevel();
+                final java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> keysAfter =
+                        new java.util.ArrayList<>(c.getVolumeKeyframes());
+                final float vb = volBefore;
+                final java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> kb = volKeysBefore;
+                // A volume write replaces the list with fresh keys, so an untouched list is
+                // element-for-element the same objects and equals() is an exact "unchanged".
+                if (vb != volAfter || !kb.equals(keysAfter)) {
+                    undoManager.recordAction(new EditActions.LambdaAction(label,
+                            () -> restorePipVolume(c, volAfter, keysAfter),
+                            () -> restorePipVolume(c, vb, kb)));
+                    scheduleAutoSave();
+                }
+                editBefore = null;
+                volKeysBefore = null;
             }
         };
 
@@ -30342,6 +30395,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (objectMenuSheet != null && objectMenuSheet.isShowing()) {
             objectMenuSheet.onPlayheadChanged(lastPlayheadAbsoluteMs);
         }
+    }
+
+    /** Undo/redo helper for a video overlay's Volume row: level and envelope together. */
+    private void restorePipVolume(@NonNull Clip c, float level,
+            @NonNull java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> keys) {
+        c.setVolumeLevel(level);
+        c.setVolumeKeyframes(keys);
+        if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume();
+        scheduleAutoSave();
     }
 
     private void recordPipMenuUndo(@NonNull Clip c,
@@ -32849,6 +32911,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
                                              @NonNull Runnable undo) {
                 undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            // ONE undo step per drag, dial turn or typed value on the Image tab. Without it a
+            // Rotate dial could spin a picture through four turns and Undo would not know.
+            @Nullable private com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot editBefore;
+            @Override public void beginEdit() { editBefore = o.snapshotTransform(); }
+            @Override public void endEdit(@NonNull String label) {
+                if (editBefore != null) recordOverlayMenuUndo(o, editBefore, label);
+                editBefore = null;
             }
         };
 

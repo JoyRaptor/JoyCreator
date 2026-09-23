@@ -671,6 +671,20 @@ public class TransformOverlayView extends View {
     /** Supply the action the "Done" pill runs. Null hides the pill entirely. */
     public void setOnExit(@Nullable Runnable r) { onExit = r; invalidate(); }
 
+    /**
+     * How far an open top drawer covers this view, in px (0 when none). The Done and Bend pills
+     * are canvas controls: under a see-through drawer they read as the drawer's own buttons and
+     * cannot be pressed, so they move down to sit just below its edge instead.
+     */
+    private float chromeTopInset;
+
+    public void setChromeTopInset(float px) {
+        px = Math.max(0f, px);
+        if (px == chromeTopInset) return;
+        chromeTopInset = px;
+        invalidate();
+    }
+
     // ── Double-tap ───────────────────────────────────────────────────────
     //
     // CARRIED OVER FROM THE ORDINARY HANDLES, not invented here. Once this surface is up on a
@@ -695,8 +709,8 @@ public class TransformOverlayView extends View {
     private static final long DOUBLE_TAP_MS = 320L;
 
     private void exitPillRect(@NonNull RectF out) {
-        float w = dp(64f), h = dp(34f), m = dp(8f);
-        out.set(m, m, m + w, m + h);
+        float w = dp(64f), h = dp(34f), m = dp(8f), top = m + chromeTopInset;
+        out.set(m, top, m + w, top + h);
     }
 
     private void drawExitPill(@NonNull Canvas c) {
@@ -732,8 +746,8 @@ public class TransformOverlayView extends View {
     // drawn (and hit) before the ring and the loupe so it can never intercept them.
 
     private void bendPillRect(@NonNull RectF out) {
-        float w = dp(78f), h = dp(34f), m = dp(8f);
-        out.set(getWidth() - m - w, m, getWidth() - m, m + h);
+        float w = dp(78f), h = dp(34f), m = dp(8f), top = m + chromeTopInset;
+        out.set(getWidth() - m - w, top, getWidth() - m, top + h);
     }
 
     /** Shown whenever the selected object can bend and no gesture is in flight. */

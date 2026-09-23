@@ -57,6 +57,16 @@ public final class PipDrawerTabs {
         void pickColorFromPreview(@NonNull ColorPicked cb);
         /** Record one undo step. */
         void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo);
+        /**
+         * A slider drag, dial turn or typed value is ABOUT to change the object: snapshot it.
+         * Paired with {@link #endEdit}. These are the undo brackets ObjectMenuSheet's rows have
+         * always had (GestureHooks); the drawers replaced the sheet without them, so every
+         * Position / Scale / Rotate / Opacity change made in a drawer was missing from Undo.
+         * Default no-op for a host whose edits are covered some other way.
+         */
+        default void beginEdit() { }
+        /** That edit ended: record ONE undo step, named {@code label}, if anything changed. */
+        default void endEdit(@NonNull String label) { }
     }
 
     public interface ColorPicked { void onPicked(@Nullable Integer rgb); }
@@ -215,8 +225,8 @@ public final class PipDrawerTabs {
                 value.setText(prop.format(v));
                 host.onChanged();
             }
-            @Override public void onStartTrackingTouch(SeekBar s) {}
-            @Override public void onStopTrackingTouch(SeekBar s) {}
+            @Override public void onStartTrackingTouch(SeekBar s) { host.beginEdit(); }
+            @Override public void onStopTrackingTouch(SeekBar s) { host.endEdit(prop.label()); }
         });
         row.addView(bar, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -301,16 +311,23 @@ public final class PipDrawerTabs {
                     value.setText(prop.format(v));
                     host.onChanged();
                 }
-                @Override public void onStartTrackingTouch(SeekBar s) {}
-                @Override public void onStopTrackingTouch(SeekBar s) {}
+                @Override public void onStartTrackingTouch(SeekBar s) { host.beginEdit(); }
+                @Override public void onStopTrackingTouch(SeekBar s) { host.endEdit(prop.label()); }
             });
             LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
             row.addView(bar, blp);
         } else {
             // Layout only; the gesture wiring is set after selfRefresh exists (below).
-            row.addView(dial, new LinearLayout.LayoutParams(
-                    Math.round(40 * d), Math.round(40 * d)));
+            // The dial takes the slider's SLOT (weight 1), sitting at its start, so the value,
+            // diamond and steppers land in the same column as every other row's. At its bare
+            // 40dp the row's tail slid left to mid-drawer and the column broke.
+            android.widget.FrameLayout slot = new android.widget.FrameLayout(ctx);
+            slot.addView(dial, new android.widget.FrameLayout.LayoutParams(
+                    Math.round(40 * d), Math.round(40 * d),
+                    Gravity.START | Gravity.CENTER_VERTICAL));
+            row.addView(slot, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         }
         row.addView(value);
         // TAP THE NUMBER TO TYPE IT. A 1000-step slider on a 46dp readout cannot land an exact
@@ -362,14 +379,14 @@ public final class PipDrawerTabs {
         };
         if (dial != null) {
             dial.setListener(new RotationDialView.Listener() {
-                @Override public void onDragStart() { }
+                @Override public void onDragStart() { host.beginEdit(); }
                 @Override public void onDragDelta() {
                     // Raw degrees: no min/max window, no snap — the winding IS the value.
                     prop.write(dial.getDegrees(), host.playheadMs());
                     value.setText(prop.format(dial.getDegrees()));
                     host.onChanged();
                 }
-                @Override public void onDragEnd() { }
+                @Override public void onDragEnd() { host.endEdit(prop.label()); }
                 @Override public void onTap() {
                     promptForValue(ctx, prop, host, min, max, selfRefresh[0]);
                 }
@@ -473,8 +490,10 @@ public final class PipDrawerTabs {
                         // means "as big as it goes", and an error dialog for it would be pedantry.
                         v = Math.max(Math.min(min, max), Math.min(Math.max(min, max), v));
                     }
+                    host.beginEdit();
                     prop.write(v, ph);
                     host.onChanged();
+                    host.endEdit(prop.label());
                     if (refresh != null) refresh.run();
                 })
                 .show();

@@ -1981,6 +1981,10 @@ public class ExportManager {
                     return;
                 }
                 String committed = commitStaging(stagingPath, finalOutputPath);
+                // The finished file is committed; the parts, the sound pass and the joined
+                // video (~2x the export's size - 3.6 GB for the 48-min project) are now only
+                // disk the user cannot see or reclaim. Kept on ANY failure above (resume).
+                deleteChunkDir(project);
                 ExportResult result = lastChunkResult;
                 isExporting = false;
                 resetChunkState();
@@ -2002,6 +2006,26 @@ public class ExportManager {
                 chunkFail(project, finalOutputPath, manifest, ranges, ranges.size() + 1, e);
             }
         }, "faditor-chunk-join").start();
+    }
+
+    /** Remove a project's chunk workspace after a committed export. Never throws. */
+    private void deleteChunkDir(@NonNull FaditorProject project) {
+        try {
+            File dir = chunkDirFor(project);
+            long freed = 0L;
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    long len = f.length();
+                    if (f.delete()) freed += len;
+                }
+            }
+            //noinspection ResultOfMethodCallIgnored
+            dir.delete();
+            FLog.i(TAG, "Chunk workspace cleared (" + (freed / (1024 * 1024)) + " MB)");
+        } catch (Exception e) {
+            FLog.w(TAG, "Chunk workspace cleanup failed", e);
+        }
     }
 
     /** Last ~1.5 KB of an ffmpeg session's log into the durable trace — its own reason for failing. */

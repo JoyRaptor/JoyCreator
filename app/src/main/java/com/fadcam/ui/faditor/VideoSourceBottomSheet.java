@@ -99,6 +99,17 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         this.lookingForName = filename;
     }
 
+    /**
+     * Put the sheet in ADD mode: {@code title} replaces "Start New Project", and the
+     * "Blank audio project" row is left out. Picking a video overlay inside the Studio opened
+     * this sheet under the new-project title, offering to start an audio project mid-edit.
+     */
+    public void setAddTitle(@Nullable String title) {
+        this.addTitle = title;
+    }
+
+    @Nullable private String addTitle;
+
     // ── Theme & dark styling ─────────────────────────────────────────
 
     @Override
@@ -133,6 +144,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         boolean relinkMode = lookingForName != null;
         root.addView(SheetKit.header(requireContext(), relinkMode
                 ? getString(R.string.faditor_relink_sheet_title)
+                : addTitle != null ? addTitle
                 : getString(R.string.faditor_start_project), null).view);
 
         // Subtitle / helper text — in relink mode this names the missing file.
@@ -149,7 +161,7 @@ public class VideoSourceBottomSheet extends BottomSheetDialogFragment {
         // New-project used to FORCE a video pick, so an audio-first user (podcast,
         // voiceover, music) had to import a video they did not want just to reach a
         // timeline. Not offered in relink mode — that sheet is hunting one specific file.
-        if (!relinkMode) {
+        if (!relinkMode && addTitle == null) {
             root.addView(createBlankAudioRow(materialIcons, dp));
         }
 

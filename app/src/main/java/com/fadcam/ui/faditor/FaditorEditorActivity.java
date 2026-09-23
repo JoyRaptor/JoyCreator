@@ -43495,6 +43495,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // M-COMP-2b: pick a source for the floating PiP layer — same
                 // FadCam-recordings-first source sheet the master video path uses.
                 VideoSourceBottomSheet vs = new VideoSourceBottomSheet();
+                vs.setAddTitle(getString(R.string.add_video_overlay_title));
                 vs.setCallback(new VideoSourceBottomSheet.Callback() {
                     @Override
                     public void onRecordingSelected(@NonNull Uri videoUri) {

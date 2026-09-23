@@ -31,4 +31,14 @@
     <string name="image_move_up_desc">Move this up one lane</string>
     <string name="image_move_down">Down a lane ▼</string>
     <string name="image_move_down_desc">Move this down one lane</string>
+    <!-- Audio drawer, A/V Sync tab -->
+    <string name="avsync_readout">Measured %1$d ms (%2$s) \u00b7 %3$s \u00b7 total %4$d ms</string>
+    <string name="avsync_offset">Offset</string>
+    <string name="avsync_ms">%1$d ms</string>
+    <string name="avsync_hint">Press Test, then slide until the flash and the click land together.</string>
+    <string name="avsync_test">Test</string>
+    <string name="avsync_stop">Stop</string>
+    <string name="avsync_test_desc">Play a click with a flash, to line up sound and picture</string>
+    <string name="avsync_reset">Reset to measured</string>
+    <string name="avsync_reset_desc">Clear your offset and use the measured delay</string>
 </resources>

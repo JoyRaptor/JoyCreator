@@ -165,6 +165,10 @@ public final class AudioDrawerTabs {
             refreshers.add(fadeRow(ctx, fades, "In", true, clip, host, true));   // TODO(strings)
             refreshers.add(fadeRow(ctx, fades, "Out", false, clip, host, true)); // TODO(strings)
         }
+        // One pass NOW. The rows are built empty and only fill in on refresh, so without this
+        // a drawer opened on a paused playhead showed blank value pills and every slider at
+        // zero until something moved the playhead (PipDrawerTabs.videoTab does the same).
+        for (Runnable r : refreshers) r.run();
         // Same row-refresh contract as PipDrawerTabs.videoTab: hang the refresh off the VIEW
         // so the drawer can re-read every row at the live playhead without knowing tabs.
         root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
@@ -299,7 +303,11 @@ public final class AudioDrawerTabs {
         // TAP THE NUMBER TO TYPE IT — same as Level.
         value.setOnClickListener(v -> promptForPan(ctx, clip, host, refreshAll));
 
-        row.addView(new View(ctx)); // spacer for diamond position parity
+        // Spacer for diamond position parity, at the diamond's width (PipDrawerTabs reserves
+        // the same 64dp). It had no LayoutParams, and a bare View at WRAP_CONTENT measures to
+        // ALL the space it is offered — so it swallowed the row and the weighted slider got
+        // zero width: Pan showed a value pill and no slider at all.
+        row.addView(new View(ctx), new LinearLayout.LayoutParams(dp(ctx, 64), 1));
         parent.addView(row);
 
         selfRefresh[0] = () -> {
@@ -747,7 +755,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             note.setText(fxChainBypassed
                     ? "FX chain BYPASSED — hearing the untouched mix."      // TODO(strings)
                     : live ? "Gain reduction, live from the compressor."   // TODO(strings)
-                    : "Waits for the real-time chain (C1.E) to report.");  // TODO(strings));
+                    : "The meter moves while the project plays.");         // TODO(strings)
         };
         refresh.run();
         // Same row-refresh contract as levelTab: PipDrawerTabs.refreshRows walks the showing

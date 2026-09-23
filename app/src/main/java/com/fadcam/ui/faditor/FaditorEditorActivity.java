@@ -29704,7 +29704,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("A/V Sync", 0, ctx -> createAvSyncView(ctx)));
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Effects", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -29752,88 +29752,108 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ensureObjectDrawer().show(tabs, toggles, false);
     }
 
-    /** SPEC_20260829_AUDIO_SYNC_TRUTH §3.5 calibration row view. */
+    /**
+     * SPEC_20260829_AUDIO_SYNC_TRUTH §3.5 calibration row view, in the drawer kit: the readout,
+     * an Offset row (slider + value, the same row every other drawer tab uses), a hint, and
+     * Test / Reset as record 06 chips beside a round flash light.
+     */
     @NonNull
     private android.view.View createAvSyncView(@NonNull android.content.Context ctx) {
         float d = ctx.getResources().getDisplayMetrics().density;
         android.widget.LinearLayout root = new android.widget.LinearLayout(ctx);
         root.setOrientation(android.widget.LinearLayout.VERTICAL);
-        root.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(10*d));
+        root.setPadding(Math.round(14*d), Math.round(6*d), Math.round(14*d), Math.round(10*d));
 
-        int base = com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx);
-        String src = com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx);
-        String route = com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx);
-        int user = com.fadcam.ui.faditor.audio.AudioLatency.userOffsetMs(ctx);
-        int total = com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx);
-
-        android.widget.TextView info = new android.widget.TextView(ctx);
-        info.setTextColor(Studio.INK);
+        final android.widget.TextView info = new android.widget.TextView(ctx);
+        info.setTextColor(Studio.DRAWER_INK);
         info.setTextSize(11);
-        info.setText("Measured: " + base + " ms (" + src + ")  Route: " + route + "\nUser offset: " + user + " ms  Total: " + total + " ms");
+        info.setFontFeatureSettings("tnum");
+        final Runnable refreshInfo = () -> info.setText(getString(R.string.avsync_readout,
+                com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx),
+                com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx),
+                com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx),
+                com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx)));
+        refreshInfo.run();
         root.addView(info);
 
-        android.widget.TextView tapHint = new android.widget.TextView(ctx);
-        tapHint.setTextColor(Studio.INK_FAINT);
-        tapHint.setTextSize(10);
-        tapHint.setText("Slide until flash and click coincide.");
-        tapHint.setPadding(0, Math.round(6*d), 0, 0);
-        root.addView(tapHint);
-
-        android.widget.SeekBar bar = new android.widget.SeekBar(ctx);
+        int user = com.fadcam.ui.faditor.audio.AudioLatency.userOffsetMs(ctx);
+        android.widget.LinearLayout offsetRow = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.row(ctx);
+        offsetRow.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(ctx, getString(R.string.avsync_offset), 52));
+        final com.fadcam.ui.faditor.tools.FineSeekBar bar =
+                new com.fadcam.ui.faditor.tools.FineSeekBar(ctx);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.styleSlider(bar);
         bar.setMax(1000);
         bar.setProgress(user + 500);
-        android.widget.TextView val = new android.widget.TextView(ctx);
-        val.setTextColor(Studio.INK);
-        val.setTextSize(11);
-        val.setGravity(android.view.Gravity.CENTER);
-        val.setText(user + " ms");
+        bar.setContentDescription(getString(R.string.avsync_offset));
+        final android.widget.TextView val = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.value(ctx, 58);
+        val.setText(getString(R.string.avsync_ms, user));
         bar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar s, int p, boolean fromUser) {
+                // isFineDriving: a fine drag reports fromUser == false (see PipDrawerTabs.propRow).
+                if (!fromUser && !bar.isFineDriving()) return;
                 int ms = p - 500;
-                val.setText(ms + " ms");
+                val.setText(getString(R.string.avsync_ms, ms));
                 com.fadcam.ui.faditor.audio.AudioLatency.setUserOffsetMs(ctx, ms);
-                info.setText("Measured: " + com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx)
-                        + " ms (" + com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx) + ")  Route: "
-                        + com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx) + "\nUser offset: " + ms
-                        + " ms  Total: " + com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx) + " ms");
+                refreshInfo.run();
             }
             @Override public void onStartTrackingTouch(android.widget.SeekBar s) {}
             @Override public void onStopTrackingTouch(android.widget.SeekBar s) {}
         });
-        root.addView(bar);
-        root.addView(val);
+        offsetRow.addView(bar, new android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        offsetRow.addView(val);
+        root.addView(offsetRow);
 
-        android.widget.LinearLayout btnRow = new android.widget.LinearLayout(ctx);
-        btnRow.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        btnRow.setPadding(0, Math.round(8*d), 0, 0);
-        android.widget.TextView testBtn = new android.widget.TextView(ctx);
-        testBtn.setText("Test"); testBtn.setTextColor(Studio.INK); testBtn.setBackgroundColor(Studio.GO);
-        testBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
+        root.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(ctx, getString(R.string.avsync_hint)));
+
+        android.widget.LinearLayout btnRow = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.row(ctx);
+        final android.widget.TextView testBtn = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(ctx, getString(R.string.avsync_test));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(testBtn, getString(R.string.avsync_test_desc));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(testBtn);
+        btnRow.addView(testBtn, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(ctx));
+        // The flash: a round light, off grey, lit in drawer ink on each click.
+        final android.graphics.drawable.GradientDrawable dotFace =
+                new android.graphics.drawable.GradientDrawable();
+        dotFace.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        dotFace.setColor(Studio.OFF);
         android.view.View dot = new android.view.View(ctx);
-        android.widget.LinearLayout.LayoutParams dotLp = new android.widget.LinearLayout.LayoutParams(Math.round(16*d), Math.round(16*d));
-        dotLp.leftMargin = Math.round(12*d); dot.setLayoutParams(dotLp); dot.setBackgroundColor(Studio.OFF);
-        btnRow.addView(testBtn); btnRow.addView(dot);
-        android.widget.TextView resetBtn = new android.widget.TextView(ctx);
-        resetBtn.setText("Reset to measured"); resetBtn.setTextColor(Studio.INK); resetBtn.setPadding(Math.round(14*d), Math.round(8*d), Math.round(14*d), Math.round(8*d));
-        resetBtn.setBackgroundColor(Studio.alpha(Studio.INK, 0x22));
-        android.widget.LinearLayout.LayoutParams rl = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-        rl.leftMargin = Math.round(12*d); resetBtn.setLayoutParams(rl);
-        btnRow.addView(resetBtn);
+        dot.setBackground(dotFace);
+        android.widget.LinearLayout.LayoutParams dotLp =
+                new android.widget.LinearLayout.LayoutParams(Math.round(14*d), Math.round(14*d));
+        dotLp.leftMargin = Math.round(4*d);
+        dotLp.rightMargin = Math.round(14*d);
+        btnRow.addView(dot, dotLp);
+        final android.widget.TextView resetBtn = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(ctx, getString(R.string.avsync_reset));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(resetBtn, getString(R.string.avsync_reset_desc));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(resetBtn);
+        btnRow.addView(resetBtn, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(ctx));
         root.addView(btnRow);
 
         final android.os.Handler h = new android.os.Handler(android.os.Looper.getMainLooper());
         final boolean[] testing = {false};
         final Runnable[] ticker = {null};
         final android.media.AudioTrack[] trackHolder = {null};
-        testBtn.setOnClickListener(v -> {
-            if (testing[0]) {
-                testing[0] = false;
-                if (ticker[0] != null) h.removeCallbacks(ticker[0]);
-                if (trackHolder[0] != null) { try { trackHolder[0].stop(); trackHolder[0].release(); } catch (Exception ignored) {} trackHolder[0]=null; }
-                testBtn.setText("Test"); dot.setBackgroundColor(Studio.OFF);
-                return;
+        final Runnable stopTest = () -> {
+            testing[0] = false;
+            if (ticker[0] != null) h.removeCallbacks(ticker[0]);
+            if (trackHolder[0] != null) { try { trackHolder[0].stop(); trackHolder[0].release(); } catch (Exception ignored) {} trackHolder[0]=null; }
+            testBtn.setText(R.string.avsync_test);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(testBtn, false);
+            dotFace.setColor(Studio.OFF);
+        };
+        // Leaving the tab or closing the drawer ends the test. It used to tick on, unseen and
+        // unstoppable, until the editor was closed.
+        root.addOnAttachStateChangeListener(new android.view.View.OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(@NonNull android.view.View v) { }
+            @Override public void onViewDetachedFromWindow(@NonNull android.view.View v) {
+                if (testing[0]) stopTest.run();
             }
-            testing[0] = true; testBtn.setText("Stop");
+        });
+        testBtn.setOnClickListener(v -> {
+            if (testing[0]) { stopTest.run(); return; }
+            testing[0] = true;
+            testBtn.setText(R.string.avsync_stop);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(testBtn, true);
             int sr = 48000;
             int tickSamples = sr * 10 / 1000;
             short[] tickBuf = new short[tickSamples];
@@ -29845,7 +29865,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 int count=0;
                 @Override public void run() {
                     if (!testing[0]) return;
-                    dot.setBackgroundColor(count%2==0 ? Studio.INK : Studio.OFF);
+                    dotFace.setColor(count%2==0 ? Studio.DRAWER_INK : Studio.OFF);
                     // write tick + silence to fill 500ms
                     try { at.write(tickBuf, 0, tickBuf.length); short[] silence=new short[sr/2 - tickSamples]; at.write(silence,0,silence.length); } catch (Exception ignored) {}
                     if (testing[0]) h.postDelayed(this, 500);
@@ -29856,11 +29876,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         resetBtn.setOnClickListener(v -> {
             com.fadcam.ui.faditor.audio.AudioLatency.setUserOffsetMs(ctx, 0);
-            bar.setProgress(500); val.setText("0 ms");
-            info.setText("Measured: " + com.fadcam.ui.faditor.audio.AudioLatency.measuredLatencyMs(ctx)
-                    + " ms (" + com.fadcam.ui.faditor.audio.AudioLatency.latencySource(ctx) + ")  Route: "
-                    + com.fadcam.ui.faditor.audio.AudioLatency.activeRouteName(ctx) + "\nUser offset: 0 ms  Total: "
-                    + com.fadcam.ui.faditor.audio.AudioLatency.outputLatencyMs(ctx) + " ms");
+            bar.setProgress(500);
+            val.setText(getString(R.string.avsync_ms, 0));
+            refreshInfo.run();
         });
         return root;
     }
@@ -29899,7 +29917,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // C6: same FX tab a standalone audio clip gets (§2.2 — identical four tabs).
         // The REAL Clip is passed, not the synth proxy, so the per-clip voice-chain
         // switch writes straight through and cannot die with the drawer (pan lesson).
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("FX", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, clip)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Effects", R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, clip)));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(R.drawable.ic_volume_off_24, R.drawable.ic_volume_up_24, clip::isAudioMuted, () -> { clip.setAudioMuted(!clip.isAudioMuted()); synth.setMuted(clip.isAudioMuted()); if (editorTimeline != null) editorTimeline.invalidate(); if (overlayVideoLayer != null) overlayVideoLayer.refreshVolume(); scheduleAutoSave(); }, true));
         // C7: A/B bypass — identical to the audio-clip drawer's (one global chain).

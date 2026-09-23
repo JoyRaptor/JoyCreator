@@ -16720,6 +16720,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     } else if (item.getTextOverlay() != null
                             && !item.getTextOverlay().isImage()) {
                         showTextFxDrawer(item.getTextOverlay());
+                    } else if (item.getAudioClip() != null) {
+                        // Retarget, never toggle: clearing the id first stops showAudioDrawer's
+                        // double-tap toggle from reading "same clip" as "close it".
+                        lastAudioDrawerId = null;
+                        showAudioDrawer(item.getAudioClip());
+                    } else {
+                        // A sprite, a visualizer or the film has no top drawer of its own. C6:
+                        // close it, rather than leave the OLD object's drawer open with every
+                        // control aimed at something the user is no longer pointing at.
+                        objectDrawer.hide();
                     }
                 }
                 // Selecting from the preview (or anywhere) also scrolls the layer

@@ -76,8 +76,6 @@ public final class TextOverlayDrawer extends LinearLayout {
     private final float density;
     /** Record 06 {@code .dh .dot}: the object's colour, the header's non-word "what is this". */
     private final View dotView;
-    /** The verb ("Edit text") as a quiet mono kicker — never the loudest thing in the header. */
-    private final TextView kickerView;
     /** The OBJECT's name — its first words — in the header's one bold slot ({@code .dh .nm}). */
     private final TextView titleView;
     private final FrameLayout contentHost;
@@ -112,9 +110,11 @@ public final class TextOverlayDrawer extends LinearLayout {
         // ── HEADER — record 06 `.dh`: dot · name · (accessory) · ✕, one line, 38dp ─────────
         // It used to be ONE all-caps bold run — "EDIT TEXT · ENTER TEXT" — butted against the
         // font name, so the verb, the object and the font all shouted at the same volume and the
-        // eye had nowhere to land. Now the verb is a mono kicker in label ink, the object's own
-        // words take the single bold slot in sentence case, and a dot in the text colour says
-        // WHAT this is without spending a word on it.
+        // eye had nowhere to land. Now the object's own words take the single bold slot in
+        // sentence case, and a dot in the text colour says WHAT this is without spending a word
+        // on it. There was briefly a small "EDIT TEXT" kicker in front of the name as well;
+        // JoyRaptor, 2026-09-22: "an 'edit text' icon up top is clutter." The open drawer
+        // already says you are editing text — the verb was the one word that said nothing.
         LinearLayout header = new LinearLayout(ctx);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -132,19 +132,6 @@ public final class TextOverlayDrawer extends LinearLayout {
         dotLp.setMarginEnd(dp(8));
         header.addView(dotView, dotLp);
 
-        kickerView = new TextView(ctx);
-        com.fadcam.ui.type.Type.mono(kickerView, com.fadcam.ui.type.Type.MEDIUM);
-        kickerView.setTextColor(TXT_LABEL);
-        kickerView.setTextSize(8.5f);
-        kickerView.setLetterSpacing(0.14f);
-        kickerView.setAllCaps(true);
-        kickerView.setSingleLine(true);
-        kickerView.setShadowLayer(3f * density, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
-        kickerView.setVisibility(GONE);
-        LayoutParams kickLp = new LayoutParams(LayoutParams.WRAP_CONTENT,
-                LayoutParams.WRAP_CONTENT);
-        kickLp.setMarginEnd(dp(8));
-        header.addView(kickerView, kickLp);
 
         titleView = new TextView(ctx);
         titleView.setTextColor(TXT);
@@ -237,15 +224,10 @@ public final class TextOverlayDrawer extends LinearLayout {
     public void setTitle(@NonNull String title) {
         final String sep = " · ";
         int at = title.indexOf(sep);
-        if (at > 0 && at + sep.length() < title.length()) {
-            kickerView.setText(title.substring(0, at));
-            kickerView.setVisibility(VISIBLE);
-            titleView.setText(title.substring(at + sep.length()));
-        } else {
-            kickerView.setVisibility(GONE);
-            titleView.setText(title);
-        }
-        // Read as one phrase, as it was written, rather than as two fragments.
+        // Callers pass "Verb · words"; only the words are shown. The full phrase is still what
+        // TalkBack reads, because a screen-reader user has no drawer to look at.
+        titleView.setText(at > 0 && at + sep.length() < title.length()
+                ? title.substring(at + sep.length()) : title);
         titleView.setContentDescription(title);
     }
 

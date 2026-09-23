@@ -22096,7 +22096,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 float[] lens = {0.20f, 0.26f, 0.16f};
                 int[] alphas = {0x66, 0xAA, 0x44};
                 for (int i = 0; i < 3; i++) {
-                    p.setColor((alphas[i] << 24) | 0x00F4F4F5);
+                    p.setColor(Studio.alpha(Studio.DRAWER_INK, alphas[i]));
                     float rx = w * 0.34f;
                     canvas.drawLine(rx - w * lens[i], ys[i], rx, ys[i], p);
                 }
@@ -30974,21 +30974,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
-    /** Chip ON state — purple accent when on, dim off. */
+    /**
+     * A text-style toggle (B, I, U, Tt, TT, ᴛᴛ) on or off, in the drawer's own vocabulary.
+     *
+     * <p>It was INK_FAINT when off and GUIDE violet at 20% when on. INK_FAINT is SCREEN ink,
+     * meant for an opaque panel; on the drawer's 64% scrim over a white frame it came out grey
+     * on grey, and the lane that restyled this drawer measured the off state near 1.4:1 —
+     * the Tt/TT toggles were effectively invisible, which JoyRaptor saw. Record 06's rule is
+     * that ANYTHING on the scrim uses drawer ink, and that an ON control is filled with the
+     * object's colour at 70% (the {@code .dchip.on} face).
+     *
+     * <p>Built from ObjectDrawer.Kit's pieces rather than Kit.setChipOn, on purpose: setChipOn
+     * also sets the typeface, and these toggles ARE typeface demonstrations — the I is set in
+     * italic, the B in bold. Colour and fill from the helper; the glyph keeps its own face.
+     */
     private static void styleToggleState(@NonNull TextView t, boolean on) {
-        t.setTextColor(on ? Studio.GUIDE : Studio.INK_FAINT);
-        t.setBackgroundColor(on ? Studio.alpha(Studio.GUIDE, 0x33) : 0x00000000);
+        int accent = com.fadcam.ui.faditor.layers.ObjectPalette.TEXT;
+        if (on) {
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.background(t,
+                    com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pill(t.getContext(),
+                            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.onFill(accent), 0));
+            t.setTextColor(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.inkOn(accent));
+        } else {
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.background(t, null);
+            t.setTextColor(Studio.DRAWER_DIM);
+        }
     }
 
     /** Chip MIXED state — purple text, background split half-purple over transparent: "some of
      * these characters are on, some off". */
     private static void styleMixedState(@NonNull TextView t) {
-        t.setTextColor(Studio.GUIDE);
+        // Half the ON fill, fading out: "some of these characters are on, some off". Same
+        // accent and drawer ink as styleToggleState, so mixed reads as a state between the two.
+        int accent = com.fadcam.ui.faditor.layers.ObjectPalette.TEXT;
+        t.setTextColor(Studio.DRAWER_INK);
         android.graphics.drawable.GradientDrawable g =
                 new android.graphics.drawable.GradientDrawable(
                         android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT,
-                        new int[]{Studio.alpha(Studio.GUIDE, 0x33), 0x00000000});
-        t.setBackground(g);
+                        new int[]{com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.onFill(accent), 0x00000000});
+        g.setCornerRadius(999f);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.background(t, g);
     }
 
     /** One undo step for the whole session's span edits, recorded at drawer CLOSE. */
@@ -33782,7 +33807,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // changes to a color".
         View motionIcon = makeTextMotionIcon(d);
         TextView motionState = new TextView(this);
-        motionState.setTextColor(Studio.INK_FAINT);
+        motionState.setTextColor(Studio.DRAWER_LABEL);
         motionState.setTextSize(11);
         motionState.setPadding(pad, 0, 0, 0);
         motionState.setMaxLines(1);
@@ -33792,7 +33817,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         Runnable refreshMotion = () -> {
             updateTextMotionState(motionState, item);
-            motionState.setTextColor(item.isTextAnimActive() ? Studio.GUIDE : Studio.INK_FAINT);
+            // Drawer ink both ways (it sits on the scrim). Active reads BRIGHTER rather than
+            // violet: violet text on the scrim over a light frame was the same illegibility.
+            motionState.setTextColor(item.isTextAnimActive() ? Studio.DRAWER_INK : Studio.DRAWER_LABEL);
         };
         refreshMotion.run();
         motionIcon.setOnClickListener(v -> com.fadcam.ui.faditor.TextAnimPickerPopover.show(
@@ -33900,7 +33927,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.tools.TextOverlayDrawer drawer) {
         float d = getResources().getDisplayMetrics().density;
         final TextView t = new TextView(this);
-        t.setTextColor(Studio.INK);
+        t.setTextColor(Studio.DRAWER_INK);   // on the drawer scrim, so drawer ink
         t.setTextSize(13);
         t.setMaxLines(1);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);

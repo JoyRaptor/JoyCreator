@@ -4496,8 +4496,13 @@ public class ExportManager {
         mix.putChannelMixingMatrix(
                 androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain(2, 2));
         for (int in = 3; in <= 8; in++) {
-            mix.putChannelMixingMatrix(
-                    androidx.media3.common.audio.ChannelMixingMatrix.createForConstantPower(in, 2));
+            // Only the layouts media3 has a fold for (7->2 has none and threw at build time,
+            // killing every export on 2026-09-23 15:09). A source with an unlisted count (a
+            // 7-channel file) is refused by this processor — rare enough to accept for now.
+            try {
+                mix.putChannelMixingMatrix(androidx.media3.common.audio.ChannelMixingMatrix
+                        .createForConstantPower(in, 2));
+            } catch (UnsupportedOperationException ignored) { }
         }
         List<AudioProcessor> chain = new ArrayList<>(2);
         chain.add(rate);

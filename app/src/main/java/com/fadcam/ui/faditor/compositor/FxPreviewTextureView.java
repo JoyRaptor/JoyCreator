@@ -2467,7 +2467,7 @@ public class FxPreviewTextureView extends TextureView
      * every PiP program compiled before images arrived is still compiled from the same source.</p>
      */
     @NonNull
-    private static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still,
+    static String pipFragment(@Nullable FxCompiler.Pass fused, boolean still,
                                       boolean extras, int maskShapes, boolean pinned,
                                       boolean meshComposite) {
         // SPEC E: a stamp composite samples its frame-sized FBO without a flip; every other still
@@ -2628,41 +2628,11 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glViewport(0, 0, vw, vh);
         GLES20.glUseProgram(program);
         bindQuad(program);
-        // The object's own effects, and the frame constants their bodies may read.
-        setF2(program, "uTexel", 1f / vw, 1f / vh);
-        setF(program, "uAspect", (float) vw / (float) vh);
-        setF(program, "uTime", p.timeSec);
-        setF(program, "uPipBlend", p.blendMode);
-        setF(program, "uPipMaskOn", p.maskOn ? 1f : 0f);
-        if (p.pinned()) {
-            // Only on the variant that declared them — the unpinned shader has neither uniform,
-            // and asking for a location it never had would be a lie about what this draws.
-            int pinLoc = GLES20.glGetUniformLocation(program, "uPinInv");
-            // transpose MUST be false on GL ES 2.0; pinInv is already column-major. See Pip.
-            if (pinLoc >= 0) GLES20.glUniformMatrix3fv(pinLoc, 1, false, p.pinInv, 0);
-            setFn(program, "uPipPad", p.pinPad, 4);
-        }
-        setF(program, "uPipMaskInvert", p.maskInvert ? 1f : 0f);
-        // EVERY packed shape, not shape 0. See Pip.maskShapes.
+        // Every non-texture uniform — geometry, mask (EVERY shape), pin, key, reveal, FX,
+        // matte — through the ONE statement the export's GL image pass also uses (PipGl), so
+        // the editor and the file cannot draw the same Pip differently.
         Integer compiled = shapesCompiled.get(program);
-        int shapes = compiled == null ? p.maskShapes : Math.min(p.maskShapes, compiled);
-        setF4v(program, "uPipMaskGeo", p.maskGeo4, shapes);
-        setF2v(program, "uPipMaskRot", p.maskRot2, shapes);
-        setF1v(program, "uPipMaskCorner", p.maskCorner, shapes);
-        setF1v(program, "uPipMaskFeather", p.maskFeather, shapes);
-        setF1v(program, "uPipMaskOp", p.maskOpCodes, shapes);
-        setF2(program, "uPipTexel", 1f / vw, 1f / vh);
-        setF2(program, "uDir", 1f, 0f);
-        if (p.extras) {
-            // Only on the variant that declared them. setFn tolerates a missing location, but
-            // asking for one the shader never had would still be a lie about what this draws.
-            setFn(program, "uPipKeyColor", p.keyColor, 3);
-            setFn(program, "uPipKeyParams", p.keyParams, 4);
-            setF(program, "uPipReveal", p.revealFrac);
-        }
-        for (FxUniforms.Value v : p.fxUniforms) {
-            setFn(program, v.name, v.data, v.components());
-        }
+        PipGl.applyUniforms(program, p, vw, vh, compiled == null ? -1 : compiled);
         setSampler(program, "uTexSampler", targets[src][0], 0, true);
         int loc = GLES20.glGetUniformLocation(program, "uPipTexture");
         if (loc >= 0) {
@@ -2682,23 +2652,7 @@ public class FxPreviewTextureView extends TextureView
                     GLES20.glGetUniformLocation(program, "uPipTexMatrix"), 1, false,
                     pipTexMatrix[p.liveSlot], 0);
         }
-        double rad = Math.toRadians(p.rotationDeg);
-        setF2(program, "uPipCentre", p.cx, p.cy);
-        setF2(program, "uPipHalf", p.halfW, p.halfH);
-        setF(program, "uPipCos", (float) Math.cos(rad));
-        setF(program, "uPipSin", (float) Math.sin(rad));
-        setF(program, "uPipAspect", (float) vw / (float) vh);
-        setF(program, "uPipAlpha", p.alpha);
-        setF(program, "uPipRotation", p.rotationDeg);
-        // Track matte: luma of matte peer becomes recipient's alpha (export's BlendModeGlEffect)
-        setF(program, "uMatteOn", p.matteOn ? 1f : 0f);
         if (p.matteOn) {
-            double mRad = Math.toRadians(p.matteRotationDeg);
-            setF2(program, "uMatteCentre", p.matteCx, p.matteCy);
-            setF2(program, "uMatteHalf", p.matteHalfW, p.matteHalfH);
-            setF(program, "uMatteCos", (float) Math.cos(mRad));
-            setF(program, "uMatteSin", (float) Math.sin(mRad));
-            setF(program, "uMatteAspect", (float) vw / (float) vh);
             int matteTex = matteTextureFor(p);
             // Bind on unit 2; driver will ignore if location -1
             int matteLoc = GLES20.glGetUniformLocation(program, "uMatteSampler");

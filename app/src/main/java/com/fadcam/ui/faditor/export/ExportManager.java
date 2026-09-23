@@ -4454,6 +4454,20 @@ public class ExportManager {
         return slots;
     }
 
+    /**
+     * EXPORT PARITY + SPEED (2026-09-23): every image overlay except a bent one is composited on
+     * the GPU by {@link GlImageOverlayEffect} with the preview's own placement and shader, instead
+     * of being rasterised on the CPU into full-frame bitmaps and uploaded every frame (measured:
+     * ~50% of the export's frame time on the Note 20). False restores the old routing exactly.
+     */
+    static final boolean GL_IMAGE_PASS = true;
+
+    /** The ONE export routing question: does this overlay leave the Canvas for a GL pass? */
+    static boolean exportGlRouted(@NonNull TextOverlayItem o) {
+        if (GL_IMAGE_PASS && o.isImage()) return true;
+        return o.wantsGlExport();
+    }
+
     /** Export sound format: what YouTube and home-theatre playback expect. */
     static final int EXPORT_AUDIO_SAMPLE_RATE = 48_000;
     static final int EXPORT_AUDIO_BITRATE = 256_000;
@@ -5614,7 +5628,7 @@ public class ExportManager {
                 java.util.List<TextOverlayItem> allGlImages = new java.util.ArrayList<>();
                 for (LayerPreviewController.VisualItem vv : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
                     TextOverlayItem oo = vv.item.getTextOverlay();
-                    if (oo != null && oo.wantsGlExport()) allGlImages.add(oo);
+                    if (oo != null && exportGlRouted(oo)) allGlImages.add(oo);
                 }
                 java.util.List<TextOverlayItem> belowBlendTextsAll =
                         new java.util.ArrayList<>(LayerPreviewController.plainTextsBelowBlend(
@@ -5631,8 +5645,12 @@ public class ExportManager {
                 // cannot answer this differently. Images already in the below-video bucket are
                 // dropped by the alreadyBelowIds filter just below — that pass is emitted
                 // ahead of the blends already, so they need nothing.
-                belowBlendTextsAll.addAll(LayerPreviewController.plainImagesBelowBlend(
-                        project.getTimeline(), allGlImages));
+                // GL image pass: there ARE no plain images left to promote — every image is
+                // composited by GlImageOverlayEffect at its own z.
+                if (!GL_IMAGE_PASS) {
+                    belowBlendTextsAll.addAll(LayerPreviewController.plainImagesBelowBlend(
+                            project.getTimeline(), allGlImages));
+                }
                 // Back into ONE bottom→top order. The two helpers each return their own kind
                 // in z order; concatenating them would paint every promoted image over every
                 // promoted text no matter which lane was on top. A CompositeExportOverlay
@@ -5734,7 +5752,7 @@ public class ExportManager {
             for (LayerPreviewController.VisualItem vv
                     : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
                 com.fadcam.ui.faditor.model.TextOverlayItem oo = vv.item.getTextOverlay();
-                if (oo != null && oo.wantsGlExport()) allGlImagesZa.add(oo);
+                if (oo != null && exportGlRouted(oo)) allGlImagesZa.add(oo);
             }
             java.util.Set<String> belowIdsZa = new java.util.HashSet<>();
             for (com.fadcam.ui.faditor.model.TextOverlayItem b : belowTexts) {
@@ -5768,7 +5786,7 @@ public class ExportManager {
             }
             java.util.List<Object> glOverlaysBottomTop = new java.util.ArrayList<>();
             for (com.fadcam.ui.faditor.model.TextOverlayItem to : blendCandidates) {
-                if (to.wantsGlExport()) glOverlaysBottomTop.add(to);
+                if (exportGlRouted(to)) glOverlaysBottomTop.add(to);
             }
             java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteBucketsZa =
                     new ArrayList<>(belowSprites);
@@ -5791,7 +5809,23 @@ public class ExportManager {
                 Integer ia = overlayZById.get(ida), ib = overlayZById.get(idb);
                 return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
             });
+            // Consecutive unbent images share ONE GPU pass (GlImageOverlayEffect) - the preview's
+            // own placement and shader, and no pass at all for an image that is off screen.
+            java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> glRun = new ArrayList<>();
             for (Object o : glOverlaysBottomTop) {
+                boolean batchable = GL_IMAGE_PASS
+                        && o instanceof com.fadcam.ui.faditor.model.TextOverlayItem
+                        && ((com.fadcam.ui.faditor.model.TextOverlayItem) o).isImage()
+                        && !((com.fadcam.ui.faditor.model.TextOverlayItem) o).hasMesh();
+                if (batchable) {
+                    glRun.add((com.fadcam.ui.faditor.model.TextOverlayItem) o);
+                    continue;
+                }
+                if (!glRun.isEmpty()) {
+                    videoEffects.add(new GlImageOverlayEffect(context, glRun,
+                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                    glRun = new ArrayList<>();
+                }
                 if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
                     com.fadcam.ui.faditor.model.TextOverlayItem to =
                             (com.fadcam.ui.faditor.model.TextOverlayItem) o;
@@ -5805,6 +5839,10 @@ public class ExportManager {
                             project.getSpriteSheets(), project.getAvatarRigs(),
                             project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
                 }
+            }
+            if (!glRun.isEmpty()) {
+                videoEffects.add(new GlImageOverlayEffect(context, glRun,
+                        project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
             }
 
             // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M4) ───────────────────────────

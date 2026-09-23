@@ -1618,6 +1618,12 @@ public class TextOverlayLayer extends FrameLayout {
         if (bmp == null || bmp.isRecycled() || bmp.getHeight() <= 0) return null;
 
         boolean live = o == manipulating || isLiveEditing(o);
+        if (!live) {
+            // Playback and every settled pose: the ONE model-only placement the export's GL
+            // image pass calls too, so preview and file cannot place an image differently.
+            return pipForModel(o, currentTimeMs, callback.getProjectDurationMs(),
+                    r.width(), r.height(), frameW, frameH, bmp);
+        }
         float sizeFraction = live ? o.getSizeFraction() : o.animatedSizeFraction(currentTimeMs);
         com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
                 presetTransformAt(o, sizeFraction, r.height(), live);
@@ -1711,6 +1717,70 @@ public class TextOverlayLayer extends FrameLayout {
                 cx, 1f - cy, halfW, halfH, -rot, alpha,
                 // Resolved at the playhead: mask keys animate and a linked mask follows.
                 o.getFx(), currentTimeMs, o.compositingAt(currentTimeMs, r.width(), r.height()),
+                com.fadcam.ui.faditor.model.BlendModes.modeCode(o.getOverlayBlendMode()),
+                frameW, frameH, o.getId(), bmp, anim.revealFrac, pin);
+    }
+
+    /**
+     * An image overlay's GL placement at {@code timeMs} from the MODEL alone — no View, no
+     * finger. The non-live body of {@link #fxPipFor}, moved here verbatim so the export's GL
+     * image pass ({@code GlImageOverlayEffect}) and the preview composite call the same code:
+     * one placement, so the file cannot drift from the editor (export parity, 2026-09-23).
+     *
+     * @param rectW  width of the content the image is placed in (preview: the video content
+     *               rect; export: the frame) — centre/size fractions are of this
+     * @param rectH  its height
+     * @param frameW the GL target's width (mask packing)
+     * @param frameH the GL target's height
+     * @param bmp    the decoded picture — its aspect sizes the quad
+     */
+    @Nullable
+    public static com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip pipForModel(
+            @NonNull TextOverlayItem o, long timeMs, long projectDurationMs,
+            float rectW, float rectH, int frameW, int frameH,
+            @NonNull android.graphics.Bitmap bmp) {
+        if (!o.isImage() || rectW <= 0 || rectH <= 0) return null;
+        if (bmp.isRecycled() || bmp.getHeight() <= 0) return null;
+        float sizeFraction = o.animatedSizeFraction(timeMs);
+        com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
+                com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
+                        com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(
+                                o.getTextAnimPreset()),
+                        timeMs, o.motionRangeStartMs(), o.motionSpanMs(projectDurationMs),
+                        o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFraction * rectH);
+        float aspect = bmp.getWidth() / (float) bmp.getHeight();
+        // imageHeightPx / imageWidthPx, non-live: same base, each axis its own scale.
+        float hPx = sizeFraction * rectH * o.animatedScaleY(timeMs);
+        float wPx = sizeFraction * rectH * aspect * o.animatedScaleX(timeMs);
+        float cx = o.animatedCenterX(timeMs);
+        float cy = o.animatedCenterY(timeMs);
+        float halfW = (wPx * anim.scaleX * o.mirrorSignX()) / rectW * 0.5f;
+        float halfH = (hPx * anim.scaleY * o.mirrorSignY()) / rectH * 0.5f;
+        float alpha = Math.max(0f, Math.min(1f, o.animatedOpacity(timeMs) * anim.alpha));
+        float rot = o.animatedRotation(timeMs);
+        float[] pin = null;
+        if (o.hasCornerPin()) {
+            pin = new float[com.fadcam.ui.faditor.model.CornerPin.SIZE];
+            o.animatedCornerPin(timeMs, pin);
+        }
+        boolean applyPivot = !o.isRotationPivotNeutral(pin);
+        float pivOffX = 0f, pivOffY = 0f;
+        if (applyPivot) {
+            pivOffX = o.mirrorSignX() * o.pivotOffsetFromCentreX(wPx / rectW, hPx / rectH, pin);
+            pivOffY = o.mirrorSignY() * o.pivotOffsetFromCentreY(wPx / rectW, hPx / rectH, pin);
+        }
+        float[] fold4 = new float[4];
+        com.fadcam.ui.faditor.transform.mesh.MeshPlacement.fold(
+                cx, cy, wPx / rectW, hPx / rectH,
+                pivOffX, pivOffY, applyPivot, rot,
+                anim.scaleX, anim.scaleY,
+                anim.dx / rectW, anim.dy / rectH,
+                rectW / rectH, fold4);
+        cx = fold4[0];
+        cy = fold4[1];
+        return com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip.ofImage(
+                cx, 1f - cy, halfW, halfH, -rot, alpha,
+                o.getFx(), timeMs, o.compositingAt(timeMs, rectW, rectH),
                 com.fadcam.ui.faditor.model.BlendModes.modeCode(o.getOverlayBlendMode()),
                 frameW, frameH, o.getId(), bmp, anim.revealFrac, pin);
     }

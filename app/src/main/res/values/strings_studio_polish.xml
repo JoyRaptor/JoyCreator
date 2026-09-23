@@ -44,4 +44,5 @@
     <string name="drawer_scale_linked_desc">Width and height scale together. Tap to scale them separately</string>
     <string name="drawer_scale_split_desc">Width and height scale separately. Tap to link them</string>
     <string name="pip_sound_strip_desc">Show this overlay\'s sound on the timeline</string>
+    <string name="caption_tab_style">Style</string>
 </resources>

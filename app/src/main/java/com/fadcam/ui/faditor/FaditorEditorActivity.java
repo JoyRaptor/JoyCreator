@@ -20569,8 +20569,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         // ── Style tab ── size, font, highlight, colours, box/outline/shadow, save/delete/copy/import,
         // motion (the Timing tab's content moved here — SPEC_20260831_CAPTION_SLIDES_UX §7.2.5)
+        // No header TITLE: the CC icon and the track pill beside it already name what is being
+        // edited, and a "Style" title over a "Style" tab said the same word twice (the
+        // redundancy JoyRaptor flagged on the image drawer, 2026-09-23).
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Style", 0,
+                "", getString(R.string.caption_tab_style), 0,
                 ctx -> buildCaptionStyleTab(ctx)));
         // ── Fit tab ── mode, truncate, words per caption, floor, max lines (SPEC §3.3)
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
@@ -20582,7 +20585,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView ccIcon = new TextView(this);
         ccIcon.setText("closed_caption"); // same ligature the bottom tools carousel uses for Captions
         ccIcon.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(this, R.font.materialicons));
-        ccIcon.setTextColor(Studio.GO);
+        ccIcon.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);   // the drawer's own colour
         ccIcon.setTextSize(18);
         ccIcon.setGravity(android.view.Gravity.CENTER);
         captionHeaderPills = buildTrackPillsRow(this);
@@ -20723,13 +20726,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout.LayoutParams slp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 0.65f);
         slp.leftMargin = (int)(10*d);
         sizeSlider.setLayoutParams(slp);
-        sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(Studio.GO));
-        sizeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(Studio.GO));
+        sizeSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
+        sizeSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
         sizeSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(Studio.OFF));
         sizeRow.addView(sizeSlider);
         android.widget.TextView sizeVal = new android.widget.TextView(ctx);
         sizeVal.setTextSize(12);
-        sizeVal.setTextColor(Studio.GO);
+        sizeVal.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
         sizeVal.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         sizeVal.setPadding((int)(6*d), 0, 0, 0);
         sizeVal.setText(Math.round(getCurrentCaptionSize() * 100) + "%");
@@ -20757,7 +20760,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(fontRow);
         android.widget.TextView fontLabel = new android.widget.TextView(ctx);
         fontLabel.setText("Font");
-        fontLabel.setTextColor(Studio.INK_FAINT);
+        fontLabel.setTextColor(Studio.DRAWER_DIM);
         fontLabel.setTextSize(12);
         fontLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         fontRow.addView(fontLabel);
@@ -20816,7 +20819,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(animRow);
         android.widget.TextView animLabel = new android.widget.TextView(ctx);
         animLabel.setText("Highlight");
-        animLabel.setTextColor(Studio.INK_FAINT);
+        animLabel.setTextColor(Studio.DRAWER_DIM);
         animLabel.setTextSize(12);
         animLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         animRow.addView(animLabel);
@@ -20870,7 +20873,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(motionRow);
             android.widget.TextView motionLabel = new android.widget.TextView(ctx);
             motionLabel.setText("Motion");
-            motionLabel.setTextColor(Studio.INK_FAINT);
+            motionLabel.setTextColor(Studio.DRAWER_DIM);
             motionLabel.setTextSize(12);
             motionLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             motionRow.addView(motionLabel);
@@ -20902,7 +20905,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } else {
             android.widget.TextView empty = new android.widget.TextView(ctx);
             empty.setText("No captioned clip selected");
-            empty.setTextColor(Studio.INK_FAINT);
+            empty.setTextColor(Studio.DRAWER_DIM);
             empty.setTextSize(12);
             empty.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
             root.addView(empty);
@@ -20976,9 +20979,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // §7.2.6: GradientDrawable, not setBackgroundColor — the latter squares off the
                 // rounded floating_button_item_bg. Full-corner pill + thin accent stroke.
                 android.graphics.drawable.GradientDrawable selBg = new android.graphics.drawable.GradientDrawable();
-                selBg.setColor(Studio.alpha(Studio.GO, 0x26));
+                selBg.setColor(Studio.alpha(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION, 0x26));
                 selBg.setCornerRadius(999f);
-                selBg.setStroke(Math.max(1, Math.round(1.5f * d)), Studio.GO);
+                selBg.setStroke(Math.max(1, Math.round(1.5f * d)), com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
                 pill.setBackground(selBg);
             }
             int pp = (int)(6*d);
@@ -20990,12 +20993,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             pill.setLayoutParams(plp);
             TextView dot = new TextView(ctx);
             dot.setText(isActive ? "●" : "○");
-            dot.setTextColor(isActive ? Studio.GO : Studio.INK_FAINT);
+            dot.setTextColor(isActive ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_DIM);
             dot.setTextSize(11);
             pill.addView(dot);
             TextView tv = new TextView(ctx);
             tv.setText(label.length() > 8 ? label.substring(0, 8) : label);
-            tv.setTextColor(isActive ? Studio.GO : Studio.INK);
+            tv.setTextColor(isActive ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_INK);
             tv.setTextSize(12);
             int tp = (int)(3*d);
             tv.setPadding(tp, 0, tp, 0);
@@ -21003,7 +21006,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             TextView eye = new TextView(ctx);
             eye.setText(isEnabled ? "visibility" : "visibility_off");
             eye.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
-            eye.setTextColor(isEnabled ? Studio.INK : Studio.INK_OFF);
+            eye.setTextColor(isEnabled ? Studio.DRAWER_INK : Studio.INK_OFF);
             eye.setTextSize(13);
             eye.setClickable(true);
             eye.setOnClickListener(v -> {
@@ -21051,7 +21054,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // "+" wire/import pill
         TextView add = new TextView(ctx);
         add.setText("+");
-        add.setTextColor(Studio.GO);
+        add.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
         add.setTextSize(16);
         add.setTypeface(null, android.graphics.Typeface.BOLD);
         int ap = (int)(10*d);
@@ -21156,12 +21159,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView kLabel = new TextView(this);
         kLabel.setText("Karaoke — one word per line (per-word timing):");
-        kLabel.setTextColor(Studio.INK_FAINT);
+        kLabel.setTextColor(Studio.DRAWER_DIM);
         kLabel.setTextSize(12);
         col.addView(kLabel);
         TextView kEx = new TextView(this);
         kEx.setText("00:00.000 -> 00:00.320 Ten\n00:00.320 -> 00:00.610 rows,\n00:00.610 -> 00:00.910 ten toes,");
-        kEx.setTextColor(Studio.INK_DIM);
+        kEx.setTextColor(Studio.DRAWER_DIM);
         kEx.setTextSize(12);
         kEx.setTypeface(android.graphics.Typeface.MONOSPACE);
         col.addView(kEx);
@@ -21177,12 +21180,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         TextView sLabel = new TextView(this);
         sLabel.setText("Slide — one block per timestamp (whole verse shows at once):");
-        sLabel.setTextColor(Studio.INK_FAINT);
+        sLabel.setTextColor(Studio.DRAWER_DIM);
         sLabel.setTextSize(12);
         col.addView(sLabel);
         TextView sEx = new TextView(this);
         sEx.setText("[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant");
-        sEx.setTextColor(Studio.INK_DIM);
+        sEx.setTextColor(Studio.DRAWER_DIM);
         sEx.setTextSize(12);
         sEx.setTypeface(android.graphics.Typeface.MONOSPACE);
         col.addView(sEx);
@@ -21327,7 +21330,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(modeRow);
         android.widget.TextView modeLabel = new android.widget.TextView(ctx);
         modeLabel.setText("Fit");
-        modeLabel.setTextColor(Studio.INK_FAINT);
+        modeLabel.setTextColor(Studio.DRAWER_DIM);
         modeLabel.setTextSize(12);
         modeLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         modeRow.addView(modeLabel);
@@ -21358,17 +21361,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView truncateBox = new TextView(ctx);
         truncateBox.setTypeface(androidx.core.content.res.ResourcesCompat.getFont(ctx, R.font.materialicons));
         truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
-        truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? Studio.GO : Studio.INK_FAINT);
+        truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_DIM);
         truncateBox.setTextSize(14);
         truncateBox.setClickable(true);
         TextView truncateLbl = new TextView(ctx);
         truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
-        truncateLbl.setTextColor(Studio.INK_FAINT);
+        truncateLbl.setTextColor(Studio.DRAWER_DIM);
         truncateLbl.setTextSize(11);
         truncateBox.setOnClickListener(v -> {
             tweakCaptionStyle(s -> s.fitTruncate = !s.fitTruncate);
             truncateBox.setText(currentCaptionStyle().fitTruncate ? "check_box" : "check_box_outline_blank");
-            truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? Studio.GO : Studio.INK_FAINT);
+            truncateBox.setTextColor(currentCaptionStyle().fitTruncate ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_DIM);
             truncateLbl.setText(currentCaptionStyle().fitTruncate ? "truncate on" : "truncate off");
         });
         android.widget.LinearLayout.LayoutParams cbLp = new android.widget.LinearLayout.LayoutParams(
@@ -21386,7 +21389,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(wordsRow);
         android.widget.TextView wordsLabel = new android.widget.TextView(ctx);
         wordsLabel.setText("Words");
-        wordsLabel.setTextColor(Studio.INK_FAINT);
+        wordsLabel.setTextColor(Studio.DRAWER_DIM);
         wordsLabel.setTextSize(12);
         wordsLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         wordsRow.addView(wordsLabel);
@@ -21394,7 +21397,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Max lines dial beside it
         android.widget.TextView maxLinesLabel = new android.widget.TextView(ctx);
         maxLinesLabel.setText("Max lines");
-        maxLinesLabel.setTextColor(Studio.INK_FAINT);
+        maxLinesLabel.setTextColor(Studio.DRAWER_DIM);
         maxLinesLabel.setTextSize(12);
         maxLinesLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         maxLinesLabel.setPadding((int)(16*d), 0, 0, 0);
@@ -21403,7 +21406,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── Floor shares the Words/Max-lines line (was a full-width row of its own)
         android.widget.TextView floorLabel = new android.widget.TextView(ctx);
         floorLabel.setText("Floor");
-        floorLabel.setTextColor(Studio.INK_FAINT);
+        floorLabel.setTextColor(Studio.DRAWER_DIM);
         floorLabel.setTextSize(12);
         floorLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         wordsRow.addView(floorLabel);
@@ -21415,13 +21418,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.LinearLayout.LayoutParams flp = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         flp.leftMargin = (int)(10*d);
         floorSlider.setLayoutParams(flp);
-        floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(Studio.GO));
-        floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(Studio.GO));
+        floorSlider.setTrackActiveTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
+        floorSlider.setThumbTintList(android.content.res.ColorStateList.valueOf(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION));
         floorSlider.setTrackInactiveTintList(android.content.res.ColorStateList.valueOf(Studio.OFF));
         wordsRow.addView(floorSlider);
         android.widget.TextView floorVal = new android.widget.TextView(ctx);
         floorVal.setTextSize(12);
-        floorVal.setTextColor(Studio.GO);
+        floorVal.setTextColor(com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION);
         floorVal.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         floorVal.setPadding((int)(6*d), 0, 0, 0);
         floorVal.setText(Math.round(currentCaptionStyle().fitMinScale * 100) + "%");
@@ -21443,11 +21446,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         TextView slideChip = new TextView(ctx);
         styleDrawerChip(slideChip, d);
         slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
-        slideChip.setTextColor(currentCaptionStyle().slideGroup ? Studio.GO : Studio.INK);
+        slideChip.setTextColor(currentCaptionStyle().slideGroup ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_INK);
         slideChip.setOnClickListener(v -> {
             tweakCaptionStyle(s -> s.slideGroup = !s.slideGroup);
             slideChip.setText(currentCaptionStyle().slideGroup ? "Grouping: Slide" : "Grouping: Karaoke");
-            slideChip.setTextColor(currentCaptionStyle().slideGroup ? Studio.GO : Studio.INK);
+            slideChip.setTextColor(currentCaptionStyle().slideGroup ? com.fadcam.ui.faditor.layers.ObjectPalette.CAPTION : Studio.DRAWER_INK);
         });
         final int[] bindRef = {-1, -1}; // [bindingIdx, isAudio]
         Runnable resolveBinding = () -> {

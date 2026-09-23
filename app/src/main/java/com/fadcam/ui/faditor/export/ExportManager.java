@@ -2480,7 +2480,11 @@ public class ExportManager {
         stallSinceMs = android.os.SystemClock.elapsedRealtime();
         lastStackDumpMs = 0L;
         progressHandler.postDelayed(progressPoller, PROGRESS_POLL_INTERVAL_MS);
+        glSampler.start();
     }
+
+    /** GL_SAMPLE lines: where the video thread's time goes, every 20 s of an export. */
+    private final GlThreadSampler glSampler = new GlThreadSampler(this::trace);
 
     /**
      * STALL STACKS (2026-09-23). Every single-pass run of the 48-min project stopped at the
@@ -2528,6 +2532,7 @@ public class ExportManager {
     /** Stop polling for progress. */
     private void stopProgressPolling() {
         progressHandler.removeCallbacksAndMessages(null);
+        glSampler.stop();
     }
 
     /** FIX-6: composition ms the muxer had reached at the pace anchor, for ETA. */

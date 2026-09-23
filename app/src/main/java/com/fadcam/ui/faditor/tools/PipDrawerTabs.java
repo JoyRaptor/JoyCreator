@@ -111,7 +111,16 @@ public final class PipDrawerTabs {
                                 @NonNull Host host) {
         LinearLayout root = column(ctx);
         final List<Runnable> refreshers = new ArrayList<>();
-        for (ObjectMenuSheet.Prop p : props) {
+        for (int i = 0; i < props.size(); i++) {
+            ObjectMenuSheet.Prop p = props.get(i);
+            ObjectMenuSheet.Prop next = i + 1 < props.size() ? props.get(i + 1) : null;
+            if (next != null
+                    && com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(p.key())
+                    && com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY.equals(next.key())) {
+                refreshers.add(addRotateOpacityRow(ctx, root, p, next, host));
+                i++;
+                continue;
+            }
             refreshers.add(propRow(ctx, root, p, host, null));
         }
         // One pass so every diamond shows its true on-key state the moment the tab appears,
@@ -155,6 +164,37 @@ public final class PipDrawerTabs {
                                       @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host) {
         return propRow(ctx, parent, prop, host, null);
     }
+
+    /**
+     * Rotate and Opacity on ONE line when the drawer is wide enough (JoyRaptor, 2026-09-23:
+     * "if rotate only takes up half width … move the opacity slider up to save vertical
+     * space"). The dial needs 40dp, not a slider's width, and opacity is a 0-100 slider that
+     * does not need the full line either. Below {@link #PAIR_MIN_WIDTH_DP} the opacity slider
+     * would be squeezed to nothing beside the dial's label, value and diamond, so a narrow
+     * phone keeps the two rows stacked.
+     */
+    @NonNull
+    public static Runnable addRotateOpacityRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                               @NonNull ObjectMenuSheet.Prop rotate,
+                                               @NonNull ObjectMenuSheet.Prop opacity,
+                                               @NonNull Host host) {
+        android.util.DisplayMetrics dm = ctx.getResources().getDisplayMetrics();
+        if (dm.widthPixels / dm.density < PAIR_MIN_WIDTH_DP) {
+            Runnable a = propRow(ctx, parent, rotate, host, null);
+            Runnable b = propRow(ctx, parent, opacity, host, null);
+            return () -> { a.run(); b.run(); };
+        }
+        LinearLayout pair = new LinearLayout(ctx);
+        pair.setOrientation(LinearLayout.HORIZONTAL);
+        pair.setGravity(Gravity.CENTER_VERTICAL);
+        Runnable a = propRow(ctx, pair, rotate, host, null, true);
+        Runnable b = propRow(ctx, pair, opacity, host, null, true);
+        parent.addView(pair);
+        return () -> { a.run(); b.run(); };
+    }
+
+    /** Narrowest screen (dp) on which Rotate and Opacity share a line. */
+    private static final int PAIR_MIN_WIDTH_DP = 420;
 
     /**
      * The image drawer's chain-split Scale row — ONE row whether linked or split.
@@ -265,6 +305,17 @@ public final class PipDrawerTabs {
     private static Runnable propRow(@NonNull Context ctx, @NonNull LinearLayout parent,
                                     @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
                                     @Nullable View trailing) {
+        return propRow(ctx, parent, prop, host, trailing, false);
+    }
+
+    /**
+     * @param inPair this row shares a line with another ({@link #addRotateOpacityRow}): a
+     *               Rotate row then sizes to its content with the dial in a fixed 40dp slot,
+     *               and any other row takes the rest of the line.
+     */
+    private static Runnable propRow(@NonNull Context ctx, @NonNull LinearLayout parent,
+                                    @NonNull ObjectMenuSheet.Prop prop, @NonNull Host host,
+                                    @Nullable View trailing, boolean inPair) {
         float d = ctx.getResources().getDisplayMetrics().density;
         LinearLayout row = new LinearLayout(ctx);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -319,7 +370,12 @@ public final class PipDrawerTabs {
             row.addView(bar, blp);
         } else {
             // Layout only; the gesture wiring is set after selfRefresh exists (below).
-            addDialInSliderSlot(ctx, row, dial);
+            if (inPair) {
+                int size = Math.round(40 * d);
+                row.addView(dial, new LinearLayout.LayoutParams(size, size));
+            } else {
+                addDialInSliderSlot(ctx, row, dial);
+            }
         }
         row.addView(value);
         // TAP THE NUMBER TO TYPE IT. A 1000-step slider on a 46dp readout cannot land an exact
@@ -355,7 +411,14 @@ public final class PipDrawerTabs {
             row.addView(spacer, new LinearLayout.LayoutParams(Math.round(64 * d), 1));
         }
         if (trailing != null) row.addView(trailing);
-        parent.addView(row);
+        if (inPair) {
+            parent.addView(row, isRotation
+                    ? new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT)
+                    : new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        } else {
+            parent.addView(row);
+        }
         selfRefresh[0] = () -> {
             long ph = host.playheadMs();
             float v = prop.valueAt(ph);

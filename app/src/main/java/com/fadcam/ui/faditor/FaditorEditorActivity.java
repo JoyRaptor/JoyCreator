@@ -10147,9 +10147,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // The meter is an indicator, not a control: while a drawer is open it hides —
             // competing with the workbench for the corner is noise, and a frozen reading
             // beside active sliders reads as a stuck control.
-            boolean drawerOpen = objectDrawer != null && objectDrawer.isShowing();
-            int wantVis = drawerOpen ? View.GONE : View.VISIBLE;
-            if (meter.getVisibility() != wantVis) meter.setVisibility(wantVis);
+            boolean drawerOpen = syncMasterMeterVisibility(meter);
             if (!drawerOpen) {
                 meter.setTracks(project.getTimeline().getLayers(),
                         project.getTimeline().getAudioTracks());
@@ -23403,6 +23401,30 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return t;
     }
 
+    /**
+     * Every NEW text or image starts at the playhead and runs {@link #IMAGE_CLIP_DURATION_MS}
+     * (5 s). JoyRaptor, 2026-09-23: one add path did this and the others spanned the whole
+     * project; the drawer's "Span whole" chip is there for anyone who wants that. One helper,
+     * so the paths cannot drift apart again.
+     */
+    private void placeNewOverlayAtPlayhead(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        long ph = editorTimeline != null ? editorTimeline.getPlayheadPositionMs()
+                : Math.max(0, lastPlayheadAbsoluteMs);
+        item.setTimeRange(ph, ph + IMAGE_CLIP_DURATION_MS);
+    }
+
+    /**
+     * A NEW picture comes in at Fit: the whole image, as large as the canvas allows without
+     * cropping. It came in at 30% of the canvas, which JoyRaptor never kept (2026-09-23). The
+     * drawer's Fit / Fill buttons use the same {@code applyFit}.
+     */
+    private void fitNewImage(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        float[] canvas = getCanvasWHForImagePreset();
+        float[] img = getImageWHForPreset(item);
+        item.applyFit(canvas[0], canvas[1], img[0], img[1]);
+    }
+
     private void addTextOverlay() {
         if (project == null) return;
         if (inCropMode) {
@@ -23416,6 +23438,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.model.TextOverlayItem(
                         getString(R.string.faditor_text_hint),
                         0xFFFFFFFF, 0.5f, 0.5f, 0.10f, 0f);
+        // Five seconds from the playhead, not the whole project; BEFORE the lane search,
+        // which needs the real time range to find a free lane.
+        placeNewOverlayAtPlayhead(item);
         // FEEDBACK (2026-07-18): a new text must never stack onto a lane where its
         // time range overlaps an existing item — route it to the first free TEXT
         // lane, creating a new lane if every existing one is occupied.
@@ -24813,15 +24838,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 overlay.setAudioMuted(true); // pixels only in preview AND export (M-EXPORT-1 rule)
                 com.fadcam.ui.faditor.keyframe.KeyframeSet kf =
                         new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+                // FIT, centred: scale 1.0 is the whole picture at the largest size that is not
+                // cropped. It came in at 0.35 in the top-right corner, and JoyRaptor (2026-09-23)
+                // never kept that size -- every import began with a resize. Shrinking a big
+                // picture to taste is one pinch; the dual-camera webcam below keeps its corner.
                 kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.X).put(0L,
-                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_X,
-                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                        0.5f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
                 kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y).put(0L,
-                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_Y,
-                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                        0.5f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
                 kf.getOrCreate(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE).put(0L,
-                        com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.DEFAULT_SCALE,
-                        com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+                        1.0f, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
                 overlay.setOverlayTransform(kf);
 
                 project.getTimeline().addOverlayClip(overlay);
@@ -24935,6 +24961,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final com.fadcam.ui.faditor.model.TextOverlayItem item =
                 com.fadcam.ui.faditor.model.TextOverlayItem.createImage(
                         imageUri.toString(), 0.5f, 0.5f, 0.30f);
+        placeNewOverlayAtPlayhead(item);   // before the lane search, as for text
+        fitNewImage(item);
         // SPEC W item 2: an image overlay is a text payload — route it through the
         // same free-lane search instead of landing on the default lane regardless
         // of overlap.
@@ -24991,12 +25019,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         timeline.getOrCreateTrackFlags(newTrackId).zIndex = topZ;
 
         // Build the image payload at the current playhead, bounded window.
-        long playheadMs = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
         final com.fadcam.ui.faditor.model.TextOverlayItem item =
                 com.fadcam.ui.faditor.model.TextOverlayItem.createImage(
                         storedUri.toString(), 0.5f, 0.5f, 0.30f);
         item.setLayerId(newTrackId);
-        item.setTimeRange(playheadMs, playheadMs + IMAGE_CLIP_DURATION_MS);
+        placeNewOverlayAtPlayhead(item);
+        fitNewImage(item);
 
         Runnable redo = () -> {
             if (createdDef != null) timeline.restoreLayerTrackDef(createdDef);
@@ -28707,7 +28735,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                layer.getName(), 0,
+                layer.getName(), getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
                 ctx -> {
                     android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
                     col.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -29306,6 +29334,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return masterMeter;
     }
 
+    /**
+     * The meter hides while something covers its corner: an open drawer, or the transcript
+     * panel, whose header close button it sat squarely on top of. Returns true when hidden.
+     */
+    private boolean syncMasterMeterVisibility(
+            @NonNull com.fadcam.ui.faditor.layers.LayerRowRenderer.MasterMeterView meter) {
+        // Height as well as isShowing: the height listener fires with 0 while a closing drawer
+        // still reports showing, and the meter should come back with the drawer's last frame.
+        boolean covered = (objectDrawer != null && objectDrawer.isShowing() && objectDrawerHeightPx > 0)
+                || transcriptPanelOpen;
+        int wantVis = covered ? View.GONE : View.VISIBLE;
+        if (meter.getVisibility() != wantVis) meter.setVisibility(wantVis);
+        return covered;
+    }
+
     private boolean isAudioOnlyProject() {
         if (project == null) return false;
         Timeline tl = project.getTimeline();
@@ -29334,6 +29377,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             root.addView(objectDrawer, lp);
             objectDrawer.setHeightListener(h -> {
                 objectDrawerHeightPx = h;
+                if (masterMeter != null) syncMasterMeterVisibility(masterMeter);
                 reflowPreviewUnderDrawer(h);
                 syncTransformChromeInset();
                 // One place that knows the drawer's visibility, so the tool light
@@ -29531,7 +29575,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Video overlay", 0,                                        // TODO(strings)
+                "Video overlay", getString(R.string.drawer_tab_transform),  // TODO(strings)
+                R.drawable.ic_transform_24,
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.videoTab(ctx, props, tabHost)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.faditor_mask_title), R.drawable.ic_pip_mask_24,
@@ -29710,7 +29755,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void onAudioReactiveLinkRequested() { showAudioReactiveLinkSheet(ac); }
         };
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", getString(R.string.drawer_tab_level), R.drawable.ic_volume_up_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, ac, host)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("A/V Sync", 0, ctx -> createAvSyncView(ctx)));
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
@@ -29923,7 +29968,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
         // allowPan=false: `synth` is a throwaway proxy and Clip has no pan to copy back into,
         // so a pan row here would move, show a value, and discard it. See levelTab.
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", 0, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, synth, host, false)));
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab("Audio", getString(R.string.drawer_tab_level), R.drawable.ic_volume_up_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.levelTab(ctx, synth, host, false)));
         // C6: same FX tab a standalone audio clip gets (§2.2 — identical four tabs).
         // The REAL Clip is passed, not the synth proxy, so the per-clip voice-chain
         // switch writes straight through and cannot die with the drawer (pan lesson).
@@ -31186,7 +31231,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Text effects", 0,                                            // TODO(strings)
+                "Text effects", getString(R.string.drawer_tab_effects),       // TODO(strings)
+                R.drawable.ic_fx_24,
                 ctx -> com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, textFx, host,
                         com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)));
@@ -32953,7 +32999,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs =
                 new java.util.ArrayList<>();
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Image", 0,                                              // TODO(strings)
+                "Image", getString(R.string.drawer_tab_transform),         // TODO(strings)
+                R.drawable.ic_transform_24,
                 ctx -> buildImageTransformTab(o, tabHost)));
         // ── Mask / Chroma key / Effects ──────────────────────────────────────────────────────
         // NO LONGER INERT. This block used to say all three "reach NEITHER renderer for an image
@@ -33019,7 +33066,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT),
                         R.string.faditor_image_fx_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                "Move", R.drawable.ic_pip_move_24,                        // TODO(strings)
+                getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
                 ctx -> buildImageMoveTab(o)));
 
         // SPEC_20260915_PUPPET_UI — PUPPETEERING. Last tab on purpose: it is the deepest tool
@@ -33402,12 +33449,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     overlayMenuProp(o, K_SY, "Scale Y", 0.02f, 10f, pct,    // TODO(strings)
                             ms -> o.animatedScaleY(ms)),
                     imageScaleChainToggle(o, rebuild[0], d)));
-            refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(
-                    this, rows, overlayMenuProp(o, K_ROT, "Rotate",         // TODO(strings)
+            // Rotate and Opacity share a line where the phone is wide enough (see the helper).
+            refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addRotateOpacityRow(
+                    this, rows,
+                    overlayMenuProp(o, K_ROT, "Rotate",                     // TODO(strings)
                             -180f, 180f, deg, ms -> o.animatedRotation(ms)),
-                    host));
-            refreshers[0].add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(
-                    this, rows, overlayMenuProp(o, K_OP, "Opacity",         // TODO(strings)
+                    overlayMenuProp(o, K_OP, "Opacity",                     // TODO(strings)
                             0f, 1f, pct, ms -> o.animatedOpacity(ms)),
                     host));
             for (Runnable r : refreshers[0]) r.run();
@@ -40954,6 +41001,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (show) {
             // Flag first: applyTranscriptReflow derives the shift only while "open".
             transcriptPanelOpen = true;
+            if (masterMeter != null) syncMasterMeterVisibility(masterMeter);
             applyTranscriptReflow(true);
             transcriptPanel.setVisibility(View.VISIBLE);
             transcriptPanel.setTranslationX(screenW);
@@ -40971,6 +41019,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             updateTranscriptBreakButton();
         } else {
             transcriptPanelOpen = false;
+            if (masterMeter != null) syncMasterMeterVisibility(masterMeter);
             // The picture returns to centre while the drawer slides out; both axes named
             // (see applyTranscriptReflow) so neither cancels the other's tween.
             applyTranscriptReflow(true);
@@ -43588,6 +43637,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             try { getContentResolver().takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
                         }
                         com.fadcam.ui.faditor.model.TextOverlayItem it = com.fadcam.ui.faditor.model.TextOverlayItem.createImage(u.toString(), 0.5f, 0.5f, 0.30f);
+                        fitNewImage(it);
                         // Stagger time so three images appear as a sequence, not a pile: each 5s window.
                         long start = playhead + i * IMAGE_CLIP_DURATION_MS;
                         it.setTimeRange(start, start + IMAGE_CLIP_DURATION_MS);

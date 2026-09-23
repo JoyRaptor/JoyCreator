@@ -28,18 +28,20 @@
         android:elevation="2dp"
         android:fitsSystemWindows="true">
 
-        <!-- Close button (Material Icon) -->
+        <!-- BACK, not close: this leaves the Studio for the lobby, it does not quit the app
+             (JoyRaptor, 2026-09-23). Same id and handler. -->
         <TextView
             android:id="@+id/btn_close"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:gravity="center"
             android:fontFamily="@font/materialicons"
-            android:text="close"
+            android:text="arrow_back"
             android:textColor="@color/s_ink"
             android:textSize="24sp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="@string/faditor_close" />
+            android:contentDescription="@string/faditor_back_to_lobby"
+            android:tooltipText="@string/faditor_back_to_lobby" />
 
         <!-- Asset Browser button (pinned folder icon) -->
         <TextView
@@ -72,7 +74,23 @@
             android:focusable="true"
             android:focusableInTouchMode="true" />
 
-        <!-- AI Assistant button -->
+        <!-- EXPORT: a bare icon in the Studio gradient (ic_export_studio), no pill. JoyRaptor,
+             2026-09-23: the filled "Export" pill was too loud for something pressed once or
+             twice a project. The id is kept: the click handler binds to it. -->
+        <ImageView
+            android:id="@+id/btn_export"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="8dp"
+            android:layout_marginEnd="4dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_export_studio"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/faditor_export"
+            android:tooltipText="@string/faditor_export" />
+
+        <!-- AI Assistant, in the CORNER: it is the largest thing up here, and the largest thing
+             one step in from the edge read as misplaced (JoyRaptor, 2026-09-23). -->
         <ImageView
             android:id="@+id/btn_ai_assistant"
             android:layout_width="40dp"
@@ -83,47 +101,6 @@
             app:tint="@color/s_ink"
             android:background="@drawable/joybot_orb"
             android:contentDescription="AI Assistant" />
-
-        <!-- EXPORT, as record 06 draws it (.etop .exp): the Studio-green pill with an arrow and
-             the WORD. It was a bare green arrow, and JoyRaptor read it the way a newcomer
-             would: "if that's export it doesn't look like an export button." This is the
-             top bar's one filled action, so it is the one thing up here allowed to be loud. -->
-        <LinearLayout
-            android:id="@+id/btn_export"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="6dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            android:paddingStart="12dp"
-            android:paddingEnd="13dp"
-            android:clickable="true"
-            android:focusable="true"
-            android:background="@drawable/studio_action_pill_inset"
-            android:foreground="?attr/selectableItemBackground"
-            android:contentDescription="@string/faditor_export"
-            android:tooltipText="@string/faditor_export">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="@font/materialicons"
-                android:text="upload"
-                android:textSize="14sp"
-                android:textColor="@color/s_on_go"
-                android:importantForAccessibility="no" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="5dp"
-                android:text="@string/faditor_export"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:textColor="@color/s_on_go"
-                android:importantForAccessibility="no" />
-        </LinearLayout>
     </LinearLayout>
 
     <!-- Transitions panel -->

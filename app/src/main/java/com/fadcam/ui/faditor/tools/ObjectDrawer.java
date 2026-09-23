@@ -53,15 +53,14 @@ import java.util.List;
  *
  * <h3>Shape — Studio Final (record 06) §02, drawn at real size</h3>
  * <pre>
- *   .dh    38dp  ● name ···················· [toggles] ✕      header: WHAT you are editing
- *   .dt    32dp  [■ Video] [▣] [◐] [⧉]                        tabs:   WHERE in it you are
+ *   .dh    38dp  ● name  [■ Transform] [▣] [◐] [⧉] ···  [toggles] ✕    ONE line
  *   body         the tab's own rows
  *   .dgrab       ━━  38 × 3.5                                  drag to size, tap to close
  * </pre>
- * The header used to carry the tab icons AND the toggles AND the title on one line, so the
- * title changed with every tab and the two groups were told apart by a 1dp divider. Tabs now
- * have their own row, the active one widening to icon + label; the header keeps the object's
- * name and dot, which is what record 06 draws. Every drawer-wide visual (chip, row, slider,
+ * The tabs sat on their own row under the header for a while; JoyRaptor (2026-09-23) put
+ * them back on the header line — the extra row cost a line of picture and put tab 0 ("Image")
+ * right under the title ("Image"). Tab 0's pill now names what it DOES (Tab#tabLabel) and
+ * the header names the object. Every drawer-wide visual (chip, row, slider,
  * checkbox, section label) is built by {@link Kit}, so a tab file asks for "a chip" instead of
  * restating one.
  */
@@ -88,8 +87,6 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>You can still watch the video through it. You can now also read the labels.</p>
      */
     private static final int SCRIM = Studio.alpha(Studio.GROUND, 0xA3);
-    /** Repaints this drawer's fill on a Frost/Solid change; a field so the weak listener lives. */
-    private Runnable lensRepaint;
     // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
     // Same value it has always rendered; it simply asks for it by the right name now.
     private static final int TXT = Studio.DRAWER_INK;
@@ -112,14 +109,28 @@ public final class ObjectDrawer extends LinearLayout {
     /** One tab: an icon in the header, a title, and lazily-built content. */
     public static final class Tab {
         final String title;
+        /**
+         * The pill's own name, when it differs from {@link #title}. Tab 0's title is the
+         * DRAWER's name ("Image"), shown in the header; its pill says what the tab DOES
+         * ("Transform"). Both saying "Image" side by side was the redundancy JoyRaptor flagged.
+         */
+        @Nullable final String tabLabel;
         final int iconRes;
         final ContentBuilder content;
 
         public Tab(@NonNull String title, int iconRes, @NonNull ContentBuilder content) {
+            this(title, null, iconRes, content);
+        }
+
+        public Tab(@NonNull String title, @Nullable String tabLabel, int iconRes,
+                   @NonNull ContentBuilder content) {
             this.title = title;
+            this.tabLabel = tabLabel;
             this.iconRes = iconRes;
             this.content = content;
         }
+
+        @NonNull String pillLabel() { return tabLabel != null ? tabLabel : title; }
     }
 
     public interface ContentBuilder { @NonNull View build(@NonNull Context ctx); }
@@ -234,14 +245,10 @@ public final class ObjectDrawer extends LinearLayout {
         // horizontal slice through the screen; curving the two bottom corners is what makes it
         // read as something that came DOWN from the top edge (user, 2026-08-05).
         final GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Kit.drawerFill(ctx));
+        bg.setColor(Kit.DRAWER_FILL);
         float r = 18f * density;
         bg.setCornerRadii(new float[]{0f, 0f, 0f, 0f, r, r, r, r});
         setBackground(bg);
-        // Frost or Solid, repainted the moment it changes in ANY drawer (field-held: the Kit
-        // keeps listeners weakly).
-        lensRepaint = () -> { bg.setColor(Kit.drawerFill(ctx)); invalidate(); };
-        Kit.onLensChanged(lensRepaint);
         // Consume touches so a tap on the drawer never reaches the preview underneath and
         // starts dragging the very PiP being edited.
         setClickable(true);
@@ -289,7 +296,30 @@ public final class ObjectDrawer extends LinearLayout {
         titleView.setMaxLines(1);
         titleView.setSingleLine(true);
         titleView.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        header.addView(titleView, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
+        // WRAP, capped: the free width belongs to the tab strip now (one line, JoyRaptor
+        // 2026-09-23: "bring all the tabs back to the top line").
+        titleView.setMaxWidth(dp(120));
+        header.addView(titleView, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
+        // ── .dt — the tabs, IN the header line ─────────────────────────────────────────────
+        // They had their own 32dp row under the header, which cost a line of picture and put
+        // the first tab ("Image") directly under the title ("Image"). Now: ● name · tabs ·
+        // toggles · ✕, the tab strip taking the free width and scrolling when it runs out.
+        tabRow = new LinearLayout(ctx);
+        tabRow.setOrientation(HORIZONTAL);
+        tabRow.setGravity(Gravity.CENTER_VERTICAL);
+        tabRow.setPadding(dp(8), 0, dp(4), 0);
+        tabScroll = new android.widget.HorizontalScrollView(ctx);
+        tabScroll.setHorizontalScrollBarEnabled(false);
+        tabScroll.setOverScrollMode(OVER_SCROLL_NEVER);
+        // .dt .fade — record 06 MAJOR 05: a row that scrolls and gives no sign of it is a row
+        // whose tail nobody finds. The platform's fading edge is exactly that sign, and costs
+        // nothing when everything fits (it only draws where there is more to scroll to).
+        tabScroll.setHorizontalFadingEdgeEnabled(true);
+        tabScroll.setFadingEdgeLength(dp(14));
+        tabScroll.addView(tabRow, new FrameLayout.LayoutParams(
+                LayoutParams.WRAP_CONTENT, dp(32)));
+        header.addView(tabScroll, new LayoutParams(0, dp(32), 1f));
 
         iconRow = new LinearLayout(ctx);
         iconRow.setOrientation(HORIZONTAL);
@@ -305,11 +335,6 @@ public final class ObjectDrawer extends LinearLayout {
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         header.addView(iconScroll, new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-
-        // Record 06 .lens: Frost / Solid, just before the close button.
-        LayoutParams lensLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
-        lensLp.setMarginStart(dp(6));
-        header.addView(Kit.lensToggle(ctx), lensLp);
 
         TextView close = new TextView(ctx);
         close.setText("✕");
@@ -332,23 +357,6 @@ public final class ObjectDrawer extends LinearLayout {
         header.addView(close);
 
         addView(header, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
-
-        // ── .dt — the tab row, 32dp ───────────────────────────────────────────────────────
-        tabRow = new LinearLayout(ctx);
-        tabRow.setOrientation(HORIZONTAL);
-        tabRow.setGravity(Gravity.CENTER_VERTICAL);
-        tabRow.setPadding(dp(8), 0, dp(8), 0);
-        tabScroll = new android.widget.HorizontalScrollView(ctx);
-        tabScroll.setHorizontalScrollBarEnabled(false);
-        tabScroll.setOverScrollMode(OVER_SCROLL_NEVER);
-        // .dt .fade — record 06 MAJOR 05: a row that scrolls and gives no sign of it is a row
-        // whose tail nobody finds. The platform's fading edge is exactly that sign, and costs
-        // nothing when everything fits (it only draws where there is more to scroll to).
-        tabScroll.setHorizontalFadingEdgeEnabled(true);
-        tabScroll.setFadingEdgeLength(dp(14));
-        tabScroll.addView(tabRow, new FrameLayout.LayoutParams(
-                LayoutParams.WRAP_CONTENT, dp(32)));
-        addView(tabScroll, new LayoutParams(LayoutParams.MATCH_PARENT, dp(32)));
 
         contentHost = new FrameLayout(ctx);
         contentHost.setClipChildren(true);
@@ -545,6 +553,12 @@ public final class ObjectDrawer extends LinearLayout {
      */
     public void show(@NonNull List<Tab> tabList, @NonNull List<Toggle> toggleList, boolean lightAdjust,
                      @Nullable View leadingView, @Nullable View middleView) {
+        // KEEP THE PLACE. Read before anything is rebound: which tab is open right now, if the
+        // drawer is up. Switching the selection to another object then opens ITS tab of the
+        // same name (Blend stays on Blend), and a drawer rebuilding itself after an edit stays
+        // where it was instead of snapping back to the first tab.
+        final String keepPlace = getVisibility() == VISIBLE && activeTab > 0
+                && activeTab < tabs.size() ? tabs.get(activeTab).pillLabel() : null;
         // A pending close belongs to the object being replaced. show() used to rebind without
         // it, so opening a second object's drawer dropped the first one's FX undo step entirely
         // -- or, worse, left it registered and fired it later against an object not on screen.
@@ -591,6 +605,11 @@ public final class ObjectDrawer extends LinearLayout {
         // to change a blend mode, and making them find the last tab every time is the kind of
         // small tax that adds up to a tool feeling slow.
         activeTab = (openOnTab > 0 && openOnTab < tabs.size()) ? openOnTab : 0;
+        if (openOnTab <= 0 && keepPlace != null) {
+            for (int i = 1; i < tabs.size(); i++) {
+                if (keepPlace.equals(tabs.get(i).pillLabel())) { activeTab = i; break; }
+            }
+        }
         openOnTab = 0;
         contentHost.removeAllViews();
         contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext())));
@@ -750,7 +769,8 @@ public final class ObjectDrawer extends LinearLayout {
     private void buildTabRow() {
         tabRow.removeAllViews();
         tabViews.clear();
-        tabScroll.setVisibility(tabs.size() > 1 ? VISIBLE : GONE);
+        // A drawer with one tab shows no pill, but the strip stays: it is the weighted gap
+        // that keeps the toggles and ✕ at the right edge.
         if (tabs.size() <= 1) return;
         for (int i = 0; i < tabs.size(); i++) {
             final int idx = i;
@@ -765,7 +785,7 @@ public final class ObjectDrawer extends LinearLayout {
             icon.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
             v.addView(icon, new LayoutParams(dp(14), dp(14)));
             TextView label = new TextView(getContext());
-            label.setText(t.title);
+            label.setText(t.pillLabel());
             label.setTextSize(11);
             label.setSingleLine(true);
             label.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -774,7 +794,7 @@ public final class ObjectDrawer extends LinearLayout {
             label.setMaxWidth(dp(112));
             label.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
             v.addView(label, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-            Kit.describe(v, t.title);
+            Kit.describe(v, t.pillLabel());
             v.setOnClickListener(x -> toggleTab(idx));
             // Full row height for the finger (32dp), 24dp for the eye — the pill is inset.
             LayoutParams lp = new LayoutParams(LayoutParams.WRAP_CONTENT, dp(32));
@@ -1012,108 +1032,14 @@ public final class ObjectDrawer extends LinearLayout {
     /** Record 06's drawer components. Static; safe to call from any tab builder. */
     public static final class Kit {
 
-        // -- FROST / SOLID -------------------------------------------------------------------
-        // JoyRaptor's ruling (design language, 2026-09-16): "Frosted drawers need a SOLID toggle.
-        // Frosted looks great for screenshots - annoying for someone doing precise work with the
-        // drawer looking at the composition behind it. One toggle per drawer, remembered."
-        // Record 06 draws the control in the header as a two-segment lens; it labels the second
-        // half CLEAR, his ruling says SOLID, and his word wins.
-        //
-        // FROST is the default: the 64% scrim, video visible behind. SOLID is PANEL, opaque.
-        // ONE remembered setting for every drawer, so a switch to Solid for precise work holds
-        // in the next drawer too, and every open drawer repaints the moment it changes.
-
-        private static final String LENS_PREFS = "joy_drawer";
-        private static final String LENS_KEY_SOLID = "solid";
-        /** --scrim, the see-through fill. */
-        public static final int FILL_FROST = Studio.alpha(Studio.GROUND, 0xA3);
-        /** The solid fill. */
-        public static final int FILL_SOLID = Studio.PANEL;
-
-        private static final java.util.List<java.lang.ref.WeakReference<Runnable>> sLensListeners =
-                new java.util.ArrayList<>();
-
-        public static boolean isSolid(@NonNull Context ctx) {
-            return ctx.getSharedPreferences(LENS_PREFS, Context.MODE_PRIVATE)
-                    .getBoolean(LENS_KEY_SOLID, false);
-        }
-
-        /** The fill a drawer should paint right now. */
-        public static int drawerFill(@NonNull Context ctx) {
-            return isSolid(ctx) ? FILL_SOLID : FILL_FROST;
-        }
-
-        /**
-         * Run {@code r} whenever the setting changes, from any drawer. Held WEAKLY - the caller
-         * must keep {@code r} in a field, or it is collected and simply stops firing.
-         */
-        public static void onLensChanged(@NonNull Runnable r) {
-            sLensListeners.add(new java.lang.ref.WeakReference<>(r));
-        }
-
-        private static void setSolid(@NonNull Context ctx, boolean solid) {
-            if (isSolid(ctx) == solid) return;
-            ctx.getSharedPreferences(LENS_PREFS, Context.MODE_PRIVATE).edit()
-                    .putBoolean(LENS_KEY_SOLID, solid).apply();
-            for (java.util.Iterator<java.lang.ref.WeakReference<Runnable>> it =
-                         sLensListeners.iterator(); it.hasNext(); ) {
-                Runnable r = it.next().get();
-                if (r == null) it.remove(); else r.run();
-            }
-        }
-
-        /**
-         * Record 06 {@code .lens}: a dark well holding FROST | SOLID, the current one filled
-         * with the selection colour. Drawn small, as the record draws it; each half is still a
-         * 28dp target (the floor) because it is a setting, not an every-few-seconds control.
-         */
-        @NonNull
-        public static View lensToggle(@NonNull Context ctx) {
-            LinearLayout lens = new LinearLayout(ctx);
-            lens.setOrientation(LinearLayout.HORIZONTAL);
-            lens.setGravity(Gravity.CENTER_VERTICAL);
-            int p2 = dp(ctx, 2);
-            lens.setPadding(p2, p2, p2, p2);
-            lens.setBackground(pill(ctx, Studio.alpha(Studio.GROUND, 0x5C), 0));
-            final TextView frost = lensHalf(ctx, com.fadcam.R.string.drawer_lens_frost,
-                    com.fadcam.R.string.drawer_lens_frost_desc);
-            final TextView solid = lensHalf(ctx, com.fadcam.R.string.drawer_lens_solid,
-                    com.fadcam.R.string.drawer_lens_solid_desc);
-            lens.addView(frost);
-            lens.addView(solid);
-            final Runnable restyle = () -> {
-                boolean s = isSolid(ctx);
-                styleLensHalf(frost, !s);
-                styleLensHalf(solid, s);
-            };
-            restyle.run();
-            lens.setTag(restyle);          // the strong reference the weak listener needs
-            onLensChanged(restyle);
-            frost.setOnClickListener(v -> setSolid(ctx, false));
-            solid.setOnClickListener(v -> setSolid(ctx, true));
-            return lens;
-        }
-
-        @NonNull
-        private static TextView lensHalf(@NonNull Context ctx, int label, int desc) {
-            TextView t = new TextView(ctx);
-            t.setText(label);
-            Type.mono(t, Type.BOLD);
-            t.setTextSize(8f);
-            t.setLetterSpacing(0.06f);
-            t.setGravity(Gravity.CENTER);
-            t.setMinHeight(dp(ctx, 28));
-            t.setPadding(dp(ctx, 7), 0, dp(ctx, 7), 0);
-            describe(t, ctx.getString(desc));
-            pressable(t);
-            return t;
-        }
-
-        private static void styleLensHalf(@NonNull TextView t, boolean on) {
-            background(t, on ? pill(t.getContext(), Studio.ARMED, 0) : null);
-            t.setTextColor(on ? Studio.ON_GO : Studio.DRAWER_LABEL);
-            t.setSelected(on);
-        }
+        // -- THE DRAWER FILL -----------------------------------------------------------------
+        // JoyRaptor, 2026-09-23: a drawer over the preview is ALWAYS see-through. "The user must
+        // ALWAYS be able to see behind the drawer or you have blinded them." A Frost / Solid
+        // switch shipped here on 2026-09-22 made "Solid" OPAQUE, which is exactly that; it is
+        // gone. Frost, when it returns, is the SAME fill plus a blur on phones that can render
+        // one (API 31+), never a darker or opaque one.
+        /** --scrim, the one see-through drawer fill. */
+        public static final int DRAWER_FILL = Studio.alpha(Studio.GROUND, 0xA3);
 
         private Kit() {}
 

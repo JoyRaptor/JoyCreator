@@ -59,8 +59,6 @@ public final class TextOverlayDrawer extends LinearLayout {
      * and that change belongs to the activity's styleToggleState / buildTextTopRow.</p>
      */
     private static final int BG = Kit.SCRIM;
-    /** Repaints the fill on a Frost/Solid change; a field so the weak listener lives. */
-    private Runnable lensRepaint;
     // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
     private static final int TXT = Studio.DRAWER_INK;
     private static final int TXT_DIM = Studio.DRAWER_DIM;
@@ -96,10 +94,8 @@ public final class TextOverlayDrawer extends LinearLayout {
         density = getResources().getDisplayMetrics().density;
         setOrientation(VERTICAL);
         final GradientDrawable bg = new GradientDrawable();
-        // Frost or Solid - the same remembered setting as every object drawer (ObjectDrawer.Kit).
-        bg.setColor(ObjectDrawer.Kit.drawerFill(ctx));
-        lensRepaint = () -> { bg.setColor(ObjectDrawer.Kit.drawerFill(ctx)); invalidate(); };
-        ObjectDrawer.Kit.onLensChanged(lensRepaint);
+        // The one see-through drawer fill every object drawer uses (ObjectDrawer.Kit).
+        bg.setColor(ObjectDrawer.Kit.DRAWER_FILL);
         // Rounded BOTTOM corners only — this one hangs DOWN from the top edge, so the curve
         // is at the bottom, mirroring ObjectDrawer. 18, not 16: record 06 `.drawer`
         // border-radius 0 0 18px 18px, and the same radius ObjectDrawer draws.
@@ -163,8 +159,6 @@ public final class TextOverlayDrawer extends LinearLayout {
         LayoutParams accLp = new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f);
         accLp.setMarginStart(dp(6));
         header.addView(headerAccessory, accLp);
-
-        header.addView(ObjectDrawer.Kit.lensToggle(ctx));
 
         TextView close = new TextView(ctx);
         close.setText("✕");

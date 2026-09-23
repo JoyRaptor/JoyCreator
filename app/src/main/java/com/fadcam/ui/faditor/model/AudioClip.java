@@ -255,7 +255,16 @@ public class AudioClip implements AudioParams {
      * @param durationMs     total duration of the audio source
      */
     public AudioClip(@NonNull Uri sourceUri, long durationMs) {
-        this.id = UUID.randomUUID().toString();
+        this(UUID.randomUUID().toString(), sourceUri, durationMs);
+    }
+
+    /**
+     * Constructor for deserialization: keeps the saved id. Without it every load minted a
+     * fresh UUID, so anything that names an audio clip by id — a visualizer's
+     * audioSourceRef, a link-group member — pointed at nothing after a reload or an undo.
+     */
+    public AudioClip(@NonNull String id, @NonNull Uri sourceUri, long durationMs) {
+        this.id = id;
         this.sourceUri = sourceUri;
         this.sourceDurationMs = durationMs;
         this.inPointMs = 0;

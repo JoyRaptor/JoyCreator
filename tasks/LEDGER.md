@@ -3724,3 +3724,47 @@ packaged classes; no device in this session, needs JoyRaptor's eye):
 Owed on a phone: pick presets/granularities with the drawer open and watch the box;
 confirm old projects still animate as BLOCK and new boxes as LETTER; confirm the keyboard
 returns on box tap and typing stays static (glyphs must not slide under the caret).
+
+## 2026-09-23 — audio clips kept getting new ids every time a project opened
+
+**What was wrong.** Project a32d24e2 on the Note 20, saved twice minutes apart with no edits
+in between: the two files differed ONLY in the three audio clip ids and the layer items that
+mirror them. ProjectStorage WROTE each audio clip's `id` but the loader never READ it, and
+`AudioClip.id` was always a fresh random UUID. So every open, AND every undo/redo (undo
+restores through the same deserializer), re-minted every audio id.
+
+**What that broke for the owner.**
+- A music visualizer (`waveformOverlays[].audioSourceRef`) pointed at an id that no longer
+  existed after a reopen: blank in preview, and export silently swapped in the first VIDEO
+  clip's audio (ExportManager's "no clip with id" fallback) — preview and export disagreed.
+- A link group holding an audio clip lost that member on the next prune; a two-member group
+  dissolved. Pruned on load, then saved pruned — gone for good.
+- The export lane's chunk-resume fingerprint saw a "different" project every session (it had
+  already worked around this by hashing UUIDs by order; that workaround stays valid).
+
+**Fix.** `AudioClip(String id, Uri, long)` restore constructor (same shape as Clip's), and the
+loader keeps the saved id. No id in the file, or an id already taken by an earlier audio clip
+in the same file, gets a fresh one — two clips can never share an id. New clips, imports,
+narration and split halves still mint fresh ids (unchanged).
+
+**Swept every reference to an audio clip by id.** Persisted: `audioSourceRef` and link-group
+members of kind `audioClip` — both now resolve after reload (tested). `hostClipId`,
+`attachedClipId`, `linkedClipId` resolve against VIDEO clips only (their ids were always
+stable). Transcript ids and caption-binding `transcriptId`s inside an audio clip were already
+read back. Layer items (`layers.audioTracks[].items[].id/payloadId`) are rebuilt from the flat
+list, so they are stable now too. No cache or file on disk is keyed by audio id.
+
+**Proof (JVM, not device).** `bash tools/jvm-harness/run-audioid.sh` — 14/14, drives the REAL
+ProjectStorage toJson/fromJson. Headline check is the owner's symptom: save → load → save
+writes the identical file (only `lastModified` stripped, as the export fingerprint does).
+Positive control `AUDIOID_BASE=0cc6dedd bash tools/jvm-harness/run-audioid.sh` compiles the
+test against the old code: 6 FAIL, reproducing the device evidence exactly (only the audio ids
+differ, and the second save is 384 chars shorter because the audio link group was pruned).
+`persist_lint.py` still ALL PERSISTED.
+
+**NOT repaired: projects saved before this fix.** A visualizer bound to music in an older
+session still names that session's dead id, and link groups already pruned are gone. I did
+NOT add a guess-the-clip repair on load: deleting an audio clip leaves a dangling ref too, so a
+guess could silently re-wire a visualizer to music nobody picked. Fix by hand: re-pick the
+visualizer's audio source once — it now sticks. Device check owed: on the Note 9, bind a
+visualizer to an audio clip, reopen the project, confirm it still draws.

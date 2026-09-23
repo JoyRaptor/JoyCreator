@@ -3027,7 +3027,18 @@ public class ProjectStorage {
                         JsonObject acObj = audioArr.get(i).getAsJsonObject();
                         Uri acUri = fromStorageUri(projectDir, acObj.get("sourceUri").getAsString());
                         long acDuration = acObj.get("sourceDurationMs").getAsLong();
-                        AudioClip ac = new AudioClip(acUri, acDuration);
+                        // Keep the saved id (it was written but never read, so every load
+                        // re-minted all audio ids). A file with no id, or one repeating an id
+                        // already loaded, gets a fresh one: two clips must never share an id.
+                        String acId = hasValue(acObj, "id") ? acObj.get("id").getAsString() : null;
+                        if (acId != null) {
+                            for (AudioClip prior : project.getTimeline().getAudioClips()) {
+                                if (acId.equals(prior.getId())) { acId = null; break; }
+                            }
+                        }
+                        AudioClip ac = acId != null
+                                ? new AudioClip(acId, acUri, acDuration)
+                                : new AudioClip(acUri, acDuration);
                         ac.setInPointMs(acObj.get("inPointMs").getAsLong());
                         ac.setOutPointMs(acObj.get("outPointMs").getAsLong());
                         if (hasValue(acObj, "offsetMs")) {

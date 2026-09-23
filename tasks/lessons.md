@@ -688,3 +688,19 @@ bakes to a flat residual (pure arithmetic mid-drag, deterministic with the commi
 distortion keeps the budget. Discrete fold refusals now say "Pin limit" on the gesture chip
 instead of dying silent (mid-drag refusals stay silent — the drag simply stops).
 
+
+## 2026-09-23 — a key the writer emits is not "read" just because some reader reads that name
+
+**Pattern:** AudioClip ids were written to project.json but never read back, so every load
+re-minted them — and persist_lint stayed green the whole time. The lint matches each model
+field's JSON key against the WHOLE ProjectStorage file, and `"id"` is read by clips,
+visualizers, link groups and a dozen others, so AudioClip's missing read was invisible. Found
+only by diffing two saves of the same untouched project on the device.
+
+**Rules:**
+- For common keys (`id`, `startMs`, `label`, `enabled`...), a file-wide lint proves nothing.
+  The proof for an object family is a real round trip: save → load → save must write the same
+  file. `tools/jvm-harness/run-audioid.sh` is the pattern (real ProjectStorage over a stub
+  Context rooted in a temp dir; `AUDIOID_BASE=<rev>` runs the positive control).
+- Any model with a `final id = UUID.randomUUID()` needs a restore-with-id constructor, and the
+  loader must call it. Check this whenever a model's id gets referenced from somewhere else.

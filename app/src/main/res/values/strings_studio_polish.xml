@@ -6,4 +6,11 @@
 <resources>
     <!-- The caption drawer's single font button. %1$s is the current font's name. -->
     <string name="faditor_font_button_desc">Font: %1$s. Tap to choose another.</string>
+    <!-- The drawer's Frost / Solid switch. JoyRaptor: "Frosted drawers need a SOLID toggle ...
+         annoying for someone doing precise work with the drawer looking at the composition
+         behind it." Shown as the record's small mono lens labels. -->
+    <string name="drawer_lens_frost">FROST</string>
+    <string name="drawer_lens_solid">SOLID</string>
+    <string name="drawer_lens_frost_desc">See-through drawer, so the video shows behind it</string>
+    <string name="drawer_lens_solid_desc">Solid drawer, for precise work</string>
 </resources>

@@ -88,6 +88,8 @@ public final class ObjectDrawer extends LinearLayout {
      * <p>You can still watch the video through it. You can now also read the labels.</p>
      */
     private static final int SCRIM = Studio.alpha(Studio.GROUND, 0xA3);
+    /** Repaints this drawer's fill on a Frost/Solid change; a field so the weak listener lives. */
+    private Runnable lensRepaint;
     // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
     // Same value it has always rendered; it simply asks for it by the right name now.
     private static final int TXT = Studio.DRAWER_INK;
@@ -231,11 +233,15 @@ public final class ObjectDrawer extends LinearLayout {
         // Rounded BOTTOM corners only. A panel that cuts straight across reads as a hard
         // horizontal slice through the screen; curving the two bottom corners is what makes it
         // read as something that came DOWN from the top edge (user, 2026-08-05).
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(SCRIM);
+        final GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Kit.drawerFill(ctx));
         float r = 18f * density;
         bg.setCornerRadii(new float[]{0f, 0f, 0f, 0f, r, r, r, r});
         setBackground(bg);
+        // Frost or Solid, repainted the moment it changes in ANY drawer (field-held: the Kit
+        // keeps listeners weakly).
+        lensRepaint = () -> { bg.setColor(Kit.drawerFill(ctx)); invalidate(); };
+        Kit.onLensChanged(lensRepaint);
         // Consume touches so a tap on the drawer never reaches the preview underneath and
         // starts dragging the very PiP being edited.
         setClickable(true);
@@ -299,6 +305,11 @@ public final class ObjectDrawer extends LinearLayout {
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         header.addView(iconScroll, new LayoutParams(
                 LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+
+        // Record 06 .lens: Frost / Solid, just before the close button.
+        LayoutParams lensLp = new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);
+        lensLp.setMarginStart(dp(6));
+        header.addView(Kit.lensToggle(ctx), lensLp);
 
         TextView close = new TextView(ctx);
         close.setText("✕");
@@ -1000,6 +1011,109 @@ public final class ObjectDrawer extends LinearLayout {
 
     /** Record 06's drawer components. Static; safe to call from any tab builder. */
     public static final class Kit {
+
+        // -- FROST / SOLID -------------------------------------------------------------------
+        // JoyRaptor's ruling (design language, 2026-09-16): "Frosted drawers need a SOLID toggle.
+        // Frosted looks great for screenshots - annoying for someone doing precise work with the
+        // drawer looking at the composition behind it. One toggle per drawer, remembered."
+        // Record 06 draws the control in the header as a two-segment lens; it labels the second
+        // half CLEAR, his ruling says SOLID, and his word wins.
+        //
+        // FROST is the default: the 64% scrim, video visible behind. SOLID is PANEL, opaque.
+        // ONE remembered setting for every drawer, so a switch to Solid for precise work holds
+        // in the next drawer too, and every open drawer repaints the moment it changes.
+
+        private static final String LENS_PREFS = "joy_drawer";
+        private static final String LENS_KEY_SOLID = "solid";
+        /** --scrim, the see-through fill. */
+        public static final int FILL_FROST = Studio.alpha(Studio.GROUND, 0xA3);
+        /** The solid fill. */
+        public static final int FILL_SOLID = Studio.PANEL;
+
+        private static final java.util.List<java.lang.ref.WeakReference<Runnable>> sLensListeners =
+                new java.util.ArrayList<>();
+
+        public static boolean isSolid(@NonNull Context ctx) {
+            return ctx.getSharedPreferences(LENS_PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(LENS_KEY_SOLID, false);
+        }
+
+        /** The fill a drawer should paint right now. */
+        public static int drawerFill(@NonNull Context ctx) {
+            return isSolid(ctx) ? FILL_SOLID : FILL_FROST;
+        }
+
+        /**
+         * Run {@code r} whenever the setting changes, from any drawer. Held WEAKLY - the caller
+         * must keep {@code r} in a field, or it is collected and simply stops firing.
+         */
+        public static void onLensChanged(@NonNull Runnable r) {
+            sLensListeners.add(new java.lang.ref.WeakReference<>(r));
+        }
+
+        private static void setSolid(@NonNull Context ctx, boolean solid) {
+            if (isSolid(ctx) == solid) return;
+            ctx.getSharedPreferences(LENS_PREFS, Context.MODE_PRIVATE).edit()
+                    .putBoolean(LENS_KEY_SOLID, solid).apply();
+            for (java.util.Iterator<java.lang.ref.WeakReference<Runnable>> it =
+                         sLensListeners.iterator(); it.hasNext(); ) {
+                Runnable r = it.next().get();
+                if (r == null) it.remove(); else r.run();
+            }
+        }
+
+        /**
+         * Record 06 {@code .lens}: a dark well holding FROST | SOLID, the current one filled
+         * with the selection colour. Drawn small, as the record draws it; each half is still a
+         * 28dp target (the floor) because it is a setting, not an every-few-seconds control.
+         */
+        @NonNull
+        public static View lensToggle(@NonNull Context ctx) {
+            LinearLayout lens = new LinearLayout(ctx);
+            lens.setOrientation(LinearLayout.HORIZONTAL);
+            lens.setGravity(Gravity.CENTER_VERTICAL);
+            int p2 = dp(ctx, 2);
+            lens.setPadding(p2, p2, p2, p2);
+            lens.setBackground(pill(ctx, Studio.alpha(Studio.GROUND, 0x5C), 0));
+            final TextView frost = lensHalf(ctx, com.fadcam.R.string.drawer_lens_frost,
+                    com.fadcam.R.string.drawer_lens_frost_desc);
+            final TextView solid = lensHalf(ctx, com.fadcam.R.string.drawer_lens_solid,
+                    com.fadcam.R.string.drawer_lens_solid_desc);
+            lens.addView(frost);
+            lens.addView(solid);
+            final Runnable restyle = () -> {
+                boolean s = isSolid(ctx);
+                styleLensHalf(frost, !s);
+                styleLensHalf(solid, s);
+            };
+            restyle.run();
+            lens.setTag(restyle);          // the strong reference the weak listener needs
+            onLensChanged(restyle);
+            frost.setOnClickListener(v -> setSolid(ctx, false));
+            solid.setOnClickListener(v -> setSolid(ctx, true));
+            return lens;
+        }
+
+        @NonNull
+        private static TextView lensHalf(@NonNull Context ctx, int label, int desc) {
+            TextView t = new TextView(ctx);
+            t.setText(label);
+            Type.mono(t, Type.BOLD);
+            t.setTextSize(8f);
+            t.setLetterSpacing(0.06f);
+            t.setGravity(Gravity.CENTER);
+            t.setMinHeight(dp(ctx, 28));
+            t.setPadding(dp(ctx, 7), 0, dp(ctx, 7), 0);
+            describe(t, ctx.getString(desc));
+            pressable(t);
+            return t;
+        }
+
+        private static void styleLensHalf(@NonNull TextView t, boolean on) {
+            background(t, on ? pill(t.getContext(), Studio.ARMED, 0) : null);
+            t.setTextColor(on ? Studio.ON_GO : Studio.DRAWER_LABEL);
+            t.setSelected(on);
+        }
 
         private Kit() {}
 

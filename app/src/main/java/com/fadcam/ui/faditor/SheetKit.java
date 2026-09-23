@@ -305,13 +305,17 @@ public final class SheetKit {
         }
         TextView t = new TextView(c);
         t.setText(text);
-        t.setAllCaps(true);
         t.setLetterSpacing(0.14f);
         t.setTextColor(Studio.INK_DIM);
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, SECTION_SP);
         Type.mono(t, Type.MEDIUM);
         t.setSingleLine(true);
         t.setEllipsize(TextUtils.TruncateAt.END);
+        // AFTER setSingleLine, and the order is load-bearing: both are TransformationMethods and
+        // a TextView holds exactly one, so single-line set second silently threw the capitals
+        // away. Every sheet's section labels were rendering in sentence case against the
+        // record's uppercase. (The lobby marquee learned the same lesson; see LobbyFragment.)
+        t.setAllCaps(true);
         row.addView(t);
         return row;
     }

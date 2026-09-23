@@ -674,8 +674,8 @@ public final class TextOverlayDrawer extends LinearLayout {
             com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
             t.setTextSize(8f);
             t.setLetterSpacing(0.14f);
-            t.setAllCaps(true);
             t.setSingleLine(true);
+            t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
             t.setTextColor(Studio.DRAWER_LABEL);
             t.setPadding(0, px(ctx, 7), 0, px(ctx, 3));
             return t;

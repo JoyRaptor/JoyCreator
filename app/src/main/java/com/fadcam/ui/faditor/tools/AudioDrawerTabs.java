@@ -869,9 +869,9 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     private static TextView sectionLabel(@NonNull Context ctx, @NonNull String label) {
         TextView t = text(ctx, 8f, TXT_DIM);
         com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
-        t.setAllCaps(true);
         t.setLetterSpacing(0.14f);
         t.setSingleLine(true);
+        t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         t.setText(label);
         t.setPadding(dp(ctx, 8), dp(ctx, 7), dp(ctx, 8), dp(ctx, 3));

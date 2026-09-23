@@ -558,9 +558,9 @@ public final class PuppetDrawerTabs {
         if (on) t.setShadowLayer(0f, 0f, 0f, 0);
         com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.SEMIBOLD);
         t.setText(label);
-        t.setAllCaps(true);
         t.setLetterSpacing(0.06f);
         t.setSingleLine(true);
+        t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(pad(d, 34));
@@ -1307,9 +1307,9 @@ public final class PuppetDrawerTabs {
     private static TextView sectionLabel(@NonNull Context ctx, float d, @NonNull String label) {
         TextView t = text(ctx, d, 8f, TXT_DIM);
         com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
-        t.setAllCaps(true);
         t.setLetterSpacing(0.14f);
         t.setSingleLine(true);
+        t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
         t.setText(label);
         return t;

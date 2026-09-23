@@ -1278,11 +1278,11 @@ public final class ObjectDrawer extends LinearLayout {
             TextView t = new TextView(ctx);
             t.setText(text);
             t.setTextSize(8);
-            t.setAllCaps(true);
             t.setLetterSpacing(0.14f);
             t.setTextColor(Studio.DRAWER_LABEL);
             Type.mono(t, Type.REGULAR);
             t.setSingleLine(true);
+            t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
             t.setPadding(0, dp(ctx, 7), 0, dp(ctx, 3));
             return t;
         }

@@ -20,4 +20,15 @@
     <string name="tools_group_add">Add something</string>
     <string name="tools_group_sound">Sound &amp; words</string>
     <string name="tools_group_project">The project &amp; the workspace</string>
+    <!-- Image drawer, Move tab -->
+    <string name="image_move_new_lane">New lane</string>
+    <string name="image_move_above">Above</string>
+    <string name="image_move_above_desc">Put this on a new lane above the others</string>
+    <string name="image_move_below">Below</string>
+    <string name="image_move_below_desc">Put this on a new lane below the others</string>
+    <string name="image_move_label">Move</string>
+    <string name="image_move_up">Up a lane ▲</string>
+    <string name="image_move_up_desc">Move this up one lane</string>
+    <string name="image_move_down">Down a lane ▼</string>
+    <string name="image_move_down_desc">Move this down one lane</string>
 </resources>

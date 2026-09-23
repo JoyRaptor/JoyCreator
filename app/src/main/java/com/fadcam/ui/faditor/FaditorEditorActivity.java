@@ -33451,35 +33451,50 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 timeline != null ? timeline.getLayers() : new java.util.ArrayList<>();
         int rowIdx = overlayItemRowIndex(o, layers);
 
-        root.addView(imageMoveRow("New lane above",                            // TODO(strings)
-                v -> moveOverlayItemToNewLayer(o, true), d));
-        root.addView(imageMoveRow("New lane below",                            // TODO(strings)
-                v -> moveOverlayItemToNewLayer(o, false), d));
+        // Record 06's drawer chips, in two labelled rows, instead of four bare lines of text:
+        // "New lane  [Above] [Below]" and "Move  [Up a lane] [Down a lane]". A move that
+        // cannot happen (already the top or bottom lane) is not offered.
+        android.widget.LinearLayout newLane = imageMoveRow(R.string.image_move_new_lane, d);
+        imageMoveChip(newLane, R.string.image_move_above, R.string.image_move_above_desc,
+                v -> moveOverlayItemToNewLayer(o, true));
+        imageMoveChip(newLane, R.string.image_move_below, R.string.image_move_below_desc,
+                v -> moveOverlayItemToNewLayer(o, false));
+        root.addView(newLane);
         if (layers.size() > 1 && rowIdx >= 0) {
+            android.widget.LinearLayout move = imageMoveRow(R.string.image_move_label, d);
             if (rowIdx > 0) {
-                root.addView(imageMoveRow("Move layer ▲",                      // TODO(strings)
-                        v -> moveOverlayItemToAdjacentLayer(o, true), d));
+                imageMoveChip(move, R.string.image_move_up, R.string.image_move_up_desc,
+                        v -> moveOverlayItemToAdjacentLayer(o, true));
             }
             if (rowIdx < layers.size() - 1) {
-                root.addView(imageMoveRow("Move layer ▼",                      // TODO(strings)
-                        v -> moveOverlayItemToAdjacentLayer(o, false), d));
+                imageMoveChip(move, R.string.image_move_down, R.string.image_move_down_desc,
+                        v -> moveOverlayItemToAdjacentLayer(o, false));
             }
+            root.addView(move);
         }
         return root;
     }
 
+    /** One labelled row of the Move tab (record 06 {@code .dr}): the label, then chips. */
     @NonNull
-    private android.widget.TextView imageMoveRow(
-            @NonNull String label, @NonNull android.view.View.OnClickListener onClick,
-            float d) {
-        android.widget.TextView t = new android.widget.TextView(this);
-        t.setText(label);
-        t.setTextColor(Studio.INK);
-        t.setTextSize(12.5f);
-        int py = Math.round(9 * d);
-        t.setPadding(0, py, 0, py);
-        t.setOnClickListener(onClick);
-        return t;
+    private android.widget.LinearLayout imageMoveRow(int label, float d) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        row.setPadding(0, Math.round(4 * d), 0, Math.round(4 * d));
+        row.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.rowLabel(
+                this, getString(label), 64));
+        return row;
+    }
+
+    private void imageMoveChip(@NonNull android.widget.LinearLayout row, int label, int desc,
+                               @NonNull android.view.View.OnClickListener onClick) {
+        android.widget.TextView chip =
+                com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(this, getString(label));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(chip, getString(desc));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(chip);
+        chip.setOnClickListener(onClick);
+        row.addView(chip, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
     }
 
     /**

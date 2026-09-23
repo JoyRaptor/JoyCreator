@@ -319,15 +319,7 @@ public final class PipDrawerTabs {
             row.addView(bar, blp);
         } else {
             // Layout only; the gesture wiring is set after selfRefresh exists (below).
-            // The dial takes the slider's SLOT (weight 1), sitting at its start, so the value,
-            // diamond and steppers land in the same column as every other row's. At its bare
-            // 40dp the row's tail slid left to mid-drawer and the column broke.
-            android.widget.FrameLayout slot = new android.widget.FrameLayout(ctx);
-            slot.addView(dial, new android.widget.FrameLayout.LayoutParams(
-                    Math.round(40 * d), Math.round(40 * d),
-                    Gravity.START | Gravity.CENTER_VERTICAL));
-            row.addView(slot, new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            addDialInSliderSlot(ctx, row, dial);
         }
         row.addView(value);
         // TAP THE NUMBER TO TYPE IT. A 1000-step slider on a 46dp readout cannot land an exact
@@ -1236,13 +1228,28 @@ public final class PipDrawerTabs {
         });
         value.setOnClickListener(v -> promptMaskAngle(ctx, dial, value, onChange));
 
-        row.addView(dial, new LinearLayout.LayoutParams(
-                Math.round(40 * d), Math.round(40 * d)));
+        addDialInSliderSlot(ctx, row, dial);
         row.addView(value);
         row.addView(dec);
         row.addView(key);
         row.addView(inc);
         parent.addView(row);
+    }
+
+    /**
+     * A rotation dial placed where a row's slider would be: the slot takes the slider's weight
+     * and the 40dp dial sits at its start, so the value, diamond and steppers after it land in
+     * the same column as every slider row's. At its bare 40dp the row's tail slid left to
+     * mid-drawer and the column broke.
+     */
+    private static void addDialInSliderSlot(@NonNull Context ctx, @NonNull LinearLayout row,
+                                            @NonNull RotationDialView dial) {
+        int size = Math.round(40 * ctx.getResources().getDisplayMetrics().density);
+        android.widget.FrameLayout slot = new android.widget.FrameLayout(ctx);
+        slot.addView(dial, new android.widget.FrameLayout.LayoutParams(
+                size, size, Gravity.START | Gravity.CENTER_VERTICAL));
+        row.addView(slot, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
     }
 
     /**

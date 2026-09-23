@@ -238,7 +238,10 @@ public final class FxPanel {
         // A METER, never a refusal. Refusing an edit is worse than a slow preview: the user can
         // see slow and decide, but cannot see a refusal and understand it.
         FxCost.Estimate est = FxCost.estimate(stack);
-        cost.setText(stack.isEmpty() ? "No effects" : est.label());
+        // Nothing to meter on an empty stack, and the empty note below already says so; a
+        // "No effects" meter above it said the same thing twice.
+        cost.setText(est.label());
+        cost.setVisibility(stack.isEmpty() ? View.GONE : View.VISIBLE);
         row.addView(cost, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 

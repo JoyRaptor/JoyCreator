@@ -13,4 +13,11 @@
     <string name="drawer_lens_solid">SOLID</string>
     <string name="drawer_lens_frost_desc">See-through drawer, so the video shows behind it</string>
     <string name="drawer_lens_solid_desc">Solid drawer, for precise work</string>
+    <!-- All tools sheet sections, record 06 .tg. "Recently used" stands in for the record's
+         "Most used by you": the app keeps WHEN a tool was used, not how often. -->
+    <string name="tools_group_recent">Recently used</string>
+    <string name="tools_group_act">Act on what\'s selected</string>
+    <string name="tools_group_add">Add something</string>
+    <string name="tools_group_sound">Sound &amp; words</string>
+    <string name="tools_group_project">The project &amp; the workspace</string>
 </resources>

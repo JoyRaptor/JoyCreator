@@ -160,4 +160,30 @@ public final class FaditorToolRegistry {
                             @NonNull FaditorTool.BindMode mode, boolean alwaysHidden) {
         list.add(new FaditorTool(id, viewId, iconViewId, labelViewId, label, icon, mode, alwaysHidden));
     }
+
+    // -- ALL TOOLS SECTIONS ---------------------------------------------------------------
+    // Record 06 draws the All tools sheet in groups (.sheet .tg), not as one flat grid. The
+    // membership is the record's; a tool the record doesn't name lands in PROJECT rather than
+    // vanishing, because a tool missing from the sheet is worse than one filed oddly.
+
+    public static final int GROUP_ACT = 0;       // "Act on what's selected"
+    public static final int GROUP_ADD = 1;       // "Add something"
+    public static final int GROUP_SOUND = 2;     // "Sound & words"
+    public static final int GROUP_PROJECT = 3;   // "The project & the workspace"
+
+    public static int groupOf(@NonNull String id) {
+        switch (id) {
+            case "speed": case "mute": case "opacity": case "rotate": case "flip": case "crop":
+            case "split": case "delete": case "duplicate": case "move": case "loop":
+            case "filter": case "align": case "adjustment":
+                return GROUP_ACT;
+            case "add_asset": case "sticker": case "text": case "sprites": case "captions":
+            case "visualizer": case "transitions":
+                return GROUP_ADD;
+            case "audio": case "transcript": case "silence": case "fix_audio": case "beats":
+                return GROUP_SOUND;
+            default:
+                return GROUP_PROJECT;
+        }
+    }
 }

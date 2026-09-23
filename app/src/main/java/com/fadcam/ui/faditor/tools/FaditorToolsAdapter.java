@@ -944,6 +944,18 @@ public class FaditorToolsAdapter {
         retintCells();
     }
 
+    /** The current selection's colour, or 0 with nothing selected. The All tools sheet
+     *  paints its "Act on what's selected" dot with it, as the row paints its glyphs. */
+    public int getContextTint() {
+        return contextTint;
+    }
+
+    /** When each tool was last used (ms), for the sheet's "Recently used" section. */
+    @NonNull
+    public java.util.Map<String, Long> getRecency() {
+        return prefs != null ? prefs.getRecency() : java.util.Collections.emptyMap();
+    }
+
     private int contextTintFor(@NonNull String id) {
         return (contextTint != 0 && contextIds.contains(id)) ? contextTint : Studio.INK_FAINT;
     }

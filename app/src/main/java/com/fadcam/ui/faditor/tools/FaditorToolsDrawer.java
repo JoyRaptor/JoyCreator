@@ -231,8 +231,59 @@ public class FaditorToolsDrawer {
         LinearLayout grid = new LinearLayout(context);
         grid.setOrientation(LinearLayout.VERTICAL);
         grid.setPadding(dp(10), 0, dp(10), 0);
+
+        // SECTIONS, as record 06 draws this sheet (.tg + .tgrid), not one flat grid of 30.
+        //
+        // First: the five tools used most recently. The record calls it "Most used by you";
+        // the app records WHEN a tool was last used, not how often, so the heading says what
+        // the data can honestly back. A tool can appear here and in its own section too, as
+        // in the record.
+        java.util.Map<String, Long> recency = adapter.getRecency();
+        List<FaditorTool> recent = new ArrayList<>();
+        for (FaditorTool t : shown) if (recency.containsKey(t.id)) recent.add(t);
+        java.util.Collections.sort(recent, (a, b) ->
+                Long.compare(recency.get(b.id), recency.get(a.id)));
+        if (recent.size() > COLUMNS) recent = new ArrayList<>(recent.subList(0, COLUMNS));
+        addSection(grid, R.string.tools_group_recent, Studio.ARMED, recent);
+
+        // Then the record's four groups. "Act on what's selected" wears the SELECTION's colour,
+        // exactly as the tool row's glyphs do, and plain dim when nothing is selected.
+        int selTint = adapter.getContextTint();
+        int[] groupLabel = {R.string.tools_group_act, R.string.tools_group_add,
+                R.string.tools_group_sound, R.string.tools_group_project};
+        int[] groupDot = {selTint != 0 ? selTint : Studio.DRAWER_DIM,
+                com.fadcam.ui.faditor.layers.ObjectPalette.TEXT,
+                com.fadcam.ui.faditor.layers.ObjectPalette.AUDIO,
+                Studio.DRAWER_LABEL};
+        for (int g = 0; g < groupLabel.length; g++) {
+            List<FaditorTool> members = new ArrayList<>();
+            for (FaditorTool t : shown) {
+                if (FaditorToolRegistry.groupOf(t.id) == g) members.add(t);
+            }
+            addSection(grid, groupLabel[g], groupDot[g], members);
+        }
+        scroll.addView(grid);
+        panel.addView(scroll);
+    }
+
+    /**
+     * One section: record 06's dot + mono label with its count, then the tools five across.
+     * Empty sections draw nothing. The last row is padded with empty slots so its cells keep
+     * the width of the rows above.
+     */
+    private void addSection(@NonNull LinearLayout grid, int label, int dot,
+                            @NonNull List<FaditorTool> tools) {
+        if (tools.isEmpty()) return;
+        LinearLayout head = com.fadcam.ui.faditor.SheetKit.sectionLabel(context,
+                context.getString(label) + " \u00b7 " + tools.size(), dot);
+        LinearLayout.LayoutParams headLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        headLp.topMargin = grid.getChildCount() == 0 ? 0 : dp(10);
+        headLp.bottomMargin = dp(5);
+        grid.addView(head, headLp);
+
         LinearLayout row = null;
-        for (int i = 0; i < shown.size(); i++) {
+        for (int i = 0; i < tools.size(); i++) {
             if (i % COLUMNS == 0) {
                 row = new LinearLayout(context);
                 row.setOrientation(LinearLayout.HORIZONTAL);
@@ -241,23 +292,17 @@ public class FaditorToolsDrawer {
                 if (i > 0) rowLp.topMargin = dp(4);   // .tgrid gap 4
                 grid.addView(row, rowLp);
             }
-            row.addView(buildGridCell(shown.get(i), i % COLUMNS));
+            row.addView(buildGridCell(tools.get(i), i % COLUMNS));
         }
-        // Pad the last row with empty slots so its cells keep the same width as the rest.
-        if (row != null) {
-            int rem = shown.size() % COLUMNS;
-            if (rem != 0) {
-                for (int k = rem; k < COLUMNS; k++) {
-                    View filler = new View(context);
-                    LinearLayout.LayoutParams fLp = new LinearLayout.LayoutParams(
-                            0, 1, 1f);
-                    fLp.setMarginStart(dp(4));
-                    row.addView(filler, fLp);
-                }
+        int rem = tools.size() % COLUMNS;
+        if (row != null && rem != 0) {
+            for (int k = rem; k < COLUMNS; k++) {
+                View filler = new View(context);
+                LinearLayout.LayoutParams fLp = new LinearLayout.LayoutParams(0, 1, 1f);
+                fLp.setMarginStart(dp(4));
+                row.addView(filler, fLp);
             }
         }
-        scroll.addView(grid);
-        panel.addView(scroll);
     }
 
     private View buildGridCell(@NonNull FaditorTool tool, int column) {

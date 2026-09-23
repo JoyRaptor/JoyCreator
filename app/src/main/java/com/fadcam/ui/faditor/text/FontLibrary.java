@@ -49,6 +49,32 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class FontLibrary {
 
+    /**
+     * The built-in fonts, {key, label}. ONE list, read by the text font picker AND the
+     * caption font picker — it used to be typed out inside the text picker's popup, which
+     * is how captions ended up with a different, six-font list of their own.
+     *
+     * <p>Keys are what projects SAVE, so an entry here must never be renamed — only added.
+     */
+    public static final String[][] TEXT_FONTS = {
+            {"popular", "Popular"}, {"popular_italic", "Popular Italic"},
+            {"designer", "Designer"}, {"trendy", "Trendy"}, {"light", "Light"},
+            {"sans_light", "Airy"}, {"sans_thin", "Thin"}, {"sans_medium", "Medium"},
+            {"sans_black", "Heavy"}, {"condensed", "Condensed"},
+            {"condensed_bold", "Condensed Bold"}, {"classy", "Classy"},
+            {"classy_italic", "Classy Italic"}, {"serif_bold", "Bold Serif"},
+            {"serif_italic", "Serif Italic"}, {"country", "Country"},
+            {"dramatic", "Dramatic"}, {"mono", "Mono"}, {"mono_bold", "Mono Bold"},
+            {"casual", "Casual"}, {"cursive", "Cursive"},
+    };
+
+    /** True if {@code key} is one of {@link #TEXT_FONTS}. */
+    public static boolean isTextFontKey(@androidx.annotation.Nullable String key) {
+        if (key == null) return false;
+        for (String[] f : TEXT_FONTS) if (f[0].equals(key)) return true;
+        return false;
+    }
+
     private static final String TAG = "FontLibrary";
 
     /** Set once from the Application/Activity, because model code has no Context. */

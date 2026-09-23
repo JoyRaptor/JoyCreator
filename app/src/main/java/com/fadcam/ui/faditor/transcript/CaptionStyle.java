@@ -166,8 +166,23 @@ public class CaptionStyle {
             case "condensed": base = Typeface.create("sans-serif-condensed", Typeface.NORMAL); break;
             case "rounded": base = Typeface.create("sans-serif-medium", Typeface.NORMAL); break;
             case "light":   base = Typeface.create("sans-serif-light", Typeface.NORMAL); break;
-            case "default":
-            default:        base = Typeface.SANS_SERIF; break;
+            case "default": base = Typeface.SANS_SERIF; break;
+            // Any other key is one of the TEXT tool's fonts ("popular", "classy", ...). The
+            // caption and text font pickers are one picker now (JoyRaptor: "unify those
+            // things"), so a caption can wear any font a title can. Resolved by the text
+            // model's own resolver, so the two can never disagree about what a key looks like.
+            // Preview (CaptionTextureCache) and export (CaptionExportRenderer) both come
+            // through this method, so what is picked is what is exported.
+            //
+            // Only KNOWN text keys are handed over. The text resolver falls back to BOLD sans
+            // for a key it doesn't know, where this method has always fallen back to regular
+            // sans — so an unrecognised key must stay here, or an old caption would quietly
+            // turn bold.
+            default:
+                base = com.fadcam.ui.faditor.text.FontLibrary.isTextFontKey(fontKey)
+                        ? com.fadcam.ui.faditor.model.TextOverlayItem.typefaceFor(fontKey, false, false)
+                        : Typeface.SANS_SERIF;
+                break;
         }
         return bold ? Typeface.create(base, Typeface.BOLD) : base;
     }

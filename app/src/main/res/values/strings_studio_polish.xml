@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings added by the STUDIO_POLISH lane. Kept out of strings.xml on purpose: that file
+     carries other lanes' staged, uncommitted work, and sharing it is how merges go wrong.
+     The font picker's title, import row and "selected" label already exist in strings.xml
+     (faditor_font_picker_title / _import / _row_selected) and are reused, not redefined. -->
+<resources>
+    <!-- The caption drawer's single font button. %1$s is the current font's name. -->
+    <string name="faditor_font_button_desc">Font: %1$s. Tap to choose another.</string>
+</resources>

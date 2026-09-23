@@ -20755,77 +20755,49 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fontLabel.setTextSize(12);
         fontLabel.setShadowLayer(3f * d, 0f, 1f, Studio.alpha(Studio.GROUND, 0xCC));
         fontRow.addView(fontLabel);
-        android.widget.HorizontalScrollView fontScroll = new android.widget.HorizontalScrollView(ctx);
-        fontScroll.setHorizontalScrollBarEnabled(false);
-        android.widget.LinearLayout fontChips = new android.widget.LinearLayout(ctx);
-        fontChips.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-        fontScroll.addView(fontChips);
-        fontRow.addView(fontScroll, new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        final java.util.Map<String, android.widget.TextView> fontChipByKey = new java.util.HashMap<>();
-        // G11: selected chip stays somewhat transparent (see-through contract 2.3), not fully opaque
-        final Runnable markSelectedFont = () -> {
-            String sel = currentCaptionStyle().fontKey;
-            for (java.util.Map.Entry<String, android.widget.TextView> e : fontChipByKey.entrySet()) {
-                boolean on = e.getKey().equals(sel);
-                e.getValue().setTextColor(on ? Studio.GO : Studio.INK);
-                e.getValue().setAlpha(on ? 0.88f : 0.72f);
-            }
+        // ONE FONT BUTTON, opening the one font picker the text drawer uses too.
+        //
+        // JoyRaptor, 2026-09-22: "I don't think the fonts scrolling in the closed caption
+        // drawer is very efficient. Instead of having a bunch of pills we should probably just
+        // have one and then a selection dialogue ... unify those things." This row used to be a
+        // sideways-scrolling strip of font pills that ran underneath the save/delete/share
+        // icons, with Import first so it wasn't lost off the edge. The button shows the current
+        // font's name IN that font; the picker shows every font in its own face, the current one
+        // in selection cyan, and offers the text tool's full list, not only captions' six.
+        final android.widget.TextView fontButton = new android.widget.TextView(ctx);
+        styleDrawerChip(fontButton, d);
+        fontButton.setMaxLines(1);
+        fontButton.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        final Runnable refreshFontButton = () -> {
+            com.fadcam.ui.faditor.transcript.CaptionStyle cs = currentCaptionStyle();
+            String label = captionFontLabel(cs.fontKey);
+            // The chevron is spanned to plain sans: set in the caption's own font it could be
+            // a glyph that font doesn't have, and a missing-glyph box is not a "this opens" cue.
+            android.text.SpannableString txt = new android.text.SpannableString(label + "  ▾");
+            txt.setSpan(new android.text.style.TypefaceSpan("sans-serif"),
+                    label.length(), txt.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            fontButton.setText(txt);
+            fontButton.setTypeface(cs.typeface());
+            fontButton.setContentDescription(getString(R.string.faditor_font_button_desc, label));
         };
-        // ONE chip builder, used by the initial list AND by the import callback, so a font
-        // imported from here appears in the row immediately instead of only after the drawer
-        // is closed and reopened.
-        final java.util.function.BiConsumer<String, String> addFontChip = (key, label) -> {
-            android.widget.TextView fc = new android.widget.TextView(ctx);
-            styleDrawerChip(fc, d);
-            com.fadcam.ui.faditor.transcript.CaptionStyle probe =
-                    com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0)
-                            .copyAs("probe", label);
-            probe.fontKey = key;
-            fc.setTypeface(probe.typeface());
-            fc.setText(label);
-            fc.setOnClickListener(v -> {
-                tweakCaptionStyle(s -> s.fontKey = key);
-                markSelectedFont.run();
-            });
-            fontChipByKey.put(key, fc);
-            fontChips.addView(fc);
-        };
-        // "+ Import" goes FIRST, not last. Appended after the built-ins it sat past six chips
-        // in a horizontally scrolling row, off the right edge and behind the style action
-        // icons - present, working, and undiscoverable. Device-checked 2026-08-28: the row
-        // showed "Standard / Serif / Mono" and then ran under the save/delete/share buttons.
-        // It uses the SAME importer as the text font picker (copies the chosen .ttf/.otf into
-        // Pictures/FadCam/fonts and hands back a "file:" key), so a font imported from
-        // captions is immediately available to text and the other way round.
-        final android.widget.TextView importChip = new android.widget.TextView(ctx);
-        styleDrawerChip(importChip, d);
-        importChip.setText("+ Import"); // TODO(strings)
-        importChip.setTextColor(Studio.VIDEO);
-        importChip.setOnClickListener(v -> {
-            pendingFontImportCallback = key -> {
-                String base = key.substring(key.lastIndexOf('/') + 1);
-                int dot = base.lastIndexOf('.');
-                String label = (dot > 0 ? base.substring(0, dot) : base) + " *";
-                if (!fontChipByKey.containsKey(key)) addFontChip.accept(key, label);
-                tweakCaptionStyle(st -> st.fontKey = key);
-                markSelectedFont.run();
-            };
-            fontImportLauncher.launch(new String[]{"*/*"});
-        });
-        fontChips.addView(importChip);
-        for (String[] choice : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
-            addFontChip.accept(choice[0], choice[1]);
-        }
-        markSelectedFont.run();
-        // G10: scroll font list to the SELECTED font so it is not off-screen
-        fontScroll.post(() -> {
-            String sel = currentCaptionStyle().fontKey;
-            android.view.View v = fontChipByKey.get(sel);
-            if (v != null) {
-                int scrollX = Math.max(0, v.getLeft() - fontScroll.getWidth() / 2 + v.getWidth() / 2);
-                fontScroll.smoothScrollTo(scrollX, 0);
-            }
-        });
+        refreshFontButton.run();
+        fontButton.setOnClickListener(v -> showFontPicker(captionFontChoices(),
+                key -> {
+                    com.fadcam.ui.faditor.transcript.CaptionStyle probe =
+                            com.fadcam.ui.faditor.transcript.CaptionStyle.presets().get(0)
+                                    .copyAs("probe", key);
+                    probe.fontKey = key;
+                    return probe.typeface();
+                },
+                key -> key.equals(currentCaptionStyle().fontKey),
+                key -> {
+                    tweakCaptionStyle(st -> st.fontKey = key);
+                    refreshFontButton.run();
+                }));
+        android.widget.LinearLayout.LayoutParams fontLp = new android.widget.LinearLayout.LayoutParams(
+                0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        fontLp.setMarginStart(Math.round(8 * d));
+        fontRow.addView(fontButton, fontLp);
         addCaptionActionIcon(fontRow, d, "save", "Save as my style", v -> promptSaveCaptionStyle());
         addCaptionActionIcon(fontRow, d, "delete", "Delete this custom style", v -> confirmDeleteCaptionStyle());
         addCaptionActionIcon(fontRow, d, "ios_share", "Copy style as text", v -> exportCaptionStyleToClipboard());
@@ -33974,6 +33946,133 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /**
+     * THE font picker. One component for the text drawer AND the caption drawer.
+     *
+     * <p>JoyRaptor, 2026-09-22: "instead of having a bunch of pills we should probably just
+     * have one and then a selection dialogue ... unify those things and make a really nice
+     * clean font selector with the selected font being in the studio highlight color and the
+     * rest of them clearly showing in their font what they look like."
+     *
+     * <ul>
+     *   <li>Every row is set IN its own font, so the list is its own preview.</li>
+     *   <li>The current font is ARMED cyan with a check — the Studio's one "this is selected"
+     *       colour, the same cyan as a selected clip. It used to be GUIDE violet in the text
+     *       picker and GO green in the caption chips: two colours for one fact.</li>
+     *   <li>Import is the FIRST row. At the end of a long list it scrolls out of sight, which
+     *       is exactly what the caption row learned the hard way.</li>
+     *   <li>It opens scrolled to the current font.</li>
+     * </ul>
+     *
+     * @param choices {key, label} in display order
+     * @param face    how to draw a key, so each caller previews exactly what it will render
+     * @param active  whether a key is currently applied (text can have several over a range)
+     * @param onPick  applies a key; also receives a freshly imported font's key
+     */
+    private void showFontPicker(@NonNull List<String[]> choices,
+                                @NonNull java.util.function.Function<String, android.graphics.Typeface> face,
+                                @NonNull java.util.function.Predicate<String> active,
+                                @NonNull java.util.function.Consumer<String> onPick) {
+        float d = getResources().getDisplayMetrics().density;
+        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        android.widget.LinearLayout list = new android.widget.LinearLayout(this);
+        list.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int pad = Math.round(16 * d);
+        list.setPadding(pad, Math.round(4 * d), pad, Math.round(8 * d));
+        scroll.addView(list);
+
+        final androidx.appcompat.app.AlertDialog dlg =
+                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.faditor_font_picker_title)
+                        .setView(scroll)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .create();
+
+        TextView importRow = new TextView(this);
+        importRow.setText(R.string.faditor_font_import);
+        importRow.setTextColor(Studio.INK_DIM);
+        importRow.setTextSize(15);
+        importRow.setMinHeight(Math.round(46 * d));
+        importRow.setGravity(android.view.Gravity.CENTER_VERTICAL);
+        importRow.setOnClickListener(v -> {
+            pendingFontImportCallback = onPick::accept;
+            fontImportLauncher.launch(new String[]{"*/*"});
+            dlg.dismiss();
+        });
+        list.addView(importRow);
+
+        View activeRow = null;
+        for (String[] c : choices) {
+            final String key = c[0];
+            boolean on = active.test(key);
+            TextView row = new TextView(this);
+            row.setText(on ? c[1] + "   ✓" : c[1]);
+            row.setTypeface(face.apply(key));
+            row.setTextSize(18);
+            row.setTextColor(on ? Studio.ARMED : Studio.INK);
+            row.setMinHeight(Math.round(46 * d));
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setMaxLines(1);
+            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            row.setContentDescription(on
+                    ? getString(R.string.faditor_font_row_selected, c[1]) : c[1]);
+            row.setOnClickListener(v -> {
+                onPick.accept(key);
+                dlg.dismiss();
+            });
+            list.addView(row);
+            if (on && activeRow == null) activeRow = row;
+        }
+
+        dlg.show();
+        final View target = activeRow;
+        if (target != null) {
+            scroll.post(() -> scroll.scrollTo(0,
+                    Math.max(0, target.getTop() - scroll.getHeight() / 3)));
+        }
+    }
+
+    /**
+     * The caption picker's list: captions' own six first (so an existing caption's font is
+     * where it always was), then the text tool's fonts it doesn't already have, then imports.
+     * Duplicate keys ("light", "condensed", "mono") keep the caption meaning, because a
+     * caption resolves those keys through its own switch first.
+     */
+    @NonNull
+    private static List<String[]> captionFontChoices() {
+        List<String[]> out = new java.util.ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (String[] c : com.fadcam.ui.faditor.transcript.CaptionStyle.fontChoices()) {
+            if (c[0].startsWith("file:")) continue;          // imports go last, labelled alike
+            if (seen.add(c[0])) out.add(c);
+        }
+        for (String[] c : com.fadcam.ui.faditor.text.FontLibrary.TEXT_FONTS) {
+            if (seen.add(c[0])) out.add(c);
+        }
+        for (String[] c : importedFontChoices()) {
+            if (seen.add(c[0])) out.add(c);
+        }
+        return out;
+    }
+
+    /** A caption font key's display name, or the key itself if nothing names it. */
+    @NonNull
+    private static String captionFontLabel(@Nullable String key) {
+        if (key == null) return "";
+        for (String[] c : captionFontChoices()) if (c[0].equals(key)) return c[1];
+        return key;
+    }
+
+    /** Imported fonts as picker choices, labelled the same way in both pickers. */
+    @NonNull
+    private static List<String[]> importedFontChoices() {
+        List<String[]> out = new java.util.ArrayList<>();
+        for (String[] f : com.fadcam.ui.faditor.text.FontLibrary.imported()) {
+            out.add(new String[]{f[0], f[1] + " ★"});
+        }
+        return out;
+    }
+
+    /**
      * Font list with a live-typeface preview per entry, plus "Import font" (SAF pick →
      * copied into Pictures/FadCam/fonts/, the folder the scan below already reads).
      * With a selection every family present in the range lights up (mixed font), and tapping
@@ -33982,92 +34081,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showFontPickerPopup(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
                                      @NonNull View anchor,
                                      @NonNull TextStyleSession session) {
-        float d = getResources().getDisplayMetrics().density;
-        String[][] fonts = {
-                {"popular", "Popular"}, {"popular_italic", "Popular Italic"},
-                {"designer", "Designer"}, {"trendy", "Trendy"}, {"light", "Light"},
-                {"sans_light", "Airy"}, {"sans_thin", "Thin"}, {"sans_medium", "Medium"},
-                {"sans_black", "Heavy"}, {"condensed", "Condensed"},
-                {"condensed_bold", "Condensed Bold"}, {"classy", "Classy"},
-                {"classy_italic", "Classy Italic"}, {"serif_bold", "Bold Serif"},
-                {"serif_italic", "Serif Italic"}, {"country", "Country"},
-                {"dramatic", "Dramatic"}, {"mono", "Mono"}, {"mono_bold", "Mono Bold"},
-                {"casual", "Casual"}, {"cursive", "Cursive"},
-        };
         com.fadcam.ui.faditor.text.FontLibrary.init(this);
-        List<String[]> customFonts = com.fadcam.ui.faditor.text.FontLibrary.imported();
-
-        android.widget.ScrollView scroll = new android.widget.ScrollView(this);
-        android.widget.LinearLayout list = new android.widget.LinearLayout(this);
-        list.setOrientation(android.widget.LinearLayout.VERTICAL);
-        int pad = Math.round(12 * d);
-        list.setPadding(pad, pad / 2, pad, pad / 2);
-        scroll.addView(list);
-
-        androidx.appcompat.app.AlertDialog dlg =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                        .setTitle("Font") // TODO(strings)
-                        .setView(scroll)
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .create();
-
-        java.util.function.BiConsumer<String, String> addRow = (key, name) -> {
-            boolean active = session.hasSelection()
-                    ? TextStyleResolver.valuesOverRange(
-                            item.resolveBase(), session.spans,
-                            TextStyleResolver.Prop.FONT_FAMILY,
-                            session.selStart, session.selEnd, session.len()).contains(key)
-                    : key.equals(item.getFontFamily());
-            TextView row = new TextView(this);
-            row.setText(name);
-            row.setTextColor(active ? Studio.GUIDE : Studio.INK);
-            row.setTextSize(16);
-            row.setPadding(0, Math.round(10 * d), 0, Math.round(10 * d));
-            row.setTypeface(getTypefaceForKey(key));
-            row.setOnClickListener(v -> {
-                if (session.hasSelection()) {
-                    TextStyleResolver.apply(session.spans,
-                            TextStyleResolver.Prop.FONT_FAMILY, key,
-                            session.selStart, session.selEnd);
-                    TextStyleResolver.normalize(session.spans, session.len());
-                    session.refresh.run();
-                } else {
-                    item.setFontFamily(key);
-                }
-                refreshOverlayPreview();
-                scheduleAutoSave();
-                dlg.dismiss();
-            });
-            list.addView(row);
+        List<String[]> choices = new java.util.ArrayList<>(
+                java.util.Arrays.asList(com.fadcam.ui.faditor.text.FontLibrary.TEXT_FONTS));
+        choices.addAll(importedFontChoices());
+        // With a selection, every family present in the range lights up (mixed font), and a
+        // pick applies over the whole range (§3.8). Without one, it is the box's font.
+        java.util.function.Predicate<String> active = key -> session.hasSelection()
+                ? TextStyleResolver.valuesOverRange(
+                        item.resolveBase(), session.spans,
+                        TextStyleResolver.Prop.FONT_FAMILY,
+                        session.selStart, session.selEnd, session.len()).contains(key)
+                : key.equals(item.getFontFamily());
+        java.util.function.Consumer<String> pick = key -> {
+            if (session.hasSelection()) {
+                TextStyleResolver.apply(session.spans,
+                        TextStyleResolver.Prop.FONT_FAMILY, key,
+                        session.selStart, session.selEnd);
+                TextStyleResolver.normalize(session.spans, session.len());
+                session.refresh.run();
+            } else {
+                item.setFontFamily(key);
+            }
+            refreshOverlayPreview();
+            scheduleAutoSave();
         };
-        for (String[] f : fonts) addRow.accept(f[0], f[1]);
-        for (String[] f : customFonts) addRow.accept(f[0], f[1] + " ★");
-
-        TextView importRow = new TextView(this);
-        importRow.setText("＋ Import font…"); // TODO(strings)
-        importRow.setTextColor(Studio.VIDEO);
-        importRow.setTextSize(15);
-        importRow.setPadding(0, Math.round(12 * d), 0, Math.round(4 * d));
-        importRow.setOnClickListener(v -> {
-            pendingFontImportCallback = key -> {
-                if (session.hasSelection()) {
-                    TextStyleResolver.apply(session.spans,
-                            TextStyleResolver.Prop.FONT_FAMILY, key,
-                            session.selStart, session.selEnd);
-                    TextStyleResolver.normalize(session.spans, session.len());
-                    session.refresh.run();
-                } else {
-                    item.setFontFamily(key);
-                }
-                refreshOverlayPreview();
-                scheduleAutoSave();
-            };
-            fontImportLauncher.launch(new String[]{"*/*"});
-            dlg.dismiss();
-        });
-        list.addView(importRow);
-
-        dlg.show();
+        showFontPicker(choices,
+                key -> com.fadcam.ui.faditor.model.TextOverlayItem.typefaceFor(key, false, false),
+                active, pick);
     }
 
     /**

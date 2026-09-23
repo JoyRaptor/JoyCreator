@@ -16587,7 +16587,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
                     showObjectMenuSheetForPipClip(item.getClip());
                 } else if (item.getWaveform() != null) {
-                    showObjectMenuSheetForVisualizer(item.getWaveform());
+                    showVisualizerObjectDrawer(item.getWaveform());
                 } else if (item.getAdjustment() != null) {
                     // §3.3 (2026-08-08): the long-press route for an adjustment layer was missing
                     // entirely, so its Mask/Chroma/Blend drawer was only reachable via the Adjust
@@ -16712,8 +16712,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         showAudioDrawer(item.getAudioClip());
                     } else if (item.getSprite() != null) {
                         showSpriteDrawer(item.getSprite(), false);
+                    } else if (item.getWaveform() != null) {
+                        showVisualizerObjectDrawer(item.getWaveform());
                     } else {
-                        // A visualizer or the film has no top drawer of its own. C6: close it,
+                        // The film has no top drawer of its own. C6: close it,
                         // rather than leave the OLD object's drawer open with every control
                         // aimed at something the user is no longer pointing at.
                         objectDrawer.hide();
@@ -30646,6 +30648,107 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * (plain slider, no diamond). More… opens the rich per-type editor; range chips reuse the
      * overlay's Start/End-here pattern.
      */
+    /**
+     * A VISUALIZER's top drawer: Transform (position, size, rotation) with hide/lock, in the
+     * same drawer every object uses. Hold opens it, as for every object; the double-tap still
+     * opens the visualizer's own style picker, and this drawer's Style chip goes there too.
+     */
+    private void showVisualizerObjectDrawer(
+            @NonNull final com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
+        if (project == null) return;
+        commitPendingCompUndo();
+        final com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host =
+                new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void onChanged() { scheduleAutoSave(); }
+            @Override public void pickColorFromPreview(
+                    @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
+                cb.onPicked(null);
+            }
+            @Override public void recordUndo(@NonNull String label, @NonNull Runnable redo,
+                                             @NonNull Runnable undo) {
+                undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo));
+            }
+            @Nullable private VizTransformState editBefore;
+            @Override public void beginEdit() { editBefore = snapshotViz(wf); }
+            @Override public void endEdit(@NonNull String label) {
+                if (editBefore != null) recordVizMenuUndo(wf, editBefore, label);
+                editBefore = null;
+            }
+        };
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Tab> tabs = new java.util.ArrayList<>();
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                "Visualizer", getString(R.string.drawer_tab_transform),       // TODO(strings)
+                R.drawable.ic_transform_24, ctx -> buildVisualizerTransformTab(wf, host)));
+        java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
+        final Runnable afterToggle = () -> { refreshVizAfterMenuWrite(); scheduleAutoSave(); };
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24, wf::isHidden,
+                () -> { wf.setHidden(!wf.isHidden()); afterToggle.run(); }, true));
+        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                R.drawable.ic_lock, R.drawable.ic_lock, wf::isLocked,
+                () -> { wf.setLocked(!wf.isLocked()); afterToggle.run(); }, false));
+        com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
+        drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.VISUALIZER);
+        drawer.show(tabs, toggles, false);
+    }
+
+    /** The visualizer drawer's Transform tab: Style chip, then position, size and rotation. */
+    @NonNull
+    private View buildVisualizerTransformTab(
+            @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf,
+            @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.Host host) {
+        final float d = getResources().getDisplayMetrics().density;
+        android.widget.LinearLayout root = new android.widget.LinearLayout(this);
+        root.setOrientation(android.widget.LinearLayout.VERTICAL);
+        root.setPadding(Math.round(14 * d), Math.round(4 * d), Math.round(14 * d), Math.round(10 * d));
+        android.widget.TextView style = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
+                this, getString(R.string.viz_style_chip));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(style, getString(R.string.viz_style_chip_desc));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(style);
+        style.setOnClickListener(v -> {
+            if (objectDrawer != null) objectDrawer.hide();
+            showVisualizerDrawer(true);
+        });
+        android.widget.LinearLayout styleRow = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.row(this);
+        styleRow.addView(style, com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chipLp(this));
+        root.addView(styleRow);
+        ObjectMenuSheet.ValueFormat pct = v -> Math.round(v * 100f) + "%";
+        ObjectMenuSheet.ValueFormat deg = v -> Math.round(v) + "°";
+        final java.util.List<Runnable> refreshers = new java.util.ArrayList<>();
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                ObjectMenuSheet.Prop.staticProp("viz_x", "Pos X", 0f, 1f, pct,     // TODO(strings)
+                        ms -> wf.getCenterX(),
+                        (v, ms) -> { wf.setCenter(v, wf.getCenterY()); refreshVizAfterMenuWrite(); }),
+                host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                ObjectMenuSheet.Prop.staticProp("viz_y", "Pos Y", 0f, 1f, pct,     // TODO(strings)
+                        ms -> wf.getCenterY(),
+                        (v, ms) -> { wf.setCenter(wf.getCenterX(), v); refreshVizAfterMenuWrite(); }),
+                host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                ObjectMenuSheet.Prop.staticProp("viz_w", "Width", 0.1f, 1f, pct,   // TODO(strings)
+                        ms -> wf.getWidthFraction(),
+                        (v, ms) -> { wf.setSize(v, wf.getHeightFraction()); refreshVizAfterMenuWrite(); }),
+                host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                ObjectMenuSheet.Prop.staticProp("viz_h", "Height", 0.05f, 1f, pct, // TODO(strings)
+                        ms -> wf.getHeightFraction(),
+                        (v, ms) -> { wf.setSize(wf.getWidthFraction(), v); refreshVizAfterMenuWrite(); }),
+                host));
+        refreshers.add(com.fadcam.ui.faditor.tools.PipDrawerTabs.addPropRow(this, root,
+                ObjectMenuSheet.Prop.staticProp(
+                        com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, "Rotate",    // TODO(strings)
+                        -180f, 180f, deg, ms -> wf.getRotationDeg(),
+                        (v, ms) -> { wf.setRotationDeg(v); refreshVizAfterMenuWrite(); }),
+                host));
+        for (Runnable r : refreshers) r.run();
+        root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
+            for (Runnable r : refreshers) r.run();
+        });
+        return root;
+    }
+
     private void showObjectMenuSheetForVisualizer(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wf) {
         if (project == null) return;

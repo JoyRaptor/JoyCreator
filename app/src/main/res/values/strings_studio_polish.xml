@@ -51,4 +51,6 @@
     <string name="drawer_fit_desc">Show the whole picture, as large as the canvas allows</string>
     <string name="drawer_fill">Fill</string>
     <string name="drawer_fill_desc">Cover the whole canvas, cropping the overflow</string>
+    <string name="viz_style_chip">Style…</string>
+    <string name="viz_style_chip_desc">Choose how the visualizer looks</string>
 </resources>

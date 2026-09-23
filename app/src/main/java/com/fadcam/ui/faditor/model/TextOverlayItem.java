@@ -569,6 +569,56 @@ public class TextOverlayItem {
      * on, and inheriting the original's lane is exactly what makes two objects overlap on a row
      * that forbids overlap.</p>
      */
+    /**
+     * This overlay's pose — X, Y, SCALE, ROTATION — on the TIMELINE clock (absolute ms), for a
+     * mask linked to it ("Move with the object": the mask in OBJECT space rather than screen
+     * space). The overlay's own keys are LOCAL to its start, which is why its masks had no
+     * link at all: a mask's keys and link base are absolute. Each track is shifted by the
+     * start; a property with no keys becomes one key holding its static value, so a picture
+     * that is simply dragged somewhere carries its linked mask too.
+     */
+    @NonNull
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet timelinePose() {
+        com.fadcam.ui.faditor.keyframe.KeyframeSet out =
+                new com.fadcam.ui.faditor.keyframe.KeyframeSet();
+        long off = Math.max(0L, startMs);
+        copyPoseTrack(out, com.fadcam.ui.faditor.keyframe.KeyframeSet.X, centerX, off);
+        copyPoseTrack(out, com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, centerY, off);
+        copyPoseTrack(out, com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, sizeFraction, off);
+        copyPoseTrack(out, com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, rotationDeg, off);
+        return out;
+    }
+
+    private void copyPoseTrack(@NonNull com.fadcam.ui.faditor.keyframe.KeyframeSet out,
+                               @NonNull String key, float staticValue, long off) {
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack src = keyframes.get(key);
+        com.fadcam.ui.faditor.keyframe.KeyframeTrack dst = out.getOrCreate(key);
+        if (src == null || src.keyframes.isEmpty()) {
+            dst.put(0L, staticValue, com.fadcam.ui.faditor.keyframe.Easing.LINEAR);
+            return;
+        }
+        for (com.fadcam.ui.faditor.keyframe.Keyframe k : src.keyframes) {
+            dst.put(k.timeMs + off, k.value, k.easing);
+        }
+    }
+
+    /** {@link #timelinePose} when any mask rides this object, else null (costs nothing). */
+    @Nullable
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet maskLinkPose() {
+        return compositing != null && compositing.hasLinkedMask() ? timelinePose() : null;
+    }
+
+    /**
+     * The compositing spec AS IT STANDS at {@code timelineMs}: mask keyframes applied, and any
+     * mask linked to this object carried by it. The GL routes used to hand the raw spec to the
+     * shader, so an image's mask neither animated nor followed it there. Returns the spec
+     * itself when nothing animates or links.
+     */
+    @Nullable
+    public CompositingSpec compositingAt(long timelineMs, float frameW, float frameH) {
+        return MaskAnimator.resolve(compositing, maskLinkPose(), timelineMs, frameW, frameH);
+    }
+
     /** This text's own effect stack, created on first access. @see #fx */
     @NonNull
     public com.fadcam.ui.faditor.fx.FxStack getOrCreateFx() {

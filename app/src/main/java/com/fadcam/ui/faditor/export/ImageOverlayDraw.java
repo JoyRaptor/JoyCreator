@@ -234,7 +234,7 @@ final class ImageOverlayDraw {
         // the same reason the drawer offers no "Move with the object" row for an image's mask.
         com.fadcam.ui.faditor.model.MaskPathBuilder.MaskScope maskSave =
                 com.fadcam.ui.faditor.model.MaskPathBuilder.beginMask(
-                        canvas, o.getCompositing(), null, timelineMs, outW, outH, 0f, 0f);
+                        canvas, o.getCompositing(), o.maskLinkPose(), timelineMs, outW, outH, 0f, 0f);
         // Same order as the text path and as the preview's View properties.
         //
         // SPEC B — the rotation pivot. The anchors come from the model's ONE shared definition

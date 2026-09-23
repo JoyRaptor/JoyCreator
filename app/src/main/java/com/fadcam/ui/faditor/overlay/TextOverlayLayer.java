@@ -1709,7 +1709,8 @@ public class TextOverlayLayer extends FrameLayout {
 
         return com.fadcam.ui.faditor.compositor.FxPreviewTextureView.Pip.ofImage(
                 cx, 1f - cy, halfW, halfH, -rot, alpha,
-                o.getFx(), currentTimeMs, o.getCompositing(),
+                // Resolved at the playhead: mask keys animate and a linked mask follows.
+                o.getFx(), currentTimeMs, o.compositingAt(currentTimeMs, r.width(), r.height()),
                 com.fadcam.ui.faditor.model.BlendModes.modeCode(o.getOverlayBlendMode()),
                 frameW, frameH, o.getId(), bmp, anim.revealFrac, pin);
     }

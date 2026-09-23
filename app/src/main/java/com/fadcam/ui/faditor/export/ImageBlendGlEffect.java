@@ -599,7 +599,7 @@ final class ImageBlendGlEffect implements GlEffect {
                     setFxUniforms(presentationTimeUs);
                     uploadMeshMask(timelineMs);
                     glProgram.bindAttributesAndUniforms();
-                    uploadMeshMaskArrays();
+                    uploadMeshMaskArrays(timelineMs);
                     GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                     GlUtil.checkGlError();
                 } catch (Exception e) {
@@ -653,9 +653,12 @@ final class ImageBlendGlEffect implements GlEffect {
         }
 
         /** Mask arrays AFTER bind (GlProgram cannot express array uniforms — same workaround as AdjustmentLayer). */
-        private void uploadMeshMaskArrays() {
+        private void uploadMeshMaskArrays(long timelineMs) {
             try {
-                com.fadcam.ui.faditor.model.CompositingSpec cs = fxItem.getCompositing();
+                // Resolved at this frame, like the preview and the Canvas export: mask keys
+                // animate, and a mask linked to the picture ("Move with the object") follows it.
+                com.fadcam.ui.faditor.model.CompositingSpec cs =
+                        fxItem.compositingAt(timelineMs, meshFrameW, meshFrameH);
                 if (cs == null || cs.masks.isEmpty()) return;
                 float[] geo = com.fadcam.ui.faditor.model.MaskSdf.packShapes(
                         cs, meshFrameW, meshFrameH);

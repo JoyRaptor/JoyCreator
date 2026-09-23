@@ -33296,9 +33296,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // source. See build-list item.
                 // Masks are real in the export now (ImageOverlayDraw runs the same MaskPathBuilder
                 // a PiP does, so BOTH export paths honour them) — export-only caveat, not inert.
+                // "Move with the object" is offered now: the image supplies its pose on the
+                // timeline clock (TextOverlayItem.timelinePose), which is what was missing.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
                         com.fadcam.ui.faditor.tools.PipDrawerTabs.maskTab(
-                                ctx, spec, applyComp,
+                                ctx, (com.fadcam.ui.faditor.tools.PipDrawerTabs.LinkSource)
+                                        o::timelinePose,
+                                spec, applyComp,
                                 () -> Math.max(0, lastPlayheadAbsoluteMs)),
                         R.string.faditor_image_mask_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(

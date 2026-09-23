@@ -620,6 +620,7 @@ public final class PipDrawerTabs {
         return maskTab(ctx, (LinkSource) null, spec, apply, playheadMs);
     }
 
+
     /**
      * Supplies the pose a linked mask captures FROM when "Move with the object" is switched on.
      *
@@ -633,8 +634,13 @@ public final class PipDrawerTabs {
         @Nullable com.fadcam.ui.faditor.keyframe.KeyframeSet transform();
     }
 
+    /**
+     * The mask tab for any object: {@code linkSource} supplies its pose for "Move with the
+     * object" (object space); null leaves that row out. An image passes
+     * {@code TextOverlayItem::timelinePose}, its pose on the timeline clock.
+     */
     @NonNull
-    private static View maskTab(@NonNull Context ctx, @Nullable LinkSource linkSource,
+    public static View maskTab(@NonNull Context ctx, @Nullable LinkSource linkSource,
                                 @NonNull CompositingSpec spec, @NonNull Runnable apply,
                                 @NonNull PlayheadSource playheadMs) {
         LinearLayout root = column(ctx);

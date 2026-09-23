@@ -29010,6 +29010,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final long beforeStart = start, beforeEnd = end;
             left.setTimeRange(start, cut);
             right.setTimeRange(cut, end);   // preserves Long.MAX open-ended via setTimeRange
+            // SAME LANE. copyWithNewId leaves the lane unset on purpose (a DUPLICATE overlaps its
+            // original), but split halves meet end to start and belong side by side. Without
+            // this the right half dropped to the default text lane, rows away from its left half.
+            right.setLayerId(left.getLayerId());
             // Keyframes are stored item-LOCAL; the right half's start moved to `cut`, so rebase.
             // The right half must CONTINUE the animation at the cut, not restart it: drop every
             // pre-cut key and pin one at its new local 0 holding the track's value AT the cut
@@ -29058,6 +29062,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final long beforeStart = start, beforeEnd = end;
             left.setTimeRange(start, cut);
             right.setTimeRange(cut, end);
+            right.setLayerId(left.getLayerId());   // same lane as its left half (see the text split)
             rebaseOverlayKeyframes(right.getKeyframes(), left.getKeyframes(), cut - start);
             timeline.addSpriteOverlay(right);
             undoManager.recordAction(new EditActions.LambdaAction("Split sprite",

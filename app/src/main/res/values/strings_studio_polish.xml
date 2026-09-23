@@ -45,4 +45,10 @@
     <string name="drawer_scale_split_desc">Width and height scale separately. Tap to link them</string>
     <string name="pip_sound_strip_desc">Show this overlay\'s sound on the timeline</string>
     <string name="caption_tab_style">Style</string>
+    <string name="drawer_clear_all_keys">Clear all ◇</string>
+    <string name="drawer_clear_all_keys_desc">Delete every keyframe on this object</string>
+    <string name="drawer_fit">Fit</string>
+    <string name="drawer_fit_desc">Show the whole picture, as large as the canvas allows</string>
+    <string name="drawer_fill">Fill</string>
+    <string name="drawer_fill_desc">Cover the whole canvas, cropping the overflow</string>
 </resources>

@@ -25133,7 +25133,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         keyframeRibbon.setGravity(android.view.Gravity.CENTER_VERTICAL);
         android.graphics.drawable.GradientDrawable bg =
                 new android.graphics.drawable.GradientDrawable();
-        bg.setColor(0xE61F1F26);
+        bg.setColor(Studio.alpha(Studio.RAISED, 0xE6));
         bg.setCornerRadius(18 * d);
         keyframeRibbon.setBackground(bg);
         int padH = (int) (10 * d);
@@ -26453,7 +26453,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             int pad = (int) (14 * d);
             card.setPadding(pad, (int) (12 * d), pad, (int) (12 * d));
             android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
-            bg.setColor(0xF21F1F26);
+            bg.setColor(Studio.alpha(Studio.RAISED, 0xF2));
             bg.setCornerRadius(14 * d);
             bg.setStroke((int) (1 * d), Studio.alpha(Studio.GO, 0x55));
             card.setBackground(bg);
@@ -33416,10 +33416,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             divLp.leftMargin = Math.round(8*d); divLp.rightMargin = Math.round(8*d);
             topRow.addView(vDiv, divLp);
             // Fit icon — small pill button
-            android.widget.TextView fitBtn = new android.widget.TextView(this);
-            fitBtn.setText("Fit"); fitBtn.setTextColor(Studio.INK); fitBtn.setTextSize(11);
-            fitBtn.setPadding(Math.round(10*d), Math.round(5*d), Math.round(10*d), Math.round(5*d));
-            fitBtn.setBackgroundResource(R.drawable.segment_active_background);
+            // Fit / Fill: the drawer's own chips (they were an old segment background in screen ink).
+            android.widget.TextView fitBtn = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
+                    this, getString(R.string.drawer_fit));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(fitBtn, getString(R.string.drawer_fit_desc));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(fitBtn);
             fitBtn.setOnClickListener(v -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = o.snapshotTransform();
                 float[] canvas = getCanvasWHForImagePreset();
@@ -33430,10 +33431,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (objectDrawer != null && objectDrawer.isShowing()) showImageOverlayDrawer(o);
             });
             topRow.addView(fitBtn);
-            android.widget.TextView fillBtn = new android.widget.TextView(this);
-            fillBtn.setText("Fill"); fillBtn.setTextColor(Studio.INK); fillBtn.setTextSize(11);
-            fillBtn.setPadding(Math.round(10*d), Math.round(5*d), Math.round(10*d), Math.round(5*d));
-            fillBtn.setBackgroundResource(R.drawable.segment_active_background);
+            android.widget.TextView fillBtn = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
+                    this, getString(R.string.drawer_fill));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(fillBtn, getString(R.string.drawer_fill_desc));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(fillBtn);
             fillBtn.setOnClickListener(v -> {
                 com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before = o.snapshotTransform();
                 float[] canvas = getCanvasWHForImagePreset();
@@ -33512,17 +33513,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     setOverlayRotationPivot(o, nx, ny, pivotBtn)));
             // "Clear all ◇" — the same chip the row's other pills use, red. Shortened from
             // "Clear all keyframes" (user 2026-09-05) so the whole row fits one line.
-            android.widget.TextView clearChip = new android.widget.TextView(this);
-            clearChip.setText("Clear all ◇");                                  // TODO(strings)
-            clearChip.setTextColor(Studio.GUIDE);
-            clearChip.setTextSize(11);
-            android.graphics.drawable.GradientDrawable clearBg =
-                    new android.graphics.drawable.GradientDrawable();
-            clearBg.setCornerRadius(14 * d);
-            clearBg.setColor(0x33FF4438);
-            clearChip.setBackground(clearBg);
-            clearChip.setPadding(Math.round(9 * d), Math.round(6 * d),
-                    Math.round(9 * d), Math.round(6 * d));
+            // The drawer's own chip, in the DESTROYS colour: it deletes every key. It was guide
+            // purple on a hand-mixed red, neither of which said "this removes things".
+            android.widget.TextView clearChip = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
+                    this, getString(R.string.drawer_clear_all_keys));
+            clearChip.setTextColor(Studio.DANGER);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(clearChip,
+                    getString(R.string.drawer_clear_all_keys_desc));
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(clearChip);
             clearChip.setOnClickListener(v -> clearAllOverlayKeyframes(o));
             android.widget.LinearLayout.LayoutParams clearLp =
                     new android.widget.LinearLayout.LayoutParams(
@@ -33534,7 +33532,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // One-line hint for None (§2.6)
             android.widget.TextView hint = new android.widget.TextView(this);
             hint.setText("No animation (reset) — centred, cover-scaled, static");
-            hint.setTextColor(Studio.INK_FAINT);
+            hint.setTextColor(Studio.DRAWER_LABEL);
             hint.setTextSize(10);
             hint.setPadding(0, Math.round(2*d), 0, Math.round(6*d));
             root.addView(hint);

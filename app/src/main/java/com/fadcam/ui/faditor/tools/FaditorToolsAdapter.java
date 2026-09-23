@@ -859,7 +859,7 @@ public class FaditorToolsAdapter {
         //
         // Only the tools that ACT on the selection take it. An "add" tool tinted the colour
         // of the current selection would be claiming a relationship it does not have.
-        icon.setTextColor(contextTintFor(tool.id));
+        icon.setTextColor(iconColourFor(tool.id));
         cell.addView(icon);
 
         TextView label = new TextView(context);
@@ -874,7 +874,7 @@ public class FaditorToolsAdapter {
         label.setText(tool.label);
         // --dim, per `.tools button s{color:var(--dim)}`. It was INK_FAINT, a rung darker,
         // which put every tool name in the row below the contrast its own record set.
-        label.setTextColor(Studio.INK_DIM);
+        label.setTextColor(labelColourFor(tool.id));
         label.setGravity(Gravity.CENTER);
         // Spec 1: labels never wrap — single line, autosized down to fit the
         // fixed cell width. "transitions"/"transcript" previously wrapped.
@@ -948,13 +948,41 @@ public class FaditorToolsAdapter {
         return (contextTint != 0 && contextIds.contains(id)) ? contextTint : Studio.INK_FAINT;
     }
 
+    /**
+     * A tool in a special STATE wears one colour on glyph and label — Split in Heal mode is
+     * CAREFUL amber. Null clears it and the tool looks like every other tool again.
+     *
+     * <p>This exists because the editor used to paint the Split cell itself: INK_FAINT on the
+     * label (darker than every other tool's), and INK_FAINT on the glyph, overwriting the
+     * contextual tint this adapter had just applied. Two systems each owning half a button.
+     * Now the adapter owns the button and a caller only states the exception.
+     */
+    public void setCellOverride(@NonNull String id, @androidx.annotation.Nullable Integer colour) {
+        if (colour == null) cellOverride.remove(id); else cellOverride.put(id, colour);
+        retintCells();
+    }
+
+    private final java.util.Map<String, Integer> cellOverride = new java.util.HashMap<>();
+
+    private int iconColourFor(@NonNull String id) {
+        Integer o = cellOverride.get(id);
+        return o != null ? o : contextTintFor(id);
+    }
+
+    private int labelColourFor(@NonNull String id) {
+        Integer o = cellOverride.get(id);
+        return o != null ? o : Studio.INK_DIM;
+    }
+
     private void retintCells() {
         if (tools == null) return;
         for (com.fadcam.ui.faditor.tools.FaditorTool t : tools) {
             View cell = container.findViewById(t.viewId);
             if (cell == null) continue;
             TextView ic = cell.findViewById(t.iconViewId);
-            if (ic != null) ic.setTextColor(contextTintFor(t.id));
+            if (ic != null) ic.setTextColor(iconColourFor(t.id));
+            TextView lb = cell.findViewById(t.labelViewId);
+            if (lb != null) lb.setTextColor(labelColourFor(t.id));
         }
     }
 

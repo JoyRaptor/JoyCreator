@@ -44296,16 +44296,23 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long playhead = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
         boolean heal = timeline != null && clip != null && !clip.isImageClip()
                 && healableSeam(playhead) >= 0;
+        boolean changed = heal != splitHealMode;
         splitHealMode = heal;
         if (toolSplitIcon != null) {
             toolSplitIcon.setText(heal ? "healing" : "content_cut");
-            toolSplitIcon.setTextColor(heal ? Studio.CAREFUL : Studio.INK_FAINT);
         }
         if (toolSplitLabel != null) {
             toolSplitLabel.setText(heal ? "Heal" : getString(R.string.faditor_tool_split));
-            toolSplitLabel.setTextColor(heal ? Studio.CAREFUL : Studio.INK_FAINT);
         }
-        if (toolSplitIcon != null) {
+        // Colour belongs to the tool row, which knows the contextual tint; Split only states its
+        // exception. It used to paint both itself - INK_FAINT, darker than every other tool's
+        // label, and overwriting the tint the row had just applied.
+        if (toolsAdapter != null) {
+            toolsAdapter.setCellOverride("split", heal ? Integer.valueOf(Studio.CAREFUL) : null);
+        }
+        // The pop announces a CHANGE of mode. It used to fire on every call, whether or not the
+        // mode had moved, which made the Split button twitch for no reason.
+        if (changed && toolSplitIcon != null) {
             toolSplitIcon.animate().cancel();
             toolSplitIcon.setScaleX(1f);
             toolSplitIcon.setScaleY(1f);

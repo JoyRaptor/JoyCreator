@@ -219,6 +219,30 @@ public final class ObjectDrawer extends LinearLayout {
     public int activeTabIndex() { return activeTab; }
 
     /**
+     * Open the NEXT {@link #show} as a header-only strip: name, tabs, toggles, no body. A tap on
+     * any tab (or on the grip) opens that tab. For the sprite, whose frames palette comes up
+     * from the bottom at the same time (JoyRaptor, 2026-09-23: "the real issue is not having
+     * preview covered by the drawer every time you want to animate the sprites"): the drawer
+     * is there, one tap from its controls, without taking the picture.
+     */
+    public void openCollapsed() { collapseOnShow = true; }
+    private boolean collapseOnShow;
+    /** The body is hidden (see {@link #openCollapsed}); no tab pill is lit. */
+    private boolean collapsed;
+
+    /** Bring the body back after {@link #openCollapsed}, on {@code index}. */
+    private void expandTo(int index) {
+        collapsed = false;
+        contentHost.setVisibility(VISIBLE);
+        if (index != activeTab) {
+            switchTo(index);
+        } else {
+            paintTabs(activeTab);
+        }
+        post(this::reportHeight);
+    }
+
+    /**
      * Tint this drawer to the object it is editing.
      *
      * <p>Object colour is a FILL; a STATE colour is a ring. That split is what keeps
@@ -461,7 +485,11 @@ public final class ObjectDrawer extends LinearLayout {
                         boolean atFloor = bodyScroll != null
                                 && bodyScroll.getHeight() <= dp(MIN_BODY_DP) + 1;
                         boolean hasMore = moreHint != null && moreHint.getVisibility() == VISIBLE;
-                        if (!moved && hasMore) {
+                        if (!moved && collapsed) {
+                            // A collapsed drawer's grip opens it rather than closing it: the
+                            // strip is already as small as a drawer gets; ✕ closes.
+                            expandTo(activeTab);
+                        } else if (!moved && hasMore) {
                             // A TAP means "show me the rest" while MORE is showing: the label is
                             // written on this grip, so the grip is its target. ✕ still closes.
                             expandToFull();
@@ -650,6 +678,9 @@ public final class ObjectDrawer extends LinearLayout {
         contentHost.removeAllViews();
         contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext()),
                 tabs.get(activeTab).peekRows));
+        collapsed = collapseOnShow;
+        collapseOnShow = false;
+        contentHost.setVisibility(collapsed ? GONE : VISIBLE);
         // The HEADER names the object; the active tab pill names the place. Tab 0's title is
         // the object's own ("Video overlay", "Image", a layer's name), so it is the header's
         // for the whole visit — it no longer flips to "Mask" when the pill below already says so.
@@ -772,6 +803,7 @@ public final class ObjectDrawer extends LinearLayout {
      * 32dp square is a control with nothing on it: A/V Sync was exactly that until now.</p>
      */
     private void paintTabs(int which) {
+        if (collapsed) which = -1;   // nothing is open, so no pill says it is
         for (int i = 0; i < tabViews.size() && i < tabs.size(); i++) {
             LinearLayout v = tabViews.get(i);
             Tab t = tabs.get(i);
@@ -912,6 +944,7 @@ public final class ObjectDrawer extends LinearLayout {
 
     /** Tapping an active tab's icon returns to Video — the toggle behaviour the user specified. */
     private void toggleTab(int index) {
+        if (collapsed) { expandTo(index); return; }
         switchTo(activeTab == index ? 0 : index);
     }
 

@@ -17,30 +17,34 @@ import androidx.annotation.Nullable;
  *
  * <p>Sits behind all preview content (player / image / slide) and draws:</p>
  * <ul>
- *   <li>a diagonal hatch (alternating dark-gray / darker-gray thick stripes) over
- *       the whole preview area — i.e. everything OUTSIDE the canvas, so the user
- *       can see where the project edges are and what will be cropped;</li>
+ *   <li>the Joy Creator film-graffiti art over the whole preview area (it replaced a
+ *       diagonal hatch) — i.e. everything OUTSIDE the canvas, so the user can see where
+ *       the project edges are and what will be cropped;</li>
  *   <li>a solid black rectangle for the canvas itself, so unused canvas area reads
  *       as black (matching the exported frame).</li>
  * </ul>
  *
  * <p>The content views are sized to the same canvas rect on top of this, so the
- * net effect is: content in the canvas, black for unfilled canvas, hatch around.</p>
+ * net effect is: content in the canvas, black for unfilled canvas, the art around.</p>
  */
 public class CanvasFrameView extends View {
 
-    private static final int HATCH_DARK = Studio.alpha(Studio.OFF, 0x8C);    // stripe (~55% opacity)
-    private static final int HATCH_DARKER = Studio.PANEL;  // background
     private static final int CANVAS_BLACK = Studio.GROUND;
 
-    private final Paint stripePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint canvasPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    /**
+     * THE WORKSPACE BACKDROP: JoyRaptor's Joy Creator film-graffiti art (2026-09-23), replacing
+     * the diagonal hatch. Scaled to the preview's WIDTH and centred; on a slot taller than the
+     * scaled art it scales up instead, so no edge is ever bare. Not tileable by design: it is
+     * drawn once, at the size of a phone.
+     */
+    @Nullable private android.graphics.Bitmap backdrop;
+    private final Paint backdropPaint = new Paint(Paint.FILTER_BITMAP_FLAG);
+    private final android.graphics.Matrix backdropMatrix = new android.graphics.Matrix();
 
     /** Canvas rect size (centered). When <= 0 the whole view is treated as canvas. */
     private int canvasW = -1;
     private int canvasH = -1;
-
-    private float stripePeriodPx;
 
     public CanvasFrameView(@NonNull Context context) {
         super(context);
@@ -53,11 +57,11 @@ public class CanvasFrameView extends View {
     }
 
     private void init() {
-        float density = getResources().getDisplayMetrics().density;
-        stripePeriodPx = 22f * density; // thick stripes
-        stripePaint.setStyle(Paint.Style.STROKE);
-        stripePaint.setColor(HATCH_DARK);
-        stripePaint.setStrokeWidth(stripePeriodPx / 2f);
+        // RGB_565: the art is an opaque JPEG, so half the memory and no visible difference.
+        android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+        o.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;
+        backdrop = android.graphics.BitmapFactory.decodeResource(getResources(),
+                com.fadcam.R.drawable.studio_backdrop_graffiti, o);
         canvasPaint.setStyle(Paint.Style.FILL);
         canvasPaint.setColor(CANVAS_BLACK);
     }
@@ -107,12 +111,15 @@ public class CanvasFrameView extends View {
         int h = getHeight();
         if (w <= 0 || h <= 0) return;
 
-        // Hatch background everywhere.
-        canvas.drawColor(HATCH_DARKER);
-        float period = stripePeriodPx;
-        // 45° stripes: lines from the top/left running down-right, sweeping across.
-        for (float x = -h; x < w + h; x += period) {
-            canvas.drawLine(x, 0, x + h, h, stripePaint);
+        // The backdrop everywhere; the canvas rect goes on top of it.
+        canvas.drawColor(CANVAS_BLACK);
+        android.graphics.Bitmap art = backdrop;
+        if (art != null && art.getWidth() > 0 && art.getHeight() > 0) {
+            float scale = Math.max(w / (float) art.getWidth(), h / (float) art.getHeight());
+            backdropMatrix.setScale(scale, scale);
+            backdropMatrix.postTranslate((w - art.getWidth() * scale) / 2f,
+                    (h - art.getHeight() * scale) / 2f);
+            canvas.drawBitmap(art, backdropMatrix, backdropPaint);
         }
 
         // Black canvas rect on top (so the canvas area is clean black).

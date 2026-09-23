@@ -27700,6 +27700,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 () -> { s.setLocked(!s.isLocked()); afterToggle.run(); }, false));
         com.fadcam.ui.faditor.tools.ObjectDrawer drawer = ensureObjectDrawer();
         drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.SPRITE);
+        // With the frames palette up, the drawer comes in as its header strip only (tabs one tap
+        // away), so the picture is not buried between two panels while animating frames.
+        if (withPalette) drawer.openCollapsed();
         drawer.show(tabs, toggles, false);
         if (withPalette) openSpritePalette();
     }

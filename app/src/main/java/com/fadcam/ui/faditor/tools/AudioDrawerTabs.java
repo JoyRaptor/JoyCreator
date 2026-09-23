@@ -369,7 +369,7 @@ public final class AudioDrawerTabs {
             state.setText(n == 0
                     ? "Flat gain — ◇ drops the first envelope point"      // TODO(strings)
                     : "Envelope · " + n + (n == 1 ? " pt" : " pts")
-                            + " — slider drives the point under ▶");      // TODO(strings)
+                            + " — slider drives the point under ▶︎");      // TODO(strings)
             clear.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         };
     }

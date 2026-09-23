@@ -1401,7 +1401,7 @@ public class TransformOverlayView extends View {
         // own strictly disjoint territory and say which in their own sub-label.
         String[] glyphs = ringIsCorner
                 ? new String[]{"⇄", "⇅", "▣", "↺"}
-                : new String[]{"⤴", (ringIndex == TransformQuad.TOP
+                : new String[]{"⤴︎", (ringIndex == TransformQuad.TOP
                         || ringIndex == TransformQuad.BOTTOM) ? "⇄" : "⇅",
                         "▣", "↺"};
         String[] subs = ringIsCorner

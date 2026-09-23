@@ -20158,14 +20158,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("◀", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("◀︎", dp, v -> {
             if (visualizerSelectedLayer <= 0) return;
             java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer - 1);
             visualizerSelectedLayer--;
             commitVisualizerWorkingStyle(overlay);
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
-        chipsRow.addView(makeVizActionBtn("▶", dp, v -> {
+        chipsRow.addView(makeVizActionBtn("▶︎", dp, v -> {
             if (visualizerSelectedLayer >= fLayers.size() - 1) return;
             java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer + 1);
             visualizerSelectedLayer++;
@@ -24239,8 +24239,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (playerManager != null && !playerManager.isPlaying()) playerManager.play();
         if (spriteOverlayView != null) spriteOverlayView.postOnAnimation(perfRecordTick);
         Toast.makeText(this, face
-                ? "Recording performance — tap ⏺ Stop to finish"
-                : "Recording (synthetic) — tap ⏺ Stop to finish",
+                ? "Recording performance — tap ⏺︎ Stop to finish"
+                : "Recording (synthetic) — tap ⏺︎ Stop to finish",
                 Toast.LENGTH_SHORT).show();
     }
 
@@ -25110,7 +25110,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ribbonLabel.setPadding(0, 0, (int) (6 * d), 0);
         keyframeRibbon.addView(ribbonLabel);
 
-        TextView prev = ribbonGlyph("◀");
+        TextView prev = ribbonGlyph("◀︎");
         prev.setOnClickListener(v -> {
             if (ribbonProp != null) ribbonProp.prevKey();
         });
@@ -25146,7 +25146,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
         keyframeRibbon.addView(ribbonDiamond);
 
-        TextView next = ribbonGlyph("▶");
+        TextView next = ribbonGlyph("▶︎");
         next.setOnClickListener(v -> {
             if (ribbonProp != null) ribbonProp.nextKey();
         });
@@ -25165,6 +25165,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     @NonNull
+    // Callers pass the triangles with U+FE0E (text presentation) attached. Without it the
+    // Note 9 draws ◀ and ▶ as blue emoji tiles - on the keyframe ribbon over the canvas
+    // they looked like a rendering fault, and emoji-as-icon is one of the rules this app follows.
     private TextView ribbonGlyph(@NonNull String glyph) {
         float d = getResources().getDisplayMetrics().density;
         TextView v = new TextView(this);

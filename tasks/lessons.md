@@ -823,3 +823,14 @@ path.
 - Read GL_SAMPLE before optimising: 100% busy GL thread with upload/canvasBlit on top meant
   CPU drawing, not GPU fill, was the limit — and EXPORT_ITEM's effect list showed 37 passes
   per clip, which no amount of shader work would have fixed.
+
+## 2026-09-24 — "It used to work" means find the regression, not tune the symptom
+I enlarged the Bend dots' grab radius because they were hard to grab. JoyRaptor: size was never
+the problem, bend used to work. The real cause: on a keyframed picture the drag wrote a value
+nothing read, so the dot sat still until release. **Rule:** when the owner says a thing used to
+work, bisect/diff for what changed before touching a tuning constant.
+
+## 2026-09-24 — An icon-font ligature that doesn't exist draws NOTHING, silently
+The snap button was `android:text="magnet"` in the Material Icons font, which has no such glyph.
+It rendered blank for weeks, and nobody knew the Studio had a snap button. **Rule:** after using
+a ligature, screenshot it on device; prefer a vector drawable for anything new.

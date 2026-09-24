@@ -210,7 +210,33 @@ ImageOverlayDraw.draw) - the GPU-compositor port in the handoff is the next spee
 - [x] Video overlay drawer now device-verified (3e6dfa60); visualizer hold path still not reachable on the Note 9
 - Test media left on the Note 9: /sdcard/Download/joy_test_overlay.mp4 (copy of ws20.mp4), pushed for the PiP test
 
-## EXPORT SPEED — state at 2026-09-24 01:10 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+## EXPORT SPEED — state at 2026-09-24 15:15 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+
+Measured on the Note 20 with ExportDebugActivity (adb, no taps), project a32d24e2:
+- Range export 22:20-24:20 (part 3, 10 min of video): part 1.4x, sound pass ~17 min alongside.
+- Range 0:10-1:10 (part 1, 5.4 min): 239 s (1.36x) -> 175 s after zero-copy captions (~1.9x).
+  Output checked: 60.0 s, H.264 30 fps, AAC stereo 48 kHz 320 kbps, mean -21 dB, frame OK.
+- Sound pass: AudioMixingUtil per-sample path was ~half of it; bulk path (media3-patched
+  4ff96bb, LOCAL commit only - origin is upstream's repo) cut mixing to ~8%.
+
+DONE: 4a b363b8ec, text bug + 2a db486113, 3 parallel 869102b4, 4b range f6e63879 (UI by
+the studio lane 1152b27a), caption strip 0a3f05cf, GL error drain c0656a5a, zero-copy
+captions a4844950. 5 decided against (ROADMAP). 6 = "Draft (fast)" preset (studio lane).
+
+OPEN (in order):
+- [ ] UNCOMMITTED, NOT COMPILED (watcher stuck since 06:00): ExportManager silence as Media3
+      gaps after a sequence's first item (sound pass decoded ~44 min of silence WAV per short
+      music clip). Parses clean. Build, then run a range test and compare the SOUND trace.
+- [ ] Visual check of a zero-copy caption frame (orientation) - device dropped off Wi-Fi ADB.
+- [ ] Animated-preset text boxes re-upload a FULL frame per frame (textFor upload 21-32% while
+      one is on screen): give them a tight window + the zero-copy Surface route too.
+- [ ] Remaining GL-thread cost: GlUtil.clearFocusedBuffers glClear 14-27% (media3's own clear
+      per effect - stall, GPU is 17% busy), captionsCpu ~10-15%.
+- [ ] Device-prove two parts in parallel (a full export) and render-cache reuse (export twice).
+- [ ] Note 9 ZA_CONTROL "invalid operation" (studio lane report): with c0656a5a the log names
+      the step that left the error (GlErrors) - rerun and fix its origin.
+
+## (older) EXPORT SPEED — state at 2026-09-24 01:10 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
 
 INSTALLED on the Note 20 at 01:08 (backup of all 20 projects first: scratchpad tar), NOT YET
 DEVICE-VERIFIED — the phone was locked on the charger. JoyRaptor's next export of a32d24e2

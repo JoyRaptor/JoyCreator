@@ -2591,7 +2591,12 @@ public class ExportManager {
                                 discardStaging(stagingPath);
                                 return;
                             }
-                            trace("RANGE trimmed (" + new File(stagingPath).length() + " bytes)");
+                            // 0 none, 1 succeeded (head re-encoded, rest copied), 2 keyframe
+                            // already on the cut, 3/4 abandoned (full transcode).
+                            trace("RANGE trimmed (" + new File(stagingPath).length()
+                                    + " bytes, trim optimization=" + result.optimizationResult
+                                    + ", " + (System.currentTimeMillis() - rangeTrimStartMs)
+                                    + " ms)");
                             new Thread(() -> finishChunked(project, run.manifest, stagingPath,
                                     finalOutputPath), "faditor-range-finish").start();
                         }
@@ -2609,11 +2614,14 @@ public class ExportManager {
                     })
                     .build();
             transformer = t;
+            rangeTrimStartMs = System.currentTimeMillis();
             t.start(item, stagingPath);
         } catch (Exception e) {
             chunkFail(project, finalOutputPath, run.manifest, run.ranges, run.n + 1, e);
         }
     }
+
+    private long rangeTrimStartMs = 0L;
 
     /** Commit the finished file, keep the render cache, and hand over to finalize. */
     private void finishChunked(@NonNull FaditorProject project,

@@ -1840,7 +1840,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (isExportRunning()) {
                 if (exportProgressOverlay == null
                         || exportProgressOverlay.getVisibility() != View.VISIBLE) {
-                    showExportProgressStripe();
+                    // Came back to a running export: show it properly unless the user chose
+                    // to minimise it to keep editing. A thin stripe alone was missed — the
+                    // owner thought the progress had vanished (2026-09-23).
+                    if (!exportMinimizedByUser && exportProgressOverlay != null) {
+                        showExportProgress();
+                    } else {
+                        showExportProgressStripe();
+                    }
                 }
                 return;
             }
@@ -13097,7 +13104,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * an edit-immune snapshot of the project). The thin progress stripe stays visible;
      * tapping it re-opens this overlay.
      */
+    /** True while the user has deliberately minimised a running export to keep editing. */
+    private boolean exportMinimizedByUser = false;
+
     private void minimizeExportToBackground() {
+        exportMinimizedByUser = true;
         if (exportProgressOverlay != null) {
             exportProgressOverlay.animate().alpha(0f).setDuration(200).withEndAction(() ->
                     exportProgressOverlay.setVisibility(View.GONE)).start();
@@ -13110,6 +13121,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Re-open the export overlay from the minimized state, keeping live progress. */
     private void reshowExportProgress() {
+        exportMinimizedByUser = false;
         if (exportProgressOverlay == null
                 || exportProgressOverlay.getVisibility() == View.VISIBLE) {
             return;
@@ -13393,6 +13405,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void showExportProgress() {
         if (exportProgressOverlay == null) return;
+        exportMinimizedByUser = false;
 
         lastUiProgress = -1f;
         lastExportPhase = null;

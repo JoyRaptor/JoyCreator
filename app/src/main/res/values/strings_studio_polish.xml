@@ -83,4 +83,8 @@
     <string name="export_queue_warning">⚠ An export is already running. This one will start by itself as soon as it finishes.</string>
     <string name="export_queued_toast">Queued. It starts when the current export finishes.</string>
     <string name="export_preparing">Preparing…</string>
+    <string name="export_draft_chip">Draft (fast)</string>
+    <string name="export_draft_chip_desc">720p at low quality: about twice as fast as 1080p, for checking your edit</string>
+    <string name="export_range_label">Export a range</string>
+    <string name="export_range_error">Enter a start before the end, like 0:12.5 → 0:30, within the project (%1$s).</string>
 </resources>

@@ -12606,6 +12606,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Show an export confirmation bottom sheet with project info.
      * On confirm, starts the export via the foreground service.
      */
+    /** The export sheet's Range, in editor-timeline ms; -1 = the whole project. One-shot. */
+    private long pendingRangeStartMs = -1L, pendingRangeEndMs = -1L;
+
     private void showExportConfirmation() {
         // A running export no longer refuses the next one: the service queues it (5753f292).
         // The sheet says so — "Queue export" on the button, a line of warning above.
@@ -12758,8 +12761,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             // ── One-tap "Low bandwidth" preset chip: 720p + Low quality in one tap
             //    (cosmetic — just drives the two spinners below, no encoder changes). ──
+            // Renamed "Draft (fast)" (2026-09-24): at 720p every overlay pass runs at 720p too,
+            // so this is roughly twice as fast as 1080p — speed is what it is for.
             final TextView lowBandwidthChip = new TextView(this);
-            lowBandwidthChip.setText("Low bandwidth");
+            lowBandwidthChip.setText(R.string.export_draft_chip);
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(lowBandwidthChip,
+                    getString(R.string.export_draft_chip_desc));
             lowBandwidthChip.setTextColor(Studio.INK);
             lowBandwidthChip.setTextSize(12);
             lowBandwidthChip.setBackgroundResource(R.drawable.settings_home_row_bg);
@@ -12905,6 +12912,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 frameError.setVisibility(View.GONE);
             });
 
+            // ── RANGE: export a span, not the whole timeline (engine f6e63879). Unchanged
+            //    parts are reused, so a re-export of one fixed region comes back fast. From
+            //    = the playhead, To = the end, both typeable like the frame time. ──
+            final android.widget.CheckBox rangeBox = new android.widget.CheckBox(this);
+            rangeBox.setText(R.string.export_range_label);
+            rangeBox.setTextColor(Studio.INK);
+            android.widget.LinearLayout.LayoutParams rangeLp =
+                    new android.widget.LinearLayout.LayoutParams(
+                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+            rangeLp.topMargin = pad / 2;
+            rangeBox.setLayoutParams(rangeLp);
+            root.addView(rangeBox);
+            final android.widget.LinearLayout rangeExtras = new android.widget.LinearLayout(this);
+            rangeExtras.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+            rangeExtras.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            rangeExtras.setVisibility(View.GONE);
+            root.addView(rangeExtras);
+            final android.widget.EditText rangeFrom = new android.widget.EditText(this);
+            final android.widget.EditText rangeTo = new android.widget.EditText(this);
+            for (android.widget.EditText et : new android.widget.EditText[]{rangeFrom, rangeTo}) {
+                et.setSingleLine(true);
+                et.setSelectAllOnFocus(true);
+                et.setTextColor(Studio.INK);
+                et.setTextSize(14);
+                et.setInputType(android.text.InputType.TYPE_CLASS_DATETIME);
+                et.setHint("m:ss.t");
+            }
+            rangeFrom.setText(TimeFormatter.formatMmSsTenths(Math.max(0L, lastPlayheadAbsoluteMs)));
+            rangeTo.setText(TimeFormatter.formatMmSsTenths(tl.getTotalDurationMs()));
+            TextView rangeDash = new TextView(this);
+            rangeDash.setText("  →  ");
+            rangeDash.setTextColor(Studio.INK_FAINT);
+            rangeExtras.addView(rangeFrom, new android.widget.LinearLayout.LayoutParams(
+                    0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            rangeExtras.addView(rangeDash);
+            rangeExtras.addView(rangeTo, new android.widget.LinearLayout.LayoutParams(
+                    0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            final TextView rangeError = new TextView(this);
+            rangeError.setTextColor(Studio.DANGER);
+            rangeError.setTextSize(11);
+            rangeError.setVisibility(View.GONE);
+            root.addView(rangeError);
+            rangeBox.setOnCheckedChangeListener((b, checked) -> {
+                rangeExtras.setVisibility(checked ? View.VISIBLE : View.GONE);
+                rangeError.setVisibility(View.GONE);
+                // A range and a single frame are different exports; one at a time.
+                if (checked) frameBox.setChecked(false);
+                frameBox.setEnabled(!checked);
+            });
+
             // B9: an AUDIO-ONLY project (no spine clip) has no picture to encode, so the
             // choice is not offered — it IS an audio export. The video-only controls come
             // off the dialog entirely rather than sitting disabled: a control that cannot
@@ -12957,6 +13015,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return;
                     }
                     frameJpeg = frameFormatSpinner.getSelectedItemPosition() == 1;
+                }
+                pendingRangeStartMs = -1L;
+                pendingRangeEndMs = -1L;
+                if (rangeBox.isChecked() && frameAtMs < 0) {
+                    long a = TimeFormatter.parseTimecodeMs(rangeFrom.getText().toString());
+                    long b = TimeFormatter.parseTimecodeMs(rangeTo.getText().toString());
+                    long total = tl.getTotalDurationMs();
+                    if (a < 0 || b < 0 || b <= a || a >= total) {
+                        rangeError.setText(getString(R.string.export_range_error,
+                                TimeFormatter.formatAuto(total)));
+                        rangeError.setVisibility(View.VISIBLE);
+                        return;
+                    }
+                    pendingRangeStartMs = a;
+                    pendingRangeEndMs = Math.min(b, total);
                 }
                 project.getExportSettings().setCleanAudio(cleanAudio.isChecked());
                 project.getExportSettings().setResolution(
@@ -13374,6 +13447,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
         serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
         serviceIntent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
+        if (pendingRangeStartMs >= 0 && pendingRangeEndMs > pendingRangeStartMs
+                && frameTimeMs == null) {
+            serviceIntent.putExtra(ExportService.EXTRA_RANGE_START_MS, pendingRangeStartMs);
+            serviceIntent.putExtra(ExportService.EXTRA_RANGE_END_MS, pendingRangeEndMs);
+        }
+        pendingRangeStartMs = -1L;   // one-shot: the next export is whole unless asked again
+        pendingRangeEndMs = -1L;
         if (frameTimeMs != null) {
             serviceIntent.putExtra(ExportService.EXTRA_SINGLE_FRAME, true);
             serviceIntent.putExtra(ExportService.EXTRA_FRAME_TIME_MS, frameTimeMs.longValue());

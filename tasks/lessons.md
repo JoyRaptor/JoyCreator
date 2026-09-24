@@ -805,3 +805,21 @@ only polarity made the preview disagree with the export in a NEW way. The feathe
 - Before "the preview is right, fix the export", check the preview against the UI that
   authors the data (sliders, outlines, labels). Here the export matched the UI; the preview
   did not.
+
+## 2026-09-24 — a chunked export's clock restarts per part; "verified" on part 1 proved nothing about parts 3-7
+
+The text-layer fix was checked on frames at 0:16, 0:53 and 4:30 — all inside part 1 of the
+48-minute export, where the part's composition clock and project time coincide. From part 3
+on, CompositeExportOverlay filtered text boxes and audio captions by comparing absolute item
+times with the part-local composition cursor, so they never reached the draw loop. The same
+caption y-flip mistake the mask lesson above names was also sitting in the preview's caption
+path.
+
+**Rules:**
+- A chunked-export fix is verified with a frame from EVERY part (or at least the first, a middle
+  and the last), never only the first: part 1 is the one place both clocks agree.
+- Any comparison between an item's startMs/endMs and a composition cursor is a bug in chunked
+  mode. Items live on EDITOR time = pts + editorTimeOffsetMs (which carries chunkBaseMs).
+- Read GL_SAMPLE before optimising: 100% busy GL thread with upload/canvasBlit on top meant
+  CPU drawing, not GPU fill, was the limit — and EXPORT_ITEM's effect list showed 37 passes
+  per clip, which no amount of shader work would have fixed.

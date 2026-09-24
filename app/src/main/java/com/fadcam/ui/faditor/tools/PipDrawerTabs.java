@@ -12,12 +12,14 @@ import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.R;
 import com.fadcam.ui.faditor.KeyframeDiamondControl;
 import com.fadcam.ui.faditor.ObjectMenuSheet;
+import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CompositingSpec;
 import com.fadcam.ui.faditor.model.MaskAnimator;
@@ -47,6 +49,91 @@ public final class PipDrawerTabs {
 
     private static final int TXT = Studio.DRAWER_INK;
     private static final int SLIDER_STEPS = 1000;
+
+    /**
+     * Width of a {@link #propRow} label. It was 52; the 22dp icon slot now in front of it
+     * (16dp glyph + 6dp gap) took 8dp from here so the slider gives up as little as possible on
+     * a 360dp phone. The widest labels these rows carry ("Opacity", "Volume") come to ~38dp at
+     * 11sp, so 44dp holds them at normal font scale; past that Kit.rowLabel ellipsizes.
+     */
+    private static final int PROP_LABEL_DP = 44;
+    private static final int ROW_ICON_DP = 16;
+    private static final int ROW_ICON_GAP_DP = 6;
+
+    /**
+     * The picture for a slider row, by its prop key; 0 = none (the slot is still reserved, so an
+     * icon-less row does not step its label left of the column). JoyRaptor, 2026-09-24: small
+     * descriptive icons on the left of every slider — a glyph is read before the word is, and
+     * a column of them lets the hand find "the Y one" without reading.
+     *
+     * <p>ONE map for every drawer: exact keys first, then a contains/suffix fallback so a new
+     * prop with an honest key ("pipVolume", "borderRadius", "centerX") gets a sensible glyph
+     * without anyone remembering this table. The {@code mask_*} and {@code key_*} names are this
+     * file's own keys for the mask and chroma tabs, whose sliders are not Props.</p>
+     */
+    @DrawableRes
+    public static int iconFor(@Nullable String key) {
+        if (key == null) return 0;
+        switch (key) {
+            case KeyframeSet.X: case "viz_x": case "mask_x":   return R.drawable.ic_prop_pos_x;
+            case KeyframeSet.Y: case "viz_y": case "mask_y":   return R.drawable.ic_prop_pos_y;
+            case "viz_w": case "mask_w":                       return R.drawable.ic_prop_width;
+            case "viz_h": case "mask_h":                       return R.drawable.ic_prop_height;
+            case KeyframeSet.SCALE: case KeyframeSet.SCALE_X:
+            case KeyframeSet.SCALE_Y:                          return R.drawable.ic_prop_scale;
+            case KeyframeSet.ROTATION: case "mask_rotate":     return R.drawable.ic_prop_rotate;
+            case KeyframeSet.OPACITY:                          return R.drawable.ic_prop_opacity;
+            case "pipVolume":                                  return R.drawable.ic_prop_volume;
+            case "mask_round":                                 return R.drawable.ic_prop_roundness;
+            case "mask_soften": case "key_softness":           return R.drawable.ic_prop_feather;
+            case "key_tolerance":                              return R.drawable.ic_prop_tolerance;
+            case "key_spill":                                  return R.drawable.ic_prop_spread;
+            default: break;
+        }
+        String k = key.toLowerCase(java.util.Locale.ROOT);
+        // Word matches before the x/y suffix test: "scaleX" is a scale, not a position.
+        if (k.contains("scale")) return R.drawable.ic_prop_scale;
+        if (k.contains("rot")) return R.drawable.ic_prop_rotate;
+        if (k.contains("opac") || k.contains("alpha")) return R.drawable.ic_prop_opacity;
+        if (k.contains("volume") || k.contains("gain")) return R.drawable.ic_prop_volume;
+        if (k.contains("round") || k.contains("corner") || k.contains("radius")) {
+            return R.drawable.ic_prop_roundness;
+        }
+        if (k.contains("feather") || k.contains("soft")) return R.drawable.ic_prop_feather;
+        if (k.contains("toler")) return R.drawable.ic_prop_tolerance;
+        if (k.contains("spill") || k.contains("spread") || k.contains("choke")
+                || k.contains("expan")) {
+            return R.drawable.ic_prop_spread;
+        }
+        if (k.contains("width") || k.endsWith("_w")) return R.drawable.ic_prop_width;
+        if (k.contains("height") || k.endsWith("_h")) return R.drawable.ic_prop_height;
+        if (k.endsWith("_x") || key.endsWith("X")) return R.drawable.ic_prop_pos_x;
+        if (k.endsWith("_y") || key.endsWith("Y")) return R.drawable.ic_prop_pos_y;
+        return 0;
+    }
+
+    /**
+     * A slider row's leading icon: 16dp, tinted with the row LABEL's ink (Studio.DRAWER_LABEL,
+     * the colour Kit.rowLabel gives the word beside it) so glyph and word read as one caption.
+     * Decorative to TalkBack — the label next to it already says the same thing.
+     */
+    @NonNull
+    private static View rowIcon(@NonNull Context ctx, @Nullable String key) {
+        float d = ctx.getResources().getDisplayMetrics().density;
+        android.widget.ImageView iv = new android.widget.ImageView(ctx);
+        int res = iconFor(key);
+        if (res != 0) {
+            iv.setImageResource(res);
+            iv.setImageTintList(
+                    android.content.res.ColorStateList.valueOf(Studio.DRAWER_LABEL));
+        }
+        iv.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                Math.round(ROW_ICON_DP * d), Math.round(ROW_ICON_DP * d));
+        lp.setMarginEnd(Math.round(ROW_ICON_GAP_DP * d));
+        iv.setLayoutParams(lp);
+        return iv;
+    }
 
     /** Everything the tabs need back from the editor. */
     public interface Host {
@@ -193,7 +280,11 @@ public final class PipDrawerTabs {
         return () -> { a.run(); b.run(); };
     }
 
-    /** Narrowest screen (dp) on which Rotate and Opacity share a line. */
+    /**
+     * Narrowest screen (dp) on which Rotate and Opacity share a line. Paired rows show their
+     * icon in place of the word (see propRow), so each spends 22dp on its caption instead of 52
+     * and 420 still leaves the paired Opacity slider its width.
+     */
     private static final int PAIR_MIN_WIDTH_DP = 420;
 
     /**
@@ -221,7 +312,9 @@ public final class PipDrawerTabs {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
 
-        row.addView(ObjectDrawer.Kit.rowLabel(ctx, label, 52));
+        // Same icon + label column as propRow, so this row lines up with Pos X/Y above it.
+        row.addView(rowIcon(ctx, KeyframeSet.SCALE));
+        row.addView(ObjectDrawer.Kit.rowLabel(ctx, label, PROP_LABEL_DP));
 
         row.addView(chainToggle);
 
@@ -322,7 +415,17 @@ public final class PipDrawerTabs {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(2 * d), 0, Math.round(2 * d));
 
-        row.addView(ObjectDrawer.Kit.rowLabel(ctx, prop.label(), 52));
+        // [icon] [title] [slider] [value] [◇] — the icon is the one new column (2026-09-24).
+        // Paired (Rotate beside Opacity) the icon IS the title: the word would cost the line its
+        // room, and the owner asked for these two side by side. It keeps its hover label.
+        View icon = rowIcon(ctx, prop.key());
+        row.addView(icon);
+        if (inPair) {
+            icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+            ObjectDrawer.Kit.describe(icon, prop.label());
+        } else {
+            row.addView(ObjectDrawer.Kit.rowLabel(ctx, prop.label(), PROP_LABEL_DP));
+        }
 
         // SPEC F: the Rotate row is a DIAL, not a slider. A slider tops out and folds a
         // typed 720 back into its window on the next touch; the dial shows the winding
@@ -796,17 +899,17 @@ public final class PipDrawerTabs {
                     com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MIN * 100);
             final int posMax = Math.round(
                     com.fadcam.ui.faditor.keyframe.KeyframeSet.POS_MAX * 100);
-            slider(ctx, sliderHost, R.string.faditor_mask_x, posMin, posMax,
+            slider(ctx, sliderHost, "mask_x", R.string.faditor_mask_x, posMin, posMax,
                     Math.round(cur.cx * 100),
                     v -> { cur.cx = v / 100f; apply.run(); });
-            slider(ctx, sliderHost, R.string.faditor_mask_y, posMin, posMax,
+            slider(ctx, sliderHost, "mask_y", R.string.faditor_mask_y, posMin, posMax,
                     Math.round(cur.cy * 100),
                     v -> { cur.cy = v / 100f; apply.run(); });
-            slider(ctx, sliderHost, R.string.faditor_mask_w, 100, Math.round(cur.w * 100),
+            slider(ctx, sliderHost, "mask_w", R.string.faditor_mask_w, 100, Math.round(cur.w * 100),
                     v -> { cur.w = Math.max(0.02f, v / 100f); apply.run(); });
-            slider(ctx, sliderHost, R.string.faditor_mask_h, 100, Math.round(cur.h * 100),
+            slider(ctx, sliderHost, "mask_h", R.string.faditor_mask_h, 100, Math.round(cur.h * 100),
                     v -> { cur.h = Math.max(0.02f, v / 100f); apply.run(); });
-            slider(ctx, sliderHost, R.string.faditor_mask_round, 100, Math.round(cur.corner * 100),
+            slider(ctx, sliderHost, "mask_round", R.string.faditor_mask_round, 100, Math.round(cur.corner * 100),
                     v -> { cur.corner = v / 100f; apply.run(); });
             // SPEC F / SPEC J — the mask angle is a ROTATION control, and a rotation SLIDER is
             // the SPEC A winding-collapse bug. This is the drawer's LIVE mask tab: the same
@@ -819,7 +922,7 @@ public final class PipDrawerTabs {
 
             // Soften moved IN here, because it is per-shape now: one hard edge and one soft
             // edge in the same mask was not expressible before (user, 2026-08-06).
-            slider(ctx, sliderHost, R.string.faditor_mask_soften, 100,
+            slider(ctx, sliderHost, "mask_soften", R.string.faditor_mask_soften, 100,
                     Math.round(spec.featherOf(cur) * 100),
                     v -> {
                         if (spec.masks.size() == 1) {
@@ -1074,15 +1177,15 @@ public final class PipDrawerTabs {
         swatchRow.addView(dropper);
         body.addView(swatchRow);
 
-        slider(ctx, body, R.string.faditor_key_tolerance, 100,
+        slider(ctx, body, "key_tolerance", R.string.faditor_key_tolerance, 100,
                 Math.round(spec.keyTolerance * 100),
                 v -> { spec.keyTolerance = v / 100f; apply.run(); });
-        slider(ctx, body, R.string.faditor_key_softness, 100,
+        slider(ctx, body, "key_softness", R.string.faditor_key_softness, 100,
                 Math.round(spec.keyFuzziness * 100),
                 v -> { spec.keyFuzziness = v / 100f; apply.run(); });
         // Signed, so the bar is 0..200 with 100 meaning zero — a SeekBar cannot start negative
         // and a separate direction control would be worse.
-        slider(ctx, body, R.string.faditor_key_spill, 200,
+        slider(ctx, body, "key_spill", R.string.faditor_key_spill, 200,
                 Math.round(spec.keyOffset * 100) + 100,
                 v -> { spec.keyOffset = (v - 100) / 100f; apply.run(); });
 
@@ -1170,10 +1273,11 @@ public final class PipDrawerTabs {
     }
 
     /** Compact one-line slider: label · value on the left, bar filling the rest. */
-    private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent, int labelRes,
+    private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent,
+                               @Nullable String iconKey, int labelRes,
                                int max, int initial,
                                @NonNull java.util.function.Consumer<Integer> onChange) {
-        slider(ctx, parent, labelRes, 0, max, initial, onChange);
+        slider(ctx, parent, iconKey, labelRes, 0, max, initial, onChange);
     }
 
     /**
@@ -1184,7 +1288,8 @@ public final class PipDrawerTabs {
      * each call site is what keeps the displayed number and the reported value from drifting
      * apart — they are computed once, from the same expression.</p>
      */
-    private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent, int labelRes,
+    private static void slider(@NonNull Context ctx, @NonNull LinearLayout parent,
+                               @Nullable String iconKey, int labelRes,
                                int min, int max, int initial,
                                @NonNull java.util.function.Consumer<Integer> onChange) {
         float d = ctx.getResources().getDisplayMetrics().density;
@@ -1198,6 +1303,10 @@ public final class PipDrawerTabs {
         // system font scale a shorter string would only move the wrap to a different row.
         // maxLines(1) is the belt to the braces — a translation longer than any English label
         // now ellipsizes instead of silently growing the drawer over the preview.
+        // The same leading icon as propRow (2026-09-24). The label keeps its 94dp (the reason is
+        // just above, and "Choke / spread" is longer still), so these rows' slider pays for the
+        // 22dp slot; the ‹ › steppers beside it still give single-unit precision.
+        row.addView(rowIcon(ctx, iconKey));
         row.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(labelRes), 94));
 
         FineSeekBar bar = new FineSeekBar(ctx);
@@ -1259,6 +1368,7 @@ public final class PipDrawerTabs {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
+        row.addView(rowIcon(ctx, "mask_rotate"));
         row.addView(ObjectDrawer.Kit.rowLabel(ctx, ctx.getString(R.string.faditor_mask_rotate), 94));
 
         RotationDialView dial = new RotationDialView(ctx);

@@ -1,0 +1,9 @@
+<!-- Slider-row icon, Pos Y / Center Y: a vertical double-headed arrow (owner, 2026-09-24). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="@android:color/white" android:strokeWidth="2"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M12,4V20 M9,7L12,4L15,7 M9,17L12,20L15,17"/>
+</vector>

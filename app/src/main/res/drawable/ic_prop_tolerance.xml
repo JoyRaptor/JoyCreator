@@ -1,0 +1,12 @@
+<!-- Slider-row icon, chroma-key Tolerance: a target, how near the key colour a pixel must be
+     to count (2026-09-24). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="@android:color/white"
+        android:pathData="M12,9.5A2.5,2.5 0 1,1 12,14.5A2.5,2.5 0 1,1 12,9.5Z"/>
+    <path android:strokeColor="@android:color/white" android:strokeWidth="2"
+        android:strokeLineCap="round" android:strokeLineJoin="round"
+        android:fillColor="#00000000"
+        android:pathData="M12,4A8,8 0 1,1 12,20A8,8 0 1,1 12,4Z"/>
+</vector>

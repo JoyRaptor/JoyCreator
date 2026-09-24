@@ -25558,8 +25558,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             previewHandlesOverlay.setSelectionSource(previewSelectionSource());
             // Both caption layers get a say: the clip-transcript one and the audio-caption one
             // draw independently and either may be the thing under the finger.
-            previewHandlesOverlay.setCaptionProbe((x, y) ->
-                    (captionOverlay != null
+            // The text box being typed in passes the same way: the picker would otherwise
+            // select whatever picture is drawn over the words (2026-09-24).
+            previewHandlesOverlay.setCaptionProbe((x, y) -> textEditingBoxAt(x, y)
+                    || (captionOverlay != null
                             && captionOverlay.getVisibility() == View.VISIBLE
                             && captionOverlay.hitsCaption(x, y))
                     || (audioCaptionOverlay != null

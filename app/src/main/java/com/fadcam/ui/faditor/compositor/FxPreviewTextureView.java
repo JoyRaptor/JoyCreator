@@ -1953,14 +1953,6 @@ public class FxPreviewTextureView extends TextureView
                     cur = drawOverlayPip(p, cur, vw, vh);
                 }
             }
-            // Captions — at real z before the PiP/adjustment walk so a blend above samples them (SPEC_20260829_CAPTIONS_GL)
-            java.util.List<Pip> caps = captionOverlays;
-            if (!degraded && caps != null && !caps.isEmpty() && layerProgram != 0) {
-                for (Pip p : caps) {
-                    cur = drawOverlayPip(p, cur, vw, vh);
-                }
-            }
-            evictUnusedOverlays();
 
             // 3 — the composited items, bottom→top, in the EXPORT's chain order: each PiP
             //     drawn over the frame so far, each adjustment layer grading what is beneath
@@ -1985,6 +1977,17 @@ public class FxPreviewTextureView extends TextureView
                     }
                 }
             }
+            // Captions LAST, over every image, PiP and adjustment layer — where the export draws
+            // them (its final pass, after the text boxes). Drawn before the rungs they sat
+            // BEHIND every image overlay in the preview while the file showed them in front
+            // (JoyRaptor, 2026-09-24: "Preview, icon, and export need to ALWAYS AGREE").
+            java.util.List<Pip> caps = captionOverlays;
+            if (!degraded && caps != null && !caps.isEmpty() && layerProgram != 0) {
+                for (Pip p : caps) {
+                    cur = drawOverlayPip(p, cur, vw, vh);
+                }
+            }
+            evictUnusedOverlays();
             evictUnusedStills();
             evictUnusedMattes();
 

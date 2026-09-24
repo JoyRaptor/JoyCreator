@@ -1136,8 +1136,9 @@ public final class FxLivePreviewController {
                 float halfW = (boxW / videoW) / 2f;
                 float halfH = (boxH / videoH) / 2f;
                 float cx = tto.animatedCenterX(playheadMs);
-                float cy = tto.animatedCenterY(playheadMs);
-                float rot = tto.animatedRotation(playheadMs);
+                // Top-down model -> bottom-up Pip, exactly as pipForModel does for images.
+                float cy = 1f - tto.animatedCenterY(playheadMs);
+                float rot = -tto.animatedRotation(playheadMs);
                 // Use Pip's still path — texture keyed by item id, uploaded in FxPreviewTextureView's overlay map
                 // Pip extras false, no FX, blend 0, no mask
                 FxPreviewTextureView.Pip pip = FxPreviewTextureView.Pip.ofImage(
@@ -1173,8 +1174,9 @@ public final class FxLivePreviewController {
                 float halfW = (boxW / videoW) / 2f;
                 float halfH = (boxH / videoH) / 2f;
                 float cx = sso.animatedCenterX(playheadMs);
-                float cy = sso.animatedCenterY(playheadMs);
-                float rot = sso.animatedRotation(playheadMs);
+                // Top-down model -> bottom-up Pip, exactly as pipForModel does for images.
+                float cy = 1f - sso.animatedCenterY(playheadMs);
+                float rot = -sso.animatedRotation(playheadMs);
                 FxPreviewTextureView.Pip pip = FxPreviewTextureView.Pip.ofImage(
                         cx, cy, halfW, halfH, rot, alpha,
                         null, playheadMs, null, 0f, videoW, videoH, sso.getId(), tex, 1f);
@@ -1324,7 +1326,11 @@ public final class FxLivePreviewController {
             float halfW = (tex.getWidth() / CaptionTextureCache.SUPERSAMPLE / videoW) / 2f;
             float halfH = (tex.getHeight() / CaptionTextureCache.SUPERSAMPLE / videoH) / 2f;
             float cx = effective.centerX;
-            float cy = effective.centerY;
+            // centerY is TOP-DOWN (the caption drag handle and the export's renderer both read
+            // it that way); the Pip shader's y is BOTTOM-UP, as image overlays already account
+            // for (TextOverlayLayer.pipForModel passes 1 - cy). Passed raw, a caption placed near
+            // the bottom previewed near the top and vice versa (JoyRaptor, 2026-09-24).
+            float cy = 1f - effective.centerY;
             // Alpha 1 — captions have no per-clip opacity envelope yet
             FxPreviewTextureView.Pip pip = FxPreviewTextureView.Pip.ofImage(
                     cx, cy, halfW, halfH, 0f, 1f,

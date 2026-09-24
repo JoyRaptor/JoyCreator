@@ -846,6 +846,19 @@ public class ExportService extends Service {
                 FLog.w(TAG, "collectSourcesNeedingRemux: skip " + uri, e);
             }
         }
+        // Audio clips too: a recording's detached sound is the same raw fragmented file, and
+        // an audio clip starting mid-file cannot seek there either.
+        for (com.fadcam.ui.faditor.model.AudioClip ac : project.getTimeline().getAudioClips()) {
+            Uri uri = ac.getSourceUri();
+            if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) continue;
+            if (!seen.add(uri.getPath())) continue;
+            try {
+                File f = new File(uri.getPath());
+                if (remuxer.needsRemux(f) && !remuxer.hasRemuxedVersion(f)) result.add(f);
+            } catch (Exception e) {
+                FLog.w(TAG, "collectSourcesNeedingRemux: skip " + uri, e);
+            }
+        }
         return result;
     }
 

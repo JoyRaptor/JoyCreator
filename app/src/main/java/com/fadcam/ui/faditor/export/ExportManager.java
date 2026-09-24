@@ -370,6 +370,28 @@ public class ExportManager {
     @Nullable
     private PreTrimCache exportPreTrimmer = null;
 
+    /**
+     * An AUDIO clip's source, seekable: a detached recording's sound is the raw fragmented
+     * file, and an audio clip that starts mid-file ("Illegal clipping: not seekable to start",
+     * Note 9 ZA_CONTROL, 2026-09-24) needs the remuxed copy the warm phase makes, exactly as a
+     * video clip does. Non-file and non-fragmented sources come back unchanged.
+     */
+    @Nullable
+    private android.net.Uri seekableUriFor(@Nullable android.net.Uri uri) {
+        if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) return uri;
+        try {
+            java.io.File f = new java.io.File(uri.getPath());
+            if (exportRemuxer == null) exportRemuxer = new FragmentedMp4Remuxer(context);
+            if (exportRemuxer.needsRemux(f) && exportRemuxer.hasRemuxedVersion(f)) {
+                java.io.File r = exportRemuxer.getRemuxedFile(f);
+                if (r != null && r.exists()) return android.net.Uri.fromFile(r);
+            }
+        } catch (Exception e) {
+            FLog.w(TAG, "seekableUriFor: using the original " + uri, e);
+        }
+        return uri;
+    }
+
     @Nullable
     private android.net.Uri resolveSeekableSourceUri(@NonNull Clip clip) {
         android.net.Uri uri = clip.getSourceUri();
@@ -5544,7 +5566,7 @@ public class ExportManager {
                             .build();
 
             MediaItem mediaItem = new MediaItem.Builder()
-                    .setUri(ac.getSourceUri())
+                    .setUri(seekableUriFor(ac.getSourceUri()))
                     .setClippingConfiguration(clipping)
                     .build();
 

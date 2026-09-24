@@ -232,9 +232,15 @@ THE REMAINING LIMIT IS WHERE ANDROID RUNS US, not what we draw:
 
 OPEN:
 - [ ] Owner export from the editor, screen on -> read CPU_GROUP + part timings.
-- [ ] Range trim: 120 s took 35 s - check whether trim optimization engaged or fell back.
-- [ ] "CHUNK joining 7 parts" log says 7 for a range; say how many are joined.
-- [ ] Note 9 ZA_CONTROL "invalid operation": rerun, GlErrors names the step that left it.
+- [x] Range trim: Media3 trim optimization now attempted (e57d6220) but ends FORMAT_MISMATCH
+      (6) - the device encoder's head GOP never matches the parts' SPS; full re-encode of the
+      range at ~5.5x (60 s in 10.9 s). Accepted.
+- [x] Join log counts the parts it joins (b1881cd2).
+- [x] Note 9 ZA_CONTROL: BlendModeGlEffect set uniforms on the PiP overlay's program (Mali
+      "invalid operation") - fixed e57d6220; then "Illegal clipping" from a PiP on a raw
+      fMP4 - PiP sources now remuxed too (33aa053d). Studio lane re-running.
+- [ ] Blue box behind a sprite in the PREVIEW (Note 9): rasterFor can only draw the real
+      cell; a single-frame export at 0:00 tells art/cell-rect (SpriteLab) from GL alpha (us).
 
 ## (older) EXPORT SPEED — state at 2026-09-24 15:15 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
 

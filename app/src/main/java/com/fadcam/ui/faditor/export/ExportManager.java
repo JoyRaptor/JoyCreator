@@ -1380,6 +1380,13 @@ public class ExportManager {
     /** Absolute composition start of each part, measured once by {@link #planChunks}. */
     @Nullable
     private long[] chunkBases = null;
+    /** Per part, from {@link #planChunks}: composition length, editor start and length. */
+    @Nullable
+    private long[] chunkCompDurs = null;
+    @Nullable
+    private long[] chunkEditorBases = null;
+    @Nullable
+    private long[] chunkEditorDurs = null;
     /** Set while the chunked driver owns the run (chain stops when cancelled). */
     private volatile boolean chunkCancelled = false;
     /** Last chunk's ExportResult, handed to the final finalize (mirrors single-pass). */
@@ -1480,6 +1487,9 @@ public class ExportManager {
         String extras = renderCacheExtras();
         long total = tl.getTotalDurationMs();
         chunkBases = new long[ranges.size()];
+        chunkCompDurs = new long[ranges.size()];
+        chunkEditorBases = new long[ranges.size()];
+        chunkEditorDurs = new long[ranges.size()];
         org.json.JSONObject o = new org.json.JSONObject();
         try {
             org.json.JSONArray chunks = new org.json.JSONArray();
@@ -1493,6 +1503,9 @@ public class ExportManager {
                     editorDur += tl.getClip(ci).getVisualDurationMs();
                 }
                 chunkBases[i] = compBase;
+                chunkCompDurs[i] = compDur;
+                chunkEditorBases[i] = editorBase;
+                chunkEditorDurs[i] = editorDur;
                 long winStart = Math.min(compBase, editorBase);
                 long winEnd = Math.max(compBase + compDur, editorBase + editorDur);
                 String key = json == null ? null : RenderCacheKeys.partKey(json, r[0], r[1],
@@ -1669,6 +1682,36 @@ public class ExportManager {
      */
     public void exportChunked(@NonNull FaditorProject project,
                               @NonNull String finalOutputPath) {
+        startChunked(project, finalOutputPath, -1L, -1L);
+    }
+
+    /**
+     * RANGE EXPORT (Stage 4b, 2026-09-24): editor times [startMs, endMs) as their own file.
+     * Runs the chunked driver over the whole project's parts but renders only the parts the
+     * range touches (each still reused from the render cache when unchanged), joins those,
+     * and trims the join to the exact range with Media3's trim optimization, which
+     * re-encodes only up to the first keyframe and copies everything after it. The sound is
+     * the project's cached sound pass, cut to the same span. Works for any project length.
+     */
+    public void exportRange(@NonNull FaditorProject project, long startMs, long endMs) {
+        long total = project.getTimeline().getTotalDurationMs();
+        long a = Math.max(0L, Math.min(startMs, endMs));
+        long b = Math.min(total, Math.max(startMs, endMs));
+        if (b - a < 100L) {
+            if (listener != null) {
+                listener.onExportError(new IllegalArgumentException(
+                        "The range to export is empty"));
+            }
+            return;
+        }
+        project.getTimeline().resyncAttachedVisualizers();
+        project.getTimeline().resyncLinkGroups();
+        startChunked(project, generateOutputPath(project), a, b);
+    }
+
+    private void startChunked(@NonNull FaditorProject project,
+                              @NonNull String finalOutputPath, long rangeStartMs,
+                              long rangeEndMs) {
         if (isExporting) {
             FLog.w(TAG, "Export already in progress");
             return;
@@ -1712,6 +1755,7 @@ public class ExportManager {
             listener.onExportStarted(finalOutputPath);
         }
         ChunkRun run = new ChunkRun(project, finalOutputPath, manifest, ranges);
+        if (rangeStartMs >= 0 && rangeEndMs > rangeStartMs) run.limitTo(rangeStartMs, rangeEndMs);
         chunkRun = run;
         chunkWorkers.clear();
         String audioPath = manifest.optString("audioFile", "");
@@ -1759,6 +1803,12 @@ public class ExportManager {
         boolean joining = false;
         @Nullable ExportManager soundWorker;
 
+        /** Parts this run renders and joins (all of them, unless it is a range export). */
+        final boolean[] needed;
+        /** Range export: editor span, or -1 for the whole project. */
+        long rangeStartMs = -1L;
+        long rangeEndMs = -1L;
+
         ChunkRun(@NonNull FaditorProject project, @NonNull String finalOutputPath,
                  @NonNull org.json.JSONObject manifest, @NonNull List<int[]> ranges) {
             this.project = project;
@@ -1777,6 +1827,51 @@ public class ExportManager {
             this.progress = new float[n];
             this.done = new boolean[n];
             this.running = new boolean[n];
+            this.needed = new boolean[n];
+            java.util.Arrays.fill(needed, true);
+            this.neededExpected = totalExpected;
+        }
+
+        /** Sum of expected ms over the needed parts (the progress bar's whole). */
+        long neededExpected;
+
+        boolean isRange() { return rangeStartMs >= 0; }
+
+        /** Keep only the parts whose editor window meets [a, b). */
+        void limitTo(long a, long b) {
+            rangeStartMs = a;
+            rangeEndMs = b;
+            long sum = 0L;
+            for (int i = 0; i < n; i++) {
+                long eb = chunkEditorBases != null ? chunkEditorBases[i] : 0L;
+                long ed = chunkEditorDurs != null ? chunkEditorDurs[i] : expected[i];
+                needed[i] = eb < b && eb + ed > a;
+                if (needed[i]) sum += expected[i];
+            }
+            neededExpected = Math.max(1L, sum);
+        }
+
+        int firstNeeded() {
+            for (int i = 0; i < n; i++) if (needed[i]) return i;
+            return 0;
+        }
+
+        int lastNeeded() {
+            for (int i = n - 1; i >= 0; i--) if (needed[i]) return i;
+            return n - 1;
+        }
+
+        /** Composition time of editor time t (linear inside the part holding it). */
+        long compOf(long t) {
+            if (chunkBases == null || chunkEditorBases == null || chunkEditorDurs == null
+                    || chunkCompDurs == null) return t;
+            for (int i = 0; i < n; i++) {
+                if (t < chunkEditorBases[i] + chunkEditorDurs[i] || i == n - 1) {
+                    long local = Math.max(0L, t - chunkEditorBases[i]);
+                    return chunkBases[i] + Math.min(local, chunkCompDurs[i]);
+                }
+            }
+            return t;
         }
     }
 
@@ -1827,6 +1922,7 @@ public class ExportManager {
                 if (run.next >= run.n) break;
                 i = run.next++;
             }
+            if (!run.needed[i]) continue;   // outside the exported range
             if (partReusable(run, i)) continue;
             startPart(run, i);
             if (run != chunkRun || !isExporting) return;   // failed synchronously
@@ -1836,7 +1932,7 @@ public class ExportManager {
         if (!videoDone) return;
         if (run.soundState == 2) {
             run.joining = true;
-            runChunkJoin(run.project, run.finalOutputPath, run.manifest, run.ranges);
+            runChunkJoin(run.project, run.finalOutputPath, run.manifest, run.ranges, run);
         } else if (run.soundState == 3 || run.soundState == 0) {
             if (run.soundState == 3 && run.soundRetried) {
                 chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, run.n,
@@ -2019,6 +2115,7 @@ public class ExportManager {
         double sum = 0;
         StringBuilder running = new StringBuilder();
         for (int i = 0; i < run.n; i++) {
+            if (!run.needed[i]) continue;
             if (run.done[i]) {
                 sum += run.expected[i];
             } else if (run.running[i]) {
@@ -2027,7 +2124,7 @@ public class ExportManager {
             }
         }
         if (running.length() == 0) return;   // between parts, or on to the sound
-        float o = (float) (CHUNK_VIDEO_FRAC * sum / run.totalExpected);
+        float o = (float) (CHUNK_VIDEO_FRAC * sum / run.neededExpected);
         String phase = (running.indexOf("+") >= 0 ? "Parts " : "Part ") + running
                 + " of " + run.n;
         listener.onChunkPhase(phase);
@@ -2209,7 +2306,8 @@ public class ExportManager {
     private void runChunkJoin(@NonNull FaditorProject project,
                               @NonNull String finalOutputPath,
                               @NonNull org.json.JSONObject manifest,
-                              @NonNull List<int[]> ranges) {
+                              @NonNull List<int[]> ranges,
+                              @NonNull ChunkRun run) {
         // The audio pass commits its own staging file, which closes the trace; reopen so the
         // join (the step that failed silently on 2026-09-23) leaves a durable record.
         openTrace("join");
@@ -2227,6 +2325,7 @@ public class ExportManager {
                 File listFile = new File(dir, "concat_list.txt");
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < ranges.size(); i++) {
+                    if (!run.needed[i]) continue;
                     String p = manifest.getJSONArray("chunks").getJSONObject(i)
                             .getString("file");
                     sb.append("file '").append(p.replace("'", "'\\''")).append("'\n");
@@ -2250,23 +2349,45 @@ public class ExportManager {
                     throw new IllegalStateException("Joining video parts failed: "
                             + s1.getReturnCode());
                 }
+                // RANGE: the joined parts start at the first needed part's composition time; the
+                // sound is the whole project's, so it is cut to the same span, and the result is
+                // trimmed to the exact range afterwards (unless the range IS whole parts).
+                String audioCut = "";
+                long trimStartMs = 0L, trimEndMs = -1L;
+                if (run.isRange() && chunkBases != null && chunkCompDurs != null) {
+                    int f = run.firstNeeded(), l = run.lastNeeded();
+                    long spanStart = chunkBases[f];
+                    long spanMs = chunkBases[l] + chunkCompDurs[l] - spanStart;
+                    audioCut = String.format(Locale.US, "-ss %.3f -t %.3f ",
+                            spanStart / 1000.0, spanMs / 1000.0);
+                    trimStartMs = Math.max(0L, run.compOf(run.rangeStartMs) - spanStart);
+                    trimEndMs = Math.min(spanMs, run.compOf(run.rangeEndMs) - spanStart);
+                    if (trimStartMs < 40L && trimEndMs > spanMs - 40L) trimEndMs = -1L;
+                    trace("RANGE " + run.rangeStartMs + ".." + run.rangeEndMs + "ms editor -> parts "
+                            + (f + 1) + ".." + (l + 1) + ", trim " + trimStartMs + ".."
+                            + trimEndMs + "ms of " + spanMs + "ms");
+                }
+                final boolean trim = trimEndMs > 0;
                 File staging = new File(stagingPath);
                 if (staging.exists()) staging.delete();
+                File muxOut = trim ? new File(dir, "range_joined.mp4") : staging;
+                if (muxOut.exists()) muxOut.delete();
                 com.arthenica.ffmpegkit.FFmpegSession s2 =
                         com.arthenica.ffmpegkit.FFmpegKit.execute(
                                 // EXPLICIT maps. Every video part carries Media3's forced
                                 // SILENT audio track; unmapped, ffmpeg picks "the best"
                                 // audio across inputs and on a tie takes input 0's — the
                                 // silence — shipping a full-length export with no sound.
-                                "-i \"" + videoFull.getAbsolutePath() + "\" -i \"" + audioPath
+                                "-i \"" + videoFull.getAbsolutePath() + "\" " + audioCut
+                                        + "-i \"" + audioPath
                                         // -f mp4: the staging name ends ".exporting", and ffmpeg
                                         // picks the container from the extension — without it
                                         // the join died "Error opening output file" (exit 1)
                                         // after 58 minutes of good parts (2026-09-23 05:42).
                                         + "\" -map 0:v:0 -map 1:a:0 -c copy -f mp4 -movflags +faststart -y \""
-                                        + staging.getAbsolutePath() + "\"");
+                                        + muxOut.getAbsolutePath() + "\"");
                 if (!com.arthenica.ffmpegkit.ReturnCode.isSuccess(s2.getReturnCode())
-                        || !staging.exists() || staging.length() <= 0) {
+                        || !muxOut.exists() || muxOut.length() <= 0) {
                     traceFfmpegTail("join sound", s2);
                     throw new IllegalStateException("Joining sound failed: "
                             + s2.getReturnCode());
@@ -2274,6 +2395,15 @@ public class ExportManager {
                 if (chunkCancelled) {
                     discardStaging(stagingPath);
                     isExporting = false;
+                    return;
+                }
+                if (trim) {
+                    //noinspection ResultOfMethodCallIgnored
+                    videoFull.delete();
+                    final long ts = trimStartMs, te = trimEndMs;
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                            runRangeTrim(project, run, muxOut, ts, te, stagingPath,
+                                    finalOutputPath));
                     return;
                 }
                 String committed = commitStaging(stagingPath, finalOutputPath);
@@ -2299,6 +2429,86 @@ public class ExportManager {
                 chunkFail(project, finalOutputPath, manifest, ranges, ranges.size() + 1, e);
             }
         }, "faditor-chunk-join").start();
+    }
+
+    /**
+     * RANGE EXPORT's last step, on the main thread (Transformer needs a Looper): cut the joined
+     * parts to [startMs, endMs). Trim optimization re-encodes only up to the first keyframe
+     * after the cut and copies the rest, so the range costs seconds and keeps the parts'
+     * pixels; Media3 falls back to a full transcode on its own when it cannot.
+     */
+    private void runRangeTrim(@NonNull FaditorProject project, @NonNull ChunkRun run,
+                              @NonNull File joined, long startMs, long endMs,
+                              @NonNull String stagingPath, @NonNull String finalOutputPath) {
+        if (run != chunkRun || chunkCancelled || !isExporting) return;
+        if (listener != null) {
+            listener.onChunkPhase("Trimming to the range");
+            listener.onExportProgress(0.97f);
+            listener.onExportProgressDetailed(0.97f, -1, -1, -1L, -1L);
+        }
+        try {
+            MediaItem item = new MediaItem.Builder()
+                    .setUri(Uri.fromFile(joined))
+                    .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                            .setStartPositionMs(startMs)
+                            .setEndPositionMs(endMs)
+                            .build())
+                    .build();
+            Transformer t = new Transformer.Builder(context)
+                    .experimentalSetTrimOptimizationEnabled(true)
+                    .setMaxDelayBetweenMuxerSamplesMs(300_000L)
+                    .setEncoderFactory(exportEncoderFactory(project, null))
+                    .addListener(new Transformer.Listener() {
+                        @Override
+                        public void onCompleted(@NonNull Composition composition,
+                                                @NonNull ExportResult result) {
+                            //noinspection ResultOfMethodCallIgnored
+                            joined.delete();
+                            if (run != chunkRun || chunkCancelled || !isExporting) {
+                                discardStaging(stagingPath);
+                                return;
+                            }
+                            trace("RANGE trimmed (" + new File(stagingPath).length() + " bytes)");
+                            new Thread(() -> finishChunked(project, run.manifest, stagingPath,
+                                    finalOutputPath), "faditor-range-finish").start();
+                        }
+
+                        @Override
+                        public void onError(@NonNull Composition composition,
+                                            @NonNull ExportResult result,
+                                            @NonNull ExportException exception) {
+                            //noinspection ResultOfMethodCallIgnored
+                            joined.delete();
+                            if (run != chunkRun || chunkCancelled || !isExporting) return;
+                            chunkFail(project, finalOutputPath, run.manifest, run.ranges,
+                                    run.n + 1, exception);
+                        }
+                    })
+                    .build();
+            transformer = t;
+            t.start(item, stagingPath);
+        } catch (Exception e) {
+            chunkFail(project, finalOutputPath, run.manifest, run.ranges, run.n + 1, e);
+        }
+    }
+
+    /** Commit the finished file, keep the render cache, and hand over to finalize. */
+    private void finishChunked(@NonNull FaditorProject project,
+                               @NonNull org.json.JSONObject manifest,
+                               @NonNull String stagingPath, @NonNull String finalOutputPath) {
+        if (chunkCancelled) {
+            discardStaging(stagingPath);
+            isExporting = false;
+            return;
+        }
+        String committed = commitStaging(stagingPath, finalOutputPath);
+        pruneRenderCache(project, manifest);
+        chunkRun = null;
+        ExportResult result = lastChunkResult != null ? lastChunkResult
+                : new ExportResult.Builder().build();
+        isExporting = false;
+        resetChunkState();
+        finalizeExportAsync(project, committed, result, "Range export completed");
     }
 
     /** Last ~1.5 KB of an ffmpeg session's log into the durable trace — its own reason for failing. */

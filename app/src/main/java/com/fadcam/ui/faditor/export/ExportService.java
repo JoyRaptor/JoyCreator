@@ -102,6 +102,12 @@ public class ExportService extends Service {
     public static final String EXTRA_FRAME_TIME_MS = "frame_time_ms";
     /** SPEC_C: boolean — the frame format, true=JPG false=PNG (default). */
     public static final String EXTRA_FRAME_JPEG = "frame_jpeg";
+    /**
+     * RANGE EXPORT (2026-09-24): longs, editor-timeline ms. When both are present (end > start)
+     * the video export covers only [start, end); see ExportManager#exportRange.
+     */
+    public static final String EXTRA_RANGE_START_MS = "range_start_ms";
+    public static final String EXTRA_RANGE_END_MS = "range_end_ms";
 
     /**
      * Cross-process "is an export running?" truth: the ongoing foreground-progress
@@ -139,15 +145,17 @@ public class ExportService extends Service {
         @Nullable final String loudnessTargetName;
         @Nullable final Long frameTimeMs;
         final boolean frameJpeg;
+        @Nullable final long[] range;
 
         QueuedExport(@NonNull FaditorProject project, boolean audioOnly,
                      @Nullable String loudnessTargetName, @Nullable Long frameTimeMs,
-                     boolean frameJpeg) {
+                     boolean frameJpeg, @Nullable long[] range) {
             this.project = project;
             this.audioOnly = audioOnly;
             this.loudnessTargetName = loudnessTargetName;
             this.frameTimeMs = frameTimeMs;
             this.frameJpeg = frameJpeg;
+            this.range = range;
         }
     }
 
@@ -280,10 +288,14 @@ public class ExportService extends Service {
                 loudName = getSharedPreferences("faditor_export", MODE_PRIVATE).getString("pending_loudness_target", "OFF");
             }
             boolean singleFrame = intent.getBooleanExtra(EXTRA_SINGLE_FRAME, false);
+            long rangeStart = intent.getLongExtra(EXTRA_RANGE_START_MS, -1L);
+            long rangeEnd = intent.getLongExtra(EXTRA_RANGE_END_MS, -1L);
+            long[] range = rangeStart >= 0 && rangeEnd > rangeStart
+                    ? new long[]{rangeStart, rangeEnd} : null;
             startExportInternal(intent.getStringExtra(EXTRA_PROJECT_SNAPSHOT_PATH),
                     intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName,
                     singleFrame ? intent.getLongExtra(EXTRA_FRAME_TIME_MS, -1L) : null,
-                    intent.getBooleanExtra(EXTRA_FRAME_JPEG, false));
+                    intent.getBooleanExtra(EXTRA_FRAME_JPEG, false), range);
         }
 
         return START_NOT_STICKY;
@@ -314,16 +326,17 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
-        startExportInternal(snapshotPath, audioOnly, null, null, false);
+        startExportInternal(snapshotPath, audioOnly, null, null, false, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
-        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false);
+        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly,
                                      @Nullable String loudnessTargetName,
-                                     @Nullable Long frameTimeMs, boolean frameJpeg) {
+                                     @Nullable Long frameTimeMs, boolean frameJpeg,
+                                     @Nullable long[] range) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -367,20 +380,22 @@ public class ExportService extends Service {
             // Was: "already in progress" and the request (its snapshot already deleted above)
             // silently vanished. Now it waits its turn.
             queue.add(new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
-                    frameJpeg));
+                    frameJpeg, range));
             FLog.i(TAG, "Export queued behind the running one (" + queue.size() + " waiting)");
             Intent queued = new Intent(ACTION_EXPORT_QUEUED);
             queued.putExtra(EXTRA_QUEUE_SIZE, queue.size());
             sendExportBroadcast(queued);
             return;
         }
-        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg);
+        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg,
+                range);
     }
 
     /** Start {@code project} now (nothing else is running). */
     private void startExportForProject(@NonNull FaditorProject project, boolean audioOnly,
                                        @Nullable String loudnessTargetName,
-                                       @Nullable Long frameTimeMs, boolean frameJpeg) {
+                                       @Nullable Long frameTimeMs, boolean frameJpeg,
+                                       @Nullable long[] range) {
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
 
@@ -548,7 +563,7 @@ public class ExportService extends Service {
                 && needsRemux.isEmpty() && needsReverse.isEmpty() && needsPreTrim.isEmpty()) {
             // Common case: nothing to warm — behave exactly as before. (Video exports
             // always warm: the decode probe is cheap insurance even with zero bakes.)
-            dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg);
+            dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg, range);
             return;
         }
 
@@ -678,7 +693,7 @@ public class ExportService extends Service {
                     return;
                 }
                 if (exportManager != null) {
-                    dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg);
+                    dispatchExport(exportProject, audioOnly, frameTimeMs, frameJpeg, range);
                 }
             });
         });
@@ -689,8 +704,11 @@ public class ExportService extends Service {
      * time; a null time keeps the audio-only / video branches exactly as before.
      */
     private void dispatchExport(@NonNull FaditorProject project, boolean audioOnly,
-                                @Nullable Long frameTimeMs, boolean frameJpeg) {
-        if (frameTimeMs != null) {
+                                @Nullable Long frameTimeMs, boolean frameJpeg,
+                                @Nullable long[] range) {
+        if (range != null && frameTimeMs == null && !audioOnly) {
+            exportManager.exportRange(project, range[0], range[1]);
+        } else if (frameTimeMs != null) {
             exportManager.exportSingleFrame(project, frameTimeMs, frameJpeg,
                     exportManager.getExportListener());
         } else if (audioOnly) {
@@ -843,7 +861,7 @@ public class ExportService extends Service {
                 return;
             }
             startExportForProject(next.project, next.audioOnly, next.loudnessTargetName,
-                    next.frameTimeMs, next.frameJpeg);
+                    next.frameTimeMs, next.frameJpeg, next.range);
         });
     }
 

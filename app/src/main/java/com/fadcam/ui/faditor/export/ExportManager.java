@@ -1934,8 +1934,8 @@ public class ExportManager {
     /** Start whatever may start now; join when every part and the sound are in. */
     private void pumpChunks(@NonNull ChunkRun run) {
         if (run != chunkRun || chunkCancelled || !isExporting || run.joining) return;
-        int allowed = Math.min(run.maxParallel, confinedToSlowCores() ? 1 : PARALLEL_PARTS);
-        while (run.active < allowed) {
+        confinedToSlowCores();   // logs CPU_GROUP changes; parallel still wins there (below)
+        while (run.active < run.maxParallel) {
             Integer i = run.retry.poll();
             if (i == null) {
                 if (run.next >= run.n) break;
@@ -2034,11 +2034,12 @@ public class ExportManager {
     }
 
     /**
-     * True when the OS has confined this process to the phone's slow cores. Measured on the
-     * Note 20 (2026-09-24, phone locked): the export process sat in Samsung's "/abnormal"
-     * cpuset = cores 0-3 (the 1.8 GHz little cluster), and two parts side by side there ran
-     * ~0.5x each - slower in total than one part alone. Re-read before every part: the group
-     * changes with the screen and the app's state. Unreadable = not confined.
+     * True when the OS has confined this process to the phone's slow cores, logged as
+     * CPU_GROUP. Measured on the Note 20 (2026-09-24, phone locked): Samsung moves the export
+     * process /foreground -> /moderate -> /abnormal (cores 0-3, the 1.8 GHz little cluster)
+     * within ~90 s. Even there two parts side by side beat one: 1.22x combined vs 1.02x (an
+     * earlier "0.5x each" had a visualizer analysis competing), so this only reports.
+     * Unreadable = not confined.
      */
     private boolean confinedToSlowCores() {
         String group = "";
@@ -2053,8 +2054,7 @@ public class ExportManager {
                 || group.endsWith("/system-background") || group.endsWith("/restricted");
         if (!group.equals(lastCpuGroup)) {
             lastCpuGroup = group;
-            trace("CPU_GROUP " + group + (confined ? " (slow cores only: one part at a time)"
-                    : ""));
+            trace("CPU_GROUP " + group + (confined ? " (slow cores only)" : ""));
         }
         return confined;
     }

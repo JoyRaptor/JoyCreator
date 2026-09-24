@@ -1332,6 +1332,7 @@ public class ExportManager {
                 releasePerThreadRetriever();
             }
 
+            if (sampleSound) soundSampler.excludeExisting();
             transformer.start(composition, audioStagingPath);
             startProgressPolling();
 
@@ -1399,6 +1400,10 @@ public class ExportManager {
     private String tracePrefix = "";
     /** Only one worker at a time samples the GL thread (the threads share a name). */
     private boolean sampleGl = true;
+    /** The sound worker samples its own Transformer thread instead (SOUND_SAMPLE lines). */
+    private boolean sampleSound = false;
+    private final GlThreadSampler soundSampler =
+            new GlThreadSampler(this::trace, "Transformer:Internal", "SOUND_SAMPLE");
 
     /** Progress weights: video chunks dominate; audio/join/finalize are quick. */
     private static final float CHUNK_VIDEO_FRAC = 0.85f;
@@ -2073,7 +2078,8 @@ public class ExportManager {
         final String audioPath = run.manifest.optString("audioFile",
                 new File(chunkDirFor(run.project), "audio_full.m4a").getAbsolutePath());
         final ExportManager w = newChunkWorker("S ", true);
-        w.sampleGl = false;   // no GL thread of its own; a sampler would only cost CPU
+        w.sampleGl = false;   // no GL thread of its own
+        w.sampleSound = true; // where the sound pass's time goes (it took ~15 min alongside parts)
         w.openTrace("sound");
         run.soundWorker = w;
         run.soundState = 1;
@@ -2976,6 +2982,7 @@ public class ExportManager {
         lastStackDumpMs = 0L;
         progressHandler.postDelayed(progressPoller, PROGRESS_POLL_INTERVAL_MS);
         if (sampleGl) glSampler.start();
+        if (sampleSound) soundSampler.start();
     }
 
     /** GL_SAMPLE lines: where the video thread's time goes, every 20 s of an export. */
@@ -3028,6 +3035,7 @@ public class ExportManager {
     private void stopProgressPolling() {
         progressHandler.removeCallbacksAndMessages(null);
         glSampler.stop();
+        soundSampler.stop();
     }
 
     /** FIX-6: composition ms the muxer had reached at the pace anchor, for ETA. */

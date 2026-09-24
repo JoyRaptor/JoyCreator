@@ -97,8 +97,21 @@ public class CaptionExportRenderer {
     /** The frame's source time — the animator's only clock. */
     private long frameSourceMs = 0L;
 
-    @NonNull private final Bitmap bitmap;
-    @NonNull private final Canvas canvas;
+    @NonNull private Bitmap bitmap;
+    @NonNull private Canvas canvas;
+    /**
+     * WINDOW MODE (GL caption path, 2026-09-24). The bitmap covers only {@link #window} (frame
+     * pixels, full width x the caption's band) and the canvas is shifted by whole pixels, so
+     * the same drawing code lands the same pixels in a picture ~1/6 the size. Measured on the
+     * Note 20 before this: a karaoke caption changes every frame, and clearing the full-frame
+     * bitmap, cropping it (Bitmap.createBitmap) and uploading the crop into a freshly
+     * allocated texture was ~50% of the export's GL thread. Off = the whole frame, as before.
+     */
+    private boolean windowed = false;
+    /** True once the window was fitted to real drawn bounds (it then only grows). */
+    private boolean windowFitted = false;
+    private final android.graphics.Rect window = new android.graphics.Rect();
+    private final android.graphics.Rect fitScratch = new android.graphics.Rect();
     private int lastDrawnWord = Integer.MIN_VALUE;
 
     public CaptionExportRenderer(@NonNull Transcript transcript, @NonNull CaptionStyle style,
@@ -120,6 +133,7 @@ public class CaptionExportRenderer {
         this.outH = Math.max(1, outH);
         this.bitmap = Bitmap.createBitmap(this.outW, this.outH, Bitmap.Config.ARGB_8888);
         this.canvas = new Canvas(bitmap);
+        this.window.set(0, 0, this.outW, this.outH);
         // Same grouping the preview uses - one style, one grouping, no drift. SLIDE styles
         // group one timing entry per phrase (SPEC_20260831_CAPTION_SLIDES).
         this.grouping = groupingFor(style);
@@ -262,14 +276,65 @@ public class CaptionExportRenderer {
         lastChanged = true;
         frameSourceMs = sourceMs;
         frameFade = fade;
+        paint(active, emphasis, hasPhrase);
+        // A window that does not hold what was just drawn grows (never shrinks), then the frame
+        // is drawn again into it: rare - the band settles within the first phrases.
+        if (windowed && hasBounds && fitWindow()) paint(active, emphasis, hasPhrase);
+        return bitmap;
+    }
+
+    private void paint(int active, float emphasis, boolean hasPhrase) {
         canvas.drawColor(0, PorterDuff.Mode.CLEAR);
         hasBounds = false;
         lastDrawnWord = active;
-        if (!hasPhrase) {
-            return bitmap;
+        if (!hasPhrase) return;
+        int save = canvas.save();
+        canvas.translate(-window.left, -window.top);
+        try {
+            drawPhrase(active, emphasis);
+        } finally {
+            canvas.restoreToCount(save);
         }
-        drawPhrase(active, emphasis);
-        return bitmap;
+    }
+
+    /** Window mode on/off. Only the GL caption path turns it on (it reads {@link #window()}). */
+    public void setWindowed(boolean on) {
+        if (on == windowed) return;
+        windowed = on;
+        windowFitted = false;
+        if (!on && (bitmap.getWidth() != outW || bitmap.getHeight() != outH)) {
+            window.set(0, 0, outW, outH);
+            bitmap = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888);
+            canvas = new Canvas(bitmap);
+        }
+        lastSig = null;   // redraw into the new geometry
+    }
+
+    /** Where {@link #lastBitmap()} sits in the frame, in frame pixels. */
+    @NonNull
+    public android.graphics.Rect window() { return window; }
+
+    /**
+     * Fit the window to the last drawn bounds: full width, the caption's rows plus half its
+     * height (at least 1/40 of the frame) above and below, only ever growing. True when the
+     * window changed (the caller must draw again).
+     */
+    private boolean fitWindow() {
+        if (!tightBounds(fitScratch)) return false;
+        if (windowFitted && window.contains(fitScratch)) return false;
+        int margin = Math.max(fitScratch.height() / 2, outH / 40);
+        int top = Math.max(0, fitScratch.top - margin);
+        int bottom = Math.min(outH, fitScratch.bottom + margin);
+        if (windowFitted) {
+            top = Math.min(top, window.top);
+            bottom = Math.max(bottom, window.bottom);
+        }
+        if (windowFitted && top == window.top && bottom == window.bottom) return false;
+        windowFitted = true;
+        window.set(0, top, outW, Math.max(top + 1, bottom));
+        bitmap = Bitmap.createBitmap(window.width(), window.height(), Bitmap.Config.ARGB_8888);
+        canvas = new Canvas(bitmap);
+        return true;
     }
 
     // ── Tight bounds (GL caption path, 2026-09-23) ──────────────────────────────────────
@@ -281,7 +346,7 @@ public class CaptionExportRenderer {
     /** False when the last {@link #render} returned the previous frame's pixels unchanged. */
     public boolean lastRenderChanged() { return lastChanged; }
 
-    /** The last rendered bitmap (outW x outH), valid until the next render. */
+    /** The last rendered bitmap (outW x outH, or {@link #window()} in window mode). */
     @NonNull
     public Bitmap lastBitmap() { return bitmap; }
 

@@ -50,11 +50,18 @@ final class GlCaptionEffect implements GlEffect {
     }
 
     private static final class Program extends BaseGlShaderProgram {
-        /** One uploaded caption box per renderer. */
+        /**
+         * One caption's GPU copy per renderer: two textures used in turn, so a new frame's
+         * upload never waits for the GPU to finish reading the last one; each is resized only
+         * when the renderer's window grows.
+         */
         private static final class Box {
-            int tex;
+            final int[] tex = new int[2];
+            final int[] w = new int[2];
+            final int[] h = new int[2];
+            int cur = -1;
             final Rect bounds = new Rect();
-            Bitmap crop;
+            Bitmap shown;
         }
 
         private final CompositeExportOverlay overlay;
@@ -99,19 +106,30 @@ final class GlCaptionEffect implements GlEffect {
                 for (CaptionExportRenderer r : rs) {
                     Box box = boxes.get(r);
                     if (box == null || r.lastRenderChanged()) {
-                        if (!r.tightBounds(scratch)) continue;
                         if (box == null) {
                             box = new Box();
-                            box.tex = PipGl.newStillTexture();
+                            box.tex[0] = PipGl.newStillTexture();
+                            box.tex[1] = PipGl.newStillTexture();
                             boxes.put(r, box);
                         }
-                        Bitmap crop = Bitmap.createBitmap(r.lastBitmap(), scratch.left,
-                                scratch.top, scratch.width(), scratch.height());
-                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, box.tex);
-                        android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, crop, 0);
-                        if (box.crop != null && !box.crop.isRecycled()) box.crop.recycle();
-                        box.crop = crop;
-                        box.bounds.set(scratch);
+                        Bitmap bmp = r.lastBitmap();
+                        Rect win = r.window();
+                        int next = box.cur < 0 ? 0 : 1 - box.cur;
+                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, box.tex[next]);
+                        if (box.w[next] == bmp.getWidth() && box.h[next] == bmp.getHeight()) {
+                            android.opengl.GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0,
+                                    bmp);
+                        } else {
+                            android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0);
+                            box.w[next] = bmp.getWidth();
+                            box.h[next] = bmp.getHeight();
+                        }
+                        box.cur = next;
+                        box.shown = bmp;
+                        // The picture covers the renderer's window (the whole frame if the
+                        // renderer is not in window mode).
+                        box.bounds.set(win.left, win.top, win.left + bmp.getWidth(),
+                                win.top + bmp.getHeight());
                     }
                     float bw = r.getWidth(), bh = r.getHeight();
                     Rect b = box.bounds;
@@ -122,9 +140,9 @@ final class GlCaptionEffect implements GlEffect {
                     // Same framing as an image Pip: y and rotation into GL's bottom-up uv.
                     FxPreviewTextureView.Pip p = FxPreviewTextureView.Pip.ofImage(
                             cx, 1f - cy, halfW, halfH, 0f, 1f, null, editorMs, null, 0f,
-                            chain.w, chain.h, "cap#" + (idx++), box.crop, 1f);
+                            chain.w, chain.h, "cap#" + (idx++), box.shown, 1f);
                     pips.add(p);
-                    texes.add(box.tex);
+                    texes.add(box.tex[box.cur]);
                 }
                 chain.composite(inputTexId, outFbo, pips, texes);
             } catch (Exception e) {
@@ -138,9 +156,8 @@ final class GlCaptionEffect implements GlEffect {
                 super.release();
             } finally {
                 for (Box box : boxes.values()) {
-                    try { GLES20.glDeleteTextures(1, new int[]{box.tex}, 0); }
+                    try { GLES20.glDeleteTextures(2, box.tex, 0); }
                     catch (RuntimeException ignored) { }
-                    if (box.crop != null && !box.crop.isRecycled()) box.crop.recycle();
                 }
                 boxes.clear();
                 chain.release();

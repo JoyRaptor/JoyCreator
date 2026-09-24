@@ -79,10 +79,10 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 | 0b | Image overlays on the GPU with the preview's own code (PipGl, pipForModel) | -> 1.5x, preview parity for images | DONE (da854f68) |
 | 1 | Captions on the GPU: tight box, re-raster only when the word changes (GlCaptionEffect) | -> ~3x | DONE (331fd9b9, device-proven) |
 | 2 | One GPU pass per frame: fold crop, resize, images and captions into a single compositor like the preview's (today 6-9 full-frame passes) | -> ~5-6x | 2a BUILT db486113 (per-clip overlay window; text boxes in the image run, drawn once) — device test owed |
-| 3 | Two parts in parallel (the video chip runs several codec sessions) | -> ~7-9x (the chip's ceiling) | after 2 |
-| 4 | **Smart re-export (render cache) + RANGE EXPORT** — key each part on ITS OWN content, cut parts at any time (not just clip seams), reuse every unchanged part. A range export is then "render the parts that cover the range" | a one-mask edit re-exports in minutes, not ~35; a range of already-rendered minutes is near-instant | 4a smart re-export BUILT b363b8ec (device test owed); 4b range export next |
-| 5 | Straight-copy stretches with no overlays/captions/effects (no re-encode) | ~50x on those stretches | later |
-| 6 | Fast 720p draft preset | ~15-20x | later |
+| 3 | Two parts in parallel (the video chip runs several codec sessions) | -> ~7-9x (the chip's ceiling) | BUILT 869102b4: two part workers + the sound pass alongside from the start; a part failing in parallel retries alone |
+| 4 | **Smart re-export (render cache) + RANGE EXPORT** — key each part on ITS OWN content, cut parts at any time (not just clip seams), reuse every unchanged part. A range export is then "render the parts that cover the range" | a one-mask edit re-exports in minutes, not ~35; a range of already-rendered minutes is near-instant | 4a smart re-export BUILT b363b8ec; 4b range export ENGINE BUILT f6e63879 (ExportService range extras; trim optimization) — the in/out UI is the studio lane's |
+| 5 | Straight-copy stretches with no overlays/captions/effects (no re-encode) | ~50x on those stretches | DECIDED AGAINST (2026-09-24): captions cover every minute of JoyRaptor's projects, so there is nothing to copy; and joining camera-encoded and re-encoded parts with -c copy mixes H.264 parameter sets in one track (playback glitches). The render cache (4a) is the safe form of 'do not redo what did not change'. Range export already copies everything after the first keyframe. |
+| 6 | Fast 720p draft preset | ~15-20x | AVAILABLE: Resolution 720p already scales at the head of the chain, so every overlay pass runs at 720p. A one-tap "Draft" chip (720p + Low) is handed to the studio lane |
 
 ## Lane 2 — The foundation that gets expensive after users arrive
 

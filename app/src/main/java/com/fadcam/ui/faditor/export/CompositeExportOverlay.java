@@ -726,7 +726,14 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private final android.graphics.Rect captionScratch = new android.graphics.Rect();
 
     /** When true this pass leaves captions to {@link GlCaptionEffect} (drawn after it). */
-    void setCaptionsViaGl(boolean viaGl) { this.captionsViaGl = viaGl; }
+    void setCaptionsViaGl(boolean viaGl) {
+        this.captionsViaGl = viaGl;
+        // Window mode is the GL route's picture geometry; the Canvas pass needs the full frame.
+        for (AudioCaptionSlot slot : audioCaptionSlots) slot.renderer.setWindowed(viaGl);
+        for (ClipCaptionSlot slot : clipCaptionSlots) {
+            if (slot.renderer != null) slot.renderer.setWindowed(viaGl);
+        }
+    }
 
     boolean hasCaptions() { return !clipCaptionSlots.isEmpty() || !audioCaptionSlots.isEmpty(); }
 
@@ -774,6 +781,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                             CaptionStyle.byId(styleId), slot.binding.centerX, slot.binding.centerY,
                             slot.binding.sizeFraction, slot.binding.boxWidthFraction, outW, outH);
                     slot.rendererStyleId = styleId;
+                    slot.renderer.setWindowed(captionsViaGl);
                     slot.renderer.setCaptionAnimation(clip.getCaptionAnimPreset(),
                             clip.getCaptionAnimGranularity(),
                             clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());

@@ -4959,12 +4959,16 @@ public class ExportManager {
             partFrom = ed - 10_000L;
             partTo = ed + len + 10_000L;
         }
+        // ONE ANALYSIS PER SOURCE, OVER THE SPAN THE EDITOR USES. The editor analyses a
+        // visualizer's source over its clip's trim window (in - 1.2 s .. out + 0.2 s, keyed on
+        // the raw file) and caches it; asking for the whole file under another key missed that
+        // cache and analysed all 48 minutes for a 7-minute visualizer (30+ min on the little
+        // cores, 2026-09-24). Several visualizers on one source share the union of their spans.
+        Map<String, long[]> spans = new java.util.LinkedHashMap<>();
+        Map<String, Uri> keyUris = new HashMap<>();
         for (WaveformOverlayInstance woi : LayerPreviewController.visibleWaveformOverlays(timeline)) { // §4.5 per-object eye
             if (woi.getEndMs() < partFrom || woi.getStartMs() > partTo) continue;
             String clipId = woi.getAudioSourceRef();
-            FLog.d(TAG, "preloadWaveformData: waveform " + woi.getId()
-                    + " style=" + woi.getStyleId()
-                    + " audioSourceRef=" + clipId);
             if (clipId == null) continue;
             android.net.Uri uri = resolveWaveformUri(timeline, clipId);
             if (uri == null) {
@@ -4972,19 +4976,43 @@ public class ExportManager {
                         + " for waveform " + woi.getId());
                 continue;
             }
+            long in, out;
+            Clip sc = findClipById(timeline, clipId);
+            AudioClip sa = sc == null ? findAudioClipById(timeline, clipId) : null;
+            if (sc != null) {
+                in = sc.getInPointMs();
+                out = sc.getOutPointMs();
+            } else if (sa != null) {
+                in = sa.getInPointMs();
+                out = sa.getOutPointMs();
+            } else {
+                continue;
+            }
             String key = uri.toString();
             if (cache.containsKey(key)) continue;
+            long[] span = spans.get(key);
+            long s0 = Math.max(0, in - 1200), s1 = out + 200;
+            if (span == null) {
+                spans.put(key, new long[]{s0, s1});
+            } else {
+                span[0] = Math.min(span[0], s0);
+                span[1] = Math.max(span[1], s1);
+            }
+            // The editor's key: the raw FILE's Uri.fromFile form.
+            keyUris.put(key, "file".equals(uri.getScheme()) && uri.getPath() != null
+                    ? android.net.Uri.fromFile(new File(uri.getPath())) : uri);
+        }
+        for (Map.Entry<String, long[]> e : spans.entrySet()) {
             try {
-                WaveformData data = extractor.extractCached(uri, 64);
-                if (data != null) {
-                    cache.put(key, data);
-                    FLog.d(TAG, "preloadWaveformData: extracted " + data.amplitudes.length
-                            + " buckets for " + key);
-                } else {
-                    FLog.w(TAG, "preloadWaveformData: extractor returned null for " + key);
-                }
-            } catch (Exception e) {
-                FLog.w(TAG, "Failed to preload waveform data for " + key, e);
+                long t0 = System.currentTimeMillis();
+                WaveformData data = extractor.extractCachedSpan(keyUris.get(e.getKey()), 64,
+                        e.getValue()[0], e.getValue()[1]);
+                cache.put(e.getKey(), data);
+                FLog.d(TAG, "preloadWaveformData: " + e.getKey() + " span " + e.getValue()[0]
+                        + ".." + e.getValue()[1] + " in " + (System.currentTimeMillis() - t0)
+                        + " ms");
+            } catch (Exception ex) {
+                FLog.w(TAG, "Failed to preload waveform data for " + e.getKey(), ex);
             }
         }
         return cache;

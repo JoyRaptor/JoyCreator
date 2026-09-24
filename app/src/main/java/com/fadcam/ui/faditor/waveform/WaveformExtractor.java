@@ -127,6 +127,22 @@ public class WaveformExtractor {
         return data;
     }
 
+    /**
+     * Span-limited {@link #extractCached}: the same key the editor's visualizer uses
+     * ({@code extractAsync(uri, 64, clipIn - 1200, clipOut + 200)}), so an export of a project
+     * whose visualizer the editor has shown finds the analysis already on disk.
+     */
+    @NonNull
+    public WaveformData extractCachedSpan(@NonNull Uri uri, int bands, long startMs, long endMs)
+            throws Exception {
+        int b = Math.max(1, bands);
+        WaveformData cached = readCache(uri, b, startMs, endMs, BUCKETS_PER_SEC, true);
+        if (cached != null) return cached;
+        WaveformData data = extract(uri, b, startMs, endMs, BUCKETS_PER_SEC, true, null);
+        writeCache(uri, b, startMs, endMs, BUCKETS_PER_SEC, true, data);
+        return data;
+    }
+
     /** Synchronous extraction of the full source. Call off the main thread. */
     @NonNull
     public WaveformData extract(@NonNull Uri uri, int bands) throws Exception {

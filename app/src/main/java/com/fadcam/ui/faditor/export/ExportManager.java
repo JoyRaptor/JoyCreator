@@ -1934,7 +1934,8 @@ public class ExportManager {
     /** Start whatever may start now; join when every part and the sound are in. */
     private void pumpChunks(@NonNull ChunkRun run) {
         if (run != chunkRun || chunkCancelled || !isExporting || run.joining) return;
-        while (run.active < run.maxParallel) {
+        int allowed = Math.min(run.maxParallel, confinedToSlowCores() ? 1 : PARALLEL_PARTS);
+        while (run.active < allowed) {
             Integer i = run.retry.poll();
             if (i == null) {
                 if (run.next >= run.n) break;
@@ -2031,6 +2032,35 @@ public class ExportManager {
         }
         return false;
     }
+
+    /**
+     * True when the OS has confined this process to the phone's slow cores. Measured on the
+     * Note 20 (2026-09-24, phone locked): the export process sat in Samsung's "/abnormal"
+     * cpuset = cores 0-3 (the 1.8 GHz little cluster), and two parts side by side there ran
+     * ~0.5x each - slower in total than one part alone. Re-read before every part: the group
+     * changes with the screen and the app's state. Unreadable = not confined.
+     */
+    private boolean confinedToSlowCores() {
+        String group = "";
+        try (java.io.BufferedReader r = new java.io.BufferedReader(
+                new java.io.FileReader("/proc/self/cpuset"))) {
+            String line = r.readLine();
+            if (line != null) group = line.trim();
+        } catch (Exception ignored) {
+            return false;
+        }
+        boolean confined = group.endsWith("/abnormal") || group.endsWith("/background")
+                || group.endsWith("/system-background") || group.endsWith("/restricted");
+        if (!group.equals(lastCpuGroup)) {
+            lastCpuGroup = group;
+            trace("CPU_GROUP " + group + (confined ? " (slow cores only: one part at a time)"
+                    : ""));
+        }
+        return confined;
+    }
+
+    @NonNull
+    private String lastCpuGroup = "";
 
     /** A part whose keyed file already exists (render cache / resume) is not rendered again. */
     private boolean partReusable(@NonNull ChunkRun run, int i) {

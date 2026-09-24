@@ -825,7 +825,12 @@ public class ExportService extends Service {
         if (project.getTimeline() == null) return result;
         FragmentedMp4Remuxer remuxer = new FragmentedMp4Remuxer(this);
         Set<String> seen = new LinkedHashSet<>();
-        for (Clip clip : project.getTimeline().getClips()) {
+        // PiP clips too: their picture and their audio open the source at the clip's in-point,
+        // and a raw fragmented recording cannot seek there ("Illegal clipping: not seekable to
+        // start" - Note 9, ZA_CONTROL, a PiP sliced from a recording, 2026-09-24).
+        List<Clip> clips = new ArrayList<>(project.getTimeline().getClips());
+        clips.addAll(project.getTimeline().getOverlayClips());
+        for (Clip clip : clips) {
             if (clip.isImageClip()) continue;
             Uri uri = clip.getSourceUri();
             if (uri == null || !"file".equals(uri.getScheme()) || uri.getPath() == null) {

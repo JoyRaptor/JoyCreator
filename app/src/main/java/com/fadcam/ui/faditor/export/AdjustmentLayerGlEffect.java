@@ -118,6 +118,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
+            GlErrors.drain("pending when AdjustmentLayerGlEffect began (left by an earlier step)");
             long editorMs = (presentationTimeUs / 1000L) + editorTimeOffsetMs;
             try {
                 // TIME GATE first: an adjustment layer is emitted into every clip's chain with

@@ -269,6 +269,7 @@ public final class BlendModeGlEffect implements GlEffect {
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
+            GlErrors.drain("pending when BlendModeGlEffect began (left by an earlier step)");
             try {
                 glProgram.use();
                 glProgram.setSamplerTexIdUniform("uVideoTexSampler0", inputTexId, 0);

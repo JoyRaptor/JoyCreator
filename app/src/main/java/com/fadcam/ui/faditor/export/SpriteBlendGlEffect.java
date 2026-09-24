@@ -402,6 +402,7 @@ final class SpriteBlendGlEffect implements GlEffect {
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
+            GlErrors.drain("pending when SpriteBlendGlEffect began (left by an earlier step)");
             try {
                 long timelineMs = presentationTimeUs / 1000L + editorTimeOffsetMs;
                 // Gate on visibility here, not in the chain: this effect is emitted once per

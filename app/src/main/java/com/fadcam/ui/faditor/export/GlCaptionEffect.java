@@ -90,6 +90,7 @@ final class GlCaptionEffect implements GlEffect {
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
+            GlErrors.drain("pending when GlCaptionEffect began (left by an earlier step)");
             try {
                 final int outFbo = PipChainGl.boundFbo();
                 pips.clear();
@@ -145,6 +146,7 @@ final class GlCaptionEffect implements GlEffect {
                     texes.add(box.tex[box.cur]);
                 }
                 chain.composite(inputTexId, outFbo, pips, texes);
+                GlErrors.drain("left by GlCaptionEffect");
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
             }

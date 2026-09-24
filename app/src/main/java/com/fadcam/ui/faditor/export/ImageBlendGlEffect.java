@@ -436,6 +436,7 @@ final class ImageBlendGlEffect implements GlEffect {
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
+            GlErrors.drain("pending when ImageBlendGlEffect began (left by an earlier step)");
             // SPEC E mesh branch (gated at construction; flat path below untouched and byte-identical
             // for every unmeshed image — same program string, same uniforms, same order).
             if (mesh && meshStamp != null && flatProgram != null) {

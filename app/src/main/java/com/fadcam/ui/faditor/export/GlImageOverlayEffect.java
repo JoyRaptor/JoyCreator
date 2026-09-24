@@ -129,6 +129,7 @@ final class GlImageOverlayEffect implements GlEffect {
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
+            GlErrors.drain("pending when GlImageOverlayEffect began (left by an earlier step)");
             try {
                 final int outFbo = PipChainGl.boundFbo();
                 final int w = chain.w, h = chain.h;
@@ -160,6 +161,7 @@ final class GlImageOverlayEffect implements GlEffect {
                     frameTex.add(tex);
                 }
                 chain.composite(inputTexId, outFbo, frameVisible, frameTex);
+                GlErrors.drain("left by GlImageOverlayEffect");
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
             }

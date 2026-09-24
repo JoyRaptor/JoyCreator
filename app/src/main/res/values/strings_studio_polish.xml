@@ -72,8 +72,8 @@
     <string name="snap_timeline_edges_desc">Moving or trimming on the timeline catches the playhead and the edges of other items.</string>
     <string name="snap_beats">Beats</string>
     <string name="snap_beats_desc">Timeline edges catch the beats found in your music.</string>
-    <string name="snap_canvas">Canvas centre</string>
-    <string name="snap_canvas_desc">Objects dragged in the picture catch the centre of the canvas.</string>
+    <string name="snap_canvas">Canvas centre &amp; edges</string>
+    <string name="snap_canvas_desc">Objects dragged in the picture catch the centre and edges of the canvas, with a guide line.</string>
     <string name="snap_objects">Other objects</string>
     <string name="snap_objects_desc">Objects dragged in the picture line up with the edges and centres of other objects.</string>
     <string name="snap_rotation">Rotation</string>

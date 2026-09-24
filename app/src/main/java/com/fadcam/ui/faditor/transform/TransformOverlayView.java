@@ -495,6 +495,7 @@ public class TransformOverlayView extends View {
         if (!haveQuad) syncFromHost();
         if (!haveQuad) return;
         rebuildHandles();
+        drawSnapGuides(c);
 
         // The stalk first, so the arc's glyph sits on top of its own tether.
         TransformQuad.edgeMid(quad, TransformQuad.TOP, scratch2);
@@ -2137,7 +2138,73 @@ public class TransformOverlayView extends View {
         return was || ringOpen;
     }
 
+    // ── Canvas snap (SnapSettings "Canvas centre") ───────────────────────────────────────
+    // The old handles caught the canvas centre; this surface never did, so a picture could not
+    // be centred by hand (JoyRaptor, 2026-09-24: snapping "is very important for moving fast").
+    // Centre-to-centre and edge-to-edge, per axis, within 3% of the frame at Normal.
+
+    private static final float CANVAS_SNAP_FRAC = 0.03f;
+    private final float[] snapDxy = new float[2];
+    /** Where a snapped axis is drawn (view px), NaN when that axis is free. */
+    private float snapGuideX = Float.NaN, snapGuideY = Float.NaN;
+    private final Paint snapGuidePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
+    /** Pull a body drag of {@code dxy} (from the grab) onto the canvas centre or edges. */
+    private void snapTranslate(@NonNull float[] dxy) {
+        snapGuideX = Float.NaN;
+        snapGuideY = Float.NaN;
+        Host h = host;
+        if (h == null) return;
+        float reach = com.fadcam.ui.faditor.tools.SnapSettings.reach(
+                getContext(), com.fadcam.ui.faditor.tools.SnapSettings.Kind.CANVAS);
+        if (reach <= 0f) return;
+        RectF vr = h.videoRect();
+        if (vr == null || vr.width() <= 0f || vr.height() <= 0f) return;
+        float minX = Float.MAX_VALUE, maxX = -Float.MAX_VALUE;
+        float minY = Float.MAX_VALUE, maxY = -Float.MAX_VALUE;
+        for (int i = 0; i < 8; i += 2) {
+            minX = Math.min(minX, quadAtGrab[i]);     maxX = Math.max(maxX, quadAtGrab[i]);
+            minY = Math.min(minY, quadAtGrab[i + 1]); maxY = Math.max(maxY, quadAtGrab[i + 1]);
+        }
+        float thr = CANVAS_SNAP_FRAC * reach * Math.min(vr.width(), vr.height());
+        float[] ax = snapAxis(minX + dxy[0], maxX + dxy[0], vr.left, vr.right, thr);
+        if (ax != null) { dxy[0] += ax[0]; snapGuideX = ax[1]; }
+        float[] ay = snapAxis(minY + dxy[1], maxY + dxy[1], vr.top, vr.bottom, thr);
+        if (ay != null) { dxy[1] += ay[0]; snapGuideY = ay[1]; }
+    }
+
+    /** {shift, guide} for the closest of centre/near-edge/far-edge within thr, or null. */
+    @Nullable
+    private static float[] snapAxis(float lo, float hi, float frameLo, float frameHi, float thr) {
+        float[][] pairs = {
+                {(lo + hi) / 2f, (frameLo + frameHi) / 2f},
+                {lo, frameLo},
+                {hi, frameHi},
+        };
+        float[] best = null;
+        float bestD = thr;
+        for (float[] p : pairs) {
+            float d = Math.abs(p[1] - p[0]);
+            if (d <= bestD) { bestD = d; best = new float[]{p[1] - p[0], p[1]}; }
+        }
+        return best;
+    }
+
+    private void drawSnapGuides(@NonNull Canvas c) {
+        if (Float.isNaN(snapGuideX) && Float.isNaN(snapGuideY)) return;
+        Host h = host;
+        RectF vr = h == null ? null : h.videoRect();
+        if (vr == null) return;
+        snapGuidePaint.setStyle(Paint.Style.STROKE);
+        snapGuidePaint.setStrokeWidth(dp(1f));
+        snapGuidePaint.setColor(HandleModel.COLOR_SELECTION);
+        if (!Float.isNaN(snapGuideX)) c.drawLine(snapGuideX, vr.top, snapGuideX, vr.bottom, snapGuidePaint);
+        if (!Float.isNaN(snapGuideY)) c.drawLine(vr.left, snapGuideY, vr.right, snapGuideY, snapGuidePaint);
+    }
+
     private void cancelGesture() {
+        snapGuideX = Float.NaN;
+        snapGuideY = Float.NaN;
         removeCallbacks(longPress);
         dragKind = null;
         dragPointerId = -1;
@@ -2166,6 +2233,9 @@ public class TransformOverlayView extends View {
         switch (dragKind) {
             case BODY: {
                 float dx = fingerX - downX, dy = fingerY - downY;
+                snapDxy[0] = dx; snapDxy[1] = dy;
+                snapTranslate(snapDxy);
+                dx = snapDxy[0]; dy = snapDxy[1];
                 System.arraycopy(quadAtGrab, 0, quad, 0, 8);
                 TransformQuad.translate(quad, dx, dy);
                 h.writeTranslate(dx, dy);

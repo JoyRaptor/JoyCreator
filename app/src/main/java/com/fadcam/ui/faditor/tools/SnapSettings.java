@@ -99,11 +99,11 @@ public final class SnapSettings {
     }
 
     /**
-     * Whether a kind's surface honours Gentle / Normal / Strong. Beats and the legacy canvas
-     * snap are on/off only today; the panel shows strength chips only where they do something.
+     * Whether a kind's surface honours Gentle / Normal / Strong. Beats are on/off only today;
+     * the panel shows strength chips only where they do something.
      */
     public static boolean hasStrength(@NonNull Kind k) {
-        return k == Kind.TIMELINE_EDGES || k == Kind.ROTATION;
+        return k == Kind.TIMELINE_EDGES || k == Kind.ROTATION || k == Kind.CANVAS;
     }
 
     /** The angle rotation snaps to multiples of. */

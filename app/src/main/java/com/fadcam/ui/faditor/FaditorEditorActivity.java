@@ -26255,6 +26255,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             transformOverlay.setHost(null, new com.fadcam.ui.faditor.transform.HandleModel());
             transformOverlay.setOnDoubleTap(null);
         }
+        // The marionette belongs to the picture that WAS selected. It used to stay in the corner
+        // after the selection moved to text, a sprite or nothing — clutter, and with two rigged
+        // pictures it was ambiguous whose it was (JoyRaptor, 2026-09-24). Selecting a rigged
+        // picture again brings it back through enterTransformMode.
+        syncPuppetBadge(null);
         if (previewHandlesOverlay != null) {
             previewHandlesOverlay.setVisibility(View.VISIBLE);
             previewHandlesOverlay.bringToFront();

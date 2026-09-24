@@ -258,7 +258,7 @@ public final class LayerGestureController {
     private float snapRadiusPx = 24f;
 
     /** See {@link #snapRadiusPx} — the view calls this once with {@code SNAP_RADIUS_DP * density}. */
-    public void setSnapRadiusPx(float px) { if (px > 0f) snapRadiusPx = px; }
+    public void setSnapRadiusPx(float px) { if (px >= 0f) snapRadiusPx = px; }   // 0 = snapping off
 
     private final LayerRowRenderer rowRenderer;
     private final Callback callback;

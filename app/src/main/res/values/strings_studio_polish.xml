@@ -56,4 +56,26 @@
     <string name="add_video_overlay_title">Add a video overlay</string>
     <string name="settings_drawer_see_through">Drawer see-through</string>
     <string name="settings_drawer_see_through_desc">How much of your video shows through the drawers: %1$d%%</string>
+    <!-- The magnet and its panel (tools/SnapSettings, SnapSettingsSheet) -->
+    <string name="snap_magnet_desc">Snapping. Tap to turn all snapping on or off; hold to choose what snaps</string>
+    <string name="snap_title">Snapping</string>
+    <string name="snap_master">Snap</string>
+    <string name="snap_master_desc">The magnet. Off, nothing snaps; your choices below are kept for when it comes back on.</string>
+    <string name="snap_on">Snap on</string>
+    <string name="snap_off">Snap off</string>
+    <string name="snap_gentle">Gentle</string>
+    <string name="snap_normal">Normal</string>
+    <string name="snap_strong">Strong</string>
+    <string name="snap_strength_desc">%1$s pull</string>
+    <string name="snap_rotation_step_desc">Snap rotation to every %1$d degrees</string>
+    <string name="snap_timeline_edges">Timeline edges</string>
+    <string name="snap_timeline_edges_desc">Moving or trimming on the timeline catches the playhead and the edges of other items.</string>
+    <string name="snap_beats">Beats</string>
+    <string name="snap_beats_desc">Timeline edges catch the beats found in your music.</string>
+    <string name="snap_canvas">Canvas centre</string>
+    <string name="snap_canvas_desc">Objects dragged in the picture catch the centre of the canvas.</string>
+    <string name="snap_objects">Other objects</string>
+    <string name="snap_objects_desc">Objects dragged in the picture line up with the edges and centres of other objects.</string>
+    <string name="snap_rotation">Rotation</string>
+    <string name="snap_rotation_desc">Turning an object catches whole angles.</string>
 </resources>

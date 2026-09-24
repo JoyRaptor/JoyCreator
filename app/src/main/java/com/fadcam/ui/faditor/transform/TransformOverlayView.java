@@ -12,6 +12,7 @@ import android.graphics.RectF;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -289,6 +290,37 @@ public class TransformOverlayView extends View {
     private static final float ROT_DETENT_ENTER_DEG = 3.5f;
     private static final float ROT_DETENT_EXIT_DEG = 1.5f;
 
+    /**
+     * Degrees of two-finger twist absorbed before a pinch starts turning the object — see
+     * applyPinch. The old handles' number (PreviewHandlesOverlay.PINCH_ROT_DEADZONE_DEG), which
+     * JoyRaptor had used for weeks without complaint.
+     */
+    private static final float PINCH_ROT_DEADZONE_DEG = 7f;
+
+    /**
+     * THE ONE ROTATION SNAP HOOK. Every rotation this surface writes — the one-finger arc and
+     * the two-finger pinch — passes its absolute angle (degrees, after the cardinal detent)
+     * through here, so the global snap only has to be wired in one place.
+     *
+     * <p>TODO(snap): the lead is building the global snap settings (master toggle + per-category
+     * flags, including "rotation"). Wire that here and nowhere else; until then this is the
+     * identity, so nothing about rotation changes.
+     */
+    private float snapRotation(float deg) {
+        // SnapSettings "Rotation": catch the nearest multiple of the chosen step (15 degrees by
+        // default) within 4 degrees, scaled by the panel's Gentle / Normal / Strong.
+        Context c = getContext();
+        float reach = com.fadcam.ui.faditor.tools.SnapSettings.reach(
+                c, com.fadcam.ui.faditor.tools.SnapSettings.Kind.ROTATION);
+        if (reach <= 0f) return deg;
+        int step = com.fadcam.ui.faditor.tools.SnapSettings.rotationStepDeg(c);
+        float nearest = Math.round(deg / step) * (float) step;
+        return Math.abs(deg - nearest) <= ROT_SNAP_REACH_DEG * reach ? nearest : deg;
+    }
+
+    /** Rotation snap's reach at Normal strength. */
+    private static final float ROT_SNAP_REACH_DEG = 4f;
+
     private static final long LONG_PRESS_MS = 450L;
     private static final float MOVE_SLOP_DP = 7f;
     private static final long HUD_FADE_MS = 400L;
@@ -374,6 +406,12 @@ public class TransformOverlayView extends View {
     private float pinchAx, pinchAy, pinchBx, pinchBy;   // finger positions at the start
     private float pinchPivotX, pinchPivotY;             // the object's centre at the start
     private float pinchFactor = 1f, pinchDeg = 0f;
+    /** The object's absolute rotation when the pinch began — the base the detent reads. */
+    private float pinchStartDeg;
+    /** This pinch has cleared {@link #PINCH_ROT_DEADZONE_DEG}; once unlocked it stays so. */
+    private boolean pinchRotating;
+    /** This pinch has escaped the cardinal detent (the one-finger ROT_DETENT_* rule). */
+    private boolean pinchDetentBroken;
 
     private final float[] scratch2 = new float[2];
     private final float[] scratchFactors = new float[2];
@@ -1598,9 +1636,261 @@ public class TransformOverlayView extends View {
         if (h != null) openRing(h.kind == HandleModel.Kind.CORNER, h.index, h.x, h.y);
     };
 
+    // ── Two fingers from anywhere: the HOLD ─────────────────────────────
+    //
+    // JoyRaptor, 2026-09-24, on the old helper: "so long as an object was selected and I had two
+    // fingers touching the screen, I was moving/panning, scaling, or rotating that object — even
+    // if my fingers weren't inside the bounds of the box ... especially handy for very small
+    // objects where you can't physically fit your fingers ... One finger tapping on a different
+    // object selects that new object, but two fingers cancel that."
+    //
+    // A second finger was only ever seen when the FIRST landed on the box: onDown returned false
+    // for anything else, and a view that declines ACTION_DOWN never sees that stream again, so
+    // its ACTION_POINTER_DOWN went to whatever was underneath. The old PreviewHandlesOverlay
+    // solved the same problem with awaitingPinch — keep the stream on the chance a second finger
+    // follows — and this is that trick, with one difference: it decides QUICKLY and then gives
+    // the stream away intact, so one-finger behaviour is what it was.
+    //
+    //   * An off-box first finger is HELD (the DOWN is kept, nothing moves) for PINCH_HOLD_MS.
+    //   * A second finger inside that window: a pinch on the SELECTED object, through the same
+    //     startPinch/applyPinch/commit a pinch that starts on the box uses (one undo step, keys
+    //     like any handle drag). The DOWN is never delivered, so nothing else gets selected.
+    //     In Bend mode it is the same pinch: the whole object, never a dot.
+    //   * Anything else — the finger lifts, drags past slop, or simply stays down past the
+    //     window — RELEASES the hold: the kept DOWN and every event after it are dispatched to
+    //     the views beneath, in the order the parent would have offered them, so a tap selects,
+    //     a drag drags, a caption is still hit, and an empty-canvas tap still reaches the
+    //     container's own click. The only difference a single finger can feel is a still finger
+    //     arriving up to PINCH_HOLD_MS late — a tap or a drag is handed over at once.
+
+    /**
+     * How long an off-box first finger waits for a second. A touch longer than the platform
+     * tap timeout (100ms), because two fingers put down "together" routinely land 100-150ms apart.
+     */
+    private static final long PINCH_HOLD_MS = 150L;
+
+    /** An off-box first finger is being held for a possible second one. */
+    private boolean holding;
+    /** The held ACTION_DOWN, view-local; replayed to the views beneath on release. */
+    @Nullable private MotionEvent heldDown;
+    private int heldPointerId = -1;
+    private float heldX, heldY;
+    /** The hold was released: every event of this stream goes to {@link #forwardTarget}. */
+    private boolean forwarding;
+    /** The sibling that took the replayed DOWN; null with {@link #forwardToParent} or nobody. */
+    @Nullable private View forwardTarget;
+    /** No sibling wanted it: the container's own onTouchEvent (its click) gets the stream. */
+    private boolean forwardToParent;
+    /**
+     * True while we are dispatching into a view beneath. A sibling can hand the stream straight
+     * back (PreviewHandlesOverlay.handoffGesture, after it selects an object this surface then
+     * owns); those calls must take the ordinary path, never the hold or the forward again.
+     */
+    private boolean inForward;
+
+    private final Runnable holdTimeout = () -> {
+        if (holding) releaseHold();
+    };
+
+    private boolean beginHold(@NonNull MotionEvent e) {
+        clearHold();
+        holding = true;
+        heldDown = MotionEvent.obtain(e);
+        heldPointerId = e.getPointerId(0);
+        heldX = e.getX();
+        heldY = e.getY();
+        postDelayed(holdTimeout, PINCH_HOLD_MS);
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+        return true;
+    }
+
+    private void clearHold() {
+        removeCallbacks(holdTimeout);
+        holding = false;
+        if (heldDown != null) {
+            heldDown.recycle();
+            heldDown = null;
+        }
+        heldPointerId = -1;
+    }
+
+    /** One event of a held stream. */
+    private boolean onHeldEvent(@NonNull MotionEvent e) {
+        switch (e.getActionMasked()) {
+            case MotionEvent.ACTION_POINTER_DOWN: {
+                // The second finger arrived in time: this is a pinch on the SELECTED object, and
+                // the held DOWN — which would have selected whatever was under it — is dropped.
+                clearHold();
+                Host h = host;
+                if (h == null || ringOpen) return true;
+                syncFromHost();
+                if (!haveQuad) return true;
+                startPinch(h, e);
+                return true;
+            }
+            case MotionEvent.ACTION_MOVE: {
+                int idx = e.findPointerIndex(heldPointerId);
+                if (idx >= 0 && Math.hypot(e.getX(idx) - heldX, e.getY(idx) - heldY)
+                        > dp(MOVE_SLOP_DP)) {
+                    // A one-finger drag: hand it over now, not after the window.
+                    releaseHold();
+                    return forwardEvent(e);
+                }
+                return true;
+            }
+            case MotionEvent.ACTION_UP:
+                // A tap: replay it beneath, DOWN then this UP.
+                releaseHold();
+                return forwardEvent(e);
+            case MotionEvent.ACTION_CANCEL:
+                clearHold();
+                return true;
+            default:
+                return true;
+        }
+    }
+
+    /** Give the held stream away: replay the kept DOWN to whatever beneath would have taken it. */
+    private void releaseHold() {
+        MotionEvent down = heldDown;
+        heldDown = null;
+        clearHold();
+        forwarding = true;
+        forwardTarget = null;
+        forwardToParent = false;
+        if (down == null) return;
+        try {
+            ViewGroup p = getParent() instanceof ViewGroup ? (ViewGroup) getParent() : null;
+            if (p == null) return;
+            for (View c : siblingsBeneath(p)) {
+                MotionEvent ce = toSibling(down, c);
+                boolean inside = ce.getX() >= 0f && ce.getY() >= 0f
+                        && ce.getX() < c.getWidth() && ce.getY() < c.getHeight();
+                boolean took = false;
+                if (inside) {
+                    inForward = true;
+                    try {
+                        took = c.dispatchTouchEvent(ce);
+                    } finally {
+                        inForward = false;
+                    }
+                }
+                ce.recycle();
+                if (took) {
+                    forwardTarget = c;
+                    return;
+                }
+            }
+            // Nobody beneath wanted it — which, un-held, would have fallen to the container.
+            MotionEvent pe = toParent(down, p);
+            inForward = true;
+            try {
+                forwardToParent = p.onTouchEvent(pe);
+            } finally {
+                inForward = false;
+                pe.recycle();
+            }
+        } finally {
+            down.recycle();
+        }
+    }
+
+    /** One event of a released stream, delivered where the replayed DOWN landed. */
+    private boolean forwardEvent(@NonNull MotionEvent e) {
+        int a = e.getActionMasked();
+        try {
+            ViewGroup p = getParent() instanceof ViewGroup ? (ViewGroup) getParent() : null;
+            View t = forwardTarget;
+            if (p != null && t != null && t.getParent() == p) {
+                MotionEvent ce = toSibling(e, t);
+                inForward = true;
+                try {
+                    t.dispatchTouchEvent(ce);
+                } finally {
+                    inForward = false;
+                    ce.recycle();
+                }
+            } else if (p != null && forwardToParent) {
+                MotionEvent pe = toParent(e, p);
+                inForward = true;
+                try {
+                    p.onTouchEvent(pe);
+                } finally {
+                    inForward = false;
+                    pe.recycle();
+                }
+            }
+        } finally {
+            if (a == MotionEvent.ACTION_UP || a == MotionEvent.ACTION_CANCEL) {
+                forwarding = false;
+                forwardTarget = null;
+                forwardToParent = false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The parent's children BENEATH this view, in the order the parent offers a DOWN: highest
+     * Z first, later child first on a tie (ViewGroup.buildTouchDispatchChildList). Views above
+     * this one already declined the DOWN before it reached us.
+     */
+    @NonNull
+    private java.util.List<View> siblingsBeneath(@NonNull ViewGroup p) {
+        final int me = p.indexOfChild(this);
+        final float myZ = getZ();
+        java.util.List<View> out = new java.util.ArrayList<>();
+        final java.util.Map<View, Integer> index = new java.util.HashMap<>();
+        for (int i = 0; i < p.getChildCount(); i++) {
+            View c = p.getChildAt(i);
+            if (c == this || c == null) continue;
+            if (c.getVisibility() != VISIBLE && c.getAnimation() == null) continue;
+            float z = c.getZ();
+            if (z < myZ || (z == myZ && i < me)) {
+                out.add(c);
+                index.put(c, i);
+            }
+        }
+        java.util.Collections.sort(out, (x, y) -> {
+            int byZ = Float.compare(y.getZ(), x.getZ());
+            return byZ != 0 ? byZ : Integer.compare(index.get(y), index.get(x));
+        });
+        return out;
+    }
+
+    /** {@code e} (this view's coordinates) in sibling {@code c}'s own coordinates. */
+    @NonNull
+    private MotionEvent toSibling(@NonNull MotionEvent e, @NonNull View c) {
+        MotionEvent ce = MotionEvent.obtain(e);
+        if (!getMatrix().isIdentity()) ce.transform(getMatrix());
+        ce.offsetLocation(getLeft() - c.getLeft(), getTop() - c.getTop());
+        if (!c.getMatrix().isIdentity()) {
+            android.graphics.Matrix inv = new android.graphics.Matrix();
+            if (c.getMatrix().invert(inv)) ce.transform(inv);
+        }
+        return ce;
+    }
+
+    /** {@code e} (this view's coordinates) in the parent's own coordinates. */
+    @NonNull
+    private MotionEvent toParent(@NonNull MotionEvent e, @NonNull ViewGroup p) {
+        MotionEvent pe = MotionEvent.obtain(e);
+        if (!getMatrix().isIdentity()) pe.transform(getMatrix());
+        pe.offsetLocation(getLeft() - p.getScrollX(), getTop() - p.getScrollY());
+        return pe;
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     @Override
     public boolean onTouchEvent(@NonNull MotionEvent e) {
+        // A stream this surface is holding or has handed on is routed BEFORE the host check: the
+        // selection can change under it (a replayed tap selects another object), and the rest
+        // of the stream still has to arrive where its DOWN went. Calls that come back while we
+        // are forwarding take the ordinary path below.
+        if (!inForward) {
+            if (forwarding) return forwardEvent(e);
+            if (holding) return onHeldEvent(e);
+        }
         Host h = host;
         if (h == null) return false;
         switch (e.getActionMasked()) {
@@ -1708,7 +1998,16 @@ public class TransformOverlayView extends View {
         }
 
         if (hit == null && !TransformQuad.contains(quad, x, y)) {
-            // Nothing of ours: let it through, so the empty-canvas rule survives.
+            // Nothing of ours — but maybe the first finger of a pinch on the selected object.
+            // HOLD it briefly (see beginHold); if no second finger follows, the stream goes to
+            // the views beneath exactly as a pass-through would, so the empty-canvas rule and
+            // tap-to-select-another survive. A DOWN handed back to us mid-forward is never held.
+            //
+            // PREVIEW ONLY (JoyRaptor, 2026-09-24: "anywhere on the preview area only"). This
+            // view is a child of player_container, so the timeline — its own two-finger zoom and
+            // scroll — never reaches here at all. The strip an open top drawer covers
+            // (chromeTopInset) is excluded too: a finger there belongs to the drawer.
+            if (!inForward && y >= chromeTopInset) return beginHold(e);
             return false;
         }
         dragPointerId = e.getPointerId(0);
@@ -1897,8 +2196,8 @@ public class TransformOverlayView extends View {
                 } else if (offDeg > ROT_DETENT_ENTER_DEG) {
                     rotDetentBroken = true;
                 }
-                float snapAbs = TransformQuad.detentCardinalDeg(
-                        rawAbs, ROT_DETENT_ENTER_DEG, ROT_DETENT_EXIT_DEG, rotDetentBroken);
+                float snapAbs = snapRotation(TransformQuad.detentCardinalDeg(
+                        rawAbs, ROT_DETENT_ENTER_DEG, ROT_DETENT_EXIT_DEG, rotDetentBroken));
                 float snapDelta = snapAbs - rotStartDeg;
                 h.readFoldPivot(scratch2);
                 TransformQuad.rotateAbout(quad, quadAtGrab, scratch2[0], scratch2[1],
@@ -2047,6 +2346,9 @@ public class TransformOverlayView extends View {
         pinchPivotY = scratch2[1];
         pinchFactor = 1f;
         pinchDeg = 0f;
+        pinchStartDeg = h.currentRotationDeg();
+        pinchRotating = false;
+        pinchDetentBroken = false;
         pinching = true;
         moved = false;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -2075,8 +2377,33 @@ public class TransformOverlayView extends View {
         // Normalise into ±π so crossing the seam does not spin the object a whole turn.
         while (th > Math.PI) th -= 2 * Math.PI;
         while (th < -Math.PI) th += 2 * Math.PI;
+        // ROTATION EASE (JoyRaptor, 2026-09-24: "rotation is a little bit hard to manage").
+        // Two fingers never travel purely apart, so every pinch meant as a zoom carries a few
+        // degrees of incidental twist, and applying it from the first frame made the picture
+        // wobble while it scaled. The twist is ignored until it passes a small dead-zone —
+        // the same 7° the old handles used — and the dead-zone is then SUBTRACTED, so turning
+        // starts from zero instead of jumping 7° the moment it engages. Once unlocked it stays
+        // unlocked for the rest of the gesture. Then the one-finger arc's cardinal detent
+        // (ROT_DETENT_*, same hysteresis) and the global snap hook, so both ways of turning
+        // an object stick to the same angles.
+        float rawDeg = (float) Math.toDegrees(th);
+        if (!pinchRotating && Math.abs(rawDeg) > PINCH_ROT_DEADZONE_DEG) pinchRotating = true;
+        float deg = 0f;
+        if (pinchRotating) {
+            float rawAbs = pinchStartDeg + rawDeg - Math.signum(rawDeg) * PINCH_ROT_DEADZONE_DEG;
+            float offDeg = Math.abs(rawAbs - Math.round(rawAbs / 90f) * 90f);
+            if (pinchDetentBroken) {
+                if (offDeg <= ROT_DETENT_EXIT_DEG) pinchDetentBroken = false;
+            } else if (offDeg > ROT_DETENT_ENTER_DEG) {
+                pinchDetentBroken = true;
+            }
+            float snapAbs = snapRotation(TransformQuad.detentCardinalDeg(
+                    rawAbs, ROT_DETENT_ENTER_DEG, ROT_DETENT_EXIT_DEG, pinchDetentBroken));
+            deg = snapAbs - pinchStartDeg;
+        }
+        th = Math.toRadians(deg);
         pinchFactor = f;
-        pinchDeg = (float) Math.toDegrees(th);
+        pinchDeg = deg;
         moved = true;
 
         System.arraycopy(quadLastGood, 0, quadAtGrab, 0, 8);   // keep the rollback pose current
@@ -2128,6 +2455,10 @@ public class TransformOverlayView extends View {
     @Override
     protected void onDetachedFromWindow() {
         removeCallbacks(longPress);
+        clearHold();
+        forwarding = false;
+        forwardTarget = null;
+        forwardToParent = false;
         super.onDetachedFromWindow();
     }
 }

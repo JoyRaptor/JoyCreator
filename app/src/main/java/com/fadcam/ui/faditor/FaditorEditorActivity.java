@@ -640,7 +640,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private TextView toolSplitIcon;
     private TextView toolSplitLabel;
     private boolean splitHealMode = false;
-    private TextView btnSoftSnap;
+    private android.widget.ImageView btnSoftSnap;
     private boolean overlaySoftSnapEnabled = true;
     // G14: global snap aggregates beat/overlay snaps under one magnet; G13 voiceover mic
     private boolean globalSnapEnabled = true;
@@ -3289,11 +3289,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         fitTransportTools(findViewById(R.id.transport_left_tools));
         btnRelinkMedia.setOnLongClickListener(v -> { showLinkOptions(); return true; });
         if (btnSoftSnap != null) {
-            // G14: magnet is GLOBAL snap — green when on, grey when off; long-press lists all snaps
+            // The magnet: tap = every snap on/off, hold = the snap panel (SnapSettings).
             btnSoftSnap.setOnClickListener(v -> toggleGlobalSnap());
-            btnSoftSnap.setOnLongClickListener(v -> { showSnapList(); return true; });
-            updateGlobalSnapButton();
+            btnSoftSnap.setOnLongClickListener(v -> {
+                SnapSettingsSheet.newInstance().show(getSupportFragmentManager(), "snapSettings");
+                return true;
+            });
         }
+        snapListener = com.fadcam.ui.faditor.tools.SnapSettings.listen(this,
+                () -> runOnUiThread(this::applySnapSettings));
+        applySnapSettings();
         btnRippleMode = findViewById(R.id.btn_ripple_mode);
         if (btnRippleMode != null) {
             btnRippleMode.setOnClickListener(v -> toggleRippleMode());
@@ -19132,22 +19137,46 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
     // G14 helpers
+    /** The magnet: every snap in the Studio on or off (tools/SnapSettings). */
     private void toggleGlobalSnap() {
-        globalSnapEnabled = !globalSnapEnabled;
-        overlaySoftSnapEnabled = globalSnapEnabled;
-        if (editorTimeline != null) editorTimeline.setBeatSnapEnabled(globalSnapEnabled);
-        updateGlobalSnapButton();
-        android.widget.Toast.makeText(this, globalSnapEnabled ? "Snap on" : "Snap off", android.widget.Toast.LENGTH_SHORT).show();
+        boolean on = !com.fadcam.ui.faditor.tools.SnapSettings.master(this);
+        com.fadcam.ui.faditor.tools.SnapSettings.setMaster(this, on);
+        applySnapSettings();   // the listener would too, a frame later; the button must not lag
+        android.widget.Toast.makeText(this, on ? R.string.snap_on : R.string.snap_off,
+                android.widget.Toast.LENGTH_SHORT).show();
     }
+
+    /** Held for as long as the activity lives: SharedPreferences keeps listeners weakly. */
+    @Nullable private android.content.SharedPreferences.OnSharedPreferenceChangeListener snapListener;
+
+    /**
+     * Push SnapSettings to every surface that snaps. Called on start, on the magnet, and on
+     * any change made in the snap panel.
+     */
+    private void applySnapSettings() {
+        globalSnapEnabled = com.fadcam.ui.faditor.tools.SnapSettings.master(this);
+        overlaySoftSnapEnabled = com.fadcam.ui.faditor.tools.SnapSettings.on(
+                this, com.fadcam.ui.faditor.tools.SnapSettings.Kind.CANVAS);
+        if (overlayLayer != null) overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
+        if (overlayLayerBelow != null) overlayLayerBelow.setSnapEnabled(overlaySoftSnapEnabled);
+        if (spriteOverlayView != null) spriteOverlayView.setSnapEnabled(overlaySoftSnapEnabled);
+        if (spriteOverlayViewBelow != null) spriteOverlayViewBelow.setSnapEnabled(overlaySoftSnapEnabled);
+        if (editorTimeline != null) {
+            editorTimeline.setBeatSnapEnabled(com.fadcam.ui.faditor.tools.SnapSettings.on(
+                    this, com.fadcam.ui.faditor.tools.SnapSettings.Kind.BEATS));
+            editorTimeline.setClipSnapReach(com.fadcam.ui.faditor.tools.SnapSettings.reach(
+                    this, com.fadcam.ui.faditor.tools.SnapSettings.Kind.TIMELINE_EDGES));
+        }
+        updateGlobalSnapButton();
+    }
+
     private void updateGlobalSnapButton() {
         if (btnSoftSnap == null) return;
-        btnSoftSnap.setTextColor(globalSnapEnabled ? STUDIO_ARMED : STUDIO_OFF);
+        btnSoftSnap.setImageTintList(android.content.res.ColorStateList.valueOf(
+                globalSnapEnabled ? STUDIO_ARMED : STUDIO_OFF));
         btnSoftSnap.setAlpha(1f);
     }
-    private void showSnapList() {
-        String[] items = {"Beat snap: " + (editorTimeline != null && editorTimeline.isBeatSnapEnabled() ? "on" : "off"), "Overlay snap: " + (overlaySoftSnapEnabled ? "on" : "off"), "Global snap: " + (globalSnapEnabled ? "on" : "off")};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle("Snap settings").setItems(items, null).setPositiveButton("Toggle global", (d,w)-> toggleGlobalSnap()).setNegativeButton(android.R.string.cancel, null).show();
-    }
+
     // G15 helpers
     /**
      * Grows every transport control's HIT rectangle to fill the row, without resizing it.
@@ -19473,18 +19502,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
             });
         }).start();
     }
-    private void toggleOverlaySoftSnap() {
-        overlaySoftSnapEnabled = !overlaySoftSnapEnabled;
-        if (overlayLayer != null) overlayLayer.setSnapEnabled(overlaySoftSnapEnabled);
-        if (btnSoftSnap != null) {
-            btnSoftSnap.setTextColor(overlaySoftSnapEnabled ? STUDIO_ARMED : STUDIO_OFF);
-            btnSoftSnap.setAlpha(1f);
-        }
-        Toast.makeText(this,
-                overlaySoftSnapEnabled ? R.string.faditor_soft_snap_on : R.string.faditor_soft_snap_off,
-                Toast.LENGTH_SHORT).show();
-    }
-
     /**
      * Where a visualizer reads its audio from — a spine clip OR an audio-track clip.
      *

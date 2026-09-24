@@ -622,9 +622,10 @@ public class EditorTimelineView extends View {
         if (layerRowRenderer != null) {
             layerGestureController = new com.fadcam.ui.faditor.layers.LayerGestureController(
                     layerRowRenderer, cb != null ? cb : NOOP_GESTURE_CALLBACK);
-            // dragux_v3 A4: the ONE snap tunable — gentle ~8dp (≈1–2mm), was 48raw px.
+            // dragux_v3 A4: the ONE snap tunable — gentle ~8dp (≈1–2mm), was 48raw px. Scaled
+            // by the snap panel's Timeline edges setting (0 = off; see setClipSnapReach).
             layerGestureController.setSnapRadiusPx(
-                    8f * getResources().getDisplayMetrics().density);
+                    CLIP_SNAP_DP * clipSnapReach * getResources().getDisplayMetrics().density);
             // Layer-polish #7: the post-pickup move slop was a hardcoded 4 RAW px (~1.5dp
             // here, tighter on higher-DPI phones) — smaller than hold-jitter, so the
             // hold→release-in-place object menu opened only sometimes. dp-scale it to the
@@ -6633,6 +6634,19 @@ if (sd.clip.hasVolumeKeyframes()) {
     @NonNull public long[] getBeatMarkers() { return beatsMs; }
 
     public void setBeatSnapEnabled(boolean on) { beatSnapEnabled = on; }
+
+    private static final float CLIP_SNAP_DP = 8f;
+    /** SnapSettings.reach(TIMELINE_EDGES): 0 = off, else 0.5 / 1 / 2 times the tuned 8dp. */
+    private float clipSnapReach = 1f;
+
+    /** How far timeline edges reach for the playhead and each other; 0 turns it off. */
+    public void setClipSnapReach(float reach) {
+        clipSnapReach = Math.max(0f, reach);
+        if (layerGestureController != null) {
+            layerGestureController.setSnapRadiusPx(
+                    CLIP_SNAP_DP * clipSnapReach * getResources().getDisplayMetrics().density);
+        }
+    }
     public boolean isBeatSnapEnabled() { return beatSnapEnabled; }
 
     /**

@@ -1222,20 +1222,6 @@
                     android:orientation="horizontal"
                     android:gravity="center_vertical|start">
 
-                <TextView
-                    android:id="@+id/btn_soft_snap"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:gravity="center"
-                    android:fontFamily="@font/materialicons"
-                    android:text="magnet"
-                    android:textColor="@color/s_go"
-                    android:textSize="18sp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_marginStart="6dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Soft snap overlays" />
-
                 <!-- JoyRaptor 2026-07-19: the 3-state SELECT toggle promoted from the tool
                      bucket to the transport row, left of the ripple selector. Grey =
                      off, green = crossing, amber = window (same cycle as before). -->
@@ -1361,6 +1347,23 @@
                     android:minHeight="44dp"
                     android:orientation="horizontal"
                     android:gravity="center_vertical|end">
+
+                <!-- THE MAGNET: one switch for every snap in the Studio (JoyRaptor, 2026-09-24).
+                     A global control, so it lives with the global tools on the right; the
+                     timeline's own tools stay on the left. Tap = all snapping on/off; hold =
+                     the snap panel (tools/SnapSettings). -->
+                <!-- An ImageView: the icon font has no "magnet" glyph, so the old TextView drew
+                     nothing at all and the snap button had been invisible. -->
+                <ImageView
+                    android:id="@+id/btn_soft_snap"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:padding="5dp"
+                    android:src="@drawable/ic_magnet_24"
+                    android:tint="@color/s_go"
+                    android:layout_marginStart="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="@string/snap_magnet_desc" />
 
 
 

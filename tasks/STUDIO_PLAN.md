@@ -12,20 +12,30 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | 1 | Keyboard pops up when grabbing a text bar on the timeline (drawer follows selection → text drawer always raised the IME). Now: only a new box, a double-tap on the words, or a tap on the words raises it. | me | 🧪 e785916b |
 | 2 | Text span selection lost (transform surface ate in-box touches). Surface steps aside on the **Text tab only**; handles return on Transform/Effects/Lanes and on close. | me (review of text-repair pass) | 🧪 e785916b |
 | 3 | Text animation style doesn't refresh until tapping away. Adopted text-repair pass: keyboard down + playhead into the entrance so the pick is visible. Default granularity = per letter (model default; the staged ProjectStorage hunk makes old projects per-letter too — owner's ruling). | text lane → me | 🧪 e785916b (ProjectStorage hunk still staged, not mine) |
-| 4 | Bend: bent photo vanishes; bend dots hard to grab (a REGRESSION, not size — revert my 24dp); text no longer bends; text box desyncs from its handles on outside-drag. | helper agent | 🔨 |
-| 5 | Double-tap on a promoted clip lane: "tap to expand audio" collides with open-drawer. | me | ⏳ |
-| 6 | Captions: preview / icon / export disagree on top-vs-bottom and on in-front-of-images. Export truth → export lane; preview + icon → me. | export lane + me | 🔨 handed 2026-09-24 |
+| 4 | Bend: bent photo vanishes (stamp buffer never resized → fixed); dots didn't follow a keyframed picture (fixed; 24dp revert); text never had the bend seam (wired); pinch re-syncs text handles. | helper agent + me | 🧪 f284540d |
+| 5 | Promoted clip lane: "tap to expand audio" vs drawer. On device: tap selects, double-tap opens the Video overlay drawer (its header has the sound-strip toggle), ▾ collapses/expands the lane, 🔊 mutes. Need the owner to say which gesture he tried. | me | ❓ |
+| 6 | Captions: preview / icon / export disagree. Export was right; the preview's GPU path had Y unflipped and drew captions under images — fixed by the export lane (17cb9d25). Icon staleness → me. | export lane + me | 🧪 / ⏳ icon |
 
 ## P1 — the look (owner's direct asks)
 | # | What | Builds on | Status |
 |---|---|---|---|
-| 7 | Drawer see-through: 65% → **50%** default, plus a "Drawer see-through" slider in the Settings tool. One value feeds every drawer (token `s_drawer_scrim` is the default). | ObjectDrawer.Kit.DRAWER_FILL | ⏳ |
-| 8 | Frost (real blur, API 31+) as a **compact header toggle** like pass-through/lock — never a solid fill. | ObjectDrawer header toggles | ⏳ |
-| 9 | Row anatomy for every drawer row: `[icon] [title] [slider] [tap-to-type value] [◇ key]`. Icons: X/Y = double arrows, W = wide box, H = tall box, roundness = corner with dotted round/square, rotate, opacity… Done ONCE in PipDrawerTabs.propRow so every drawer inherits it. | PipDrawerTabs.propRow | ⏳ |
+| 7 | Drawer see-through: 65% → **50%** default, plus a "Drawer see-through" slider in the Settings tool; every drawer + transcript panel repaint live. | ObjectDrawer.Kit.drawerFill | ✅ f284540d |
+| 8 | Frost (real blur) as a **compact header toggle** like pass-through/lock — never a solid fill. Note: the old Frost never blurred anything. Real blur over live video = capture the video surface behind the drawer (PixelCopy/TextureView.getBitmap), downscale-blur, draw as the drawer background, ~15 fps. | ObjectDrawer header toggles | ⏳ |
+| 9 | Slider rows (only sliders — owner): `[icon] [title] [slider] [tap-to-type value] [◇ key]`, one key→icon map in PipDrawerTabs. Still to adopt it: AudioDrawerTabs, FxPanel, PuppetDrawerTabs, MaskKeyPanel, ColorGradePanel, AV-sync row. | PipDrawerTabs.propRow | ✅ 20ac05e6 (rest ⏳) |
 | 10 | Puppet (grey/colour man) toggle shows only when the selected object HAS puppet keys. | selection | ⏳ |
 | 11 | Sprite tape colour = SpriteLab pink gradient. | ObjectPalette.SPRITE | ⏳ |
 | 12 | AMOLED true black — already `s_ground #000000`; keep. | — | ✅ |
 | 13 | Export icon — another agent replaced it; owner approves. (Uncommitted `ic_export_studio.xml` in tree — that agent should commit it.) | — | ✅ owner-approved |
+
+## P1b — moving fast (owner, 2026-09-24)
+| # | What | Status |
+|---|---|---|
+| 18 | **Two fingers anywhere on the PREVIEW move/scale/rotate the SELECTED object** (not the timeline — two fingers there zoom/scroll it). First finger off the box is held 150ms; a second finger turns it into a pinch on the selection and cancels selecting the other object. Rotation dead-zone 7°. adb can't send two fingers: owner must test. | 🧪 needs owner |
+| 19 | **The magnet** (right of play): tap = all snapping on/off; hold = Snapping panel (master + Timeline edges / Beats / Canvas centre / Rotation, strength where honoured, rotation step 5/15/45/90°). One class: tools/SnapSettings. | ✅ |
+| 20 | Snap still to wire on the NEW transform surface: canvas centre/edges and **other objects** alignment guides (the old handles had them; the new tool doesn't), + strength for Beats/Canvas. Then add OBJECTS to the panel. | ⏳ |
+| 21 | **Linking / null objects** — design spec first (tasks/SPEC_20260924_LINKING.md): parent in space and/or time, nesting, a Null object with a pivot, a touch-friendly alternative to the pick whip, clear "linked to X · unlink" in drawer/timeline/preview, unlink one vs all, multi-select move. Spec agent was cut off by the usage limit — restart. | ⏳ |
+| 22 | Export UI from the export lane's hooks: queue (drop the "already running" early return, "Queue export" label, overlay BEFORE the snapshot write), **Range export** (Whole project / Range with in/out), **Draft (fast)** preset = 720p + low. | ⏳ |
+| 23 | MeshGlSource: a mirrored AND bent picture renders unmirrored (positions and UVs both flipped; likely `vUv = aUv`). Preview + export share it. | ⏳ |
 
 ## P2 — finish and prove
 | # | What | Status |

@@ -4469,10 +4469,25 @@ public class ExportManager {
 
     /**
      * Captions composited by {@link GlCaptionEffect} (same renderer pixels, tight boxes uploaded
-     * only on change) instead of blitted into the full-frame Canvas pass. OFF until proven on
-     * the Note 20 — the watcher APK reaches the owner's phone through other lanes too.
+     * only on change) instead of blitted into the full-frame Canvas pass. Proven on the Note 20
+     * 2026-09-24: captions pixel-identical to the Canvas pass; part 3 10:19 vs 15+ min Canvas.
      */
-    static final boolean GL_CAPTION_PASS = false;
+    static final boolean GL_CAPTION_PASS = true;
+
+    private static String runId(@NonNull Object o) {
+        return o instanceof TextOverlayItem ? ((TextOverlayItem) o).getId()
+                : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).getId();
+    }
+
+    private static long runStartMs(@NonNull Object o) {
+        return o instanceof TextOverlayItem ? ((TextOverlayItem) o).getStartMs()
+                : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).getStartMs();
+    }
+
+    private static long runEndMs(@NonNull Object o) {
+        return o instanceof TextOverlayItem ? ((TextOverlayItem) o).getEndMs()
+                : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).getEndMs();
+    }
 
     /** The ONE export routing question: does this overlay leave the Canvas for a GL pass? */
     static boolean exportGlRouted(@NonNull TextOverlayItem o) {
@@ -5852,6 +5867,61 @@ public class ExportManager {
                     Integer ia = zRun.get(ida), ib = zRun.get(idb);
                     return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
                 });
+                // FEWEST PASSES THAT KEEP THE ORDER. Order between a text and an image only
+                // matters while both are on screen. A text above every image it shares time
+                // with rides the final pass; below all of them, one bottom pass; only a text
+                // with images both above AND below it at the same time needs the full
+                // alternation below. Strict alternation over the whole project cost the Note 20
+                // 3:32 -> 6:38 on part 1 (31% full-frame clears, 36% extra GPU passes).
+                java.util.List<Object> glSeq = new ArrayList<>();
+                java.util.List<Object> canvasSeq = new ArrayList<>();
+                for (Object o : runItems) {
+                    boolean img = o instanceof TextOverlayItem && ((TextOverlayItem) o).isImage();
+                    boolean glSp = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
+                            && ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).wantsGl();
+                    (img || glSp ? glSeq : canvasSeq).add(o);
+                }
+                boolean sandwiched = false;
+                java.util.List<TextOverlayItem> bottomTexts = new ArrayList<>();
+                java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> bottomSprites =
+                        new ArrayList<>();
+                java.util.List<TextOverlayItem> topTexts = new ArrayList<>();
+                java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> topSprites =
+                        new ArrayList<>();
+                for (Object c : canvasSeq) {
+                    long cs = runStartMs(c), ce = runEndMs(c);
+                    Integer zc = zRun.get(runId(c));
+                    int zcv = zc == null ? 0 : zc;
+                    boolean imgAbove = false, imgBelow = false;
+                    for (Object g : glSeq) {
+                        if (runStartMs(g) >= ce || runEndMs(g) <= cs) continue;  // never together
+                        Integer zg = zRun.get(runId(g));
+                        if ((zg == null ? 0 : zg) > zcv) imgAbove = true; else imgBelow = true;
+                    }
+                    if (imgAbove && imgBelow) { sandwiched = true; break; }
+                    boolean top = !imgAbove;
+                    if (c instanceof TextOverlayItem) {
+                        (top ? topTexts : bottomTexts).add((TextOverlayItem) c);
+                    } else {
+                        (top ? topSprites : bottomSprites)
+                                .add((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) c);
+                    }
+                }
+                if (!sandwiched) {
+                    if (!bottomTexts.isEmpty() || !bottomSprites.isEmpty()) {
+                        CompositeExportOverlay bottom = new CompositeExportOverlay(
+                                context, timelineCursorMs, clip, overlayW, overlayH,
+                                bottomTexts, Collections.emptyList(),
+                                project.getTimeline().getAudioClips(), bottomSprites,
+                                project.getSpriteSheets(), project.getAvatarRigs(),
+                                project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                isLoopBeforeItem ? 0L
+                                        : headTransitionMsFor(project.getTimeline(), clip));
+                        bottom.setCaptionsViaGl(true);   // captions belong to the final pass
+                        videoEffects.add(new OverlayEffect(Collections.singletonList(bottom)));
+                    }
+                    runItems = glSeq;   // the loop below now emits only the GPU run(s)
+                }
                 java.util.List<TextOverlayItem> imgRun = new ArrayList<>();
                 java.util.List<TextOverlayItem> txtRun = new ArrayList<>();
                 java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sprRun =
@@ -5908,8 +5978,13 @@ public class ExportManager {
                     videoEffects.add(new GlImageOverlayEffect(context, imgRun,
                             project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
                 }
-                exportTextOverlays = txtRun;     // the top run rides the final pass
-                exportSpriteItems = sprRun;
+                if (sandwiched) {
+                    exportTextOverlays = txtRun;     // the top run rides the final pass
+                    exportSpriteItems = sprRun;
+                } else {
+                    exportTextOverlays = topTexts;
+                    exportSpriteItems = topSprites;
+                }
             } else {
                 for (Object o : glOverlaysBottomTop) {
                     if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {

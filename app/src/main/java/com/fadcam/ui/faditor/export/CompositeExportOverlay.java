@@ -566,6 +566,19 @@ public class CompositeExportOverlay extends BitmapOverlay {
         return out;
     }
 
+    /** True when no item of this pass can draw at this editor time (cheap time checks only). */
+    private boolean nothingToDrawAt(long timelineMs) {
+        if (!waveformSlots.isEmpty()) return false;
+        if (!captionsViaGl && hasCaptions()) return false;
+        for (TextOverlayItem o : textOverlays) {
+            if (o.isVisibleAt(timelineMs)) return false;
+        }
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : spriteItems) {
+            if (o.isVisibleAt(timelineMs)) return false;
+        }
+        return true;
+    }
+
     // ── Captions, shared by the Canvas pass and the GL caption pass ─────────────────────
     private boolean captionsViaGl = false;
     private final java.util.List<CaptionExportRenderer> captionFrame = new ArrayList<>();
@@ -702,6 +715,21 @@ public class CompositeExportOverlay extends BitmapOverlay {
         // "first frame uploads, all others render the first frame" symptom the
         // user reported. Bounded: ~8 MB per frame for 1080p, freed by GC.
 
+        // NOTHING ON SCREEN FROM THIS PASS -> the shared empty frame, before the full-frame
+        // clear (measured 31% of the Note 20's frame time with several text passes per clip).
+        if (nothingToDrawAt(presentationTimeUs / 1000 + editorTimeOffsetMs)) {
+            if (emptyBitmap == null || emptyBitmap.isRecycled()
+                    || emptyBitmap.getWidth() != bitmap.getWidth()
+                    || emptyBitmap.getHeight() != bitmap.getHeight()) {
+                if (emptyBitmap != null && !emptyBitmap.isRecycled()) emptyBitmap.recycle();
+                emptyBitmap = Bitmap.createBitmap(bitmap.getWidth(), bitmap.getHeight(),
+                        Bitmap.Config.ARGB_8888);
+            }
+            emptyFrames++;
+            costFrames++;
+            costDrawNanos += System.nanoTime() - drawStartNs;
+            return emptyBitmap;
+        }
         canvas.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
 
         // Media3 Transformer passes presentationTimeUs as absolute timeline time across the whole

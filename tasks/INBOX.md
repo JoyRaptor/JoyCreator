@@ -1,5 +1,30 @@
 # INBOX
 
+## 2026-09-24 — from the Studio lead: owner's ideas OUTSIDE the Studio (pick these up)
+
+Filed so they don't go stale. The Studio plan is tasks/STUDIO_PLAN.md; these are not in it.
+
+1. **Getting images in, three ways, zero file management for the user.** (a) Generate with AI
+   through OpenRouter (the owner's key, BYOK — see grok-4.6_REPORT_20260908_AI_INTEGRATION_BYOK_PLUGINS.md);
+   (b) paste from the clipboard (from anywhere, incl. other parts of the app); (c) Android
+   "Share to Joy Creator". Every route lands the file in the right place automatically — the
+   open project's folder, or the general asset library — and it just shows up. The Studio
+   only needs one entry point ("Add image" → Generate / Paste / Files); the plumbing
+   (downloads, naming, folders, library index) is this item.
+2. **App-wide facelift, keeping every FadCam feature.** Lobby ≈80% look / 60% function; Studio
+   in progress (Studio lead); SpriteLab nearly done; the rest of the app is untouched. Plan
+   the whole app's navigation at a high level so moving between features is easy. Reuse
+   tasks/NAV_PLAN.md / NAV_SPEC.md (owner: take them with a grain of salt) and the design
+   records in tasks/design/ (UI-JoyCreator-grand-design.html, UI-The-Marquee…, UI-The-swatch-room_pill.html).
+3. **Navigation without the old nav bar.** The lobby's nav bar is being replaced, so every
+   FadCam screen needs a new way in: recording (the home screen's recording info → its full
+   settings screen), the storage "radio" widget (gone — bring it back, re-themed), and every
+   settings sub-screen. Nothing FadCam had may be lost; it all gets Joy Creator branding so
+   none of it looks like FadCam's.
+4. **Export queue + instant feedback** — handed to the export lane 2026-09-24 (confirm button
+   becomes "Queue export" with a small warning while one runs; immediate "Preparing…" so a
+   press never looks ignored).
+
 ## 2026-09-16 — the grab bar was never broken, and what that should teach us
 
 JoyRaptor: *"my ability to adjust the size of the timeline to preview ratio has been broken... I

@@ -63,6 +63,26 @@ is the whole point of it. If an idea arrives, it goes to INBOX.md.
 | 1.6 | Rewrite README and PRIVACY | They describe FadCam today and would be false about the AI |
 | 1.7 | Privacy policy hosted at a public URL | Required before you can submit |
 | 1.8 | Rewrite the "verify you are a human" screen | Currently written for a covert recorder |
+| 1.9 | **Export: long projects finish in one tap, fast** (owner, 2026-09-23) | The 48-min lecture exported end to end for the first time today. Speed stages below. |
+
+### Export speed roadmap — added by JoyRaptor 2026-09-23 ("our export road map")
+
+Measured on the Note 20 at 1080p. Hardware ceilings (app_process MediaCodec bench): H.264 encode
+416 fps (13.9x realtime), 720p 723 fps (24x); decode of the screen recording ~300 fps (~10x).
+Encode and decode share the video chip, so a GPU-only 1080p pipeline tops out around 7-9x.
+Every export writes GL_SAMPLE lines to its trace saying where the frame time went — use them.
+Detail and history: tasks/todo.md "NEXT: export speed".
+
+| Stage | What | Expected | Status |
+|---|---|---|---|
+| 0 | Wake lock + keep the export screen on | 0.25x -> 1x | DONE (2d82f102, 4858cae4) |
+| 0b | Image overlays on the GPU with the preview's own code (PipGl, pipForModel) | -> 1.5x, preview parity for images | DONE (da854f68) |
+| 1 | Captions on the GPU: tight box, re-raster only when the word changes (GlCaptionEffect) | -> ~3x | BUILT, gated off (GL_CAPTION_PASS) — needs one device test |
+| 2 | One GPU pass per frame: fold crop, resize, images and captions into a single compositor like the preview's (today 6-9 full-frame passes) | -> ~5-6x | next after 4 |
+| 3 | Two parts in parallel (the video chip runs several codec sessions) | -> ~7-9x (the chip's ceiling) | after 2 |
+| 4 | **Smart re-export (render cache) + RANGE EXPORT** — key each part on ITS OWN content, cut parts at any time (not just clip seams), reuse every unchanged part. A range export is then "render the parts that cover the range" | a one-mask edit re-exports in minutes, not ~35; a range of already-rendered minutes is near-instant | next after Stage 1 — owner's pick for range export (see INBOX 2026-09-21) |
+| 5 | Straight-copy stretches with no overlays/captions/effects (no re-encode) | ~50x on those stretches | later |
+| 6 | Fast 720p draft preset | ~15-20x | later |
 
 ## Lane 2 — The foundation that gets expensive after users arrive
 

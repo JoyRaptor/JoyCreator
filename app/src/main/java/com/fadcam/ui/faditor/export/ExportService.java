@@ -71,6 +71,13 @@ public class ExportService extends Service {
     public static final String ACTION_EXPORT_CANCELLED = "com.fadcam.EXPORT_CANCELLED";
     /** FIX-6: the muxer finished; the finalize phase (loudness/SAF) is running. */
     public static final String ACTION_EXPORT_FINALIZING = "com.fadcam.EXPORT_FINALIZING";
+    /**
+     * An export was asked for while another runs: it waits and starts on its own when the
+     * running one ends (JoyRaptor, 2026-09-24: pressing export mid-export should "Queue
+     * export"). Carries {@link #EXTRA_QUEUE_SIZE}. Cancel stops the running export AND the queue.
+     */
+    public static final String ACTION_EXPORT_QUEUED = "com.fadcam.EXPORT_QUEUED";
+    public static final String EXTRA_QUEUE_SIZE = "queue_size";
 
     public static final String EXTRA_OUTPUT_PATH = "output_path";
     public static final String EXTRA_PROGRESS = "progress";
@@ -124,6 +131,27 @@ public class ExportService extends Service {
     @Nullable
     private NotificationManager notificationManager;
     private boolean isExporting = false;
+
+    /** An export waiting for the running one; its snapshot is already read (edit-immune). */
+    private static final class QueuedExport {
+        final FaditorProject project;
+        final boolean audioOnly;
+        @Nullable final String loudnessTargetName;
+        @Nullable final Long frameTimeMs;
+        final boolean frameJpeg;
+
+        QueuedExport(@NonNull FaditorProject project, boolean audioOnly,
+                     @Nullable String loudnessTargetName, @Nullable Long frameTimeMs,
+                     boolean frameJpeg) {
+            this.project = project;
+            this.audioOnly = audioOnly;
+            this.loudnessTargetName = loudnessTargetName;
+            this.frameTimeMs = frameTimeMs;
+            this.frameJpeg = frameJpeg;
+        }
+    }
+
+    private final java.util.ArrayDeque<QueuedExport> queue = new java.util.ArrayDeque<>();
     private long exportStartTimeMs;
 
     /**
@@ -327,17 +355,32 @@ public class ExportService extends Service {
             Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
             broadcast.putExtra(EXTRA_ERROR_MESSAGE, "Export could not read the project snapshot");
             sendExportBroadcast(broadcast);
-            stopSelf();
+            // Never stop the service under an export that is still running (onDestroy
+            // cancels it): only a bad SECOND request arrives while one runs.
+            if (!isExporting && queue.isEmpty()) stopSelf();
             return;
         }
         FLog.d(TAG, "Export snapshot loaded from " + snapshotPath
                 + " — concurrent edits cannot affect this export");
 
         if (isExporting) {
-            FLog.w(TAG, "Export already in progress");
+            // Was: "already in progress" and the request (its snapshot already deleted above)
+            // silently vanished. Now it waits its turn.
+            queue.add(new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
+                    frameJpeg));
+            FLog.i(TAG, "Export queued behind the running one (" + queue.size() + " waiting)");
+            Intent queued = new Intent(ACTION_EXPORT_QUEUED);
+            queued.putExtra(EXTRA_QUEUE_SIZE, queue.size());
+            sendExportBroadcast(queued);
             return;
         }
+        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg);
+    }
 
+    /** Start {@code project} now (nothing else is running). */
+    private void startExportForProject(@NonNull FaditorProject project, boolean audioOnly,
+                                       @Nullable String loudnessTargetName,
+                                       @Nullable Long frameTimeMs, boolean frameJpeg) {
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
 
@@ -455,7 +498,7 @@ public class ExportService extends Service {
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
                 broadcast.putExtra(EXTRA_AUDIO_ONLY, audioOnly);
                 sendExportBroadcast(broadcast);
-                stopSelf();
+                finishOrRunNext();
             }
 
             @Override
@@ -472,7 +515,7 @@ public class ExportService extends Service {
                 broadcast.putExtra(EXTRA_ERROR_MESSAGE, error.getMessage());
                 broadcast.putExtra(EXTRA_ERROR_CLASS, error.getClass().getName());
                 sendExportBroadcast(broadcast);
-                stopSelf();
+                finishOrRunNext();
             }
         });
 
@@ -614,7 +657,7 @@ public class ExportService extends Service {
                     broadcast.putExtra(EXTRA_ERROR_CLASS,
                             ExportManager.WindowProbeFailure.class.getName());
                     sendExportBroadcast(broadcast);
-                    stopSelf();
+                    finishOrRunNext();
                     return;
                 }
                 if (!failed.isEmpty()) {
@@ -631,7 +674,7 @@ public class ExportService extends Service {
                     broadcast.putExtra(EXTRA_ERROR_CLASS,
                             java.io.IOException.class.getName());
                     sendExportBroadcast(broadcast);
-                    stopSelf();
+                    finishOrRunNext();
                     return;
                 }
                 if (exportManager != null) {
@@ -784,9 +827,35 @@ public class ExportService extends Service {
     }
 
     /**
-     * Cancel the running export.
+     * The running export has ended (done or failed): start the next queued one, or stop.
+     * Posted, so the finished export's callbacks unwind before the next one takes the fields.
+     */
+    private void finishOrRunNext() {
+        final QueuedExport next = queue.poll();
+        if (next == null) {
+            stopSelf();
+            return;
+        }
+        FLog.i(TAG, "Starting the next queued export (" + queue.size() + " still waiting)");
+        new Handler(Looper.getMainLooper()).post(() -> {
+            if (isExporting) {   // something else started meanwhile: keep it waiting
+                queue.addFirst(next);
+                return;
+            }
+            startExportForProject(next.project, next.audioOnly, next.loudnessTargetName,
+                    next.frameTimeMs, next.frameJpeg);
+        });
+    }
+
+    /**
+     * Cancel the running export, and everything queued behind it — cancel means "give me my
+     * phone back", not "skip to the next one".
      */
     public void cancelExport() {
+        if (!queue.isEmpty()) {
+            FLog.i(TAG, "Cancel also drops " + queue.size() + " queued export(s)");
+            queue.clear();
+        }
         terminal = true;
         if (exportManager != null && exportManager.isExporting()) {
             exportManager.cancel();

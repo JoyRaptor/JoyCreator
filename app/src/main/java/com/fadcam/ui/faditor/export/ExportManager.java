@@ -5640,7 +5640,7 @@ public class ExportManager {
             // blow 16.6ms), but the export can raster them correctly here — that divergence
             // is documented as a preview-only gap, so the file is correct even when the preview
             // shows the animated text over the blend.
-            {
+            if (!GL_IMAGE_PASS) {   // GL mode interleaves by lane z below instead
                 java.util.List<TextOverlayItem> allGlImages = new java.util.ArrayList<>();
                 for (LayerPreviewController.VisualItem vv : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
                     TextOverlayItem oo = vv.item.getTextOverlay();
@@ -5825,40 +5825,106 @@ public class ExportManager {
                 Integer ia = overlayZById.get(ida), ib = overlayZById.get(idb);
                 return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
             });
-            // Consecutive unbent images share ONE GPU pass (GlImageOverlayEffect) - the preview's
-            // own placement and shader, and no pass at all for an image that is off screen.
-            java.util.List<com.fadcam.ui.faditor.model.TextOverlayItem> glRun = new ArrayList<>();
-            for (Object o : glOverlaysBottomTop) {
-                boolean batchable = GL_IMAGE_PASS
-                        && o instanceof com.fadcam.ui.faditor.model.TextOverlayItem
-                        && ((com.fadcam.ui.faditor.model.TextOverlayItem) o).isImage()
-                        && !((com.fadcam.ui.faditor.model.TextOverlayItem) o).hasMesh();
-                if (batchable) {
-                    glRun.add((com.fadcam.ui.faditor.model.TextOverlayItem) o);
-                    continue;
+            if (GL_IMAGE_PASS) {
+                // LAYER ORDER IS PAINT ORDER. Every image composites on the GPU now, so the
+                // chain alternates by lane z: a run of images -> one GlImageOverlayEffect, a run
+                // of texts/sprites -> one Canvas pass, bottom to top. The old "text below a GL
+                // image" rule promoted every text below the HIGHEST image anywhere in the project
+                // to a pass under ALL images - with images in every lane, full-frame background
+                // pictures then covered nearly every text box (JoyRaptor, 2026-09-23 export:
+                // "all the text layers are not rendering"). The last Canvas run is left for the
+                // final pass below, which also carries captions and waveforms.
+                final java.util.Map<String, Integer> zRun = overlayZById;
+                java.util.List<Object> runItems = new ArrayList<>();
+                for (TextOverlayItem o : exportTextOverlays) {
+                    if (o.isHidden()) continue;
+                    if (o.hasActiveFx() && !o.isImage()) continue;   // TextFxGlEffect, above
+                    runItems.add(o);
                 }
-                if (!glRun.isEmpty()) {
-                    videoEffects.add(new GlImageOverlayEffect(context, glRun,
-                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
-                    glRun = new ArrayList<>();
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : exportSpriteItems) {
+                    if (!sp.isHidden()) runItems.add(sp);
                 }
-                if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
-                    com.fadcam.ui.faditor.model.TextOverlayItem to =
-                            (com.fadcam.ui.faditor.model.TextOverlayItem) o;
-                    videoEffects.add(new ImageBlendGlEffect(context, to,
-                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
-                } else {
-                    com.fadcam.ui.faditor.sprite.SpriteOverlayItem s =
-                            (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o;
-                    if (s.isHidden()) continue;
-                    videoEffects.add(new SpriteBlendGlEffect(context, s,
-                            project.getSpriteSheets(), project.getAvatarRigs(),
+                runItems.sort((a, b) -> {
+                    String ida = (a instanceof TextOverlayItem) ? ((TextOverlayItem) a).getId()
+                            : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) a).getId();
+                    String idb = (b instanceof TextOverlayItem) ? ((TextOverlayItem) b).getId()
+                            : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) b).getId();
+                    Integer ia = zRun.get(ida), ib = zRun.get(idb);
+                    return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
+                });
+                java.util.List<TextOverlayItem> imgRun = new ArrayList<>();
+                java.util.List<TextOverlayItem> txtRun = new ArrayList<>();
+                java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sprRun =
+                        new ArrayList<>();
+                for (Object o : runItems) {
+                    boolean image = o instanceof TextOverlayItem && ((TextOverlayItem) o).isImage();
+                    boolean glSprite = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
+                            && ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).wantsGl();
+                    if (image || glSprite) {
+                        if (!txtRun.isEmpty() || !sprRun.isEmpty()) {
+                            CompositeExportOverlay run = new CompositeExportOverlay(
+                                    context, timelineCursorMs, clip, overlayW, overlayH,
+                                    txtRun, Collections.emptyList(),
+                                    project.getTimeline().getAudioClips(), sprRun,
+                                    project.getSpriteSheets(), project.getAvatarRigs(),
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                    isLoopBeforeItem ? 0L
+                                            : headTransitionMsFor(project.getTimeline(), clip));
+                            run.setCaptionsViaGl(true);   // captions belong to the final pass only
+                            videoEffects.add(new OverlayEffect(Collections.singletonList(run)));
+                            txtRun = new ArrayList<>();
+                            sprRun = new ArrayList<>();
+                        }
+                        TextOverlayItem im = image ? (TextOverlayItem) o : null;
+                        if (im != null && !im.hasMesh()) {
+                            imgRun.add(im);
+                            continue;
+                        }
+                        if (!imgRun.isEmpty()) {
+                            videoEffects.add(new GlImageOverlayEffect(context, imgRun,
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                            imgRun = new ArrayList<>();
+                        }
+                        if (im != null) {
+                            videoEffects.add(new ImageBlendGlEffect(context, im,
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                        } else {
+                            videoEffects.add(new SpriteBlendGlEffect(context,
+                                    (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
+                                    project.getSpriteSheets(), project.getAvatarRigs(),
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                        }
+                    } else {
+                        if (!imgRun.isEmpty()) {
+                            videoEffects.add(new GlImageOverlayEffect(context, imgRun,
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                            imgRun = new ArrayList<>();
+                        }
+                        if (o instanceof TextOverlayItem) txtRun.add((TextOverlayItem) o);
+                        else sprRun.add((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o);
+                    }
+                }
+                if (!imgRun.isEmpty()) {
+                    videoEffects.add(new GlImageOverlayEffect(context, imgRun,
                             project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
                 }
-            }
-            if (!glRun.isEmpty()) {
-                videoEffects.add(new GlImageOverlayEffect(context, glRun,
-                        project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                exportTextOverlays = txtRun;     // the top run rides the final pass
+                exportSpriteItems = sprRun;
+            } else {
+                for (Object o : glOverlaysBottomTop) {
+                    if (o instanceof com.fadcam.ui.faditor.model.TextOverlayItem) {
+                        videoEffects.add(new ImageBlendGlEffect(context,
+                                (com.fadcam.ui.faditor.model.TextOverlayItem) o,
+                                project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                    } else {
+                        com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp =
+                                (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o;
+                        if (sp.isHidden()) continue;
+                        videoEffects.add(new SpriteBlendGlEffect(context, sp,
+                                project.getSpriteSheets(), project.getAvatarRigs(),
+                                project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                    }
+                }
             }
 
             // ── Adjustment layers (SPEC_ADJUSTMENT_LAYERS_FX M4) ───────────────────────────

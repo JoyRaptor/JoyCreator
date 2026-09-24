@@ -26,10 +26,6 @@ public class ExportDebugActivity extends Activity {
 
     private static final String TAG = "ExportDebug";
 
-    /** Extra "stay": remain visible (over the lock screen, screen on) bound to the export. */
-    private android.content.ServiceConnection binding;
-    private android.content.BroadcastReceiver doneReceiver;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -38,45 +34,7 @@ public class ExportDebugActivity extends Activity {
         } catch (Exception e) {
             FLog.e(TAG, "debug export failed to start", e);
         }
-        if (!getIntent().getBooleanExtra("stay", false)) {
-            finish();
-            return;
-        }
-        // Experiment for the cpuset question: does a VISIBLE screen bound to the service keep
-        // the :export process off Samsung's little-core-only group?
-        if (Build.VERSION.SDK_INT >= 27) {
-            setShowWhenLocked(true);
-            setTurnScreenOn(true);
-        }
-        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        binding = ExportService.bindWhileVisible(this);
-        FLog.i(TAG, "staying visible, bound=" + (binding != null));
-        doneReceiver = new android.content.BroadcastReceiver() {
-            @Override
-            public void onReceive(android.content.Context c, Intent i) {
-                finish();
-            }
-        };
-        android.content.IntentFilter f = new android.content.IntentFilter();
-        f.addAction(ExportService.ACTION_EXPORT_COMPLETED);
-        f.addAction(ExportService.ACTION_EXPORT_ERROR);
-        f.addAction(ExportService.ACTION_EXPORT_CANCELLED);
-        if (Build.VERSION.SDK_INT >= 33) {
-            registerReceiver(doneReceiver, f, RECEIVER_NOT_EXPORTED);
-        } else {
-            registerReceiver(doneReceiver, f);
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-        if (binding != null) {
-            try { unbindService(binding); } catch (Exception ignored) { }
-        }
-        if (doneReceiver != null) {
-            try { unregisterReceiver(doneReceiver); } catch (Exception ignored) { }
-        }
-        super.onDestroy();
+        finish();
     }
 
     private void start(Intent in) throws Exception {

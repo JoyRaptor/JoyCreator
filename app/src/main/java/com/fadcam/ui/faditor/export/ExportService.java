@@ -304,36 +304,9 @@ public class ExportService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) {
-        // State still flows via package-scoped broadcasts + the foreground notification (see
-        // class doc). The binder carries nothing: binding exists so a VISIBLE screen can hold
-        // this process at its own priority (Context.BIND_IMPORTANT). Measured 2026-09-24:
-        // unbound, Samsung demotes the :export process to the /abnormal cpuset (little cores
-        // only) ~90 s after the phone locks. See bindWhileVisible.
-        return new android.os.Binder();
-    }
-
-    /**
-     * Hold a running export at the caller's priority while the caller is visible: call from
-     * onStart, and unbind the returned connection in onStop. Binds only to a service that is
-     * already running (no auto-create). Returns null if the bind was refused.
-     */
-    @Nullable
-    public static android.content.ServiceConnection bindWhileVisible(@NonNull Context context) {
-        android.content.ServiceConnection conn = new android.content.ServiceConnection() {
-            @Override
-            public void onServiceConnected(android.content.ComponentName n, IBinder b) { }
-
-            @Override
-            public void onServiceDisconnected(android.content.ComponentName n) { }
-        };
-        try {
-            boolean ok = context.bindService(new Intent(context, ExportService.class), conn,
-                    Context.BIND_IMPORTANT | Context.BIND_ABOVE_CLIENT);
-            return ok ? conn : null;
-        } catch (Exception e) {
-            FLog.w(TAG, "bindWhileVisible refused", e);
-            return null;
-        }
+        // No binding: the service runs in its own process and all state flows via
+        // package-scoped broadcasts + the foreground notification (see class doc).
+        return null;
     }
 
     @Override

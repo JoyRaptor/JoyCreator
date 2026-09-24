@@ -112,6 +112,21 @@ public class WaveformExtractor {
         executor.shutdownNow();
     }
 
+    /**
+     * As {@link #extract(Uri, int)}, through the SAME disk cache the async path keeps. Export
+     * used the uncached call, so every export re-analysed a whole source - more than 12 minutes
+     * for a 48-minute lecture's spectrum on the Note 20 (2026-09-24). Call off the main thread.
+     */
+    @NonNull
+    public WaveformData extractCached(@NonNull Uri uri, int bands) throws Exception {
+        int b = Math.max(1, bands);
+        WaveformData cached = readCache(uri, b, 0L, FULL_END, BUCKETS_PER_SEC, true);
+        if (cached != null) return cached;
+        WaveformData data = extract(uri, b, 0L, FULL_END, BUCKETS_PER_SEC, true, null);
+        writeCache(uri, b, 0L, FULL_END, BUCKETS_PER_SEC, true, data);
+        return data;
+    }
+
     /** Synchronous extraction of the full source. Call off the main thread. */
     @NonNull
     public WaveformData extract(@NonNull Uri uri, int bands) throws Exception {

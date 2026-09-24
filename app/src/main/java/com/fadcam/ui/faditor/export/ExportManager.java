@@ -1769,6 +1769,7 @@ public class ExportManager {
         ChunkRun run = new ChunkRun(project, finalOutputPath, manifest, ranges);
         if (rangeStartMs >= 0 && rangeEndMs > rangeStartMs) run.limitTo(rangeStartMs, rangeEndMs);
         chunkRun = run;
+        startWaveformAnalysis(run);
         chunkWorkers.clear();
         String audioPath = manifest.optString("audioFile", "");
         if (manifest.optBoolean("audioDone", false) && !audioPath.isEmpty()
@@ -1813,6 +1814,10 @@ public class ExportManager {
         int soundState = 0;
         boolean soundRetried = false;
         boolean joining = false;
+        /** Visualizer analysis for the rendered parts is in (or there is none). */
+        boolean waveformsReady = true;
+        /** Parts that show a visualizer, held until its analysis is in. */
+        final java.util.ArrayDeque<Integer> waitingForWaveforms = new java.util.ArrayDeque<>();
         @Nullable ExportManager soundWorker;
 
         /** Parts this run renders and joins (all of them, unless it is a range export). */
@@ -1937,11 +1942,16 @@ public class ExportManager {
             }
             if (!run.needed[i]) continue;   // outside the exported range
             if (partReusable(run, i)) continue;
+            if (!run.waveformsReady && partShowsVisualizer(run, i)) {
+                run.waitingForWaveforms.add(i);   // other parts render meanwhile
+                continue;
+            }
             startPart(run, i);
             if (run != chunkRun || !isExporting) return;   // failed synchronously
         }
         reportChunkProgress(run);
-        boolean videoDone = run.active == 0 && run.retry.isEmpty() && run.next >= run.n;
+        boolean videoDone = run.active == 0 && run.retry.isEmpty() && run.next >= run.n
+                && run.waitingForWaveforms.isEmpty();
         if (!videoDone) return;
         if (run.soundState == 2) {
             run.joining = true;
@@ -1962,6 +1972,64 @@ public class ExportManager {
                     CHUNK_VIDEO_FRAC, CHUNK_AUDIO_FRAC, "Sound"));
             listener.onChunkPhase("Sound");
         }
+    }
+
+    /**
+     * VISUALIZERS OFF THE MAIN THREAD (2026-09-24). A waveform/spectrum visualizer needs its
+     * source analysed; for the 48-min lecture that took 12+ minutes, and on the main thread it
+     * froze every part (their progress, completion and scheduling all live there). It now runs
+     * on its own thread, through the editor's disk cache, for the visualizers the rendered
+     * parts show; parts that show one wait for it, all others render meanwhile.
+     */
+    private void startWaveformAnalysis(@NonNull ChunkRun run) {
+        Timeline tl = run.project.getTimeline();
+        if (!tl.hasWaveformOverlays() || chunkEditorBases == null || chunkEditorDurs == null) {
+            return;
+        }
+        boolean any = false;
+        long from = Long.MAX_VALUE, to = Long.MIN_VALUE;
+        for (int i = 0; i < run.n; i++) {
+            if (!run.needed[i] || !partShowsVisualizer(run, i)) continue;
+            any = true;
+            from = Math.min(from, chunkEditorBases[i] - 10_000L);
+            to = Math.max(to, chunkEditorBases[i] + chunkEditorDurs[i] + 10_000L);
+        }
+        if (!any) return;
+        run.waveformsReady = false;
+        final long f = from, t = to;
+        trace("WAVEFORM analysis started (background) for " + (f / 1000) + ".." + (t / 1000) + " s");
+        final long t0 = System.currentTimeMillis();
+        new Thread(() -> {
+            Map<String, WaveformData> m = new HashMap<>();
+            try {
+                m = preloadWaveformData(tl, m, f, t);
+            } catch (Throwable e) {
+                FLog.w(TAG, "visualizer analysis failed; those parts draw without data", e);
+            }
+            final Map<String, WaveformData> done = m;
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                trace("WAVEFORM analysis done in " + (System.currentTimeMillis() - t0) / 1000
+                        + " s (" + done.size() + " source(s))");
+                sharedWaveformCache = done;
+                run.waveformsReady = true;
+                while (!run.waitingForWaveforms.isEmpty()) {
+                    run.retry.addLast(run.waitingForWaveforms.pollFirst());
+                }
+                pumpChunks(run);
+            });
+        }, "faditor-waveform-analysis").start();
+    }
+
+    /** Does a visible visualizer's span meet part i's editor window (padded)? */
+    private boolean partShowsVisualizer(@NonNull ChunkRun run, int i) {
+        if (chunkEditorBases == null || chunkEditorDurs == null) return true;
+        long a = chunkEditorBases[i] - 10_000L;
+        long b = chunkEditorBases[i] + chunkEditorDurs[i] + 10_000L;
+        for (WaveformOverlayInstance woi
+                : LayerPreviewController.visibleWaveformOverlays(run.project.getTimeline())) {
+            if (woi.getEndMs() >= a && woi.getStartMs() <= b) return true;
+        }
+        return false;
     }
 
     /** A part whose keyed file already exists (render cache / resume) is not rendered again. */
@@ -4834,6 +4902,13 @@ public class ExportManager {
     @NonNull
     private Map<String, WaveformData> preloadWaveformData(@NonNull Timeline timeline,
                                                           @NonNull Map<String, WaveformData> cache) {
+        return preloadWaveformData(timeline, cache, Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    /** Visualizers whose span meets editor [from, to] only (the parts being rendered). */
+    private Map<String, WaveformData> preloadWaveformData(@NonNull Timeline timeline,
+                                                          @NonNull Map<String, WaveformData> cache,
+                                                          long from, long to) {
         FLog.d(TAG, "preloadWaveformData: waveformOverlayCount="
                 + timeline.getWaveformOverlays().size()
                 + " hasAny=" + timeline.hasWaveformOverlays());
@@ -4841,8 +4916,8 @@ public class ExportManager {
         WaveformExtractor extractor = new WaveformExtractor(context);
         // A part of a chunked export analyses only the visualizers on screen during it (editor
         // time, padded): the analysis decodes a whole source, minutes for a long lecture.
-        long partFrom = Long.MIN_VALUE, partTo = Long.MAX_VALUE;
-        if (chunkClipEnd >= 0) {
+        long partFrom = from, partTo = to;
+        if (chunkClipEnd >= 0 && from == Long.MIN_VALUE && to == Long.MAX_VALUE) {
             long ed = 0L;
             for (int i = 0; i < chunkClipStart && i < timeline.getClipCount(); i++) {
                 ed += timeline.getClip(i).getVisualDurationMs();
@@ -4870,7 +4945,7 @@ public class ExportManager {
             String key = uri.toString();
             if (cache.containsKey(key)) continue;
             try {
-                WaveformData data = extractor.extract(uri, 64);
+                WaveformData data = extractor.extractCached(uri, 64);
                 if (data != null) {
                     cache.put(key, data);
                     FLog.d(TAG, "preloadWaveformData: extracted " + data.amplitudes.length

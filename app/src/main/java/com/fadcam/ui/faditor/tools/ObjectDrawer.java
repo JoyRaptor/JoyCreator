@@ -201,8 +201,12 @@ public final class ObjectDrawer extends LinearLayout {
 
     private int activeTab = 0;
 
-    /** Which tab the NEXT {@link #show} opens on. Reset to 0 as soon as it is used. */
-    private int openOnTab = 0;
+    /**
+     * Which tab the NEXT {@link #show} opens on; -1 = not asked (keep the place, else the first).
+     * Reset as soon as it is used. An explicit 0 beats keeping the place: new text opens on its
+     * Text tab, where the keyboard belongs.
+     */
+    private int openOnTab = -1;
 
     /**
      * Ask the next {@code show} to open on this tab index instead of the first.
@@ -668,13 +672,13 @@ public final class ObjectDrawer extends LinearLayout {
         // that has been RIGGED should open on Puppet: its owner is not coming back to the drawer
         // to change a blend mode, and making them find the last tab every time is the kind of
         // small tax that adds up to a tool feeling slow.
-        activeTab = (openOnTab > 0 && openOnTab < tabs.size()) ? openOnTab : 0;
-        if (openOnTab <= 0 && keepPlace != null) {
+        activeTab = (openOnTab >= 0 && openOnTab < tabs.size()) ? openOnTab : 0;
+        if (openOnTab < 0 && keepPlace != null) {
             for (int i = 1; i < tabs.size(); i++) {
                 if (keepPlace.equals(tabs.get(i).pillLabel())) { activeTab = i; break; }
             }
         }
-        openOnTab = 0;
+        openOnTab = -1;
         contentHost.removeAllViews();
         contentHost.addView(wrap(tabs.get(activeTab).content.build(getContext()),
                 tabs.get(activeTab).peekRows));

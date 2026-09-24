@@ -22208,6 +22208,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     refreshAfterTimerEdit(o);
                 }));
         refreshAfterTimerEdit(o);
+        previewTextAnimNow(o, preset);
+    }
+
+    /**
+     * Show a just-picked text animation IMMEDIATELY (TEXT_ANIM_REFRESH, 2026-09-22).
+     *
+     * <p>Two things hide a preset change, and {@code refreshAfterTimerEdit} above fixes
+     * neither. First, the box cannot animate while its drawer holds the keyboard up
+     * ({@code live} forces {@code animate=false} — see
+     * {@code TextOverlayLayer.dismissKeyboardKeepEditing}), so the change is invisible
+     * until the drawer closes; tapping to another box "refreshed" it only because that
+     * ended the editing. Second, outside the entrance/exit zones every preset draws the
+     * identical settled box (progress 1 for all units), so a pick made with the playhead
+     * parked mid-hold changes nothing on screen even with the keyboard down.
+     *
+     * <p>So: keyboard down first (the pick is a request to watch, and tapping the box
+     * brings it back), then — when there is an entrance to see and the playhead is not
+     * already inside a zone — park the playhead mid-entrance so there is motion to see.
+     * Undo/redo deliberately do NOT come through here: history must not yank the
+     * playhead or dismiss the keyboard.
+     */
+    private void previewTextAnimNow(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+            @NonNull com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset preset) {
+        if (overlayLayer != null) {
+            overlayLayer.dismissKeyboardKeepEditing();
+        }
+        if (preset == com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE) return;
+        if (project == null || editorTimeline == null) return;
+        long totalDur = project.getTimeline().getTotalDurationMs();
+        long mStart = o.motionRangeStartMs();
+        long mEnd = o.motionRangeEndMs(totalDur);
+        long span = Math.max(1L, mEnd - mStart);
+        long cur = lastPlayheadAbsoluteMs;
+        long inZone = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .zoneForSpan(o.getTextAnimInPct(), span);
+        if (inZone > 0) {
+            if (cur < mStart || cur > mStart + inZone) {
+                editorTimeline.seekToTimelineMs(mStart + inZone / 2);
+            }
+            return;
+        }
+        long outZone = com.fadcam.ui.faditor.transcript.CaptionAnimator
+                .zoneForSpan(o.getTextAnimOutPct(), span);
+        if (outZone > 0 && (cur < mEnd - outZone || cur > mEnd)) {
+            editorTimeline.seekToTimelineMs(Math.max(mStart, mEnd - outZone / 2));
+        }
     }
 
     /** The text overlay behind a timeline item id, or null if it is gone (an undo mid-gesture). */
@@ -23691,7 +23738,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         syncTimelineOverlays();
         scheduleAutoSave();
         selectAndRevealNewObject(item.getId());   // SPEC_U §3
-        showTextOverlayEditor(item);
+        showTextOverlayEditor(item, true);   // a new box is for typing into
     }
 
     /**
@@ -24048,8 +24095,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
                 // Double-tap = type editor (grammar 2026-07-17). For images the
                 // type editor IS the general drawer — showTextOverlayEditor
-                // delegates image items there (the modal dialog is retired).
-                showTextOverlayEditor(item);
+                // delegates image items there (the modal dialog is retired). A double-tap on
+                // the words in the picture is the ask to type.
+                showTextOverlayEditor(item, true);
             }
 
             @Override
@@ -24090,6 +24138,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (before.matches(after)) return;
                 undoManager.recordAction(new EditActions.OverlayTransformAction(
                         item, before, after, "Move overlay"));
+            }
+
+            @Override
+            public void onOverlayTransformSync() {
+                // A legacy-surface drag moved a box this frame; the transform helper reads
+                // its quad from its own host, so re-sync it or it sits stale until the next
+                // playhead tick (TEXT_REPAIR_PASS, 2026-09-23). refresh() is host-guarded
+                // and idempotent — the same call every playhead tick already makes.
+                if (transformOverlay != null) transformOverlay.refresh();
             }
         };
     }
@@ -25787,7 +25844,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         v.setAffineOnly(false);
         v.setBendAvailable(true);
         v.setBendVisible(true);
-        v.setOnDoubleTap(() -> showTextOverlayEditor(o));
+        v.setOnDoubleTap(() -> showTextOverlayEditor(o, true));
         v.bringToFront();
         v.refresh();
     }
@@ -26783,7 +26840,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onDoubleTapped() {
                 // Grammar: double-tap = type editor — works even while the handles
                 // consume in-box touches (JoyRaptor 2026-07-19 fix).
-                showTextOverlayEditor(o);
+                showTextOverlayEditor(o, true);
             }
 
             @Override
@@ -34107,6 +34164,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void showTextOverlayEditor(
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        showTextOverlayEditor(item, false);
+    }
+
+    /**
+     * @param type the user asked to TYPE: a new box, or a double-tap on the words in the
+     *     picture. Everything else — the timeline, hold, the drawer following the selection,
+     *     FX, More… — opens the drawer with the keyboard down, because the keyboard covers the
+     *     timeline; a tap on the words raises it (TextOverlayLayer.keyboardWanted).
+     */
+    private void showTextOverlayEditor(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item, boolean type) {
         if (item.isImage()) {
             // The top drawer IS the image overlay's type editor — the interim sheet had no
             // per-axis scale, pass-through, blend or compositing to offer.
@@ -34119,6 +34187,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // stack two bottom panels and trap the drawer behind the sheet's scrim. Verified on the
         // Note 9 (2026-08-08): "More…" opened the drawer with the sheet still rendered on top.
         dismissOpenObjectSheets();
+        // Asked to type: the keyboard belongs to the Text tab, so open there even when the
+        // drawer would otherwise keep its place on another tab.
+        if (type) ensureObjectDrawer().openOnTab(0);
 
         int pad = (int) (16 * getResources().getDisplayMetrics().density);
 
@@ -34192,16 +34263,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public void onSelectionChanged(int selStart, int selEnd) {
                             updateTextStyleSelection(session, selStart, selEnd);
                         }
-                    });
+                    }, type);
             previewHandlesOverlay = ensurePreviewHandlesOverlay();
             previewHandlesOverlay.setEditingItemId(item.getId());
         }
+        // THE TRANSFORM SURFACE STEPS ASIDE ON THE TEXT TAB (TEXT_REPAIR_PASS, 2026-09-23;
+        // narrowed to the tab 2026-09-24). It sits above the text layer and eats every in-box
+        // touch, so the transparent editor never got caret taps or selection drags and no span
+        // was ever written ("can't even select it"). The Text tab is where words are selected;
+        // Transform, Effects and Lanes are where the box is moved, so the handles come back there.
+        syncTextTransformSurrender(item);
         // Closing the drawer (✕, BACK, grip-drag-dismiss, or opening a different object) is what
         // "OK" used to be: text/colour/font/style all write live as the user works, so all that
         // is left on the way out is recording the ADD undo the first time the box survives a
         // close — same convention FxPanel/PipDrawerTabs use.
         ensureObjectDrawer().setOnClose(() -> {
             textDrawerItemId = null;
+            // Closed with the box still selected (✕, BACK, grip): its handles come back, as the
+            // Text tab had stood them down. A retarget selected something else already.
+            if (editorTimeline != null && transformItemId == null
+                    && item.getId().equals(editorTimeline.getSelectedLayerItemId())
+                    && project.getTimeline().getTextOverlays().contains(item)) {
+                enterTextTransformMode(item);
+            }
             // A PLACEHOLDER IS KEPT. This used to delete a box created in this session that
             // still held the placeholder text — the "opened the tool, then changed my mind"
             // case — and a growing list of things the user does next turned out to close the
@@ -34281,6 +34365,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Which text object the drawer is showing, or null. */
     @Nullable private String textDrawerItemId;
+
+    /**
+     * The Text tab is for selecting words; every other tab is for moving the box. On the Text
+     * tab the transform surface stands down so touches reach the in-picture editor; off it, the
+     * handles return on the same box.
+     */
+    private void syncTextTransformSurrender(
+            @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
+        if (!item.getId().equals(textDrawerItemId) || objectDrawer == null) return;
+        if (objectDrawer.activeTabIndex() == 0) {
+            if (transformItemId != null && transformItemId.equals(item.getId())) exitTransformMode();
+        } else if (transformItemId == null && project != null
+                && project.getTimeline().getTextOverlays().contains(item)) {
+            enterTextTransformMode(item);
+        }
+    }
     /** Tab order of a text drawer: Text · Transform · Effects · Lanes. */
     private static final int TEXT_TAB_EFFECTS = 2;
 
@@ -34319,8 +34419,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 ctx -> buildImageMoveTab(item)));
         drawer.setAccent(com.fadcam.ui.faditor.layers.ObjectPalette.forOverlay(item));
         // The keyboard belongs to the Text tab. Anywhere else it only hides the drawer.
+        // The move handles step aside on the Text tab (see syncTextTransformSurrender).
         drawer.setOnTabChanged(() -> {
-            if (drawer.activeTabIndex() != 0) hideSoftKeyboard(drawer);
+            if (drawer.activeTabIndex() != 0 && overlayLayer != null) {
+                overlayLayer.dismissKeyboardKeepEditing();
+            }
+            syncTextTransformSurrender(item);
         });
         textDrawerItemId = item.getId();
         drawer.show(tabs, overlayToggles(item), false, null,
@@ -34464,6 +34568,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 session.selStart, session.selEnd);
                         TextStyleResolver.normalize(session.spans, session.len());
                         session.refresh.run();
+                        // The span write used to end here: drawer chips updated, but the
+                        // preview never repainted and nothing autosaved — "color does
+                        // nothing". Every sibling control repaints (TEXT_REPAIR_PASS).
+                        refreshOverlayPreview();
+                        scheduleAutoSave();
                     } else {
                         item.setColorInt(c);
                     }

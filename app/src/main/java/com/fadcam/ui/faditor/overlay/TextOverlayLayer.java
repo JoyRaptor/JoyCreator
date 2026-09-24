@@ -93,20 +93,33 @@ public class TextOverlayLayer extends FrameLayout {
     @Nullable private EditText textEditor;
 
     /**
+     * Whether the user has ASKED to type: a new box, a double-tap on the words in the picture,
+     * or a tap on the words while the drawer is open. Every re-host (each keystroke rebuilds the
+     * box) raises the keyboard only while this holds. It used to raise it unconditionally, so
+     * merely OPENING the text drawer brought the keyboard up — and the drawer follows the
+     * selection, so touching a text bar on the timeline to drag it put the keyboard over the
+     * very timeline being dragged on (JoyRaptor, 2026-09-24).
+     */
+    private boolean keyboardWanted;
+
+    /**
      * Begin in-canvas WYSIWYG editing of {@code itemId}: attach (or re-attach) the transparent
-     * editor over its box with {@code initialText}, select all (the every-day "base style" state,
-     * exactly like the old drawer field's select-on-focus), focus and raise the IME.
+     * editor over its box with {@code initialText}, caret at the end. The keyboard comes up only
+     * when {@code raiseKeyboard} says the user asked to type; otherwise a tap on the words
+     * raises it.
      */
     public void startTextEditing(@NonNull String itemId, @NonNull String initialText,
-                                 @NonNull TextEditingHost host) {
+                                 @NonNull TextEditingHost host, boolean raiseKeyboard) {
         if (editingItemId != null && editingItemId.equals(itemId) && textEditor != null) {
             // Same item, same session — the box was rebuilt (every keystroke does); re-host.
+            if (raiseKeyboard) keyboardWanted = true;
             attachToBox();
             return;
         }
         endTextEditing();
         editingItemId = itemId;
         textHost = host;
+        keyboardWanted = raiseKeyboard;
         // Themed context, so the caret and the two selection handles are drawn in the app's
         // selection accent rather than the platform default — see FaditorTextEditorTheme. They
         // are the ONLY native chrome this transparent editor shows, and they sit over arbitrary
@@ -128,6 +141,16 @@ public class TextOverlayLayer extends FrameLayout {
         textEditor.setPadding(0, 0, 0, 0);
         textEditor.setIncludeFontPadding(false);
         textEditor.setSingleLine(false);
+        // A tap on the words is the ask to type. The EditText raises the keyboard itself; this
+        // records it, so the next re-host keeps it up and the box holds still while typing.
+        textEditor.setOnTouchListener((tv, ev) -> {
+            if (ev.getActionMasked() == android.view.MotionEvent.ACTION_UP) {
+                keyboardWanted = true;
+                final EditText ed = (EditText) tv;
+                ed.post(() -> { if (ed == textEditor) showIme(ed); });
+            }
+            return false;
+        });
         mirrorItemForMetrics(itemId);
         textEditor.setText(initialText);
         textEditor.addTextChangedListener(new android.text.TextWatcher() {
@@ -158,7 +181,7 @@ public class TextOverlayLayer extends FrameLayout {
             // content. The cost is that typing no longer instantly replaces the whole string —
             // the drawer's own "Select all" chip is the deliberate way to ask for that now.
             fresh.setSelection(fresh.getText().length());
-            showIme(fresh);
+            if (keyboardWanted) showIme(fresh);
         });
     }
 
@@ -206,7 +229,7 @@ public class TextOverlayLayer extends FrameLayout {
                 tb.post(() -> {
                     restoreEditorSelection();
                     ed.requestFocus();
-                    showIme(ed);
+                    if (keyboardWanted) showIme(ed);
                 });
                 return;
             }
@@ -356,6 +379,7 @@ public class TextOverlayLayer extends FrameLayout {
 
     private void hideIme(@NonNull EditText e) {
         imeActive = false;
+        keyboardWanted = false;
         imeShown = false;
         InputMethodManager imm = (InputMethodManager)
                 getContext().getSystemService(Context.INPUT_METHOD_SERVICE);
@@ -1143,7 +1167,7 @@ public class TextOverlayLayer extends FrameLayout {
                 if (textEditor != null) {
                     restoreEditorSelection();
                     textEditor.requestFocus();
-                    showIme(textEditor);
+                    if (keyboardWanted) showIme(textEditor);
                 }
             });
         }

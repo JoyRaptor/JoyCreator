@@ -78,4 +78,9 @@
     <string name="snap_objects_desc">Objects dragged in the picture line up with the edges and centres of other objects.</string>
     <string name="snap_rotation">Rotation</string>
     <string name="snap_rotation_desc">Turning an object catches whole angles.</string>
+    <!-- Export queue (ExportService queues since 5753f292) -->
+    <string name="export_queue_action">Queue export</string>
+    <string name="export_queue_warning">⚠ An export is already running. This one will start by itself as soon as it finishes.</string>
+    <string name="export_queued_toast">Queued. It starts when the current export finishes.</string>
+    <string name="export_preparing">Preparing…</string>
 </resources>

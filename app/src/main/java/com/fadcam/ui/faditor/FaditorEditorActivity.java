@@ -12607,10 +12607,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * On confirm, starts the export via the foreground service.
      */
     private void showExportConfirmation() {
-        if (isExportRunning()) {
-            Toast.makeText(this, R.string.faditor_export_in_progress, Toast.LENGTH_SHORT).show();
-            return;
-        }
+        // A running export no longer refuses the next one: the service queues it (5753f292).
+        // The sheet says so — "Queue export" on the button, a line of warning above.
+        final boolean queueing = isExportRunning();
 
         Timeline tl = project.getTimeline();
         int clipCount = tl.getClipCount();
@@ -12628,6 +12627,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         String helperText = getString(R.string.faditor_export_confirm_helper,
                 durationStr, clipCount, audioInfo);
+        if (queueing) helperText = getString(R.string.export_queue_warning) + "\n\n" + helperText;
 
         try {
             int pad = (int) (20 * getResources().getDisplayMetrics().density);
@@ -12933,6 +12933,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     .setNegativeButton(android.R.string.cancel, null)
                     .create();
             exportDialog.show();
+            if (queueing) {
+                exportDialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                        .setText(R.string.export_queue_action);
+            }
             exportDialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
                 long frameAtMs = -1L;
                 boolean frameJpeg = false;
@@ -13049,10 +13053,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * harness-tested).
      */
     private void startFrameExportViaService(long frameTimeMs, boolean frameJpeg) {
-        if (isExportRunning()) {
-            Toast.makeText(this, R.string.faditor_export_in_progress, Toast.LENGTH_SHORT).show();
-            return;
-        }
         if (project != null && project.getTimeline().getClipCount() == 0
                 && !project.getTimeline().hasAudioClips()) {
             Toast.makeText(this,
@@ -13141,10 +13141,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void startExportViaService(boolean audioOnly) {
-        if (isExportRunning()) {
-            Toast.makeText(this, R.string.faditor_export_in_progress, Toast.LENGTH_SHORT).show();
-            return;
-        }
         // G21/B9: a BLANK project (no spine clip, no audio) has nothing to export. The
         // audio-only composition would happily emit its 500ms silence fallback and hand the
         // user a silent .m4a that looks like a finished export — a silent lie with a file
@@ -13188,8 +13184,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             java.io.File dir = new java.io.File(getFilesDir(), "faditor");
             //noinspection ResultOfMethodCallIgnored
             dir.mkdirs();
+            // Only snapshots a day old: a QUEUED export's snapshot is waiting to be read, and
+            // sweeping every one here would delete it out from under the queue.
+            final long dayAgo = System.currentTimeMillis() - 24L * 60 * 60 * 1000;
             java.io.File[] stale = dir.listFiles(
-                    (d, name) -> name.startsWith("export_snapshot_") && name.endsWith(".json"));
+                    (d, name) -> name.startsWith("export_snapshot_") && name.endsWith(".json")
+                            && new java.io.File(d, name).lastModified() < dayAgo);
             if (stale != null) {
                 for (java.io.File f : stale) {
                     //noinspection ResultOfMethodCallIgnored
@@ -13218,9 +13218,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
         startOutOfProcessExport(audioOnly, null, false);
     }
 
-    /** SPEC_C: frame exports ride the same slide pre-pass + snapshot + service flow. */
+    /**
+     * SPEC_C: frame exports ride the same slide pre-pass + snapshot + service flow.
+     *
+     * <p>THE PRESS ANSWERS AT ONCE (JoyRaptor, 2026-09-24: "sometimes there's a few seconds
+     * after I hit export where nothing happens ... makes a user nervous"). Those seconds are
+     * the snapshot write and the slide pre-pass, both before the service is even called. So
+     * the progress screen comes up first, reading "Preparing…", and the work starts a frame
+     * later so the screen is drawn before the UI thread is busy. A QUEUED export does not
+     * take the screen from the one running; it says "Queued" instead.
+     */
     private void startOutOfProcessExport(boolean audioOnly,
                                          @Nullable Long frameTimeMs, boolean frameJpeg) {
+        final boolean queued = isExportRunning();
+        if (queued) {
+            Toast.makeText(this, R.string.export_queued_toast, Toast.LENGTH_LONG).show();
+        } else {
+            showExportProgress();
+            if (exportProgressText != null) exportProgressText.setText(R.string.export_preparing);
+        }
+        getWindow().getDecorView().postDelayed(
+                () -> startOutOfProcessExportNow(audioOnly, frameTimeMs, frameJpeg, queued), 48);
+    }
+
+    private void startOutOfProcessExportNow(boolean audioOnly,
+                                            @Nullable Long frameTimeMs, boolean frameJpeg,
+                                            boolean queued) {
+        if (isFinishing() || isDestroyed()) return;
         // ensureGeneratedSlidesRendered pre-pass: slides render HERE, in the editor
         // process — the :export process can't host the WebView capture. The rendered
         // MP4 lands at the content-addressed cache path the slide clip's sourceUri
@@ -13241,7 +13265,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             slideProjectDir = null;
         }
         if (pendingSlides.isEmpty() && pendingOverlaySlides.isEmpty()) {
-            doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg);
+            doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg, queued);
             return;
         }
 
@@ -13265,13 +13289,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (isFinishing() || isDestroyed()) return;
                 if (err != null) {
                     exportStartedLocallyAtMs = 0;
+                    if (!queued) hideExportProgress();
                     // TODO(strings)
                     Toast.makeText(this, "Could not render slide: " + err,
                             Toast.LENGTH_LONG).show();
                     return;
                 }
                 resolvableCache.clear();
-                doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg);
+                doStartOutOfProcessExport(audioOnly, frameTimeMs, frameJpeg, queued);
             });
         });
     }
@@ -13325,16 +13350,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     private void doStartOutOfProcessExport(boolean audioOnly) {
-        doStartOutOfProcessExport(audioOnly, null, false);
+        doStartOutOfProcessExport(audioOnly, null, false, isExportRunning());
     }
 
     /** SPEC_C: the frame variant carries the frame time + format to the :export process. */
     private void doStartOutOfProcessExport(boolean audioOnly,
-                                           @Nullable Long frameTimeMs, boolean frameJpeg) {
-        prepareMemoryForExport();
+                                           @Nullable Long frameTimeMs, boolean frameJpeg,
+                                           boolean queued) {
+        // A queued job must not touch the running one's decoders.
+        if (!queued) prepareMemoryForExport();
 
         String snapshotPath = writeExportSnapshotFile();
         if (snapshotPath == null) {
+            if (!queued) hideExportProgress();
             Toast.makeText(this,
                     getString(R.string.faditor_export_error, "could not snapshot the project"),
                     Toast.LENGTH_LONG).show();
@@ -13360,6 +13388,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         } else {
             startService(serviceIntent);
         }
+        if (queued) return;   // the running export keeps the screen and its state
         lastExportWasAudioOnly = audioOnly;
         exportStartedLocallyAtMs = System.currentTimeMillis();
 

@@ -200,7 +200,12 @@ public class ExportManager {
     private static final long PROGRESS_POLL_INTERVAL_MS = 300;
 
     /** Length (ms) of the pre-generated silence WAV used to pad audio-track gaps. */
-    private static final long SILENCE_FILE_MS = 600_000L; // 10 minutes
+    /**
+     * Length of the silence spacer WAV; longer gaps are cut into pieces this long. 1 minute
+     * (5 MB) rather than 10 (53 MB) because it now lives in DURABLE storage — see
+     * getOrCreateSilenceFile.
+     */
+    private static final long SILENCE_FILE_MS = 60_000L;
 
     /**
      * Minimum TIMELINE length (ms) an exported video segment must have to be worth
@@ -4998,10 +5003,14 @@ public class ExportManager {
      */
     @Nullable
     private File getOrCreateSilenceFile() {
-        File cacheDir = new File(context.getCacheDir(), "faditor_export");
+        // DURABLE, not getCacheDir(): Android trims the cache under storage pressure, and a
+        // long export is exactly when storage runs low. On 2026-09-23 the 48-min export's sound
+        // pass died with "silence.wav: ENOENT" five minutes in, right after ~2 GB of video
+        // parts were written — the spacer was deleted while the pass was still reading it.
+        File cacheDir = com.fadcam.ui.faditor.util.DurableCache.dir(context, "export_silence");
         if (!cacheDir.exists()) cacheDir.mkdirs();
 
-        File silenceFile = new File(cacheDir, "silence.wav");
+        File silenceFile = new File(cacheDir, "silence_60s.wav");
         if (silenceFile.exists() && silenceFile.length() > 44) {
             return silenceFile;
         }

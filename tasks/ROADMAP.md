@@ -77,10 +77,10 @@ Detail and history: tasks/todo.md "NEXT: export speed".
 |---|---|---|---|
 | 0 | Wake lock + keep the export screen on | 0.25x -> 1x | DONE (2d82f102, 4858cae4) |
 | 0b | Image overlays on the GPU with the preview's own code (PipGl, pipForModel) | -> 1.5x, preview parity for images | DONE (da854f68) |
-| 1 | Captions on the GPU: tight box, re-raster only when the word changes (GlCaptionEffect) | -> ~3x | BUILT, gated off (GL_CAPTION_PASS) — needs one device test |
-| 2 | One GPU pass per frame: fold crop, resize, images and captions into a single compositor like the preview's (today 6-9 full-frame passes) | -> ~5-6x | next after 4 |
+| 1 | Captions on the GPU: tight box, re-raster only when the word changes (GlCaptionEffect) | -> ~3x | DONE (331fd9b9, device-proven) |
+| 2 | One GPU pass per frame: fold crop, resize, images and captions into a single compositor like the preview's (today 6-9 full-frame passes) | -> ~5-6x | 2a BUILT db486113 (per-clip overlay window; text boxes in the image run, drawn once) — device test owed |
 | 3 | Two parts in parallel (the video chip runs several codec sessions) | -> ~7-9x (the chip's ceiling) | after 2 |
-| 4 | **Smart re-export (render cache) + RANGE EXPORT** — key each part on ITS OWN content, cut parts at any time (not just clip seams), reuse every unchanged part. A range export is then "render the parts that cover the range" | a one-mask edit re-exports in minutes, not ~35; a range of already-rendered minutes is near-instant | next after Stage 1 — owner's pick for range export (see INBOX 2026-09-21) |
+| 4 | **Smart re-export (render cache) + RANGE EXPORT** — key each part on ITS OWN content, cut parts at any time (not just clip seams), reuse every unchanged part. A range export is then "render the parts that cover the range" | a one-mask edit re-exports in minutes, not ~35; a range of already-rendered minutes is near-instant | 4a smart re-export BUILT b363b8ec (device test owed); 4b range export next |
 | 5 | Straight-copy stretches with no overlays/captions/effects (no re-encode) | ~50x on those stretches | later |
 | 6 | Fast 720p draft preset | ~15-20x | later |
 

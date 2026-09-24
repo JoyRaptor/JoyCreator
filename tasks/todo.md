@@ -210,6 +210,31 @@ ImageOverlayDraw.draw) - the GPU-compositor port in the handoff is the next spee
 - [x] Video overlay drawer now device-verified (3e6dfa60); visualizer hold path still not reachable on the Note 9
 - Test media left on the Note 9: /sdcard/Download/joy_test_overlay.mp4 (copy of ws20.mp4), pushed for the PiP test
 
+## EXPORT SPEED — state at 2026-09-24 01:10 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+
+INSTALLED on the Note 20 at 01:08 (backup of all 20 projects first: scratchpad tar), NOT YET
+DEVICE-VERIFIED — the phone was locked on the charger. JoyRaptor's next export of a32d24e2
+is the test; every part re-renders once (new build = new render-cache keys).
+
+- [x] b363b8ec Stage 4a SMART RE-EXPORT: parts keyed on their own content (RenderCacheKeys),
+      sound keyed on sound-only data, kept after export (<=6 GB all projects, >=4 GB free).
+      Proven on the phone's ART against the real project JSON: re-save = nothing, one image
+      nudge = 1 part, voice volume = sound only, transcript word = 1 part.
+- [x] db486113 BUG: chunked exports DROPPED text boxes + audio captions after ~minute 10
+      (CompositeExportOverlay filtered absolute item times against the part-local cursor).
+- [x] db486113 Stage 2a: each clip carries only overlays that can show during it (was 37
+      effects on every clip), plain text boxes drawn by drawTextItem into their own picture,
+      redrawn only on textSignature change, composited in the GlImageOverlayEffect run in lane
+      order. GL_SAMPLE before: GL thread 100% busy, upload 25% + canvasBlit 12% + clear 4%.
+- [x] 17cb9d25 preview captions: y flip + drawn last (export was right on both).
+- [ ] VERIFY on device: frames with text at ~12, ~25, ~40 min; text over/under images in the
+      right order; GL_SAMPLE + EXPORT_PACE per part (expect far fewer glDraw/upload).
+- [ ] Stage 3 two parts in parallel — only after the GL_SAMPLE above says the GL thread, not
+      the GPU/codec, is still the limit.
+- [ ] Export queue (owner, via studio lane): START while running -> queued, confirm button
+      reads "Queue export". Service side is this lane; button label is the studio lane's.
+- [ ] Range export (Stage 4b): cut parts at any time, render only the parts covering a range.
+
 ## NEXT: export speed, 1x -> 6-9x (measured ceilings, 2026-09-23)
 
 Hardware ceilings on the Note 20 (app_process MediaCodec bench): H.264 encode 1080x1920

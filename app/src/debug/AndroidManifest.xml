@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- DEBUG BUILDS ONLY (merged into debug variants, never into a release). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Agents start an export over adb without tapping through the editor:
+             adb shell am start -n com.fadcam.beta/com.fadcam.ui.faditor.export.ExportDebugActivity
+                 -e project_id <uuid> [-\-el range_start_ms N -\-el range_end_ms M] [-\-ez audio_only true]
+             showWhenLocked: it can run on a phone left locked on the charger overnight. -->
+        <activity
+            android:name="com.fadcam.ui.faditor.export.ExportDebugActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:showWhenLocked="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+    </application>
+</manifest>

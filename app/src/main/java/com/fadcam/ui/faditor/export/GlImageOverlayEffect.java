@@ -89,9 +89,7 @@ final class GlImageOverlayEffect implements GlEffect {
             boolean drawn;
             String sig;
             /** ZERO-COPY route (a box whose look moves every frame): drawn into this Surface. */
-            int oesTex;
-            android.graphics.SurfaceTexture st;
-            android.view.Surface surface;
+            SurfaceLayer layer;
             boolean external;
         }
 
@@ -110,21 +108,15 @@ final class GlImageOverlayEffect implements GlEffect {
                                            long t) {
             if (!zeroCopyText || textDrawer == null) return false;
             try {
-                if (tf.st == null) {
-                    tf.oesTex = PipGl.newExternalTexture();
-                    tf.st = new android.graphics.SurfaceTexture(tf.oesTex);
-                    tf.st.setDefaultBufferSize(Math.max(1, textDrawer.drawWidth()),
-                            Math.max(1, textDrawer.drawHeight()));
-                    tf.surface = new android.view.Surface(tf.st);
+                if (tf.layer == null) {
+                    tf.layer = new SurfaceLayer(textDrawer.drawWidth(), textDrawer.drawHeight());
                 }
-                android.graphics.Canvas c = tf.surface.lockCanvas(null);
-                try {
-                    c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
-                    tf.drawn = textDrawer.drawTextItem(c, o, t);
-                } finally {
-                    tf.surface.unlockCanvasAndPost(c);
+                android.graphics.Canvas c = tf.layer.lock();
+                c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+                tf.drawn = textDrawer.drawTextItem(c, o, t);
+                if (!tf.layer.postAndLatch(c)) {
+                    throw new IllegalStateException("text frame did not arrive in time");
                 }
-                tf.st.updateTexImage();
                 tf.external = true;
                 return true;
             } catch (Throwable e) {
@@ -205,7 +197,7 @@ final class GlImageOverlayEffect implements GlEffect {
                         if (tf.external) {
                             frameVisible.add(FxPreviewTextureView.Pip.of(0.5f, 0.5f, 0.5f, 0.5f,
                                     0f, 1f, null, t, null, 0f, w, h, "txt#" + o.getId(), null, 0));
-                            frameTex.add(tf.oesTex);
+                            frameTex.add(tf.layer.oesTex);
                             frameExternal.add(true);
                             continue;
                         }
@@ -283,11 +275,7 @@ final class GlImageOverlayEffect implements GlEffect {
 
         private void releaseText(@Nullable TextFrame tf) {
             if (tf == null) return;
-            try {
-                if (tf.surface != null) tf.surface.release();
-                if (tf.st != null) tf.st.release();
-                if (tf.oesTex != 0) GLES20.glDeleteTextures(1, new int[]{tf.oesTex}, 0);
-            } catch (RuntimeException ignored) { }
+            if (tf.layer != null) tf.layer.release();
             if (tf.tex != 0) {
                 try { GLES20.glDeleteTextures(1, new int[]{tf.tex}, 0); }
                 catch (RuntimeException ignored) { }

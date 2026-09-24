@@ -1089,7 +1089,10 @@ public final class FxLivePreviewController {
             sb.append(sso.animatedSizeFraction(playheadMs)).append(',');
             sb.append(sso.animatedRotation(playheadMs)).append(',');
             sb.append(sso.isFlipH()).append(',').append(sso.isFlipV()).append(',');
-            sb.append(sso.getSheetId()).append(';');
+            sb.append(sso.getSheetId()).append(',');
+            // The real cells are drawn now (not a flat placeholder): a frame track changes the
+            // picture with time alone, so the clock is part of what it looks like.
+            sb.append(playheadMs).append(';');
         }
         return sb.toString();
     }
@@ -1259,19 +1262,26 @@ public final class FxLivePreviewController {
                 if (OverlayTextureCache.canUseTexture(sso)) continue;
                 float alpha = sso.animatedOpacity(playheadMs);
                 if (alpha < 0.005f) continue;
+                // THE REAL CELLS. This was a light-blue placeholder rectangle (120,180,220) the
+                // size of the sprite - hidden for months under a white adjustment layer, then a
+                // blue box behind the star in ZA_CONTROL once it was deleted (Note 9, 2026-09-24;
+                // the export drew the star correctly). Same art source as the texture path above.
+                android.graphics.Bitmap art = host.spriteRasterFor(sso, videoW, videoH);
+                if (art == null || art.isRecycled() || art.getHeight() <= 0) continue;
                 float cx = sso.animatedCenterX(playheadMs) * videoW;
                 float cy = sso.animatedCenterY(playheadMs) * videoH;
                 float h = sso.animatedSizeFraction(playheadMs) * videoH;
-                float w = h;
-                android.graphics.Paint p2 = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-                p2.setColor(android.graphics.Color.argb(Math.round(alpha * 255), 120, 180, 220));
-                p2.setStyle(android.graphics.Paint.Style.FILL);
+                float w = h * (art.getWidth() / (float) art.getHeight());
+                android.graphics.Paint p2 =
+                        new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+                p2.setAlpha(Math.round(alpha * 255));
                 canvas.save();
                 canvas.rotate(sso.animatedRotation(playheadMs), cx, cy);
                 if (sso.isFlipH() || sso.isFlipV()) {
                     canvas.scale(sso.isFlipH() ? -1f : 1f, sso.isFlipV() ? -1f : 1f, cx, cy);
                 }
-                canvas.drawRect(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f, p2);
+                canvas.drawBitmap(art, null, new android.graphics.RectF(
+                        cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), p2);
                 canvas.restore();
             }
         }

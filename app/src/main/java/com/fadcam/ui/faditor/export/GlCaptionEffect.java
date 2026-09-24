@@ -63,10 +63,7 @@ final class GlCaptionEffect implements GlEffect {
             final Rect bounds = new Rect();
             Bitmap shown;
             /** ZERO-COPY route: the caption is drawn into this Surface; the GPU reads it as is. */
-            int oesTex;
-            android.graphics.SurfaceTexture st;
-            android.view.Surface surface;
-            int sw, sh;
+            SurfaceLayer layer;
             boolean external;
         }
 
@@ -91,23 +88,16 @@ final class GlCaptionEffect implements GlEffect {
         private boolean showThroughSurface(@NonNull Box box, @NonNull Bitmap bmp) {
             if (!zeroCopy) return false;
             try {
-                if (box.st == null) {
-                    box.oesTex = PipGl.newExternalTexture();
-                    box.st = new android.graphics.SurfaceTexture(box.oesTex);
-                    box.surface = new android.view.Surface(box.st);
+                if (box.layer == null) {
+                    box.layer = new SurfaceLayer(bmp.getWidth(), bmp.getHeight());
+                } else {
+                    box.layer.resize(bmp.getWidth(), bmp.getHeight());
                 }
-                if (box.sw != bmp.getWidth() || box.sh != bmp.getHeight()) {
-                    box.st.setDefaultBufferSize(bmp.getWidth(), bmp.getHeight());
-                    box.sw = bmp.getWidth();
-                    box.sh = bmp.getHeight();
+                android.graphics.Canvas c = box.layer.lock();
+                c.drawBitmap(bmp, 0f, 0f, srcPaint);
+                if (!box.layer.postAndLatch(c)) {
+                    throw new IllegalStateException("caption frame did not arrive in time");
                 }
-                android.graphics.Canvas c = box.surface.lockCanvas(null);
-                try {
-                    c.drawBitmap(bmp, 0f, 0f, srcPaint);
-                } finally {
-                    box.surface.unlockCanvasAndPost(c);
-                }
-                box.st.updateTexImage();
                 box.external = true;
                 return true;
             } catch (Throwable t) {
@@ -234,7 +224,7 @@ final class GlCaptionEffect implements GlEffect {
                                     cx, 1f - cy, halfW, halfH, 0f, 1f, null, editorMs, null, 0f,
                                     chain.w, chain.h, "cap#" + (idx++), box.shown, 1f);
                     pips.add(p);
-                    texes.add(box.external ? box.oesTex : box.tex[box.cur]);
+                    texes.add(box.external ? box.layer.oesTex : box.tex[box.cur]);
                     external.add(box.external);
                 }
                 chain.composite(inputTexId, outFbo, pips, texes, external);
@@ -252,11 +242,7 @@ final class GlCaptionEffect implements GlEffect {
                 for (Box box : boxes.values()) {
                     try { GLES20.glDeleteTextures(2, box.tex, 0); }
                     catch (RuntimeException ignored) { }
-                    try {
-                        if (box.surface != null) box.surface.release();
-                        if (box.st != null) box.st.release();
-                        if (box.oesTex != 0) GLES20.glDeleteTextures(1, new int[]{box.oesTex}, 0);
-                    } catch (RuntimeException ignored) { }
+                    if (box.layer != null) box.layer.release();
                 }
                 boxes.clear();
                 chain.release();

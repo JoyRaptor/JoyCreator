@@ -2458,7 +2458,9 @@ public class ExportManager {
                 if (videoFull.exists()) videoFull.delete();
                 String audioPath = manifest.optString("audioFile",
                         new File(dir, "audio_full.m4a").getAbsolutePath());
-                trace("CHUNK joining " + ranges.size() + " parts + audio");
+                int joined = 0;
+                for (boolean need : run.needed) if (need) joined++;
+                trace("CHUNK joining " + joined + " of " + ranges.size() + " parts + audio");
                 com.arthenica.ffmpegkit.FFmpegSession s1 =
                         com.arthenica.ffmpegkit.FFmpegKit.execute(
                                 "-f concat -safe 0 -i \"" + listFile.getAbsolutePath()

@@ -62,6 +62,60 @@ final class GlCaptionEffect implements GlEffect {
             int cur = -1;
             final Rect bounds = new Rect();
             Bitmap shown;
+            /** ZERO-COPY route: the caption is drawn into this Surface; the GPU reads it as is. */
+            int oesTex;
+            android.graphics.SurfaceTexture st;
+            android.view.Surface surface;
+            int sw, sh;
+            boolean external;
+        }
+
+        /**
+         * ZERO-COPY CAPTIONS (2026-09-24). Measured on the Note 20: a caption strip upload
+         * (GLUtils.texSubImage2D, ~1080x950 px) cost 12.6 ms on average - the driver moves
+         * ~80 MB/s - and a karaoke caption changes every frame. Here the caption's pixels are
+         * copied by the CPU into a Surface buffer the GPU samples directly (the preview's own
+         * live-PiP shader variant, which differs from the still one only in how it samples), so
+         * there is no upload at all. Any failure turns it off for this pass and the upload
+         * route above takes over.
+         */
+        private boolean zeroCopy = true;
+        private final android.graphics.Paint srcPaint = new android.graphics.Paint();
+        {
+            srcPaint.setXfermode(new android.graphics.PorterDuffXfermode(
+                    android.graphics.PorterDuff.Mode.SRC));
+        }
+        private final List<Boolean> external = new ArrayList<>();
+
+        /** Draw {@code bmp} into the box's Surface and latch it; false = use the upload route. */
+        private boolean showThroughSurface(@NonNull Box box, @NonNull Bitmap bmp) {
+            if (!zeroCopy) return false;
+            try {
+                if (box.st == null) {
+                    box.oesTex = PipGl.newExternalTexture();
+                    box.st = new android.graphics.SurfaceTexture(box.oesTex);
+                    box.surface = new android.view.Surface(box.st);
+                }
+                if (box.sw != bmp.getWidth() || box.sh != bmp.getHeight()) {
+                    box.st.setDefaultBufferSize(bmp.getWidth(), bmp.getHeight());
+                    box.sw = bmp.getWidth();
+                    box.sh = bmp.getHeight();
+                }
+                android.graphics.Canvas c = box.surface.lockCanvas(null);
+                try {
+                    c.drawBitmap(bmp, 0f, 0f, srcPaint);
+                } finally {
+                    box.surface.unlockCanvasAndPost(c);
+                }
+                box.st.updateTexImage();
+                box.external = true;
+                return true;
+            } catch (Throwable t) {
+                FLog.w("GlCaption", "zero-copy captions unavailable; uploading instead", t);
+                zeroCopy = false;
+                box.external = false;
+                return false;
+            }
         }
 
         private final CompositeExportOverlay overlay;
@@ -70,6 +124,23 @@ final class GlCaptionEffect implements GlEffect {
         private final List<FxPreviewTextureView.Pip> pips = new ArrayList<>();
         private final List<Integer> texes = new ArrayList<>();
         private final Rect scratch = new Rect();
+        private long uploadNs = 0L;
+        private int uploads = 0;
+        private long uploadPixels = 0L;
+
+        /** CAPTION_UPLOAD timing in logcat every 300 uploads: what a strip upload costs here. */
+        private void noteUpload(long ns, int w, int h) {
+            uploadNs += ns;
+            uploads++;
+            uploadPixels += (long) w * h;
+            if (uploads >= 300) {
+                FLog.i("GlCaption", "CAPTION_UPLOAD avg=" + (uploadNs / uploads / 1000) + "us px="
+                        + (uploadPixels / uploads) + " last=" + w + "x" + h);
+                uploadNs = 0L;
+                uploads = 0;
+                uploadPixels = 0L;
+            }
+        }
 
         Program(@NonNull CompositeExportOverlay overlay) {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
@@ -95,6 +166,7 @@ final class GlCaptionEffect implements GlEffect {
                 final int outFbo = PipChainGl.boundFbo();
                 pips.clear();
                 texes.clear();
+                external.clear();
                 List<CaptionExportRenderer> rs;
                 try {
                     rs = overlay.renderCaptionsAt(presentationTimeUs);
@@ -115,18 +187,22 @@ final class GlCaptionEffect implements GlEffect {
                         }
                         Bitmap bmp = r.lastBitmap();
                         Rect win = r.window();
-                        int next = box.cur < 0 ? 0 : 1 - box.cur;
-                        GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, box.tex[next]);
-                        if (box.w[next] == bmp.getWidth() && box.h[next] == bmp.getHeight()) {
-                            android.opengl.GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0,
-                                    bmp);
-                        } else {
-                            android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0);
-                            box.w[next] = bmp.getWidth();
-                            box.h[next] = bmp.getHeight();
+                        long t0 = System.nanoTime();
+                        if (!showThroughSurface(box, bmp)) {
+                            int next = box.cur < 0 ? 0 : 1 - box.cur;
+                            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, box.tex[next]);
+                            if (box.w[next] == bmp.getWidth() && box.h[next] == bmp.getHeight()) {
+                                android.opengl.GLUtils.texSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0,
+                                        0, bmp);
+                            } else {
+                                android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bmp, 0);
+                                box.w[next] = bmp.getWidth();
+                                box.h[next] = bmp.getHeight();
+                            }
+                            box.cur = next;
                         }
-                        box.cur = next;
                         box.shown = bmp;
+                        noteUpload(System.nanoTime() - t0, bmp.getWidth(), bmp.getHeight());
                         // The picture covers the renderer's window (the whole frame if the
                         // renderer is not in window mode).
                         box.bounds.set(win.left, win.top, win.left + bmp.getWidth(),
@@ -139,13 +215,18 @@ final class GlCaptionEffect implements GlEffect {
                     float halfW = b.width() / (2f * bw);
                     float halfH = b.height() / (2f * bh);
                     // Same framing as an image Pip: y and rotation into GL's bottom-up uv.
-                    FxPreviewTextureView.Pip p = FxPreviewTextureView.Pip.ofImage(
-                            cx, 1f - cy, halfW, halfH, 0f, 1f, null, editorMs, null, 0f,
-                            chain.w, chain.h, "cap#" + (idx++), box.shown, 1f);
+                    FxPreviewTextureView.Pip p = box.external
+                            ? FxPreviewTextureView.Pip.of(cx, 1f - cy, halfW, halfH, 0f, 1f,
+                                    null, editorMs, null, 0f, chain.w, chain.h,
+                                    "cap#" + (idx++), null, 0)
+                            : FxPreviewTextureView.Pip.ofImage(
+                                    cx, 1f - cy, halfW, halfH, 0f, 1f, null, editorMs, null, 0f,
+                                    chain.w, chain.h, "cap#" + (idx++), box.shown, 1f);
                     pips.add(p);
-                    texes.add(box.tex[box.cur]);
+                    texes.add(box.external ? box.oesTex : box.tex[box.cur]);
+                    external.add(box.external);
                 }
-                chain.composite(inputTexId, outFbo, pips, texes);
+                chain.composite(inputTexId, outFbo, pips, texes, external);
                 GlErrors.drain("left by GlCaptionEffect");
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
@@ -160,6 +241,11 @@ final class GlCaptionEffect implements GlEffect {
                 for (Box box : boxes.values()) {
                     try { GLES20.glDeleteTextures(2, box.tex, 0); }
                     catch (RuntimeException ignored) { }
+                    try {
+                        if (box.surface != null) box.surface.release();
+                        if (box.st != null) box.st.release();
+                        if (box.oesTex != 0) GLES20.glDeleteTextures(1, new int[]{box.oesTex}, 0);
+                    } catch (RuntimeException ignored) { }
                 }
                 boxes.clear();
                 chain.release();

@@ -61,8 +61,26 @@ final class PipChainGl {
         return fb[0];
     }
 
+    /**
+     * The flip an external picture needs: a Surface buffer is top-row-first like a bitmap upload,
+     * so this is exactly the still variant's {@code (u, 1 - v)}, and the pixels land the same.
+     */
+    static final float[] FLIP_V = {
+            1f, 0f, 0f, 0f,
+            0f, -1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 1f, 0f, 1f,
+    };
+
     void composite(int inputTexId, int outFbo, @NonNull List<FxPreviewTextureView.Pip> pips,
                    @NonNull List<Integer> stillTex) throws GlUtil.GlException {
+        composite(inputTexId, outFbo, pips, stillTex, null);
+    }
+
+    /** @param external per Pip: true = its texture is external (OES), fed through a Surface */
+    void composite(int inputTexId, int outFbo, @NonNull List<FxPreviewTextureView.Pip> pips,
+                   @NonNull List<Integer> stillTex, @androidx.annotation.Nullable List<Boolean> external)
+            throws GlUtil.GlException {
         GLES20.glDisable(GLES20.GL_BLEND);
         int n = pips.size();
         if (n == 0) {
@@ -72,8 +90,13 @@ final class PipChainGl {
             for (int i = 0; i < n; i++) {
                 boolean last = i == n - 1;
                 int dstFbo = last ? outFbo : pingFbo[i % 2];
-                if (!PipGl.drawStill(pips.get(i), programs, src, stillTex.get(i), dstFbo, w, h,
-                        quad)) {
+                boolean oes = external != null && Boolean.TRUE.equals(external.get(i));
+                boolean drawn = oes
+                        ? PipGl.drawExternal(pips.get(i), programs, src, stillTex.get(i), FLIP_V,
+                                dstFbo, w, h, quad)
+                        : PipGl.drawStill(pips.get(i), programs, src, stillTex.get(i), dstFbo, w, h,
+                                quad);
+                if (!drawn) {
                     copy(src, dstFbo);   // a refused program drops the item, not the frame
                 }
                 src = pingTex[i % 2];

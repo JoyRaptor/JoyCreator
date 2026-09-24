@@ -133,8 +133,12 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
         float[] gains = channelGains();
         float frameGain = enveloped ? gainAtMs(frameToMs(framePosition)) : gains[0];
 
-        while (inShort.hasRemaining()) {
-            int sample = inShort.get();
+        // Bulk arrays instead of a ShortBuffer call per sample (export speed, 2026-09-24: the
+        // sound pass was CPU-bound on per-sample buffer access). Same arithmetic, same order.
+        short[] samples = new short[inShort.remaining()];
+        inShort.get(samples);
+        for (int i = 0; i < samples.length; i++) {
+            int sample = samples[i];
             float gain;
             if (channelCount == 1) {
                 gain = enveloped ? frameGain : gains[0];
@@ -143,7 +147,7 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
             }
             int scaled = Math.round(sample * gain);
             scaled = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, scaled));
-            outShort.put((short) scaled);
+            samples[i] = (short) scaled;
 
             if (++channelIdx >= ch) {
                 channelIdx = 0;
@@ -151,6 +155,7 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
                 if (enveloped) frameGain = gainAtMs(frameToMs(framePosition));
             }
         }
+        outShort.put(samples);
 
         inputBuffer.position(inputBuffer.limit());
         output.limit(remaining);

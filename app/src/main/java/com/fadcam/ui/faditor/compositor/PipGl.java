@@ -182,6 +182,59 @@ public final class PipGl {
         return true;
     }
 
+    /**
+     * As {@link #drawStill}, for a Pip whose picture is an EXTERNAL (OES) texture fed through a
+     * Surface - the preview's live-PiP variant of the same shader, where only the sampling
+     * differs. {@code texMatrix} maps the Pip's uv to the texture's (column-major).
+     */
+    public static boolean drawExternal(@NonNull FxPreviewTextureView.Pip p,
+                                       @NonNull Programs programs, int srcTex, int oesTex,
+                                       @NonNull float[] texMatrix, int dstFbo, int vw, int vh,
+                                       @NonNull java.nio.FloatBuffer quad) {
+        int program = programs.programFor(p);
+        if (program == 0) return false;
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo);
+        GLES20.glViewport(0, 0, vw, vh);
+        GLES20.glUseProgram(program);
+        int aPos = GLES20.glGetAttribLocation(program, "aFramePosition");
+        if (aPos >= 0) {
+            quad.position(0);
+            GLES20.glVertexAttribPointer(aPos, 4, GLES20.GL_FLOAT, false, 0, quad);
+            GLES20.glEnableVertexAttribArray(aPos);
+        }
+        applyUniforms(program, p, vw, vh, programs.shapesCompiled(program));
+        int loc = GLES20.glGetUniformLocation(program, "uTexSampler");
+        if (loc >= 0) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, srcTex);
+            GLES20.glUniform1i(loc, 0);
+        }
+        loc = GLES20.glGetUniformLocation(program, "uPipTexture");
+        if (loc >= 0) {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            GLES20.glBindTexture(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, oesTex);
+            GLES20.glUniform1i(loc, 1);
+        }
+        int m = GLES20.glGetUniformLocation(program, "uPipTexMatrix");
+        if (m >= 0) GLES20.glUniformMatrix4fv(m, 1, false, texMatrix, 0);
+        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        return true;
+    }
+
+    /** An external (OES) texture for a SurfaceTexture: linear, clamped. */
+    public static int newExternalTexture() {
+        int[] ids = new int[1];
+        GLES20.glGenTextures(1, ids, 0);
+        int t = android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
+        GLES20.glBindTexture(t, ids[0]);
+        GLES20.glTexParameteri(t, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(t, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(t, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+        GLES20.glTexParameteri(t, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+        return ids[0];
+    }
+
     /** A 2D texture set up exactly as the preview's still textures (linear, clamped). */
     public static int newStillTexture() {
         int[] ids = new int[1];

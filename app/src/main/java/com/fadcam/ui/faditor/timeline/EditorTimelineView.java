@@ -7863,9 +7863,21 @@ if (sd.clip.hasVolumeKeyframes()) {
                 @NonNull java.util.List<com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items);
         /** The multi-selection changed (count 0 = cleared). */
         void onMarqueeSelectionChanged(int count);
+
+        /**
+         * GROUP MOVE (SPEC_20260924_LINKING §7, JoyRaptor 2026-09-24: "if I try to select
+         * multiple things, it's not easy to move them"). A drag that starts on a SELECTED item
+         * while two or more are selected moves them all by one time delta. Start snapshots the
+         * set; delta is from the grab, in timeline ms; end commits (one undo) or reverts.
+         */
+        default void onGroupMoveStart(@NonNull java.util.Set<String> ids) {}
+        default void onGroupMoveDelta(long deltaMs) {}
+        default void onGroupMoveEnd(boolean commit) {}
     }
 
     private MarqueeMode marqueeMode = MarqueeMode.OFF;
+    /** A drag that is moving the whole multi-selection (see MarqueeListener.onGroupMoveStart). */
+    private boolean marqueeGroupDragActive;
     @Nullable private MarqueeListener marqueeListener;
     private final java.util.LinkedHashSet<String> marqueeSelectedIds =
             new java.util.LinkedHashSet<>();
@@ -7969,11 +7981,20 @@ if (sd.clip.hasVolumeKeyframes()) {
                 marqueeLastViewX = x;
                 marqueeLastViewY = y;
                 float slop = 8f * density;
-                if (!marqueeDragActive && !marqueeItemDragActive
+                // !marqueeGroupDragActive: once a group drag has begun this must not fire
+                // again, or every MOVE re-snapshots the moved positions and the drag runs away.
+                if (!marqueeDragActive && !marqueeItemDragActive && !marqueeGroupDragActive
                         && (Math.abs(x - marqueeDownViewX) > slop
                             || Math.abs(y - marqueeDownViewY) > slop)) {
                     longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
-                    if (marqueeDownItemHit != null && layerGestureController != null) {
+                    if (marqueeDownItemHit != null && marqueeSelectedIds.size() > 1
+                            && marqueeSelectedIds.contains(marqueeDownItemHit.item.getId())
+                            && marqueeListener != null) {
+                        // Drag started on one of SEVERAL selected objects: move them all.
+                        marqueeGroupDragActive = true;
+                        marqueeListener.onGroupMoveStart(
+                                new java.util.LinkedHashSet<>(marqueeSelectedIds));
+                    } else if (marqueeDownItemHit != null && layerGestureController != null) {
                         // Drag started ON an object → instant pickup-move (no hold).
                         layerGestureController.onRowBodyDown(
                                 marqueeDownViewX + scrollOffsetPx, marqueeDownViewY,
@@ -7989,7 +8010,13 @@ if (sd.clip.hasVolumeKeyframes()) {
                         startMarqueeEdgeScroll();
                     }
                 }
-                if (marqueeItemDragActive && layerGestureController != null) {
+                if (marqueeGroupDragActive && marqueeListener != null) {
+                    // Content coordinates, as the single-item drag uses: xToTime clamps at 0,
+                    // so view-x would stretch a drag that starts left of time 0.
+                    marqueeListener.onGroupMoveDelta(xToTime(x + scrollOffsetPx)
+                            - xToTime(marqueeDownViewX + scrollOffsetPx));
+                    invalidate();
+                } else if (marqueeItemDragActive && layerGestureController != null) {
                     layerGestureController.onRowBodyMove(x + scrollOffsetPx, y,
                             getM6RowsTopPx(), totalEffectiveMs, this::xToTime);
                 } else if (marqueeDragActive) {
@@ -8002,13 +8029,17 @@ if (sd.clip.hasVolumeKeyframes()) {
                 longPressHandler.removeCallbacks(marqueeBatchLongPressRunnable);
                 boolean wasDrag = marqueeDragActive;
                 boolean wasItemDrag = marqueeItemDragActive;
+                boolean wasGroupDrag = marqueeGroupDragActive;
+                marqueeGroupDragActive = false;
                 boolean batchFired = marqueeBatchFired;
                 marqueeDragActive = false;
                 marqueeItemDragActive = false;
                 marqueeTouchActive = false;
                 marqueeBatchFired = false;
                 marqueeDownItemHit = null;
-                if (wasItemDrag && layerGestureController != null) {
+                if (wasGroupDrag && marqueeListener != null) {
+                    marqueeListener.onGroupMoveEnd(e.getActionMasked() == MotionEvent.ACTION_UP);
+                } else if (wasItemDrag && layerGestureController != null) {
                     layerGestureController.onRowBodyUp(
                             e.getActionMasked() == MotionEvent.ACTION_UP);
                 } else if (e.getActionMasked() == MotionEvent.ACTION_UP
@@ -8029,6 +8060,10 @@ if (sd.clip.hasVolumeKeyframes()) {
         if (marqueeItemDragActive && layerGestureController != null) {
             layerGestureController.onRowBodyUp(false); // abort = revert, never commit
         }
+        if (marqueeGroupDragActive && marqueeListener != null) {
+            marqueeListener.onGroupMoveEnd(false);
+        }
+        marqueeGroupDragActive = false;
         marqueeItemDragActive = false;
         marqueeDownItemHit = null;
         marqueeTouchActive = false;

@@ -14825,7 +14825,80 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     public void onMarqueeSelectionChanged(int count) {
                         // Selection visuals live on the timeline itself; nothing modal here.
                     }
+
+                    // GROUP MOVE: every selected object slides by the same time, one undo.
+                    @Override
+                    public void onGroupMoveStart(@NonNull java.util.Set<String> ids) {
+                        groupMoveKinds.clear();
+                        groupMoveStarts.clear();
+                        groupMoveDeltaMs = 0L;
+                        if (project == null) return;
+                        Timeline tl = project.getTimeline();
+                        for (String id : ids) {
+                            String kind = tl.movableKindOfId(id);   // master clips: not movable
+                            if (kind == null) continue;
+                            long start = tl.resolveLinkStartMs(kind, id);
+                            if (start == Long.MIN_VALUE) continue;
+                            groupMoveKinds.put(id, kind);
+                            groupMoveStarts.put(id, start);
+                        }
+                    }
+
+                    @Override
+                    public void onGroupMoveDelta(long deltaMs) {
+                        if (project == null || groupMoveStarts.isEmpty()) return;
+                        long earliest = Long.MAX_VALUE;
+                        for (long s : groupMoveStarts.values()) earliest = Math.min(earliest, s);
+                        // The whole group stops at 0 together, so spacing never changes.
+                        groupMoveDeltaMs = Math.max(-earliest, deltaMs);
+                        applyGroupMove(groupMoveDeltaMs);
+                    }
+
+                    @Override
+                    public void onGroupMoveEnd(boolean commit) {
+                        if (project == null || groupMoveStarts.isEmpty()) return;
+                        final java.util.Map<String, String> kinds = new java.util.HashMap<>(groupMoveKinds);
+                        final java.util.Map<String, Long> starts = new java.util.HashMap<>(groupMoveStarts);
+                        final long d = groupMoveDeltaMs;
+                        final boolean audio = kinds.containsValue("audioClip");
+                        if (!commit || d == 0L) {
+                            applyGroupMove(0L);
+                        } else {
+                            undoManager.recordAction(new EditActions.LambdaAction(
+                                    getString(R.string.group_move_undo, starts.size()),
+                                    () -> { applyGroupMoveOf(kinds, starts, d);
+                                            if (audio) resyncAudioPlayerAfterBatch(); },
+                                    () -> { applyGroupMoveOf(kinds, starts, 0L);
+                                            if (audio) resyncAudioPlayerAfterBatch(); }));
+                            scheduleAutoSave();
+                        }
+                        // The audio player reads offsets when prepared: once, on the drop.
+                        if (audio) resyncAudioPlayerAfterBatch();
+                        groupMoveKinds.clear();
+                        groupMoveStarts.clear();
+                        groupMoveDeltaMs = 0L;
+                    }
                 });
+    }
+
+    private final java.util.Map<String, String> groupMoveKinds = new java.util.HashMap<>();
+    private final java.util.Map<String, Long> groupMoveStarts = new java.util.HashMap<>();
+    private long groupMoveDeltaMs;
+
+    private void applyGroupMove(long deltaMs) {
+        applyGroupMoveOf(groupMoveKinds, groupMoveStarts, deltaMs);
+    }
+
+    /** Put every object in {@code starts} at its snapshot start + {@code deltaMs}, then repaint. */
+    private void applyGroupMoveOf(@NonNull java.util.Map<String, String> kinds,
+                                  @NonNull java.util.Map<String, Long> starts, long deltaMs) {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        for (java.util.Map.Entry<String, Long> e : starts.entrySet()) {
+            String kind = kinds.get(e.getKey());
+            if (kind != null) tl.moveStartMs(kind, e.getKey(), e.getValue() + deltaMs);
+        }
+        refreshAfterMarqueeBatchDelete();   // the batch refresh: lanes, text, visualizers, sprites
     }
 
     /** Batch menu: only actions UNIVERSAL to every selected type appear (contract §5.5).

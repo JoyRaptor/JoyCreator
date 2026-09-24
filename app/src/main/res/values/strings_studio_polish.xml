@@ -88,4 +88,5 @@
     <string name="export_range_label">Export a range</string>
     <string name="export_range_error">Enter a start before the end, like 0:12.5 → 0:30, within the project (%1$s).</string>
     <string name="drawer_frost">Frost: blur the picture behind the drawers</string>
+    <string name="group_move_undo">Move %1$d items</string>
 </resources>

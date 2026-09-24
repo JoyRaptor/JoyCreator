@@ -2906,6 +2906,42 @@ public class Timeline {
     }
 
     /**
+     * The link-engine kind of the object with this id ("clip" for an OVERLAY clip, "textOverlay",
+     * "audioClip", "sprite", "waveform"), or null for a master clip or an unknown id. Used by the
+     * group move (SPEC_20260924_LINKING §7), which shifts any mix of these by one time delta.
+     */
+    @androidx.annotation.Nullable
+    public String movableKindOfId(@NonNull String id) {
+        for (Clip oc : overlayClips) if (id.equals(oc.getId())) return "clip";
+        for (TextOverlayItem t : textOverlays) if (id.equals(t.getId())) return "textOverlay";
+        for (AudioClip a : audioClips) if (id.equals(a.getId())) return "audioClip";
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+            if (id.equals(s.getId())) return "sprite";
+        }
+        for (WaveformOverlayInstance w : waveformOverlays) if (id.equals(w.getId())) return "waveform";
+        return null;
+    }
+
+    /**
+     * MOVE one object's start, keeping its length, as a user drag would: after the time
+     * changes, a text box or visualizer is re-homed onto the clip now under its start, exactly
+     * as the single-item drag does. Without that the old anchor's offset pulls it back on the
+     * next anchor pass, and an undo appears to land in the wrong place.
+     */
+    public void moveStartMs(@NonNull String kind, @NonNull String id, long startMs) {
+        applyLinkStartMs(kind, id, startMs);
+        if ("textOverlay".equals(kind)) {
+            for (TextOverlayItem t : textOverlays) {
+                if (id.equals(t.getId())) { attachOverlayToHostUnderStart(t); return; }
+            }
+        } else if ("waveform".equals(kind)) {
+            for (WaveformOverlayInstance w : waveformOverlays) {
+                if (id.equals(w.getId())) { attachVisualizerToHostUnderStart(w); return; }
+            }
+        }
+    }
+
+    /**
      * Move a linkable RIDER payload's absolute start to {@code startMs}, preserving its duration
      * (v1 TIME-links are MOVE-only — trim never propagates, plan §3 lean (b)). Master clips are
      * never riders (their position is the cumulative tape) — silently ignored.

@@ -20,10 +20,10 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | # | What | Builds on | Status |
 |---|---|---|---|
 | 7 | Drawer see-through: 65% → **50%** default, plus a "Drawer see-through" slider in the Settings tool; every drawer + transcript panel repaint live. | ObjectDrawer.Kit.drawerFill | ✅ f284540d |
-| 8 | Frost (real blur) as a **compact header toggle** like pass-through/lock — never a solid fill. Note: the old Frost never blurred anything. Real blur over live video = capture the video surface behind the drawer (PixelCopy/TextureView.getBitmap), downscale-blur, draw as the drawer background, ~15 fps. | ObjectDrawer header toggles | ⏳ |
+| 8 | Frost: compact dot-grid toggle on every drawer header; blurs the video/FX textures + backdrop behind the drawer under the see-through fill (~15 fps, 1/8 size). | ObjectDrawer.FrostSource | ✅ c8888a1e |
 | 9 | Slider rows (only sliders — owner): `[icon] [title] [slider] [tap-to-type value] [◇ key]`, one key→icon map in PipDrawerTabs. Still to adopt it: AudioDrawerTabs, FxPanel, PuppetDrawerTabs, MaskKeyPanel, ColorGradePanel, AV-sync row. | PipDrawerTabs.propRow | ✅ 20ac05e6 (rest ⏳) |
-| 10 | Puppet (grey/colour man) toggle shows only when the selected object HAS puppet keys. | selection | ⏳ |
-| 11 | Sprite tape colour = SpriteLab pink gradient. | ObjectPalette.SPRITE | ⏳ |
+| 10 | Puppet badge: already shown only for a selected picture with pins; it lingered after the selection moved — now hidden on leaving the transform tool. | selection | ✅ 1893dadf |
+| 11 | Sprite tape already wears Sprite Lab's pink→violet ramp (3cfc2e4f) but the ramp spans the whole clip, so a long sprite shows only pink. Proposed: ramp over the VISIBLE part of every tape. Owner to decide (changes all tapes). | ObjectPalette.SPRITE | ❓ |
 | 12 | AMOLED true black — already `s_ground #000000`; keep. | — | ✅ |
 | 13 | Export icon — another agent replaced it; owner approves. (Uncommitted `ic_export_studio.xml` in tree — that agent should commit it.) | — | ✅ owner-approved |
 
@@ -32,10 +32,12 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 |---|---|---|
 | 18 | **Two fingers anywhere on the PREVIEW move/scale/rotate the SELECTED object** (not the timeline — two fingers there zoom/scroll it). First finger off the box is held 150ms; a second finger turns it into a pinch on the selection and cancels selecting the other object. Rotation dead-zone 7°. adb can't send two fingers: owner must test. | 🧪 needs owner |
 | 19 | **The magnet** (right of play): tap = all snapping on/off; hold = Snapping panel (master + Timeline edges / Beats / Canvas centre / Rotation, strength where honoured, rotation step 5/15/45/90°). One class: tools/SnapSettings. | ✅ |
-| 20 | Snap still to wire on the NEW transform surface: canvas centre/edges and **other objects** alignment guides (the old handles had them; the new tool doesn't), + strength for Beats/Canvas. Then add OBJECTS to the panel. | ⏳ |
-| 21 | **Linking / null objects** — design spec first (tasks/SPEC_20260924_LINKING.md): parent in space and/or time, nesting, a Null object with a pivot, a touch-friendly alternative to the pick whip, clear "linked to X · unlink" in drawer/timeline/preview, unlink one vs all, multi-select move. Spec agent was cut off by the usage limit — restart. | ⏳ |
-| 22 | Export UI from the export lane's hooks: queue (drop the "already running" early return, "Queue export" label, overlay BEFORE the snapshot write), **Range export** (Whole project / Range with in/out), **Draft (fast)** preset = 720p + low. | ⏳ |
+| 20 | New transform tool: canvas centre/edges snap with guide line ✅ 1893dadf. Still to do: **other objects** alignment, Beats strength, then add OBJECTS to the panel. | 🔨 |
+| 21 | **Linking / Helper objects** — spec written (tasks/SPEC_20260924_LINKING.md, 5 owner questions). L0 group move ✅ a9e1be4c (drag any selected → all move, one undo). L1+ waits on the owner's answers. | 🔨 |
+| 22 | Export UI: instant "Preparing…" ✅, Queue export ✅ (da59602c), Export a range + Draft (fast) ✅ (1152b27a). Export itself currently fails on the Note 9 in BlendModeGlEffect (export lane has it). | ✅ |
 | 23 | MeshGlSource: a mirrored AND bent picture renders unmirrored (positions and UVs both flipped; likely `vUv = aUv`). Preview + export share it. | ⏳ |
+
+| 24 | Adjustment layer exists (Adjust tool opens it) but its lane no longer shows on the timeline in ZA_CONTROL. Find why. | ⏳ |
 
 ## P2 — finish and prove
 | # | What | Status |

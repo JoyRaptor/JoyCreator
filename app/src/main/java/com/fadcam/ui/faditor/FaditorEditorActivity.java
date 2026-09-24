@@ -29914,6 +29914,47 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     @NonNull
+    /** Reused per surface: getBitmap(Bitmap) into the same small buffer every frost frame. */
+    private final java.util.Map<View, android.graphics.Bitmap> frostGrabs = new java.util.HashMap<>();
+
+    /**
+     * Frost's source: paint the preview that lies behind {@code drawer}, scaled, into {@code c}
+     * — the graffiti backdrop, then the video texture, then the GL effects texture (which
+     * carries the composited pictures when live FX are on). Views drawn as Canvas overlays are
+     * left out; under a blur the video is what gives the drawer its sense of place.
+     */
+    private void paintBehindDrawer(@NonNull View drawer, @NonNull android.graphics.Canvas c,
+                                   float scale) {
+        int[] d = new int[2];
+        drawer.getLocationOnScreen(d);
+        int[] at = new int[2];
+        if (canvasFrame != null && canvasFrame.isShown() && canvasFrame.getWidth() > 0) {
+            canvasFrame.getLocationOnScreen(at);
+            int save = c.save();
+            c.scale(scale, scale);
+            c.translate(at[0] - d[0], at[1] - d[1]);
+            canvasFrame.draw(c);
+            c.restoreToCount(save);
+        }
+        View video = playerView != null ? playerView.getVideoSurfaceView() : null;
+        View fx = findViewById(R.id.fx_preview_view);
+        for (View v : new View[]{video, fx}) {
+            if (!(v instanceof android.view.TextureView) || !v.isShown()) continue;
+            android.view.TextureView tv = (android.view.TextureView) v;
+            if (!tv.isAvailable() || tv.getWidth() <= 0 || tv.getHeight() <= 0) continue;
+            int bw = Math.max(1, Math.round(tv.getWidth() * scale));
+            int bh = Math.max(1, Math.round(tv.getHeight() * scale));
+            android.graphics.Bitmap b = frostGrabs.get(tv);
+            if (b == null || b.getWidth() != bw || b.getHeight() != bh) {
+                b = android.graphics.Bitmap.createBitmap(bw, bh, android.graphics.Bitmap.Config.ARGB_8888);
+                frostGrabs.put(tv, b);
+            }
+            tv.getBitmap(b);
+            tv.getLocationOnScreen(at);
+            c.drawBitmap(b, (at[0] - d[0]) * scale, (at[1] - d[1]) * scale, null);
+        }
+    }
+
     private com.fadcam.ui.faditor.tools.ObjectDrawer ensureObjectDrawer() {
         if (objectDrawer == null) {
             objectDrawer = new com.fadcam.ui.faditor.tools.ObjectDrawer(this);
@@ -29933,6 +29974,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // which is a sibling ABOVE the header — so with topMargin 0 it draws over it and the
             // header stays functionally intact underneath (the drawer dismisses with one gesture).
             root.addView(objectDrawer, lp);
+            objectDrawer.setFrostSource(this::paintBehindDrawer);
             objectDrawer.setHeightListener(h -> {
                 objectDrawerHeightPx = h;
                 if (masterMeter != null) syncMasterMeterVisibility(masterMeter);

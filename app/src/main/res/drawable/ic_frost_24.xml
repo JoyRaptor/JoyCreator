@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Frost: a dot grid that softens toward its edges (the Material blur_on idiom), drawn here so
+     it tints like the other drawer header toggles. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M9.8,12a2.2,2.2 0,1 1,4.4 0a2.2,2.2 0,1 1,-4.4 0 M5.4,12a1.6,1.6 0,1 1,3.2 0a1.6,1.6 0,1 1,-3.2 0 M15.4,12a1.6,1.6 0,1 1,3.2 0a1.6,1.6 0,1 1,-3.2 0 M10.4,7a1.6,1.6 0,1 1,3.2 0a1.6,1.6 0,1 1,-3.2 0 M10.4,17a1.6,1.6 0,1 1,3.2 0a1.6,1.6 0,1 1,-3.2 0 M5.9,7a1.1,1.1 0,1 1,2.2 0a1.1,1.1 0,1 1,-2.2 0 M15.9,7a1.1,1.1 0,1 1,2.2 0a1.1,1.1 0,1 1,-2.2 0 M5.9,17a1.1,1.1 0,1 1,2.2 0a1.1,1.1 0,1 1,-2.2 0 M15.9,17a1.1,1.1 0,1 1,2.2 0a1.1,1.1 0,1 1,-2.2 0 M2.2,12a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0 M20.2,12a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0 M11.2,3a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0 M11.2,21a0.8,0.8 0,1 1,1.6 0a0.8,0.8 0,1 1,-1.6 0" />
+</vector>

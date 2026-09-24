@@ -644,6 +644,8 @@ public final class ObjectDrawer extends LinearLayout {
         tabs.addAll(tabList);
         toggles.clear();
         toggles.addAll(toggleList);
+        // Frost belongs to every drawer, so the drawer adds it itself: last, beside the close.
+        if (frostSource != null) toggles.add(frostToggle());
         // Header extras (§7.2.1): remove the previous show's views first — a null extra must
         // always CLEAR (so other drawers never inherit the caption pills), and a re-shown
         // drawer must not stack a second copy of its own.
@@ -755,6 +757,144 @@ public final class ObjectDrawer extends LinearLayout {
     public View currentTabContent() {
         int n = contentHost.getChildCount();
         return n == 0 ? null : contentHost.getChildAt(n - 1);
+    }
+
+    // -- FROST: the picture behind the drawer, blurred (JoyRaptor, 2026-09-24) ----------------
+    // "Real blur? Sure, let's try it. But make the toggle compact, like the pass-through touch
+    // and layer lock." The drawer stays exactly as see-through as the slider says; Frost only
+    // blurs what shows through, so the video stays present as a mood while the controls read
+    // cleanly over it. (The old Frost switch never blurred anything at all.)
+    //
+    // How: ~15 times a second the host paints what lies behind the drawer into a bitmap 1/8
+    // the drawer's size (TextureView.getBitmap: both preview surfaces are TextureViews), two
+    // box-blur passes soften it, and it is drawn scaled up UNDER the drawer's own fill. Tiny
+    // bitmaps keep it cheap; nothing runs while Frost is off or the drawer is hidden.
+
+    /** Paints what lies behind {@code drawer} into {@code c}, already scaled by {@code scale}. */
+    public interface FrostSource {
+        void paintBehind(@NonNull View drawer, @NonNull android.graphics.Canvas c, float scale);
+    }
+
+    @Nullable private FrostSource frostSource;
+    @Nullable private android.graphics.Bitmap frostBitmap;
+    @Nullable private android.graphics.Canvas frostCanvas;
+    @Nullable private int[] frostPixels, frostTemp;
+    private final android.graphics.Paint frostPaint =
+            new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+    private final android.graphics.Path frostClip = new android.graphics.Path();
+    private final android.graphics.RectF frostDst = new android.graphics.RectF();
+    private static final float FROST_SCALE = 1f / 8f;
+    private static final long FROST_FRAME_MS = 66L;
+
+    /** Give the drawer something to blur; without one there is no Frost toggle. */
+    public void setFrostSource(@Nullable FrostSource source) {
+        frostSource = source;
+    }
+
+    @NonNull
+    private Toggle frostToggle() {
+        return new Toggle(com.fadcam.R.drawable.ic_frost_24, com.fadcam.R.drawable.ic_frost_24,
+                () -> Kit.frostOn(getContext()),
+                () -> {
+                    Kit.setFrostOn(getContext(), !Kit.frostOn(getContext()));
+                    syncFrost();
+                }, false, getContext().getString(com.fadcam.R.string.drawer_frost));
+    }
+
+    private final Runnable frostTick = new Runnable() {
+        @Override public void run() {
+            if (!frostRunning()) return;
+            captureFrost();
+            invalidate();
+            postDelayed(this, FROST_FRAME_MS);
+        }
+    };
+
+    private boolean frostRunning() {
+        return frostSource != null && getVisibility() == VISIBLE && isAttachedToWindow()
+                && Kit.frostOn(getContext());
+    }
+
+    /** Start or stop the frost frames to match the toggle and visibility. */
+    private void syncFrost() {
+        removeCallbacks(frostTick);
+        if (frostRunning()) post(frostTick);
+        else invalidate();
+    }
+
+    private void captureFrost() {
+        FrostSource src = frostSource;
+        if (src == null || getWidth() <= 0 || getHeight() <= 0) return;
+        int w = Math.max(1, Math.round(getWidth() * FROST_SCALE));
+        int h = Math.max(1, Math.round(getHeight() * FROST_SCALE));
+        if (frostBitmap == null || frostBitmap.getWidth() != w || frostBitmap.getHeight() != h) {
+            frostBitmap = android.graphics.Bitmap.createBitmap(w, h,
+                    android.graphics.Bitmap.Config.ARGB_8888);
+            frostCanvas = new android.graphics.Canvas(frostBitmap);
+            frostPixels = new int[w * h];
+            frostTemp = new int[w * h];
+        }
+        frostCanvas.drawColor(Studio.GROUND);
+        try {
+            src.paintBehind(this, frostCanvas, FROST_SCALE);
+        } catch (RuntimeException ignored) {
+            return;   // a surface torn down mid-frame costs one frame of frost, nothing more
+        }
+        frostBitmap.getPixels(frostPixels, 0, w, 0, 0, w, h);
+        boxBlur(frostPixels, frostTemp, w, h, 2);
+        boxBlur(frostPixels, frostTemp, w, h, 2);
+        frostBitmap.setPixels(frostPixels, 0, w, 0, 0, w, h);
+    }
+
+    /** One horizontal then one vertical box pass of radius {@code r}, in place. */
+    private static void boxBlur(@NonNull int[] px, @NonNull int[] tmp, int w, int h, int r) {
+        for (int pass = 0; pass < 2; pass++) {
+            boolean horiz = pass == 0;
+            int[] src = horiz ? px : tmp, dst = horiz ? tmp : px;
+            int lines = horiz ? h : w, len = horiz ? w : h;
+            for (int line = 0; line < lines; line++) {
+                for (int i = 0; i < len; i++) {
+                    int a = 0, rr = 0, g = 0, b = 0, n = 0;
+                    for (int k = Math.max(0, i - r); k <= Math.min(len - 1, i + r); k++) {
+                        int c = src[horiz ? line * w + k : k * w + line];
+                        a += c >>> 24; rr += (c >> 16) & 0xFF; g += (c >> 8) & 0xFF; b += c & 0xFF;
+                        n++;
+                    }
+                    dst[horiz ? line * w + i : i * w + line] =
+                            ((a / n) << 24) | ((rr / n) << 16) | ((g / n) << 8) | (b / n);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void draw(@NonNull android.graphics.Canvas c) {
+        // The blur goes UNDER the background, so the see-through fill tints it exactly as it
+        // tints the sharp picture when Frost is off.
+        if (frostBitmap != null && frostRunning()) {
+            float r = 18f * density;
+            frostClip.reset();
+            frostClip.addRoundRect(0f, 0f, getWidth(), getHeight(),
+                    new float[]{0f, 0f, 0f, 0f, r, r, r, r}, android.graphics.Path.Direction.CW);
+            int save = c.save();
+            c.clipPath(frostClip);
+            frostDst.set(0f, 0f, getWidth(), getHeight());
+            c.drawBitmap(frostBitmap, null, frostDst, frostPaint);
+            c.restoreToCount(save);
+        }
+        super.draw(c);
+    }
+
+    @Override
+    protected void onVisibilityChanged(@NonNull View changedView, int visibility) {
+        super.onVisibilityChanged(changedView, visibility);
+        if (changedView == this) syncFrost();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        removeCallbacks(frostTick);
+        super.onDetachedFromWindow();
     }
 
     public void hide() {
@@ -1199,6 +1339,18 @@ public final class ObjectDrawer extends LinearLayout {
         /** The one see-through drawer fill (--scrim), at the chosen see-through. */
         public static int drawerFill(@NonNull Context ctx) {
             return Studio.alpha(Studio.GROUND, Math.round((100 - seeThroughPct(ctx)) * 2.55f));
+        }
+
+        private static final String KEY_FROST = "frost";
+
+        /** Frost: the picture behind a drawer is blurred under its see-through fill. */
+        public static boolean frostOn(@NonNull Context ctx) {
+            return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_FROST, false);
+        }
+
+        public static void setFrostOn(@NonNull Context ctx, boolean on) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putBoolean(KEY_FROST, on).apply();
         }
 
         /** Repaint {@code v}'s fill now and whenever the slider moves; a no-op off a drawable fill. */

@@ -834,3 +834,23 @@ work, bisect/diff for what changed before touching a tuning constant.
 The snap button was `android:text="magnet"` in the Material Icons font, which has no such glyph.
 It rendered blank for weeks, and nobody knew the Studio had a snap button. **Rule:** after using
 a ligature, screenshot it on device; prefer a vector drawable for anything new.
+
+## 2026-09-24 — measure WHERE the export runs, not just what it does
+
+Profiles said "the GL thread is CPU-bound" and every fix shaved that thread — but on the
+Note 20 the :export process sat in Samsung's `/abnormal` cpuset (cores 0-3, the 1.8 GHz
+little cluster) within ~90 s of the phone locking (`/foreground` -> `/moderate` ->
+`/abnormal`). Two parts side by side there were slower in total than one. And a visualizer's
+analysis took 30+ minutes because the export used the UNCACHED synchronous extractor over the
+whole file, while the editor had already cached exactly the span it needed.
+
+**Rules:**
+- Before tuning an Android background pipeline, read `/proc/<pid>/cpuset` and per-thread
+  `/proc/<pid>/task/*/stat` field 39 (the CPU it ran on). A thread "at 90%" on a little
+  core is a scheduling problem, not an algorithm problem.
+- When the export needs something the editor also computes (waveforms, thumbnails, fits),
+  ask for it with the editor's exact key/span so the disk cache is shared — never a
+  "cleaner" full-source variant.
+- Anything that may take minutes (decode, analysis) never runs on the export's main thread:
+  part scheduling, progress and Transformer callbacks all live there.
+- Timings from a locked, charging, warm phone are the worst case; say so next to the number.

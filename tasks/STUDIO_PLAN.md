@@ -35,9 +35,9 @@ Status: ✅ done+committed · 🧪 committed, needs a phone check · 🔨 in pro
 | 20 | New transform tool: canvas centre/edges snap with guide line ✅ 1893dadf. Still to do: **other objects** alignment, Beats strength, then add OBJECTS to the panel. | 🔨 |
 | 21 | **Linking / Helper objects** — spec written (tasks/SPEC_20260924_LINKING.md, 5 owner questions). L0 group move ✅ a9e1be4c (drag any selected → all move, one undo). L1+ waits on the owner's answers. | 🔨 |
 | 22 | Export UI: instant "Preparing…" ✅, Queue export ✅ (da59602c), Export a range + Draft (fast) ✅ (1152b27a). Export itself currently fails on the Note 9 in BlendModeGlEffect (export lane has it). | ✅ |
-| 23 | MeshGlSource: a mirrored AND bent picture renders unmirrored (positions and UVs both flipped; likely `vUv = aUv`). Preview + export share it. | ⏳ |
+| 23 | MeshGlSource: a mirrored AND bent picture rendered unmirrored (positions and UVs both flipped). Now only the source is mirrored; the bend stays under its dots. Preview + export share it. | 🧪 |
 
-| 24 | Adjustment layer exists (Adjust tool opens it) but its lane no longer shows on the timeline in ZA_CONTROL. Find why. | ⏳ |
+| 24 | ZA_CONTROL's missing adjustment lane + white canvas + 0:47→0:43: the owner deleted that adjustment layer (a white solid-colour card, 0–47.9 s). Not a bug. The blue box behind the star sprite = the GPU preview's missing-art placeholder, surfaced by 17cb9d25 → export/compositor lane. | ✅ explained |
 
 ## P2 — finish and prove
 | # | What | Status |

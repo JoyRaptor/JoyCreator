@@ -78,9 +78,9 @@ public final class MeshGlSource {
      * See the class note. {@code aLocal} is deformed, {@code aUv} is not.
      *
      * <p>SPEC H mirror: {@code uMirror} carries {@code TextOverlayItem.mirrorSignX/Y} (+1/-1
-     * per axis), the ONE shared mirror definition every other renderer reads. Both the deformed
-     * position and the source coordinate are mirrored about the unit centre (0.5) BEFORE the
-     * homography, i.e. bitmap -&gt; MIRROR -&gt; pin -&gt; place — the exact order
+     * per axis), the ONE shared mirror definition every other renderer reads. The SOURCE
+     * coordinate is mirrored about the unit centre (0.5); the deformed position is not, so the
+     * bend stays where its dots are. i.e. bitmap -&gt; MIRROR -&gt; pin -&gt; place — the exact order
      * {@code ImageOverlayDraw}, {@code CornerPinImageView} and the GL Pip draw it in. Unmirrored
      * (1,1) is the identity and compiles the same picture as before; preview and export compile
      * THESE strings, so they cannot disagree.
@@ -94,7 +94,12 @@ public final class MeshGlSource {
             + "uniform vec2 uMirror;\n"
             + "varying vec2 vUv;\n"
             + "void main() {\n"
-            + "  vec2 ml = vec2(0.5 + uMirror.x * (aLocal.x - 0.5), 0.5 + uMirror.y * (aLocal.y - 0.5));\n"
+            // MIRROR THE PICTURE, NOT THE BEND (2026-09-24). Mirroring both the deformed position
+            // and the source coordinate cancelled out: a mirrored AND bent picture drew
+            // UNmirrored, with only its bend shape flipped away from the dots the user drags
+            // (those are drawn unmirrored). bitmap -> MIRROR -> pin -> place means the SOURCE is
+            // mirrored and the bent shape stays where it was authored.
+            + "  vec2 ml = aLocal;\n"
             + "  vec2 mu = vec2(0.5 + uMirror.x * (aUv.x - 0.5), 0.5 + uMirror.y * (aUv.y - 0.5));\n"
             + "  vec3 h = uHomography * vec3(ml, 1.0);\n"
             + "  vec3 p = uPlace * h;\n"

@@ -1378,6 +1378,12 @@ public class ExportManager {
     /** Target composition length per chunk; cuts land on clip seams near it. */
     private static final long CHUNK_TARGET_MS = 300_000L;
 
+    /** Visualizer data for this export, analysed once (see buildComposition). */
+    @Nullable
+    private volatile Map<String, WaveformData> sharedWaveformCache = null;
+    /** True while builtRangeDurationMs builds a composition only to measure it. */
+    private boolean measuringOnly = false;
+
     /** Absolute composition start of each part, measured once by {@link #planChunks}. */
     @Nullable
     private long[] chunkBases = null;
@@ -1734,6 +1740,7 @@ public class ExportManager {
         resetChunkState();
         isExporting = true;
         chunkCancelled = false;
+        sharedWaveformCache = null;   // a new export analyses its (possibly edited) sources
         lastChunkResult = null;
         lastLoggedProgressPct = -1;
         progressEpochMs = 0L;
@@ -1897,6 +1904,7 @@ public class ExportManager {
     private ExportManager newChunkWorker(@NonNull String tracePrefix, boolean ownTrace) {
         ExportManager w = new ExportManager(context, prefsManager);
         w.fxBypassedSnapshot = fxBypassedSnapshot;
+        w.sharedWaveformCache = sharedWaveformCache;
         w.cleanAudioSnapshot = cleanAudioSnapshot;
         if (!ownTrace) {
             w.traceParent = this;
@@ -2071,6 +2079,11 @@ public class ExportManager {
                 chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, i, e);
             }
         });
+        // The part's composition is built by now (synchronously): its visualizer analysis, if
+        // it needed one, is shared with every part started after it.
+        if (sharedWaveformCache == null && w.sharedWaveformCache != null) {
+            sharedWaveformCache = w.sharedWaveformCache;
+        }
     }
 
     /** The sound pass on its own worker (own trace file: it closes its trace when it commits). */
@@ -2080,6 +2093,7 @@ public class ExportManager {
         final ExportManager w = newChunkWorker("S ", true);
         w.sampleGl = false;   // no GL thread of its own
         w.sampleSound = true; // where the sound pass's time goes (it took ~15 min alongside parts)
+        w.silenceAsGaps = !run.soundRetried;   // the retry uses the silence file, as before
         w.openTrace("sound");
         run.soundWorker = w;
         run.soundState = 1;
@@ -2255,11 +2269,13 @@ public class ExportManager {
         boolean keepVideoOnly = chunkVideoOnly;
         int keepStart = chunkClipStart;
         int keepEnd = chunkClipEnd;
+        boolean keepMeasuring = measuringOnly;
         try {
             chunkBaseMs = 0L;
             chunkVideoOnly = true;
             chunkClipStart = start;
             chunkClipEnd = end;
+            measuringOnly = true;
             Composition c = buildComposition(project, null);
             long sum = 0L;
             for (EditedMediaItemSequence seq : c.sequences) {
@@ -2277,6 +2293,7 @@ public class ExportManager {
             }
             return sum;
         } finally {
+            measuringOnly = keepMeasuring;
             chunkBaseMs = keepBase;
             chunkVideoOnly = keepVideoOnly;
             chunkClipStart = keepStart;
@@ -2858,12 +2875,40 @@ public class ExportManager {
                 context, decoderFactory, androidx.media3.common.util.Clock.DEFAULT, null);
     }
 
+    /** Media3's own gap marker (EditedMediaItem.GAP_MEDIA_ID, package-private there). */
+    private static final String MEDIA3_GAP_MEDIA_ID = "androidx-media3-GapMediaItem";
+
+    /** Silence as Media3 gaps (see addSilence). The sound-pass worker only; its retry is off. */
+    private boolean silenceAsGaps = false;
+
+    @NonNull
+    private static EditedMediaItem gapItem(long durationMs) {
+        return new EditedMediaItem.Builder(
+                new MediaItem.Builder().setMediaId(MEDIA3_GAP_MEDIA_ID).build())
+                .setDurationUs(durationMs * 1000L)
+                .build();
+    }
+
+    private static boolean isGap(@NonNull EditedMediaItem it) {
+        return MEDIA3_GAP_MEDIA_ID.equals(it.mediaItem.mediaId);
+    }
+
     /** MIMEs already reported by the decoder selector, so it logs once each, not once per clip. */
     private final java.util.Set<String> loggedSelectorMimes = new java.util.HashSet<>();
 
     private void addSilence(@NonNull List<EditedMediaItem> items, @Nullable Uri silenceUri,
                             long durationMs) {
-        if (silenceUri == null || durationMs <= 0) return;
+        if (durationMs <= 0) return;
+        // SOUND PASS SPEED (2026-09-24): after the first item, silence is a Media3 GAP - zeros
+        // generated in the format of the item before it, no decoder, no file. A 48-min
+        // project's music lane was ~44 decoded minutes of silence file per short clip. Never
+        // FIRST in a sequence: a gap has no format of its own and Media3 mixes in the first
+        // input's format (the mono 44.1 kHz bug), so a sequence still opens with real audio.
+        if (silenceAsGaps && !items.isEmpty()) {
+            items.add(gapItem(durationMs));
+            return;
+        }
+        if (silenceUri == null) return;
         long remaining = durationMs;
         while (remaining > 0) {
             long chunk = Math.min(remaining, SILENCE_FILE_MS);
@@ -3478,8 +3523,18 @@ public class ExportManager {
         // Pre-load waveform data for all waveform overlays. The record pass only counts
         // items and editor spans — it never renders — so skip the audio-decode entirely.
         Map<String, WaveformData> waveformCache = new HashMap<>();
-        if (frameDirective == null || !frameDirective.isRecordPass()) {
-            waveformCache = preloadWaveformData(timeline);
+        if (measuringOnly) {
+            // builtRangeDurationMs: lengths only, nothing is drawn - no audio analysis.
+        } else if (frameDirective == null || !frameDirective.isRecordPass()) {
+            Map<String, WaveformData> shared = sharedWaveformCache;
+            waveformCache = preloadWaveformData(timeline,
+                    shared != null ? shared : new HashMap<>());
+            // ONCE PER EXPORT. The analysis decodes the WHOLE source (a 48-min lecture's
+            // spectrum took minutes, on the main thread), and a chunked export builds a
+            // composition per part plus one per part again to measure it: up to 14 full
+            // analyses (2026-09-24, first long project with a visualizer). Chunk workers get
+            // this map from their driver (newChunkWorker) and add only what they still miss.
+            if (chunkRun != null || chunkVideoOnly) sharedWaveformCache = waveformCache;
         }
 
         // Pre-load waveform style presets
@@ -4777,14 +4832,30 @@ public class ExportManager {
     }
 
     @NonNull
-    private Map<String, WaveformData> preloadWaveformData(@NonNull Timeline timeline) {
-        Map<String, WaveformData> cache = new HashMap<>();
+    private Map<String, WaveformData> preloadWaveformData(@NonNull Timeline timeline,
+                                                          @NonNull Map<String, WaveformData> cache) {
         FLog.d(TAG, "preloadWaveformData: waveformOverlayCount="
                 + timeline.getWaveformOverlays().size()
                 + " hasAny=" + timeline.hasWaveformOverlays());
         if (!timeline.hasWaveformOverlays()) return cache;
         WaveformExtractor extractor = new WaveformExtractor(context);
+        // A part of a chunked export analyses only the visualizers on screen during it (editor
+        // time, padded): the analysis decodes a whole source, minutes for a long lecture.
+        long partFrom = Long.MIN_VALUE, partTo = Long.MAX_VALUE;
+        if (chunkClipEnd >= 0) {
+            long ed = 0L;
+            for (int i = 0; i < chunkClipStart && i < timeline.getClipCount(); i++) {
+                ed += timeline.getClip(i).getVisualDurationMs();
+            }
+            long len = 0L;
+            for (int i = chunkClipStart; i < chunkClipEnd && i < timeline.getClipCount(); i++) {
+                len += timeline.getClip(i).getVisualDurationMs();
+            }
+            partFrom = ed - 10_000L;
+            partTo = ed + len + 10_000L;
+        }
         for (WaveformOverlayInstance woi : LayerPreviewController.visibleWaveformOverlays(timeline)) { // §4.5 per-object eye
+            if (woi.getEndMs() < partFrom || woi.getStartMs() > partTo) continue;
             String clipId = woi.getAudioSourceRef();
             FLog.d(TAG, "preloadWaveformData: waveform " + woi.getId()
                     + " style=" + woi.getStyleId()
@@ -5043,6 +5114,10 @@ public class ExportManager {
         for (EditedMediaItemSequence seq : sequences) {
             List<EditedMediaItem> items = new ArrayList<>(seq.editedMediaItems.size());
             for (EditedMediaItem it : seq.editedMediaItems) {
+                if (isGap(it)) {   // no processors allowed; silence in the previous item's format
+                    items.add(it);
+                    continue;
+                }
                 List<AudioProcessor> aps = new ArrayList<>(it.effects.audioProcessors);
                 aps.addAll(stereoOutputChain());
                 items.add(it.buildUpon()
@@ -5310,12 +5385,7 @@ public class ExportManager {
             // capped at the file length and every later audio clip slides earlier on the
             // timeline (the end song went silent because it landed ~250s too early).
             if (clipStartMs > cursorMs) {
-                long remainingGapMs = clipStartMs - cursorMs;
-                while (remainingGapMs > 0) {
-                    long chunkMs = Math.min(remainingGapMs, SILENCE_FILE_MS);
-                    audioItems.add(buildSilenceItem(silenceUri, chunkMs));
-                    remainingGapMs -= chunkMs;
-                }
+                addSilence(audioItems, silenceUri, clipStartMs - cursorMs);
                 cursorMs = clipStartMs;
             }
 
@@ -5427,12 +5497,7 @@ public class ExportManager {
             }
             long startMs = Math.max(0, c.getOverlayStartMs());
             if (startMs > cursorMs) {
-                long gap = startMs - cursorMs;
-                while (gap > 0) {
-                    long chunk = Math.min(gap, SILENCE_FILE_MS);
-                    items.add(buildSilenceItem(silenceUri, chunk));
-                    gap -= chunk;
-                }
+                addSilence(items, silenceUri, startMs - cursorMs);
                 cursorMs = startMs;
             }
 
@@ -5511,29 +5576,6 @@ public class ExportManager {
         FLog.d(TAG, "buildOverlayAudioSequence: " + items.size()
                 + " items, total ~" + cursorMs + "ms");
         return new EditedMediaItemSequence.Builder(items).build();
-    }
-
-    /**
-     * Build an {@link EditedMediaItem} of silence for the given duration.
-     * Uses a pre-generated 1-second silent WAV file and clips it to the
-     * required duration. For gaps longer than 1 s the file is looped or
-     * a longer file is generated.
-     */
-    @NonNull
-    private EditedMediaItem buildSilenceItem(@NonNull Uri silenceUri, long durationMs) {
-        // Clip the silence file to the required duration
-        MediaItem mediaItem = new MediaItem.Builder()
-                .setUri(silenceUri)
-                .setClippingConfiguration(
-                        new MediaItem.ClippingConfiguration.Builder()
-                                .setStartPositionMs(0)
-                                .setEndPositionMs(durationMs)
-                                .build())
-                .build();
-
-        return new EditedMediaItem.Builder(mediaItem)
-                .setRemoveVideo(true)
-                .build();
     }
 
     /**

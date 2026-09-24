@@ -88,6 +88,51 @@ final class GlImageOverlayEffect implements GlEffect {
             boolean uploaded;
             boolean drawn;
             String sig;
+            /** ZERO-COPY route (a box whose look moves every frame): drawn into this Surface. */
+            int oesTex;
+            android.graphics.SurfaceTexture st;
+            android.view.Surface surface;
+            boolean external;
+        }
+
+        /**
+         * A box that animates every frame (preset, timer, bend, pin) redrew a FULL-frame bitmap
+         * and uploaded all 8 MB of it each frame (measured: 21-32% of the Note 20's GL thread
+         * while one is on screen). Those are drawn straight into a Surface the GPU samples -
+         * no bitmap, no copy, no upload - with the same drawTextItem on a software canvas.
+         * Off after any failure (bitmap + upload route, as before).
+         */
+        private boolean zeroCopyText = true;
+        private final List<Boolean> frameExternal = new ArrayList<>();
+
+        /** Draw o into tf's Surface and latch it; false = use the bitmap route. */
+        private boolean drawThroughSurface(@NonNull TextFrame tf, @NonNull TextOverlayItem o,
+                                           long t) {
+            if (!zeroCopyText || textDrawer == null) return false;
+            try {
+                if (tf.st == null) {
+                    tf.oesTex = PipGl.newExternalTexture();
+                    tf.st = new android.graphics.SurfaceTexture(tf.oesTex);
+                    tf.st.setDefaultBufferSize(Math.max(1, textDrawer.drawWidth()),
+                            Math.max(1, textDrawer.drawHeight()));
+                    tf.surface = new android.view.Surface(tf.st);
+                }
+                android.graphics.Canvas c = tf.surface.lockCanvas(null);
+                try {
+                    c.drawColor(0, android.graphics.PorterDuff.Mode.CLEAR);
+                    tf.drawn = textDrawer.drawTextItem(c, o, t);
+                } finally {
+                    tf.surface.unlockCanvasAndPost(c);
+                }
+                tf.st.updateTexImage();
+                tf.external = true;
+                return true;
+            } catch (Throwable e) {
+                FLog.w("GlImageOverlay", "zero-copy text unavailable; uploading instead", e);
+                zeroCopyText = false;
+                tf.external = false;
+                return false;
+            }
         }
 
         private final Context context;
@@ -136,6 +181,7 @@ final class GlImageOverlayEffect implements GlEffect {
                 long t = presentationTimeUs / 1000 + editorTimeOffsetMs;
                 frameVisible.clear();
                 frameTex.clear();
+                frameExternal.clear();
                 for (TextOverlayItem o : items) {
                     if (!o.isVisibleAt(t)) {
                         if (t > o.getEndMs()) forget(o);   // time only moves forward in an item
@@ -145,9 +191,17 @@ final class GlImageOverlayEffect implements GlEffect {
                         TextFrame tf = textFor(o, t);
                         if (tf == null) continue;
                         // The picture is the whole frame, laid over it unscaled.
+                        if (tf.external) {
+                            frameVisible.add(FxPreviewTextureView.Pip.of(0.5f, 0.5f, 0.5f, 0.5f,
+                                    0f, 1f, null, t, null, 0f, w, h, "txt#" + o.getId(), null, 0));
+                            frameTex.add(tf.oesTex);
+                            frameExternal.add(true);
+                            continue;
+                        }
                         frameVisible.add(FxPreviewTextureView.Pip.ofImage(0.5f, 0.5f, 0.5f, 0.5f,
                                 0f, 1f, null, t, null, 0f, w, h, "txt#" + o.getId(), tf.bmp, 1f));
                         frameTex.add(tf.tex);
+                        frameExternal.add(false);
                         continue;
                     }
                     Bitmap b = bitmapFor(o, w, h);
@@ -159,8 +213,9 @@ final class GlImageOverlayEffect implements GlEffect {
                     if (tex == 0) continue;
                     frameVisible.add(p);
                     frameTex.add(tex);
+                    frameExternal.add(false);
                 }
-                chain.composite(inputTexId, outFbo, frameVisible, frameTex);
+                chain.composite(inputTexId, outFbo, frameVisible, frameTex, frameExternal);
                 GlErrors.drain("left by GlImageOverlayEffect");
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
@@ -182,15 +237,22 @@ final class GlImageOverlayEffect implements GlEffect {
             if (tf != null && sig.equals(tf.sig)) return tf.drawn ? tf : null;
             if (tf == null) {
                 tf = new TextFrame();
+                texts.put(o.getId(), tf);
+            }
+            tf.sig = sig;
+            // "t=": the signature carries the clock, so this box changes every frame.
+            if (sig.startsWith("t=") && drawThroughSurface(tf, o, t)) {
+                return tf.drawn ? tf : null;
+            }
+            if (tf.bmp == null) {
                 tf.bmp = Bitmap.createBitmap(Math.max(1, textDrawer.drawWidth()),
                         Math.max(1, textDrawer.drawHeight()), Bitmap.Config.ARGB_8888);
                 tf.canvas = new android.graphics.Canvas(tf.bmp);
                 tf.tex = PipGl.newStillTexture();
-                texts.put(o.getId(), tf);
             } else {
                 tf.bmp.eraseColor(0);
             }
-            tf.sig = sig;
+            tf.external = false;
             try {
                 tf.drawn = textDrawer.drawTextItem(tf.canvas, o, t);
             } catch (Throwable e) {
@@ -210,6 +272,11 @@ final class GlImageOverlayEffect implements GlEffect {
 
         private void releaseText(@Nullable TextFrame tf) {
             if (tf == null) return;
+            try {
+                if (tf.surface != null) tf.surface.release();
+                if (tf.st != null) tf.st.release();
+                if (tf.oesTex != 0) GLES20.glDeleteTextures(1, new int[]{tf.oesTex}, 0);
+            } catch (RuntimeException ignored) { }
             if (tf.tex != 0) {
                 try { GLES20.glDeleteTextures(1, new int[]{tf.tex}, 0); }
                 catch (RuntimeException ignored) { }

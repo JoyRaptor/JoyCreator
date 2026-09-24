@@ -601,11 +601,14 @@ public final class LayerGestureController {
             return DownResult.ARMED_TRIM;
         }
 
-        // A SPRITE FRAME KEY, dragged along the tape, retimes that frame change. Same
-        // ALREADY-SELECTED rule as above: the first touch on a sprite still just selects it.
-        if (!objectLocked && hit.item.getId().equals(selectedItemId)
-                && tryArmSpriteKey(hit, x, timeToX)) {
-            return DownResult.ARMED_TRIM;
+        // A SPRITE FRAME KEY retimes on HOLD-then-drag, like every other thing that moves
+        // (JoyRaptor's grammar: a plain swipe pans). It used to arm on DOWN, so a swipe to scroll
+        // the timeline that happened to start on a key thumbnail silently retimed a frame
+        // (found 2026-09-24 as an unexplained "Retime frame" in the undo history). Now the DOWN
+        // only notes the key; beginPickup() — the hold — arms it instead of lifting the sprite.
+        spriteKeyCandidate = null;
+        if (!objectLocked && hit.item.getId().equals(selectedItemId)) {
+            noteSpriteKeyCandidate(hit, x, timeToX);
         }
 
         if (!objectLocked && hit.item.getId().equals(selectedItemId)
@@ -673,6 +676,8 @@ public final class LayerGestureController {
             pendingBodyDown = false;
             return false;
         }
+        // Held on a sprite's frame key: the hold picks up the KEY, and the drag retimes it.
+        if (armSpriteKeyFromHold()) return true;
         pendingBodyDown = false;
         pickupArmed = true;
         activeKind = GestureKind.MOVE;
@@ -1103,22 +1108,30 @@ public final class LayerGestureController {
     private float spriteKeyDownX;
     private boolean spriteKeyMoved;
 
-    private boolean tryArmSpriteKey(@NonNull LayerRowRenderer.ItemHit hit, float x,
-                                    @NonNull LayerRowRenderer.TimeToX timeToX) {
-        if (hit.zone != LayerRowRenderer.ItemZone.BODY || hit.item.getSprite() == null) return false;
-        com.fadcam.ui.faditor.sprite.FrameTrack.Key k =
-                rowRenderer.hitTestSpriteFrameKey(hit.item, x, timeToX);
-        if (k == null) return false;
+    /** The key a DOWN landed on, waiting for the hold that arms it (see onRowBodyDown). */
+    @Nullable private com.fadcam.ui.faditor.sprite.FrameTrack.Key spriteKeyCandidate;
+    private float spriteKeyCandidateX;
+
+    private void noteSpriteKeyCandidate(@NonNull LayerRowRenderer.ItemHit hit, float x,
+                                        @NonNull LayerRowRenderer.TimeToX timeToX) {
+        if (hit.zone != LayerRowRenderer.ItemZone.BODY || hit.item.getSprite() == null) return;
+        spriteKeyCandidate = rowRenderer.hitTestSpriteFrameKey(hit.item, x, timeToX);
+        spriteKeyCandidateX = x;
+    }
+
+    /** The hold landed on a frame key: carry the key, not the sprite. */
+    private boolean armSpriteKeyFromHold() {
+        com.fadcam.ui.faditor.sprite.FrameTrack.Key k = spriteKeyCandidate;
+        spriteKeyCandidate = null;
+        if (k == null || activeItem == null || activeItem.getSprite() == null) return false;
         spriteKeyActive = true;
-        spriteKeyItem = hit.item;
+        spriteKeyItem = activeItem;
         spriteKey = k;
         spriteKeyFromMs = k.timeMs;
-        spriteKeyDownX = x;
+        spriteKeyDownX = spriteKeyCandidateX;
         spriteKeyDownLocalMs = Long.MIN_VALUE;
         spriteKeyMoved = false;
-        active = true;
-        activeItem = hit.item;
-        activeTrack = hit.track;
+        pendingBodyDown = false;
         return true;
     }
 

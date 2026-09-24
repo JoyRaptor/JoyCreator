@@ -103,7 +103,8 @@ public final class SnapSettings {
      * the panel shows strength chips only where they do something.
      */
     public static boolean hasStrength(@NonNull Kind k) {
-        return k == Kind.TIMELINE_EDGES || k == Kind.ROTATION || k == Kind.CANVAS;
+        return k == Kind.TIMELINE_EDGES || k == Kind.ROTATION || k == Kind.CANVAS
+                || k == Kind.OBJECTS;
     }
 
     /** The angle rotation snaps to multiples of. */

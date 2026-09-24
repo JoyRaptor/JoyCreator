@@ -2144,6 +2144,17 @@ public class TransformOverlayView extends View {
     // Centre-to-centre and edge-to-edge, per axis, within 3% of the frame at Normal.
 
     private static final float CANVAS_SNAP_FRAC = 0.03f;
+
+    /**
+     * Where the OTHER objects are (their drawn boxes, this view's px) for "Other objects" snap:
+     * the dragged object's centre and edges catch theirs, per axis, with the same guide line.
+     */
+    public interface SnapTargets { void collect(@NonNull java.util.List<RectF> out); }
+
+    @Nullable private SnapTargets snapTargets;
+    private final java.util.List<RectF> snapTargetScratch = new java.util.ArrayList<>();
+
+    public void setSnapTargets(@Nullable SnapTargets targets) { snapTargets = targets; }
     private final float[] snapDxy = new float[2];
     /** Where a snapped axis is drawn (view px), NaN when that axis is free. */
     private float snapGuideX = Float.NaN, snapGuideY = Float.NaN;
@@ -2168,9 +2179,35 @@ public class TransformOverlayView extends View {
         }
         float thr = CANVAS_SNAP_FRAC * reach * Math.min(vr.width(), vr.height());
         float[] ax = snapAxis(minX + dxy[0], maxX + dxy[0], vr.left, vr.right, thr);
-        if (ax != null) { dxy[0] += ax[0]; snapGuideX = ax[1]; }
         float[] ay = snapAxis(minY + dxy[1], maxY + dxy[1], vr.top, vr.bottom, thr);
+        // Other objects: only on an axis the canvas did not already catch — the frame wins a tie.
+        float oreach = com.fadcam.ui.faditor.tools.SnapSettings.reach(
+                getContext(), com.fadcam.ui.faditor.tools.SnapSettings.Kind.OBJECTS);
+        if (oreach > 0f && snapTargets != null && (ax == null || ay == null)) {
+            snapTargetScratch.clear();
+            snapTargets.collect(snapTargetScratch);
+            float othr = CANVAS_SNAP_FRAC * oreach * Math.min(vr.width(), vr.height());
+            for (RectF o : snapTargetScratch) {
+                if (ax == null) ax = snapAxisTo(minX + dxy[0], maxX + dxy[0], o.left, o.right, othr);
+                if (ay == null) ay = snapAxisTo(minY + dxy[1], maxY + dxy[1], o.top, o.bottom, othr);
+                if (ax != null && ay != null) break;
+            }
+        }
+        if (ax != null) { dxy[0] += ax[0]; snapGuideX = ax[1]; }
         if (ay != null) { dxy[1] += ay[0]; snapGuideY = ay[1]; }
+    }
+
+    /** Like {@link #snapAxis}, plus edge-to-opposite-edge, so objects can sit flush side by side. */
+    @Nullable
+    private static float[] snapAxisTo(float lo, float hi, float oLo, float oHi, float thr) {
+        float[] best = snapAxis(lo, hi, oLo, oHi, thr);
+        float bestD = best == null ? thr : Math.abs(best[0]);
+        float[][] flush = {{lo, oHi}, {hi, oLo}};
+        for (float[] p : flush) {
+            float d = Math.abs(p[1] - p[0]);
+            if (d <= bestD) { bestD = d; best = new float[]{p[1] - p[0], p[1]}; }
+        }
+        return best;
     }
 
     /** {shift, guide} for the closest of centre/near-edge/far-edge within thr, or null. */

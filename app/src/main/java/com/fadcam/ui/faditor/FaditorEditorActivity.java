@@ -25833,6 +25833,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (transformOverlay == null) {
             float d = getResources().getDisplayMetrics().density;
             transformOverlay = new com.fadcam.ui.faditor.transform.TransformOverlayView(this);
+            transformOverlay.setSnapTargets(this::collectSnapFrames);
             // The same 8dp plane the ordinary handles sit on: above the text/sprite/caption
             // layers, below the keyframe ribbon. They are never both visible, so they never
             // contend for it.
@@ -26796,6 +26797,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return true;
             }
         };
+    }
+
+    /**
+     * "Other objects" snap targets: the drawn box of every visible object at the playhead except
+     * the one being transformed — the SAME boxes the preview's tap hit-test uses, so what snaps
+     * is what the eye sees. A rotated object offers its rotated bounds.
+     */
+    private void collectSnapFrames(@NonNull java.util.List<android.graphics.RectF> out) {
+        if (project == null) return;
+        long t = Math.max(0, lastPlayheadAbsoluteMs);
+        String self = transformItemId != null ? transformItemId
+                : transformSpriteId != null ? transformSpriteId : transformPipClipId;
+        for (com.fadcam.ui.faditor.compositor.LayerPreviewController.VisualItem v
+                : com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .orderedVisualItems(project.getTimeline())) {
+            com.fadcam.ui.faditor.layers.TimedItem item = v.item;
+            if (item.getId().equals(self)) continue;
+            com.fadcam.ui.faditor.overlay.PreviewHandlesOverlay.Target tg;
+            if (item.getTextOverlay() != null) tg = textHandlesTarget(item.getTextOverlay());
+            else if (item.getSprite() != null) tg = spriteHandlesTarget(item.getSprite());
+            else if (item.getClip() != null && item.getClip().isOverlayClip()) {
+                tg = pipHandlesTarget(item.getClip());
+            } else continue;
+            android.graphics.RectF r = new android.graphics.RectF();
+            if (!tg.frame(t, r)) continue;
+            float rot = tg.rotationDeg(t);
+            if (rot != 0f) {
+                android.graphics.Matrix m = new android.graphics.Matrix();
+                m.setRotate(rot, r.centerX(), r.centerY());
+                m.mapRect(r);
+            }
+            out.add(r);
+        }
     }
 
     /**

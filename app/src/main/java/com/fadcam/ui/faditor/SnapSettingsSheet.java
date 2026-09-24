@@ -35,6 +35,7 @@ public class SnapSettingsSheet extends BottomSheetDialogFragment {
             SnapSettings.Kind.TIMELINE_EDGES,
             SnapSettings.Kind.BEATS,
             SnapSettings.Kind.CANVAS,
+            SnapSettings.Kind.OBJECTS,
             SnapSettings.Kind.ROTATION,
     };
 

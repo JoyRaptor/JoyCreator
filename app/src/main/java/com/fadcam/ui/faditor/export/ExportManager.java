@@ -1376,8 +1376,10 @@ public class ExportManager {
     private static final long CHUNKED_THRESHOLD_MS = 720_000L;
     /** Target composition length per chunk; cuts land on clip seams near it. */
     private static final long CHUNK_TARGET_MS = 300_000L;
-    private static final int CHUNK_MANIFEST_VERSION = 1;
 
+    /** Absolute composition start of each part, measured once by {@link #planChunks}. */
+    @Nullable
+    private long[] chunkBases = null;
     /** Set while the chunked driver owns the run (chain stops when cancelled). */
     private volatile boolean chunkCancelled = false;
     /** Last chunk's ExportResult, handed to the final finalize (mirrors single-pass). */
@@ -1449,96 +1451,185 @@ public class ExportManager {
     }
 
     /**
-     * Load the resume manifest, or start fresh when the project changed (lastModified),
-     * the version moved, or the ranges no longer match. Never throws.
+     * SMART RE-EXPORT (Stage 4, 2026-09-24). Every part is stored under a fingerprint of ITS OWN
+     * content ({@link RenderCacheKeys}): its clips and whatever is on screen during it. A part
+     * whose file already exists under its key is reused as-is, so after a small edit only the
+     * part(s) that edit touches re-render, and the sound pass (keyed on sound-only data)
+     * re-runs only for sound edits. The file name IS the "done" flag: a part is written to a
+     * temporary name and renamed only once it has been checked. Kept after the export (see
+     * {@link #pruneRenderCache}), so this also resumes a failed or cancelled export.
+     *
+     * <p>Also fills {@link #chunkBases}: each part's exact absolute start, measured once here
+     * rather than re-measured before every part.</p>
      */
     @NonNull
-    private org.json.JSONObject loadChunkManifest(@NonNull FaditorProject project,
-                                                  @NonNull List<int[]> ranges) {
-        File mf = new File(chunkDirFor(project), "manifest.json");
-        String contentKey = projectContentKey(project);
+    private org.json.JSONObject planChunks(@NonNull FaditorProject project,
+                                           @NonNull List<int[]> ranges) {
+        File dir = chunkDirFor(project);
+        Timeline tl = project.getTimeline();
+        String json = null;
         try {
-            if (mf.exists()) {
-                String raw = new String(java.nio.file.Files.readAllBytes(mf.toPath()),
-                        java.nio.charset.StandardCharsets.UTF_8);
-                org.json.JSONObject o = new org.json.JSONObject(raw);
-                // Same project CONTENT, not merely the same save time: the editor re-saves
-                // (bumping lastModified) on every pause, so a save-time key threw away hours
-                // of finished parts the moment the user so much as opened the project again.
-                boolean sameProject = o.optLong("projectModified", -1L) == project.getLastModified()
-                        || (contentKey != null && contentKey.equals(o.optString("contentKey", "")));
-                if (o.optInt("version", -1) == CHUNK_MANIFEST_VERSION
-                        && sameProject
-                        && o.optInt("rangeCount", -1) == ranges.size()) {
-                    return o;
-                }
-            }
-        } catch (Exception ignored) {}
+            json = new com.fadcam.ui.faditor.project.ProjectStorage(context).toJson(project);
+        } catch (Exception e) {
+            FLog.w(TAG, "planChunks: project JSON unavailable; nothing will be reused", e);
+        }
+        String extras = renderCacheExtras();
+        long total = tl.getTotalDurationMs();
+        chunkBases = new long[ranges.size()];
+        org.json.JSONObject o = new org.json.JSONObject();
         try {
-            org.json.JSONObject o = new org.json.JSONObject();
-            o.put("version", CHUNK_MANIFEST_VERSION);
-            o.put("projectModified", project.getLastModified());
-            if (contentKey != null) o.put("contentKey", contentKey);
-            o.put("rangeCount", ranges.size());
-            o.put("audioDone", false);
-            o.put("audioFile", new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath());
             org.json.JSONArray chunks = new org.json.JSONArray();
+            long compBase = 0L;
+            long editorBase = 0L;
             for (int i = 0; i < ranges.size(); i++) {
+                int[] r = ranges.get(i);
+                long compDur = builtRangeDurationMs(project, r[0], r[1]);
+                long editorDur = 0L;
+                for (int ci = r[0]; ci < r[1] && ci < tl.getClipCount(); ci++) {
+                    editorDur += tl.getClip(ci).getVisualDurationMs();
+                }
+                chunkBases[i] = compBase;
+                long winStart = Math.min(compBase, editorBase);
+                long winEnd = Math.max(compBase + compDur, editorBase + editorDur);
+                String key = json == null ? null : RenderCacheKeys.partKey(json, r[0], r[1],
+                        winStart, winEnd, total, i == ranges.size() - 1, extras);
+                // No key (should not happen) = a one-off name: rendered, never reused.
+                String name = key != null ? "part_" + key.substring(0, 24)
+                        : "part_once_" + System.currentTimeMillis() + "_" + i;
+                File f = new File(dir, name + ".mp4");
                 org.json.JSONObject c = new org.json.JSONObject();
                 c.put("index", i);
-                c.put("startClip", ranges.get(i)[0]);
-                c.put("endClip", ranges.get(i)[1]);
-                c.put("file", new File(chunkDirFor(project),
-                        "chunk" + i + ".mp4").getAbsolutePath());
-                c.put("done", false);
+                c.put("startClip", r[0]);
+                c.put("endClip", r[1]);
+                c.put("key", key == null ? "" : key);
+                c.put("file", f.getAbsolutePath());
+                c.put("done", key != null && f.isFile());
                 chunks.put(c);
+                compBase += compDur;
+                editorBase += editorDur;
             }
             o.put("chunks", chunks);
-            saveChunkManifest(project, o);
-            return o;
+            String akey = json == null ? null : RenderCacheKeys.audioKey(json, extras
+                    + "|fxBypass=" + fxBypassedSnapshot + "|clean=" + cleanAudioSnapshot);
+            String aname = akey != null ? "audio_" + akey.substring(0, 24)
+                    : "audio_once_" + System.currentTimeMillis();
+            File af = new File(dir, aname + ".m4a");
+            o.put("audioKey", akey == null ? "" : akey);
+            o.put("audioFile", af.getAbsolutePath());
+            o.put("audioDone", akey != null && af.isFile() && af.length() > 0);
+            saveChunkManifest(project, o);   // a record of the plan, for traces; never read back
         } catch (Exception e) {
-            FLog.w(TAG, "Chunk manifest init failed", e);
-            return new org.json.JSONObject();
+            FLog.w(TAG, "planChunks failed", e);
         }
+        return o;
     }
 
     /**
-     * Fingerprint of everything that decides the rendered picture: the saved project with its
-     * save-time field removed. Null when it cannot be computed — resume then falls back to
-     * the save-time match alone, which is the old behaviour.
+     * Everything outside the project file that changes a part's pixels: the installed build
+     * (any new build may draw differently, so an update re-renders everything once), the
+     * custom caption styles, and the GPU routing switches.
      */
-    @Nullable
-    private String projectContentKey(@NonNull FaditorProject project) {
+    @NonNull
+    private String renderCacheExtras() {
+        StringBuilder sb = new StringBuilder();
         try {
-            String json = new com.fadcam.ui.faditor.project.ProjectStorage(context).toJson(project);
-            if (json == null) return null;
-            json = json.replaceAll("\"lastModified\"\\s*:\\s*-?\\d+", "");
-            // Audio clip ids are re-minted on every load (measured 2026-09-23: the only
-            // difference between two saves minutes apart was the three audio clip UUIDs), so
-            // hash identities by ORDER OF FIRST APPEARANCE instead of their random value —
-            // references between objects still count, the labels do not.
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile(
-                    "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-                    .matcher(json);
-            java.util.Map<String, Integer> ordinals = new java.util.HashMap<>();
-            StringBuffer norm = new StringBuffer(json.length());
-            while (m.find()) {
-                String id = m.group().toLowerCase(Locale.US);
-                Integer ord = ordinals.get(id);
-                if (ord == null) { ord = ordinals.size(); ordinals.put(id, ord); }
-                m.appendReplacement(norm, "#" + ord);
-            }
-            m.appendTail(norm);
-            json = norm.toString();
-            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
-            byte[] d = md.digest(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : d) sb.append(String.format(Locale.US, "%02x", b));
-            return sb.toString();
+            android.content.pm.PackageInfo pi = context.getPackageManager()
+                    .getPackageInfo(context.getPackageName(), 0);
+            sb.append("build=").append(pi.lastUpdateTime).append('/').append(pi.versionName);
         } catch (Exception e) {
-            FLog.w(TAG, "projectContentKey failed; resume matches on save time only", e);
-            return null;
+            sb.append("build=").append(System.currentTimeMillis());   // unknown: never reuse
         }
+        try {
+            java.util.Map<String, ?> styles = context.getSharedPreferences("caption_styles",
+                    Context.MODE_PRIVATE).getAll();
+            sb.append("|styles=").append(new java.util.TreeMap<>(styles).toString().hashCode());
+        } catch (Exception ignored) { }
+        sb.append("|glImg=").append(GL_IMAGE_PASS).append("|glCap=").append(GL_CAPTION_PASS);
+        return sb.toString();
+    }
+
+    /** Most bytes of kept parts across all projects; the oldest projects' parts go first. */
+    private static final long RENDER_CACHE_MAX_BYTES = 6L * 1024 * 1024 * 1024;
+    /** Never keep parts when that would leave the phone with less free space than this. */
+    private static final long RENDER_CACHE_MIN_FREE_BYTES = 4L * 1024 * 1024 * 1024;
+
+    /**
+     * After a committed export: keep exactly the parts and sound this export used (the next
+     * export of this project reuses them), delete everything else in the workspace (parts
+     * from older versions of the project, temporary files), then hold every project's kept
+     * parts under {@link #RENDER_CACHE_MAX_BYTES} and the phone's free space above
+     * {@link #RENDER_CACHE_MIN_FREE_BYTES}, dropping least-recently-exported projects first.
+     */
+    private void pruneRenderCache(@NonNull FaditorProject project,
+                                  @NonNull org.json.JSONObject manifest) {
+        try {
+            File dir = chunkDirFor(project);
+            java.util.Set<String> keep = new java.util.HashSet<>();
+            org.json.JSONArray chunks = manifest.optJSONArray("chunks");
+            if (chunks != null) {
+                for (int i = 0; i < chunks.length(); i++) {
+                    org.json.JSONObject c = chunks.optJSONObject(i);
+                    if (c != null && !c.optString("key", "").isEmpty()) {
+                        keep.add(new File(c.optString("file")).getName());
+                    }
+                }
+            }
+            if (!manifest.optString("audioKey", "").isEmpty()) {
+                keep.add(new File(manifest.optString("audioFile")).getName());
+            }
+            keep.add("manifest.json");
+            long freed = 0L;
+            File[] files = dir.listFiles();
+            if (files != null) {
+                for (File f : files) {
+                    if (keep.contains(f.getName())) continue;
+                    long len = f.length();
+                    if (f.delete()) freed += len;
+                }
+            }
+            //noinspection ResultOfMethodCallIgnored
+            dir.setLastModified(System.currentTimeMillis());
+            // Across projects, oldest export first; this project last of all.
+            File root = dir.getParentFile();
+            File[] projects = root == null ? null : root.listFiles(File::isDirectory);
+            long total = 0L;
+            java.util.List<File> order = new java.util.ArrayList<>();
+            if (projects != null) {
+                for (File pd : projects) {
+                    total += dirBytes(pd);
+                    if (!pd.equals(dir)) order.add(pd);
+                }
+            }
+            order.sort((x, y) -> Long.compare(x.lastModified(), y.lastModified()));
+            order.add(dir);
+            for (File pd : order) {
+                if (total <= RENDER_CACHE_MAX_BYTES
+                        && dir.getUsableSpace() >= RENDER_CACHE_MIN_FREE_BYTES) break;
+                long bytes = dirBytes(pd);
+                File[] fs = pd.listFiles();
+                if (fs != null) for (File f : fs) {
+                    //noinspection ResultOfMethodCallIgnored
+                    f.delete();
+                }
+                //noinspection ResultOfMethodCallIgnored
+                pd.delete();
+                total -= bytes;
+                freed += bytes;
+                trace("RENDER_CACHE evicted " + pd.getName() + " (" + (bytes >> 20) + " MB)");
+            }
+            trace("RENDER_CACHE kept " + (dir.exists() ? (dirBytes(dir) >> 20) : 0)
+                    + " MB for this project, freed " + (freed >> 20) + " MB, all projects "
+                    + (Math.max(0L, total) >> 20) + " MB");
+        } catch (Exception e) {
+            FLog.w(TAG, "Render cache prune failed", e);
+        }
+    }
+
+    private static long dirBytes(@NonNull File dir) {
+        long sum = 0L;
+        File[] fs = dir.listFiles();
+        if (fs != null) for (File f : fs) sum += f.length();
+        return sum;
     }
 
     private void saveChunkManifest(@NonNull FaditorProject project,
@@ -1600,9 +1691,18 @@ public class ExportManager {
         openTrace("chunked");
 
         List<int[]> ranges = computeChunkRanges(project.getTimeline());
-        org.json.JSONObject manifest = loadChunkManifest(project, ranges);
+        long planStart = System.currentTimeMillis();
+        org.json.JSONObject manifest = planChunks(project, ranges);
+        int reuse = 0;
+        org.json.JSONArray planned = manifest.optJSONArray("chunks");
+        for (int i = 0; planned != null && i < planned.length(); i++) {
+            if (planned.optJSONObject(i).optBoolean("done", false)) reuse++;
+        }
         trace("CHUNKED ranges=" + ranges.size() + " total="
-                + project.getTimeline().getTotalDurationMs() + "ms");
+                + project.getTimeline().getTotalDurationMs() + "ms; RENDER_CACHE has " + reuse
+                + "/" + ranges.size() + " parts" + (manifest.optBoolean("audioDone", false)
+                ? " + sound" : "") + " (planned in "
+                + (System.currentTimeMillis() - planStart) + " ms)");
         if (listener != null) {
             listener.onExportStarted(finalOutputPath);
         }
@@ -1692,10 +1792,11 @@ public class ExportManager {
                 && manifest.optJSONArray("chunks").optJSONObject(step) != null
                 && manifest.optJSONArray("chunks").optJSONObject(step).optBoolean("done", false);
         if (markedDone && chunkFileValid(chunkPath, expectedMs)) {
-            trace("CHUNK " + step + "/" + ranges.size() + " resumed (valid file, skipping)");
+            trace("CHUNK " + step + "/" + ranges.size() + " reused (unchanged since it was"
+                    + " rendered: " + new File(chunkPath).getName() + ")");
             if (listener != null) {
                 listener.onChunkPhase("Part " + (step + 1) + " of " + ranges.size()
-                        + " (done)");
+                        + " (unchanged)");
             }
             runChunkStep(project, finalOutputPath, manifest, ranges, step + 1);
             return;
@@ -1704,9 +1805,13 @@ public class ExportManager {
         // compositions are cheap (no encode); measuring beats estimating, so overlay
         // clocks stay exact across loops, transitions and degenerate skips.
         long baseMs = 0L;
-        for (int r = 0; r < step; r++) {
-            int[] prev = ranges.get(r);
-            baseMs += builtRangeDurationMs(project, prev[0], prev[1]);
+        if (chunkBases != null && step < chunkBases.length) {
+            baseMs = chunkBases[step];
+        } else {
+            for (int r = 0; r < step; r++) {
+                int[] prev = ranges.get(r);
+                baseMs += builtRangeDurationMs(project, prev[0], prev[1]);
+            }
         }
         chunkBaseMs = baseMs;
         chunkVideoOnly = true;
@@ -1733,6 +1838,11 @@ public class ExportManager {
             Transformer.Builder builder = baseVideoTransformerBuilder(project);
             final int fStep = step;
             final String fChunkPath = chunkPath;
+            // Written under a temporary name and renamed once checked: the final name is the
+            // render cache's "this part is done" flag, so a half-written file must never wear it.
+            final String fWritePath = chunkPath.replace(".mp4", ".writing.mp4");
+            //noinspection ResultOfMethodCallIgnored
+            new File(fWritePath).delete();
             final long fExpected = expectedMs;
             final long fBase = baseMs;
             builder.addListener(new Transformer.Listener() {
@@ -1743,10 +1853,10 @@ public class ExportManager {
                     restoreServiceListener();
                     if (chunkCancelled || !isExporting) return;
                     lastChunkResult = result;
-                    if (!chunkFileValid(fChunkPath, fExpected)) {
+                    if (!chunkFileValid(fWritePath, fExpected)) {
                         long gotMs = -1L;
                         try {
-                            gotMs = PreTrimCache.probeVideoDurationMs(new File(fChunkPath));
+                            gotMs = PreTrimCache.probeVideoDurationMs(new File(fWritePath));
                         } catch (Exception ignored) {}
                         trace("CHUNK " + fStep + " length mismatch: expected ~" + fExpected
                                 + "ms, got " + gotMs + "ms");
@@ -1757,9 +1867,17 @@ public class ExportManager {
                                         + " s). Export again to redo just this part."));
                         return;
                     }
+                    File done = new File(fChunkPath);
+                    //noinspection ResultOfMethodCallIgnored
+                    done.delete();
+                    if (!new File(fWritePath).renameTo(done)) {
+                        chunkFail(project, finalOutputPath, manifest, ranges, fStep,
+                                new IllegalStateException("Part " + (fStep + 1)
+                                        + " could not be saved (rename failed)."));
+                        return;
+                    }
                     try {
                         manifest.getJSONArray("chunks").getJSONObject(fStep).put("done", true);
-                        saveChunkManifest(project, manifest);
                     } catch (Exception ignored) {}
                     trace("CHUNK " + fStep + " done (" + new File(fChunkPath).length()
                             + " bytes)");
@@ -1783,7 +1901,7 @@ public class ExportManager {
             } finally {
                 releasePerThreadRetriever();
             }
-            transformer.start(composition, fChunkPath);
+            transformer.start(composition, fWritePath);
             startProgressPolling();
             FLog.d(TAG, "Chunk " + step + " started → " + fChunkPath);
         } catch (Exception e) {
@@ -1842,12 +1960,14 @@ public class ExportManager {
                                @NonNull String finalOutputPath,
                                @NonNull org.json.JSONObject manifest,
                                @NonNull List<int[]> ranges) {
-        String audioPath = new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath();
+        String audioPath = manifest.optString("audioFile",
+                new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath());
         boolean audioDone = manifest.optBoolean("audioDone", false);
         if (audioDone) {
             File af = new File(audioPath);
             if (af.exists() && af.length() > 0) {
-                trace("CHUNK audio resumed (valid file, skipping)");
+                trace("CHUNK audio reused (sound unchanged: " + af.getName() + ")");
+                if (listener != null) listener.onChunkPhase("Sound (unchanged)");
                 runChunkStep(project, finalOutputPath, manifest, ranges, ranges.size() + 1);
                 return;
             }
@@ -1881,7 +2001,6 @@ public class ExportManager {
                 try {
                     manifest.put("audioDone", true);
                     manifest.put("audioFile", outputPath);
-                    saveChunkManifest(project, manifest);
                 } catch (Exception ignored) {}
                 trace("CHUNK audio done (" + new File(outputPath).length() + " bytes)");
                 runChunkStep(project, finalOutputPath, manifest, ranges, ranges.size() + 1);
@@ -1988,10 +2107,12 @@ public class ExportManager {
                     return;
                 }
                 String committed = commitStaging(stagingPath, finalOutputPath);
-                // The finished file is committed; the parts, the sound pass and the joined
-                // video (~2x the export's size - 3.6 GB for the 48-min project) are now only
-                // disk the user cannot see or reclaim. Kept on ANY failure above (resume).
-                deleteChunkDir(project);
+                // The finished file is committed. The joined video (~the export's size) goes
+                // now; the parts and the sound stay as the render cache, so the next export of
+                // this project redoes only what changed (bounded by pruneRenderCache).
+                //noinspection ResultOfMethodCallIgnored
+                videoFull.delete();
+                pruneRenderCache(project, manifest);
                 ExportResult result = lastChunkResult;
                 isExporting = false;
                 resetChunkState();
@@ -2013,26 +2134,6 @@ public class ExportManager {
                 chunkFail(project, finalOutputPath, manifest, ranges, ranges.size() + 1, e);
             }
         }, "faditor-chunk-join").start();
-    }
-
-    /** Remove a project's chunk workspace after a committed export. Never throws. */
-    private void deleteChunkDir(@NonNull FaditorProject project) {
-        try {
-            File dir = chunkDirFor(project);
-            long freed = 0L;
-            File[] files = dir.listFiles();
-            if (files != null) {
-                for (File f : files) {
-                    long len = f.length();
-                    if (f.delete()) freed += len;
-                }
-            }
-            //noinspection ResultOfMethodCallIgnored
-            dir.delete();
-            FLog.i(TAG, "Chunk workspace cleared (" + (freed / (1024 * 1024)) + " MB)");
-        } catch (Exception e) {
-            FLog.w(TAG, "Chunk workspace cleanup failed", e);
-        }
     }
 
     /** Last ~1.5 KB of an ffmpeg session's log into the durable trace — its own reason for failing. */

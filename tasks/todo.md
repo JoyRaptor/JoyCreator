@@ -210,7 +210,33 @@ ImageOverlayDraw.draw) - the GPU-compositor port in the handoff is the next spee
 - [x] Video overlay drawer now device-verified (3e6dfa60); visualizer hold path still not reachable on the Note 9
 - Test media left on the Note 9: /sdcard/Download/joy_test_overlay.mp4 (copy of ws20.mp4), pushed for the PiP test
 
-## EXPORT SPEED — state at 2026-09-24 15:15 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+## EXPORT SPEED — state at 2026-09-24 17:30 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
+
+PROVEN ON THE NOTE 20 (project a32d24e2, 48:27, started over adb by ExportDebugActivity):
+- FULL export 16:28 -> 17:19 (51:52, phone LOCKED -> Samsung /abnormal = little cores only):
+  2.23 GB, video 2907.2 s, AAC stereo 48 kHz; text boxes present at 23:27 and 31:00
+  (the minute-10 drop is fixed), emoji intact, captions right, visualizer analysis 3 s.
+- RENDER CACHE: range 22:20-24:20 of the unchanged project = 7/7 parts + sound reused,
+  47 s wall (a fresh render of that part took ~16 min).
+- Zero-copy captions: decoded frames bit-identical to the upload build (framemd5).
+- Two parts at once on little cores: 1.22x combined vs 1.02x for one part.
+
+THE REMAINING LIMIT IS WHERE ANDROID RUNS US, not what we draw:
+  /proc/<pid>/cpuset of :export goes /foreground (cores 0-2,4-7) -> /moderate (0-2) ->
+  /abnormal (0-3) within ~90 s of the phone locking. Binding the service from a visible
+  screen (BIND_IMPORTANT) only moved it to /moderate (3 cores) - dropped (b4b10337). Every
+  export trace now has CPU_GROUP lines: read them from an export JoyRaptor starts in the
+  editor with the screen on. If that too is demoted, the next step is running the render in
+  the UI process while the export screen is visible (top-app = all 8 cores) - an
+  architecture change, owner decision.
+
+OPEN:
+- [ ] Owner export from the editor, screen on -> read CPU_GROUP + part timings.
+- [ ] Range trim: 120 s took 35 s - check whether trim optimization engaged or fell back.
+- [ ] "CHUNK joining 7 parts" log says 7 for a range; say how many are joined.
+- [ ] Note 9 ZA_CONTROL "invalid operation": rerun, GlErrors names the step that left it.
+
+## (older) EXPORT SPEED — state at 2026-09-24 15:15 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
 
 Measured on the Note 20 with ExportDebugActivity (adb, no taps), project a32d24e2:
 - Range export 22:20-24:20 (part 3, 10 min of video): part 1.4x, sound pass ~17 min alongside.

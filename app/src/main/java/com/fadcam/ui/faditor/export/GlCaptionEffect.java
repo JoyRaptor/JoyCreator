@@ -143,8 +143,19 @@ final class GlCaptionEffect implements GlEffect {
         }
 
         Program(@NonNull CompositeExportOverlay overlay) {
-            super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
+            super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 2);
             this.overlay = overlay;
+        }
+
+        /**
+         * Every frame's last pass draws the whole output (blending off, full-frame quad), so
+         * Media3's clear before it is pure cost: GLUtil.clearFocusedBuffers was 14-27% of the
+         * Note 20's GL thread - a stall on a target the GPU was still reading, which the
+         * two-texture pool (above) also removes.
+         */
+        @Override
+        public boolean shouldClearTextureBuffer() {
+            return false;
         }
 
         @NonNull

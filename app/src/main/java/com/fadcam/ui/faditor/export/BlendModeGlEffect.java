@@ -271,6 +271,12 @@ public final class BlendModeGlEffect implements GlEffect {
                 throws VideoFrameProcessingException {
             GlErrors.drain("pending when BlendModeGlEffect began (left by an earlier step)");
             try {
+                // The overlays below render their own textures (their own program, FBO and
+                // viewport) while we gather them, so remember the output target Media3 bound.
+                int[] fbo = new int[1];
+                int[] viewport = new int[4];
+                GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, fbo, 0);
+                GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, viewport, 0);
                 glProgram.use();
                 glProgram.setSamplerTexIdUniform("uVideoTexSampler0", inputTexId, 0);
                 // §4 option 2: unmasked PiPs use the Surface → GL path; masked stay on Canvas.
@@ -306,6 +312,14 @@ public final class BlendModeGlEffect implements GlEffect {
                 // Per-object FX (M7). Resolved at the playhead so a keyed parameter animates,
                 // exactly as an adjustment layer's does — same stack, same resolver.
                 setFxUniforms(presentationTimeUs);
+                // BACK ON OUR TARGET AND OUR PROGRAM. glOverlay.getTextureId() draws the PiP
+                // frame with its own program into its own FBO; glUniform* then hit THAT program -
+                // tolerated on the Note 20's Adreno, "invalid operation" on the Note 9's Mali
+                // (ZA_CONTROL failed 5 s in, 2026-09-24) - and the composite could land in the
+                // wrong framebuffer. Media3 only records uniform values until this bind.
+                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[0]);
+                GLES20.glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+                glProgram.use();
                 glProgram.bindAttributesAndUniforms();
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
                 GlUtil.checkGlError();

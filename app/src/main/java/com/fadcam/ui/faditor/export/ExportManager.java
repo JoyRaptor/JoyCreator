@@ -2580,7 +2580,11 @@ public class ExportManager {
             Transformer t = new Transformer.Builder(context)
                     .experimentalSetTrimOptimizationEnabled(true)
                     .setMaxDelayBetweenMuxerSamplesMs(300_000L)
-                    .setEncoderFactory(exportEncoderFactory(project, null))
+                    // NO encoder factory: ours requests an audio bitrate, which Media3 reads
+                    // as "transcode the audio" and abandons trim optimization (measured:
+                    // optimizationResult 3, the whole range re-encoded). The joined file is
+                    // already in the export's format; only the head GOP is re-encoded, at
+                    // Media3's default video settings.
                     .addListener(new Transformer.Listener() {
                         @Override
                         public void onCompleted(@NonNull Composition composition,

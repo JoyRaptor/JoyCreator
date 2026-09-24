@@ -1385,9 +1385,13 @@ public class ExportManager {
     /** Last chunk's ExportResult, handed to the final finalize (mirrors single-pass). */
     @Nullable
     private ExportResult lastChunkResult = null;
-    /** Service listener saved while a chunk adapter borrows the field. Set per step. */
+    /** A worker writes into its driver's trace (prefixed) instead of owning a file. */
     @Nullable
-    private ExportListener chunkServiceListener = null;
+    private ExportManager traceParent = null;
+    @NonNull
+    private String tracePrefix = "";
+    /** Only one worker at a time samples the GL thread (the threads share a name). */
+    private boolean sampleGl = true;
 
     /** Progress weights: video chunks dominate; audio/join/finalize are quick. */
     private static final float CHUNK_VIDEO_FRAC = 0.85f;
@@ -1707,27 +1711,328 @@ public class ExportManager {
         if (listener != null) {
             listener.onExportStarted(finalOutputPath);
         }
-        runChunkStep(project, finalOutputPath, manifest, ranges, 0);
+        ChunkRun run = new ChunkRun(project, finalOutputPath, manifest, ranges);
+        chunkRun = run;
+        chunkWorkers.clear();
+        String audioPath = manifest.optString("audioFile", "");
+        if (manifest.optBoolean("audioDone", false) && !audioPath.isEmpty()
+                && new File(audioPath).length() > 0) {
+            run.soundState = 2;
+            trace("CHUNK sound reused (sound unchanged: " + new File(audioPath).getName() + ")");
+        } else {
+            startSoundPass(run);   // alongside the parts, from the first second
+        }
+        pumpChunks(run);
     }
 
     /**
-     * Step machine: -1 = audio pass, 0..N-1 = video chunks, N = join. Sequential —
-     * each step starts from the previous step's completion callback.
+     * PARALLEL PARTS (export speed Stage 3, 2026-09-24). Parts render on their own
+     * ExportManager instances ("workers": no shared mutable state, each with its own
+     * Transformer, codecs and GL thread), {@link #PARALLEL_PARTS} at a time, and the sound
+     * pass runs on another worker ALONGSIDE them from the start instead of after the last
+     * part (it took 5-9 min on the 48-minute lecture, all of it serial). A part that fails
+     * while others run is retried once ALONE (the phone may simply not have had room for
+     * two pipelines); a second failure is the export's failure, as before.
      */
-    private void runChunkStep(@NonNull FaditorProject project,
-                              @NonNull String finalOutputPath,
-                              @NonNull org.json.JSONObject manifest,
-                              @NonNull List<int[]> ranges,
-                              int step) {
-        if (chunkCancelled || !isExporting) return;
-        int n = ranges.size();
-        if (step < n) {
-            runVideoChunk(project, finalOutputPath, manifest, ranges, step);
-        } else if (step == n) {
-            runChunkAudio(project, finalOutputPath, manifest, ranges);
-        } else {
-            runChunkJoin(project, finalOutputPath, manifest, ranges);
+    private static final int PARALLEL_PARTS = 2;
+
+    /** The chunked run in flight (driver side); null outside one. Main-thread state. */
+    private final class ChunkRun {
+        final FaditorProject project;
+        final String finalOutputPath;
+        final org.json.JSONObject manifest;
+        final List<int[]> ranges;
+        final int n;
+        final long[] expected;
+        final long totalExpected;
+        final float[] progress;
+        final boolean[] done;
+        final boolean[] running;
+        final java.util.ArrayDeque<Integer> retry = new java.util.ArrayDeque<>();
+        final java.util.Set<Integer> retried = new java.util.HashSet<>();
+        int next = 0;
+        int active = 0;
+        int maxParallel = PARALLEL_PARTS;
+        /** 0 = not started, 1 = running, 2 = done, 3 = failed. */
+        int soundState = 0;
+        boolean soundRetried = false;
+        boolean joining = false;
+        @Nullable ExportManager soundWorker;
+
+        ChunkRun(@NonNull FaditorProject project, @NonNull String finalOutputPath,
+                 @NonNull org.json.JSONObject manifest, @NonNull List<int[]> ranges) {
+            this.project = project;
+            this.finalOutputPath = finalOutputPath;
+            this.manifest = manifest;
+            this.ranges = ranges;
+            this.n = ranges.size();
+            this.expected = new long[n];
+            long total = 0L;
+            for (int i = 0; i < n; i++) {
+                expected[i] = Math.max(1L, rangeExpectedMs(project.getTimeline(),
+                        ranges.get(i)[0], ranges.get(i)[1]));
+                total += expected[i];
+            }
+            this.totalExpected = Math.max(1L, total);
+            this.progress = new float[n];
+            this.done = new boolean[n];
+            this.running = new boolean[n];
         }
+    }
+
+    @Nullable
+    private volatile ChunkRun chunkRun = null;
+    /** Workers of the run in flight, for cancel. */
+    private final List<ExportManager> chunkWorkers = new ArrayList<>();
+
+    /** Worker-side: a part's progress and end, reported to the driver. */
+    private interface PartCallback {
+        void onProgress(float p);
+        void onDone(@NonNull ExportResult result);
+        void onError(@NonNull Exception e);
+    }
+
+    /** A fresh engine for one part or the sound pass, set up like this one. */
+    @NonNull
+    private ExportManager newChunkWorker(@NonNull String tracePrefix, boolean ownTrace) {
+        ExportManager w = new ExportManager(context, prefsManager);
+        w.fxBypassedSnapshot = fxBypassedSnapshot;
+        w.cleanAudioSnapshot = cleanAudioSnapshot;
+        if (!ownTrace) {
+            w.traceParent = this;
+            w.tracePrefix = tracePrefix;
+        }
+        chunkWorkers.add(w);
+        return w;
+    }
+
+    private void cancelChunkWorkers() {
+        List<ExportManager> ws = new ArrayList<>(chunkWorkers);
+        chunkWorkers.clear();
+        for (ExportManager w : ws) {
+            try {
+                w.cancel();
+            } catch (Exception e) {
+                FLog.w(TAG, "worker cancel failed", e);
+            }
+        }
+    }
+
+    /** Start whatever may start now; join when every part and the sound are in. */
+    private void pumpChunks(@NonNull ChunkRun run) {
+        if (run != chunkRun || chunkCancelled || !isExporting || run.joining) return;
+        while (run.active < run.maxParallel) {
+            Integer i = run.retry.poll();
+            if (i == null) {
+                if (run.next >= run.n) break;
+                i = run.next++;
+            }
+            if (partReusable(run, i)) continue;
+            startPart(run, i);
+            if (run != chunkRun || !isExporting) return;   // failed synchronously
+        }
+        reportChunkProgress(run);
+        boolean videoDone = run.active == 0 && run.retry.isEmpty() && run.next >= run.n;
+        if (!videoDone) return;
+        if (run.soundState == 2) {
+            run.joining = true;
+            runChunkJoin(run.project, run.finalOutputPath, run.manifest, run.ranges);
+        } else if (run.soundState == 3 || run.soundState == 0) {
+            if (run.soundState == 3 && run.soundRetried) {
+                chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, run.n,
+                        new IllegalStateException("The sound pass failed twice"));
+                return;
+            }
+            if (run.soundState == 3) run.soundRetried = true;
+            startSoundPass(run);   // alone now: the retry, or a sound pass never started
+        }
+        // soundState 1: still running; its progress now drives the bar (startSoundPass /
+        // below), and its completion calls back in here.
+        if (run.soundState == 1 && run.soundWorker != null && listener != null) {
+            run.soundWorker.setExportListener(new ChunkProgressAdapter(listener,
+                    CHUNK_VIDEO_FRAC, CHUNK_AUDIO_FRAC, "Sound"));
+            listener.onChunkPhase("Sound");
+        }
+    }
+
+    /** A part whose keyed file already exists (render cache / resume) is not rendered again. */
+    private boolean partReusable(@NonNull ChunkRun run, int i) {
+        try {
+            org.json.JSONObject c = run.manifest.getJSONArray("chunks").getJSONObject(i);
+            String path = c.getString("file");
+            if (c.optBoolean("done", false) && chunkFileValid(path, run.expected[i])) {
+                run.done[i] = true;
+                run.progress[i] = 1f;
+                trace("CHUNK " + i + "/" + run.n + " reused (unchanged since it was rendered: "
+                        + new File(path).getName() + ")");
+                return true;
+            }
+        } catch (Exception ignored) { }
+        return false;
+    }
+
+    private void startPart(@NonNull ChunkRun run, final int i) {
+        final String chunkPath;
+        try {
+            chunkPath = run.manifest.getJSONArray("chunks").getJSONObject(i).getString("file");
+        } catch (Exception e) {
+            chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, i,
+                    new IllegalStateException("Chunk manifest unreadable", e));
+            return;
+        }
+        // Written under a temporary name and renamed once checked: the final name is the
+        // render cache's "this part is done" flag, so a half-written file must never wear it.
+        final String writePath = chunkPath.replace(".mp4", ".writing.mp4");
+        //noinspection ResultOfMethodCallIgnored
+        new File(writePath).delete();
+        long baseMs = 0L;
+        if (chunkBases != null && i < chunkBases.length) {
+            baseMs = chunkBases[i];
+        } else {
+            for (int r = 0; r < i; r++) {
+                baseMs += builtRangeDurationMs(run.project, run.ranges.get(r)[0],
+                        run.ranges.get(r)[1]);
+            }
+        }
+        final int[] range = run.ranges.get(i);
+        final long expectedMs = run.expected[i];
+        final ExportManager w = newChunkWorker("P" + (i + 1) + " ", false);
+        w.sampleGl = run.active == 0;   // one GL_SAMPLE stream: both GL threads share a name
+        run.active++;
+        run.running[i] = true;
+        run.progress[i] = 0f;
+        trace("CHUNK " + i + "/" + run.n + " clips " + range[0] + ".." + range[1]
+                + " base=" + baseMs + "ms expected~" + expectedMs + "ms (" + run.active
+                + " running)");
+        w.renderPart(run.project, range[0], range[1], baseMs, writePath, new PartCallback() {
+            @Override
+            public void onProgress(float p) {
+                if (run != chunkRun) return;
+                run.progress[i] = p;
+                reportChunkProgress(run);
+            }
+
+            @Override
+            public void onDone(@NonNull ExportResult result) {
+                chunkWorkers.remove(w);
+                run.active--;
+                run.running[i] = false;
+                if (run != chunkRun || chunkCancelled || !isExporting) return;
+                lastChunkResult = result;
+                if (!chunkFileValid(writePath, expectedMs)) {
+                    long gotMs = -1L;
+                    try {
+                        gotMs = PreTrimCache.probeVideoDurationMs(new File(writePath));
+                    } catch (Exception ignored) {}
+                    trace("CHUNK " + i + " length mismatch: expected ~" + expectedMs
+                            + "ms, got " + gotMs + "ms");
+                    chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, i,
+                            new IllegalStateException("Part " + (i + 1) + " of " + run.n
+                                    + " came out the wrong length (expected "
+                                    + (expectedMs / 1000) + " s, got " + (gotMs / 1000)
+                                    + " s). Export again to redo just this part."));
+                    return;
+                }
+                File done = new File(chunkPath);
+                //noinspection ResultOfMethodCallIgnored
+                done.delete();
+                if (!new File(writePath).renameTo(done)) {
+                    chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, i,
+                            new IllegalStateException("Part " + (i + 1)
+                                    + " could not be saved (rename failed)."));
+                    return;
+                }
+                try {
+                    run.manifest.getJSONArray("chunks").getJSONObject(i).put("done", true);
+                } catch (Exception ignored) {}
+                run.done[i] = true;
+                run.progress[i] = 1f;
+                trace("CHUNK " + i + " done (" + done.length() + " bytes)");
+                pumpChunks(run);
+            }
+
+            @Override
+            public void onError(@NonNull Exception e) {
+                chunkWorkers.remove(w);
+                run.active--;
+                run.running[i] = false;
+                if (run != chunkRun || chunkCancelled || !isExporting) return;
+                boolean parallel = run.maxParallel > 1 || run.active > 0
+                        || run.soundState == 1;
+                if (parallel && run.retried.add(i)) {
+                    run.maxParallel = 1;
+                    run.retry.addFirst(i);
+                    trace("CHUNK " + i + " failed with other work running (" + e
+                            + ") - retrying it alone, one part at a time from here");
+                    pumpChunks(run);
+                    return;
+                }
+                chunkFail(run.project, run.finalOutputPath, run.manifest, run.ranges, i, e);
+            }
+        });
+    }
+
+    /** The sound pass on its own worker (own trace file: it closes its trace when it commits). */
+    private void startSoundPass(@NonNull ChunkRun run) {
+        final String audioPath = run.manifest.optString("audioFile",
+                new File(chunkDirFor(run.project), "audio_full.m4a").getAbsolutePath());
+        final ExportManager w = newChunkWorker("S ", true);
+        w.sampleGl = false;   // no GL thread of its own; a sampler would only cost CPU
+        w.openTrace("sound");
+        run.soundWorker = w;
+        run.soundState = 1;
+        trace("CHUNK sound pass started" + (run.active > 0 ? " alongside the video parts" : ""));
+        w.exportAudioOnly(run.project, audioPath, new ExportListener() {
+            @Override public void onExportStarted(@NonNull String outputPath) {}
+            @Override public void onExportProgress(float progress) {}
+            @Override public void onExportProgressDetailed(float p, int ii, int ic, long b, long e) {}
+            @Override public void onExportFinalizing() {}
+            @Override public void onChunkPhase(@NonNull String p) {}
+            @Override public void onExportCompleted(@NonNull String outputPath,
+                                                    @NonNull ExportResult result) {
+                chunkWorkers.remove(w);
+                run.soundWorker = null;
+                if (run != chunkRun || chunkCancelled || !isExporting) return;
+                run.soundState = 2;
+                try {
+                    run.manifest.put("audioDone", true);
+                    run.manifest.put("audioFile", outputPath);
+                } catch (Exception ignored) {}
+                trace("CHUNK sound done (" + new File(outputPath).length() + " bytes)");
+                pumpChunks(run);
+            }
+            @Override public void onExportError(@NonNull Exception error) {
+                chunkWorkers.remove(w);
+                run.soundWorker = null;
+                if (run != chunkRun || chunkCancelled || !isExporting) return;
+                run.soundState = 3;
+                trace("CHUNK sound pass failed (" + error + ")"
+                        + (run.soundRetried ? "" : " - it runs again alone after the parts"));
+                pumpChunks(run);
+            }
+        });
+    }
+
+    /** One progress bar over parts running side by side (weighted by their length). */
+    private void reportChunkProgress(@NonNull ChunkRun run) {
+        if (listener == null) return;
+        double sum = 0;
+        StringBuilder running = new StringBuilder();
+        for (int i = 0; i < run.n; i++) {
+            if (run.done[i]) {
+                sum += run.expected[i];
+            } else if (run.running[i]) {
+                sum += run.expected[i] * Math.max(0f, Math.min(1f, run.progress[i]));
+                running.append(running.length() == 0 ? "" : " + ").append(i + 1);
+            }
+        }
+        if (running.length() == 0) return;   // between parts, or on to the sound
+        float o = (float) (CHUNK_VIDEO_FRAC * sum / run.totalExpected);
+        String phase = (running.indexOf("+") >= 0 ? "Parts " : "Part ") + running
+                + " of " + run.n;
+        listener.onChunkPhase(phase);
+        listener.onExportProgress(o);
+        listener.onExportProgressDetailed(o, -1, -1, -1L, -1L);
     }
 
     /** Expected composition duration of a range (approx: trimmed sums; validation only). */
@@ -1774,115 +2079,43 @@ public class ExportManager {
         @Override public void onExportError(@NonNull Exception error) {}
     }
 
-    private void runVideoChunk(@NonNull FaditorProject project,
-                               @NonNull String finalOutputPath,
-                               @NonNull org.json.JSONObject manifest,
-                               @NonNull List<int[]> ranges, int step) {
-        Timeline timeline = project.getTimeline();
-        int[] range = ranges.get(step);
-        String chunkPath;
-        try {
-            chunkPath = manifest.getJSONArray("chunks").getJSONObject(step).getString("file");
-        } catch (Exception e) {
-            chunkFail(project, finalOutputPath, manifest, ranges, step,
-                    new IllegalStateException("Chunk manifest unreadable", e));
-            return;
-        }
-        long expectedMs = rangeExpectedMs(timeline, range[0], range[1]);
-        boolean markedDone = manifest.optJSONArray("chunks") != null
-                && manifest.optJSONArray("chunks").optJSONObject(step) != null
-                && manifest.optJSONArray("chunks").optJSONObject(step).optBoolean("done", false);
-        if (markedDone && chunkFileValid(chunkPath, expectedMs)) {
-            trace("CHUNK " + step + "/" + ranges.size() + " reused (unchanged since it was"
-                    + " rendered: " + new File(chunkPath).getName() + ")");
-            if (listener != null) {
-                listener.onChunkPhase("Part " + (step + 1) + " of " + ranges.size()
-                        + " (unchanged)");
-            }
-            runChunkStep(project, finalOutputPath, manifest, ranges, step + 1);
-            return;
-        }
-        // Exact absolute base: sum of BUILT durations of all preceding ranges. Built
-        // compositions are cheap (no encode); measuring beats estimating, so overlay
-        // clocks stay exact across loops, transitions and degenerate skips.
-        long baseMs = 0L;
-        if (chunkBases != null && step < chunkBases.length) {
-            baseMs = chunkBases[step];
-        } else {
-            for (int r = 0; r < step; r++) {
-                int[] prev = ranges.get(r);
-                baseMs += builtRangeDurationMs(project, prev[0], prev[1]);
-            }
-        }
+    /**
+     * WORKER SIDE: render clips [clipStart, clipEnd) at absolute composition base
+     * {@code baseMs}, video only, into {@code writePath}. This instance is the worker; the
+     * driver owns naming, checking and scheduling.
+     */
+    private void renderPart(@NonNull FaditorProject project, int clipStart, int clipEnd,
+                            long baseMs, @NonNull String writePath,
+                            @NonNull PartCallback cb) {
+        isExporting = true;
         chunkBaseMs = baseMs;
         chunkVideoOnly = true;
-        chunkClipStart = range[0];
-        chunkClipEnd = range[1];
+        chunkClipStart = clipStart;
+        chunkClipEnd = clipEnd;
         lastLoggedProgressPct = -1;
         progressEpochMs = 0L;
         paceBaseCompMs = -1L;
         lastSeamItem = -1;
-        float totalMs = Math.max(1f, (float) timeline.getTotalDurationMs());
-        float baseFrac = (baseMs / totalMs) * CHUNK_VIDEO_FRAC;
-        float spanFrac = ((float) Math.max(1L, expectedMs) / totalMs) * CHUNK_VIDEO_FRAC;
-        String phase = "Part " + (step + 1) + " of " + ranges.size();
-        trace("CHUNK " + step + "/" + ranges.size() + " clips " + range[0] + ".." + range[1]
-                + " base=" + baseMs + "ms expected~" + expectedMs + "ms");
-        if (listener != null) listener.onChunkPhase(phase);
-        chunkServiceListener = listener;
-        final ExportListener down = listener;
-        ChunkProgressAdapter adapter = (down == null) ? null
-                : new ChunkProgressAdapter(down, baseFrac, spanFrac, phase);
-        if (adapter != null) this.listener = adapter;
-
+        this.listener = new ExportListener() {
+            @Override public void onExportStarted(@NonNull String outputPath) {}
+            @Override public void onExportProgress(float progress) { cb.onProgress(progress); }
+            @Override public void onExportProgressDetailed(float p, int ii, int ic, long b, long e) {}
+            @Override public void onExportFinalizing() {}
+            @Override public void onChunkPhase(@NonNull String p) {}
+            @Override public void onExportCompleted(@NonNull String outputPath,
+                                                    @NonNull ExportResult result) {}
+            @Override public void onExportError(@NonNull Exception error) {}
+        };
         try {
             Transformer.Builder builder = baseVideoTransformerBuilder(project);
-            final int fStep = step;
-            final String fChunkPath = chunkPath;
-            // Written under a temporary name and renamed once checked: the final name is the
-            // render cache's "this part is done" flag, so a half-written file must never wear it.
-            final String fWritePath = chunkPath.replace(".mp4", ".writing.mp4");
-            //noinspection ResultOfMethodCallIgnored
-            new File(fWritePath).delete();
-            final long fExpected = expectedMs;
-            final long fBase = baseMs;
             builder.addListener(new Transformer.Listener() {
                 @Override
                 public void onCompleted(@NonNull Composition composition,
                                         @NonNull ExportResult result) {
                     stopProgressPolling();
-                    restoreServiceListener();
-                    if (chunkCancelled || !isExporting) return;
-                    lastChunkResult = result;
-                    if (!chunkFileValid(fWritePath, fExpected)) {
-                        long gotMs = -1L;
-                        try {
-                            gotMs = PreTrimCache.probeVideoDurationMs(new File(fWritePath));
-                        } catch (Exception ignored) {}
-                        trace("CHUNK " + fStep + " length mismatch: expected ~" + fExpected
-                                + "ms, got " + gotMs + "ms");
-                        chunkFail(project, finalOutputPath, manifest, ranges, fStep,
-                                new IllegalStateException("Part " + (fStep + 1) + " of "
-                                        + ranges.size() + " came out the wrong length (expected "
-                                        + (fExpected / 1000) + " s, got " + (gotMs / 1000)
-                                        + " s). Export again to redo just this part."));
-                        return;
-                    }
-                    File done = new File(fChunkPath);
-                    //noinspection ResultOfMethodCallIgnored
-                    done.delete();
-                    if (!new File(fWritePath).renameTo(done)) {
-                        chunkFail(project, finalOutputPath, manifest, ranges, fStep,
-                                new IllegalStateException("Part " + (fStep + 1)
-                                        + " could not be saved (rename failed)."));
-                        return;
-                    }
-                    try {
-                        manifest.getJSONArray("chunks").getJSONObject(fStep).put("done", true);
-                    } catch (Exception ignored) {}
-                    trace("CHUNK " + fStep + " done (" + new File(fChunkPath).length()
-                            + " bytes)");
-                    runChunkStep(project, finalOutputPath, manifest, ranges, fStep + 1);
+                    if (!isExporting) return;   // cancelled
+                    isExporting = false;
+                    cb.onDone(result);
                 }
 
                 @Override
@@ -1890,9 +2123,9 @@ public class ExportManager {
                                     @NonNull ExportResult result,
                                     @NonNull ExportException exception) {
                     stopProgressPolling();
-                    restoreServiceListener();
-                    if (chunkCancelled || !isExporting) return;
-                    chunkFail(project, finalOutputPath, manifest, ranges, fStep, exception);
+                    if (!isExporting) return;
+                    isExporting = false;
+                    cb.onError(exception);
                 }
             });
             transformer = builder.build();
@@ -1902,20 +2135,11 @@ public class ExportManager {
             } finally {
                 releasePerThreadRetriever();
             }
-            transformer.start(composition, fWritePath);
+            transformer.start(composition, writePath);
             startProgressPolling();
-            FLog.d(TAG, "Chunk " + step + " started → " + fChunkPath);
         } catch (Exception e) {
-            restoreServiceListener();
-            chunkFail(project, finalOutputPath, manifest, ranges, step, e);
-        }
-    }
-
-    /** Restore the service listener after a chunk/audio step borrowed the field. */
-    private void restoreServiceListener() {
-        if (chunkServiceListener != null) {
-            this.listener = chunkServiceListener;
-            chunkServiceListener = null;
+            isExporting = false;
+            cb.onError(e);
         }
     }
 
@@ -1957,63 +2181,6 @@ public class ExportManager {
         }
     }
 
-    private void runChunkAudio(@NonNull FaditorProject project,
-                               @NonNull String finalOutputPath,
-                               @NonNull org.json.JSONObject manifest,
-                               @NonNull List<int[]> ranges) {
-        String audioPath = manifest.optString("audioFile",
-                new File(chunkDirFor(project), "audio_full.m4a").getAbsolutePath());
-        boolean audioDone = manifest.optBoolean("audioDone", false);
-        if (audioDone) {
-            File af = new File(audioPath);
-            if (af.exists() && af.length() > 0) {
-                trace("CHUNK audio reused (sound unchanged: " + af.getName() + ")");
-                if (listener != null) listener.onChunkPhase("Sound (unchanged)");
-                runChunkStep(project, finalOutputPath, manifest, ranges, ranges.size() + 1);
-                return;
-            }
-        }
-        if (listener != null) listener.onChunkPhase("Sound");
-        chunkServiceListener = listener;
-        final ExportListener down = listener;
-        float baseFrac = CHUNK_VIDEO_FRAC;
-        ChunkProgressAdapter adapter = (down == null) ? null
-                : new ChunkProgressAdapter(down, baseFrac, CHUNK_AUDIO_FRAC, "Sound");
-        if (adapter != null) this.listener = adapter;
-        lastLoggedProgressPct = -1;
-        progressEpochMs = 0L;
-        paceBaseCompMs = -1L;
-        lastSeamItem = -1;
-        resetChunkState();
-        trace("CHUNK audio pass started");
-        // isExporting is already true (driver entry); exportAudioOnly refuses when set.
-        isExporting = false;
-        exportAudioOnly(project, audioPath, new ExportListener() {
-            @Override public void onExportStarted(@NonNull String outputPath) {}
-            @Override public void onExportProgress(float progress) {}
-            @Override public void onExportProgressDetailed(float p, int ii, int ic, long b, long e) {}
-            @Override public void onExportFinalizing() {}
-            @Override public void onChunkPhase(@NonNull String p) {}
-            @Override public void onExportCompleted(@NonNull String outputPath,
-                                                    @NonNull ExportResult result) {
-                restoreServiceListener();
-                if (chunkCancelled) { isExporting = false; return; }
-                isExporting = true;
-                try {
-                    manifest.put("audioDone", true);
-                    manifest.put("audioFile", outputPath);
-                } catch (Exception ignored) {}
-                trace("CHUNK audio done (" + new File(outputPath).length() + " bytes)");
-                runChunkStep(project, finalOutputPath, manifest, ranges, ranges.size() + 1);
-            }
-            @Override public void onExportError(@NonNull Exception error) {
-                restoreServiceListener();
-                if (chunkCancelled || !isExporting) return;
-                chunkFail(project, finalOutputPath, manifest, ranges, ranges.size(), error);
-            }
-        });
-    }
-
     /** Abort the chain with a part-numbered error (chunks stay for resume). */
     private void chunkFail(@NonNull FaditorProject project,
                            @NonNull String finalOutputPath,
@@ -2021,6 +2188,8 @@ public class ExportManager {
                            @NonNull List<int[]> ranges, int step,
                            @NonNull Throwable error) {
         isExporting = false;
+        chunkRun = null;
+        cancelChunkWorkers();
         resetChunkState();
         String where = step < ranges.size()
                 ? "Part " + (step + 1) + " of " + ranges.size()
@@ -2114,19 +2283,14 @@ public class ExportManager {
                 //noinspection ResultOfMethodCallIgnored
                 videoFull.delete();
                 pruneRenderCache(project, manifest);
-                ExportResult result = lastChunkResult;
+                chunkRun = null;
+                // Every part and the sound can come from the render cache, leaving no fresh
+                // ExportResult - the loudness pass and the copy to the chosen folder still run.
+                ExportResult result = lastChunkResult != null ? lastChunkResult
+                        : new ExportResult.Builder().build();
                 isExporting = false;
                 resetChunkState();
-                if (result != null) {
-                    finalizeExportAsync(project, committed, result, "Chunked export completed");
-                } else {
-                    // Should not happen (every chunk completed), but never lose a good file.
-                    FLog.e(TAG, "Chunked export: no chunk result; announcing directly");
-                    if (listener != null) {
-                        listener.onExportCompleted(committed,
-                                new ExportResult.Builder().build());
-                    }
-                }
+                finalizeExportAsync(project, committed, result, "Chunked export completed");
             } catch (Exception e) {
                 if (chunkCancelled) {
                     isExporting = false;
@@ -2566,6 +2730,20 @@ public class ExportManager {
      * Cancel the current export.
      */
     public void cancel() {
+        if (chunkRun != null) {
+            // Chunked run: the parts and the sound live on workers. chunkCancelled also stops
+            // a join already on its thread from committing (it was never set before).
+            chunkCancelled = true;
+            chunkRun = null;
+            cancelChunkWorkers();
+            if (isExporting) {
+                isExporting = false;
+                stopProgressPolling();
+                discardStaging(currentStagingPath);
+                FLog.d(TAG, "Chunked export cancelled");
+            }
+            return;
+        }
         if (transformer != null && isExporting) {
             stopProgressPolling();
             transformer.cancel();
@@ -2587,7 +2765,7 @@ public class ExportManager {
         stallSinceMs = android.os.SystemClock.elapsedRealtime();
         lastStackDumpMs = 0L;
         progressHandler.postDelayed(progressPoller, PROGRESS_POLL_INTERVAL_MS);
-        glSampler.start();
+        if (sampleGl) glSampler.start();
     }
 
     /** GL_SAMPLE lines: where the video thread's time goes, every 20 s of an export. */
@@ -2722,6 +2900,10 @@ public class ExportManager {
     }
 
     private void trace(@NonNull String line) {
+        if (traceParent != null) {
+            traceParent.trace(tracePrefix + line);
+            return;
+        }
         String stamped = new java.text.SimpleDateFormat("HH:mm:ss",
                 java.util.Locale.US).format(new java.util.Date()) + " " + line;
         FLog.i(TAG, line);
@@ -2735,6 +2917,7 @@ public class ExportManager {
     }
 
     private void closeTrace() {
+        if (traceParent != null) return;   // a worker never owns the driver's file
         synchronized (traceLock) {
             if (traceWriter != null) {
                 try { traceWriter.close(); } catch (Exception ignored) {}

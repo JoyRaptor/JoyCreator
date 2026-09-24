@@ -37,6 +37,10 @@ public class CompositeExportOverlay extends BitmapOverlay {
 
     private final Context context;
     private final long clipTimelineStartMs;
+    /** Editor-time span this overlay can draw in (padded); see the constructor. */
+    private final long editorWindowStartMs;
+    private final long editorWindowEndMs;
+    private static final long WINDOW_PAD_MS = 2_000L;
     private final Clip clip;
     private final int outW;
     private final int outH;
@@ -389,6 +393,15 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.outW = Math.max(1, outW);
         this.outH = Math.max(1, outH);
         this.clipVisualEndMs = clipTimelineStartMs + clip.getVisualDurationMs();
+        // EDITOR TIME of this clip's span: the clock overlays, sprites and audio clips live on
+        // (a frame's editor time is pts + editorTimeOffsetMs, see getBitmap). The composition
+        // cursor above restarts at 0 in every part of a chunked export, so filtering absolute
+        // item times against it dropped every text box and audio caption whose time lay past
+        // the part's own length - everything after ~minute 10 of a 48-minute export
+        // (2026-09-24). Padded: the per-frame isVisibleAt check does the exact gating.
+        this.editorWindowStartMs = clipTimelineStartMs + editorTimeOffsetMs - WINDOW_PAD_MS;
+        this.editorWindowEndMs = clipTimelineStartMs + editorTimeOffsetMs
+                + Math.max(clip.getVisualDurationMs(), clip.getTrimmedDurationMs()) + WINDOW_PAD_MS;
         this.textOverlays = filterTextOverlays(allTextOverlays);
         this.spriteItems = filterSpriteItems(allSpriteItems);
         this.spriteSheets = spriteSheets;
@@ -403,7 +416,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
     @NonNull
     private List<AudioCaptionSlot> buildAudioCaptionSlots(@NonNull List<AudioClip> audioClips) {
         List<AudioCaptionSlot> slots = new ArrayList<>();
-        long clipEndMs = clipTimelineStartMs + clip.getTrimmedDurationMs();
+        long clipEndMs = editorWindowEndMs;
         for (AudioClip ac : audioClips) {
             java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
             if (bs.isEmpty()) {
@@ -412,7 +425,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 if ("hidden".equals(styleId)) continue;
                 long audioStartMs = ac.getOffsetMs();
                 long audioEndMs = ac.getOffsetMs() + ac.getTrimmedDurationMs();
-                if (audioStartMs < clipEndMs && audioEndMs > clipTimelineStartMs) {
+                if (audioStartMs < clipEndMs && audioEndMs > editorWindowStartMs) {
                     Transcript t = ac.getTranscript();
                     if (t == null || t.words.isEmpty()) continue;
                     CaptionStyle cs = CaptionStyle.byId(styleId);
@@ -434,7 +447,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                     if (nt == null || nt.transcript == null || nt.transcript.isEmpty()) continue;
                     long audioStartMs = ac.getOffsetMs();
                     long audioEndMs = ac.getOffsetMs() + ac.getTrimmedDurationMs();
-                    if (audioStartMs >= clipEndMs || audioEndMs <= clipTimelineStartMs) continue;
+                    if (audioStartMs >= clipEndMs || audioEndMs <= editorWindowStartMs) continue;
                     CaptionStyle cs = CaptionStyle.byId(b.styleId);
                     CaptionExportRenderer r = new CaptionExportRenderer(
                             nt.transcript.windowed(ac.getInPointMs(), ac.getOutPointMs()),
@@ -474,8 +487,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
             List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all) {
         List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : all) {
-            if (o.getEndMs() < clipTimelineStartMs) continue;
-            if (o.getStartMs() > clipVisualEndMs) continue;
+            if (o.getEndMs() < editorWindowStartMs) continue;
+            if (o.getStartMs() > editorWindowEndMs) continue;
             if (o.wantsGl()) continue;
             out.add(o);
         }
@@ -545,8 +558,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
         // isVisibleAt(timelineMs) check drops any that don't belong on the
         // current item.
         for (TextOverlayItem o : all) {
-            if (o.getEndMs() < clipTimelineStartMs) continue;
-            if (o.getStartMs() > clipVisualEndMs) continue;
+            if (o.getEndMs() < editorWindowStartMs) continue;
+            if (o.getStartMs() > editorWindowEndMs) continue;
             // M7: an overlay carrying its OWN effects is rendered by TextFxGlEffect instead,
             // because a Canvas has no shader to run them through. Skipping it here is what
             // stops it being drawn twice — once styled in GL and once plain on top.
@@ -577,6 +590,134 @@ public class CompositeExportOverlay extends BitmapOverlay {
             if (o.isVisibleAt(timelineMs)) return false;
         }
         return true;
+    }
+
+    /**
+     * One text box (or AI-generated slide) onto {@code canvas} at editor time {@code timelineMs},
+     * exactly as this pass draws it. SHARED with {@link GlImageOverlayEffect}, which draws a
+     * text box into its own frame-sized picture with this and composites that on the GPU in
+     * true lane order, so the two routes cannot draw a box differently. The caller has already
+     * checked {@code isVisibleAt}. Returns true when something was drawn.
+     */
+    /** The frame {@link #drawTextItem} lays text out in. */
+    int drawWidth() { return outW; }
+
+    int drawHeight() { return outH; }
+
+    boolean drawTextItem(@NonNull Canvas canvas, @NonNull TextOverlayItem o, long timelineMs) {
+        float opacity = o.animatedOpacity(timelineMs);
+        if (opacity <= 0.001f) return false;
+        if (o.isGeneratedSlide()) {
+            // AI-authored transparent overlay slide (spec Phase 4): composite
+            // the pre-rendered PNG frame for this timeline position across the
+            // full canvas — the HTML owns its own layout inside the frame.
+            Bitmap frame = generatedOverlayFrame(o, timelineMs);
+            if (frame != null && !frame.isRecycled()) {
+                Paint gp = new Paint(Paint.FILTER_BITMAP_FLAG);
+                gp.setAlpha(Math.round(opacity * 255));
+                android.graphics.Rect src =
+                        new android.graphics.Rect(0, 0, frame.getWidth(), frame.getHeight());
+                android.graphics.Rect dst = new android.graphics.Rect(0, 0, outW, outH);
+                canvas.drawBitmap(frame, src, dst, gp);
+                return true;
+            }
+            return false;
+        }
+        float cx = o.animatedCenterX(timelineMs) * outW;
+        float cy = o.animatedCenterY(timelineMs) * outH;
+        float sizeFrac = o.animatedSizeFraction(timelineMs);
+        float rot = o.animatedRotation(timelineMs);
+
+        // ── TEXT: draw through the SHARED renderer the preview uses ─────────────────────
+        // This replaced "rasterise the whole box to a bitmap, then transform the bitmap".
+        // That approach could only ever animate the box as ONE body, which is why text boxes
+        // were BLOCK-only — the recorded reason blamed the preview's TextView, but this side
+        // could not do it either. Drawing straight onto the frame canvas, through the same
+        // TextBoxRenderer the preview's TextBoxView calls, is what makes WORD and LETTER
+        // honest here: there is one layout and one set of per-unit transforms, not two that
+        // have to be kept in agreement.
+        //
+        // Note there is no excursion margin on this side, unlike the preview's TextBoxView:
+        // a glyph that animates outside its box simply lands elsewhere on the frame canvas,
+        // which has no bounds to be clipped by. The margin is a View artefact, not a
+        // property of the animation, which is why it does not belong in the renderer.
+        if (!o.isImage()) {
+            String shown = com.fadcam.ui.faditor.overlay.TextBoxRenderer.textAt(
+                    o, timelineMs, projectDurationMs);
+            float fontPx = Math.max(1f, sizeFrac * outH);
+            float[] size = new float[2];
+            com.fadcam.ui.faditor.overlay.TextBoxRenderer.measure(o, shown, fontPx, size);
+            canvas.save();
+            canvas.rotate(rot, cx, cy);
+            // BEND, through the SAME SpriteMeshDraw the preview's CornerPinTextView calls —
+            // one rasterise-and-warp for every type that bends on a Canvas, so a bent text box
+            // here cannot disagree with the one on screen. The pin goes INSIDE the bend on
+            // both surfaces; a box can be pinned and bent at once.
+            if (o.hasMesh()) {
+                textMeshRect.set(cx - size[0] / 2f, cy - size[1] / 2f,
+                        cx + size[0] / 2f, cy + size[1] / 2f);
+                final float fpx = fontPx;
+                boolean bent = textMeshDraw.draw(canvas, o.getMesh(),
+                        o.meshLocalTime(timelineMs), textMeshRect,
+                        (c, into) -> {
+                            c.save();
+                            if (o.cornerPinMatrix(textPinMatrix, timelineMs,
+                                    into.left, into.top, into.width(), into.height())) {
+                                c.concat(textPinMatrix);
+                            }
+                            com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(c, o, shown,
+                                    into.left, into.top, fpx, timelineMs,
+                                    projectDurationMs, true, opacity);
+                            c.restore();
+                        }, null);
+                if (bent) {
+                    canvas.restore();
+                    return true;
+                }
+            }
+            // SPEC ZC — the text corner pin, built by the SAME method the preview calls
+            // (TextOverlayItem.cornerPinMatrix) and concat-ed at the SAME point: inside the
+            // rotate, immediately around the draw below. An undistorted box takes the
+            // byte-identical path it always did, because the method returns false and nothing
+            // is concat-ed. The pin is a matrix on glyph outlines, not a warped raster, so
+            // the box stays vector-sharp here exactly as in the preview.
+            if (o.cornerPinMatrix(textPinMatrix, timelineMs,
+                    cx - size[0] / 2f, cy - size[1] / 2f, size[0], size[1])) {
+                canvas.concat(textPinMatrix);
+            }
+            com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(canvas, o, shown,
+                    cx - size[0] / 2f, cy - size[1] / 2f, fontPx, timelineMs,
+                    projectDurationMs, true, opacity);
+            canvas.restore();
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Everything that can change how {@link #drawTextItem} draws {@code o} at {@code timelineMs}.
+     * Equal signatures = identical pixels, so the GPU route draws a text box ONCE and reuses it
+     * for as long as it stands still (29 of the 36 boxes in the 48-minute lecture). Anything
+     * whose look moves with the clock by other means (a word/letter animation preset, a bend,
+     * a corner pin, a timer, a generated slide) carries the time itself and redraws per frame.
+     */
+    @NonNull
+    static String textSignature(@NonNull TextOverlayItem o, long timelineMs, long projectDurationMs) {
+        StringBuilder sb = new StringBuilder(96);
+        boolean clocked = o.isGeneratedSlide() || o.isTimer() || o.hasMesh() || o.hasCornerPin()
+                || com.fadcam.ui.faditor.transcript.CaptionAnimator.parsePreset(
+                        o.getTextAnimPreset())
+                        != com.fadcam.ui.faditor.transcript.CaptionAnimator.Preset.NONE;
+        if (clocked) sb.append("t=").append(timelineMs).append('|');
+        sb.append(com.fadcam.ui.faditor.overlay.TextBoxRenderer.textAt(
+                o, timelineMs, projectDurationMs)).append('|')
+                .append(o.animatedCenterX(timelineMs)).append(',')
+                .append(o.animatedCenterY(timelineMs)).append(',')
+                .append(o.animatedSizeFraction(timelineMs)).append(',')
+                .append(o.animatedRotation(timelineMs)).append(',')
+                .append(o.animatedOpacity(timelineMs));
+        return sb.toString();
     }
 
     // ── Captions, shared by the Canvas pass and the GL caption pass ─────────────────────
@@ -657,7 +798,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
             }
         }
         if (!audioCaptionSlots.isEmpty()) {
-            long audioCaptionTimelineMs = clipTimelineStartMs + clipLocalMs;
+            // Editor time (pts + editorTimeOffsetMs), the clock audio clips are placed on and
+            // the one text overlays use; composition time alone restarts in every export part.
+            long audioCaptionTimelineMs = clipTimelineStartMs + clipLocalMs + editorTimeOffsetMs;
             for (AudioCaptionSlot slot : audioCaptionSlots) {
                 long audioSourceMs = audioCaptionTimelineMs - slot.offsetMs + slot.inPointMs;
                 // Local time within the AUDIO clip's own span — the clock the binding's fade is
@@ -868,95 +1011,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
         try {
         for (TextOverlayItem o : textOverlays) {
             if (!o.isVisibleAt(timelineMs)) continue;
+            if (!o.isImage()) {
+                if (drawTextItem(canvas, o, timelineMs)) drawnText++;
+                continue;
+            }
             float opacity = o.animatedOpacity(timelineMs);
             if (opacity <= 0.001f) continue;
-            if (o.isGeneratedSlide()) {
-                // AI-authored transparent overlay slide (spec Phase 4): composite
-                // the pre-rendered PNG frame for this timeline position across the
-                // full canvas — the HTML owns its own layout inside the frame.
-                Bitmap frame = generatedOverlayFrame(o, timelineMs);
-                if (frame != null && !frame.isRecycled()) {
-                    Paint gp = new Paint(Paint.FILTER_BITMAP_FLAG);
-                    gp.setAlpha(Math.round(opacity * 255));
-                    android.graphics.Rect src =
-                            new android.graphics.Rect(0, 0, frame.getWidth(), frame.getHeight());
-                    android.graphics.Rect dst = new android.graphics.Rect(0, 0, outW, outH);
-                    canvas.drawBitmap(frame, src, dst, gp);
-                    drawnText++;
-                }
-                continue;
-            }
-            float cx = o.animatedCenterX(timelineMs) * outW;
-            float cy = o.animatedCenterY(timelineMs) * outH;
-            float sizeFrac = o.animatedSizeFraction(timelineMs);
-            float rot = o.animatedRotation(timelineMs);
-
-            // ── TEXT: draw through the SHARED renderer the preview uses ─────────────────────
-            // This replaced "rasterise the whole box to a bitmap, then transform the bitmap".
-            // That approach could only ever animate the box as ONE body, which is why text boxes
-            // were BLOCK-only — the recorded reason blamed the preview's TextView, but this side
-            // could not do it either. Drawing straight onto the frame canvas, through the same
-            // TextBoxRenderer the preview's TextBoxView calls, is what makes WORD and LETTER
-            // honest here: there is one layout and one set of per-unit transforms, not two that
-            // have to be kept in agreement.
-            //
-            // Note there is no excursion margin on this side, unlike the preview's TextBoxView:
-            // a glyph that animates outside its box simply lands elsewhere on the frame canvas,
-            // which has no bounds to be clipped by. The margin is a View artefact, not a
-            // property of the animation, which is why it does not belong in the renderer.
-            if (!o.isImage()) {
-                String shown = com.fadcam.ui.faditor.overlay.TextBoxRenderer.textAt(
-                        o, timelineMs, projectDurationMs);
-                float fontPx = Math.max(1f, sizeFrac * outH);
-                float[] size = new float[2];
-                com.fadcam.ui.faditor.overlay.TextBoxRenderer.measure(o, shown, fontPx, size);
-                canvas.save();
-                canvas.rotate(rot, cx, cy);
-                // BEND, through the SAME SpriteMeshDraw the preview's CornerPinTextView calls —
-                // one rasterise-and-warp for every type that bends on a Canvas, so a bent text box
-                // here cannot disagree with the one on screen. The pin goes INSIDE the bend on
-                // both surfaces; a box can be pinned and bent at once.
-                if (o.hasMesh()) {
-                    textMeshRect.set(cx - size[0] / 2f, cy - size[1] / 2f,
-                            cx + size[0] / 2f, cy + size[1] / 2f);
-                    final float fpx = fontPx;
-                    boolean bent = textMeshDraw.draw(canvas, o.getMesh(),
-                            o.meshLocalTime(timelineMs), textMeshRect,
-                            (c, into) -> {
-                                c.save();
-                                if (o.cornerPinMatrix(textPinMatrix, timelineMs,
-                                        into.left, into.top, into.width(), into.height())) {
-                                    c.concat(textPinMatrix);
-                                }
-                                com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(c, o, shown,
-                                        into.left, into.top, fpx, timelineMs,
-                                        projectDurationMs, true, opacity);
-                                c.restore();
-                            }, null);
-                    if (bent) {
-                        canvas.restore();
-                        drawnText++;
-                        continue;
-                    }
-                }
-                // SPEC ZC — the text corner pin, built by the SAME method the preview calls
-                // (TextOverlayItem.cornerPinMatrix) and concat-ed at the SAME point: inside the
-                // rotate, immediately around the draw below. An undistorted box takes the
-                // byte-identical path it always did, because the method returns false and nothing
-                // is concat-ed. The pin is a matrix on glyph outlines, not a warped raster, so
-                // the box stays vector-sharp here exactly as in the preview.
-                if (o.cornerPinMatrix(textPinMatrix, timelineMs,
-                        cx - size[0] / 2f, cy - size[1] / 2f, size[0], size[1])) {
-                    canvas.concat(textPinMatrix);
-                }
-                com.fadcam.ui.faditor.overlay.TextBoxRenderer.draw(canvas, o, shown,
-                        cx - size[0] / 2f, cy - size[1] / 2f, fontPx, timelineMs,
-                        projectDurationMs, true, opacity);
-                canvas.restore();
-                drawnText++;
-                continue;
-            }
-
             // ── IMAGE: draw the bitmap. Until 2026-07-30 this fell through to the text path ──────
             // below, which called setImageUri() on a throwaway item and handed it to
             // TextOverlayRenderer — a text rasteriser with ZERO references to images, which
@@ -982,98 +1042,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 }
                 continue;
             }
-            // SPEC_TIMER_OBJECT: a timer overlay draws a COMPUTED string for this frame;
-            // everything else about it (style, transform, keyframes) is unchanged, which
-            // is what makes a timer inherit the caption look. Same authority the preview
-            // calls, so the two cannot drift.
-            String frameText = o.getText();
-            if (o.isTimer()) {
-                String t = com.fadcam.ui.faditor.model.TimerText.format(
-                        o.getTimerSpec(), timelineMs, o.getStartMs(), o.getEndMs(),
-                        projectDurationMs, com.fadcam.ui.faditor.model.TimerText.DEFAULT_FPS);
-                if (t != null) frameText = t;
-            } else {
-                // MATRIX substitutes CHARACTERS, so the string is per-frame here exactly as a
-                // timer's is. Same authority the preview's TextOverlayLayer calls, so the two
-                // cannot churn differently. Inert for every other preset.
-                frameText = com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTextAt(
-                        com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                .parsePreset(o.getTextAnimPreset()),
-                        frameText, timelineMs, o.motionRangeStartMs(),
-                        o.motionSpanMs(projectDurationMs),
-                        o.getTextAnimInPct(), o.getTextAnimOutPct());
-            }
-            TextOverlayItem frameOverlay = new TextOverlayItem(frameText, o.getColorInt(),
-                    cx / outW, cy / outH, sizeFrac, rot);
-            frameOverlay.setStrokeColorInt(o.getStrokeColorInt());
-            frameOverlay.setStrokeWidthPx(o.getStrokeWidthPx());
-            frameOverlay.setShadowColorInt(o.getShadowColorInt());
-            frameOverlay.setShadowRadiusPx(o.getShadowRadiusPx());
-            frameOverlay.setGlowColorInt(o.getGlowColorInt());
-            frameOverlay.setGlowRadiusPx(o.getGlowRadiusPx());
-            frameOverlay.setBackgroundColorInt(o.getBackgroundColorInt());
-            frameOverlay.setFontFamily(o.getFontFamily());
-            // Alignment rides along too — M3 (adversarial review): the frame item is what
-            // TextOverlayRenderer.render rasterises, and without this the export centred every
-            // LEFT/RIGHT/JUSTIFY overlay even though the preview honoured it.
-            frameOverlay.setTextAlign(o.getTextAlign());
-            // NOTE: setImageUri() used to be called here. It was a CALL INTO A VOID —
-            // TextOverlayRenderer has no image support whatsoever — and it is what made BUG C
-            // look implemented for months. Images are now handled by the branch above and can
-            // never reach this point, so there is no image URI to pass on. Deleted rather than
-            // left in place, because a setter nobody reads is the exact §3a failure mode.
-            Bitmap textBmp = TextOverlayRenderer.render(frameOverlay, outW, outH);
-            if (textBmp == null || textBmp.isRecycled()) {
-                if (!loggedNullTextWarning) {
-                    FLog.w(TAG, "TextOverlayRenderer returned null/recycled bitmap; "
-                            + "text overlay skipped (this warning is logged once)");
-                    loggedNullTextWarning = true;
-                }
-                continue;
-            }
-            drawnText++;
-            // Entrance/exit animation — the SAME evaluator call the preview's TextOverlayLayer
-            // makes, so the two surfaces cannot drift. fontPx is in OUTPUT pixels here and in
-            // preview pixels there, which is what keeps a preset's dx/dy proportional rather
-            // than correct on one surface and wrong on the other.
-            com.fadcam.ui.faditor.transcript.CaptionAnimator.Transform anim =
-                    com.fadcam.ui.faditor.transcript.CaptionAnimator.textBoxTransformAt(
-                            com.fadcam.ui.faditor.transcript.CaptionAnimator
-                                    .parsePreset(o.getTextAnimPreset()),
-                            timelineMs, o.motionRangeStartMs(), o.motionSpanMs(projectDurationMs),
-                            o.getTextAnimInPct(), o.getTextAnimOutPct(), sizeFrac * outH);
-            Paint p = new Paint();
-            int alpha = Math.round(opacity * anim.alpha * 255);
-            p.setAlpha(Math.max(0, Math.min(255, alpha)));
-            canvas.save();
-            // Same composition order the View properties give the preview: scale and rotate
-            // about the object's centre, THEN translate.
-            canvas.translate(anim.dx, anim.dy);
-            canvas.rotate(rot, cx, cy);
-            canvas.scale(anim.scaleX, anim.scaleY, cx, cy);
-            // MASK_WIPE's reveal — the third animated channel, and the export half of what
-            // TextOverlayLayer#applyReveal does with View.setClipBounds. Clipped AFTER the matrix,
-            // which is the same thing the preview gets by clipping in the view's local space and
-            // then transforming: in both cases the mask is carried by the object's own transform
-            // rather than standing still in frame space.
-            //
-            // The wipe runs across the INK, not across the bitmap. TextOverlayRenderer leaves a
-            // 0.35em transparent margin so shadows and outlines are not clipped by the bitmap
-            // edge, and the preview's TextView has no equivalent margin — so wiping the raw bitmap
-            // width would put the mask edge somewhere the preview never puts it.
-            if (anim.revealFrac < 1f) {
-                float bw = textBmp.getWidth(), bh = textBmp.getHeight();
-                int pad = com.fadcam.ui.faditor.overlay.TextOverlayRenderer
-                        .padPxFor(frameOverlay, outH);
-                float inkL = cx - bw / 2f + pad;
-                float inkW = Math.max(1f, bw - pad * 2f);
-                canvas.clipRect(inkL, cy - bh / 2f,
-                        inkL + inkW * Math.max(0f, anim.revealFrac), cy + bh / 2f);
-            }
-            canvas.drawBitmap(textBmp, cx - textBmp.getWidth() / 2f,
-                    cy - textBmp.getHeight() / 2f, p);
-            canvas.restore();
-            textBmp.recycle();
         }
         } catch (Throwable t) {
             canvas.restoreToCount(textSaveCount);

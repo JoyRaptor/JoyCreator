@@ -1544,7 +1544,8 @@ public class ExportManager {
                     Context.MODE_PRIVATE).getAll();
             sb.append("|styles=").append(new java.util.TreeMap<>(styles).toString().hashCode());
         } catch (Exception ignored) { }
-        sb.append("|glImg=").append(GL_IMAGE_PASS).append("|glCap=").append(GL_CAPTION_PASS);
+        sb.append("|glImg=").append(GL_IMAGE_PASS).append("|glCap=").append(GL_CAPTION_PASS)
+                .append("|glTxt=").append(GL_TEXT_PASS);
         return sb.toString();
     }
 
@@ -4575,6 +4576,9 @@ public class ExportManager {
      */
     static final boolean GL_CAPTION_PASS = true;
 
+    /** Slack on a clip item's overlay window: transitions and loop edges around its span. */
+    private static final long RUN_WINDOW_PAD_MS = 5_000L;
+
     private static String runId(@NonNull Object o) {
         return o instanceof TextOverlayItem ? ((TextOverlayItem) o).getId()
                 : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).getId();
@@ -4590,10 +4594,31 @@ public class ExportManager {
                 : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).getEndMs();
     }
 
+    /**
+     * Text boxes drawn into {@link GlImageOverlayEffect}'s run (by the Canvas pass's own
+     * drawTextItem) instead of a Canvas OverlayEffect: images and text in one lane order then
+     * need one GPU effect, and a box that stands still is drawn and uploaded once, not every
+     * frame. The 48-minute lecture's chain was 37 alternating effects per clip, and the Canvas
+     * text passes were ~40% of the export's GL-thread time (2026-09-24 GL_SAMPLE: upload 25%,
+     * canvasBlit 12%, clear 4%). False restores the Canvas routing exactly.
+     */
+    static final boolean GL_TEXT_PASS = true;
+
     /** The ONE export routing question: does this overlay leave the Canvas for a GL pass? */
     static boolean exportGlRouted(@NonNull TextOverlayItem o) {
+        if (exportGlRoutedImageLike(o)) return true;
+        return glTextBox(o);
+    }
+
+    /** The routing before GL_TEXT_PASS: images (GL mode) and blended/keyed/masked items. */
+    static boolean exportGlRoutedImageLike(@NonNull TextOverlayItem o) {
         if (GL_IMAGE_PASS && o.isImage()) return true;
         return o.wantsGlExport();
+    }
+
+    /** A text box the GL run draws: not an image, and not one TextFxGlEffect styles. */
+    static boolean glTextBox(@NonNull TextOverlayItem o) {
+        return GL_TEXT_PASS && GL_IMAGE_PASS && !o.isImage() && !o.hasActiveFx();
     }
 
     /** Export sound format: what YouTube and home-theatre playback expect. */
@@ -5613,8 +5638,13 @@ public class ExportManager {
             // the timeline reached such a clip. (This was the "captions stop after a
             // few videos" bug.)
             boolean audioCaptionOverlaps = false;
-            long clipTlStart = timelineCursorMs;
-            long clipTlEnd = timelineCursorMs + clip.getTrimmedDurationMs();
+            // EDITOR time, the clock audio clips are placed on: the composition cursor restarts
+            // at 0 in every part of a chunked export (CompositeExportOverlay's constructor).
+            long clipEditorStart = timelineCursorMs
+                    + editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs);
+            long clipTlStart = clipEditorStart - 2_000L;
+            long clipTlEnd = clipEditorStart + Math.max(clip.getTrimmedDurationMs(),
+                    clip.getVisualDurationMs()) + 2_000L;
             for (AudioClip ac : project.getTimeline().getAudioClips()) {
                 java.util.List<AudioClip.CaptionBinding> bs = ac.getCaptionBindings();
                 if (bs.isEmpty()) {
@@ -5760,7 +5790,7 @@ public class ExportManager {
                 java.util.List<TextOverlayItem> allGlImages = new java.util.ArrayList<>();
                 for (LayerPreviewController.VisualItem vv : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
                     TextOverlayItem oo = vv.item.getTextOverlay();
-                    if (oo != null && exportGlRouted(oo)) allGlImages.add(oo);
+                    if (oo != null && exportGlRoutedImageLike(oo)) allGlImages.add(oo);
                 }
                 java.util.List<TextOverlayItem> belowBlendTextsAll =
                         new java.util.ArrayList<>(LayerPreviewController.plainTextsBelowBlend(
@@ -5884,7 +5914,7 @@ public class ExportManager {
             for (LayerPreviewController.VisualItem vv
                     : LayerPreviewController.orderedVisualItems(project.getTimeline())) {
                 com.fadcam.ui.faditor.model.TextOverlayItem oo = vv.item.getTextOverlay();
-                if (oo != null && exportGlRouted(oo)) allGlImagesZa.add(oo);
+                if (oo != null && exportGlRoutedImageLike(oo)) allGlImagesZa.add(oo);
             }
             java.util.Set<String> belowIdsZa = new java.util.HashSet<>();
             for (com.fadcam.ui.faditor.model.TextOverlayItem b : belowTexts) {
@@ -5918,7 +5948,7 @@ public class ExportManager {
             }
             java.util.List<Object> glOverlaysBottomTop = new java.util.ArrayList<>();
             for (com.fadcam.ui.faditor.model.TextOverlayItem to : blendCandidates) {
-                if (exportGlRouted(to)) glOverlaysBottomTop.add(to);
+                if (exportGlRoutedImageLike(to)) glOverlaysBottomTop.add(to);
             }
             java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> spriteBucketsZa =
                     new ArrayList<>(belowSprites);
@@ -5960,6 +5990,16 @@ public class ExportManager {
                 for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp : exportSpriteItems) {
                     if (!sp.isHidden()) runItems.add(sp);
                 }
+                // ONLY WHAT THIS CLIP CAN SHOW. Every clip item's chain used to carry a pass for
+                // every overlay in the project (37 effects on each of the lecture's 24 clips,
+                // each a full-frame pass per frame even with nothing on screen). An overlay whose
+                // time span misses this item's editor-time span (t = pts + overlayOffsetMs) can
+                // never draw here; padded, since isVisibleAt does the exact per-frame gating.
+                final long runWinLo = timelineCursorMs + overlayOffsetMs - RUN_WINDOW_PAD_MS;
+                final long runWinHi = timelineCursorMs + overlayOffsetMs
+                        + Math.max(clip.getVisualDurationMs(), clip.getTrimmedDurationMs())
+                        + RUN_WINDOW_PAD_MS;
+                runItems.removeIf(o -> runEndMs(o) < runWinLo || runStartMs(o) > runWinHi);
                 runItems.sort((a, b) -> {
                     String ida = (a instanceof TextOverlayItem) ? ((TextOverlayItem) a).getId()
                             : ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) a).getId();
@@ -5968,6 +6008,23 @@ public class ExportManager {
                     Integer ia = zRun.get(ida), ib = zRun.get(idb);
                     return Integer.compare(ia == null ? 0 : ia, ib == null ? 0 : ib);
                 });
+                // Text boxes in the GL run are drawn by the Canvas pass's own code, through one
+                // drawer per clip (its lists are empty: it only lends drawTextItem).
+                CompositeExportOverlay glTextDrawer = null;
+                for (Object o : runItems) {
+                    if (o instanceof TextOverlayItem && glTextBox((TextOverlayItem) o)) {
+                        glTextDrawer = new CompositeExportOverlay(
+                                context, timelineCursorMs, clip, overlayW, overlayH,
+                                Collections.emptyList(), Collections.emptyList(),
+                                Collections.emptyList(), Collections.emptyList(),
+                                project.getSpriteSheets(), project.getAvatarRigs(),
+                                project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                isLoopBeforeItem ? 0L
+                                        : headTransitionMsFor(project.getTimeline(), clip));
+                        glTextDrawer.setCaptionsViaGl(true);
+                        break;
+                    }
+                }
                 // FEWEST PASSES THAT KEEP THE ORDER. Order between a text and an image only
                 // matters while both are on screen. A text above every image it shares time
                 // with rides the final pass; below all of them, one bottom pass; only a text
@@ -5977,7 +6034,8 @@ public class ExportManager {
                 java.util.List<Object> glSeq = new ArrayList<>();
                 java.util.List<Object> canvasSeq = new ArrayList<>();
                 for (Object o : runItems) {
-                    boolean img = o instanceof TextOverlayItem && ((TextOverlayItem) o).isImage();
+                    boolean img = o instanceof TextOverlayItem
+                            && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSp = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
                             && ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).wantsGl();
                     (img || glSp ? glSeq : canvasSeq).add(o);
@@ -6028,7 +6086,8 @@ public class ExportManager {
                 java.util.List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> sprRun =
                         new ArrayList<>();
                 for (Object o : runItems) {
-                    boolean image = o instanceof TextOverlayItem && ((TextOverlayItem) o).isImage();
+                    boolean image = o instanceof TextOverlayItem
+                            && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSprite = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
                             && ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).wantsGl();
                     if (image || glSprite) {
@@ -6047,13 +6106,17 @@ public class ExportManager {
                             sprRun = new ArrayList<>();
                         }
                         TextOverlayItem im = image ? (TextOverlayItem) o : null;
-                        if (im != null && !im.hasMesh()) {
+                        // Into the shared run: unbent images, and text boxes the Canvas pass
+                        // would have drawn plainly. A text that blends, keys or masks keeps
+                        // ImageBlendGlEffect below, as a bent image does.
+                        if (im != null && (im.isImage() ? !im.hasMesh() : !im.wantsGlExport())) {
                             imgRun.add(im);
                             continue;
                         }
                         if (!imgRun.isEmpty()) {
                             videoEffects.add(new GlImageOverlayEffect(context, imgRun,
-                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                    glTextDrawer));
                             imgRun = new ArrayList<>();
                         }
                         if (im != null) {
@@ -6068,7 +6131,8 @@ public class ExportManager {
                     } else {
                         if (!imgRun.isEmpty()) {
                             videoEffects.add(new GlImageOverlayEffect(context, imgRun,
-                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                    glTextDrawer));
                             imgRun = new ArrayList<>();
                         }
                         if (o instanceof TextOverlayItem) txtRun.add((TextOverlayItem) o);
@@ -6077,7 +6141,8 @@ public class ExportManager {
                 }
                 if (!imgRun.isEmpty()) {
                     videoEffects.add(new GlImageOverlayEffect(context, imgRun,
-                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                            project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                            glTextDrawer));
                 }
                 if (sandwiched) {
                     exportTextOverlays = txtRun;     // the top run rides the final pass

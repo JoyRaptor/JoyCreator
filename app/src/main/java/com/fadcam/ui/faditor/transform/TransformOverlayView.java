@@ -1666,19 +1666,18 @@ public class TransformOverlayView extends View {
         // on, a corner tap could only ever grab a bend dot, so scale, flip and the long-press
         // ring — the only way to turn Bend off — all became unreachable. Now the handle is
         // tested first and keeps the touch unless a bend dot is CLEARLY the nearer target
-        // (a small margin, below), which the inboard offset in bendLayout() guarantees for a
+        // (8dp of daylight), which the inboard offset in bendLayout() guarantees for a
         // deliberate tap on the blue dot. A grabbed dot starts the ONE snapshot its whole
         // drag will undo to (host ensures the spec first, so the first bend's undo restores
         // "no bend at all").
         if (bendMode && h.supportsBend()) {
             int bn = bendLayout(h);
             if (bn > 0) {
-                // 24dp and a 2dp margin (were 20 and 8): JoyRaptor (2026-09-23) was "having a
-                // difficult time moving the warp handles". The 8dp handicap handed most taps
-                // near an edge or corner to the structural handle. The big margin guarded the
-                // way OUT of Bend, and the Bend pill (always reachable, tested first above) is
-                // that way out now; a dot only has to be the nearer target.
-                float br = dp(24f);
+                // 20dp and the 8dp margin, restored 2026-09-24. f4b6b7e4 widened them to 24/2
+                // for "having a difficult time moving the warp handles", and JoyRaptor ruled the
+                // size was never the problem: "it used to work well". The reach was not what
+                // regressed — see MeshBendSeam.dragTo for what stopped the dots following.
+                float br = dp(20f);
                 int best = -1;
                 float bestD = Float.MAX_VALUE;
                 for (int i = 0; i < bn; i++) {
@@ -1687,7 +1686,7 @@ public class TransformOverlayView extends View {
                 }
                 float handleD = hit == null ? Float.MAX_VALUE
                         : (float) Math.hypot(hit.x - x, hit.y - y);
-                if (best >= 0 && bestD + dp(2f) < handleD) {
+                if (best >= 0 && bestD + dp(8f) < handleD) {
                     bendDragIndex = best;
                     bendMoved = false;
                     bendDownX = x;

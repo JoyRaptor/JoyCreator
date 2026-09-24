@@ -31,6 +31,12 @@ public class CaptionOverlayView extends View {
         default void onTapped() {}
         /** Double-tapped the caption — open its advanced menu (JoyRaptor 2026-07-16). */
         default void onDoubleTapped() {}
+        /**
+         * True where something beneath has the stronger claim on a touch — the text box being
+         * typed in. Captions draw ABOVE text, so a caption block overlapping that box used to
+         * take the tap meant for the words and drag the caption instead (2026-09-24).
+         */
+        default boolean yieldsTouchAt(float x, float y) { return false; }
         /** Long-pressed the caption — hide captions for this clip. */
         default void onLongPressed() {}
         /**
@@ -1095,6 +1101,7 @@ public class CaptionOverlayView extends View {
      */
     public boolean hitsCaption(float x, float y) {
         if (blockRect.isEmpty() || callback == null) return false;
+        if (callback.yieldsTouchAt(x, y)) return false;
         float hitSlop = 12f * density;
         return x >= blockRect.left - hitSlop && x <= blockRect.right + hitSlop
                 && y >= blockRect.top - hitSlop && y <= blockRect.bottom + hitSlop;
@@ -1120,6 +1127,7 @@ public class CaptionOverlayView extends View {
                 if (callback == null) {
                     return false; // let touches pass through to the player
                 }
+                if (callback.yieldsTouchAt(e.getX(), e.getY())) return false;
                 dragging = true;
                 longPressFired = false;
                 movedBeyondSlop = false;

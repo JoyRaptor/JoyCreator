@@ -54,4 +54,6 @@
     <string name="viz_style_chip">Style…</string>
     <string name="viz_style_chip_desc">Choose how the visualizer looks</string>
     <string name="add_video_overlay_title">Add a video overlay</string>
+    <string name="settings_drawer_see_through">Drawer see-through</string>
+    <string name="settings_drawer_see_through_desc">How much of your video shows through the drawers: %1$d%%</string>
 </resources>

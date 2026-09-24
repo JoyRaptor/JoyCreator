@@ -69,6 +69,12 @@ public class TextOverlayLayer extends FrameLayout {
          * 2026-09-23). Default no-op so existing callers need not implement it.
          */
         default void onOverlayTransformSync() { }
+        /**
+         * True where the text box being typed in owns the touch ({@code x, y} in this layer's
+         * coordinates). A box drawn above it — a picture on a higher lane — used to take the
+         * tap meant for the words and select itself instead (2026-09-24).
+         */
+        default boolean yieldsTouchAt(float x, float y) { return false; }
     }
 
     // ── WYSIWYG in-canvas text editing (2026-08-09 reframe) ───────────────────────────────────
@@ -1885,6 +1891,8 @@ public class TextOverlayLayer extends FrameLayout {
                     public boolean onScale(ScaleGestureDetector detector) {
                         o.setSizeFraction(o.getSizeFraction() * detector.getScaleFactor());
                         position(tv, o);
+                        // A pinch moves the box as surely as a drag does: re-sync the handles.
+                        if (callback != null) callback.onOverlayTransformSync();
                         return true;
                     }
                 });
@@ -1919,6 +1927,14 @@ public class TextOverlayLayer extends FrameLayout {
                 // or dragging the margin would yank the box out from under the caret. The item
                 // becomes inert until the drawer closes: move/scale/rotate return on exit.
                 if (editingItemId != null && editingItemId.equals(o.getId())) return false;
+                // Another box being typed in, under this one: the words win the touch.
+                if (e.getActionMasked() == MotionEvent.ACTION_DOWN && callback != null) {
+                    int[] at = new int[2];
+                    getLocationOnScreen(at);
+                    if (callback.yieldsTouchAt(e.getRawX() - at[0], e.getRawY() - at[1])) {
+                        return false;
+                    }
+                }
                 // SPEC B — images are the transform surface's to move, scale and turn, and the
                 // handles overlay's selection is their only door. This view's bounds are the box
                 // plus the corner-pin excursion margin (and the unrotated bounding square of a

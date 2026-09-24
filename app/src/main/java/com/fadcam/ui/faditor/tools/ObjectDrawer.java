@@ -286,10 +286,10 @@ public final class ObjectDrawer extends LinearLayout {
         // horizontal slice through the screen; curving the two bottom corners is what makes it
         // read as something that came DOWN from the top edge (user, 2026-08-05).
         final GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Kit.DRAWER_FILL);
         float r = 18f * density;
         bg.setCornerRadii(new float[]{0f, 0f, 0f, 0f, r, r, r, r});
         setBackground(bg);
+        Kit.followDrawerFill(this);
         // Consume touches so a tap on the drawer never reaches the preview underneath and
         // starts dragging the very PiP being edited.
         setClickable(true);
@@ -1172,8 +1172,53 @@ public final class ObjectDrawer extends LinearLayout {
         // switch shipped here on 2026-09-22 made "Solid" OPAQUE, which is exactly that; it is
         // gone. Frost, when it returns, is the SAME fill plus a blur on phones that can render
         // one (API 31+), never a darker or opaque one.
-        /** --scrim, the one see-through drawer fill. */
-        public static final int DRAWER_FILL = Studio.alpha(Studio.GROUND, 0xA3);
+        //
+        // HOW see-through is the owner's call, per phone (2026-09-24): "if we're at 65, let's
+        // try 50% ... perhaps a slider in the settings tool." Default 50% see-through; the
+        // Studio's Settings tool holds the slider; every drawer repaints the moment it moves.
+        private static final String PREFS = "studio_drawer";
+        private static final String KEY_SEE_THROUGH = "see_through_pct";
+        public static final int SEE_THROUGH_DEFAULT = 50;
+        public static final int SEE_THROUGH_MIN = 20;
+        public static final int SEE_THROUGH_MAX = 85;
+
+        /** How see-through drawers are, in percent (the Settings slider's value). */
+        public static int seeThroughPct(@NonNull Context ctx) {
+            int v = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                    .getInt(KEY_SEE_THROUGH, SEE_THROUGH_DEFAULT);
+            return Math.max(SEE_THROUGH_MIN, Math.min(SEE_THROUGH_MAX, v));
+        }
+
+        public static void setSeeThroughPct(@NonNull Context ctx, int pct) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                    .putInt(KEY_SEE_THROUGH,
+                            Math.max(SEE_THROUGH_MIN, Math.min(SEE_THROUGH_MAX, pct)))
+                    .apply();
+        }
+
+        /** The one see-through drawer fill (--scrim), at the chosen see-through. */
+        public static int drawerFill(@NonNull Context ctx) {
+            return Studio.alpha(Studio.GROUND, Math.round((100 - seeThroughPct(ctx)) * 2.55f));
+        }
+
+        /** Repaint {@code v}'s fill now and whenever the slider moves; a no-op off a drawable fill. */
+        public static void followDrawerFill(@NonNull View v) {
+            final Context ctx = v.getContext();
+            final android.content.SharedPreferences sp =
+                    ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+            final Runnable paint = () -> {
+                android.graphics.drawable.Drawable bg = v.getBackground();
+                if (bg instanceof GradientDrawable) {
+                    ((GradientDrawable) bg.mutate()).setColor(drawerFill(ctx));
+                }
+            };
+            paint.run();
+            // Held on the view: SharedPreferences keeps listeners weakly.
+            android.content.SharedPreferences.OnSharedPreferenceChangeListener l =
+                    (prefs, key) -> { if (KEY_SEE_THROUGH.equals(key)) v.post(paint); };
+            v.setTag(com.fadcam.R.id.faditor_tag_drawer_fill, l);
+            sp.registerOnSharedPreferenceChangeListener(l);
+        }
 
         private Kit() {}
 

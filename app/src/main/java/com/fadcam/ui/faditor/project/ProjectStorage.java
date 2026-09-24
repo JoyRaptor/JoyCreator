@@ -2484,17 +2484,20 @@ public class ProjectStorage {
                 }
                 // SPEC E mesh ("mesh"): omitted when absent/identity so untouched use saves
                 // byte-identically (MeshWarpSpec.toJson returns null then — same omit-empty
-                // discipline as KeyframeCodec). Dropped on write for non-images (v1 images only).
-                if (o.isImage()) {
-                    com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec oMesh = o.getMesh();
-                    if (oMesh != null) {
-                        try {
-                            com.google.gson.JsonObject mj = oMesh.toJson();
-                            if (mj != null) oJson.add("mesh", mj);
-                        } catch (Exception ignored) {
-                            // A bend that cannot serialize costs the bend, never the overlay.
-                        }
+                // discipline as KeyframeCodec). TEXT TOO since 2026-09-24: text bends (b6342482,
+                // both renderers draw it), and the old "v1 images only" gate here dropped a text
+                // bend on every save — JoyRaptor: "text does not bend". An unbent box still writes
+                // nothing, so every existing project saves byte-identically.
+                com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec oMesh = o.getMesh();
+                if (oMesh != null) {
+                    try {
+                        com.google.gson.JsonObject mj = oMesh.toJson();
+                        if (mj != null) oJson.add("mesh", mj);
+                    } catch (Exception ignored) {
+                        // A bend that cannot serialize costs the bend, never the overlay.
                     }
+                }
+                if (o.isImage()) {
                     // SPEC_20260915_PUPPET_UI rig ("puppet"): pin names and types, bones and the
                     // character settings — everything the deformer does NOT need. Same omit-empty
                     // discipline: PuppetRigJson.toJson returns null for a rig with no pins, so an
@@ -3367,11 +3370,11 @@ public class ProjectStorage {
                         // SPEC E mesh: tolerant like everything else here. Absent = no bend (every
                         // pre-mesh overlay). Wrong arity / unknown topology / malformed = drop the
                         // bend, keep the overlay (MeshWarpSpec.fromJson already enforces per-pose
-                        // tolerance; null = drop). Non-image mesh ignored on read and dropped on
-                        // write (v1 images only).
+                        // tolerance; null = drop). Text reads its bend too since 2026-09-24 (see
+                        // the writer): text bends, and both renderers draw it.
                         if (hasValue(oObj, "mesh")) {
                             try {
-                                if (o.isImage() && oObj.get("mesh").isJsonObject()) {
+                                if (oObj.get("mesh").isJsonObject()) {
                                     com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec ms =
                                             com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec.fromJson(
                                                     oObj.getAsJsonObject("mesh"));

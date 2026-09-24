@@ -24069,6 +24069,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private com.fadcam.ui.faditor.overlay.TextOverlayLayer.Callback overlayLayerCallback() {
         return new com.fadcam.ui.faditor.overlay.TextOverlayLayer.Callback() {
+            @Override public boolean yieldsTouchAt(float x, float y) {
+                return textEditingBoxAt(x, y);
+            }
             @NonNull
             @Override
             public android.graphics.RectF getVideoContentRect() {
@@ -25834,7 +25837,28 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // hosts — 0.02 here and in PiP, 0.01 for images. Collapsing them to one constant
                 // would have silently changed somebody's minimum by 2x.
                 0.02f,
-                () -> resetTextGeometry(o)), roles);
+                () -> resetTextGeometry(o),
+                null,
+                // THE BEND itself (2026-09-24). The 09-16 change below flipped the switches but
+                // never handed the host a bend, so supportsBend() stayed false and the
+                // "bend on" call was silently ignored — JoyRaptor: "Text does not Bend".
+                new com.fadcam.ui.faditor.transform.MeshBendSeam(
+                        new com.fadcam.ui.faditor.transform.MeshBendSeam.Owner() {
+                            @Override public com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec
+                                    getMesh() { return o.getMesh(); }
+                            @Override public void setMesh(
+                                    com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec m) {
+                                o.setMesh(m);
+                            }
+                            @Override public void installMeshCurve() { o.installMeshCurve(); }
+                            @Override public long meshLocalTime(long timelineMs) {
+                                return o.meshLocalTime(timelineMs);
+                            }
+                            @Override public boolean hasMesh() { return o.hasMesh(); }
+                            @Override public boolean isArmed() { return o.isArmed(); }
+                        },
+                        () -> overlayClockMs(lastPlayheadAbsoluteMs),
+                        this::refreshTextAfterHandleWrite)), roles);
         // TEXT BENDS, 2026-09-16. SPEC H's note above said "no pin/mesh render path in either
         // surface" and both halves of that have since been built: SPEC ZC gave text the corner
         // pin, and the mesh now goes through the SAME SpriteMeshDraw the sprite uses, called by
@@ -25843,7 +25867,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // affineOnly stays OFF now, or the bend handles have nothing to attach to.
         v.setAffineOnly(false);
         v.setBendAvailable(true);
-        v.setBendVisible(true);
+        // As for images: the net shows when the text is already bent, else it waits on the ring.
+        v.setBendVisible(o.hasMesh());
         v.setOnDoubleTap(() -> showTextOverlayEditor(o, true));
         v.bringToFront();
         v.refresh();
@@ -34363,6 +34388,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
         });
     }
 
+    /**
+     * Is {@code (x, y)} (player-container coordinates) inside the text box being edited on the
+     * Text tab? That box owns the touch — to place the caret or select words — over any layer
+     * drawn above it. Captions ask this before claiming a touch.
+     */
+    private boolean textEditingBoxAt(float x, float y) {
+        if (textDrawerItemId == null || objectDrawer == null
+                || !objectDrawer.isShowing() || objectDrawer.activeTabIndex() != 0) return false;
+        for (com.fadcam.ui.faditor.overlay.TextOverlayLayer layer
+                : new com.fadcam.ui.faditor.overlay.TextOverlayLayer[] {overlayLayer, overlayLayerBelow}) {
+            if (layer == null || !layer.isEditingItem(textDrawerItemId)) continue;
+            android.graphics.Rect hit = new android.graphics.Rect();
+            for (int i = 0; i < layer.getChildCount(); i++) {
+                View c = layer.getChildAt(i);
+                Object tag = c.getTag();
+                if (tag instanceof com.fadcam.ui.faditor.model.TextOverlayItem
+                        && textDrawerItemId.equals(
+                                ((com.fadcam.ui.faditor.model.TextOverlayItem) tag).getId())) {
+                    c.getHitRect(hit);
+                    hit.offset(layer.getLeft(), layer.getTop());
+                    return hit.contains(Math.round(x), Math.round(y));
+                }
+            }
+        }
+        return false;
+    }
+
     /** Which text object the drawer is showing, or null. */
     @Nullable private String textDrawerItemId;
 
@@ -36585,6 +36637,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void setupTranscriptPanel() {
         transcriptPanel = findViewById(R.id.transcript_panel);
+        // The transcript panel is a drawer over the preview too: same see-through, same slider.
+        if (transcriptPanel != null) {
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.followDrawerFill(transcriptPanel);
+        }
         transcriptView = findViewById(R.id.transcript_view);
         transcriptReopenTab = findViewById(R.id.transcript_reopen_tab);
         // H1 recovery: the shift is derived from geometry that can change UNDER an open
@@ -37834,6 +37890,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         captionOverlay.setData(windowedCaptionsFor(clip),
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
+                    @Override public boolean yieldsTouchAt(float x, float y) { return textEditingBoxAt(x, y); }
                     @NonNull
                     @Override
                     public android.graphics.RectF getVideoContentRect() {
@@ -37938,6 +37995,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         audioCaptionOverlay.setData(windowedCaptionsFor(clip),   // audit 2.4 — match export
                 com.fadcam.ui.faditor.transcript.CaptionStyle.byId(clip.getCaptionStyleId()),
                 new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
+                    @Override public boolean yieldsTouchAt(float x, float y) { return textEditingBoxAt(x, y); }
                     @NonNull @Override
                     public android.graphics.RectF getVideoContentRect() {
                         // Canvas-relative so audio captions match the export size/position.
@@ -38132,6 +38190,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
             v.setData(win, com.fadcam.ui.faditor.transcript.CaptionStyle.byId(b.styleId),
                     new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
+                        @Override public boolean yieldsTouchAt(float x, float y) { return textEditingBoxAt(x, y); }
                         @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
                         @Override public void onMoved() {
                             if (bindingIdx != activeCaptionBindingIndex) return;
@@ -38243,6 +38302,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     clip.getCaptionAnimInPct(), clip.getCaptionAnimOutPct());
             v.setData(win, com.fadcam.ui.faditor.transcript.CaptionStyle.byId(b.styleId),
                     new com.fadcam.ui.faditor.transcript.CaptionOverlayView.Callback() {
+                        @Override public boolean yieldsTouchAt(float x, float y) { return textEditingBoxAt(x, y); }
                         @NonNull @Override public android.graphics.RectF getVideoContentRect() { return computeCanvasRect(); }
                         @Override public void onMoved() {
                             if (bindingIdx != activeAudioCaptionBindingIndex) return;

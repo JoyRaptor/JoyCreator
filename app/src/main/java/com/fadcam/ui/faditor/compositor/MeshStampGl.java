@@ -76,6 +76,8 @@ public final class MeshStampGl {
     private final MeshEngine engine = new MeshEngine();
 
     private int frameW = 1, frameH = 1;
+    /** The size the stamp texture's storage was last allocated at (see {@link #fitStamp}). */
+    private int stampW = 0, stampH = 0;
     private int stampTexId = 0;
     private int stampFboId = 0;
     private int sourceTexId = 0;
@@ -162,6 +164,7 @@ public final class MeshStampGl {
         MeshBuffers b = engine.buffers();
         if (!b.hasGeometry()) return 0;
         if (!ensureGlInitialized()) return 0;
+        if (!fitStamp()) return 0;
         if (!uploadSource(src)) return 0;
 
         // Single placement authority: fold (pivot+preset) then unit-square->clip. The SAME
@@ -358,6 +361,36 @@ public final class MeshStampGl {
         } catch (Exception ignored) { }
     }
 
+    /**
+     * Keep the stamp's storage the size of the frame it is stamped for.
+     *
+     * <p>JoyRaptor, 2026-09-24: a bent photo went invisible — <i>"warping its geometry should not
+     * make it disappear"</i> — while its (alpha-0) view still took taps where the photo should be.
+     * {@link #configure} is called every frame with the composite's CURRENT size, but the texture
+     * was only ever allocated once, at the size of the first frame it saw. The preview's composite
+     * frame follows the playhead clip ({@code FxLivePreviewController.compositeFrame}: a video's
+     * size, or an image clip's own pixel size), so after the first seam onto a clip of another
+     * resolution the viewport and the texture disagreed: GL drew into a viewport bigger or smaller
+     * than the attachment, and the composite then stretched that texture across the whole frame.
+     * The bent picture landed scaled away from the bottom-left corner — off frame for anything on
+     * the far side — while the flat path, whose ping-pong targets DO follow the size, was fine.
+     * Re-specifying the storage keeps the same texture id, so the FBO attachment stays valid.
+     */
+    private boolean fitStamp() {
+        if (stampW == frameW && stampH == frameH) return true;
+        try {
+            GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, stampTexId);
+            GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
+                    frameW, frameH, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+            stampW = frameW;
+            stampH = frameH;
+            return true;
+        } catch (Exception e) {
+            FLog.w(TAG, "stamp resize failed; drawing unwarped", e);
+            return false;
+        }
+    }
+
     /** Forward pin homography on the unit square (single solver: CornerPin), to column-major. */
     private boolean buildHomographyCol(@Nullable float[] cornerPin8) {
         if (com.fadcam.ui.faditor.model.CornerPin.isFlat(cornerPin8)) {
@@ -459,6 +492,8 @@ public final class MeshStampGl {
                     GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
             GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_RGBA,
                     frameW, frameH, 0, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, null);
+            stampW = frameW;
+            stampH = frameH;
 
             int[] fbo = new int[1];
             GLES20.glGenFramebuffers(1, fbo, 0);
@@ -577,6 +612,7 @@ public final class MeshStampGl {
         stampTexId = 0;
         sourceTexId = 0;
         sourceUploaded = null;
+        stampW = stampH = 0;
         glInitialized = false;
     }
 }

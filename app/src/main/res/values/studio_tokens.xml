@@ -130,7 +130,7 @@
     <color name="s_scrim_80">#CC000000</color>
     <!-- The one see-through fill for anything over the preview (drawers, transcript panel);
          ObjectDrawer.Kit.DRAWER_FILL is the same value. Never opaque (JoyRaptor 2026-09-23). -->
-    <color name="s_drawer_scrim">#A3000000</color>
+    <color name="s_drawer_scrim">#80000000</color>   <!-- 50% see-through; the Settings slider moves it at runtime (ObjectDrawer.Kit.drawerFill) -->
     <!-- These follow s_ink, and s_ink moved. Every one of them is used on an ordinary
          surface — records, projects, the torch, the QR scanner — not on a drawer. -->
     <color name="s_ink_33">#55E4E4E7</color>

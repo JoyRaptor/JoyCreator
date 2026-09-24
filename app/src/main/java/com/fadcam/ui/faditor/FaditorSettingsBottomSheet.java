@@ -136,6 +136,11 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                     if (callback != null) callback.onSafeZoneOverlayToggled(isChecked);
                 });
 
+        // How see-through every Studio drawer is (JoyRaptor, 2026-09-24): legibility of the
+        // controls against seeing the video behind them is a balance only the person working
+        // can strike. Drawers repaint live as the slider moves.
+        addSeeThroughRow(content);
+
         // AV4: opens the quad-band tape "Waveform visualizer" settings sheet (crossovers,
         // per-band colors/lanes, shaping, FX, and eager/lazy analysis timing). Inline literals
         // because strings.xml is owned by another lane.
@@ -210,6 +215,54 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                 })
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
+    }
+
+    /** Settings row: title, the live percentage, and a slider under them. */
+    private void addSeeThroughRow(@NonNull LinearLayout parent) {
+        final android.content.Context ctx = requireContext();
+        final com.google.android.material.slider.Slider slider =
+                new com.google.android.material.slider.Slider(ctx);
+        final int min = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.SEE_THROUGH_MIN;
+        final int max = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.SEE_THROUGH_MAX;
+        slider.setValueFrom(min);
+        slider.setValueTo(max);
+        slider.setStepSize(5f);
+        int cur = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.seeThroughPct(ctx);
+        slider.setValue(Math.round(cur / 5f) * 5f);
+        SheetKit.label(slider, getString(R.string.settings_drawer_see_through));
+        LinearLayout row = SheetKit.detailRow(ctx, null, 0,
+                getString(R.string.settings_drawer_see_through),
+                getString(R.string.settings_drawer_see_through_desc, cur), null, false);
+        final TextView desc = findDescription(row, getString(R.string.settings_drawer_see_through_desc, cur));
+        slider.addOnChangeListener((s, value, fromUser) -> {
+            if (!fromUser) return;
+            com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setSeeThroughPct(ctx, Math.round(value));
+            if (desc != null) {
+                desc.setText(getString(R.string.settings_drawer_see_through_desc, Math.round(value)));
+            }
+        });
+        parent.addView(row);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        int side = SheetKit.dp(ctx, 16);
+        lp.setMargins(side, 0, side, SheetKit.dp(ctx, 8));
+        parent.addView(slider, lp);
+    }
+
+    /** The TextView in {@code root} showing {@code text}, or null. */
+    @Nullable
+    private static TextView findDescription(@NonNull View root, @NonNull String text) {
+        if (root instanceof TextView && text.contentEquals(((TextView) root).getText())) {
+            return (TextView) root;
+        }
+        if (root instanceof ViewGroup) {
+            ViewGroup g = (ViewGroup) root;
+            for (int i = 0; i < g.getChildCount(); i++) {
+                TextView t = findDescription(g.getChildAt(i), text);
+                if (t != null) return t;
+            }
+        }
+        return null;
     }
 
     /** Simple callback for a row's switch toggling. */

@@ -264,6 +264,20 @@ public final class MeshBendSeam {
                         + " != arity " + arity);
             }
             System.arraycopy(cand, 0, live, 0, arity);
+            // ARMED: THE KEY AT THE PLAYHEAD IS WHAT EVERYONE READS, SO WRITE IT EVERY FRAME.
+            // JoyRaptor, 2026-09-24: the bend handles got "hard to move" — "it used to work well".
+            // Once a picture has ANY keyframe it is armed, its first bend commit creates a pose
+            // track, and from then on handlesAt() answers from that track. The drag only wrote
+            // the static handles, which nothing reads while a track exists — so the dot drew at
+            // the track pose under a moving finger, the picture did not move, and the whole
+            // drag landed at once on release. Same key time commit() uses, and put() replaces a
+            // key at an equal time, so the gesture still leaves exactly ONE key and ONE undo
+            // step (the snapshot taken at begin deep-copies the track).
+            if (owner.isArmed()) {
+                s.ensureTrack().put(owner.meshLocalTime(now()), live,
+                        MeshPoseTrack.DEFAULT_EASING);
+                owner.installMeshCurve();
+            }
             if (!appliedSaid) {
                 // One line per gesture, on the FIRST frame that actually deformed anything.
                 appliedSaid = true;

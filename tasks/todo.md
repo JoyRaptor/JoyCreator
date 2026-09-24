@@ -239,8 +239,16 @@ OPEN:
 - [x] Note 9 ZA_CONTROL: BlendModeGlEffect set uniforms on the PiP overlay's program (Mali
       "invalid operation") - fixed e57d6220; then "Illegal clipping" from a PiP on a raw
       fMP4 - PiP sources now remuxed too (33aa053d). Studio lane re-running.
-- [ ] Blue box behind a sprite in the PREVIEW (Note 9): rasterFor can only draw the real
-      cell; a single-frame export at 0:00 tells art/cell-rect (SpriteLab) from GL alpha (us).
+- [x] Blue box behind a sprite in the PREVIEW: buildBelowBlendBitmap drew a light-blue
+      placeholder rect for sprites off the texture route - now real cells (73364004).
+- [x] Zero-copy layers latched the previous frame (blank caption in a 0:00 frame export,
+      1-frame lag in video): SurfaceLayer waits for frame-available (73364004). Note 20 range
+      0:30-0:45: caption present, part 1 172 s (unchanged speed), no latch timeouts.
+- [x] ZA_CONTROL "Illegal clipping": audio clips from a raw fMP4 used the raw uri - now the
+      remuxed copy, and PiP + audio sources are remuxed in the warm phase (33aa053d, a333ba88).
+      Awaiting the studio lane's rerun on the Note 9.
+- [ ] ZA_CONTROL "hello test..." rider: stored startMs 2445 vs host anchor (+6 ms from a host
+      that now starts at 0) - ANCHORDRIFT from slice-to-PiP; handed to the studio lane.
 
 ## (older) EXPORT SPEED — state at 2026-09-24 15:15 (Claude/Opus 5.5, lane CHUNKED_EXPORT)
 

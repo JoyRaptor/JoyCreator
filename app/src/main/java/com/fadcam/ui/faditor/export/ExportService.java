@@ -127,6 +127,15 @@ public class ExportService extends Service {
     private long exportStartTimeMs;
 
     /**
+     * Set the moment an export completes, fails or is cancelled. Progress and phase callbacks
+     * can still arrive after that (a queued poll, the chunk driver's adapter); each of them
+     * re-posted the "running" notification (id {@link #NOTIFICATION_ID}), and {@link #isRunning}
+     * reads that notification — so a failed export (2026-09-23, sound pass ENOENT) left a zombie
+     * "88%" that told the editor an export was still going and hid the failure from the user.
+     */
+    private volatile boolean terminal = false;
+
+    /**
      * Keeps the CPU running while an export is in flight. A foreground service keeps the
      * PROCESS alive but does not stop the phone suspending: measured on JoyRaptor's Note 20
      * (2026-09-23), a busy process with the screen off was asleep 30-45% of the wall clock and
@@ -332,6 +341,7 @@ public class ExportService extends Service {
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
 
+        terminal = false;
         // Show initial foreground notification
         startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
         acquireExportWakeLock();
@@ -364,6 +374,7 @@ public class ExportService extends Service {
 
             @Override
             public void onExportProgress(float progress) {
+                if (terminal) return;
                 // Old coarse path (kept for interface compat): the poller always calls
                 // the detailed variant below, which carries this same broadcast.
                 onExportProgressDetailed(progress, -1, -1, -1L, -1L);
@@ -373,6 +384,7 @@ public class ExportService extends Service {
             public void onExportProgressDetailed(float progress, int itemIndex,
                                                  int itemCount, long bytesWritten,
                                                  long etaRemainingMs) {
+                if (terminal) return;
                 int percent = (int) (progress * 100);
                 lastNotifiedPercent = percent;
                 lastNotifiedProgress = progress;
@@ -390,6 +402,7 @@ public class ExportService extends Service {
 
             @Override
             public void onChunkPhase(@NonNull String phase) {
+                if (terminal) return;
                 currentPhase = phase;
                 // Refresh the notification line with the phase; the next progress poll
                 // overwrites with full detail anyway.
@@ -406,6 +419,7 @@ public class ExportService extends Service {
 
             @Override
             public void onExportFinalizing() {
+                if (terminal) return;
                 // FIX-6: the muxer is done; loudness/SAF still run. The notification must
                 // say so instead of sitting at a stuck percent or vanishing.
                 progressTextOverride = getString(R.string.faditor_export_finalizing);
@@ -417,6 +431,7 @@ public class ExportService extends Service {
             @Override
             public void onExportCompleted(@NonNull String outputPath,
                                           @NonNull androidx.media3.transformer.ExportResult result) {
+                terminal = true;
                 FLog.d(TAG, "Export completed: " + outputPath);
                 isExporting = false;
                 recordTerminalResult("completed", outputPath, null, null);
@@ -434,6 +449,7 @@ public class ExportService extends Service {
                 // Remove the ongoing 3001 (it doubles as the isRunning() truth) and re-post
                 // the completion under its own id.
                 stopForeground(STOP_FOREGROUND_REMOVE);
+                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
                 showCompletionNotification(audioOnly, outputPath);
                 Intent broadcast = new Intent(ACTION_EXPORT_COMPLETED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
@@ -444,11 +460,13 @@ public class ExportService extends Service {
 
             @Override
             public void onExportError(@NonNull Exception error) {
+                terminal = true;
                 FLog.e(TAG, "Export failed", error);
                 isExporting = false;
                 recordTerminalResult("error", null, error.getMessage(),
                         error.getClass().getName());
                 stopForeground(STOP_FOREGROUND_REMOVE);
+                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
                 showErrorNotification(error.getMessage());
                 Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                 broadcast.putExtra(EXTRA_ERROR_MESSAGE, error.getMessage());
@@ -589,6 +607,7 @@ public class ExportService extends Service {
                             + " codec=" + probeFailed.codecName
                             + " costMs=" + probeFailed.costMs);
                     stopForeground(STOP_FOREGROUND_REMOVE);
+                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
                     showErrorNotification(msg);
                     Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                     broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
@@ -605,6 +624,7 @@ public class ExportService extends Service {
                             + " your project is safe";
                     FLog.e(TAG, "Export preparation failed: " + msg);
                     stopForeground(STOP_FOREGROUND_REMOVE);
+                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
                     showErrorNotification(msg);
                     Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                     broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
@@ -767,6 +787,7 @@ public class ExportService extends Service {
      * Cancel the running export.
      */
     public void cancelExport() {
+        terminal = true;
         if (exportManager != null && exportManager.isExporting()) {
             exportManager.cancel();
             isExporting = false;
@@ -774,6 +795,7 @@ public class ExportService extends Service {
             sendExportBroadcast(new Intent(ACTION_EXPORT_CANCELLED));
         }
         stopForeground(STOP_FOREGROUND_REMOVE);
+                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
         stopSelf();
     }
 

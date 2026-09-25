@@ -35008,6 +35008,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long t = Math.max(0, lastPlayheadAbsoluteMs);
         final Object beforePose = child.snapshotPose();
         final com.fadcam.ui.faditor.model.SpaceLink beforeLink = child.getSpaceLink();
+        final com.fadcam.ui.faditor.layers.LinkGroup beforeTime = timeLinkOf(child.getId());
         bakeLink(child, t);   // re-linking: keep where it is before following something new
         android.graphics.RectF cr = computeCanvasRect();
         float aspect = cr.height() > 1f ? cr.width() / cr.height() : 1f;
@@ -35019,10 +35020,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         link.opacity = props.opacity;
         child.setSpaceLink(link);
         final Object afterPose = child.snapshotPose();
+        if (beforeTime != null) project.getTimeline().removeLinkGroup(beforeTime.id);
+        final com.fadcam.ui.faditor.layers.LinkGroup afterTime =
+                props.time ? makeTimeLink(child.getId(), parent.getId()) : null;
         afterLinkChange();
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.link_undo),
-                () -> { child.restorePose(afterPose); child.setSpaceLink(link); afterLinkChange(); },
-                () -> { child.restorePose(beforePose); child.setSpaceLink(beforeLink); afterLinkChange(); }));
+                () -> { child.restorePose(afterPose); child.setSpaceLink(link);
+                        swapTimeLink(beforeTime, afterTime); afterLinkChange(); },
+                () -> { child.restorePose(beforePose); child.setSpaceLink(beforeLink);
+                        swapTimeLink(afterTime, beforeTime); afterLinkChange(); }));
         Toast.makeText(this, getString(R.string.link_done, linkName(child), linkName(parent)),
                 Toast.LENGTH_SHORT).show();
     }
@@ -35039,22 +35045,27 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final java.util.List<com.fadcam.ui.faditor.model.LinkFollower> cs = new java.util.ArrayList<>(list);
         final Object[] before = new Object[n], after = new Object[n];
         final com.fadcam.ui.faditor.model.SpaceLink[] links = new com.fadcam.ui.faditor.model.SpaceLink[n];
+        final com.fadcam.ui.faditor.layers.LinkGroup[] times = new com.fadcam.ui.faditor.layers.LinkGroup[n];
         long t = Math.max(0, lastPlayheadAbsoluteMs);
         boolean any = false;
         for (int i = 0; i < n; i++) {
             com.fadcam.ui.faditor.model.LinkFollower c = cs.get(i);
             before[i] = c.snapshotPose();
             links[i] = c.getSpaceLink();
-            any |= links[i] != null;
+            times[i] = timeLinkOf(c.getId());
+            any |= links[i] != null || times[i] != null;
             bakeLink(c, t);
+            if (times[i] != null) project.getTimeline().removeLinkGroup(times[i].id);
             after[i] = c.snapshotPose();
         }
         if (!any) return;
         afterLinkChange();
         undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.unlink_undo),
-                () -> { for (int i = 0; i < n; i++) { cs.get(i).restorePose(after[i]); cs.get(i).setSpaceLink(null); }
+                () -> { for (int i = 0; i < n; i++) { cs.get(i).restorePose(after[i]);
+                            cs.get(i).setSpaceLink(null); swapTimeLink(times[i], null); }
                         afterLinkChange(); },
-                () -> { for (int i = 0; i < n; i++) { cs.get(i).restorePose(before[i]); cs.get(i).setSpaceLink(links[i]); }
+                () -> { for (int i = 0; i < n; i++) { cs.get(i).restorePose(before[i]);
+                            cs.get(i).setSpaceLink(links[i]); swapTimeLink(null, times[i]); }
                         afterLinkChange(); }));
     }
 
@@ -35136,6 +35147,58 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE.equals(key)) return f.worldSizeToOwn(v, ms);
         if (com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION.equals(key)) return f.worldRotationToOwn(v, ms);
         return v;
+    }
+
+    // TIME half of a link: a one-way host/rider TIME group (the parent hosts, the child rides).
+
+    /** The follows-in-time group this object rides in, or null. */
+    @Nullable
+    private com.fadcam.ui.faditor.layers.LinkGroup timeLinkOf(@NonNull String childId) {
+        if (project == null) return null;
+        for (com.fadcam.ui.faditor.layers.LinkGroup g : project.getTimeline().getLinkGroups()) {
+            if (g.isPreset()
+                    || !g.properties.contains(com.fadcam.ui.faditor.layers.LinkedProperty.TIME)) continue;
+            com.fadcam.ui.faditor.layers.LinkMember h = g.getHost();
+            com.fadcam.ui.faditor.layers.LinkMember m = g.findMember(childId);
+            if (h != null && m != null && !m.isHost && g.members.size() == 2) return g;
+        }
+        return null;
+    }
+
+    /** Make and add the one-way time link; null if either object cannot move in time. */
+    @Nullable
+    private com.fadcam.ui.faditor.layers.LinkGroup makeTimeLink(@NonNull String childId,
+                                                                @NonNull String parentId) {
+        if (project == null) return null;
+        Timeline tl = project.getTimeline();
+        String ck = tl.movableKindOfId(childId), pk = tl.movableKindOfId(parentId);
+        if (ck == null || pk == null) return null;
+        com.fadcam.ui.faditor.layers.LinkGroup g = new com.fadcam.ui.faditor.layers.LinkGroup(
+                java.util.UUID.randomUUID().toString());
+        g.properties.add(com.fadcam.ui.faditor.layers.LinkedProperty.TIME);
+        g.members.add(new com.fadcam.ui.faditor.layers.LinkMember(pk, parentId, true));
+        g.members.add(new com.fadcam.ui.faditor.layers.LinkMember(ck, childId, false));
+        tl.addLinkGroup(g);
+        tl.captureLinkHostOffsets(g);
+        return g;
+    }
+
+    /** Undo/redo helper: take {@code out} away, put {@code in} back (either may be null). */
+    private void swapTimeLink(@Nullable com.fadcam.ui.faditor.layers.LinkGroup out,
+                              @Nullable com.fadcam.ui.faditor.layers.LinkGroup in) {
+        if (project == null) return;
+        Timeline tl = project.getTimeline();
+        if (out != null) tl.removeLinkGroup(out.id);
+        if (in != null) {
+            boolean present = false;
+            for (com.fadcam.ui.faditor.layers.LinkGroup g : tl.getLinkGroups()) {
+                if (g.id.equals(in.id)) { present = true; break; }
+            }
+            if (!present) {
+                tl.addLinkGroup(in);
+                in.getHost().virtualStartMs = com.fadcam.ui.faditor.layers.LinkMember.UNSET;
+            }
+        }
     }
 
     /** Everything following {@code parentId}. */
@@ -35299,6 +35362,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             addLinkPropChip(chips, R.string.link_prop_scale, me, () -> link.scale, v -> link.scale = v);
             addLinkPropChip(chips, R.string.link_prop_rotation, me, () -> link.rotation, v -> link.rotation = v);
             addLinkPropChip(chips, R.string.link_prop_opacity, me, () -> link.opacity, v -> link.opacity = v);
+            addLinkPropChip(chips, R.string.link_prop_time, me,
+                    () -> timeLinkOf(me.getId()) != null, v -> { });
             android.widget.HorizontalScrollView hs = new android.widget.HorizontalScrollView(this);
             hs.setHorizontalScrollBarEnabled(false);
             hs.addView(chips);
@@ -35379,8 +35444,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (old == null || old.parentRef == null) return;
             com.fadcam.ui.faditor.tools.LinkTool.Props p = new com.fadcam.ui.faditor.tools.LinkTool.Props();
             p.position = old.position; p.scale = old.scale; p.rotation = old.rotation; p.opacity = old.opacity;
+            p.time = timeLinkOf(me.getId()) != null;
             boolean nv = !get.get();
-            if (label == R.string.link_prop_position) p.position = nv;
+            if (label == R.string.link_prop_time) p.time = nv;
+            else if (label == R.string.link_prop_position) p.position = nv;
             else if (label == R.string.link_prop_scale) p.scale = nv;
             else if (label == R.string.link_prop_rotation) p.rotation = nv;
             else p.opacity = nv;

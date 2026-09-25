@@ -29,6 +29,8 @@ public final class LinkTool {
     /** What a link will carry. Remembered per phone: the owner's "remembers the last settings". */
     public static final class Props {
         public boolean position = true, scale = true, rotation = true, opacity = false;
+        /** Moves with it on the timeline too (a one-way time link). */
+        public boolean time = true;
     }
 
     public interface Host {
@@ -67,13 +69,15 @@ public final class LinkTool {
         p.scale = sp.getBoolean("scale", true);
         p.rotation = sp.getBoolean("rot", true);
         p.opacity = sp.getBoolean("op", false);
+        p.time = sp.getBoolean("time", true);
         return p;
     }
 
     private static void remember(@NonNull Context ctx, @NonNull Props p) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
                 .putBoolean("pos", p.position).putBoolean("scale", p.scale)
-                .putBoolean("rot", p.rotation).putBoolean("op", p.opacity).apply();
+                .putBoolean("rot", p.rotation).putBoolean("op", p.opacity)
+                .putBoolean("time", p.time).apply();
     }
 
     /**
@@ -105,6 +109,7 @@ public final class LinkTool {
         addToggle(ctx, chips, R.string.link_prop_scale, () -> p.scale, v -> p.scale = v);
         addToggle(ctx, chips, R.string.link_prop_rotation, () -> p.rotation, v -> p.rotation = v);
         addToggle(ctx, chips, R.string.link_prop_opacity, () -> p.opacity, v -> p.opacity = v);
+        addToggle(ctx, chips, R.string.link_prop_time, () -> p.time, v -> p.time = v);
         android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(ctx);
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.addView(chips);
@@ -163,6 +168,8 @@ public final class LinkTool {
                 v -> { p.rotation = v; remember(ctx, p); });
         addToggle(ctx, chips, R.string.link_prop_opacity, () -> p.opacity,
                 v -> { p.opacity = v; remember(ctx, p); });
+        addToggle(ctx, chips, R.string.link_prop_time, () -> p.time,
+                v -> { p.time = v; remember(ctx, p); });
         android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(ctx);
         scroll.setHorizontalScrollBarEnabled(false);
         scroll.addView(chips);

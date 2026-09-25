@@ -145,4 +145,5 @@
     </plurals>
     <string name="link_defaults_title">New links copy</string>
     <string name="link_defaults_hint">What a new link copies from what it follows. You can still change it each time.</string>
+    <string name="link_prop_time">Timing</string>
 </resources>

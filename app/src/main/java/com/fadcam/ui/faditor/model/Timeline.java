@@ -3116,12 +3116,24 @@ public class Timeline {
             }
             long hostStart = resolveLinkStartMs(host.kind, host.id);
             if (hostStart == Long.MIN_VALUE) continue; // prune handles it next pass
+            // ONE-WAY (a "follows" link, SPEC_20260924_LINKING §12): when the HOST has not moved
+            // since the last pass but a rider has, the user moved the rider — keep its new gap
+            // instead of snapping it back. When the host moved, the riders come along.
+            long lastHost = host.virtualStartMs;
+            boolean hostStill = lastHost != com.fadcam.ui.faditor.layers.LinkMember.UNSET
+                    && lastHost == hostStart;
             for (com.fadcam.ui.faditor.layers.LinkMember m : g.members) {
                 if (m.isHost || m.hostOffsetMs == com.fadcam.ui.faditor.layers.LinkMember.UNSET) {
                     continue;
                 }
+                long cur = resolveLinkStartMs(m.kind, m.id);
+                if (hostStill && cur != Long.MIN_VALUE && cur != hostStart + m.hostOffsetMs) {
+                    m.hostOffsetMs = cur - hostStart;
+                    continue;
+                }
                 applyLinkStartMs(m.kind, m.id, hostStart + m.hostOffsetMs);
             }
+            host.virtualStartMs = hostStart;
         }
     }
 

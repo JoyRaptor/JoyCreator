@@ -960,7 +960,8 @@ public class ExportManager {
         // ── User export settings (resolution cap + quality/bitrate) ──
         // Defaults (ORIGINAL + HIGH) leave this entire path byte-identical to
         // before: no encoder factory is set and no resolution cap applies.
-        DefaultEncoderFactory encoderFactory = qualityEncoderFactoryOrNull(project);
+        androidx.media3.transformer.Codec.EncoderFactory encoderFactory =
+                qualityEncoderFactoryOrNull(project);
         if (encoderFactory != null) {
             builder.setEncoderFactory(encoderFactory);
         }
@@ -972,7 +973,8 @@ public class ExportManager {
      * null to leave media3 at its default — exactly the behaviour export() had inline.
      */
     @Nullable
-    private DefaultEncoderFactory qualityEncoderFactoryOrNull(@NonNull FaditorProject project) {
+    private androidx.media3.transformer.Codec.EncoderFactory qualityEncoderFactoryOrNull(
+            @NonNull FaditorProject project) {
         ExportSettings exportSettings = project.getExportSettings();
         boolean qualityIsDefault = exportSettings == null
                 || exportSettings.getQuality() == ExportSettings.Quality.HIGH;
@@ -5568,16 +5570,60 @@ public class ExportManager {
         return chosen;
     }
 
+    /**
+     * BIG AUDIO ENCODER INPUTS (2026-09-25). Media3 hands the AAC encoder at most one input
+     * buffer's worth per call, and the software encoder's default buffer holds a sliver of the
+     * mixer's 500 ms blocks - so the sound pass made ~135k encoder round trips (each a call
+     * into the media codec process) for the 48-min lecture, and its thread sat 100% busy in
+     * queue/dequeue/mux at ~5x realtime while the parts ran at the same pace. A buffer that
+     * takes a whole mixer block cuts the input trips ~10x. The bytes and the encoding are
+     * unchanged; an encoder that ignores the hint behaves exactly as before.
+     */
+    private static final int AUDIO_ENCODER_INPUT_BYTES = 256 * 1024;
+
     /** Encoder factory carrying the stereo audio bitrate, plus video settings when given. */
     @NonNull
-    private DefaultEncoderFactory exportEncoderFactory(@Nullable FaditorProject project,
-                                                       @Nullable VideoEncoderSettings video) {
+    private androidx.media3.transformer.Codec.EncoderFactory exportEncoderFactory(
+            @Nullable FaditorProject project, @Nullable VideoEncoderSettings video) {
         DefaultEncoderFactory.Builder b = new DefaultEncoderFactory.Builder(context)
                 .setRequestedAudioEncoderSettings(
                         new androidx.media3.transformer.AudioEncoderSettings.Builder()
                                 .setBitrate(chooseExportAudioBitrate(project)).build());
         if (video != null) b.setRequestedVideoEncoderSettings(video);
-        return b.build();
+        final DefaultEncoderFactory inner = b.build();
+        return new androidx.media3.transformer.Codec.EncoderFactory() {
+            @Override
+            public androidx.media3.transformer.Codec createForAudioEncoding(
+                    androidx.media3.common.Format format,
+                    @Nullable android.media.metrics.LogSessionId logSessionId)
+                    throws ExportException {
+                androidx.media3.transformer.Codec c;
+                try {
+                    c = inner.createForAudioEncoding(format.buildUpon()
+                            .setMaxInputSize(AUDIO_ENCODER_INPUT_BYTES).build(), logSessionId);
+                } catch (ExportException | RuntimeException e) {
+                    // An encoder that refuses the size must not cost the export its sound.
+                    trace("AUDIO_ENCODER refused a " + AUDIO_ENCODER_INPUT_BYTES
+                            + " B input buffer (" + e + ") - its default instead");
+                    return inner.createForAudioEncoding(format, logSessionId);
+                }
+                trace("AUDIO_ENCODER " + c.getName() + " input buffer requested "
+                        + AUDIO_ENCODER_INPUT_BYTES + " B");
+                return c;
+            }
+
+            @Override
+            public androidx.media3.transformer.Codec createForVideoEncoding(
+                    androidx.media3.common.Format format,
+                    @Nullable android.media.metrics.LogSessionId logSessionId)
+                    throws ExportException {
+                return inner.createForVideoEncoding(format, logSessionId);
+            }
+
+            @Override public boolean audioNeedsEncoding() { return inner.audioNeedsEncoding(); }
+
+            @Override public boolean videoNeedsEncoding() { return inner.videoNeedsEncoding(); }
+        };
     }
 
     /**

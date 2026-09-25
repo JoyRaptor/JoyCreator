@@ -43213,12 +43213,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         snapLabel.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         snapRow.addView(snapLabel);
         androidx.appcompat.widget.SwitchCompat snapSwitch = new androidx.appcompat.widget.SwitchCompat(this);
-        snapSwitch.setChecked(editorTimeline.isBeatSnapEnabled());
+        // The SAME setting as the magnet panel's Beats row (SnapSettings), not a private copy:
+        // two switches for one thing drifted apart (Studio sweep, 2026-09-25).
+        snapSwitch.setChecked(com.fadcam.ui.faditor.tools.SnapSettings.kindOn(
+                this, com.fadcam.ui.faditor.tools.SnapSettings.Kind.BEATS));
         snapRow.addView(snapSwitch);
-        snapSwitch.setOnCheckedChangeListener((btn, on) -> {
-            editorTimeline.setBeatSnapEnabled(on);
-            android.widget.Toast.makeText(this, on ? "Beat snap on" : "Beat snap off", android.widget.Toast.LENGTH_SHORT).show();
-        });
+        snapSwitch.setOnCheckedChangeListener((btn, on) ->
+                com.fadcam.ui.faditor.tools.SnapSettings.setKindOn(
+                        this, com.fadcam.ui.faditor.tools.SnapSettings.Kind.BEATS, on));
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Beats — " + (clip.getLabel() != null ? clip.getLabel() : "Audio"))
                 .setView(root)

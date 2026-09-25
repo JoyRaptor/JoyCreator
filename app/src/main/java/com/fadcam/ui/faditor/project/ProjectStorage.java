@@ -378,6 +378,7 @@ public class ProjectStorage {
      */
     private void healDanglingAnchors(@NonNull FaditorProject p) {
         if (p.getTimeline() == null) return;
+        p.getTimeline().resolveSpaceLinks();   // followers find their parents (LINKING)
         List<String> healed = p.getTimeline().healDanglingHostAnchors();
         if (!healed.isEmpty()) {
             FLog.w(TAG, "Re-homed " + healed.size()
@@ -778,6 +779,8 @@ public class ProjectStorage {
                     FLog.d(TAG, "fromJson: re-shared transcripts in snapshot — " + shared);
                 }
             }
+            // A restored snapshot has fresh objects: followers find their parents again.
+            if (p != null && p.getTimeline() != null) p.getTimeline().resolveSpaceLinks();
             return p;
         } catch (Exception e) {
             FLog.e(TAG, "Failed to deserialize project from JSON snapshot", e);
@@ -2364,6 +2367,8 @@ public class ProjectStorage {
                 // Rider attachment (§4A). Sparse for the same reason as the animation block: an
                 // unanchored overlay — i.e. every overlay in every project written before this —
                 // writes nothing and round-trips byte-identically.
+                // Follows a parent in the picture (SPEC_20260924_LINKING). Sparse: absent = free.
+                if (o.getSpaceLink() != null) oJson.add("spaceLink", o.getSpaceLink().toJson());
                 if (o.getHostClipId() != null) {
                     oJson.addProperty("hostClipId", o.getHostClipId());
                     if (o.getHostOffsetMs() != 0L) {
@@ -3286,6 +3291,10 @@ public class ProjectStorage {
                         // that did not know about anchors) is read as-is and resolved at use time
                         // rather than dropped here — the orphan decision belongs to §4A's prompt,
                         // and silently detaching on load would answer it without asking.
+                        if (oObj.has("spaceLink") && oObj.get("spaceLink").isJsonObject()) {
+                            o.setSpaceLink(com.fadcam.ui.faditor.model.SpaceLink.fromJson(
+                                    oObj.getAsJsonObject("spaceLink")));
+                        }
                         if (hasValue(oObj, "hostClipId")) {
                             o.setHostAnchor(oObj.get("hostClipId").getAsString(),
                                     hasValue(oObj, "hostOffsetMs")

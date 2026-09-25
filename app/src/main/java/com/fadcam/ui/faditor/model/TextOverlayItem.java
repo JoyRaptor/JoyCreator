@@ -20,7 +20,7 @@ import java.util.UUID;
  * <p>For v1 the overlay spans the entire timeline. Time-range trimming and image
  * (PNG) overlays reuse this same model and the same export path.</p>
  */
-public class TextOverlayItem {
+public class TextOverlayItem implements LinkPose {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19): the eye/lock
     // moved off the row gutter onto the object itself. Hidden = excluded from preview AND
@@ -674,6 +674,7 @@ public class TextOverlayItem {
         c.endMs = endMs;
         c.hostClipId = hostClipId;
         c.hostOffsetMs = hostOffsetMs;
+        c.spaceLink = spaceLink == null ? null : spaceLink.copy();
         c.textAnimPreset = textAnimPreset;
         c.textAnimGranularity = textAnimGranularity;
         c.textAnimInPct = textAnimInPct;
@@ -2281,20 +2282,67 @@ public class TextOverlayItem {
         return Math.max(0, timelineMs - startMs);
     }
 
-    public float animatedCenterX(long timelineMs) {
+    // ── LINKED TO A PARENT (SPEC_20260924_LINKING) ────────────────────────────────────────
+    // The animated* getters are the WORLD pose every renderer draws (preview and export alike),
+    // so a link applied here reaches all of them at once. own* are the object's own values —
+    // what its drawer and keyframes hold. Unlinked, the two are the same.
+
+    @Nullable private SpaceLink spaceLink;
+
+    @Nullable public SpaceLink getSpaceLink() { return spaceLink; }
+    public void setSpaceLink(@Nullable SpaceLink l) { spaceLink = l; }
+
+    /** True when drawing goes through a live parent. */
+    public boolean isLinked() { return spaceLink != null && spaceLink.active(); }
+
+    public float ownCenterX(long timelineMs) {
         return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.X,
                 localTime(timelineMs), centerX);
     }
 
-    public float animatedCenterY(long timelineMs) {
+    public float ownCenterY(long timelineMs) {
         return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y,
                 localTime(timelineMs), centerY);
     }
 
-    /** Animated size fraction (the scale track stores the absolute fraction). */
-    public float animatedSizeFraction(long timelineMs) {
+    public float ownSizeFraction(long timelineMs) {
         return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE,
                 localTime(timelineMs), sizeFraction);
+    }
+
+    public float animatedCenterX(long timelineMs) {
+        if (!isLinked()) return ownCenterX(timelineMs);
+        // A local, not a field: snapshot restore builds objects without running initializers.
+        float[] w = new float[2];
+        spaceLink.toWorld(ownCenterX(timelineMs), ownCenterY(timelineMs), timelineMs, w);
+        return w[0];
+    }
+
+    public float animatedCenterY(long timelineMs) {
+        if (!isLinked()) return ownCenterY(timelineMs);
+        float[] w = new float[2];
+        spaceLink.toWorld(ownCenterX(timelineMs), ownCenterY(timelineMs), timelineMs, w);
+        return w[1];
+    }
+
+    /** Animated size fraction (the scale track stores the absolute fraction). */
+    public float animatedSizeFraction(long timelineMs) {
+        float own = ownSizeFraction(timelineMs);
+        return isLinked() ? spaceLink.sizeToWorld(own, timelineMs) : own;
+    }
+
+    /** A WORLD position (what a drag lands on) as this object's OWN values, at {@code t}. */
+    public void worldToOwn(float worldX, float worldY, long t, @NonNull float[] out) {
+        if (isLinked()) spaceLink.toOwn(worldX, worldY, t, out);
+        else { out[0] = worldX; out[1] = worldY; }
+    }
+
+    public float worldSizeToOwn(float world, long t) {
+        return isLinked() ? spaceLink.sizeToOwn(world, t) : world;
+    }
+
+    public float worldRotationToOwn(float world, long t) {
+        return isLinked() ? spaceLink.rotToOwn(world, t) : world;
     }
 
     /** Per-axis X multiplier at a time (SCALE_X track, falling back to static). */
@@ -2616,6 +2664,11 @@ public class TextOverlayItem {
     }
 
     public float animatedOpacity(long timelineMs) {
+        float own = ownOpacity(timelineMs);
+        return isLinked() ? spaceLink.opacityToWorld(own, timelineMs) : own;
+    }
+
+    public float ownOpacity(long timelineMs) {
         float base = keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.OPACITY,
                 localTime(timelineMs), opacity);
         // Stackable fade handles multiply the base opacity (spec §3.6) — images AND text
@@ -2636,6 +2689,11 @@ public class TextOverlayItem {
     }
 
     public float animatedRotation(long timelineMs) {
+        float own = ownRotation(timelineMs);
+        return isLinked() ? spaceLink.rotToWorld(own, timelineMs) : own;
+    }
+
+    public float ownRotation(long timelineMs) {
         return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION,
                 localTime(timelineMs), rotationDeg);
     }

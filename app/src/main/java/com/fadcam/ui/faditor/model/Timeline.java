@@ -2944,6 +2944,46 @@ public class Timeline {
     }
 
     /**
+     * Point every follower at its parent object (SPEC_20260924_LINKING). Run after a load and
+     * after anything that adds or removes objects. A parent that is gone leaves the link inert
+     * (drawn at its own pose), never a crash. Parents: text, images and sprites.
+     */
+    public void resolveSpaceLinks() {
+        java.util.Map<String, LinkPose> byId = new java.util.HashMap<>();
+        for (TextOverlayItem t : textOverlays) byId.put(t.getId(), t);
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) byId.put(s.getId(), s);
+        for (TextOverlayItem t : textOverlays) {
+            SpaceLink l = t.getSpaceLink();
+            if (l == null) continue;
+            LinkPose p = byId.get(l.parentId);
+            l.parentRef = (p == t || wouldCycle(t, p, byId)) ? null : p;
+        }
+    }
+
+    /** Would following {@code parent} make {@code child} its own ancestor? */
+    public boolean wouldCycle(@NonNull TextOverlayItem child, @androidx.annotation.Nullable LinkPose parent,
+                              @NonNull java.util.Map<String, LinkPose> byId) {
+        LinkPose cur = parent;
+        for (int guard = 0; cur != null && guard < 64; guard++) {
+            if (cur.getId().equals(child.getId())) return true;
+            if (!(cur instanceof TextOverlayItem)) return false;
+            SpaceLink l = ((TextOverlayItem) cur).getSpaceLink();
+            cur = l == null ? null : byId.get(l.parentId);
+        }
+        return cur != null;
+    }
+
+    /** The object a link can point at, by id: a text, image or sprite; null otherwise. */
+    @androidx.annotation.Nullable
+    public LinkPose linkPoseById(@NonNull String id) {
+        for (TextOverlayItem t : textOverlays) if (t.getId().equals(id)) return t;
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
+            if (s.getId().equals(id)) return s;
+        }
+        return null;
+    }
+
+    /**
      * MOVE one object's start, keeping its length, as a user drag would: after the time
      * changes, a text box or visualizer is re-homed onto the clip now under its start, exactly
      * as the single-item drag does. Without that the old anchor's offset pulls it back on the

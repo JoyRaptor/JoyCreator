@@ -3073,6 +3073,84 @@ public class Timeline {
     }
 
     /**
+     * A follower the link just carried in time must not land ON something (JoyRaptor, 2026-09-25:
+     * "they drop into a new lane if they must but no overlapping ... no shortening"). If the
+     * rider now overlaps another item on its lane, the RIDER steps onto its own lane; the item it
+     * would have hit stays put, since that one did not move. Same deterministic
+     * {@code "<family>-<id>"} lane the no-overlap passes use, so repeated drag ticks and
+     * undo/redo keep landing on the same row instead of minting new ones. Audio reuses
+     * {@link #findFreeAudioLane}, which tries the existing rows first.
+     */
+    private void dropRiderOffCollision(@NonNull String kind, @NonNull String id) {
+        switch (kind) {
+            case "textOverlay": {
+                TextOverlayItem t = null;
+                for (TextOverlayItem o : textOverlays) if (id.equals(o.getId())) { t = o; break; }
+                if (t == null) break;
+                String lane = t.getLayerId() == null ? "text" : t.getLayerId();
+                long s = t.getStartMs(), e = textEndForPacking(t);
+                for (TextOverlayItem o : textOverlays) {
+                    if (o == t || !lane.equals(o.getLayerId() == null ? "text" : o.getLayerId())) {
+                        continue;
+                    }
+                    if (o.getStartMs() < e && s < textEndForPacking(o)) {
+                        t.setLayerId("text-" + t.getId());
+                        break;
+                    }
+                }
+                break;
+            }
+            case "sprite": {
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp = null;
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : spriteOverlays) {
+                    if (id.equals(o.getId())) { sp = o; break; }
+                }
+                if (sp == null) break;
+                String lane = sp.getLayerId() == null ? "sprite" : sp.getLayerId();
+                long s = sp.getStartMs(), e = spriteEndForPacking(sp);
+                for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : spriteOverlays) {
+                    if (o == sp || !lane.equals(o.getLayerId() == null ? "sprite" : o.getLayerId())) {
+                        continue;
+                    }
+                    if (o.getStartMs() < e && s < spriteEndForPacking(o)) {
+                        sp.setLayerId(spriteLayerIdFor(sp));
+                        break;
+                    }
+                }
+                break;
+            }
+            case "clip": {
+                Clip c = null;
+                for (Clip oc : overlayClips) if (id.equals(oc.getId())) { c = oc; break; }
+                if (c == null) break;
+                String lane = c.getLayerId() == null ? "video" : c.getLayerId();
+                long s = c.getOverlayStartMs(), e = videoEndForPacking(c);
+                for (Clip oc : overlayClips) {
+                    if (oc == c || !lane.equals(oc.getLayerId() == null ? "video" : oc.getLayerId())) {
+                        continue;
+                    }
+                    if (oc.getOverlayStartMs() < e && s < videoEndForPacking(oc)) {
+                        c.setLayerId("video-" + c.getId());
+                        break;
+                    }
+                }
+                break;
+            }
+            case "audioClip":
+                for (AudioClip a : audioClips) {
+                    if (!id.equals(a.getId())) continue;
+                    String free = findFreeAudioLane(a);
+                    String own = a.getLayerId() == null ? "audio" : a.getLayerId();
+                    if (free != null && !free.equals(own)) a.setLayerId(free);
+                    break;
+                }
+                break;
+            default:
+                break;   // visualizers ride their own rows
+        }
+    }
+
+    /**
      * Drop dead members from every persisted group and dissolve groups left with fewer than two
      * — the same conservative lazy-prune philosophy the track-flag map uses. Never a hard failure.
      */
@@ -3131,7 +3209,10 @@ public class Timeline {
                     m.hostOffsetMs = cur - hostStart;
                     continue;
                 }
-                applyLinkStartMs(m.kind, m.id, hostStart + m.hostOffsetMs);
+                if (cur != hostStart + m.hostOffsetMs) {
+                    applyLinkStartMs(m.kind, m.id, hostStart + m.hostOffsetMs);
+                    dropRiderOffCollision(m.kind, m.id);
+                }
             }
             host.virtualStartMs = hostStart;
         }

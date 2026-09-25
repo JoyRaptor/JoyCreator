@@ -34953,6 +34953,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String t = o.getText() == null ? "" : o.getText().trim().replace('\n', ' ');
             return t.length() > 18 ? t.substring(0, 18) + "…" : t;
         }
+        if (p instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            return getString(R.string.drawer_title_visualizer);
+        }
         if (p instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
             com.fadcam.ui.faditor.sprite.SpriteSheet sh = project == null ? null : project.spriteSheetById(
                     ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) p).getSheetId());
@@ -35100,6 +35103,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         setTextOverlayPlayhead(lastPlayheadAbsoluteMs);
         refreshOverlayPreview();
         refreshSpritePreviewData();
+        refreshAfterMarqueeBatchDelete();   // visualizers repaint through this too
         if (transformOverlay != null) transformOverlay.refresh();
         refreshLinkTethers();
         syncTimelineOverlays();
@@ -35151,6 +35155,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             project.getTimeline().removeTextOverlay((com.fadcam.ui.faditor.model.TextOverlayItem) c);
         } else if (c instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
             project.getTimeline().removeSpriteOverlay((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) c);
+        } else if (c instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            project.getTimeline().removeWaveformOverlay((com.fadcam.ui.faditor.model.WaveformOverlayInstance) c);
         }
     }
 
@@ -35159,6 +35165,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             project.getTimeline().addTextOverlay((com.fadcam.ui.faditor.model.TextOverlayItem) c);
         } else if (c instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem) {
             project.getTimeline().addSpriteOverlay((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) c);
+        } else if (c instanceof com.fadcam.ui.faditor.model.WaveformOverlayInstance) {
+            project.getTimeline().addWaveformOverlay((com.fadcam.ui.faditor.model.WaveformOverlayInstance) c);
         }
     }
 

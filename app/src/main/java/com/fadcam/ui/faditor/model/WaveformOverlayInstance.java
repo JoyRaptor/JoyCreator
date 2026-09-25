@@ -13,7 +13,7 @@ import java.util.UUID;
  * <p>The extracted {@link WaveformData} is NOT stored here — it's cached on disk per source and
  * recomputed by {@code WaveformExtractor}; this instance only carries the placement + style.</p>
  */
-public class WaveformOverlayInstance {
+public class WaveformOverlayInstance implements LinkFollower {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19) — see
     // TextOverlayItem's twin fields. Tolerant storage: absent = false.
@@ -197,6 +197,77 @@ public class WaveformOverlayInstance {
 
     public float getRotationDeg() { return rotationDeg; }
     public void setRotationDeg(float deg) { this.rotationDeg = deg; }
+
+    // ── LINKED TO A PARENT (SPEC_20260924_LINKING) ─────────────────────────────────────────
+    // Owner, 2026-09-25: "why can't sprites and visualizers follow?" A visualizer has no
+    // keyframes, so its own pose is its statics; the animated* getters are the WORLD pose the
+    // renderers draw. Its "size" for a link is its width; height scales with it.
+
+    @Nullable private SpaceLink spaceLink;
+
+    @Nullable @Override public SpaceLink getSpaceLink() { return spaceLink; }
+    @Override public void setSpaceLink(@Nullable SpaceLink l) { spaceLink = l; }
+
+    @Override public float animatedCenterX(long t) {
+        if (!isLinked()) return centerX;
+        float[] w = new float[2];
+        spaceLink.toWorld(centerX, centerY, t, w);
+        return w[0];
+    }
+
+    @Override public float animatedCenterY(long t) {
+        if (!isLinked()) return centerY;
+        float[] w = new float[2];
+        spaceLink.toWorld(centerX, centerY, t, w);
+        return w[1];
+    }
+
+    @Override public float animatedSizeFraction(long t) { return animatedWidthFraction(t); }
+
+    public float animatedWidthFraction(long t) {
+        return isLinked() ? spaceLink.sizeToWorld(widthFraction, t) : widthFraction;
+    }
+
+    public float animatedHeightFraction(long t) {
+        return isLinked() ? spaceLink.sizeToWorld(heightFraction, t) : heightFraction;
+    }
+
+    @Override public float animatedRotation(long t) {
+        return isLinked() ? spaceLink.rotToWorld(rotationDeg, t) : rotationDeg;
+    }
+
+    /** A visualizer has no opacity of its own: 1, times its parent's when that is linked. */
+    @Override public float animatedOpacity(long t) {
+        return isLinked() ? spaceLink.opacityToWorld(1f, t) : 1f;
+    }
+
+    @Override public float getSizeFraction() { return widthFraction; }
+
+    @Override public void setSizeFraction(float f) {
+        float ratio = widthFraction > 1e-4f ? f / widthFraction : 1f;
+        setSize(f, heightFraction * ratio);
+    }
+
+    @Override public float getOpacity() { return 1f; }
+    @Override public void setOpacity(float o) { /* no opacity of its own */ }
+
+    @NonNull @Override
+    public com.fadcam.ui.faditor.keyframe.KeyframeSet getKeyframes() {
+        return new com.fadcam.ui.faditor.keyframe.KeyframeSet();   // none: statics only
+    }
+
+    @Override public boolean isVisibleAt(long t) {
+        return !hidden && t >= startMs && t <= endMs;
+    }
+
+    @NonNull @Override public Object snapshotPose() {
+        return new float[]{centerX, centerY, widthFraction, heightFraction, rotationDeg};
+    }
+
+    @Override public void restorePose(@NonNull Object s) {
+        float[] a = (float[]) s;
+        centerX = a[0]; centerY = a[1]; widthFraction = a[2]; heightFraction = a[3]; rotationDeg = a[4];
+    }
 
     public int getJustify() { return justify; }
     public void setJustify(int justify) { this.justify = justify; }

@@ -2952,6 +2952,7 @@ public class Timeline {
         java.util.Map<String, LinkPose> byId = new java.util.HashMap<>();
         for (TextOverlayItem t : textOverlays) byId.put(t.getId(), t);
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) byId.put(s.getId(), s);
+        for (WaveformOverlayInstance w : waveformOverlays) byId.put(w.getId(), w);
         for (LinkFollower f : linkFollowers()) {
             SpaceLink l = f.getSpaceLink();
             if (l == null) continue;
@@ -2965,6 +2966,7 @@ public class Timeline {
     public java.util.List<LinkFollower> linkFollowers() {
         java.util.List<LinkFollower> out = new java.util.ArrayList<>(textOverlays);
         out.addAll(spriteOverlays);
+        out.addAll(waveformOverlays);
         return out;
     }
 
@@ -2995,6 +2997,7 @@ public class Timeline {
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteOverlays) {
             if (s.getId().equals(id)) return s;
         }
+        for (WaveformOverlayInstance w : waveformOverlays) if (w.getId().equals(id)) return w;
         return null;
     }
 

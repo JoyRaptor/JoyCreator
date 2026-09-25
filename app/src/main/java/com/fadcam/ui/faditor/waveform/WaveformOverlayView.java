@@ -144,8 +144,9 @@ public class WaveformOverlayView extends View {
             WaveformData data = o.getAudioSourceRef() != null
                     ? dataBySource.get(o.getAudioSourceRef()) : null;
 
-            int rw = Math.max(1, (int) (o.getWidthFraction() * w));
-            int rh = Math.max(1, (int) (o.getHeightFraction() * h));
+            // WORLD pose (a visualizer that follows a parent is drawn where the parent takes it).
+            int rw = Math.max(1, (int) (o.animatedWidthFraction(playheadMs) * w));
+            int rh = Math.max(1, (int) (o.animatedHeightFraction(playheadMs) * h));
             // Placeholder until the audio finishes extracting, then the live render.
             // renderReusable returns a shared, reused bitmap (no per-frame allocation);
             // it's drawn to the canvas immediately, so the next overlay can reuse it.
@@ -163,13 +164,14 @@ public class WaveformOverlayView extends View {
                         o.getFrequencyRangeLowHz(), o.getFrequencyRangeHighHz(),
                         o.getBandCountOverride());
             }
-            float cx = o.getCenterX() * w;
-            float cy = o.getCenterY() * h;
+            float cx = o.animatedCenterX(playheadMs) * w;
+            float cy = o.animatedCenterY(playheadMs) * h;
             canvas.save();
-            if (o.getRotationDeg() != 0f) canvas.rotate(o.getRotationDeg(), cx, cy);
+            float rot = o.animatedRotation(playheadMs);
+            if (rot != 0f) canvas.rotate(rot, cx, cy);
             // FADE_KNOBS §2.5: the knob fade multiplies the visualizer's alpha (§2.2 "same idea
             // for audio" — display fades even though no audio is muted by it).
-            float fadeAlpha = o.fadeFactorAt(playheadMs);
+            float fadeAlpha = o.fadeFactorAt(playheadMs) * o.animatedOpacity(playheadMs);
             if (fadeAlpha >= 0.999f) {
                 canvas.drawBitmap(bmp, cx - rw / 2f, cy - rh / 2f, null);
             } else {
@@ -210,8 +212,10 @@ public class WaveformOverlayView extends View {
                         dragMode = 3;
                         resizeHandle = handle;
                         movedSinceDown = false;
-                        float cx = selected.getCenterX() * w, cy = selected.getCenterY() * h;
-                        float rw = selected.getWidthFraction() * w, rh = selected.getHeightFraction() * h;
+                        float cx = selected.animatedCenterX(playheadMs) * w;
+                        float cy = selected.animatedCenterY(playheadMs) * h;
+                        float rw = selected.animatedWidthFraction(playheadMs) * w;
+                        float rh = selected.animatedHeightFraction(playheadMs) * h;
                         resizeStartLeft = cx - rw / 2f;
                         resizeStartTop = cy - rh / 2f;
                         resizeStartRight = cx + rw / 2f;
@@ -231,8 +235,9 @@ public class WaveformOverlayView extends View {
                 movedSinceDown = false;
                 downX = tx;
                 downY = ty;
-                startCenterX = hit.getCenterX();
-                startCenterY = hit.getCenterY();
+                // World position at the grab: the drag moves what the eye sees.
+                startCenterX = hit.animatedCenterX(playheadMs);
+                startCenterY = hit.animatedCenterY(playheadMs);
                 scheduleLongPress(hit);
                 invalidate();
                 return true;
@@ -264,9 +269,16 @@ public class WaveformOverlayView extends View {
                         movedSinceDown = true;
                         cancelPendingLongPress();
                     }
-                    selected.setCenter(startCenterX + dx, startCenterY + dy);
+                    if (selected.isLinked()) {
+                        float[] own = new float[2];
+                        selected.worldToOwn(startCenterX + dx, startCenterY + dy, playheadMs, own);
+                        selected.setCenter(own[0], own[1]);
+                    } else {
+                        selected.setCenter(startCenterX + dx, startCenterY + dy);
+                    }
                 }
-                clampToCanvas(selected);
+                // A follower is placed by its parent; clamping its own pose would fight that.
+                if (!selected.isLinked()) clampToCanvas(selected);
                 invalidate();
                 return true;
             }
@@ -321,8 +333,9 @@ public class WaveformOverlayView extends View {
         for (int i = overlays.size() - 1; i >= 0; i--) {
             WaveformOverlayInstance o = overlays.get(i);
             if (playheadMs < o.getStartMs() || playheadMs > o.getEndMs()) continue;
-            float cx = o.getCenterX() * w, cy = o.getCenterY() * h;
-            float rw = o.getWidthFraction() * w, rh = o.getHeightFraction() * h;
+            float cx = o.animatedCenterX(playheadMs) * w, cy = o.animatedCenterY(playheadMs) * h;
+            float rw = o.animatedWidthFraction(playheadMs) * w;
+            float rh = o.animatedHeightFraction(playheadMs) * h;
             if (x >= cx - rw / 2f && x <= cx + rw / 2f && y >= cy - rh / 2f && y <= cy + rh / 2f) {
                 return o;
             }
@@ -332,8 +345,9 @@ public class WaveformOverlayView extends View {
 
     /** Hit-test the 8 resize handles of the selected overlay. Returns 1..8 or 0 if no hit. */
     private int hitTestHandle(float x, float y, int w, int h, @NonNull WaveformOverlayInstance o) {
-        float cx = o.getCenterX() * w, cy = o.getCenterY() * h;
-        float rw = o.getWidthFraction() * w, rh = o.getHeightFraction() * h;
+        float cx = o.animatedCenterX(playheadMs) * w, cy = o.animatedCenterY(playheadMs) * h;
+        float rw = o.animatedWidthFraction(playheadMs) * w;
+        float rh = o.animatedHeightFraction(playheadMs) * h;
         float left = cx - rw / 2f, top = cy - rh / 2f;
         float right = cx + rw / 2f, bottom = cy + rh / 2f;
         float midX = (left + right) / 2f, midY = (top + bottom) / 2f;
@@ -371,6 +385,15 @@ public class WaveformOverlayView extends View {
         if (bottom <= top) bottom = top + 4 * density;
         float newW = (right - left) / w;
         float newH = (bottom - top) / h;
+        if (selected.isLinked()) {
+            // Handles are drawn in the picture; a follower stores its own pose.
+            float[] own = new float[2];
+            selected.worldToOwn((left + right) / 2f / w, (top + bottom) / 2f / h, playheadMs, own);
+            selected.setSize(selected.worldSizeToOwn(newW, playheadMs),
+                    selected.worldSizeToOwn(newH, playheadMs));
+            selected.setCenter(own[0], own[1]);
+            return;
+        }
         selected.setSize(newW, newH);
         selected.setCenter((left + right) / 2f / w, (top + bottom) / 2f / h);
     }

@@ -2551,6 +2551,7 @@ public class ProjectStorage {
                         wj.addProperty("audioSourceRef", wo.getAudioSourceRef());
                     }
                     if (wo.getStartMs() != 0) wj.addProperty("startMs", wo.getStartMs());
+                    if (wo.getSpaceLink() != null) wj.add("spaceLink", wo.getSpaceLink().toJson());
                     if (wo.getEndMs() != Long.MAX_VALUE) wj.addProperty("endMs", wo.getEndMs());
                     wj.addProperty("centerX", wo.getCenterX());
                     wj.addProperty("centerY", wo.getCenterY());
@@ -3512,6 +3513,10 @@ public class ProjectStorage {
                         }
                         if (hasValue(wj, "rotationDeg")) {
                             wo.setRotationDeg(wj.get("rotationDeg").getAsFloat());
+                        }
+                        if (wj.has("spaceLink") && wj.get("spaceLink").isJsonObject()) {
+                            wo.setSpaceLink(com.fadcam.ui.faditor.model.SpaceLink.fromJson(
+                                    wj.getAsJsonObject("spaceLink")));
                         }
                         if (hasValue(wj, "justify")) wo.setJustify(wj.get("justify").getAsInt());
                         if (hasValue(wj, "dataMode")) wo.setDataMode(wj.get("dataMode").getAsInt());

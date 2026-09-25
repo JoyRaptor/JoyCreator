@@ -125,6 +125,11 @@ public final class LinkTool {
         }));
         root.addView(buttons);
         dialog.setContentView(SheetKit.fitNavBar(root));
+        // Fully open, always: in landscape the default peek hid the choices and the Link button
+        // below the fold (Note 9, 2026-09-25).
+        dialog.getBehavior().setSkipCollapsed(true);
+        dialog.getBehavior().setState(
+                com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_EXPANDED);
         dialog.show();
     }
 

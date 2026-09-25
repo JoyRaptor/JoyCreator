@@ -407,7 +407,18 @@ public final class FxLivePreviewController {
         // (~17ms measured on Note 9 for full-frame text raster every frame), so it stays on
         // Canvas and is documented as a gap.
         java.util.List<TextOverlayItem> belowTexts =
-                LayerPreviewController.plainTextsBelowBlend(timeline, glImages);
+                new java.util.ArrayList<>(LayerPreviewController.plainTextsBelowBlend(timeline, glImages));
+        // A BENT or PINNED text box stays with its Canvas view (CornerPinTextView draws the
+        // bend and the pin). Both rasters here draw text FLAT, and a flat copy under the bent
+        // one was what showed ("the bend distorts a duplicate; an undistorted one is behind
+        // it", Note 9 ZA_CONTROL 2026-09-25). Its blend above then samples the video - a
+        // preview-only gap; the export draws it bent through CompositeExportOverlay.
+        belowTexts.removeIf(t -> t.hasMesh() || t.hasCornerPin());
+        // Every text left is drawn by the composite, UNDER the blend, which is where the
+        // export paints it - so its Canvas view hands over (buildPlan -> onGlOwnedImages).
+        // It used to paint a second copy on top, over the blend.
+        glBelowTextIds.clear();
+        for (TextOverlayItem t : belowTexts) glBelowTextIds.add(t.getId());
         java.util.List<SpriteOverlayItem> belowSprites =
                 LayerPreviewController.plainSpritesBelowBlend(timeline, glImages);
         boolean anyBelowTextSprite = !belowTexts.isEmpty() || !belowSprites.isEmpty();
@@ -570,6 +581,8 @@ public final class FxLivePreviewController {
     private int belowBlendRasterCount = 0;
     // Per-item texture cache for animated pose (spec §3) — raster once at authored size, quad per frame
     @NonNull private final OverlayTextureCache overlayTextureCache = new OverlayTextureCache();
+    /** Below-blend texts the composite draws this tick; their Canvas views hand over. */
+    @NonNull private final java.util.Set<String> glBelowTextIds = new java.util.HashSet<>();
     // Captions — third client of the texture cache (SPEC_20260829_CAPTIONS_GL §3.1)
     @NonNull private final CaptionTextureCache captionTextureCache = new CaptionTextureCache();
     // Instrumentation for captions (§5.4)
@@ -818,6 +831,7 @@ public final class FxLivePreviewController {
         // their own ImageView over this surface — which is where the export paints them too
         // (its final CompositeExportOverlay pass runs after every ImageBlendGlEffect).
         owned.addAll(glOwned);
+        owned.addAll(glBelowTextIds);   // by id: the Canvas layer hands over texts the same way
         // Told every tick, INCLUDING when the set is empty — see Host#onGlOwnedImages.
         host.onGlOwnedImages(owned);
 
@@ -920,7 +934,9 @@ public final class FxLivePreviewController {
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
-            if (o != null && o.wantsGlExport()) out.add(o);
+            // A HIDDEN image draws nothing, so it cannot be a blend that splits the stack
+            // (the flat below-blend copy stayed when the only blend image was hidden).
+            if (o != null && !o.isHidden() && o.wantsGlExport()) out.add(o);
         }
         return out;
     }

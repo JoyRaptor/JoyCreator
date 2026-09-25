@@ -86,6 +86,8 @@
     <string name="export_draft_chip">Draft (fast)</string>
     <string name="export_draft_chip_desc">720p at low quality: about twice as fast as 1080p, for checking your edit</string>
     <string name="export_range_label">Export a range</string>
+    <string name="export_keep_awake">Keep screen on (export runs much faster)</string>
+    <string name="export_keep_awake_desc">With the screen off, the phone slows the export to save power, up to 4 times slower. The screen stays on until the export finishes, even if you keep editing.</string>
     <string name="export_range_error">Enter a start before the end, like 0:12.5 → 0:30, within the project (%1$s).</string>
     <string name="drawer_frost">Frost: blur the picture behind the drawers</string>
     <string name="group_move_undo">Move %1$d items</string>

@@ -1838,6 +1838,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void checkRunningExportState() {
         try {
             if (isExportRunning()) {
+                // Back to a running export, minimised or not: hold the screen again.
+                exportHoldsScreen = exportKeepAwakeWanted();
+                syncKeepScreenOn();
                 if (exportProgressOverlay == null
                         || exportProgressOverlay.getVisibility() != View.VISIBLE) {
                     // Came back to a running export: show it properly unless the user chose
@@ -4972,8 +4975,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onIsPlayingChanged(boolean isPlaying) {
                 // Keep screen on only during active playback
+                playbackHoldsScreen = isPlaying;
+                syncKeepScreenOn();
                 if (isPlaying) {
-                    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                     // REVIEW FIX (2026-07-05): playheadUpdater now self-terminates while
                     // paused (the CPU optimization above at ~line 571), so EVERY real
                     // playback start must re-arm it or the playhead/time display/caption
@@ -4983,8 +4987,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // single-instance even if the audio-tail path posted it explicitly.
                     playheadHandler.removeCallbacks(playheadUpdater);
                     playheadHandler.post(playheadUpdater);
-                } else {
-                    getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 }
                 // Don't override button state during audio-tail (video paused, audio playing)
                 if (!audioTailActive) {
@@ -9878,7 +9880,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             exportProgressText.setTextColor(Studio.INK);
                         }
                         if (exportStatusIcon != null) exportStatusIcon.setText("check_circle");
-                        if (exportProgressOverlay != null) exportProgressOverlay.setKeepScreenOn(false);
+                        exportHoldsScreen = false;
+                        syncKeepScreenOn();
                         if (exportEtaText != null) exportEtaText.setVisibility(View.GONE);
                         if (exportInfoText != null) exportInfoText.setVisibility(View.GONE);
                         if (exportTitle != null) {
@@ -12705,23 +12708,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fileNameInput.setLayoutParams(fnInputLp);
             root.addView(fileNameInput);
 
-            final android.widget.CheckBox cleanAudio = new android.widget.CheckBox(this);
-            cleanAudio.setText(R.string.faditor_clean_audio_label);
-            cleanAudio.setTextColor(Studio.INK);
+            final android.widget.CheckBox cleanAudio = exportCheckbox(root,
+                    R.string.faditor_clean_audio_label, R.string.faditor_clean_audio_desc, pad);
             cleanAudio.setChecked(project.getExportSettings().isCleanAudio());
-            android.widget.LinearLayout.LayoutParams clp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            clp.topMargin = pad / 2;
-            cleanAudio.setLayoutParams(clp);
-            root.addView(cleanAudio);
-
-            TextView cleanDesc = new TextView(this);
-            cleanDesc.setText(R.string.faditor_clean_audio_desc);
-            cleanDesc.setTextColor(Studio.INK_FAINT);
-            cleanDesc.setTextSize(11);
-            root.addView(cleanDesc);
 
             // ── C4 Loudness targets + measured LUFS (ebur128) ──
             final com.fadcam.ui.faditor.export.ExportManager.LoudnessTarget[] loudValues = {
@@ -12813,6 +12802,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             lowBandwidthChip.setLayoutParams(chipLp);
             root.addView(lowBandwidthChip);
 
+            // Keep the screen on for the WHOLE export (owner, 2026-09-25). Samsung moves a
+            // screen-off export onto the little cores within ~90 s: the 48-min lecture took
+            // 12:48 screen-on and ran ~4x slower locked (Note 20). Remembered per phone.
+            final android.widget.CheckBox keepAwakeBox = exportCheckbox(root,
+                    R.string.export_keep_awake, R.string.export_keep_awake_desc, pad);
+            keepAwakeBox.setChecked(exportKeepAwakeWanted());
+            keepAwakeBox.setOnCheckedChangeListener((b, on) -> getSharedPreferences(
+                    EXPORT_PREFS, MODE_PRIVATE).edit().putBoolean(PREF_EXPORT_KEEP_AWAKE, on).apply());
+
             final android.widget.Spinner resSpinner =
                     buildExportSettingSpinner(root, getString(R.string.row_resolution_title), resLabels,
                             java.util.Arrays.asList(resValues)
@@ -12834,22 +12832,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // ── Audio-only export (mux the composed audio mix to .m4a, no video).
             //    Not persisted on ExportSettings: an audio pull is a one-off act,
             //    defaulting back to video export next time is the safe behavior. ──
-            final android.widget.CheckBox audioOnlyBox = new android.widget.CheckBox(this);
-            audioOnlyBox.setText(R.string.export_audio_only);
-            audioOnlyBox.setTextColor(Studio.INK);
-            android.widget.LinearLayout.LayoutParams aoLp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            aoLp.topMargin = pad / 2;
-            audioOnlyBox.setLayoutParams(aoLp);
-            root.addView(audioOnlyBox);
-
-            TextView audioOnlyDesc = new TextView(this);
-            audioOnlyDesc.setText(R.string.export_audio_only_desc);
-            audioOnlyDesc.setTextColor(Studio.INK_FAINT);
-            audioOnlyDesc.setTextSize(11);
-            root.addView(audioOnlyDesc);
+            final android.widget.CheckBox audioOnlyBox = exportCheckbox(root,
+                    R.string.export_audio_only, 0, pad);
+            final TextView audioOnlyDesc = exportNote(root, R.string.export_audio_only_desc);
 
             // Resolution/Quality only shape the video encode — grey them out while
             // audio-only is checked so the dialog doesn't promise a video setting.
@@ -12864,22 +12849,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // Either where the playhead is (pre-filled) or a typed timecode. The frame is
             // rendered by the SAME pipeline as a video export at the export resolution,
             // so Resolution stays live while the video/audio-only choices grey out.
-            final android.widget.CheckBox frameBox = new android.widget.CheckBox(this);
-            frameBox.setText(R.string.export_frame);
-            frameBox.setTextColor(Studio.INK);
-            android.widget.LinearLayout.LayoutParams frameBoxLp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            frameBoxLp.topMargin = pad / 2;
-            frameBox.setLayoutParams(frameBoxLp);
-            root.addView(frameBox);
-
-            TextView frameDesc = new TextView(this);
-            frameDesc.setText(R.string.export_frame_desc);
-            frameDesc.setTextColor(Studio.INK_FAINT);
-            frameDesc.setTextSize(11);
-            root.addView(frameDesc);
+            final android.widget.CheckBox frameBox = exportCheckbox(root,
+                    R.string.export_frame, R.string.export_frame_desc, pad);
 
             final android.widget.LinearLayout frameExtras = new android.widget.LinearLayout(this);
             frameExtras.setOrientation(android.widget.LinearLayout.VERTICAL);
@@ -12943,16 +12914,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // ── RANGE: export a span, not the whole timeline (engine f6e63879). Unchanged
             //    parts are reused, so a re-export of one fixed region comes back fast. From
             //    = the playhead, To = the end, both typeable like the frame time. ──
-            final android.widget.CheckBox rangeBox = new android.widget.CheckBox(this);
-            rangeBox.setText(R.string.export_range_label);
-            rangeBox.setTextColor(Studio.INK);
-            android.widget.LinearLayout.LayoutParams rangeLp =
-                    new android.widget.LinearLayout.LayoutParams(
-                            android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
-                            android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-            rangeLp.topMargin = pad / 2;
-            rangeBox.setLayoutParams(rangeLp);
-            root.addView(rangeBox);
+            final android.widget.CheckBox rangeBox = exportCheckbox(root,
+                    R.string.export_range_label, 0, pad);
             final android.widget.LinearLayout rangeExtras = new android.widget.LinearLayout(this);
             rangeExtras.setOrientation(android.widget.LinearLayout.HORIZONTAL);
             rangeExtras.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -13546,6 +13509,59 @@ public class FaditorEditorActivity extends AppCompatActivity {
         exportInfoText.setVisibility(View.VISIBLE);
     }
 
+    private static final String EXPORT_PREFS = "studio_export";
+    private static final String PREF_EXPORT_KEEP_AWAKE = "keep_awake";
+
+    /** The screen stays on while EITHER playback or a running export wants it. */
+    private boolean playbackHoldsScreen, exportHoldsScreen;
+
+    private boolean exportKeepAwakeWanted() {
+        return getSharedPreferences(EXPORT_PREFS, MODE_PRIVATE)
+                .getBoolean(PREF_EXPORT_KEEP_AWAKE, true);
+    }
+
+    /**
+     * ONE owner of FLAG_KEEP_SCREEN_ON on the editor window. Playback used to add and clear it
+     * directly, and the export held it only on its overlay VIEW, so minimising the export to
+     * the stripe (or pausing playback mid-export) let the screen sleep and the phone slow the
+     * export ~4x. If the editor leaves the foreground nothing can hold the screen; that is fine.
+     */
+    private void syncKeepScreenOn() {
+        if (playbackHoldsScreen || exportHoldsScreen) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
+    }
+
+    /** An export-sheet checkbox, with its grey explainer line under it ({@code descRes} 0 = none). */
+    @NonNull
+    private android.widget.CheckBox exportCheckbox(@NonNull android.widget.LinearLayout root,
+                                                   int labelRes, int descRes, int pad) {
+        android.widget.CheckBox box = new android.widget.CheckBox(this);
+        box.setText(labelRes);
+        box.setTextColor(Studio.INK);
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = pad / 2;
+        box.setLayoutParams(lp);
+        root.addView(box);
+        if (descRes != 0) exportNote(root, descRes);
+        return box;
+    }
+
+    /** The grey explainer line under an export-sheet control. */
+    @NonNull
+    private TextView exportNote(@NonNull android.widget.LinearLayout root, int textRes) {
+        TextView desc = new TextView(this);
+        desc.setText(textRes);
+        desc.setTextColor(Studio.INK_FAINT);
+        desc.setTextSize(11);
+        root.addView(desc);
+        return desc;
+    }
+
     private void showExportProgress() {
         if (exportProgressOverlay == null) return;
         exportMinimizedByUser = false;
@@ -13576,18 +13592,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         exportProgressOverlay.setVisibility(View.VISIBLE);
         exportProgressOverlay.setAlpha(0f);
         exportProgressOverlay.animate().alpha(1f).setDuration(200).start();
-        // Keep the display awake while the progress screen is up. Measured on the Note 20
-        // (2026-09-23), same clips: screen on ~1.2x, screen off ~0.6x even with the export's
-        // wake lock — the phone throttles itself with the display off. The view flag only
-        // applies while this overlay is visible, so minimising to keep editing drops it.
-        exportProgressOverlay.setKeepScreenOn(true);
+        // Keep the display awake for the WHOLE export, minimised or not (see syncKeepScreenOn).
+        exportHoldsScreen = exportKeepAwakeWanted();
+        syncKeepScreenOn();
 
         showExportProgressStripe();
     }
 
     private void hideExportProgress() {
+        exportHoldsScreen = false;
+        syncKeepScreenOn();
         if (exportProgressOverlay != null) {
-            exportProgressOverlay.setKeepScreenOn(false);
             exportProgressOverlay.animate().alpha(0f).setDuration(200).withEndAction(() -> {
                 exportProgressOverlay.setVisibility(View.GONE);
             }).start();

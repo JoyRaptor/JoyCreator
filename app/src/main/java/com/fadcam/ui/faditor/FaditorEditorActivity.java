@@ -16924,6 +16924,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // on the spine, used to work on both"). Hold opens the drawer, and a
                     // double-tap on the picture still does too.
                     togglePipSoundStrip(item.getClip());
+                } else if (item.getCaptionSpan() != null) {
+                    // CAPTIONS: the caption drawer for the clip they belong to — the same drawer
+                    // the Captions tool opens (gesture check 2026-09-25: this did nothing).
+                    selectSegment(item.getCaptionSpan().getClipIndex());
+                    if (!captionDrawerOpen) showCaptionDrawer(true);
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getAdjustment() != null) {
@@ -16954,6 +16959,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                 } else if (item.getSprite() != null) {
                     showSpriteDrawer(item.getSprite(), false);
+                } else if (item.getCaptionSpan() != null) {
+                    // CAPTIONS: the caption drawer for the clip they belong to — the same drawer
+                    // the Captions tool opens (gesture check 2026-09-25: this did nothing).
+                    selectSegment(item.getCaptionSpan().getClipIndex());
+                    if (!captionDrawerOpen) showCaptionDrawer(true);
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {

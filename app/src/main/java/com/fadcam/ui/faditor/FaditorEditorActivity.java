@@ -17904,9 +17904,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** mm:ss.SSS compact timestamp for the word-edit box. */
     private String formatTsMs(long ms) {
-        long s = ms / 1000;
-        long millis = ms % 1000;
-        return String.format(java.util.Locale.US, "%d:%02d.%03d", s / 60, s % 60, millis);
+        // A word in a trimmed-off part of its clip sits BEFORE the clip's start, so its time is
+        // negative; it used to print as "0:-3.-349". Sign once, then the magnitude.
+        String sign = ms < 0 ? "−" : "";
+        long a = Math.abs(ms);
+        long s = a / 1000;
+        long millis = a % 1000;
+        return sign + String.format(java.util.Locale.US, "%d:%02d.%03d", s / 60, s % 60, millis);
     }
 
     private long parseTsMs(String text) throws NumberFormatException {

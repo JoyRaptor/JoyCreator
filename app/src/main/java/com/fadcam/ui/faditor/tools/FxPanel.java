@@ -64,13 +64,6 @@ public final class FxPanel {
     // the slider and the section headings all come from TextOverlayDrawer.Kit — the ONE place
     // those looks are built — instead of three private alpha constants of this class's own.
     private static final int CARD_BG = TextOverlayDrawer.Kit.CTL;
-    /**
-     * A filled slider track. The panel is not told which object it is editing, so it cannot
-     * wear the object's colour the record asks for; it wears the drawer's own ink, which says
-     * "value" without claiming to be a state. See the lane report: a host-supplied accent is the
-     * follow-up.
-     */
-    private static final int SLIDER_FILL = Studio.DRAWER_DIM;
 
     /** What the panel needs back from the editor. */
     public interface Host {
@@ -232,8 +225,8 @@ public final class FxPanel {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(0, Math.round(4 * d), 0, Math.round(6 * d));
 
-        TextView cost = new TextView(ctx);
-        cost.setTextColor(TXT_DIM);
+        // Kit.note: the drawer's one quiet-line face (drawer audit 2026-09-24, F5).
+        TextView cost = ObjectDrawer.Kit.note(ctx, "");
         cost.setTextSize(11.5f);
         // A METER, never a refusal. Refusing an edit is worse than a slow preview: the user can
         // see slow and decide, but cannot see a refusal and understand it.
@@ -255,8 +248,7 @@ public final class FxPanel {
         LinearLayout col = new LinearLayout(ctx);
         col.setOrientation(LinearLayout.VERTICAL);
         col.addView(row);
-        TextView warn = new TextView(ctx);
-        warn.setText(note);
+        TextView warn = ObjectDrawer.Kit.note(ctx, note);
         warn.setTextColor(Studio.CAREFUL);
         warn.setTextSize(11f);
         warn.setPadding(0, 0, 0, Math.round(6 * d));
@@ -272,13 +264,9 @@ public final class FxPanel {
     @NonNull
     private static View emptyNote(@NonNull Context ctx, float d,
                                   @NonNull FxPreviewTier.Subject subject) {
-        TextView t = new TextView(ctx);
-        t.setText(subject == FxPreviewTier.Subject.LAYER
-                ? "This layer changes nothing yet. Add an effect and everything beneath the "
-                        + "layer takes it."
-                : "No effects on this object yet. Add one and it rides with the object — it "
-                        + "affects this and nothing else.");
-        t.setTextColor(TXT_DIM);
+        TextView t = ObjectDrawer.Kit.note(ctx, ctx.getString(
+                subject == FxPreviewTier.Subject.LAYER
+                        ? com.fadcam.R.string.faditor_fx_empty_layer : com.fadcam.R.string.faditor_fx_empty_object));
         t.setTextSize(11.5f);
         t.setPadding(0, Math.round(8 * d), 0, Math.round(10 * d));
         return t;
@@ -334,8 +322,7 @@ public final class FxPanel {
         // nothing, and has no way to tell that from a bug.
         String note = FxPreviewTier.cardNote(def, subject);
         if (!note.isEmpty()) {
-            TextView warn = new TextView(ctx);
-            warn.setText(note);
+            TextView warn = ObjectDrawer.Kit.note(ctx, note);
             warn.setTextColor(Studio.CAREFUL);
             warn.setTextSize(9.5f);
             warn.setPadding(0, 0, Math.round(6 * d), 0);
@@ -348,7 +335,7 @@ public final class FxPanel {
                 ? com.fadcam.R.string.faditor_lc_fx_bypass
                 : com.fadcam.R.string.faditor_lc_fx_enable));
         eye.setOnClickListener(v -> structural(stack, host, rebuild,
-                fx.enabled ? "Bypass effect" : "Enable effect",
+                ctx.getString(fx.enabled ? com.fadcam.R.string.faditor_undo_fx_bypass : com.fadcam.R.string.faditor_undo_fx_enable),
                 () -> fx.enabled = !fx.enabled));
         head.addView(eye);
 
@@ -363,7 +350,8 @@ public final class FxPanel {
         // and retires the slot, so nothing added later can inherit them — the snapshot in
         // structural() is what brings those curves back.
         del.setOnClickListener(v -> structural(stack, host, rebuild,
-                "Delete " + def.displayName, () -> stack.remove(index)));
+                ctx.getString(com.fadcam.R.string.faditor_undo_fx_delete, def.displayName),
+                () -> stack.remove(index)));
         head.addView(del);
         card.addView(head);
 
@@ -419,8 +407,8 @@ public final class FxPanel {
         FxParam centerParam = gradientFill ? def.param("center") : null;
         if (centerParam != null && !curveShape) {
             boolean posEditing = host.isEditingGradientInPreview(fx, centerParam);
-            TextView pos = chip(ctx, posEditing
-                    ? "Positioning in preview — done" : "Position in preview", d);
+            TextView pos = chip(ctx, ctx.getString(posEditing
+                    ? com.fadcam.R.string.faditor_fx_position_done : com.fadcam.R.string.faditor_fx_position), d);
             TextOverlayDrawer.Kit.setChipOn(pos, posEditing);
             pos.setOnClickListener(v -> {
                 host.editGradientInPreview(posEditing ? null : stack, posEditing ? null : fx,
@@ -431,9 +419,10 @@ public final class FxPanel {
         }
 
         // ── fold controls: how this card's result lands on what is below it ──
-        card.addView(sliderRow(ctx, "Opacity", 0, 100, Math.round(fx.opacity * 100),
+        card.addView(sliderRow(ctx, ctx.getString(com.fadcam.R.string.faditor_tool_opacity), 0, 100,
+                Math.round(fx.opacity * 100),
                 v -> { fx.opacity = v / 100f; host.onFxChanged(); }, d,
-                stack, host, rebuild, def.displayName + " opacity"));
+                stack, host, rebuild, ctx.getString(com.fadcam.R.string.faditor_undo_fx_opacity, def.displayName)));
 
         // ONE chip that opens the grouped picker, not a chip per mode. This row used to lay out
         // every mode side by side; at twenty-six that is a card wider than the phone. The chip
@@ -442,9 +431,10 @@ public final class FxPanel {
         blendRow.setOrientation(LinearLayout.HORIZONTAL);
         blendRow.setGravity(Gravity.CENTER_VERTICAL);
         blendRow.setPadding(0, Math.round(4 * d), 0, 0);
-        blendRow.addView(label(ctx, "Blend", d));
+        blendRow.addView(label(ctx, ctx.getString(com.fadcam.R.string.faditor_fx_blend), d));
         blendRow.addView(BlendPickerPopover.chip(ctx, () -> fx.blendMode,
-                mode -> structural(stack, host, rebuild, def.displayName + " blend",
+                mode -> structural(stack, host, rebuild,
+                        ctx.getString(com.fadcam.R.string.faditor_undo_fx_blend, def.displayName),
                         () -> fx.blendMode = mode),
                 () -> {}));
         card.addView(blendRow);
@@ -472,10 +462,11 @@ public final class FxPanel {
                 TextView label = label(ctx, param.label, d);
                 row.addView(label);
                 boolean on = fx.getScalar(param) >= 0.5f;
-                TextView c = chip(ctx, on ? "On" : "Off", d);
+                TextView c = chip(ctx, ctx.getString(on ? com.fadcam.R.string.setting_on : com.fadcam.R.string.setting_off), d);
+                ObjectDrawer.Kit.describe(c, param.label);
                 TextOverlayDrawer.Kit.setChipOn(c, on);
                 c.setOnClickListener(v -> {
-                    c.setText(on ? "Off" : "On");
+                    c.setText(on ? com.fadcam.R.string.setting_off : com.fadcam.R.string.setting_on);
                     TextOverlayDrawer.Kit.setChipOn(c, !on);
                     structural(stack, host, rebuild, param.label,
                             () -> fx.set(param, on ? 0f : 1f));
@@ -611,7 +602,8 @@ public final class FxPanel {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.addView(label(ctx, param.label, d));
 
-        SeekBar bar = slider(ctx, max - min);
+        FineSeekBar bar = slider(ctx, max - min);
+        bar.setContentDescription(param.label);   // drawer audit 2026-09-24, F3
         TextView value = valueText(ctx, d);
 
         Runnable render = () -> {
@@ -639,10 +631,9 @@ public final class FxPanel {
         LinearLayout wrap = new LinearLayout(ctx);
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.addView(row);
-        TextView h = new TextView(ctx);
-        // Drawer LABEL ink, not the screen ramp's faint grey: this line sits on the scrim, and
-        // #71717A there is the same near-invisible grey the text drawer's toggles were reported for.
-        h.setTextColor(TXT_DIM);
+        // Kit.note: drawer LABEL ink, not the screen ramp's faint grey — this line sits on the
+        // scrim, where #71717A is near-invisible.
+        TextView h = ObjectDrawer.Kit.note(ctx, "");
         h.setTextSize(10.5f);
         h.setPadding(Math.round(86 * d), 0, 0, 0);
         h.setVisibility(View.GONE);
@@ -660,7 +651,9 @@ public final class FxPanel {
         };
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
-                if (!fromUser) return;
+                // isFineDriving: a fine drag writes through setProgress, which reports
+                // fromUser == false exactly as the playhead-tick refresh does.
+                if (!fromUser && !bar.isFineDriving()) return;
                 value.setText(String.valueOf(p + min));
                 if (!armed[0]) flashHint.run();
                 if (snap[0] == null) snap[0] = stack.copy();   // both paths need an undo target
@@ -782,9 +775,12 @@ public final class FxPanel {
         row.addView(strip, new LinearLayout.LayoutParams(
                 0, Math.round(18 * d), 1f));
 
-        TextView edit = chip(ctx, "Edit", d);
+        TextView edit = chip(ctx, ctx.getString(com.fadcam.R.string.faditor_tools_edit), d);
+        ObjectDrawer.Kit.describe(edit, ctx.getString(com.fadcam.R.string.faditor_fx_edit_gradient));
         edit.setOnClickListener(v -> openGradientDialog(ctx, stack, fx, param, host, rebuild, d));
         row.addView(edit);
+        // The strip is tappable too, so it is named too (drawer audit 2026-09-24, F7).
+        ObjectDrawer.Kit.describe(strip, ctx.getString(com.fadcam.R.string.faditor_fx_edit_gradient));
         strip.setOnClickListener(v -> openGradientDialog(ctx, stack, fx, param, host, rebuild, d));
         return row;
     }
@@ -820,12 +816,13 @@ public final class FxPanel {
         LinearLayout vRow = new LinearLayout(ctx);
         vRow.setOrientation(LinearLayout.HORIZONTAL);
         vRow.setGravity(Gravity.CENTER_VERTICAL);
-        vRow.addView(label(ctx, "Vertices", d));
+        vRow.addView(label(ctx, ctx.getString(com.fadcam.R.string.faditor_fx_vertices), d));
         for (int i = 0; i <= GradientCurve.VERTEX_CAP; i++) {
             final int n = i;
             TextView c = chip(ctx, String.valueOf(i), d);
             TextOverlayDrawer.Kit.setChipOn(c, path.vertices.size() == i);
-            c.setOnClickListener(v -> structural(stack, host, rebuild, "Curve vertices", () -> {
+            c.setOnClickListener(v -> structural(stack, host, rebuild,
+                    ctx.getString(com.fadcam.R.string.faditor_undo_fx_vertices), () -> {
                 GradientCurve p = GradientCurve.fromFloatArray(fx.get(param));
                 p.setVertexCount(n);
                 fx.set(param, p.toFloatArray());
@@ -839,7 +836,8 @@ public final class FxPanel {
         eRow.setOrientation(LinearLayout.HORIZONTAL);
         eRow.setGravity(Gravity.CENTER_VERTICAL);
         boolean editing = host.isEditingGradientInPreview(fx, param);
-        TextView edit = chip(ctx, editing ? "Editing in preview — done" : "Edit in preview", d);
+        TextView edit = chip(ctx, ctx.getString(editing
+                ? com.fadcam.R.string.faditor_fx_curve_edit_done : com.fadcam.R.string.faditor_fx_curve_edit), d);
         TextOverlayDrawer.Kit.setChipOn(edit, editing);
         edit.setOnClickListener(v -> {
             host.editGradientInPreview(editing ? null : stack, editing ? null : fx,
@@ -848,10 +846,11 @@ public final class FxPanel {
         });
         eRow.addView(edit);
 
-        TextView reset = chip(ctx, "Straighten", d);
+        TextView reset = chip(ctx, ctx.getString(com.fadcam.R.string.faditor_fx_straighten), d);
         // Not "Reset": it puts the anchors back across the frame AND zeroes every handle, which
         // is the one action that reliably gets a user out of a curve they have tangled.
-        reset.setOnClickListener(v -> structural(stack, host, rebuild, "Straighten curve", () -> {
+        reset.setOnClickListener(v -> structural(stack, host, rebuild,
+                ctx.getString(com.fadcam.R.string.faditor_undo_fx_straighten), () -> {
             fx.set(param, GradientCurve.defaultCurve().toFloatArray());
             repaintPreview.run();
         }));
@@ -897,7 +896,7 @@ public final class FxPanel {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
                 .setTitle(param.label)
                 .setView(wrap)
-                .setPositiveButton("Done", (dlg, w) ->
+                .setPositiveButton(com.fadcam.R.string.done, (dlg, w) ->
                         recordSnapshot(stack, host, rebuild, param.label, before))
                 .setOnCancelListener(dlgi ->
                         recordSnapshot(stack, host, rebuild, param.label, before))
@@ -945,6 +944,7 @@ public final class FxPanel {
         row.addView(label(ctx, labelText, d));
 
         SeekBar bar = slider(ctx, max - min);
+        bar.setContentDescription(labelText);   // drawer audit 2026-09-24, F3
         bar.setProgress(Math.max(0, Math.min(max - min, initial - min)));
 
         TextView value = valueText(ctx, d);
@@ -995,14 +995,8 @@ public final class FxPanel {
 
     @NonNull
     private static TextView label(@NonNull Context ctx, @NonNull String text, float d) {
-        TextView t = new TextView(ctx);
-        t.setText(text);
-        t.setTextColor(TXT_DIM);
-        t.setTextSize(11f);
-        t.setWidth(Math.round(86 * d));
-        t.setMaxLines(1);
-        t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        return t;
+        // The Kit's row label, at this panel's 86dp column (drawer audit 2026-09-24, F4).
+        return ObjectDrawer.Kit.rowLabel(ctx, text, 86);
     }
 
     /**
@@ -1025,12 +1019,16 @@ public final class FxPanel {
         return TextOverlayDrawer.Kit.chip(ctx, text);
     }
 
-    /** A slider in the drawer look, with its range. Listener and value stay with the caller. */
+    /**
+     * A slider in the drawer look, with its range. Listener and value stay with the caller.
+     * FineSeekBar, for the fine drag every other drawer slider has (F2), filled with the
+     * object's accent like every other drawer rather than grey (F1) — drawer audit 2026-09-24.
+     */
     @NonNull
-    private static SeekBar slider(@NonNull Context ctx, int range) {
-        SeekBar bar = new SeekBar(ctx);
+    private static FineSeekBar slider(@NonNull Context ctx, int range) {
+        FineSeekBar bar = new FineSeekBar(ctx);
         bar.setMax(Math.max(1, range));
-        TextOverlayDrawer.Kit.styleSlider(bar, SLIDER_FILL);
+        ObjectDrawer.Kit.styleSlider(bar);
         return bar;
     }
 
@@ -1179,7 +1177,8 @@ public final class FxPanel {
                     if (shift[0] != 0) {
                         int[] fromTo = com.fadcam.ui.faditor.fx.FxReorder.indices(
                                 screenPos, shift[0], count);
-                        structural(stack, host, rebuild, "Reorder effects",
+                        structural(stack, host, rebuild,
+                                ctx.getString(com.fadcam.R.string.faditor_undo_fx_reorder),
                                 () -> stack.move(fromTo[0], fromTo[1]));
                     } else {
                         // Nothing moved (or the gesture was cancelled) — repaint to drop the
@@ -1424,18 +1423,10 @@ public final class FxPanel {
 
     /** A {@code ‹} / {@code ›} chevron — jump to the previous/next key of this property. */
     @NonNull
-    private static TextView keyChevron(@NonNull Context ctx, @NonNull String glyph, float d,
-                                       @NonNull Runnable onTap) {
-        TextView v = new TextView(ctx);
-        v.setText(glyph);
-        // Drawer DIM, not the screen ramp's faint grey — it sits on the scrim.
-        v.setTextColor(Studio.DRAWER_DIM);
-        v.setTextSize(15f);
-        v.setGravity(Gravity.CENTER);
-        v.setPadding(Math.round(6 * d), 0, Math.round(6 * d), 0);
-        // Record 06 §04's floor: "nothing below 28dp".
-        v.setMinWidth(Math.round(28 * d));
-        v.setMinHeight(Math.round(28 * d));
+    private static TextView keyChevron(@NonNull Context ctx, @NonNull String glyph,
+                                       @NonNull CharSequence name, @NonNull Runnable onTap) {
+        // The Kit's stepper, shared with the mask rows' ‹ › (drawer audit 2026-09-24, P15).
+        TextView v = ObjectDrawer.Kit.stepper(ctx, glyph, name);
         v.setOnClickListener(ignored -> onTap.run());
         return v;
     }
@@ -1467,10 +1458,9 @@ public final class FxPanel {
         cluster.setOrientation(LinearLayout.HORIZONTAL);
         cluster.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView prev = keyChevron(ctx, "‹", d,
+        TextView prev = keyChevron(ctx, "‹",
+                ctx.getString(com.fadcam.R.string.faditor_lc_key_prev),
                 () -> jumpKey(stack, fx, param, host, false));
-        TextOverlayDrawer.Kit.describe(prev,
-                ctx.getString(com.fadcam.R.string.faditor_lc_key_prev));
         cluster.addView(prev);
 
         TextView t = chip(ctx, "◇", d);
@@ -1494,7 +1484,8 @@ public final class FxPanel {
         // long-click detector would never fire (adversarial review, C1).
         final Runnable toggleKey = () -> {
             long at = host.playheadMs();
-            structural(stack, host, rebuild, "Key " + param.label, () -> {
+            structural(stack, host, rebuild,
+                    ctx.getString(com.fadcam.R.string.faditor_undo_fx_key, param.label), () -> {
                 if (stack.keys == null) {
                     stack.keys = new com.fadcam.ui.faditor.keyframe.KeyframeSet();
                 }
@@ -1519,13 +1510,15 @@ public final class FxPanel {
         };
         final Runnable clearKeys = () -> {
             if (stack.keys == null) return;
-            structural(stack, host, rebuild, "Clear " + param.label + " keys", () -> {
+            structural(stack, host, rebuild,
+                    ctx.getString(com.fadcam.R.string.faditor_undo_fx_clear_keys, param.label), () -> {
                 for (int i = 0; i < param.kind.components; i++) {
                     stack.keys.removeProperty(fx.track(param, i));
                 }
             });
             repaint.run();
-            android.widget.Toast.makeText(ctx, param.label + " keys cleared",
+            android.widget.Toast.makeText(ctx,
+                    ctx.getString(com.fadcam.R.string.faditor_fx_toast_keys_cleared, param.label),
                     android.widget.Toast.LENGTH_SHORT).show();
         };
         // Swipe on the diamond = previous/next key; tap = add/remove a key; long-press = clear.
@@ -1580,10 +1573,9 @@ public final class FxPanel {
             }
         });
         cluster.addView(t);
-        TextView next = keyChevron(ctx, "›", d,
+        TextView next = keyChevron(ctx, "›",
+                ctx.getString(com.fadcam.R.string.faditor_lc_key_next),
                 () -> jumpKey(stack, fx, param, host, true));
-        TextOverlayDrawer.Kit.describe(next,
-                ctx.getString(com.fadcam.R.string.faditor_lc_key_next));
         cluster.addView(next);
 
         rs.entries.add(playheadMs -> {
@@ -1618,22 +1610,23 @@ public final class FxPanel {
         row.setOrientation(LinearLayout.HORIZONTAL);
 
         if (!stack.isEmpty()) {
-            TextView save = chip(ctx, "Save look", d);
+            TextView save = chip(ctx, ctx.getString(com.fadcam.R.string.faditor_fx_save_look), d);
             save.setOnClickListener(v -> {
                 final android.widget.EditText input = new android.widget.EditText(ctx);
-                input.setHint("Name this look");
+                input.setHint(com.fadcam.R.string.faditor_fx_look_name_hint);
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
-                        .setTitle("Save look")
+                        .setTitle(com.fadcam.R.string.faditor_fx_save_look)
                         .setView(input)
-                        .setPositiveButton("Save", (dlg, w) -> {
+                        .setPositiveButton(com.fadcam.R.string.faditor_fx_look_save, (dlg, w) -> {
                             String name = input.getText().toString().trim();
                             if (name.isEmpty()) return;
                             FxPresetStore.save(ctx, name, stack);
                             rebuild.run();
-                            android.widget.Toast.makeText(ctx, "Saved '" + name + "'",
+                            android.widget.Toast.makeText(ctx,
+                                    ctx.getString(com.fadcam.R.string.faditor_fx_toast_saved, name),
                                     android.widget.Toast.LENGTH_SHORT).show();
                         })
-                        .setNegativeButton("Cancel", null)
+                        .setNegativeButton(com.fadcam.R.string.universal_cancel, null)
                         .show();
             });
             row.addView(save);
@@ -1642,12 +1635,16 @@ public final class FxPanel {
 
         if (names.isEmpty()) return wrap;
         // A section heading, so it gets the section-label voice (record 06 `.dsec`).
-        wrap.addView(TextOverlayDrawer.Kit.sectionLabel(ctx, "Saved looks"));
+        wrap.addView(TextOverlayDrawer.Kit.sectionLabel(ctx,
+                ctx.getString(com.fadcam.R.string.faditor_fx_saved_looks)));
 
         LinearLayout list = new LinearLayout(ctx);
         list.setOrientation(LinearLayout.HORIZONTAL);
         for (String name : names) {
             TextView c = chip(ctx, name, d);
+            // Description only, no tooltip: long-press is this chip's delete gesture, and the
+            // compat tooltip rides the long-click below API 26 (drawer audit 2026-09-24, F8).
+            c.setContentDescription(ctx.getString(com.fadcam.R.string.faditor_fx_look_desc, name));
             c.setOnClickListener(v -> {
                 // REPLACES the stack, so it is confirmed: loading a look over work in progress
                 // is the one action here that destroys something the user cannot see a copy of.
@@ -1656,22 +1653,23 @@ public final class FxPanel {
                     return;
                 }
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
-                        .setTitle("Load '" + name + "'?")
-                        .setMessage("This replaces the " + stack.size()
-                                + " effect(s) on this layer.")
-                        .setPositiveButton("Load",
+                        .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_load_confirm, name))
+                        .setMessage(ctx.getResources().getQuantityString(
+                                com.fadcam.R.plurals.faditor_fx_load_replaces,
+                                stack.size(), stack.size()))
+                        .setPositiveButton(com.fadcam.R.string.faditor_fx_load,
                                 (dlg, w) -> applyPreset(ctx, stack, name, host, rebuild, subject))
-                        .setNegativeButton("Cancel", null)
+                        .setNegativeButton(com.fadcam.R.string.universal_cancel, null)
                         .show();
             });
             c.setOnLongClickListener(v -> {
                 new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
-                        .setTitle("Delete '" + name + "'?")
-                        .setPositiveButton("Delete", (dlg, w) -> {
+                        .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_delete_look_confirm, name))
+                        .setPositiveButton(com.fadcam.R.string.universal_delete, (dlg, w) -> {
                             FxPresetStore.delete(ctx, name);
                             rebuild.run();
                         })
-                        .setNegativeButton("Cancel", null)
+                        .setNegativeButton(com.fadcam.R.string.universal_cancel, null)
                         .show();
                 return true;
             });
@@ -1692,7 +1690,8 @@ public final class FxPanel {
         // the single most destructive action in the panel and it had no undo at all.
         FxStack before = stack.copy();
         if (!FxPresetStore.load(ctx, name, stack)) {
-            android.widget.Toast.makeText(ctx, "Could not load '" + name + "'",
+            android.widget.Toast.makeText(ctx,
+                    ctx.getString(com.fadcam.R.string.faditor_fx_toast_load_failed, name),
                     android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
@@ -1710,14 +1709,15 @@ public final class FxPanel {
             }
         }
         if (dropped > 0) {
-            String phrase = String.format(ctx.getString(com.fadcam.R.string.faditor_fx_layer_only_left_out),
-                    dropped + (dropped == 1 ? " effect" : " effects"));
+            String phrase = ctx.getString(com.fadcam.R.string.faditor_fx_layer_only_left_out,
+                    ctx.getResources().getQuantityString(
+                            com.fadcam.R.plurals.faditor_fx_effect_count, dropped, dropped));
             android.widget.Toast.makeText(ctx, phrase, android.widget.Toast.LENGTH_LONG).show();
         }
         FxStack after = stack.copy();
         rebuild.run();
         host.onFxChanged();
-        host.recordUndo("Apply preset '" + name + "'",
+        host.recordUndo(ctx.getString(com.fadcam.R.string.faditor_undo_fx_apply_look, name),
                 () -> { stack.copyFrom(after); rebuild.run(); host.onFxChanged(); },
                 () -> { stack.copyFrom(before); rebuild.run(); host.onFxChanged(); });
     }
@@ -1732,7 +1732,7 @@ public final class FxPanel {
         wrap.setOrientation(LinearLayout.VERTICAL);
         wrap.setPadding(0, Math.round(6 * d), 0, 0);
 
-        TextView add = chip(ctx, "＋ Add effect", d);
+        TextView add = chip(ctx, ctx.getString(com.fadcam.R.string.faditor_fx_add), d);
         // THE one filled action on this panel — the gradient. It was a brighter grey pill, so
         // the thing you came here to do looked like one more option among the chips.
         TextOverlayDrawer.Kit.setPrimaryAction(add);
@@ -1775,26 +1775,27 @@ public final class FxPanel {
                     // 40% alpha — grey on grey, the same "can't read the off state" defect as the
                     // text drawer's toggles. Now: no fill, only its ring, in label ink. An outline
                     // with nothing inside reads as "not this one" without becoming invisible.
-                    android.graphics.drawable.GradientDrawable hollow =
-                            new android.graphics.drawable.GradientDrawable();
-                    hollow.setCornerRadius(999f * d);
-                    hollow.setStroke(Math.max(1, Math.round(d)), TextOverlayDrawer.Kit.RING);
-                    c.setBackground(hollow);
+                    // The Kit's pill, transparent, ring only; Kit.background keeps the chip's
+                    // padding (drawer audit 2026-09-24, F6). Inset 5dp top and bottom like
+                    // Kit.setChipOn's, so the ring is the same 29dp pill as its neighbours.
+                    int inset = Math.round(5 * d);
+                    ObjectDrawer.Kit.background(c, new android.graphics.drawable.InsetDrawable(
+                            ObjectDrawer.Kit.pill(ctx, Studio.alpha(Studio.GROUND, 0),
+                                    ObjectDrawer.Kit.RING), 0, inset, 0, inset));
                     c.setTextColor(TXT_DIM);
                     c.setOnClickListener(v -> new com.google.android.material.dialog
                             .MaterialAlertDialogBuilder(ctx)
-                            .setTitle(def.displayName + " needs its own pass")
-                            .setMessage(def.displayName + " reads neighbouring pixels, so it "
-                                    + "needs a finished image to work from. An object is drawn "
-                                    + "in a single pass, so there isn't one yet.\n\nPut it on an "
-                                    + "adjustment layer above this object and it will apply to "
-                                    + "this and everything under it.")
-                            .setPositiveButton("Got it", null)
+                            .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_title,
+                                    def.displayName))
+                            .setMessage(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_body,
+                                    def.displayName))
+                            .setPositiveButton(com.fadcam.R.string.faditor_coachmark_got_it, null)
                             .show());
                 } else {
                     c.setOnClickListener(v -> {
                         picker.setVisibility(View.GONE);
-                        structural(stack, host, rebuild, "Add " + def.displayName,
+                        structural(stack, host, rebuild,
+                                ctx.getString(com.fadcam.R.string.faditor_undo_fx_add, def.displayName),
                                 () -> stack.add(def.id));
                     });
                 }

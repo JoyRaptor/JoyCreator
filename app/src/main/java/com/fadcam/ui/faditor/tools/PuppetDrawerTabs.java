@@ -77,24 +77,25 @@ public final class PuppetDrawerTabs {
     // Over the frosted scrim, so this is the DRAWER ramp, not the screen ramp.
     // Same value it has always rendered; it simply asks for it by the right name now.
     private static final int TXT = Studio.DRAWER_INK;
+    // One label ink: a TXT_FAINT that was the same DRAWER_LABEL as this is gone (drawer audit
+    // 2026-09-24, U2).
     private static final int TXT_DIM = Studio.DRAWER_LABEL;
-    private static final int TXT_FAINT = Studio.DRAWER_LABEL;
 
     // ── record 06 §02, the drawer's control vocabulary ──────────────────────────────────
-    // The glass values are white at a low alpha in the record. There is no role token for
-    // "drawer control glass" yet, so they are derived from DRAWER_INK — the white this
-    // drawer's text already is — rather than typed as hex. Same derivation as AudioDrawerTabs.
+    // The glass values, the slider, the checkbox face, the pill, press feedback and the hover
+    // label all come from ObjectDrawer.Kit, the ONE drawer kit (drawer audit 2026-09-24, U1).
+    // This file used to carry a private copy of each, and a drop shadow on every word that the
+    // other drawers had already dropped, so the Puppet tab read heavier than its neighbours.
     /** {@code --dctl} rgba(255,255,255,.10): a control's fill on the scrim. */
-    private static final int CTL_FILL = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    private static final int CTL_FILL = ObjectDrawer.Kit.CTL;
     /** {@code --dring} rgba(255,255,255,.12): a control's 1dp inset ring. */
-    private static final int CTL_RING = Studio.alpha(Studio.DRAWER_INK, 0x1F);
-    /** {@code .dsl .tr} rgba(255,255,255,.18): the 4dp slider track. */
-    private static final int TRACK = Studio.alpha(Studio.DRAWER_INK, 0x2E);
+    private static final int CTL_RING = ObjectDrawer.Kit.RING;
     /** {@code .lens} rgba(0,0,0,.36): the well a segmented switch sits in. */
     private static final int WELL = Studio.alpha(Studio.GROUND, 0x5C);
-    private static final int SHADOW = Studio.alpha(Studio.GROUND, 0xCC);
+    /** Nothing: a hollow shape's fill, from the palette rather than a literal (U3/U4). */
+    private static final int CLEAR = Studio.alpha(Studio.GROUND, 0);
     /** An ON control is its colour at 70% — {@code .dchip.on}, {@code .dcb.on}, the slider fill. */
-    private static final int ON_ALPHA = 0xB3;
+    private static final int ON_ALPHA = ObjectDrawer.Kit.ON_ALPHA;
     /** Ink on a saturated fill: the record's #050507, which is {@link Studio#ON_GO}. */
     private static final int ON_FILL_INK = Studio.ON_GO;
     /**
@@ -293,7 +294,7 @@ public final class PuppetDrawerTabs {
         LinearLayout row = row(ctx);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(pad(d, 46));
-        row.setBackground(pill(d, CTL_FILL, CTL_RING));
+        row.setBackground(pill(ctx, CTL_FILL, CTL_RING));
         row.setPadding(pad(d, 5), pad(d, 3), pad(d, 3), pad(d, 3));
 
         // THE TYPE, as the pin's own silhouette — and it CHANGES the type rather than only
@@ -303,14 +304,14 @@ public final class PuppetDrawerTabs {
         // strip has. Same grammar in both places, deliberately.
         ImageView swatch = new ImageView(ctx);
         swatch.setImageDrawable(PuppetIcons.of(PuppetIcons.forType(pin.type), hue, pad(d, 17)));
-        hoverLabel(swatch, pin.typeLabel() + " pin. Tap to change type.");
+        hoverLabel(swatch, ctx.getString(R.string.lane_b_puppet_swatch, pin.typeLabel()));
         // 22dp of glyph in a 32dp target: grow the hit area, not the icon.
         swatch.setPadding(pad(d, 5), pad(d, 5), pad(d, 5), pad(d, 5));
         swatch.setOnClickListener(v -> {
             PuppetPin.Type[] all = PuppetPin.Type.values();
             PuppetPin.Type was = pin.type;
             PuppetPin.Type now = all[(was.ordinal() + 1) % all.length];
-            host.recordUndo("Pin type",
+            host.recordUndo(ctx.getString(R.string.lane_b_puppet_undo_pin_type),
                     () -> { pin.type = now; host.onRigStructureChanged(); host.rebuildRows(); },
                     () -> { pin.type = was; host.onRigStructureChanged(); host.rebuildRows(); });
             pin.type = now;
@@ -334,7 +335,7 @@ public final class PuppetDrawerTabs {
         name.setSingleLine(true);
         name.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         name.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_DONE);
-        name.setBackground(pill(d, WELL, CTL_RING));
+        name.setBackground(pill(ctx, WELL, CTL_RING));
         name.setPadding(pad(d, 10), pad(d, 5), pad(d, 10), pad(d, 5));
         name.setHint(R.string.lane_b_puppet_name);
         name.setHintTextColor(TXT_DIM);
@@ -366,7 +367,7 @@ public final class PuppetDrawerTabs {
 
         // where you are in the pin's keys. Tiny, monospaced-ish, and the only reason the
         // diamond can go unlabelled: this says what it is acting on.
-        TextView pos = text(ctx, d, 9.5f, TXT_FAINT);
+        TextView pos = text(ctx, d, 9.5f, TXT_DIM);
         // A count the machine keeps: the mono face, tabular so "3/10" does not jitter.
         com.fadcam.ui.type.Type.mono(pos, com.fadcam.ui.type.Type.MEDIUM);
         pos.setFontFeatureSettings("tnum");
@@ -382,7 +383,7 @@ public final class PuppetDrawerTabs {
 
         Runnable refreshPos = () -> {
             int n = host.keyCount();
-            if (pin.isSimulated()) { pos.setText("sim"); return; }
+            if (pin.isSimulated()) { pos.setText(R.string.lane_b_puppet_sim); return; }
             if (n == 0) { pos.setText("—"); return; }
             int at = host.keyIndexAtPlayhead();
             pos.setText(at > 0 ? (at + "/" + n) : ("·/" + n));
@@ -433,7 +434,7 @@ public final class PuppetDrawerTabs {
         // 06 never animates keying.
         GradientDrawable ring = new GradientDrawable();
         ring.setShape(GradientDrawable.OVAL);
-        ring.setColor(rig.recordOnTouch ? Studio.alpha(REC, 0x33) : 0x00000000);
+        ring.setColor(rig.recordOnTouch ? Studio.alpha(REC, 0x33) : CLEAR);
         ring.setStroke(Math.max(1, pad(d, 1)), rig.recordOnTouch ? REC : CTL_RING);
         wrap.setBackground(new android.graphics.drawable.InsetDrawable(ring, pad(d, 5)));
 
@@ -448,9 +449,9 @@ public final class PuppetDrawerTabs {
 
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(pad(d, 40), pad(d, 40));
         wrap.setLayoutParams(lp);
-        hoverLabel(wrap, rig.recordOnTouch
-                ? "Recording when you touch a pin. Tap to stop."
-                : "Not recording on touch. Tap to arm.");
+        hoverLabel(wrap, ctx.getString(rig.recordOnTouch
+                ? R.string.lane_b_puppet_rec_on
+                : R.string.lane_b_puppet_rec_off));
         wrap.setOnClickListener(v -> {
             rig.recordOnTouch = !rig.recordOnTouch;
             host.rebuildRows();
@@ -476,12 +477,18 @@ public final class PuppetDrawerTabs {
     @NonNull
     private static View toolRow(@NonNull Context ctx, @NonNull Host host, float d) {
         LinearLayout row = row(ctx);
-        addTool(ctx, host, row, d, Tool.GRAB,   PuppetIcons.GRAB,   "Grab",   TXT);
-        addTool(ctx, host, row, d, Tool.PIN,    PuppetIcons.PIN,    "Pin",    PuppetPalette.PIN);
-        addTool(ctx, host, row, d, Tool.STIFF,  PuppetIcons.STIFF,  "Stiff",  PuppetPalette.STIFF);
-        addTool(ctx, host, row, d, Tool.DANGLE, PuppetIcons.DANGLE, "Dangle", PuppetPalette.DANGLE);
-        addTool(ctx, host, row, d, Tool.FREE,   PuppetIcons.FREE,   "Free",   PuppetPalette.FREE);
-        addTool(ctx, host, row, d, Tool.BONE,   PuppetIcons.BONE,   "Bone",   PuppetPalette.BONE);
+        addTool(ctx, host, row, d, Tool.GRAB,   PuppetIcons.GRAB,
+                ctx.getString(R.string.lane_b_puppet_tool_grab),   TXT);
+        addTool(ctx, host, row, d, Tool.PIN,    PuppetIcons.PIN,
+                ctx.getString(R.string.lane_b_puppet_tool_pin),    PuppetPalette.PIN);
+        addTool(ctx, host, row, d, Tool.STIFF,  PuppetIcons.STIFF,
+                ctx.getString(R.string.lane_b_puppet_tool_stiff),  PuppetPalette.STIFF);
+        addTool(ctx, host, row, d, Tool.DANGLE, PuppetIcons.DANGLE,
+                ctx.getString(R.string.lane_b_puppet_tool_dangle), PuppetPalette.DANGLE);
+        addTool(ctx, host, row, d, Tool.FREE,   PuppetIcons.FREE,
+                ctx.getString(R.string.lane_b_puppet_tool_free),   PuppetPalette.FREE);
+        addTool(ctx, host, row, d, Tool.BONE,   PuppetIcons.BONE,
+                ctx.getString(R.string.lane_b_puppet_tool_bone),   PuppetPalette.BONE);
         return row;
     }
 
@@ -500,7 +507,7 @@ public final class PuppetDrawerTabs {
         // glyph and word go dark. That fill IS the "what am I doing" signal. It replaces the
         // 4dp-cornered outlined box, which read as a form field rather than a control.
         // Glyph over word stays — five pin types are not self-evident as glyphs (see above).
-        cell.setBackground(pill(d, on ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL,
+        cell.setBackground(pill(ctx, on ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL,
                 on ? 0 : CTL_RING));
 
         ImageView glyph = new ImageView(ctx);
@@ -509,8 +516,6 @@ public final class PuppetDrawerTabs {
         cell.addView(glyph, new LinearLayout.LayoutParams(pad(d, 16), pad(d, 16)));
 
         TextView text = text(ctx, d, 10f, on ? ON_FILL_INK : TXT_DIM);
-        // A label on a filled pill carries no shadow; a shadow under dark ink is a smudge.
-        if (on) text.setShadowLayer(0f, 0f, 0f, 0);
         com.fadcam.ui.type.Type.body(text, com.fadcam.ui.type.Type.SEMIBOLD);
         text.setText(label);
         text.setGravity(Gravity.CENTER);
@@ -542,11 +547,14 @@ public final class PuppetDrawerTabs {
         // Record 06's segmented switch (.lens): a dark round well, the showing segment filled
         // with the selected colour and dark ink. Concentric: well radius = segment radius + gap.
         LinearLayout row = row(ctx);
-        row.setBackground(pill(d, WELL, 0));
+        row.setBackground(pill(ctx, WELL, 0));
         row.setPadding(pad(d, 2), pad(d, 2), pad(d, 2), pad(d, 2));
-        addScope(ctx, host, row, d, Scope.SELECTED, "Selected");
-        addScope(ctx, host, row, d, Scope.CHARACTER, "Character");
-        addScope(ctx, host, row, d, Scope.RECORDING, "Recording");
+        addScope(ctx, host, row, d, Scope.SELECTED,
+                ctx.getString(R.string.lane_b_puppet_scope_selected));
+        addScope(ctx, host, row, d, Scope.CHARACTER,
+                ctx.getString(R.string.lane_b_puppet_scope_character));
+        addScope(ctx, host, row, d, Scope.RECORDING,
+                ctx.getString(R.string.lane_b_puppet_scope_recording));
         return row;
     }
 
@@ -554,8 +562,7 @@ public final class PuppetDrawerTabs {
                                  @NonNull LinearLayout parent, float d,
                                  @NonNull Scope scope, @NonNull String label) {
         boolean on = host.scope() == scope;
-        TextView t = text(ctx, d, 10f, on ? ON_FILL_INK : TXT_FAINT);
-        if (on) t.setShadowLayer(0f, 0f, 0f, 0);
+        TextView t = text(ctx, d, 10f, on ? ON_FILL_INK : TXT_DIM);
         com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.SEMIBOLD);
         t.setText(label);
         t.setLetterSpacing(0.06f);
@@ -565,7 +572,7 @@ public final class PuppetDrawerTabs {
         t.setGravity(Gravity.CENTER);
         t.setMinHeight(pad(d, 34));
         t.setPadding(pad(d, 3), pad(d, 6), pad(d, 3), pad(d, 6));
-        if (on) t.setBackground(pill(d, Studio.ARMED, 0));
+        if (on) t.setBackground(pill(ctx, Studio.ARMED, 0));
         hoverLabel(t, ctx.getString(on ? R.string.lane_b_puppet_scope_on
                 : R.string.lane_b_puppet_scope, label));
         press(t);
@@ -583,9 +590,9 @@ public final class PuppetDrawerTabs {
         if (b >= 0 && b < rig.boneCount()) { boneRows(ctx, host, root, d, b); return; }
         int i = host.selectedPin();
         if (i < 0 || i >= rig.pinCount()) {
-            root.addView(hint(ctx, d, rig.pinCount() == 0
-                    ? "Tap the picture to place your first pin"
-                    : "Tap a pin to edit it"));
+            root.addView(hint(ctx, d, ctx.getString(rig.pinCount() == 0
+                    ? R.string.lane_b_puppet_hint_first_pin
+                    : R.string.lane_b_puppet_hint_tap_pin)));
             return;
         }
         PuppetPin pin = rig.pin(i);
@@ -594,8 +601,8 @@ public final class PuppetDrawerTabs {
         // DEPTH IS FIRST, and on every type. A shoulder behind the body with the hand in front of
         // it is one arm, so this cannot live on a piece or a layer — it has to be per pin, and the
         // engine blends the pins into a field so the limb hands over halfway along.
-        slider(ctx, root, host, d, "Depth — behind / in front", hue, pin.depth, false,
-                v -> pin.depth = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_depth), hue,
+                pin.depth, false, v -> pin.depth = v);
 
         // MUTE. The mesh builder has honoured it and the overlay has drawn a muted pin hollow
         // since both were written; there was simply never a way to set it. It is the answer to
@@ -603,10 +610,11 @@ public final class PuppetDrawerTabs {
         // overwrites them" — because muting takes a pin out of the weights while every key it
         // owns stays exactly where it is, and unmuting brings the whole performance back.
         LinearLayout pinToggles = row(ctx);
-        addToggle(ctx, host, pinToggles, d, pin.muted ? "Muted" : "Active", !pin.muted,
-                v -> { pin.muted = !v; host.onRigStructureChanged(); });
-        addToggle(ctx, host, pinToggles, d, "Reach ring", rig.showReach,
-                v -> rig.showReach = v);
+        addToggle(ctx, host, pinToggles, d, ctx.getString(pin.muted
+                        ? R.string.lane_b_puppet_pin_muted : R.string.lane_b_puppet_pin_active),
+                !pin.muted, v -> { pin.muted = !v; host.onRigStructureChanged(); });
+        addToggle(ctx, host, pinToggles, d, ctx.getString(R.string.lane_b_puppet_pin_reach_ring),
+                rig.showReach, v -> rig.showReach = v);
         root.addView(pinToggles);
         gap(ctx, root, d, 7);
 
@@ -615,13 +623,14 @@ public final class PuppetDrawerTabs {
         // pin beside the first and their influence splits with nothing to set. The slider only
         // appears once somebody has decided the automatic answer is wrong for this pin.
         LinearLayout weightRow = row(ctx);
-        addToggle(ctx, host, weightRow, d, "Automatic pull", pin.weightIsAuto(),
+        addToggle(ctx, host, weightRow, d, ctx.getString(R.string.lane_b_puppet_pin_auto_pull),
+                pin.weightIsAuto(),
                 v -> { pin.weight = v ? PuppetPin.WEIGHT_AUTO : 1f;
                        host.onRigStructureChanged(); });
         root.addView(weightRow);
         gap(ctx, root, d, 7);
         if (!pin.weightIsAuto()) {
-            rangeSlider(ctx, root, host, d, "How hard this pin pulls", hue,
+            rangeSlider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_pull), hue,
                     pin.weight, 0f, 3f, "\u00d7",
                     v -> { pin.weight = v; host.onRigStructureChanged(); });
         }
@@ -630,23 +639,21 @@ public final class PuppetDrawerTabs {
             case DANGLE:
                 // The tape has nothing to show for a dangling pin and must say so rather than
                 // drawing an empty track, which reads as "your keys are gone".
-                root.addView(hint(ctx, d,
-                        "Simulated — no keys to edit. Any keys it already has are kept, "
-                        + "untouched, and come back the moment it stops dangling."));
-                slider(ctx, root, host, d, "Springiness", hue, pin.spring, false,
-                        v -> pin.spring = v);
-                slider(ctx, root, host, d, "Settle", hue, pin.settle, false,
-                        v -> pin.settle = v);
-                slider(ctx, root, host, d, "Mass", hue, pin.mass, false,
-                        v -> pin.mass = v);
-                slider(ctx, root, host, d, "Max stretch", hue, pin.maxStretch, false,
-                        v -> pin.maxStretch = v);
+                root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_dangle)));
+                slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_spring),
+                        hue, pin.spring, false, v -> pin.spring = v);
+                slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_settle),
+                        hue, pin.settle, false, v -> pin.settle = v);
+                slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_mass),
+                        hue, pin.mass, false, v -> pin.mass = v);
+                slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_max_stretch),
+                        hue, pin.maxStretch, false, v -> pin.maxStretch = v);
                 break;
             case STIFF:
-                slider(ctx, root, host, d, "Stiff area", hue, pin.stiffArea, true,
-                        v -> pin.stiffArea = v);
-                slider(ctx, root, host, d, "Strength", hue, pin.stiffStrength, false,
-                        v -> pin.stiffStrength = v);
+                slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_stiff_area),
+                        hue, pin.stiffArea, true, v -> pin.stiffArea = v);
+                slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_pin_strength),
+                        hue, pin.stiffStrength, false, v -> pin.stiffStrength = v);
                 break;
             case FREE:
                 // "Scale at this point" WAS here. PuppetPin.scale is persisted and read by
@@ -655,14 +662,12 @@ public final class PuppetDrawerTabs {
                 // rotate arc and the scale square with it on 2026-09-16, and removed for exactly
                 // the same reason — a control that does nothing teaches the user the feature is
                 // broken, which is worse than it plainly being absent.
-                root.addView(hint(ctx, d,
-                        "A free pin moves in any direction. Turn and scale need per-pin "
-                        + "rotation in the engine — see the spec."));
+                root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_free)));
                 break;
             default:
                 // An anchor has no settings of its OWN. It still has a depth, because every part
                 // of a character is on some side of it.
-                root.addView(hint(ctx, d, "An anchor has nothing else to set — that is the point"));
+                root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_anchor)));
                 break;
         }
 
@@ -671,8 +676,7 @@ public final class PuppetDrawerTabs {
         // price of that ruling is that the tape must say which pin it belongs to, or a user who
         // selects a second pin reads the change as their first pin’s keys vanishing.
         if (rig.pinCount() > 1) {
-            root.addView(hint(ctx, d, "The tape below shows " + pin.name
-                    + "’s keys. Tap another pin, or a chip above, to see its keys."));
+            root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_tape, pin.name)));
         }
     }
 
@@ -693,7 +697,7 @@ public final class PuppetDrawerTabs {
         LinearLayout cell = row(ctx);
         cell.setGravity(Gravity.CENTER_VERTICAL);
         cell.setMinimumHeight(pad(d, 44));
-        cell.setBackground(pill(d, WELL, Studio.alpha(DESTROY, 0x99)));
+        cell.setBackground(pill(ctx, WELL, Studio.alpha(DESTROY, 0x99)));
         cell.setPadding(pad(d, 14), 0, pad(d, 14), 0);
 
         TextView t = text(ctx, d, 11.5f, DESTROY);
@@ -702,8 +706,8 @@ public final class PuppetDrawerTabs {
         t.setSingleLine(true);
         cell.addView(t);
 
-        String what = "Removes " + detail + " and every keyframe";
-        TextView sub = text(ctx, d, 10f, TXT_FAINT);
+        String what = ctx.getString(R.string.lane_b_puppet_reset_desc, detail);
+        TextView sub = text(ctx, d, 10f, TXT_DIM);
         sub.setText(what);
         sub.setSingleLine(true);
         sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -712,7 +716,7 @@ public final class PuppetDrawerTabs {
         sublp.leftMargin = pad(d, 8);
         cell.addView(sub, sublp);
 
-        hoverLabel(cell, title + ". " + what + ".");
+        hoverLabel(cell, ctx.getString(R.string.lane_b_puppet_reset_hover, title, what));
         press(cell);
         cell.setOnClickListener(v -> host.confirmResetRig());
         return cell;
@@ -747,13 +751,12 @@ public final class PuppetDrawerTabs {
             chip.setGravity(Gravity.CENTER_VERTICAL);
             int inset = pad(d, 5);
             chip.setBackground(new android.graphics.drawable.InsetDrawable(
-                    pill(d, hot ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL, hot ? 0 : CTL_RING),
+                    pill(ctx, hot ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL, hot ? 0 : CTL_RING),
                     0, inset, 0, inset));
             chip.setPadding(pad(d, 13), pad(d, 7) + inset, pad(d, 13), pad(d, 7) + inset);
             chip.setMinimumHeight(pad(d, 40));
 
             TextView t = text(ctx, d, 11f, hot ? ON_FILL_INK : Studio.DRAWER_DIM);
-            if (hot) t.setShadowLayer(0f, 0f, 0f, 0);
             com.fadcam.ui.type.Type.body(t, hot ? com.fadcam.ui.type.Type.BOLD
                     : com.fadcam.ui.type.Type.SEMIBOLD);
             t.setText(p.name);
@@ -774,7 +777,7 @@ public final class PuppetDrawerTabs {
                 // A dangle pin is SIMULATED, so its dot is hollow: it has motion but no keys,
                 // and a solid dot beside a pin whose tape is empty would be a straight lie.
                 if (simulated) {
-                    g.setColor(0x00000000);
+                    g.setColor(CLEAR);
                     g.setStroke(Math.max(1, Math.round(d)), dotInk);
                 } else {
                     g.setColor(dotInk);
@@ -832,13 +835,14 @@ public final class PuppetDrawerTabs {
         // The bone’s own name first — PuppetRig keeps them unique, and without it on screen the
         // only way to tell two bones apart was which pins they happened to join.
         LinearLayout title = row(ctx);
-        addReadout(ctx, title, d, "Bone", bone.name == null ? "Bone" : bone.name);
+        String boneWord = ctx.getString(R.string.lane_b_puppet_bone);
+        addReadout(ctx, title, d, boneWord, bone.name == null ? boneWord : bone.name);
         root.addView(title);
         gap(ctx, root, d, 7);
 
         LinearLayout ends = row(ctx);
-        addReadout(ctx, ends, d, "From", rootName);
-        addReadout(ctx, ends, d, "To", tipName);
+        addReadout(ctx, ends, d, ctx.getString(R.string.lane_b_puppet_bone_from), rootName);
+        addReadout(ctx, ends, d, ctx.getString(R.string.lane_b_puppet_bone_to), tipName);
         root.addView(ends);
         gap(ctx, root, d, 7);
 
@@ -852,7 +856,8 @@ public final class PuppetDrawerTabs {
         }
         final float rest = measured > 1e-5f ? measured : 0.2f;
         float shown = bone.restLength > 0f ? bone.restLength / rest : 1f;
-        rangeSlider(ctx, root, host, d, "Length", hue, shown, 0.25f, 2f, "×",
+        rangeSlider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_bone_length), hue,
+                shown, 0.25f, 2f, "×",
                 v -> bone.restLength = Math.abs(v - 1f) < 0.005f ? 0f : v * rest);
 
         // REST ANGLE is derived from where the two pins were drawn, so it is a readout rather
@@ -864,18 +869,21 @@ public final class PuppetDrawerTabs {
                     rig.pin(bone.tipPin).restX - rig.pin(bone.rootPin).restX));
         }
         LinearLayout facts = row(ctx);
-        addReadout(ctx, facts, d, "Rest angle", Math.round(deg) + "°");
-        addReadout(ctx, facts, d, "Rest length", Math.round(rest * 100f) + "%");
+        addReadout(ctx, facts, d, ctx.getString(R.string.lane_b_puppet_bone_rest_angle),
+                Math.round(deg) + "°");
+        addReadout(ctx, facts, d, ctx.getString(R.string.lane_b_puppet_bone_rest_length),
+                Math.round(rest * 100f) + "%");
         root.addView(facts);
         gap(ctx, root, d, 7);
 
         // STRETCHY and FLIP ELBOW, two to a line.
         LinearLayout bits = row(ctx);
-        addToggle(ctx, host, bits, d, "Stretchy", bone.stretchy, v -> bone.stretchy = v);
+        addToggle(ctx, host, bits, d, ctx.getString(R.string.lane_b_puppet_bone_stretchy),
+                bone.stretchy, v -> bone.stretchy = v);
         // FLIP ELBOW. One bit instead of a pole-target object to position — SPEC §3. It was
         // stored, saved and honoured by FabrikSolver long before anything set it.
-        addToggle(ctx, host, bits, d, "Flip elbow", bone.bendSign < 0,
-                v -> bone.bendSign = v ? -1 : 1);
+        addToggle(ctx, host, bits, d, ctx.getString(R.string.lane_b_puppet_bone_flip_elbow),
+                bone.bendSign < 0, v -> bone.bendSign = v ? -1 : 1);
         root.addView(bits);
         gap(ctx, root, d, 7);
 
@@ -885,39 +893,37 @@ public final class PuppetDrawerTabs {
         // on, because a rigid bone has no reach beyond its length and a slider that does nothing
         // is worse than no slider.
         if (bone.stretchy) {
-            slider(ctx, root, host, d, "Reach", PuppetPalette.BONE, bone.maxStretch, false,
-                    v -> bone.maxStretch = v);
+            slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_bone_reach),
+                    PuppetPalette.BONE, bone.maxStretch, false, v -> bone.maxStretch = v);
         }
 
         if (bone.stretchy) {
-            slider(ctx, root, host, d, "How far it may stretch", hue, bone.maxStretch, false,
-                    v -> bone.maxStretch = v);
+            slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_bone_stretch), hue,
+                    bone.maxStretch, false, v -> bone.maxStretch = v);
         } else {
-            root.addView(hint(ctx, d,
-                    "A rigid bone stops the hand short and snaps the shoulder. "
-                    + "Cartoons usually want stretchy on."));
+            root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_rigid)));
         }
 
         LinearLayout limits = row(ctx);
-        addToggle(ctx, host, limits, d, "Joint limits", bone.jointLimits,
-                v -> bone.jointLimits = v);
+        addToggle(ctx, host, limits, d, ctx.getString(R.string.lane_b_puppet_bone_joint_limits),
+                bone.jointLimits, v -> bone.jointLimits = v);
         root.addView(limits);
         gap(ctx, root, d, 7);
 
         if (bone.jointLimits) {
             // The limit belongs to the pin this bone ARRIVES at — the knee, not the thigh —
             // which is exactly how puppetSolveChain reads it back out.
-            rangeSlider(ctx, root, host, d, "Fold no further back than", hue,
-                    bone.minAngleDeg, -180f, 0f, "°", v -> bone.minAngleDeg = v);
-            rangeSlider(ctx, root, host, d, "Fold no further forward than", hue,
-                    bone.maxAngleDeg, 0f, 180f, "°", v -> bone.maxAngleDeg = v);
+            rangeSlider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_bone_fold_back),
+                    hue, bone.minAngleDeg, -180f, 0f, "°", v -> bone.minAngleDeg = v);
+            rangeSlider(ctx, root, host, d,
+                    ctx.getString(R.string.lane_b_puppet_bone_fold_forward),
+                    hue, bone.maxAngleDeg, 0f, 180f, "°", v -> bone.maxAngleDeg = v);
         } else {
-            root.addView(hint(ctx, d, "Off by default — most cartoon rigs never want them."));
+            root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_limits_off)));
         }
 
         root.addView(hint(ctx, d,
-                "A bone holds no keys of its own. Moving it writes to " + rootName
-                + " and " + tipName + "."));
+                ctx.getString(R.string.lane_b_puppet_hint_bone_keys, rootName, tipName)));
     }
 
     // ── scope: CHARACTER ─────────────────────────────────────────────────
@@ -925,40 +931,44 @@ public final class PuppetDrawerTabs {
     private static void characterRows(@NonNull Context ctx, @NonNull Host host,
                                       @NonNull LinearLayout root, float d) {
         PuppetRig rig = host.rig();
-        slider(ctx, root, host, d, "Softness", host.accent(), rig.softness, true, v -> rig.softness = v);
-        slider(ctx, root, host, d, "Mesh detail", host.accent(), rig.meshDetail, false, v -> rig.meshDetail = v);
-        slider(ctx, root, host, d, "Gravity", PuppetPalette.DANGLE, rig.gravity, false,
-                v -> rig.gravity = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_softness),
+                host.accent(), rig.softness, true, v -> rig.softness = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_mesh_detail),
+                host.accent(), rig.meshDetail, false, v -> rig.meshDetail = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_gravity),
+                PuppetPalette.DANGLE, rig.gravity, false, v -> rig.gravity = v);
         // WIND. PuppetRigSolver.paramsFor has taken both of these since it was written and
         // PuppetDangleBake passes them straight through; only the two controls were missing.
-        slider(ctx, root, host, d, "Wind", PuppetPalette.DANGLE, rig.wind, false,
-                v -> rig.wind = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_wind),
+                PuppetPalette.DANGLE, rig.wind, false, v -> rig.wind = v);
         if (rig.wind > 0.001f) {
             // Shown only when there IS wind, because a direction for no wind is a row that
             // cannot do anything — and rows that cannot do anything are the thing being removed.
-            angleSlider(ctx, root, host, d, "Wind direction", PuppetPalette.DANGLE,
-                    rig.windDirDeg, 0f, 360f, v -> rig.windDirDeg = v);
+            angleSlider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_wind_dir),
+                    PuppetPalette.DANGLE, rig.windDirDeg, 0f, 360f, v -> rig.windDirDeg = v);
         }
 
         // Three toggles, ONE line.
         LinearLayout showRow = row(ctx);
-        addToggle(ctx, host, showRow, d, "Pins", rig.showPins, v -> rig.showPins = v);
-        addToggle(ctx, host, showRow, d, "Bones", rig.showBones, v -> rig.showBones = v);
-        addToggle(ctx, host, showRow, d, "Mesh", rig.showMesh, v -> rig.showMesh = v);
+        addToggle(ctx, host, showRow, d, ctx.getString(R.string.lane_b_puppet_rig_show_pins),
+                rig.showPins, v -> rig.showPins = v);
+        addToggle(ctx, host, showRow, d, ctx.getString(R.string.lane_b_puppet_rig_show_bones),
+                rig.showBones, v -> rig.showBones = v);
+        addToggle(ctx, host, showRow, d, ctx.getString(R.string.lane_b_puppet_rig_show_mesh),
+                rig.showMesh, v -> rig.showMesh = v);
         root.addView(showRow);
         gap(ctx, root, d, 7);
 
-        root.addView(fold(ctx, d, "Rarely needed"));
-        slider(ctx, root, host, d, "Edge threshold", host.accent(), rig.edgeThreshold, false,
-                v -> rig.edgeThreshold = v);
-        slider(ctx, root, host, d, "Edge expansion", host.accent(), rig.edgeExpansion, false,
-                v -> rig.edgeExpansion = v);
+        root.addView(fold(ctx, d, ctx.getString(R.string.lane_b_puppet_rig_rarely)));
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_edge_threshold),
+                host.accent(), rig.edgeThreshold, false, v -> rig.edgeThreshold = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_rig_edge_expansion),
+                host.accent(), rig.edgeExpansion, false, v -> rig.edgeExpansion = v);
 
         // The LOCK is deliberately NOT here. It lives on the puppet badge in the corner of the
         // preview, because the accident it prevents — knocking a pin on a sprite that happens to
         // have them — happens while this drawer is SHUT.
-        root.addView(hint(ctx, d,
-                "Tap the puppet on the picture to put the pins away"));
+        root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_put_away)));
 
         // START OVER. JoyRaptor asked for this in as many words: somebody who gets overwhelmed
         // needs a way back to a blank picture without deleting the picture.
@@ -969,13 +979,16 @@ public final class PuppetDrawerTabs {
         // would be a button that does nothing, dressed up in a warning.
         if (rig.pinCount() > 0) {
             gap(ctx, root, d, 10);
+            android.content.res.Resources res = ctx.getResources();
+            String pins = res.getQuantityString(R.plurals.lane_b_puppet_count_pins,
+                    rig.pinCount(), rig.pinCount());
+            String what = rig.boneCount() > 0
+                    ? ctx.getString(R.string.lane_b_puppet_count_join, pins,
+                            res.getQuantityString(R.plurals.lane_b_puppet_count_bones,
+                                    rig.boneCount(), rig.boneCount()))
+                    : pins;
             root.addView(dangerRow(ctx, host, d,
-                    "Start over",
-                    rig.pinCount() + (rig.pinCount() == 1 ? " pin" : " pins")
-                            + (rig.boneCount() > 0
-                                ? ", " + rig.boneCount()
-                                    + (rig.boneCount() == 1 ? " bone" : " bones")
-                                : "")));
+                    ctx.getString(R.string.lane_b_puppet_reset), what));
         }
     }
 
@@ -986,19 +999,20 @@ public final class PuppetDrawerTabs {
         PuppetRig rig = host.rig();
 
         LinearLayout pair = row(ctx);
-        addToggle(ctx, host, pair, d, "Record on touch", rig.recordOnTouch,
-                v -> rig.recordOnTouch = v);
-        addToggle(ctx, host, pair, d, "Snap to keys", rig.snapToKeys, v -> rig.snapToKeys = v);
+        addToggle(ctx, host, pair, d, ctx.getString(R.string.lane_b_puppet_record_on_touch),
+                rig.recordOnTouch, v -> rig.recordOnTouch = v);
+        addToggle(ctx, host, pair, d, ctx.getString(R.string.lane_b_puppet_record_snap),
+                rig.snapToKeys, v -> rig.snapToKeys = v);
         root.addView(pair);
         gap(ctx, root, d, 7);
 
-        slider(ctx, root, host, d, "Detail of recorded moves", host.accent(), rig.detail, false,
-                v -> rig.detail = v);
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_record_detail),
+                host.accent(), rig.detail, false, v -> rig.detail = v);
         // Stored in ms, shown as a fraction of half a second — a number nobody wants to type.
-        slider(ctx, root, host, d, "Blend out", host.accent(), rig.blendOutMs / 500f, false,
+        slider(ctx, root, host, d, ctx.getString(R.string.lane_b_puppet_record_blend_out),
+                host.accent(), rig.blendOutMs / 500f, false,
                 v -> rig.blendOutMs = Math.round(v * 500f));
-        root.addView(hint(ctx, d,
-                "A punch-in starts where the old move was, and eases back at the end"));
+        root.addView(hint(ctx, d, ctx.getString(R.string.lane_b_puppet_hint_punch_in)));
     }
 
     // ── controls ─────────────────────────────────────────────────────────
@@ -1081,7 +1095,9 @@ public final class PuppetDrawerTabs {
         SeekBar bar = new SeekBar(ctx);
         bar.setMax(SLIDER_STEPS);
         bar.setProgress(Math.round(clamp01(value) * SLIDER_STEPS));
-        styleSlider(bar, d, hue);
+        // The Kit's slider face, filled with THIS slider's colour at 70% (a pin type's hue, or
+        // the rig's) — it says which thing the number belongs to (drawer audit 2026-09-24, U1).
+        ObjectDrawer.Kit.styleSlider(bar, ObjectDrawer.Kit.onFill(hue));
         bar.setContentDescription(label);
         bar.setPadding(pad(d, 8), pad(d, 4), pad(d, 8), pad(d, 4));
         bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
@@ -1175,7 +1191,7 @@ public final class PuppetDrawerTabs {
         cell.setMinimumHeight(pad(d, 32));
         cell.setPadding(pad(d, 2), 0, pad(d, 8), 0);
 
-        TextView l = text(ctx, d, 9.5f, TXT_FAINT);
+        TextView l = text(ctx, d, 9.5f, TXT_DIM);
         l.setText(label);
         l.setSingleLine(true);
         l.setEllipsize(android.text.TextUtils.TruncateAt.END);
@@ -1212,7 +1228,10 @@ public final class PuppetDrawerTabs {
         cell.setPadding(pad(d, 2), 0, pad(d, 4), 0);
 
         View box = new View(ctx);
-        box.setBackground(checkBoxFace(ctx, d, host.accent(), on));
+        // The shared .dcb face (drawer audit 2026-09-24, U1/U5): a drawn box rather than a
+        // CheckBox because the whole 44dp CELL is the control, not the box.
+        box.setBackground(TextOverlayDrawer.Kit.checkbox(ctx, on,
+                ObjectDrawer.Kit.onFill(host.accent()), TXT_DIM));
         cell.addView(box, new LinearLayout.LayoutParams(pad(d, 18), pad(d, 18)));
 
         TextView t = text(ctx, d, 11.5f, on ? TXT : Studio.DRAWER_DIM);
@@ -1252,7 +1271,7 @@ public final class PuppetDrawerTabs {
 
     @NonNull
     private static View hint(@NonNull Context ctx, float d, @NonNull String text) {
-        TextView t = text(ctx, d, 10.5f, TXT_FAINT);
+        TextView t = text(ctx, d, 10.5f, TXT_DIM);
         t.setText(text);
         t.setPadding(pad(d, 2), pad(d, 5), pad(d, 2), pad(d, 3));
         return t;
@@ -1282,150 +1301,52 @@ public final class PuppetDrawerTabs {
                 ViewGroup.LayoutParams.MATCH_PARENT, pad(d, dp)));
     }
 
-    // ── the drawer kit: ONE builder per visual (record 06 §02) ──────────────────────────
-    // Text, section label, value, pill, slider face, checkbox face, press, hover label.
-    // Nothing above sets a colour, a font or a corner of its own. AudioDrawerTabs carries the
-    // same kit; the report that came with this pass names the signature to lift into one
-    // shared class once the drawer lanes merge.
+    // ── the drawer kit — ObjectDrawer.Kit, asked for by this file's old names ──────────
+    // These used to be a private copy of the kit (drawer audit 2026-09-24, U1): its own slider,
+    // checkbox face, pill, press and hover label, and a drop shadow on every word. They are thin
+    // now: each says which shared piece a control is, plus the one local fact it needs.
 
-    /** Plain drawer text: body face, drawer ink, and the shadow every drawer word carries. */
+    /** Plain drawer text: body face in {@code colour}. No drop shadow — the Kit drawers have none. */
     @NonNull
     private static TextView text(@NonNull Context ctx, float d, float sp, int colour) {
         TextView t = new TextView(ctx);
         t.setTextSize(sp);
         t.setTextColor(colour);
-        t.setShadowLayer(3f * d, 0f, 1f, SHADOW);
         com.fadcam.ui.type.Type.body(t, com.fadcam.ui.type.Type.REGULAR);
         return t;
     }
 
-    /**
-     * Record 06 {@code .dsec}: IBM Plex Mono 8sp, .14em, UPPERCASE, {@code --dlabel} — the
-     * colour the record measured at 4.86:1 over the dark scrim. Single line, ellipsised.
-     */
+    /** Record 06 {@code .dsec}, from the Kit; ellipsised, because a slider label shares its line. */
     @NonNull
     private static TextView sectionLabel(@NonNull Context ctx, float d, @NonNull String label) {
-        TextView t = text(ctx, d, 8f, TXT_DIM);
-        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
-        t.setLetterSpacing(0.14f);
-        t.setSingleLine(true);
-        t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
+        TextView t = ObjectDrawer.Kit.sectionLabel(ctx, label);
         t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-        t.setText(label);
         return t;
     }
 
-    /** Record 06 {@code .dscrub b}: mono 12sp w600, drawer ink, tabular so digits do not jitter. */
+    /** Record 06 {@code .dscrub b}: the shared mono, tabular readout. */
     @NonNull
     private static TextView valueText(@NonNull Context ctx, float d) {
-        TextView t = text(ctx, d, 12f, TXT);
-        com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.SEMIBOLD);
-        t.setFontFeatureSettings("tnum");
-        return t;
+        return TextOverlayDrawer.Kit.valueText(ctx);
+    }
+
+    /** A fully round shape — "Fill=Pill controls" — from the Kit. {@code ring} 0 = none. */
+    @NonNull
+    private static GradientDrawable pill(@NonNull Context ctx, int fill, int ring) {
+        return ObjectDrawer.Kit.pill(ctx, fill, ring);
     }
 
     /**
-     * Record 06 {@code .dsl}: a 4dp {@code rgba(255,255,255,.18)} track, the colour at 70% for
-     * the filled part, and a 15dp white thumb. The colour stays the slider's own (a pin type's
-     * hue, or the rig's) — it says which thing the number belongs to.
+     * Press feedback, from the Kit: 140ms to 0.97 on the pressed state. Not used on the record
+     * button or the ‹♦› — record 06 never animates keying.
      */
-    private static void styleSlider(@NonNull SeekBar bar, float d, int hue) {
-        GradientDrawable bg = rounded(d, TRACK, 0, 999);
-        GradientDrawable fill = rounded(d, Studio.alpha(hue, ON_ALPHA), 0, 999);
-        android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
-                fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
-        android.graphics.drawable.LayerDrawable layers =
-                new android.graphics.drawable.LayerDrawable(
-                        new android.graphics.drawable.Drawable[]{bg, clip});
-        layers.setId(0, android.R.id.background);
-        layers.setId(1, android.R.id.progress);
-        for (int i = 0; i < 2; i++) {
-            layers.setLayerGravity(i, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
-            layers.setLayerHeight(i, pad(d, 4));
-        }
-        bar.setProgressDrawable(layers);
-        GradientDrawable thumb = new GradientDrawable();
-        thumb.setShape(GradientDrawable.OVAL);
-        thumb.setColor(TXT);
-        thumb.setSize(pad(d, 15), pad(d, 15));
-        bar.setThumb(thumb);
-        bar.setSplitTrack(false);
-    }
-
-    /**
-     * One face of record 06's drawer checkbox (.dcb): an 18dp box, radius 5 — a 1.5dp
-     * {@code --dlabel} ring when off; the accent at 70% with a dark tick when on.
-     */
-    @NonNull
-    private static android.graphics.drawable.Drawable checkBoxFace(@NonNull Context ctx, float d,
-                                                                  int accent, boolean on) {
-        int size = pad(d, 18);
-        if (!on) {
-            GradientDrawable off = rounded(d, 0x00000000, 0, 5);
-            off.setStroke(Math.round(1.5f * d), TXT_DIM);
-            off.setSize(size, size);
-            return off;
-        }
-        GradientDrawable fill = rounded(d, Studio.alpha(accent, ON_ALPHA), 0, 5);
-        fill.setSize(size, size);
-        android.graphics.drawable.Drawable tick =
-                androidx.core.content.ContextCompat.getDrawable(ctx, R.drawable.ic_check);
-        if (tick == null) return fill;
-        tick = tick.mutate();
-        tick.setTint(ON_FILL_INK);
-        android.graphics.drawable.LayerDrawable face =
-                new android.graphics.drawable.LayerDrawable(
-                        new android.graphics.drawable.Drawable[]{fill, tick});
-        face.setLayerGravity(1, Gravity.CENTER);
-        face.setLayerSize(1, pad(d, 13), pad(d, 13));
-        return face;
-    }
-
-    /** A fully round shape — "Fill=Pill controls". {@code ring} 0 = none. */
-    @NonNull
-    private static GradientDrawable pill(float d, int fill, int ring) {
-        return rounded(d, fill, ring, 999);
-    }
-
-    /** A rounded rect with an optional 1dp ring ({@code ring} 0 = none). */
-    @NonNull
-    private static GradientDrawable rounded(float d, int fill, int ring, int radiusDp) {
-        GradientDrawable g = new GradientDrawable();
-        g.setColor(fill);
-        g.setCornerRadius(radiusDp * d);
-        if (ring != 0) g.setStroke(Math.max(1, Math.round(d)), ring);
-        return g;
-    }
-
-    /**
-     * Press feedback: 140ms to 0.97 on the record's ease-out, and back. Transform only;
-     * returns false so the view's own click still fires. Not used on the record button or the
-     * ‹♦› — record 06 never animates keying.
-     */
-    @android.annotation.SuppressLint("ClickableViewAccessibility")
     private static void press(@NonNull View v) {
-        v.setOnTouchListener((view, e) -> {
-            int a = e.getActionMasked();
-            if (a == android.view.MotionEvent.ACTION_DOWN) {
-                view.animate().scaleX(0.97f).scaleY(0.97f).setDuration(140)
-                        .setInterpolator(EASE_OUT).start();
-            } else if (a == android.view.MotionEvent.ACTION_UP
-                    || a == android.view.MotionEvent.ACTION_CANCEL) {
-                view.animate().scaleX(1f).scaleY(1f).setDuration(140)
-                        .setInterpolator(EASE_OUT).start();
-            }
-            return false;
-        });
+        ObjectDrawer.Kit.pressable(v);
     }
 
-    /** Record 06 {@code --ease-out}: cubic-bezier(.23,1,.32,1). Never ease-in. */
-    private static final android.view.animation.Interpolator EASE_OUT =
-            new android.view.animation.PathInterpolator(0.23f, 1f, 0.32f, 1f);
-
-    /** Spoken name AND hover tooltip — a stylus or a mouse shows it on Android. */
+    /** Spoken name AND hover tooltip, through the Kit. */
     private static void hoverLabel(@NonNull View v, @NonNull CharSequence label) {
-        v.setContentDescription(label);
-        androidx.core.view.ViewCompat.setTooltipText(v, label);
+        ObjectDrawer.Kit.describe(v, label);
     }
 
     @NonNull

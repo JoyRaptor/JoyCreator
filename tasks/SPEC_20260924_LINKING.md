@@ -353,3 +353,55 @@ L1 is the smallest slice that answers "who am I linked to, and how do I unlink j
    deleted with it?
 5. **Name and visibility:** "Helper", "Null", or "Handle"? And should Helpers show as a small
    crosshair in the picture all the time, or only when one is selected?
+
+---
+
+## 12. Owner's answers and the link tool (JoyRaptor, 2026-09-24) — SUPERSEDES §4 where they differ
+
+### Answers to §11
+1. **Fade with the parent?** Only when **opacity** is one of the linked properties. Opacity is a
+   per-link switch like position/scale/rotation, not a special case.
+2. **Unlink keeps the object where it is at that moment.** Yes — preferred.
+3. **Linked things slide together and are never shortened.** Confirmed. If a slide would make a
+   follower overlap something on its lane, it **drops into a new lane** instead. No overlap on a
+   lane, no shortening because it got pushed against something.
+4. **Deleting a parent asks.** A dialog: "This object has N dependents" + a checklist of them
+   (checked = delete with the parent) + **[Never mind]** and **[Confirm — 5 of 8 objects will be
+   removed]** (the button sums what will go). Unchecked followers are set free, keeping their pose.
+5. **Name.** Brainstorm; the owner leans to **Dummy** or **Proxy** (also on the table: Helper,
+   Null, Handle). Decide at build time; the code name stays `Helper` until then.
+
+### The link tool — a transport button beside the magnet (same grammar as the magnet)
+The owner's design replaces §4's "Link to…" drawer row as the primary door (the drawer row stays
+as the place links are LISTED and unlinked).
+- **Tap** = ARM. Whatever is selected becomes the link source; the icon lights. Every object that
+  can accept the link gets a clear "can link here" treatment in the preview AND the timeline, so
+  targets are hard to miss. The **next single tap on an available object** picks the target and
+  opens a small **link-details popup**: which properties (position · scale · rotation · opacity ·
+  time), relationship style, remembered from the last link made. As the choices change, the
+  **tether's colour and animation** preview the relationship: parent→child = arrows travelling one
+  way; peers = two-way movement. OK commits (one undo). **Tapping the link icon again disarms** —
+  back to grey, nothing happened.
+- **Double-tap** = link settings for the selected object(s): its current links and defaults. With
+  several selected, fields that differ show merged in grey and are overwritten/unified by any
+  change you commit.
+- **Long-press** = the link TOOL's own settings: defaults, modes, "add a Dummy/Proxy to what's
+  selected", and any other sub-tools.
+- **Armed must not hijack navigation.** While armed, pinch-zoom, scroll, scrub and the minimap all
+  behave normally; ONLY an explicit single tap on an available object picks a target.
+- Once linked, tapping either object shows the thin tether in the timeline and/or preview.
+
+### Beyond transforms (the After Effects lesson: things drive things)
+- **Warp (bend) pins and puppet pins are linkable** — a hand pin can carry a prop.
+- **Parameter drivers:** link one property to another of a different kind, e.g. motion → a hue
+  slider, rotation → brightness, position → font size. A driver link has a source property, a
+  target property and a mapping (range in → range out, optional curve).
+- **Keyframing a change of parent** ("a person holds a ball, passes it to another, and the ball
+  follows the second person's hand"): don't animate the ball — align it to a Dummy/Proxy and key
+  the **proxy's parent** over time. These parent-switch keys and all the "creative connection"
+  properties live in the **Dummy/Proxy's drawer**, which keeps every other drawer uncluttered.
+
+### Build order change
+L0 (group move) ✅ a9e1be4c. Next: **L1 = the link button (arm → tap target → details popup →
+tether) for position/scale/rotation/opacity/time between text, images and sprites**, then
+Dummy/Proxy objects with keyed parent switches, then pin links and parameter drivers.

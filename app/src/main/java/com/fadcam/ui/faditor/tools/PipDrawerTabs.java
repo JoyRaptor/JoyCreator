@@ -47,7 +47,6 @@ public final class PipDrawerTabs {
     // It used to carry its own chip (square, INK at 13%), its own row padding, and a drop
     // shadow on every label — none of which any other drawer file agreed with.
 
-    private static final int TXT = Studio.DRAWER_INK;
     private static final int SLIDER_STEPS = 1000;
 
     /**
@@ -142,6 +141,12 @@ public final class PipDrawerTabs {
         void onChanged();
         /** Arm the eyedropper; the next tap on the preview reports a colour (or null). */
         void pickColorFromPreview(@NonNull ColorPicked cb);
+        /**
+         * Whether {@link #pickColorFromPreview} can actually sample. A host that cannot (an image
+         * or adjustment layer) returns false and the Key tab leaves the eyedropper out, rather
+         * than showing a chip that only toasts "isn't available" (drawer audit 2026-09-24, P3).
+         */
+        default boolean canPickColor() { return true; }
         /** Record one undo step. */
         void recordUndo(@NonNull String label, @NonNull Runnable redo, @NonNull Runnable undo);
         /**
@@ -338,6 +343,8 @@ public final class PipDrawerTabs {
                                         float d) {
         FineSeekBar bar = new FineSeekBar(ctx);
         ObjectDrawer.Kit.styleSlider(bar);
+        // Each split slider says its OWN name (Scale X / Scale Y), not the row's shared word.
+        bar.setContentDescription(prop.label());
         bar.setMax(SLIDER_STEPS);
         final float min = propMin(prop), max = propMax(prop);
         float cur = prop.valueAt(host.playheadMs());
@@ -371,6 +378,7 @@ public final class PipDrawerTabs {
         value.setPaintFlags(value.getPaintFlags()
                 | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
+        typeHint(ctx, value);
 
         final KeyframeDiamondControl diamond = new KeyframeDiamondControl(ctx);
         final Runnable[] selfRefresh = new Runnable[1];
@@ -445,6 +453,7 @@ public final class PipDrawerTabs {
             dial = null;
             bar = new FineSeekBar(ctx);
             ObjectDrawer.Kit.styleSlider(bar);
+            bar.setContentDescription(prop.label());   // drawer audit 2026-09-24, P4
             bar.setMax(SLIDER_STEPS);
             bar.setProgress(Math.round((cur - min) / Math.max(1e-6f, max - min) * SLIDER_STEPS));
         }
@@ -488,6 +497,7 @@ public final class PipDrawerTabs {
         value.setPaintFlags(value.getPaintFlags()
                 | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
         value.setPadding(0, Math.round(6 * d), 0, Math.round(6 * d));
+        typeHint(ctx, value);
 
         final KeyframeDiamondControl diamond;
         // The row's own refresh — value text, slider position and diamond state, all read back
@@ -617,12 +627,13 @@ public final class PipDrawerTabs {
         input.setText(isRotation ? trimNumber(cur) : trimNumber(inUnits ? cur * sc + off : cur));
         input.setSelectAllOnFocus(true);
         if (isRotation) {
-            input.setHint("720, -45, 16x");                        // TODO(strings)
+            input.setHint(R.string.lane_a_rotation_hint);
         } else {
             float lo = inUnits ? min * sc + off : min;
             float hi = inUnits ? max * sc + off : max;
             if (hi < lo) { float t = lo; lo = hi; hi = t; }
-            input.setHint(trimNumber(lo) + " … " + trimNumber(hi));                // TODO(strings)
+            input.setHint(ctx.getString(R.string.lane_a_range_hint,
+                    trimNumber(lo), trimNumber(hi)));
         }
         LinearLayout wrap = column(ctx);
         int pad = Math.round(20 * d);
@@ -818,7 +829,7 @@ public final class PipDrawerTabs {
                 // Drawer label ink, not INK_FAINT: #71717A over the scrim on a bright frame is
                 // the unreadable secondary text of record 06's CRITICAL 01.
                 TextView none = ObjectDrawer.Kit.note(ctx,
-                        "No mask. Add one to show only part of this object.");
+                        ctx.getString(R.string.lane_a_mask_empty));
                 none.setTextSize(11.5f);
                 none.setPadding(0, Math.round(6 * dp), 0, Math.round(6 * dp));
                 sliderHost.addView(none);
@@ -874,7 +885,10 @@ public final class PipDrawerTabs {
                     CompositingSpec.MODE_INTERSECT};
             final int[] modeIcons = {R.drawable.ic_mask_mode_add_24,
                     R.drawable.ic_mask_mode_subtract_24, R.drawable.ic_mask_mode_intersect_24};
-            final String[] modeNames = {"Add", "Subtract", "Intersect"};
+            // Own strings, not faditor_blend_add: that "Add" is the blend mode's meaning.
+            final String[] modeNames = {ctx.getString(R.string.lane_a_mask_mode_add),
+                    ctx.getString(R.string.lane_a_mask_mode_subtract),
+                    ctx.getString(R.string.lane_a_mask_mode_intersect)};
             for (int i = 0; i < modes.length; i++) {
                 final int mode = modes[i];
                 android.widget.ImageView b = iconButton(
@@ -947,13 +961,9 @@ public final class PipDrawerTabs {
         inv.setOnCheckedChangeListener((b, on) -> { spec.invertMasks = on; apply.run(); });
 
         // ── The writers for MaskAnimator ────────────────────────────────────────────────
-        // Inline literals: strings.xml is another agent's live file under the working protocol
-        // noted in FaditorEditorActivity.
-
         float d = ctx.getResources().getDisplayMetrics().density;
 
-        // Built directly rather than via check(): that helper takes a STRING RESOURCE id,
-        // and passing 0 for an inline literal would throw at inflate time.
+        // Built directly rather than via check(): its checked state is re-synced per shape.
         // PER-SHAPE, like the sliders above it — MaskShape.linkedToObject is a shape field, so
         // one shape can ride the object while another stays pinned to the frame. Its checked
         // state is therefore re-synced whenever the selection changes (see syncSelected below);
@@ -964,7 +974,7 @@ public final class PipDrawerTabs {
         @Nullable final CheckBox link;
         if (linkSource != null) {
             link = new CheckBox(ctx);
-            link.setText("Move with the object");
+            link.setText(R.string.faditor_mask_link_object);
             ObjectDrawer.Kit.styleCheck(link);
             link.setChecked(!spec.masks.isEmpty() && spec.masks.get(sel[0]).linkedToObject);
             link.setOnCheckedChangeListener((b, on) -> {
@@ -1009,9 +1019,7 @@ public final class PipDrawerTabs {
 
         @Nullable final TextView hint;
         if (link != null) {
-            hint = ObjectDrawer.Kit.note(ctx,
-                    "Off: the mask stays put and the object moves under it. "
-                    + "On: the mask travels with the object.");
+            hint = ObjectDrawer.Kit.note(ctx, ctx.getString(R.string.faditor_mask_link_hint));
             hint.setTextSize(11.5f);
             hint.setPadding(0, 0, 0, (int) (6 * d));
             root.addView(hint);
@@ -1024,9 +1032,11 @@ public final class PipDrawerTabs {
         state.setTextSize(11.5f);
         state.setPadding((int) (2 * d), 0, 0, 0);
         final Runnable refresh = () ->
-                state.setText(spec.hasMaskKeys() ? "animated" : "not animated");
+                state.setText(spec.hasMaskKeys() ? R.string.lane_a_mask_animated
+                        : R.string.lane_a_mask_static);
 
-        TextView addKey = chip(ctx, "◆ Key at playhead", d);
+        TextView addKey = chip(ctx, ctx.getString(R.string.lane_a_mask_key_chip), d);
+        ObjectDrawer.Kit.describe(addKey, ctx.getString(R.string.lane_a_mask_key_here));
         addKey.setOnClickListener(v -> {
             long t = playheadMs.get();
             if (spec.maskKeys == null) {
@@ -1051,10 +1061,11 @@ public final class PipDrawerTabs {
             refresh.run();
             apply.run();
             android.widget.Toast.makeText(ctx,
-                    "Shape " + (sel[0] + 1) + " keyed at " + (t / 1000f) + "s",
+                    ctx.getString(R.string.lane_a_mask_keyed_toast, sel[0] + 1, t / 1000f),
                     android.widget.Toast.LENGTH_SHORT).show();
         });
-        TextView clearKeys = chip(ctx, "Clear", d);
+        TextView clearKeys = chip(ctx, ctx.getString(R.string.faditor_kf_clear), d);
+        ObjectDrawer.Kit.describe(clearKeys, ctx.getString(R.string.lane_a_mask_clear_keys));
         clearKeys.setOnClickListener(v -> { spec.maskKeys = null; refresh.run(); apply.run(); });
         keyRow.addView(addKey);
         keyRow.addView(clearKeys);
@@ -1161,20 +1172,25 @@ public final class PipDrawerTabs {
             swatchRow.addView(sw);
         }
         // A chip, not violet text: it is a control, and the violet was Avatar's room colour
-        // borrowed for "tap me" — a role it does not have.
-        TextView dropper = ObjectDrawer.Kit.chip(ctx, ctx.getText(R.string.faditor_key_eyedropper));
-        ObjectDrawer.Kit.pressable(dropper);
-        dropper.setOnClickListener(v -> host.pickColorFromPreview(rgb -> {
-            if (rgb == null) {
-                android.widget.Toast.makeText(ctx, R.string.faditor_key_eyedropper_failed,
-                        android.widget.Toast.LENGTH_SHORT).show();
-                return;
-            }
-            spec.keyColor = rgb;
-            refreshColor.run();
-            apply.run();
-        }));
-        swatchRow.addView(dropper);
+        // borrowed for "tap me" — a role it does not have. Left out entirely where the host
+        // cannot sample the preview (drawer audit 2026-09-24, P3): a chip that only toasts
+        // "isn't available" is a dead knob.
+        if (host.canPickColor()) {
+            TextView dropper = ObjectDrawer.Kit.chip(ctx,
+                    ctx.getText(R.string.faditor_key_eyedropper));
+            ObjectDrawer.Kit.pressable(dropper);
+            dropper.setOnClickListener(v -> host.pickColorFromPreview(rgb -> {
+                if (rgb == null) {
+                    android.widget.Toast.makeText(ctx, R.string.faditor_key_eyedropper_failed,
+                            android.widget.Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                spec.keyColor = rgb;
+                refreshColor.run();
+                apply.run();
+            }));
+            swatchRow.addView(dropper);
+        }
         body.addView(swatchRow);
 
         slider(ctx, body, "key_tolerance", R.string.faditor_key_tolerance, 100,
@@ -1311,6 +1327,7 @@ public final class PipDrawerTabs {
 
         FineSeekBar bar = new FineSeekBar(ctx);
         ObjectDrawer.Kit.styleSlider(bar);
+        bar.setContentDescription(ctx.getString(labelRes));   // drawer audit 2026-09-24, P4
         bar.setMax(max - min);
         bar.setProgress(Math.max(0, Math.min(max - min, initial - min)));
 
@@ -1328,25 +1345,20 @@ public final class PipDrawerTabs {
             @Override public void onStopTrackingTouch(SeekBar s) {}
         });
 
-        // ‹ ◇ › — one step down, keyframe diamond, one step up (user, 2026-08-06). A slider
+        // ‹ · › — one step down, a reserved slot, one step up (user, 2026-08-06). A slider
         // this narrow cannot be nudged by a single unit with a fingertip, which is exactly the
         // precision wanted when lining a mask up against a face.
-        TextView dec = stepper(ctx, "‹", d);
-        TextView key = stepper(ctx, "◇", d);
-        TextView inc = stepper(ctx, "›", d);
+        TextView dec = ObjectDrawer.Kit.stepper(ctx, "‹", ctx.getString(R.string.lane_a_step_down));
+        TextView inc = ObjectDrawer.Kit.stepper(ctx, "›", ctx.getString(R.string.lane_a_step_up));
         dec.setOnClickListener(v -> bar.setProgress(Math.max(0, bar.getProgress() - 1)));
         inc.setOnClickListener(v ->
                 bar.setProgress(Math.min(max - min, bar.getProgress() + 1)));
-        // The diamond is a placeholder until per-parameter mask keying lands: the tab's own
-        // "Key at playhead" still keys all six at once. Shown disabled-looking rather than
-        // omitted so the row's spacing is final and does not shift when it is wired.
-        key.setAlpha(0.35f);
 
         row.addView(bar, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.addView(value);
         row.addView(dec);
-        row.addView(key);
+        row.addView(diamondSlot(ctx));
         row.addView(inc);
         parent.addView(row);
     }
@@ -1378,12 +1390,9 @@ public final class PipDrawerTabs {
         TextView value = ObjectDrawer.Kit.value(ctx, 40);
         value.setText(String.valueOf(initial));
 
-        // ‹ ◇ › — same nudge trio the other mask rows carry. The diamond stays the
-        // disabled-looking placeholder: per-parameter mask keying is not wired per-row yet,
-        // and keeping it reserves the row's final width (see the slider helper).
-        TextView dec = stepper(ctx, "‹", d);
-        TextView key = stepper(ctx, "◇", d);
-        TextView inc = stepper(ctx, "›", d);
+        // ‹ · › — same nudge pair and reserved slot the other mask rows carry (see slider()).
+        TextView dec = ObjectDrawer.Kit.stepper(ctx, "‹", ctx.getString(R.string.lane_a_step_down));
+        TextView inc = ObjectDrawer.Kit.stepper(ctx, "›", ctx.getString(R.string.lane_a_step_up));
         dec.setOnClickListener(v -> {
             dial.setDegrees(dial.getDegrees() - 1f);
             value.setText(String.valueOf(Math.round(dial.getDegrees())));
@@ -1394,7 +1403,6 @@ public final class PipDrawerTabs {
             value.setText(String.valueOf(Math.round(dial.getDegrees())));
             onChange.accept(dial.getDegrees());
         });
-        key.setAlpha(0.35f);
 
         dial.setListener(new RotationDialView.Listener() {
             @Override public void onDragStart() { }
@@ -1406,11 +1414,12 @@ public final class PipDrawerTabs {
             @Override public void onTap() { promptMaskAngle(ctx, dial, value, onChange); }
         });
         value.setOnClickListener(v -> promptMaskAngle(ctx, dial, value, onChange));
+        typeHint(ctx, value);
 
         addDialInSliderSlot(ctx, row, dial);
         row.addView(value);
         row.addView(dec);
-        row.addView(key);
+        row.addView(diamondSlot(ctx));
         row.addView(inc);
         parent.addView(row);
     }
@@ -1489,24 +1498,28 @@ public final class PipDrawerTabs {
         return iv;
     }
 
-    /** One tap target in a slider row's {@code ‹ ◇ ›} cluster. */
+    /**
+     * The empty column between a mask row's {@code ‹} and {@code ›}. It held a ◇ that was dimmed,
+     * had no listener and did nothing — six dead diamonds per shape (drawer audit 2026-09-24,
+     * P1/P2). The tab's own "Key at playhead" chip keys a shape; the slot keeps the stepper
+     * width so every row's column lines up, and per-row keying can land here later.
+     */
     @NonNull
-    private static TextView stepper(@NonNull Context ctx, @NonNull String glyph, float d) {
-        TextView t = new TextView(ctx);
-        t.setText(glyph);
-        // ‹ and › are glyphs, not names: say what they do. The ◇ placeholder has no listener
-        // and is not a control, so it gets no name.
-        if ("‹".equals(glyph)) ObjectDrawer.Kit.describe(t, ctx.getString(R.string.lane_a_step_down));
-        else if ("›".equals(glyph)) ObjectDrawer.Kit.describe(t, ctx.getString(R.string.lane_a_step_up));
-        t.setTextColor(TXT);
-        t.setTextSize(15);
-        t.setGravity(Gravity.CENTER);
-        // 30dp is under the 48dp guideline, but four rows of 48 would push the sliders off a
-        // drawer that deliberately leaves the timeline visible. Widened padding rather than
-        // height keeps the hit area usable without growing the row.
-        t.setWidth(Math.round(30 * d));
-        t.setPadding(0, Math.round(4 * d), 0, Math.round(4 * d));
-        return t;
+    private static View diamondSlot(@NonNull Context ctx) {
+        android.widget.Space s = new android.widget.Space(ctx);
+        s.setLayoutParams(new LinearLayout.LayoutParams(
+                ObjectDrawer.Kit.dp(ctx, ObjectDrawer.Kit.STEPPER_DP), 1));
+        return s;
+    }
+
+    /**
+     * A tap-to-type readout's hover hint. Tooltip ONLY: a content description would replace
+     * the number TalkBack reads, which is the thing the user wants to hear (drawer audit
+     * 2026-09-24, P5; the same call AudioDrawerTabs makes).
+     */
+    private static void typeHint(@NonNull Context ctx, @NonNull TextView value) {
+        androidx.core.view.ViewCompat.setTooltipText(value,
+                ctx.getString(R.string.lane_a_value_type_hint));
     }
 
     private static float propMin(@NonNull ObjectMenuSheet.Prop p) { return p.min(); }

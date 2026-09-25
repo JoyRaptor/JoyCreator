@@ -1610,13 +1610,24 @@ public final class ObjectDrawer extends LinearLayout {
          * is 4dp whatever height the bar is laid out at — the touch height is untouched.
          */
         public static void styleSlider(@NonNull android.widget.SeekBar bar) {
+            styleSlider(bar, onFill(sAccent));
+        }
+
+        /**
+         * {@link #styleSlider(android.widget.SeekBar)} with an explicit fill, for a panel that
+         * is not tinted to an object (a popover). The ONE slider face: TextOverlayDrawer's Kit
+         * delegates here rather than drawing a second one (drawer audit 2026-09-24, T2).
+         */
+        public static void styleSlider(@NonNull android.widget.SeekBar bar, int fillColour) {
             Context ctx = bar.getContext();
             int h = dp(ctx, 4);
+            // setProgressDrawable can drop the level on some API levels; put it back below.
+            int progress = bar.getProgress();
             GradientDrawable track = new GradientDrawable();
             track.setColor(TRACK);
             track.setCornerRadius(h);
             GradientDrawable fill = new GradientDrawable();
-            fill.setColor(onFill(sAccent));
+            fill.setColor(fillColour);
             fill.setCornerRadius(h);
             android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
                     fill, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
@@ -1635,7 +1646,35 @@ public final class ObjectDrawer extends LinearLayout {
             thumb.setSize(dp(ctx, 15), dp(ctx, 15));
             bar.setThumb(thumb);
             bar.setSplitTrack(false);
+            bar.setProgress(progress);
         }
+
+        /**
+         * One {@code ‹} / {@code ›} nudge beside a slider row: 15sp glyph in the idle-control ink,
+         * a 30 × 28dp target (record 06 §04's "nothing below 28dp"), named, with press feedback.
+         * The mask rows and the Effects tab's key chevrons each hand-rolled this (drawer audit
+         * 2026-09-24, P15); the caller adds the click listener.
+         */
+        @NonNull
+        public static TextView stepper(@NonNull Context ctx, @NonNull CharSequence glyph,
+                                       @NonNull CharSequence name) {
+            TextView t = new TextView(ctx);
+            t.setText(glyph);
+            t.setTextColor(Studio.DRAWER_DIM);
+            t.setTextSize(15);
+            t.setGravity(Gravity.CENTER);
+            // 30dp wide, not 48: four rows of 48 would push the sliders off a drawer that
+            // deliberately leaves the timeline visible. Padding, not height, keeps it hittable.
+            t.setMinWidth(dp(ctx, 30));
+            t.setMinHeight(dp(ctx, 28));
+            t.setPadding(0, dp(ctx, 4), 0, dp(ctx, 4));
+            describe(t, name);
+            pressable(t);
+            return t;
+        }
+
+        /** The width {@link #stepper} reserves, for a row that keeps its column without one. */
+        public static final int STEPPER_DP = 30;
 
         /**
          * {@code .dcb}: an 18dp box ringed in {@code --dlabel}, filled with the accent when on;

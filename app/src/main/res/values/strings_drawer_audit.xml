@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Drawer consistency audit 2026-09-24 (tasks/AUDIT_20260924_DRAWERS.md): words the drawer
+     tab builders used to type as literals. Own file so no other lane's strings file is touched. -->
+<resources>
+
+    <!-- PipDrawerTabs: Transform / Mask / Key tabs -->
+    <string name="lane_a_value_type_hint">Tap to type an exact value</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">No mask. Add one to show only part of this object.</string>
+    <string name="lane_a_mask_mode_add">Add</string>
+    <string name="lane_a_mask_mode_subtract">Subtract</string>
+    <string name="lane_a_mask_mode_intersect">Intersect</string>
+    <string name="faditor_mask_link_object">Move with the object</string>
+    <string name="faditor_mask_link_hint">Off: the mask stays put and the object moves under it. On: the mask travels with the object.</string>
+    <string name="lane_a_mask_animated">animated</string>
+    <string name="lane_a_mask_static">not animated</string>
+    <string name="lane_a_mask_key_chip">◆ Key at playhead</string>
+    <string name="lane_a_mask_key_here">Key this shape at the playhead</string>
+    <string name="lane_a_mask_clear_keys">Clear every mask keyframe</string>
+    <string name="lane_a_mask_keyed_toast">Shape %1$d keyed at %2$.1fs</string>
+
+    <!-- FxPanel: the Effects tab -->
+    <string name="faditor_fx_empty_layer">This layer changes nothing yet. Add an effect and everything beneath the layer takes it.</string>
+    <string name="faditor_fx_empty_object">No effects on this object yet. Add one and it rides with the object — it affects this and nothing else.</string>
+    <string name="faditor_fx_position">Position in preview</string>
+    <string name="faditor_fx_position_done">Positioning in preview — done</string>
+    <string name="faditor_fx_blend">Blend</string>
+    <string name="faditor_fx_vertices">Vertices</string>
+    <string name="faditor_fx_edit_gradient">Edit this gradient</string>
+    <string name="faditor_fx_curve_edit">Edit in preview</string>
+    <string name="faditor_fx_curve_edit_done">Editing in preview — done</string>
+    <string name="faditor_fx_straighten">Straighten</string>
+    <string name="faditor_fx_save_look">Save look</string>
+    <string name="faditor_fx_look_name_hint">Name this look</string>
+    <string name="faditor_fx_look_save">Save</string>
+    <string name="faditor_fx_saved_looks">Saved looks</string>
+    <string name="faditor_fx_look_desc">Load %1$s. Hold to delete</string>
+    <string name="faditor_fx_load">Load</string>
+    <string name="faditor_fx_load_confirm">Load \'%1$s\'?</string>
+    <string name="faditor_fx_delete_look_confirm">Delete \'%1$s\'?</string>
+    <string name="faditor_fx_add">＋ Add effect</string>
+    <string name="faditor_fx_needs_pass_title">%1$s needs its own pass</string>
+    <string name="faditor_fx_needs_pass_body">%1$s reads neighbouring pixels, so it needs a finished image to work from. An object is drawn in a single pass, so there isn\'t one yet.\n\nPut it on an adjustment layer above this object and it will apply to this and everything under it.</string>
+    <string name="faditor_fx_toast_keys_cleared">%1$s keys cleared</string>
+    <string name="faditor_fx_toast_saved">Saved \'%1$s\'</string>
+    <string name="faditor_fx_toast_load_failed">Could not load \'%1$s\'</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">This replaces the %1$d effect on this layer.</item>
+        <item quantity="other">This replaces the %1$d effects on this layer.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d effect</item>
+        <item quantity="other">%1$d effects</item>
+    </plurals>
+    <!-- Undo step names: read back as "Undid …", so they are words, not code. -->
+    <string name="faditor_undo_fx_bypass">Bypass effect</string>
+    <string name="faditor_undo_fx_enable">Enable effect</string>
+    <string name="faditor_undo_fx_delete">Delete %1$s</string>
+    <string name="faditor_undo_fx_add">Add %1$s</string>
+    <string name="faditor_undo_fx_opacity">%1$s opacity</string>
+    <string name="faditor_undo_fx_blend">%1$s blend</string>
+    <string name="faditor_undo_fx_vertices">Curve vertices</string>
+    <string name="faditor_undo_fx_straighten">Straighten curve</string>
+    <string name="faditor_undo_fx_reorder">Reorder effects</string>
+    <string name="faditor_undo_fx_key">Key %1$s</string>
+    <string name="faditor_undo_fx_clear_keys">Clear %1$s keys</string>
+    <string name="faditor_undo_fx_apply_look">Apply look \'%1$s\'</string>
+
+    <!-- AudioDrawerTabs: Level / Clean / FX tabs -->
+    <string name="lane_b_audio_fade_in_short">In</string>
+    <string name="lane_b_audio_fade_out_short">Out</string>
+    <string name="lane_b_audio_env_flat">Flat gain — ◇ drops the first envelope point</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">Envelope · %1$d pt — slider drives the point under ▶︎</item>
+        <item quantity="other">Envelope · %1$d pts — slider drives the point under ▶︎</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">Processing…</string>
+    <string name="lane_b_audio_bake_in_use">Processed audio in use — original kept.</string>
+    <string name="lane_b_audio_bake_offline">Offline renders — the original file is never modified.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Failed: %1$s</string>
+    <string name="lane_b_audio_bake_note">Runs ffmpeg offline over this clip\'s trimmed range.</string>
+    <string name="lane_b_audio_revert">Revert to original</string>
+    <string name="lane_b_audio_revert_desc">Go back to the original, unprocessed audio file</string>
+    <string name="lane_b_audio_denoise">Reduce noise</string>
+    <string name="lane_b_audio_denoise_desc">Render a copy of this clip with background noise reduced</string>
+    <string name="lane_b_audio_normalize">Normalize loudness</string>
+    <string name="lane_b_audio_normalize_desc">Render a copy of this clip at an even loudness</string>
+    <string name="lane_b_audio_voice">Enhance voice</string>
+    <string name="lane_b_audio_voice_undo">Voice enhance</string>
+    <string name="lane_b_audio_voice_on">Voice chain ON — this clip only</string>
+    <string name="lane_b_audio_voice_off">Voice chain OFF — this clip only</string>
+    <string name="lane_b_audio_voice_note">De-hum, gate, de-ess, presence, compressor, limiter — for speech. Rebuilds this clip\'s preview sound.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Beat-reactive link…</string>
+    <string name="lane_b_audio_beat_link_note">Drive an overlay\'s scale / opacity / rotation from one band of this clip. Writes normal keyframes you can drag afterwards.</string>
+    <string name="lane_b_audio_comp">Compressor</string>
+    <string name="lane_b_audio_comp_bypassed">FX chain BYPASSED — hearing the untouched mix.</string>
+    <string name="lane_b_audio_comp_live">Gain reduction, live from the compressor.</string>
+    <string name="lane_b_audio_comp_idle">The meter moves while the project plays.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Level (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Pan (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (s)</string>
+    <string name="lane_b_audio_undo_level">Audio level</string>
+    <string name="lane_b_audio_undo_clear_envelope">Clear envelope</string>
+    <string name="lane_b_audio_undo_envelope_point">Envelope point</string>
+    <string name="lane_b_audio_undo_delete_point">Delete envelope point</string>
+
+    <!-- PuppetDrawerTabs: the Puppet tab -->
+    <string name="lane_b_puppet_swatch">%1$s pin. Tap to change type.</string>
+    <string name="lane_b_puppet_undo_pin_type">Pin type</string>
+    <string name="lane_b_puppet_rec_on">Recording when you touch a pin. Tap to stop.</string>
+    <string name="lane_b_puppet_rec_off">Not recording on touch. Tap to arm.</string>
+    <string name="lane_b_puppet_sim">sim</string>
+    <string name="lane_b_puppet_tool_grab">Grab</string>
+    <string name="lane_b_puppet_tool_pin">Pin</string>
+    <string name="lane_b_puppet_tool_stiff">Stiff</string>
+    <string name="lane_b_puppet_tool_dangle">Dangle</string>
+    <string name="lane_b_puppet_tool_free">Free</string>
+    <string name="lane_b_puppet_tool_bone">Bone</string>
+    <string name="lane_b_puppet_scope_selected">Selected</string>
+    <string name="lane_b_puppet_scope_character">Character</string>
+    <string name="lane_b_puppet_scope_recording">Recording</string>
+    <string name="lane_b_puppet_hint_first_pin">Tap the picture to place your first pin</string>
+    <string name="lane_b_puppet_hint_tap_pin">Tap a pin to edit it</string>
+    <string name="lane_b_puppet_hint_dangle">Simulated — no keys to edit. Any keys it already has are kept, untouched, and come back the moment it stops dangling.</string>
+    <string name="lane_b_puppet_hint_free">A free pin moves in any direction. Turn and scale need per-pin rotation in the engine — see the spec.</string>
+    <string name="lane_b_puppet_hint_anchor">An anchor has nothing else to set — that is the point</string>
+    <string name="lane_b_puppet_hint_tape">The tape below shows %1$s’s keys. Tap another pin, or a chip above, to see its keys.</string>
+    <string name="lane_b_puppet_hint_rigid">A rigid bone stops the hand short and snaps the shoulder. Cartoons usually want stretchy on.</string>
+    <string name="lane_b_puppet_hint_limits_off">Off by default — most cartoon rigs never want them.</string>
+    <string name="lane_b_puppet_hint_bone_keys">A bone holds no keys of its own. Moving it writes to %1$s and %2$s.</string>
+    <string name="lane_b_puppet_hint_put_away">Tap the puppet on the picture to put the pins away</string>
+    <string name="lane_b_puppet_hint_punch_in">A punch-in starts where the old move was, and eases back at the end</string>
+    <string name="lane_b_puppet_pin_depth">Depth — behind / in front</string>
+    <string name="lane_b_puppet_pin_muted">Muted</string>
+    <string name="lane_b_puppet_pin_active">Active</string>
+    <string name="lane_b_puppet_pin_reach_ring">Reach ring</string>
+    <string name="lane_b_puppet_pin_auto_pull">Automatic pull</string>
+    <string name="lane_b_puppet_pin_pull">How hard this pin pulls</string>
+    <string name="lane_b_puppet_pin_spring">Springiness</string>
+    <string name="lane_b_puppet_pin_settle">Settle</string>
+    <string name="lane_b_puppet_pin_mass">Mass</string>
+    <string name="lane_b_puppet_pin_max_stretch">Max stretch</string>
+    <string name="lane_b_puppet_pin_stiff_area">Stiff area</string>
+    <string name="lane_b_puppet_pin_strength">Strength</string>
+    <string name="lane_b_puppet_reset">Start over</string>
+    <string name="lane_b_puppet_reset_desc">Removes %1$s and every keyframe</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d pin</item>
+        <item quantity="other">%1$d pins</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d bone</item>
+        <item quantity="other">%1$d bones</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Bone</string>
+    <string name="lane_b_puppet_bone_from">From</string>
+    <string name="lane_b_puppet_bone_to">To</string>
+    <string name="lane_b_puppet_bone_length">Length</string>
+    <string name="lane_b_puppet_bone_rest_angle">Rest angle</string>
+    <string name="lane_b_puppet_bone_rest_length">Rest length</string>
+    <string name="lane_b_puppet_bone_stretchy">Stretchy</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Flip elbow</string>
+    <string name="lane_b_puppet_bone_reach">Reach</string>
+    <string name="lane_b_puppet_bone_stretch">How far it may stretch</string>
+    <string name="lane_b_puppet_bone_joint_limits">Joint limits</string>
+    <string name="lane_b_puppet_bone_fold_back">Fold no further back than</string>
+    <string name="lane_b_puppet_bone_fold_forward">Fold no further forward than</string>
+    <string name="lane_b_puppet_rig_softness">Softness</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Mesh detail</string>
+    <string name="lane_b_puppet_rig_gravity">Gravity</string>
+    <string name="lane_b_puppet_rig_wind">Wind</string>
+    <string name="lane_b_puppet_rig_wind_dir">Wind direction</string>
+    <string name="lane_b_puppet_rig_show_pins">Pins</string>
+    <string name="lane_b_puppet_rig_show_bones">Bones</string>
+    <string name="lane_b_puppet_rig_show_mesh">Mesh</string>
+    <string name="lane_b_puppet_rig_rarely">Rarely needed</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Edge threshold</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Edge expansion</string>
+    <string name="lane_b_puppet_record_on_touch">Record on touch</string>
+    <string name="lane_b_puppet_record_snap">Snap to keys</string>
+    <string name="lane_b_puppet_record_detail">Detail of recorded moves</string>
+    <string name="lane_b_puppet_record_blend_out">Blend out</string>
+
+</resources>

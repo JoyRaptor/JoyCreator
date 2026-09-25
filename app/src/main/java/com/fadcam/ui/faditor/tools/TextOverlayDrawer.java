@@ -93,49 +93,26 @@ public final class TextOverlayDrawer {
          * take {@code setContentDescription} alone.</p>
          */
         public static void describe(@NonNull View v, @NonNull CharSequence label) {
-            v.setContentDescription(label);
-            androidx.core.view.ViewCompat.setTooltipText(v, label);
+            // One naming helper app-wide (drawer audit 2026-09-24, T2).
+            ObjectDrawer.Kit.describe(v, label);
         }
 
         /**
-         * Press feedback: scale(.97) over 140ms, ease-out, on the pressed STATE — a
-         * StateListAnimator, so it never competes with a view's own touch listener. Transform
-         * only, which is the one property that animates without a relayout.
+         * Press feedback: scale(.97) over 140ms, on the pressed STATE. Delegated, so there is
+         * one press in the drawers (drawer audit 2026-09-24, T2).
          */
         public static void pressable(@NonNull View v) {
-            android.animation.StateListAnimator sla = new android.animation.StateListAnimator();
-            sla.addState(new int[]{android.R.attr.state_pressed}, scaleTo(v, 0.97f));
-            sla.addState(new int[0], scaleTo(v, 1f));
-            v.setStateListAnimator(sla);
-        }
-
-        @NonNull
-        private static android.animation.Animator scaleTo(@NonNull View v, float s) {
-            android.animation.ObjectAnimator a =
-                    android.animation.ObjectAnimator.ofPropertyValuesHolder(v,
-                            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, s),
-                            android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, s));
-            a.setDuration(PRESS_MS);
-            a.setInterpolator(easeOut());
-            return a;
+            ObjectDrawer.Kit.pressable(v);
         }
 
         /**
-         * THE chip — record 06 {@code .dchip}: 11sp w600, padding 7 × 13, radius 999, the
-         * control fill with a 1dp inset ring, drawer-dim ink. Single line with an ellipsis,
-         * never two (a two-line tap target is its own defect — record 06 MINOR 09).
+         * THE chip — ObjectDrawer.Kit's {@code .dchip}, so the Effects tab and the
+         * Transform/Mask tabs wear ONE face (drawer audit 2026-09-24, T2). Kept here for its
+         * callers: this version also places the chip and gives it press feedback.
          */
         @NonNull
         public static TextView chip(@NonNull Context ctx, @NonNull CharSequence text) {
-            TextView t = new TextView(ctx);
-            t.setText(text);
-            t.setTextSize(11f);
-            t.setSingleLine(true);
-            t.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            t.setGravity(Gravity.CENTER);
-            int ph = px(ctx, 13), pv = px(ctx, 7);
-            t.setPadding(ph, pv, ph, pv);
-            setChipOn(t, false);
+            TextView t = ObjectDrawer.Kit.chip(ctx, text);
             pressable(t);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -146,23 +123,13 @@ public final class TextOverlayDrawer {
         }
 
         /**
-         * Selected / not, when the panel does not know the OBJECT's colour. "State colour always
-         * a RING" (record 06 §04): cyan ring and full drawer ink when on; the control fill, its
-         * faint ring and drawer-dim ink when off. Dim is #C9C9D3 — the OFF state stays readable,
-         * which the old half-alpha grey never was.
+         * Selected / not. Delegated (drawer audit 2026-09-24, T2): this used to draw a cyan RING
+         * for "on" while every other drawer fills with the object's accent, so a selected chip
+         * looked different on the Effects tab than on Transform. A popover over a drawer shares
+         * that drawer's accent ({@link ObjectDrawer.Kit#accent()}).
          */
         public static void setChipOn(@NonNull TextView t, boolean on) {
-            Context c = t.getContext();
-            GradientDrawable g = new GradientDrawable();
-            g.setCornerRadius(px(c, 999));
-            g.setColor(CTL);
-            g.setStroke(on ? Math.max(1, px(c, 1.5f)) : Math.max(1, px(c, 1)),
-                    on ? Studio.ARMED : RING);
-            t.setBackground(g);
-            t.setTextColor(on ? Studio.DRAWER_INK : Studio.DRAWER_DIM);
-            com.fadcam.ui.type.Type.body(t, on ? com.fadcam.ui.type.Type.BOLD
-                    : com.fadcam.ui.type.Type.SEMIBOLD);
-            t.setSelected(on);
+            ObjectDrawer.Kit.setChipOn(t, on);
         }
 
         /**
@@ -181,16 +148,7 @@ public final class TextOverlayDrawer {
          */
         @NonNull
         public static TextView sectionLabel(@NonNull Context ctx, @NonNull CharSequence text) {
-            TextView t = new TextView(ctx);
-            t.setText(text);
-            com.fadcam.ui.type.Type.mono(t, com.fadcam.ui.type.Type.MEDIUM);
-            t.setTextSize(8f);
-            t.setLetterSpacing(0.14f);
-            t.setSingleLine(true);
-            t.setAllCaps(true);   // after setSingleLine: both are TransformationMethods, last one wins
-            t.setTextColor(Studio.DRAWER_LABEL);
-            t.setPadding(0, px(ctx, 7), 0, px(ctx, 3));
-            return t;
+            return ObjectDrawer.Kit.sectionLabel(ctx, text);   // drawer audit 2026-09-24, T2
         }
 
         /**
@@ -214,36 +172,7 @@ public final class TextOverlayDrawer {
          * the caller's and are not touched.
          */
         public static void styleSlider(@NonNull SeekBar bar, int fill) {
-            Context c = bar.getContext();
-            int h = Math.max(1, px(c, 4));
-            GradientDrawable track = new GradientDrawable();
-            track.setColor(TRACK);
-            track.setCornerRadius(h / 2f);
-            GradientDrawable on = new GradientDrawable();
-            on.setColor(fill);
-            on.setCornerRadius(h / 2f);
-            android.graphics.drawable.ClipDrawable clip = new android.graphics.drawable.ClipDrawable(
-                    on, Gravity.START, android.graphics.drawable.ClipDrawable.HORIZONTAL);
-            android.graphics.drawable.LayerDrawable ld =
-                    new android.graphics.drawable.LayerDrawable(
-                            new android.graphics.drawable.Drawable[]{track, clip});
-            ld.setId(0, android.R.id.background);
-            ld.setId(1, android.R.id.progress);
-            for (int i = 0; i < 2; i++) {
-                ld.setLayerHeight(i, h);
-                ld.setLayerGravity(i, Gravity.CENTER_VERTICAL | Gravity.FILL_HORIZONTAL);
-            }
-            int progress = bar.getProgress();
-            bar.setProgressDrawable(ld);
-            GradientDrawable thumb = new GradientDrawable();
-            thumb.setShape(GradientDrawable.OVAL);
-            thumb.setColor(Studio.DRAWER_INK);
-            int t = px(c, 15);
-            thumb.setSize(t, t);
-            bar.setThumb(thumb);
-            bar.setSplitTrack(false);
-            // setProgressDrawable can drop the level on some API levels; put it back.
-            bar.setProgress(progress);
+            ObjectDrawer.Kit.styleSlider(bar, fill);   // drawer audit 2026-09-24, T2
         }
 
         /**
@@ -254,7 +183,9 @@ public final class TextOverlayDrawer {
         @NonNull
         public static GradientDrawable surface(@NonNull Context ctx, float radiusDp) {
             GradientDrawable g = new GradientDrawable();
-            g.setColor(SCRIM);
+            // The user's see-through setting, not a fixed 64%: a popover must not be darker
+            // than the drawer it opened from (drawer audit 2026-09-24, T3).
+            g.setColor(ObjectDrawer.Kit.drawerFill(ctx));
             g.setCornerRadius(px(ctx, radiusDp));
             g.setStroke(Math.max(1, px(ctx, 1)), EDGE);
             return g;
@@ -287,7 +218,7 @@ public final class TextOverlayDrawer {
             b.setCornerRadius(px(ctx, 5));
             b.setSize(box, box);
             if (!on) {
-                b.setColor(0x00000000);
+                b.setColor(Studio.alpha(Studio.GROUND, 0));
                 b.setStroke(Math.max(1, px(ctx, 1.5f)), ring);
                 b.setBounds(0, 0, box, box);
                 return b;

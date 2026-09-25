@@ -89,4 +89,7 @@
     <string name="export_range_error">Enter a start before the end, like 0:12.5 → 0:30, within the project (%1$s).</string>
     <string name="drawer_frost">Frost: blur the picture behind the drawers</string>
     <string name="group_move_undo">Move %1$d items</string>
+    <string name="pip_sound_off">This overlay\'s sound is off. Turn it on in its drawer to see its sound strip.</string>
+    <string name="text_done">Done</string>
+    <string name="text_done_desc">Finish editing this text: put the keyboard away and close the drawer</string>
 </resources>

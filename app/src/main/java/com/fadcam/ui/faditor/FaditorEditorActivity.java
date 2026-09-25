@@ -16910,12 +16910,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 } else if (item.getWaveform() != null) {
                     showVisualizerDrawer(true);
                 } else if (item.getClip() != null && item.getClip().isOverlayClip()) {
-                    // ONE LANGUAGE: double-tap opens the object's drawer, on the timeline as on
-                    // the picture (the preview double-tap already did). The sound strip this
-                    // used to toggle is a header toggle in that drawer now. The FULL drawer
-                    // (Transform rows and all), not showPipDrawerForObject, which is the Adjust
-                    // tool's Effects shortcut and opens with an empty Transform tab.
-                    showObjectMenuSheetForPipClip(item.getClip());
+                    // ON THE TIMELINE, double-tap opens the overlay's SOUND STRIP, exactly as it
+                    // does on the main track (JoyRaptor, 2026-09-24: "double tap like how it works
+                    // on the spine, used to work on both"). Hold opens the drawer, and a
+                    // double-tap on the picture still does too.
+                    togglePipSoundStrip(item.getClip());
                 } else if (item.getAudioClip() != null) {
                     showAudioDrawer(item.getAudioClip());
                 } else if (item.getAdjustment() != null) {
@@ -26040,7 +26039,22 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // would have silently changed somebody's minimum by 2x.
                 0.02f,
                 () -> resetTextGeometry(o),
-                null,
+                // THE CORNER PIN (2026-09-24). Text got the bend but was handed a null pin, so a
+                // freed corner could only rescale the box (JoyRaptor: "it doesn't do any sort of
+                // angling or warping of the text"). Same channel the sprite uses: read the pin
+                // at the playhead, write the static pin.
+                new com.fadcam.ui.faditor.transform.AffineTransformHost.PinChannel() {
+                    @Override
+                    public void readPins(long t, @NonNull float[] out8) {
+                        o.animatedCornerPin(t, out8);
+                    }
+
+                    @Override
+                    public boolean writePins(@NonNull float[] pin8, long t) {
+                        o.setCornerPin(pin8);
+                        return true;
+                    }
+                },
                 // THE BEND itself (2026-09-24). The 09-16 change below flipped the switches but
                 // never handed the host a bend, so supportsBend() stayed false and the
                 // "bend on" call was silently ignored — JoyRaptor: "Text does not Bend".
@@ -29271,6 +29285,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return c.getLayerId() != null ? c.getLayerId() : "video";
     }
 
+    /** Open or close a video overlay's sound strip on the timeline (its double-tap). */
+    private void togglePipSoundStrip(@NonNull Clip c) {
+        if (editorTimeline == null) return;
+        if (!c.isOverlayAudioEnabled()) {
+            Toast.makeText(this, R.string.pip_sound_off, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String lane = pipLaneId(c);
+        editorTimeline.setLaneAudioDrawerOpen(lane, !editorTimeline.isLaneAudioDrawerOpen(lane));
+    }
+
     private void showPipDrawerForObject(@NonNull Clip c) {
         showPipDrawer(c, new java.util.ArrayList<>());
         com.fadcam.ui.faditor.tools.ObjectDrawer d = objectDrawer;
@@ -29374,6 +29399,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
             @Override public void onChanged() { applyComp.run(); }
+            // No footage to sample, so no dropper on the Key tab (drawer audit P3): a chip
+            // that could only say "not available" is not a control.
+            @Override public boolean canPickColor() { return false; }
             @Override public void pickColorFromPreview(
                     @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
                 // The PiP eyedropper hit-tests a CLIP's own decoder texture (see
@@ -30377,23 +30405,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     syncTimelineOverlays();
                     scheduleAutoSave();
                 }, true));
-        // THE SOUND STRIP'S DOOR. A timeline double-tap on a PiP used to open its waveform
-        // strip; double-tap now opens this drawer (one gesture language), so the strip moves
-        // here rather than losing its only way in again.
-        toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
-                R.drawable.ic_waveform_bars, R.drawable.ic_waveform_bars,
-                () -> editorTimeline != null && editorTimeline.isLaneAudioDrawerOpen(pipLaneId(c)),
-                () -> {
-                    if (editorTimeline == null) return;
-                    if (!c.isOverlayAudioEnabled()) {
-                        Toast.makeText(this, "Turn this overlay's sound on first", // TODO(strings)
-                                Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    String lane = pipLaneId(c);
-                    editorTimeline.setLaneAudioDrawerOpen(lane,
-                            !editorTimeline.isLaneAudioDrawerOpen(lane));
-                }, false, getString(R.string.pip_sound_strip_desc)));
+        // The sound strip, also here (the timeline double-tap is its main door). Only when the
+        // overlay HAS sound: with it off this button could only ever complain (drawer audit P-2).
+        if (c.isOverlayAudioEnabled()) {
+            toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
+                    R.drawable.ic_waveform_bars, R.drawable.ic_waveform_bars,
+                    () -> editorTimeline != null
+                            && editorTimeline.isLaneAudioDrawerOpen(pipLaneId(c)),
+                    () -> togglePipSoundStrip(c),
+                    false, getString(R.string.pip_sound_strip_desc)));
+        }
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 c::isHiddenObject,
@@ -33839,6 +33860,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 new com.fadcam.ui.faditor.tools.PipDrawerTabs.Host() {
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
             @Override public void onChanged() { applyComp.run(); }
+            // No footage to sample, so no dropper on the Key tab (drawer audit P3): a chip
+            // that could only say "not available" is not a control.
+            @Override public boolean canPickColor() { return false; }
             @Override public void pickColorFromPreview(
                     @NonNull com.fadcam.ui.faditor.tools.PipDrawerTabs.ColorPicked cb) {
                 // The chroma tab's eyedropper samples a decoder texture through
@@ -36506,6 +36530,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         int dg = Math.round(6 * d);
         deleteGlyph.setPadding(dg, dg, dg, dg);
         deleteGlyph.setOnClickListener(v -> deleteTextOverlay(item, session));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(deleteGlyph,
+                getString(R.string.faditor_text_delete));
+        // DONE (JoyRaptor, 2026-09-24: committing an edit "is hard to do because there's no button
+        // that says done ... I ended up closing the drawer"). Everything here writes live, so
+        // Done is simply the obvious way to finish: keyboard away, drawer closed, box selected.
+        TextView doneChip = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.chip(
+                this, getString(R.string.text_done));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.setChipOn(doneChip, true);
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.describe(doneChip,
+                getString(R.string.text_done_desc));
+        com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.pressable(doneChip);
+        doneChip.setOnClickListener(v -> {
+            if (overlayLayer != null) overlayLayer.dismissKeyboardKeepEditing();
+            if (objectDrawer != null) objectDrawer.hide();
+        });
+        android.widget.LinearLayout.LayoutParams doneLp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        doneLp.setMarginStart(Math.round(4 * d));
+        row.addView(doneChip, doneLp);
         row.addView(deleteGlyph, new android.widget.LinearLayout.LayoutParams(
                 Math.round(30 * d), Math.round(30 * d)));
 

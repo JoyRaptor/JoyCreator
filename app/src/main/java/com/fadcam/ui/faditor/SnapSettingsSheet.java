@@ -130,8 +130,9 @@ public class SnapSettingsSheet extends BottomSheetDialogFragment {
         // would be controls that change nothing.
         if (SnapSettings.hasStrength(k)) block.addView(chips);
 
+        LinearLayout steps = null;
         if (k == SnapSettings.Kind.ROTATION) {
-            LinearLayout steps = new LinearLayout(ctx);
+            steps = new LinearLayout(ctx);
             steps.setOrientation(LinearLayout.HORIZONTAL);
             steps.setPadding(side, 0, side, SheetKit.dp(ctx, 10));
             final TextView[] stepChips = new TextView[SnapSettings.ROTATION_STEPS.length];
@@ -156,11 +157,14 @@ public class SnapSettingsSheet extends BottomSheetDialogFragment {
             block.addView(steps);
         }
 
-        final View chipRows = chips;
-        chipRows.setAlpha(sw.isChecked() ? 1f : 0.45f);
+        // Every chip row under the switch dims with it, the Rotation step chips included: they
+        // stayed at full strength while the strength chips beside them dimmed, which read as
+        // "these still apply" (drawer audit 2026-09-24, S1).
+        final View[] chipRows = steps != null ? new View[]{chips, steps} : new View[]{chips};
+        for (View r : chipRows) r.setAlpha(sw.isChecked() ? 1f : 0.45f);
         sw.setOnCheckedChangeListener((b, on) -> {
             SnapSettings.setKindOn(ctx, k, on);
-            chipRows.setAlpha(on ? 1f : 0.45f);
+            for (View r : chipRows) r.setAlpha(on ? 1f : 0.45f);
         });
         return block;
     }

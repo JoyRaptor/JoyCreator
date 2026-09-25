@@ -274,6 +274,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
         @NonNull public final WaveformData data;
         @NonNull public final WaveformStyle style;
         public final int posX, posY, slotW, slotH;
+        /** The frame it was placed in: a LINKED visualizer is re-placed every frame. */
+        public final int outW, outH;
         public final float density;
         /** G5(b) piggyback-looks: an ATTACHED rider's host clip (null = detached or
          *  host gone → full opacity) + the host's absolute timeline start, so the
@@ -289,6 +291,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
             this.data = data;
             this.style = style;
             this.density = density;
+            this.outW = outW;
+            this.outH = outH;
             int w = Math.max(1, Math.round(outW * instance.getWidthFraction()));
             int h = Math.max(1, Math.round(outH * instance.getHeightFraction()));
             this.slotW = w;
@@ -1099,8 +1103,22 @@ public class CompositeExportOverlay extends BitmapOverlay {
             // toggle that the WaveformStyleRenderer applies to the drawing; it
             // must not change the audio-data lookup.
             long wsMs = ws.instance.mapToSourceMs(timelineMs);
+            // LINKED to a parent (SPEC_20260924_LINKING): placed per frame from the WORLD pose,
+            // the same getters WaveformOverlayView draws with. Unlinked, the slot's statics.
+            int sw = ws.slotW, sh = ws.slotH, px = ws.posX, py = ws.posY;
+            float rot = ws.instance.getRotationDeg();
+            float linkAlpha = 1f;
+            if (ws.instance.isLinked()) {
+                sw = Math.max(1, Math.round(ws.outW * ws.instance.animatedWidthFraction(timelineMs)));
+                sh = Math.max(1, Math.round(ws.outH * ws.instance.animatedHeightFraction(timelineMs)));
+                px = Math.round(ws.outW * ws.instance.animatedCenterX(timelineMs) - sw / 2f);
+                py = Math.round(ws.outH * ws.instance.animatedCenterY(timelineMs) - sh / 2f);
+                rot = ws.instance.animatedRotation(timelineMs);
+                linkAlpha = Math.max(0f, Math.min(1f, ws.instance.animatedOpacity(timelineMs)));
+                if (linkAlpha <= 0.004f) continue;   // parent faded out: nothing to draw
+            }
             Bitmap wfBmp = waveRenderer.render(ws.data, ws.style,
-                    ws.slotW, ws.slotH, wsMs, ws.density,
+                    sw, sh, wsMs, ws.density,
                     ws.instance.getJustify(), ws.instance.getDataMode(),
                     ws.instance.isHorizontalMirror(),
                     ws.instance.getCenterMode(), ws.instance.getRenderMode(),
@@ -1122,7 +1140,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
             Paint wfPaint = null;
             // FADE_KNOBS §2.5: the visualizer's own fade knobs multiply in too — the
             // piggyback envelope and the instance's fades COMPOSE (both are multipliers).
-            float ownFade = ws.instance.fadeFactorAt(timelineMs);
+            float ownFade = ws.instance.fadeFactorAt(timelineMs) * linkAlpha;
             if (ownFade <= 0.004f) {
                 wfBmp.recycle();
                 continue; // fully faded by its own knobs — nothing to draw
@@ -1144,9 +1162,8 @@ public class CompositeExportOverlay extends BitmapOverlay {
             }
             drawnWaveform++;
             canvas.save();
-            canvas.rotate(ws.instance.getRotationDeg(),
-                    ws.posX + ws.slotW / 2f, ws.posY + ws.slotH / 2f);
-            canvas.drawBitmap(wfBmp, ws.posX, ws.posY, wfPaint);
+            canvas.rotate(rot, px + sw / 2f, py + sh / 2f);
+            canvas.drawBitmap(wfBmp, px, py, wfPaint);
             canvas.restore();
             wfBmp.recycle();
         }

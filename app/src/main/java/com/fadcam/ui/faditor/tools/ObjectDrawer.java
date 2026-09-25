@@ -1086,10 +1086,23 @@ public final class ObjectDrawer extends LinearLayout {
         return iv;
     }
 
-    /** Tapping an active tab's icon returns to Video — the toggle behaviour the user specified. */
+    /** A tab tap: open that tab; on the open tab, fold the drawer; folded, unfold. */
     private void toggleTab(int index) {
         if (collapsed) { expandTo(index); return; }
-        switchTo(activeTab == index ? 0 : index);
+        // Tapping the tab you are ON folds the drawer to its header strip; any tab unfolds it.
+        // JoyRaptor, 2026-09-24: "sometimes I need to get up to the top and the drawer covers it,
+        // so I close the drawer ... and the text is no longer in edit mode." Folding is not
+        // closing: whatever the tab is doing (typing into a text box) carries on underneath.
+        if (activeTab == index) { fold(); return; }
+        switchTo(index);
+    }
+
+    /** Hide the body, keep the header (name, tabs, toggles) and the session behind it. */
+    private void fold() {
+        collapsed = true;
+        contentHost.setVisibility(GONE);
+        paintTabs(activeTab);
+        post(this::reportHeight);
     }
 
     /**

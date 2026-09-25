@@ -7385,7 +7385,9 @@ if (sd.clip.hasVolumeKeyframes()) {
      */
     private void drawReorderBlockThumbnail(@NonNull Canvas canvas, RectF rect, int segIdx) {
         if (segIdx < 0 || segIdx >= segments.size()) return;
-        List<Bitmap> thumbs = thumbnailsCache.get(segments.get(segIdx).thumbKey);
+        // The VARIANT key, as the loader stores them: looking up the bare thumbKey never matched,
+        // so every reorder tile stayed a blank grey box (drawer sweep, Note 9, 2026-09-25).
+        List<Bitmap> thumbs = thumbnailsCache.get(thumbVariantKey(segments.get(segIdx)));
         if (thumbs == null || thumbs.isEmpty()) {
             // Thumbnails load lazily (only for clips visible in the main timeline).
             // Reorder blocks can reference clips that were never on-screen, so
